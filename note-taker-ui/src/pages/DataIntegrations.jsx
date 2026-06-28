@@ -1,12 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSystemStatusControls } from '../system/SystemStatusContext';
 import api from '../api';
 import { Button, Card, Page } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
 import { getEmbeddingJobStatus } from '../api/ai';
 import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
+import ConnectionReceiptCard from '../components/integrations/ConnectionReceiptCard';
+import {
+  buildEvernoteConnectionReceipt,
+  buildNotionConnectionReceipt,
+  buildReadwiseConnectionReceipt
+} from '../components/integrations/connectionReceiptModel';
 import SurfaceNotice from '../components/feedback/SurfaceNotice';
+import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import { updateConcept, getConcepts } from '../api/concepts';
 import { getAllHighlights } from '../api/highlights';
 import {
@@ -337,76 +345,6 @@ const getProviderLabel = (provider = '') => {
   return 'Manual import';
 };
 
-const describeNotionConnectionState = (connection = null) => {
-  if (!connection?.id) {
-    return {
-      status: 'Not connected',
-      tone: 'neutral',
-      headline: 'Connect opens Notion in your browser.',
-      detail: 'After approval, Noeis returns here with the workspace connected. Then preview or sync the pages you shared with the integration.',
-      cta: 'Connect Notion'
-    };
-  }
-
-  if (connection.lastSyncAt) {
-    const imported = Number(connection.lastSyncResult?.importedNotes || 0);
-    const pageSuffix = imported > 0 ? ` · ${imported} page${imported === 1 ? '' : 's'}` : '';
-    return {
-      status: 'Synced into Noeis',
-      tone: 'success',
-      headline: `Last synced ${formatLoopDate(connection.lastSyncAt)}${pageSuffix}.`,
-      detail: 'Imported pages are available as notebook entries and source material for Library search, Think retrieval, and Morning Paper maintenance.',
-      cta: 'Sync again'
-    };
-  }
-
-  if (connection.lastPreviewAt) {
-    return {
-      status: 'Scope previewed',
-      tone: 'warning',
-      headline: `Previewed ${formatLoopDate(connection.lastPreviewAt)}.`,
-      detail: 'No pages have been imported yet. Run Sync from Notion to make the previewed workspace material retrievable in Noeis.',
-      cta: 'Sync from Notion'
-    };
-  }
-
-  if (connection.lastValidatedAt || connection.status === 'connected') {
-    return {
-      status: 'Connected, not synced',
-      tone: 'warning',
-      headline: connection.lastValidatedAt
-        ? `Connection checked ${formatLoopDate(connection.lastValidatedAt)}.`
-        : 'OAuth is connected.',
-      detail: 'Share the pages or databases you want Noeis to read with the integration, then run Preview scope or Sync from Notion.',
-      cta: 'Preview or sync'
-    };
-  }
-
-  return {
-    status: connection.status || 'Needs attention',
-    tone: 'warning',
-    headline: 'Reconnect Notion if this looks stale.',
-    detail: connection.lastError || 'No successful validation, preview, or sync has been recorded yet.',
-    cta: 'Reconnect Notion'
-  };
-};
-
-const describeNotionSyncResult = ({ stats = null, session = null, connection = null } = {}) => {
-  const durable = connection?.lastSyncResult;
-  const result = durable || stats || (session?.provider === 'notion' ? session?.result : null);
-  if (!result) return '';
-  const imported = Number(result.importedNotes || result.notes || 0);
-  const skipped = Number(result.skippedRows || result.skipped || 0);
-  const indexingQueued = Number(result.indexingQueued || 0);
-  const indexingFailures = Number(result.indexingFailures || 0);
-  const pieces = [];
-  pieces.push(`Synced ${imported} page${imported === 1 ? '' : 's'}`);
-  if (skipped > 0) pieces.push(`${skipped} skipped`);
-  if (indexingQueued > 0) pieces.push(`${indexingQueued} indexing`);
-  if (indexingFailures > 0) pieces.push(`${indexingFailures} indexing warning${indexingFailures === 1 ? '' : 's'}`);
-  return `${pieces.join(' · ')}.`;
-};
-
 const describeLoopHandoff = ({ readwiseConnection, notionConnection, session }) => {
   const candidates = [
     readwiseConnection?.id
@@ -597,6 +535,11 @@ const getActivationCopy = ({ state, session, scheduleTarget }) => {
 
 const DataIntegrations = ({ embedded = false } = {}) => {
   const navigate = useNavigate();
+  const systemStatus = useSystemStatusControls();
+  const publishSystemReceipt = (receipt, fallback = null) => {
+    const normalized = normalizeSystemReceipt(receipt, { href: '/connections' });
+    systemStatus.setLatestReceipt(normalized || fallback);
+  };
   const bridgeModel = useAgentBridge();
   const personalAgentsModel = usePersonalAgents();
   const [selectedSource, setSelectedSource] = useState('readwise');
@@ -1055,6 +998,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     setImporting((previous) => ({ ...previous, csv: true }));
     setStatus('Importing Readwise CSV...');
     setImportStats(null);
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Importing Readwise CSV', stage: 'Uploading file' });
     try {
       const session = await createSessionForImport({
         provider: 'readwise',
@@ -1066,6 +1011,16 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       const summary = makeSummaryFromCsvResponse(data);
       setImportStats(summary);
       setLastImportSourceLabel(file.name || 'Readwise CSV');
+      setCurrentSession((previous) => (
+        previous?.id === session?.id
+          ? {
+            ...previous,
+            status: summary.indexingFailures > 0 ? 'completed_with_warnings' : 'completed',
+            result: { ...(previous.result || {}), ...summary },
+            receipt: data?.receipt || previous.receipt || null
+          }
+          : previous
+      ));
       rememberFirstInsight({
         sourceType: 'readwise-csv',
         title: file.name || 'Readwise import',
@@ -1073,6 +1028,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         counts: summary
       });
       setStatus(summary.indexingFailures > 0 ? 'Readwise import complete with indexing warnings.' : 'Readwise import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+      publishSystemReceipt(data?.receipt, {
+        title: 'Readwise CSV imported',
+        summary: `${summary.importedHighlights || 0} highlight${summary.importedHighlights === 1 ? '' : 's'} imported.`,
+        status: summary.indexingFailures > 0 ? 'completed_with_warnings' : 'completed'
+      });
       if (session?.id) {
         await patchSession(session.id, {
           activation: {
@@ -1084,8 +1044,14 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     } catch (error) {
       console.error('Readwise import failed:', error);
       setStatus(error.response?.data?.error || 'Failed to import Readwise CSV.', 'error');
+      systemStatus.setRecoverableFailure({
+        stage: 'Readwise CSV import',
+        message: error.response?.data?.error || 'Failed to import Readwise CSV.',
+        retryable: false
+      });
     } finally {
       setImporting((previous) => ({ ...previous, csv: false }));
+      systemStatus.setBackgroundWork(null);
       event.target.value = '';
     }
   };
@@ -1220,6 +1186,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     setReadwiseSyncing(true);
     setImportStats(null);
     setStatus('Syncing from Readwise...');
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Syncing Readwise', stage: 'Fetching highlights' });
     try {
       session = await ensureSessionForSource({
         provider: 'readwise',
@@ -1272,8 +1240,22 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
       if ((summary.importedArticles || 0) === 0 && (summary.importedHighlights || 0) === 0) {
         setStatus('Readwise sync completed. No new items were imported.', 'success');
+        publishSystemReceipt(data?.receipt || data?.connection?.lastReceipt, {
+          title: 'Readwise synced',
+          summary: 'No new items to import.',
+          status: 'completed'
+        });
       } else {
-        setStatus(summary.indexingFailures > 0 ? 'Readwise sync complete with indexing warnings.' : 'Readwise sync complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+        const hasWarnings = summary.indexingFailures > 0;
+        setStatus(hasWarnings ? 'Readwise sync complete with indexing warnings.' : 'Readwise sync complete.', hasWarnings ? 'warning' : 'success');
+        const parts = [];
+        if (summary.importedArticles) parts.push(`${summary.importedArticles} source${summary.importedArticles === 1 ? '' : 's'}`);
+        if (summary.importedHighlights) parts.push(`${summary.importedHighlights} highlight${summary.importedHighlights === 1 ? '' : 's'}`);
+        publishSystemReceipt(data?.receipt || data?.connection?.lastReceipt, {
+          title: 'Readwise synced',
+          summary: `${parts.join(' · ') || 'New items imported'}${hasWarnings ? ` (${summary.indexingFailures} indexing warning${summary.indexingFailures === 1 ? '' : 's'})` : ''}.`,
+          status: hasWarnings ? 'completed_with_warnings' : 'completed'
+        });
       }
     } catch (error) {
       console.error('Readwise sync failed:', error);
@@ -1291,8 +1273,15 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         });
       }
       setStatus(error.response?.data?.error || 'Failed to sync from Readwise.', 'error');
+      systemStatus.setRecoverableFailure({
+        stage: 'Readwise sync',
+        message: error.response?.data?.error || 'Failed to sync from Readwise.',
+        retryable: true,
+        retry: () => { handleReadwiseSync(); }
+      });
     } finally {
       setReadwiseSyncing(false);
+      systemStatus.setBackgroundWork(null);
     }
   };
 
@@ -1416,6 +1405,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     setNotionSyncing(true);
     setImportStats(null);
     setStatus('Syncing from Notion...');
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Syncing Notion', stage: 'Fetching pages' });
     try {
       session = await ensureSessionForSource({
         provider: 'notion',
@@ -1473,8 +1464,19 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
       if (summary.importedNotes === 0) {
         setStatus('Notion sync completed. No new pages or database rows were imported.', 'success');
+        publishSystemReceipt(data?.receipt || data?.connection?.lastReceipt, {
+          title: 'Notion synced',
+          summary: 'No new pages to import.',
+          status: 'completed'
+        });
       } else {
-        setStatus(summary.indexingFailures > 0 ? 'Notion sync complete with indexing warnings.' : 'Notion sync complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+        const hasWarnings = summary.indexingFailures > 0;
+        setStatus(hasWarnings ? 'Notion sync complete with indexing warnings.' : 'Notion sync complete.', hasWarnings ? 'warning' : 'success');
+        publishSystemReceipt(data?.receipt || data?.connection?.lastReceipt, {
+          title: 'Notion synced',
+          summary: `${summary.importedNotes} page${summary.importedNotes === 1 ? '' : 's'} imported${hasWarnings ? ` (${summary.indexingFailures} indexing warning${summary.indexingFailures === 1 ? '' : 's'})` : ''}.`,
+          status: hasWarnings ? 'completed_with_warnings' : 'completed'
+        });
       }
     } catch (error) {
       console.error('Notion sync failed:', error);
@@ -1492,8 +1494,15 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         });
       }
       setStatus(error.response?.data?.error || 'Failed to sync from Notion.', 'error');
+      systemStatus.setRecoverableFailure({
+        stage: 'Notion sync',
+        message: error.response?.data?.error || 'Failed to sync from Notion.',
+        retryable: true,
+        retry: () => { handleNotionSync(); }
+      });
     } finally {
       setNotionSyncing(false);
+      systemStatus.setBackgroundWork(null);
     }
   };
 
@@ -1623,6 +1632,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     setImporting((previous) => ({ ...previous, enex: true }));
     setStatus('Importing Evernote ENEX...');
     setImportStats(null);
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Importing Evernote', stage: 'Parsing ENEX' });
     try {
       const session = await ensureSessionForSource({
         provider: 'evernote',
@@ -1643,6 +1654,16 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       summary.indexingState = data.indexingState || 'not_started';
       setImportStats(summary);
       setLastImportSourceLabel(file.name || 'Evernote ENEX');
+      setCurrentSession((previous) => (
+        previous?.id === session?.id
+          ? {
+            ...previous,
+            status: summary.indexingFailures > 0 ? 'completed_with_warnings' : 'completed',
+            result: { ...(previous.result || {}), ...summary },
+            receipt: data?.receipt || previous.receipt || null
+          }
+          : previous
+      ));
       if (summary.importedNotes > 0) {
         rememberFirstInsight({
           sourceType: 'evernote-enex',
@@ -1661,15 +1682,32 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
       if (summary.importedNotes === 0) {
         setStatus('Evernote import completed. No new notes were created.', 'success');
+        publishSystemReceipt(data?.receipt, {
+          title: 'Evernote imported',
+          summary: 'No new notes were created.',
+          status: 'completed'
+        });
       } else {
         setStatus(summary.indexingFailures > 0 ? 'Evernote import complete with indexing warnings.' : 'Evernote import complete.', summary.indexingFailures > 0 ? 'warning' : 'success');
+        publishSystemReceipt(data?.receipt, {
+          title: 'Evernote imported',
+          summary: `${summary.importedNotes} note${summary.importedNotes === 1 ? '' : 's'} imported${summary.indexingFailures > 0 ? ` (${summary.indexingFailures} indexing warning${summary.indexingFailures === 1 ? '' : 's'})` : ''}.`,
+          status: summary.indexingFailures > 0 ? 'completed_with_warnings' : 'completed'
+        });
       }
       setEvernoteFile(null);
     } catch (error) {
       console.error('Evernote import failed:', error);
       setStatus(error.response?.data?.error || 'Failed to import Evernote ENEX.', 'error');
+      systemStatus.setRecoverableFailure({
+        stage: 'Evernote import',
+        message: error.response?.data?.error || 'Failed to import Evernote ENEX.',
+        retryable: true,
+        retry: () => { handleEvernoteImport(); }
+      });
     } finally {
       setImporting((previous) => ({ ...previous, enex: false }));
+      systemStatus.setBackgroundWork(null);
     }
   };
 
@@ -2134,15 +2172,35 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     : readwiseAgentConnection?.id
       ? 'Browser approval is ready for agents. Direct Library refresh still needs the advanced token sync or a CSV import.'
       : 'Connect with Readwise to give agents browser-approved access, then add direct sync when you want Library imports.';
-  const notionConnectionState = describeNotionConnectionState(notionConnection);
-  const notionSyncResultLine = describeNotionSyncResult({
-    stats: lastImportSourceLabel === (notionConnection?.accountLabel || 'Notion') ? importStats : null,
+  const notionReceipt = buildNotionConnectionReceipt({
+    connection: notionConnection,
     session: currentSession,
-    connection: notionConnection
+    importStats,
+    lastImportSourceLabel,
+    syncing: notionSyncing,
+    previewing: previewing.notion
   });
-  const notionFeedStatus = notionConnectionState.status;
+  const readwiseReceipt = buildReadwiseConnectionReceipt({
+    readwiseAgentConnection,
+    readwiseSyncConnection,
+    connection: readwiseConnection,
+    session: currentSession,
+    importStats,
+    lastImportSourceLabel,
+    syncing: readwiseSyncing,
+    previewing: previewing.readwise,
+    checking: readwiseChecking
+  });
+  const evernoteReceipt = buildEvernoteConnectionReceipt({
+    session: currentSession,
+    importStats,
+    lastImportSourceLabel,
+    importing: importing.enex,
+    previewing: previewing.evernote
+  });
+  const notionFeedStatus = notionReceipt.statusLabel;
   const notionFeedDetail = notionConnection?.id
-    ? notionConnectionState.detail
+    ? notionReceipt.detail
     : 'Connect Notion to let workspace pages become retrievable notes and source material.';
   const latestManualSessionProvider = ['evernote', 'files'].includes(currentSession?.provider) ? currentSession.provider : '';
   const latestManualImportFinished = Boolean(
@@ -2178,7 +2236,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       ? 'warning'
       : 'disconnected';
   const notionLoopTone = notionConnection?.id
-    ? (notionConnectionState.tone === 'success' ? 'connected' : 'warning')
+    ? (notionReceipt.tone === 'success' ? 'connected' : 'warning')
     : 'disconnected';
   const manualLoopTone = latestManualImportFinished ? 'connected' : 'neutral';
 
@@ -2444,6 +2502,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               <a href={READWISE_MCP_DOCS_URL} target="_blank" rel="noopener noreferrer">Readwise MCP setup</a>
             </div>
           </div>
+          <ConnectionReceiptCard
+            receipt={readwiseReceipt}
+            testId="readwise-sync-receipt"
+            providerLabel="Readwise"
+          />
           <details className="import-callout" style={{ marginBottom: 18 }}>
             <summary className="muted-label">Advanced: direct sync with API token</summary>
             <p className="muted small">Use this only when you want Noeis to run the legacy Readwise export sync itself. Browser approval is the default connection path for agents.</p>
@@ -2512,10 +2575,6 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               <p className="muted-label">Connected account</p>
               <p>Label: {readwiseConnection.accountLabel || 'Readwise'}</p>
               <p>Mode: {readwiseConnection.mode === 'mcp_remote' ? 'Readwise MCP / OAuth' : readwiseConnection.mode || 'manual'}</p>
-              <p>Status: {readwiseConnection.status || 'connected'}</p>
-              <p>Health: {readwiseConnection.health || 'unknown'}</p>
-              {readwiseAgentConnection?.id ? <p>Agent access: connected</p> : null}
-              {readwiseDirectConnection?.id ? <p>Direct import: token connection ready</p> : <p>Direct import: add an API token or CSV when you want Library sync.</p>}
               {readwiseAgentConnection?.id && !readwiseDirectConnection?.id ? (
                 <div className="capture-actions">
                   <Button
@@ -2529,11 +2588,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
                   <a href={READWISE_TOKEN_HELP_URL} target="_blank" rel="noopener noreferrer">Add API token</a>
                 </div>
               ) : null}
-              {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p>MCP server: {readwiseConnection.externalAccountId}</p> : null}
-              <p>Last checked: {readwiseConnection.lastValidatedAt ? new Date(readwiseConnection.lastValidatedAt).toLocaleString() : 'Never'}</p>
-              <p>Last preview: {readwiseConnection.lastPreviewAt ? new Date(readwiseConnection.lastPreviewAt).toLocaleString() : 'Never'}</p>
-              <p>Last sync: {readwiseConnection.lastSyncAt ? new Date(readwiseConnection.lastSyncAt).toLocaleString() : 'Never'}</p>
-              {readwiseConnection.lastError ? <p className="muted small">{readwiseConnection.lastError}</p> : null}
+              {readwiseConnection.mode === 'mcp_remote' && readwiseConnection.externalAccountId ? <p className="muted small">MCP server: {readwiseConnection.externalAccountId}</p> : null}
             </div>
           ) : null}
           <div className="settings-import-row">
@@ -2563,18 +2618,14 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         <Card className="settings-card" id="notion">
           <h2>Notion import</h2>
           <p className="muted">Connect Notion once, then sync accessible pages plus database row content into notebook entries that the model can retrieve.</p>
-          <div className={`import-summary import-summary--${notionConnectionState.tone}`} data-testid="notion-sync-receipt">
-            <p className="muted-label">Notion status</p>
-            <p><strong>{notionConnectionState.status}</strong></p>
-            <p>{notionConnectionState.headline}</p>
-            <p className="muted small">{notionConnectionState.detail}</p>
-            {notionConnection?.lastSyncAt ? (
-              <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
-            ) : null}
-            {notionSyncResultLine ? (
-              <p className="muted small">{notionSyncResultLine}</p>
-            ) : null}
-          </div>
+          <ConnectionReceiptCard
+            receipt={notionReceipt}
+            testId="notion-sync-receipt"
+            providerLabel="Notion"
+          />
+          {notionConnection?.lastSyncAt ? (
+            <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>
+          ) : null}
           <div className="import-callout">
             <p className="muted-label">Live flow</p>
             <p className="muted small">OAuth connect opens Notion, returns here, previews shared pages and data sources, then syncs them into notebook entries.</p>
@@ -2682,6 +2733,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             <p className="muted small">Browser OAuth sync is technically possible, but Evernote requires reviewed API access for apps that read existing notes. ENEX is the reliable path you can use today without waiting on vendor approval.</p>
             <a href={EVERNOTE_EXPORT_HELP_URL} target="_blank" rel="noopener noreferrer">Evernote export instructions</a>
           </div>
+          <ConnectionReceiptCard
+            receipt={evernoteReceipt}
+            testId="evernote-import-receipt"
+            providerLabel="Evernote"
+          />
           <div
             className={`import-dropzone ${evernoteDragActive ? 'is-active' : ''}`}
             onDragOver={handleEvernoteDragOver}

@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
+import SystemStatus from './SystemStatus';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
 
 const TopBarMenuPopover = ({
@@ -64,7 +65,9 @@ const TopBar = ({
   className = '',
   theme = 'auto',
   onThemeChange = null,
-  themeSaving = false
+  themeSaving = false,
+  systemStatus = null,
+  onSystemStatusRetry = null
 }) => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const themeMenuRef = useRef(null);
@@ -247,6 +250,14 @@ const TopBar = ({
               <span aria-hidden="true">⌕</span>
             </button>
           )}
+          {systemStatus ? (
+            <SystemStatus
+              backgroundWork={systemStatus.backgroundWork}
+              latestReceipt={systemStatus.latestReceipt}
+              recoverableFailure={systemStatus.recoverableFailure}
+              onRetryFailure={onSystemStatusRetry}
+            />
+          ) : null}
           {onThemeChange ? (
             <div className="topbar__menu topbar__theme-menu" ref={themeMenuRef}>
               <button

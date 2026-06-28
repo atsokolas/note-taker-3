@@ -359,6 +359,17 @@ const buildImportRouter = ({
           indexingState: session.progress?.indexingState || 'not_started'
         };
         session.lastError = message;
+        session.receipt = buildNoeisImportReceipt({
+          id: `import-${sessionId || 'unavailable'}-${Date.now()}`,
+          source: session.provider || 'system',
+          sourceLabel: session.sourceLabel || session.provider || 'Import',
+          status: 'failed',
+          error: {
+            stage,
+            message,
+            retryable: true
+          }
+        });
       }
     })
   );
@@ -480,6 +491,119 @@ const buildImportRouter = ({
     };
   };
 
+  const sanitizeReceiptTouched = (value) => (
+    (Array.isArray(value) ? value : [])
+      .map((entry) => {
+        const type = toTrimmedString(entry?.type);
+        const id = toTrimmedString(entry?.id);
+        const title = toTrimmedString(entry?.title);
+        if (!type || !id) return null;
+        return { type, id, title };
+      })
+      .filter(Boolean)
+      .slice(0, 24)
+  );
+
+  const sanitizeNoeisReceipt = (value) => {
+    if (!value || typeof value !== 'object') return null;
+    const status = toTrimmedString(value.status) || 'completed';
+    const createdAt = value.createdAt ? new Date(value.createdAt) : null;
+    const completedAt = value.completedAt ? new Date(value.completedAt) : null;
+    return {
+      id: toTrimmedString(value.id),
+      kind: toTrimmedString(value.kind) || 'import',
+      source: toTrimmedString(value.source) || 'system',
+      status,
+      title: toTrimmedString(value.title),
+      summary: toTrimmedString(value.summary),
+      metrics: value.metrics && typeof value.metrics === 'object' ? value.metrics : {},
+      touched: sanitizeReceiptTouched(value.touched),
+      nextAction: value.nextAction && typeof value.nextAction === 'object'
+        ? {
+            label: toTrimmedString(value.nextAction.label),
+            href: toTrimmedString(value.nextAction.href),
+            intent: toTrimmedString(value.nextAction.intent)
+          }
+        : null,
+      error: value.error && typeof value.error === 'object'
+        ? {
+            stage: toTrimmedString(value.error.stage),
+            message: toTrimmedString(value.error.message),
+            retryable: Boolean(value.error.retryable)
+          }
+        : null,
+      createdAt: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toISOString() : null,
+      completedAt: completedAt && !Number.isNaN(completedAt.getTime()) ? completedAt.toISOString() : null
+    };
+  };
+
+  const pluralize = (count, singular, plural = `${singular}s`) => (
+    `${count} ${count === 1 ? singular : plural}`
+  );
+
+  const buildImportReceiptSummary = ({
+    importedArticles = 0,
+    importedHighlights = 0,
+    importedNotes = 0,
+    skippedRows = 0,
+    indexingQueued = 0,
+    indexingFailures = 0
+  } = {}) => {
+    const importedParts = [];
+    if (importedArticles > 0) importedParts.push(pluralize(importedArticles, 'source'));
+    if (importedHighlights > 0) importedParts.push(pluralize(importedHighlights, 'highlight'));
+    if (importedNotes > 0) importedParts.push(pluralize(importedNotes, 'note'));
+    const lead = importedParts.length > 0
+      ? `Imported ${importedParts.join(', ')}.`
+      : 'No new items were imported.';
+    const details = [];
+    if (skippedRows > 0) details.push(`${pluralize(skippedRows, 'row')} skipped`);
+    if (indexingQueued > 0) details.push(`${pluralize(indexingQueued, 'item')} queued for indexing`);
+    if (indexingFailures > 0) details.push(`${pluralize(indexingFailures, 'indexing issue')}`);
+    return details.length > 0 ? `${lead} ${details.join('; ')}.` : lead;
+  };
+
+  const buildNoeisImportReceipt = ({
+    id,
+    source,
+    sourceLabel,
+    status = 'completed',
+    result = {},
+    touched = [],
+    nextAction = null,
+    error = null,
+    createdAt = new Date(),
+    completedAt = new Date()
+  } = {}) => {
+    const metrics = {
+      importedArticles: Number(result.importedArticles || 0),
+      importedHighlights: Number(result.importedHighlights || 0),
+      importedNotes: Number(result.importedNotes || 0),
+      skippedRows: Number(result.skippedRows || 0),
+      duplicateSkips: Number(result.duplicateSkips || 0),
+      invalidSkips: Number(result.invalidSkips || 0),
+      parseErrors: Number(result.parseErrors || 0),
+      indexingQueued: Number(result.indexingQueued || 0),
+      indexingFailures: Number(result.indexingFailures || 0)
+    };
+    const safeSource = toTrimmedString(source) || 'system';
+    const safeLabel = toTrimmedString(sourceLabel) || safeSource;
+    return sanitizeNoeisReceipt({
+      id: id || `receipt-${safeSource}-${Date.now()}-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`,
+      kind: 'import',
+      source: safeSource,
+      status,
+      title: `${safeLabel} import ${status === 'failed' ? 'failed' : 'finished'}`,
+      summary: error?.message || buildImportReceiptSummary(metrics),
+      metrics,
+      touched,
+      nextAction,
+      error,
+      createdAt,
+      completedAt
+    });
+  };
+
   const buildConnectionLastSyncResult = ({
     importedNotes = 0,
     skippedRows = 0,
@@ -525,6 +649,7 @@ const buildImportRouter = ({
       lastValidatedAt: connection.lastValidatedAt ? new Date(connection.lastValidatedAt).toISOString() : null,
       lastPreviewAt: connection.lastPreviewAt ? new Date(connection.lastPreviewAt).toISOString() : null,
       lastSyncResult: sanitizeLastSyncResult(connection.lastSyncResult),
+      lastReceipt: sanitizeNoeisReceipt(connection.lastReceipt),
       lastError: toTrimmedString(connection.lastError),
       createdAt: connection.createdAt ? new Date(connection.createdAt).toISOString() : null,
       updatedAt: connection.updatedAt ? new Date(connection.updatedAt).toISOString() : null
@@ -1301,6 +1426,21 @@ const buildImportRouter = ({
         importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
+      resultPayload.receipt = buildNoeisImportReceipt({
+        id: `import-${importSessionId || 'readwise-csv'}-${Date.now()}`,
+        source: 'readwise',
+        sourceLabel: req.file.originalname || 'Readwise CSV',
+        status,
+        result: resultPayload,
+        touched: Array.from(dirtyArticles).map(article => ({
+          type: 'article',
+          id: String(article._id || ''),
+          title: article.title || 'Imported source'
+        })),
+        nextAction: resultPayload.importedArticleIds.length > 0
+          ? { label: 'Review filing suggestions', intent: 'organize_import' }
+          : null
+      });
 
       const completedSession = await patchImportSession({
         sessionId: importSessionId,
@@ -1338,6 +1478,7 @@ const buildImportRouter = ({
             lastImportedArticleId: resultPayload.articleIds[0] || '',
             importedArticleIds: resultPayload.importedArticleIds
           };
+          session.receipt = resultPayload.receipt;
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
@@ -1376,6 +1517,17 @@ const buildImportRouter = ({
             indexingState: session.progress?.indexingState || 'not_started'
           };
           session.lastError = 'Failed to import Readwise CSV.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'readwise-csv'}-${Date.now()}`,
+            source: 'readwise',
+            sourceLabel: session.sourceLabel || 'Readwise CSV',
+            status: 'failed',
+            error: {
+              stage: 'failed',
+              message: 'Failed to import Readwise CSV.',
+              retryable: true
+            }
+          });
         }
       });
       res.status(500).json({ error: 'Failed to import Readwise CSV.' });
@@ -1883,9 +2035,6 @@ const buildImportRouter = ({
         queueIndexingAttempt(indexing, () => enqueueHighlightEmbedding({ highlight, article }), `Highlight indexing failed for ${article.title || article._id}`);
       });
 
-      connection.lastSyncAt = new Date();
-      await markConnectionHealthy(connection);
-
       const warningSummary = summarizeWarnings(
         indexing.warnings.map(message => buildWarning('indexing_failed', message))
       );
@@ -1907,8 +2056,33 @@ const buildImportRouter = ({
         importedArticleIds: Array.from(dirtyArticles).map(article => String(article._id || '')),
         updatedAfter,
         connection: sanitizeConnection(connection.toObject()),
-        indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
+        indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started'),
       };
+      resultPayload.receipt = buildNoeisImportReceipt({
+        id: `import-${importSessionId || 'readwise-api'}-${Date.now()}`,
+        source: 'readwise',
+        sourceLabel: connection.accountLabel || 'Readwise',
+        status,
+        result: resultPayload,
+        touched: Array.from(dirtyArticles).map(article => ({
+          type: 'article',
+          id: String(article._id || ''),
+          title: article.title || 'Imported source'
+        })),
+        nextAction: resultPayload.importedArticleIds.length > 0
+          ? { label: 'Review filing suggestions', intent: 'organize_import' }
+          : null
+      });
+      persistConnectionLastSyncResult(connection, {
+        importedNotes: 0,
+        skippedRows,
+        indexingQueued: indexing.indexingQueued,
+        indexingFailures: indexing.indexingFailures,
+        completedAt: resultPayload.receipt.completedAt
+      });
+      connection.lastReceipt = resultPayload.receipt;
+      await markConnectionHealthy(connection);
+      resultPayload.connection = sanitizeConnection(connection.toObject());
 
       const completedSession = await patchImportSession({
         sessionId: importSessionId,
@@ -1946,6 +2120,7 @@ const buildImportRouter = ({
             lastImportedArticleId: resultPayload.articleIds[0] || '',
             importedArticleIds: resultPayload.importedArticleIds
           };
+          session.receipt = resultPayload.receipt;
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
@@ -1982,6 +2157,17 @@ const buildImportRouter = ({
             stage: 'failed'
           };
           session.lastError = 'Failed to sync from Readwise.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'readwise-api'}-${Date.now()}`,
+            source: 'readwise',
+            sourceLabel: session.sourceLabel || 'Readwise',
+            status: 'failed',
+            error: {
+              stage: 'failed',
+              message: 'Failed to sync from Readwise.',
+              retryable: true
+            }
+          });
         }
       });
       res.status(500).json({ error: 'Failed to sync from Readwise.' });
@@ -2332,7 +2518,6 @@ const buildImportRouter = ({
         indexingQueued: indexing.indexingQueued,
         indexingFailures: indexing.indexingFailures
       });
-      await markConnectionHealthy(connection);
 
       const warningEntries = indexing.warnings.map(message => buildWarning('indexing_failed', message));
       if (pages.length === 0 && dataSources.length === 0) {
@@ -2343,6 +2528,32 @@ const buildImportRouter = ({
         ...indexing,
         warnings: warningSummary.warnings
       }, 0);
+      connection.lastReceipt = buildNoeisImportReceipt({
+        id: `import-${importSessionId || 'notion'}-${Date.now()}`,
+        source: 'notion',
+        sourceLabel: connection.accountLabel || 'Notion',
+        status,
+        result: {
+          importedArticles: 0,
+          importedHighlights: 0,
+          importedNotes,
+          skippedRows,
+          duplicateSkips: skippedRows,
+          invalidSkips: 0,
+          parseErrors: 0,
+          indexingQueued: indexing.indexingQueued,
+          indexingFailures: indexing.indexingFailures
+        },
+        touched: syncedEntries.map(entry => ({
+          type: 'note',
+          id: String(entry._id || ''),
+          title: entry.title || 'Imported note'
+        })),
+        nextAction: syncedEntries.length > 0
+          ? { label: 'Review filing suggestions', intent: 'organize_import' }
+          : null
+      });
+      await markConnectionHealthy(connection);
       const resultPayload = {
         importedArticles: 0,
         importedHighlights: 0,
@@ -2362,7 +2573,8 @@ const buildImportRouter = ({
         pageCount: pages.length,
         dataSourceCount: dataSources.length,
         connection: sanitizeConnection(connection.toObject()),
-        indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
+        indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started'),
+        receipt: sanitizeNoeisReceipt(connection.lastReceipt)
       };
 
       const completedSession = await patchImportSession({
@@ -2404,6 +2616,7 @@ const buildImportRouter = ({
             lastImportedEntryId: resultPayload.entryId,
             importedEntryIds: resultPayload.importedEntryIds
           };
+          session.receipt = resultPayload.receipt;
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
@@ -2441,6 +2654,17 @@ const buildImportRouter = ({
             stage: 'failed'
           };
           session.lastError = 'Failed to sync from Notion.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'notion'}-${Date.now()}`,
+            source: 'notion',
+            sourceLabel: session.sourceLabel || 'Notion',
+            status: 'failed',
+            error: {
+              stage: 'failed',
+              message: 'Failed to sync from Notion.',
+              retryable: true
+            }
+          });
         }
       });
       res.status(500).json({ error: 'Failed to sync from Notion.' });
@@ -2715,6 +2939,21 @@ const buildImportRouter = ({
         importedEntryIds: syncedEntries.map(entry => String(entry._id || '')),
         indexingState: indexing.indexingFailures > 0 ? 'partial' : (indexing.indexingQueued > 0 ? 'queued' : 'not_started')
       };
+      resultPayload.receipt = buildNoeisImportReceipt({
+        id: `import-${importSessionId || 'evernote'}-${Date.now()}`,
+        source: 'evernote',
+        sourceLabel,
+        status,
+        result: resultPayload,
+        touched: syncedEntries.map(entry => ({
+          type: 'note',
+          id: String(entry._id || ''),
+          title: entry.title || 'Imported note'
+        })),
+        nextAction: resultPayload.importedEntryIds.length > 0
+          ? { label: 'Review filing suggestions', intent: 'organize_import' }
+          : null
+      });
 
       const completedSession = await patchImportSession({
         sessionId: importSessionId,
@@ -2754,6 +2993,7 @@ const buildImportRouter = ({
             lastImportedEntryId: resultPayload.entryId,
             importedEntryIds: resultPayload.importedEntryIds
           };
+          session.receipt = resultPayload.receipt;
           session.lastError = '';
           applyImportOrganizationOffer(session);
         }
@@ -2789,6 +3029,17 @@ const buildImportRouter = ({
             stage: 'failed'
           };
           session.lastError = 'Failed to import Evernote ENEX.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'evernote'}-${Date.now()}`,
+            source: 'evernote',
+            sourceLabel: session.sourceLabel || 'Evernote ENEX',
+            status: 'failed',
+            error: {
+              stage: 'failed',
+              message: 'Failed to import Evernote ENEX.',
+              retryable: true
+            }
+          });
         }
       });
       res.status(500).json({ error: 'Failed to import Evernote ENEX.' });

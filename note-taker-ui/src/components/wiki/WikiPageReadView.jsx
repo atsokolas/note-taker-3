@@ -37,6 +37,7 @@ import {
 } from './wikiVisitTracker';
 import { SUPPORT_STATES } from './extensions/Claim';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
+import { useSystemStatusControls } from '../../system/SystemStatusContext';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -52,6 +53,18 @@ const labelFor = (value = '') => String(value || '')
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
+
+const wikiMaintenanceSystemReceipt = (pageId, { issueCount = 0, pageTitle = '' } = {}) => {
+  const target = pageTitle || `@wiki:${pageId}`;
+  return {
+    title: 'Wiki maintenance',
+    summary: issueCount
+      ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced on ${target}.`
+      : `Maintenance settled for ${target}.`,
+    status: issueCount ? 'needs_review' : 'completed',
+    href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+  };
+};
 
 const promotionPosturePath = (type = '', sourceId = '') => {
   const safeType = normalizeId(type).toLowerCase();
@@ -1000,6 +1013,7 @@ const WikiPageReadView = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const systemStatus = useSystemStatusControls();
   const traceSearch = location.search || (typeof window !== 'undefined' ? window.location.search : '');
   const shouldOpenTrace = useMemo(
     () => new URLSearchParams(traceSearch || '').get('trace') === '1',
@@ -1206,6 +1220,8 @@ const WikiPageReadView = ({
   }, [onEdit, workspaceMode]);
 
   const handleMaintain = useCallback(async () => {
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Wiki maintenance', stage: `Checking @wiki:${pageId}` });
     setMaintaining(true);
     setError('');
     setMaintenanceReceipt(null);
@@ -1235,6 +1251,10 @@ const WikiPageReadView = ({
         sourceCount: nextSourceCount,
         claimCount: nextClaimCount
       });
+      systemStatus.setLatestReceipt(wikiMaintenanceSystemReceipt(pageId, {
+        issueCount,
+        pageTitle: maintained?.title
+      }));
     } catch (_error) {
       setError('Failed to maintain Wiki page.');
       setMaintenanceTraceLines([
@@ -1247,10 +1267,17 @@ const WikiPageReadView = ({
         sourceCount: countPageSources(latestPageRef.current || page),
         claimCount: countPageClaims(latestPageRef.current || page)
       });
+      systemStatus.setRecoverableFailure({
+        stage: 'Wiki maintenance',
+        message: 'Failed to maintain Wiki page.',
+        retryable: true,
+        retry: () => { handleMaintain(); }
+      });
     } finally {
+      systemStatus.setBackgroundWork(null);
       setMaintaining(false);
     }
-  }, [page, pageId]);
+  }, [page, pageId, systemStatus]);
 
   const handleShareSafely = useCallback(async () => {
     const currentPage = latestPageRef.current || page;

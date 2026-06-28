@@ -111,6 +111,19 @@ const run = async () => {
       mode: 'oauth',
       status: 'completed',
       sourceLabel: 'Pending import',
+      receipt: {
+        id: 'receipt-1',
+        kind: 'import',
+        source: 'readwise',
+        status: 'completed',
+        title: 'Readwise import finished',
+        summary: 'Imported 2 highlights.',
+        metrics: { importedHighlights: 2 },
+        touched: [{ type: 'article', id: 'article-1', title: 'Deep Work' }],
+        nextAction: { label: 'Review filing suggestions', intent: 'organize_import' },
+        createdAt: '2026-06-27T12:00:00.000Z',
+        completedAt: '2026-06-27T12:01:00.000Z'
+      },
       recommendedNextAction: 'organize_import',
       agentSuggestions: [
         {
@@ -142,6 +155,9 @@ const run = async () => {
     assert.strictEqual(activePayload.session.id, 'session-pending');
     assert.strictEqual(activePayload.session.recommendedNextAction, 'organize_import');
     assert.strictEqual(activePayload.session.agentSuggestions[0].structureProposalId, 'proposal-1');
+    assert.strictEqual(activePayload.session.receipt.source, 'readwise');
+    assert.strictEqual(activePayload.session.receipt.metrics.importedHighlights, 2);
+    assert.strictEqual(activePayload.session.receipt.touched[0].title, 'Deep Work');
 
     const activeListResponse = await fetch(`${url}/api/import/sessions?status=active`);
     const activeListPayload = await activeListResponse.json();

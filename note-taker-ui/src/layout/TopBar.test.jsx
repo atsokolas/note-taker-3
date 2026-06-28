@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import path from 'path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TopBar from './TopBar';
@@ -306,5 +308,42 @@ describe('TopBar help menu', () => {
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: /Dark/ }));
     expect(onThemeChange).toHaveBeenCalledWith('dark');
+  });
+
+  it('renders the system status affordance when status props are provided', () => {
+    render(
+      <MemoryRouter>
+        <TopBar
+          systemStatus={{
+            latestReceipt: { title: 'Readwise sync', summary: '47 highlights attached' }
+          }}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('system-status')).toBeInTheDocument();
+    expect(screen.getByTestId('system-status-trigger')).toHaveClass('topbar__icon-button');
+  });
+
+  it('keeps the top bar header height stable with system status at mobile width', () => {
+    const css = readFileSync(path.join(__dirname, 'system-status.css'), 'utf8');
+    expect(css).toMatch(/height: 34px/);
+
+    const { container } = render(
+      <MemoryRouter>
+        <TopBar
+          onThemeChange={() => {}}
+          systemStatus={{
+            backgroundWork: { label: 'Syncing Readwise' }
+          }}
+        />
+      </MemoryRouter>
+    );
+
+    const header = container.querySelector('.topbar');
+    const trigger = screen.getByTestId('system-status-trigger');
+    expect(trigger).toHaveClass('system-status__trigger', 'topbar__icon-button');
+    expect(header).toBeInTheDocument();
+    expect(header.querySelector('.topbar__content')).toBeInTheDocument();
   });
 });

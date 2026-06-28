@@ -10,12 +10,18 @@ const {
   buildGraphSearchSummary,
   provenanceFromContext,
   buildSystemPrompt,
+  collectClaimContradictionContexts,
+  collectTemporalChangeContexts,
   normalizeAnswerSchema,
   buildFallbackAnswer,
   buildGraphFallbackAnswer,
+  buildTemporalFallbackAnswer,
+  buildContradictionFallbackAnswer,
   docFromAnswer,
   buildPageContext,
   buildPageSummaryAnswer,
+  isTemporalQuestion,
+  isContradictionQuestion,
   isSummaryRequest,
   truncateAtSentenceBoundary,
   pickExactPageSentence,
@@ -402,6 +408,64 @@ describe('wikiAskService', () => {
       expect(highlights.some(row => row.title === 'Thaler')).toBe(true);
     });
 
+    it('collects temporal revision context for change questions', () => {
+      expect(isTemporalQuestion('What changed in my thinking over the last month?')).toBe(true);
+      const contexts = collectTemporalChangeContexts({
+        page: { _id: 'page-loss', title: 'Loss Aversion' },
+        question: 'What changed in my thinking?',
+        revisionRows: [{
+          _id: 'rev-1',
+          pageId: 'page-loss',
+          reason: 'agent_maintenance',
+          actorType: 'agent',
+          summary: 'Added source-backed distinction between visible losses and hidden costs.',
+          before: {
+            title: 'Loss Aversion',
+            sourceRefs: [],
+            claims: [],
+            plainText: 'Loss aversion is a bias.'
+          },
+          after: {
+            title: 'Loss Aversion',
+            sourceRefs: [{ _id: 'src-1', title: 'Kahneman' }],
+            claims: [{ text: 'Visible losses can hide opportunity costs.' }],
+            plainText: 'Loss aversion now includes opportunity cost tension.'
+          },
+          createdAt: '2026-06-28T10:00:00.000Z'
+        }]
+      });
+      expect(contexts).toHaveLength(1);
+      expect(contexts[0].date).toBe('2026-06-28');
+      expect(contexts[0].summary).toMatch(/Added source-backed distinction/);
+      expect(contexts[0].sourceDelta).toBe(1);
+    });
+
+    it('collects explicit contradiction contexts from selected and related page claims', () => {
+      expect(isContradictionQuestion('Where do these claims contradict each other?')).toBe(true);
+      const contexts = collectClaimContradictionContexts({
+        page: {
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          sourceRefs: [{ _id: 'src-counter', title: 'Lab replication note' }],
+          claims: [{
+            _id: 'claim-1',
+            text: 'Loss aversion is stable across all decision contexts.',
+            support: 'conflicted',
+            contradictedByCitationIds: ['src-counter']
+          }]
+        },
+        relatedPages: [{
+          _id: 'page-opp',
+          title: 'Opportunity Cost',
+          claims: [{ text: 'Hidden opportunity costs are often underweighted.', support: 'supported' }]
+        }],
+        question: 'Where does Loss Aversion contradict the evidence?'
+      });
+      expect(contexts).toHaveLength(1);
+      expect(contexts[0].text).toMatch(/stable across all decision contexts/);
+      expect(contexts[0].contradictedByTitles).toEqual(['Lab replication note']);
+    });
+
     it('does not load hidden or debug wiki pages into graph ask corpus', async () => {
       const lean = jest.fn().mockResolvedValue([]);
       const select = jest.fn(() => ({ lean }));
@@ -470,6 +534,58 @@ describe('wikiAskService', () => {
 
       expect(find).toHaveBeenCalledTimes(2);
       expect(corpus.relatedPages.map(page => page.title)).toContain('Opportunity Cost');
+    });
+
+    it('loads revision rows for temporal questions on selected and mentioned pages', async () => {
+      const recentPages = [{
+        _id: 'page-opp',
+        title: 'Opportunity Cost',
+        pageType: 'concept',
+        plainText: 'Opportunity cost is the hidden next best alternative.'
+      }];
+      const queryChain = (rows) => ({
+        sort: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            select: jest.fn(() => ({
+              lean: jest.fn().mockResolvedValue(rows)
+            }))
+          }))
+        })),
+        limit: jest.fn(() => ({
+          select: jest.fn(() => ({
+            lean: jest.fn().mockResolvedValue(rows)
+          }))
+        }))
+      });
+      const findPages = jest.fn()
+        .mockReturnValueOnce(queryChain(recentPages))
+        .mockReturnValueOnce(queryChain([]));
+      const findRevisions = jest.fn(() => queryChain([{
+        _id: 'rev-1',
+        pageId: 'page-loss',
+        summary: 'Added hidden-cost comparison.',
+        before: {},
+        after: { title: 'Loss Aversion' },
+        createdAt: '2026-06-28T10:00:00.000Z'
+      }]));
+
+      const corpus = await loadWikiAskCorpus({
+        page: { _id: 'page-loss', title: 'Loss Aversion' },
+        question: 'What changed in my thinking about Opportunity Cost?',
+        userId: 'user-1',
+        WikiPage: { find: findPages },
+        WikiRevision: { find: findRevisions },
+        TagMeta: null,
+        findWikiBacklinks: null,
+        pageScanLimit: 3,
+        candidateLimit: 8
+      });
+
+      expect(findRevisions).toHaveBeenCalledWith(expect.objectContaining({
+        userId: 'user-1',
+        pageId: { $in: expect.arrayContaining(['page-loss', 'page-opp']) }
+      }));
+      expect(corpus.revisionRows).toHaveLength(1);
     });
 
     it('excludes malformed low-quality pages from related page retrieval', async () => {
@@ -575,6 +691,61 @@ describe('wikiAskService', () => {
       expect(out.citationIndexesUsed).toEqual([2]);
       const marks = findClaimMarks(out.answer);
       expect(marks.length).toBeGreaterThan(0);
+    });
+
+    it('answers temporal questions from revision history before falling back to generic source-change prose', async () => {
+      const chatComplete = jest.fn();
+      const out = await askWikiPage({
+        page: buildPage({
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          sourceRefs: [{ _id: 'src-1', type: 'article', title: 'New study', snippet: 'Recent evidence changed the page.' }]
+        }),
+        revisionRows: [{
+          _id: 'rev-1',
+          pageId: 'page-loss',
+          reason: 'agent_maintenance',
+          summary: 'Added a source-backed comparison to opportunity cost.',
+          before: { title: 'Loss Aversion', sourceRefs: [], claims: [] },
+          after: {
+            title: 'Loss Aversion',
+            sourceRefs: [{ _id: 'src-1' }],
+            claims: [{ text: 'Visible losses can overpower hidden opportunity costs.' }]
+          },
+          createdAt: '2026-06-28T10:00:00.000Z'
+        }],
+        question: 'What changed after the new source?',
+        aiClient: { chatComplete, isTextGenerationConfigured: () => true }
+      });
+      expect(chatComplete).not.toHaveBeenCalled();
+      expect(out.model).toBe('deterministic');
+      expect(out.provenance.temporalChangeCount).toBe(1);
+      const marks = findClaimMarks(out.answer);
+      expect(marks[0].text).toMatch(/2026-06-28/);
+      expect(marks[0].text).toMatch(/opportunity cost/);
+    });
+
+    it('answers contradiction questions from conflicted claim context', async () => {
+      const out = await askWikiPage({
+        page: buildPage({
+          _id: 'page-loss',
+          title: 'Loss Aversion',
+          sourceRefs: [{ _id: 'src-counter', type: 'article', title: 'Replication limits', snippet: 'Context changes the effect.' }],
+          claims: [{
+            _id: 'claim-1',
+            text: 'Loss aversion is stable in every decision context.',
+            support: 'conflicted',
+            contradictedByCitationIds: ['src-counter']
+          }]
+        }),
+        question: 'Where does this contradict the evidence?',
+        aiClient: { chatComplete: jest.fn(), isTextGenerationConfigured: () => false }
+      });
+      expect(out.model).toBe('deterministic');
+      expect(out.provenance.contradictionCount).toBe(1);
+      const marks = findClaimMarks(out.answer);
+      expect(marks[0].text).toMatch(/stable in every decision context/);
+      expect(marks[0].text).toMatch(/Replication limits/);
     });
 
     it('expands page-first answers across named related wiki pages when the model is unavailable', async () => {

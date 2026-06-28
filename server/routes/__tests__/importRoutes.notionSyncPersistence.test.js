@@ -96,6 +96,7 @@ const buildConnectionStore = () => {
     lastValidatedAt: null,
     lastPreviewAt: null,
     lastSyncResult: null,
+    lastReceipt: null,
     lastError: '',
     async save() {
       return this;
@@ -114,6 +115,7 @@ const buildConnectionStore = () => {
         lastValidatedAt: this.lastValidatedAt,
         lastPreviewAt: this.lastPreviewAt,
         lastSyncResult: this.lastSyncResult,
+        lastReceipt: this.lastReceipt,
         lastError: this.lastError,
         createdAt: null,
         updatedAt: null
@@ -263,7 +265,7 @@ const run = async () => {
         'content-type': 'application/json',
         'x-import-session-id': importSessions.session._id
       },
-      body: JSON.stringify({ connectionId: 'notion-1' })
+      body: JSON.stringify({ connectionId: 'notion-1', importSessionId: importSessions.session._id })
     });
     const syncPayload = await syncResponse.json();
     assert.strictEqual(syncResponse.status, 200, `Notion sync failed: ${JSON.stringify(syncPayload)}`);
@@ -278,10 +280,19 @@ const run = async () => {
       completedAt: syncPayload.connection.lastSyncResult.completedAt
     });
     assert.ok(syncPayload.connection.lastSyncResult.completedAt, 'lastSyncResult.completedAt should be serialized.');
+    assert.ok(syncPayload.connection.lastReceipt, 'Sync response should include a durable Noeis receipt.');
+    assert.strictEqual(syncPayload.connection.lastReceipt.kind, 'import');
+    assert.strictEqual(syncPayload.connection.lastReceipt.source, 'notion');
+    assert.strictEqual(syncPayload.connection.lastReceipt.status, 'completed');
+    assert.strictEqual(syncPayload.connection.lastReceipt.metrics.importedNotes, 1);
+    assert.match(syncPayload.connection.lastReceipt.summary, /Imported 1 note/);
+    assert.strictEqual(syncPayload.receipt.source, 'notion');
 
     assert.ok(connections.connection.lastSyncResult, 'Connection should persist lastSyncResult in memory.');
     assert.strictEqual(connections.connection.lastSyncResult.importedNotes, 1);
     assert.strictEqual(connections.connection.lastSyncResult.indexingQueued, 1);
+    assert.ok(connections.connection.lastReceipt, 'Connection should persist lastReceipt in memory.');
+    assert.strictEqual(importSessions.session.receipt.source, 'notion');
 
     const listResponse = await fetch(`${url}/api/import/connections?provider=notion`);
     const listPayload = await listResponse.json();
@@ -292,6 +303,8 @@ const run = async () => {
     assert.strictEqual(listPayload.connections[0].lastSyncResult.indexingQueued, 1);
     assert.strictEqual(listPayload.connections[0].lastSyncResult.indexingFailures, 0);
     assert.ok(listPayload.connections[0].lastSyncResult.completedAt);
+    assert.strictEqual(listPayload.connections[0].lastReceipt.source, 'notion');
+    assert.strictEqual(listPayload.connections[0].lastReceipt.metrics.importedNotes, 1);
 
     console.log('importRoutes.notionSyncPersistence.test.js passed');
   } finally {

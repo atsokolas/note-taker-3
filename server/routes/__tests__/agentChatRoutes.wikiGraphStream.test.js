@@ -61,6 +61,24 @@ const buildRouter = (overrides = {}) => buildAgentChatRouter({
   TagMeta: {},
   NotebookEntry: {},
   AgentArtifactDraft: {},
+  WikiRevision: {
+    find() {
+      return {
+        sort() {
+          return this;
+        },
+        limit() {
+          return this;
+        },
+        select() {
+          return this;
+        },
+        async lean() {
+          return [];
+        }
+      };
+    }
+  },
   WikiPage: {
     findOne() {
       return {
@@ -114,7 +132,8 @@ const buildRouter = (overrides = {}) => buildAgentChatRouter({
         plainText: 'Opportunity cost is the value of the next best alternative.'
       }],
       conceptRecords: [],
-      backlinkRows: []
+      backlinkRows: [],
+      revisionRows: []
     };
   },
   normalizeThreadScope: (scope) => scope || {},
@@ -177,6 +196,10 @@ const run = async () => {
       observed.observedCorpusArgs?.question,
       'How does loss aversion connect to opportunity cost?',
       'The graph corpus loader should receive the user question.'
+    );
+    assert.ok(
+      observed.observedCorpusArgs?.WikiRevision,
+      'The graph corpus loader should receive WikiRevision so temporal questions can inspect page history.'
     );
     assert.ok(body.includes('Opportunity Cost'), 'The streamed answer should include the mentioned related wiki page.');
     assert.ok(body.includes('Searched 2 wiki pages.'), 'The activity stream should expose graph search provenance.');

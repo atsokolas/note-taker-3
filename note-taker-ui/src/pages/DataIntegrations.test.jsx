@@ -366,7 +366,7 @@ describe('DataIntegrations first insight workflow', () => {
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
     expect(within(receipt).getByText(/Imported pages are available as notebook entries/i)).toBeInTheDocument();
-    expect(within(receipt).getByText(/Where it lands: Library search, Think retrieval, and Morning Paper source maintenance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Where it lands: Library search, Think retrieval, and Morning Paper source maintenance/i)).toBeInTheDocument();
     expect(within(receipt).getByText('Synced 3 pages · 2 skipped · 1 indexing.')).toBeInTheDocument();
   });
 
@@ -741,8 +741,11 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Agent access: connected')).toBeInTheDocument();
-    expect(screen.getByText(/Direct import: add an API token or CSV/i)).toBeInTheDocument();
+    const receipt = await screen.findByTestId('readwise-sync-receipt');
+    await waitFor(() => {
+      expect(within(receipt).getByText('Agent access connected')).toBeInTheDocument();
+    });
+    expect(receipt).toHaveTextContent(/Direct Library refresh still needs the advanced API-token connection or a Readwise CSV upload/i);
     const returnLoopCard = screen.getByTestId('connections-return-loop');
     expect(within(returnLoopCard).getByText('Agent access connected')).toBeInTheDocument();
     expect(within(returnLoopCard).getByText(/Direct Library refresh still needs the advanced token sync or a CSV import/i)).toBeInTheDocument();
@@ -1006,5 +1009,155 @@ describe('DataIntegrations first insight workflow', () => {
     expect(await screen.findByText(/Notion import complete\./)).toBeInTheDocument();
 
     jest.useRealTimers();
+  });
+
+  it('renders Readwise connection receipt with synced summary and next action', async () => {
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-readwise',
+      provider: 'readwise',
+      status: 'completed',
+      sourceLabel: 'Reader',
+      updatedAt: '2026-06-08T15:30:00.000Z',
+      result: {
+        importedArticles: 5,
+        importedHighlights: 47,
+        skippedRows: 2,
+        indexingFailures: 0
+      }
+    });
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'readwise') {
+        return [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          mode: 'api_token',
+          status: 'connected',
+          lastSyncAt: '2026-06-08T15:30:00.000Z'
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Label: Reader');
+
+    const receipt = screen.getByTestId('readwise-sync-receipt');
+    expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
+    expect(within(receipt).getByTestId('readwise-sync-receipt-summary')).toHaveTextContent(
+      'Synced 47 highlights from 5 sources · 2 skipped.'
+    );
+    expect(within(receipt).getByText(/Next: Sync again/i)).toBeInTheDocument();
+  });
+
+  it('announces active Notion sync with aria-live status', async () => {
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-notion',
+      provider: 'notion',
+      status: 'importing',
+      sourceLabel: 'Product HQ',
+      progress: { stage: 'fetching_notion', percent: 10, indexingState: 'not_started' }
+    });
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          lastSyncAt: null
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+
+    const status = await screen.findByTestId('notion-sync-receipt-status');
+    expect(status).toHaveAttribute('role', 'status');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toHaveTextContent(/Syncing Notion/i);
+  });
+
+  it('announces failed Readwise sync with assertive live status', async () => {
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-readwise',
+      provider: 'readwise',
+      status: 'failed',
+      sourceLabel: 'Reader',
+      progress: { stage: 'fetching_readwise' },
+      lastError: 'Readwise token expired'
+    });
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'readwise') {
+        return [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'Reader',
+          mode: 'api_token',
+          status: 'connected'
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      const status = screen.getByTestId('readwise-sync-receipt-status');
+      expect(status).toHaveAttribute('role', 'status');
+    });
+
+    const status = screen.getByTestId('readwise-sync-receipt-status');
+    expect(status).toHaveAttribute('role', 'status');
+    expect(status).toHaveAttribute('aria-live', 'assertive');
+    expect(within(screen.getByTestId('readwise-sync-receipt')).getByTestId('readwise-sync-receipt-failure'))
+      .toHaveTextContent(/fetching readwise/i);
+  });
+
+  it('renders Evernote import receipt after ENEX import completes', async () => {
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-evernote',
+      provider: 'evernote',
+      status: 'completed',
+      sourceLabel: 'Research Notebook.enex',
+      updatedAt: '2026-06-09T12:00:00.000Z',
+      result: {
+        importedNotes: 2,
+        duplicateSkips: 1,
+        indexingQueued: 2,
+        indexingFailures: 0
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Evernote.*Keep notebook migrations clean/s }));
+
+    const receipt = await screen.findByTestId('evernote-import-receipt');
+    expect(within(receipt).getByText('Imported into Noeis')).toBeInTheDocument();
+    expect(within(receipt).getByTestId('evernote-import-receipt-summary')).toHaveTextContent(
+      'Imported 2 notes · 1 duplicate skipped.'
+    );
+    expect(within(receipt).getByText(/Next: Import another ENEX/i)).toBeInTheDocument();
   });
 });

@@ -24,6 +24,8 @@ import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
 import { startLibraryFilingSuggestions } from '../api/library';
+import { useSystemStatusControls } from '../system/SystemStatusContext';
+import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
@@ -84,6 +86,7 @@ const Library = () => {
   const [filingReceipt, setFilingReceipt] = useState(null);
   const [queuedPrompt, setQueuedPrompt] = useState(null);
   const readerRef = useRef(null);
+  const systemStatus = useSystemStatusControls();
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
   const {
@@ -200,12 +203,20 @@ const Library = () => {
     if (filingLaunching) return;
     setFilingLaunching(true);
     setFilingReceipt(null);
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Filing the library', stage: 'Staging suggestions' });
     try {
       const result = await startLibraryFilingSuggestions();
       const receipt = result?.receipt && typeof result.receipt === 'object' ? result.receipt : null;
       if (receipt?.summary) {
         setFilingReceipt(receipt);
       }
+      systemStatus.setLatestReceipt(normalizeSystemReceipt(receipt, { href: '/think?tab=threads' }) || {
+        title: 'Filing suggestions ready',
+        summary: receipt?.summary || 'Review the staged plan in Think.',
+        status: 'needs_review',
+        href: '/think?tab=threads'
+      });
       const nextThreadId = String(result?.thread?.threadId || result?.thread?._id || '').trim();
       navigate(nextThreadId
         ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
@@ -216,10 +227,17 @@ const Library = () => {
         stage: 'error',
         summary: 'Could not stage filing suggestions. Try again in a moment.'
       });
+      systemStatus.setRecoverableFailure({
+        stage: 'Library filing',
+        message: 'Could not stage filing suggestions. Try again in a moment.',
+        retryable: true,
+        retry: () => { handleReviewFiling(); }
+      });
     } finally {
       setFilingLaunching(false);
+      systemStatus.setBackgroundWork(null);
     }
-  }, [filingLaunching, navigate]);
+  }, [filingLaunching, navigate, systemStatus]);
 
   const handleToggleSuppressedItems = useCallback(() => {
     const params = new URLSearchParams(searchParams);

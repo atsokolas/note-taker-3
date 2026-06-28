@@ -134,9 +134,9 @@ describe('LibraryReadingRoomLead', () => {
     );
 
     expect(screen.getByTestId('library-cruft-notice')).toHaveTextContent(
-      '2 low-signal test items were kept out of your return view.'
+      '2 low-signal imports were kept out of your return view.'
     );
-    expect(screen.getByRole('button', { name: 'Show low-signal items' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show review imports' })).toBeInTheDocument();
   });
 
   it('lets the user hide low-signal items after opening explicit review mode', () => {
@@ -150,8 +150,8 @@ describe('LibraryReadingRoomLead', () => {
       />
     );
 
-    expect(screen.getByTestId('library-cruft-notice')).toHaveTextContent('Showing low-signal items for review.');
-    fireEvent.click(screen.getByRole('button', { name: 'Hide low-signal items' }));
+    expect(screen.getByTestId('library-cruft-notice')).toHaveTextContent('Showing hidden review imports.');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide review imports' }));
     expect(onToggleSuppressed).toHaveBeenCalledTimes(1);
   });
 });

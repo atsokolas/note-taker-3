@@ -68,6 +68,51 @@ const sanitizeAgentSuggestion = (suggestion) => {
   };
 };
 
+const sanitizeReceiptTouched = (value) => (
+  (Array.isArray(value) ? value : [])
+    .map((entry) => {
+      const type = toTrimmedString(entry?.type);
+      const id = toTrimmedString(entry?.id);
+      const title = toTrimmedString(entry?.title);
+      if (!type || !id) return null;
+      return { type, id, title };
+    })
+    .filter(Boolean)
+    .slice(0, 24)
+);
+
+const sanitizeReceipt = (value) => {
+  if (!value || typeof value !== 'object') return null;
+  const createdAt = parseOptionalDate(value.createdAt);
+  const completedAt = parseOptionalDate(value.completedAt);
+  return {
+    id: toTrimmedString(value.id),
+    kind: toTrimmedString(value.kind),
+    source: toTrimmedString(value.source),
+    status: toTrimmedString(value.status),
+    title: toTrimmedString(value.title),
+    summary: toTrimmedString(value.summary),
+    metrics: value.metrics && typeof value.metrics === 'object' ? value.metrics : {},
+    touched: sanitizeReceiptTouched(value.touched),
+    nextAction: value.nextAction && typeof value.nextAction === 'object'
+      ? {
+          label: toTrimmedString(value.nextAction.label),
+          href: toTrimmedString(value.nextAction.href),
+          intent: toTrimmedString(value.nextAction.intent)
+        }
+      : null,
+    error: value.error && typeof value.error === 'object'
+      ? {
+          stage: toTrimmedString(value.error.stage),
+          message: toTrimmedString(value.error.message),
+          retryable: Boolean(value.error.retryable)
+        }
+      : null,
+    createdAt: createdAt ? createdAt.toISOString() : null,
+    completedAt: completedAt ? completedAt.toISOString() : null
+  };
+};
+
 const getPendingNextAction = (session) => {
   const suggestions = (Array.isArray(session?.agentSuggestions) ? session.agentSuggestions : [])
     .map(normalizeAgentSuggestionForStorage);
@@ -163,6 +208,7 @@ const sanitizeSession = (session) => {
     preview: safeSession.preview || {},
     progress: safeSession.progress || {},
     result: safeSession.result || {},
+    receipt: sanitizeReceipt(safeSession.receipt),
     activation: {
       ...(safeSession.activation || {}),
       conceptId: safeSession?.activation?.conceptId ? String(safeSession.activation.conceptId) : ''

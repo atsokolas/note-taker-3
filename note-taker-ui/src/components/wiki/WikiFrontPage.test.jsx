@@ -240,4 +240,119 @@ describe('WikiFrontPage (AT-394)', () => {
       .toBeInTheDocument();
     expect(screen.queryByText(/QA Build Order Verification/i)).not.toBeInTheDocument();
   });
+
+  it('shows a failed-import next action in the briefing area', async () => {
+    getWikiBriefing.mockResolvedValueOnce({
+      ...briefing,
+      summary: 'Readwise needs attention before the next sync.',
+      nextAction: {
+        type: 'review_import',
+        label: 'Review Readwise connection',
+        href: '/connections',
+        reason: 'Readwise needs a fresh authorization.'
+      }
+    });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    const nextAction = await screen.findByRole('link', { name: /review readwise connection →/i });
+    expect(nextAction).toHaveAttribute('href', '/connections');
+    expect(screen.getByText('Readwise needs a fresh authorization.')).toBeInTheDocument();
+  });
+
+  it('shows an answerable-question next action and question note', async () => {
+    getWikiBriefing.mockResolvedValueOnce({
+      ...briefing,
+      summary: 'One open question now has fresh evidence.',
+      nextAction: {
+        type: 'answer_question',
+        label: 'Answer the question that now has evidence',
+        href: '/think?tab=questions&questionId=q1',
+        reason: 'Opportunity Cost gained 2 sources'
+      },
+      answerableQuestions: [{
+        questionId: 'q1',
+        text: 'How does opportunity cost show up in capital allocation?',
+        evidencePageTitle: 'Opportunity Cost',
+        evidenceCount: 2,
+        href: '/think?tab=questions&questionId=q1'
+      }]
+    });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    const nextAction = await screen.findByRole('link', {
+      name: /answer the question that now has evidence →/i
+    });
+    expect(nextAction).toHaveAttribute('href', '/think?tab=questions&questionId=q1');
+
+    expect(screen.queryByRole('region', { name: /overnight briefing notes/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Evidence surfaced')).toBeInTheDocument();
+    expect(screen.getByText(/fresh evidence via opportunity cost \(2 sources\)/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /how does opportunity cost show up in capital allocation/i }))
+      .toHaveAttribute('href', '/think?tab=questions&questionId=q1');
+  });
+
+  it('uses pages that gained source material as the lead story and compact evidence line', async () => {
+    getWikiBriefing.mockResolvedValueOnce({
+      ...briefing,
+      summary: 'Opportunity Cost gained new backing sources overnight.',
+      nextAction: {
+        type: 'review_page',
+        label: 'Review Opportunity Cost',
+        href: '/wiki/workspace?page=wiki-opportunity-cost',
+        reason: '2 new sources reached this page'
+      },
+      pagesWithNewSourceMaterial: [{
+        pageId: 'wiki-opportunity-cost',
+        title: 'Opportunity Cost',
+        addedSourceCount: 2,
+        sourceTitles: ['Tradeoff note', 'Capital allocation note']
+      }]
+    });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    await screen.findByRole('link', { name: /review opportunity cost →/i });
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Opportunity Cost');
+    expect(screen.queryByRole('region', { name: /overnight briefing notes/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Evidence surfaced')).toBeInTheDocument();
+    expect(screen.getByText('2 new sources — Tradeoff note, Capital allocation note')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Opportunity Cost' })[0])
+      .toHaveAttribute('href', '/wiki/workspace?page=wiki-opportunity-cost');
+  });
+
+  it('does not render unsafe backend-provided next-action hrefs', async () => {
+    getWikiBriefing.mockResolvedValueOnce({
+      ...briefing,
+      nextAction: {
+        type: 'review_page',
+        label: 'Open external target',
+        href: 'https://example.com/bad',
+        reason: 'This should not become a router link.'
+      }
+    });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    await screen.findByText(/While you were away/i);
+    expect(screen.queryByRole('link', { name: /open external target/i })).not.toBeInTheDocument();
+  });
 });

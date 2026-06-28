@@ -5,7 +5,12 @@ const {
   collectDriftingPages,
   buildFallbackSummary,
   isWithin,
-  countNewSources
+  countNewSources,
+  collectRecentImportReceipts,
+  collectRecentMaintenanceChanges,
+  collectPagesWithNewSourceMaterial,
+  collectAnswerableQuestions,
+  buildBriefingNextAction
 } = __testables;
 
 const NOW = new Date('2026-05-06T12:00:00Z').getTime();
@@ -162,7 +167,20 @@ describe('wikiBriefingService', () => {
       });
       expect(briefing.summary).toMatch(/quiet today/i);
       expect(briefing.model).toBe('stub');
-      expect(briefing.counts).toEqual({ newSources: 0, recentlyUpdatedPages: 0, driftingPages: 0 });
+      expect(briefing.counts).toEqual({
+        newSources: 0,
+        recentlyUpdatedPages: 0,
+        driftingPages: 0,
+        recentReceipts: 0,
+        recentMaintenanceChanges: 0,
+        pagesWithNewSourceMaterial: 0,
+        answerableQuestions: 0
+      });
+      expect(briefing.recentReceipts).toEqual([]);
+      expect(briefing.recentMaintenanceChanges).toEqual([]);
+      expect(briefing.pagesWithNewSourceMaterial).toEqual([]);
+      expect(briefing.answerableQuestions).toEqual([]);
+      expect(briefing.nextAction).toBe(null);
       expect(briefing.recentlyUpdatedPages).toEqual([]);
       expect(briefing.driftingPages).toEqual([]);
     });
@@ -301,6 +319,278 @@ describe('wikiBriefingService', () => {
       });
       expect(briefing.summary).toMatch(/wiki pages? updated/);
       expect(briefing.model).toBe('stub');
+    });
+
+    it('surfaces recent import receipts in the briefing summary', async () => {
+      const recentReceipt = {
+        id: 'receipt-1',
+        kind: 'import',
+        source: 'readwise',
+        sourceLabel: 'Readwise',
+        status: 'completed',
+        summary: 'Readwise added 12 highlights.',
+        completedAt: new Date(NOW - 60_000).toISOString(),
+        metrics: {
+          importedArticles: 0,
+          importedHighlights: 12,
+          importedNotes: 0,
+          skippedRows: 1,
+          indexingQueued: 12,
+          indexingFailures: 0
+        },
+        touched: [
+          { type: 'highlight', id: 'h1', title: 'Opportunity Cost' }
+        ],
+        nextAction: { label: 'Review filing suggestions', intent: 'organize_import' }
+      };
+
+      const briefing = await buildWikiBriefing({
+        userId: 'u1',
+        models: {
+          WikiPage: fakeModel([]),
+          Article: fakeModel([]),
+          NotebookEntry: fakeModel([]),
+          ImportSession: fakeModel([{ receipt: recentReceipt }])
+        },
+        now: NOW,
+        chat: jest.fn(),
+        isConfigured: () => false
+      });
+
+      expect(briefing.counts.recentReceipts).toBe(1);
+      expect(briefing.recentReceipts[0]).toMatchObject({
+        id: 'receipt-1',
+        source: 'readwise',
+        sourceLabel: 'Readwise',
+        status: 'completed',
+        metrics: { importedHighlights: 12 },
+        nextAction: { label: 'Review filing suggestions', intent: 'organize_import' }
+      });
+      expect(briefing.summary).toMatch(/Readwise added 12 highlights/);
+    });
+
+    it('collects only recent import receipts for the owner return loop', async () => {
+      const receipts = await collectRecentImportReceipts({
+        userId: 'u1',
+        models: {
+          ImportSession: fakeModel([
+            {
+              receipt: {
+                id: 'old',
+                sourceLabel: 'Old import',
+                status: 'completed',
+                completedAt: new Date(NOW - 3 * ONE_DAY_MS).toISOString(),
+                metrics: { importedHighlights: 20 }
+              }
+            },
+            {
+              receipt: {
+                id: 'new',
+                sourceLabel: 'Notion',
+                status: 'completed_with_warnings',
+                completedAt: new Date(NOW - 5_000).toISOString(),
+                metrics: { importedNotes: 3 },
+                touched: [{ type: 'note', id: 'n1', title: 'Long note title' }]
+              }
+            }
+          ])
+        },
+        windowMs: ONE_DAY_MS,
+        now: NOW
+      });
+
+      expect(receipts).toHaveLength(1);
+      expect(receipts[0].id).toBe('new');
+      expect(receipts[0].summary).toBe('3 notes');
+      expect(receipts[0].touched[0]).toMatchObject({ type: 'note', id: 'n1' });
+    });
+
+    it('surfaces maintenance revisions as pages with new source material', async () => {
+      const revision = {
+        _id: 'rev-1',
+        pageId: 'page-1',
+        reason: 'agent_maintenance',
+        summary: 'Merged new evidence into Opportunity Cost.',
+        createdAt: new Date(NOW - 30_000).toISOString(),
+        before: {
+          title: 'Opportunity Cost',
+          sourceRefs: [{ id: 'old-source', title: 'Existing note' }],
+          claims: [{ text: 'Tradeoffs matter.', support: 'partial' }],
+          aiState: { health: { contradictions: [] } }
+        },
+        after: {
+          title: 'Opportunity Cost',
+          sourceRefs: [
+            { id: 'old-source', title: 'Existing note' },
+            { id: 'new-source-1', title: 'Cost of Capital memo' },
+            { id: 'new-source-2', title: 'Tradeoff highlight' }
+          ],
+          claims: [
+            { text: 'Tradeoffs matter.', support: 'partial' },
+            { text: 'Hidden alternatives shape the real cost.', support: 'supported' }
+          ],
+          aiState: { health: { contradictions: [{}] } }
+        },
+        maintenanceRunId: 'run-1',
+        sourceEventId: 'event-1'
+      };
+
+      const changes = await collectRecentMaintenanceChanges({
+        userId: 'u1',
+        models: { WikiRevision: fakeModel([revision]) },
+        windowMs: ONE_DAY_MS,
+        now: NOW
+      });
+      const sourcedPages = collectPagesWithNewSourceMaterial(changes);
+
+      expect(changes).toHaveLength(1);
+      expect(changes[0]).toMatchObject({
+        pageId: 'page-1',
+        title: 'Opportunity Cost',
+        sourceRefsAdded: 2,
+        sourceTitles: ['Cost of Capital memo', 'Tradeoff highlight'],
+        claimsChanged: 1,
+        supportChanged: 1,
+        becameConflicted: true
+      });
+      expect(sourcedPages[0]).toMatchObject({
+        pageId: 'page-1',
+        title: 'Opportunity Cost',
+        addedSourceCount: 2
+      });
+    });
+
+    it('flags open questions as answerable only when matching pages gained evidence', async () => {
+      const questions = [
+        {
+          _id: 'q1',
+          text: 'How does opportunity cost show up in capital allocation?',
+          status: 'open',
+          conceptName: 'Opportunity Cost',
+          linkedHighlightIds: ['h1']
+        },
+        {
+          _id: 'q2',
+          text: 'Should hidden QA data appear?',
+          status: 'open',
+          conceptName: 'QA Test',
+          debugOnly: true
+        }
+      ];
+      const answerable = await collectAnswerableQuestions({
+        userId: 'u1',
+        models: { Question: fakeModel(questions) },
+        pagesWithNewSourceMaterial: [{
+          pageId: 'page-1',
+          title: 'Opportunity Cost',
+          addedSourceCount: 2,
+          changedAt: new Date(NOW - 1_000).toISOString()
+        }],
+        maintenanceChanges: [{
+          pageId: 'page-1',
+          supportChanged: 1,
+          claimsChanged: 1
+        }]
+      });
+
+      expect(answerable).toHaveLength(1);
+      expect(answerable[0]).toMatchObject({
+        questionId: 'q1',
+        conceptName: 'Opportunity Cost',
+        evidencePageId: 'page-1',
+        evidencePageTitle: 'Opportunity Cost',
+        evidenceCount: 2,
+        href: '/think?tab=questions&questionId=q1'
+      });
+    });
+
+    it('prioritizes failed receipts, answerable questions, and source-backed pages for next action', () => {
+      expect(buildBriefingNextAction({
+        recentReceipts: [{
+          id: 'receipt-1',
+          status: 'failed',
+          sourceLabel: 'Readwise',
+          summary: 'Readwise needs a fresh authorization.'
+        }]
+      })).toMatchObject({
+        type: 'review_import',
+        href: '/connections',
+        target: { type: 'receipt', id: 'receipt-1' }
+      });
+
+      expect(buildBriefingNextAction({
+        answerableQuestions: [{
+          questionId: 'q1',
+          text: 'What changed?',
+          evidencePageTitle: 'Opportunity Cost',
+          evidenceCount: 2,
+          href: '/think?tab=questions&questionId=q1'
+        }]
+      })).toMatchObject({
+        type: 'answer_question',
+        href: '/think?tab=questions&questionId=q1'
+      });
+
+      expect(buildBriefingNextAction({
+        pagesWithNewSourceMaterial: [{
+          pageId: 'page-1',
+          title: 'Opportunity Cost',
+          addedSourceCount: 2
+        }]
+      })).toMatchObject({
+        type: 'review_page',
+        href: '/wiki/workspace?page=page-1'
+      });
+    });
+
+    it('includes maintenance and answerable-question signals in the full briefing', async () => {
+      const revision = {
+        _id: 'rev-1',
+        pageId: 'page-1',
+        reason: 'source_event',
+        summary: 'Added two new tradeoff notes.',
+        createdAt: new Date(NOW - 20_000).toISOString(),
+        before: { title: 'Opportunity Cost', sourceRefs: [], claims: [] },
+        after: {
+          title: 'Opportunity Cost',
+          sourceRefs: [
+            { id: 's1', title: 'Tradeoff note' },
+            { id: 's2', title: 'Capital allocation note' }
+          ],
+          claims: [{ text: 'Opportunity cost is comparative.', support: 'supported' }]
+        }
+      };
+      const briefing = await buildWikiBriefing({
+        userId: 'u1',
+        models: {
+          WikiPage: fakeModel([]),
+          Article: fakeModel([]),
+          NotebookEntry: fakeModel([]),
+          WikiRevision: fakeModel([revision]),
+          Question: fakeModel([{
+            _id: 'q1',
+            text: 'Can Opportunity Cost explain capital allocation mistakes?',
+            status: 'open',
+            conceptName: 'Opportunity Cost'
+          }])
+        },
+        now: NOW,
+        chat: jest.fn(),
+        isConfigured: () => false
+      });
+
+      expect(briefing.counts).toMatchObject({
+        recentMaintenanceChanges: 1,
+        pagesWithNewSourceMaterial: 1,
+        answerableQuestions: 1
+      });
+      expect(briefing.pagesWithNewSourceMaterial[0].sourceTitles).toEqual(['Tradeoff note', 'Capital allocation note']);
+      expect(briefing.answerableQuestions[0].questionId).toBe('q1');
+      expect(briefing.nextAction).toMatchObject({
+        type: 'answer_question',
+        target: { type: 'question', id: 'q1' }
+      });
+      expect(briefing.summary).toMatch(/open question now has fresh evidence/);
     });
 
     it('throws if no userId is provided', async () => {

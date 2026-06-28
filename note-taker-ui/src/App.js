@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect, useRef, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
@@ -22,6 +22,8 @@ import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
 import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
+import { useSystemStatus } from './system/useSystemStatus';
+import { SystemStatusProvider } from './system/SystemStatusContext';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
@@ -270,6 +272,27 @@ function App() {
   const [productFeedbackOpen, setProductFeedbackOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(() => loadUiSettingsFromStorage());
   const [uiSettingsSaving, setUiSettingsSaving] = useState(false);
+  const systemStatus = useSystemStatus();
+  const {
+    setBackgroundWork: setSystemBackgroundWork,
+    setLatestReceipt: setSystemLatestReceipt,
+    setRecoverableFailure: setSystemRecoverableFailure,
+    clearRecoverableFailure: clearSystemRecoverableFailure,
+    resetSystemStatus
+  } = systemStatus;
+  const systemStatusControls = useMemo(() => ({
+    setBackgroundWork: setSystemBackgroundWork,
+    setLatestReceipt: setSystemLatestReceipt,
+    setRecoverableFailure: setSystemRecoverableFailure,
+    clearRecoverableFailure: clearSystemRecoverableFailure,
+    resetSystemStatus
+  }), [
+    setSystemBackgroundWork,
+    setSystemLatestReceipt,
+    setSystemRecoverableFailure,
+    clearSystemRecoverableFailure,
+    resetSystemStatus
+  ]);
 
   // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
@@ -627,6 +650,18 @@ function App() {
             onThemeChange={(nextTheme) => handleUiSettingsChange({ theme: nextTheme })}
             themeSaving={uiSettingsSaving}
             accountMenuItems={topBarAccountMenuItems}
+            systemStatus={{
+              backgroundWork: systemStatus.backgroundWork,
+              latestReceipt: systemStatus.latestReceipt,
+              recoverableFailure: systemStatus.recoverableFailure
+            }}
+            onSystemStatusRetry={() => {
+              const retry = systemStatus.recoverableFailure?.retry;
+              systemStatus.clearRecoverableFailure();
+              if (typeof retry === 'function') {
+                retry();
+              }
+            }}
             className=""
           />
         )}
@@ -658,10 +693,12 @@ function App() {
   };
 
   return (
-    <Router>
-      <Analytics />
-      <AppRouterContent />
-    </Router>
+    <SystemStatusProvider value={systemStatusControls}>
+      <Router>
+        <Analytics />
+        <AppRouterContent />
+      </Router>
+    </SystemStatusProvider>
   );
 }
 

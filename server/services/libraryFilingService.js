@@ -3,6 +3,41 @@ const { chatComplete } = require('../ai/hfTextClient');
 const clean = (value) => String(value || '').trim();
 
 const FILING_SCOPE_REF = 'library-filing';
+
+const buildLibraryFilingReceipt = ({
+  summary = '',
+  articleCount = 0,
+  folderCount = 0,
+  classifiedWithLlm = null,
+  classifiedWithFallback = null,
+  reused = false,
+  proposalId = '',
+  threadId = '',
+  completedAt = new Date()
+} = {}) => ({
+  id: `filing-${proposalId || threadId || Date.now()}`,
+  kind: 'filing',
+  source: 'library',
+  status: 'needs_review',
+  title: reused ? 'Library filing review reopened' : 'Library filing suggestions ready',
+  summary,
+  metrics: {
+    articleCount,
+    folderCount,
+    classifiedWithLlm,
+    classifiedWithFallback
+  },
+  touched: proposalId
+    ? [{ type: 'folder', id: String(proposalId), title: 'Library filing proposal' }]
+    : [],
+  nextAction: {
+    label: 'Review filing proposal',
+    href: threadId ? `/think?tab=threads&threadId=${encodeURIComponent(String(threadId))}` : '/think?tab=threads',
+    intent: 'review_filing'
+  },
+  createdAt: new Date(completedAt).toISOString(),
+  completedAt: new Date(completedAt).toISOString()
+});
 const CLASSIFY_BATCH_SIZE = 20;
 
 const inferOrganizationFolderNameRegex = (item = {}) => {
@@ -318,8 +353,8 @@ const stageLibraryFilingSuggestions = async ({
         ? sanitizeAgentStructureProposalDoc(existing)
         : existing,
       thread: thread && sanitizeAgentThreadDoc ? sanitizeAgentThreadDoc(thread) : thread,
-      receipt: {
-        stage: 'ready',
+      receipt: buildLibraryFilingReceipt({
+        reused: true,
         summary: `Reopened ${clean(existing.summary) || 'the pending filing review'}.`,
         articleCount: (existing.operations || []).filter((op) => clean(op?.type) === 'move_item').length,
         folderCount: new Set(
@@ -328,8 +363,11 @@ const stageLibraryFilingSuggestions = async ({
             .filter(Boolean)
         ).size,
         classifiedWithLlm: null,
-        classifiedWithFallback: null
-      }
+        classifiedWithFallback: null,
+        proposalId: String(existing._id || ''),
+        threadId,
+        completedAt: new Date()
+      })
     };
   }
 
@@ -415,14 +453,16 @@ const stageLibraryFilingSuggestions = async ({
       ? sanitizeAgentStructureProposalDoc(proposal)
       : proposal,
     thread: thread && sanitizeAgentThreadDoc ? sanitizeAgentThreadDoc(thread) : thread,
-    receipt: {
-      stage: 'ready',
+    receipt: buildLibraryFilingReceipt({
       summary: `Staged ${classifications.length} filing ${classifications.length === 1 ? 'suggestion' : 'suggestions'} across ${folderCount} ${folderCount === 1 ? 'folder' : 'folders'} for review.`,
       articleCount: classifications.length,
       folderCount,
       classifiedWithLlm: llmCount,
-      classifiedWithFallback: regexCount
-    }
+      classifiedWithFallback: regexCount,
+      proposalId: String(proposal?._id || ''),
+      threadId: String(thread?._id || ''),
+      completedAt: new Date()
+    })
   };
 };
 
@@ -435,6 +475,7 @@ module.exports = {
   classifyArticlesWithRegex,
   classifyArticles,
   findExistingLibraryFilingProposal,
+  buildLibraryFilingReceipt,
   loadUnfiledArticlesWithHighlights,
   buildLibraryFilingProposalPayload,
   stageLibraryFilingSuggestions

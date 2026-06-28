@@ -1,0 +1,181 @@
+.system-status {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.system-status__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
+  max-width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--vellum-ink, #1a1a1a) 72%, transparent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.system-status__trigger:hover,
+.system-status__trigger.is-open {
+  background: var(--vellum-panel-strong, rgba(255, 255, 255, 0.6));
+  color: var(--vellum-ink, #1a1a1a);
+}
+
+.system-status__trigger:focus-visible {
+  outline: 2px solid var(--vellum-accent, #8b6914);
+  outline-offset: 2px;
+}
+
+.system-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--vellum-ink, #1a1a1a) 40%, transparent);
+}
+
+.system-status--working .system-status__dot {
+  background: var(--vellum-accent, #8b6914);
+  animation: system-status-pulse 1.4s ease-in-out infinite;
+}
+
+.system-status--receipt .system-status__dot {
+  background: color-mix(in srgb, #2f6b3a 82%, var(--vellum-ink, #1a1a1a));
+}
+
+.system-status--failure .system-status__dot {
+  background: color-mix(in srgb, #9a3b2f 88%, var(--vellum-ink, #1a1a1a));
+}
+
+.system-status__label {
+  display: none;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 761px) {
+  .system-status__trigger {
+    min-width: auto;
+    max-width: 11rem;
+    height: 34px;
+    padding: 0 10px 0 8px;
+  }
+
+  .system-status__label {
+    display: block;
+  }
+}
+
+.system-status__popover {
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 8px;
+  border: 1px solid var(--vellum-line, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--vellum-panel, #faf8f4);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+}
+
+.system-status__section {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.system-status__section + .system-status__section {
+  margin-top: 4px;
+  border-top: 1px solid var(--vellum-line-soft, rgba(0, 0, 0, 0.08));
+  padding-top: 12px;
+}
+
+.system-status__section--failure {
+  background: color-mix(in srgb, #9a3b2f 8%, transparent);
+}
+
+.system-status__section--working {
+  background: color-mix(in srgb, var(--vellum-accent, #8b6914) 8%, transparent);
+}
+
+.system-status__section--receipt {
+  background: color-mix(in srgb, #2f6b3a 6%, transparent);
+}
+
+.system-status__section-kicker {
+  margin: 0;
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink, #1a1a1a) 58%, transparent);
+}
+
+.system-status__section-title {
+  margin: 0;
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--vellum-ink, #1a1a1a);
+}
+
+.system-status__section-body {
+  margin: 0;
+  font-family: var(--noeis-ui-font, system-ui, sans-serif);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--vellum-ink, #1a1a1a) 72%, transparent);
+}
+
+.system-status__retry {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--vellum-line, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.system-status__retry:hover {
+  background: var(--vellum-panel-strong, rgba(255, 255, 255, 0.6));
+}
+
+.system-status__link {
+  justify-self: start;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: var(--vellum-accent, #8b6914);
+  text-decoration: none;
+}
+
+.system-status__link:hover {
+  text-decoration: underline;
+}
+
+@keyframes system-status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .system-status--working .system-status__dot {
+    animation: none;
+  }
+}

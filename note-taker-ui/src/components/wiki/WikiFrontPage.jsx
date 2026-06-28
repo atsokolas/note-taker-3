@@ -8,6 +8,11 @@ import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import {
+  normalizeBriefingNextAction,
+  selectPrimaryReturnLoopNote,
+  selectBriefingReturnLoopNotes
+} from './wikiBriefingReturnLoopModel';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -23,7 +28,7 @@ const EXPLORE_LIMIT = 10;
 const GROWN_LIMIT = 3;
 const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 
-const pageId = (page) => (page && (page._id || page.id)) || '';
+const pageId = (page) => (page && (page._id || page.id || page.pageId)) || '';
 
 const pageWeight = (page = {}) => (
   countWikiSources(page) * 3
@@ -203,6 +208,12 @@ const WikiFrontPage = () => {
       : []
   ), [briefing, resolvePage]);
 
+  const sourceMaterialPages = useMemo(() => (
+    Array.isArray(briefing?.pagesWithNewSourceMaterial)
+      ? filterReturnViewItems(briefing.pagesWithNewSourceMaterial.map(resolvePage))
+      : []
+  ), [briefing, resolvePage]);
+
   const weighted = useMemo(() => (
     [...curatedPages].sort((a, b) => pageWeight(b) - pageWeight(a)
       || String(a.title || '').localeCompare(String(b.title || '')))
@@ -210,7 +221,7 @@ const WikiFrontPage = () => {
 
   // Today's page: the agent's most recently enriched page; otherwise the
   // strongest page in the corpus. Different day to day because the corpus is.
-  const todaysPage = recentlyUpdated[0] || weighted[0] || null;
+  const todaysPage = sourceMaterialPages[0] || recentlyUpdated[0] || weighted[0] || null;
 
   const recentlyGrown = useMemo(() => {
     const leadId = String(pageId(todaysPage));
@@ -243,6 +254,18 @@ const WikiFrontPage = () => {
 
   const leadSentence = completeLeadSentence(briefing?.summary || '');
   const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
+  const briefingNextAction = useMemo(
+    () => normalizeBriefingNextAction(briefing),
+    [briefing]
+  );
+  const returnLoopNotes = useMemo(
+    () => selectBriefingReturnLoopNotes(briefing),
+    [briefing]
+  );
+  const primaryReturnLoopNote = useMemo(
+    () => selectPrimaryReturnLoopNote(returnLoopNotes),
+    [returnLoopNotes]
+  );
 
   if (loading) {
     return (
@@ -315,6 +338,24 @@ const WikiFrontPage = () => {
           {leadSentence ? (
             <p className="wiki-front-page__lead">
               <WriteIn text={leadSentence} />
+            </p>
+          ) : null}
+          {briefingNextAction ? (
+            <div className="wiki-front-page__next-action">
+              <span className="wiki-front-page__next-action-kicker">Return path</span>
+              <Link className="wiki-front-page__next-action-link" to={briefingNextAction.href}>
+                {briefingNextAction.label} →
+              </Link>
+              {briefingNextAction.reason ? (
+                <p className="wiki-front-page__next-action-reason">{briefingNextAction.reason}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {primaryReturnLoopNote ? (
+            <p className="wiki-front-page__evidence-strip">
+              <span>Evidence surfaced</span>
+              <Link to={primaryReturnLoopNote.href}>{primaryReturnLoopNote.label}</Link>
+              <em>{primaryReturnLoopNote.detail}</em>
             </p>
           ) : null}
           {workspaceNav}

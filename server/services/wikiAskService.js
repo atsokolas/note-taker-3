@@ -24,6 +24,9 @@ const MAX_GRAPH_CONCEPTS = 4;
 const MAX_GRAPH_BACKLINKS = 4;
 const MAX_WIKI_PAGE_SCAN = 200;
 const MAX_WIKI_PAGE_CANDIDATES = 80;
+const MAX_TEMPORAL_REVISIONS = 8;
+const MAX_TEMPORAL_CONTEXTS = 5;
+const MAX_CONTRADICTION_CONTEXTS = 6;
 const EXACT_SENTENCE_STOPWORDS = new Set([
   'about', 'answer', 'exact', 'from', 'page', 'quote', 'sentence', 'this',
   'verbatim', 'word', 'wording', 'words'
@@ -79,6 +82,14 @@ const isExactSentenceRequest = (question = '') => (
 
 const isSourceChangeQuestion = (question = '') => (
   /\b(changed?|updated?|new|ingest|source|added|since)\b/i.test(question)
+);
+
+const isTemporalQuestion = (question = '') => (
+  /\b(changed?|changing|evolved?|evolution|shifted?|updated?|new(?:ly)?|recent(?:ly)?|since|over\s+(?:time|the\s+(?:last|past)|this)|what\s+is\s+different|what\s+did\s+we\s+learn|what\s+have\s+we\s+learned|what\s+changed\s+in\s+my\s+thinking)\b/i.test(question)
+);
+
+const isContradictionQuestion = (question = '') => (
+  /\b(contradict(?:s|ion|ory)?|conflict(?:s|ing)?|disagree(?:s|ment)?|tension(?:s)?|against|counter(?:evidence|argument)?|where\s+(?:do|does).*\b(?:differ|diverge)|diverg(?:e|ing|ence)|what\s+does.*\bget\s+wrong)\b/i.test(question)
 );
 
 const isSummaryRequest = (question = '') => (
@@ -429,12 +440,138 @@ const buildBacklinkContexts = ({
     .slice(0, Math.max(0, limit));
 };
 
+const extractClaimText = (claim = {}) => truncateAtSentenceBoundary(
+  claim?.text || claim?.claim || claim?.statement || claim?.summary || '',
+  320
+);
+
+const extractSourceTitleById = (sourceRefs = [], id = '') => {
+  const wanted = String(id || '').trim();
+  if (!wanted) return '';
+  const found = (Array.isArray(sourceRefs) ? sourceRefs : []).find((source) => (
+    String(source?._id || source?.id || source?.objectId || '') === wanted
+  ));
+  return truncate(found?.title || found?.snippet || found?.text, 160);
+};
+
+const collectClaimContradictionContexts = ({
+  page,
+  relatedPages = [],
+  question = '',
+  limit = MAX_CONTRADICTION_CONTEXTS
+} = {}) => {
+  if (!isContradictionQuestion(question)) return [];
+  const pages = [page, ...(Array.isArray(relatedPages) ? relatedPages : [])].filter(Boolean);
+  const rows = [];
+  pages.forEach((sourcePage) => {
+    const pageTitle = truncate(sourcePage?.title, 160) || 'Untitled page';
+    (Array.isArray(sourcePage?.claims) ? sourcePage.claims : []).forEach((claim) => {
+      const contradictedIds = Array.isArray(claim?.contradictedByCitationIds)
+        ? claim.contradictedByCitationIds.map(String).filter(Boolean)
+        : [];
+      const support = String(claim?.support || '').toLowerCase();
+      const text = extractClaimText(claim);
+      if (!text || (support !== 'conflicted' && support !== 'contradicted' && !contradictedIds.length)) return;
+      rows.push({
+        pageId: serializeObjectId(sourcePage),
+        pageTitle,
+        claimId: String(claim?._id || claim?.claimId || claim?.id || ''),
+        support: support || (contradictedIds.length ? 'conflicted' : ''),
+        text,
+        contradictedByCitationIds: contradictedIds.slice(0, 4),
+        contradictedByTitles: contradictedIds
+          .map(id => extractSourceTitleById(sourcePage?.sourceRefs, id))
+          .filter(Boolean)
+          .slice(0, 4),
+        score: scoreTextForQuestion(`${pageTitle} ${text}`, question)
+      });
+    });
+  });
+  return rows
+    .sort((left, right) => right.score - left.score || left.pageTitle.localeCompare(right.pageTitle))
+    .slice(0, Math.max(0, limit));
+};
+
+const serializeRevisionDate = (revision = {}) => {
+  const raw = revision?.createdAt || revision?.updatedAt || '';
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+};
+
+const countArrayDelta = (beforeValue = [], afterValue = []) => (
+  (Array.isArray(afterValue) ? afterValue.length : 0) - (Array.isArray(beforeValue) ? beforeValue.length : 0)
+);
+
+const firstChangedClaim = (beforeClaims = [], afterClaims = []) => {
+  const beforeSet = new Set((Array.isArray(beforeClaims) ? beforeClaims : []).map(claim => normalizeComparableText(extractClaimText(claim))).filter(Boolean));
+  return (Array.isArray(afterClaims) ? afterClaims : []).find((claim) => {
+    const text = extractClaimText(claim);
+    return text && !beforeSet.has(normalizeComparableText(text));
+  });
+};
+
+const collectTemporalChangeContexts = ({
+  page,
+  revisionRows = [],
+  question = '',
+  limit = MAX_TEMPORAL_CONTEXTS
+} = {}) => {
+  if (!isTemporalQuestion(question)) return [];
+  const selectedId = serializeObjectId(page);
+  return (Array.isArray(revisionRows) ? revisionRows : [])
+    .filter(Boolean)
+    .map((revision) => {
+      const before = revision.before || {};
+      const after = revision.after || {};
+      const pageTitle = truncate(after.title || before.title || page?.title, 160) || 'Untitled page';
+      const sourceDelta = countArrayDelta(before.sourceRefs, after.sourceRefs);
+      const claimDelta = countArrayDelta(before.claims, after.claims);
+      const citationDelta = countArrayDelta(before.citations, after.citations);
+      const changedClaim = firstChangedClaim(before.claims, after.claims);
+      const beforeText = truncateAtSentenceBoundary(before.plainText || pageBodySentenceText(before), 240);
+      const afterText = truncateAtSentenceBoundary(after.plainText || pageBodySentenceText(after), 320);
+      const summaryParts = [];
+      const explicitSummary = truncateAtSentenceBoundary(revision.summary, 220);
+      if (explicitSummary) summaryParts.push(explicitSummary);
+      if (sourceDelta > 0) summaryParts.push(`added ${sourceDelta} source${sourceDelta === 1 ? '' : 's'}`);
+      if (claimDelta > 0) summaryParts.push(`added ${claimDelta} claim${claimDelta === 1 ? '' : 's'}`);
+      if (citationDelta > 0) summaryParts.push(`added ${citationDelta} citation${citationDelta === 1 ? '' : 's'}`);
+      if (changedClaim) summaryParts.push(`new claim: ${extractClaimText(changedClaim)}`);
+      const fallbackSummary = afterText && beforeText && normalizeComparableText(afterText) !== normalizeComparableText(beforeText)
+        ? `text shifted toward: ${afterText}`
+        : afterText;
+      const summary = truncateAtSentenceBoundary(summaryParts.join('; ') || fallbackSummary, 360);
+      return {
+        revisionId: serializeObjectId(revision),
+        pageId: serializeObjectId(revision.pageId || after._id || before._id),
+        pageTitle,
+        date: serializeRevisionDate(revision),
+        reason: truncate(revision.reason, 80),
+        actorType: truncate(revision.actorType, 80),
+        summary,
+        sourceDelta,
+        claimDelta,
+        citationDelta,
+        isSelectedPage: !selectedId || serializeObjectId(revision.pageId || after._id || before._id) === selectedId
+      };
+    })
+    .filter(row => row.summary)
+    .sort((left, right) => (
+      new Date(right.date || 0) - new Date(left.date || 0)
+      || Number(right.isSelectedPage) - Number(left.isSelectedPage)
+    ))
+    .slice(0, Math.max(0, limit));
+};
+
 const buildGraphSearchSummary = ({
   page,
   relatedPageContexts = [],
   highlightContexts = [],
   conceptContexts = [],
   backlinkContexts = [],
+  temporalContexts = [],
+  contradictionContexts = [],
   selectedPageOnly = false
 } = {}) => {
   const pageTitle = truncate(page?.title, 120) || 'the selected page';
@@ -452,6 +589,12 @@ const buildGraphSearchSummary = ({
   if (backlinkContexts.length) {
     parts.push(`${backlinkContexts.length} backlink${backlinkContexts.length === 1 ? '' : 's'}`);
   }
+  if (temporalContexts.length) {
+    parts.push(`${temporalContexts.length} revision change${temporalContexts.length === 1 ? '' : 's'}`);
+  }
+  if (contradictionContexts.length) {
+    parts.push(`${contradictionContexts.length} contradiction signal${contradictionContexts.length === 1 ? '' : 's'}`);
+  }
   return `Searched ${parts.join(', ')}.`;
 };
 
@@ -462,6 +605,8 @@ const provenanceFromContext = ({
   highlightContexts = [],
   conceptContexts = [],
   backlinkContexts = [],
+  temporalContexts = [],
+  contradictionContexts = [],
   bridgeInsight = '',
   selectedPageOnly = false,
   searchedSummary = ''
@@ -495,11 +640,19 @@ const provenanceFromContext = ({
   if (nonHighlightSources) {
     parts.push(`${nonHighlightSources} source${nonHighlightSources === 1 ? '' : 's'}`);
   }
+  if (temporalContexts.length) {
+    parts.push(`${temporalContexts.length} change${temporalContexts.length === 1 ? '' : 's'}`);
+  }
+  if (contradictionContexts.length) {
+    parts.push(`${contradictionContexts.length} contradiction${contradictionContexts.length === 1 ? '' : 's'}`);
+  }
   const graphExpanded = !selectedPageOnly && (
     relatedPageContexts.length > 0
     || highlightContexts.length > 0
     || conceptContexts.length > 0
     || backlinkContexts.length > 0
+    || temporalContexts.length > 0
+    || contradictionContexts.length > 0
   );
   return {
     mode: selectedPageOnly ? 'page_only' : (graphExpanded ? 'graph_expanded' : 'page_first'),
@@ -512,7 +665,26 @@ const provenanceFromContext = ({
     highlightCount,
     sourceCount: nonHighlightSources,
     conceptCount,
-    backlinkCount: backlinkContexts.length
+    backlinkCount: backlinkContexts.length,
+    temporalChangeCount: temporalContexts.length,
+    contradictionCount: contradictionContexts.length,
+    temporalChanges: temporalContexts.map(row => ({
+      revisionId: row.revisionId,
+      pageId: row.pageId,
+      pageTitle: row.pageTitle,
+      date: row.date,
+      reason: row.reason,
+      summary: row.summary
+    })),
+    contradictions: contradictionContexts.map(row => ({
+      pageId: row.pageId,
+      pageTitle: row.pageTitle,
+      claimId: row.claimId,
+      support: row.support,
+      text: row.text,
+      contradictedByCitationIds: row.contradictedByCitationIds,
+      contradictedByTitles: row.contradictedByTitles
+    }))
   };
 };
 
@@ -760,6 +932,8 @@ const buildSystemPrompt = ({
   highlightContexts = [],
   conceptContexts = [],
   backlinkContexts = [],
+  temporalContexts = [],
+  contradictionContexts = [],
   question,
   wikiSchemaContent = '',
   selectedPageOnly = false
@@ -779,6 +953,12 @@ const buildSystemPrompt = ({
     .join('\n\n');
   const backlinkLines = backlinkContexts
     .map((backlink, index) => `BACKLINK ${index + 1}: ${backlink.title}${backlink.forPageTitle ? ` (mentions ${backlink.forPageTitle})` : ''}\n${backlink.snippet || '(no snippet)'}`)
+    .join('\n\n');
+  const temporalLines = temporalContexts
+    .map((change, index) => `REVISION CHANGE ${index + 1}: ${change.pageTitle}${change.date ? ` on ${change.date}` : ''}${change.reason ? ` (${change.reason})` : ''}\n${change.summary}`)
+    .join('\n\n');
+  const contradictionLines = contradictionContexts
+    .map((row, index) => `CONTRADICTION ${index + 1}: ${row.pageTitle}${row.support ? ` (${row.support})` : ''}\nClaim: ${row.text}${row.contradictedByTitles?.length ? `\nConflicting evidence: ${row.contradictedByTitles.join('; ')}` : ''}`)
     .join('\n\n');
   const exactRule = isExactSentenceRequest(question)
     ? '\n- This is an exact/quote request: answer from complete sentences in the page context, and preserve quoted sentence wording exactly when quoting.'
@@ -803,6 +983,10 @@ ${highlightLines ? `Relevant highlights from the corpus:\n${highlightLines}` : '
 ${conceptLines ? `Relevant concept records:\n${conceptLines}` : ''}
 
 ${backlinkLines ? `Backlinks that mention related pages:\n${backlinkLines}` : ''}
+
+${temporalLines ? `Revision history relevant to temporal/change questions:\n${temporalLines}` : ''}
+
+${contradictionLines ? `Explicit contradiction or tension signals from page claims:\n${contradictionLines}` : ''}
 
 The reader has attached the following sources on the selected page, each prefixed with a 1-based index:
 ${sourceLines || '(no attached sources)'}
@@ -830,6 +1014,8 @@ Rules:
 - citationIndexes per paragraph point to the reader's attached sources only.
 - Use [] for citationIndexes when the paragraph relies only on the page text or general reasoning.
 - Never invent sources or indexes outside the attached set.
+- For temporal/change questions, name the concrete revision changes and dates when provided instead of giving a generic summary.
+- For contradiction/tension questions, name the contested claims and conflicting evidence. Do not smooth contradictions into agreement.
 - Never include trailing "[1, 2]" suffixes inside the text — citations live in the JSON, not the prose.
 - Treat the page body above as coherent page context; do not answer from partial words or broken sentence fragments.${scopeRule}${exactRule}${summaryRule}
 
@@ -929,12 +1115,66 @@ const buildGraphFallbackAnswer = ({
   };
 };
 
+const buildTemporalFallbackAnswer = ({
+  page,
+  temporalContexts = [],
+  sources = []
+} = {}) => {
+  if (!temporalContexts.length) return null;
+  const title = truncate(page?.title, 100) || 'this page';
+  const leading = temporalContexts[0];
+  const intro = `Your thinking on ${title} changed in ${temporalContexts.length} visible step${temporalContexts.length === 1 ? '' : 's'}.`;
+  const lines = temporalContexts.slice(0, 3).map((change) => {
+    const when = change.date ? `${change.date}: ` : '';
+    return `${when}${change.pageTitle}${change.pageTitle === title ? '' : ` moved`} — ${change.summary}`;
+  });
+  const bridgeInsight = leading?.summary
+    ? `The newest visible change is ${leading.summary}`
+    : '';
+  const citationIndexes = temporalContexts.some(change => Number(change.sourceDelta || 0) > 0)
+    ? (Array.isArray(sources) ? sources : []).slice(0, 3).map(source => source.index).filter(Number.isFinite)
+    : [];
+  return {
+    bridgeInsight: truncateAtSentenceBoundary(bridgeInsight, 260),
+    paragraphs: [{
+      text: truncateAtSentenceBoundary(`${intro} ${lines.join(' ')}`, 700),
+      citationIndexes
+    }],
+    citationIndexesUsed: citationIndexes
+  };
+};
+
+const buildContradictionFallbackAnswer = ({
+  page,
+  contradictionContexts = []
+} = {}) => {
+  if (!contradictionContexts.length) return null;
+  const title = truncate(page?.title, 100) || 'this page';
+  const first = contradictionContexts[0];
+  const lines = contradictionContexts.slice(0, 3).map((row) => {
+    const evidence = row.contradictedByTitles?.length
+      ? ` Conflicting evidence: ${row.contradictedByTitles.join('; ')}.`
+      : '';
+    return `${row.pageTitle}: "${row.text}" is marked ${row.support || 'conflicted'}.${evidence}`;
+  });
+  const bridgeInsight = `${title} has explicit tension in ${first.pageTitle}: ${first.text}`;
+  return {
+    bridgeInsight: truncateAtSentenceBoundary(bridgeInsight, 260),
+    paragraphs: [{
+      text: truncateAtSentenceBoundary(`The clearest disagreement is not hidden in prose; it is already marked in the claims. ${lines.join(' ')}`, 800),
+      citationIndexes: []
+    }],
+    citationIndexesUsed: []
+  };
+};
+
 const buildAskGraphContext = ({
   page,
   relatedPages = [],
   question = '',
   conceptRecords = [],
-  backlinkRows = []
+  backlinkRows = [],
+  revisionRows = []
 } = {}) => {
   const selectedPageOnly = isSelectedPageOnlyQuestion(question);
   const rankedPages = rankWikiPageCandidates({
@@ -959,12 +1199,22 @@ const buildAskGraphContext = ({
   const backlinkContexts = selectedPageOnly
     ? []
     : buildBacklinkContexts({ question, backlinkRows, relatedPageContexts });
+  const temporalContexts = collectTemporalChangeContexts({
+    page,
+    revisionRows,
+    question
+  });
+  const contradictionContexts = selectedPageOnly
+    ? collectClaimContradictionContexts({ page, relatedPages: [], question })
+    : collectClaimContradictionContexts({ page, relatedPages: rankedPages, question });
   const searchedSummary = buildGraphSearchSummary({
     page,
     relatedPageContexts,
     highlightContexts,
     conceptContexts,
     backlinkContexts,
+    temporalContexts,
+    contradictionContexts,
     selectedPageOnly
   });
   return {
@@ -973,6 +1223,8 @@ const buildAskGraphContext = ({
     highlightContexts,
     conceptContexts,
     backlinkContexts,
+    temporalContexts,
+    contradictionContexts,
     selectedPageOnly,
     searchedSummary
   };
@@ -983,13 +1235,14 @@ const loadWikiAskCorpus = async ({
   question,
   userId,
   WikiPage,
+  WikiRevision,
   TagMeta,
   findWikiBacklinks,
   pageScanLimit = MAX_WIKI_PAGE_SCAN,
   candidateLimit = MAX_WIKI_PAGE_CANDIDATES
 } = {}) => {
   if (!WikiPage?.find || !userId) {
-    return { relatedPages: [], conceptRecords: [], backlinkRows: [] };
+    return { relatedPages: [], conceptRecords: [], backlinkRows: [], revisionRows: [] };
   }
   const trimmed = asString(question);
   const visibleWikiPageMatch = {
@@ -1002,7 +1255,7 @@ const loadWikiAskCorpus = async ({
   const recentPagesRaw = await WikiPage.find(visibleWikiPageMatch)
     .sort({ updatedAt: -1 })
     .limit(Math.max(1, pageScanLimit))
-    .select('title slug pageType plainText body sourceRefs updatedAt')
+    .select('title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt')
     .lean();
   const recentPages = (Array.isArray(recentPagesRaw) ? recentPagesRaw : []).filter(isWikiPageSurfaceEligible);
   const selectedPageOnly = isSelectedPageOnlyQuestion(trimmed);
@@ -1020,7 +1273,7 @@ const loadWikiAskCorpus = async ({
       $or: titleCandidates.map(title => ({ title: exactTitleRegex(title) }))
     })
       .limit(Math.max(1, candidateLimit))
-      .select('title slug pageType plainText body sourceRefs updatedAt')
+      .select('title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt')
       .lean();
     const mentionedPages = (Array.isArray(mentionedPagesRaw) ? mentionedPagesRaw : []).filter(isWikiPageSurfaceEligible);
     allPages = mergeWikiPages(recentPages, mentionedPages);
@@ -1086,7 +1339,31 @@ const loadWikiAskCorpus = async ({
     }
   }
 
-  return { relatedPages, conceptRecords, backlinkRows };
+  let revisionRows = [];
+  if (WikiRevision?.find && isTemporalQuestion(trimmed)) {
+    const revisionPageIds = [
+      serializeObjectId(page),
+      ...buildRelatedPageContexts({
+        page,
+        relatedPages,
+        question: trimmed,
+        selectedPageOnly,
+        limit: 3
+      }).map(row => row.id)
+    ].filter(Boolean);
+    if (revisionPageIds.length) {
+      revisionRows = await WikiRevision.find({
+        userId,
+        pageId: { $in: Array.from(new Set(revisionPageIds)) }
+      })
+        .sort({ createdAt: -1 })
+        .limit(MAX_TEMPORAL_REVISIONS)
+        .select('pageId reason actorType before after summary createdAt updatedAt')
+        .lean();
+    }
+  }
+
+  return { relatedPages, conceptRecords, backlinkRows, revisionRows };
 };
 
 const normalizeAnswerSchema = (raw, fallback, maxCitationIndex = Infinity) => {
@@ -1143,7 +1420,8 @@ const askWikiPage = async ({
   wikiSchemaContent = '',
   relatedPages = [],
   conceptRecords = [],
-  backlinkRows = []
+  backlinkRows = [],
+  revisionRows = []
 } = {}) => {
   const trimmed = truncate(question, MAX_QUESTION);
   if (!trimmed) {
@@ -1161,13 +1439,16 @@ const askWikiPage = async ({
     relatedPages,
     question: trimmed,
     conceptRecords,
-    backlinkRows
+    backlinkRows,
+    revisionRows
   });
   const {
     relatedPageContexts,
     highlightContexts,
     conceptContexts,
     backlinkContexts,
+    temporalContexts,
+    contradictionContexts,
     selectedPageOnly,
     searchedSummary
   } = graphContext;
@@ -1178,6 +1459,8 @@ const askWikiPage = async ({
     highlightContexts,
     conceptContexts,
     backlinkContexts,
+    temporalContexts,
+    contradictionContexts,
     bridgeInsight,
     selectedPageOnly,
     searchedSummary
@@ -1191,6 +1474,8 @@ const askWikiPage = async ({
     question: trimmed,
     searchedSummary
   });
+  const temporalFallback = buildTemporalFallbackAnswer({ page, temporalContexts, sources });
+  const contradictionFallback = buildContradictionFallbackAnswer({ page, contradictionContexts });
   if (isSummaryRequest(trimmed)) {
     const summaryAnswer = buildPageSummaryAnswer({ page, question: trimmed });
     return {
@@ -1224,6 +1509,17 @@ const askWikiPage = async ({
     };
   }
 
+  if (temporalFallback) {
+    return {
+      answer: docFromAnswer(temporalFallback, sources.length),
+      citationIndexesUsed: temporalFallback.citationIndexesUsed,
+      provenance: buildProvenance(temporalFallback.bridgeInsight || ''),
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
+
   if (isSourceChangeQuestion(trimmed) && sources.length) {
     const sourceFallback = buildFallbackAnswer({
       page,
@@ -1235,6 +1531,17 @@ const askWikiPage = async ({
       answer: docFromAnswer(sourceFallback, sources.length),
       citationIndexesUsed: sourceFallback.citationIndexesUsed,
       provenance: buildProvenance(fallback.bridgeInsight || ''),
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
+
+  if (contradictionFallback) {
+    return {
+      answer: docFromAnswer(contradictionFallback, sources.length),
+      citationIndexesUsed: contradictionFallback.citationIndexesUsed,
+      provenance: buildProvenance(contradictionFallback.bridgeInsight || ''),
       model: 'deterministic',
       status: 'answered',
       errorMessage: ''
@@ -1262,6 +1569,8 @@ const askWikiPage = async ({
     highlightContexts,
     conceptContexts,
     backlinkContexts,
+    temporalContexts,
+    contradictionContexts,
     question: trimmed,
     wikiSchemaContent,
     selectedPageOnly
@@ -1315,6 +1624,10 @@ module.exports = {
     buildGraphSearchSummary,
     provenanceFromContext,
     buildSystemPrompt,
+    collectClaimContradictionContexts,
+    collectTemporalChangeContexts,
+    buildTemporalFallbackAnswer,
+    buildContradictionFallbackAnswer,
     extractJson,
     normalizeAnswerSchema,
     buildFallbackAnswer,
@@ -1327,6 +1640,8 @@ module.exports = {
     truncateAtSentenceBoundary,
     buildPageContext,
     buildPageSummaryAnswer,
+    isTemporalQuestion,
+    isContradictionQuestion,
     isSummaryRequest,
     requestedBulletCount,
     isExactSentenceRequest,

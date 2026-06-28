@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import WikiWorkspace from './WikiWorkspace';
+import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import { streamChatWithAgent } from '../../api/agent';
 import { getArticles } from '../../api/articles';
 import { createConnection, getConnectionsForItem, searchConnectableItems } from '../../api/connections';
@@ -89,7 +90,16 @@ jest.mock('./WikiPageEditor', () => ({ pageId, onDoneEditing }) => (
 
 const mockNavigate = jest.fn();
 
-const renderWorkspace = (initialEntry = '/wiki/workspace?view=graph') => {
+const buildSystemStatusControls = (overrides = {}) => ({
+  setBackgroundWork: jest.fn(),
+  setLatestReceipt: jest.fn(),
+  setRecoverableFailure: jest.fn(),
+  clearRecoverableFailure: jest.fn(),
+  resetSystemStatus: jest.fn(),
+  ...overrides
+});
+
+const renderWorkspace = (initialEntry = '/wiki/workspace?view=graph', { systemStatusControls = buildSystemStatusControls() } = {}) => {
   const parsed = new URL(initialEntry, 'http://localhost');
   jest.spyOn(router, 'useLocation').mockReturnValue({
     pathname: parsed.pathname,
@@ -99,11 +109,16 @@ const renderWorkspace = (initialEntry = '/wiki/workspace?view=graph') => {
     key: 'test'
   });
   jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
-  return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <WikiWorkspace />
-    </MemoryRouter>
-  );
+  return {
+    systemStatusControls,
+    ...render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <SystemStatusProvider value={systemStatusControls}>
+          <WikiWorkspace />
+        </SystemStatusProvider>
+      </MemoryRouter>
+    )
+  };
 };
 
 const settleWorkspaceEffects = async () => {
@@ -745,6 +760,29 @@ describe('WikiWorkspace', () => {
     expect(screen.getByLabelText('Review ingest plan')).toHaveTextContent('Plan status: pending review');
   });
 
+  it('publishes a system receipt when source ingest completes', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    renderWorkspace('/wiki/workspace?page=wiki-1', { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'https://example.com/source' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(ingestWikiSource).toHaveBeenCalled());
+    await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: expect.stringContaining('Source ingest'),
+      status: 'needs_review',
+      href: '/wiki/activity/ingest-1'
+    })));
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith({
+      label: 'Ingesting source',
+      stage: 'Metabolizing source'
+    });
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
+  });
+
   it('keeps a visible metabolize receipt while source ingest is running', async () => {
     let resolveIngest;
     ingestWikiSource.mockImplementationOnce(() => new Promise(resolve => {
@@ -1068,12 +1106,20 @@ describe('WikiWorkspace', () => {
   it('recovers when an auto-build maintenance stream never completes', async () => {
     window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__ = 0;
     streamMaintainWikiPage.mockImplementationOnce(() => new Promise(() => {}));
+    const systemStatusControls = buildSystemStatusControls();
 
-    renderWorkspace('/wiki/workspace?page=wiki-new&build=1');
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
     await settleWorkspaceEffects();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The page was created, but the build stream did not finish.');
     expect(await screen.findByRole('status', { name: 'Thought partner status' })).not.toHaveAttribute('data-status', 'working');
+    expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'Wiki build',
+      message: 'The page was created, but the build stream did not finish.',
+      retryable: true,
+      retry: expect.any(Function)
+    }));
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
 
     delete window.__NOEIS_WIKI_MAINTENANCE_TIMEOUT_MS__;
   });

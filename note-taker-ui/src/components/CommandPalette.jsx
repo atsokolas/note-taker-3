@@ -8,6 +8,7 @@ import { buildCanonicalArticlePath } from '../utils/firstInsight';
 import { getNotebookSummaries } from '../api/notebook';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
 import { buildReferenceHandoffPath } from '../navigation/referenceHandoff';
+import { useSystemStatusControls } from '../system/SystemStatusContext';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -61,6 +62,7 @@ const currentLocationSearch = () => (
 
 const CommandPalette = ({ open, onClose }) => {
   const navigate = useNavigate();
+  const systemStatus = useSystemStatusControls();
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
   const [searchGroups, setSearchGroups] = useState(EMPTY_GROUPS);
@@ -154,23 +156,48 @@ const CommandPalette = ({ open, onClose }) => {
   }, [query]);
 
   const createNote = useCallback(async () => {
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Creating note', stage: 'Saving notebook entry' });
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       const res = await api.post('/api/notebook', { title: 'Untitled', content: '', blocks: [] }, { headers });
       if (res.data?._id) {
+        systemStatus.setLatestReceipt({
+          id: `command-note-${res.data._id}`,
+          title: 'Think note created',
+          summary: 'A blank note is ready in Think.',
+          status: 'completed',
+          href: `/think?tab=notebook&entryId=${res.data._id}`
+        });
         navigate(`/think?tab=notebook&entryId=${res.data._id}`);
       } else {
+        systemStatus.setLatestReceipt({
+          title: 'Think note created',
+          summary: 'A blank note is ready in Think.',
+          status: 'completed',
+          href: '/think?tab=notebook'
+        });
         navigate('/think?tab=notebook');
       }
     } catch (err) {
       console.error('Palette new note failed', err);
+      systemStatus.setRecoverableFailure({
+        stage: 'Command palette',
+        message: 'Could not create a Think note.',
+        retryable: true,
+        retry: () => { createNote(); }
+      });
       navigate('/think?tab=notebook');
+    } finally {
+      systemStatus.setBackgroundWork(null);
     }
-  }, [navigate]);
+  }, [navigate, systemStatus]);
 
   const createWiki = useCallback(async () => {
     const seed = query.trim();
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Creating wiki page', stage: seed ? `Drafting ${seed}` : 'Saving page shell' });
     try {
       const page = await createWikiPage(buildWikiCreatePayload({
         type: seed ? 'search' : 'wiki_index',
@@ -178,14 +205,29 @@ const CommandPalette = ({ open, onClose }) => {
         text: seed,
         label: seed || 'Command palette'
       }));
+      systemStatus.setLatestReceipt({
+        id: `command-wiki-${page._id || Date.now()}`,
+        title: 'Wiki page created',
+        summary: seed ? `Created "${seed}" from the command palette.` : 'Created a blank wiki page.',
+        status: 'completed',
+        href: page._id ? `/wiki/workspace?page=${page._id}` : '/wiki'
+      });
       onClose?.();
       openWikiDraft({ navigate, pageId: page._id });
     } catch (err) {
       console.error('Palette new wiki page failed', err);
+      systemStatus.setRecoverableFailure({
+        stage: 'Command palette',
+        message: 'Could not create a wiki page.',
+        retryable: true,
+        retry: () => { createWiki(); }
+      });
       onClose?.();
       navigate('/wiki');
+    } finally {
+      systemStatus.setBackgroundWork(null);
     }
-  }, [navigate, onClose, query]);
+  }, [navigate, onClose, query, systemStatus]);
 
   const sections = useMemo(() => {
     const q = query.trim();

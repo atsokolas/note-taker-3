@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import WikiPageReadView from './WikiPageReadView';
+import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import {
   askWikiPage,
   createWikiPage,
@@ -116,6 +117,23 @@ const emptyAnswer = () => ({
   type: 'doc',
   content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Answer pending.' }] }]
 });
+
+const buildSystemStatusControls = (overrides = {}) => ({
+  setBackgroundWork: jest.fn(),
+  setLatestReceipt: jest.fn(),
+  setRecoverableFailure: jest.fn(),
+  clearRecoverableFailure: jest.fn(),
+  resetSystemStatus: jest.fn(),
+  ...overrides
+});
+
+const renderReadView = (props = {}, { systemStatusControls = buildSystemStatusControls() } = {}) => render(
+  <MemoryRouter>
+    <SystemStatusProvider value={systemStatusControls}>
+      <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} {...props} />
+    </SystemStatusProvider>
+  </MemoryRouter>
+);
 
 describe('WikiPageReadView', () => {
   const originalWorkspaceFlag = process.env.REACT_APP_WIKI_WORKSPACE_V1;
@@ -1378,6 +1396,60 @@ describe('WikiPageReadView', () => {
     expect(receipt).toHaveTextContent('2 sources');
     expect(receipt).toHaveTextContent('3 claims');
     expect(within(receipt).getByRole('button', { name: 'Run again' })).toBeInTheDocument();
+  });
+
+  it('publishes a system receipt when page maintenance completes', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    const rebuiltPage = {
+      ...page,
+      aiState: {
+        ...page.aiState,
+        quality: { ok: true, status: 'pass', failures: [], rebuiltAutomatically: true }
+      }
+    };
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      aiState: {
+        ...page.aiState,
+        quality: {
+          ok: false,
+          status: 'needs_rebuild',
+          failures: ['Article contains instructional scaffold.']
+        }
+      }
+    });
+    maintainWikiPage.mockResolvedValueOnce(rebuiltPage);
+
+    renderReadView({}, { systemStatusControls });
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await flushDeferredWikiReadWork();
+    await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Wiki maintenance',
+      summary: expect.stringContaining('Maintenance settled'),
+      status: 'completed',
+      href: '/wiki/workspace?page=wiki-1'
+    })));
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
+  });
+
+  it('surfaces recoverable maintenance failure in system status', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    maintainWikiPage.mockRejectedValueOnce(new Error('maintenance failed'));
+
+    renderReadView({}, { systemStatusControls });
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+
+    await waitFor(() => expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'Wiki maintenance',
+      message: 'Failed to maintain Wiki page.',
+      retryable: true,
+      retry: expect.any(Function)
+    })));
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
   });
 
   it('lets the reader run page maintenance and keeps the agent trace visible', async () => {

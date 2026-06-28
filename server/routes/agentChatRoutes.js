@@ -29,6 +29,7 @@ const buildAgentChatRouter = ({
   TagMeta,
   NotebookEntry,
   WikiPage,
+  WikiRevision,
   WikiSchemaSettings,
   askWikiPage = defaultAskWikiPage,
   loadWikiAskCorpus = defaultLoadWikiAskCorpus,
@@ -107,7 +108,7 @@ const buildAgentChatRouter = ({
       archived: { $ne: true }
     });
     const selected = query?.select
-      ? query.select('title slug pageType plainText body sourceRefs updatedAt status')
+      ? query.select('title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt status')
       : query;
     if (selected?.lean) return selected.lean();
     return selected;
@@ -125,6 +126,7 @@ const buildAgentChatRouter = ({
       question,
       userId,
       WikiPage,
+      WikiRevision,
       TagMeta,
       findWikiBacklinks
     });
@@ -142,6 +144,7 @@ const buildAgentChatRouter = ({
       relatedPages: corpus?.relatedPages || [],
       conceptRecords: corpus?.conceptRecords || [],
       backlinkRows: corpus?.backlinkRows || [],
+      revisionRows: corpus?.revisionRows || [],
       wikiSchemaContent
     });
     const reply = textFromRichDoc(answerResult?.answer)

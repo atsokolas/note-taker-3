@@ -60,6 +60,8 @@ const buildConnectionStore = () => {
     lastSyncAt: null,
     lastValidatedAt: null,
     lastPreviewAt: null,
+    lastSyncResult: null,
+    lastReceipt: null,
     lastError: '',
     async save() {
       return this;
@@ -77,6 +79,8 @@ const buildConnectionStore = () => {
         lastSyncAt: this.lastSyncAt,
         lastValidatedAt: this.lastValidatedAt,
         lastPreviewAt: this.lastPreviewAt,
+        lastSyncResult: this.lastSyncResult,
+        lastReceipt: this.lastReceipt,
         lastError: this.lastError,
         createdAt: null,
         updatedAt: null
@@ -300,6 +304,9 @@ const run = async () => {
     assert.strictEqual(importSessions.session.status, 'failed', 'MCP-only sync attempts should make the import session terminal.');
     assert.strictEqual(importSessions.session.progress.stage, 'readwise_sync_unavailable');
     assert.strictEqual(importSessions.session.progress.percent, 100);
+    assert.strictEqual(importSessions.session.receipt.status, 'failed');
+    assert.strictEqual(importSessions.session.receipt.error.stage, 'readwise_sync_unavailable');
+    assert.match(importSessions.session.receipt.summary, /agent retrieval/i);
 
     importSessions.session.status = 'draft';
     importSessions.session.progress = {
@@ -308,6 +315,7 @@ const run = async () => {
       indexingState: 'not_started'
     };
     importSessions.session.lastError = '';
+    importSessions.session.receipt = null;
 
     const response = await fetch(`${url}/api/import/readwise/sync`, {
       method: 'POST',
@@ -325,6 +333,14 @@ const run = async () => {
     assert.strictEqual(payload.importedArticles, 1, 'Readwise sync should create one article for the source document.');
     assert.strictEqual(payload.importedHighlights, 1, 'Readwise sync should keep valid highlights.');
     assert.strictEqual(payload.invalidSkips, 1, 'Readwise sync should count invalid highlights instead of crashing.');
+    assert.ok(payload.receipt, 'Readwise sync should return a normalized Noeis receipt.');
+    assert.strictEqual(payload.receipt.source, 'readwise');
+    assert.strictEqual(payload.receipt.kind, 'import');
+    assert.strictEqual(payload.receipt.metrics.importedHighlights, 1);
+    assert.match(payload.receipt.summary, /Imported 1 source, 1 highlight/);
+    assert.ok(connections.connection.lastReceipt, 'Readwise connection should persist a durable receipt.');
+    assert.strictEqual(connections.connection.lastReceipt.source, 'readwise');
+    assert.strictEqual(importSessions.session.receipt.source, 'readwise');
     assert.strictEqual(importSessions.session.status, 'completed', 'The import session should finish successfully.');
     assert.strictEqual(importSessions.session.result.invalidSkips, 1, 'The session result should persist invalid skip counts.');
     assert.deepStrictEqual(importSessions.session.result.importedArticleIds, ['article-1'], 'The session should retain imported article IDs for cleanup.');

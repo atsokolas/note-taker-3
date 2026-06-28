@@ -93,7 +93,7 @@ const LibraryReadingRoomLead = ({
           <p
             className="library-reading-room-lead__filing-receipt muted small"
             data-testid="library-filing-receipt"
-            data-filing-stage={filingReceipt.stage || 'ready'}
+            data-filing-stage={filingReceipt.status || filingReceipt.stage || 'ready'}
           >
             {filingReceipt.summary}
           </p>

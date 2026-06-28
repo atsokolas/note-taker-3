@@ -120,8 +120,12 @@ const run = async () => {
   assert.strictEqual(result.reused, false);
   assert.strictEqual(result.structureProposal.structureProposalId, 'proposal-1');
   assert.strictEqual(result.thread.threadId, 'thread-1');
-  assert.strictEqual(result.receipt.articleCount, 2);
+  assert.strictEqual(result.receipt.kind, 'filing');
+  assert.strictEqual(result.receipt.source, 'library');
+  assert.strictEqual(result.receipt.status, 'needs_review');
+  assert.strictEqual(result.receipt.metrics.articleCount, 2);
   assert.ok(result.receipt.summary.includes('Staged 2 filing suggestions'));
+  assert.strictEqual(result.receipt.nextAction.intent, 'review_filing');
   assert.strictEqual(created[0].scopeRef, 'library-filing');
   assert.strictEqual(created[0].status, 'pending');
 

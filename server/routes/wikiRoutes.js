@@ -1162,6 +1162,7 @@ const buildWikiRouter = ({
   Connection = null,
   ConnectorActionLog = null,
   IntegrationConnection = null,
+  ImportSession = null,
   Article = null,
   NotebookEntry = null,
   TagMeta = null,
@@ -3042,6 +3043,7 @@ const buildWikiRouter = ({
         question,
         userId: req.user.id,
         WikiPage,
+        WikiRevision,
         TagMeta,
         findWikiBacklinks
       });
@@ -3052,6 +3054,7 @@ const buildWikiRouter = ({
         relatedPages: corpus.relatedPages,
         conceptRecords: corpus.conceptRecords,
         backlinkRows: corpus.backlinkRows,
+        revisionRows: corpus.revisionRows,
         wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
 
@@ -3119,6 +3122,7 @@ const buildWikiRouter = ({
         question,
         userId: req.user.id,
         WikiPage,
+        WikiRevision,
         TagMeta,
         findWikiBacklinks
       });
@@ -3133,6 +3137,7 @@ const buildWikiRouter = ({
         relatedPages: corpus.relatedPages,
         conceptRecords: corpus.conceptRecords,
         backlinkRows: corpus.backlinkRows,
+        revisionRows: corpus.revisionRows,
         wikiSchemaContent: await loadWikiSchemaContent(req.user.id)
       });
       const answerText = answerDocText(result.answer);
@@ -3272,7 +3277,18 @@ const buildWikiRouter = ({
     try {
       const briefing = await buildWikiBriefing({
         userId: req.user.id,
-        models: { WikiPage, Article, NotebookEntry, TagMeta, Question }
+        models: {
+          WikiPage,
+          Article,
+          NotebookEntry,
+          TagMeta,
+          Question,
+          ImportSession,
+          WikiRevision,
+          WikiMaintenanceRun,
+          WikiSourceEvent,
+          Connection
+        }
       });
       res.status(200).json(briefing);
     } catch (error) {

@@ -547,6 +547,15 @@ const run = async () => {
   const WikiSharedCollection = createFakeWikiSharedCollectionModel();
   const WikiSchemaSettings = createFakeWikiSchemaSettingsModel();
   const ConnectorActionLog = createFakeConnectorActionLogModel();
+  const Question = createFakeLibraryModel([
+    {
+      _id: 'question-opportunity-cost',
+      userId: 'user-1',
+      text: 'Can Opportunity Cost explain capital allocation mistakes?',
+      status: 'open',
+      conceptName: 'Opportunity Cost'
+    }
+  ]);
   const Article = createFakeLibraryModel([
     {
       _id: new mongoose.Types.ObjectId().toString(),
@@ -594,6 +603,7 @@ const run = async () => {
     ConnectorActionLog,
     Connection,
     Article,
+    Question,
     EVENT_NAMES: {
       WIKI_PAGE_CREATED: 'wiki_page_created',
       WIKI_SOURCE_ATTACHED: 'wiki_source_attached',
@@ -706,6 +716,39 @@ const run = async () => {
   const url = `http://127.0.0.1:${server.address().port}`;
 
   try {
+    await new WikiRevision({
+      userId: 'user-1',
+      pageId: new mongoose.Types.ObjectId().toString(),
+      reason: 'source_event',
+      summary: 'Added two new tradeoff notes.',
+      createdAt: new Date(),
+      before: {
+        title: 'Opportunity Cost',
+        sourceRefs: [],
+        claims: [],
+        aiState: { health: { contradictions: [] } }
+      },
+      after: {
+        title: 'Opportunity Cost',
+        sourceRefs: [
+          { id: 's1', title: 'Tradeoff note' },
+          { id: 's2', title: 'Capital allocation note' }
+        ],
+        claims: [{ text: 'Opportunity cost is comparative.', support: 'supported' }],
+        aiState: { health: { contradictions: [] } }
+      }
+    }).save();
+
+    const briefing = await request(url, '/api/wiki/briefing');
+    assert.strictEqual(briefing.res.status, 200, briefing.text);
+    assert.strictEqual(briefing.body.model, 'stub');
+    assert.ok(Array.isArray(briefing.body.recentMaintenanceChanges), 'Briefing should expose maintenance changes.');
+    assert.ok(Array.isArray(briefing.body.pagesWithNewSourceMaterial), 'Briefing should expose pages with new source material.');
+    assert.ok(Array.isArray(briefing.body.answerableQuestions), 'Briefing should expose answerable questions.');
+    assert.ok(briefing.body.nextAction, 'Briefing should expose a next action when return-loop evidence exists.');
+    assert.strictEqual(briefing.body.nextAction.type, 'answer_question');
+    assert.match(briefing.body.summary, /open question|source material|Opportunity Cost/i);
+
     const unsupportedCreate = await request(url, '/api/wiki/pages', {
       method: 'POST',
       body: JSON.stringify({
@@ -1745,6 +1788,15 @@ const run = async () => {
     });
     assert.strictEqual(asked.res.status, 200, asked.text);
     assert.strictEqual(asked.body.discussions.length, 1);
+    assert.ok(
+      Number(asked.body.discussions[0].provenance?.temporalChangeCount || 0) >= 1,
+      'Temporal wiki ask should include revision-history provenance.'
+    );
+    assert.match(
+      JSON.stringify(asked.body.discussions[0].answer),
+      /visible step|revision|source/i,
+      'Temporal wiki ask should answer from page-history context.'
+    );
 
     const streamedAsk = await request(url, `/api/wiki/pages/${created.body._id}/ask/stream`, {
       method: 'POST',

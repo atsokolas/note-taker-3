@@ -30,6 +30,7 @@ import { Button } from '../ui';
 import SurfaceNotice from '../feedback/SurfaceNotice';
 import AgentTicker from '../agent/AgentTicker';
 import ReferencePullIn from '../references/ReferencePullIn';
+import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiList from './WikiList';
 import WikiPageEditor from './WikiPageEditor';
 import WikiPageReadView from './WikiPageReadView';
@@ -624,6 +625,40 @@ const formatIngestCompletion = (run = {}, pages = []) => {
       : 'No confident page destination was found yet.';
   return `Done — ${source} landed in Wiki Activity. ${destination}`;
 };
+
+const wikiWorkspacePageHref = (pageId) => (
+  pageId ? `/wiki/workspace?page=${encodeURIComponent(pageId)}` : '/wiki/workspace'
+);
+
+const wikiIngestSystemReceipt = (run, pages = [], completionText = '') => {
+  const summary = clean(completionText) || formatIngestCompletion(run, pages);
+  const runStatus = clean(run.status).toLowerCase();
+  const reviewStatus = clean(run.reviewStatus || run.metadata?.ingestReviewStatus).toLowerCase();
+  return {
+    title: `Source ingest · ${sourceTitle(run.sourceRef)}`,
+    summary,
+    status: runStatus === 'failed'
+      ? 'failed'
+      : reviewStatus === 'pending_review' ? 'needs_review' : 'completed',
+    href: ingestRunActivityPath(run) || '/wiki/workspace?view=activity'
+  };
+};
+
+const wikiBuildSystemReceipt = ({ pageId = '', label = '', recovered = false } = {}) => ({
+  title: recovered ? 'Wiki page built with review' : 'Wiki page built',
+  summary: pageId
+    ? `Built @wiki:${pageId}${label ? ` for "${label}"` : ''}.`
+    : 'Built wiki page.',
+  status: recovered ? 'completed_with_warnings' : 'completed',
+  href: wikiWorkspacePageHref(pageId)
+});
+
+const wikiDraftSystemReceipt = (pageId = '') => ({
+  title: 'Wiki draft finished',
+  summary: pageId ? `Finished drafting @wiki:${pageId}.` : 'Finished drafting wiki page.',
+  status: 'completed',
+  href: wikiWorkspacePageHref(pageId)
+});
 
 const isTerminalIngestStatus = (run = {}) => {
   const status = clean(run.status).toLowerCase();
@@ -1564,6 +1599,7 @@ const WikiWorkspaceChat = ({
   onBuildPage,
   referenceCommandNonce = 0
 }) => {
+  const systemStatus = useSystemStatusControls();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState('');
@@ -2036,39 +2072,55 @@ const WikiWorkspaceChat = ({
 
   const runIngest = useCallback(async ({ source = null, url = '', pendingId = '' } = {}) => {
     const payload = source || { type: 'url', url };
-    const submittedRun = await ingestWikiSource(payload);
-    const runId = ingestRunId(submittedRun);
-    if (pendingId && !isTerminalIngestStatus(submittedRun)) {
-      replaceMessage(pendingId, {
-        text: `Queued ${sourceTitle(submittedRun.sourceRef || payload)} in Wiki Activity. I will keep checking until the source ripple is ready.`,
-        activityReceipts: ingestRunReceipts(submittedRun),
-        ingestRun: submittedRun,
-        pending: true
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Ingesting source', stage: 'Metabolizing source' });
+    try {
+      const submittedRun = await ingestWikiSource(payload);
+      const runId = ingestRunId(submittedRun);
+      if (pendingId && !isTerminalIngestStatus(submittedRun)) {
+        replaceMessage(pendingId, {
+          text: `Queued ${sourceTitle(submittedRun.sourceRef || payload)} in Wiki Activity. I will keep checking until the source ripple is ready.`,
+          activityReceipts: ingestRunReceipts(submittedRun),
+          ingestRun: submittedRun,
+          pending: true
+        });
+      }
+      const result = await waitForIngestCompletion(submittedRun);
+      const nextMessage = {
+        text: isTerminalIngestStatus(result)
+          ? formatIngestCompletion(result, wikiPages)
+          : `Still working — ${sourceTitle(result.sourceRef || payload)} is queued in Wiki Activity${runId ? ` run ${runId}` : ''}. Open activity to follow it.`,
+        activityReceipts: ingestRunReceipts(result),
+        ingestRun: result,
+        pending: !isTerminalIngestStatus(result)
+      };
+      if (pendingId) replaceMessage(pendingId, nextMessage);
+      else append({ role: 'assistant', ...nextMessage });
+      systemStatus.setLatestReceipt(wikiIngestSystemReceipt(result, wikiPages, nextMessage.text));
+      onIngestRun?.({
+        ...result,
+        candidateUpdates: ingestCandidateRows(result, wikiPages)
       });
+      onNavigate({ view: 'activity' });
+      return result;
+    } catch (_error) {
+      systemStatus.setRecoverableFailure({
+        stage: 'Source ingest',
+        message: 'Source ingest failed.',
+        retryable: false
+      });
+      throw _error;
+    } finally {
+      systemStatus.setBackgroundWork(null);
     }
-    const result = await waitForIngestCompletion(submittedRun);
-    const nextMessage = {
-      text: isTerminalIngestStatus(result)
-        ? formatIngestCompletion(result, wikiPages)
-        : `Still working — ${sourceTitle(result.sourceRef || payload)} is queued in Wiki Activity${runId ? ` run ${runId}` : ''}. Open activity to follow it.`,
-      activityReceipts: ingestRunReceipts(result),
-      ingestRun: result,
-      pending: !isTerminalIngestStatus(result)
-    };
-    if (pendingId) replaceMessage(pendingId, nextMessage);
-    else append({ role: 'assistant', ...nextMessage });
-    onIngestRun?.({
-      ...result,
-      candidateUpdates: ingestCandidateRows(result, wikiPages)
-    });
-    onNavigate({ view: 'activity' });
-    return result;
-  }, [append, onIngestRun, onNavigate, replaceMessage, wikiPages]);
+  }, [append, onIngestRun, onNavigate, replaceMessage, systemStatus, wikiPages]);
 
   const buildPageFromIngestRun = useCallback(async (run = {}) => {
     if (busy) return;
     const source = sourceRefFromIngestRun(run);
     const title = clean(run.suggestedTitle || run.title || source.title || source.url || 'New wiki page');
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: `Creating from ${source.title || 'source'}` });
     setBusy(true);
     try {
       const page = await createWikiPage(buildWikiCreatePayload({
@@ -2098,6 +2150,7 @@ const WikiWorkspaceChat = ({
           onPageChanged?.(pageId, streamPage);
         }
       });
+      systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: 'Drafting from source' });
       try {
         await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), title);
         onNavigate({ page: pageId });
@@ -2105,6 +2158,11 @@ const WikiWorkspaceChat = ({
         appendBuildSuccessMessage(`Built @wiki:${pageId} from ${source.title || 'the source'}.`, {
           includeRecovery: state.sawQualityRebuild
         });
+        systemStatus.setLatestReceipt(wikiBuildSystemReceipt({
+          pageId,
+          label: source.title || title,
+          recovered: state.sawQualityRebuild
+        }));
       } catch (_error) {
         if (state.sawQualityRebuild || state.sawStreamPage) {
           if (state.sawStreamPage) {
@@ -2113,6 +2171,11 @@ const WikiWorkspaceChat = ({
             appendBuildSuccessMessage(`Built @wiki:${pageId} from ${source.title || 'the source'}.`, {
               includeRecovery: state.sawQualityRebuild
             });
+            systemStatus.setLatestReceipt(wikiBuildSystemReceipt({
+              pageId,
+              label: source.title || title,
+              recovered: true
+            }));
           }
         } else {
           append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
@@ -2121,9 +2184,10 @@ const WikiWorkspaceChat = ({
     } catch (_error) {
       append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
     } finally {
+      systemStatus.setBackgroundWork(null);
       setBusy(false);
     }
-  }, [append, appendBuildSuccessMessage, busy, createMaintenanceStreamHandlers, onNavigate, onPageChanged, setBusy]);
+  }, [append, appendBuildSuccessMessage, busy, createMaintenanceStreamHandlers, onNavigate, onPageChanged, setBusy, systemStatus]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
@@ -2162,6 +2226,8 @@ const WikiWorkspaceChat = ({
         append({ role: 'assistant', text: 'Name the page to build, for example /build Portfolio Concentration.' });
         return true;
       }
+      systemStatus.clearRecoverableFailure();
+      systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: `Creating "${topic}"` });
       setBusy(true);
       try {
         const page = await createWikiPage(buildWikiCreatePayload({
@@ -2180,6 +2246,7 @@ const WikiWorkspaceChat = ({
             onPageChanged?.(pageId, streamPage);
           }
         });
+        systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: 'Drafting from sources' });
         try {
           await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), topic);
           onNavigate({ page: pageId });
@@ -2187,6 +2254,11 @@ const WikiWorkspaceChat = ({
           appendBuildSuccessMessage(`Built @wiki:${pageId} for "${topic}".`, {
             includeRecovery: state.sawQualityRebuild
           });
+          systemStatus.setLatestReceipt(wikiBuildSystemReceipt({
+            pageId,
+            label: topic,
+            recovered: state.sawQualityRebuild
+          }));
         } catch (_streamError) {
           if (state.sawQualityRebuild || state.sawStreamPage) {
             if (state.sawStreamPage) {
@@ -2195,6 +2267,11 @@ const WikiWorkspaceChat = ({
               appendBuildSuccessMessage(`Built @wiki:${pageId} for "${topic}".`, {
                 includeRecovery: state.sawQualityRebuild
               });
+              systemStatus.setLatestReceipt(wikiBuildSystemReceipt({
+                pageId,
+                label: topic,
+                recovered: true
+              }));
             }
           } else {
             append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
@@ -2203,6 +2280,7 @@ const WikiWorkspaceChat = ({
       } catch (_error) {
         append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
       } finally {
+        systemStatus.setBackgroundWork(null);
         setBusy(false);
       }
       return true;
@@ -2212,6 +2290,8 @@ const WikiWorkspaceChat = ({
         append({ role: 'assistant', text: 'Add a wiki reference, for example /draft @wiki:PAGE_ID.' });
         return true;
       }
+      systemStatus.clearRecoverableFailure();
+      systemStatus.setBackgroundWork({ label: 'Drafting wiki page', stage: `@wiki:${pageRef}` });
       setBusy(true);
       append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
       try {
@@ -2227,6 +2307,7 @@ const WikiWorkspaceChat = ({
           onNavigate({ page: pageRef });
           onPageChanged?.(pageRef);
           append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
+          systemStatus.setLatestReceipt(wikiDraftSystemReceipt(pageRef));
         } catch (_streamError) {
           clearBuildFailureMessages();
           if (state.sawQualityRebuild || state.sawStreamPage) {
@@ -2234,6 +2315,7 @@ const WikiWorkspaceChat = ({
               onNavigate({ page: pageRef });
               onPageChanged?.(pageRef);
               append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
+              systemStatus.setLatestReceipt(wikiDraftSystemReceipt(pageRef));
             }
           } else {
             append({ role: 'assistant', text: `Draft failed for @wiki:${pageRef}.` });
@@ -2242,6 +2324,7 @@ const WikiWorkspaceChat = ({
       } catch (_error) {
         append({ role: 'assistant', text: `Draft failed for @wiki:${pageRef}.` });
       } finally {
+        systemStatus.setBackgroundWork(null);
         setBusy(false);
       }
       return true;
@@ -2726,6 +2809,7 @@ const WikiWorkspaceChat = ({
 const WikiWorkspace = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const systemStatus = useSystemStatusControls();
   const [chatWidth, setChatWidth] = useState(initialChatWidth);
   const [busy, setBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -2790,6 +2874,8 @@ const WikiWorkspace = () => {
     currentSearchRef.current = nextSearch;
     setCurrentSearch(nextSearch);
     navigate(`/wiki/workspace${nextSearch}`, { replace: true });
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: 'Drafting from sources' });
     setBusy(true);
     withMaintenanceTimeout(streamMaintainWikiPage(selectedPageId, {}, {
       onPage: (page, event = {}) => {
@@ -2798,18 +2884,35 @@ const WikiWorkspace = () => {
         const anchorId = clean(event.anchorId || event.sectionId || event.changedSectionId);
         if (anchorId) setLiveUpdate({ anchorId, pageId: selectedPageId, at: Date.now() });
       }
-    }), selectedPageId).catch(() => {
+    }), selectedPageId).then(() => {
+      if (lastSelectedPageRef.current !== selectedPageId) return;
+      systemStatus.setLatestReceipt(wikiBuildSystemReceipt({ pageId: selectedPageId }));
+    }).catch(() => {
       if (lastSelectedPageRef.current === selectedPageId) {
         setAutoBuildNotice('The page was created, but the build stream did not finish. Use Run again or /draft to retry.');
+        systemStatus.setRecoverableFailure({
+          stage: 'Wiki build',
+          message: 'The page was created, but the build stream did not finish.',
+          retryable: true,
+          retry: () => {
+            setMobilePane('chat');
+            setChatDraft({
+              id: `auto-build-retry-${selectedPageId}-${Date.now()}`,
+              text: `/draft @wiki:${selectedPageId}`,
+              autoRun: true
+            });
+          }
+        });
       }
     }).finally(() => {
+      systemStatus.setBackgroundWork(null);
       if (lastSelectedPageRef.current === selectedPageId) {
         setBusy(false);
         setRefreshNonce(value => value + 1);
       }
     });
     return undefined;
-  }, [currentSearch, location.search, navigate, selectedPageId, shouldAutoBuild]);
+  }, [currentSearch, location.search, navigate, selectedPageId, shouldAutoBuild, systemStatus]);
 
   const syncPaneParam = useCallback((pane) => {
     const normalizedPane = normalizePane(pane);

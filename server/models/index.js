@@ -624,7 +624,7 @@ const wikiMaintenanceRunSchema = new mongoose.Schema({
   pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
   sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null, index: true },
   status: { type: String, enum: ['queued', 'running', 'completed', 'failed', 'needs_review'], default: 'queued', index: true },
-  trigger: { type: String, enum: ['manual', 'source_event', 'batch'], default: 'manual' },
+  trigger: { type: String, enum: ['manual', 'source_event', 'batch', 'scheduled'], default: 'manual' },
   summary: { type: String, default: '', trim: true },
   errorMessage: { type: String, default: '', trim: true },
   startedAt: { type: Date, default: null },
@@ -1726,6 +1726,7 @@ const integrationConnectionSchema = new mongoose.Schema({
     indexingFailures: { type: Number, default: 0 },
     completedAt: { type: Date, default: null }
   },
+  lastReceipt: { type: mongoose.Schema.Types.Mixed, default: null },
   lastError: { type: String, default: '', trim: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -1793,6 +1794,7 @@ const importSessionSchema = new mongoose.Schema({
     importedEntryIds: { type: [String], default: [] },
     importedArticleIds: { type: [String], default: [] }
   },
+  receipt: { type: mongoose.Schema.Types.Mixed, default: null },
   activation: {
     status: { type: String, default: 'not_started', trim: true },
     conceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', default: null },

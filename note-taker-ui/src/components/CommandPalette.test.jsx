@@ -6,6 +6,7 @@ import { searchKeyword } from '../api/retrieval';
 import { createWikiPage, listWikiPages } from '../api/wiki';
 import { getNotebookSummaries } from '../api/notebook';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
+import { SystemStatusProvider } from '../system/SystemStatusContext';
 
 const mockNavigate = jest.fn();
 
@@ -36,10 +37,23 @@ jest.mock('../utils/wikiCreate', () => ({
   openWikiDraft: jest.fn()
 }));
 
-const renderPalette = async () => {
-  const result = render(<CommandPalette open onClose={jest.fn()} />);
+const buildSystemStatusControls = (overrides = {}) => ({
+  setBackgroundWork: jest.fn(),
+  setLatestReceipt: jest.fn(),
+  setRecoverableFailure: jest.fn(),
+  clearRecoverableFailure: jest.fn(),
+  resetSystemStatus: jest.fn(),
+  ...overrides
+});
+
+const renderPalette = async ({ systemStatusControls = buildSystemStatusControls(), onClose = jest.fn() } = {}) => {
+  const result = render(
+    <SystemStatusProvider value={systemStatusControls}>
+      <CommandPalette open onClose={onClose} />
+    </SystemStatusProvider>
+  );
   await act(async () => {});
-  return result;
+  return { ...result, systemStatusControls, onClose };
 };
 
 const flushSearch = async () => {
@@ -130,7 +144,7 @@ describe('CommandPalette', () => {
   });
 
   it('still allows explicit wiki page creation from a search query', async () => {
-    await renderPalette();
+    const { systemStatusControls } = await renderPalette();
 
     fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
       target: { value: 'portfolio' }
@@ -146,6 +160,17 @@ describe('CommandPalette', () => {
     })));
     expect(createWikiPage).toHaveBeenCalled();
     expect(openWikiDraft).toHaveBeenCalledWith({ navigate: mockNavigate, pageId: 'wiki-new' });
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith({
+      label: 'Creating wiki page',
+      stage: 'Drafting portfolio'
+    });
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'command-wiki-wiki-new',
+      title: 'Wiki page created',
+      status: 'completed',
+      href: '/wiki/workspace?page=wiki-new'
+    }));
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
   });
 
   it('surfaces wiki pages first on wiki surfaces', async () => {
