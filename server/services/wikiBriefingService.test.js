@@ -10,7 +10,8 @@ const {
   collectRecentMaintenanceChanges,
   collectPagesWithNewSourceMaterial,
   collectAnswerableQuestions,
-  buildBriefingNextAction
+  buildBriefingNextAction,
+  idString
 } = __testables;
 
 const NOW = new Date('2026-05-06T12:00:00Z').getTime();
@@ -54,6 +55,15 @@ describe('wikiBriefingService', () => {
     it('returns false for null / invalid timestamps', () => {
       expect(isWithin(null, ONE_DAY_MS, NOW)).toBe(false);
       expect(isWithin('not-a-date', ONE_DAY_MS, NOW)).toBe(false);
+    });
+  });
+
+  describe('idString', () => {
+    it('normalizes Mongoose ObjectIds without following the self _id getter forever', () => {
+      const mongoose = require('mongoose');
+      const id = new mongoose.Types.ObjectId('64f1f77bcf86cd7994390111');
+      expect(id._id).toBe(id);
+      expect(idString(id)).toBe('64f1f77bcf86cd7994390111');
     });
   });
 
@@ -157,6 +167,53 @@ describe('wikiBriefingService', () => {
   });
 
   describe('buildWikiBriefing (orchestration)', () => {
+    it('reads recent durable Noeis receipts before import-session fallback', async () => {
+      const receipts = await collectRecentImportReceipts({
+        userId: 'u1',
+        models: {
+          NoeisReceipt: fakeModel([{
+            receiptId: 'filing-1',
+            kind: 'filing',
+            source: 'library',
+            sourceLabel: 'Library',
+            status: 'needs_review',
+            title: 'Library filing suggestions ready',
+            summary: 'Staged 8 filing suggestions across 3 folders for review.',
+            metrics: { articleCount: 8, folderCount: 3 },
+            touched: [{ type: 'folder', id: 'proposal-1', title: 'Library filing proposal' }],
+            nextAction: { label: 'Review filing proposal', intent: 'review_filing' },
+            completedAt: new Date(NOW - 1000).toISOString()
+          }]),
+          ImportSession: fakeModel([{
+            receipt: {
+              id: 'import-1',
+              source: 'readwise',
+              sourceLabel: 'Readwise',
+              status: 'completed',
+              summary: 'Imported 1 source.',
+              completedAt: new Date(NOW - 1000).toISOString()
+            }
+          }])
+        },
+        now: NOW,
+        windowMs: ONE_DAY_MS
+      });
+
+      expect(receipts).toHaveLength(1);
+      expect(receipts[0]).toMatchObject({
+        id: 'filing-1',
+        kind: 'filing',
+        source: 'library',
+        sourceLabel: 'Library',
+        status: 'needs_review',
+        summary: 'Staged 8 filing suggestions across 3 folders for review.'
+      });
+      expect(receipts[0].nextAction).toMatchObject({
+        label: 'Review filing proposal',
+        intent: 'review_filing'
+      });
+    });
+
     it('returns the deterministic fallback summary when HF is unconfigured', async () => {
       const briefing = await buildWikiBriefing({
         userId: 'u1',
@@ -367,6 +424,47 @@ describe('wikiBriefingService', () => {
         nextAction: { label: 'Review filing suggestions', intent: 'organize_import' }
       });
       expect(briefing.summary).toMatch(/Readwise added 12 highlights/);
+      expect(briefing.summary).toMatch(/first stop: Opportunity Cost/);
+    });
+
+    it('keeps receipt-backed briefing alive when model configuration throws', async () => {
+      const recentReceipt = {
+        id: 'receipt-model-config',
+        kind: 'import',
+        source: 'readwise',
+        sourceLabel: 'Readwise Live Return Loop.csv',
+        status: 'completed',
+        completedAt: new Date(NOW - 60_000).toISOString(),
+        metrics: {
+          importedArticles: 1,
+          importedHighlights: 1,
+          importedNotes: 0
+        },
+        touched: [
+          { type: 'article', id: 'article-1', title: 'Return Loop Proof' }
+        ],
+        nextAction: { label: 'Review filing suggestions', intent: 'organize_import' }
+      };
+
+      const briefing = await buildWikiBriefing({
+        userId: 'u1',
+        models: {
+          WikiPage: fakeModel([]),
+          Article: fakeModel([]),
+          NotebookEntry: fakeModel([]),
+          NoeisReceipt: fakeModel([recentReceipt])
+        },
+        now: NOW,
+        chat: jest.fn(),
+        isConfigured: () => {
+          throw new Error('bad model config');
+        }
+      });
+
+      expect(briefing.counts.recentReceipts).toBe(1);
+      expect(briefing.summary).toMatch(/Readwise Live Return Loop.csv added 1 highlight, 1 article/);
+      expect(briefing.summary).toMatch(/first stop: Return Loop Proof/);
+      expect(briefing.model).toBe('stub');
     });
 
     it('collects only recent import receipts for the owner return loop', async () => {

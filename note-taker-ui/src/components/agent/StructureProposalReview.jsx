@@ -1,5 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../ui';
+import {
+  getSelectableStructureOperations,
+  resolveOperationEvidence,
+  resolveOperationRationale,
+  resolveSourceQualityKey,
+  resolveSourceQualityLabel
+} from './structureProposalReviewModel';
 
 const clean = (value) => String(value || '').trim();
 const formatStatusLabel = (value = '') => clean(value).replace(/_/g, ' ') || 'pending';
@@ -29,6 +36,7 @@ const OPERATION_LABELS = {
   create_folder: 'Folders created',
   rename_folder: 'Folders renamed',
   move_item: 'Items moved',
+  merge_item: 'Sources merged',
   merge_folder: 'Folders merged',
   delete_folder: 'Folders removed'
 };
@@ -57,6 +65,8 @@ const describeOperationTitle = (operation = {}) => {
       return `Rename ${clean(preview.from || payload.folderId || 'folder')} to ${clean(payload.name || preview.to || 'new name')}`;
     case 'move_item':
       return `Move ${clean(preview.itemTitle || payload.itemTitle || payload.itemId || 'item')}`;
+    case 'merge_item':
+      return `Merge duplicate source ${clean(preview.sourceTitle || payload.sourceTitle || payload.sourceItemId || 'item')}`;
     case 'merge_folder':
       return `Merge ${clean(preview.sourceFolderName || payload.sourceFolderId || 'folder')}`;
     case 'delete_folder':
@@ -85,6 +95,10 @@ const describeOperationDetail = (operation = {}) => {
         || 'Normalize folder naming without moving contents.';
     case 'move_item':
       return destination ? `Destination: ${destination}` : 'Move into a stronger home.';
+    case 'merge_item':
+      return clean(preview.destinationTitle || payload.destinationTitle || payload.destinationItemId)
+        ? `Into ${clean(preview.destinationTitle || payload.destinationTitle || payload.destinationItemId)}`
+        : 'Merge duplicate highlights into the canonical source.';
     case 'merge_folder':
       return destination
         ? `Into ${destination}`
@@ -115,18 +129,82 @@ const StructureProposalReview = ({
   onApply = null,
   onReject = null,
   onRollback = null,
-  onUpdateOperationStatus = null
+  onUpdateOperationStatus = null,
+  onBulkUpdateOperationStatus = null
 }) => {
   const status = clean(proposal?.status).toLowerCase() || 'pending';
   const isPending = status === 'pending';
   const isRollbackable = status === 'applied' || status === 'partially_applied';
   const activeOperationKey = clean(activeOperationId);
-  const actionableOperations = Array.isArray(proposal?.operations)
-    ? proposal.operations.filter((operation) => clean(operation?.status).toLowerCase() !== 'rejected' && operation?.isActionable !== false)
-    : [];
-  const operationSummary = useMemo(
-    () => summarizeOperations(Array.isArray(proposal?.operations) ? proposal.operations : []),
+  const operations = useMemo(
+    () => (Array.isArray(proposal?.operations) ? proposal.operations : []),
     [proposal?.operations]
+  );
+  const actionableOperations = operations.filter(
+    (operation) => clean(operation?.status).toLowerCase() !== 'rejected' && operation?.isActionable !== false
+  );
+  const selectableOperations = useMemo(
+    () => getSelectableStructureOperations(operations),
+    [operations]
+  );
+  const selectableOpIds = useMemo(
+    () => selectableOperations.map((operation) => clean(operation?.opId)).filter(Boolean),
+    [selectableOperations]
+  );
+  const [selectedOpIds, setSelectedOpIds] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const selectedCount = useMemo(
+    () => selectableOperations.filter((operation) => selectedOpIds.has(clean(operation?.opId))).length,
+    [selectableOperations, selectedOpIds]
+  );
+  const allSelected = selectableOpIds.length > 0 && selectedCount === selectableOpIds.length;
+
+  const toggleOperationSelection = useCallback((opId) => {
+    const safeOpId = clean(opId);
+    if (!safeOpId) return;
+    setSelectedOpIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(safeOpId)) next.delete(safeOpId);
+      else next.add(safeOpId);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedOpIds(new Set(selectableOpIds));
+  }, [selectableOpIds]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedOpIds(new Set());
+  }, []);
+
+  const handleBulkStatus = useCallback(async (nextStatus) => {
+    const safeStatus = clean(nextStatus).toLowerCase();
+    const selectedIds = selectableOpIds.filter((opId) => selectedOpIds.has(opId));
+    if (!safeStatus || selectedIds.length === 0) return;
+
+    setBulkBusy(true);
+    try {
+      if (typeof onBulkUpdateOperationStatus === 'function') {
+        await onBulkUpdateOperationStatus(proposal, selectedIds, safeStatus);
+      } else if (typeof onUpdateOperationStatus === 'function') {
+        for (const opId of selectedIds) {
+          const operation = operations.find((entry) => clean(entry?.opId) === opId);
+          if (!operation) continue;
+          // eslint-disable-next-line no-await-in-loop
+          await onUpdateOperationStatus(proposal, operation, safeStatus);
+        }
+      }
+      setSelectedOpIds(new Set());
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [onBulkUpdateOperationStatus, onUpdateOperationStatus, operations, proposal, selectableOpIds, selectedOpIds]);
+
+  const operationSummary = useMemo(
+    () => summarizeOperations(operations),
+    [operations]
   );
   const executionSummary = formatExecutionSummary(proposal?.executionResult);
   const timelineLabel = proposal?.rolledBackAt
@@ -136,6 +214,7 @@ const StructureProposalReview = ({
       : proposal?.rejectedAt
         ? `Rejected ${formatDateTime(proposal.rejectedAt)}`
         : '';
+  const bulkDisabled = isLoading || bulkBusy || !isPending;
 
   return (
     <article
@@ -175,23 +254,94 @@ const StructureProposalReview = ({
         </div>
       )}
 
+      {isPending && selectableOperations.length > 0 && (
+        <div
+          className="agent-thought-partner__structure-bulk-bar"
+          aria-label="Bulk filing actions"
+          data-testid="structure-proposal-bulk-bar"
+        >
+          <div className="agent-thought-partner__structure-bulk-count">
+            <strong>{selectedCount}</strong>
+            <span>selected</span>
+          </div>
+          <div className="agent-thought-partner__structure-bulk-actions">
+            <QuietButton
+              type="button"
+              disabled={bulkDisabled || selectableOpIds.length === 0 || allSelected}
+              onClick={handleSelectAll}
+            >
+              Select all
+            </QuietButton>
+            <QuietButton
+              type="button"
+              disabled={bulkDisabled || selectedCount === 0}
+              onClick={() => handleBulkStatus('approved')}
+            >
+              {bulkBusy ? 'Saving…' : 'Accept selected'}
+            </QuietButton>
+            <QuietButton
+              type="button"
+              disabled={bulkDisabled || selectedCount === 0}
+              onClick={() => handleBulkStatus('rejected')}
+            >
+              {bulkBusy ? 'Saving…' : 'Reject selected'}
+            </QuietButton>
+            <QuietButton
+              type="button"
+              disabled={bulkDisabled || selectedCount === 0}
+              onClick={handleClearSelection}
+            >
+              Clear
+            </QuietButton>
+          </div>
+        </div>
+      )}
+
       <div className="agent-thought-partner__structure-operations">
-        {(Array.isArray(proposal?.operations) ? proposal.operations : []).map((operation) => {
+        {operations.map((operation) => {
           const operationStatus = clean(operation?.status).toLowerCase() || 'pending';
           const operationKey = `${clean(proposal?.structureProposalId)}:${clean(operation?.opId)}`;
-          const isOperationLoading = activeOperationKey === operationKey;
+          const isOperationLoading = activeOperationKey === operationKey || bulkBusy;
           const nextStatus = operationStatus === 'rejected' ? 'approved' : 'rejected';
+          const opId = clean(operation?.opId);
+          const isSelectable = selectableOpIds.includes(opId);
+          const isSelected = selectedOpIds.has(opId);
+          const classificationRationale = resolveOperationRationale(operation);
+          const sourceQualityLabel = resolveSourceQualityLabel(operation);
+          const sourceQualityKey = resolveSourceQualityKey(operation);
+          const operationEvidence = resolveOperationEvidence(operation);
           return (
             <section
-              key={clean(operation?.opId) || `${clean(proposal?.structureProposalId)}-${describeOperationTitle(operation)}`}
-              className={`agent-thought-partner__structure-step is-${operationStatus || 'pending'} ${operation?.isActionable === false ? 'is-invalid' : ''}`.trim()}
+              key={opId || `${clean(proposal?.structureProposalId)}-${describeOperationTitle(operation)}`}
+              className={`agent-thought-partner__structure-step is-${operationStatus || 'pending'} ${operation?.isActionable === false ? 'is-invalid' : ''} ${isSelected ? 'is-bulk-selected' : ''}`.trim()}
             >
               <div className="agent-thought-partner__structure-step-head">
-                <div>
-                  <span className="agent-thought-partner__snapshot-label">{formatStatusLabel(operation?.type || 'step')}</span>
-                  <p className="agent-thought-partner__structure-step-title">{describeOperationTitle(operation)}</p>
+                <div className="agent-thought-partner__structure-step-title-row">
+                  {isPending && isSelectable && (
+                    <label className="agent-thought-partner__structure-step-check">
+                      <span className="sr-only">Select {describeOperationTitle(operation)}</span>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={bulkDisabled}
+                        onChange={() => toggleOperationSelection(opId)}
+                      />
+                    </label>
+                  )}
+                  <div>
+                    <span className="agent-thought-partner__snapshot-label">{formatStatusLabel(operation?.type || 'step')}</span>
+                    <p className="agent-thought-partner__structure-step-title">{describeOperationTitle(operation)}</p>
+                  </div>
                 </div>
                 <div className="agent-thought-partner__draft-meta">
+                  {sourceQualityLabel ? (
+                    <span
+                      className={`agent-thought-partner__structure-quality agent-thought-partner__structure-quality--${sourceQualityKey || 'unknown'}`}
+                      data-testid={`structure-operation-quality-${opId || 'unknown'}`}
+                    >
+                      {sourceQualityLabel}
+                    </span>
+                  ) : null}
                   <span>{formatStatusLabel(operationStatus)}</span>
                   {clean(operation?.targetDomain) && <span>{clean(operation.targetDomain)}</span>}
                 </div>
@@ -199,12 +349,29 @@ const StructureProposalReview = ({
               {clean(describeOperationDetail(operation)) && (
                 <p className="agent-thought-partner__structure-step-copy">{describeOperationDetail(operation)}</p>
               )}
+              {classificationRationale ? (
+                <p className="agent-thought-partner__structure-rationale" data-testid={`structure-operation-rationale-${opId || 'unknown'}`}>
+                  <span>Why this category?</span>
+                  {classificationRationale}
+                </p>
+              ) : null}
+              {operationEvidence.length > 0 ? (
+                <div
+                  className="agent-thought-partner__structure-evidence"
+                  data-testid={`structure-operation-evidence-${opId || 'unknown'}`}
+                  aria-label="Filing evidence"
+                >
+                  {operationEvidence.map((item) => (
+                    <span key={`${opId || 'operation'}-${item}`}>{item}</span>
+                  ))}
+                </div>
+              ) : null}
               {Array.isArray(operation?.invalidFields) && operation.invalidFields.length > 0 && (
                 <p className="agent-thought-partner__structure-warning">
                   Needs cleanup before it can run: {operation.invalidFields.join(', ')}.
                 </p>
               )}
-              {isPending && typeof onUpdateOperationStatus === 'function' && clean(operation?.opId) && (
+              {isPending && typeof onUpdateOperationStatus === 'function' && opId && (
                 <div className="agent-thought-partner__draft-actions">
                   <QuietButton
                     type="button"

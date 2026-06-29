@@ -53,6 +53,8 @@ const SystemStatusPopover = ({ open, anchorRef, popoverRef, children }) => {
 const SystemStatus = ({
   backgroundWork = null,
   latestReceipt = null,
+  recentReceipts = [],
+  onClearRecentReceipts = null,
   recoverableFailure = null,
   onRetryFailure = null
 }) => {
@@ -157,6 +159,50 @@ const SystemStatus = ({
                   View details
                 </a>
               ) : null}
+            </section>
+          ) : null}
+          {recentReceipts.length > 0 ? (
+            <section
+              className="system-status__section system-status__section--recent"
+              aria-label="Recent activity"
+              data-testid="system-status-recent-activity"
+            >
+              <div className="system-status__section-header">
+                <p className="system-status__section-kicker">Recent activity</p>
+                {onClearRecentReceipts ? (
+                  <button
+                    type="button"
+                    className="system-status__clear"
+                    onClick={onClearRecentReceipts}
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+              </div>
+              <ul className="system-status__recent-list">
+                {recentReceipts.map((receipt, index) => {
+                  const key = receipt.id || `${receipt.title}-${index}`;
+                  return (
+                    <li key={key} className="system-status__recent-item">
+                      {receipt.href ? (
+                        <a className="system-status__recent-link" href={receipt.href}>
+                          <span className="system-status__recent-title">{receipt.title}</span>
+                          {receipt.summary ? (
+                            <span className="system-status__recent-summary">{receipt.summary}</span>
+                          ) : null}
+                        </a>
+                      ) : (
+                        <>
+                          <span className="system-status__recent-title">{receipt.title}</span>
+                          {receipt.summary ? (
+                            <span className="system-status__recent-summary">{receipt.summary}</span>
+                          ) : null}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
           ) : null}
         </SystemStatusPopover>

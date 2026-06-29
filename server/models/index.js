@@ -1553,7 +1553,7 @@ const agentStructureProposalOperationSchema = new mongoose.Schema({
   opId: { type: String, required: true, trim: true },
   type: {
     type: String,
-    enum: ['create_folder', 'rename_folder', 'move_item', 'merge_folder', 'delete_folder'],
+    enum: ['create_folder', 'rename_folder', 'move_item', 'merge_item', 'merge_folder', 'delete_folder'],
     required: true
   },
   targetDomain: {
@@ -1827,6 +1827,28 @@ importSessionSchema.index({ userId: 1, provider: 1, updatedAt: -1 });
 
 const ImportSession = mongoose.model('ImportSession', importSessionSchema);
 
+const noeisReceiptSchema = new mongoose.Schema({
+  receiptId: { type: String, required: true, trim: true },
+  kind: { type: String, required: true, trim: true },
+  source: { type: String, required: true, trim: true },
+  sourceLabel: { type: String, default: '', trim: true },
+  status: { type: String, required: true, trim: true },
+  title: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  metrics: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  touched: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  nextAction: { type: mongoose.Schema.Types.Mixed, default: null },
+  error: { type: mongoose.Schema.Types.Mixed, default: null },
+  createdAtExternal: { type: Date, default: null },
+  completedAt: { type: Date, default: null },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+noeisReceiptSchema.index({ userId: 1, completedAt: -1 });
+noeisReceiptSchema.index({ userId: 1, receiptId: 1 }, { unique: true });
+
+const NoeisReceipt = mongoose.model('NoeisReceipt', noeisReceiptSchema);
+
 const embeddingJobSchema = new mongoose.Schema({
   collection: { type: String, required: true, trim: true },
   objectId: { type: String, required: true, trim: true },
@@ -1946,6 +1968,7 @@ module.exports = {
   Collection,
   IntegrationConnection,
   ImportSession,
+  NoeisReceipt,
   EmbeddingJob,
   SharedConcept,
   SharedQuestion,

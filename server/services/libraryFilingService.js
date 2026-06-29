@@ -10,6 +10,7 @@ const buildLibraryFilingReceipt = ({
   folderCount = 0,
   classifiedWithLlm = null,
   classifiedWithFallback = null,
+  uncertainCount = null,
   reused = false,
   proposalId = '',
   threadId = '',
@@ -25,7 +26,8 @@ const buildLibraryFilingReceipt = ({
     articleCount,
     folderCount,
     classifiedWithLlm,
-    classifiedWithFallback
+    classifiedWithFallback,
+    uncertainCount
   },
   touched: proposalId
     ? [{ type: 'folder', id: String(proposalId), title: 'Library filing proposal' }]
@@ -85,6 +87,141 @@ const buildArticleSnippet = (article = {}) => {
   return clean(article?.title).slice(0, 240);
 };
 
+const countHighlights = (article = {}) => (
+  Array.isArray(article?.highlights)
+    ? article.highlights.filter((entry) => clean(entry?.text)).length
+    : 0
+);
+
+const normalizeConfidence = (value, fallback = 0.55) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.min(1, number));
+};
+
+const normalizeSourceQuality = (value = '') => {
+  const safe = clean(value).toLowerCase().replace(/[\s-]+/g, '_');
+  return ['strong', 'thin', 'needs_review'].includes(safe) ? safe : '';
+};
+
+const normalizeUrlForMerge = (value = '') => {
+  const raw = clean(value);
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    parsed.hash = '';
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'ref', 'source'].forEach((key) => {
+      parsed.searchParams.delete(key);
+    });
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.hostname.replace(/^www\./, '').toLowerCase()}${path.toLowerCase()}${parsed.searchParams.toString() ? `?${parsed.searchParams.toString()}` : ''}`;
+  } catch (_error) {
+    return raw.toLowerCase().replace(/[#?].*$/, '').replace(/\/+$/, '');
+  }
+};
+
+const normalizeTitleForMerge = (value = '') => (
+  clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
+const buildSourceMergeKey = (entry = {}) => {
+  const urlKey = normalizeUrlForMerge(entry?.url || entry?.sourceUrl || entry?.importMeta?.sourceUrl);
+  if (urlKey) return `url:${urlKey}`;
+  const titleKey = normalizeTitleForMerge(entry?.title);
+  const siteKey = normalizeTitleForMerge(entry?.siteName || entry?.sourceName || entry?.author);
+  if (titleKey && siteKey) return `title:${siteKey}:${titleKey}`;
+  return '';
+};
+
+const inferSourceQuality = (article = {}, confidence = 0.55) => {
+  const highlightCount = countHighlights(article);
+  const title = clean(article?.title);
+  const snippet = buildArticleSnippet(article);
+  if (!title || /^untitled/i.test(title) || confidence < 0.5) return 'needs_review';
+  if (highlightCount >= 5 || (highlightCount >= 3 && snippet.length >= 120)) return 'strong';
+  if (highlightCount <= 1 || snippet.length < 80) return 'thin';
+  return 'needs_review';
+};
+
+const buildSourceMergeOperations = (classifications = []) => {
+  const groups = new Map();
+  (Array.isArray(classifications) ? classifications : []).forEach((entry) => {
+    const id = clean(entry?.id);
+    const key = buildSourceMergeKey(entry);
+    if (!id || !key) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(entry);
+  });
+
+  const operations = [];
+  groups.forEach((entries) => {
+    if (entries.length < 2) return;
+    const sorted = [...entries].sort((left, right) => {
+      const rightHighlights = Number(right?.highlightCount) || 0;
+      const leftHighlights = Number(left?.highlightCount) || 0;
+      if (rightHighlights !== leftHighlights) return rightHighlights - leftHighlights;
+      return clean(right?.title).length - clean(left?.title).length;
+    });
+    const canonical = sorted[0];
+    sorted.slice(1).forEach((duplicate) => {
+      const sourceItemId = clean(duplicate?.id);
+      const destinationItemId = clean(canonical?.id);
+      if (!sourceItemId || !destinationItemId || sourceItemId === destinationItemId) return;
+      const duplicateHighlights = Number(duplicate?.highlightCount) || 0;
+      const canonicalHighlights = Number(canonical?.highlightCount) || 0;
+      const reason = `Likely duplicate source: same ${normalizeUrlForMerge(duplicate?.url || duplicate?.sourceUrl) ? 'URL' : 'title/source'} as ${clean(canonical?.title) || 'the canonical article'}. Merge ${duplicateHighlights} ${duplicateHighlights === 1 ? 'highlight' : 'highlights'} into the stronger copy with ${canonicalHighlights} ${canonicalHighlights === 1 ? 'highlight' : 'highlights'}.`;
+      operations.push({
+        opId: `merge-library-source-${operations.length + 1}`,
+        type: 'merge_item',
+        targetDomain: 'library',
+        status: 'pending',
+        payload: {
+          sourceItemId,
+          destinationItemId,
+          reason,
+          sourceQuality: 'needs_review',
+          duplicateKey: buildSourceMergeKey(duplicate)
+        },
+        preview: {
+          sourceTitle: clean(duplicate?.title) || sourceItemId,
+          destinationTitle: clean(canonical?.title) || destinationItemId,
+          reason,
+          sourceQuality: 'needs_review',
+          highlightCount: duplicateHighlights,
+          classificationMethod: 'duplicate_detector'
+        },
+        risk: 'medium'
+      });
+    });
+  });
+  return operations;
+};
+
+const buildClassificationRationale = ({
+  title = '',
+  folderName = '',
+  snippet = '',
+  method = 'regex',
+  confidence = 0.55,
+  sourceQuality = ''
+} = {}) => {
+  const safeFolder = clean(folderName) || 'Curated Research';
+  const topicHint = clean(snippet)
+    ? clean(snippet).split(/\s+/).slice(0, 10).join(' ')
+    : clean(title);
+  const qualityNote = sourceQuality === 'strong'
+    ? 'source has several saved highlights'
+    : sourceQuality === 'thin'
+      ? 'source has limited highlight material'
+      : 'source should be reviewed before bulk filing';
+  const methodNote = method === 'llm' ? 'agent classification' : 'fallback classifier';
+  return `${safeFolder} fits because ${topicHint || 'the title and saved highlight'} point to that shelf; ${qualityNote}. ${methodNote}, confidence ${Math.round(normalizeConfidence(confidence) * 100)}%.`;
+};
+
 const resolveExistingFolderName = (proposedName = '', existingFolders = []) => {
   const safeProposed = clean(proposedName);
   if (!safeProposed) return '';
@@ -132,6 +269,18 @@ const buildFilingStructureOperations = ({
     const moveKey = `library:${itemId}`;
     if (seenMoves.has(moveKey)) return;
     seenMoves.add(moveKey);
+    const confidence = normalizeConfidence(entry?.confidence, clean(entry?.method) === 'llm' ? 0.72 : 0.58);
+    const sourceQuality = normalizeSourceQuality(entry?.sourceQuality) || 'needs_review';
+    const rationale = clean(entry?.rationale || entry?.reason) || buildClassificationRationale({
+      title: entry?.title,
+      folderName,
+      snippet: entry?.snippet,
+      method: entry?.method,
+      confidence,
+      sourceQuality
+    });
+    const classificationMethod = clean(entry?.method) || 'regex';
+    const highlightCount = Number(entry?.highlightCount) || 0;
     operations.push({
       opId: `move-library-${seenMoves.size}`,
       type: 'move_item',
@@ -139,17 +288,27 @@ const buildFilingStructureOperations = ({
       status: 'pending',
       payload: {
         itemId,
-        destinationFolderName: folderName
+        destinationFolderName: folderName,
+        reason: rationale,
+        classificationMethod,
+        sourceQuality,
+        confidence,
+        highlightCount
       },
       preview: {
         itemTitle: clean(entry?.title) || itemId,
-        destinationFolderName: folderName
+        destinationFolderName: folderName,
+        reason: rationale,
+        classificationMethod,
+        sourceQuality,
+        confidence,
+        highlightCount
       },
       risk: 'low'
     });
   });
 
-  return operations;
+  return [...operations, ...buildSourceMergeOperations(classifications)];
 };
 
 const classifyArticlesWithRegex = (articles = []) => (
@@ -157,12 +316,29 @@ const classifyArticlesWithRegex = (articles = []) => (
     const id = clean(article?._id || article?.id);
     const title = clean(article?.title) || 'Untitled article';
     const snippet = buildArticleSnippet(article);
+    const confidence = 0.58;
+    const sourceQuality = inferSourceQuality(article, confidence);
+    const folderName = inferOrganizationFolderNameRegex({ title, snippet });
     return {
       id,
       title,
       snippet,
-      folderName: inferOrganizationFolderNameRegex({ title, snippet }),
-      method: 'regex'
+      url: clean(article?.url),
+      siteName: clean(article?.siteName),
+      author: clean(article?.author),
+      folderName,
+      method: 'regex',
+      confidence,
+      sourceQuality,
+      highlightCount: countHighlights(article),
+      rationale: buildClassificationRationale({
+        title,
+        folderName,
+        snippet,
+        method: 'regex',
+        confidence,
+        sourceQuality
+      })
     };
   }).filter((entry) => entry.id)
 );
@@ -181,7 +357,11 @@ const classifyArticleBatchWithLlm = async ({
   const payloadArticles = articles.map((article) => ({
     id: clean(article?._id || article?.id),
     title: clean(article?.title) || 'Untitled article',
-    snippet: buildArticleSnippet(article)
+    snippet: buildArticleSnippet(article),
+    highlightCount: countHighlights(article),
+    url: clean(article?.url),
+    siteName: clean(article?.siteName),
+    author: clean(article?.author)
   })).filter((entry) => entry.id);
 
   const completion = await chatComplete({
@@ -196,7 +376,8 @@ const classifyArticleBatchWithLlm = async ({
           'You classify library articles into folders for a personal knowledge base.',
           'Prefer an existing folder when it is a sensible fit.',
           'Only propose a new folder when nothing existing fits.',
-          'Return JSON: {"classifications":[{"id":"...","folderName":"...","confidence":0.0,"isNew":false}]}',
+          'For each row include a short rationale and sourceQuality: strong, thin, or needs_review.',
+          'Return JSON: {"classifications":[{"id":"...","folderName":"...","confidence":0.0,"isNew":false,"rationale":"...","sourceQuality":"strong"}]}',
           `Existing folders: ${folderNames.length ? folderNames.join(' | ') : '(none yet)'}`
         ].join(' ')
       },
@@ -219,12 +400,31 @@ const classifyArticleBatchWithLlm = async ({
     const match = byId.get(article.id);
     const folderName = resolveExistingFolderName(match?.folderName, existingFolders)
       || inferOrganizationFolderNameRegex(article);
+    const method = match?.folderName ? 'llm' : 'regex';
+    const confidence = normalizeConfidence(match?.confidence, method === 'llm' ? 0.72 : 0.58);
+    const sourceQuality = normalizeSourceQuality(match?.sourceQuality)
+      || inferSourceQuality(article, confidence);
+    const rationale = clean(match?.rationale) || buildClassificationRationale({
+      title: article.title,
+      folderName,
+      snippet: article.snippet,
+      method,
+      confidence,
+      sourceQuality
+    });
     return {
       id: article.id,
       title: article.title,
       snippet: article.snippet,
+      url: article.url,
+      siteName: article.siteName,
+      author: article.author,
       folderName,
-      method: match?.folderName ? 'llm' : 'regex'
+      method,
+      confidence,
+      sourceQuality,
+      highlightCount: Number(article.highlightCount) || 0,
+      rationale
     };
   });
 };
@@ -284,7 +484,7 @@ const loadUnfiledArticlesWithHighlights = async ({
     $or: [{ folder: null }, { folder: { $exists: false } }],
     'highlights.0': { $exists: true }
   })
-    .select('title url highlights folder')
+    .select('title url siteName author highlights folder')
     .sort({ updatedAt: -1, createdAt: -1 })
     .lean();
 };
@@ -298,6 +498,11 @@ const buildLibraryFilingProposalPayload = ({
   const operations = buildFilingStructureOperations({ classifications, existingFolders });
   const articleCount = classifications.length;
   const folderNames = new Set(classifications.map((entry) => clean(entry?.folderName)).filter(Boolean));
+  const uncertainCount = classifications.filter((entry) => (
+    normalizeSourceQuality(entry?.sourceQuality) !== 'strong'
+    || normalizeConfidence(entry?.confidence) < 0.68
+    || clean(entry?.method).toLowerCase() !== 'llm'
+  )).length;
 
   if (!clean(userId) || operations.length === 0) return null;
 
@@ -309,8 +514,8 @@ const buildLibraryFilingProposalPayload = ({
     scopeRef: FILING_SCOPE_REF,
     status: 'pending',
     title: 'Review library filing suggestions',
-    summary: `Review ${articleCount} unfiled ${articleCount === 1 ? 'article' : 'articles'} with highlights across ${folderNames.size} proposed ${folderNames.size === 1 ? 'folder' : 'folders'}. Nothing moves until you approve.`,
-    rationale: 'Library filing should stay reviewable and reversible instead of silently reshaping the cabinet.',
+    summary: `Review ${articleCount} unfiled ${articleCount === 1 ? 'article' : 'articles'} with highlights across ${folderNames.size} proposed ${folderNames.size === 1 ? 'folder' : 'folders'}. ${uncertainCount ? `${uncertainCount} need ${uncertainCount === 1 ? 'a closer look' : 'closer review'}. ` : ''}Nothing moves until you approve.`,
+    rationale: 'Library filing should stay reviewable and reversible. Each move includes the filing reason, source-quality state, highlight count, and confidence before the cabinet changes.',
     operations,
     createdBy: {
       actorType: 'native_agent',
@@ -446,6 +651,11 @@ const stageLibraryFilingSuggestions = async ({
   }
 
   const folderCount = new Set(classifications.map((entry) => clean(entry?.folderName)).filter(Boolean)).size;
+  const uncertainCount = classifications.filter((entry) => (
+    normalizeSourceQuality(entry?.sourceQuality) !== 'strong'
+    || normalizeConfidence(entry?.confidence) < 0.68
+    || clean(entry?.method).toLowerCase() !== 'llm'
+  )).length;
 
   return {
     reused: false,
@@ -459,6 +669,7 @@ const stageLibraryFilingSuggestions = async ({
       folderCount,
       classifiedWithLlm: llmCount,
       classifiedWithFallback: regexCount,
+      uncertainCount,
       proposalId: String(proposal?._id || ''),
       threadId: String(thread?._id || ''),
       completedAt: new Date()

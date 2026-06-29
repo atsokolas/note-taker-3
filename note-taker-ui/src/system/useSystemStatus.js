@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { EMPTY_SYSTEM_STATUS } from './systemStatusModel';
+import { EMPTY_SYSTEM_STATUS, prependRecentReceipt } from './systemStatusModel';
 
 /**
  * App-level system status state for the topbar affordance.
@@ -16,7 +16,18 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
   }, []);
 
   const setLatestReceipt = useCallback((latestReceipt) => {
-    setState((prev) => ({ ...prev, latestReceipt: latestReceipt || null }));
+    setState((prev) => {
+      const next = latestReceipt || null;
+      return {
+        ...prev,
+        latestReceipt: next,
+        recentReceipts: next ? prependRecentReceipt(prev.recentReceipts, next) : prev.recentReceipts
+      };
+    });
+  }, []);
+
+  const clearRecentReceipts = useCallback(() => {
+    setState((prev) => ({ ...prev, recentReceipts: [] }));
   }, []);
 
   const setRecoverableFailure = useCallback((recoverableFailure) => {
@@ -34,12 +45,14 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
   const api = useMemo(() => ({
     setBackgroundWork,
     setLatestReceipt,
+    clearRecentReceipts,
     setRecoverableFailure,
     clearRecoverableFailure,
     resetSystemStatus
   }), [
     setBackgroundWork,
     setLatestReceipt,
+    clearRecentReceipts,
     setRecoverableFailure,
     clearRecoverableFailure,
     resetSystemStatus

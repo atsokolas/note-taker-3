@@ -1,6 +1,6 @@
 const clean = (value) => String(value || '').trim();
 
-const OPERATION_ORDER = ['create_folder', 'rename_folder', 'move_item', 'merge_folder', 'delete_folder'];
+const OPERATION_ORDER = ['create_folder', 'rename_folder', 'move_item', 'merge_item', 'merge_folder', 'delete_folder'];
 const TARGET_DOMAIN_VALUES = new Set(['library', 'notebook', 'concepts', 'questions']);
 
 const pickModel = (models = {}, keys = []) => {
@@ -33,6 +33,23 @@ const toPlainObject = (value) => {
   if (!value || typeof value !== 'object') return {};
   if (typeof value.toObject === 'function') return value.toObject();
   return { ...value };
+};
+
+const normalizeMergeText = (value = '') => (
+  clean(value)
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .slice(0, 500)
+);
+
+const buildHighlightMergeKey = (highlight = {}) => (
+  `${normalizeMergeText(highlight?.text)}|${normalizeMergeText(highlight?.note)}`
+);
+
+const cloneHighlightForMerge = (highlight = {}) => {
+  const source = toPlainObject(highlight);
+  delete source._id;
+  return source;
 };
 
 const ensureWriteSucceeded = (result, description) => {
@@ -170,6 +187,9 @@ const resolveNotebookAdapter = (models = {}) => {
         });
       }
       return { matchedCount: entries.length, modifiedCount: entries.length };
+    },
+    async mergeEntry() {
+      throw new Error('merge_item is not supported for notebook entries.');
     }
   };
 };
@@ -251,6 +271,76 @@ const resolveLibraryAdapter = (models = {}) => {
         });
       }
       return { matchedCount: entries.length, modifiedCount: entries.length };
+    },
+    async mergeEntry({ userId, sourceItemId, destinationItemId }) {
+      const sourceId = clean(sourceItemId);
+      const destinationId = clean(destinationItemId);
+      if (!sourceId || !destinationId || sourceId === destinationId) {
+        throw new Error('merge_item requires distinct source and destination articles.');
+      }
+      const [sourceDoc, destinationDoc] = await Promise.all([
+        articles.findOne({ _id: sourceId, userId }),
+        articles.findOne({ _id: destinationId, userId })
+      ]);
+      if (!sourceDoc || !destinationDoc) {
+        throw new Error('merge_item source or destination article was not found.');
+      }
+
+      const destinationHighlights = Array.isArray(destinationDoc.highlights) ? destinationDoc.highlights : [];
+      const destinationKeys = new Set(destinationHighlights.map(buildHighlightMergeKey).filter((key) => key !== '|'));
+      const sourceHighlights = Array.isArray(sourceDoc.highlights) ? sourceDoc.highlights : [];
+      const highlightsToAdd = sourceHighlights.filter((highlight) => {
+        const key = buildHighlightMergeKey(highlight);
+        if (!key || key === '|' || destinationKeys.has(key)) return false;
+        destinationKeys.add(key);
+        return true;
+      }).map(cloneHighlightForMerge);
+
+      const destinationPreviousHighlightCount = destinationHighlights.length;
+      if (highlightsToAdd.length > 0) {
+        destinationDoc.highlights = [...destinationHighlights, ...highlightsToAdd];
+      }
+      if (!clean(destinationDoc.content) && clean(sourceDoc.content)) {
+        destinationDoc.content = sourceDoc.content;
+      }
+      await destinationDoc.save();
+
+      const sourcePreviousState = {
+        archived: Boolean(sourceDoc.archived),
+        hiddenFromHome: Boolean(sourceDoc.hiddenFromHome),
+        debugOnly: Boolean(sourceDoc.debugOnly)
+      };
+      sourceDoc.archived = true;
+      sourceDoc.hiddenFromHome = true;
+      await sourceDoc.save();
+
+      return {
+        sourceItemId: sourceId,
+        destinationItemId: destinationId,
+        mergedHighlightCount: highlightsToAdd.length,
+        destinationPreviousHighlightCount,
+        sourcePreviousState
+      };
+    },
+    async rollbackMergeEntry({ userId, sourceItemId, destinationItemId, destinationPreviousHighlightCount = null, sourcePreviousState = {} }) {
+      const sourceId = clean(sourceItemId);
+      const destinationId = clean(destinationItemId);
+      const [sourceDoc, destinationDoc] = await Promise.all([
+        sourceId ? articles.findOne({ _id: sourceId, userId }) : null,
+        destinationId ? articles.findOne({ _id: destinationId, userId }) : null
+      ]);
+      if (destinationDoc && Number.isFinite(Number(destinationPreviousHighlightCount))) {
+        const previousCount = Math.max(0, Number(destinationPreviousHighlightCount));
+        destinationDoc.highlights = (Array.isArray(destinationDoc.highlights) ? destinationDoc.highlights : []).slice(0, previousCount);
+        await destinationDoc.save();
+      }
+      if (sourceDoc) {
+        sourceDoc.archived = Boolean(sourcePreviousState?.archived);
+        sourceDoc.hiddenFromHome = Boolean(sourcePreviousState?.hiddenFromHome);
+        sourceDoc.debugOnly = Boolean(sourcePreviousState?.debugOnly);
+        await sourceDoc.save();
+      }
+      return { matchedCount: sourceDoc || destinationDoc ? 1 : 0, modifiedCount: sourceDoc || destinationDoc ? 1 : 0 };
     }
   };
 };
@@ -368,6 +458,35 @@ const applyMoveItem = async ({ adapter, operation, userId, context, targetDomain
     type: 'move_item',
     itemId,
     previousFolderId,
+    targetDomain
+  };
+  recordOperationStats(context, 'appliedCount');
+};
+
+const applyMergeItem = async ({ adapter, operation, userId, context, targetDomain }) => {
+  const payload = operation?.payload && typeof operation.payload === 'object' ? operation.payload : {};
+  const sourceItemId = clean(payload.sourceItemId || payload.itemId || payload.sourceArticleId);
+  const destinationItemId = clean(payload.destinationItemId || payload.destinationArticleId || payload.targetItemId);
+  if (!sourceItemId || !destinationItemId || sourceItemId === destinationItemId || typeof adapter.mergeEntry !== 'function') {
+    skipOperation(operation, context);
+    return;
+  }
+
+  const result = await adapter.mergeEntry({ userId, sourceItemId, destinationItemId });
+  operation.status = 'applied';
+  operation.executionIndex = context.nextExecutionIndex++;
+  operation.preview = {
+    ...(operation.preview && typeof operation.preview === 'object' ? operation.preview : {}),
+    mergedHighlightCount: Number(result?.mergedHighlightCount) || 0
+  };
+  operation.undoPayload = {
+    type: 'restore_item_merge',
+    sourceItemId,
+    destinationItemId,
+    destinationPreviousHighlightCount: Number(result?.destinationPreviousHighlightCount),
+    sourcePreviousState: result?.sourcePreviousState && typeof result.sourcePreviousState === 'object'
+      ? result.sourcePreviousState
+      : {},
     targetDomain
   };
   recordOperationStats(context, 'appliedCount');
@@ -597,6 +716,11 @@ const applyStructureProposal = async ({ models, proposal, userId }) => {
         continue;
       }
 
+      if (type === 'merge_item') {
+        await applyMergeItem({ adapter, operation, userId, context, targetDomain });
+        continue;
+      }
+
       if (type === 'merge_folder') {
         await applyMergeFolder({ adapter, operation, userId, context, targetDomain });
         continue;
@@ -640,6 +764,20 @@ const rollbackStructureProposal = async ({ models, proposal, userId }) => {
         userId,
         itemId,
         folderId: clean(undo.previousFolderId) || null
+      });
+      continue;
+    }
+
+    if (undoType === 'restore_item_merge') {
+      if (typeof adapter.rollbackMergeEntry !== 'function') continue;
+      await adapter.rollbackMergeEntry({
+        userId,
+        sourceItemId: clean(undo.sourceItemId),
+        destinationItemId: clean(undo.destinationItemId),
+        destinationPreviousHighlightCount: undo.destinationPreviousHighlightCount,
+        sourcePreviousState: undo.sourcePreviousState && typeof undo.sourcePreviousState === 'object'
+          ? undo.sourcePreviousState
+          : {}
       });
       continue;
     }

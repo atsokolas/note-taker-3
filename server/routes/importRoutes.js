@@ -48,6 +48,7 @@ const {
 } = require('../services/import/notionClient');
 const { createConnectorWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
 const normalizeSourcePath = (value = '') => {
@@ -93,12 +94,21 @@ const buildImportRouter = ({
   AgentStructureProposal,
   ImportSession,
   IntegrationConnection,
+  NoeisReceipt = null,
   syncNotebookReferences,
   enqueueArticleEmbedding,
   enqueueHighlightEmbedding,
   enqueueNotebookEmbedding
 }) => {
   const router = express.Router();
+
+  const persistImportReceipt = async ({ userId, receipt } = {}) => {
+    try {
+      await persistNoeisReceipt({ NoeisReceipt, userId, receipt });
+    } catch (error) {
+      console.error('Failed persisting import receipt:', error);
+    }
+  };
 
   const emitWikiSourceEvent = async (payload = {}) => {
     try {
@@ -346,8 +356,8 @@ const buildImportRouter = ({
     toTrimmedString(req.body?.importSessionId || req.query?.importSessionId)
   );
 
-  const markImportSessionUnavailable = async ({ sessionId, userId, stage, message }) => (
-    patchImportSession({
+  const markImportSessionUnavailable = async ({ sessionId, userId, stage, message }) => {
+    const failedSession = await patchImportSession({
       sessionId,
       userId,
       mutate: (session) => {
@@ -371,8 +381,10 @@ const buildImportRouter = ({
           }
         });
       }
-    })
-  );
+    });
+    await persistImportReceipt({ userId, receipt: failedSession?.receipt });
+    return failedSession;
+  };
 
   const clearImportOrganizationOffer = (session) => {
     if (!session || typeof session !== 'object') return;
@@ -513,6 +525,7 @@ const buildImportRouter = ({
       id: toTrimmedString(value.id),
       kind: toTrimmedString(value.kind) || 'import',
       source: toTrimmedString(value.source) || 'system',
+      sourceLabel: toTrimmedString(value.sourceLabel || value.sourceLabelOverride || value.source),
       status,
       title: toTrimmedString(value.title),
       summary: toTrimmedString(value.summary),
@@ -592,6 +605,7 @@ const buildImportRouter = ({
       id: id || `receipt-${safeSource}-${Date.now()}-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`,
       kind: 'import',
       source: safeSource,
+      sourceLabel: safeLabel,
       status,
       title: `${safeLabel} import ${status === 'failed' ? 'failed' : 'finished'}`,
       summary: error?.message || buildImportReceiptSummary(metrics),
@@ -1488,6 +1502,7 @@ const buildImportRouter = ({
         userId,
         articleIds: resultPayload.importedArticleIds
       });
+      await persistImportReceipt({ userId, receipt: resultPayload.receipt });
 
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
@@ -1505,7 +1520,7 @@ const buildImportRouter = ({
       res.status(200).json(resultPayload);
     } catch (err) {
       console.error('Readwise CSV import failed:', err);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -1530,6 +1545,7 @@ const buildImportRouter = ({
           });
         }
       });
+      await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to import Readwise CSV.' });
     }
   };
@@ -1829,7 +1845,7 @@ const buildImportRouter = ({
       });
     } catch (error) {
       console.error('Readwise preview failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -1839,8 +1855,20 @@ const buildImportRouter = ({
             stage: 'failed'
           };
           session.lastError = 'Failed to preview Readwise content.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'readwise-preview'}-${Date.now()}`,
+            source: 'readwise',
+            sourceLabel: session.sourceLabel || 'Readwise',
+            status: 'failed',
+            error: {
+              stage: 'preview_failed',
+              message: 'Failed to preview Readwise content.',
+              retryable: true
+            }
+          });
         }
       });
+      await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to preview Readwise content.' });
     }
   });
@@ -2130,6 +2158,7 @@ const buildImportRouter = ({
         userId,
         articleIds: resultPayload.importedArticleIds
       });
+      await persistImportReceipt({ userId, receipt: resultPayload.receipt });
 
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
@@ -2146,7 +2175,7 @@ const buildImportRouter = ({
       res.status(200).json(resultPayload);
     } catch (error) {
       console.error('Readwise sync failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -2406,8 +2435,20 @@ const buildImportRouter = ({
             stage: 'failed'
           };
           session.lastError = 'Failed to preview Notion content.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'notion-preview'}-${Date.now()}`,
+            source: 'notion',
+            sourceLabel: session.sourceLabel || 'Notion',
+            status: 'failed',
+            error: {
+              stage: 'preview_failed',
+              message: 'Failed to preview Notion content.',
+              retryable: true
+            }
+          });
         }
       });
+      await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to preview Notion content.' });
     }
   });
@@ -2626,6 +2667,7 @@ const buildImportRouter = ({
         userId,
         notebookEntryIds: resultPayload.importedEntryIds
       });
+      await persistImportReceipt({ userId, receipt: resultPayload.receipt });
 
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
@@ -2667,6 +2709,7 @@ const buildImportRouter = ({
           });
         }
       });
+      await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to sync from Notion.' });
     }
   });
@@ -2808,7 +2851,7 @@ const buildImportRouter = ({
       });
     } catch (error) {
       console.error('Evernote ENEX preview failed:', error);
-      await patchImportSession({
+      const failedSession = await patchImportSession({
         sessionId: importSessionId,
         userId,
         mutate: (session) => {
@@ -2818,8 +2861,20 @@ const buildImportRouter = ({
             stage: 'failed'
           };
           session.lastError = 'Failed to preview Evernote ENEX.';
+          session.receipt = buildNoeisImportReceipt({
+            id: `import-${importSessionId || 'evernote-preview'}-${Date.now()}`,
+            source: 'evernote',
+            sourceLabel: session.sourceLabel || 'Evernote ENEX',
+            status: 'failed',
+            error: {
+              stage: 'preview_failed',
+              message: 'Failed to preview Evernote ENEX.',
+              retryable: true
+            }
+          });
         }
       });
+      await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to preview Evernote ENEX.' });
     }
   });
@@ -3003,6 +3058,7 @@ const buildImportRouter = ({
         userId,
         notebookEntryIds: resultPayload.importedEntryIds
       });
+      await persistImportReceipt({ userId, receipt: resultPayload.receipt });
 
       trackEvent({
         event: EVENT_NAMES.CAPTURE_COMPLETED,
@@ -3042,6 +3098,7 @@ const buildImportRouter = ({
           });
         }
       });
+      await persistImportReceipt({ userId, receipt: failedSession?.receipt });
       res.status(500).json({ error: 'Failed to import Evernote ENEX.' });
     }
   });

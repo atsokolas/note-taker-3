@@ -14,6 +14,7 @@ import { createContext, useContext } from 'react';
  * @typedef {{
  *   setBackgroundWork: (work: BackgroundWork | null) => void;
  *   setLatestReceipt: (receipt: SystemStatusReceipt | null) => void;
+ *   clearRecentReceipts: () => void;
  *   setRecoverableFailure: (failure: (RecoverableFailure & { retry?: () => void }) | null) => void;
  *   clearRecoverableFailure: () => void;
  *   resetSystemStatus: () => void;
@@ -26,6 +27,7 @@ const noop = () => {};
 const NOOP_CONTROLS = /** @type {SystemStatusControls} */ ({
   setBackgroundWork: noop,
   setLatestReceipt: noop,
+  clearRecentReceipts: noop,
   setRecoverableFailure: noop,
   clearRecoverableFailure: noop,
   resetSystemStatus: noop

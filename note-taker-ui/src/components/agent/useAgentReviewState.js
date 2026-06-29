@@ -189,6 +189,36 @@ const useAgentReviewState = ({
     }
   }, [activeThreadId, loadHarnessMetrics, replaceStructureProposal, reportError]);
 
+  const handleBulkUpdateStructureProposalOperationStatus = useCallback(async (proposal, operationIds = [], nextStatus = '') => {
+    const safeProposalId = clean(proposal?.structureProposalId);
+    const safeStatus = clean(nextStatus);
+    const selectedIds = new Set(
+      (Array.isArray(operationIds) ? operationIds : [])
+        .map((value) => clean(value))
+        .filter(Boolean)
+    );
+    if (!safeProposalId || !safeStatus || selectedIds.size === 0) return;
+    setStructureProposalOperationLoadingId(`${safeProposalId}:bulk`);
+    try {
+      const result = await updateAgentStructureProposal(safeProposalId, {
+        operations: (Array.isArray(proposal?.operations) ? proposal.operations : []).map((entry) => {
+          const opId = clean(entry?.opId);
+          if (selectedIds.has(opId)) return { opId, status: safeStatus };
+          return { opId, status: clean(entry?.status) || 'pending' };
+        })
+      });
+      const nextProposal = result?.proposal || result?.structureProposal;
+      if (nextProposal) {
+        replaceStructureProposal(nextProposal);
+        if (clean(activeThreadId)) await loadHarnessMetrics(activeThreadId);
+      }
+    } catch (error) {
+      reportError(error.response?.data?.error || 'Failed to update structure plan.');
+    } finally {
+      setStructureProposalOperationLoadingId('');
+    }
+  }, [activeThreadId, loadHarnessMetrics, replaceStructureProposal, reportError]);
+
   const handleApplyStructureProposal = useCallback(async (proposal) => {
     const safeProposalId = clean(proposal?.structureProposalId);
     if (!safeProposalId) return;
@@ -272,6 +302,7 @@ const useAgentReviewState = ({
     handleRejectProposedChange,
     handleRollbackProposedChange,
     handleUpdateStructureProposalOperationStatus,
+    handleBulkUpdateStructureProposalOperationStatus,
     handleApplyStructureProposal,
     handleRejectStructureProposal,
     handleRollbackStructureProposal

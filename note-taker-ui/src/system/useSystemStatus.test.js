@@ -30,5 +30,67 @@ describe('useSystemStatus', () => {
     expect(result.current.backgroundWork).toBeNull();
     expect(result.current.latestReceipt).toBeNull();
     expect(result.current.recoverableFailure).toBeNull();
+    expect(result.current.recentReceipts).toEqual([]);
+  });
+
+  it('accumulates receipt history up to 5 and drops the oldest', () => {
+    const { result } = renderHook(() => useSystemStatus());
+
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r1', title: 'First', summary: 'One' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r2', title: 'Second', summary: 'Two' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r3', title: 'Third', summary: 'Three' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r4', title: 'Fourth', summary: 'Four' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r5', title: 'Fifth', summary: 'Five' });
+    });
+    expect(result.current.recentReceipts.map((receipt) => receipt.id)).toEqual(['r5', 'r4', 'r3', 'r2', 'r1']);
+
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r6', title: 'Sixth', summary: 'Six' });
+    });
+    expect(result.current.recentReceipts.map((receipt) => receipt.id)).toEqual(['r6', 'r5', 'r4', 'r3', 'r2']);
+  });
+
+  it('dedupes receipt history by id when the same receipt updates', () => {
+    const { result } = renderHook(() => useSystemStatus());
+
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r1', title: 'First', summary: 'Draft' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r2', title: 'Second', summary: 'Two' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r1', title: 'First', summary: 'Final' });
+    });
+    expect(result.current.recentReceipts).toEqual([
+      { id: 'r1', title: 'First', summary: 'Final' },
+      { id: 'r2', title: 'Second', summary: 'Two' }
+    ]);
+  });
+
+  it('clears receipt history without affecting the latest receipt', () => {
+    const { result } = renderHook(() => useSystemStatus());
+
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r1', title: 'First', summary: 'One' });
+    });
+    act(() => {
+      result.current.setLatestReceipt({ id: 'r2', title: 'Second', summary: 'Two' });
+    });
+
+    act(() => {
+      result.current.clearRecentReceipts();
+    });
+    expect(result.current.recentReceipts).toEqual([]);
+    expect(result.current.latestReceipt?.title).toBe('Second');
   });
 });

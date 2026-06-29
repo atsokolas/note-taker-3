@@ -276,6 +276,7 @@ function App() {
   const {
     setBackgroundWork: setSystemBackgroundWork,
     setLatestReceipt: setSystemLatestReceipt,
+    clearRecentReceipts: clearSystemRecentReceipts,
     setRecoverableFailure: setSystemRecoverableFailure,
     clearRecoverableFailure: clearSystemRecoverableFailure,
     resetSystemStatus
@@ -283,12 +284,14 @@ function App() {
   const systemStatusControls = useMemo(() => ({
     setBackgroundWork: setSystemBackgroundWork,
     setLatestReceipt: setSystemLatestReceipt,
+    clearRecentReceipts: clearSystemRecentReceipts,
     setRecoverableFailure: setSystemRecoverableFailure,
     clearRecoverableFailure: clearSystemRecoverableFailure,
     resetSystemStatus
   }), [
     setSystemBackgroundWork,
     setSystemLatestReceipt,
+    clearSystemRecentReceipts,
     setSystemRecoverableFailure,
     clearSystemRecoverableFailure,
     resetSystemStatus
@@ -653,6 +656,8 @@ function App() {
             systemStatus={{
               backgroundWork: systemStatus.backgroundWork,
               latestReceipt: systemStatus.latestReceipt,
+              recentReceipts: systemStatus.recentReceipts,
+              clearRecentReceipts: systemStatus.clearRecentReceipts,
               recoverableFailure: systemStatus.recoverableFailure
             }}
             onSystemStatusRetry={() => {

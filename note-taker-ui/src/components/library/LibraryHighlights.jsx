@@ -1,6 +1,7 @@
 /* Before: highlights and articles could blend visually in Library.
    After: highlights mount on a distinct surface shell so section identity is clearer without layout changes. */
 import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { QuietButton, SectionHeader } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
 import useHighlightsQuery from '../../hooks/useHighlightsQuery';
@@ -9,6 +10,7 @@ import LibraryConceptModal from './LibraryConceptModal';
 import LibraryNotebookModal from './LibraryNotebookModal';
 import LibraryQuestionModal from './LibraryQuestionModal';
 import { createQuestion } from '../../api/questions';
+import { createWikiPage } from '../../api/wiki';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import VirtualList from '../virtual/VirtualList';
@@ -16,6 +18,13 @@ import { createProfilerLogger } from '../../utils/perf';
 import useTourSignal from '../../tour/useTourSignal';
 import { deleteHighlight } from '../../api/highlights';
 import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import {
+  buildQuestionPayloadFromHighlights,
+  buildQuestionReviewPath,
+  buildWikiSectionPayloadFromHighlights,
+  writeHighlightActionContext
+} from '../../utils/highlightToThinkingModel';
+import { openWikiDraft } from '../../utils/wikiCreate';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -57,6 +66,7 @@ const LibraryHighlights = ({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState('');
   const fireTourSignal = useTourSignal();
+  const navigate = useNavigate();
   const virtualListRef = useRef(null);
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
@@ -271,6 +281,59 @@ const LibraryHighlights = ({
     displayRows.filter(row => bulkSelected.has(String(row._id)))
   ), [displayRows, bulkSelected]);
 
+  useEffect(() => {
+    writeHighlightActionContext(selectedHighlightObjects);
+  }, [selectedHighlightObjects]);
+
+  const handleBulkTurnIntoQuestion = useCallback(async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkBusy(true);
+    setBulkError('');
+    try {
+      const payload = buildQuestionPayloadFromHighlights({
+        highlights: selectedHighlightObjects,
+        createId
+      });
+      const created = await createQuestion(payload);
+      for (const highlightId of payload.linkedHighlightIds) {
+        if (!created?._id || !highlightId) continue;
+        try {
+          await api.post(
+            `/api/questions/${created._id}/add-highlight`,
+            { highlightId },
+            getAuthHeaders()
+          );
+        } catch (_err) {
+          // Best-effort graph link; blocks already carry refs.
+        }
+      }
+      setBulkSelected(new Set());
+      navigate(buildQuestionReviewPath(created?._id));
+    } catch (_err) {
+      setBulkError('Could not draft a question from the selected highlights.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [bulkSelected.size, navigate, selectedHighlightObjects]);
+
+  const handleBulkTurnIntoWikiSection = useCallback(async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkBusy(true);
+    setBulkError('');
+    try {
+      const payload = buildWikiSectionPayloadFromHighlights({
+        highlights: selectedHighlightObjects
+      });
+      const page = await createWikiPage(payload);
+      setBulkSelected(new Set());
+      openWikiDraft({ navigate, pageId: page._id });
+    } catch (_err) {
+      setBulkError('Could not draft a wiki section from the selected highlights.');
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [bulkSelected.size, navigate, selectedHighlightObjects]);
+
   const handleBulkDelete = useCallback(async () => {
     if (bulkSelected.size === 0) return;
     if (!window.confirm(`Delete ${bulkSelected.size} highlight${bulkSelected.size === 1 ? '' : 's'}? This cannot be undone.`)) return;
@@ -476,6 +539,12 @@ const LibraryHighlights = ({
             </QuietButton>
             <QuietButton onClick={handleOpenBulkConceptModal} disabled={bulkBusy}>
               Add to concept…
+            </QuietButton>
+            <QuietButton onClick={handleBulkTurnIntoQuestion} disabled={bulkBusy}>
+              Question draft
+            </QuietButton>
+            <QuietButton onClick={handleBulkTurnIntoWikiSection} disabled={bulkBusy}>
+              Wiki section draft
             </QuietButton>
             <QuietButton
               className="library-highlights-bulk-bar__danger"

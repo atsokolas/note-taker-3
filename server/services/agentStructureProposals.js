@@ -7,7 +7,7 @@ const clean = (value) => String(value || '').trim();
 
 const PROPOSAL_STATUS_VALUES = new Set(['pending', 'applied', 'partially_applied', 'skipped', 'failed', 'rejected', 'rolled_back', 'invalidated']);
 const SCOPE_VALUES = new Set(['workspace', 'import_session', 'surface']);
-const OPERATION_TYPE_VALUES = new Set(['create_folder', 'rename_folder', 'move_item', 'merge_folder', 'delete_folder']);
+const OPERATION_TYPE_VALUES = new Set(['create_folder', 'rename_folder', 'move_item', 'merge_item', 'merge_folder', 'delete_folder']);
 const OPERATION_STATUS_VALUES = new Set(['pending', 'approved', 'rejected', 'applied', 'skipped']);
 const EDITABLE_OPERATION_STATUS_VALUES = new Set(['pending', 'approved', 'rejected']);
 const RISK_VALUES = new Set(['low', 'medium']);

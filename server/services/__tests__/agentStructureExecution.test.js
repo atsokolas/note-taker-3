@@ -10,6 +10,31 @@ const buildInMemoryStructureModels = (state) => {
 
   const cloneFolder = (folder) => ({ ...folder });
   const cloneEntry = (entry) => ({ ...entry });
+  const cloneArticle = (article) => ({
+    ...article,
+    highlights: Array.isArray(article.highlights)
+      ? article.highlights.map((highlight) => ({ ...highlight }))
+      : []
+  });
+  const makeArticleDoc = (article) => {
+    const doc = cloneArticle(article);
+    doc.save = async () => {
+      const index = state.articles.findIndex((entry) => String(entry._id) === String(doc._id));
+      if (index >= 0) {
+        state.articles[index] = cloneArticle(doc);
+        delete state.articles[index].save;
+        log.push(`articles.save:${doc._id}`);
+      }
+      return doc;
+    };
+    doc.toObject = () => {
+      const plain = cloneArticle(doc);
+      delete plain.save;
+      delete plain.toObject;
+      return plain;
+    };
+    return doc;
+  };
 
   const updateFolderName = (query, update) => {
     const folder = state.folders.find((entry) => {
@@ -137,6 +162,59 @@ const buildInMemoryStructureModels = (state) => {
         return state.notes.filter((entry) => {
           if (query.userId && String(entry.userId) !== String(query.userId)) return false;
           if (query.folder !== undefined && String(entry.folder || '') !== String(query.folder || '')) return false;
+          return true;
+        }).length;
+      }
+    },
+    articles: {
+      async findOne(query) {
+        const found = (state.articles || []).find((article) => {
+          if (query._id && String(article._id) !== String(query._id)) return false;
+          if (query.userId && String(article.userId) !== String(query.userId)) return false;
+          return true;
+        });
+        return found ? makeArticleDoc(found) : null;
+      },
+      async find(query) {
+        return (state.articles || [])
+          .filter((article) => {
+            if (query.userId && String(article.userId) !== String(query.userId)) return false;
+            if (query.folder !== undefined && String(article.folder || '') !== String(query.folder || '')) return false;
+            return true;
+          })
+          .map(cloneArticle);
+      },
+      async updateOne(query, update) {
+        const article = (state.articles || []).find((entry) => {
+          if (query._id && String(entry._id) !== String(query._id)) return false;
+          if (query.userId && String(entry.userId) !== String(query.userId)) return false;
+          return true;
+        });
+        if (!article) return { matchedCount: 0, modifiedCount: 0 };
+        if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'folder')) {
+          article.folder = update.$set.folder;
+          log.push(`articles.update:${article._id}->${article.folder || 'null'}`);
+        }
+        return { matchedCount: 1, modifiedCount: 1 };
+      },
+      async updateMany(query, update) {
+        const matches = (state.articles || []).filter((article) => {
+          if (query.userId && String(article.userId) !== String(query.userId)) return false;
+          if (query.folder !== undefined && String(article.folder || '') !== String(query.folder || '')) return false;
+          return true;
+        });
+        matches.forEach((article) => {
+          if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'folder')) {
+            article.folder = update.$set.folder;
+            log.push(`articles.update:${article._id}->${article.folder || 'null'}`);
+          }
+        });
+        return { matchedCount: matches.length, modifiedCount: matches.length };
+      },
+      async countDocuments(query) {
+        return (state.articles || []).filter((article) => {
+          if (query.userId && String(article.userId) !== String(query.userId)) return false;
+          if (query.folder !== undefined && String(article.folder || '') !== String(query.folder || '')) return false;
           return true;
         }).length;
       }
@@ -273,6 +351,72 @@ const run = async () => {
     'folders.update:folder-a->Imported',
     `folders.delete:${projects._id}`
   ]);
+
+  const articleMergeState = {
+    folders: [],
+    notes: [],
+    articles: [
+      {
+        _id: 'article-canonical',
+        title: 'Canonical source',
+        userId: 'user-1',
+        folder: null,
+        archived: false,
+        hiddenFromHome: false,
+        debugOnly: false,
+        highlights: [{ text: 'Existing durable highlight.', note: '' }]
+      },
+      {
+        _id: 'article-duplicate',
+        title: 'Duplicate source',
+        userId: 'user-1',
+        folder: null,
+        archived: false,
+        hiddenFromHome: false,
+        debugOnly: false,
+        highlights: [
+          { text: 'Existing durable highlight.', note: '' },
+          { text: 'Fresh duplicate-only highlight.', note: 'keep me' }
+        ]
+      }
+    ],
+    log: []
+  };
+  const articleMergeBaseModels = buildInMemoryStructureModels(articleMergeState);
+  const articleMergeModels = {
+    folders: articleMergeBaseModels.notebookFolders,
+    articles: articleMergeBaseModels.articles
+  };
+  const articleMergeProposal = {
+    operations: [
+      {
+        opId: 'merge-source-1',
+        type: 'merge_item',
+        targetDomain: 'library',
+        status: 'approved',
+        payload: {
+          sourceItemId: 'article-duplicate',
+          destinationItemId: 'article-canonical'
+        }
+      }
+    ]
+  };
+  const articleMergeResult = await applyStructureProposal({
+    models: articleMergeModels,
+    proposal: articleMergeProposal,
+    userId: 'user-1'
+  });
+  assert.strictEqual(articleMergeResult.status, 'applied');
+  assert.strictEqual(articleMergeResult.operations[0].status, 'applied');
+  assert.strictEqual(articleMergeResult.operations[0].preview.mergedHighlightCount, 1);
+  assert.strictEqual(articleMergeState.articles.find((article) => article._id === 'article-canonical').highlights.length, 2);
+  assert.strictEqual(articleMergeState.articles.find((article) => article._id === 'article-duplicate').archived, true);
+  assert.strictEqual(articleMergeState.articles.find((article) => article._id === 'article-duplicate').hiddenFromHome, true);
+
+  await rollbackStructureProposal({ models: articleMergeModels, proposal: articleMergeResult, userId: 'user-1' });
+  assert.strictEqual(articleMergeState.articles.find((article) => article._id === 'article-canonical').highlights.length, 1);
+  assert.strictEqual(articleMergeState.articles.find((article) => article._id === 'article-duplicate').archived, false);
+  assert.strictEqual(articleMergeState.articles.find((article) => article._id === 'article-duplicate').hiddenFromHome, false);
 
   const failureState = {
     folders: [

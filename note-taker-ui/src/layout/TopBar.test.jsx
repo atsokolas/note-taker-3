@@ -346,4 +346,27 @@ describe('TopBar help menu', () => {
     expect(header).toBeInTheDocument();
     expect(header.querySelector('.topbar__content')).toBeInTheDocument();
   });
+
+  it('passes recent receipt history props through to SystemStatus', () => {
+    const onClearRecentReceipts = jest.fn();
+    render(
+      <MemoryRouter>
+        <TopBar
+          systemStatus={{
+            latestReceipt: { id: 'r2', title: 'Readwise sync', summary: '47 highlights attached' },
+            recentReceipts: [
+              { id: 'r2', title: 'Readwise sync', summary: '47 highlights attached', href: '/connections' }
+            ],
+            clearRecentReceipts: onClearRecentReceipts
+          }}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByTestId('system-status-trigger'));
+    const recentSection = screen.getByTestId('system-status-recent-activity');
+    expect(within(recentSection).getByRole('link', { name: /Readwise sync/ })).toHaveAttribute('href', '/connections');
+    fireEvent.click(within(recentSection).getByRole('button', { name: 'Clear all' }));
+    expect(onClearRecentReceipts).toHaveBeenCalledTimes(1);
+  });
 });

@@ -36,13 +36,20 @@ export const getConceptQuestions = async (conceptName, { status = 'open' } = {})
   return res.data || [];
 };
 
-export const createQuestion = async ({ text, conceptName, status = 'open', blocks = [] }) => {
+export const createQuestion = async ({
+  text,
+  conceptName,
+  status = 'open',
+  blocks = [],
+  linkedHighlightIds = []
+} = {}) => {
   const payload = {
     text,
     status,
     conceptName: conceptName || '',
     linkedTagName: conceptName || '',
-    blocks
+    blocks,
+    linkedHighlightIds: Array.isArray(linkedHighlightIds) ? linkedHighlightIds : []
   };
   const res = await api.post('/api/questions', payload, getAuthHeaders());
   return res.data;

@@ -9,12 +9,14 @@ describe('SystemStatusContext', () => {
     // calling any control is a no-op, never throws
     expect(() => result.current.setBackgroundWork({ label: 'x' })).not.toThrow();
     expect(() => result.current.setLatestReceipt(null)).not.toThrow();
+    expect(() => result.current.clearRecentReceipts()).not.toThrow();
   });
 
   it('exposes the provided controls to consumers', () => {
     const controls = {
       setBackgroundWork: jest.fn(),
       setLatestReceipt: jest.fn(),
+      clearRecentReceipts: jest.fn(),
       setRecoverableFailure: jest.fn(),
       clearRecoverableFailure: jest.fn(),
       resetSystemStatus: jest.fn()
@@ -25,6 +27,8 @@ describe('SystemStatusContext', () => {
     const { result } = renderHook(() => useSystemStatusControls(), { wrapper });
     expect(result.current).toBe(controls);
     result.current.setLatestReceipt({ title: 'Synced', summary: 'done' });
+    result.current.clearRecentReceipts();
     expect(controls.setLatestReceipt).toHaveBeenCalledWith({ title: 'Synced', summary: 'done' });
+    expect(controls.clearRecentReceipts).toHaveBeenCalledTimes(1);
   });
 });

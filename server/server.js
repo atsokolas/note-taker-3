@@ -127,6 +127,7 @@ const {
   Collection,
   IntegrationConnection,
   ImportSession,
+  NoeisReceipt,
   EmbeddingJob,
   SharedConcept,
   SharedQuestion,
@@ -4967,6 +4968,7 @@ app.use(buildLegacyContentRouter({
 }));
 app.use(buildLibraryFilingRouter({
   authenticateToken,
+  NoeisReceipt,
   stageLibraryFilingSuggestions: (params) => runStageLibraryFilingSuggestions({
     ...params,
     AgentStructureProposal,
@@ -5019,6 +5021,7 @@ app.use(buildWikiRouter({
   ConnectorActionLog,
   IntegrationConnection,
   ImportSession,
+  NoeisReceipt,
   Article,
   NotebookEntry,
   TagMeta,
@@ -6793,6 +6796,7 @@ app.use(buildImportRouter({
   AgentStructureProposal,
   ImportSession,
   IntegrationConnection,
+  NoeisReceipt,
   syncNotebookReferences,
   enqueueArticleEmbedding,
   enqueueHighlightEmbedding,

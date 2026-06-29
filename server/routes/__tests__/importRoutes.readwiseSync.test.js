@@ -335,11 +335,13 @@ const run = async () => {
     assert.strictEqual(payload.invalidSkips, 1, 'Readwise sync should count invalid highlights instead of crashing.');
     assert.ok(payload.receipt, 'Readwise sync should return a normalized Noeis receipt.');
     assert.strictEqual(payload.receipt.source, 'readwise');
+    assert.strictEqual(payload.receipt.sourceLabel, 'Readwise');
     assert.strictEqual(payload.receipt.kind, 'import');
     assert.strictEqual(payload.receipt.metrics.importedHighlights, 1);
     assert.match(payload.receipt.summary, /Imported 1 source, 1 highlight/);
     assert.ok(connections.connection.lastReceipt, 'Readwise connection should persist a durable receipt.');
     assert.strictEqual(connections.connection.lastReceipt.source, 'readwise');
+    assert.strictEqual(connections.connection.lastReceipt.sourceLabel, 'Readwise');
     assert.strictEqual(importSessions.session.receipt.source, 'readwise');
     assert.strictEqual(importSessions.session.status, 'completed', 'The import session should finish successfully.');
     assert.strictEqual(importSessions.session.result.invalidSkips, 1, 'The session result should persist invalid skip counts.');

@@ -1,8 +1,10 @@
 const express = require('express');
+const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 
 const buildLibraryFilingRouter = ({
   authenticateToken,
-  stageLibraryFilingSuggestions
+  stageLibraryFilingSuggestions,
+  NoeisReceipt = null
 }) => {
   const router = express.Router();
 
@@ -15,6 +17,13 @@ const buildLibraryFilingRouter = ({
           actorId: String(req.user.id)
         }
       });
+      if (result?.receipt) {
+        await persistNoeisReceipt({
+          NoeisReceipt,
+          userId: String(req.user.id),
+          receipt: result.receipt
+        });
+      }
       return res.status(result?.reused ? 200 : 201).json(result);
     } catch (error) {
       const status = Number(error?.status) || 500;

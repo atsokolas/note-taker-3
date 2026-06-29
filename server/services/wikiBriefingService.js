@@ -54,7 +54,10 @@ const safeFind = async (Model, query = {}, limit = 200) => {
 
 const idString = (value) => {
   if (!value) return '';
-  if (value._id) return idString(value._id);
+  if (typeof value === 'object') {
+    if (typeof value.toHexString === 'function') return value.toHexString();
+    if (value._id && value._id !== value) return idString(value._id);
+  }
   return String(value);
 };
 
@@ -414,6 +417,33 @@ const collectRecentImportReceipts = async ({
   now = Date.now(),
   limit = 4
 }) => {
+  if (models.NoeisReceipt) {
+    const receiptRows = await safeFind(
+      models.NoeisReceipt,
+      { userId },
+      40
+    );
+    const storedReceipts = receiptRows
+      .map(row => sanitizeBriefingReceipt({
+        id: row.receiptId || row.id,
+        kind: row.kind,
+        source: row.source,
+        sourceLabel: row.sourceLabel || row.source,
+        status: row.status,
+        summary: row.summary,
+        metrics: row.metrics,
+        touched: row.touched,
+        nextAction: row.nextAction,
+        error: row.error,
+        createdAt: row.createdAtExternal || row.createdAt,
+        completedAt: row.completedAt
+      }))
+      .filter(receipt => receipt.id && receipt.completedAt && isWithin(receipt.completedAt, windowMs, now))
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+      .slice(0, limit);
+    if (storedReceipts.length > 0) return storedReceipts;
+  }
+
   const rows = await safeFind(
     models.ImportSession,
     {
@@ -437,8 +467,13 @@ const buildReceiptSummaryPart = (receipts = []) => {
   ));
   if (successful) {
     const metric = summarizeReceiptMetric(successful.metrics);
-    if (metric) return `${successful.sourceLabel} added ${metric}`;
-    return `${successful.sourceLabel} finished syncing`;
+    const touchedItem = (Array.isArray(successful.touched) ? successful.touched : [])
+      .find(item => asString(item?.title));
+    const firstStop = touchedItem?.title
+      ? `; first stop: ${truncate(touchedItem.title, 72)}`
+      : '';
+    if (metric) return `${successful.sourceLabel} added ${metric}${firstStop}`;
+    return `${successful.sourceLabel} finished syncing${firstStop}`;
   }
   const failed = receipts.find(receipt => receipt.status === 'failed');
   if (failed) return `${failed.sourceLabel} needs attention`;
@@ -491,6 +526,13 @@ Signal counts:
 - New library sources (articles, notes, highlights): ${newSources}
 - Recent import receipts: ${recentReceipts.length}
 ${recentReceipts.slice(0, 3).map(receipt => `  · ${receipt.sourceLabel}: ${receipt.summary}`).join('\n')}
+${recentReceipts.slice(0, 3).map(receipt => {
+  const touched = (Array.isArray(receipt.touched) ? receipt.touched : [])
+    .map(item => item.title)
+    .filter(Boolean)
+    .slice(0, 2);
+  return touched.length ? `    touched: ${touched.join(', ')}` : '';
+}).filter(Boolean).join('\n')}
 - Wiki pages rebuilt by the maintenance agent: ${recentlyUpdatedPages.length}
 ${recentlyUpdatedPages.slice(0, 5).map(page => `  · "${page.title}"`).join('\n')}
 - Wiki pages that gained source material: ${pagesWithNewSourceMaterial.length}
@@ -507,6 +549,15 @@ Constraints:
 - Tone: a librarian briefing the owner; specific, calm, not breathless.
 - If all counts are zero, return exactly: "Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours."
 - Output the summary text only, no surrounding JSON or quotes.`;
+};
+
+const canUseTextGeneration = (isConfigured) => {
+  if (!isConfigured || typeof isConfigured !== 'function') return false;
+  try {
+    return Boolean(isConfigured());
+  } catch (_err) {
+    return false;
+  }
 };
 
 /**
@@ -566,8 +617,7 @@ const buildWikiBriefing = async ({
   let model = 'stub';
 
   if (
-    isConfigured
-    && isConfigured()
+    canUseTextGeneration(isConfigured)
     && (
       newSources
       || recentlyUpdatedPages.length
@@ -649,6 +699,8 @@ module.exports = {
     collectDriftingPages,
     buildFallbackSummary,
     buildPromptContext,
+    canUseTextGeneration,
+    idString,
     isWithin,
     truncate
   }

@@ -11,6 +11,7 @@
 - For Think index layouts (home, concepts, questions, notebook), prefer shared `CalmIndexView`, `ThinkShelfRail`, and `calmIndexModel.js` over duplicating layout variants inline in ThinkMode.jsx.
 - When changing Think index layouts, preserve ThoughtPartnerPanel mounting and queued-prompt coverage in `ThinkMode.templates.test.jsx`.
 - Wire thinking-partner actions (pull-in references, wiki promote, streaming wiki build, agent retrieval) to real backend behavior that survives reload; sequence bidirectional graph edges before flows that depend on them.
+- Default to frontend-only changes unless the task explicitly requires backend work; wire new affordances to existing APIs, local state, or `SystemStatusContext` until backend receipt slices land.
 
 ## Learned Workspace Facts
 
@@ -24,5 +25,5 @@
 - ThinkMode `legacyShell=0` only forces ThreePaneLayout for home, notebook, and concepts index; questions always use the editorial shell.
 - Editorial workbench styling uses `noeis-editorial` and shared tokens in `note-taker-ui/src/styles/theme.css` (plus `idea-workbench.css` / `stitch-editorial.css` where applicable).
 - Local editor/browser QA: run `node scripts/seed_editor_qa.js` for the `qa_editor_seed` user; run `node scripts/seed_wiki_qa.js` for wiki/graph QA (credentials live in seed scripts — never store passwords in docs or AGENTS.md).
-- Prioritized open work and staged roadmap prompts live in `docs/noeis-open-items-spec-2026-06-14.md`, `docs/noeis-return-loop-push-spec-2026-06-14.md`, `docs/noeis-notion-and-wiki-list-spec-2026-06-21.md`, and `docs/noeis-details-polish-spec-2026-06-23.md`.
-- Structured QA write-ups, refactor inventories, and extraction plans live under `docs/` (e.g. Space to Think and design-sprint test plans).
+- Prioritized open work, return-loop roadmap, feedback inventories, and QA write-ups live in `docs/` (e.g. `noeis-return-loop-roadmap-spec-2026-06-25.md`, `noeis-feedback-status-inventory-2026-06-27.md`, `noeis-details-polish-spec-2026-06-23.md`).
+- Chapter 0.5 return-loop UI uses `SystemStatusContext` (background work, latest receipt, recoverable failure) with a compact TopBar `SystemStatus` affordance and session-local recent-activity drawer — not a toast stack.

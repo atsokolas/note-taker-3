@@ -11,12 +11,26 @@ const sampleArticles = [
   {
     _id: 'article-1',
     title: 'Bitcoin exchange liquidity update',
-    highlights: [{ text: 'On-chain settlement risk remains elevated.' }]
+    url: 'https://example.com/bitcoin-liquidity?utm_source=readwise',
+    siteName: 'Example',
+    highlights: [
+      { text: 'On-chain settlement risk remains elevated.' },
+      { text: 'Liquidity fragmented across exchanges.' }
+    ]
   },
   {
     _id: 'article-2',
     title: 'CEO letter on earnings',
+    url: 'https://example.com/ceo-letter',
+    siteName: 'Example',
     highlights: [{ text: 'Margins improved across the core business.' }]
+  },
+  {
+    _id: 'article-3',
+    title: 'Bitcoin exchange liquidity update copy',
+    url: 'https://example.com/bitcoin-liquidity#readwise',
+    siteName: 'Example',
+    highlights: [{ text: 'Duplicate import still has a distinct highlight.' }]
   }
 ];
 
@@ -41,8 +55,20 @@ const run = async () => {
     existingFolders: [{ name: 'Company News and Updates' }]
   });
   assert.ok(operations.some((op) => op.type === 'create_folder' && op.status === 'pending'));
-  assert.strictEqual(operations.filter((op) => op.type === 'move_item').length, 2);
+  assert.strictEqual(operations.filter((op) => op.type === 'move_item').length, 3);
+  assert.strictEqual(operations.filter((op) => op.type === 'merge_item').length, 1);
   assert.ok(operations.every((op) => op.targetDomain === 'library' && op.status === 'pending'));
+  const firstMove = operations.find((op) => op.type === 'move_item' && op.payload.itemId === 'article-1');
+  assert.ok(firstMove.preview.reason.includes('Blockchain and Crypto fits because'));
+  assert.strictEqual(firstMove.preview.classificationMethod, 'regex');
+  assert.strictEqual(firstMove.preview.highlightCount, 2);
+  assert.ok(['thin', 'needs_review', 'strong'].includes(firstMove.preview.sourceQuality));
+  assert.strictEqual(typeof firstMove.preview.confidence, 'number');
+  const sourceMerge = operations.find((op) => op.type === 'merge_item');
+  assert.strictEqual(sourceMerge.payload.sourceItemId, 'article-3');
+  assert.strictEqual(sourceMerge.payload.destinationItemId, 'article-1');
+  assert.ok(sourceMerge.preview.reason.includes('Likely duplicate source'));
+  assert.strictEqual(sourceMerge.risk, 'medium');
 
   const dedupedOperations = buildFilingStructureOperations({
     classifications: [
@@ -123,8 +149,9 @@ const run = async () => {
   assert.strictEqual(result.receipt.kind, 'filing');
   assert.strictEqual(result.receipt.source, 'library');
   assert.strictEqual(result.receipt.status, 'needs_review');
-  assert.strictEqual(result.receipt.metrics.articleCount, 2);
-  assert.ok(result.receipt.summary.includes('Staged 2 filing suggestions'));
+  assert.strictEqual(result.receipt.metrics.articleCount, 3);
+  assert.strictEqual(typeof result.receipt.metrics.uncertainCount, 'number');
+  assert.ok(result.receipt.summary.includes('Staged 3 filing suggestions'));
   assert.strictEqual(result.receipt.nextAction.intent, 'review_filing');
   assert.strictEqual(created[0].scopeRef, 'library-filing');
   assert.strictEqual(created[0].status, 'pending');
@@ -138,6 +165,8 @@ const run = async () => {
   assert.strictEqual(payload.scope, 'workspace');
   assert.strictEqual(payload.scopeRef, 'library-filing');
   assert.ok(payload.operations.length > 0);
+  assert.ok(payload.summary.includes('closer review'));
+  assert.ok(payload.rationale.includes('source-quality state'));
 };
 
 if (require.main === module) {

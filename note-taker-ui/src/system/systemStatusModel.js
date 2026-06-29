@@ -30,17 +30,37 @@
  * @typedef {{
  *   backgroundWork: BackgroundWork | null;
  *   latestReceipt: SystemStatusReceipt | null;
+ *   recentReceipts: SystemStatusReceipt[];
  *   recoverableFailure: RecoverableFailure | null;
  * }} SystemStatusState
  */
 
+export const RECENT_RECEIPTS_MAX = 5;
+
 export const EMPTY_SYSTEM_STATUS = /** @type {SystemStatusState} */ ({
   backgroundWork: null,
   latestReceipt: null,
+  recentReceipts: [],
   recoverableFailure: null
 });
 
 const asString = (value = '') => String(value || '').trim();
+
+/**
+ * Prepend a receipt into session history, dedupe by id when present, cap at RECENT_RECEIPTS_MAX.
+ *
+ * @param {SystemStatusReceipt[]} recentReceipts
+ * @param {SystemStatusReceipt | null | undefined} receipt
+ * @returns {SystemStatusReceipt[]}
+ */
+export const prependRecentReceipt = (recentReceipts, receipt) => {
+  if (!receipt) return recentReceipts || [];
+  const id = asString(receipt.id);
+  const filtered = id
+    ? (recentReceipts || []).filter((entry) => asString(entry.id) !== id)
+    : (recentReceipts || []);
+  return [receipt, ...filtered].slice(0, RECENT_RECEIPTS_MAX);
+};
 
 /**
  * Convert a full server-side NoeisReceipt into the compact topbar shape.

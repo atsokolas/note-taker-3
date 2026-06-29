@@ -254,6 +254,8 @@ const TopBar = ({
             <SystemStatus
               backgroundWork={systemStatus.backgroundWork}
               latestReceipt={systemStatus.latestReceipt}
+              recentReceipts={systemStatus.recentReceipts}
+              onClearRecentReceipts={systemStatus.clearRecentReceipts}
               recoverableFailure={systemStatus.recoverableFailure}
               onRetryFailure={onSystemStatusRetry}
             />

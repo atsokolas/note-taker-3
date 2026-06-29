@@ -283,6 +283,7 @@ const run = async () => {
     assert.ok(syncPayload.connection.lastReceipt, 'Sync response should include a durable Noeis receipt.');
     assert.strictEqual(syncPayload.connection.lastReceipt.kind, 'import');
     assert.strictEqual(syncPayload.connection.lastReceipt.source, 'notion');
+    assert.strictEqual(syncPayload.connection.lastReceipt.sourceLabel, 'Product HQ');
     assert.strictEqual(syncPayload.connection.lastReceipt.status, 'completed');
     assert.strictEqual(syncPayload.connection.lastReceipt.metrics.importedNotes, 1);
     assert.match(syncPayload.connection.lastReceipt.summary, /Imported 1 note/);
@@ -304,6 +305,7 @@ const run = async () => {
     assert.strictEqual(listPayload.connections[0].lastSyncResult.indexingFailures, 0);
     assert.ok(listPayload.connections[0].lastSyncResult.completedAt);
     assert.strictEqual(listPayload.connections[0].lastReceipt.source, 'notion');
+    assert.strictEqual(listPayload.connections[0].lastReceipt.sourceLabel, 'Product HQ');
     assert.strictEqual(listPayload.connections[0].lastReceipt.metrics.importedNotes, 1);
 
     console.log('importRoutes.notionSyncPersistence.test.js passed');

@@ -483,6 +483,7 @@ const ThoughtPartnerPanel = ({
     handleRejectProposedChange,
     handleRollbackProposedChange,
     handleUpdateStructureProposalOperationStatus,
+    handleBulkUpdateStructureProposalOperationStatus,
     handleApplyStructureProposal,
     handleRejectStructureProposal,
     handleRollbackStructureProposal
@@ -1417,6 +1418,7 @@ const ThoughtPartnerPanel = ({
           onApply={handleApplyStructureProposal}
           onReject={handleRejectStructureProposal}
           onUpdateOperationStatus={handleUpdateStructureProposalOperationStatus}
+          onBulkUpdateOperationStatus={handleBulkUpdateStructureProposalOperationStatus}
         />
       ))}
       {pendingProposedChanges.map((change) => (
