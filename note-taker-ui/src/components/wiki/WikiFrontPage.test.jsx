@@ -95,10 +95,11 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    // The agent's lead sentence arrives with the data, but is not duplicated
-    // as hidden DOM text that makes the front page read twice in QA/user text.
+    // The agent's lead sentence arrives as complete visible text. It is not
+    // duplicated as hidden DOM text and never renders as a partial word stream.
     const leadText = await screen.findByText(/While you were away I rebuilt Opportunity Cost/i);
-    expect(leadText.closest('.wiki-front-page__lead-text')).toHaveAttribute('aria-label', briefing.summary);
+    expect(leadText.closest('.wiki-front-page__lead-text')).toHaveTextContent(/\.$/);
+    expect(leadText.closest('.wiki-front-page__lead-text')).not.toHaveAttribute('aria-label');
     expect(document.body.textContent.match(/While you were away I rebuilt Opportunity Cost/g)).toHaveLength(1);
 
     // Masthead with date eyebrow.

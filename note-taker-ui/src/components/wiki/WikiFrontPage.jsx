@@ -55,15 +55,6 @@ const growthNote = (page = {}) => {
   return parts.join(' · ');
 };
 
-const prefersReducedMotion = () => {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch (e) {
-    return true;
-  }
-};
-
 const completeLeadSentence = (value = '', maxLength = 280) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
@@ -82,38 +73,14 @@ const completeLeadSentence = (value = '', maxLength = 280) => {
   return /[.!?]$/.test(clean) ? clean : `${clean}.`;
 };
 
-// The morning-paper lead writes itself in, word by word — the agent's voice
-// arriving at the door. Instant under reduced motion (and in jsdom).
+// The morning-paper lead must always be readable as a complete sentence.
+// The page still has entrance motion, but the content itself does not reveal
+// word-by-word because QA and real users can otherwise catch a dangling phrase.
 const WriteIn = ({ text = '' }) => {
-  const words = useMemo(() => String(text || '').split(/\s+/).filter(Boolean), [text]);
-  const [shown, setShown] = useState(() => (prefersReducedMotion() ? words.length : 0));
-
-  useEffect(() => {
-    if (prefersReducedMotion()) {
-      setShown(words.length);
-      return undefined;
-    }
-    setShown(0);
-    if (!words.length) return undefined;
-    const stepMs = Math.min(60, Math.max(28, 900 / words.length));
-    const timer = window.setInterval(() => {
-      setShown((current) => {
-        if (current >= words.length) {
-          window.clearInterval(timer);
-          return current;
-        }
-        return current + 1;
-      });
-    }, stepMs);
-    return () => window.clearInterval(timer);
-  }, [words]);
-
-  const fullText = words.join(' ');
+  const fullText = useMemo(() => String(text || '').replace(/\s+/g, ' ').trim(), [text]);
 
   return (
-    <span className="wiki-front-page__lead-text" aria-label={fullText}>
-      <span aria-hidden="true">{words.slice(0, shown).join(' ')}</span>
-    </span>
+    <span className="wiki-front-page__lead-text">{fullText}</span>
   );
 };
 
