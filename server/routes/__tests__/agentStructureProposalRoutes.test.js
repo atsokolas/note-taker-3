@@ -56,6 +56,8 @@ const run = async () => {
     },
     NotebookFolder: {},
     NotebookEntry: {},
+    Folder: { modelName: 'Folder' },
+    Article: { modelName: 'Article' },
     listStructureProposals: async () => ([
       {
         structureProposalId: 'plan-list-1',
@@ -83,22 +85,30 @@ const run = async () => {
         }
       ]
     }),
-    applyStoredStructureProposal: async ({ structureProposalId }) => ({
-      _id: structureProposalId,
-      sourceThreadId: 'thread-1',
-      sourceRunId: 'run-apply',
-      status: 'applied',
-      scope: 'surface',
-      scopeRef: 'notebook',
-      operations: [],
-      executionResult: {
+    applyStoredStructureProposal: async ({
+      structureProposalId,
+      Folder,
+      Article
+    }) => {
+      assert.ok(Folder, 'Structure proposal apply should receive the library Folder model.');
+      assert.ok(Article, 'Structure proposal apply should receive the library Article model.');
+      return {
+        _id: structureProposalId,
+        sourceThreadId: 'thread-1',
+        sourceRunId: 'run-apply',
         status: 'applied',
-        appliedCount: 2,
-        skippedCount: 0,
-        failedCount: 0,
-        totalCount: 2
-      }
-    }),
+        scope: 'surface',
+        scopeRef: 'notebook',
+        operations: [],
+        executionResult: {
+          status: 'applied',
+          appliedCount: 2,
+          skippedCount: 0,
+          failedCount: 0,
+          totalCount: 2
+        }
+      };
+    },
     rejectStructureProposal: async ({ structureProposalId }) => ({
       _id: structureProposalId,
       sourceThreadId: 'thread-1',

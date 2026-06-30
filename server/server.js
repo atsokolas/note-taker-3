@@ -6474,6 +6474,8 @@ app.use(buildAgentStructureProposalRouter({
   AgentStructureProposal,
   NotebookFolder,
   NotebookEntry,
+  Folder,
+  Article,
   listStructureProposals,
   updateStructureProposalDraft,
   applyStoredStructureProposal,

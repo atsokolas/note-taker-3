@@ -8,6 +8,8 @@ const buildAgentStructureProposalRouter = ({
   AgentStructureProposal,
   NotebookFolder,
   NotebookEntry,
+  Folder,
+  Article,
   listStructureProposals,
   updateStructureProposalDraft,
   applyStoredStructureProposal,
@@ -71,6 +73,8 @@ const buildAgentStructureProposalRouter = ({
         AgentStructureProposal,
         NotebookFolder,
         NotebookEntry,
+        Folder,
+        Article,
         userId: String(req.user.id),
         structureProposalId: req.params.structureProposalId,
         actor: {
@@ -165,6 +169,8 @@ const buildAgentStructureProposalRouter = ({
         AgentStructureProposal,
         NotebookFolder,
         NotebookEntry,
+        Folder,
+        Article,
         userId: String(req.user.id),
         structureProposalId: req.params.structureProposalId,
         actor: {

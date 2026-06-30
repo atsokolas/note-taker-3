@@ -346,17 +346,23 @@ const toServiceResult = ({ doc = null, executionResult = null } = {}) => {
   };
 };
 
-const buildExecutionModels = ({ NotebookFolder, NotebookEntry } = {}) => ({
+const buildExecutionModels = ({ NotebookFolder, NotebookEntry, Folder, Article } = {}) => ({
   notebookFolders: NotebookFolder,
   NotebookFolder,
   notebookEntries: NotebookEntry,
-  NotebookEntry
+  NotebookEntry,
+  folders: Folder,
+  Folder,
+  articles: Article,
+  Article
 });
 
 const acceptStructureProposal = async ({
   AgentStructureProposal,
   NotebookFolder,
   NotebookEntry,
+  Folder,
+  Article,
   userId = '',
   structureProposalId = '',
   actor = {}
@@ -374,7 +380,7 @@ const acceptStructureProposal = async ({
   }
 
   const executed = await applyStructureProposal({
-    models: buildExecutionModels({ NotebookFolder, NotebookEntry }),
+    models: buildExecutionModels({ NotebookFolder, NotebookEntry, Folder, Article }),
     proposal: {
       ...normalizeStructureProposal(doc.toObject ? doc.toObject({ getters: false, virtuals: false }) : doc),
       operations: normalizeStructureProposal(doc.toObject ? doc.toObject({ getters: false, virtuals: false }) : doc).operations

@@ -115,6 +115,94 @@ const buildStructureModels = (state) => ({
         && String(note.folder || '') === String(query.folder || '')
       )).length;
     }
+  },
+  Folder: {
+    async create(payload) {
+      const next = {
+        _id: payload._id || `library-folder-${state.libraryFolders.length + 1}`,
+        userId: payload.userId,
+        name: payload.name
+      };
+      state.libraryFolders.push(next);
+      return { ...next };
+    },
+    async findOne(query = {}) {
+      const found = state.libraryFolders.find((folder) => (
+        (!query._id || String(folder._id) === String(query._id))
+        && (!query.userId || String(folder.userId) === String(query.userId))
+        && (!query.name || String(folder.name) === String(query.name))
+      ));
+      return found ? { ...found } : null;
+    },
+    async findOneAndDelete(query = {}) {
+      const index = state.libraryFolders.findIndex((folder) => (
+        (!query._id || String(folder._id) === String(query._id))
+        && (!query.userId || String(folder.userId) === String(query.userId))
+      ));
+      if (index < 0) return null;
+      const [deleted] = state.libraryFolders.splice(index, 1);
+      return { ...deleted };
+    },
+    async countDocuments() {
+      return 0;
+    },
+    async updateOne(query = {}, update = {}) {
+      const folder = state.libraryFolders.find((entry) => (
+        (!query._id || String(entry._id) === String(query._id))
+        && (!query.userId || String(entry.userId) === String(query.userId))
+      ));
+      if (!folder) return { matchedCount: 0, modifiedCount: 0 };
+      if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'name')) {
+        folder.name = update.$set.name;
+      }
+      return { matchedCount: 1, modifiedCount: 1 };
+    }
+  },
+  Article: {
+    async findOne(query = {}) {
+      const found = state.articles.find((article) => (
+        (!query._id || String(article._id) === String(query._id))
+        && (!query.userId || String(article.userId) === String(query.userId))
+      ));
+      return found ? { ...found } : null;
+    },
+    async find(query = {}) {
+      return state.articles
+        .filter((article) => (
+          (!query.userId || String(article.userId) === String(query.userId))
+          && String(article.folder || '') === String(query.folder || '')
+        ))
+        .map((article) => ({ ...article }));
+    },
+    async updateOne(query = {}, update = {}) {
+      const article = state.articles.find((entry) => (
+        (!query._id || String(entry._id) === String(query._id))
+        && (!query.userId || String(entry.userId) === String(query.userId))
+      ));
+      if (!article) return { matchedCount: 0, modifiedCount: 0 };
+      if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'folder')) {
+        article.folder = update.$set.folder;
+      }
+      return { matchedCount: 1, modifiedCount: 1 };
+    },
+    async updateMany(query = {}, update = {}) {
+      const matches = state.articles.filter((article) => (
+        (!query.userId || String(article.userId) === String(query.userId))
+        && String(article.folder || '') === String(query.folder || '')
+      ));
+      matches.forEach((article) => {
+        if (update?.$set && Object.prototype.hasOwnProperty.call(update.$set, 'folder')) {
+          article.folder = update.$set.folder;
+        }
+      });
+      return { matchedCount: matches.length, modifiedCount: matches.length };
+    },
+    async countDocuments(query = {}) {
+      return state.articles.filter((article) => (
+        (!query.userId || String(article.userId) === String(query.userId))
+        && String(article.folder || '') === String(query.folder || '')
+      )).length;
+    }
   }
 });
 
@@ -250,6 +338,12 @@ const run = async () => {
     ],
     notes: [
       { _id: 'note-1', title: 'Note 1', userId: 'user-1', folder: 'folder-a' }
+    ],
+    libraryFolders: [
+      { _id: 'library-folder-a', name: 'Unfiled', userId: 'user-1' }
+    ],
+    articles: [
+      { _id: 'article-1', title: 'Article 1', userId: 'user-1', folder: null }
     ]
   };
   const models = buildStructureModels(state);
@@ -375,6 +469,59 @@ const run = async () => {
   assert.strictEqual(skipped.status, 'skipped');
   assert.strictEqual(skipped.executionResult.status, 'skipped');
   assert.strictEqual(skipped.executionResult.appliedCount, 0);
+
+  const libraryDoc = buildDoc({
+    _id: 'plan-library',
+    userId: 'user-1',
+    status: 'pending',
+    scope: 'workspace',
+    scopeRef: 'library-filing',
+    operations: [
+      {
+        opId: 'create-library-1',
+        type: 'create_folder',
+        targetDomain: 'library',
+        status: 'approved',
+        payload: { name: 'Investing' },
+        preview: {},
+        risk: 'low'
+      },
+      {
+        opId: 'move-library-1',
+        type: 'move_item',
+        targetDomain: 'library',
+        status: 'approved',
+        payload: { itemId: 'article-1', destinationFolderName: 'Investing' },
+        preview: {},
+        risk: 'low'
+      }
+    ]
+  });
+
+  const libraryModel = {
+    async findOne(query = {}) {
+      return String(query.userId) === 'user-1' && String(query._id) === 'plan-library'
+        ? libraryDoc
+        : null;
+    }
+  };
+
+  const acceptedLibrary = await acceptStructureProposal({
+    AgentStructureProposal: libraryModel,
+    NotebookFolder: models.NotebookFolder,
+    NotebookEntry: models.NotebookEntry,
+    Folder: models.Folder,
+    Article: models.Article,
+    userId: 'user-1',
+    structureProposalId: 'plan-library',
+    actor: { actorType: 'user', actorId: 'user-1' }
+  });
+
+  assert.strictEqual(acceptedLibrary.status, 'applied');
+  assert.strictEqual(acceptedLibrary.executionResult.appliedCount, 2);
+  const investingFolder = state.libraryFolders.find((folder) => folder.name === 'Investing');
+  assert.ok(investingFolder, 'Library filing apply should create the proposed folder.');
+  assert.strictEqual(state.articles.find((article) => article._id === 'article-1').folder, investingFolder._id);
 };
 
 if (require.main === module) {
