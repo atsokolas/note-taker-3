@@ -12,6 +12,7 @@ const buildLibraryFilingRouter = ({
     try {
       const result = await stageLibraryFilingSuggestions({
         userId: String(req.user.id),
+        resumeExisting: Boolean(req.body?.resumeExisting),
         actor: {
           actorType: 'user',
           actorId: String(req.user.id)

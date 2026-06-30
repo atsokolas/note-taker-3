@@ -156,6 +156,81 @@ const run = async () => {
   assert.strictEqual(created[0].scopeRef, 'library-filing');
   assert.strictEqual(created[0].status, 'pending');
 
+  let findOneCalls = 0;
+  const freshCreated = [];
+  const freshResult = await stageLibraryFilingSuggestions({
+    AgentStructureProposal: {
+      findOne: async () => {
+        findOneCalls += 1;
+        return {
+          _id: 'stale-proposal',
+          sourceThreadId: 'stale-thread',
+          operations: [{ type: 'move_item', payload: { destinationFolderName: 'Old' } }],
+          summary: 'Old filing review'
+        };
+      },
+      create: async (payload) => {
+        const doc = { _id: 'fresh-proposal', ...payload };
+        freshCreated.push(doc);
+        return doc;
+      }
+    },
+    AgentThread,
+    Article,
+    Folder,
+    appendThreadMessage: (thread, message) => {
+      thread.messages = [...(thread.messages || []), message];
+    },
+    compactThreadState: () => {},
+    sanitizeAgentStructureProposalDoc: (doc) => ({
+      structureProposalId: String(doc?._id || ''),
+      title: doc?.title,
+      summary: doc?.summary,
+      status: doc?.status
+    }),
+    sanitizeAgentThreadDoc: (doc) => ({
+      threadId: String(doc?._id || ''),
+      title: doc?.title
+    }),
+    userId: 'user-1'
+  });
+  assert.strictEqual(findOneCalls, 0, 'Review filing should generate a fresh proposal by default.');
+  assert.strictEqual(freshResult.reused, false);
+  assert.strictEqual(freshCreated[0]._id, 'fresh-proposal');
+
+  const resumed = await stageLibraryFilingSuggestions({
+    AgentStructureProposal: {
+      findOne: async () => ({
+        _id: 'stale-proposal',
+        sourceThreadId: 'stale-thread',
+        operations: [{ type: 'move_item', payload: { destinationFolderName: 'Old' } }],
+        summary: 'Old filing review'
+      }),
+      create: async () => {
+        throw new Error('Resume existing should not create a fresh proposal.');
+      }
+    },
+    AgentThread: {
+      findOne: () => ({
+        lean: async () => ({ _id: 'stale-thread', title: 'Old filing suggestions' })
+      })
+    },
+    sanitizeAgentStructureProposalDoc: (doc) => ({
+      structureProposalId: String(doc?._id || ''),
+      summary: doc?.summary,
+      status: doc?.status
+    }),
+    sanitizeAgentThreadDoc: (doc) => ({
+      threadId: String(doc?._id || ''),
+      title: doc?.title
+    }),
+    userId: 'user-1',
+    resumeExisting: true
+  });
+  assert.strictEqual(resumed.reused, true);
+  assert.strictEqual(resumed.thread.threadId, 'stale-thread');
+  assert.strictEqual(resumed.receipt.nextAction.href, '/think?tab=threads&threadId=stale-thread');
+
   const payload = buildLibraryFilingProposalPayload({
     userId: 'user-1',
     classifications: classifyArticlesWithRegex(sampleArticles),

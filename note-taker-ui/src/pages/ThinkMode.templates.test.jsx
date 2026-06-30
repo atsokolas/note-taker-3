@@ -1295,6 +1295,27 @@ describe('ThinkMode template integration', () => {
       expect(document.querySelector('.notebook-editorial-shell-page')).toBeNull();
     });
 
+    it('does not overwrite a requested threadId with the newest thread while hydration catches up', async () => {
+      useSearchParamsMock.mockReturnValue([
+        new URLSearchParams('tab=threads&threadId=thread-filing-1'),
+        mockSetSearchParams
+      ]);
+      useAgentThreads.mockReturnValue({
+        ...defaultThreadsModel,
+        threads: [{ threadId: 'thread-newest', title: 'Newest active thread', status: 'active' }],
+        activeThreadData: null
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/think?tab=threads&threadId=thread-filing-1']}>
+          <ThinkMode />
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByTestId('think-threads-main')).toBeInTheDocument();
+      expect(mockSetSearchParams).not.toHaveBeenCalled();
+    });
+
     it('renders handoffs through ThreePaneLayout with handoffLeftPanel content', async () => {
       useSearchParamsMock.mockReturnValue([
         new URLSearchParams('tab=handoffs&handoffId=handoff-1'),

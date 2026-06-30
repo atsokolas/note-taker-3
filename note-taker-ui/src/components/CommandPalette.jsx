@@ -415,6 +415,43 @@ const CommandPalette = ({ open, onClose }) => {
     }
   }, [navigate, onClose, query, systemStatus]);
 
+  const createCollection = useCallback(async () => {
+    const seed = query.trim();
+    const name = seed || 'Untitled collection';
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({
+      label: 'Creating collection',
+      stage: `Saving ${name.slice(0, 48)}`
+    });
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await api.post('/api/collections', { name, description: '' }, { headers });
+      const slug = String(res?.data?.slug || '').trim();
+      const href = slug ? `/collections/${slug}` : '/collections';
+      systemStatus.setLatestReceipt({
+        id: `command-collection-${res?.data?._id || slug || Date.now()}`,
+        title: 'Collection created',
+        summary: `Created "${name}" from the command palette.`,
+        status: 'completed',
+        href
+      });
+      onClose?.();
+      navigate(href);
+    } catch (err) {
+      console.error('Palette new collection failed', err);
+      systemStatus.setRecoverableFailure({
+        stage: 'Command palette',
+        message: 'Could not create a collection.',
+        retryable: true,
+        retry: () => { createCollection(); }
+      });
+      onClose?.();
+    } finally {
+      systemStatus.setBackgroundWork(null);
+    }
+  }, [navigate, onClose, query, systemStatus]);
+
   const retrieveHighlight = useCallback(async (options = {}) => {
     const topic = String(options.topic || '').trim();
     const sourceText = String(options.sourceText || '').trim();
@@ -761,44 +798,58 @@ const CommandPalette = ({ open, onClose }) => {
       title: 'Actions',
       items: [
         libraryFilingReviewIntent ? {
+          id: 'command-library-filing',
           type: 'Command',
           label: libraryFilingReviewIntent.label,
+          immediate: true,
           action: () => reviewLibraryFiling(libraryFilingReviewIntent)
         } : null,
         highlightToQuestionIntent ? {
+          id: 'command-highlight-question',
           type: 'Command',
           label: highlightToQuestionIntent.label,
+          immediate: true,
           action: () => createQuestionFromHighlights(highlightToQuestionIntent)
         } : null,
         highlightToWikiSectionIntent ? {
+          id: 'command-highlight-wiki-section',
           type: 'Command',
           label: highlightToWikiSectionIntent.label,
+          immediate: true,
           action: () => createWikiSectionFromHighlights(highlightToWikiSectionIntent)
         } : null,
         highlightRetrieveIntent ? {
+          id: 'command-highlight-retrieve',
           type: 'Command',
           label: highlightRetrieveIntent.label,
+          immediate: true,
           action: () => retrieveHighlight(highlightRetrieveIntent)
         } : null,
         wikiCompareCommand ? {
+          id: 'command-wiki-compare',
           type: 'Command',
           label: wikiCompareCommand.label,
+          immediate: true,
           action: () => createWikiComparison(wikiCompareCommand)
         } : null,
         wikiTemporalCommand ? {
+          id: 'command-wiki-temporal',
           type: 'Command',
           label: wikiTemporalCommand.label,
+          immediate: true,
           action: () => createTemporalReview(wikiTemporalCommand)
         } : null,
         wikiBuildCommand ? {
+          id: 'command-wiki-build',
           type: 'Command',
           label: wikiBuildCommand.label,
+          immediate: true,
           action: () => createWiki(wikiBuildCommand)
         } : null,
-        { type: 'Action', label: 'New Think note', action: createNote },
-        { type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
-        { type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki },
-        { type: 'Action', label: 'New collection', path: '/library?tab=collections' }
+        { id: 'action-new-note', type: 'Action', label: 'New Think note', action: createNote },
+        { id: 'action-pull-reference', type: 'Action', label: 'Pull reference into current surface', path: pullReferencePath },
+        { id: 'action-new-wiki', type: 'Action', label: q ? `New Wiki page from "${q.slice(0, 48)}"` : 'New Wiki page', action: createWiki },
+        { id: 'action-new-collection', type: 'Action', label: q ? `New collection from "${q.slice(0, 48)}"` : 'New collection', action: createCollection }
       ]
     };
 
@@ -840,17 +891,25 @@ const CommandPalette = ({ open, onClose }) => {
     if (q) {
       const rankedWikiPages = rankLocalItems(wikiPagesSection.items, q);
       const wikiPageMatches = rankedWikiPages.length ? rankedWikiPages : wikiPagesSection.items;
+      const rankedPages = rankLocalItems(pagesSection.items, q);
+      const exactPages = rankedPages.filter((item) => normalizeSearchText(item.label) === normalizeSearchText(q));
+      if (exactPages.length) {
+        list.push({
+          title: 'Pages',
+          items: exactPages
+        });
+      }
+      list.push(actionSection);
+      if (!exactPages.length && rankedPages.length) {
+        list.push({
+          title: 'Pages',
+          items: rankedPages
+        });
+      }
       if (isWikiSurface && wikiPageMatches.length) {
         list.push({
           title: 'Wiki pages',
           items: wikiPageMatches
-        });
-      }
-      const rankedPages = rankLocalItems(pagesSection.items, q);
-      if (rankedPages.length) {
-        list.push({
-          title: 'Pages',
-          items: rankedPages
         });
       }
       list.push({
@@ -893,7 +952,6 @@ const CommandPalette = ({ open, onClose }) => {
           path: buildCanonicalArticlePath(item._id)
         }))
       });
-      list.push(actionSection);
       if (!isWikiSurface && wikiPageMatches.length) {
         list.push({
           title: 'Wiki pages',
@@ -937,7 +995,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, collections, concepts, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, collections, concepts, createCollection, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
@@ -949,8 +1007,16 @@ const CommandPalette = ({ open, onClose }) => {
       setActiveIndex(0);
       return;
     }
+    const hasSettledQuery = Boolean(query.trim()) && !loading;
+    if (hasSettledQuery) {
+      const firstResultIndex = selectableItems.findIndex((item) => !['Action', 'Command'].includes(item?.type));
+      if (firstResultIndex >= 0) {
+        setActiveIndex(firstResultIndex);
+        return;
+      }
+    }
     setActiveIndex(prev => Math.min(prev, selectableItems.length - 1));
-  }, [selectableItems]);
+  }, [loading, query, selectableItems]);
 
   const handleSelect = (item) => {
     if (!item) return;
@@ -1044,7 +1110,7 @@ const CommandPalette = ({ open, onClose }) => {
                 return (
                   <button
                     type="button"
-                    key={`${section.title}-${item.type}-${item.label}`}
+                    key={item.id || `${section.title}-${item.type}-${item.label}`}
                     className={`palette-item ${isActive ? 'active' : ''}`}
                     onMouseEnter={() => setActiveIndex(rowIndex)}
                     onMouseDown={handleResultMouseDown}

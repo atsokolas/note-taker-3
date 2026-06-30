@@ -1289,6 +1289,9 @@ const ThinkMode = () => {
     const hasSelectedThread = selectedThreadId
       && (threads.some((row) => String(row?.threadId || '') === selectedThreadId)
         || String(activeThreadData?.threadId || '') === selectedThreadId);
+    if (selectedThreadId) {
+      return;
+    }
     if (threads.length === 0) {
       if (!selectedThreadId || hasSelectedThread) return;
       const params = new URLSearchParams(searchParams);

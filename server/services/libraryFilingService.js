@@ -534,6 +534,7 @@ const stageLibraryFilingSuggestions = async ({
   sanitizeAgentStructureProposalDoc,
   sanitizeAgentThreadDoc,
   userId = '',
+  resumeExisting = false,
   actor = null
 } = {}) => {
   const safeUserId = clean(userId);
@@ -543,10 +544,10 @@ const stageLibraryFilingSuggestions = async ({
     throw error;
   }
 
-  const existing = await findExistingLibraryFilingProposal({
+  const existing = resumeExisting ? await findExistingLibraryFilingProposal({
     AgentStructureProposal,
     userId: safeUserId
-  });
+  }) : null;
   if (existing) {
     const threadId = clean(existing.sourceThreadId);
     const thread = threadId && AgentThread

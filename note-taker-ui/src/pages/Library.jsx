@@ -211,16 +211,17 @@ const Library = () => {
       if (receipt?.summary) {
         setFilingReceipt(receipt);
       }
-      systemStatus.setLatestReceipt(normalizeSystemReceipt(receipt, { href: '/think?tab=threads' }) || {
+      const nextThreadId = String(result?.thread?.threadId || result?.thread?._id || '').trim();
+      const href = nextThreadId
+        ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
+        : '/think?tab=threads';
+      systemStatus.setLatestReceipt(normalizeSystemReceipt(receipt, { href }) || {
         title: 'Filing suggestions ready',
         summary: receipt?.summary || 'Review the staged plan in Think.',
         status: 'needs_review',
-        href: '/think?tab=threads'
+        href
       });
-      const nextThreadId = String(result?.thread?.threadId || result?.thread?._id || '').trim();
-      navigate(nextThreadId
-        ? `/think?tab=threads&threadId=${encodeURIComponent(nextThreadId)}`
-        : '/think?tab=threads');
+      navigate(href);
     } catch (error) {
       console.error('Failed to start library filing suggestions:', error);
       setFilingReceipt({
