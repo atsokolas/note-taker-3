@@ -2841,6 +2841,7 @@ const WikiWorkspace = () => {
   const shouldOpenReferencePullIn = params.get('pull') === '1';
   const view = selectedPageId ? 'page' : explicitView || 'graph';
   const isListWorkspace = !selectedPageId && view === 'list';
+  const agentPaneCollapsed = Boolean(selectedPageId && pageMode === 'read' && mobilePane !== 'chat');
 
   useEffect(() => {
     if (location.search === currentSearchRef.current) return;
@@ -3255,7 +3256,7 @@ const WikiWorkspace = () => {
 
   return (
     <section
-      className={`wiki-workspace is-mobile-${mobilePane}${isListWorkspace ? ' wiki-workspace--list-view' : ''}`}
+      className={`wiki-workspace is-mobile-${mobilePane}${isListWorkspace ? ' wiki-workspace--list-view' : ''}${agentPaneCollapsed ? ' wiki-workspace--agent-collapsed' : ''}`}
       aria-label="Wiki workspace"
       style={{ '--wiki-workspace-chat-width': `${chatWidth}px` }}
       onTouchStart={handleTouchStart}
@@ -3287,6 +3288,17 @@ const WikiWorkspace = () => {
           Wiki
         </Link>
       </div>
+      {agentPaneCollapsed ? (
+        <button
+          type="button"
+          className="wiki-workspace__agent-peek"
+          onClick={() => showPane('chat', { persist: true })}
+          aria-label={`Open ${AGENT_DISPLAY_NAME}`}
+        >
+          <span aria-hidden="true">›</span>
+          Ask
+        </button>
+      ) : null}
       <aside
         className={`wiki-workspace__chat-pane${mobilePane !== 'chat' ? ' wiki-workspace__pane--inactive' : ''}`}
         data-mobile-active={mobilePane === 'chat' ? 'true' : 'false'}

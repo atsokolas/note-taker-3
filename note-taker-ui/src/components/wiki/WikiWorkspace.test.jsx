@@ -373,6 +373,29 @@ describe('WikiWorkspace', () => {
     expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
 
+  it('opens selected wiki pages in a content-first collapsed-agent layout', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('wiki-workspace--agent-collapsed');
+    expect(screen.getByRole('button', { name: 'Open Thought partner' })).toHaveTextContent('Ask');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Thought partner' }));
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
+    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
+  });
+
+  it('keeps explicit selected-page chat links expanded', async () => {
+    renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
+    await settleWorkspaceEffects();
+
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(screen.queryByRole('button', { name: 'Open Thought partner' })).not.toBeInTheDocument();
+  });
+
   it('AT-248 — marks onboarding seen when a first-visit CTA is used', async () => {
     listWikiPages.mockResolvedValueOnce([]);
     renderWorkspace('/wiki/workspace?view=graph');

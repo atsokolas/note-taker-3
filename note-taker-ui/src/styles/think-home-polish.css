@@ -9483,6 +9483,57 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: color-mix(in srgb, var(--surface) 94%, #fff);
 }
 
+.wiki-workspace--agent-collapsed {
+  grid-template-columns: 0 0 minmax(0, 1fr);
+}
+
+.wiki-workspace--agent-collapsed .wiki-workspace__chat-pane,
+.wiki-workspace--agent-collapsed .wiki-workspace__resizer {
+  display: none;
+}
+
+.wiki-workspace__agent-peek {
+  position: fixed;
+  left: max(14px, env(safe-area-inset-left));
+  top: calc(96px + 16px);
+  z-index: 22;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px 0 10px;
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 38%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 28px color-mix(in srgb, #000 10%, transparent);
+}
+
+.wiki-workspace__agent-peek span {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 16%, transparent);
+  color: var(--wiki-warm-accent, #b1862e);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.wiki-workspace__agent-peek:hover,
+.wiki-workspace__agent-peek:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 64%, var(--nt-divider));
+  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 9%, var(--surface));
+}
+
 .wiki-workspace__right-pane {
   overflow-x: clip;
   overflow-y: auto;
@@ -11136,6 +11187,19 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   .wiki-workspace.is-mobile-chat .wiki-workspace__right-pane,
   .wiki-workspace.is-mobile-wiki .wiki-workspace__chat-pane {
     display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .wiki-workspace--agent-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-workspace__agent-peek {
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    top: auto;
+    bottom: max(18px, env(safe-area-inset-bottom));
   }
 }
 
