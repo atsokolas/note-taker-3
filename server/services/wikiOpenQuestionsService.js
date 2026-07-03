@@ -26,6 +26,16 @@ const cleanupQuestionText = (value = '') => normalizeText(value)
   .replace(/\s+([?.!])/g, '$1')
   .trim();
 
+const DECLARATIVE_OPEN_QUESTION_RE = /^(the\s+)?(next|unresolved|open|remaining|central|sharpest|key)\s+question\s+(is|becomes|remains)\b|^it\s+remains\s+unclear\b|^it\s+is\s+unclear\b|^what\s+remains\s+unclear\b|^the\s+page\s+still\s+needs\b|^the\s+topic\s+still\s+needs\b|^the\s+claim\s+still\s+needs\b|^the\s+evidence\s+still\s+needs\b/i;
+const INTERROGATIVE_PROMPT_RE = /^(what|which|how|why|when|where|whether|who|can|could|should|would|do|does|did|is|are|will|might)\b/i;
+
+const isOpenQuestionPrompt = (text = '') => {
+  const value = cleanupQuestionText(text);
+  if (!value) return false;
+  if (/\?$/.test(value)) return true;
+  return DECLARATIVE_OPEN_QUESTION_RE.test(value) || INTERROGATIVE_PROMPT_RE.test(value);
+};
+
 const extractOpenQuestionsFromBody = (body = {}) => {
   const blocks = Array.isArray(body?.content) ? body.content : [];
   const questions = [];
@@ -40,13 +50,13 @@ const extractOpenQuestionsFromBody = (body = {}) => {
     if (!collecting) return;
     if (block.type === 'paragraph' || block.type === 'listItem') {
       const text = cleanupQuestionText(plainText(block.content || []));
-      if (text && /\?$/.test(text)) questions.push(text);
+      if (isOpenQuestionPrompt(text)) questions.push(text);
       return;
     }
     if (block.type === 'bulletList' || block.type === 'orderedList') {
       (Array.isArray(block.content) ? block.content : []).forEach((item) => {
         const text = cleanupQuestionText(plainText(item.content || []));
-        if (text && /\?$/.test(text)) questions.push(text);
+        if (isOpenQuestionPrompt(text)) questions.push(text);
       });
     }
   });
@@ -112,6 +122,7 @@ module.exports = {
   __testables: {
     plainText,
     cleanupQuestionText,
+    isOpenQuestionPrompt,
     wikiQuestionId
   }
 };
