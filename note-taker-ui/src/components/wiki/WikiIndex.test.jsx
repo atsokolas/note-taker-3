@@ -36,10 +36,17 @@ jest.mock('react-force-graph-2d', () => function MockForceGraph2D({
   nodeRelSize,
   cooldownTicks,
   d3VelocityDecay,
+  enableZoomInteraction,
   nodeCanvasObject,
   width,
   height
 }) {
+  const regularWheelZoom = typeof enableZoomInteraction === 'function'
+    ? enableZoomInteraction({ type: 'wheel', metaKey: false, ctrlKey: false })
+    : enableZoomInteraction;
+  const modifiedWheelZoom = typeof enableZoomInteraction === 'function'
+    ? enableZoomInteraction({ type: 'wheel', metaKey: true, ctrlKey: false })
+    : enableZoomInteraction;
   return (
     <div
       data-testid="wiki-force-graph"
@@ -48,6 +55,8 @@ jest.mock('react-force-graph-2d', () => function MockForceGraph2D({
       data-node-rel-size={nodeRelSize}
       data-cooldown-ticks={cooldownTicks}
       data-d3-velocity-decay={d3VelocityDecay}
+      data-regular-wheel-zoom={regularWheelZoom ? 'true' : 'false'}
+      data-modified-wheel-zoom={modifiedWheelZoom ? 'true' : 'false'}
       data-has-custom-node-renderer={nodeCanvasObject ? 'true' : 'false'}
       data-width={width || ''}
       data-height={height || ''}
@@ -183,6 +192,8 @@ describe('WikiIndex graph', () => {
     expect(graphSurface).toHaveAttribute('data-node-rel-size', '4');
     expect(graphSurface).toHaveAttribute('data-cooldown-ticks', '90');
     expect(graphSurface).toHaveAttribute('data-d3-velocity-decay', '0.42');
+    expect(graphSurface).toHaveAttribute('data-regular-wheel-zoom', 'false');
+    expect(graphSurface).toHaveAttribute('data-modified-wheel-zoom', 'true');
     expect(graphSurface).toHaveAttribute('data-has-custom-node-renderer', 'true');
     expect(graphSurface).toHaveAttribute('data-width');
     expect(graphSurface).toHaveAttribute('data-height');

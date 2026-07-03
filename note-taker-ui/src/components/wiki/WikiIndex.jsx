@@ -41,6 +41,8 @@ const REVIEW_STATUS_LABELS = {
 
 const getWindowWidth = () => (typeof window === 'undefined' ? 1024 : window.innerWidth || 1024);
 
+const allowIntentionalGraphZoom = (event = {}) => Boolean(event?.metaKey || event?.ctrlKey);
+
 const pageMatchesGraphQuery = (page = {}, query = '') => {
   const needle = String(query || '').trim().toLowerCase();
   if (!needle) return true;
@@ -428,6 +430,7 @@ const WikiGraph = ({ graph, mapGraph, onOpenPage }) => {
           linkColor={(link) => wikiGraphEdgeColor(link.relationType)}
           linkWidth={(link) => (link.relationType === 'wikiLink' ? 1.15 : link.relationType === 'shared_source' ? 0.95 : 0.8)}
           linkDirectionalParticles={0}
+          enableZoomInteraction={allowIntentionalGraphZoom}
           onNodeHover={setHovered}
           onLinkHover={setHoveredLink}
           onNodeClick={(node) => {
