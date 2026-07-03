@@ -6706,6 +6706,7 @@ app.use(buildConceptQuestionBoardRouter({
   ReferenceEdge,
   ConceptNote,
   Question,
+  WikiPage,
   enqueueQuestionEmbedding,
   findHighlightById,
   createBlockId,

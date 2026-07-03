@@ -6,6 +6,7 @@ import {
   getWikiBacklinks,
   getWikiPage,
   getWikiPageMarkdown,
+  listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
   streamAskWikiPage,
@@ -280,6 +281,36 @@ const hasInlineWikiLinks = (node) => {
   if (typeof node !== 'object') return false;
   if (Array.isArray(node.marks) && node.marks.some(mark => mark?.type === 'wikiLink' && mark?.attrs?.pageId)) return true;
   return hasInlineWikiLinks(node.content);
+};
+
+const hasRawWikiSyntax = (node) => {
+  if (!node) return false;
+  if (typeof node === 'string') return node.includes('[[');
+  if (Array.isArray(node)) return node.some(hasRawWikiSyntax);
+  if (typeof node !== 'object') return false;
+  if (typeof node.text === 'string' && node.text.includes('[[')) return true;
+  return hasRawWikiSyntax(node.content);
+};
+
+const normalizeRelatedWikiPage = (entry = {}) => {
+  if (!entry || typeof entry !== 'object') return null;
+  const id = entry.pageId || entry._id || entry.id || entry.targetPageId || entry.targetId || '';
+  const title = entry.title || entry.pageTitle || entry.name || entry.targetTitle || entry.label || '';
+  if (!id || !title) return null;
+  return { _id: id, title };
+};
+
+const collectRelatedWikiPages = (page = {}) => {
+  const buckets = [
+    page?.aiState?.relatedPages,
+    page?.relatedPages,
+    page?.freshness?.relatedPages,
+    page?.graph?.relatedPages
+  ];
+  return buckets
+    .flatMap(value => (Array.isArray(value) ? value : []))
+    .map(normalizeRelatedWikiPage)
+    .filter(Boolean);
 };
 
 const pickFirst = (...values) => values
@@ -1050,6 +1081,7 @@ const WikiPageReadView = ({
   const [liveUpdateToast, setLiveUpdateToast] = useState(null);
   const [nonCriticalReady, setNonCriticalReady] = useState(false);
   const [pageTransitionState, setPageTransitionState] = useState('idle');
+  const [rawWikiLinkPages, setRawWikiLinkPages] = useState([]);
   const reducedMotion = useReducedMotion();
   const [showMarginalia, setShowMarginalia] = useState(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -1610,6 +1642,28 @@ const WikiPageReadView = ({
     () => stripLeadingDuplicateTitleHeading(page?.body || emptyDoc, page?.title || ''),
     [page?.body, page?.title]
   );
+  useEffect(() => {
+    let cancelled = false;
+    if (!hasRawWikiSyntax(displayBody)) {
+      setRawWikiLinkPages([]);
+      return undefined;
+    }
+    listWikiPages({ limit: 500 })
+      .then((nextPages) => {
+        if (!cancelled) setRawWikiLinkPages(Array.isArray(nextPages) ? nextPages : []);
+      })
+      .catch(() => {
+        if (!cancelled) setRawWikiLinkPages([]);
+      });
+    return () => { cancelled = true; };
+  }, [displayBody]);
+  const wikiLinkPages = useMemo(() => (
+    [
+      page ? { _id: page._id || page.id || page.pageId, title: page.title } : null,
+      ...collectRelatedWikiPages(page),
+      ...rawWikiLinkPages
+    ].filter(Boolean)
+  ), [page, rawWikiLinkPages]);
   const bodyTocItems = useMemo(() => extractTocItems(displayBody), [displayBody]);
   const tocItems = useMemo(() => {
     const hasReferences = Array.isArray(page?.sourceRefs) && page.sourceRefs.length > 0;
@@ -2149,7 +2203,7 @@ const WikiPageReadView = ({
                 data-state={pageTransitionState}
                 data-page-transition-state={pageTransitionState}
               >
-                {renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors })}
+                {renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors, wikiLinkPages })}
               </section>
                 {showMarginalia ? (
                   <WikiReadMarginalia

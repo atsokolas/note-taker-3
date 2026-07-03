@@ -1,10 +1,30 @@
 # Spec — Return Loop fixes (post-live-test)
 
 **For:** Codex
-**Author:** Athan + Claude (live user test on `https://www.noeis.io`, logged-in real account, 2026-06-29)
-**Context:** The return-loop push (commits `ce38378b` + `bb3a17fb`) is mostly working — the morning paper, graph ask, status chip, and filing review UI all shipped and verified live. This spec covers the gaps found while driving the product as a user. Two of the three "action" payoffs are currently hollow (⌘K can't create; filing proposes with a dumb classifier you can barely reach). These are the fixes.
+**Author:** Athan + Claude (live user test on `https://www.noeis.io`, logged-in real account, 2026-06-29; extended with a full product/feel audit later the same day)
+**Context:** The return-loop push (commits `ce38378b` + `bb3a17fb`) is mostly working — the morning paper, graph ask, status chip, and filing review UI all shipped and verified live. This spec covers the gaps found while driving the product as a user, plus a measured feel/perf audit and a reading-surface audit. Two of the three "action" payoffs are currently hollow (⌘K can't create; filing proposes with a dumb classifier you can barely reach), the daily-open surface waits ~10s on a recomputed briefing, and the flagship reading surface leaks raw wikilink markup. These are the fixes.
 
 **Verification rule:** every item has a live repro on `https://www.noeis.io`. Reproduce the symptom, ship, then reproduce again and confirm it changed. Paste the actual before/after (screenshot or API result) in the PR. Do not close from a unit test alone.
+
+## Codex status addendum — 2026-07-02
+
+This section reflects repo state after commits through `115e42a2`. Keep the original repros below as historical evidence, but execute against this current status so parallel agents do not reopen stale items.
+
+**Confirmed already addressed in code:**
+- **P0-1 Command Palette create actions** — `CommandPalette.jsx` now pins the Actions section above async search results in the query branch, with focused coverage for "keeps create actions pinned above async search results so clicks do not drift," wiki page creation, and collection creation.
+- **P0-2 Think `threadId` deep links** — `ThinkMode.jsx` now preserves explicit `?threadId=` instead of replacing it with the newest thread, and library filing receipts include `/think?tab=threads&threadId=<id>`.
+- **P1-1 filing rationale/classifier path** — the current filing flow uses `server/services/libraryFilingService.js`, which supports LLM classification, regex fallback, confidence/source-quality metadata, and per-operation rationale. The older regex path in `agentRunExecution.js` remains for other agent-run flows but is not the primary Library "Review filing suggestions" route.
+- **P1-2 stale filing proposal default** — the Library UI calls `startLibraryFilingSuggestions()` without `resumeExisting`; the route only reuses old proposals when the request explicitly sets `resumeExisting`.
+- **P2 lead/title carry-overs** — `WikiFrontPage` no longer reveals the lead word-by-word, and `scripts/normalize_wiki_titles.js` safely backfilled the obvious stored title cases (`Availability Heuristic`, `Endowment Effect`, `Circle of Competence`) without changing slugs.
+- **P0-0 raw wikilink markup leak** — `renderTiptapDoc` now sanitizes literal `[[...]]` text, including malformed citation-interleaved forms such as `[[ [2,3]Circle of Competence [2,3]]]`; `WikiPageReadView` lazily resolves those labels through the page catalog only for affected pages.
+- **P0-0b briefing speed, limited pass** — `/wiki` now renders a 36h local cached Morning Paper immediately when available and refreshes with one `listWikiPages({ limit: 80, includeLowQuality: 1 })` request plus one briefing request. The full server-side briefing read-model/precompute target remains separate.
+- **P1-4 wiki Open Questions circulation, first pass** — server extracts Open Questions sections from eligible wiki pages as virtual `sourceType: "wiki_open_question"` rows in `/api/questions` and concept question lists; briefing answerable-question logic considers those virtual rows when matching pages gained new source material.
+
+**Still execute / verify:**
+- **P0-0 / P0-0b / P1-4 live verification** — code and `wiki:qa` are green, but production proof is still required after deploy: no rendered `[[`, cache-first warm `/wiki`, and wiki-origin Open Questions visible in Think / briefing.
+- **P0-0b full precompute** — if the limited cache/dedupe pass is not enough after production timing, build the persisted briefing read-model in the scheduled maintenance worker so `GET /api/wiki/briefing` becomes a fast read.
+- **P1-3 filing count drop** — real-account batch acceptance is allowed by Athan, but first inspect the proposal rows and capture before/after counts.
+- **P2-b density pass** — keep separate from correctness/performance work; coordinate with design-polish specs.
 
 ---
 
@@ -16,6 +36,21 @@
 - **Graph-motif wiki background** ✅ and **escalated machinery nav** ("Knowledge map · All pages · Needs review · Review (8)") ✅ — both polish items landed.
 
 ---
+
+## P0-0 — Raw wikilink markup renders in reading prose
+**Symptom (verified live, zoomed screenshot):** on the "Margin of Safety in Value Investing" read view, the prose renders literal double-bracket markup with citation markers interleaved: *"the mental model of a `[[ [2,3]Circle of Competence [2,3]]]`: investors should…"* and again *"the concept of `[[ [2,3]Opportunity Cost [2,3]]]`"*. Raw wikilink syntax + superscript refs jammed inside, on the flagship reading surface. This is the single most jarring detail in the app — the surrounding typography is excellent, which makes it worse.
+**Likely cause:** the wikilink autolink/render pipeline doesn't handle a wikilink whose inner text carries citation spans (the citation markers got inserted *inside* the `[[…]]` before link rendering), so the parser fails and falls through to literal text.
+**Fix:** render `[[Title]]` as a proper wikilink even when citation/superscript nodes are adjacent or embedded; never let `[[` / `]]` reach the reader. Audit other pages for the same pattern (grep rendered plainText for `[[`).
+**Acceptance:** the Margin of Safety page shows "Circle of Competence" and "Opportunity Cost" as clean links with their citation superscripts outside the link text; no page renders literal `[[`. Paste before/after screenshots.
+
+## P0-0b — The morning paper takes ~10s on every open (recomputed briefing + duplicate fetches)
+**Symptom (measured live, resource timing):** every visit to `/wiki` shows the "Checking overnight edits and drift signals…" skeleton for many seconds. Measured: `GET /api/wiki/briefing` takes **7.8–14.5s** (warm backend, three separate loads), and the client fetches it **twice** per load, plus `wiki/pages` **three times**. The maintained-page view similarly fetches its own page **3×** and `connections` **2×**. Layout shift is excellent (CLS 0.002–0.036) — the problem is purely wait + waste.
+**Why it matters:** this is the daily-return surface — the product's whole bet — and it greets the user with a 10-second skeleton every single time. Perceived speed is the #1 "feel" gap vs. Notion-class products.
+**Fix (three parts, in value order):**
+1. **Dedupe the fetches.** Find why briefing/pages/page/connections fire 2–3× per mount (double-mount effect, missing request cache, or competing components) and make each load fetch once.
+2. **Cache-first render.** Persist the last briefing (localStorage or server-side) and render it *instantly* on open, then refresh in place — never show a skeleton when a previous paper exists. Same pattern for the maintained page (render last-known, update silently).
+3. **Precompute the briefing.** The 6h scheduled maintenance worker (`wikiScheduledMaintenanceWorker.js`) should compute and store the briefing read-model so `GET /api/wiki/briefing` is a fast read (<500ms), not a 8–14s on-demand computation (`wikiBriefingService.js`).
+**Acceptance:** warm `/wiki` open shows a real morning paper (not skeleton) in under 1s; `briefing` endpoint returns <500ms; each API endpoint fires exactly once per load (paste the network waterfall before/after).
 
 ## P0-1 — ⌘K "New Wiki page" / "New collection" actions are unreachable (list reflow)
 **Symptom (verified live, twice):** open ⌘K, type a topic (e.g. "compounding test page"), click the generated **"New Wiki page from '…'"** action → palette closes and **no page is created** (confirmed via `GET /api/wiki/pages` — newest page was still Jun 21, nothing new persisted), no navigation, no receipt.
@@ -71,15 +106,29 @@ Unfiled is still **248/266 (93%)** because filing only ever *proposes*; nobody h
 
 ---
 
+## P1-4 — Circulate page Open Questions into Think + the morning paper (cheapest big win)
+**Symptom (verified live):** wiki pages already contain **excellent** agent-generated Open Questions (e.g. Margin of Safety: *"What quantitative threshold best balances protection against valuation error with the opportunity cost of capital in different asset classes?"* — three of that quality on one page). Yet Think's Questions rail says **"No questions yet"** and the morning paper's "questions now answerable" slot rarely fires. The provocation engine exists; nothing circulates its output. (The public landing page promises "Questions stay visible until something actually resolves them" — currently unkept.)
+**Fix:** surface wiki-page Open Questions as first-class Question objects: list them in Think's Questions rail (linked back to their page), and let the briefing's answerable-questions detector consider them. No new generation needed — this is plumbing from existing page sections to existing surfaces.
+**Acceptance:** Think → Questions lists the open questions from wiki pages with links; a question whose concept gains new evidence appears in the morning paper. Paste both.
+
 ## P2 — carry-overs (still open, low risk)
-- **Morning-paper lead clamp** — the real account renders a complete sentence, but the QA seed account (`qa_editor_seed`) still truncates mid-sentence ("…imported one source with **a**"). Sentence-boundary trim in `server/services/wikiBriefingService.js` / remove the char-clamp in `WikiFrontPage.jsx` so no template/branch can dangle. Acceptance: reload the seed account's `/wiki` several times; lead always ends on terminal punctuation.
+- **Morning-paper lead clamp** — **worse than previously scoped: it hits the real account too, on roughly half of loads.** Observed live same-day: "A new library article arrived and the recent", "A new article entered the", "…imported one source with a" (real account), plus the seed account's known clamp — versus fully-formed leads on other loads. Sentence-boundary trim in `server/services/wikiBriefingService.js` and/or remove the char-clamp in `WikiFrontPage.jsx` so **no** template/branch can dangle. Acceptance: 10 consecutive reloads on both accounts; every lead ends on terminal punctuation. Paste all 10.
 - **Title casing** — "the Availability Heuristic" still shows the lowercase leading article in Library + wiki. One-time backfill/normalization of existing titles (forward-fix at creation already exists). Acceptance: no page title starts with a lowercase article.
+
+## P2-b — Density pass: the maintained page and Library are over-furnished (design, not bug)
+**Measured live:** the maintained-page view renders **45 buttons + 48 links + 3 rails** around the article; Library renders **44 buttons / 17 panels**. The wiki front page — the calmest, best surface — has **5 buttons**. The reading register wants content-first; the chrome competes with it.
+**Direction (taste call, don't over-engineer):** default the maintained page to article + quiet header + one agent affordance; tuck secondary controls (share panel, overview stats, graph traces, contents) behind hover/collapse/⌘K, in the spirit of Notion's hidden-until-reached-for controls. Library similarly: one lead, controls on demand. Coordinate with `noeis-design-polish-v2-spec-2026-06-25.md` (list unification) rather than duplicating it.
+**Acceptance:** maintained page shows ≤ ~15 interactive controls on load with nothing essential lost (screenshot before/after + control count).
 
 ---
 
 ## Priority
-P0-1 (⌘K create) and P0-2 (thread routing) first — they make the morning paper's promise actionable. Then P1 (filing quality + freshness + prove the drop). P2 carry-overs last.
+1. **P0-0 (markup leak)** — smallest fix, most jarring defect, flagship surface.
+2. **P0-0b (briefing speed: dedupe → cache-first → precompute)** — the daily open must not cost 10 seconds.
+3. **P0-1 (⌘K create) + P0-2 (thread routing)** — make the paper's promise actionable.
+4. **P1-1..3 (filing quality + freshness + prove the drop)** and **P1-4 (question circulation** — cheapest big win, consider pulling forward**)**.
+5. **P2 carry-overs + density pass** last.
 
 ## The line
-The return loop earns the daily open; these fixes make the daily open *lead somewhere*. Right now a user who tries to act on the paper hits a dead ⌘K and an unreachable, stale, mis-sorted filing plan. Close those and the loop is whole.
+The return loop earns the daily open; these fixes make the daily open *instant, clean, and actionable*. Right now the best screen in the product is gated behind a 10-second skeleton, the prose leaks markup, a user who tries to act hits a dead ⌘K and an unreachable stale filing plan, and the product's best thinking (its own open questions) never leaves the page it was written on. Close those and the minute-5 impression survives to day 30.
 </content>

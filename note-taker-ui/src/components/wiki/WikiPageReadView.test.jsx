@@ -11,6 +11,7 @@ import {
   getWikiBacklinks,
   getWikiPage,
   getWikiPageMarkdown,
+  listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
   streamAskWikiPage,
@@ -26,6 +27,7 @@ jest.mock('../../api/wiki', () => ({
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
   getWikiPageMarkdown: jest.fn(),
+  listWikiPages: jest.fn(),
   maintainWikiPage: jest.fn(),
   promoteWikiDiscussion: jest.fn(),
   streamAskWikiPage: jest.fn(),
@@ -162,6 +164,7 @@ describe('WikiPageReadView', () => {
       scanned: 3
     });
     getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
+    listWikiPages.mockResolvedValue([{ _id: 'wiki-related', title: 'Compounding interest' }]);
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
     maintainWikiPage.mockResolvedValue(page);
     getWikiPageMarkdown.mockResolvedValue('---\ntitle: "Enterprise AI Memory"\n---\n\n## Core idea\n');
@@ -1008,6 +1011,55 @@ describe('WikiPageReadView', () => {
     });
 
     expect(screen.queryByTestId('wiki-autolinks')).not.toBeInTheDocument();
+  });
+
+  it('cleans raw bracket wikilinks in article prose and resolves them through the page catalog', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        type: 'doc',
+        content: [
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Core idea' }] },
+          {
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Margin of safety depends on [[ [2,3]Circle of Competence [2,3]]] and [[Opportunity Cost]].',
+              marks: [{
+                type: 'claim',
+                attrs: {
+                  claimId: 'claim-raw',
+                  support: 'supported',
+                  citationIndexes: [2, 3],
+                  contradictionIndexes: []
+                }
+              }]
+            }]
+          }
+        ]
+      }
+    });
+    listWikiPages.mockResolvedValueOnce([
+      { _id: 'wiki-circle', title: 'Circle of Competence' },
+      { _id: 'wiki-opportunity', title: 'Opportunity Cost' }
+    ]);
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 500 }));
+
+    expect(await screen.findByRole('link', { name: 'Circle of Competence' }))
+      .toHaveAttribute('href', '/wiki/wiki-circle');
+    expect(screen.getByRole('link', { name: 'Opportunity Cost' }))
+      .toHaveAttribute('href', '/wiki/wiki-opportunity');
+    expect(document.body.textContent).not.toContain('[[');
+    expect(document.body.textContent).not.toContain(']]');
+    expect(screen.getByRole('button', { name: 'Backlink to sources 2, 3' })).toHaveTextContent('[2,3]');
   });
 
   it('keeps Talk controls and mentioned-in backlinks available when workspace v1 is active', async () => {

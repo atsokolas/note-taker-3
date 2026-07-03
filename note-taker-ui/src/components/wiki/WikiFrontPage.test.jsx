@@ -98,6 +98,8 @@ describe('WikiFrontPage (AT-394)', () => {
     // The agent's lead sentence arrives as complete visible text. It is not
     // duplicated as hidden DOM text and never renders as a partial word stream.
     const leadText = await screen.findByText(/While you were away I rebuilt Opportunity Cost/i);
+    expect(listWikiPages).toHaveBeenCalledTimes(1);
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, includeLowQuality: 1 });
     expect(leadText.closest('.wiki-front-page__lead-text')).toHaveTextContent(/\.$/);
     expect(leadText.closest('.wiki-front-page__lead-text')).not.toHaveAttribute('aria-label');
     expect(document.body.textContent.match(/While you were away I rebuilt Opportunity Cost/g)).toHaveLength(1);
@@ -154,9 +156,7 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 
   it('opens the onboarding arc when the corpus is empty and onboarding is incomplete', async () => {
-    listWikiPages
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    listWikiPages.mockResolvedValueOnce([]);
     getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 0 });
 
     render(
@@ -172,9 +172,7 @@ describe('WikiFrontPage (AT-394)', () => {
 
   it('keeps the fallback empty composer after onboarding has been completed', async () => {
     localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
-    listWikiPages
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    listWikiPages.mockResolvedValueOnce([]);
     getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 0 });
 
     render(
@@ -190,9 +188,7 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 
   it('does not redirect returning users whose pages are hidden from the front page', async () => {
-    listWikiPages
-      .mockResolvedValueOnce([{ _id: 'debug-page', title: 'Internal QA', debugOnly: true }])
-      .mockResolvedValueOnce([{ _id: 'debug-page', title: 'Internal QA', debugOnly: true }]);
+    listWikiPages.mockResolvedValueOnce([{ _id: 'debug-page', title: 'Internal QA', debugOnly: true }]);
     getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 1 });
 
     render(
@@ -218,14 +214,6 @@ describe('WikiFrontPage (AT-394)', () => {
       },
       ...pages
     ]);
-    listWikiPages.mockResolvedValueOnce([
-      {
-        _id: 'qa-page',
-        title: 'QA Build Order Verification 2026-06-19',
-        summary: 'A browser verification page that should not become the front door.'
-      },
-      ...pages
-    ]);
     getWikiBriefing.mockResolvedValueOnce({
       ...briefing,
       recentlyUpdatedPages: [{ _id: 'qa-page', title: 'QA Build Order Verification 2026-06-19' }]
@@ -240,6 +228,31 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
       .toBeInTheDocument();
     expect(screen.queryByText(/QA Build Order Verification/i)).not.toBeInTheDocument();
+  });
+
+  it('renders a cached morning paper immediately while refreshing in place', async () => {
+    localStorage.setItem('noeis.wiki.frontPageSnapshot.v1', JSON.stringify({
+      cachedAt: Date.now(),
+      pages,
+      briefing,
+      hasAnyWikiContent: true
+    }));
+    listWikiPages.mockReturnValueOnce(new Promise(() => {}));
+    getWikiBriefing.mockReturnValueOnce(new Promise(() => {}));
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+      .toBeInTheDocument();
+    expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
+    expect(listWikiPages).toHaveBeenCalledTimes(1);
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, includeLowQuality: 1 });
+    expect(getWikiBriefing).toHaveBeenCalledTimes(1);
   });
 
   it('shows a failed-import next action in the briefing area', async () => {

@@ -1,4 +1,8 @@
 const express = require('express');
+const {
+  buildWikiOpenQuestionRows,
+  filterWikiOpenQuestions
+} = require('../services/wikiOpenQuestionsService');
 
 const buildConceptQuestionBoardRouter = ({
   mongoose,
@@ -8,6 +12,7 @@ const buildConceptQuestionBoardRouter = ({
   ReferenceEdge,
   ConceptNote,
   Question,
+  WikiPage,
   enqueueQuestionEmbedding,
   findHighlightById,
   createBlockId,
@@ -26,6 +31,22 @@ const buildConceptQuestionBoardRouter = ({
   normalizeBoardRelation
 }) => {
   const router = express.Router();
+
+  const loadWikiOpenQuestions = async (userId, filters = {}) => {
+    if (!WikiPage?.find) return [];
+    const wikiPages = await WikiPage.find({
+      userId,
+      status: { $ne: 'archived' },
+      hiddenFromHome: { $ne: true },
+      debugOnly: { $ne: true },
+      archived: { $ne: true }
+    })
+      .select('_id title body status hiddenFromHome debugOnly archived updatedAt createdAt')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(200)
+      .lean();
+    return filterWikiOpenQuestions(buildWikiOpenQuestionRows(wikiPages), filters);
+  };
 
   router.get('/api/onboarding/summary', authenticateToken, async (req, res) => {
     try {
@@ -253,12 +274,15 @@ const buildConceptQuestionBoardRouter = ({
       const conceptName = req.params.name;
       const status = req.query.status || 'open';
       const nameRegex = new RegExp(`^${conceptName}$`, 'i');
-      const questions = await Question.find({
-        userId,
-        status,
-        linkedTagName: nameRegex
-      }).sort({ createdAt: -1 });
-      res.status(200).json(questions);
+      const [questions, wikiOpenQuestions] = await Promise.all([
+        Question.find({
+          userId,
+          status,
+          linkedTagName: nameRegex
+        }).sort({ createdAt: -1 }).lean(),
+        loadWikiOpenQuestions(userId, { conceptName, status })
+      ]);
+      res.status(200).json([...questions, ...wikiOpenQuestions]);
     } catch (error) {
       console.error("❌ Error fetching concept questions:", error);
       res.status(500).json({ error: "Failed to fetch questions." });
@@ -275,8 +299,13 @@ const buildConceptQuestionBoardRouter = ({
       if (conceptName) filter.linkedTagName = new RegExp(`^${conceptName}$`, 'i');
       if (highlightId) filter.linkedHighlightId = highlightId;
       if (notebookEntryId) filter.linkedNotebookEntryId = notebookEntryId;
-      const questions = await Question.find(filter).sort({ createdAt: -1 });
-      res.status(200).json(questions);
+      const [questions, wikiOpenQuestions] = await Promise.all([
+        Question.find(filter).sort({ createdAt: -1 }).lean(),
+        (highlightId || notebookEntryId)
+          ? Promise.resolve([])
+          : loadWikiOpenQuestions(userId, { tag, conceptName, status })
+      ]);
+      res.status(200).json([...questions, ...wikiOpenQuestions]);
     } catch (error) {
       console.error("❌ Error fetching questions:", error);
       res.status(500).json({ error: "Failed to fetch questions." });

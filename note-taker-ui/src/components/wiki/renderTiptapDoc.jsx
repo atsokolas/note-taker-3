@@ -54,6 +54,116 @@ const stripModelSourceRangeCitations = (value = '') => String(value || '')
   .replace(/\s*【\s*\d+†L\d+(?:-L?\d+)?\s*】/g, '')
   .replace(/\s+([,.;:!?])/g, '$1');
 
+const INLINE_CITATION_TOKEN_PATTERN = /\[(?:\s*\d+\s*,)*\s*\d+\s*\]?/g;
+
+const normalizeWikiTitle = (value = '') => String(value || '')
+  .replace(INLINE_CITATION_TOKEN_PATTERN, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
+const cleanRawWikiLinkLabel = (value = '') => String(value || '')
+  .replace(INLINE_CITATION_TOKEN_PATTERN, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const pageLookupTitle = (page = {}) => normalizeWikiTitle(
+  page.title || page.name || page.label || page.pageTitle || ''
+);
+
+const pageLookupId = (page = {}) => (
+  page.pageId || page._id || page.id || page.targetPageId || ''
+);
+
+const resolveRawWikiLinkPage = (label = '', options = {}) => {
+  if (!label) return null;
+  if (typeof options.resolveWikiLinkLabel === 'function') {
+    const resolved = options.resolveWikiLinkLabel(label);
+    if (resolved) return resolved;
+  }
+  const normalized = normalizeWikiTitle(label);
+  if (!normalized) return null;
+  const candidates = Array.isArray(options.wikiLinkPages) ? options.wikiLinkPages : [];
+  return candidates.find(page => pageLookupId(page) && pageLookupTitle(page) === normalized) || null;
+};
+
+const renderWikiLinkTarget = ({ label = '', page = null, key = '', options = {} }) => {
+  const cleanLabel = cleanRawWikiLinkLabel(label);
+  if (!cleanLabel) return null;
+  const targetId = pageLookupId(page || {});
+  const targetTitle = pageLookupTitle(page || {}) ? (page.title || page.name || cleanLabel) : cleanLabel;
+  if (targetId && options.disableInternalWikiLinks) {
+    return (
+      <span
+        key={key}
+        className="wiki-internal-link wiki-internal-link--static"
+        data-wiki-page-id={targetId}
+        data-wiki-title={targetTitle}
+        title="Private wiki backlink hidden on the public share."
+      >
+        {cleanLabel}
+      </span>
+    );
+  }
+  if (targetId) {
+    return (
+      <Link
+        key={key}
+        className="wiki-internal-link"
+        to={wikiPagePath(targetId)}
+        data-wiki-page-id={targetId}
+        data-wiki-title={targetTitle}
+      >
+        {cleanLabel}
+      </Link>
+    );
+  }
+  return (
+    <span
+      key={key}
+      className="wiki-internal-link wiki-internal-link--unresolved"
+      data-wiki-title={cleanLabel}
+    >
+      {cleanLabel}
+    </span>
+  );
+};
+
+const renderRawWikiSyntax = (text = '', key = '', options = {}) => {
+  const value = String(text || '');
+  if (!value.includes('[[')) return value;
+  const parts = [];
+  let cursor = 0;
+  let linkIndex = 0;
+  while (cursor < value.length) {
+    const openIndex = value.indexOf('[[', cursor);
+    if (openIndex === -1) {
+      parts.push(value.slice(cursor));
+      break;
+    }
+    if (openIndex > cursor) parts.push(value.slice(cursor, openIndex));
+    let closeIndex = value.indexOf(']]', openIndex + 2);
+    while (closeIndex !== -1 && /\d/.test(value.charAt(closeIndex - 1))) {
+      closeIndex = value.indexOf(']]', closeIndex + 1);
+    }
+    if (closeIndex === -1) {
+      parts.push(value.slice(openIndex).replace(/\[\[|\]\]/g, ''));
+      break;
+    }
+    const label = cleanRawWikiLinkLabel(value.slice(openIndex + 2, closeIndex));
+    const page = resolveRawWikiLinkPage(label, options);
+    parts.push(renderWikiLinkTarget({
+      label,
+      page,
+      key: `${key}-raw-wiki-${linkIndex}`,
+      options
+    }));
+    linkIndex += 1;
+    cursor = closeIndex + 2;
+  }
+  return parts.filter(part => part !== '' && part !== null);
+};
+
 const plainText = (node) => {
   if (!node) return '';
   if (typeof node === 'string') return node;
@@ -106,28 +216,17 @@ const renderTextNode = (node, key, options = {}) => {
   const wikiLinkMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'wikiLink')
     : null;
-  const wikiHref = wikiLinkMark?.attrs?.pageId ? wikiPagePath(wikiLinkMark.attrs.pageId) : '';
-  const wikiLinkedText = wikiLinkMark?.attrs?.pageId && options.disableInternalWikiLinks ? (
-    <span
-      key={`${key}-wiki-link-static`}
-      className="wiki-internal-link wiki-internal-link--static"
-      data-wiki-page-id={wikiLinkMark.attrs.pageId}
-      data-wiki-title={wikiLinkMark.attrs.title || ''}
-      title="Private wiki backlink hidden on the public share."
-    >
-      {text}
-    </span>
-  ) : wikiLinkMark?.attrs?.pageId ? (
-    <Link
-      key={`${key}-wiki-link`}
-      className="wiki-internal-link"
-      to={wikiHref}
-      data-wiki-page-id={wikiLinkMark.attrs.pageId}
-      data-wiki-title={wikiLinkMark.attrs.title || ''}
-    >
-      {text}
-    </Link>
-  ) : text;
+  const wikiLinkedText = wikiLinkMark?.attrs?.pageId
+    ? renderWikiLinkTarget({
+      label: text,
+      page: {
+        pageId: wikiLinkMark.attrs.pageId,
+        title: wikiLinkMark.attrs.title || text
+      },
+      key: `${key}-wiki-link`,
+      options
+    })
+    : renderRawWikiSyntax(text, key, options);
   const claimMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'claim')
     : null;

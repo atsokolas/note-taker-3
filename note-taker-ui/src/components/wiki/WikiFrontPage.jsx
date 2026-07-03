@@ -27,6 +27,8 @@ const LEAD_EXCERPT_BUDGET = 320;
 const EXPLORE_LIMIT = 10;
 const GROWN_LIMIT = 3;
 const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
+const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
+const WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
 const pageId = (page) => (page && (page._id || page.id || page.pageId)) || '';
 
@@ -97,6 +99,40 @@ const WikiFrontPageShell = ({ children, ...mainProps }) => (
   </>
 );
 
+const readFrontPageCache = () => {
+  try {
+    const raw = window.localStorage?.getItem(WIKI_FRONT_PAGE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const cachedAt = Number(parsed?.cachedAt);
+    if (!Number.isFinite(cachedAt)) return null;
+    if (Date.now() - cachedAt > WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS) return null;
+    return {
+      pages: Array.isArray(parsed.pages) ? parsed.pages : [],
+      briefing: parsed.briefing || null,
+      hasAnyWikiContent: typeof parsed.hasAnyWikiContent === 'boolean'
+        ? parsed.hasAnyWikiContent
+        : null
+    };
+  } catch (_error) {
+    return null;
+  }
+};
+
+const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = null } = {}) => {
+  try {
+    window.localStorage?.setItem(WIKI_FRONT_PAGE_CACHE_KEY, JSON.stringify({
+      cachedAt: Date.now(),
+      pages: Array.isArray(pages) ? pages : [],
+      briefing: briefing || null,
+      hasAnyWikiContent: typeof hasAnyWikiContent === 'boolean' ? hasAnyWikiContent : null
+    }));
+  } catch (_error) {
+    // Cache is a perceived-speed affordance; private-mode/quota failures
+    // should never block the paper.
+  }
+};
+
 const WikiFrontPage = () => {
   const navigate = useNavigate();
   const [pages, setPages] = useState([]);
@@ -114,25 +150,46 @@ const WikiFrontPage = () => {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const cached = readFrontPageCache();
+    if (cached) {
+      setPages(cached.pages);
+      setBriefing(cached.briefing);
+      setHasAnyWikiContent(cached.hasAnyWikiContent);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    setError('');
     Promise.allSettled([
-      listWikiPages({ limit: INDEX_PAGE_LIMIT }),
-      listWikiPages({ limit: 1, includeLowQuality: 1 }),
+      listWikiPages({ limit: INDEX_PAGE_LIMIT, includeLowQuality: 1 }),
       getWikiBriefing()
-    ]).then(([pagesResult, contentProbeResult, briefingResult]) => {
+    ]).then(([pagesResult, briefingResult]) => {
       if (cancelled) return;
+      const nextPages = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
+        ? pagesResult.value
+        : cached?.pages || [];
+      const nextHasAnyWikiContent = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
+        ? pagesResult.value.length > 0
+        : cached?.hasAnyWikiContent ?? null;
+      const nextBriefing = briefingResult.status === 'fulfilled' && briefingResult.value
+        ? briefingResult.value
+        : cached?.briefing || null;
+
       if (pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)) {
-        setPages(pagesResult.value);
-      } else {
+        setPages(nextPages);
+      } else if (!cached) {
         setError('Failed to load wiki pages.');
       }
-      if (contentProbeResult.status === 'fulfilled' && Array.isArray(contentProbeResult.value)) {
-        setHasAnyWikiContent(contentProbeResult.value.length > 0);
-      } else {
-        setHasAnyWikiContent(null);
-      }
+      setHasAnyWikiContent(nextHasAnyWikiContent);
       if (briefingResult.status === 'fulfilled' && briefingResult.value) {
-        setBriefing(briefingResult.value);
+        setBriefing(nextBriefing);
+      }
+      if (pagesResult.status === 'fulfilled' || briefingResult.status === 'fulfilled') {
+        writeFrontPageCache({
+          pages: nextPages,
+          briefing: nextBriefing,
+          hasAnyWikiContent: nextHasAnyWikiContent
+        });
       }
       setLoading(false);
     });

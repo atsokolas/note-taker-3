@@ -107,6 +107,43 @@ describe('renderTiptapDoc', () => {
     expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });
 
+  it('renders raw bracket wikilinks with embedded citation markers as clean links', () => {
+    render(
+      <MemoryRouter>
+        <div>
+          {renderTiptapDoc({
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Investors need a [[ [2,3]Circle of Competence [2,3]]] before underwriting.',
+                marks: [{
+                  type: 'claim',
+                  attrs: {
+                    claimId: 'claim-circle',
+                    support: 'supported',
+                    citationIndexes: [2, 3]
+                  }
+                }]
+              }]
+            }]
+          }, {
+            wikiLinkPages: [{ _id: 'wiki-circle', title: 'Circle of Competence' }]
+          })}
+        </div>
+      </MemoryRouter>
+    );
+
+    const link = screen.getByRole('link', { name: 'Circle of Competence' });
+    expect(link).toHaveAttribute('href', '/wiki/workspace?page=wiki-circle');
+    expect(link).toHaveAttribute('data-wiki-page-id', 'wiki-circle');
+    expect(screen.getByText(/Investors need a/)).not.toHaveTextContent('[[');
+    expect(document.body.textContent).not.toContain('[[');
+    expect(document.body.textContent).not.toContain(']]');
+    expect(screen.getByRole('button', { name: 'Backlink to sources 2, 3' })).toHaveTextContent('[2,3]');
+  });
+
   it('demotes body h1 headings so the page title owns the document h1', () => {
     render(
       <div>

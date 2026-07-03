@@ -602,6 +602,48 @@ describe('wikiBriefingService', () => {
       });
     });
 
+    it('circulates wiki page Open Questions into answerable briefing notes', async () => {
+      const wikiPages = [buildPage({
+        _id: 'page-1',
+        title: 'Opportunity Cost',
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Overview' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Tradeoffs matter.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Open Questions' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'What evidence would distinguish explicit tradeoffs from hidden opportunity costs?' }] }
+          ]
+        }
+      })];
+
+      const answerable = await collectAnswerableQuestions({
+        userId: 'u1',
+        models: { Question: fakeModel([]) },
+        wikiPages,
+        pagesWithNewSourceMaterial: [{
+          pageId: 'page-1',
+          title: 'Opportunity Cost',
+          addedSourceCount: 2,
+          changedAt: new Date(NOW - 1_000).toISOString()
+        }],
+        maintenanceChanges: [{
+          pageId: 'page-1',
+          supportChanged: 0,
+          claimsChanged: 1
+        }]
+      });
+
+      expect(answerable).toHaveLength(1);
+      expect(answerable[0]).toMatchObject({
+        questionId: 'wiki-open-question:page-1:0',
+        sourceType: 'wiki_open_question',
+        sourcePageId: 'page-1',
+        evidencePageTitle: 'Opportunity Cost',
+        href: '/wiki/workspace?page=page-1#open-questions'
+      });
+    });
+
     it('prioritizes failed receipts, answerable questions, and source-backed pages for next action', () => {
       expect(buildBriefingNextAction({
         recentReceipts: [{

@@ -4,6 +4,9 @@ const {
   normalizeExistingWikiTitleForPresentation,
   sentenceBoundaryTrim
 } = require('./wikiPresentationGuard');
+const {
+  buildWikiOpenQuestionRows
+} = require('./wikiOpenQuestionsService');
 
 /**
  * wikiBriefingService — assembles the "Daily wiki briefing" surfaced
@@ -176,22 +179,25 @@ const questionHasEvidenceLinks = (question = {}) => {
 const collectAnswerableQuestions = async ({
   userId,
   models = {},
+  wikiPages = [],
   pagesWithNewSourceMaterial = [],
   maintenanceChanges = [],
   limit = 5
 }) => {
-  if (!models.Question) return [];
-  const questions = await safeFind(
-    models.Question,
-    {
-      userId,
-      status: 'open',
-      hiddenFromHome: { $ne: true },
-      debugOnly: { $ne: true },
-      archived: { $ne: true }
-    },
-    120
-  );
+  const questions = models.Question
+    ? await safeFind(
+      models.Question,
+      {
+        userId,
+        status: 'open',
+        hiddenFromHome: { $ne: true },
+        debugOnly: { $ne: true },
+        archived: { $ne: true }
+      },
+      120
+    )
+    : [];
+  const wikiOpenQuestions = buildWikiOpenQuestionRows(wikiPages);
   const evidencePages = pagesWithNewSourceMaterial.map(page => {
     const change = maintenanceChanges.find(item => item.pageId === page.pageId) || {};
     return {
@@ -200,7 +206,7 @@ const collectAnswerableQuestions = async ({
       claimsChanged: Number(change.claimsChanged || 0)
     };
   });
-  return questions
+  return [...questions, ...wikiOpenQuestions]
     .filter(question => (
       question.status === 'open'
       && !question.hiddenFromHome
@@ -229,11 +235,16 @@ const collectAnswerableQuestions = async ({
           text: truncate(question.text, 160),
           conceptName: truncate(question.conceptName || question.linkedTagName || '', 90),
           linkedTagName: truncate(question.linkedTagName || '', 90),
+          sourceType: question.sourceType || 'question',
+          sourcePageId: question.sourcePageId || '',
+          sourcePageTitle: question.sourcePageTitle || '',
           evidencePageId: page.pageId,
           evidencePageTitle: page.title,
           evidenceCount: Number(page.addedSourceCount || 0),
           changedAt: page.changedAt,
-          href: `/think?tab=questions&questionId=${idString(question._id)}`
+          href: question.sourceType === 'wiki_open_question' && question.href
+            ? question.href
+            : `/think?tab=questions&questionId=${idString(question._id)}`
         }));
     })
     .sort((a, b) => Number(b.evidenceCount || 0) - Number(a.evidenceCount || 0))
@@ -591,6 +602,7 @@ const buildWikiBriefing = async ({
   const answerableQuestions = await collectAnswerableQuestions({
     userId,
     models,
+    wikiPages: pages,
     pagesWithNewSourceMaterial,
     maintenanceChanges: recentMaintenanceChanges
   });

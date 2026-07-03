@@ -1,5 +1,5 @@
 import React, { Profiler, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageTitle, SectionHeader, QuietButton, Button, TagChip, SegmentedNav, SurfaceCard } from '../components/ui';
 import useConcepts from '../hooks/useConcepts';
 import useConcept from '../hooks/useConcept';
@@ -2392,6 +2392,7 @@ const ThinkMode = () => {
         const id = cleanText(question?._id);
         const text = cleanText(question?.text) || 'Untitled question';
         const scope = cleanText(question?.linkedTagName) || 'Uncategorized';
+        const sourceHref = question?.sourceType === 'wiki_open_question' && question?.href ? question.href : '';
         return (
           <li key={id || text}>
             <button
@@ -2401,6 +2402,11 @@ const ThinkMode = () => {
             >
               {`${text} · ${scope}`}
             </button>
+            {sourceHref ? (
+              <Link className="concept-editorial-partner__concept-link" to={sourceHref}>
+                Open page
+              </Link>
+            ) : null}
           </li>
         );
       })}
