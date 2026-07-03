@@ -330,6 +330,42 @@ const createFakeWikiMaintenanceRunModel = () => {
   return WikiMaintenanceRun;
 };
 
+const createFakeWikiBriefingCacheModel = () => {
+  const records = [];
+
+  function WikiBriefingCache(payload = {}) {
+    Object.assign(this, payload);
+    this._id = this._id || new mongoose.Types.ObjectId().toString();
+    this.createdAt = this.createdAt || new Date();
+    this.updatedAt = this.updatedAt || new Date();
+  }
+
+  WikiBriefingCache.records = records;
+
+  WikiBriefingCache.findOne = (query = {}) => {
+    const found = records.find(record => matches(record, query));
+    return new Query(found ? new WikiBriefingCache(clone(found)) : null);
+  };
+
+  WikiBriefingCache.findOneAndUpdate = async (query = {}, updates = {}, options = {}) => {
+    let found = records.find(record => matches(record, query));
+    if (!found && options.upsert) {
+      found = {
+        _id: new mongoose.Types.ObjectId().toString(),
+        ...query,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      records.push(found);
+    }
+    if (!found) return null;
+    Object.assign(found, updates.$set || updates, { updatedAt: new Date() });
+    return new WikiBriefingCache(clone(found));
+  };
+
+  return WikiBriefingCache;
+};
+
 const createFakeWikiSharedCollectionModel = () => {
   const records = [];
 
@@ -544,6 +580,7 @@ const run = async () => {
   const WikiLintRun = createFakeWikiLintRunModel();
   const WikiSourceEvent = createFakeWikiSourceEventModel();
   const WikiMaintenanceRun = createFakeWikiMaintenanceRunModel();
+  const WikiBriefingCache = createFakeWikiBriefingCacheModel();
   const WikiSharedCollection = createFakeWikiSharedCollectionModel();
   const WikiSchemaSettings = createFakeWikiSchemaSettingsModel();
   const ConnectorActionLog = createFakeConnectorActionLogModel();
@@ -598,6 +635,7 @@ const run = async () => {
     WikiLintRun,
     WikiSourceEvent,
     WikiMaintenanceRun,
+    WikiBriefingCache,
     WikiSharedCollection,
     WikiSchemaSettings,
     ConnectorActionLog,
@@ -748,6 +786,12 @@ const run = async () => {
     assert.ok(briefing.body.nextAction, 'Briefing should expose a next action when return-loop evidence exists.');
     assert.strictEqual(briefing.body.nextAction.type, 'answer_question');
     assert.match(briefing.body.summary, /open question|source material|Opportunity Cost/i);
+    assert.strictEqual(briefing.res.headers.get('x-noeis-briefing-cache'), 'MISS');
+
+    const cachedBriefing = await request(url, '/api/wiki/briefing');
+    assert.strictEqual(cachedBriefing.res.status, 200, cachedBriefing.text);
+    assert.strictEqual(cachedBriefing.res.headers.get('x-noeis-briefing-cache'), 'HIT');
+    assert.strictEqual(cachedBriefing.body.summary, briefing.body.summary);
 
     const unsupportedCreate = await request(url, '/api/wiki/pages', {
       method: 'POST',

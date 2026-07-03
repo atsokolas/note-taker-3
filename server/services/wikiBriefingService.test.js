@@ -4,6 +4,7 @@ const {
   collectRecentlyUpdatedPages,
   collectDriftingPages,
   buildFallbackSummary,
+  isFreshBriefingCache,
   isWithin,
   countNewSources,
   collectRecentImportReceipts,
@@ -55,6 +56,23 @@ describe('wikiBriefingService', () => {
     it('returns false for null / invalid timestamps', () => {
       expect(isWithin(null, ONE_DAY_MS, NOW)).toBe(false);
       expect(isWithin('not-a-date', ONE_DAY_MS, NOW)).toBe(false);
+    });
+  });
+
+  describe('briefing cache helpers', () => {
+    it('accepts cache payloads while they are inside the configured freshness window', () => {
+      const cacheDoc = {
+        payload: { summary: 'Cached paper', generatedAt: new Date(NOW - 1000).toISOString() },
+        generatedAt: new Date(NOW - 1000),
+        expiresAt: new Date(NOW + 1000)
+      };
+
+      expect(isFreshBriefingCache(cacheDoc, { now: NOW, maxAgeMs: ONE_DAY_MS })).toBe(true);
+      expect(isFreshBriefingCache({
+        ...cacheDoc,
+        expiresAt: new Date(NOW - 1000),
+        generatedAt: new Date(NOW - 2 * ONE_DAY_MS)
+      }, { now: NOW, maxAgeMs: ONE_DAY_MS })).toBe(false);
     });
   });
 

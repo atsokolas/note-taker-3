@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWikiBacklinks } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { cleanWikiLinkSnippetText } from './wikiLinkText';
 
 /**
  * WikiBacklinkPanel — "Mentioned in N other pages" rail. Mounts under
@@ -93,7 +94,7 @@ const WikiBacklinkPanel = ({ pageId, pageTitle }) => {
                   {entry.updatedAt ? ` · ${formatRelative(entry.updatedAt)}` : ''}
                 </span>
                 {entry.snippet ? (
-                  <span className="wiki-backlinks__link-snippet">{entry.snippet}</span>
+                  <span className="wiki-backlinks__link-snippet">{cleanWikiLinkSnippetText(entry.snippet)}</span>
                 ) : null}
               </Link>
             </li>

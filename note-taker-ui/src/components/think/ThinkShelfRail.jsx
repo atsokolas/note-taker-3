@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   filterShelfRailSections,
+  getWikiOpenQuestionHref,
   SHELF_RAIL_VISIBLE_LIMIT,
   sortShelfRailConcepts,
   sortShelfRailNotebook,
@@ -123,15 +125,28 @@ const ThinkShelfRail = ({
         loading={questionsLoading}
         emptyMessage="No questions yet."
         getItemKey={(item) => item._id}
-        renderItem={(item) => (
-          <button
-            type="button"
-            className="think-shelf-rail__item"
-            onClick={() => onSelectQuestion?.(item._id)}
-          >
-            <span className="think-shelf-rail__item-title">{item.text || 'Untitled question'}</span>
-          </button>
-        )}
+        renderItem={(item) => {
+          const sourceHref = getWikiOpenQuestionHref(item);
+          const content = (
+            <>
+              <span className="think-shelf-rail__item-title">{item.text || 'Untitled question'}</span>
+              {sourceHref ? <span className="think-shelf-rail__item-meta">Wiki page</span> : null}
+            </>
+          );
+          return sourceHref ? (
+            <Link className="think-shelf-rail__item" to={sourceHref}>
+              {content}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="think-shelf-rail__item"
+              onClick={() => onSelectQuestion?.(item._id)}
+            >
+              {content}
+            </button>
+          );
+        }}
       />
 
       <ShelfSection

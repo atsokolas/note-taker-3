@@ -636,6 +636,17 @@ wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
 
+const wikiBriefingCacheSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
+  payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  generatedAt: { type: Date, default: null },
+  expiresAt: { type: Date, default: null, index: true }
+}, { timestamps: true });
+
+wikiBriefingCacheSchema.index({ userId: 1, expiresAt: 1 });
+
+const WikiBriefingCache = mongoose.model('WikiBriefingCache', wikiBriefingCacheSchema);
+
 const wikiSharedCollectionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   name: { type: String, required: true, trim: true },
@@ -1929,6 +1940,7 @@ module.exports = {
   WikiLintRun,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiBriefingCache,
   WikiSharedCollection,
   ConnectorActionLog,
   TagMeta,

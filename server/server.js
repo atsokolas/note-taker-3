@@ -137,6 +137,7 @@ const {
   WikiLintRun,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiBriefingCache,
   WikiSharedCollection,
   ConnectorActionLog,
   dropLegacyConnectionIndex
@@ -5015,6 +5016,7 @@ app.use(buildWikiRouter({
   WikiRevision,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiBriefingCache,
   WikiSharedCollection,
   WikiSchemaSettings,
   Connection,

@@ -50,6 +50,8 @@ const DEFAULT_CHAT_WIDTH = 260;
 const LEGACY_DEFAULT_CHAT_WIDTH = 380;
 const MIN_CHAT_WIDTH = 260;
 const MAX_CHAT_WIDTH = 420;
+const WIKI_MOBILE_BREAKPOINT = 720;
+const getWorkspaceWidth = () => (typeof window === 'undefined' ? 1024 : window.innerWidth || 1024);
 const MAINTENANCE_STREAM_TIMEOUT_MS = 25000;
 const INGEST_POLL_INTERVAL_MS = 1800;
 const INGEST_POLL_TIMEOUT_MS = 70000;
@@ -2816,6 +2818,7 @@ const WikiWorkspace = () => {
   const [streamedWikiPage, setStreamedWikiPage] = useState(null);
   const [liveUpdate, setLiveUpdate] = useState(null);
   const [mobilePane, setMobilePane] = useState('wiki');
+  const [isMobileLayout, setIsMobileLayout] = useState(() => getWorkspaceWidth() < WIKI_MOBILE_BREAKPOINT);
   const [currentSearch, setCurrentSearch] = useState(location.search);
   const [chatDraft, setChatDraft] = useState(null);
   const [referenceCommandNonce, setReferenceCommandNonce] = useState(0);
@@ -2842,6 +2845,14 @@ const WikiWorkspace = () => {
   const view = selectedPageId ? 'page' : explicitView || 'graph';
   const isListWorkspace = !selectedPageId && view === 'list';
   const agentPaneCollapsed = Boolean(selectedPageId && pageMode === 'read' && mobilePane !== 'chat');
+  const activeMobilePane = mobilePane === 'chat' ? 'chat' : 'wiki';
+
+  useEffect(() => {
+    const syncMobileLayout = () => setIsMobileLayout(getWorkspaceWidth() < WIKI_MOBILE_BREAKPOINT);
+    syncMobileLayout();
+    window.addEventListener?.('resize', syncMobileLayout);
+    return () => window.removeEventListener?.('resize', syncMobileLayout);
+  }, []);
 
   useEffect(() => {
     if (location.search === currentSearchRef.current) return;
@@ -3254,9 +3265,16 @@ const WikiWorkspace = () => {
     showPane(dx < 0 ? 'wiki' : 'chat', { persist: true });
   };
 
+  const workspaceClassName = [
+    'wiki-workspace',
+    isMobileLayout ? `is-mobile-${activeMobilePane}` : '',
+    isListWorkspace ? 'wiki-workspace--list-view' : '',
+    agentPaneCollapsed ? 'wiki-workspace--agent-collapsed' : ''
+  ].filter(Boolean).join(' ');
+
   return (
     <section
-      className={`wiki-workspace is-mobile-${mobilePane}${isListWorkspace ? ' wiki-workspace--list-view' : ''}${agentPaneCollapsed ? ' wiki-workspace--agent-collapsed' : ''}`}
+      className={workspaceClassName}
       aria-label="Wiki workspace"
       style={{ '--wiki-workspace-chat-width': `${chatWidth}px` }}
       onTouchStart={handleTouchStart}
@@ -3300,8 +3318,8 @@ const WikiWorkspace = () => {
         </button>
       ) : null}
       <aside
-        className={`wiki-workspace__chat-pane${mobilePane !== 'chat' ? ' wiki-workspace__pane--inactive' : ''}`}
-        data-mobile-active={mobilePane === 'chat' ? 'true' : 'false'}
+        className={`wiki-workspace__chat-pane${isMobileLayout && activeMobilePane !== 'chat' ? ' wiki-workspace__pane--inactive' : ''}`}
+        data-mobile-active={activeMobilePane === 'chat' ? 'true' : 'false'}
       >
         <WikiWorkspaceChat
           selectedPageId={selectedPageId}
@@ -3325,8 +3343,8 @@ const WikiWorkspace = () => {
         onMouseDown={handleDragStart}
       />
       <section
-        className={`wiki-workspace__right-pane${mobilePane !== 'wiki' ? ' wiki-workspace__pane--inactive' : ''}`}
-        data-mobile-active={mobilePane === 'wiki' ? 'true' : 'false'}
+        className={`wiki-workspace__right-pane${isMobileLayout && activeMobilePane !== 'wiki' ? ' wiki-workspace__pane--inactive' : ''}`}
+        data-mobile-active={activeMobilePane === 'wiki' ? 'true' : 'false'}
         aria-label="Wiki workspace right pane"
       >
         {showQaFixtureControls ? (

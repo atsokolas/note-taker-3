@@ -2,8 +2,11 @@ import {
   applyReturnQueueToThreads,
   buildHomeIndexMotion,
   composeHomeIndexOrientation,
+  describeQuestionMotionNote,
   filterShelfRailSections,
+  getWikiOpenQuestionHref,
   getThreadMotionStateTag,
+  isWikiOpenQuestion,
   isSuppressedFromReturnView
 } from './calmIndexModel';
 
@@ -130,5 +133,19 @@ describe('calmIndexModel return surfaces', () => {
       searchQuery: 'blah'
     });
     expect(searched.questions.map((item) => item._id)).toEqual(['q-hidden']);
+  });
+
+  it('treats wiki open questions as source-page return prompts', () => {
+    const question = {
+      _id: 'wiki-open-question:page-1:0',
+      text: 'The unresolved question is how to size concentrated positions.',
+      sourceType: 'wiki_open_question',
+      sourcePageTitle: 'Margin of Safety',
+      href: '/wiki/workspace?page=page-1#open-questions'
+    };
+
+    expect(isWikiOpenQuestion(question)).toBe(true);
+    expect(getWikiOpenQuestionHref(question)).toBe('/wiki/workspace?page=page-1#open-questions');
+    expect(describeQuestionMotionNote(question)).toBe('from Margin of Safety');
   });
 });

@@ -76,7 +76,8 @@ import {
   composeHomeIndexOrientation,
   composeCruftSuppressionNotice,
   countSuppressedInCollection,
-  describeThreadMotionNote
+  describeThreadMotionNote,
+  getWikiOpenQuestionHref
 } from '../components/think/calmIndexModel';
 
 const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
@@ -309,16 +310,30 @@ const ConceptListItem = React.memo(({ conceptItem, isActive, onSelect }) => (
   </button>
 ));
 
-const QuestionListItem = React.memo(({ question, isActive, onOpen }) => (
-  <button
-    type="button"
-    className={`think-index__row ${isActive ? 'is-active' : ''}`}
-    onClick={() => onOpen(question._id)}
-  >
-    <span className="think-index__row-title">{question.text || 'Untitled question'}</span>
-    <span className="think-index__row-meta">{question.linkedTagName || 'Uncategorized'}</span>
-  </button>
-));
+const QuestionListItem = React.memo(({ question, isActive, onOpen }) => {
+  const sourceHref = getWikiOpenQuestionHref(question);
+  const content = (
+    <>
+      <span className="think-index__row-title">{question.text || 'Untitled question'}</span>
+      <span className="think-index__row-meta">
+        {sourceHref ? 'Wiki page' : (question.linkedTagName || 'Uncategorized')}
+      </span>
+    </>
+  );
+  return sourceHref ? (
+    <Link className={`think-index__row ${isActive ? 'is-active' : ''}`} to={sourceHref}>
+      {content}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      className={`think-index__row ${isActive ? 'is-active' : ''}`}
+      onClick={() => onOpen(question._id)}
+    >
+      {content}
+    </button>
+  );
+});
 
 const PartnerLineList = React.memo(({ items = [], emptyMessage = 'Nothing here yet.' }) => (
   items.length > 0 ? <ul>{items}</ul> : <p>{emptyMessage}</p>
@@ -2297,6 +2312,10 @@ const ThinkMode = () => {
         handleSelectConcept(thread.id);
         break;
       case 'question':
+        if (getWikiOpenQuestionHref(thread.raw)) {
+          navigateWithViewTransition(navigate, getWikiOpenQuestionHref(thread.raw));
+          break;
+        }
         handleOpenQuestion(thread.id);
         break;
       case 'notebook':
@@ -2392,21 +2411,22 @@ const ThinkMode = () => {
         const id = cleanText(question?._id);
         const text = cleanText(question?.text) || 'Untitled question';
         const scope = cleanText(question?.linkedTagName) || 'Uncategorized';
-        const sourceHref = question?.sourceType === 'wiki_open_question' && question?.href ? question.href : '';
+        const sourceHref = getWikiOpenQuestionHref(question);
         return (
           <li key={id || text}>
-            <button
-              type="button"
-              className="concept-editorial-partner__concept-link"
-              onClick={() => handleOpenQuestion(id)}
-            >
-              {`${text} · ${scope}`}
-            </button>
             {sourceHref ? (
               <Link className="concept-editorial-partner__concept-link" to={sourceHref}>
-                Open page
+                {`${text} · ${scope}`}
               </Link>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                className="concept-editorial-partner__concept-link"
+                onClick={() => handleOpenQuestion(id)}
+              >
+                {`${text} · ${scope}`}
+              </button>
+            )}
           </li>
         );
       })}

@@ -7,7 +7,12 @@ const {
   deriveClaimsFromDoc
 } = require('../services/wikiMaintenanceService');
 const { askWikiPage: defaultAskWikiPage, loadWikiAskCorpus: defaultLoadWikiAskCorpus } = require('../services/wikiAskService');
-const { buildWikiBriefing: defaultBuildWikiBriefing } = require('../services/wikiBriefingService');
+const {
+  DEFAULT_BRIEFING_CACHE_MAX_AGE_MS,
+  buildWikiBriefing: defaultBuildWikiBriefing,
+  loadCachedWikiBriefing,
+  persistWikiBriefingCache
+} = require('../services/wikiBriefingService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
   getWikiSchemaPromptContent,
@@ -1157,6 +1162,7 @@ const buildWikiRouter = ({
   WikiLintRun = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
+  WikiBriefingCache = null,
   WikiSharedCollection = null,
   WikiSchemaSettings = null,
   Connection = null,
@@ -3271,11 +3277,25 @@ const buildWikiRouter = ({
     }
   });
 
-  // Daily wiki briefing for the index page. The briefing itself is computed on
-  // demand from current page state; background page maintenance is handled by
-  // wikiScheduledMaintenanceWorker on the server process.
+  // Daily wiki briefing for the index page. A fresh read model is served first
+  // so warm opens do not re-run the full page/library scan.
   router.get('/api/wiki/briefing', wikiAuth, async (req, res) => {
     try {
+      const now = Date.now();
+      const maxAgeMs = Math.max(
+        60 * 1000,
+        Number(process.env.WIKI_BRIEFING_CACHE_MAX_AGE_MS || DEFAULT_BRIEFING_CACHE_MAX_AGE_MS)
+      );
+      const cachedBriefing = await loadCachedWikiBriefing({
+        userId: req.user.id,
+        WikiBriefingCache,
+        now,
+        maxAgeMs
+      });
+      if (cachedBriefing) {
+        res.setHeader('X-Noeis-Briefing-Cache', 'HIT');
+        return res.status(200).json(cachedBriefing);
+      }
       const briefing = await buildWikiBriefing({
         userId: req.user.id,
         models: {
@@ -3292,6 +3312,14 @@ const buildWikiRouter = ({
           Connection
         }
       });
+      await persistWikiBriefingCache({
+        userId: req.user.id,
+        WikiBriefingCache,
+        briefing,
+        now,
+        maxAgeMs
+      });
+      res.setHeader('X-Noeis-Briefing-Cache', 'MISS');
       res.status(200).json(briefing);
     } catch (error) {
       console.error('Error building wiki briefing:', error);

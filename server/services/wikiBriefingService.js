@@ -21,6 +21,7 @@ const {
  */
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_BRIEFING_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const asString = (value = '') => String(value || '').trim();
 
@@ -51,6 +52,21 @@ const safeFind = async (Model, query = {}, limit = 200) => {
       return Array.isArray(result) ? result : [];
     } catch (__err) {
       return [];
+    }
+  }
+};
+
+const safeFindOne = async (Model, query = {}) => {
+  if (!Model?.findOne) return null;
+  try {
+    const cursor = Model.findOne(query);
+    const lean = cursor.lean?.() || cursor;
+    return await lean;
+  } catch (_err) {
+    try {
+      return await Model.findOne(query);
+    } catch (__err) {
+      return null;
     }
   }
 };
@@ -571,6 +587,60 @@ const canUseTextGeneration = (isConfigured) => {
   }
 };
 
+const normalizeCacheTime = (value) => {
+  const time = new Date(value || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const isFreshBriefingCache = (cacheDoc = {}, {
+  now = Date.now(),
+  maxAgeMs = DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
+} = {}) => {
+  if (!cacheDoc || !cacheDoc.payload || typeof cacheDoc.payload !== 'object') return false;
+  const expiresAt = normalizeCacheTime(cacheDoc.expiresAt);
+  if (expiresAt && expiresAt > now) return true;
+  const generatedAt = normalizeCacheTime(cacheDoc.generatedAt || cacheDoc.payload.generatedAt || cacheDoc.updatedAt);
+  return Boolean(generatedAt && now - generatedAt < Math.max(60 * 1000, Number(maxAgeMs) || DEFAULT_BRIEFING_CACHE_MAX_AGE_MS));
+};
+
+const loadCachedWikiBriefing = async ({
+  userId,
+  WikiBriefingCache,
+  now = Date.now(),
+  maxAgeMs = DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
+} = {}) => {
+  if (!userId || !WikiBriefingCache) return null;
+  const cacheDoc = await safeFindOne(WikiBriefingCache, { userId });
+  if (!isFreshBriefingCache(cacheDoc, { now, maxAgeMs })) return null;
+  return cacheDoc.payload;
+};
+
+const persistWikiBriefingCache = async ({
+  userId,
+  WikiBriefingCache,
+  briefing,
+  now = Date.now(),
+  maxAgeMs = DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
+} = {}) => {
+  if (!userId || !WikiBriefingCache || !briefing || typeof briefing !== 'object') return null;
+  const generatedAt = new Date(briefing.generatedAt || now);
+  const expiresAt = new Date(now + Math.max(60 * 1000, Number(maxAgeMs) || DEFAULT_BRIEFING_CACHE_MAX_AGE_MS));
+  if (typeof WikiBriefingCache.findOneAndUpdate === 'function') {
+    return WikiBriefingCache.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          payload: briefing,
+          generatedAt,
+          expiresAt
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+  return null;
+};
+
 /**
  * Build the briefing for one user. Pure orchestration:
  *   1. Read the user's wiki pages + library counts.
@@ -699,6 +769,9 @@ const buildWikiBriefing = async ({
 
 module.exports = {
   buildWikiBriefing,
+  DEFAULT_BRIEFING_CACHE_MAX_AGE_MS,
+  loadCachedWikiBriefing,
+  persistWikiBriefingCache,
   __testables: {
     countNewSources,
     collectRecentImportReceipts,
@@ -712,6 +785,7 @@ module.exports = {
     buildFallbackSummary,
     buildPromptContext,
     canUseTextGeneration,
+    isFreshBriefingCache,
     idString,
     isWithin,
     truncate

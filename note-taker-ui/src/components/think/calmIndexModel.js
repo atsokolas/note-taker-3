@@ -58,8 +58,21 @@ export const countQuestionEvidenceBlocks = (question = {}) => (
     .length
 );
 
+export const isWikiOpenQuestion = (question = {}) => (
+  String(question?.sourceType || '').toLowerCase() === 'wiki_open_question'
+);
+
+export const getWikiOpenQuestionHref = (question = {}) => (
+  isWikiOpenQuestion(question) && question?.href ? String(question.href) : ''
+);
+
 export const describeQuestionMotionNote = (question = {}, { forShelf = false } = {}) => {
   const parts = [];
+  if (isWikiOpenQuestion(question)) {
+    const source = String(question?.sourcePageTitle || question?.linkedTagName || question?.conceptName || '').trim();
+    parts.push(source ? `from ${source}` : 'from wiki page');
+    return parts.join(' · ');
+  }
   const isAnswered = String(question?.status || '').toLowerCase() === 'answered';
   if (isAnswered || forShelf) {
     const answeredLabel = formatReviewDate(question?.updatedAt || question?.answeredAt);

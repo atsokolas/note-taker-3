@@ -57,6 +57,25 @@ describe('WikiBacklinkPanel', () => {
     expect(screen.getByText(/says compounding interest matters/)).toBeInTheDocument();
   });
 
+  it('strips raw wikilink markup from backlink snippets', async () => {
+    getWikiBacklinks.mockResolvedValueOnce({
+      scanned: 4,
+      backlinks: [{
+        pageId: 'a',
+        title: 'Opportunity Cost',
+        mentionCount: 2,
+        snippet: '…groups opportunity cost with the [[Circle of Competence]] and [[Margin of Safety in Value Investing]] as a core lens…',
+        updatedAt: new Date().toISOString()
+      }]
+    });
+    mount();
+    const snippet = await screen.findByText(/groups opportunity cost with the Circle of Competence/);
+    expect(snippet).toBeInTheDocument();
+    expect(snippet.textContent).not.toContain('[[');
+    expect(snippet.textContent).not.toContain(']]');
+    expect(snippet.textContent).toContain('Margin of Safety in Value Investing');
+  });
+
   it('refetches when the page title changes', async () => {
     getWikiBacklinks
       .mockResolvedValueOnce({ scanned: 1, backlinks: [{ pageId: 'a', title: 'A', mentionCount: 1, snippet: 'old' }] })

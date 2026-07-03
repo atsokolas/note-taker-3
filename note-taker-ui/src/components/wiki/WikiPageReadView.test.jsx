@@ -1062,6 +1062,31 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('button', { name: 'Backlink to sources 2, 3' })).toHaveTextContent('[2,3]');
   });
 
+  it('strips raw wikilink markup from mentioned-in backlink snippets', async () => {
+    getWikiBacklinks.mockResolvedValueOnce({
+      backlinks: [{
+        pageId: 'wiki-backlink',
+        title: 'Opportunity Cost',
+        mentionCount: 2,
+        snippet: '…groups opportunity cost with the [[Circle of Competence]] and [[Margin of Safety in Value Investing]] as a core lens…'
+      }],
+      scanned: 3
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    const mentionedRegion = await screen.findByLabelText('Mentioned in');
+    expect(within(mentionedRegion).getByText(/Circle of Competence/)).toBeInTheDocument();
+    expect(within(mentionedRegion).getByText(/Margin of Safety in Value Investing/)).toBeInTheDocument();
+    expect(mentionedRegion.textContent).not.toContain('[[');
+    expect(mentionedRegion.textContent).not.toContain(']]');
+  });
+
   it('keeps Talk controls and mentioned-in backlinks available when workspace v1 is active', async () => {
     delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
 

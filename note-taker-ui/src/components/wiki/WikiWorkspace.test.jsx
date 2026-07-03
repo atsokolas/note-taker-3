@@ -90,6 +90,17 @@ jest.mock('./WikiPageEditor', () => ({ pageId, onDoneEditing }) => (
 
 const mockNavigate = jest.fn();
 
+const mockViewportWidth = (width = 1440) => {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: width
+  });
+  act(() => {
+    window.dispatchEvent(new Event('resize'));
+  });
+};
+
 const buildSystemStatusControls = (overrides = {}) => ({
   setBackgroundWork: jest.fn(),
   setLatestReceipt: jest.fn(),
@@ -129,6 +140,7 @@ describe('WikiWorkspace', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
+    mockViewportWidth(1440);
     require('./WikiPageReadView').mockImplementation(({ pageId, workspaceMode, onEdit, liveUpdate, streamedPage }) => (
       <div data-testid="wiki-read-view">
         Page {pageId} {workspaceMode ? 'workspace' : ''}
@@ -377,13 +389,18 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
 
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('wiki-workspace--agent-collapsed');
+    const workspace = document.querySelector('.wiki-workspace');
+    expect(workspace).toHaveClass('wiki-workspace--agent-collapsed');
+    expect(workspace).not.toHaveClass('is-mobile-wiki');
     expect(screen.getByRole('button', { name: 'Open Thought partner' })).toHaveTextContent('Ask');
+    expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Thought partner' }));
 
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
+    expect(screen.getByLabelText('Wiki workspace message')).toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
   });
 
@@ -392,8 +409,56 @@ describe('WikiWorkspace', () => {
     await settleWorkspaceEffects();
 
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('wiki-workspace--agent-collapsed');
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
     expect(screen.queryByRole('button', { name: 'Open Thought partner' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Wiki workspace message')).toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
+  });
+
+  it('keeps desktop read view visible without mobile pane classes', async () => {
+    mockViewportWidth(1568);
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    const workspace = document.querySelector('.wiki-workspace');
+    expect(workspace).toHaveClass('wiki-workspace--agent-collapsed');
+    expect(workspace).not.toHaveClass('is-mobile-wiki');
+    expect(workspace).not.toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
+  });
+
+  it('keeps mobile read view visible with the tab switcher', async () => {
+    mockViewportWidth(390);
+    renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
+    await settleWorkspaceEffects();
+
+    const workspace = document.querySelector('.wiki-workspace');
+    expect(workspace).toHaveClass('is-mobile-wiki');
+    expect(screen.getByRole('tab', { name: 'Wiki' })).toHaveAttribute('aria-selected', 'true');
+    expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
+  });
+
+  it('survives desktop to mobile to desktop resize without hiding read content', async () => {
+    mockViewportWidth(1440);
+    renderWorkspace('/wiki/workspace?page=wiki-1');
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-wiki');
+
+    mockViewportWidth(390);
+    await settleWorkspaceEffects();
+
+    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
+
+    mockViewportWidth(1440);
+    await settleWorkspaceEffects();
+
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-wiki');
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
 
   it('AT-248 — marks onboarding seen when a first-visit CTA is used', async () => {
@@ -537,6 +602,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('keeps the chat pane addressable from the workspace URL on narrow layouts', async () => {
+    mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
     await settleWorkspaceEffects();
 
@@ -548,6 +614,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('keeps the wiki pane and chat pane mutually exclusive on mobile tab changes', async () => {
+    mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
     await settleWorkspaceEffects();
 
@@ -567,6 +634,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('keeps a compact agent prompt available while the mobile wiki pane is active', async () => {
+    mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?view=graph&pane=wiki');
     await settleWorkspaceEffects();
 
@@ -587,6 +655,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('lets the compact wiki prompt start a build from the active wiki pane', async () => {
+    mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
     await settleWorkspaceEffects();
 
@@ -601,6 +670,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('lets the compact wiki prompt start a page-scoped ask from the active wiki pane', async () => {
+    mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
     await settleWorkspaceEffects();
 
@@ -616,6 +686,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('sends typed compact wiki asks instead of only opening a second composer', async () => {
+    mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
     await settleWorkspaceEffects();
 
@@ -642,7 +713,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?view=graph&pull=1');
     await settleWorkspaceEffects();
 
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
     expect(await screen.findByRole('dialog', { name: 'Reference Library or Wiki material' })).toBeInTheDocument();
     expect(screen.getByLabelText('Search references')).toBeInTheDocument();
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=graph&pane=chat', { replace: true });
@@ -652,7 +723,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-1&pull=1');
     await settleWorkspaceEffects();
 
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
     expect(await screen.findByLabelText('Search references to pull in')).toBeInTheDocument();
     await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30 }));
     expect(getArticles).toHaveBeenCalledWith({ limit: 30, sort: 'recent' });
@@ -666,7 +737,7 @@ describe('WikiWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
 
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
+    expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
   });
@@ -1741,6 +1812,7 @@ describe('WikiWorkspace', () => {
   });
 
   it('switches panes with a horizontal swipe on mobile', async () => {
+    mockViewportWidth(390);
     renderWorkspace();
     await settleWorkspaceEffects();
     const workspace = screen.getByRole('region', { name: 'Wiki workspace' });

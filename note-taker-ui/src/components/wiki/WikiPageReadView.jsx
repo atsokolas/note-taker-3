@@ -17,6 +17,7 @@ import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wiki
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
+import { cleanWikiLinkSnippetText } from './wikiLinkText';
 import { buildQualityState } from './wikiQuality';
 import AgentTicker from '../agent/AgentTicker';
 import {
@@ -771,7 +772,7 @@ const WikiMentionedInFooter = ({ pageId, pageTitle }) => {
               <Link to={wikiPagePath(entry.pageId)}>
                 <span>{entry.title || 'Untitled wiki page'}</span>
                 <small>{entry.mentionCount} mention{entry.mentionCount === 1 ? '' : 's'}</small>
-                {entry.snippet ? <p>{entry.snippet}</p> : null}
+                {entry.snippet ? <p>{cleanWikiLinkSnippetText(entry.snippet)}</p> : null}
               </Link>
             </li>
           ))}

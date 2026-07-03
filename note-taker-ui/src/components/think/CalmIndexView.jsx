@@ -1,6 +1,27 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Button, QuietButton, SectionHeader, SurfaceCard } from '../ui';
-import { getThreadMotionStateTag } from './calmIndexModel';
+import { getThreadMotionStateTag, getWikiOpenQuestionHref } from './calmIndexModel';
+
+const ThreadAction = ({ thread, className, children, onSelectThread }) => {
+  const sourceHref = thread?.type === 'question' ? getWikiOpenQuestionHref(thread.raw) : '';
+  if (sourceHref) {
+    return (
+      <Link to={sourceHref} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => onSelectThread?.(thread)}
+    >
+      {children}
+    </button>
+  );
+};
 
 const CalmIndexView = ({
   eyebrow = 'Think',
@@ -46,11 +67,11 @@ const CalmIndexView = ({
                   <h2 className="tix-eyebrow">In motion</h2>
                   <div className="tix-motion__list">
                     {motion.inMotion.map((thread) => (
-                      <button
+                      <ThreadAction
                         key={thread.key}
-                        type="button"
                         className={`tix-thread ${thread.stale ? 'is-stale' : ''}`.trim()}
-                        onClick={() => onSelectThread?.(thread)}
+                        thread={thread}
+                        onSelectThread={onSelectThread}
                       >
                         {showPostureTag ? (
                           <span className="tix-thread__tag">{getThreadMotionStateTag(thread)}</span>
@@ -65,7 +86,7 @@ const CalmIndexView = ({
                         {thread.description ? (
                           <span className="tix-thread__desc">{thread.description}</span>
                         ) : null}
-                      </button>
+                      </ThreadAction>
                     ))}
                   </div>
                 </section>
@@ -78,13 +99,13 @@ const CalmIndexView = ({
                     {motion.shelf.map((thread, index) => (
                       <React.Fragment key={thread.key}>
                         {index > 0 ? <span aria-hidden="true" className="tix-shelf__dot"> · </span> : null}
-                        <button
-                          type="button"
+                        <ThreadAction
+                          thread={thread}
                           className="tix-shelf__link"
-                          onClick={() => onSelectThread?.(thread)}
+                          onSelectThread={onSelectThread}
                         >
                           {thread.title}
-                        </button>
+                        </ThreadAction>
                       </React.Fragment>
                     ))}
                   </p>

@@ -926,11 +926,15 @@
   background: color-mix(in srgb, var(--surface) 94%, #fff);
 }
 .wiki-workspace--agent-collapsed {
-  grid-template-columns: 0 0 minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 .wiki-workspace--agent-collapsed .wiki-workspace__chat-pane,
 .wiki-workspace--agent-collapsed .wiki-workspace__resizer {
   display: none;
+}
+.wiki-workspace--agent-collapsed .wiki-workspace__right-pane {
+  grid-column: 1;
+  grid-row: 1;
 }
 .wiki-workspace__agent-peek {
   position: fixed;

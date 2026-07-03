@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWikiAutolinkSuggestions } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { cleanWikiLinkSnippetText } from './wikiLinkText';
 
 /**
  * WikiAutolinkSuggestions — "Linkable pages here" rail. For the page
@@ -86,7 +87,7 @@ const WikiAutolinkSuggestions = ({ pageId, pageTitle }) => {
                   {entry.mentionCount} mention{entry.mentionCount === 1 ? '' : 's'} in this draft
                 </span>
                 {entry.snippet ? (
-                  <span className="wiki-autolinks__link-snippet">{entry.snippet}</span>
+                  <span className="wiki-autolinks__link-snippet">{cleanWikiLinkSnippetText(entry.snippet)}</span>
                 ) : null}
               </Link>
             </li>
