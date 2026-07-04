@@ -42,6 +42,7 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
 import WikiTranscriptWatchControl from './WikiTranscriptWatchControl';
+import WikiGitHubRepoWatchControl, { isRepoDossierPage } from './WikiGitHubRepoWatchControl';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -2170,6 +2171,18 @@ const WikiPageReadView = ({
                   }}
                 />
                 <WikiTranscriptWatchControl
+                  pageId={pageId}
+                  page={page}
+                  onPageUpdate={(nextPage) => {
+                    latestPageRef.current = nextPage;
+                    setPage(nextPage);
+                  }}
+                />
+              </div>
+            ) : null}
+            {isRepoDossierPage(page) ? (
+              <div className="wiki-read__repo-watches">
+                <WikiGitHubRepoWatchControl
                   pageId={pageId}
                   page={page}
                   onPageUpdate={(nextPage) => {
