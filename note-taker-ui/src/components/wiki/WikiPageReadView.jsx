@@ -41,6 +41,7 @@ import { SUPPORT_STATES } from './extensions/Claim';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
+import WikiTranscriptWatchControl from './WikiTranscriptWatchControl';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -2159,14 +2160,24 @@ const WikiPageReadView = ({
               {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
             </section>
             {isCompanyDossierPage(page) ? (
-              <WikiEdgarWatchControl
-                pageId={pageId}
-                page={page}
-                onPageUpdate={(nextPage) => {
-                  latestPageRef.current = nextPage;
-                  setPage(nextPage);
-                }}
-              />
+              <div className="wiki-read__entity-watches">
+                <WikiEdgarWatchControl
+                  pageId={pageId}
+                  page={page}
+                  onPageUpdate={(nextPage) => {
+                    latestPageRef.current = nextPage;
+                    setPage(nextPage);
+                  }}
+                />
+                <WikiTranscriptWatchControl
+                  pageId={pageId}
+                  page={page}
+                  onPageUpdate={(nextPage) => {
+                    latestPageRef.current = nextPage;
+                    setPage(nextPage);
+                  }}
+                />
+              </div>
             ) : null}
             {!workspaceMode ? (
               <div className="wiki-read__exports" aria-label="Markdown export">
