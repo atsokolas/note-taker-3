@@ -540,6 +540,23 @@ export const armEdgarWatch = async (pageId, { ticker = '', cik = '' } = {}) => {
   }
 };
 
+export const armTranscriptWatch = async (pageId, { ticker = '' } = {}) => {
+  const payload = {};
+  const normalizedTicker = String(ticker || '').trim();
+  if (normalizedTicker) payload.ticker = normalizedTicker;
+  try {
+    const res = await api.post(
+      `${WIKI_PAGES_PATH}/${safeId(pageId)}/transcript-watch`,
+      payload,
+      getAuthHeaders()
+    );
+    return res.data || {};
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to arm earnings transcript watch.';
+    throw new Error(message);
+  }
+};
+
 export const rebuildWikiPageGraph = async (id) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/graph/rebuild`, {}, getAuthHeaders());
   return res.data || {};
@@ -618,6 +635,7 @@ const wikiApi = {
   applyWikiAutolink,
   reviewWikiFreshness,
   armEdgarWatch,
+  armTranscriptWatch,
   rebuildWikiPageGraph,
   rebuildWikiGraph,
   writeWikiPageToConnector,

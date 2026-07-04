@@ -145,6 +145,7 @@ const {
 const { drainWikiSourceEventQueue } = require('./services/wikiSourceEventWorker');
 const { drainScheduledWikiMaintenance } = require('./services/wikiScheduledMaintenanceWorker');
 const { drainDueEdgarWatches } = require('./services/edgarWatcherService');
+const { drainDueTranscriptWatches } = require('./services/earningsTranscriptWatcherService');
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
@@ -160,6 +161,8 @@ let wikiScheduledMaintenanceTimer = null;
 let wikiScheduledMaintenanceRunning = false;
 let edgarWatchWorkerTimer = null;
 let edgarWatchWorkerRunning = false;
+let transcriptWatchWorkerTimer = null;
+let transcriptWatchWorkerRunning = false;
 let embeddingJobWorkerTimer = null;
 let embeddingJobWorkerRunning = false;
 
@@ -245,6 +248,49 @@ if (mongoose.connection.readyState === 1) {
   startEdgarWatchWorker();
 } else {
   mongoose.connection.once('open', startEdgarWatchWorker);
+}
+
+const runTranscriptWatchWorker = async () => {
+  if (transcriptWatchWorkerRunning || mongoose.connection.readyState !== 1) return;
+  transcriptWatchWorkerRunning = true;
+  try {
+    const result = await drainDueTranscriptWatches({
+      models: {
+        WikiPage,
+        WikiSourceEvent
+      },
+      limit: Number(process.env.TRANSCRIPT_WATCH_WORKER_BATCH_SIZE || 5),
+      maxAgeMs: Number(process.env.TRANSCRIPT_WATCH_MAX_AGE_MS || 24 * 60 * 60 * 1000)
+    });
+    if (result.processed || result.failed) {
+      const sourceEvents = result.results.reduce((sum, row) => sum + (Number(row.sourceEvents) || 0), 0);
+      console.log(`[transcript-watch-worker] processed=${result.processed} failed=${result.failed} sourceEvents=${sourceEvents}`);
+    } else if (result.skipped && result.reason === 'missing_fmp_api_key' && process.env.TRANSCRIPT_WATCH_LOG_MISSING_KEY === 'true') {
+      console.log('[transcript-watch-worker] skipped: missing FMP_API_KEY');
+    }
+  } catch (error) {
+    console.error('[transcript-watch-worker] failed:', error);
+  } finally {
+    transcriptWatchWorkerRunning = false;
+  }
+};
+
+const startTranscriptWatchWorker = () => {
+  if (process.env.TRANSCRIPT_WATCH_WORKER_DISABLED === 'true' || transcriptWatchWorkerTimer) return;
+  const intervalMs = Math.max(
+    60 * 60 * 1000,
+    Number(process.env.TRANSCRIPT_WATCH_WORKER_INTERVAL_MS || 24 * 60 * 60 * 1000)
+  );
+  transcriptWatchWorkerTimer = setInterval(runTranscriptWatchWorker, intervalMs);
+  if (process.env.TRANSCRIPT_WATCH_RUN_ON_START === 'true') {
+    runTranscriptWatchWorker();
+  }
+};
+
+if (mongoose.connection.readyState === 1) {
+  startTranscriptWatchWorker();
+} else {
+  mongoose.connection.once('open', startTranscriptWatchWorker);
 }
 
 const runEmbeddingJobWorker = async () => {

@@ -29,6 +29,11 @@ const {
   normalizeTicker: normalizeEdgarTicker,
   padCik: padEdgarCik
 } = require('../services/edgarWatcherService');
+const {
+  armTranscriptWatchForPage: defaultArmTranscriptWatchForPage,
+  checkTranscriptWatchForPage: defaultCheckTranscriptWatchForPage,
+  normalizeTicker: normalizeTranscriptTicker
+} = require('../services/earningsTranscriptWatcherService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
 const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
@@ -1202,6 +1207,8 @@ const buildWikiRouter = ({
   buildWikiBriefing = defaultBuildWikiBriefing,
   armEdgarWatchForPage = defaultArmEdgarWatchForPage,
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
+  armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
+  checkTranscriptWatchForPage = defaultCheckTranscriptWatchForPage,
   findWikiBacklinks = defaultFindWikiBacklinks,
   shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
   trackEvent = null,
@@ -2516,6 +2523,62 @@ const buildWikiRouter = ({
       });
     } catch (error) {
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check EDGAR watch.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/transcript-watch', wikiAuth, async (req, res) => {
+    try {
+      const ticker = normalizeTranscriptTicker(req.body?.ticker);
+      if (!ticker) return res.status(400).json({ error: 'ticker is required.' });
+      const result = await armTranscriptWatchForPage({
+        WikiPage,
+        WikiSourceEvent,
+        userId: req.user.id,
+        pageId: req.params.id,
+        ticker,
+        checkNow: req.body?.checkNow !== false
+      });
+      res.status(200).json({
+        page: serializeWikiPage(result.page),
+        transcript: result.transcript || null,
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to arm transcript watch.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/transcript-watch/check', wikiAuth, async (req, res) => {
+    try {
+      const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id, status: { $ne: 'archived' } });
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await checkTranscriptWatchForPage({
+        WikiSourceEvent,
+        page
+      });
+      res.status(200).json({
+        page: serializeWikiPage(result.page),
+        transcript: result.transcript || null,
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check transcript watch.' });
     }
   });
 

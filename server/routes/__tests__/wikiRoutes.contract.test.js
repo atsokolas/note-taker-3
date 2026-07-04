@@ -616,6 +616,7 @@ const run = async () => {
   app.use(express.json());
   const proposalMaintainCalls = [];
   const trackCalls = [];
+  const transcriptWatchCalls = [];
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: req.headers['x-test-user'] || 'user-1' };
@@ -656,6 +657,38 @@ const run = async () => {
     },
     trackEvent: (event) => {
       trackCalls.push(event);
+    },
+    armTranscriptWatchForPage: async ({
+      WikiPage: WikiPageModel,
+      userId,
+      pageId,
+      ticker,
+      checkNow
+    }) => {
+      transcriptWatchCalls.push({ userId, pageId, ticker, checkNow });
+      const page = await WikiPageModel.findOne({ _id: pageId, userId });
+      page.externalWatches = {
+        ...(page.externalWatches || {}),
+        transcripts: {
+          provider: 'fmp',
+          ticker,
+          status: 'active',
+          lastCheckedAt: new Date('2026-07-04T00:00:00.000Z'),
+          lastTranscriptKey: 'MSFT:2026:2:2026-07-01'
+        }
+      };
+      if (typeof page.save === 'function') await page.save();
+      return {
+        page,
+        transcript: { symbol: ticker, year: 2026, quarter: 2, date: '2026-07-01' },
+        events: [{
+          _id: new mongoose.Types.ObjectId().toString(),
+          title: `${ticker} earnings call transcript Q2 2026`,
+          status: 'pending',
+          externalId: `fmp-transcript:${ticker}:2026:2:2026-07-01`,
+          sourceUpdatedAt: new Date('2026-07-01T00:00:00.000Z')
+        }]
+      };
     },
     maintainWikiPage: async ({
       page,
@@ -842,6 +875,21 @@ const run = async () => {
       && String(record.toId) === String(created.body.createdFrom.objectId)
       && record.relationType === 'supported_by'
     )));
+
+    const transcriptWatch = await request(url, `/api/wiki/pages/${created.body._id}/transcript-watch`, {
+      method: 'POST',
+      body: JSON.stringify({ ticker: 'msft' })
+    });
+    assert.strictEqual(transcriptWatch.res.status, 200, transcriptWatch.text);
+    assert.strictEqual(transcriptWatch.body.page.externalWatches.transcripts.ticker, 'MSFT');
+    assert.strictEqual(transcriptWatch.body.sourceEvents.length, 1);
+    assert.strictEqual(transcriptWatchCalls.length, 1);
+    assert.deepStrictEqual(transcriptWatchCalls[0], {
+      userId: 'user-1',
+      pageId: String(created.body._id),
+      ticker: 'MSFT',
+      checkNow: true
+    });
 
     const externalPage = await request(url, '/api/wiki/pages', {
       method: 'POST',
