@@ -204,10 +204,13 @@ describe('WikiIndex graph', () => {
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 standalone pages');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('0 evidence overlaps');
     expect(screen.getByLabelText('Wiki map signals')).not.toHaveTextContent('Review latest connections');
-    expect(screen.getByLabelText('Knowledge map next moves')).toHaveTextContent('Review connection model');
-    expect(screen.getByLabelText('Knowledge map next moves')).toHaveTextContent('Open hub: Enterprise AI Memory');
-    expect(screen.getByLabelText('Knowledge map next moves')).toHaveTextContent('8 standalone pages');
-    expect(screen.getByRole('button', { name: 'Open hub' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Review weak bridge');
+    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Enterprise AI Memory ↔ Investing');
+    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Open center page');
+    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Build missing bridge');
+    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Extra Wiki Page 1');
+    expect(screen.getByLabelText('Map workbench')).toHaveTextContent('Fresh source gap');
+    expect(screen.getByRole('button', { name: 'Open center' })).toBeInTheDocument();
     expect(screen.getByLabelText('Knowledge map refresh')).toHaveTextContent('Connections need review');
     expect(screen.getByRole('button', { name: 'Review connections' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Inline links\s*1$/ })).toHaveClass('is-active');

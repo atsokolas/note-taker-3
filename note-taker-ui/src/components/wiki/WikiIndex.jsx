@@ -73,61 +73,138 @@ const RELATION_LABELS = {
 
 const relationLabel = (value = '') => RELATION_LABELS[value] || labelFor(value || 'related');
 
-const buildMapNextMoves = ({ graphSummary = {}, graphSyncState = {}, onOpenPage, onReviewPages, onOpenSources, onRebuildGraph }) => {
+const pageIdFor = (page = {}) => String(page._id || page.id || page.pageId || '').trim();
+
+const pageSourceCount = (page = {}) => {
+  const sourceRefs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
+  const sources = Array.isArray(page.sources) ? page.sources : [];
+  return sourceRefs.length || sources.length || Number(page.sourceCount || 0);
+};
+
+const pageHealthSignals = (page = {}) => {
+  const health = page.aiState?.health || page.health || {};
+  const staleSections = Array.isArray(health.staleSections) ? health.staleSections : [];
+  const reviewFlags = [
+    page.reviewStatus,
+    page.status,
+    health.status,
+    health.reviewStatus,
+    page.driftStatus
+  ].map(value => String(value || '').toLowerCase());
+  return {
+    staleSections,
+    needsReview: staleSections.length > 0
+      || reviewFlags.some(value => ['drifting', 'needs_review', 'needs review', 'stale'].includes(value))
+      || Number(health.driftScore || page.driftScore || 0) > 0
+  };
+};
+
+const sortPagesForSourceGap = (left = {}, right = {}) => {
+  const leftHealth = pageHealthSignals(left);
+  const rightHealth = pageHealthSignals(right);
+  if (leftHealth.needsReview !== rightHealth.needsReview) return leftHealth.needsReview ? -1 : 1;
+  const sourceDelta = pageSourceCount(left) - pageSourceCount(right);
+  if (sourceDelta) return sourceDelta;
+  const leftDate = new Date(left.updatedAt || left.lastModifiedAt || 0).getTime() || 0;
+  const rightDate = new Date(right.updatedAt || right.lastModifiedAt || 0).getTime() || 0;
+  return leftDate - rightDate;
+};
+
+const endpointTitle = (graph = {}, endpoint = '') => {
+  const id = endpointId(endpoint);
+  return (Array.isArray(graph.nodes) ? graph.nodes : []).find(node => node.id === id)?.title || 'another page';
+};
+
+const buildMapNextMoves = ({ graph = {}, pages = [], graphSummary = {}, graphSyncState = {}, onOpenPage, onReviewPages, onOpenSources, onRebuildGraph }) => {
   const moves = [];
   const hubs = Array.isArray(graphSummary.hubs) ? graphSummary.hubs : [];
   const orphans = Array.isArray(graphSummary.orphans) ? graphSummary.orphans : [];
   const sharedSourceClusters = Array.isArray(graphSummary.sharedSourceClusters) ? graphSummary.sharedSourceClusters : [];
+  const pageById = new Map((Array.isArray(pages) ? pages : [])
+    .map(page => [pageIdFor(page), page])
+    .filter(([id]) => id));
+  const driftPage = Array.from(pageById.values())
+    .filter(page => pageHealthSignals(page).needsReview || pageSourceCount(page) <= 1)
+    .sort(sortPagesForSourceGap)[0];
+  const graphLinks = Array.isArray(graph.links) ? graph.links : [];
+  const weakBridge = sharedSourceClusters[0]
+    || graphLinks.find(link => ['needs_review', 'shared_source'].includes(String(link?.relationType || '')))
+    || graphLinks[0];
 
-  if (graphSyncState.stale) {
+  if (graphSyncState.stale || weakBridge) {
+    const sourceId = endpointId(weakBridge?.source);
+    const targetId = endpointId(weakBridge?.target);
+    const sourceTitle = endpointTitle(graph, sourceId);
+    const targetTitle = endpointTitle(graph, targetId);
     moves.push({
-      key: 'review-connections',
-      label: 'Review connection model',
-      detail: 'Rebuild reviewed relationships so the map is not only inferred from inline links.',
-      cta: 'Review model',
-      onClick: onRebuildGraph
+      key: 'review-weak-bridge',
+      eyebrow: 'Review weak bridge',
+      label: weakBridge ? `${sourceTitle} ↔ ${targetTitle}` : 'Reviewed relationships are stale',
+      detail: weakBridge
+        ? 'Two pages share evidence or a review edge. Decide whether this should become a bridge, a contrast, or a merged claim.'
+        : 'Rebuild reviewed relationships so the map is not only inferred from inline links.',
+      cta: weakBridge && sourceId ? 'Open bridge' : 'Review model',
+      onClick: weakBridge && sourceId ? () => onOpenPage?.(sourceId) : onRebuildGraph
     });
   }
 
   if (hubs[0]) {
     moves.push({
       key: 'open-hub',
-      label: `Open hub: ${hubs[0].title}`,
-      detail: 'Start from the brightest page and add outbound wiki links where the synthesis naturally branches.',
-      cta: 'Open hub',
+      eyebrow: 'Open center page',
+      label: hubs[0].title,
+      detail: `${hubs[0].degree || hubs[0].degreeCount || 0} visible connection${(hubs[0].degree || hubs[0].degreeCount || 0) === 1 ? '' : 's'} make this the best place to continue the map.`,
+      cta: 'Open center',
       onClick: () => onOpenPage?.(hubs[0].id)
     });
   }
 
-  if (sharedSourceClusters[0]) {
+  if (orphans.length) {
+    const firstOrphan = orphans[0];
     moves.push({
-      key: 'resolve-overlap',
-      label: 'Resolve evidence overlap',
-      detail: 'Shared sources mean two pages may need a bridge, contrast, or merged claim.',
-      cta: 'Review pages',
-      onClick: onReviewPages
-    });
-  } else if (orphans.length) {
-    moves.push({
-      key: 'connect-orphans',
-      label: `${orphans.length} standalone page${orphans.length === 1 ? '' : 's'}`,
-      detail: 'Pick one isolated page and either link it to a hub or feed a source that gives it context.',
-      cta: 'Review pages',
-      onClick: onReviewPages
+      key: 'build-missing-bridge',
+      eyebrow: 'Build missing bridge',
+      label: firstOrphan?.title || `${orphans.length} standalone page${orphans.length === 1 ? '' : 's'}`,
+      detail: `${orphans.length} standalone page${orphans.length === 1 ? '' : 's'} need a link, source, or explicit contrast before the map can use them.`,
+      cta: firstOrphan?.id ? 'Open standalone' : 'Review pages',
+      onClick: firstOrphan?.id ? () => onOpenPage?.(firstOrphan.id) : onReviewPages
     });
   }
 
-  if (moves.length < 3) {
+  if (driftPage) {
+    const driftId = pageIdFor(driftPage);
+    const staleSections = pageHealthSignals(driftPage).staleSections;
+    moves.push({
+      key: 'fresh-source-gap',
+      eyebrow: 'Fresh source gap',
+      label: driftPage.title || 'Untitled Wiki Page',
+      detail: staleSections[0]?.section
+        ? `${staleSections[0].section} needs review; add one recent source or run maintenance from the page.`
+        : `${pageSourceCount(driftPage)} source${pageSourceCount(driftPage) === 1 ? '' : 's'} attached; add evidence before relying on this page.`,
+      cta: driftId ? 'Open gap' : 'Add source',
+      onClick: driftId ? () => onOpenPage?.(driftId) : onOpenSources
+    });
+  }
+
+  if (moves.length < 4) {
     moves.push({
       key: 'feed-source',
-      label: 'Feed the next source',
+      eyebrow: 'Feed source material',
+      label: 'Drop the next source',
       detail: 'Drop a source to create new evidence overlap and give the agent something to metabolize.',
       cta: 'Add source',
       onClick: onOpenSources
     });
   }
 
-  return moves.slice(0, 3);
+  const seen = new Set();
+  return moves
+    .filter(move => {
+      if (!move?.key || seen.has(move.key)) return false;
+      seen.add(move.key);
+      return true;
+    })
+    .slice(0, 4);
 };
 
 const truncateGraphLabel = (value = '', maxChars = 34) => {
@@ -682,13 +759,15 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
   };
 
   const mapNextMoves = useMemo(() => buildMapNextMoves({
+    graph,
+    pages: filteredPages,
     graphSummary,
     graphSyncState,
     onOpenPage: handleOpenPage,
     onReviewPages: handleReviewPages,
     onOpenSources: handleOpenSources,
     onRebuildGraph: handleRebuildGraph
-  }), [graphSummary, graphSyncState, handleOpenPage, handleOpenSources, handleRebuildGraph, handleReviewPages]);
+  }), [filteredPages, graph, graphSummary, graphSyncState, handleOpenPage, handleOpenSources, handleRebuildGraph, handleReviewPages]);
 
   return (
     <main className="wiki-page wiki-index wiki-graph-index">
@@ -828,14 +907,15 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
         </section>
       ) : null}
       {!loading && graph.nodes.length && !isSparseWiki ? (
-        <section className="wiki-graph-next-moves" aria-label="Knowledge map next moves">
+        <section className="wiki-graph-next-moves" aria-label="Map workbench">
           <div>
-            <span>Next moves</span>
-            <p>The map should suggest work, not just describe structure.</p>
+            <span>Map workbench</span>
+            <p>Start with the page or bridge the graph can justify right now.</p>
           </div>
           <ol>
-            {mapNextMoves.map(move => (
-              <li key={move.key}>
+            {mapNextMoves.map((move, index) => (
+              <li key={move.key} className={index === 0 ? 'is-primary' : ''}>
+                <span>{move.eyebrow}</span>
                 <strong>{move.label}</strong>
                 <p>{move.detail}</p>
                 <button type="button" onClick={move.onClick}>{move.cta}</button>
