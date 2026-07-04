@@ -22,6 +22,13 @@ const {
 } = require('../services/wikiSchemaService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { createWikiSourceEvent, listWikiSourceEvents } = require('../services/wikiSourceEventService');
+const {
+  armEdgarWatchForPage: defaultArmEdgarWatchForPage,
+  checkEdgarWatchForPage: defaultCheckEdgarWatchForPage,
+  normalizeForms: normalizeEdgarForms,
+  normalizeTicker: normalizeEdgarTicker,
+  padCik: padEdgarCik
+} = require('../services/edgarWatcherService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
 const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
@@ -1193,6 +1200,8 @@ const buildWikiRouter = ({
   askWikiPage = defaultAskWikiPage,
   loadWikiAskCorpus = defaultLoadWikiAskCorpus,
   buildWikiBriefing = defaultBuildWikiBriefing,
+  armEdgarWatchForPage = defaultArmEdgarWatchForPage,
+  checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
   findWikiBacklinks = defaultFindWikiBacklinks,
   shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
   trackEvent = null,
@@ -2444,6 +2453,69 @@ const buildWikiRouter = ({
       res.status(200).json(serializeWikiPage(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/edgar-watch', wikiAuth, async (req, res) => {
+    try {
+      const ticker = normalizeEdgarTicker(req.body?.ticker);
+      const cik = padEdgarCik(req.body?.cik);
+      if (!ticker && !cik) return res.status(400).json({ error: 'ticker or cik is required.' });
+      const result = await armEdgarWatchForPage({
+        WikiPage,
+        WikiSourceEvent,
+        userId: req.user.id,
+        pageId: req.params.id,
+        ticker,
+        cik,
+        companyName: req.body?.companyName,
+        forms: normalizeEdgarForms(req.body?.forms),
+        checkNow: req.body?.checkNow !== false
+      });
+      res.status(200).json({
+        page: serializeWikiPage(result.page),
+        filings: Array.isArray(result.filings) ? result.filings : [],
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            url: event.url,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to arm EDGAR watch.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/edgar-watch/check', wikiAuth, async (req, res) => {
+    try {
+      const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id, status: { $ne: 'archived' } });
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await checkEdgarWatchForPage({
+        WikiSourceEvent,
+        page,
+        limit: req.body?.limit
+      });
+      res.status(200).json({
+        page: serializeWikiPage(result.page),
+        filings: Array.isArray(result.filings) ? result.filings : [],
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            url: event.url,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check EDGAR watch.' });
     }
   });
 

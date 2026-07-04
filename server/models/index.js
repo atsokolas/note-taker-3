@@ -463,6 +463,23 @@ const wikiDiscussionSchema = new mongoose.Schema({
   askedAt: { type: Date, default: Date.now }
 });
 
+const wikiEdgarWatchSchema = new mongoose.Schema({
+  ticker: { type: String, default: '', trim: true, uppercase: true },
+  cik: { type: String, default: '', trim: true },
+  companyName: { type: String, default: '', trim: true },
+  forms: { type: [String], default: () => ['10-K', '10-Q', '8-K', '13F-HR'] },
+  status: { type: String, enum: ['idle', 'active', 'error'], default: 'idle' },
+  lastCheckedAt: { type: Date, default: null },
+  lastFilingAt: { type: Date, default: null },
+  lastAccessionNumber: { type: String, default: '', trim: true },
+  lastEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  errorMessage: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const wikiExternalWatchesSchema = new mongoose.Schema({
+  edgar: { type: wikiEdgarWatchSchema, default: () => ({}) }
+}, { _id: false });
+
 const wikiPageSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true, trim: true, default: 'Untitled Wiki Page' },
@@ -484,6 +501,7 @@ const wikiPageSchema = new mongoose.Schema({
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) },
+  externalWatches: { type: wikiExternalWatchesSchema, default: () => ({}) },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false }
