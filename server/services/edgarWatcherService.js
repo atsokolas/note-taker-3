@@ -4,6 +4,7 @@ const SEC_SUBMISSIONS_BASE_URL = 'https://data.sec.gov/submissions';
 const SEC_COMPANY_TICKERS_URL = 'https://www.sec.gov/files/company_tickers.json';
 const DEFAULT_EDGAR_FORMS = ['10-K', '10-Q', '8-K', '13F-HR'];
 const DEFAULT_SEC_USER_AGENT = 'Noeis research maintenance contact@noeis.io';
+const DEFAULT_EDGAR_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const trim = (value = '', limit = 1000) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -303,11 +304,76 @@ const armEdgarWatchForPage = async ({
   return checkEdgarWatchForPage({ WikiSourceEvent, page, fetchImpl, userAgent, now });
 };
 
+const dueEdgarWatchQuery = ({ cutoff = new Date(Date.now() - DEFAULT_EDGAR_WATCH_MAX_AGE_MS) } = {}) => ({
+  status: { $ne: 'archived' },
+  'externalWatches.edgar.status': 'active',
+  'externalWatches.edgar.cik': { $nin: ['', null] },
+  $or: [
+    { 'externalWatches.edgar.lastCheckedAt': null },
+    { 'externalWatches.edgar.lastCheckedAt': { $exists: false } },
+    { 'externalWatches.edgar.lastCheckedAt': { $lte: cutoff } }
+  ]
+});
+
+const drainDueEdgarWatches = async ({
+  models = {},
+  limit = 10,
+  maxAgeMs = DEFAULT_EDGAR_WATCH_MAX_AGE_MS,
+  fetchImpl = global.fetch,
+  userAgent = secUserAgent(),
+  checkEdgarWatchForPageFn = checkEdgarWatchForPage,
+  now = new Date()
+} = {}) => {
+  const { WikiPage, WikiSourceEvent } = models;
+  if (!WikiPage || !WikiSourceEvent) return { processed: 0, failed: 0, skipped: true, results: [] };
+  const max = Math.max(1, Math.min(Number(limit) || 10, 50));
+  const cutoff = new Date(now.getTime() - Math.max(15 * 60 * 1000, Number(maxAgeMs) || DEFAULT_EDGAR_WATCH_MAX_AGE_MS));
+  const pages = await WikiPage.find(dueEdgarWatchQuery({ cutoff }))
+    .sort({ 'externalWatches.edgar.lastCheckedAt': 1, updatedAt: 1 })
+    .limit(max);
+  const results = [];
+  for (const page of Array.isArray(pages) ? pages : []) {
+    try {
+      const result = await checkEdgarWatchForPageFn({
+        WikiSourceEvent,
+        page,
+        fetchImpl,
+        userAgent,
+        now: () => now
+      });
+      results.push({
+        pageId: String(page._id || ''),
+        ticker: normalizeTicker(page.externalWatches?.edgar?.ticker),
+        cik: page.externalWatches?.edgar?.cik || '',
+        status: 'completed',
+        filings: Array.isArray(result.filings) ? result.filings.length : 0,
+        sourceEvents: Array.isArray(result.events) ? result.events.length : 0
+      });
+    } catch (error) {
+      results.push({
+        pageId: String(page._id || ''),
+        ticker: normalizeTicker(page.externalWatches?.edgar?.ticker),
+        cik: page.externalWatches?.edgar?.cik || '',
+        status: 'failed',
+        error: error.message || String(error)
+      });
+    }
+  }
+  return {
+    processed: results.filter(result => result.status === 'completed').length,
+    failed: results.filter(result => result.status === 'failed').length,
+    results
+  };
+};
+
 module.exports = {
   DEFAULT_EDGAR_FORMS,
+  DEFAULT_EDGAR_WATCH_MAX_AGE_MS,
   buildFilingEventPayload,
   buildFilingUrl,
   checkEdgarWatchForPage,
+  drainDueEdgarWatches,
+  dueEdgarWatchQuery,
   filingExternalId,
   latestTrackedFilings,
   normalizeCik,

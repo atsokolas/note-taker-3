@@ -144,6 +144,7 @@ const {
 } = require('./models/index');
 const { drainWikiSourceEventQueue } = require('./services/wikiSourceEventWorker');
 const { drainScheduledWikiMaintenance } = require('./services/wikiScheduledMaintenanceWorker');
+const { drainDueEdgarWatches } = require('./services/edgarWatcherService');
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
@@ -157,6 +158,8 @@ let wikiSourceEventWorkerTimer = null;
 let wikiSourceEventWorkerRunning = false;
 let wikiScheduledMaintenanceTimer = null;
 let wikiScheduledMaintenanceRunning = false;
+let edgarWatchWorkerTimer = null;
+let edgarWatchWorkerRunning = false;
 let embeddingJobWorkerTimer = null;
 let embeddingJobWorkerRunning = false;
 
@@ -201,6 +204,47 @@ if (mongoose.connection.readyState === 1) {
   startWikiSourceEventWorker();
 } else {
   mongoose.connection.once('open', startWikiSourceEventWorker);
+}
+
+const runEdgarWatchWorker = async () => {
+  if (edgarWatchWorkerRunning || mongoose.connection.readyState !== 1) return;
+  edgarWatchWorkerRunning = true;
+  try {
+    const result = await drainDueEdgarWatches({
+      models: {
+        WikiPage,
+        WikiSourceEvent
+      },
+      limit: Number(process.env.EDGAR_WATCH_WORKER_BATCH_SIZE || 10),
+      maxAgeMs: Number(process.env.EDGAR_WATCH_MAX_AGE_MS || 6 * 60 * 60 * 1000)
+    });
+    if (result.processed || result.failed) {
+      const sourceEvents = result.results.reduce((sum, row) => sum + (Number(row.sourceEvents) || 0), 0);
+      console.log(`[edgar-watch-worker] processed=${result.processed} failed=${result.failed} sourceEvents=${sourceEvents}`);
+    }
+  } catch (error) {
+    console.error('[edgar-watch-worker] failed:', error);
+  } finally {
+    edgarWatchWorkerRunning = false;
+  }
+};
+
+const startEdgarWatchWorker = () => {
+  if (process.env.EDGAR_WATCH_WORKER_DISABLED === 'true' || edgarWatchWorkerTimer) return;
+  const intervalMs = Math.max(
+    15 * 60 * 1000,
+    Number(process.env.EDGAR_WATCH_WORKER_INTERVAL_MS || 6 * 60 * 60 * 1000)
+  );
+  edgarWatchWorkerTimer = setInterval(runEdgarWatchWorker, intervalMs);
+  if (process.env.EDGAR_WATCH_RUN_ON_START === 'true') {
+    runEdgarWatchWorker();
+  }
+};
+
+if (mongoose.connection.readyState === 1) {
+  startEdgarWatchWorker();
+} else {
+  mongoose.connection.once('open', startEdgarWatchWorker);
 }
 
 const runEmbeddingJobWorker = async () => {

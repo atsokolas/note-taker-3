@@ -2,6 +2,8 @@ const assert = require('assert');
 const {
   armEdgarWatchForPage,
   buildFilingUrl,
+  drainDueEdgarWatches,
+  dueEdgarWatchQuery,
   latestTrackedFilings,
   normalizeRecentFilings
 } = require('./edgarWatcherService');
@@ -88,9 +90,19 @@ const makePage = () => ({
 
 class FakeWikiPage {
   static page = makePage();
+  static pages = [];
 
   static findOne() {
     return Promise.resolve(FakeWikiPage.page);
+  }
+
+  static find(query = {}) {
+    FakeWikiPage.lastQuery = query;
+    return {
+      sort: () => ({
+        limit: async (limit) => FakeWikiPage.pages.slice(0, limit)
+      })
+    };
   }
 }
 
@@ -146,6 +158,36 @@ const run = async () => {
   });
   assert.strictEqual(second.events.length, 0);
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
+
+  const dueQuery = dueEdgarWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });
+  assert.strictEqual(dueQuery['externalWatches.edgar.status'], 'active');
+  assert.deepStrictEqual(dueQuery.status, { $ne: 'archived' });
+
+  const duePage = makePage();
+  duePage.externalWatches = {
+    edgar: {
+      ticker: 'AAPL',
+      cik: '0000320193',
+      status: 'active',
+      lastCheckedAt: new Date('2026-07-03T00:00:00.000Z')
+    }
+  };
+  FakeWikiPage.pages = [duePage];
+  const drained = await drainDueEdgarWatches({
+    models: { WikiPage: FakeWikiPage, WikiSourceEvent: FakeWikiSourceEvent },
+    limit: 1,
+    maxAgeMs: 60 * 60 * 1000,
+    now: new Date('2026-07-04T00:00:00.000Z'),
+    checkEdgarWatchForPageFn: async ({ page }) => ({
+      page,
+      filings: [{ accessionNumber: 'filing-1' }],
+      events: [{ _id: 'event-1' }]
+    })
+  });
+  assert.strictEqual(drained.processed, 1);
+  assert.strictEqual(drained.failed, 0);
+  assert.strictEqual(drained.results[0].sourceEvents, 1);
+  assert.strictEqual(FakeWikiPage.lastQuery['externalWatches.edgar.status'], 'active');
 };
 
 run()
