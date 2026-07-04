@@ -224,6 +224,7 @@ const toWorkspaceThreadMessages = (thread = null) => {
       role: message.role === 'user' ? 'user' : 'assistant',
       text: clean(message.text || message.content || ''),
       activityReceipts: Array.isArray(message.metadata?.activityReceipts) ? message.metadata.activityReceipts : [],
+      suggestedActions: Array.isArray(message.suggestedActions) ? message.suggestedActions : [],
       createdAt: message.createdAt || new Date().toISOString()
     }))
     .filter(message => message.text);
@@ -1587,6 +1588,30 @@ const WikiChatMarkdown = ({ text = '', pages = [], currentPage = null }) => {
   return <div className="wiki-workspace-chat__markdown">{blocks.length ? blocks : <p>{safeText}</p>}</div>;
 };
 
+const WikiChatFollowUpActions = ({ actions = [], onPrepareAction }) => {
+  const visibleActions = (Array.isArray(actions) ? actions : [])
+    .filter(action => clean(action?.label) && clean(action?.prompt))
+    .slice(0, 3);
+  if (!visibleActions.length) return null;
+  return (
+    <div className="wiki-workspace-chat__followups" aria-label="Answer follow-up actions">
+      <span className="wiki-workspace-chat__followups-label">Continue this answer</span>
+      <div className="wiki-workspace-chat__followups-row">
+        {visibleActions.map(action => (
+          <button
+            type="button"
+            key={action.id || action.label}
+            className="wiki-workspace-chat__followup"
+            onClick={() => onPrepareAction?.(action)}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const WikiWorkspaceChat = ({
   selectedPageId,
   view,
@@ -1624,6 +1649,7 @@ const WikiWorkspaceChat = ({
   const [selectedPagePresence, setSelectedPagePresence] = useState({ page: null, reading: false });
   const [ambientReady, setAmbientReady] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState('');
+  const composerRef = useRef(null);
   const scrollRef = useRef(null);
   const streamAbortRef = useRef(null);
   const visitNoticeKeysRef = useRef(new Set());
@@ -1724,6 +1750,28 @@ const WikiWorkspaceChat = ({
       };
     }));
   }, []);
+  const prepareFollowUpAction = useCallback((action = {}) => {
+    const prompt = clean(action.prompt);
+    if (!prompt) return;
+    setInput(prompt);
+    if (prompt.startsWith('/')) setSlashHintSeen(true);
+    window.requestAnimationFrame?.(() => composerRef.current?.focus?.());
+    const href = selectedPageId
+      ? `/wiki/workspace?page=${encodeURIComponent(selectedPageId)}&pane=chat`
+      : '/wiki/workspace?pane=chat';
+    systemStatus.setLatestReceipt({
+      id: `wiki-followup-${Date.now()}`,
+      source: 'wiki',
+      title: 'Follow-up prepared',
+      summary: `${clean(action.label) || 'Next step'} is ready in the wiki composer. Review it before sending.`,
+      status: 'completed',
+      href,
+      nextAction: {
+        label: 'Review draft',
+        href
+      }
+    });
+  }, [selectedPageId, systemStatus]);
   const clearBuildFailureMessages = useCallback(() => {
     setMessages(current => current.filter(message => !isStaleBuildFailureMessage(message)));
   }, []);
@@ -2504,6 +2552,7 @@ const WikiWorkspaceChat = ({
       replaceMessage(pendingId, {
         text: finalReply || 'Agent chat ended without a complete reply. Your draft is still in the composer; retry when ready.',
         ...(Array.isArray(result?.activityReceipts) ? { activityReceipts: result.activityReceipts } : {}),
+        ...(Array.isArray(result?.suggestedActions) ? { suggestedActions: result.suggestedActions } : {}),
         pending: false,
         ...(finalReply ? {} : { error: true })
       });
@@ -2641,6 +2690,7 @@ const WikiWorkspaceChat = ({
             in think-home-polish.css). data-streaming bubbles from the form. */}
         <div className="wiki-workspace-chat__composer-field">
         <textarea
+          ref={composerRef}
           value={input}
           onFocus={requestWikiPages}
           onChange={(event) => {
@@ -2776,6 +2826,12 @@ const WikiWorkspaceChat = ({
                   </li>
                 ))}
               </ol>
+            ) : null}
+            {message.role === 'assistant' && !message.pending ? (
+              <WikiChatFollowUpActions
+                actions={message.suggestedActions}
+                onPrepareAction={prepareFollowUpAction}
+              />
             ) : null}
             {message.lintRun ? (
               <WikiLintResultCard

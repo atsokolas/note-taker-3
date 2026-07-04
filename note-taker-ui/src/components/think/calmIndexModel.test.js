@@ -1,6 +1,7 @@
 import {
   applyReturnQueueToThreads,
   buildHomeIndexMotion,
+  buildHomePrimaryMove,
   composeHomeIndexOrientation,
   describeQuestionMotionNote,
   filterShelfRailSections,
@@ -107,6 +108,39 @@ describe('calmIndexModel return surfaces', () => {
     expect(orientation).toMatch(/"investing" thread is warm again/i);
     expect(orientation).toMatch(/4 newer sources arrived/i);
     expect(orientation).toMatch(/enough evidence to answer/i);
+  });
+
+  it('chooses one primary Think Home move from the ranked return state', () => {
+    const motion = buildHomeIndexMotion({
+      concepts: [{
+        name: 'investing',
+        count: 4,
+        freshness: { stale: true, statusLabel: '4 newer sources arrived' },
+        updatedAt: '2026-06-10T00:00:00.000Z'
+      }],
+      questions: [{
+        _id: 'q-ready',
+        text: 'Is the thesis still valid?',
+        status: 'open',
+        updatedAt: '2026-06-12T00:00:00.000Z',
+        blocks: [
+          { type: 'highlight-ref', text: 'Evidence one' },
+          { type: 'highlight-ref', text: 'Evidence two' }
+        ]
+      }]
+    });
+
+    const move = buildHomePrimaryMove(motion);
+    expect(move.eyebrow).toBe('Fresh material waiting');
+    expect(move.title).toBe('investing');
+    expect(move.actionLabel).toBe('Reopen concept');
+    expect(move.thread.type).toBe('concept');
+  });
+
+  it('falls back to a short honest Think Home move when nothing is active', () => {
+    const move = buildHomePrimaryMove({ inMotion: [], shelf: [] });
+    expect(move.title).toMatch(/Ask the question/i);
+    expect(move.emptyAction).toBe('question');
   });
 
   it('marks queued threads with return states via applyReturnQueueToThreads', () => {

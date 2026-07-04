@@ -36,6 +36,7 @@ const CalmIndexView = ({
   actions = null,
   homeCommand = null,
   homeLinks = null,
+  primaryMove = null,
   maintenanceNote = '',
   motionStatusTestIdPrefix = 'think-calm-status'
 }) => {
@@ -60,6 +61,32 @@ const CalmIndexView = ({
         </div>
       ) : (
         <>
+          {primaryMove ? (
+            <section className="think-calm-index__primary-move tix-anim tix-anim--2" aria-label="Primary next move">
+              <div>
+                <span className="think-calm-index__primary-eyebrow">{primaryMove.eyebrow || 'Resume this'}</span>
+                <h2>{primaryMove.title}</h2>
+                {primaryMove.summary ? <p>{primaryMove.summary}</p> : null}
+              </div>
+              {primaryMove.href ? (
+                <Link className="think-calm-index__primary-action" to={primaryMove.href}>
+                  {primaryMove.actionLabel || 'Open'}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="think-calm-index__primary-action"
+                  onClick={() => {
+                    if (primaryMove.thread) onSelectThread?.(primaryMove.thread);
+                    else primaryMove.onClick?.();
+                  }}
+                >
+                  {primaryMove.actionLabel || 'Open'}
+                </button>
+              )}
+            </section>
+          ) : null}
+
           {hasThreads ? (
             <div className="think-calm-index__list tix-list">
               {motion.inMotion?.length > 0 ? (

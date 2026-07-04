@@ -486,6 +486,66 @@ export const composeHomeIndexOrientation = (motion = {}, { returnQueueEntries = 
   return `"${lead.title}"${movement}${others > 0 ? `; ${others} other thread${others === 1 ? '' : 's'} nearby` : ''}.`;
 };
 
+export const buildHomePrimaryMove = (motion = {}) => {
+  const lead = Array.isArray(motion?.inMotion) ? motion.inMotion[0] : null;
+  if (!lead) {
+    return {
+      eyebrow: 'Resume this',
+      title: 'Ask the question that is still open',
+      summary: 'No active return thread is pulling hardest yet. Capture one question and the archive can start working around it.',
+      actionLabel: 'New question',
+      emptyAction: 'question'
+    };
+  }
+
+  const state = deriveThreadReturnState(lead);
+  const base = {
+    eyebrow: 'Resume this',
+    title: lead.title || 'Untitled thread',
+    summary: lead.description || describeThreadMotionNote(lead) || state,
+    actionLabel: 'Open',
+    thread: lead
+  };
+
+  if (lead.returnQueued) {
+    return {
+      ...base,
+      eyebrow: 'Saved return',
+      summary: lead.description || 'This was deliberately queued to come back to your desk.',
+      actionLabel: lead.type === 'notebook' ? 'Reopen draft' : 'Resume thread'
+    };
+  }
+  if (lead.type === 'wiki' && lead.updatedOvernight) {
+    return {
+      ...base,
+      eyebrow: 'Updated while away',
+      summary: lead.description || 'The wiki changed recently; read the delta before starting new work.',
+      actionLabel: 'Review page'
+    };
+  }
+  if (lead.type === 'concept' && (lead.stale || lead.raw?.freshness?.stale)) {
+    return {
+      ...base,
+      eyebrow: 'Fresh material waiting',
+      summary: lead.raw?.freshness?.statusLabel || 'Newer source material is waiting to be woven into this concept.',
+      actionLabel: 'Reopen concept'
+    };
+  }
+  if (lead.type === 'question' && state === 'READY TO ANSWER') {
+    return {
+      ...base,
+      eyebrow: 'Answerable question',
+      summary: describeQuestionMotionNote(lead.raw) || 'Enough evidence is attached to take a first pass.',
+      actionLabel: 'Answer it'
+    };
+  }
+  return {
+    ...base,
+    summary: base.summary || 'This has the strongest current movement in Think.',
+    actionLabel: lead.type === 'notebook' ? 'Continue page' : lead.type === 'question' ? 'Open question' : 'Open thread'
+  };
+};
+
 export const describeThreadMotionNote = (thread, options) => (
   describeMotionNoteForType(thread?.type, thread?.raw, options)
 );

@@ -1353,6 +1353,51 @@ describe('WikiWorkspace', () => {
     expect(screen.getByRole('link', { name: 'Citation 2' })).toHaveAttribute('href', '#wiki-ref-2');
   });
 
+  it('renders graph-answer follow-up actions and prepares the selected next step', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
+      const result = {
+        reply: 'Loss aversion and opportunity cost diverge around felt loss versus unseen alternatives.',
+        activityReceipts: [
+          { key: 'search', stage: 'search', summary: 'Searched the wiki graph around the selected page.' },
+          { key: 'retrieve', stage: 'retrieve', summary: 'Read Loss Aversion + Opportunity Cost.' }
+        ],
+        suggestedActions: [
+          {
+            id: 'save-answer-to-talk',
+            label: 'Save answer to Talk',
+            prompt: 'Save this answer to the Talk notes.'
+          },
+          {
+            id: 'build-bridge-page',
+            label: 'Build bridge page',
+            prompt: '/build Loss Aversion and Opportunity Cost'
+          }
+        ],
+        thread: { threadId: 'thread-1' }
+      };
+      handlers.onFinal?.(result);
+      return result;
+    });
+    renderWorkspace('/wiki/workspace?page=wiki-1', { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: 'How does this connect to Opportunity Cost?' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/Loss aversion and opportunity cost/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Answer follow-up actions')).toHaveTextContent('Save answer to Talk');
+    fireEvent.click(screen.getByRole('button', { name: 'Build bridge page' }));
+
+    expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build Loss Aversion and Opportunity Cost');
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Follow-up prepared',
+      summary: expect.stringContaining('Build bridge page')
+    }));
+  });
+
   it('forwards paragraph edit stream events to the active wiki read view', async () => {
     streamChatWithAgent.mockImplementationOnce(async (_payload, handlers = {}) => {
       handlers.onActivity?.({ type: 'paragraph_edited', pageId: 'wiki-1', anchorId: 'wiki-block-1', summary: 'Edited Core idea.' });

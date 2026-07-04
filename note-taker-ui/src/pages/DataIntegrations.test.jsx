@@ -334,6 +334,42 @@ describe('DataIntegrations first insight workflow', () => {
     expect(window.location.search).not.toContain('source=notion');
   });
 
+  it('keeps the OAuth-return source selected even when an older import session exists', async () => {
+    window.history.pushState({}, '', '/connections?source=notion&notion=connected');
+    getActiveImportSession.mockResolvedValue({
+      id: 'session-readwise',
+      provider: 'readwise',
+      status: 'completed',
+      sourceLabel: 'Reader'
+    });
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-06-08T15:30:00.000Z',
+          lastSyncAt: null
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Product HQ is connected/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('import-source-card-notion')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'false');
+    });
+  });
+
   it('turns a Readwise OAuth failure into a visible retry receipt and cleans callback params', async () => {
     window.history.pushState({}, '', '/connections?source=readwise&readwise=error');
 

@@ -70,6 +70,7 @@ import {
   buildQuestionIndexMotion,
   buildNotebookIndexMotion,
   buildHomeIndexMotion,
+  buildHomePrimaryMove,
   composeConceptIndexOrientation,
   composeQuestionIndexOrientation,
   composeNotebookIndexOrientation,
@@ -823,6 +824,11 @@ const ThinkMode = () => {
   const homeIndexOrientation = useMemo(
     () => composeHomeIndexOrientation(homeIndexMotion, { returnQueueEntries: homeReturnQueue }),
     [homeIndexMotion, homeReturnQueue]
+  );
+
+  const homePrimaryMove = useMemo(
+    () => buildHomePrimaryMove(homeIndexMotion),
+    [homeIndexMotion]
   );
 
   const homeCruftNotice = useMemo(
@@ -3519,6 +3525,10 @@ const ThinkMode = () => {
       showPostureTag
       describeMotionNote={describeThreadMotionNote}
       onSelectThread={handleCalmThreadSelect}
+      primaryMove={{
+        ...homePrimaryMove,
+        onClick: homePrimaryMove?.emptyAction === 'question' ? handleCreateQuestion : undefined
+      }}
       motionStatusTestIdPrefix="think-home-status"
       maintenanceNote={homeCruftNotice}
       homeCommand={(

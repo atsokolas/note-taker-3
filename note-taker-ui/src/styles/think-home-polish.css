@@ -9953,6 +9953,54 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   flex-wrap: wrap;
 }
 
+.wiki-workspace-chat__followups {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 28%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 8%, transparent), transparent 62%),
+    color-mix(in srgb, var(--surface) 96%, transparent);
+}
+
+.wiki-workspace-chat__followups-label {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wiki-workspace-chat__followups-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wiki-workspace-chat__followup {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 34%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 8%, var(--surface));
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.wiki-workspace-chat__followup:hover,
+.wiki-workspace-chat__followup:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 62%, var(--nt-divider));
+  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 14%, var(--surface));
+  outline: none;
+}
+
 .wiki-workspace-chat__receipt-icon {
   width: 12px;
   height: 12px;

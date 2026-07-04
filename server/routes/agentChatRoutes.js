@@ -162,11 +162,48 @@ const buildAgentChatRouter = ({
         role: item.role || ''
       }));
     const graphExpanded = provenance.mode === 'graph_expanded' || wikiPages.some(item => item.role === 'related');
+    const selectedTitle = String(page?.title || 'this page').trim();
+    const relatedTitle = wikiPages.find(item => item.role === 'related' && item.title)?.title || '';
+    const suggestedActions = graphExpanded
+      ? [
+          {
+            id: 'save-answer-to-talk',
+            label: 'Save answer to Talk',
+            kind: 'draft_chat',
+            prompt: `Save this answer to the Talk notes for "${selectedTitle}" with the key claims and citations preserved.`
+          },
+          {
+            id: 'turn-answer-into-question',
+            label: 'Turn into open question',
+            kind: 'draft_chat',
+            prompt: `Turn this answer into one open question for "${selectedTitle}" and show me the exact question before saving.`
+          },
+          {
+            id: 'build-bridge-page',
+            label: 'Build bridge page',
+            kind: 'draft_command',
+            prompt: `/build ${relatedTitle ? `${selectedTitle} and ${relatedTitle}` : `${selectedTitle} bridge`}`
+          }
+        ]
+      : [
+          {
+            id: 'search-graph-context',
+            label: 'Search the graph too',
+            kind: 'draft_chat',
+            prompt: `Answer that again using related wiki pages and graph context around "${selectedTitle}".`
+          },
+          {
+            id: 'turn-answer-into-question',
+            label: 'Turn into open question',
+            kind: 'draft_chat',
+            prompt: `Turn this answer into one open question for "${selectedTitle}" and show me the exact question before saving.`
+          }
+        ];
     return {
       reply,
       relatedItems,
       citations: [],
-      suggestedActions: [],
+      suggestedActions,
       retrieval: {
         searchedWorkspace: graphExpanded,
         source: 'wiki_graph',

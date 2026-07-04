@@ -80,6 +80,15 @@ const SOURCE_OPTIONS = [
   }
 ];
 
+const getRequestedSourceFromLocation = () => {
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(window.location.search || '');
+  const source = String(params.get('source') || '').trim().toLowerCase();
+  const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  const candidate = source || hashSource;
+  return SOURCE_OPTIONS.some(option => option.key === candidate) ? candidate : '';
+};
+
 const EVERNOTE_EXPORT_HELP_URL = 'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML';
 const READWISE_MCP_DOCS_URL = 'https://docs.readwise.io/tools/mcp';
 const READWISE_MCP_SERVER_URL = 'https://mcp2.readwise.io/mcp';
@@ -575,7 +584,14 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   }, [systemStatus]);
   const bridgeModel = useAgentBridge();
   const personalAgentsModel = usePersonalAgents();
-  const [selectedSource, setSelectedSource] = useState('readwise');
+  const explicitSourceSelectionRef = useRef(Boolean(getRequestedSourceFromLocation()));
+  const [selectedSource, setSelectedSource] = useState(() => getRequestedSourceFromLocation() || 'readwise');
+  const selectSource = useCallback((source) => {
+    if (SOURCE_OPTIONS.some(option => option.key === source)) {
+      explicitSourceSelectionRef.current = true;
+      setSelectedSource(source);
+    }
+  }, []);
   const [importStatus, setImportStatus] = useState({ tone: '', message: '' });
   const [importStats, setImportStats] = useState(null);
   const [lastImportSourceLabel, setLastImportSourceLabel] = useState('');
@@ -632,7 +648,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         const session = await getActiveImportSession();
         if (cancelled) return;
         setCurrentSession(session);
-        if (session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
+        if (!explicitSourceSelectionRef.current && session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
           setSelectedSource(session.provider);
         }
       } catch (error) {
@@ -674,7 +690,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         const session = await getActiveImportSession();
         if (cancelled) return;
         setCurrentSession(session);
-        if (session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
+        if (!explicitSourceSelectionRef.current && session?.provider && SOURCE_OPTIONS.some(option => option.key === session.provider)) {
           setSelectedSource(session.provider);
         }
       } catch (error) {
@@ -737,7 +753,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     const notionState = params.get('notion');
     const readwiseState = params.get('readwise');
     if (source === 'notion') {
-      setSelectedSource('notion');
+      selectSource('notion');
       if (notionState === 'connected') {
         void (async () => {
           try {
@@ -770,7 +786,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
       window.history.replaceState({}, '', next);
     } else if (source === 'readwise') {
-      setSelectedSource('readwise');
+      selectSource('readwise');
       if (readwiseState === 'connected') {
         void (async () => {
           try {
@@ -830,9 +846,9 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
       window.history.replaceState({}, '', next);
     } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
-      setSelectedSource(hashSource);
+      selectSource(hashSource);
     }
-  }, [publishSystemReceipt, setStatus]);
+  }, [publishSystemReceipt, selectSource, setStatus]);
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
@@ -2393,7 +2409,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               className={`import-source-card import-source-card--${cardTone} ${selectedSource === option.key ? 'is-active' : ''}`}
               aria-pressed={selectedSource === option.key}
               data-testid={`import-source-card-${option.key}`}
-              onClick={() => setSelectedSource(option.key)}
+              onClick={() => selectSource(option.key)}
             >
               <span className={`import-source-status import-source-status--${cardTone}`}>{option.status}</span>
               <h3>{option.title}</h3>

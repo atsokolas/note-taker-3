@@ -204,6 +204,8 @@ const run = async () => {
     assert.ok(body.includes('Opportunity Cost'), 'The streamed answer should include the mentioned related wiki page.');
     assert.ok(body.includes('Searched 2 wiki pages.'), 'The activity stream should expose graph search provenance.');
     assert.ok(body.includes('Read Loss Aversion + Opportunity Cost.'), 'The activity stream should name both wiki pages read.');
+    assert.ok(body.includes('Save answer to Talk'), 'Graph-expanded answers should return a Talk follow-up action.');
+    assert.ok(body.includes('/build Loss Aversion and Opportunity Cost'), 'Graph-expanded answers should return a bridge-page draft action.');
     assert.ok(
       !body.includes('Answered from the selected wiki page.'),
       'Graph-expanded answers should not claim they only used the selected page.'
