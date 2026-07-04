@@ -332,6 +332,7 @@ describe('DataIntegrations first insight workflow', () => {
     expect(screen.getByTestId('import-source-card-notion')).toHaveAttribute('aria-pressed', 'true');
     expect(window.location.search).not.toContain('notion=connected');
     expect(window.location.search).not.toContain('source=notion');
+    expect(window.location.hash).toBe('#notion');
   });
 
   it('keeps the OAuth-return source selected even when an older import session exists', async () => {
@@ -368,6 +369,7 @@ describe('DataIntegrations first insight workflow', () => {
       expect(screen.getByTestId('import-source-card-notion')).toHaveAttribute('aria-pressed', 'true');
       expect(screen.getByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'false');
     });
+    expect(window.location.hash).toBe('#notion');
   });
 
   it('turns a Readwise OAuth failure into a visible retry receipt and cleans callback params', async () => {
@@ -383,6 +385,7 @@ describe('DataIntegrations first insight workflow', () => {
     expect(screen.getByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'true');
     expect(window.location.search).not.toContain('readwise=error');
     expect(window.location.search).not.toContain('source=readwise');
+    expect(window.location.hash).toBe('#readwise');
   });
 
   it('shows a connected-but-not-synced Notion workspace as not yet in Noeis', async () => {

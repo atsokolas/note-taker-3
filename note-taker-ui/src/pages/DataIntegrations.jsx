@@ -89,6 +89,12 @@ const getRequestedSourceFromLocation = () => {
   return SOURCE_OPTIONS.some(option => option.key === candidate) ? candidate : '';
 };
 
+const buildCleanConnectionReturnUrl = (params, source) => {
+  const query = params.toString();
+  const hash = SOURCE_OPTIONS.some(option => option.key === source) ? `#${source}` : (window.location.hash || '');
+  return `${window.location.pathname}${query ? `?${query}` : ''}${hash}`;
+};
+
 const EVERNOTE_EXPORT_HELP_URL = 'https://help.evernote.com/hc/en-us/articles/209005557-Export-Notes-and-Notebooks-as-ENEX-or-HTML';
 const READWISE_MCP_DOCS_URL = 'https://docs.readwise.io/tools/mcp';
 const READWISE_MCP_SERVER_URL = 'https://mcp2.readwise.io/mcp';
@@ -783,7 +789,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
       params.delete('source');
       params.delete('notion');
-      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      const next = buildCleanConnectionReturnUrl(params, 'notion');
       window.history.replaceState({}, '', next);
     } else if (source === 'readwise') {
       selectSource('readwise');
@@ -843,7 +849,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
       params.delete('source');
       params.delete('readwise');
-      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      const next = buildCleanConnectionReturnUrl(params, 'readwise');
       window.history.replaceState({}, '', next);
     } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
       selectSource(hashSource);
