@@ -5752,6 +5752,144 @@ html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open
   color: color-mix(in srgb, var(--text-primary) 84%, var(--wiki-warm-accent, #d2a45f));
 }
 
+.wiki-read__edgar-watch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 14px;
+  align-items: start;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 88%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised, #fffaf2) 92%, transparent), transparent 120%),
+    var(--surface, #fffaf2);
+  box-shadow: 0 12px 28px color-mix(in srgb, #2a241b 6%, transparent);
+}
+
+.wiki-read__edgar-watch.is-armed {
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 28%, var(--border-subtle, #d8d0c4));
+}
+
+.wiki-read__edgar-watch.is-error {
+  border-color: color-mix(in srgb, var(--danger, #b44) 34%, var(--border-subtle, #d8d0c4));
+}
+
+.wiki-read__edgar-watch-copy {
+  min-width: 0;
+}
+
+.wiki-read__edgar-watch-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--text-muted) 86%, var(--text-primary));
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wiki-read__edgar-watch h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.wiki-read__edgar-watch-copy > p {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.wiki-read__edgar-watch-disclaimer {
+  margin-bottom: 8px !important;
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--text-secondary)) !important;
+  font-size: 0.8rem !important;
+}
+
+.wiki-read__edgar-watch-receipt {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px !important;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 24%, var(--border-subtle, #d8d0c4));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 6%, var(--surface, #fffaf2));
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.wiki-read__edgar-watch-meta {
+  margin-top: 6px !important;
+  color: var(--text-muted) !important;
+  font-size: 0.78rem !important;
+}
+
+.wiki-read__edgar-watch-error {
+  margin-top: 8px !important;
+  color: var(--danger, #b44) !important;
+  font-size: 0.8rem !important;
+}
+
+.wiki-read__edgar-watch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wiki-read__edgar-watch-form label {
+  color: var(--text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wiki-read__edgar-watch-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wiki-read__edgar-watch-input-row input {
+  flex: 1 1 120px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 92%, transparent);
+  border-radius: 6px;
+  background: var(--surface, #fffaf2);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+
+.wiki-read__edgar-watch-input-row input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 40%, transparent);
+  outline-offset: 1px;
+}
+
+html[data-ui-theme='dark'] .wiki-read__edgar-watch {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 22%, rgba(255, 255, 255, 0.08));
+  background:
+    linear-gradient(135deg, rgba(211, 164, 95, 0.08), rgba(211, 164, 95, 0.02) 44%, rgba(255, 255, 255, 0.02)),
+    var(--surface, #171512);
+}
+
+html[data-ui-theme='dark'] .wiki-read__edgar-watch-receipt {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 34%, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 10%, rgba(255, 255, 255, 0.03));
+}
+
 .wiki-read__body {
   max-width: 68ch;
   padding: 26px 0 12px;
@@ -7536,6 +7674,7 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   .wiki-read__viewbar,
   .wiki-read__share-compact,
   .wiki-read__share-card,
+  .wiki-read__edgar-watch,
   .shared-wiki-page__adopt,
   .shared-wiki-page__topbar,
   .shared-wiki-page__metrics {
@@ -7555,6 +7694,19 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 
   .wiki-read__share-card {
     grid-template-columns: 1fr;
+  }
+
+  .wiki-read__edgar-watch {
+    grid-template-columns: 1fr;
+  }
+
+  .wiki-read__edgar-watch-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wiki-read__edgar-watch-input-row input {
+    width: 100%;
   }
 
   .wiki-read__share-card-actions {

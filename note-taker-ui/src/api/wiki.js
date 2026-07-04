@@ -521,6 +521,25 @@ export const reviewWikiFreshness = async (id) => {
   return res.data;
 };
 
+export const armEdgarWatch = async (pageId, { ticker = '', cik = '' } = {}) => {
+  const payload = {};
+  const normalizedTicker = String(ticker || '').trim();
+  const normalizedCik = String(cik || '').trim();
+  if (normalizedTicker) payload.ticker = normalizedTicker;
+  if (normalizedCik) payload.cik = normalizedCik;
+  try {
+    const res = await api.post(
+      `${WIKI_PAGES_PATH}/${safeId(pageId)}/edgar-watch`,
+      payload,
+      getAuthHeaders()
+    );
+    return res.data || {};
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to arm EDGAR watch.';
+    throw new Error(message);
+  }
+};
+
 export const rebuildWikiPageGraph = async (id) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/graph/rebuild`, {}, getAuthHeaders());
   return res.data || {};
@@ -598,6 +617,7 @@ const wikiApi = {
   listWikiAutolinks,
   applyWikiAutolink,
   reviewWikiFreshness,
+  armEdgarWatch,
   rebuildWikiPageGraph,
   rebuildWikiGraph,
   writeWikiPageToConnector,
