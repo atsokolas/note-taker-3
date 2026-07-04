@@ -296,6 +296,21 @@ function App() {
     clearSystemRecoverableFailure,
     resetSystemStatus
   ]);
+  const systemStatusContextValue = useMemo(() => ({
+    controls: systemStatusControls,
+    snapshot: {
+      backgroundWork: systemStatus.backgroundWork,
+      latestReceipt: systemStatus.latestReceipt,
+      recentReceipts: systemStatus.recentReceipts,
+      recoverableFailure: systemStatus.recoverableFailure
+    }
+  }), [
+    systemStatusControls,
+    systemStatus.backgroundWork,
+    systemStatus.latestReceipt,
+    systemStatus.recentReceipts,
+    systemStatus.recoverableFailure
+  ]);
 
   // Your existing Chrome Store link
   const chromeStoreLink = "https://chromewebstore.google.com/detail/note-taker/bekllegjmjbnamphjnkifpijkhoiepaa?hl=en-US&utm_source=ext_sidebar";
@@ -698,7 +713,7 @@ function App() {
   };
 
   return (
-    <SystemStatusProvider value={systemStatusControls}>
+    <SystemStatusProvider value={systemStatusContextValue}>
       <Router>
         <Analytics />
         <AppRouterContent />

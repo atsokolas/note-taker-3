@@ -10,6 +10,11 @@ import {
   getHighlightCount,
   getWhyItMatters
 } from './libraryReadingRoomModel';
+import {
+  formatLibraryCorpusCount,
+  formatLibrarySuppressedCount,
+  resolveLibraryEmptyState
+} from './libraryEmptyStateModel';
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 
@@ -177,6 +182,179 @@ const LibraryArticleRow = React.memo(({
   );
 });
 
+const LibraryEmptyState = ({
+  scope,
+  corpusTotal,
+  rawCorpusTotal,
+  suppressedCount,
+  suppressedVisible,
+  query,
+  emptyLabel,
+  latestReceipt,
+  onClearSearch
+}) => {
+  const model = resolveLibraryEmptyState({
+    scope,
+    corpusTotal,
+    rawCorpusTotal,
+    suppressedCount,
+    suppressedVisible,
+    query,
+    emptyLabel
+  });
+  if (!model) return null;
+
+  if (model.kind === 'first-run') {
+    return (
+      <div className="library-empty-state library-empty-state--first-run" data-testid="library-empty-first-run">
+        <div className="library-empty-state__copy">
+          <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
+          <h3 className="library-empty-state__title">Save your first source</h3>
+          <p className="library-empty-state__body">
+            Connect Readwise, import notes, or use the browser extension to save articles.
+            Sources you add show up here, ready to read, highlight, and turn into concepts.
+          </p>
+          {latestReceipt?.summary ? (
+            <p className="library-empty-state__receipt muted small" data-testid="library-empty-receipt">
+              Last import: {latestReceipt.summary}
+            </p>
+          ) : null}
+        </div>
+        <div className="library-empty-state__actions">
+          <Link
+            className="ui-quiet-button ui-quiet-button--primary library-empty-state__primary"
+            to="/connections#sources"
+          >
+            Connect a source
+          </Link>
+          <a
+            className="library-empty-state__secondary muted small"
+            href={TOUR_EXTENSION_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Install browser extension
+          </a>
+          <Link className="library-empty-state__secondary muted small" to="/how-to-use">
+            See the full walkthrough
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (model.kind === 'scoped-empty') {
+    const scopeLine = model.scopeLabel === 'All'
+      ? 'No sources in this view.'
+      : `No sources in ${model.scopeLabel}.`;
+    return (
+      <div
+        className="library-empty-state library-empty-state--scoped"
+        data-testid="library-empty-scoped"
+        data-scope={scope}
+      >
+        <div className="library-empty-state__copy">
+          <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
+          <h3 className="library-empty-state__title">{scopeLine}</h3>
+          <p className="library-empty-state__body">
+            {formatLibraryCorpusCount(model.corpusTotal)}.
+            {model.emptyLabel ? ` ${model.emptyLabel}` : ''}
+          </p>
+        </div>
+        <div className="library-empty-state__actions">
+          <Link
+            className="ui-quiet-button ui-quiet-button--primary library-empty-state__primary"
+            to="/library?scope=all"
+            data-testid="library-empty-show-all"
+          >
+            Show all sources
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (model.kind === 'suppressed-empty') {
+    return (
+      <div
+        className="library-empty-state library-empty-state--scoped"
+        data-testid="library-empty-suppressed"
+        data-scope={scope}
+      >
+        <div className="library-empty-state__copy">
+          <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
+          <h3 className="library-empty-state__title">No visible sources in this view.</h3>
+          <p className="library-empty-state__body">
+            {formatLibrarySuppressedCount(model.suppressedCount)}.
+            {model.emptyLabel ? ` ${model.emptyLabel}` : ''}
+          </p>
+        </div>
+        <div className="library-empty-state__actions">
+          <Link
+            className="ui-quiet-button ui-quiet-button--primary library-empty-state__primary"
+            to={`/library?scope=${encodeURIComponent(scope || 'all')}&showSuppressed=1`}
+            data-testid="library-empty-show-suppressed"
+          >
+            Show review imports
+          </Link>
+          <Link
+            className="library-empty-state__secondary muted small"
+            to="/library?scope=all"
+            data-testid="library-empty-show-all"
+          >
+            Show all sources
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (model.kind === 'search-empty') {
+    const clearSearchHref = scope && scope !== 'all'
+      ? `/library?scope=${encodeURIComponent(scope)}`
+      : '/library?scope=all';
+    return (
+      <div className="library-empty-state library-empty-state--scoped" data-testid="library-empty-search">
+        <div className="library-empty-state__copy">
+          <span className="library-empty-state__eyebrow">Library · Search</span>
+          <h3 className="library-empty-state__title">No sources match &ldquo;{model.query}&rdquo;</h3>
+          {model.corpusTotal > 0 ? (
+            <p className="library-empty-state__body">{formatLibraryCorpusCount(model.corpusTotal)}.</p>
+          ) : null}
+        </div>
+        <div className="library-empty-state__actions">
+          {onClearSearch ? (
+            <button
+              type="button"
+              className="ui-quiet-button ui-quiet-button--primary library-empty-state__primary"
+              data-testid="library-empty-clear-search"
+              onClick={() => onClearSearch()}
+            >
+              Clear search
+            </button>
+          ) : (
+            <Link className="library-empty-state__primary ui-quiet-button" to={clearSearchHref}>
+              Clear search
+            </Link>
+          )}
+          <Link className="library-empty-state__secondary muted small" to="/library?scope=all">
+            Search all Library
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="library-empty-state">
+      <p className="muted">{model.emptyLabel || 'No articles here yet.'}</p>
+      <Link className="library-empty-cta" to="/library?scope=all">
+        Show all sources
+      </Link>
+    </div>
+  );
+};
+
 const LibraryArticleList = ({
   articles,
   loading,
@@ -187,7 +365,11 @@ const LibraryArticleList = ({
   scope = 'all',
   query = '',
   onQueryChange = null,
-  suppressedVisible = false
+  suppressedVisible = false,
+  corpusTotal = 0,
+  rawCorpusTotal = 0,
+  suppressedCount = 0,
+  latestReceipt = null
 }) => {
   const hasError = Boolean(error);
   const visibleArticles = useMemo(() => {
@@ -234,38 +416,17 @@ const LibraryArticleList = ({
       )}
       {error && <p className="status-message error-message">{error}</p>}
       {!loading && !error && visibleArticles.length === 0 && (
-        scope === 'all' || scope === 'unfiled' ? (
-          <div className="library-empty-state library-empty-state--first-run" data-testid="library-empty-first-run">
-            <div className="library-empty-state__copy">
-              <span className="library-empty-state__eyebrow">Library</span>
-              <h3 className="library-empty-state__title">Save your first article</h3>
-              <p className="library-empty-state__body">
-                Use the browser extension to save and highlight from any page on the web.
-                Articles you save show up here, ready to read, highlight, and turn into concepts.
-              </p>
-            </div>
-            <div className="library-empty-state__actions">
-              <a
-                className="ui-quiet-button ui-quiet-button--primary library-empty-state__primary"
-                href={TOUR_EXTENSION_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Install browser extension
-              </a>
-              <Link className="library-empty-state__secondary muted small" to="/how-to-use">
-                See the full walkthrough
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="library-empty-state">
-            <p className="muted">{emptyLabel || 'No articles here yet.'}</p>
-            <Link className="library-empty-cta" to="/library?scope=all">
-              Move articles into this folder
-            </Link>
-          </div>
-        )
+        <LibraryEmptyState
+          scope={scope}
+          corpusTotal={corpusTotal}
+          rawCorpusTotal={rawCorpusTotal}
+          suppressedCount={suppressedCount}
+          suppressedVisible={suppressedVisible}
+          query={query}
+          emptyLabel={emptyLabel}
+          latestReceipt={latestReceipt}
+          onClearSearch={onQueryChange ? () => onQueryChange('') : null}
+        />
       )}
       {!loading && !error && (
         <Profiler id="LibraryArticleRows" onRender={createProfilerLogger('library.article-list')}>

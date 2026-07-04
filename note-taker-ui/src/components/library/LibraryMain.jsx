@@ -40,7 +40,11 @@ const LibraryMain = ({
   onReviewFiling,
   filingLaunching = false,
   filingReceipt = null,
-  onToggleSuppressed
+  onToggleSuppressed,
+  corpusTotal = 0,
+  rawCorpusTotal = 0,
+  suppressedCount = 0,
+  latestReceipt = null
 }) => {
   if (scope === 'highlights') {
     return (
@@ -126,6 +130,10 @@ const LibraryMain = ({
         onSelectArticle={onSelectArticle}
         onMoveArticle={onMoveArticle}
         suppressedVisible={suppressedVisible}
+        corpusTotal={corpusTotal}
+        rawCorpusTotal={rawCorpusTotal}
+        suppressedCount={suppressedCount}
+        latestReceipt={latestReceipt}
       />
     </div>
   );

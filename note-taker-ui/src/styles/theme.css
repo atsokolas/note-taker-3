@@ -2929,6 +2929,26 @@ html[data-ui-theme='dark'] .topbar__search:-webkit-autofill:focus {
   text-decoration: underline;
 }
 
+/* Scoped empty — view is empty but the corpus has sources elsewhere. */
+.library-empty-state--scoped {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px 22px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 4%);
+  max-width: 560px;
+}
+
+.library-empty-state__receipt {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft) 12%);
+}
+
 /* First-run empty state — when the library has zero articles globally,
    show a meaningful onboarding step instead of a flat "no articles" message.
    Reuses the .ui-quiet-button--primary vocabulary from ThinkHome (Iter 7). */

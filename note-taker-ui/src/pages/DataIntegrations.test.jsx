@@ -5,7 +5,8 @@ import DataIntegrations from './DataIntegrations';
 import api from '../api';
 import { chatWithAgent } from '../api/agent';
 import { getEmbeddingJobStatus } from '../api/ai';
-import { updateConcept } from '../api/concepts';
+import { getConcepts, updateConcept } from '../api/concepts';
+import { getAllHighlights } from '../api/highlights';
 import {
   checkNotionConnection,
   checkReadwiseConnection,
@@ -32,7 +33,12 @@ jest.mock('../api', () => ({
 }));
 
 jest.mock('../api/concepts', () => ({
+  getConcepts: jest.fn(),
   updateConcept: jest.fn()
+}));
+
+jest.mock('../api/highlights', () => ({
+  getAllHighlights: jest.fn()
 }));
 
 jest.mock('../api/ai', () => ({
@@ -109,6 +115,7 @@ describe('DataIntegrations first insight workflow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    window.history.pushState({}, '', '/connections');
     listImportConnections.mockResolvedValue([]);
     getActiveImportSession.mockResolvedValue(null);
     checkReadwiseConnection.mockResolvedValue({});
@@ -144,6 +151,8 @@ describe('DataIntegrations first insight workflow', () => {
     }));
     syncReadwiseConnection.mockResolvedValue({});
     syncNotionConnection.mockResolvedValue({});
+    getConcepts.mockResolvedValue([]);
+    getAllHighlights.mockResolvedValue([]);
     chatWithAgent.mockResolvedValue({});
     getEmbeddingJobStatus.mockResolvedValue({
       status: 'ready',
@@ -294,6 +303,50 @@ describe('DataIntegrations first insight workflow', () => {
     expect(within(receipt).getByText(/Connect opens Notion in your browser/i)).toBeInTheDocument();
     expect(within(receipt).getByText(/After approval, Noeis returns here/i)).toBeInTheDocument();
     expect(screen.getByText('Live flow')).toBeInTheDocument();
+  });
+
+  it('turns a Notion OAuth return into an immediate visible receipt and cleans callback params', async () => {
+    window.history.pushState({}, '', '/connections?source=notion&notion=connected');
+    listImportConnections.mockImplementation(async ({ provider } = {}) => {
+      if (provider === 'notion') {
+        return [{
+          id: 'notion-1',
+          provider: 'notion',
+          accountLabel: 'Product HQ',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-06-08T15:30:00.000Z',
+          lastSyncAt: null
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Product HQ is connected/i)).toBeInTheDocument();
+    expect(screen.getByTestId('import-source-card-notion')).toHaveAttribute('aria-pressed', 'true');
+    expect(window.location.search).not.toContain('notion=connected');
+    expect(window.location.search).not.toContain('source=notion');
+  });
+
+  it('turns a Readwise OAuth failure into a visible retry receipt and cleans callback params', async () => {
+    window.history.pushState({}, '', '/connections?source=readwise&readwise=error');
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Browser approval did not finish/i)).toBeInTheDocument();
+    expect(screen.getByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'true');
+    expect(window.location.search).not.toContain('readwise=error');
+    expect(window.location.search).not.toContain('source=readwise');
   });
 
   it('shows a connected-but-not-synced Notion workspace as not yet in Noeis', async () => {

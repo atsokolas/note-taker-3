@@ -24,7 +24,7 @@ import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { chatWithAgent } from '../api/agent';
 import { startLibraryFilingSuggestions } from '../api/library';
-import { useSystemStatusControls } from '../system/SystemStatusContext';
+import { useSystemStatusControls, useSystemStatusSnapshot } from '../system/SystemStatusContext';
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
@@ -33,7 +33,7 @@ import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import AgentSkillDock from '../components/agent/AgentSkillDock';
 import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
 import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
-import { matchesCruftHeuristic } from '../utils/cruftSuppression';
+import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftSuppression';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -87,6 +87,7 @@ const Library = () => {
   const [queuedPrompt, setQueuedPrompt] = useState(null);
   const readerRef = useRef(null);
   const systemStatus = useSystemStatusControls();
+  const systemStatusSnapshot = useSystemStatusSnapshot();
 
   const { folders, loading: foldersLoading, error: foldersError } = useFolders();
   const {
@@ -494,6 +495,15 @@ const Library = () => {
 
   const unfiledCount = folderCounts.unfiled || 0;
   const allCount = useMemo(() => allArticles.length, [allArticles.length]);
+  const corpusTotal = useMemo(() => {
+    if (showSuppressedItems) return allArticles.length;
+    return filterLibraryBrowseItems(allArticles).length;
+  }, [allArticles, showSuppressedItems]);
+  const rawCorpusTotal = useMemo(() => allArticles.length, [allArticles.length]);
+  const suppressedCount = useMemo(() => {
+    if (showSuppressedItems) return 0;
+    return Math.max(0, allArticles.length - filterLibraryBrowseItems(allArticles).length);
+  }, [allArticles, showSuppressedItems]);
   const folderOptions = useMemo(() => {
     const options = [{ value: 'unfiled', label: 'Unfiled' }];
     folders.forEach(folder => {
@@ -841,6 +851,10 @@ const Library = () => {
       filingLaunching={filingLaunching}
       filingReceipt={filingReceipt}
       onToggleSuppressed={handleToggleSuppressedItems}
+      corpusTotal={corpusTotal}
+      rawCorpusTotal={rawCorpusTotal}
+      suppressedCount={suppressedCount}
+      latestReceipt={systemStatusSnapshot.latestReceipt}
     />
   );
 

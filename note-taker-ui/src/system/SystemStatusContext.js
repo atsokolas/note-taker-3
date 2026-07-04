@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import { EMPTY_SYSTEM_STATUS } from './systemStatusModel';
 
 /**
  * @typedef {import('./systemStatusModel').SystemStatusReceipt} SystemStatusReceipt
@@ -37,12 +38,23 @@ const SystemStatusContext = createContext(NOOP_CONTROLS);
 
 export const SystemStatusProvider = SystemStatusContext.Provider;
 
+const resolveContextValue = (value) => {
+  if (value?.controls) return value;
+  return { controls: value || NOOP_CONTROLS, snapshot: EMPTY_SYSTEM_STATUS };
+};
+
 /**
  * Read the system-status controls. Returns no-op controls if no provider is mounted,
  * so a component can call these unconditionally without guarding.
  * @returns {SystemStatusControls}
  */
-export const useSystemStatusControls = () => useContext(SystemStatusContext);
+export const useSystemStatusControls = () => resolveContextValue(useContext(SystemStatusContext)).controls;
+
+/**
+ * Read the latest session system-status snapshot (receipts, background work).
+ * @returns {import('./systemStatusModel').SystemStatusState}
+ */
+export const useSystemStatusSnapshot = () => resolveContextValue(useContext(SystemStatusContext)).snapshot;
 
 export { NOOP_CONTROLS };
 export default SystemStatusContext;

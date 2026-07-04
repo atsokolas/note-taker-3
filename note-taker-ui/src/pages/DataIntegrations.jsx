@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSystemStatusControls } from '../system/SystemStatusContext';
 import api from '../api';
@@ -376,6 +376,39 @@ const describeLoopHandoff = ({ readwiseConnection, notionConnection, session }) 
   return `Latest handoff: ${latest.label} ${latest.kind} on ${formatLoopDate(latest.date)}.`;
 };
 
+const buildConnectionReturnReceipt = ({ provider = '', status = 'connected', connection = null, summary = '' } = {}) => {
+  const providerLabel = getProviderLabel(provider);
+  const failed = status === 'error';
+  const connectionLabel = connection?.accountLabel || providerLabel;
+  if (failed) {
+    return {
+      id: `${provider || 'connection'}-oauth-return-failed-${Date.now()}`,
+      source: provider || 'connection',
+      title: `${providerLabel} connection failed`,
+      summary: summary || 'Browser approval did not finish. Try reconnecting from Connections.',
+      status: 'failed',
+      href: `/connections#${provider || 'sources'}`,
+      nextAction: {
+        label: `Reconnect ${providerLabel}`,
+        href: `/connections#${provider || 'sources'}`
+      }
+    };
+  }
+
+  return {
+    id: `${provider || 'connection'}-oauth-return-${Date.now()}`,
+    source: provider || 'connection',
+    title: `${providerLabel} connected`,
+    summary: summary || `${connectionLabel} is connected. Run preview or sync to make the material retrievable in Noeis.`,
+    status: 'completed',
+    href: `/connections#${provider || 'sources'}`,
+    nextAction: {
+      label: provider === 'readwise' ? 'Preview or add direct sync' : `Sync from ${providerLabel}`,
+      href: `/connections#${provider || 'sources'}`
+    }
+  };
+};
+
 const getIndexingWarning = ({ readwiseConnection, notionConnection, session } = {}) => {
   const candidates = [
     {
@@ -536,10 +569,10 @@ const getActivationCopy = ({ state, session, scheduleTarget }) => {
 const DataIntegrations = ({ embedded = false } = {}) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
-  const publishSystemReceipt = (receipt, fallback = null) => {
+  const publishSystemReceipt = useCallback((receipt, fallback = null) => {
     const normalized = normalizeSystemReceipt(receipt, { href: '/connections' });
     systemStatus.setLatestReceipt(normalized || fallback);
-  };
+  }, [systemStatus]);
   const bridgeModel = useAgentBridge();
   const personalAgentsModel = usePersonalAgents();
   const [selectedSource, setSelectedSource] = useState('readwise');
@@ -587,6 +620,9 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   const mdInputRef = useRef(null);
   const enexInputRef = useRef(null);
   const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
+  const setStatus = useCallback((message, tone = 'info') => {
+    setImportStatus({ message, tone });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -703,9 +739,31 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     if (source === 'notion') {
       setSelectedSource('notion');
       if (notionState === 'connected') {
-        setStatus('Notion connected. You can sync pages and databases now.', 'success');
+        void (async () => {
+          try {
+            const connections = await listImportConnections({ provider: 'notion' });
+            const latest = connections[0] || null;
+            setNotionConnection(latest);
+            const receipt = buildConnectionReturnReceipt({
+              provider: 'notion',
+              status: 'connected',
+              connection: latest,
+              summary: latest?.id
+                ? `${latest.accountLabel || 'Notion'} is connected. Preview shared pages or sync them into Noeis.`
+                : 'Notion returned from browser approval. Refresh connection state if the workspace does not appear.'
+            });
+            publishSystemReceipt(receipt);
+            setStatus(receipt.summary, 'success');
+          } catch (_error) {
+            const receipt = buildConnectionReturnReceipt({ provider: 'notion', status: 'connected' });
+            publishSystemReceipt(receipt);
+            setStatus(receipt.summary, 'success');
+          }
+        })();
       } else if (notionState === 'error') {
-        setStatus('Notion OAuth failed. Try again.', 'error');
+        const receipt = buildConnectionReturnReceipt({ provider: 'notion', status: 'error' });
+        publishSystemReceipt(receipt);
+        setStatus(receipt.summary, 'error');
       }
       params.delete('source');
       params.delete('notion');
@@ -722,6 +780,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             if (latest?.accountLabel) {
               setReadwiseLabel(latest.accountLabel);
             }
+            setReadwiseConnections(Array.isArray(connections) ? connections : []);
             let previewHighlights;
             let previewItems;
             if (latest?.id) {
@@ -738,18 +797,33 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               getConcepts().catch(() => []),
               getAllHighlights().catch(() => [])
             ]);
-            setStatus(composeReadwiseConnectMoment({
+            const moment = composeReadwiseConnectMoment({
               highlightCount: Array.isArray(highlightsResult) ? highlightsResult.length : 0,
               activeConceptCount: countActiveConcepts(concepts),
               previewHighlights,
               previewItems
-            }), 'success');
+            });
+            publishSystemReceipt(buildConnectionReturnReceipt({
+              provider: 'readwise',
+              status: 'connected',
+              connection: latest,
+              summary: moment
+            }));
+            setStatus(moment, 'success');
           } catch (_error) {
-            setStatus(composeReadwiseConnectMoment({}), 'success');
+            const moment = composeReadwiseConnectMoment({});
+            publishSystemReceipt(buildConnectionReturnReceipt({
+              provider: 'readwise',
+              status: 'connected',
+              summary: moment
+            }));
+            setStatus(moment, 'success');
           }
         })();
       } else if (readwiseState === 'error') {
-        setStatus('Readwise browser authorization failed. Try again.', 'error');
+        const receipt = buildConnectionReturnReceipt({ provider: 'readwise', status: 'error' });
+        publishSystemReceipt(receipt);
+        setStatus(receipt.summary, 'error');
       }
       params.delete('source');
       params.delete('readwise');
@@ -758,7 +832,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
       setSelectedSource(hashSource);
     }
-  }, []);
+  }, [publishSystemReceipt, setStatus]);
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
@@ -770,10 +844,6 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       }
     });
   }, [selectedSource]);
-
-  const setStatus = (message, tone = 'info') => {
-    setImportStatus({ message, tone });
-  };
 
   const handleOrganizeImport = async () => {
     const safeSessionId = String(currentSession?.id || currentSession?._id || '').trim();

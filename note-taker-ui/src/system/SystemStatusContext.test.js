@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import React from 'react';
-import { SystemStatusProvider, useSystemStatusControls, NOOP_CONTROLS } from './SystemStatusContext';
+import { SystemStatusProvider, useSystemStatusControls, useSystemStatusSnapshot, NOOP_CONTROLS } from './SystemStatusContext';
+import { EMPTY_SYSTEM_STATUS } from './systemStatusModel';
 
 describe('SystemStatusContext', () => {
   it('returns safe no-op controls with no provider mounted', () => {
@@ -12,7 +13,34 @@ describe('SystemStatusContext', () => {
     expect(() => result.current.clearRecentReceipts()).not.toThrow();
   });
 
-  it('exposes the provided controls to consumers', () => {
+  it('returns an empty snapshot with no provider mounted', () => {
+    const { result } = renderHook(() => useSystemStatusSnapshot());
+    expect(result.current).toEqual(EMPTY_SYSTEM_STATUS);
+  });
+
+  it('exposes the provided controls and snapshot to consumers', () => {
+    const controls = {
+      setBackgroundWork: jest.fn(),
+      setLatestReceipt: jest.fn(),
+      clearRecentReceipts: jest.fn(),
+      setRecoverableFailure: jest.fn(),
+      clearRecoverableFailure: jest.fn(),
+      resetSystemStatus: jest.fn()
+    };
+    const snapshot = {
+      ...EMPTY_SYSTEM_STATUS,
+      latestReceipt: { title: 'Synced', summary: 'done' }
+    };
+    const wrapper = ({ children }) => (
+      <SystemStatusProvider value={{ controls, snapshot }}>{children}</SystemStatusProvider>
+    );
+    const controlsResult = renderHook(() => useSystemStatusControls(), { wrapper });
+    const snapshotResult = renderHook(() => useSystemStatusSnapshot(), { wrapper });
+    expect(controlsResult.result.current).toBe(controls);
+    expect(snapshotResult.result.current.latestReceipt).toEqual({ title: 'Synced', summary: 'done' });
+  });
+
+  it('supports legacy controls-only provider values', () => {
     const controls = {
       setBackgroundWork: jest.fn(),
       setLatestReceipt: jest.fn(),

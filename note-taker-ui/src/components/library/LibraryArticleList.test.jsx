@@ -82,21 +82,90 @@ describe('LibraryArticleList', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Opening');
   });
 
-  it('shows the first-run empty state with extension CTA when scope=all and no articles', () => {
-    const { container } = renderList({ articles: [], scope: 'all' });
+  it('shows the first-run empty state with connect CTA when scope=all and corpus is empty', () => {
+    const { container } = renderList({ articles: [], scope: 'all', corpusTotal: 0 });
     expect(container.querySelector('[data-testid="library-empty-first-run"]')).not.toBeNull();
-    expect(screen.getByText('Save your first article')).toBeInTheDocument();
-    const cta = screen.getByText('Install browser extension');
-    expect(cta).toBeInTheDocument();
-    expect(cta.getAttribute('href')).toMatch(/chromewebstore\.google\.com/);
-    expect(cta.getAttribute('target')).toBe('_blank');
+    expect(screen.getByText('Save your first source')).toBeInTheDocument();
+    expect(screen.getByText('Connect a source')).toBeInTheDocument();
+    expect(screen.queryByText('Show all sources')).not.toBeInTheDocument();
   });
 
-  it('shows the legacy empty state with move CTA when scope=folder and no articles', () => {
-    renderList({ articles: [], scope: 'folder' });
-    expect(screen.getByText('None')).toBeInTheDocument();
-    expect(screen.getByText('Move articles into this folder')).toBeInTheDocument();
-    expect(screen.queryByText('Save your first article')).not.toBeInTheDocument();
+  it('shows scoped recovery when unfiled is empty but the corpus has sources', () => {
+    renderList({
+      articles: [],
+      scope: 'unfiled',
+      corpusTotal: 253,
+      emptyLabel: 'No unfiled articles right now.'
+    });
+    expect(screen.getByTestId('library-empty-scoped')).toBeInTheDocument();
+    expect(screen.getByText('No sources in Unfiled.')).toBeInTheDocument();
+    expect(screen.getByText(/253 sources are in Library/i)).toBeInTheDocument();
+    expect(screen.getByTestId('library-empty-show-all')).toHaveAttribute('href', '/library?scope=all');
+    expect(screen.queryByText('Save your first source')).not.toBeInTheDocument();
+  });
+
+  it('shows search recovery copy when a query matches nothing', () => {
+    renderList({
+      articles: [],
+      scope: 'all',
+      corpusTotal: 18,
+      rawCorpusTotal: 18,
+      query: 'Munger',
+      onQueryChange: jest.fn()
+    });
+    expect(screen.getByTestId('library-empty-search')).toBeInTheDocument();
+    expect(screen.getByText(/No sources match/i)).toBeInTheDocument();
+    expect(screen.getByText(/18 sources are in Library/i)).toBeInTheDocument();
+    expect(screen.getByTestId('library-empty-clear-search')).toBeInTheDocument();
+    expect(screen.getByText('Search all Library')).toBeInTheDocument();
+  });
+
+  it('shows suppressed recovery when only hidden review imports remain', () => {
+    renderList({
+      articles: [],
+      scope: 'all',
+      corpusTotal: 0,
+      rawCorpusTotal: 2,
+      suppressedCount: 2
+    });
+    expect(screen.getByTestId('library-empty-suppressed')).toBeInTheDocument();
+    expect(screen.getByText(/2 review imports are hidden from this view/i)).toBeInTheDocument();
+    expect(screen.getByTestId('library-empty-show-suppressed')).toHaveAttribute(
+      'href',
+      '/library?scope=all&showSuppressed=1'
+    );
+    expect(screen.queryByText('Save your first source')).not.toBeInTheDocument();
+  });
+
+  it('clears search from the empty state action', () => {
+    const onQueryChange = jest.fn();
+    renderList({
+      articles: [],
+      scope: 'unfiled',
+      corpusTotal: 12,
+      rawCorpusTotal: 12,
+      query: 'missing-term',
+      onQueryChange
+    });
+    fireEvent.click(screen.getByTestId('library-empty-clear-search'));
+    expect(onQueryChange).toHaveBeenCalledWith('');
+  });
+
+  it('shows scoped recovery when scope=folder is empty but corpus has sources', () => {
+    renderList({ articles: [], scope: 'folder', corpusTotal: 12, emptyLabel: 'No articles in Research yet.' });
+    expect(screen.getByTestId('library-empty-scoped')).toBeInTheDocument();
+    expect(screen.getByText('Show all sources')).toBeInTheDocument();
+    expect(screen.queryByText('Save your first source')).not.toBeInTheDocument();
+  });
+
+  it('shows import receipt hint on first-run when latestReceipt is present', () => {
+    renderList({
+      articles: [],
+      scope: 'all',
+      corpusTotal: 0,
+      latestReceipt: { title: 'Readwise import', summary: '252 highlights synced' }
+    });
+    expect(screen.getByTestId('library-empty-receipt')).toHaveTextContent('252 highlights synced');
   });
 
   it('uses the first highlight as excerpt when summary fields are empty', () => {
