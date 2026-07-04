@@ -30,6 +30,7 @@ const Landing = () => {
         </div>
         <nav className="landing-public__nav" aria-label="Public navigation">
           <Link to="/guides">Guides</Link>
+          <Link to="/proof">Living dossiers</Link>
           <Link to="/examples">Examples</Link>
           <Link to="/ai-second-brain">AI second brain</Link>
           <Link to="/privacy">Privacy</Link>
@@ -69,6 +70,9 @@ const Landing = () => {
             </Button>
             <Button variant="secondary" onClick={() => document.getElementById('tour')?.scrollIntoView({ behavior: 'smooth' })}>
               See the tour
+            </Button>
+            <Button variant="secondary" onClick={() => navigate('/proof')}>
+              See a living dossier
             </Button>
           </div>
         </div>
@@ -128,6 +132,7 @@ const Landing = () => {
           <p>Read the practical guide to what an AI second brain should actually do.</p>
           <div className="landing-public__inline-links">
             <Link to="/guides">Browse guides</Link>
+            <Link to="/proof">Living dossiers</Link>
             <Link to="/examples">Examples</Link>
             <Link to="/ai-second-brain">AI second brain</Link>
             <Link to="/second-brain-app">Second brain app</Link>

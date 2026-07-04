@@ -1368,6 +1368,7 @@ const run = async () => {
     assert.ok(starterPackCollection.body.collection.pages.length >= 6);
     assert.strictEqual(starterPackCollection.body.collection.pages[0].userId, undefined);
     assert.strictEqual(starterPackCollection.body.collection.pages[0].aiState, undefined);
+    assert.ok(starterPackCollection.body.collection.pages[0].lastReviewedAt, 'Starter pack public pages should expose a safe reviewed timestamp.');
 
     const adoptedStarterPackCollection = await request(url, '/api/public/wiki/collections/mental-models/adopt', {
       method: 'POST',

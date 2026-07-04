@@ -258,3 +258,281 @@
     font-size: 2.4rem;
   }
 }
+
+.public-proof-gallery {
+  min-height: 100vh;
+  padding: 34px min(5vw, 64px) 72px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(177, 134, 46, 0.12), transparent 26%),
+    linear-gradient(180deg, #fbf7ef 0%, #f3eee5 100%);
+  color: #2c2922;
+}
+
+.public-proof-gallery__topbar,
+.public-proof-gallery__hero,
+.public-proof-gallery__principle,
+.public-proof-gallery__section {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.public-proof-gallery__topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(44, 41, 34, 0.14);
+}
+
+.public-proof-gallery__brand {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(2.1rem, 3vw, 3rem);
+  font-style: italic;
+  line-height: 0.95;
+  color: #2c2922;
+  text-decoration: none;
+}
+
+.public-proof-gallery__navlinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.public-proof-gallery__navlinks a,
+.public-proof-gallery__hero-actions a,
+.public-proof-gallery__card-link {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #4f493e;
+  text-decoration: none;
+}
+
+.public-proof-gallery__hero {
+  display: grid;
+  gap: 18px;
+  padding: 56px 0 36px;
+  border-bottom: 1px solid rgba(44, 41, 34, 0.14);
+}
+
+.public-proof-gallery__eyebrow,
+.public-proof-gallery__card-topline,
+.public-proof-gallery__stamp span,
+.public-proof-gallery__metrics dt {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(44, 41, 34, 0.58);
+}
+
+.public-proof-gallery__hero h1 {
+  max-width: 980px;
+  margin: 0;
+  color: #2c2922;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(3.6rem, 9vw, 8rem);
+  font-weight: 500;
+  line-height: 0.88;
+}
+
+.public-proof-gallery__hero p,
+.public-proof-gallery__section-head p,
+.public-proof-gallery__section--next p,
+.public-proof-gallery__principle p,
+.public-proof-gallery__card p {
+  margin: 0;
+  max-width: 760px;
+  color: rgba(44, 41, 34, 0.78);
+  font-size: 1.04rem;
+  line-height: 1.62;
+}
+
+.public-proof-gallery__hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.public-proof-gallery__hero-actions a,
+.public-proof-gallery__card-link {
+  width: fit-content;
+  padding: 12px 16px;
+  border: 1px solid rgba(44, 41, 34, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 252, 245, 0.72);
+}
+
+.public-proof-gallery__hero-actions a:first-child,
+.public-proof-gallery__card-link {
+  border-color: rgba(177, 134, 46, 0.44);
+  background: rgba(177, 134, 46, 0.12);
+  color: #332714;
+}
+
+.public-proof-gallery__principle {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-bottom: 1px solid rgba(44, 41, 34, 0.14);
+}
+
+.public-proof-gallery__principle div {
+  min-width: 0;
+  padding: 22px 24px 22px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.public-proof-gallery__principle div + div {
+  padding-left: 24px;
+  border-left: 1px solid rgba(44, 41, 34, 0.12);
+}
+
+.public-proof-gallery__section {
+  display: grid;
+  gap: 24px;
+  padding: 42px 0 0;
+}
+
+.public-proof-gallery__section-head {
+  display: grid;
+  gap: 10px;
+}
+
+.public-proof-gallery__section h2 {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  font-weight: 500;
+  line-height: 0.98;
+  color: #2c2922;
+}
+
+.public-proof-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.public-proof-gallery__card,
+.public-proof-gallery__state,
+.public-proof-gallery__section--next {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(44, 41, 34, 0.13);
+  border-radius: 14px;
+  background: rgba(255, 252, 245, 0.72);
+  box-shadow: 0 18px 48px rgba(44, 41, 34, 0.06);
+}
+
+.public-proof-gallery__card-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.public-proof-gallery__card h3 {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 500;
+  line-height: 0.98;
+  color: #2c2922;
+}
+
+.public-proof-gallery__stamp {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(177, 134, 46, 0.28);
+  border-radius: 12px;
+  background: rgba(177, 134, 46, 0.1);
+}
+
+.public-proof-gallery__stamp strong {
+  color: #2c2922;
+  font-size: 0.95rem;
+}
+
+.public-proof-gallery__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.public-proof-gallery__metrics div {
+  padding: 10px;
+  border: 1px solid rgba(44, 41, 34, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.public-proof-gallery__metrics dd {
+  margin: 4px 0 0;
+  color: #2c2922;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.public-proof-gallery__page-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-proof-gallery__page-list li {
+  display: grid;
+  gap: 3px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(44, 41, 34, 0.1);
+}
+
+.public-proof-gallery__page-list span {
+  color: #2c2922;
+}
+
+.public-proof-gallery__page-list small {
+  color: rgba(44, 41, 34, 0.58);
+}
+
+@media (max-width: 760px) {
+  .public-proof-gallery {
+    padding: 24px 16px 52px;
+  }
+
+  .public-proof-gallery__topbar,
+  .public-proof-gallery__principle,
+  .public-proof-gallery__grid,
+  .public-proof-gallery__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .public-proof-gallery__topbar,
+  .public-proof-gallery__card-topline {
+    display: grid;
+  }
+
+  .public-proof-gallery__principle div,
+  .public-proof-gallery__principle div + div {
+    padding: 18px 0;
+    border-left: 0;
+    border-top: 1px solid rgba(44, 41, 34, 0.12);
+  }
+
+  .public-proof-gallery__hero h1 {
+    font-size: 3.5rem;
+  }
+}

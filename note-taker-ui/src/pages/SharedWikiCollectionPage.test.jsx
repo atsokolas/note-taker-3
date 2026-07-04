@@ -20,6 +20,7 @@ const sharedCollection = {
         title: 'Opportunity Cost',
         sourceCount: 2,
         claimCount: 1,
+        lastReviewedAt: '2026-07-04T00:00:00.000Z',
         body: {
           type: 'doc',
           content: [
@@ -40,6 +41,7 @@ const sharedCollection = {
         title: 'Margin of Safety',
         sourceCount: 1,
         claimCount: 0,
+        lastReviewedAt: '2026-07-03T00:00:00.000Z',
         body: {
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Margin of safety creates room for error.' }] }]
@@ -82,6 +84,7 @@ describe('SharedWikiCollectionPage', () => {
     expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/background maintenance loop/i);
     expect(screen.getByText(/Backlinks, highlights, source notes, and agent work stay private/i)).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
+    expect(screen.getByText('Maintained by the owner\'s agent · last reviewed Jul 4, 2026')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Margin of Safety' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Private neighbor' })).not.toBeInTheDocument();

@@ -81,6 +81,7 @@ describe('SharedWikiPage', () => {
     expect(document.body).toHaveClass('noeis-public-share');
     expect(await screen.findByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Public page ready: citations included, private source notes withheld.');
+    expect(screen.getByText('Maintained by the owner\'s agent · last reviewed Jun 8, 2026')).toBeInTheDocument();
     expect(screen.getByLabelText('Adopt shared wiki')).toHaveTextContent(/background maintenance loop/i);
     expect(screen.getAllByText('Opportunity cost frames tradeoffs.')).toHaveLength(2);
     expect(screen.getByText('References')).toBeInTheDocument();
@@ -104,9 +105,10 @@ describe('SharedWikiPage', () => {
     expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'index,follow');
     const schema = JSON.parse(document.getElementById('seo-schema').textContent);
     expect(schema).toEqual(expect.objectContaining({
-      '@type': 'CreativeWork',
+      '@type': 'Article',
       name: 'Opportunity Cost',
-      mainEntityOfPage: 'https://www.noeis.io/share/wiki/opportunity-cost'
+      mainEntityOfPage: 'https://www.noeis.io/share/wiki/opportunity-cost',
+      dateReviewed: '2026-06-08T12:00:00.000Z'
     }));
     expect(schema.citation).toEqual([
       expect.objectContaining({
@@ -235,7 +237,7 @@ describe('buildSharedWikiSchema', () => {
 
     expect(schema).toEqual(expect.objectContaining({
       '@context': 'https://schema.org',
-      '@type': 'CreativeWork',
+      '@type': 'Article',
       name: 'Opportunity Cost',
       url: 'https://www.noeis.io/share/wiki/opportunity-cost',
       wordCount: 120,

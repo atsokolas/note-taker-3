@@ -15,12 +15,15 @@ const formatDate = (value) => {
     return new Date(value).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: 'UTC'
     });
   } catch (_error) {
     return '';
   }
 };
+
+const reviewedDateFor = (page = {}) => page?.lastReviewedAt || page?.updatedAt || page?.createdAt || '';
 
 const usePublicShareScrollSurface = () => {
   useEffect(() => {
@@ -74,7 +77,7 @@ export const buildSharedWikiSchema = ({
 
   return {
     '@context': 'https://schema.org',
-    '@type': 'CreativeWork',
+    '@type': 'Article',
     name: title,
     headline: title,
     description,
@@ -82,7 +85,9 @@ export const buildSharedWikiSchema = ({
     mainEntityOfPage: canonicalUrl,
     isAccessibleForFree: true,
     inLanguage: 'en',
+    datePublished: page?.createdAt || undefined,
     dateModified: page?.updatedAt || undefined,
+    dateReviewed: reviewedDateFor(page) || undefined,
     publisher: {
       '@type': 'Organization',
       name: SITE_NAME,
@@ -99,6 +104,11 @@ export const buildSharedWikiSchema = ({
       'personal research wiki',
       ...(sourceCount ? ['public source references'] : []),
       ...(claimCount ? ['evidence-backed claims'] : [])
+    ],
+    about: [
+      page?.pageType || 'research wiki',
+      'maintained research dossier',
+      'source-grounded knowledge work'
     ],
     ...(citations.length > 0 ? { citation: citations } : {})
   };
@@ -144,6 +154,7 @@ const SharedWikiPage = () => {
   const sourceCount = countWikiSources(page || {});
   const claimCount = countWikiClaims(page || {});
   const updatedAt = formatDate(page?.updatedAt);
+  const reviewedAt = formatDate(reviewedDateFor(page));
   const canonicalPath = location.pathname || `/share/wiki/${idOrSlug}`;
   const seoDescription = useMemo(
     () => buildSharedWikiDescription(page, intro),
@@ -270,6 +281,9 @@ const SharedWikiPage = () => {
             </section>
             <p className="shared-wiki-page__receipt" role="status">
               {buildSharePreviewReceipt()}
+            </p>
+            <p className="shared-wiki-page__maintenance-stamp">
+              Maintained by the owner&apos;s agent{reviewedAt ? ` · last reviewed ${reviewedAt}` : ''}
             </p>
             <p className="shared-wiki-page__privacy-note">
               References are visible as a static citation list. Private backlinks, source notes, graph edges, and agent work are not exposed.

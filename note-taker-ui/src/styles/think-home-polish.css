@@ -7340,11 +7340,26 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 }
 
 .shared-wiki-page__receipt,
+.shared-wiki-page__maintenance-stamp,
 .shared-wiki-page__privacy-note,
 .shared-wiki-page__sources-note {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.shared-wiki-page__maintenance-stamp {
+  width: fit-content;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 32%, var(--nt-divider));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary, #b1862e) 10%, var(--surface));
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .shared-wiki-page__privacy-note {

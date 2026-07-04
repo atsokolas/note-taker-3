@@ -129,6 +129,7 @@ const slugify = (value = '') => {
 };
 
 const starterOriginId = (packId, title) => `starter:${packId}:${slugify(title)}`;
+const STARTER_PACK_REVIEWED_AT = '2026-07-04T00:00:00.000Z';
 
 const buildStarterPage = ({ packId, title, pageType = 'overview', summary, links = [] }) => {
   const pageId = starterOriginId(packId, title);
@@ -161,6 +162,9 @@ const buildStarterPage = ({ packId, title, pageType = 'overview', summary, links
     pageType,
     status: 'published',
     visibility: 'shared',
+    createdAt: STARTER_PACK_REVIEWED_AT,
+    updatedAt: STARTER_PACK_REVIEWED_AT,
+    lastReviewedAt: STARTER_PACK_REVIEWED_AT,
     plainText: [title, summary, ...links, 'Sample — feed me your reading to make these pages yours.'].filter(Boolean).join('\n'),
     body,
     sourceRefs: [{
@@ -702,6 +706,12 @@ const serializePublicWikiPage = (page) => {
     plainText: full.plainText || '',
     createdAt: full.createdAt || null,
     updatedAt: full.updatedAt || null,
+    lastReviewedAt: full.lastReviewedAt
+      || full.freshness?.lastReviewedAt
+      || full.aiState?.quality?.checkedAt
+      || full.updatedAt
+      || full.createdAt
+      || null,
     sourceRefs: publicSourceRefs,
     sourceCount: full.sourceCount ?? publicSourceRefs.length,
     claimCount: full.claimCount ?? 0,

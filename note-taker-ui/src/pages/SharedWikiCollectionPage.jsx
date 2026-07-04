@@ -28,6 +28,28 @@ const pageIdFor = (page = {}) => page?._id || page?.id || '';
 
 const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
+};
+
+const reviewedDateFor = (page = {}) => page?.lastReviewedAt || page?.updatedAt || page?.createdAt || '';
+
+const newestReviewedDate = (pages = []) => {
+  const timestamps = (Array.isArray(pages) ? pages : [])
+    .map(reviewedDateFor)
+    .map(value => new Date(value || 0).getTime())
+    .filter(value => Number.isFinite(value) && value > 0);
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : '';
+};
+
 export const buildSharedWikiCollectionSchema = ({
   collection = {},
   pages = [],
@@ -164,6 +186,7 @@ const SharedWikiCollectionPage = () => {
   const totalWords = pages.reduce((sum, page) => sum + countWikiPageWords(page), 0);
   const totalSources = pages.reduce((sum, page) => sum + countWikiSources(page), 0);
   const totalClaims = pages.reduce((sum, page) => sum + countWikiClaims(page), 0);
+  const reviewedAt = formatDate(newestReviewedDate(pages));
   const canonicalPath = location.pathname || `/share/wiki/collection/${idOrSlug}`;
   const seoTitle = collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
   const seoDescription = cleanText(description).slice(0, 220) || 'A shared Noeis wiki you can copy into your own workspace.';
@@ -216,6 +239,9 @@ const SharedWikiCollectionPage = () => {
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>
             <p className="shared-wiki-page__receipt" role="status">{buildSharePreviewReceipt()}</p>
+            <p className="shared-wiki-page__maintenance-stamp">
+              Maintained by the owner&apos;s agent{reviewedAt ? ` · last reviewed ${reviewedAt}` : ''}
+            </p>
             <p className="shared-wiki-page__privacy-note">
               Public pages and references are visible. Backlinks, highlights, source notes, and agent work stay private.
             </p>
