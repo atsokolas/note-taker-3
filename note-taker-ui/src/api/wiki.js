@@ -557,6 +557,27 @@ export const armTranscriptWatch = async (pageId, { ticker = '' } = {}) => {
   }
 };
 
+export const armGitHubRepoWatch = async (pageId, { repo = '', repoUrl = '', owner = '', repoName = '' } = {}) => {
+  const payload = {};
+  const normalizedRepo = String(repo || repoUrl || '').trim();
+  const normalizedOwner = String(owner || '').trim();
+  const normalizedRepoName = String(repoName || '').trim();
+  if (normalizedRepo) payload.repo = normalizedRepo;
+  if (normalizedOwner) payload.owner = normalizedOwner;
+  if (normalizedRepoName) payload.repoName = normalizedRepoName;
+  try {
+    const res = await api.post(
+      `${WIKI_PAGES_PATH}/${safeId(pageId)}/github-repo-watch`,
+      payload,
+      getAuthHeaders()
+    );
+    return res.data || {};
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to arm GitHub repo watch.';
+    throw new Error(message);
+  }
+};
+
 export const rebuildWikiPageGraph = async (id) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/graph/rebuild`, {}, getAuthHeaders());
   return res.data || {};
@@ -636,6 +657,7 @@ const wikiApi = {
   reviewWikiFreshness,
   armEdgarWatch,
   armTranscriptWatch,
+  armGitHubRepoWatch,
   rebuildWikiPageGraph,
   rebuildWikiGraph,
   writeWikiPageToConnector,

@@ -487,9 +487,22 @@ const wikiTranscriptWatchSchema = new mongoose.Schema({
   errorMessage: { type: String, default: '', trim: true }
 }, { _id: false });
 
+const wikiGitHubRepoWatchSchema = new mongoose.Schema({
+  owner: { type: String, default: '', trim: true },
+  repo: { type: String, default: '', trim: true },
+  defaultBranch: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['idle', 'active', 'error'], default: 'idle' },
+  lastCheckedAt: { type: Date, default: null },
+  lastHeadSha: { type: String, default: '', trim: true },
+  lastReleaseTag: { type: String, default: '', trim: true },
+  lastEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  errorMessage: { type: String, default: '', trim: true }
+}, { _id: false });
+
 const wikiExternalWatchesSchema = new mongoose.Schema({
   edgar: { type: wikiEdgarWatchSchema, default: () => ({}) },
-  transcripts: { type: wikiTranscriptWatchSchema, default: () => ({}) }
+  transcripts: { type: wikiTranscriptWatchSchema, default: () => ({}) },
+  githubRepo: { type: wikiGitHubRepoWatchSchema, default: () => ({}) }
 }, { _id: false });
 
 const wikiPageSchema = new mongoose.Schema({

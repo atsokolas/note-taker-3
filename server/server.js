@@ -146,6 +146,7 @@ const { drainWikiSourceEventQueue } = require('./services/wikiSourceEventWorker'
 const { drainScheduledWikiMaintenance } = require('./services/wikiScheduledMaintenanceWorker');
 const { drainDueEdgarWatches } = require('./services/edgarWatcherService');
 const { drainDueTranscriptWatches } = require('./services/earningsTranscriptWatcherService');
+const { drainDueGitHubRepoWatches } = require('./services/githubRepoWatcherService');
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
@@ -163,6 +164,8 @@ let edgarWatchWorkerTimer = null;
 let edgarWatchWorkerRunning = false;
 let transcriptWatchWorkerTimer = null;
 let transcriptWatchWorkerRunning = false;
+let githubRepoWatchWorkerTimer = null;
+let githubRepoWatchWorkerRunning = false;
 let embeddingJobWorkerTimer = null;
 let embeddingJobWorkerRunning = false;
 
@@ -291,6 +294,47 @@ if (mongoose.connection.readyState === 1) {
   startTranscriptWatchWorker();
 } else {
   mongoose.connection.once('open', startTranscriptWatchWorker);
+}
+
+const runGitHubRepoWatchWorker = async () => {
+  if (githubRepoWatchWorkerRunning || mongoose.connection.readyState !== 1) return;
+  githubRepoWatchWorkerRunning = true;
+  try {
+    const result = await drainDueGitHubRepoWatches({
+      models: {
+        WikiPage,
+        WikiSourceEvent
+      },
+      limit: Number(process.env.GITHUB_REPO_WATCH_WORKER_BATCH_SIZE || 5),
+      maxAgeMs: Number(process.env.GITHUB_REPO_WATCH_MAX_AGE_MS || 6 * 60 * 60 * 1000)
+    });
+    if (result.processed || result.failed) {
+      const sourceEvents = result.results.reduce((sum, row) => sum + (Number(row.sourceEvents) || 0), 0);
+      console.log(`[github-repo-watch-worker] processed=${result.processed} failed=${result.failed} sourceEvents=${sourceEvents}`);
+    }
+  } catch (error) {
+    console.error('[github-repo-watch-worker] failed:', error);
+  } finally {
+    githubRepoWatchWorkerRunning = false;
+  }
+};
+
+const startGitHubRepoWatchWorker = () => {
+  if (process.env.GITHUB_REPO_WATCH_WORKER_DISABLED === 'true' || githubRepoWatchWorkerTimer) return;
+  const intervalMs = Math.max(
+    60 * 60 * 1000,
+    Number(process.env.GITHUB_REPO_WATCH_WORKER_INTERVAL_MS || 6 * 60 * 60 * 1000)
+  );
+  githubRepoWatchWorkerTimer = setInterval(runGitHubRepoWatchWorker, intervalMs);
+  if (process.env.GITHUB_REPO_WATCH_RUN_ON_START === 'true') {
+    runGitHubRepoWatchWorker();
+  }
+};
+
+if (mongoose.connection.readyState === 1) {
+  startGitHubRepoWatchWorker();
+} else {
+  mongoose.connection.once('open', startGitHubRepoWatchWorker);
 }
 
 const runEmbeddingJobWorker = async () => {

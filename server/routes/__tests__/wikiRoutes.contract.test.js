@@ -617,6 +617,7 @@ const run = async () => {
   const proposalMaintainCalls = [];
   const trackCalls = [];
   const transcriptWatchCalls = [];
+  const githubRepoWatchCalls = [];
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: req.headers['x-test-user'] || 'user-1' };
@@ -687,6 +688,48 @@ const run = async () => {
           status: 'pending',
           externalId: `fmp-transcript:${ticker}:2026:2:2026-07-01`,
           sourceUpdatedAt: new Date('2026-07-01T00:00:00.000Z')
+        }]
+      };
+    },
+    armGitHubRepoWatchForPage: async ({
+      WikiPage: WikiPageModel,
+      userId,
+      pageId,
+      repo,
+      checkNow
+    }) => {
+      githubRepoWatchCalls.push({ userId, pageId, repo, checkNow });
+      const page = await WikiPageModel.findOne({ _id: pageId, userId });
+      page.externalWatches = {
+        ...(page.externalWatches || {}),
+        githubRepo: {
+          owner: 'openai',
+          repo: 'agents-js',
+          defaultBranch: 'main',
+          status: 'active',
+          lastCheckedAt: new Date('2026-07-04T00:00:00.000Z'),
+          lastHeadSha: 'abc1234567890abcdef',
+          lastReleaseTag: 'v1.2.3'
+        }
+      };
+      if (typeof page.save === 'function') await page.save();
+      return {
+        page,
+        snapshot: {
+          fullName: 'openai/agents-js',
+          description: 'Agents SDK for TypeScript',
+          defaultBranch: 'main',
+          headSha: 'abc1234567890abcdef',
+          docs: [{ path: 'README.md' }],
+          latestRelease: { tagName: 'v1.2.3' }
+        },
+        events: [{
+          _id: new mongoose.Types.ObjectId().toString(),
+          title: 'openai/agents-js README.md',
+          status: 'pending',
+          externalId: 'github-doc:openai/agents-js:abc1234567890abcdef:README.md:readme-sha',
+          url: 'https://github.com/openai/agents-js/blob/abc1234567890abcdef/README.md',
+          sourceUpdatedAt: null
         }]
       };
     },
@@ -888,6 +931,22 @@ const run = async () => {
       userId: 'user-1',
       pageId: String(created.body._id),
       ticker: 'MSFT',
+      checkNow: true
+    });
+
+    const githubRepoWatch = await request(url, `/api/wiki/pages/${created.body._id}/github-repo-watch`, {
+      method: 'POST',
+      body: JSON.stringify({ repo: 'openai/agents-js' })
+    });
+    assert.strictEqual(githubRepoWatch.res.status, 200, githubRepoWatch.text);
+    assert.strictEqual(githubRepoWatch.body.page.externalWatches.githubRepo.owner, 'openai');
+    assert.strictEqual(githubRepoWatch.body.snapshot.fullName, 'openai/agents-js');
+    assert.strictEqual(githubRepoWatch.body.snapshot.docCount, 1);
+    assert.strictEqual(githubRepoWatch.body.sourceEvents.length, 1);
+    assert.deepStrictEqual(githubRepoWatchCalls[0], {
+      userId: 'user-1',
+      pageId: String(created.body._id),
+      repo: 'openai/agents-js',
       checkNow: true
     });
 

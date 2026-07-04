@@ -34,6 +34,11 @@ const {
   checkTranscriptWatchForPage: defaultCheckTranscriptWatchForPage,
   normalizeTicker: normalizeTranscriptTicker
 } = require('../services/earningsTranscriptWatcherService');
+const {
+  armGitHubRepoWatchForPage: defaultArmGitHubRepoWatchForPage,
+  checkGitHubRepoWatchForPage: defaultCheckGitHubRepoWatchForPage,
+  parseGitHubRepo: parseGitHubRepoWatchInput
+} = require('../services/githubRepoWatcherService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { processPendingWikiSourceEvents } = require('../services/wikiSourceEventWorker');
 const { writeWikiPageToConnector } = require('../services/wikiConnectorWritebackService');
@@ -1209,6 +1214,8 @@ const buildWikiRouter = ({
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
   checkTranscriptWatchForPage = defaultCheckTranscriptWatchForPage,
+  armGitHubRepoWatchForPage = defaultArmGitHubRepoWatchForPage,
+  checkGitHubRepoWatchForPage = defaultCheckGitHubRepoWatchForPage,
   findWikiBacklinks = defaultFindWikiBacklinks,
   shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
   trackEvent = null,
@@ -2579,6 +2586,83 @@ const buildWikiRouter = ({
       });
     } catch (error) {
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check transcript watch.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/github-repo-watch', wikiAuth, async (req, res) => {
+    try {
+      const repoInput = String(req.body?.repo || req.body?.repoUrl || '').trim();
+      const owner = String(req.body?.owner || '').trim();
+      const repoName = String(req.body?.repoName || '').trim();
+      if (!repoInput && (!owner || !repoName)) return res.status(400).json({ error: 'repo or owner/repoName is required.' });
+      if (repoInput) parseGitHubRepoWatchInput(repoInput);
+      const result = await armGitHubRepoWatchForPage({
+        WikiPage,
+        WikiSourceEvent,
+        userId: req.user.id,
+        pageId: req.params.id,
+        repo: repoInput,
+        owner,
+        repoName,
+        checkNow: req.body?.checkNow !== false
+      });
+      res.status(200).json({
+        page: serializeWikiPage(result.page),
+        snapshot: result.snapshot ? {
+          fullName: result.snapshot.fullName,
+          description: result.snapshot.description,
+          defaultBranch: result.snapshot.defaultBranch,
+          headSha: result.snapshot.headSha,
+          docCount: Array.isArray(result.snapshot.docs) ? result.snapshot.docs.length : 0,
+          latestRelease: result.snapshot.latestRelease || null
+        } : null,
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            url: event.url,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to arm GitHub repo watch.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/github-repo-watch/check', wikiAuth, async (req, res) => {
+    try {
+      const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id, status: { $ne: 'archived' } });
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await checkGitHubRepoWatchForPage({
+        WikiSourceEvent,
+        page
+      });
+      res.status(200).json({
+        page: serializeWikiPage(result.page),
+        snapshot: result.snapshot ? {
+          fullName: result.snapshot.fullName,
+          description: result.snapshot.description,
+          defaultBranch: result.snapshot.defaultBranch,
+          headSha: result.snapshot.headSha,
+          docCount: Array.isArray(result.snapshot.docs) ? result.snapshot.docs.length : 0,
+          latestRelease: result.snapshot.latestRelease || null
+        } : null,
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            url: event.url,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check GitHub repo watch.' });
     }
   });
 
