@@ -218,16 +218,35 @@ export const maintainWikiPage = async (id, options = {}) => {
 
 export const draftWikiPage = maintainWikiPage;
 
+const WIKI_STREAM_READ_TIMEOUT_MS = 24000;
+
 export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) => {
   const pageId = String(id || '').trim();
   const token = localStorage.getItem('token');
+  const controller = new AbortController();
+  const overrideMs = Number(window.__NOEIS_WIKI_STREAM_READ_TIMEOUT_MS__);
+  const timeoutMs = Number.isFinite(overrideMs) ? overrideMs : WIKI_STREAM_READ_TIMEOUT_MS;
+  let timeoutId = null;
+  const clearReadTimeout = () => {
+    if (timeoutId) window.clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+  const armReadTimeout = () => {
+    clearReadTimeout();
+    if (timeoutMs <= 0) return;
+    timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+  };
+  armReadTimeout();
   const res = await fetch(apiUrl(`${WIKI_PAGES_PATH}/${safeId(pageId)}/ai/draft/stream`), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify(options || {})
+    body: JSON.stringify(options || {}),
+    signal: controller.signal
   });
 
   if (!res.ok) {
@@ -266,13 +285,24 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
     }
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split(/\r?\n\r?\n/);
-    buffer = blocks.pop() || '';
-    blocks.forEach(consumeBlock);
+  try {
+    while (true) {
+      armReadTimeout();
+      const { done, value } = await reader.read();
+      clearReadTimeout();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = blocks.pop() || '';
+      blocks.forEach(consumeBlock);
+    }
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Wiki maintenance stream timed out.');
+    }
+    throw error;
+  } finally {
+    clearReadTimeout();
   }
   buffer += decoder.decode();
   if (buffer.trim()) consumeBlock(buffer);
