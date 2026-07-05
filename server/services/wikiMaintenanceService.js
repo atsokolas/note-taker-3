@@ -1629,7 +1629,9 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
   });
-  const minWords = sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS;
+  const minWords = isGitHubRepoPage({ page, candidates: sourceRefs })
+    ? 280
+    : (sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
   if (sourceCount >= 3 && words < minWords) {
     failures.push(`Article is too thin for ${sourceCount} sources: ${words} words, expected at least ${minWords}.`);
   }
