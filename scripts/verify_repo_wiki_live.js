@@ -79,7 +79,13 @@ async function readPage(token, pageId) {
 async function waitForBuiltPage(token, pageId) {
   let latest = null;
   for (let attempt = 1; attempt <= 12; attempt += 1) {
-    latest = await readPage(token, pageId);
+    try {
+      latest = await readPage(token, pageId);
+    } catch (error) {
+      console.log(`page poll ${attempt}: read failed ${error.message}`);
+      await sleep(10000);
+      continue;
+    }
     const plainText = String(latest.plainText || '').replace(/\s+/g, ' ').trim();
     const words = wordCount(plainText);
     const stillScaffold = /Repository sources are being attached|Noeis will build this project wiki/i.test(plainText);
