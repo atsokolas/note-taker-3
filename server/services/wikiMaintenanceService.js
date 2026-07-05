@@ -28,7 +28,7 @@ const SCAFFOLD_PATTERNS = [
 const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'npm distribution claim', pattern: /\b(?:published|packaged|distributed)\s+(?:as|to|on)\s+(?:an?\s+)?npm\b|\bnpm package metadata confirms\b/i },
   { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
-  { label: 'provenance boilerplate', pattern: /\bprovenance-aware|source-provenance practices|Debug Fixture\b/i },
+  { label: 'provenance boilerplate', pattern: /\bprovenance[-‑–—\s]?aware|source[-‑–—\s]?provenance practices|Debug Fixture\b/i },
   { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i }
 ];
 const HEALTH_KEYS = [

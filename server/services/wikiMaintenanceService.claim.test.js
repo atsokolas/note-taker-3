@@ -211,6 +211,23 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(failures).toEqual([]);
   });
 
+  it('catches unicode-hyphen provenance boilerplate on repo pages', () => {
+    const failures = findUnsupportedGitHubRepoClaims({
+      page: {
+        title: 'Note-Taker-3 Repo Wiki',
+        createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+      },
+      text: 'Provenance‑aware analysis treats the repository as a testbed.',
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 README.md',
+        snippet: 'Repository documentation source. Path: README.md.',
+        metadata: { source: 'github-repo' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/unsupported provenance boilerplate/i);
+  });
+
   it('formats known pages for prompt-time wiki references', () => {
     expect(formatKnownWikiPages([
       { id: 'page-1', title: 'Cash Flow Valuation', pageType: 'concept', summary: 'Valuing assets from owner cash flows.' }

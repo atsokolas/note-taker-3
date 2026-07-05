@@ -29,8 +29,8 @@ const UNSUPPORTED_REPO_PATTERNS = [
   /npm package metadata confirms/i,
   /continuous[-\s]?integration/i,
   /fully tested/i,
-  /provenance-aware/i,
-  /source-provenance practices/i,
+  /provenance[-‑–—\s]?aware/i,
+  /source[-‑–—\s]?provenance practices/i,
   /Debug Fixture/i,
   /Library highlights?/i
 ];
