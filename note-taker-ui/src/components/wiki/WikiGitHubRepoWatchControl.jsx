@@ -1,84 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Button } from '../ui';
 import { armGitHubRepoWatch } from '../../api/wiki';
+import {
+  formatGitHubRepoWatchReceipt,
+  githubWatchState,
+  initialRepoValue,
+  isRepoDossierPage
+} from './wikiRepoDossierModel';
 
-const normalizeText = (value = '') => String(value || '').trim();
-
-const pageMeta = (page = {}) => {
-  const value = page || {};
-  return (
-    value.infobox && typeof value.infobox === 'object' ? value.infobox :
-      value.metadata && typeof value.metadata === 'object' ? value.metadata :
-        value.meta && typeof value.meta === 'object' ? value.meta :
-        {}
-  );
-};
-
-const formatWatchDate = (value) => {
-  if (!value) return 'not yet';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'not yet';
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const normalizeRepoInput = (value = '') => normalizeText(value)
-  .replace(/^https?:\/\/github\.com\//i, '')
-  .replace(/^github\.com\//i, '')
-  .replace(/\.git(?:[/?#].*)?$/i, '')
-  .replace(/[?#].*$/, '')
-  .replace(/\/+$/, '');
-
-const githubWatchState = (watch = {}) => {
-  const value = watch && typeof watch === 'object' ? watch : {};
-  const owner = normalizeText(value.owner);
-  const repo = normalizeText(value.repo);
-  const status = String(value.status || '').toLowerCase();
-  const errorMessage = normalizeText(value.errorMessage);
-  const fullName = owner && repo ? `${owner}/${repo}` : '';
-  const armed = Boolean(fullName) && status !== 'error';
-  const queued = armed && !value.lastCheckedAt;
-  return {
-    owner,
-    repo,
-    fullName,
-    defaultBranch: normalizeText(value.defaultBranch),
-    status,
-    errorMessage,
-    lastCheckedAt: value.lastCheckedAt || null,
-    lastHeadSha: normalizeText(value.lastHeadSha),
-    lastReleaseTag: normalizeText(value.lastReleaseTag),
-    armed,
-    queued,
-    watchError: status === 'error' ? (errorMessage || 'GitHub repo watch failed.') : ''
-  };
-};
-
-export const isRepoDossierPage = (page = {}) => {
-  const type = String(page?.pageType || '').toLowerCase();
-  const watch = githubWatchState(page?.externalWatches?.githubRepo);
-  if (watch.owner || watch.repo) return true;
-  if (type === 'project' || type === 'log') return true;
-  const meta = pageMeta(page);
-  return Boolean(normalizeText(meta.githubRepo || meta.repo || meta.repository || meta.githubUrl || meta.repoUrl));
-};
-
-export const formatGitHubRepoWatchReceipt = (watch = {}) => {
-  const state = githubWatchState(watch);
-  const label = state.fullName || 'repository';
-  if (state.queued) {
-    return `GitHub watcher queued for ${label} · first sync pending`;
-  }
-  const checked = formatWatchDate(state.lastCheckedAt);
-  const sha = state.lastHeadSha ? ` · head ${state.lastHeadSha.slice(0, 7)}` : '';
-  const release = state.lastReleaseTag ? ` · latest release ${state.lastReleaseTag}` : '';
-  return `GitHub watcher armed for ${label} · last checked ${checked}${sha}${release}`;
-};
-
-const initialRepoValue = (page = {}, state = {}) => {
-  if (state.fullName) return state.fullName;
-  const meta = pageMeta(page);
-  return normalizeRepoInput(meta.githubRepo || meta.repo || meta.repository || meta.githubUrl || meta.repoUrl || '');
-};
+export { formatGitHubRepoWatchReceipt, isRepoDossierPage } from './wikiRepoDossierModel';
 
 const WikiGitHubRepoWatchControl = ({ pageId, page, onPageUpdate }) => {
   const watch = page?.externalWatches?.githubRepo;
@@ -89,7 +19,12 @@ const WikiGitHubRepoWatchControl = ({ pageId, page, onPageUpdate }) => {
 
   const handleSubmit = useCallback(async (event) => {
     event.preventDefault();
-    const repoInput = normalizeRepoInput(repo);
+    const repoInput = String(repo || '').trim()
+      .replace(/^https?:\/\/github\.com\//i, '')
+      .replace(/^github\.com\//i, '')
+      .replace(/\.git(?:[/?#].*)?$/i, '')
+      .replace(/[?#].*$/, '')
+      .replace(/\/+$/, '');
     if (!repoInput || !repoInput.includes('/')) {
       setSubmitError('Enter a public GitHub repository as owner/repo.');
       return;

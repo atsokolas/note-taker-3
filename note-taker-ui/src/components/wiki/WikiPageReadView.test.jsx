@@ -22,6 +22,7 @@ import { getConnectionsForItem } from '../../api/connections';
 
 jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
+  armGitHubRepoWatch: jest.fn(),
   createWikiPage: jest.fn(),
   getWikiAutolinkSuggestions: jest.fn(),
   getWikiBacklinks: jest.fn(),
@@ -1737,5 +1738,46 @@ describe('WikiPageReadView', () => {
       jest.advanceTimersByTime(2000);
     });
     expect(paragraph).not.toHaveClass('wiki-read__paragraph--recent');
+  });
+
+  it('shows developer quickstart on GitHub repo wiki pages when data is present', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      _id: 'wiki-repo-1',
+      title: 'Note-Taker-3 Repo Wiki',
+      pageType: 'project',
+      externalWatches: {
+        githubRepo: {
+          owner: 'atsokolas',
+          repo: 'note-taker-3',
+          status: 'active',
+          lastCheckedAt: '2026-07-04T12:00:00.000Z'
+        }
+      },
+      metadata: {
+        runCommand: 'npm start',
+        testCommand: 'CI=1 npm test -- --watchAll=false --runInBand',
+        deployFrontend: 'Vercel · https://www.noeis.io',
+        deployApi: 'Render · https://note-taker-3-unrg.onrender.com',
+        keyPaths: ['note-taker-ui/', 'server/']
+      }
+    });
+
+    renderReadView({ pageId: 'wiki-repo-1' });
+    await flushDeferredWikiReadWork();
+
+    expect(screen.getByRole('region', { name: 'Developer quickstart' })).toBeInTheDocument();
+    expect(screen.getByText('npm start')).toBeInTheDocument();
+    expect(screen.getByText(/CI=1 npm test/)).toBeInTheDocument();
+    expect(screen.getByText('note-taker-ui/')).toBeInTheDocument();
+    expect(screen.getByText('server/')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Track GitHub repo' })).toBeInTheDocument();
+  });
+
+  it('does not show developer quickstart on ordinary wiki pages', async () => {
+    renderReadView();
+    await flushDeferredWikiReadWork();
+
+    expect(screen.queryByRole('region', { name: 'Developer quickstart' })).not.toBeInTheDocument();
   });
 });

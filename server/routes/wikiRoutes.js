@@ -2526,19 +2526,19 @@ const buildWikiRouter = ({
               type: 'paragraph',
               content: [{
                 type: 'text',
-                text: `${fullName} is a public GitHub repository. Noeis will build this project wiki from repository docs, releases, architecture notes, and changelogs.`
+                text: `${fullName} is a public GitHub repository. Noeis will maintain this as a developer dossier grounded in package files, entrypoints, workflows, docs, releases, and recent commits.`
               }]
             },
             {
               type: 'heading',
               attrs: { level: 2 },
-              content: [{ type: 'text', text: 'Current State' }]
+              content: [{ type: 'text', text: 'Developer quickstart' }]
             },
             {
               type: 'paragraph',
               content: [{
                 type: 'text',
-                text: 'Repository sources are being attached. The next maintenance pass should replace this scaffold with source-backed synthesis.'
+                text: 'Run, test, deploy, architecture, and key-path details will appear after the first GitHub sync attaches repository evidence.'
               }]
             }
           ]

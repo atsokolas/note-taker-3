@@ -3,9 +3,12 @@ const {
   armGitHubRepoWatchForPage,
   drainDueGitHubRepoWatches,
   dueGitHubRepoWatchQuery,
+  classifyRepoDocClass,
   isUsefulDocPath,
+  isUsefulRepoEvidencePath,
   parseGitHubRepo,
-  selectRepoDocEntries
+  selectRepoDocEntries,
+  selectRepoEvidenceEntries
 } = require('./githubRepoWatcherService');
 
 const makeFetch = () => async (url) => {
@@ -34,13 +37,23 @@ const makeFetch = () => async (url) => {
       ok: true,
       json: async () => ({
         tree: [
+          { path: 'package.json', type: 'blob', sha: 'package-sha', size: 900 },
+          { path: '.github/workflows/ci.yml', type: 'blob', sha: 'ci-sha', size: 700 },
           { path: 'README.md', type: 'blob', sha: 'readme-sha', size: 1200 },
           { path: 'docs/architecture.md', type: 'blob', sha: 'arch-sha', size: 800 },
           { path: 'src/index.ts', type: 'blob', sha: 'src-sha', size: 2000 },
+          { path: 'server/server.js', type: 'blob', sha: 'server-sha', size: 2000 },
+          { path: 'web/src/App.tsx', type: 'blob', sha: 'app-sha', size: 2000 },
           { path: 'CHANGELOG.md', type: 'blob', sha: 'changes-sha', size: 900 }
         ]
       })
     };
+  }
+  if (value.endsWith('/git/blobs/package-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('{"scripts":{"start":"node server/server.js","test":"node --test"}}').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/ci-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest').toString('base64') }) };
   }
   if (value.endsWith('/git/blobs/readme-sha')) {
     return { ok: true, json: async () => ({ content: Buffer.from('# Agents JS\nAgent runtime docs.').toString('base64') }) };
@@ -48,8 +61,30 @@ const makeFetch = () => async (url) => {
   if (value.endsWith('/git/blobs/arch-sha')) {
     return { ok: true, json: async () => ({ content: Buffer.from('# Architecture\nRuns tools with handoffs.').toString('base64') }) };
   }
+  if (value.endsWith('/git/blobs/src-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('export function runAgent() { return "ok"; }').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/server-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('const express = require("express"); const app = express();').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/app-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('export function App() { return null; }').toString('base64') }) };
+  }
   if (value.endsWith('/git/blobs/changes-sha')) {
     return { ok: true, json: async () => ({ content: Buffer.from('# Changelog\nv1 shipped.').toString('base64') }) };
+  }
+  if (value.includes('/commits?sha=main')) {
+    return {
+      ok: true,
+      json: async () => ([{
+        sha: 'abc1234567890abcdef',
+        commit: {
+          message: 'Add durable sessions',
+          author: { name: 'Test Author', date: '2026-07-03T00:00:00Z' }
+        },
+        html_url: 'https://github.com/openai/agents-js/commit/abc1234567890abcdef'
+      }])
+    };
   }
   if (value.endsWith('/releases/latest')) {
     return {
@@ -136,6 +171,13 @@ const run = async () => {
   assert.strictEqual(isUsefulDocPath('README.md'), true);
   assert.strictEqual(isUsefulDocPath('docs/architecture.md'), true);
   assert.strictEqual(isUsefulDocPath('src/index.ts'), false);
+  assert.strictEqual(isUsefulRepoEvidencePath('package.json'), true);
+  assert.strictEqual(isUsefulRepoEvidencePath('.github/workflows/ci.yml'), true);
+  assert.strictEqual(isUsefulRepoEvidencePath('src/index.ts'), true);
+  assert.strictEqual(classifyRepoDocClass('package.json'), 'config');
+  assert.strictEqual(classifyRepoDocClass('server/server.js'), 'code');
+  assert.strictEqual(classifyRepoDocClass('AGENTS.md'), 'runbook');
+  assert.strictEqual(classifyRepoDocClass('docs/noeis-public-proof-gallery-spec-2026-07-03.md'), 'planned');
   assert.deepStrictEqual(
     selectRepoDocEntries([
       { path: 'docs/usage.md', type: 'blob' },
@@ -143,6 +185,16 @@ const run = async () => {
       { path: 'src/index.ts', type: 'blob' }
     ]).map(entry => entry.path),
     ['README.md', 'docs/usage.md']
+  );
+  assert.deepStrictEqual(
+    selectRepoEvidenceEntries([
+      { path: 'docs/usage.md', type: 'blob' },
+      { path: 'README.md', type: 'blob' },
+      { path: 'src/index.ts', type: 'blob' },
+      { path: '.github/workflows/ci.yml', type: 'blob' },
+      { path: 'package.json', type: 'blob' }
+    ], 5).map(entry => entry.path),
+    ['package.json', 'README.md', '.github/workflows/ci.yml', 'src/index.ts', 'docs/usage.md']
   );
 
   FakeWikiSourceEvent.reset();
@@ -157,15 +209,18 @@ const run = async () => {
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
   assert.strictEqual(result.snapshot.fullName, 'openai/agents-js');
-  assert.strictEqual(result.snapshot.docs.length, 3);
-  assert.strictEqual(result.events.length, 4);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 4);
+  assert.strictEqual(result.snapshot.docs.length, 8);
+  assert.strictEqual(result.snapshot.recentCommits.length, 1);
+  assert.strictEqual(result.events.length, 10);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 10);
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.owner, 'openai');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.repo, 'agents-js');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.lastHeadSha, 'abc1234567890abcdef');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.lastReleaseTag, 'v1.2.3');
-  assert.match(FakeWikiSourceEvent.rows[0].metadata.ref, /README\.md @ abc1234/);
-  assert.match(FakeWikiSourceEvent.rows[0].text, /Agent runtime docs/);
+  assert.match(FakeWikiSourceEvent.rows[0].metadata.ref, /package\.json @ abc1234/);
+  assert.strictEqual(FakeWikiSourceEvent.rows[0].metadata.docClass, 'config');
+  assert.match(FakeWikiSourceEvent.rows[0].text, /node server\/server\.js/);
+  assert.strictEqual(FakeWikiSourceEvent.rows.some(row => /recent commits/i.test(row.title)), true);
 
   const second = await armGitHubRepoWatchForPage({
     WikiPage: FakeWikiPage,
@@ -177,7 +232,7 @@ const run = async () => {
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
   assert.strictEqual(second.events.length, 0);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 4);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 10);
 
   const dueQuery = dueGitHubRepoWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });
   assert.strictEqual(dueQuery['externalWatches.githubRepo.status'], 'active');

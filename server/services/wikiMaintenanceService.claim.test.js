@@ -8,6 +8,7 @@ const {
   deriveClaimsFromDoc,
   docFromArticle,
   evaluateWikiArticleQuality,
+  findGitHubRepoDeveloperDossierFailures,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   normalizeSourceIndexesUsed,
@@ -112,9 +113,43 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(prompt).toContain('GitHub repository page rules');
     expect(prompt).toContain('Write only what the repository evidence actually supports');
+    expect(prompt).toContain('developer dossier');
+    expect(prompt).toContain('Run locally');
+    expect(prompt).toContain('Key files');
+    expect(prompt).toContain('Developer quickstart');
+    expect(prompt).toContain('docClass="planned"');
     expect(prompt).toContain('Do not claim the repo is published to npm');
     expect(prompt).toContain('Prefer concrete repo facts');
     expect(prompt).toContain('Do not describe them as Library highlights');
+  });
+
+  it('surfaces GitHub repo metadata in source blocks so specs stay quarantined', () => {
+    const prompt = buildPrompt({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'project',
+        createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 docs/noeis-public-proof-gallery-spec-2026-07-03.md',
+        text: 'Planned public proof gallery wedge.',
+        metadata: {
+          source: 'github-repo',
+          path: 'docs/noeis-public-proof-gallery-spec-2026-07-03.md',
+          evidenceType: 'document',
+          docClass: 'planned',
+          commitSha: '795f0dae1234567890'
+        }
+      }]
+    });
+
+    expect(prompt).toContain('Repository metadata: provider=github-repo');
+    expect(prompt).toContain('path=docs/noeis-public-proof-gallery-spec-2026-07-03.md');
+    expect(prompt).toContain('docClass=planned');
+    expect(prompt).toContain('commit=795f0da');
   });
 
   it('does not add GitHub repo rules to ordinary wiki pages', () => {
@@ -192,6 +227,84 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.ok).toBe(false);
     expect(quality.failures.join(' ')).toMatch(/unsupported npm distribution claim/i);
     expect(quality.failures.join(' ')).toMatch(/unsupported provenance boilerplate/i);
+  });
+
+  it('fails GitHub repo pages that read like stale roadmap notes instead of developer dossiers', () => {
+    const body = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'The repo is a product roadmap with June 2026 QA sweeps, an Evernote OAuth spike, and public npm packaging work.'
+          }]
+        }
+      ]
+    };
+
+    const quality = evaluateWikiArticleQuality({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+      },
+      body,
+      claims: [],
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 README.md',
+        snippet: 'Repository developer evidence source. Path: README.md. Product overview.',
+        metadata: { source: 'github-repo', evidenceType: 'document', path: 'README.md' }
+      }, {
+        title: 'atsokolas/note-taker-3 docs/full-qa-sweep-2026-06-06.md',
+        snippet: 'Repository developer evidence source. Path: docs/full-qa-sweep-2026-06-06.md.',
+        metadata: { source: 'github-repo', evidenceType: 'document', path: 'docs/full-qa-sweep-2026-06-06.md' }
+      }]
+    });
+
+    expect(quality.ok).toBe(false);
+    expect(quality.failures.join(' ')).toMatch(/developer-dossier sections/i);
+    expect(quality.failures.join(' ')).toMatch(/local run or test commands/i);
+    expect(quality.failures.join(' ')).toMatch(/code\/config evidence/i);
+    expect(quality.failures.join(' ')).toMatch(/recent-commit evidence/i);
+    expect(quality.failures.join(' ')).toMatch(/stale planning or QA history/i);
+  });
+
+  it('passes GitHub repo developer dossier checks with code, config, commands, and current work', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+      },
+      text: [
+        'Summary: Noeis is a React and Express knowledge workspace.',
+        'Run locally: run npm start at the repo root and npm run build in note-taker-ui.',
+        'Architecture: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
+        'Key files: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
+        'Tests and deploy: npm run wiki:qa covers the wiki path and Vercel/Render ship the app.',
+        'Current active work: recent commits are focused on repo wiki grounding.',
+        'How to extend: add a route, service, model, focused test, and browser proof.',
+        'Known risks: watcher source selection must avoid stale planning docs.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. const app = express();',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        snippet: 'Path: note-taker-ui/src/App.js. React app routes.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'note-taker-ui/src/App.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 recent commits',
+        snippet: 'recent commits. 795f0da 2026-07-05 - fix repo provenance boilerplate variants.',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }]
+    });
+
+    expect(failures).toEqual([]);
   });
 
   it('allows repo distribution wording when the repository evidence explicitly supports it', () => {

@@ -6221,6 +6221,127 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
   background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 7%, rgba(255, 255, 255, 0.02));
 }
 
+.wiki-read__repo-watches {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-read__repo-quickstart {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 64%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface, #fffaf2) 92%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, #2a241b 3%, transparent);
+}
+
+.wiki-read__repo-quickstart-head {
+  margin-bottom: 8px;
+}
+
+.wiki-read__repo-quickstart-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary));
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wiki-read__repo-quickstart-head h4 {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.wiki-read__repo-quickstart-head p {
+  margin: 0;
+  color: color-mix(in srgb, var(--text-muted) 92%, var(--text-primary));
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.wiki-read__repo-quickstart-grid {
+  display: grid;
+  gap: 7px;
+}
+
+.wiki-read__repo-quickstart-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.wiki-read__repo-quickstart-label {
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wiki-read__repo-quickstart-value {
+  min-width: 0;
+  color: var(--text-primary);
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.wiki-read__repo-quickstart-code,
+.wiki-read__repo-quickstart-paths code {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-muted, #f3ede3) 88%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 92%, #000);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.wiki-read__repo-quickstart-deploy {
+  display: grid;
+  gap: 4px;
+}
+
+.wiki-read__repo-quickstart-deploy strong {
+  margin-right: 4px;
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--text-primary));
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.wiki-read__repo-quickstart-paths {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+html[data-ui-theme='dark'] .wiki-read__repo-quickstart {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 12%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--surface, #171512) 96%, rgba(255, 255, 255, 0.02));
+}
+
+html[data-ui-theme='dark'] .wiki-read__repo-quickstart-code,
+html[data-ui-theme='dark'] .wiki-read__repo-quickstart-paths code {
+  background: color-mix(in srgb, var(--surface-muted, #211d18) 88%, rgba(255, 255, 255, 0.03));
+}
+
 .wiki-read__body {
   max-width: 68ch;
   padding: 26px 0 12px;
@@ -8057,6 +8178,11 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 
   .wiki-read__github-watch-input-row input {
     width: 100%;
+  }
+
+  .wiki-read__repo-quickstart-row {
+    grid-template-columns: 1fr;
+    gap: 3px;
   }
 
   .wiki-read__edgar-watch-input-row {

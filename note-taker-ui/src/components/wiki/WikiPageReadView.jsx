@@ -43,6 +43,7 @@ import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
 import WikiTranscriptWatchControl from './WikiTranscriptWatchControl';
 import WikiGitHubRepoWatchControl, { isRepoDossierPage } from './WikiGitHubRepoWatchControl';
+import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -2190,6 +2191,7 @@ const WikiPageReadView = ({
                     setPage(nextPage);
                   }}
                 />
+                <WikiRepoDeveloperQuickstart page={page} />
               </div>
             ) : null}
             {!workspaceMode ? (

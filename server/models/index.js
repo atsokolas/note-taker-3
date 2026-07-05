@@ -323,6 +323,8 @@ const wikiSourceRefSchema = new mongoose.Schema({
   snippet: { type: String, default: '', trim: true },
   url: { type: String, default: '', trim: true },
   citationLabel: { type: String, default: '', trim: true },
+  provider: { type: String, default: '', trim: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   addedBy: { type: String, enum: ['user', 'ai'], default: 'user' },
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });

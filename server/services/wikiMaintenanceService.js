@@ -31,6 +31,12 @@ const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'provenance boilerplate', pattern: /\bprovenance[-‑–—\s]?aware|source[-‑–—\s]?provenance practices|Debug Fixture\b/i },
   { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i }
 ];
+const GITHUB_REPO_DEVELOPER_SECTION_PATTERNS = [
+  /\bRun locally\b/i,
+  /\bArchitecture\b/i,
+  /\bKey files\b/i,
+  /\bTests? (?:and|&|\+)?\s*deploy\b|\bDeploy(?:ment)?\b/i
+];
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -462,6 +468,45 @@ const repoEvidenceText = ({ page = {}, sourceRefs = [] } = {}) => {
   ].filter(Boolean).join('\n');
 };
 
+const repoSourceEvidenceType = (source = {}) => {
+  const raw = [
+    source.metadata?.evidenceType,
+    source.metadata?.path,
+    source.title,
+    source.url,
+    source.snippet,
+    source.text
+  ].filter(Boolean).join(' ');
+  if (/\bpackage\.json\b|\.ya?ml\b|\.github\/workflows\//i.test(raw)) return 'config';
+  if (/\b(server|src|routes|services|models|pages|utils|layout)\/[^ ]+\.(js|jsx|ts|tsx)\b/i.test(raw)) return 'code';
+  if (/\brecent commits?\b|commit:|head commit/i.test(raw)) return 'recent_commits';
+  return 'document';
+};
+
+const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRefs = [] } = {}) => {
+  if (!isGitHubRepoPage({ page })) return [];
+  const failures = [];
+  const refs = Array.isArray(sourceRefs) ? sourceRefs : [];
+  const evidenceTypes = new Set(refs.map(repoSourceEvidenceType));
+  const codeOrConfigCount = refs.filter(source => ['code', 'config'].includes(repoSourceEvidenceType(source))).length;
+  if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
+    failures.push('GitHub repo article is missing developer-dossier sections: Run locally, Architecture, Key files, and Tests/deploy.');
+  }
+  if (!/\bnpm\s+(?:start|run|install|test|build|wiki:qa)\b|\byarn\s+(?:start|test|build)\b|\bpnpm\s+(?:start|test|build)\b/i.test(text)) {
+    failures.push('GitHub repo article does not expose concrete local run or test commands.');
+  }
+  if (codeOrConfigCount < 3) {
+    failures.push(`GitHub repo article has too little code/config evidence: ${codeOrConfigCount}/3 required.`);
+  }
+  if (!evidenceTypes.has('recent_commits')) {
+    failures.push('GitHub repo article is missing recent-commit evidence for current active work.');
+  }
+  if (/\b(?:April|May|June)\s+202[0-5]\b|\bQA sweeps?\b|\bOAuth spike\b/i.test(text) && !/\bHistorical notes?\b/i.test(text)) {
+    failures.push('GitHub repo article foregrounds stale planning or QA history instead of developer-facing current state.');
+  }
+  return failures;
+};
+
 const findUnsupportedGitHubRepoClaims = ({ page = {}, text = '', sourceRefs = [] } = {}) => {
   if (!isGitHubRepoPage({ page })) return [];
   const evidence = repoEvidenceText({ page, sourceRefs });
@@ -475,11 +520,28 @@ const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
   return `
 
 GitHub repository page rules:
-- This page is about a public GitHub repository. Write only what the repository evidence actually supports.
+- This page is about a public GitHub repository. Write it as a developer dossier for someone trying to understand, run, change, and maintain the repo today.
+- Write only what the repository evidence actually supports.
+- Use this section shape: Summary | Run locally | Architecture | Key files | Tests and deploy | Current active work | How to extend | Known risks.
+- Include a "Developer quickstart" section or subsection with exactly these labels when evidence exists: Run, Test, Deploy, Key paths.
 - Do not claim the repo is published to npm, continuously integrated, fully tested, provenance-aware, or accompanied by a wiki unless a cited repository source explicitly says that.
-- Prefer concrete repo facts: purpose, app/package type, major directories, services, scripts, API routes, deployment targets, documentation files, release notes, and open implementation risks.
+- Prefer concrete repo facts: purpose, app/package type, major directories, package scripts, API routes, service/model entrypoints, frontend entrypoints, deployment targets, recent commits, documentation files, release notes, and open implementation risks.
+- Include exact local commands only when package/config evidence supports them. Include exact key file paths only when they are present in the repository evidence.
 - Treat README, package files, docs, changelogs, and releases as repository evidence. Do not describe them as Library highlights.
-- If the repo evidence is thin, say which repository documents were found and what remains unknown.`;
+- Treat source metadata docClass="planned" as roadmap/spec material. It can appear only under Known risks, Current active work, or explicitly labeled planned work; never present it as shipped repository behavior.
+- If the repo evidence is thin, say which repository documents/files were found and what remains unknown.`;
+};
+
+const formatCandidateMetadataLine = (source = {}) => {
+  const meta = source.metadata || {};
+  const parts = [
+    source.provider ? `provider=${source.provider}` : '',
+    meta.path ? `path=${meta.path}` : '',
+    meta.evidenceType ? `evidenceType=${meta.evidenceType}` : '',
+    meta.docClass ? `docClass=${meta.docClass}` : '',
+    meta.commitSha ? `commit=${String(meta.commitSha).slice(0, 7)}` : ''
+  ].filter(Boolean);
+  return parts.length ? `Repository metadata: ${parts.join(' · ')}\n` : '';
 };
 
 const buildPrompt = ({
@@ -494,6 +556,7 @@ const buildPrompt = ({
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
+    formatCandidateMetadataLine(source) +
     `Text: ${truncate(source.text, sourceTextLimit)}`
   )).join('\n\n');
 
@@ -640,7 +703,9 @@ const sourceRefFromCandidate = (candidate) => ({
   snippet: truncate(candidate.text, 1000),
   url: truncateRaw(candidate.url, 1000),
   citationLabel: `[${candidate.index}]`,
-  addedBy: 'ai'
+  addedBy: 'ai',
+  provider: candidate.provider || '',
+  metadata: candidate.metadata || {}
 });
 
 const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
@@ -1355,6 +1420,8 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   }
   findUnsupportedGitHubRepoClaims({ page, text: plainText, sourceRefs })
     .forEach(failure => failures.push(failure));
+  findGitHubRepoDeveloperDossierFailures({ page, text: plainText, sourceRefs })
+    .forEach(failure => failures.push(failure));
 
   const score = Math.max(0, Number((1 - Math.min(1, failures.length / 6)).toFixed(2)));
   return {
@@ -1851,6 +1918,7 @@ module.exports = {
     isGitHubRepoPage,
     selectMaintenanceCandidates,
     findUnsupportedGitHubRepoClaims,
+    findGitHubRepoDeveloperDossierFailures,
     cleanWikiText,
     toPlainText
   }

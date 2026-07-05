@@ -3,6 +3,7 @@ const { createWikiSourceEvent } = require('./wikiSourceEventService');
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_DOC_PATH_LIMIT = 12;
+const DEFAULT_REPO_COMMIT_LIMIT = 8;
 const DEFAULT_BLOB_TEXT_LIMIT = 7000;
 
 const trim = (value = '', limit = 1000) => {
@@ -64,11 +65,37 @@ const docPathRank = (path = '') => {
   return 10;
 };
 
+const repoEvidencePathRank = (path = '') => {
+  const lower = String(path || '').toLowerCase();
+  if (lower === 'package.json') return 0;
+  if (/^[^/]+\/package\.json$/.test(lower)) return 1;
+  if (/^readme(\.|$)/.test(lower)) return 2;
+  if (lower === 'agents.md' || lower === 'contributing.md') return 3;
+  if (/^\.github\/workflows\/[^/]+\.(ya?ml)$/.test(lower)) return 4;
+  if (/^(server|api)\/(server|app|index)\.[jt]sx?$/.test(lower)) return 5;
+  if (/^server\/(routes|services|models)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 6;
+  if (/^src\/(index|main|app|server)\.[jt]sx?$/.test(lower)) return 7;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/(app|index|main|routes|api|utils|layout|pages)\b/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 7;
+  if (/^architecture(\.|$)|(^|\/)architecture(\.|\/|$)/.test(lower)) return 8;
+  if (/^(docs|documentation)\/(architecture|developer|dev|deploy|runbook|readme|getting-started|setup)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 9;
+  if (/^docs\//.test(lower)) return 20;
+  if (/^changelog(\.|$)|^changes(\.|$)/.test(lower)) return 21;
+  return 100;
+};
+
 const isUsefulDocPath = (path = '') => {
   const lower = String(path || '').toLowerCase();
   if (!/\.(md|mdx|rst|txt)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture)(\.|$)/i.test(lower)) return false;
   if (/(^|\/)(node_modules|dist|build|vendor|coverage|test-results|playwright-report)\//.test(lower)) return false;
   return docPathRank(lower) < 10;
+};
+
+const isUsefulRepoEvidencePath = (path = '') => {
+  const lower = String(path || '').toLowerCase();
+  if (/(^|\/)(node_modules|dist|build|vendor|coverage|test-results|playwright-report|\.next|\.vercel|tmp|temp)\//.test(lower)) return false;
+  if (/(^|\/)(__tests__|test|tests|fixtures|mocks)\//.test(lower)) return false;
+  if (!/\.(md|mdx|rst|txt|json|ya?ml|js|jsx|ts|tsx)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture|agents)(\.|$)/i.test(lower)) return false;
+  return repoEvidencePathRank(lower) < 100;
 };
 
 const selectRepoDocEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
@@ -78,7 +105,61 @@ const selectRepoDocEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
     .slice(0, Math.max(1, Math.min(Number(limit) || DEFAULT_DOC_PATH_LIMIT, 30)))
 );
 
+const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
+  (Array.isArray(tree) ? tree : [])
+    .filter(entry => entry?.type === 'blob' && isUsefulRepoEvidencePath(entry.path))
+    .sort((a, b) => repoEvidencePathRank(a.path) - repoEvidencePathRank(b.path) || String(a.path).localeCompare(String(b.path)))
+    .slice(0, Math.max(1, Math.min(Number(limit) || DEFAULT_DOC_PATH_LIMIT, 30)))
+);
+
 const decodeBase64 = (value = '') => Buffer.from(String(value || '').replace(/\s/g, ''), 'base64').toString('utf8');
+
+const classifyRepoDocClass = (path = '') => {
+  const lower = String(path || '').toLowerCase();
+  if (lower === 'package.json' || /^[^/]+\/package\.json$/.test(lower) || /^\.github\/workflows\//.test(lower)) return 'config';
+  if (/\.(js|jsx|ts|tsx)$/i.test(lower)) return 'code';
+  if (/^readme(\.|$)/.test(lower)) return 'readme';
+  if (lower === 'agents.md' || /(^|\/)(runbook|setup|getting-started|developer|dev|deploy)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 'runbook';
+  if (/(^|\/)(adr|adrs|decisions)\//.test(lower)) return 'decision';
+  if (/(^|\/)[^/]*(spec|roadmap|plan|investigation|spike|qa-report|sweep)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 'planned';
+  if (/^docs\/growth\//i.test(lower) || /^docs\/superpowers\/plans\//i.test(lower)) return 'planned';
+  if (/^changelog(\.|$)|^changes(\.|$)/.test(lower)) return 'changelog';
+  return 'document';
+};
+
+const fetchRecentCommits = async ({
+  owner,
+  repo,
+  branch,
+  fetchImpl = global.fetch,
+  token = githubToken(),
+  limit = DEFAULT_REPO_COMMIT_LIMIT
+} = {}) => {
+  try {
+    const commits = await fetchJson({
+      url: repoApiUrl({
+        owner,
+        repo,
+        path: `/commits?sha=${encodeURIComponent(branch || 'main')}&per_page=${Math.max(1, Math.min(Number(limit) || DEFAULT_REPO_COMMIT_LIMIT, 20))}`
+      }),
+      fetchImpl,
+      token
+    });
+    return (Array.isArray(commits) ? commits : [])
+      .map((commit) => ({
+        sha: trim(commit.sha || '', 80),
+        message: trim(commit.commit?.message || '', 500),
+        authorName: trim(commit.commit?.author?.name || '', 120),
+        committedAt: commit.commit?.author?.date || commit.commit?.committer?.date || null,
+        htmlUrl: commit.html_url || ''
+      }))
+      .filter(commit => commit.sha && commit.message)
+      .slice(0, Math.max(1, Math.min(Number(limit) || DEFAULT_REPO_COMMIT_LIMIT, 20)));
+  } catch (error) {
+    if (![404, 403, 409].includes(Number(error.statusCode))) throw error;
+    return [];
+  }
+};
 
 const fetchRepoSnapshot = async ({
   owner,
@@ -102,7 +183,7 @@ const fetchRepoSnapshot = async ({
     fetchImpl,
     token
   });
-  const docEntries = selectRepoDocEntries(tree.tree, docLimit);
+  const docEntries = selectRepoEvidenceEntries(tree.tree, docLimit);
   const docs = [];
   for (const entry of docEntries) {
     const blob = await fetchJson({ url: repoApiUrl({ owner, repo, path: `/git/blobs/${encodeURIComponent(entry.sha)}` }), fetchImpl, token });
@@ -127,6 +208,14 @@ const fetchRepoSnapshot = async ({
   } catch (error) {
     if (![404, 403].includes(Number(error.statusCode))) throw error;
   }
+  const recentCommits = await fetchRecentCommits({
+    owner,
+    repo,
+    branch: defaultBranch,
+    fetchImpl,
+    token,
+    limit: DEFAULT_REPO_COMMIT_LIMIT
+  });
   return {
     owner,
     repo,
@@ -135,12 +224,14 @@ const fetchRepoSnapshot = async ({
     defaultBranch,
     headSha,
     docs,
+    recentCommits,
     latestRelease
   };
 };
 
 const repoDocExternalId = ({ owner, repo, headSha, doc } = {}) => `github-doc:${owner}/${repo}:${headSha}:${doc?.path || ''}:${doc?.sha || ''}`;
 const repoReleaseExternalId = ({ owner, repo, release } = {}) => `github-release:${owner}/${repo}:${release?.tagName || ''}`;
+const repoCommitsExternalId = ({ owner, repo, headSha } = {}) => `github-commits:${owner}/${repo}:${headSha || ''}`;
 
 const buildRepoDocEventPayload = ({ userId, page, snapshot, doc } = {}) => ({
   userId,
@@ -151,7 +242,7 @@ const buildRepoDocEventPayload = ({ userId, page, snapshot, doc } = {}) => ({
   title: trim(`${snapshot.fullName} ${doc.path}`, 240),
   summary: trim(`${doc.path} from ${snapshot.fullName} at ${snapshot.headSha.slice(0, 7)}.`, 1200),
   text: [
-    `${snapshot.fullName} repository documentation source.`,
+    `${snapshot.fullName} repository developer evidence source.`,
     `Path: ${doc.path}.`,
     `Commit: ${snapshot.headSha}.`,
     doc.text
@@ -165,9 +256,42 @@ const buildRepoDocEventPayload = ({ userId, page, snapshot, doc } = {}) => ({
     repo: snapshot.repo,
     fullName: snapshot.fullName,
     path: doc.path,
+    evidenceType: /\.(json|ya?ml)$/i.test(doc.path) ? 'config' : /\.(js|jsx|ts|tsx)$/i.test(doc.path) ? 'code' : 'document',
+    docClass: classifyRepoDocClass(doc.path),
     blobSha: doc.sha,
     commitSha: snapshot.headSha,
     ref: `${doc.path} @ ${snapshot.headSha.slice(0, 7)}`,
+    pageId: String(page?._id || '')
+  }
+});
+
+const buildRepoCommitsEventPayload = ({ userId, page, snapshot, commits = [] } = {}) => ({
+  userId,
+  sourceType: 'external',
+  provider: 'github-repo',
+  externalId: repoCommitsExternalId({ owner: snapshot.owner, repo: snapshot.repo, headSha: snapshot.headSha }),
+  eventType: 'synced',
+  title: trim(`${snapshot.fullName} recent commits`, 240),
+  summary: trim(`${snapshot.fullName} recent work at ${snapshot.headSha.slice(0, 7)}.`, 1200),
+  text: [
+    `${snapshot.fullName} recent commits.`,
+    `Default branch: ${snapshot.defaultBranch}.`,
+    `Head commit: ${snapshot.headSha}.`,
+    ...(Array.isArray(commits) ? commits : []).map((commit, index) => (
+      `${index + 1}. ${commit.sha.slice(0, 7)} ${commit.committedAt || 'unknown date'} — ${commit.message}`
+    ))
+  ].filter(Boolean).join('\n'),
+  url: `https://github.com/${snapshot.owner}/${snapshot.repo}/commits/${snapshot.headSha}`,
+  sourceUpdatedAt: commits?.[0]?.committedAt || null,
+  affectedPageIds: [page?._id].filter(Boolean),
+  metadata: {
+    source: 'github-repo',
+    owner: snapshot.owner,
+    repo: snapshot.repo,
+    fullName: snapshot.fullName,
+    evidenceType: 'recent_commits',
+    commitSha: snapshot.headSha,
+    ref: `recent commits @ ${snapshot.headSha.slice(0, 7)}`,
     pageId: String(page?._id || '')
   }
 });
@@ -205,6 +329,7 @@ const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot
   if (!WikiSourceEvent || !userId || !page || !snapshot) return [];
   const payloads = [
     ...(snapshot.docs || []).map(doc => buildRepoDocEventPayload({ userId, page, snapshot, doc })),
+    ...(snapshot.recentCommits?.length ? [buildRepoCommitsEventPayload({ userId, page, snapshot, commits: snapshot.recentCommits })] : []),
     ...(snapshot.latestRelease?.tagName ? [buildRepoReleaseEventPayload({ userId, page, snapshot, release: snapshot.latestRelease })] : [])
   ];
   const created = [];
@@ -401,16 +526,21 @@ module.exports = {
   DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS,
   armGitHubRepoWatchForPage,
   buildRepoDocEventPayload,
+  buildRepoCommitsEventPayload,
   buildRepoReleaseEventPayload,
   checkGitHubRepoWatchForPage,
+  classifyRepoDocClass,
   drainDueGitHubRepoWatches,
   dueGitHubRepoWatchQuery,
   fetchRepoSnapshot,
   githubToken,
   isUsefulDocPath,
+  isUsefulRepoEvidencePath,
   normalizeOwnerOrRepo,
   parseGitHubRepo,
   repoDocExternalId,
+  repoCommitsExternalId,
   repoReleaseExternalId,
-  selectRepoDocEntries
+  selectRepoDocEntries,
+  selectRepoEvidenceEntries
 };
