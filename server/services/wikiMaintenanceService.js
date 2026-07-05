@@ -690,6 +690,8 @@ const sanitizeDraftStreamDelta = (value = '') => (
 const shouldInlineQualityRebuild = ({ quality = {}, plainText = '', fastProfile = false, skipQualityRebuild = false } = {}) => {
   if (!quality || quality.ok) return false;
   if (skipQualityRebuild) return false;
+  const failures = Array.isArray(quality.failures) ? quality.failures.join(' ') : '';
+  if (/GitHub repo article|developer-dossier/i.test(failures)) return true;
   if (!fastProfile) return true;
   const wordCount = cleanWikiText(plainText).split(/\s+/).filter(Boolean).length;
   return wordCount < 30;
@@ -742,6 +744,29 @@ const isGitHubRepoCandidate = (source = {}) => (
     .test([source.type, source.title, source.text, source.url].join(' '))
 );
 
+const githubRepoEvidenceRank = (source = {}, currentHead = '') => {
+  const meta = source.metadata || {};
+  const evidenceType = repoSourceEvidenceType(source);
+  const docClass = asString(meta.docClass).toLowerCase();
+  const path = asString(meta.path).toLowerCase();
+  const commitSha = asString(meta.commitSha);
+  let rank = 100;
+  if (commitSha && currentHead && commitSha === currentHead) rank -= 50;
+  else if (commitSha && currentHead && commitSha !== currentHead) rank += 75;
+  if (evidenceType === 'config') rank += 0;
+  else if (evidenceType === 'code') rank += 6;
+  else if (evidenceType === 'recent_commits') rank += 12;
+  else if (docClass === 'readme') rank += 18;
+  else if (docClass === 'runbook') rank += 24;
+  else if (docClass === 'changelog') rank += 42;
+  else if (docClass === 'planned') rank += 90;
+  else rank += 36;
+  if (path === 'package.json') rank -= 8;
+  if (/^server\/(server|routes|services|models)\//.test(path) || path === 'server/server.js') rank -= 4;
+  if (/^note-taker-ui\/src\/(app|index|main|pages|components|api)\b/.test(path)) rank -= 2;
+  return rank;
+};
+
 const collectExistingSourceCandidates = ({ page = {} } = {}) => (
   (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
     .map((sourceRef, index) => candidateFromSourceRef(sourceRef, index + 1))
@@ -753,8 +778,13 @@ const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIM
   if (isGitHubRepoPage({ page, candidates: existingCandidates })) {
     const repoCandidates = existingCandidates.filter(isGitHubRepoCandidate);
     if (repoCandidates.length) {
+      const currentHead = asString(page.externalWatches?.githubRepo?.lastHeadSha);
       return repoCandidates
-        .slice(0, limit)
+        .sort((a, b) => (
+          githubRepoEvidenceRank(a, currentHead) - githubRepoEvidenceRank(b, currentHead)
+          || asString(a.metadata?.path || a.title).localeCompare(asString(b.metadata?.path || b.title))
+        ))
+        .slice(0, Math.max(limit, Math.min(repoCandidates.length, 14)))
         .map((source, index) => ({ ...source, index: index + 1 }));
     }
   }
@@ -1193,7 +1223,177 @@ const buildSectionMaintenancePlan = ({ claims = [], health = {}, changeLog = [],
   };
 };
 
+const extractRepoPath = (source = {}) => asString(source.metadata?.path);
+
+const extractPackageScripts = (source = {}) => {
+  const text = asString(source.text || source.snippet);
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[0]);
+    return Object.entries(parsed.scripts || {})
+      .map(([name, command]) => ({ name, command: asString(command) }))
+      .filter(script => script.name && script.command)
+      .slice(0, 8);
+  } catch (_error) {
+    return [];
+  }
+};
+
+const repoFallbackParagraph = ({ text, sourceIndexes = [], support = 'supported' } = {}) => ({
+  text,
+  citationIndexes: sourceIndexes.filter(Boolean).slice(0, 6),
+  support
+});
+
+const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) => {
+  const repoSources = (Array.isArray(candidates) ? candidates : [])
+    .filter(isGitHubRepoCandidate)
+    .slice(0, 16);
+  const byEvidence = (kind) => repoSources.filter(source => repoSourceEvidenceType(source) === kind);
+  const configSources = byEvidence('config');
+  const codeSources = byEvidence('code');
+  const commitSources = byEvidence('recent_commits');
+  const readmeSource = repoSources.find(source => asString(source.metadata?.docClass).toLowerCase() === 'readme') || repoSources[0] || null;
+  const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
+  const scripts = packageSource ? extractPackageScripts(packageSource) : [];
+  const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
+  const testScript = scripts.find(script => /^test|wiki:qa|lint/i.test(script.name)) || null;
+  const buildScript = scripts.find(script => /build/i.test(script.name)) || null;
+  const keyPaths = repoSources
+    .map(source => extractRepoPath(source))
+    .filter(Boolean)
+    .slice(0, 10);
+  const title = truncate(page.title, 120) || 'Repository wiki';
+  const sourceIndexesUsed = Array.from(new Set([
+    readmeSource?.index,
+    packageSource?.index,
+    ...configSources.slice(0, 3).map(source => source.index),
+    ...codeSources.slice(0, 5).map(source => source.index),
+    ...commitSources.slice(0, 1).map(source => source.index)
+  ].filter(Boolean))).slice(0, 14);
+  const runCommand = runScript ? `npm run ${runScript.name}` : 'the repository evidence does not expose a run command yet';
+  const testCommand = testScript ? `npm run ${testScript.name}` : 'no explicit test command was found in the selected package evidence';
+  const buildCommand = buildScript ? `npm run ${buildScript.name}` : 'no explicit build command was found in the selected package evidence';
+  const article = {
+    summary: repoFallbackParagraph({
+      text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today.`,
+      sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
+    }),
+    sections: [
+      {
+        heading: 'Run locally',
+        paragraphs: [repoFallbackParagraph({
+          text: `Start from the package/config evidence. Run: ${runCommand}. Test: ${testCommand}. Deploy/build: ${buildCommand}. Treat missing commands as unknown rather than inferred.`,
+          sourceIndexes: [packageSource?.index]
+        })],
+        bullets: scripts.slice(0, 6).map(script => ({
+          text: `npm run ${script.name} — ${script.command}`,
+          citationIndexes: [packageSource?.index].filter(Boolean)
+        }))
+      },
+      {
+        heading: 'Architecture',
+        paragraphs: [repoFallbackParagraph({
+          text: codeSources.length
+            ? `The current code evidence points to these active implementation areas: ${codeSources.slice(0, 6).map(source => extractRepoPath(source) || source.title).join(', ')}.`
+            : 'The selected repository evidence did not include enough code entrypoints to describe the architecture safely.',
+          sourceIndexes: codeSources.slice(0, 6).map(source => source.index),
+          support: codeSources.length ? 'supported' : 'partial'
+        })],
+        bullets: []
+      },
+      {
+        heading: 'Key files',
+        paragraphs: [repoFallbackParagraph({
+          text: keyPaths.length
+            ? `The most useful files to open first are ${keyPaths.join(', ')}.`
+            : 'No key file paths were attached by the repository watch yet.',
+          sourceIndexes: sourceIndexesUsed
+        })],
+        bullets: keyPaths.slice(0, 8).map((path) => {
+          const source = repoSources.find(candidate => extractRepoPath(candidate) === path);
+          return {
+            text: path,
+            citationIndexes: [source?.index].filter(Boolean)
+          };
+        })
+      },
+      {
+        heading: 'Tests and deploy',
+        paragraphs: [repoFallbackParagraph({
+          text: `Use the explicit scripts from package/config evidence: ${testCommand}; ${buildCommand}. Do not assume CI or deployment health without workflow or deployment evidence.`,
+          sourceIndexes: [packageSource?.index, ...configSources.slice(0, 2).map(source => source.index)]
+        })],
+        bullets: []
+      },
+      {
+        heading: 'Current active work',
+        paragraphs: [repoFallbackParagraph({
+          text: commitSources.length
+            ? `Recent commit evidence is attached and should be treated as the freshest signal for what changed under the repo wiki.`
+            : 'No recent-commit evidence was attached, so current active work remains unknown until the watch refreshes.',
+          sourceIndexes: commitSources.slice(0, 1).map(source => source.index),
+          support: commitSources.length ? 'supported' : 'partial'
+        })],
+        bullets: []
+      },
+      {
+        heading: 'Known risks',
+        paragraphs: [repoFallbackParagraph({
+          text: 'The main risk is letting stale planning, QA, or spike documents masquerade as shipped repo behavior. Keep planned docs quarantined as context unless current code/config or recent commits support the claim.',
+          sourceIndexes: sourceIndexesUsed.slice(0, 4),
+          support: 'partial'
+        })],
+        bullets: []
+      },
+      {
+        heading: 'How to extend',
+        paragraphs: [repoFallbackParagraph({
+          text: 'Extend the page by refreshing the GitHub watch, attaching current code/config evidence, then asking the agent to rebuild this developer dossier from the selected repository sources.',
+          sourceIndexes: sourceIndexesUsed.slice(0, 4)
+        })],
+        bullets: []
+      }
+    ],
+    preservedUserContent: manualNotes
+      ? [{ text: manualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
+      : []
+  };
+  return {
+    title,
+    article: alignArticleToPageStructure({
+      pageType: page.pageType || 'project',
+      article
+    }),
+    maintenance: {
+      summary: `Built a developer dossier from ${repoSources.length} GitHub repository evidence source${repoSources.length === 1 ? '' : 's'}.`,
+      changelog: repoSources.slice(0, 10).map(source => ({
+        type: 'attached_source',
+        target: source.title,
+        summary: `Used ${extractRepoPath(source) || source.title} as repository evidence.`,
+        sourceIndexes: [source.index]
+      })),
+      health: normalizeHealth({
+        newItems: commitSources.slice(0, 1).map(source => ({
+          text: `${source.title} should be reviewed as the current active-work signal.`,
+          sourceTitle: source.title
+        })),
+        unsupportedClaims: repoSources.length ? [] : [{ text: 'No GitHub repository evidence is attached yet.' }],
+        missingCitations: [],
+        staleSections: [],
+        contradictions: [],
+        relatedPages: []
+      })
+    },
+    sourceIndexesUsed
+  };
+};
+
 const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
+  if (isGitHubRepoPage({ page, candidates })) {
+    return fallbackGitHubRepoMaintenance({ page, candidates, manualNotes });
+  }
   const top = candidates.slice(0, 6);
   const sourceTitles = top.map(source => source.title).filter(Boolean);
   const sourceTheme = sourceTitles.length
@@ -1910,6 +2110,7 @@ module.exports = {
     normalizeHealth,
     applyKnownWikiLinks,
     collectKnownWikiPages,
+    fallbackMaintenance,
     formatKnownWikiPages,
     buildPrompt,
     buildRebuildPrompt,

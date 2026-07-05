@@ -8,13 +8,15 @@ const {
   deriveClaimsFromDoc,
   docFromArticle,
   evaluateWikiArticleQuality,
+  fallbackMaintenance,
   findGitHubRepoDeveloperDossierFailures,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   normalizeSourceIndexesUsed,
   formatKnownWikiPages,
   resolveClaimCitationIds,
-  selectMaintenanceCandidates
+  selectMaintenanceCandidates,
+  toPlainText
 } = __testables;
 
 const findClaimMarks = (doc) => {
@@ -194,6 +196,135 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(candidates).toHaveLength(1);
     expect(candidates[0].title).toBe('atsokolas/note-taker-3 README.md');
     expect(candidates[0].text).not.toContain('Debug Fixture');
+  });
+
+  it('prioritizes current GitHub head code and config before stale planning docs', () => {
+    const candidates = selectMaintenanceCandidates({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        createdFrom: {
+          type: 'search',
+          text: 'https://github.com/atsokolas/note-taker-3',
+          label: 'GitHub repo: atsokolas/note-taker-3'
+        },
+        externalWatches: {
+          githubRepo: {
+            lastHeadSha: 'current1234567890'
+          }
+        },
+        sourceRefs: [{
+          type: 'external',
+          title: 'atsokolas/note-taker-3 docs/deep-dive-qa-report-2026-06-04.md',
+          snippet: 'Old QA sweep and Evernote OAuth spike notes.',
+          provider: 'github-repo',
+          metadata: {
+            source: 'github-repo',
+            path: 'docs/deep-dive-qa-report-2026-06-04.md',
+            evidenceType: 'document',
+            docClass: 'planned',
+            commitSha: 'oldsha123'
+          }
+        }, {
+          type: 'external',
+          title: 'atsokolas/note-taker-3 package.json',
+          snippet: '{"scripts":{"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}}',
+          provider: 'github-repo',
+          metadata: {
+            source: 'github-repo',
+            path: 'package.json',
+            evidenceType: 'config',
+            docClass: 'config',
+            commitSha: 'current1234567890'
+          }
+        }, {
+          type: 'external',
+          title: 'atsokolas/note-taker-3 server/server.js',
+          snippet: 'const app = express();',
+          provider: 'github-repo',
+          metadata: {
+            source: 'github-repo',
+            path: 'server/server.js',
+            evidenceType: 'code',
+            docClass: 'code',
+            commitSha: 'current1234567890'
+          }
+        }, {
+          type: 'external',
+          title: 'atsokolas/note-taker-3 recent commits',
+          snippet: 'recent commits. current1 2026-07-05 - fix repo wiki grounding.',
+          provider: 'github-repo',
+          metadata: {
+            source: 'github-repo',
+            evidenceType: 'recent_commits',
+            commitSha: 'current1234567890'
+          }
+        }]
+      },
+      sources: [],
+      limit: 3
+    });
+
+    expect(candidates.slice(0, 3).map(source => source.metadata?.path || source.title)).toEqual([
+      'package.json',
+      'server/server.js',
+      'atsokolas/note-taker-3 recent commits'
+    ]);
+    expect(candidates.slice(0, 3).map(source => source.metadata?.path || '')).not.toContain('docs/deep-dive-qa-report-2026-06-04.md');
+  });
+
+  it('falls back to a developer dossier for GitHub repo pages when model output is unavailable', () => {
+    const result = fallbackMaintenance({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'project',
+        createdFrom: {
+          text: 'https://github.com/atsokolas/note-taker-3',
+          label: 'GitHub repo: atsokolas/note-taker-3'
+        }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 package.json',
+        text: '{"scripts":{"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js","build":"cd note-taker-ui && npm run build"}}',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config', docClass: 'config' }
+      }, {
+        index: 2,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/server.js',
+        text: 'const app = express();',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/server.js', evidenceType: 'code', docClass: 'code' }
+      }, {
+        index: 3,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        text: 'React app routes.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'note-taker-ui/src/App.js', evidenceType: 'code', docClass: 'code' }
+      }, {
+        index: 4,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 recent commits',
+        text: 'recent commits. current1 2026-07-05 - repo wiki grounding.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }]
+    });
+    const text = toPlainText(docFromArticle({
+      title: result.title,
+      article: result.article
+    }));
+
+    expect(text).toContain('Run locally');
+    expect(text).toContain('Architecture');
+    expect(text).toContain('Key files');
+    expect(text).toContain('Tests and deploy');
+    expect(text).toContain('npm run start');
+    expect(text).toContain('npm run wiki:qa');
+    expect(text).toContain('server/server.js');
+    expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4]));
   });
 
   it('fails unsupported generic claims on GitHub repo pages', () => {
