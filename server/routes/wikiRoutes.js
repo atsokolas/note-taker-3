@@ -2538,21 +2538,39 @@ const buildWikiRouter = ({
         sourceScope: page.sourceScope,
         sourceType: 'github_repo'
       });
-      const result = await armGitHubRepoWatchForPage({
-        WikiPage,
-        WikiSourceEvent,
-        userId: req.user.id,
-        pageId: page._id,
-        repo: fullName,
-        checkNow: req.body?.checkNow !== false
-      });
-      trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
-        pageId: serializeId(result.page?._id || page._id),
-        title: result.page?.title || page.title,
-        pageType: result.page?.pageType || page.pageType,
-        sourceCount: Array.isArray(result.events) ? result.events.length : 0,
-        sourceType: 'github_repo'
-      });
+      let result = { page, snapshot: null, events: [] };
+      let watchError = null;
+      try {
+        result = await armGitHubRepoWatchForPage({
+          WikiPage,
+          WikiSourceEvent,
+          userId: req.user.id,
+          pageId: page._id,
+          repo: fullName,
+          checkNow: req.body?.checkNow !== false
+        });
+        trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
+          pageId: serializeId(result.page?._id || page._id),
+          title: result.page?.title || page.title,
+          pageType: result.page?.pageType || page.pageType,
+          sourceCount: Array.isArray(result.events) ? result.events.length : 0,
+          sourceType: 'github_repo'
+        });
+      } catch (error) {
+        watchError = {
+          message: error.message || 'Failed to arm GitHub repo watch.',
+          statusCode: error.statusCode || 500
+        };
+        trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
+          pageId: serializeId(page._id),
+          title: page.title,
+          pageType: page.pageType,
+          sourceCount: 0,
+          sourceType: 'github_repo',
+          status: 'failed',
+          error: watchError.message
+        });
+      }
       res.status(201).json({
         page: serializeWikiPage(result.page || page),
         repo: {
@@ -2578,7 +2596,8 @@ const buildWikiRouter = ({
             url: event.url,
             sourceUpdatedAt: event.sourceUpdatedAt
           }))
-          : []
+          : [],
+        watchError
       });
     } catch (error) {
       res.status(error.statusCode || 500).json({ error: error.message || 'Failed to create GitHub repo wiki.' });

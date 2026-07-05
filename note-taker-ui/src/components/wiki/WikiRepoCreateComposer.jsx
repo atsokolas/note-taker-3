@@ -29,14 +29,16 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
       const label = page.title || result?.repo?.fullName || input;
       setTickerLines([
         `project wiki created · ${label}`,
-        'arming GitHub repo watch',
-        'syncing README, docs, and releases'
+        result?.watchResult?.watchError ? 'GitHub watch needs retry' : 'GitHub repo watch armed',
+        'opening build workspace'
       ]);
       setStatus(`Opening "${label}"...`);
-      navigate(wikiPagePath(pageId), { replace: false });
+      navigate(`${wikiPagePath(pageId)}&build=1`, { replace: false });
       setRepoUrl('');
       onCreated?.(page);
-      setStatus(`Opened the repo wiki for ${label}.`);
+      setStatus(result?.watchResult?.watchError
+        ? `Opened the repo wiki for ${label}. The GitHub watch can be retried from the page.`
+        : `Opened the repo wiki for ${label}.`);
     } catch (submitError) {
       setTickerLines([
         `repo wiki failed · ${input}`,

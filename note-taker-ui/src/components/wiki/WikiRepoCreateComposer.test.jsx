@@ -48,7 +48,7 @@ describe('WikiRepoCreateComposer', () => {
       expect(createRepoWikiFromGitHub).toHaveBeenCalledWith('https://github.com/openai/agents-js');
     });
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ _id: 'wiki-repo-1' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1', { replace: false });
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1&build=1', { replace: false });
   });
 
   it('rejects an invalid GitHub URL before calling the API', async () => {
@@ -103,7 +103,7 @@ describe('WikiRepoCreateComposer', () => {
     });
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1', { replace: false });
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1&build=1', { replace: false });
     });
   });
 
@@ -121,10 +121,44 @@ describe('WikiRepoCreateComposer', () => {
 
     await waitFor(() => {
       expect(createRepoWikiFromGitHub).toHaveBeenCalledWith('https://github.com/openai/agents-js.git');
-      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1', { replace: false });
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1&build=1', { replace: false });
     });
     await waitFor(() => {
       expect(screen.getByLabelText('GitHub repository URL')).toHaveValue('');
     });
+  });
+
+  it('still opens the created page when the GitHub watch needs a retry', async () => {
+    createRepoWikiFromGitHub.mockResolvedValueOnce({
+      page: {
+        _id: 'wiki-repo-retry',
+        title: 'agents-js repo wiki',
+        pageType: 'project'
+      },
+      repo: { owner: 'openai', repo: 'agents-js', fullName: 'openai/agents-js' },
+      watchResult: {
+        watchError: {
+          statusCode: 403,
+          message: 'GitHub request failed with HTTP 403.'
+        }
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiRepoCreateComposer />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('GitHub repository URL'), {
+      target: { value: 'https://github.com/openai/agents-js' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create repo wiki' }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-retry&build=1', { replace: false });
+    });
+    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
+    expect(screen.getByLabelText('Repo wiki trace')).toHaveTextContent('GitHub watch needs retry');
   });
 });

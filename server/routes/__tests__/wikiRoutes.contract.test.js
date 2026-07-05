@@ -699,6 +699,11 @@ const run = async () => {
       checkNow
     }) => {
       githubRepoWatchCalls.push({ userId, pageId, repo, checkNow });
+      if (String(repo || '').includes('rate-limited')) {
+        const error = new Error('GitHub request failed with HTTP 403.');
+        error.statusCode = 403;
+        throw error;
+      }
       const page = await WikiPageModel.findOne({ _id: pageId, userId });
       page.externalWatches = {
         ...(page.externalWatches || {}),
@@ -966,6 +971,23 @@ const run = async () => {
       userId: 'user-1',
       pageId: String(repoWikiCreate.body.page._id),
       repo: 'openai/agents-js',
+      checkNow: true
+    });
+
+    const repoWikiPartial = await request(url, '/api/wiki/pages/from-github', {
+      method: 'POST',
+      body: JSON.stringify({ repo: 'openai/rate-limited' })
+    });
+    assert.strictEqual(repoWikiPartial.res.status, 201, repoWikiPartial.text);
+    assert.strictEqual(repoWikiPartial.body.page.pageType, 'project');
+    assert.strictEqual(repoWikiPartial.body.page.createdFrom.label, 'GitHub repo: openai/rate-limited');
+    assert.strictEqual(repoWikiPartial.body.watchError.statusCode, 403);
+    assert.match(repoWikiPartial.body.watchError.message, /GitHub request failed/);
+    assert.deepStrictEqual(repoWikiPartial.body.sourceEvents, []);
+    assert.deepStrictEqual(githubRepoWatchCalls[githubRepoWatchCalls.length - 1], {
+      userId: 'user-1',
+      pageId: String(repoWikiPartial.body.page._id),
+      repo: 'openai/rate-limited',
       checkNow: true
     });
 
