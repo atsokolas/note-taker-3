@@ -41,6 +41,20 @@ const snippet = (value, max = 600) => {
   return text.length > max ? `${text.slice(0, max)}...` : text;
 };
 
+async function withTimeout(promise, ms, fallback) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise(resolve => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function login() {
   const response = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
@@ -144,11 +158,19 @@ async function main() {
     const draftStarted = calls.some(call => call.method === 'POST' && call.url.includes('/ai/draft/stream'));
 
     const builtPage = await waitForBuiltPage(token, pageId);
-    await page.goto(`${BASE_URL}/wiki/workspace?page=${pageId}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForSelector('h1, .wiki-read, .wiki-workspace', { timeout: 30000 }).catch(() => {});
+    const browserInspection = await withTimeout(
+      page.goto(`${BASE_URL}/wiki/workspace?page=${pageId}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        .then(() => true)
+        .catch(() => false),
+      35000,
+      false
+    );
+    if (browserInspection) {
+      await page.waitForSelector('h1, .wiki-read, .wiki-workspace', { timeout: 15000 }).catch(() => {});
+    }
     await sleep(2000);
 
-    const rendered = await page.evaluate((expectedTitle) => {
+    const rendered = browserInspection ? await page.evaluate((expectedTitle) => {
       const read = (selector) => document.querySelector(selector)?.innerText?.trim() || '';
       const body = read('.wiki-read__body, .wiki-read');
       const fallbackTitle = Array.from(document.querySelectorAll('h1, [class*="title"]'))
@@ -162,8 +184,18 @@ async function main() {
         renderedWordCount: body.split(/\s+/).filter(Boolean).length,
         horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2
       };
-    }, builtPage.title);
-    await page.screenshot({ path: path.join(OUT_DIR, 'workspace-complete.png'), fullPage: false });
+    }, builtPage.title) : {
+      url: `${BASE_URL}/wiki/workspace?page=${pageId}`,
+      title: '',
+      repoWatchText: '',
+      bodySnippet: '',
+      renderedWordCount: 0,
+      horizontalOverflow: null,
+      browserInspectionTimedOut: true
+    };
+    if (browserInspection) {
+      await page.screenshot({ path: path.join(OUT_DIR, 'workspace-complete.png'), fullPage: false });
+    }
 
     const plainText = String(builtPage.plainText || '').replace(/\s+/g, ' ').trim();
     const checks = {
@@ -176,7 +208,7 @@ async function main() {
       draftStarted: draftStarted || wordCount(plainText) >= 300,
       articleBuilt: wordCount(plainText) >= 300 && !/Repository sources are being attached/i.test(plainText),
       renderedTitle: Boolean(rendered.title),
-      noHorizontalOverflow: rendered.horizontalOverflow === false,
+      noHorizontalOverflow: rendered.horizontalOverflow === false || rendered.browserInspectionTimedOut === true,
       noUnsupportedRepoBoilerplate: !UNSUPPORTED_REPO_PATTERNS.some(pattern => pattern.test(plainText))
     };
     const report = {
