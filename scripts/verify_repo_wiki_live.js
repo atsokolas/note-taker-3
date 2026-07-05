@@ -55,12 +55,25 @@ async function withTimeout(promise, ms, fallback) {
   }
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function login() {
-  const response = await fetch(`${API_URL}/api/auth/login`, {
+  const response = await fetchWithTimeout(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: USERNAME, password: PASSWORD })
-  });
+  }, 30000);
   if (!response.ok) throw new Error(`Login failed: ${response.status}`);
   const data = await response.json();
   if (!data.token) throw new Error('No token in login response.');
@@ -68,9 +81,9 @@ async function login() {
 }
 
 async function readPage(token, pageId) {
-  const response = await fetch(`${API_URL}/api/wiki/pages/${encodeURIComponent(pageId)}`, {
+  const response = await fetchWithTimeout(`${API_URL}/api/wiki/pages/${encodeURIComponent(pageId)}`, {
     headers: { Authorization: `Bearer ${token}` }
-  });
+  }, 30000);
   const text = await response.text();
   if (!response.ok) throw new Error(`Read page failed: ${response.status} ${text.slice(0, 240)}`);
   return JSON.parse(text);
