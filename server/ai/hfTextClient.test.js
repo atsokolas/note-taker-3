@@ -10,10 +10,20 @@ const run = () => {
   const originalEnv = {
     HF_PROVIDER: process.env.HF_PROVIDER,
     HF_AGENT_CHAT_ROUTES: process.env.HF_AGENT_CHAT_ROUTES,
-    HF_AGENT_MODEL_ROUTES_JSON: process.env.HF_AGENT_MODEL_ROUTES_JSON
+    HF_AGENT_MODEL_ROUTES_JSON: process.env.HF_AGENT_MODEL_ROUTES_JSON,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENROUTER_TEXT_MODEL: process.env.OPENROUTER_TEXT_MODEL,
+    OPENROUTER_TEXT_MODEL_FALLBACKS: process.env.OPENROUTER_TEXT_MODEL_FALLBACKS,
+    OPENROUTER_AGENT_CHAT_ROUTES: process.env.OPENROUTER_AGENT_CHAT_ROUTES,
+    OPENROUTER_AGENT_MODEL_ROUTES_JSON: process.env.OPENROUTER_AGENT_MODEL_ROUTES_JSON
   };
 
   try {
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OPENROUTER_TEXT_MODEL;
+    delete process.env.OPENROUTER_TEXT_MODEL_FALLBACKS;
+    delete process.env.OPENROUTER_AGENT_CHAT_ROUTES;
+    delete process.env.OPENROUTER_AGENT_MODEL_ROUTES_JSON;
     process.env.HF_PROVIDER = 'groq';
     delete process.env.HF_AGENT_CHAT_ROUTES;
     delete process.env.HF_AGENT_MODEL_ROUTES_JSON;
@@ -64,6 +74,30 @@ const run = () => {
       config.routeProfiles.partner_chat[0].provider,
       'groq',
       'Default partner chat route should start on Groq.'
+    );
+
+    process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+    process.env.OPENROUTER_TEXT_MODEL = 'openai/gpt-4o-mini';
+    process.env.OPENROUTER_TEXT_MODEL_FALLBACKS = 'google/gemini-2.5-flash';
+    process.env.OPENROUTER_AGENT_CHAT_ROUTES = 'anthropic/claude-3.5-haiku,openai/gpt-4o-mini';
+    const openRouterClient = loadClient();
+    const openRouterConfig = openRouterClient.getConfig();
+    assert.strictEqual(openRouterConfig.upstream, 'openrouter');
+    assert.strictEqual(openRouterConfig.token, 'test-openrouter-key');
+    assert.strictEqual(openRouterConfig.model, 'openai/gpt-4o-mini');
+    assert.strictEqual(openRouterConfig.provider, '');
+    assert.strictEqual(openRouterConfig.routerBaseUrl, 'https://openrouter.ai/api/v1');
+    assert.deepStrictEqual(
+      openRouterConfig.textModelFallbacks,
+      ['google/gemini-2.5-flash']
+    );
+    assert.deepStrictEqual(
+      openRouterConfig.routeProfiles.partner_chat.slice(0, 2),
+      [
+        { model: 'anthropic/claude-3.5-haiku', provider: '' },
+        { model: 'openai/gpt-4o-mini', provider: '' }
+      ],
+      'OpenRouter route env should override default route order without HF providers.'
     );
   } finally {
     Object.entries(originalEnv).forEach(([key, value]) => {

@@ -1,11 +1,16 @@
 const DEFAULT_TEXT_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_PROVIDER = 'groq';
+const DEFAULT_OPENROUTER_TEXT_MODEL = 'openai/gpt-4o-mini';
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_ROUTER_BASE_URL = 'https://router.huggingface.co/v1';
+const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_TEXT_MODEL_FALLBACKS = [
   'openai/gpt-oss-120b:cerebras',
   'openai/gpt-oss-120b:fireworks-ai',
   'Qwen/Qwen3-Next-80B-A3B-Instruct:novita'
+];
+const DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS = [
+  'google/gemini-2.5-flash'
 ];
 
 const DEFAULT_ROUTE_PROFILES = Object.freeze({
@@ -59,6 +64,16 @@ const ROUTE_ENV_KEYS = Object.freeze({
   critique: 'HF_AGENT_CRITIQUE_ROUTES',
   hygiene_scan: 'HF_AGENT_HYGIENE_ROUTES',
   deep_audit: 'HF_AGENT_DEEP_AUDIT_ROUTES'
+});
+
+const OPENROUTER_ROUTE_ENV_KEYS = Object.freeze({
+  partner_chat: 'OPENROUTER_AGENT_CHAT_ROUTES',
+  tool_router: 'OPENROUTER_AGENT_TOOL_ROUTES',
+  structure_planner: 'OPENROUTER_AGENT_STRUCTURE_ROUTES',
+  artifact_draft: 'OPENROUTER_AGENT_ARTIFACT_ROUTES',
+  critique: 'OPENROUTER_AGENT_CRITIQUE_ROUTES',
+  hygiene_scan: 'OPENROUTER_AGENT_HYGIENE_ROUTES',
+  deep_audit: 'OPENROUTER_AGENT_DEEP_AUDIT_ROUTES'
 });
 
 const parseModelFallbacks = (value = '', primaryModel = '') => {
@@ -137,35 +152,80 @@ const parseJsonRouteProfiles = (value = '', defaultProvider = '') => {
   }
 };
 
-const getConfiguredRouteProfiles = (provider = DEFAULT_PROVIDER) => {
-  const jsonProfiles = parseJsonRouteProfiles(process.env.HF_AGENT_MODEL_ROUTES_JSON || '', provider);
+const buildOpenRouterDefaultRouteProfiles = (primaryModel = DEFAULT_OPENROUTER_TEXT_MODEL, fallbacks = DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS) => {
+  const routes = mergeCandidateRoutes([primaryModel, ...(Array.isArray(fallbacks) ? fallbacks : [])]);
   return Object.keys(DEFAULT_ROUTE_PROFILES).reduce((acc, profile) => {
-    const envKey = ROUTE_ENV_KEYS[profile];
-    const envRoutes = envKey ? parseRouteList(process.env[envKey] || '', provider) : [];
+    acc[profile] = routes;
+    return acc;
+  }, {});
+};
+
+const getConfiguredRouteProfiles = (provider = DEFAULT_PROVIDER, { upstream = 'huggingface', primaryModel = '', fallbacks = [] } = {}) => {
+  const isOpenRouter = upstream === 'openrouter';
+  const jsonProfiles = parseJsonRouteProfiles(
+    isOpenRouter
+      ? (process.env.OPENROUTER_AGENT_MODEL_ROUTES_JSON || '')
+      : (process.env.HF_AGENT_MODEL_ROUTES_JSON || ''),
+    isOpenRouter ? '' : provider
+  );
+  const defaultProfiles = isOpenRouter
+    ? buildOpenRouterDefaultRouteProfiles(primaryModel || DEFAULT_OPENROUTER_TEXT_MODEL, fallbacks)
+    : DEFAULT_ROUTE_PROFILES;
+  const routeEnvKeys = isOpenRouter ? OPENROUTER_ROUTE_ENV_KEYS : ROUTE_ENV_KEYS;
+  return Object.keys(DEFAULT_ROUTE_PROFILES).reduce((acc, profile) => {
+    const envKey = routeEnvKeys[profile];
+    const envRoutes = envKey ? parseRouteList(process.env[envKey] || '', isOpenRouter ? '' : provider) : [];
     const jsonRoutes = Array.isArray(jsonProfiles[profile]) ? jsonProfiles[profile] : [];
-    const defaultRoutes = (DEFAULT_ROUTE_PROFILES[profile] || [])
-      .map((entry) => parseRouteEntry(entry, provider))
+    const defaultRoutes = (defaultProfiles[profile] || [])
+      .map((entry) => parseRouteEntry(entry, isOpenRouter ? '' : provider))
       .filter(Boolean);
     acc[profile] = mergeCandidateRoutes(envRoutes, jsonRoutes, defaultRoutes);
     return acc;
   }, {});
 };
 
-const getConfig = () => ({
-  token: process.env.HF_TOKEN || '',
-  model: process.env.HF_TEXT_MODEL || DEFAULT_TEXT_MODEL,
-  textModelFallbacks: parseModelFallbacks(
-    process.env.HF_TEXT_MODEL_FALLBACKS || DEFAULT_TEXT_MODEL_FALLBACKS.join(','),
-    process.env.HF_TEXT_MODEL || DEFAULT_TEXT_MODEL
-  ),
-  provider: process.env.HF_PROVIDER || DEFAULT_PROVIDER,
-  timeoutMs: Number(process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
-  routerBaseUrl: process.env.HF_ROUTER_BASE_URL || DEFAULT_ROUTER_BASE_URL,
-  routeProfiles: getConfiguredRouteProfiles(process.env.HF_PROVIDER || DEFAULT_PROVIDER)
-});
+const getConfig = () => {
+  const openRouterToken = process.env.OPENROUTER_API_KEY || '';
+  const useOpenRouter = Boolean(String(openRouterToken || '').trim());
+  const model = useOpenRouter
+    ? (process.env.OPENROUTER_TEXT_MODEL || DEFAULT_OPENROUTER_TEXT_MODEL)
+    : (process.env.HF_TEXT_MODEL || DEFAULT_TEXT_MODEL);
+  const textModelFallbacks = useOpenRouter
+    ? parseModelFallbacks(
+      process.env.OPENROUTER_TEXT_MODEL_FALLBACKS || DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS.join(','),
+      model
+    )
+    : parseModelFallbacks(
+      process.env.HF_TEXT_MODEL_FALLBACKS || DEFAULT_TEXT_MODEL_FALLBACKS.join(','),
+      model
+    );
+  const provider = useOpenRouter ? '' : (process.env.HF_PROVIDER || DEFAULT_PROVIDER);
+  const timeoutMs = Number(
+    useOpenRouter
+      ? (process.env.OPENROUTER_TIMEOUT_MS || process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+      : (process.env.HF_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+  );
+  const routerBaseUrl = useOpenRouter
+    ? (process.env.OPENROUTER_BASE_URL || DEFAULT_OPENROUTER_BASE_URL)
+    : (process.env.HF_ROUTER_BASE_URL || DEFAULT_ROUTER_BASE_URL);
+  const upstream = useOpenRouter ? 'openrouter' : 'huggingface';
+  return {
+    token: useOpenRouter ? openRouterToken : (process.env.HF_TOKEN || ''),
+    model,
+    textModelFallbacks,
+    provider,
+    timeoutMs,
+    routerBaseUrl,
+    upstream,
+    referer: process.env.OPENROUTER_HTTP_REFERER || process.env.APP_URL || process.env.PUBLIC_APP_URL || 'https://www.noeis.io',
+    appTitle: process.env.OPENROUTER_APP_TITLE || 'Noeis',
+    routeProfiles: getConfiguredRouteProfiles(provider, { upstream, primaryModel: model, fallbacks: textModelFallbacks })
+  };
+};
 
 const startupConfig = getConfig();
-console.log('[HF] text client', {
+console.log('[AI] text client', {
+  upstream: startupConfig.upstream,
   model: startupConfig.model,
   textModelFallbacks: startupConfig.textModelFallbacks,
   provider: startupConfig.provider,
@@ -198,7 +258,7 @@ const stripThinkBlocks = (value = '') => (
     .trim()
 );
 
-const buildError = ({ status, message, detail = '', provider = '', model = '' }) => {
+const buildError = ({ status, message, detail = '', provider = '', model = '', upstream = 'huggingface' }) => {
   const error = new Error(message);
   error.status = status;
   error.payload = {
@@ -207,9 +267,33 @@ const buildError = ({ status, message, detail = '', provider = '', model = '' })
     message,
     provider,
     model,
-    upstream: 'huggingface'
+    upstream
   };
   return error;
+};
+
+const requestHeadersFor = ({ token, upstream = 'huggingface', stream = false, referer = '', appTitle = '' } = {}) => {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    Accept: stream ? 'text/event-stream' : 'application/json'
+  };
+  if (upstream === 'openrouter') {
+    if (referer) headers['HTTP-Referer'] = referer;
+    if (appTitle) headers['X-OpenRouter-Title'] = appTitle;
+  }
+  return headers;
+};
+
+const requestPayloadFor = ({ payload = {}, upstream = 'huggingface', provider = '', withProvider = false } = {}) => {
+  const nextPayload = { ...payload };
+  if (upstream !== 'huggingface') {
+    delete nextPayload.reasoning_effort;
+  }
+  if (withProvider && provider && upstream === 'huggingface') {
+    nextPayload.provider = provider;
+  }
+  return nextPayload;
 };
 
 const requestChatCompletions = async ({
@@ -218,6 +302,9 @@ const requestChatCompletions = async ({
   provider,
   timeoutMs,
   routerBaseUrl,
+  upstream = 'huggingface',
+  referer = '',
+  appTitle = '',
   payload,
   signal
 }) => {
@@ -239,17 +326,10 @@ const requestChatCompletions = async ({
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const requestPayload = {
-        ...basePayload,
-        ...(attempt.withProvider ? { provider } : {})
-      };
+      const requestPayload = requestPayloadFor({ payload: basePayload, upstream, provider, withProvider: attempt.withProvider });
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-        },
+        headers: requestHeadersFor({ token, upstream, referer, appTitle }),
         body: JSON.stringify(requestPayload),
         signal: signal || controller.signal
       });
@@ -276,7 +356,8 @@ const requestChatCompletions = async ({
           detail,
           message: detail,
           provider: attempt.withProvider ? provider : '',
-          model
+          model,
+          upstream
         });
       }
 
@@ -290,19 +371,21 @@ const requestChatCompletions = async ({
       if (error?.name === 'AbortError') {
         throw buildError({
           status: signal?.aborted ? 499 : 504,
-          detail: signal?.aborted ? 'HF request aborted' : 'HF request timed out',
-          message: signal?.aborted ? 'HF request aborted' : `HF request timed out after ${timeoutMs}ms`,
+          detail: signal?.aborted ? `${upstream} request aborted` : `${upstream} request timed out`,
+          message: signal?.aborted ? `${upstream} request aborted` : `${upstream} request timed out after ${timeoutMs}ms`,
           provider,
-          model
+          model,
+          upstream
         });
       }
       if (error?.payload || error?.status) throw error;
       throw buildError({
         status: 502,
-        detail: String(error?.message || 'HF request failed'),
-        message: `HF request failed: ${error?.message || 'Unknown error'}`,
+        detail: String(error?.message || `${upstream} request failed`),
+        message: `${upstream} request failed: ${error?.message || 'Unknown error'}`,
         provider,
-        model
+        model,
+        upstream
       });
     } finally {
       clearTimeout(timer);
@@ -311,10 +394,11 @@ const requestChatCompletions = async ({
 
   throw buildError({
     status: 502,
-    detail: 'HF request failed',
-    message: 'HF request failed without a usable response.',
+    detail: `${upstream} request failed`,
+    message: `${upstream} request failed without a usable response.`,
     provider,
-    model
+    model,
+    upstream
   });
 };
 
@@ -324,6 +408,9 @@ const requestChatCompletionsStream = async ({
   provider,
   timeoutMs,
   routerBaseUrl,
+  upstream = 'huggingface',
+  referer = '',
+  appTitle = '',
   payload,
   signal
 }) => {
@@ -345,17 +432,10 @@ const requestChatCompletionsStream = async ({
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const requestPayload = {
-        ...basePayload,
-        ...(attempt.withProvider ? { provider } : {})
-      };
+      const requestPayload = requestPayloadFor({ payload: basePayload, upstream, provider, withProvider: attempt.withProvider });
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream'
-        },
+        headers: requestHeadersFor({ token, upstream, stream: true, referer, appTitle }),
         body: JSON.stringify(requestPayload),
         signal: signal || controller.signal
       });
@@ -380,7 +460,8 @@ const requestChatCompletionsStream = async ({
           detail,
           message: detail,
           provider: attempt.withProvider ? provider : '',
-          model
+          model,
+          upstream
         });
       }
 
@@ -393,19 +474,21 @@ const requestChatCompletionsStream = async ({
       if (error?.name === 'AbortError') {
         throw buildError({
           status: signal?.aborted ? 499 : 504,
-          detail: signal?.aborted ? 'HF request aborted' : 'HF request timed out',
-          message: signal?.aborted ? 'HF request aborted' : `HF request timed out after ${timeoutMs}ms`,
+          detail: signal?.aborted ? `${upstream} request aborted` : `${upstream} request timed out`,
+          message: signal?.aborted ? `${upstream} request aborted` : `${upstream} request timed out after ${timeoutMs}ms`,
           provider,
-          model
+          model,
+          upstream
         });
       }
       if (error?.payload || error?.status) throw error;
       throw buildError({
         status: 502,
-        detail: String(error?.message || 'HF request failed'),
-        message: `HF request failed: ${error?.message || 'Unknown error'}`,
+        detail: String(error?.message || `${upstream} request failed`),
+        message: `${upstream} request failed: ${error?.message || 'Unknown error'}`,
         provider,
-        model
+        model,
+        upstream
       });
     } finally {
       clearTimeout(timer);
@@ -414,10 +497,11 @@ const requestChatCompletionsStream = async ({
 
   throw buildError({
     status: 502,
-    detail: 'HF streaming request failed',
-    message: 'HF streaming request failed without a usable response.',
+    detail: `${upstream} streaming request failed`,
+    message: `${upstream} streaming request failed without a usable response.`,
     provider,
-    model
+    model,
+    upstream
   });
 };
 
@@ -468,23 +552,38 @@ const chatComplete = async ({
   tools = null,
   toolChoice = null
 } = {}) => {
-  const { token, model, textModelFallbacks, provider, timeoutMs, routerBaseUrl, routeProfiles } = getConfig();
+  const {
+    token,
+    model,
+    textModelFallbacks,
+    provider,
+    timeoutMs,
+    routerBaseUrl,
+    routeProfiles,
+    upstream,
+    referer,
+    appTitle
+  } = getConfig();
   if (!token) {
+    const tokenName = upstream === 'openrouter' ? 'OPENROUTER_API_KEY' : 'HF_TOKEN';
     throw buildError({
       status: 401,
-      detail: 'HF_TOKEN not configured',
-      message: 'HF_TOKEN not configured',
+      detail: `${tokenName} not configured`,
+      message: `${tokenName} not configured`,
       provider,
-      model
+      model,
+      upstream
     });
   }
   if (!model) {
+    const modelName = upstream === 'openrouter' ? 'OPENROUTER_TEXT_MODEL' : 'HF_TEXT_MODEL';
     throw buildError({
       status: 500,
-      detail: 'HF_TEXT_MODEL not configured',
-      message: 'HF_TEXT_MODEL not configured',
+      detail: `${modelName} not configured`,
+      message: `${modelName} not configured`,
       provider,
-      model
+      model,
+      upstream
     });
   }
 
@@ -499,10 +598,11 @@ const chatComplete = async ({
   if (safeMessages.length === 0) {
     throw buildError({
       status: 400,
-      detail: 'HF chat requires at least one message',
-      message: 'HF chat requires at least one message',
+      detail: `${upstream} chat requires at least one message`,
+      message: `${upstream} chat requires at least one message`,
       provider,
-      model
+      model,
+      upstream
     });
   }
 
@@ -533,6 +633,9 @@ const chatComplete = async ({
         provider: candidateProvider,
         timeoutMs,
         routerBaseUrl,
+        upstream,
+        referer,
+        appTitle,
         payload: {
           messages: safeMessages,
           temperature,
@@ -551,10 +654,11 @@ const chatComplete = async ({
       if (!text && toolCalls.length === 0) {
         throw buildError({
           status: 502,
-          detail: 'HF text response empty',
-          message: 'HF text response empty',
+          detail: `${upstream} text response empty`,
+          message: `${upstream} text response empty`,
           provider: resolvedProvider || provider,
-          model: candidateModel
+          model: candidateModel,
+          upstream
         });
       }
 
@@ -577,10 +681,11 @@ const chatComplete = async ({
 
   throw lastError || buildError({
     status: 502,
-    detail: 'HF text response failed across all models',
-    message: 'HF text response failed across all models',
+    detail: `${upstream} text response failed across all models`,
+    message: `${upstream} text response failed across all models`,
     provider,
-    model
+    model,
+    upstream
   });
 };
 
@@ -621,8 +726,8 @@ const readStreamingCompletion = async ({ response, onDelta, signal }) => {
       try { await reader.cancel(); } catch (_error) {}
       throw buildError({
         status: 499,
-        detail: 'HF request aborted',
-        message: 'HF request aborted'
+        detail: 'AI request aborted',
+        message: 'AI request aborted'
       });
     }
     const { done, value } = await reader.read();
@@ -652,23 +757,38 @@ const chatCompleteStream = async ({
   onDelta = null,
   signal = null
 } = {}) => {
-  const { token, model, textModelFallbacks, provider, timeoutMs, routerBaseUrl, routeProfiles } = getConfig();
+  const {
+    token,
+    model,
+    textModelFallbacks,
+    provider,
+    timeoutMs,
+    routerBaseUrl,
+    routeProfiles,
+    upstream,
+    referer,
+    appTitle
+  } = getConfig();
   if (!token) {
+    const tokenName = upstream === 'openrouter' ? 'OPENROUTER_API_KEY' : 'HF_TOKEN';
     throw buildError({
       status: 401,
-      detail: 'HF_TOKEN not configured',
-      message: 'HF_TOKEN not configured',
+      detail: `${tokenName} not configured`,
+      message: `${tokenName} not configured`,
       provider,
-      model
+      model,
+      upstream
     });
   }
   if (!model) {
+    const modelName = upstream === 'openrouter' ? 'OPENROUTER_TEXT_MODEL' : 'HF_TEXT_MODEL';
     throw buildError({
       status: 500,
-      detail: 'HF_TEXT_MODEL not configured',
-      message: 'HF_TEXT_MODEL not configured',
+      detail: `${modelName} not configured`,
+      message: `${modelName} not configured`,
       provider,
-      model
+      model,
+      upstream
     });
   }
 
@@ -683,10 +803,11 @@ const chatCompleteStream = async ({
   if (safeMessages.length === 0) {
     throw buildError({
       status: 400,
-      detail: 'HF chat requires at least one message',
-      message: 'HF chat requires at least one message',
+      detail: `${upstream} chat requires at least one message`,
+      message: `${upstream} chat requires at least one message`,
       provider,
-      model
+      model,
+      upstream
     });
   }
 
@@ -717,6 +838,9 @@ const chatCompleteStream = async ({
         provider: candidateProvider,
         timeoutMs,
         routerBaseUrl,
+        upstream,
+        referer,
+        appTitle,
         payload: {
           messages: safeMessages,
           temperature,
@@ -732,10 +856,11 @@ const chatCompleteStream = async ({
       if (!streamed.text) {
         throw buildError({
           status: 502,
-          detail: 'HF streaming response empty',
-          message: 'HF streaming response empty',
+          detail: `${upstream} streaming response empty`,
+          message: `${upstream} streaming response empty`,
           provider: resolvedProvider || provider,
-          model: candidateModel
+          model: candidateModel,
+          upstream
         });
       }
       return {
@@ -757,10 +882,11 @@ const chatCompleteStream = async ({
 
   throw lastError || buildError({
     status: 502,
-    detail: 'HF streaming response failed across all models',
-    message: 'HF streaming response failed across all models',
+    detail: `${upstream} streaming response failed across all models`,
+    message: `${upstream} streaming response failed across all models`,
     provider,
-    model
+    model,
+    upstream
   });
 };
 
