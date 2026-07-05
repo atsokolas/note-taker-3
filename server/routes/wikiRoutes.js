@@ -2460,6 +2460,131 @@ const buildWikiRouter = ({
     }
   });
 
+  router.post('/api/wiki/pages/from-github', wikiAuth, async (req, res) => {
+    try {
+      const repoInput = String(req.body?.repo || req.body?.repoUrl || '').trim();
+      const owner = String(req.body?.owner || '').trim();
+      const repoName = String(req.body?.repoName || '').trim();
+      if (!repoInput && (!owner || !repoName)) {
+        return res.status(400).json({ error: 'repo or owner/repoName is required.' });
+      }
+      const parsedRepo = repoInput
+        ? parseGitHubRepoWatchInput(repoInput)
+        : parseGitHubRepoWatchInput(`${owner}/${repoName}`);
+      const fullName = `${parsedRepo.owner}/${parsedRepo.repo}`;
+      const repoUrl = `https://github.com/${fullName}`;
+      const title = normalizeTitle(req.body?.title || `${fullName} repo wiki`);
+      const body = req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
+        ? req.body.body
+        : {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: `${fullName} is a public GitHub repository. Noeis will build this project wiki from repository docs, releases, architecture notes, and changelogs.`
+              }]
+            },
+            {
+              type: 'heading',
+              attrs: { level: 2 },
+              content: [{ type: 'text', text: 'Current State' }]
+            },
+            {
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Repository sources are being attached. The next maintenance pass should replace this scaffold with source-backed synthesis.'
+              }]
+            }
+          ]
+        };
+      const createdFrom = normalizeCreatedFrom({
+        ...(req.body?.createdFrom && typeof req.body.createdFrom === 'object' ? req.body.createdFrom : {}),
+        type: 'search',
+        text: repoUrl,
+        label: `GitHub repo: ${fullName}`
+      });
+      const page = new WikiPage({
+        userId: req.user.id,
+        title,
+        slug: await buildUniqueSlug(req.user.id, title),
+        pageType: 'project',
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: 'selected_sources',
+        createdFrom,
+        body,
+        plainText: extractPlainText(body),
+        sourceRefs: []
+      });
+      refreshPageClaims(page);
+      await page.save();
+      await syncPageGraph(page, req.user.id);
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'created',
+        actorType: 'user',
+        summary: `Created "${page.title}".`
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        sourceCount: 0,
+        sourceScope: page.sourceScope,
+        sourceType: 'github_repo'
+      });
+      const result = await armGitHubRepoWatchForPage({
+        WikiPage,
+        WikiSourceEvent,
+        userId: req.user.id,
+        pageId: page._id,
+        repo: fullName,
+        checkNow: req.body?.checkNow !== false
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
+        pageId: serializeId(result.page?._id || page._id),
+        title: result.page?.title || page.title,
+        pageType: result.page?.pageType || page.pageType,
+        sourceCount: Array.isArray(result.events) ? result.events.length : 0,
+        sourceType: 'github_repo'
+      });
+      res.status(201).json({
+        page: serializeWikiPage(result.page || page),
+        repo: {
+          owner: parsedRepo.owner,
+          repo: parsedRepo.repo,
+          fullName,
+          url: repoUrl
+        },
+        snapshot: result.snapshot ? {
+          fullName: result.snapshot.fullName,
+          description: result.snapshot.description,
+          defaultBranch: result.snapshot.defaultBranch,
+          headSha: result.snapshot.headSha,
+          docCount: Array.isArray(result.snapshot.docs) ? result.snapshot.docs.length : 0,
+          latestRelease: result.snapshot.latestRelease || null
+        } : null,
+        sourceEvents: Array.isArray(result.events)
+          ? result.events.map(event => ({
+            id: serializeId(event._id),
+            title: event.title,
+            status: event.status,
+            externalId: event.externalId,
+            url: event.url,
+            sourceUpdatedAt: event.sourceUpdatedAt
+          }))
+          : []
+      });
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to create GitHub repo wiki.' });
+    }
+  });
+
   router.get('/api/wiki/pages/:id', wikiAuth, async (req, res) => {
     try {
       const page = await findOwnedPage(req).lean();

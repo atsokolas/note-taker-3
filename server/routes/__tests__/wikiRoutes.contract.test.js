@@ -950,6 +950,25 @@ const run = async () => {
       checkNow: true
     });
 
+    const repoWikiCreate = await request(url, '/api/wiki/pages/from-github', {
+      method: 'POST',
+      body: JSON.stringify({ repo: 'https://github.com/openai/agents-js' })
+    });
+    assert.strictEqual(repoWikiCreate.res.status, 201, repoWikiCreate.text);
+    assert.strictEqual(repoWikiCreate.body.page.pageType, 'project');
+    assert.strictEqual(repoWikiCreate.body.page.sourceScope, 'selected_sources');
+    assert.strictEqual(repoWikiCreate.body.page.createdFrom.label, 'GitHub repo: openai/agents-js');
+    assert.strictEqual(repoWikiCreate.body.page.externalWatches.githubRepo.owner, 'openai');
+    assert.strictEqual(repoWikiCreate.body.snapshot.fullName, 'openai/agents-js');
+    assert.strictEqual(repoWikiCreate.body.snapshot.docCount, 1);
+    assert.strictEqual(repoWikiCreate.body.sourceEvents.length, 1);
+    assert.deepStrictEqual(githubRepoWatchCalls[githubRepoWatchCalls.length - 1], {
+      userId: 'user-1',
+      pageId: String(repoWikiCreate.body.page._id),
+      repo: 'openai/agents-js',
+      checkNow: true
+    });
+
     const externalPage = await request(url, '/api/wiki/pages', {
       method: 'POST',
       body: JSON.stringify({
