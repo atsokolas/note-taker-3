@@ -960,6 +960,49 @@ const serializeSourceRefFromEvent = (event = {}) => ({
   text: event.text || ''
 });
 
+const sourceRefFromWikiSourceEvent = (event = {}) => {
+  if (!event) return null;
+  const raw = typeof event.toObject === 'function' ? event.toObject({ virtuals: false }) : event;
+  const sourceType = SOURCE_REF_TYPES.has(String(raw.sourceType || '').trim())
+    ? String(raw.sourceType || '').trim()
+    : 'external';
+  return {
+    type: sourceType,
+    objectId: raw.sourceObjectId || raw._id || null,
+    parentObjectId: null,
+    title: String(raw.title || raw.url || 'Repository source').trim().slice(0, 240),
+    snippet: cleanWikiSummary(raw.text || raw.summary || '').slice(0, 1000),
+    url: String(raw.url || '').trim().slice(0, 1000),
+    citationLabel: '',
+    addedBy: 'ai'
+  };
+};
+
+const attachSourceEventsToPageRefs = async ({ page, events = [], limit = 12 } = {}) => {
+  if (!page || !Array.isArray(events) || !events.length) return page;
+  const existing = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
+  const seen = new Set(existing.map(source => [
+    source.type || '',
+    source.objectId ? String(source.objectId) : '',
+    source.url || '',
+    source.title || ''
+  ].join(':')));
+  const additions = [];
+  events.slice(0, limit).forEach((event) => {
+    const ref = sourceRefFromWikiSourceEvent(event);
+    if (!ref || (!ref.objectId && !ref.title && !ref.snippet && !ref.url)) return;
+    const key = [ref.type || '', ref.objectId ? String(ref.objectId) : '', ref.url || '', ref.title || ''].join(':');
+    if (seen.has(key)) return;
+    seen.add(key);
+    additions.push(ref);
+  });
+  if (!additions.length) return page;
+  page.sourceRefs = [...existing, ...additions].slice(0, 80);
+  if (typeof page.markModified === 'function') page.markModified('sourceRefs');
+  if (typeof page.save === 'function') await page.save();
+  return page;
+};
+
 const serializeIngestRun = ({ event, run = null } = {}) => {
   if (!event) return null;
   const rawEvent = typeof event.toObject === 'function' ? event.toObject({ virtuals: false }) : event;
@@ -2549,6 +2592,12 @@ const buildWikiRouter = ({
           repo: fullName,
           checkNow: req.body?.checkNow !== false
         });
+        if (Array.isArray(result.events) && result.events.length) {
+          result.page = await attachSourceEventsToPageRefs({
+            page: result.page,
+            events: result.events
+          });
+        }
         trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
           pageId: serializeId(result.page?._id || page._id),
           title: result.page?.title || page.title,
@@ -2750,6 +2799,12 @@ const buildWikiRouter = ({
         repoName,
         checkNow: req.body?.checkNow !== false
       });
+      if (Array.isArray(result.events) && result.events.length) {
+        result.page = await attachSourceEventsToPageRefs({
+          page: result.page,
+          events: result.events
+        });
+      }
       res.status(200).json({
         page: serializeWikiPage(result.page),
         snapshot: result.snapshot ? {
@@ -2784,6 +2839,12 @@ const buildWikiRouter = ({
         WikiSourceEvent,
         page
       });
+      if (Array.isArray(result.events) && result.events.length) {
+        result.page = await attachSourceEventsToPageRefs({
+          page: result.page,
+          events: result.events
+        });
+      }
       res.status(200).json({
         page: serializeWikiPage(result.page),
         snapshot: result.snapshot ? {

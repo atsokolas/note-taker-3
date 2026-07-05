@@ -25,6 +25,12 @@ const SCAFFOLD_PATTERNS = [
   { label: 'unfinished article placeholder', pattern: /\bwaiting for source-backed evidence\b/i },
   { label: 'source dump framing', pattern: /\bcontributes evidence for this page\b/i }
 ];
+const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
+  { label: 'npm distribution claim', pattern: /\b(?:published|packaged|distributed)\s+(?:as|to|on)\s+(?:an?\s+)?npm\b|\bnpm package metadata confirms\b/i },
+  { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
+  { label: 'provenance boilerplate', pattern: /\bprovenance-aware|source-provenance practices|Debug Fixture\b/i },
+  { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i }
+];
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -446,6 +452,24 @@ const isGitHubRepoPage = ({ page = {}, candidates = [] } = {}) => {
   ));
 };
 
+const repoEvidenceText = ({ page = {}, sourceRefs = [] } = {}) => {
+  const refs = Array.isArray(sourceRefs) && sourceRefs.length ? sourceRefs : (Array.isArray(page.sourceRefs) ? page.sourceRefs : []);
+  return [
+    page.createdFrom?.text,
+    page.createdFrom?.label,
+    page.title,
+    ...refs.flatMap(ref => [ref.title, ref.snippet, ref.quote, ref.text, ref.url])
+  ].filter(Boolean).join('\n');
+};
+
+const findUnsupportedGitHubRepoClaims = ({ page = {}, text = '', sourceRefs = [] } = {}) => {
+  if (!isGitHubRepoPage({ page })) return [];
+  const evidence = repoEvidenceText({ page, sourceRefs });
+  return GITHUB_REPO_UNSUPPORTED_PATTERNS
+    .filter(({ pattern }) => pattern.test(text) && !pattern.test(evidence))
+    .map(({ label }) => `GitHub repo article contains unsupported ${label}.`);
+};
+
 const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return '';
   return `
@@ -619,6 +643,21 @@ const sourceRefFromCandidate = (candidate) => ({
   addedBy: 'ai'
 });
 
+const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
+  type: sourceRef.type || 'external',
+  objectId: sourceRef.objectId || sourceRef._id || null,
+  parentObjectId: sourceRef.parentObjectId || null,
+  title: truncate(sourceRef.title || sourceRef.sourceTitle || '', 240),
+  url: truncateRaw(sourceRef.url || '', 1000),
+  text: truncate([sourceRef.snippet, sourceRef.quote, sourceRef.text].filter(Boolean).join('\n'), MAX_SOURCE_TEXT),
+  tags: [],
+  createdAt: sourceRef.createdAt,
+  updatedAt: sourceRef.updatedAt,
+  provider: sourceRef.provider || sourceRef.metadata?.source || '',
+  metadata: sourceRef.metadata || {},
+  index
+});
+
 const dedupeSourceRefs = (existing = [], next = []) => {
   const seen = new Set();
   return [...existing, ...next].filter((source) => {
@@ -629,6 +668,32 @@ const dedupeSourceRefs = (existing = [], next = []) => {
     seen.add(key);
     return Boolean(source.type && (source.objectId || source.title || source.snippet || source.url));
   }).slice(0, 80);
+};
+
+const isGitHubRepoCandidate = (source = {}) => (
+  source.provider === 'github-repo'
+  || source.metadata?.source === 'github-repo'
+  || /github-repo|repository documentation source|release notes|default branch|latest release|github repository/i
+    .test([source.type, source.title, source.text, source.url].join(' '))
+);
+
+const collectExistingSourceCandidates = ({ page = {} } = {}) => (
+  (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    .map((sourceRef, index) => candidateFromSourceRef(sourceRef, index + 1))
+    .filter(source => asString(source.title) || asString(source.text) || asString(source.url))
+);
+
+const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT }) => {
+  const existingCandidates = collectExistingSourceCandidates({ page });
+  if (isGitHubRepoPage({ page, candidates: existingCandidates })) {
+    const repoCandidates = existingCandidates.filter(isGitHubRepoCandidate);
+    if (repoCandidates.length) {
+      return repoCandidates
+        .slice(0, limit)
+        .map((source, index) => ({ ...source, index: index + 1 }));
+    }
+  }
+  return selectCandidateSources({ page, sources, limit });
 };
 
 const normalizeOperations = (operations = []) => {
@@ -1288,6 +1353,8 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   if (/(\n|\s)[-•]\s*Summary:/i.test(plainText)) {
     failures.push('Article uses source-summary bullets instead of synthesis.');
   }
+  findUnsupportedGitHubRepoClaims({ page, text: plainText, sourceRefs })
+    .forEach(failure => failures.push(failure));
 
   const score = Math.max(0, Number((1 - Math.min(1, failures.length / 6)).toFixed(2)));
   return {
@@ -1441,7 +1508,7 @@ const maintainWikiPage = async ({
     });
   };
   const allSources = await collectLibrarySources({ userId, models, fastProfile });
-  const candidates = selectCandidateSources({ page, sources: allSources, limit: effectiveSourceLimit });
+  const candidates = selectMaintenanceCandidates({ page, sources: allSources, limit: effectiveSourceLimit });
   const knownWikiPages = await collectKnownWikiPages({
     page,
     userId,
@@ -1781,6 +1848,9 @@ module.exports = {
     buildRebuildPrompt,
     evaluateWikiArticleQuality,
     inferMaintainedPageType,
+    isGitHubRepoPage,
+    selectMaintenanceCandidates,
+    findUnsupportedGitHubRepoClaims,
     cleanWikiText,
     toPlainText
   }

@@ -948,6 +948,8 @@ const run = async () => {
     assert.strictEqual(githubRepoWatch.body.snapshot.fullName, 'openai/agents-js');
     assert.strictEqual(githubRepoWatch.body.snapshot.docCount, 1);
     assert.strictEqual(githubRepoWatch.body.sourceEvents.length, 1);
+    assert.ok(githubRepoWatch.body.page.sourceRefs.length >= 1);
+    assert.ok(githubRepoWatch.body.page.sourceRefs.some(source => /openai\/agents-js/i.test(source.title || '')));
     assert.deepStrictEqual(githubRepoWatchCalls[0], {
       userId: 'user-1',
       pageId: String(created.body._id),
@@ -967,6 +969,8 @@ const run = async () => {
     assert.strictEqual(repoWikiCreate.body.snapshot.fullName, 'openai/agents-js');
     assert.strictEqual(repoWikiCreate.body.snapshot.docCount, 1);
     assert.strictEqual(repoWikiCreate.body.sourceEvents.length, 1);
+    assert.strictEqual(repoWikiCreate.body.page.sourceRefs.length, 1);
+    assert.match(repoWikiCreate.body.page.sourceRefs[0].title, /openai\/agents-js/i);
     assert.deepStrictEqual(githubRepoWatchCalls[githubRepoWatchCalls.length - 1], {
       userId: 'user-1',
       pageId: String(repoWikiCreate.body.page._id),

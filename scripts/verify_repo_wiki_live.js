@@ -23,6 +23,17 @@ const OUT_DIR = process.env.QA_OUTPUT_DIR || path.join(
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const wordCount = (text = '') => String(text || '').split(/\s+/).filter(Boolean).length;
+const UNSUPPORTED_REPO_PATTERNS = [
+  /published to npm/i,
+  /packaged as an npm module/i,
+  /npm package metadata confirms/i,
+  /continuous[-\s]?integration/i,
+  /fully tested/i,
+  /provenance-aware/i,
+  /source-provenance practices/i,
+  /Debug Fixture/i,
+  /Library highlights?/i
+];
 
 const snippet = (value, max = 600) => {
   if (value == null) return '';
@@ -165,7 +176,8 @@ async function main() {
       draftStarted: draftStarted || wordCount(plainText) >= 300,
       articleBuilt: wordCount(plainText) >= 300 && !/Repository sources are being attached/i.test(plainText),
       renderedTitle: Boolean(rendered.title),
-      noHorizontalOverflow: rendered.horizontalOverflow === false
+      noHorizontalOverflow: rendered.horizontalOverflow === false,
+      noUnsupportedRepoBoilerplate: !UNSUPPORTED_REPO_PATTERNS.some(pattern => pattern.test(plainText))
     };
     const report = {
       generatedAt: new Date().toISOString(),

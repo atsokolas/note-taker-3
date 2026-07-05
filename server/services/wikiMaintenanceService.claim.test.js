@@ -8,10 +8,12 @@ const {
   deriveClaimsFromDoc,
   docFromArticle,
   evaluateWikiArticleQuality,
+  findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   normalizeSourceIndexesUsed,
   formatKnownWikiPages,
-  resolveClaimCitationIds
+  resolveClaimCitationIds,
+  selectMaintenanceCandidates
 } = __testables;
 
 const findClaimMarks = (doc) => {
@@ -128,6 +130,85 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(prompt).not.toContain('GitHub repository page rules');
     expect(prompt).not.toContain('Do not claim the repo is published to npm');
+  });
+
+  it('prefers attached GitHub repository evidence over unrelated library sources', () => {
+    const candidates = selectMaintenanceCandidates({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        createdFrom: {
+          type: 'search',
+          text: 'https://github.com/atsokolas/note-taker-3',
+          label: 'GitHub repo: atsokolas/note-taker-3'
+        },
+        sourceRefs: [{
+          type: 'external',
+          title: 'atsokolas/note-taker-3 README.md',
+          snippet: 'Repository documentation source. Path: README.md. Modern JavaScript SPA for quick note capture.',
+          metadata: { source: 'github-repo' }
+        }]
+      },
+      sources: [{
+        type: 'article',
+        title: 'Debug Fixture - Library Source Provenance',
+        text: 'This unrelated fixture discusses provenance-aware claims.'
+      }],
+      limit: 8
+    });
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].title).toBe('atsokolas/note-taker-3 README.md');
+    expect(candidates[0].text).not.toContain('Debug Fixture');
+  });
+
+  it('fails unsupported generic claims on GitHub repo pages', () => {
+    const body = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Packaged as an npm module, the project is provenance-aware and published to npm for reuse.'
+          }]
+        }
+      ]
+    };
+
+    const quality = evaluateWikiArticleQuality({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+      },
+      body,
+      claims: [],
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 README.md',
+        snippet: 'Repository documentation source. Path: README.md. Modern JavaScript SPA for quick note capture.',
+        metadata: { source: 'github-repo' }
+      }]
+    });
+
+    expect(quality.ok).toBe(false);
+    expect(quality.failures.join(' ')).toMatch(/unsupported npm distribution claim/i);
+    expect(quality.failures.join(' ')).toMatch(/unsupported provenance boilerplate/i);
+  });
+
+  it('allows repo distribution wording when the repository evidence explicitly supports it', () => {
+    const failures = findUnsupportedGitHubRepoClaims({
+      page: {
+        title: 'Package Repo Wiki',
+        createdFrom: { text: 'https://github.com/example/package' }
+      },
+      text: 'The README says the package is published to npm.',
+      sourceRefs: [{
+        title: 'example/package README.md',
+        snippet: 'Install from npm with npm install @example/package. Published to npm for library consumers.',
+        metadata: { source: 'github-repo' }
+      }]
+    });
+
+    expect(failures).toEqual([]);
   });
 
   it('formats known pages for prompt-time wiki references', () => {
