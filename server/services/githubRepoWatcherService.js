@@ -325,6 +325,17 @@ const buildRepoReleaseEventPayload = ({ userId, page, snapshot, release } = {}) 
   }
 });
 
+const findExistingRepoSourceEvent = async ({ WikiSourceEvent, userId, provider, externalId } = {}) => {
+  const query = WikiSourceEvent.findOne({ userId, provider, externalId });
+  if (query && typeof query.lean === 'function') return query.lean();
+  if (query && typeof query.select === 'function') {
+    const selected = query.select('');
+    if (selected && typeof selected.lean === 'function') return selected.lean();
+    return selected;
+  }
+  return query;
+};
+
 const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot } = {}) => {
   if (!WikiSourceEvent || !userId || !page || !snapshot) return [];
   const payloads = [
@@ -334,12 +345,16 @@ const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot
   ];
   const created = [];
   for (const payload of payloads) {
-    const existing = await WikiSourceEvent.findOne({
+    const existing = await findExistingRepoSourceEvent({
+      WikiSourceEvent,
       userId,
       provider: payload.provider,
       externalId: payload.externalId
-    }).select('_id').lean();
-    if (existing) continue;
+    });
+    if (existing) {
+      created.push(existing);
+      continue;
+    }
     const event = await createWikiSourceEvent({ WikiSourceEvent, ...payload });
     if (event) created.push(event);
   }

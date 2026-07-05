@@ -124,8 +124,9 @@ class FakeWikiSourceEvent {
       && event.externalId === query.externalId
     ));
     return {
+      lean: async () => row || null,
       select: () => ({
-        lean: async () => (row ? { _id: row._id } : null)
+        lean: async () => row || null
       })
     };
   }
@@ -231,8 +232,9 @@ const run = async () => {
     fetchImpl: makeFetch(),
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
-  assert.strictEqual(second.events.length, 0);
+  assert.strictEqual(second.events.length, 10);
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 10);
+  assert.match(second.events[0].text, /node server\/server\.js/);
 
   const dueQuery = dueGitHubRepoWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });
   assert.strictEqual(dueQuery['externalWatches.githubRepo.status'], 'active');
