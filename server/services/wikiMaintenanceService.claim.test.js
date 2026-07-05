@@ -369,6 +369,44 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('Recent commit evidence is attached');
   });
 
+  it('keeps mandatory repo evidence even when the model under-cites sources', () => {
+    const indexes = normalizeSourceIndexesUsed({
+      page: {
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      rawIndexes: [1],
+      article: {
+        summary: { text: 'Short repo summary.', citationIndexes: [1] },
+        sections: []
+      },
+      changelog: [],
+      candidates: [{
+        index: 1,
+        title: 'atsokolas/note-taker-3 package.json',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config' }
+      }, {
+        index: 2,
+        title: 'atsokolas/note-taker-3 README.md',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'README.md', evidenceType: 'document' }
+      }, {
+        index: 3,
+        title: 'atsokolas/note-taker-3 server/server.js',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/server.js', evidenceType: 'code' }
+      }, {
+        index: 4,
+        title: 'atsokolas/note-taker-3 recent commits',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }]
+    });
+
+    expect(indexes).toEqual(expect.arrayContaining([1, 3, 4]));
+  });
+
   it('infers GitHub-backed pages as repo pages during maintenance', () => {
     expect(inferMaintainedPageType({
       page: {

@@ -1539,7 +1539,24 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   };
 };
 
-const normalizeSourceIndexesUsed = ({ rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
+const addMandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [], used }) => {
+  if (!used || !isGitHubRepoPage({ page, candidates })) return;
+  const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
+  const byEvidence = (kind) => repoCandidates.filter(source => repoSourceEvidenceType(source) === kind);
+  const configSources = byEvidence('config');
+  const codeSources = byEvidence('code');
+  const commitSources = byEvidence('recent_commits');
+  const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
+  [
+    packageSource,
+    configSources.find(source => source.index !== packageSource?.index),
+    codeSources[0],
+    codeSources[1],
+    commitSources[0]
+  ].filter(Boolean).forEach(source => used.add(source.index));
+};
+
+const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
   const used = new Set();
   normalizeCitationIndexes(rawIndexes).forEach(index => used.add(index));
   const addBlock = (block = {}) => {
@@ -1558,6 +1575,7 @@ const normalizeSourceIndexesUsed = ({ rawIndexes = [], article = {}, changelog =
     (section.bullets || []).forEach(addBlock);
   });
   (changelog || []).forEach((entry) => normalizeCitationIndexes(entry.sourceIndexes).forEach(index => used.add(index)));
+  addMandatoryGitHubRepoSourceIndexes({ page, candidates, used });
   return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, 16);
 };
 
@@ -1600,6 +1618,7 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
     maintenance,
     sourceIndexesUsed: normalizeSourceIndexesUsed({
       rawIndexes: raw.sourceIndexesUsed || raw.sourceIndexes || [],
+      page,
       article,
       changelog,
       candidates
