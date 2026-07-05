@@ -266,8 +266,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(candidates.slice(0, 3).map(source => source.metadata?.path || source.title)).toEqual([
       'package.json',
-      'server/server.js',
-      'atsokolas/note-taker-3 recent commits'
+      'atsokolas/note-taker-3 recent commits',
+      'server/server.js'
     ]);
     expect(candidates.slice(0, 3).map(source => source.metadata?.path || '')).not.toContain('docs/deep-dive-qa-report-2026-06-04.md');
   });
@@ -326,6 +326,47 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('server/server.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
     expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+  });
+
+  it('extracts repo commands from truncated package.json evidence', () => {
+    const result = fallbackMaintenance({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 package.json',
+        text: 'Path: package.json. { "name": "note-taker-3-1", "scripts": { "start": "node server/server.js", "wiki:qa": "node scripts/wiki_qa.js", "build": "cd note-taker-ui && npm run build"...',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config', docClass: 'config' }
+      }, {
+        index: 2,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 recent commits',
+        text: 'recent commits. 14ce289 2026-07-05 - repo wiki agent contract.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }, {
+        index: 3,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/server.js',
+        text: 'const app = express();',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/server.js', evidenceType: 'code', docClass: 'code' }
+      }]
+    });
+    const text = toPlainText(docFromArticle({
+      title: result.title,
+      article: result.article
+    }));
+
+    expect(text).toContain('npm run start');
+    expect(text).toContain('npm run wiki:qa');
+    expect(text).toContain('npm run build');
+    expect(text).toContain('Recent commit evidence is attached');
   });
 
   it('infers GitHub-backed pages as repo pages during maintenance', () => {

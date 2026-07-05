@@ -754,8 +754,8 @@ const githubRepoEvidenceRank = (source = {}, currentHead = '') => {
   if (commitSha && currentHead && commitSha === currentHead) rank -= 50;
   else if (commitSha && currentHead && commitSha !== currentHead) rank += 75;
   if (evidenceType === 'config') rank += 0;
+  else if (evidenceType === 'recent_commits') rank -= 2;
   else if (evidenceType === 'code') rank += 6;
-  else if (evidenceType === 'recent_commits') rank += 12;
   else if (docClass === 'readme') rank += 18;
   else if (docClass === 'runbook') rank += 24;
   else if (docClass === 'changelog') rank += 42;
@@ -1228,7 +1228,19 @@ const extractRepoPath = (source = {}) => asString(source.metadata?.path);
 const extractPackageScripts = (source = {}) => {
   const text = asString(source.text || source.snippet);
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return [];
+  if (!match) {
+    const looseScripts = [];
+    const scriptsBlock = text.match(/"scripts"\s*:\s*\{([\s\S]*)/i);
+    if (scriptsBlock) {
+      const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
+      let pair = pairPattern.exec(scriptsBlock[1]);
+      while (pair && looseScripts.length < 8) {
+        looseScripts.push({ name: pair[1], command: asString(pair[2]) });
+        pair = pairPattern.exec(scriptsBlock[1]);
+      }
+    }
+    return looseScripts.filter(script => script.name && script.command);
+  }
   try {
     const parsed = JSON.parse(match[0]);
     return Object.entries(parsed.scripts || {})
@@ -1236,7 +1248,16 @@ const extractPackageScripts = (source = {}) => {
       .filter(script => script.name && script.command)
       .slice(0, 8);
   } catch (_error) {
-    return [];
+    const scriptsBlock = match[0].match(/"scripts"\s*:\s*\{([\s\S]*)/i);
+    if (!scriptsBlock) return [];
+    const scripts = [];
+    const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
+    let pair = pairPattern.exec(scriptsBlock[1]);
+    while (pair && scripts.length < 8) {
+      scripts.push({ name: pair[1], command: asString(pair[2]) });
+      pair = pairPattern.exec(scriptsBlock[1]);
+    }
+    return scripts.filter(script => script.name && script.command);
   }
 };
 
