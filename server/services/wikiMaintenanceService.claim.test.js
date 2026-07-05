@@ -324,6 +324,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
+    expect(text).not.toMatch(/still needs source-backed development/i);
     expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4]));
   });
 

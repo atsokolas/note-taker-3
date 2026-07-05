@@ -1275,12 +1275,18 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const runCommand = runScript ? `npm run ${runScript.name}` : 'the repository evidence does not expose a run command yet';
   const testCommand = testScript ? `npm run ${testScript.name}` : 'no explicit test command was found in the selected package evidence';
   const buildCommand = buildScript ? `npm run ${buildScript.name}` : 'no explicit build command was found in the selected package evidence';
+  const summaryParagraph = repoFallbackParagraph({
+    text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today.`,
+    sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
+  });
   const article = {
-    summary: repoFallbackParagraph({
-      text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today.`,
-      sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
-    }),
+    summary: summaryParagraph,
     sections: [
+      {
+        heading: 'Summary',
+        paragraphs: [summaryParagraph],
+        bullets: []
+      },
       {
         heading: 'Run locally',
         paragraphs: [repoFallbackParagraph({
