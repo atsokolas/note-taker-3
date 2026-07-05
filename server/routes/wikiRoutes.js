@@ -2194,6 +2194,16 @@ const buildWikiRouter = ({
     };
   };
 
+  const isGitHubRepoWikiPage = (page = {}) => {
+    const createdFrom = [page.createdFrom?.text, page.createdFrom?.label].join(' ');
+    return Boolean(page.externalWatches?.githubRepo)
+      || /GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test(createdFrom)
+      || (Array.isArray(page.sourceRefs) && page.sourceRefs.some(source => (
+        source.provider === 'github-repo'
+        || source.metadata?.source === 'github-repo'
+      )));
+  };
+
   const scheduleInboundAutolinks = ({ targetPage, userId, sourcePageId = null } = {}) => {
     const targetSnapshot = clonePlain(targetPage?.toObject ? targetPage.toObject() : targetPage);
     setImmediate(async () => {
@@ -3288,6 +3298,9 @@ const buildWikiRouter = ({
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const before = snapshotPage(page);
       const maintenanceOptions = readMaintenanceRequestOptions(req.body || {});
+      if (isGitHubRepoWikiPage(page)) {
+        maintenanceOptions.skipQualityRebuild = false;
+      }
       openWikiDraftStream(res);
 
       page.aiState = {
