@@ -974,6 +974,8 @@ const sourceRefFromWikiSourceEvent = (event = {}) => {
     snippet: cleanWikiSummary(raw.text || raw.summary || '').slice(0, 1000),
     url: String(raw.url || '').trim().slice(0, 1000),
     citationLabel: '',
+    provider: String(raw.provider || '').trim().slice(0, 120),
+    metadata: raw.metadata && typeof raw.metadata === 'object' ? clonePlain(raw.metadata) : {},
     addedBy: 'ai'
   };
 };

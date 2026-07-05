@@ -734,7 +734,16 @@ const run = async () => {
           status: 'pending',
           externalId: 'github-doc:openai/agents-js:abc1234567890abcdef:README.md:readme-sha',
           url: 'https://github.com/openai/agents-js/blob/abc1234567890abcdef/README.md',
-          sourceUpdatedAt: null
+          sourceUpdatedAt: null,
+          provider: 'github-repo',
+          metadata: {
+            source: 'github-repo',
+            fullName: 'openai/agents-js',
+            path: 'README.md',
+            evidenceType: 'document',
+            docClass: 'readme',
+            commitSha: 'abc1234567890abcdef'
+          }
         }]
       };
     },
@@ -950,6 +959,11 @@ const run = async () => {
     assert.strictEqual(githubRepoWatch.body.sourceEvents.length, 1);
     assert.ok(githubRepoWatch.body.page.sourceRefs.length >= 1);
     assert.ok(githubRepoWatch.body.page.sourceRefs.some(source => /openai\/agents-js/i.test(source.title || '')));
+    const githubRef = githubRepoWatch.body.page.sourceRefs.find(source => /openai\/agents-js/i.test(source.title || ''));
+    assert.strictEqual(githubRef.provider, 'github-repo');
+    assert.strictEqual(githubRef.metadata.path, 'README.md');
+    assert.strictEqual(githubRef.metadata.evidenceType, 'document');
+    assert.strictEqual(githubRef.metadata.docClass, 'readme');
     assert.deepStrictEqual(githubRepoWatchCalls[0], {
       userId: 'user-1',
       pageId: String(created.body._id),
@@ -971,6 +985,10 @@ const run = async () => {
     assert.strictEqual(repoWikiCreate.body.sourceEvents.length, 1);
     assert.strictEqual(repoWikiCreate.body.page.sourceRefs.length, 1);
     assert.match(repoWikiCreate.body.page.sourceRefs[0].title, /openai\/agents-js/i);
+    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].provider, 'github-repo');
+    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].metadata.path, 'README.md');
+    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].metadata.evidenceType, 'document');
+    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].metadata.docClass, 'readme');
     assert.deepStrictEqual(githubRepoWatchCalls[githubRepoWatchCalls.length - 1], {
       userId: 'user-1',
       pageId: String(repoWikiCreate.body.page._id),
@@ -1924,7 +1942,7 @@ const run = async () => {
       body: JSON.stringify({
         source: {
           type: 'text',
-          text: 'Investing pages need accepted ingest traces that connect source events to wiki pages.',
+          text: 'Contract Page needs accepted ingest traces that connect highlight source events to wiki pages.',
           url: 'https://example.com/accepted-ingest-source'
         }
       })
