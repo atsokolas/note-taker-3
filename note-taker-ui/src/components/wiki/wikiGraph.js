@@ -2,7 +2,7 @@ import { countWikiSources } from './wikiPageMetrics';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const PAGE_TYPES = ['all', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'log', 'topic'];
+export const PAGE_TYPES = ['all', 'concept', 'entity', 'source', 'question', 'comparison', 'overview', 'project', 'repo', 'log', 'topic'];
 export const MODIFIED_WINDOWS = ['24h', '7d', '30d', 'all'];
 export const DRIFT_STATUSES = ['all', 'drifting', 'stable'];
 

@@ -2565,7 +2565,7 @@ const buildWikiRouter = ({
         userId: req.user.id,
         title,
         slug: await buildUniqueSlug(req.user.id, title),
-        pageType: 'project',
+        pageType: 'repo',
         status: 'draft',
         visibility: 'private',
         sourceScope: 'selected_sources',

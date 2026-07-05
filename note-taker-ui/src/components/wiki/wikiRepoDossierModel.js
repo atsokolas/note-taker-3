@@ -46,7 +46,7 @@ export const isRepoDossierPage = (page = {}) => {
   const type = String(page?.pageType || '').toLowerCase();
   const watch = githubWatchState(page?.externalWatches?.githubRepo);
   if (watch.owner || watch.repo) return true;
-  if (type === 'project' || type === 'log') return true;
+  if (type === 'repo' || type === 'project' || type === 'log') return true;
   const meta = pageMeta(page);
   return Boolean(normalizeText(meta.githubRepo || meta.repo || meta.repository || meta.githubUrl || meta.repoUrl));
 };

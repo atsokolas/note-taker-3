@@ -38,6 +38,7 @@ describe('WikiGitHubRepoWatchControl', () => {
   });
 
   it('detects project/log/repo pages', () => {
+    expect(isRepoDossierPage({ pageType: 'repo' })).toBe(true);
     expect(isRepoDossierPage({ pageType: 'project' })).toBe(true);
     expect(isRepoDossierPage({ pageType: 'log' })).toBe(true);
     expect(isRepoDossierPage({ pageType: 'concept' })).toBe(false);

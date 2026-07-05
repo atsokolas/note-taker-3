@@ -976,7 +976,7 @@ const run = async () => {
       body: JSON.stringify({ repo: 'https://github.com/openai/agents-js' })
     });
     assert.strictEqual(repoWikiCreate.res.status, 201, repoWikiCreate.text);
-    assert.strictEqual(repoWikiCreate.body.page.pageType, 'project');
+    assert.strictEqual(repoWikiCreate.body.page.pageType, 'repo');
     assert.strictEqual(repoWikiCreate.body.page.sourceScope, 'selected_sources');
     assert.strictEqual(repoWikiCreate.body.page.createdFrom.label, 'GitHub repo: openai/agents-js');
     assert.strictEqual(repoWikiCreate.body.page.externalWatches.githubRepo.owner, 'openai');
@@ -1001,7 +1001,7 @@ const run = async () => {
       body: JSON.stringify({ repo: 'openai/rate-limited' })
     });
     assert.strictEqual(repoWikiPartial.res.status, 201, repoWikiPartial.text);
-    assert.strictEqual(repoWikiPartial.body.page.pageType, 'project');
+    assert.strictEqual(repoWikiPartial.body.page.pageType, 'repo');
     assert.strictEqual(repoWikiPartial.body.page.createdFrom.label, 'GitHub repo: openai/rate-limited');
     assert.strictEqual(repoWikiPartial.body.watchError.statusCode, 403);
     assert.match(repoWikiPartial.body.watchError.message, /GitHub request failed/);
@@ -1714,7 +1714,7 @@ const run = async () => {
       && call.maintenanceProfile === 'fast'
       && call.sourceLimit === 8
       && call.sourceTextLimit === 800
-      && call.skipQualityRebuild === true
+      && call.skipQualityRebuild === false
       && call.streamDraft === true
     )));
 

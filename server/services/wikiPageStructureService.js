@@ -39,6 +39,11 @@ const CONTRACTS = {
     intent: 'Track what the project is, why it matters, current state, and next decisions.',
     sections: ['Purpose', 'Current State', 'Key Decisions', 'Risks', 'Next Moves']
   },
+  repo: {
+    label: 'Repository',
+    intent: 'Maintain a developer-facing dossier for a GitHub repository.',
+    sections: ['Summary', 'Run locally', 'Architecture', 'Key files', 'Tests and deploy', 'Current active work', 'How to extend', 'Known risks']
+  },
   log: {
     label: 'Log',
     intent: 'Track dated observations, changes, and decisions as a source-backed working record.',

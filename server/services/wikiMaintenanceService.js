@@ -522,7 +522,7 @@ const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
 GitHub repository page rules:
 - This page is about a public GitHub repository. Write it as a developer dossier for someone trying to understand, run, change, and maintain the repo today.
 - Write only what the repository evidence actually supports.
-- Use this section shape: Summary | Run locally | Architecture | Key files | Tests and deploy | Current active work | How to extend | Known risks.
+- Use this exact section shape: Summary | Run locally | Architecture | Key files | Tests and deploy | Current active work | How to extend | Known risks.
 - Include a "Developer quickstart" section or subsection with exactly these labels when evidence exists: Run, Test, Deploy, Key paths.
 - Do not claim the repo is published to npm, continuously integrated, fully tested, provenance-aware, or accompanied by a wiki unless a cited repository source explicitly says that.
 - Prefer concrete repo facts: purpose, app/package type, major directories, package scripts, API routes, service/model entrypoints, frontend entrypoints, deployment targets, recent commits, documentation files, release notes, and open implementation risks.
@@ -1363,7 +1363,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   return {
     title,
     article: alignArticleToPageStructure({
-      pageType: page.pageType || 'project',
+      pageType: 'repo',
       article
     }),
     maintenance: {
@@ -1644,6 +1644,7 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
 };
 
 const inferMaintainedPageType = ({ page, candidates = [] } = {}) => {
+  if (isGitHubRepoPage({ page, candidates })) return 'repo';
   const current = asString(page?.pageType || 'topic').toLowerCase();
   if (current && current !== 'topic') return current;
   const createdType = asString(page?.createdFrom?.type).toLowerCase();
@@ -1949,7 +1950,7 @@ const maintainWikiPage = async ({
           provider: completion.provider || modelInfo.provider || ''
         };
         const retryNormalized = normalizeModelResult({ raw: retryRaw, page, candidates, manualNotes });
-        const retryMaterialized = await materializeMaintenanceResult({
+        let retryMaterialized = await materializeMaintenanceResult({
           page,
           normalized: retryNormalized,
           candidates,
@@ -1958,7 +1959,20 @@ const maintainWikiPage = async ({
           userId,
           models
         });
-        finalNormalized = retryNormalized;
+        let finalRetryNormalized = retryNormalized;
+        if (!retryMaterialized.quality?.ok && isGitHubRepoPage({ page, candidates })) {
+          finalRetryNormalized = fallbackMaintenance({ page, candidates, manualNotes });
+          retryMaterialized = await materializeMaintenanceResult({
+            page,
+            normalized: finalRetryNormalized,
+            candidates,
+            previousClaims,
+            now,
+            userId,
+            models
+          });
+        }
+        finalNormalized = finalRetryNormalized;
         materialized = {
           ...retryMaterialized,
           quality: {

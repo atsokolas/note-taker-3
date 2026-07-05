@@ -327,6 +327,16 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4]));
   });
 
+  it('infers GitHub-backed pages as repo pages during maintenance', () => {
+    expect(inferMaintainedPageType({
+      page: {
+        pageType: 'project',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      candidates: []
+    })).toBe('repo');
+  });
+
   it('fails unsupported generic claims on GitHub repo pages', () => {
     const body = {
       type: 'doc',
