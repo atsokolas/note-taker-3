@@ -1,5 +1,7 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { buildWikiCreatePayload } from '../utils/wikiCreate';
+import { githubRepoUrl, parseGitHubRepoInput } from '../utils/githubRepoInput';
 
 const WIKI_PAGES_PATH = '/api/wiki/pages';
 
@@ -557,6 +559,65 @@ export const armTranscriptWatch = async (pageId, { ticker = '' } = {}) => {
   }
 };
 
+export const createRepoWikiFromGitHub = async (repoInput = '') => {
+  const parsed = parseGitHubRepoInput(repoInput);
+  if (!parsed) {
+    throw new Error('Enter a public GitHub repository as owner/repo or a github.com URL.');
+  }
+  const repoUrl = githubRepoUrl(parsed);
+  const title = `${parsed.fullName} repo wiki`;
+  let page;
+  try {
+    const payload = buildWikiCreatePayload({
+      type: 'search',
+      title,
+      text: repoUrl,
+      label: `GitHub repo: ${parsed.fullName}`,
+      pageType: 'project',
+      sourceScope: 'selected_sources'
+    });
+    payload.body = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: `${parsed.fullName} is a public GitHub repository. Noeis will build this project wiki from repository docs, releases, architecture notes, and changelogs.` }
+          ]
+        },
+        {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Current State' }]
+        },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Repository sources are being attached. The next maintenance pass should replace this scaffold with source-backed synthesis.' }
+          ]
+        }
+      ]
+    };
+    page = await createWikiPage(payload);
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to create repo wiki page.';
+    throw new Error(message);
+  }
+  const pageId = page?._id || page?.id;
+  if (!pageId) throw new Error('Missing created page id');
+  try {
+    const watchResult = await armGitHubRepoWatch(pageId, { repo: parsed.fullName });
+    return {
+      page: watchResult?.page || page,
+      repo: parsed,
+      watchResult
+    };
+  } catch (error) {
+    const message = error?.message || 'Repo wiki was created, but arming the GitHub watch failed.';
+    throw new Error(message);
+  }
+};
+
 export const armGitHubRepoWatch = async (pageId, { repo = '', repoUrl = '', owner = '', repoName = '' } = {}) => {
   const payload = {};
   const normalizedRepo = String(repo || repoUrl || '').trim();
@@ -658,6 +719,7 @@ const wikiApi = {
   armEdgarWatch,
   armTranscriptWatch,
   armGitHubRepoWatch,
+  createRepoWikiFromGitHub,
   rebuildWikiPageGraph,
   rebuildWikiGraph,
   writeWikiPageToConnector,

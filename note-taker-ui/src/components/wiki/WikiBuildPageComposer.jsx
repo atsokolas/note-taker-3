@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createWikiPage } from '../../api/wiki';
+import { createRepoWikiFromGitHub, createWikiPage } from '../../api/wiki';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { parseGitHubRepoInput } from '../../utils/githubRepoInput';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { Button } from '../ui';
 import AgentTicker from '../agent/AgentTicker';
@@ -22,35 +23,45 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
     setBusy(true);
     setStatus('');
     setError('');
-    setTickerLines([
-      `capturing topic · ${topic}`,
-      'creating overview scaffold'
+    const repo = parseGitHubRepoInput(topic);
+    setTickerLines(repo
+      ? [
+        `recognized repo · ${repo.fullName}`,
+        'creating project wiki scaffold',
+        'attaching repository docs and releases'
+      ]
+      : [
+        `capturing topic · ${topic}`,
+        'creating overview scaffold'
     ]);
     try {
-      const page = await createWikiPage(buildWikiCreatePayload({
-        type: 'idea',
-        title: topic,
-        text: topic,
-        pageType: 'overview'
-      }));
+      const repoResult = repo ? await createRepoWikiFromGitHub(topic) : null;
+      const page = repoResult?.page || await createWikiPage(buildWikiCreatePayload({
+          type: 'idea',
+          title: topic,
+          text: topic,
+          pageType: 'overview'
+        }));
       const pageId = page?._id || page?.id;
       if (!pageId) throw new Error('Missing created page id');
       setTickerLines([
-        `captured topic · ${page.title || topic}`,
+        repo ? `repo watcher armed · ${repo.fullName}` : `captured topic · ${page.title || topic}`,
         `opening @wiki:${pageId}`,
-        'agent drafting from your library'
+        repo ? 'agent drafting from repository sources' : 'agent drafting from your library'
       ]);
-      setStatus(`Building "${page.title || topic}"...`);
+      setStatus(repo ? `Building repo wiki for ${repo.fullName}...` : `Building "${page.title || topic}"...`);
       navigate(`${wikiPagePath(pageId)}&build=1`, { replace: false });
       setPrompt('');
       onBuilt?.(page);
-      setStatus(`Opened the workspace. ${AGENT_DISPLAY_NAME} is drafting the page there.`);
+      setStatus(repo
+        ? `Opened the workspace. ${AGENT_DISPLAY_NAME} is drafting from repository sources there.`
+        : `Opened the workspace. ${AGENT_DISPLAY_NAME} is drafting the page there.`);
     } catch (_error) {
       setTickerLines([
-        `build failed · ${topic}`,
+        repo ? `repo wiki failed · ${repo.fullName}` : `build failed · ${topic}`,
         'waiting for a retry'
       ]);
-      setError('Failed to build this wiki page.');
+      setError(repo ? 'Failed to build this repo wiki.' : 'Failed to build this wiki page.');
     } finally {
       setBusy(false);
     }

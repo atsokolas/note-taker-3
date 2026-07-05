@@ -324,6 +324,43 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   width: 100%;
 }
 
+/* Repo wiki entry — mirrors the quiet composer treatment. */
+.wiki-front-page__repo-create {
+  position: relative;
+  max-width: min(100%, 560px);
+  margin-top: 18px;
+  border-radius: 10px;
+}
+
+.wiki-front-page__repo-create .wiki-repo-create.wiki-front-page__repo-builder {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.wiki-front-page__repo-create .wiki-repo-create__row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.wiki-front-page__repo-create .wiki-repo-create__row input {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .wiki-front-page__repo-create {
+    max-width: min(100%, 720px);
+  }
+}
+
+@media (min-width: 1440px) {
+  .wiki-front-page__repo-create {
+    max-width: min(100%, 760px);
+  }
+}
+
 @media (min-width: 1280px) {
   .wiki-front-page__composer {
     max-width: min(100%, 720px);
