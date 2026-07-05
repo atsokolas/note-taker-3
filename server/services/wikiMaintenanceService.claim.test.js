@@ -87,6 +87,49 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Compounding Interest');
   });
 
+  it('adds concrete anti-hallucination rules for GitHub repo pages', () => {
+    const prompt = buildPrompt({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'project',
+        body: {},
+        createdFrom: {
+          type: 'search',
+          text: 'https://github.com/atsokolas/note-taker-3',
+          label: 'GitHub repo: atsokolas/note-taker-3'
+        }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 README.md',
+        text: 'Repository documentation source. Path: README.md.'
+      }]
+    });
+
+    expect(prompt).toContain('GitHub repository page rules');
+    expect(prompt).toContain('Write only what the repository evidence actually supports');
+    expect(prompt).toContain('Do not claim the repo is published to npm');
+    expect(prompt).toContain('Prefer concrete repo facts');
+    expect(prompt).toContain('Do not describe them as Library highlights');
+  });
+
+  it('does not add GitHub repo rules to ordinary wiki pages', () => {
+    const prompt = buildPrompt({
+      page: { title: 'Opportunity Cost', pageType: 'concept', body: {}, sourceRefs: [] },
+      candidates: [{
+        index: 1,
+        type: 'article',
+        title: 'Decision note',
+        text: 'Opportunity cost compares the chosen path with the next-best alternative.'
+      }]
+    });
+
+    expect(prompt).not.toContain('GitHub repository page rules');
+    expect(prompt).not.toContain('Do not claim the repo is published to npm');
+  });
+
   it('formats known pages for prompt-time wiki references', () => {
     expect(formatKnownWikiPages([
       { id: 'page-1', title: 'Cash Flow Valuation', pageType: 'concept', summary: 'Valuing assets from owner cash flows.' }

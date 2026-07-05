@@ -435,6 +435,29 @@ const formatKnownWikiPages = (knownWikiPages = []) => {
     .join('\n');
 };
 
+const isGitHubRepoPage = ({ page = {}, candidates = [] } = {}) => {
+  const createdFrom = [page.createdFrom?.text, page.createdFrom?.label].join(' ');
+  if (page.externalWatches?.githubRepo) return true;
+  if (/GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test(createdFrom)) return true;
+  return (Array.isArray(candidates) ? candidates : []).some(source => (
+    source.provider === 'github-repo'
+    || source.metadata?.source === 'github-repo'
+    || /github-repo|repository documentation source|release notes/i.test([source.type, source.title, source.text].join(' '))
+  ));
+};
+
+const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
+  if (!isGitHubRepoPage({ page, candidates })) return '';
+  return `
+
+GitHub repository page rules:
+- This page is about a public GitHub repository. Write only what the repository evidence actually supports.
+- Do not claim the repo is published to npm, continuously integrated, fully tested, provenance-aware, or accompanied by a wiki unless a cited repository source explicitly says that.
+- Prefer concrete repo facts: purpose, app/package type, major directories, services, scripts, API routes, deployment targets, documentation files, release notes, and open implementation risks.
+- Treat README, package files, docs, changelogs, and releases as repository evidence. Do not describe them as Library highlights.
+- If the repo evidence is thin, say which repository documents were found and what remains unknown.`;
+};
+
 const buildPrompt = ({
   page,
   candidates,
@@ -465,6 +488,7 @@ Hard rules:
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 - Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
+${formatGitHubRepoPromptBlock({ page, candidates })}
 
 Page:
 Title: ${page.title}
