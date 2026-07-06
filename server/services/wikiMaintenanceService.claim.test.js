@@ -573,8 +573,41 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).toMatch(/developer-dossier sections/i);
     expect(quality.failures.join(' ')).toMatch(/local run or test commands/i);
     expect(quality.failures.join(' ')).toMatch(/code\/config evidence/i);
-    expect(quality.failures.join(' ')).toMatch(/recent-commit evidence/i);
     expect(quality.failures.join(' ')).toMatch(/stale planning or QA history/i);
+  });
+
+  it('treats pageType repo as a GitHub repo page and rejects invented current-work claims', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo'
+      },
+      text: [
+        'Summary: Noeis is a JavaScript SPA backed by Express and MongoDB.',
+        'Run locally: use npm install and npm start.',
+        'Architecture: server/server.js handles API routes and note-taker-ui/src/App.js owns the frontend.',
+        'Key files: package.json, server/server.js, note-taker-ui/src/App.js.',
+        'Tests and deploy: use npm run build.',
+        'Current active work: current development efforts focus on backend performance and tasks are tracked in the issue tracker.',
+        'How to extend: add routes or frontend components.',
+        'Known risks: deployment documentation is limited.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","build":"cd note-taker-ui && npm run build"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. const app = express();',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        snippet: 'Path: note-taker-ui/src/App.js. React app routes.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'note-taker-ui/src/App.js' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/current active-work signals/i);
   });
 
   it('passes GitHub repo developer dossier checks with code, config, commands, and current work', () => {

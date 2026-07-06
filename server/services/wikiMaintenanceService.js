@@ -29,7 +29,8 @@ const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'npm distribution claim', pattern: /\b(?:published|packaged|distributed)\s+(?:as|to|on)\s+(?:an?\s+)?npm\b|\bnpm package metadata confirms\b/i },
   { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
   { label: 'provenance boilerplate', pattern: /\bprovenance[-‑–—\s]?aware|source[-‑–—\s]?provenance practices|Debug Fixture\b/i },
-  { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i }
+  { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i },
+  { label: 'issue tracker claim', pattern: /\b(?:issue tracker|issues? track|tasks? are tracked)\b/i }
 ];
 const GITHUB_REPO_SCAFFOLD_PATTERNS = [
   /details will appear after the first GitHub sync/i,
@@ -460,6 +461,7 @@ const formatKnownWikiPages = (knownWikiPages = []) => {
 
 const isGitHubRepoPage = ({ page = {}, candidates = [] } = {}) => {
   const createdFrom = [page.createdFrom?.text, page.createdFrom?.label].join(' ');
+  if (asString(page.pageType).toLowerCase() === 'repo') return true;
   if (page.externalWatches?.githubRepo) return true;
   if (/GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test(createdFrom)) return true;
   return (Array.isArray(candidates) ? candidates : []).some(source => (
@@ -509,8 +511,8 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   if (codeOrConfigCount < 3) {
     failures.push(`GitHub repo article has too little code/config evidence: ${codeOrConfigCount}/3 required.`);
   }
-  if (!evidenceTypes.has('recent_commits')) {
-    failures.push('GitHub repo article is missing recent-commit evidence for current active work.');
+  if (!evidenceTypes.has('recent_commits') && /\bcurrent (?:development|active work|efforts)|\brecent commits?\b|\bissue tracker\b/i.test(text) && !/\b(?:no recent[-\s]?commit evidence|current active work remains unknown|no recent commits? (?:were|was) attached)\b/i.test(text)) {
+    failures.push('GitHub repo article invents current active-work signals without recent-commit evidence.');
   }
   if (/\b(?:April|May|June)\s+202[0-5]\b|\bQA sweeps?\b|\bOAuth spike\b/i.test(text) && !/\bHistorical notes?\b/i.test(text)) {
     failures.push('GitHub repo article foregrounds stale planning or QA history instead of developer-facing current state.');
