@@ -30,7 +30,8 @@ const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
   { label: 'provenance boilerplate', pattern: /\bprovenance[-‑–—\s]?aware|source[-‑–—\s]?provenance practices|Debug Fixture\b/i },
   { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i },
-  { label: 'issue tracker claim', pattern: /\b(?:issue tracker|issues? track|tasks? are tracked)\b/i }
+  { label: 'issue tracker claim', pattern: /\b(?:issue tracker|issues? track|tasks? are tracked)\b/i },
+  { label: 'testing framework claim', pattern: /\b(?:includes|has|uses)\s+(?:a\s+)?testing framework\b/i }
 ];
 const GITHUB_REPO_SCAFFOLD_PATTERNS = [
   /details will appear after the first GitHub sync/i,
@@ -502,6 +503,14 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   const refs = Array.isArray(sourceRefs) ? sourceRefs : [];
   const evidenceTypes = new Set(refs.map(repoSourceEvidenceType));
   const codeOrConfigCount = refs.filter(source => ['code', 'config'].includes(repoSourceEvidenceType(source))).length;
+  const repoPaths = refs.map(extractRepoPath).filter(Boolean);
+  const mentionedPathCount = repoPaths.filter(path => new RegExp(`\\b${escapeRegex(path)}\\b`, 'i').test(text)).length;
+  const packageSource = refs.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || null;
+  const packageScripts = packageSource ? extractPackageScripts(packageSource) : [];
+  const mentionedScriptCount = packageScripts.filter(script => {
+    const name = escapeRegex(script.name);
+    return new RegExp(`\\bnpm\\s+(?:run\\s+${name}|${name})\\b`, 'i').test(text);
+  }).length;
   if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
     failures.push('GitHub repo article is missing developer-dossier sections: Run locally, Architecture, Key files, and Tests/deploy.');
   }
@@ -511,7 +520,13 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   if (codeOrConfigCount < 3) {
     failures.push(`GitHub repo article has too little code/config evidence: ${codeOrConfigCount}/3 required.`);
   }
-  if (!evidenceTypes.has('recent_commits') && /\bcurrent (?:development|active work|efforts)|\brecent commits?\b|\bissue tracker\b/i.test(text) && !/\b(?:no recent[-\s]?commit evidence|current active work remains unknown|no recent commits? (?:were|was) attached)\b/i.test(text)) {
+  if (repoPaths.length >= 3 && mentionedPathCount < 2) {
+    failures.push(`GitHub repo article is too vague about concrete file paths: ${mentionedPathCount}/2 exact paths mentioned.`);
+  }
+  if (packageScripts.length >= 2 && mentionedScriptCount < 2) {
+    failures.push(`GitHub repo article is too vague about package scripts: ${mentionedScriptCount}/2 exact scripts mentioned.`);
+  }
+  if (!evidenceTypes.has('recent_commits') && /\b(?:current|ongoing)\s+(?:development|active work|efforts)|\bdevelopment (?:focuses|is focused)|\bexpanding functionality\b|\bimproving the UI\b|\brecent commits?\b|\bissue tracker\b/i.test(text) && !/\b(?:no recent[-\s]?commit evidence|current active work remains unknown|no recent commits? (?:were|was) attached)\b/i.test(text)) {
     failures.push('GitHub repo article invents current active-work signals without recent-commit evidence.');
   }
   if (/\b(?:April|May|June)\s+202[0-5]\b|\bQA sweeps?\b|\bOAuth spike\b/i.test(text) && !/\bHistorical notes?\b/i.test(text)) {
@@ -1256,7 +1271,8 @@ const extractPackageScripts = (source = {}) => {
   }
   try {
     const parsed = JSON.parse(match[0]);
-    return Object.entries(parsed.scripts || {})
+    const scriptsObject = parsed.scripts || parsed;
+    return Object.entries(scriptsObject || {})
       .map(([name, command]) => ({ name, command: asString(command) }))
       .filter(script => script.name && script.command)
       .slice(0, 8);

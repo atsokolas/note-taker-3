@@ -610,6 +610,63 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(failures.join(' ')).toMatch(/current active-work signals/i);
   });
 
+  it('rejects vague repo dossiers that avoid exact paths and scripts from evidence', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo'
+      },
+      text: [
+        'Summary: This repository provides a modern note-taking solution.',
+        'Run locally: use npm install and npm start to launch the application.',
+        'Architecture: the server handles API requests and the frontend communicates with REST APIs.',
+        'Key files: important files include server.js and various route files.',
+        'Tests and deploy: the repository includes a testing framework, although specific test files and deployment scripts are not detailed.',
+        'Current active work: ongoing development focuses on enhancing user experience and expanding functionality.',
+        'How to extend: add new routes in the server or frontend components.',
+        'Known risks: data handling and user authentication need care.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js","build":"cd note-taker-ui && npm run build"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. const app = express();',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        snippet: 'Path: note-taker-ui/src/App.js. React app routes.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'note-taker-ui/src/App.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 .github/workflows/agent-harness-regression.yml',
+        snippet: 'Path: .github/workflows/agent-harness-regression.yml.',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: '.github/workflows/agent-harness-regression.yml' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/concrete file paths/i);
+    expect(failures.join(' ')).toMatch(/package scripts/i);
+    expect(failures.join(' ')).toMatch(/current active-work signals/i);
+  });
+
+  it('fails unsupported testing-framework claims on GitHub repo pages', () => {
+    const failures = findUnsupportedGitHubRepoClaims({
+      page: {
+        title: 'Note-Taker-3 Repo Wiki',
+        pageType: 'repo'
+      },
+      text: 'The repository includes a testing framework.',
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 README.md',
+        snippet: 'Path: README.md. Product overview.',
+        metadata: { source: 'github-repo', evidenceType: 'document', path: 'README.md' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/testing framework claim/i);
+  });
+
   it('passes GitHub repo developer dossier checks with code, config, commands, and current work', () => {
     const failures = findGitHubRepoDeveloperDossierFailures({
       page: {
