@@ -2129,7 +2129,7 @@ const maintainWikiPage = async ({
   page.body = materialized.body;
   page.plainText = materialized.plainText;
   page.sourceRefs = materialized.sourceRefs;
-  const persistedSourceRefs = page.sourceRefs?.toObject
+  let persistedSourceRefs = page.sourceRefs?.toObject
     ? page.sourceRefs.toObject()
     : page.sourceRefs || [];
   page.citations = persistedSourceRefs.map(source => ({
@@ -2150,7 +2150,7 @@ const maintainWikiPage = async ({
     previousClaims,
     now
   });
-  const persistedQuality = evaluateWikiArticleQuality({
+  let persistedQuality = evaluateWikiArticleQuality({
     page,
     body: page.body,
     claims: page.claims,
@@ -2158,6 +2158,69 @@ const maintainWikiPage = async ({
     now,
     skipDurableCitationCheck: isGitHubRepoPage({ page, candidates })
   });
+  if (!persistedQuality.ok && candidates.length && isGitHubRepoPage({ page, candidates })) {
+    const repoFallbackNormalized = fallbackMaintenance({ page, candidates, manualNotes });
+    const repoFallbackMaterialized = await materializeMaintenanceResult({
+      page,
+      normalized: repoFallbackNormalized,
+      candidates,
+      previousClaims,
+      now,
+      userId,
+      models
+    });
+    finalNormalized = repoFallbackNormalized;
+    materialized = {
+      ...repoFallbackMaterialized,
+      quality: {
+        ...repoFallbackMaterialized.quality,
+        fallbackApplied: true,
+        previousFailures: persistedQuality.failures || []
+      }
+    };
+    rebuiltAutomatically = true;
+    page.title = materialized.title || page.title;
+    page.pageType = inferMaintainedPageType({ page, candidates });
+    page.sourceScope = 'entire_library';
+    page.body = materialized.body;
+    page.plainText = materialized.plainText;
+    page.sourceRefs = materialized.sourceRefs;
+    const fallbackSourceRefs = page.sourceRefs?.toObject
+      ? page.sourceRefs.toObject()
+      : page.sourceRefs || [];
+    persistedSourceRefs = fallbackSourceRefs;
+    page.citations = fallbackSourceRefs.map(source => ({
+      sourceRefId: source._id || null,
+      sourceType: source.type || '',
+      sourceObjectId: source.objectId || null,
+      sourceTitle: source.title || '',
+      quote: source.snippet || '',
+      url: source.url || '',
+      confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
+      createdAt: now
+    }));
+    page.claims = deriveClaimsFromDoc({
+      body: page.body,
+      title: page.title,
+      citations: page.citations,
+      sourceRefs: fallbackSourceRefs,
+      previousClaims,
+      now
+    });
+    persistedQuality = evaluateWikiArticleQuality({
+      page,
+      body: page.body,
+      claims: page.claims,
+      sourceRefs: fallbackSourceRefs,
+      now,
+      skipDurableCitationCheck: true
+    });
+    await emitProgress({
+      stage: 'repo_dossier_fallback',
+      summary: 'Repo draft failed final developer-dossier checks; using deterministic repository evidence.',
+      failures: materialized.quality.previousFailures || []
+    });
+  }
   const sectionMaintenance = buildSectionMaintenancePlan({
     claims: page.claims,
     health: finalNormalized.maintenance.health,
