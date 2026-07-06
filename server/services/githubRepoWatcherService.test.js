@@ -43,7 +43,13 @@ const makeFetch = () => async (url) => {
           { path: 'docs/architecture.md', type: 'blob', sha: 'arch-sha', size: 800 },
           { path: 'src/index.ts', type: 'blob', sha: 'src-sha', size: 2000 },
           { path: 'server/server.js', type: 'blob', sha: 'server-sha', size: 2000 },
+          { path: 'server/routes/wikiRoutes.js', type: 'blob', sha: 'wiki-routes-sha', size: 4200 },
+          { path: 'server/routes/agentActionRoutes.test.js', type: 'blob', sha: 'route-test-sha', size: 1000 },
+          { path: 'server/services/wikiMaintenanceService.js', type: 'blob', sha: 'wiki-maintenance-sha', size: 3600 },
+          { path: 'server/services/githubRepoWatcherService.js', type: 'blob', sha: 'github-watch-sha', size: 3200 },
           { path: 'web/src/App.tsx', type: 'blob', sha: 'app-sha', size: 2000 },
+          { path: 'web/src/api/wiki.ts', type: 'blob', sha: 'wiki-api-sha', size: 1400 },
+          { path: 'web/src/components/wiki/WikiPageReadView.tsx', type: 'blob', sha: 'wiki-read-sha', size: 2300 },
           { path: 'CHANGELOG.md', type: 'blob', sha: 'changes-sha', size: 900 }
         ]
       })
@@ -67,8 +73,26 @@ const makeFetch = () => async (url) => {
   if (value.endsWith('/git/blobs/server-sha')) {
     return { ok: true, json: async () => ({ content: Buffer.from('const express = require("express"); const app = express();').toString('base64') }) };
   }
+  if (value.endsWith('/git/blobs/wiki-routes-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('router.post("/api/wiki/pages/:id/ai/draft/stream", streamWikiDraft); router.post("/api/wiki/pages/from-github", createRepoWikiFromGitHub);').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/route-test-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('test("route harness", () => expect(true).toBe(true));').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/wiki-maintenance-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('async function maintainWikiPage(page) { return buildGroundedWikiArticle(page); }').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/github-watch-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('async function armGitHubRepoWatchForPage() { return ingestRepositoryEvidence(); }').toString('base64') }) };
+  }
   if (value.endsWith('/git/blobs/app-sha')) {
     return { ok: true, json: async () => ({ content: Buffer.from('export function App() { return null; }').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/wiki-api-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('export async function createRepoWikiFromGitHub(repo) { return api.post("/api/wiki/pages/from-github", { repo }); }').toString('base64') }) };
+  }
+  if (value.endsWith('/git/blobs/wiki-read-sha')) {
+    return { ok: true, json: async () => ({ content: Buffer.from('export function WikiPageReadView({ page }) { return <article>{page.title}</article>; }').toString('base64') }) };
   }
   if (value.endsWith('/git/blobs/changes-sha')) {
     return { ok: true, json: async () => ({ content: Buffer.from('# Changelog\nv1 shipped.').toString('base64') }) };
@@ -192,10 +216,32 @@ const run = async () => {
       { path: 'docs/usage.md', type: 'blob' },
       { path: 'README.md', type: 'blob' },
       { path: 'src/index.ts', type: 'blob' },
+      { path: 'server/routes/wikiRoutes.test.js', type: 'blob' },
       { path: '.github/workflows/ci.yml', type: 'blob' },
       { path: 'package.json', type: 'blob' }
     ], 5).map(entry => entry.path),
     ['package.json', 'README.md', '.github/workflows/ci.yml', 'src/index.ts', 'docs/usage.md']
+  );
+  assert.deepStrictEqual(
+    selectRepoEvidenceEntries([
+      { path: 'server/routes/agentActionRoutes.js', type: 'blob' },
+      { path: 'server/routes/wikiRoutes.js', type: 'blob' },
+      { path: 'server/routes/wikiRoutes.test.js', type: 'blob' },
+      { path: 'server/services/wikiMaintenanceService.js', type: 'blob' },
+      { path: 'server/services/githubRepoWatcherService.js', type: 'blob' },
+      { path: 'web/src/App.tsx', type: 'blob' },
+      { path: 'web/src/api/wiki.ts', type: 'blob' },
+      { path: 'docs/architecture.md', type: 'blob' }
+    ], 8).map(entry => entry.path),
+    [
+      'server/routes/wikiRoutes.js',
+      'server/services/wikiMaintenanceService.js',
+      'server/services/githubRepoWatcherService.js',
+      'docs/architecture.md',
+      'server/routes/agentActionRoutes.js',
+      'web/src/App.tsx',
+      'web/src/api/wiki.ts'
+    ]
   );
 
   FakeWikiSourceEvent.reset();
@@ -210,10 +256,10 @@ const run = async () => {
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
   assert.strictEqual(result.snapshot.fullName, 'openai/agents-js');
-  assert.strictEqual(result.snapshot.docs.length, 8);
+  assert.strictEqual(result.snapshot.docs.length, 13);
   assert.strictEqual(result.snapshot.recentCommits.length, 1);
-  assert.strictEqual(result.events.length, 10);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 10);
+  assert.strictEqual(result.events.length, 15);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 15);
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.owner, 'openai');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.repo, 'agents-js');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.lastHeadSha, 'abc1234567890abcdef');
@@ -221,6 +267,10 @@ const run = async () => {
   assert.match(FakeWikiSourceEvent.rows[0].metadata.ref, /package\.json @ abc1234/);
   assert.strictEqual(FakeWikiSourceEvent.rows[0].metadata.docClass, 'config');
   assert.match(FakeWikiSourceEvent.rows[0].text, /node server\/server\.js/);
+  assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'server/routes/wikiRoutes.js'), true);
+  assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'server/services/wikiMaintenanceService.js'), true);
+  assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'web/src/App.tsx'), true);
+  assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'server/routes/agentActionRoutes.test.js'), false);
   assert.strictEqual(FakeWikiSourceEvent.rows.some(row => /recent commits/i.test(row.title)), true);
 
   const second = await armGitHubRepoWatchForPage({
@@ -232,8 +282,8 @@ const run = async () => {
     fetchImpl: makeFetch(),
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
-  assert.strictEqual(second.events.length, 10);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 10);
+  assert.strictEqual(second.events.length, 15);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 15);
   assert.match(second.events[0].text, /node server\/server\.js/);
 
   const dueQuery = dueGitHubRepoWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });

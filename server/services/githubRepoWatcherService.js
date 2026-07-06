@@ -2,7 +2,7 @@ const { createWikiSourceEvent } = require('./wikiSourceEventService');
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-const DEFAULT_DOC_PATH_LIMIT = 12;
+const DEFAULT_DOC_PATH_LIMIT = 18;
 const DEFAULT_REPO_COMMIT_LIMIT = 8;
 const DEFAULT_BLOB_TEXT_LIMIT = 7000;
 
@@ -73,14 +73,34 @@ const repoEvidencePathRank = (path = '') => {
   if (lower === 'agents.md' || lower === 'contributing.md') return 3;
   if (/^\.github\/workflows\/[^/]+\.(ya?ml)$/.test(lower)) return 4;
   if (/^(server|api)\/(server|app|index)\.[jt]sx?$/.test(lower)) return 5;
-  if (/^server\/(routes|services|models)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 6;
-  if (/^src\/(index|main|app|server)\.[jt]sx?$/.test(lower)) return 7;
-  if (/^(note-taker-ui|client|web|app|frontend)\/src\/(app|index|main|routes|api|utils|layout|pages)\b/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 7;
+  if (/^server\/models\/index\.[jt]s$/.test(lower)) return 6;
+  if (/^server\/routes\/(?:index|api|app|server|wiki|auth|agentchat)[^/]*\.[jt]s$/.test(lower)) return 7;
+  if (/^server\/services\/(?:wiki|github|repo|agent|auth|search|retrieval)[^/]*\.[jt]s$/.test(lower)) return 8;
+  if (/^server\/(routes|services|models)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 9;
+  if (/^src\/(index|main|app|server)\.[jt]sx?$/.test(lower)) return 10;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/(app|index|main|routes|api|utils|layout|pages)\b/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 10;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/(components|pages)\/(?:wiki|library|think|app|home)/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 11;
   if (/^architecture(\.|$)|(^|\/)architecture(\.|\/|$)/.test(lower)) return 8;
   if (/^(docs|documentation)\/(architecture|developer|dev|deploy|runbook|readme|getting-started|setup)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 9;
   if (/^docs\//.test(lower)) return 20;
   if (/^changelog(\.|$)|^changes(\.|$)/.test(lower)) return 21;
   return 100;
+};
+
+const repoEvidencePathTieBreak = (path = '') => {
+  const lower = String(path || '').toLowerCase();
+  if (/^server\/routes\/wikiroutes\.[jt]s$/.test(lower)) return 0;
+  if (/^server\/routes\/auth/i.test(lower)) return 1;
+  if (/^server\/routes\/agentchat/i.test(lower)) return 2;
+  if (/^server\/routes\//.test(lower)) return 20;
+  if (/^server\/services\/wikimaintenance/i.test(lower)) return 0;
+  if (/^server\/services\/githubrepo/i.test(lower)) return 1;
+  if (/^server\/services\/wikiask/i.test(lower)) return 2;
+  if (/^server\/services\//.test(lower)) return 20;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/app\.[jt]sx?$/.test(lower)) return 0;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/api\//.test(lower)) return 1;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/components\/wiki\//.test(lower)) return 2;
+  return 10;
 };
 
 const isUsefulDocPath = (path = '') => {
@@ -94,6 +114,7 @@ const isUsefulRepoEvidencePath = (path = '') => {
   const lower = String(path || '').toLowerCase();
   if (/(^|\/)(node_modules|dist|build|vendor|coverage|test-results|playwright-report|\.next|\.vercel|tmp|temp)\//.test(lower)) return false;
   if (/(^|\/)(__tests__|test|tests|fixtures|mocks)\//.test(lower)) return false;
+  if (/\.(test|spec)\.[jt]sx?$/.test(lower)) return false;
   if (!/\.(md|mdx|rst|txt|json|ya?ml|js|jsx|ts|tsx)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture|agents)(\.|$)/i.test(lower)) return false;
   return repoEvidencePathRank(lower) < 100;
 };
@@ -108,7 +129,11 @@ const selectRepoDocEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
 const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
   (Array.isArray(tree) ? tree : [])
     .filter(entry => entry?.type === 'blob' && isUsefulRepoEvidencePath(entry.path))
-    .sort((a, b) => repoEvidencePathRank(a.path) - repoEvidencePathRank(b.path) || String(a.path).localeCompare(String(b.path)))
+    .sort((a, b) => (
+      repoEvidencePathRank(a.path) - repoEvidencePathRank(b.path)
+      || repoEvidencePathTieBreak(a.path) - repoEvidencePathTieBreak(b.path)
+      || String(a.path).localeCompare(String(b.path))
+    ))
     .slice(0, Math.max(1, Math.min(Number(limit) || DEFAULT_DOC_PATH_LIMIT, 30)))
 );
 
