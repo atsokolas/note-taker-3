@@ -31,6 +31,12 @@ const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'provenance boilerplate', pattern: /\bprovenance[-‑–—\s]?aware|source[-‑–—\s]?provenance practices|Debug Fixture\b/i },
   { label: 'library-highlight framing', pattern: /\bLibrary highlights?\b/i }
 ];
+const GITHUB_REPO_SCAFFOLD_PATTERNS = [
+  /details will appear after the first GitHub sync/i,
+  /repository sources are being attached/i,
+  /Noeis will maintain this as a developer dossier/i,
+  /Noeis will build this project wiki/i
+];
 const GITHUB_REPO_DEVELOPER_SECTION_PATTERNS = [
   /\bRun locally\b/i,
   /\bArchitecture\b/i,
@@ -264,6 +270,11 @@ const isLikelyGeneratedPage = (page) => Boolean(
 const extractManualNotes = (page) => {
   const text = truncate(page?.plainText || toPlainText(page?.body), 1800);
   if (!text || text.length < 80 || isLikelyGeneratedPage(page)) return '';
+  const repoScaffold = (
+    (page?.externalWatches?.githubRepo || /GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test([page?.createdFrom?.text, page?.createdFrom?.label].join(' ')))
+    && GITHUB_REPO_SCAFFOLD_PATTERNS.some(pattern => pattern.test(text))
+  );
+  if (repoScaffold) return '';
   const title = asString(page?.title).toLowerCase();
   const withoutTitle = text.toLowerCase() === title ? '' : text;
   return withoutTitle;
@@ -1268,6 +1279,9 @@ const repoFallbackParagraph = ({ text, sourceIndexes = [], support = 'supported'
 });
 
 const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) => {
+  const safeManualNotes = GITHUB_REPO_SCAFFOLD_PATTERNS.some(pattern => pattern.test(manualNotes))
+    ? ''
+    : manualNotes;
   const repoSources = (Array.isArray(candidates) ? candidates : [])
     .filter(isGitHubRepoCandidate)
     .slice(0, 16);
@@ -1383,8 +1397,8 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         bullets: []
       }
     ],
-    preservedUserContent: manualNotes
-      ? [{ text: manualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
+    preservedUserContent: safeManualNotes
+      ? [{ text: safeManualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
       : []
   };
   return {

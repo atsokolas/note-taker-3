@@ -342,7 +342,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         type: 'doc',
         content: [{
           type: 'paragraph',
-          content: [{ type: 'text', text: 'Noeis will maintain this as a developer dossier.' }]
+          content: [{ type: 'text', text: 'atsokolas/note-taker-3 is a public GitHub repository. Noeis will maintain this as a developer dossier grounded in package files, entrypoints, workflows, docs, releases, and recent commits.' }]
+        }, {
+          type: 'heading',
+          attrs: { level: 2 },
+          content: [{ type: 'text', text: 'Developer quickstart' }]
+        }, {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Run, test, deploy, architecture, and key-path details will appear after the first GitHub sync attaches repository evidence.' }]
         }]
       },
       sourceRefs: [{
@@ -403,6 +410,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
     expect(text).not.toMatch(/will appear after the first GitHub sync/i);
+    expect(text).not.toMatch(/Noeis will maintain this as a developer dossier/i);
     expect(maintained.aiState.quality.ok).toBe(true);
     expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
