@@ -34,6 +34,18 @@ const UNSUPPORTED_REPO_PATTERNS = [
   /Debug Fixture/i,
   /Library highlights?/i
 ];
+const REQUIRED_REPO_DOSSIER_PATTERNS = [
+  /\bRun locally\b/i,
+  /\bArchitecture\b/i,
+  /\bKey files\b/i,
+  /\bTests? (?:and|&|\+)?\s*deploy\b|\bDeploy(?:ment)?\b/i,
+  /\bnpm\s+(?:run\s+)?(?:start|test|build|wiki:qa)\b/i
+];
+const REPO_SCAFFOLD_PATTERNS = [
+  /details will appear after the first GitHub sync/i,
+  /repository sources are being attached/i,
+  /Noeis will maintain this as a developer dossier/i
+];
 
 const snippet = (value, max = 600) => {
   if (value == null) return '';
@@ -226,6 +238,8 @@ async function main() {
       ),
       draftStarted: draftStarted || wordCount(plainText) >= 300,
       articleBuilt: wordCount(plainText) >= 300 && !/Repository sources are being attached/i.test(plainText),
+      developerDossierBuilt: REQUIRED_REPO_DOSSIER_PATTERNS.every(pattern => pattern.test(plainText)),
+      noRepoScaffoldCopy: !REPO_SCAFFOLD_PATTERNS.some(pattern => pattern.test(plainText)),
       renderedTitle: Boolean(rendered.title),
       noHorizontalOverflow: rendered.horizontalOverflow === false || rendered.browserInspectionTimedOut === true,
       noUnsupportedRepoBoilerplate: !UNSUPPORTED_REPO_PATTERNS.some(pattern => pattern.test(plainText))

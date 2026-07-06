@@ -1,4 +1,4 @@
-const { __testables, selectCandidateSources } = require('./wikiMaintenanceService');
+const { __testables, maintainWikiPage, selectCandidateSources } = require('./wikiMaintenanceService');
 
 const {
   attachClaimCitationIds,
@@ -326,6 +326,85 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('server/server.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
     expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+  });
+
+  it('publishes deterministic developer dossier content when a repo model draft fails quality gates', async () => {
+    const page = {
+      _id: 'repo-page-1',
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      pageType: 'repo',
+      createdFrom: {
+        text: 'https://github.com/atsokolas/note-taker-3',
+        label: 'GitHub repo: atsokolas/note-taker-3'
+      },
+      externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', lastHeadSha: '0053101' } },
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Noeis will maintain this as a developer dossier.' }]
+        }]
+      },
+      sourceRefs: [{
+        type: 'external',
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. { "scripts": { "start": "node server/server.js", "wiki:qa": "node scripts/wiki_qa.js", "build": "cd note-taker-ui && npm run build" } }',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config', docClass: 'config', commitSha: '0053101' }
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. const app = express();',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/server.js', evidenceType: 'code', docClass: 'code', commitSha: '0053101' }
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        snippet: 'Path: note-taker-ui/src/App.js. React app routes.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'note-taker-ui/src/App.js', evidenceType: 'code', docClass: 'code', commitSha: '0053101' }
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 recent commits',
+        snippet: 'recent commits. 0053101 2026-07-05 - prevent duplicate wiki build streams.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits', commitSha: '0053101' }
+      }]
+    };
+
+    const maintained = await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      models: { WikiPage: fakeFindModel([]) },
+      isConfigured: () => true,
+      chat: async () => ({
+        model: 'test-model',
+        text: JSON.stringify({
+          title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+          article: {
+            summary: { text: 'Noeis will maintain this as a developer dossier after the first GitHub sync attaches repository evidence.' },
+            sections: [{
+              heading: 'Developer quickstart',
+              paragraphs: [{ text: 'Run, test, deploy, architecture, and key-path details will appear after the first GitHub sync attaches repository evidence.' }]
+            }]
+          },
+          maintenance: { summary: 'Weak scaffold.', changelog: [], health: {} },
+          sourceIndexesUsed: [1]
+        })
+      })
+    });
+
+    const text = toPlainText(maintained.body);
+    expect(text).toContain('Run locally');
+    expect(text).toContain('Architecture');
+    expect(text).toContain('Key files');
+    expect(text).toContain('Tests and deploy');
+    expect(text).toContain('npm run start');
+    expect(text).toContain('npm run wiki:qa');
+    expect(text).toContain('server/server.js');
+    expect(text).not.toMatch(/will appear after the first GitHub sync/i);
+    expect(maintained.aiState.quality.ok).toBe(true);
+    expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
 
   it('extracts repo commands from truncated package.json evidence', () => {

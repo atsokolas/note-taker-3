@@ -1297,7 +1297,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const testCommand = testScript ? `npm run ${testScript.name}` : 'no explicit test command was found in the selected package evidence';
   const buildCommand = buildScript ? `npm run ${buildScript.name}` : 'no explicit build command was found in the selected package evidence';
   const summaryParagraph = repoFallbackParagraph({
-    text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today.`,
+    text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today. This page should answer the first engineer question first: what command starts it, what command proves it still works, and which files explain the active architecture.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
   });
   const article = {
@@ -1323,7 +1323,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         heading: 'Architecture',
         paragraphs: [repoFallbackParagraph({
           text: codeSources.length
-            ? `The current code evidence points to these active implementation areas: ${codeSources.slice(0, 6).map(source => extractRepoPath(source) || source.title).join(', ')}.`
+            ? `The current code evidence points to these active implementation areas: ${codeSources.slice(0, 6).map(source => extractRepoPath(source) || source.title).join(', ')}. Read those paths before trusting older roadmap or QA notes; code/config evidence is the authority for shipped behavior.`
             : 'The selected repository evidence did not include enough code entrypoints to describe the architecture safely.',
           sourceIndexes: codeSources.slice(0, 6).map(source => source.index),
           support: codeSources.length ? 'supported' : 'partial'
@@ -2008,8 +2008,10 @@ const maintainWikiPage = async ({
           models
         });
         let finalRetryNormalized = retryNormalized;
+        let retryFallbackApplied = false;
         if (!retryMaterialized.quality?.ok && isGitHubRepoPage({ page, candidates })) {
           finalRetryNormalized = fallbackMaintenance({ page, candidates, manualNotes });
+          retryFallbackApplied = true;
           retryMaterialized = await materializeMaintenanceResult({
             page,
             normalized: finalRetryNormalized,
@@ -2025,6 +2027,7 @@ const maintainWikiPage = async ({
           ...retryMaterialized,
           quality: {
             ...retryMaterialized.quality,
+            fallbackApplied: retryFallbackApplied,
             rebuiltAutomatically: true,
             previousFailures: materialized.quality.failures
           }
@@ -2060,6 +2063,34 @@ const maintainWikiPage = async ({
     });
   }
 
+  if (!materialized.quality.ok && candidates.length && isGitHubRepoPage({ page, candidates })) {
+    const repoFallbackNormalized = fallbackMaintenance({ page, candidates, manualNotes });
+    const repoFallbackMaterialized = await materializeMaintenanceResult({
+      page,
+      normalized: repoFallbackNormalized,
+      candidates,
+      previousClaims,
+      now,
+      userId,
+      models
+    });
+    finalNormalized = repoFallbackNormalized;
+    materialized = {
+      ...repoFallbackMaterialized,
+      quality: {
+        ...repoFallbackMaterialized.quality,
+        fallbackApplied: true,
+        previousFailures: materialized.quality.failures || materialized.quality.previousFailures || []
+      }
+    };
+    rebuiltAutomatically = rebuiltAutomatically || Boolean(materialized.quality.previousFailures?.length);
+    await emitProgress({
+      stage: 'repo_dossier_fallback',
+      summary: 'Repo draft failed developer-dossier checks; using deterministic repository evidence.',
+      failures: materialized.quality.previousFailures || []
+    });
+  }
+
   page.title = materialized.title || page.title;
   page.pageType = inferMaintainedPageType({ page, candidates });
   page.sourceScope = 'entire_library';
@@ -2092,7 +2123,8 @@ const maintainWikiPage = async ({
     body: page.body,
     claims: page.claims,
     sourceRefs: persistedSourceRefs,
-    now
+    now,
+    skipDurableCitationCheck: isGitHubRepoPage({ page, candidates })
   });
   const sectionMaintenance = buildSectionMaintenancePlan({
     claims: page.claims,
