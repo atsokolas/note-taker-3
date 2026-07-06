@@ -82,6 +82,7 @@ const {
 } = require('../services/wikiProposalService');
 
 const PAGE_TYPES = new Set(WIKI_PAGE_TYPES);
+const activeWikiDraftStreams = new Map();
 const PAGE_TYPE_ALIASES = {
   person: 'entity',
   synthesis: 'overview'
@@ -2093,11 +2094,31 @@ const buildWikiRouter = ({
         || /No matching document found/i.test(String(error?.message || ''));
       if (!versionConflict) throw error;
       const snapshot = snapshotPage(page);
-      const freshPage = await WikiPage.findOne({ _id: page._id, userId });
-      if (!freshPage) throw error;
-      restorePageSnapshot(freshPage, snapshot);
-      await freshPage.save();
-      return freshPage;
+      const update = {};
+      [
+        'title',
+        'slug',
+        'pageType',
+        'status',
+        'visibility',
+        'sourceScope',
+        'body',
+        'plainText',
+        'sourceRefs',
+        'claims',
+        'citations',
+        'freshness',
+        'aiState'
+      ].forEach((field) => {
+        if (snapshot[field] !== undefined) update[field] = clonePlain(snapshot[field]);
+      });
+      const updatedPage = await WikiPage.findOneAndUpdate(
+        { _id: page._id, userId },
+        { $set: update },
+        { new: true, runValidators: true }
+      );
+      if (!updatedPage) throw error;
+      return updatedPage;
     }
   };
 
@@ -3293,9 +3314,19 @@ const buildWikiRouter = ({
 
   router.post('/api/wiki/pages/:id/ai/draft/stream', wikiAuth, async (req, res) => {
     let page = null;
+    let activeStreamKey = '';
     try {
       page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      activeStreamKey = `${serializeId(req.user.id)}:${serializeId(page._id)}`;
+      if (activeWikiDraftStreams.has(activeStreamKey)) {
+        return res.status(409).json({
+          error: 'Wiki maintenance already running.',
+          code: 'WIKI_DRAFT_STREAM_IN_PROGRESS',
+          pageId: serializeId(page._id)
+        });
+      }
+      activeWikiDraftStreams.set(activeStreamKey, Date.now());
       const before = snapshotPage(page);
       const maintenanceOptions = readMaintenanceRequestOptions(req.body || {});
       if (isGitHubRepoWikiPage(page)) {
@@ -3409,7 +3440,7 @@ const buildWikiRouter = ({
           errorCode: 'WIKI_DRAFT_STREAM_FAILED'
         };
         try {
-          await page.save();
+          await savePageWithVersionRetry(page, req.user.id);
         } catch (_saveError) {
           // The stream error is the actionable failure for the client.
         }
@@ -3419,6 +3450,8 @@ const buildWikiRouter = ({
         message: String(error.message || '')
       });
       res.end();
+    } finally {
+      if (activeStreamKey) activeWikiDraftStreams.delete(activeStreamKey);
     }
   });
 

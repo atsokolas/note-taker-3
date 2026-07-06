@@ -1175,6 +1175,24 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByTestId('wiki-streamed-page-title')).toHaveTextContent('Updated page');
   });
 
+  it('does not launch duplicate auto-build streams when the workspace remounts mid-build', async () => {
+    let resolveDraft;
+    streamMaintainWikiPage.mockImplementationOnce(() => new Promise(resolve => {
+      resolveDraft = () => resolve({ _id: 'wiki-new', title: 'Updated page' });
+    }));
+
+    const firstRender = renderWorkspace('/wiki/workspace?page=wiki-new&build=1');
+    await settleWorkspaceEffects();
+    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledTimes(1));
+
+    firstRender.unmount();
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1');
+    await settleWorkspaceEffects();
+    expect(streamMaintainWikiPage).toHaveBeenCalledTimes(1);
+
+    await act(async () => { resolveDraft(); });
+  });
+
   it('streams a built wiki page into the mounted reader without waiting for reload', async () => {
     createWikiPage.mockResolvedValueOnce({ _id: 'wiki-built', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {

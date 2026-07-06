@@ -55,6 +55,7 @@ const getWorkspaceWidth = () => (typeof window === 'undefined' ? 1024 : window.i
 const MAINTENANCE_STREAM_TIMEOUT_MS = 25000;
 const INGEST_POLL_INTERVAL_MS = 1800;
 const INGEST_POLL_TIMEOUT_MS = 70000;
+const activeAutoBuildPageIds = new Set();
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -2933,8 +2934,14 @@ const WikiWorkspace = () => {
   }, [selectedPageId]);
 
   useEffect(() => {
-    if (!selectedPageId || !shouldAutoBuild || autoBuildRef.current.has(selectedPageId)) return undefined;
+    if (
+      !selectedPageId
+      || !shouldAutoBuild
+      || autoBuildRef.current.has(selectedPageId)
+      || activeAutoBuildPageIds.has(selectedPageId)
+    ) return undefined;
     autoBuildRef.current.add(selectedPageId);
+    activeAutoBuildPageIds.add(selectedPageId);
     setAutoBuildNotice('');
     const nextParams = new URLSearchParams(currentSearchRef.current || currentSearch || location.search || '');
     nextParams.delete('build');
@@ -2973,6 +2980,7 @@ const WikiWorkspace = () => {
         });
       }
     }).finally(() => {
+      activeAutoBuildPageIds.delete(selectedPageId);
       systemStatus.setBackgroundWork(null);
       if (lastSelectedPageRef.current === selectedPageId) {
         setBusy(false);
