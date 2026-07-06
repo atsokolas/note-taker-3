@@ -236,6 +236,7 @@ async function main() {
         (Array.isArray(createBody.sourceEvents) && createBody.sourceEvents.length > 0)
         || (Array.isArray(builtPage.externalWatches?.githubRepo?.lastEventIds) && builtPage.externalWatches.githubRepo.lastEventIds.length > 0)
       ),
+      qualityPassed: builtPage.aiState?.quality?.ok !== false,
       draftStarted: draftStarted || wordCount(plainText) >= 300,
       articleBuilt: wordCount(plainText) >= 300 && !/Repository sources are being attached/i.test(plainText),
       developerDossierBuilt: REQUIRED_REPO_DOSSIER_PATTERNS.every(pattern => pattern.test(plainText)),
