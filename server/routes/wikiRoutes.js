@@ -2653,6 +2653,69 @@ const buildWikiRouter = ({
           error: watchError.message
         });
       }
+      if (!watchError && Array.isArray(result.events) && result.events.length) {
+        try {
+          const beforeMaintenance = snapshotPage(result.page);
+          result.page.aiState = {
+            ...(result.page.aiState?.toObject ? result.page.aiState.toObject() : result.page.aiState || {}),
+            draftStatus: 'maintaining',
+            draftRequestedAt: new Date(),
+            draftStartedAt: new Date(),
+            lastError: '',
+            errorCode: ''
+          };
+          result.page = await maintainWikiPage({
+            page: result.page,
+            userId: req.user.id,
+            wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
+            models: {
+              WikiPage,
+              Article,
+              NotebookEntry,
+              TagMeta,
+              Question
+            },
+            maintenanceProfile: 'standard',
+            skipQualityRebuild: false,
+            streamDraft: false,
+            trigger: 'github_repo_create'
+          });
+          result.page = await savePageWithVersionRetry(result.page, req.user.id);
+          await syncPageGraph(result.page, req.user.id);
+          await createWikiRevision({
+            WikiRevision,
+            userId: req.user.id,
+            page: result.page,
+            before: beforeMaintenance,
+            reason: 'agent_maintenance',
+            actorType: 'agent',
+            summary: result.page.aiState?.maintenanceSummary || `Built repo wiki for ${fullName}.`
+          });
+          trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
+            pageId: serializeId(result.page._id),
+            title: result.page.title,
+            pageType: result.page.pageType,
+            sourceCount: Array.isArray(result.page.sourceRefs) ? result.page.sourceRefs.length : 0,
+            claimCount: Array.isArray(result.page.claims) ? result.page.claims.length : 0,
+            sourceType: 'github_repo',
+            stream: false
+          });
+        } catch (error) {
+          console.error('Error building GitHub repo wiki:', error);
+          result.page.aiState = {
+            ...(result.page.aiState?.toObject ? result.page.aiState.toObject() : result.page.aiState || {}),
+            draftStatus: 'error',
+            lastError: 'Failed to build GitHub repo wiki from attached evidence.',
+            errorCode: 'REPO_WIKI_BUILD_FAILED'
+          };
+          await savePageWithVersionRetry(result.page, req.user.id).catch(() => null);
+          return res.status(error.statusCode || 502).json({
+            error: 'Failed to build GitHub repo wiki from attached evidence.',
+            code: 'REPO_WIKI_BUILD_FAILED',
+            page: serializeWikiPage(result.page)
+          });
+        }
+      }
       res.status(201).json({
         page: serializeWikiPage(result.page || page),
         repo: {

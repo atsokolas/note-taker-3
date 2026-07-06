@@ -977,24 +977,33 @@ const run = async () => {
     });
     assert.strictEqual(repoWikiCreate.res.status, 201, repoWikiCreate.text);
     assert.strictEqual(repoWikiCreate.body.page.pageType, 'repo');
-    assert.strictEqual(repoWikiCreate.body.page.sourceScope, 'selected_sources');
+    assert.strictEqual(repoWikiCreate.body.page.sourceScope, 'entire_library');
     assert.strictEqual(repoWikiCreate.body.page.createdFrom.label, 'GitHub repo: openai/agents-js');
     assert.strictEqual(repoWikiCreate.body.page.externalWatches.githubRepo.owner, 'openai');
+    assert.strictEqual(repoWikiCreate.body.page.aiState.draftStatus, 'ready');
+    assert.match(repoWikiCreate.body.page.plainText, /source-backed sections/i);
     assert.strictEqual(repoWikiCreate.body.snapshot.fullName, 'openai/agents-js');
     assert.strictEqual(repoWikiCreate.body.snapshot.docCount, 1);
     assert.strictEqual(repoWikiCreate.body.sourceEvents.length, 1);
-    assert.strictEqual(repoWikiCreate.body.page.sourceRefs.length, 1);
-    assert.match(repoWikiCreate.body.page.sourceRefs[0].title, /openai\/agents-js/i);
-    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].provider, 'github-repo');
-    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].metadata.path, 'README.md');
-    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].metadata.evidenceType, 'document');
-    assert.strictEqual(repoWikiCreate.body.page.sourceRefs[0].metadata.docClass, 'readme');
+    assert.ok(repoWikiCreate.body.page.sourceRefs.length >= 1);
+    const repoSourceRef = repoWikiCreate.body.page.sourceRefs.find(source => /openai\/agents-js/i.test(source.title || ''));
+    assert.ok(repoSourceRef);
+    assert.strictEqual(repoSourceRef.provider, 'github-repo');
+    assert.strictEqual(repoSourceRef.metadata.path, 'README.md');
+    assert.strictEqual(repoSourceRef.metadata.evidenceType, 'document');
+    assert.strictEqual(repoSourceRef.metadata.docClass, 'readme');
     assert.deepStrictEqual(githubRepoWatchCalls[githubRepoWatchCalls.length - 1], {
       userId: 'user-1',
       pageId: String(repoWikiCreate.body.page._id),
       repo: 'openai/agents-js',
       checkNow: true
     });
+    assert.ok(proposalMaintainCalls.some(call => (
+      call.pageId === String(repoWikiCreate.body.page._id)
+      && call.maintenanceProfile === 'standard'
+      && call.skipQualityRebuild === false
+      && call.streamDraft === false
+    )));
 
     const repoWikiPartial = await request(url, '/api/wiki/pages/from-github', {
       method: 'POST',
@@ -1621,6 +1630,7 @@ const run = async () => {
     });
     await proposal.save();
 
+    const maintainCallsBeforeProposalAccept = proposalMaintainCalls.length;
     const acceptedProposal = await request(url, `/api/wiki/proposals/${proposalId}/accept`, { method: 'POST' });
     assert.strictEqual(acceptedProposal.res.status, 201, acceptedProposal.text);
     assert.strictEqual(acceptedProposal.body.page.aiState.draftStatus, 'ready');
@@ -1629,7 +1639,7 @@ const run = async () => {
     assert.ok(acceptedProposal.body.page.plainText.includes('Evidence'));
     assert.ok(!acceptedProposal.body.page.plainText.includes('Current Understanding'));
     assert.ok(!acceptedProposal.body.page.plainText.includes('Why This Page Exists'));
-    assert.strictEqual(proposalMaintainCalls.length, 1);
+    assert.strictEqual(proposalMaintainCalls.length, maintainCallsBeforeProposalAccept + 1);
 
     const patched = await request(url, `/api/wiki/pages/${created.body._id}`, {
       method: 'PATCH',
