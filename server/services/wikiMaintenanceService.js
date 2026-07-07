@@ -792,6 +792,14 @@ const githubRepoEvidenceRank = (source = {}, currentHead = '') => {
   if (path === 'package.json') rank -= 8;
   if (/^server\/(server|routes|services|models)\//.test(path) || path === 'server/server.js') rank -= 4;
   if (/^note-taker-ui\/src\/(app|index|main|pages|components|api)\b/.test(path)) rank -= 2;
+  if (path === 'server/routes/wikiroutes.js') rank -= 16;
+  if (path === 'server/services/wikimaintenanceservice.js') rank -= 15;
+  if (path === 'server/services/githubrepowatcherservice.js') rank -= 14;
+  if (path === 'server/services/wikiaskservice.js') rank -= 10;
+  if (path === 'note-taker-ui/src/api/wiki.js') rank -= 9;
+  if (path === 'note-taker-ui/src/components/wiki/wikipagereadview.jsx') rank -= 8;
+  if (/^server\/routes\/authdiscoveryroutes\.[jt]s$/.test(path)) rank += 8;
+  if (/^server\/services\/wikimaintenance(?:qualityharness|orchestrator)\.[jt]s$/.test(path)) rank += 4;
   return rank;
 };
 
@@ -1322,7 +1330,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     readmeSource?.index,
     packageSource?.index,
     ...configSources.slice(0, 3).map(source => source.index),
-    ...codeSources.slice(0, 9).map(source => source.index),
+    ...codeSources.slice(0, 12).map(source => source.index),
     ...commitSources.slice(0, 1).map(source => source.index)
   ].filter(Boolean))).slice(0, 18);
   const runCommand = runScript ? `npm run ${runScript.name}` : 'the repository evidence does not expose a run command yet';

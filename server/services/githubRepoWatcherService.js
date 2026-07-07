@@ -2,7 +2,7 @@ const { createWikiSourceEvent } = require('./wikiSourceEventService');
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-const DEFAULT_DOC_PATH_LIMIT = 18;
+const DEFAULT_DOC_PATH_LIMIT = 24;
 const DEFAULT_REPO_COMMIT_LIMIT = 8;
 const DEFAULT_BLOB_TEXT_LIMIT = 7000;
 
@@ -90,12 +90,14 @@ const repoEvidencePathRank = (path = '') => {
 const repoEvidencePathTieBreak = (path = '') => {
   const lower = String(path || '').toLowerCase();
   if (/^server\/routes\/wikiroutes\.[jt]s$/.test(lower)) return 0;
-  if (/^server\/routes\/auth/i.test(lower)) return 1;
-  if (/^server\/routes\/agentchat/i.test(lower)) return 2;
+  if (/^server\/routes\/agentchat/i.test(lower)) return 1;
+  if (/^server\/routes\/authroutes\.[jt]s$/.test(lower)) return 2;
   if (/^server\/routes\//.test(lower)) return 20;
-  if (/^server\/services\/wikimaintenance/i.test(lower)) return 0;
-  if (/^server\/services\/githubrepo/i.test(lower)) return 1;
-  if (/^server\/services\/wikiask/i.test(lower)) return 2;
+  if (/^server\/services\/wikimaintenanceservice\.[jt]s$/.test(lower)) return 0;
+  if (/^server\/services\/githubrepowatcherservice\.[jt]s$/.test(lower)) return 1;
+  if (/^server\/services\/wikiaskservice\.[jt]s$/.test(lower)) return 2;
+  if (/^server\/services\/wikimaintenance/i.test(lower)) return 3;
+  if (/^server\/services\/githubrepo/i.test(lower)) return 4;
   if (/^server\/services\//.test(lower)) return 20;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/app\.[jt]sx?$/.test(lower)) return 0;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/api\//.test(lower)) return 1;
