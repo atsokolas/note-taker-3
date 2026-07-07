@@ -1011,12 +1011,12 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         'Product orientation: Noeis is a React and Express knowledge workspace where Library, Think, and Wiki form the user-facing loop.',
         'User experience map: users move from Library source intake to Think synthesis to Wiki maintained pages and safe public sharing.',
         'Developer quickstart: run npm start at the repo root, prove wiki changes with npm run wiki:qa, and use npm run build for the frontend.',
-        'Critical flows: repo creation starts in the UI, calls the wiki API, persists a WikiPage, and renders the maintained page.',
+        'Critical flows: repo creation starts in WikiRepoCreateComposer, calls createRepoWikiFromGitHub, posts to /api/wiki/pages/from-github, attaches sourceRefs through githubRepoWatcherService, rebuilds through wikiMaintenanceService, and renders in WikiPageReadView.',
         'Architecture and ownership: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
         'Common change paths: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
         'Quality bar and invariants: public share must not expose private backlinks, highlights, source notes, user IDs, or agent state.',
-        'Failure modes: thin repo output belongs in server/services/wikiMaintenanceService.js and stale repo evidence belongs in the watcher service.',
-        'Deploy and unknowns: npm run build is the attached build command.',
+        'Failure modes: thin repo output belongs in server/services/wikiMaintenanceService.js, stale repo evidence belongs in the watcher service, and Mongoose VersionError means overlapping draft or maintenance streams should be checked before blaming the model.',
+        'Deploy and unknowns: npm run build is the attached build command; frontend deployment is Vercel and API deployment is Render when deployment evidence is attached.',
         'Current active work: recent commits are focused on repo wiki grounding.',
         'Known unknowns: watcher source selection must avoid stale planning docs.'
       ].join('\n\n'),
@@ -1040,6 +1040,60 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(failures).toEqual([]);
+  });
+
+  it('rejects shallow Noeis repo output even when the headings are present', () => {
+    const page = {
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+    };
+    const sourceRefs = [{
+      title: 'atsokolas/note-taker-3 package.json',
+      snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js","build":"cd note-taker-ui && npm run build"}',
+      metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+    }, {
+      title: 'atsokolas/note-taker-3 server/server.js',
+      snippet: 'Path: server/server.js. const app = express();',
+      metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+    }, {
+      title: 'atsokolas/note-taker-3 server/routes/wikiRoutes.js',
+      snippet: 'Path: server/routes/wikiRoutes.js. router.post("/api/wiki/pages/from-github").',
+      metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/routes/wikiRoutes.js' }
+    }, {
+      title: 'atsokolas/note-taker-3 server/services/wikiMaintenanceService.js',
+      snippet: 'Path: server/services/wikiMaintenanceService.js. maintainWikiPage.',
+      metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/services/wikiMaintenanceService.js' }
+    }, {
+      title: 'atsokolas/note-taker-3 recent commits',
+      snippet: 'recent commits. e6acfc3 2026-07-07 - deepen repo wiki developer manuals.',
+      metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+    }];
+    const weakText = [
+      'Product orientation: Note-Taker-3 is structured around a modular, page-oriented architecture that facilitates a seamless user experience.',
+      'User experience map: The user journey begins with login or registration, followed by setup and navigation through Home, Notebook, and Settings.',
+      'Developer quickstart: To run the application, execute npm run start. For testing, use npm run wiki:qa. Key file paths include server/routes/wikiRoutes.js and server/services/wikiMaintenanceService.js.',
+      'Critical flows: Key user flows include login, capturing notes, and navigating to settings.',
+      'Architecture and ownership: The application is built using Node.js for the backend, Express.js for routing, and MongoDB for data management.',
+      'Common change paths: Developers modify server/routes and server/services.',
+      'Quality bar and invariants: The repository maintains a quality bar through testing scripts.',
+      'Failure modes: Common failure modes include authentication, data persistence, and routing errors.',
+      'Deploy and unknowns: Build evidence is available, but CI and production health are unknown.'
+    ].join('\n\n');
+
+    const failures = [
+      ...findGitHubRepoDeveloperDossierFailures({ page, text: weakText, sourceRefs }),
+      ...evaluateWikiArticleQuality({
+        page,
+        body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: weakText }] }] },
+        claims: [],
+        sourceRefs,
+        skipDurableCitationCheck: true
+      }).failures
+    ];
+
+    expect(failures.join(' ')).toMatch(/too thin/i);
+    expect(failures.join(' ')).toMatch(/real repo flows/i);
+    expect(failures.join(' ')).toMatch(/VersionError/i);
   });
 
   it('allows repo distribution wording when the repository evidence explicitly supports it', () => {

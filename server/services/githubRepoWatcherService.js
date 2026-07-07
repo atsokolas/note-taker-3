@@ -76,6 +76,8 @@ const repoEvidencePathRank = (path = '') => {
   if (/^server\/models\/index\.[jt]s$/.test(lower)) return 6;
   if (/^server\/routes\/(?:index|api|app|server|wiki|auth|agentchat)[^/]*\.[jt]s$/.test(lower)) return 7;
   if (/^server\/services\/(?:wiki|github|repo|agent|auth|search|retrieval)[^/]*\.[jt]s$/.test(lower)) return 8;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/api\/wiki\.[jt]sx?$/.test(lower)) return 8;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/components\/wiki\/(?:wikirepocreatecomposer|wikipagereadview|wikifrontpage|wikibuildpagecomposer)\.[jt]sx?$/.test(lower)) return 8;
   if (/^server\/(routes|services|models)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 9;
   if (/^src\/(index|main|app|server)\.[jt]sx?$/.test(lower)) return 10;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/(app|index|main|routes|api|utils|layout|pages)\b/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 10;

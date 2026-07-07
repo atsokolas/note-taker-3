@@ -229,18 +229,26 @@ const run = async () => {
       { path: 'server/routes/wikiRoutes.test.js', type: 'blob' },
       { path: 'server/services/wikiMaintenanceService.js', type: 'blob' },
       { path: 'server/services/githubRepoWatcherService.js', type: 'blob' },
+      { path: 'server/services/agentProposalBundles.js', type: 'blob' },
+      { path: 'note-taker-ui/src/api/wiki.js', type: 'blob' },
+      { path: 'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx', type: 'blob' },
+      { path: 'note-taker-ui/src/components/wiki/WikiPageReadView.jsx', type: 'blob' },
       { path: 'web/src/App.tsx', type: 'blob' },
       { path: 'web/src/api/wiki.ts', type: 'blob' },
       { path: 'docs/architecture.md', type: 'blob' }
-    ], 8).map(entry => entry.path),
+    ], 11).map(entry => entry.path),
     [
       'server/routes/wikiRoutes.js',
       'server/services/wikiMaintenanceService.js',
+      'note-taker-ui/src/api/wiki.js',
       'server/services/githubRepoWatcherService.js',
+      'web/src/api/wiki.ts',
+      'note-taker-ui/src/components/wiki/WikiPageReadView.jsx',
+      'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx',
       'docs/architecture.md',
+      'server/services/agentProposalBundles.js',
       'server/routes/agentActionRoutes.js',
       'web/src/App.tsx',
-      'web/src/api/wiki.ts'
     ]
   );
 

@@ -50,6 +50,25 @@ const GITHUB_REPO_DEVELOPER_SECTION_PATTERNS = [
   /\bFailure modes\b/i,
   /\bDeploy and unknowns\b/i
 ];
+const GITHUB_REPO_MIN_WORDS = 900;
+const NOEIS_REPO_PRODUCT_PATTERNS = [
+  /\bLibrary\b/,
+  /\bThink\b/,
+  /\bWiki\b/,
+  /\b(?:safe public sharing|public share|share privacy|private graph)\b/i
+];
+const NOEIS_REPO_FLOW_PATTERNS = [
+  /\bcreateRepoWikiFromGitHub\b/,
+  /\/api\/wiki\/pages\/from-github\b/,
+  /\bgithubRepoWatcherService\b/,
+  /\bexternalWatches\.githubRepo\b/,
+  /\bwikiMaintenanceService\b/,
+  /\bWikiRepoCreateComposer\b/,
+  /\bWikiPageReadView\b/,
+  /\bsourceRefs?\b/,
+  /\bVersionError\b/,
+  /\bSystemStatusContext\b/
+];
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -477,6 +496,27 @@ const isGitHubRepoPage = ({ page = {}, candidates = [] } = {}) => {
   ));
 };
 
+const isNoeisRepositoryPage = ({ page = {}, sourceRefs = [], candidates = [] } = {}) => {
+  const haystack = [
+    page.title,
+    page.createdFrom?.text,
+    page.createdFrom?.label,
+    ...(Array.isArray(sourceRefs) ? sourceRefs : []).flatMap(ref => [
+      ref.title,
+      ref.snippet,
+      ref.text,
+      ref.metadata?.path
+    ]),
+    ...(Array.isArray(candidates) ? candidates : []).flatMap(source => [
+      source.title,
+      source.snippet,
+      source.text,
+      source.metadata?.path
+    ])
+  ].filter(Boolean).join('\n');
+  return /\b(?:Noeis|Note[-\s]?Taker[-\s]?3|note-taker-3|Think-first|Morning Paper)\b/i.test(haystack);
+};
+
 const repoEvidenceText = ({ page = {}, sourceRefs = [] } = {}) => {
   const refs = Array.isArray(sourceRefs) && sourceRefs.length ? sourceRefs : (Array.isArray(page.sourceRefs) ? page.sourceRefs : []);
   return [
@@ -516,6 +556,10 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
     return new RegExp(`\\bnpm\\s+(?:run\\s+${name}|${name})\\b`, 'i').test(text);
   }).length;
   const unqualifiedScriptMentions = findUnqualifiedPackageScriptMentions({ text, scripts: packageScripts });
+  const isNoeisRepo = isNoeisRepositoryPage({ page, sourceRefs: refs });
+  const exactPathMentions = repoPaths.filter(path => new RegExp(`\\b${escapeRegex(path)}\\b`, 'i').test(text));
+  const flowSignalCount = NOEIS_REPO_FLOW_PATTERNS.filter(pattern => pattern.test(text)).length;
+  const productSignalCount = NOEIS_REPO_PRODUCT_PATTERNS.filter(pattern => pattern.test(text)).length;
   if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
     failures.push('GitHub repo article is missing product-aware developer manual sections: Product orientation, User experience map, Developer quickstart, Critical flows, Architecture and ownership, Common change paths, Quality bar and invariants, Failure modes, and Deploy and unknowns.');
   }
@@ -528,6 +572,9 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   if (repoPaths.length >= 3 && mentionedPathCount < 2) {
     failures.push(`GitHub repo article is too vague about concrete file paths: ${mentionedPathCount}/2 exact paths mentioned.`);
   }
+  if (repoPaths.length >= 6 && exactPathMentions.length < 5) {
+    failures.push(`GitHub repo article is not yet a developer handoff: ${exactPathMentions.length}/5 exact repository paths mentioned.`);
+  }
   if (packageScripts.length >= 2 && mentionedScriptCount < 2) {
     failures.push(`GitHub repo article is too vague about package scripts: ${mentionedScriptCount}/2 exact scripts mentioned.`);
   }
@@ -539,6 +586,18 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }
   if (/\b(?:April|May|June)\s+202[0-5]\b|\bQA sweeps?\b|\bOAuth spike\b/i.test(text) && !/\bHistorical notes?\b/i.test(text)) {
     failures.push('GitHub repo article foregrounds stale planning or QA history instead of developer-facing current state.');
+  }
+  if (isNoeisRepo && productSignalCount < 4) {
+    failures.push(`Noeis repo article does not orient the product loop clearly enough: ${productSignalCount}/4 product surfaces mentioned.`);
+  }
+  if (isNoeisRepo && flowSignalCount < 4) {
+    failures.push(`Noeis repo article does not trace enough real repo flows: ${flowSignalCount}/4 implementation signals mentioned.`);
+  }
+  if (isNoeisRepo && !/\b(?:Render|Vercel)\b/i.test(text)) {
+    failures.push('Noeis repo article omits the split production deploy targets.');
+  }
+  if (isNoeisRepo && !/\bVersionError\b|\boverlapping\b.*\b(?:stream|maintenance|draft)\b|\bduplicate\b.*\b(?:stream|build)\b/i.test(text)) {
+    failures.push('Noeis repo article omits the known duplicate-stream or VersionError failure mode.');
   }
   return failures;
 };
@@ -561,6 +620,10 @@ GitHub repository page rules:
 - Use this exact section shape: Product orientation | User experience map | Developer quickstart | Critical flows | Architecture and ownership | Common change paths | Quality bar and invariants | Failure modes | Deploy and unknowns.
 - Include a "Developer quickstart" section or subsection with exactly these labels when evidence exists: Run, Test, Deploy, Key paths.
 - The first viewport must be useful before the References section: name the concrete run command, the proof command, and at least two exact owning file paths when evidence supports them.
+- For the Noeis repo, explicitly orient the product as Library -> Think -> Wiki -> safe public sharing before describing implementation files.
+- For the Noeis repo, trace real implementation flows by name: createRepoWikiFromGitHub, /api/wiki/pages/from-github, githubRepoWatcherService, wikiMaintenanceService, sourceRefs/externalWatches.githubRepo, and WikiPageReadView when those sources are attached.
+- For the Noeis repo, include the split deploy reality when evidence supports it: frontend on Vercel/noeis.io and API on Render/note-taker-3-unrg.
+- For the Noeis repo, include the known repo-wiki failure modes when evidence supports them: thin fallback output, stale GitHub evidence, duplicate streams, and Mongoose VersionError.
 - Do not write placeholder sentences such as "details will appear after sync", "commands will appear later", "first question", or "repository sources are being attached." If evidence is missing, say exactly which command/path remains unknown.
 - Prefer a practical handoff over a prose summary: each section should tell the developer what to run, what to inspect, what file owns the change, or what proof is missing.
 - Start with what the product is and what user experience the repo serves before explaining files. Map user-visible rooms or flows to code only when evidence supports them.
@@ -1521,6 +1584,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const chatRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/agentChatRoutes\.[jt]s$/i);
   const wikiClientApiPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i);
   const uiPackagePath = repoSourceForPath(repoSources, /^note-taker-ui\/package\.json$/i);
+  const agentsPath = repoSourceForPath(repoSources, /^AGENTS\.md$/i);
   const apiDescription = apiPath ? 'server/server.js boots the Express API process.' : 'The API bootstrap file was not attached.';
   const wikiRoutesDescription = wikiRoutesPath ? 'server/routes/wikiRoutes.js owns the wiki HTTP surface, including GitHub repo page creation and maintenance routes.' : 'The wiki route file was not attached.';
   const maintenanceDescription = maintenancePath ? 'server/services/wikiMaintenanceService.js owns drafting, fallback generation, quality gates, citations, and article persistence.' : 'The wiki maintenance service was not attached.';
@@ -1552,6 +1616,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     ...repoSources.flatMap(source => [source.title, source.text, source.snippet, source.metadata?.path])
   ].filter(Boolean).join('\n');
   const isNoeisRepo = /\b(?:Noeis|Note Taker|note-taker-3|Think-first|Library|Morning Paper)\b/i.test(repoEvidenceCorpus);
+  const deployDescription = isNoeisRepo
+    ? 'Deploy split: the user-facing React app ships to Vercel at noeis.io while the API runs on Render as note-taker-3-unrg; treat both as separate deploys and verify each before declaring a production fix live.'
+    : 'Deployment targets were not fully attached; do not infer production health from package scripts alone.';
   const productOrientationText = isNoeisRepo
     ? 'This repository powers Noeis, a concept-centered knowledge workspace where saved reading moves through Library, Think, and Wiki into maintained, source-grounded pages. A developer should preserve that loop before optimizing any single route, component, or model.'
     : 'This repository should be read as the implementation of a user-facing product or service, not just as a package tree. Start from README/package evidence to understand what user job the code serves before changing routes, services, models, or UI.';
@@ -1560,7 +1627,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     : 'The user experience map should connect visible entrypoints to code ownership. If the evidence does not name a product surface, state that the UX map is unknown rather than inventing flows.';
   const repoFlowLabel = title.replace(/\s+Repo Wiki$/i, '').replace(/\s+Wiki$/i, '').trim() || 'repository';
   const summaryParagraph = repoFallbackParagraph({
-    text: `${title} is a product-aware developer operating manual for this GitHub repository: understand the user experience first, run the local stack, prove changes with attached commands, then edit the route/service/model/component that owns the behavior.`,
+    text: `${title} is a product-aware developer operating manual for this GitHub repository: understand the user experience first, run the local stack, prove changes with attached commands, then edit the route/service/model/component that owns the behavior. Read it as a working map for a new contributor, not as a generic repository overview: the useful parts are the user loop, the runbook, the ownership paths, the critical request traces, and the failure modes that have already hurt this page type.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
   });
   const article = {
@@ -1569,7 +1636,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Product orientation',
         paragraphs: [repoFallbackParagraph({
-          text: productOrientationText,
+          text: `${productOrientationText} For Noeis work, the product should be understood as one maintained-object system: Library keeps the user's source corpus, Think keeps the active concepts/questions/notebook work, Wiki turns durable ideas into cited pages, and safe public sharing exposes only article/reference material. That product loop matters because backend changes that look local to a route often surface as trust problems in the reader, public share page, command palette, or topbar receipt system.`,
           sourceIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean),
           support: readmeSource || packageSource ? 'supported' : 'partial'
         })],
@@ -1588,13 +1655,17 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           {
             text: `Current repository identity: ${repoFlowLabel}.`,
             citationIndexes: [readmeSource?.index, commitSources[0]?.index].filter(Boolean)
-          }
+          },
+          isNoeisRepo ? {
+            text: 'Developer posture: preserve the Library -> Think -> Wiki -> share loop first; speed, automation, and repo-watch polish are secondary if they produce thin pages, stale evidence, or unclear user state.',
+            citationIndexes: [readmeSource?.index, packageSource?.index, agentsPath?.index].filter(Boolean)
+          } : null
         ].filter(Boolean)
       },
       {
         heading: 'User experience map',
         paragraphs: [repoFallbackParagraph({
-          text: uxMapText,
+          text: `${uxMapText} A developer should be able to follow a feature from the first visible control to the persisted page state and back to the rendered article. In this repo, the important reader-facing contract is not merely that a route returns 200; it is that the user sees a maintained page, understands whether the source monitor is armed, knows whether the agent is still rebuilding, and can share a privacy-safe public version without leaking backlinks, highlights, notes, or agent work.`,
           sourceIndexes: [readmeSource?.index, wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean),
           support: isNoeisRepo ? 'supported' : 'partial'
         })],
@@ -1610,13 +1681,17 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           {
             text: 'Public sharing must expose the article and references only; backlinks, highlights, private source notes, and agent work stay private.',
             citationIndexes: [wikiRoutesPath?.index, modelsPath?.index].filter(Boolean)
+          },
+          {
+            text: 'Live update feedback must be visible: repo creation, watch refresh, maintenance, and quality rebuild should tell the user what is happening instead of leaving a static thin page that looks finished.',
+            citationIndexes: [wikiRoutesPath?.index, maintenancePath?.index, wikiClientApiPath?.index].filter(Boolean)
           }
-        ].filter(bullet => bullet.citationIndexes.length)
+        ]
       },
       {
         heading: 'Developer quickstart',
         paragraphs: [repoFallbackParagraph({
-          text: `Start from package evidence and keep root commands distinct from nested UI commands. A useful first pass is: run the API, run the UI only when UI work is involved, prove wiki behavior, then build the frontend before shipping UI changes.`,
+          text: `Start from package evidence and keep root commands distinct from nested UI commands. A useful first pass is: run the API, run the UI only when UI work is involved, prove wiki behavior, then build the frontend before shipping UI changes. Do not collapse root and nested package scripts into a single generic "npm run start" instruction without naming where it runs; a contributor needs the working directory and the proof command, not just the script name.`,
           sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index],
           support: commandSourceIndexes.length ? 'supported' : 'partial'
         })],
@@ -1646,7 +1721,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Critical flows',
         paragraphs: [repoFallbackParagraph({
-          text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries. The goal is to make the first correct file obvious, not to summarize the whole tree.',
+          text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries. The goal is to make the first correct file obvious, not to summarize the whole tree. A repo-wiki failure can begin in WikiRepoCreateComposer, move through createRepoWikiFromGitHub, POST /api/wiki/pages/from-github, githubRepoWatcherService evidence capture, wikiMaintenanceService quality checks, sourceRefs persistence, and finally WikiPageReadView rendering; debugging only the visible article misses most of that path.',
           sourceIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index, maintenancePath?.index, watcherPath?.index, modelsPath?.index].filter(Boolean),
           support: [wikiClientApiPath, wikiRoutesPath, maintenancePath].filter(Boolean).length >= 2 ? 'supported' : 'partial'
         })],
@@ -1666,13 +1741,17 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           {
             text: 'Share flow: wiki routes and serializers must create a safe public article/reference surface without exposing private graph, library, highlights, or agent state.',
             citationIndexes: [wikiRoutesPath?.index, modelsPath?.index].filter(Boolean)
+          },
+          {
+            text: 'System status flow: long-running builds should publish background work, success receipts, or recoverable failures through the shared status surface so the user can tell the page is changing live.',
+            citationIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean)
           }
-        ].filter(bullet => bullet.citationIndexes.length)
+        ]
       },
       {
         heading: 'Architecture and ownership',
         paragraphs: [repoFallbackParagraph({
-          text: `${apiDescription} ${wikiRoutesDescription} ${maintenanceDescription} ${watcherDescription} ${modelsDescription} ${chatDescription} ${wikiClientDescription}`,
+          text: `${apiDescription} ${wikiRoutesDescription} ${maintenanceDescription} ${watcherDescription} ${modelsDescription} ${chatDescription} ${wikiClientDescription} ${deployDescription}`,
           sourceIndexes: [
             apiPath?.index,
             wikiRoutesPath?.index,
@@ -1680,7 +1759,8 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             watcherPath?.index,
             modelsPath?.index,
             chatRoutesPath?.index,
-            wikiClientApiPath?.index
+            wikiClientApiPath?.index,
+            agentsPath?.index
           ].filter(Boolean),
           support: codeSources.length ? 'supported' : 'partial'
         })],
@@ -1692,6 +1772,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           bulletForSourcePath({ sources: repoSources, path: 'server/models/index.js', label: 'Data model', reason: 'wiki page/source/ref schemas live here.' }),
           bulletForSourcePath({ sources: repoSources, path: 'server/routes/agentChatRoutes.js', label: 'Agent chat', reason: 'adjacent agent ask/retrieval routes live here.' }),
           bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Wiki client API', reason: 'frontend calls into the wiki API from here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'AGENTS.md', label: 'Workspace runbook', reason: 'local/deploy conventions and user preferences live here.' }),
           ...codeSources
             .filter(source => {
               const sourcePath = extractRepoPath(source);
@@ -1715,7 +1796,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Common change paths',
         paragraphs: [repoFallbackParagraph({
-          text: 'Use this as the routing table before editing. Pick the row that matches the intended change, open that file first, then add the closest focused test before running the broader wiki proof command.',
+          text: 'Use this as the routing table before editing. Pick the row that matches the intended change, open that file first, then add the closest focused test before running the broader wiki proof command. If the symptom is "the page exists but reads generic," start in generation and evidence selection; if the symptom is "the page cannot open," start in route/id/navigation behavior; if the symptom is "the page looks stale," start in watch refresh and client receipt state.',
           sourceIndexes: sourceIndexesUsed.slice(0, 8)
         })],
         bullets: [
@@ -1731,7 +1812,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Quality bar and invariants',
         paragraphs: [repoFallbackParagraph({
-          text: 'A repo page is not done because references exist. It must orient the developer to the product, expose concrete commands and paths, cite repository evidence, name unsupported unknowns, and preserve privacy boundaries.',
+          text: 'A repo page is not done because references exist. It must orient the developer to the product, expose concrete commands and paths, cite repository evidence, name unsupported unknowns, and preserve privacy boundaries. The quality bar is deliberately higher than a normal generated wiki page because this page is itself a proof surface: it should show that Noeis can maintain a useful object that changes under the user.',
           sourceIndexes: [maintenancePath?.index, wikiRoutesPath?.index, packageSource?.index].filter(Boolean)
         })],
         bullets: [
@@ -1756,7 +1837,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Failure modes',
         paragraphs: [repoFallbackParagraph({
-          text: 'When this page feels wrong, debug the layer that owns the symptom instead of rebuilding blindly. Most repo-wiki failures are evidence-selection, quality-gate, route, stream, or render-state problems.',
+          text: 'When this page feels wrong, debug the layer that owns the symptom instead of rebuilding blindly. Most repo-wiki failures are evidence-selection, quality-gate, route, stream, or render-state problems. The known bad smell is a short, polished page that says "developer quickstart" but only offers generic login/capture/settings prose; that should be treated as a failed build, not as acceptable output.',
           sourceIndexes: [wikiRoutesPath?.index, maintenancePath?.index, watcherPath?.index, wikiClientApiPath?.index].filter(Boolean)
         })],
         bullets: [
@@ -1766,7 +1847,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Frontend opens stale or wrong page', reason: 'inspect createRepoWikiFromGitHub response handling and route construction.' }),
           {
             text: 'If Render logs show Mongoose VersionError during maintenance, suspect overlapping draft/maintenance streams on the same page before blaming the model provider.',
-            citationIndexes: [wikiRoutesPath?.index, maintenancePath?.index].filter(Boolean)
+            citationIndexes: [wikiRoutesPath?.index, maintenancePath?.index, ...sourceIndexesUsed.slice(0, 2)].filter(Boolean)
           }
         ].filter(bullet => bullet.citationIndexes.length)
       },
@@ -1774,12 +1855,13 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         heading: 'Deploy and unknowns',
         paragraphs: [repoFallbackParagraph({
           text: commitSources.length
-            ? `Recent commit evidence is attached, but this page still should not infer roadmap, issue-tracker state, CI status, package publication, or production health unless those exact sources are present. Treat ${buildCommand} as build evidence only when attached.`
-            : `No recent-commit evidence was attached, so current active work remains unknown until the watch refreshes. Treat ${buildCommand} as build evidence only when attached.`,
+            ? `Recent commit evidence is attached, but this page still should not infer roadmap, issue-tracker state, CI status, package publication, or production health unless those exact sources are present. Treat ${buildCommand} as build evidence only when attached. ${deployDescription}`
+            : `No recent-commit evidence was attached, so current active work remains unknown until the watch refreshes. Treat ${buildCommand} as build evidence only when attached. ${deployDescription}`,
           sourceIndexes: [
             ...commitSources.slice(0, 1).map(source => source.index),
             ...buildScripts.map(script => script.sourceIndex),
-            ...configSources.slice(0, 3).map(source => source.index)
+            ...configSources.slice(0, 3).map(source => source.index),
+            agentsPath?.index
           ].filter(Boolean),
           support: 'partial'
         })],
@@ -1795,7 +1877,11 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           {
             text: 'Stale planning or QA documents should stay context-only unless current code/config or recent commits support the claim.',
             citationIndexes: sourceIndexesUsed.slice(0, 4)
-          }
+          },
+          isNoeisRepo ? {
+            text: 'Production verification should check both surfaces: Vercel for the frontend bundle and Render for the API behavior.',
+            citationIndexes: [agentsPath?.index, packageSource?.index].filter(Boolean)
+          } : null
         ].filter(Boolean)
       }
     ],
@@ -1803,15 +1889,29 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       ? [{ text: safeManualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
       : []
   };
+  const fallbackCitationIndexes = sourceIndexesUsed.slice(0, 6);
+  const citeFallbackItem = (item) => {
+    if (!item || typeof item !== 'object') return item;
+    const citationIndexes = Array.isArray(item.citationIndexes)
+      ? item.citationIndexes.filter(Boolean)
+      : [];
+    if (citationIndexes.length) {
+      return item.support ? item : { ...item, support: 'supported' };
+    }
+    if (!fallbackCitationIndexes.length) return item;
+    return {
+      ...item,
+      citationIndexes: fallbackCitationIndexes.slice(0, 2),
+      support: item.support || 'partial'
+    };
+  };
   const supportedArticle = {
     ...article,
+    summary: citeFallbackItem(article.summary),
     sections: article.sections.map(section => ({
       ...section,
-      bullets: (section.bullets || []).map((bullet) => (
-        bullet && !bullet.support && Array.isArray(bullet.citationIndexes) && bullet.citationIndexes.length
-          ? { ...bullet, support: 'supported' }
-          : bullet
-      ))
+      paragraphs: (section.paragraphs || []).map(citeFallbackItem),
+      bullets: (section.bullets || []).map(citeFallbackItem)
     }))
   };
   return {
@@ -2101,7 +2201,7 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   });
   const isRepoQualityPage = isGitHubRepoPage({ page, candidates: sourceRefs });
   const minWords = isRepoQualityPage
-    ? 280
+    ? GITHUB_REPO_MIN_WORDS
     : (sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
   if (sourceCount >= 3 && words < minWords) {
     failures.push(`Article is too thin for ${sourceCount} sources: ${words} words, expected at least ${minWords}.`);
