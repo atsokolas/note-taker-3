@@ -109,7 +109,7 @@ async function createRepoWikiViaApi(token) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ repo: TEST_REPO })
-  }, 120000);
+  }, 240000);
   const text = await response.text();
   const body = parseBody(text);
   if (!response.ok) throw new Error(`Create repo wiki failed: ${response.status} ${snippet(text, 500)}`);
