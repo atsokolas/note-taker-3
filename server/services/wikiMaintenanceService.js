@@ -1314,10 +1314,12 @@ const repoScriptScore = (script = {}) => {
   if (/^start$/.test(name)) score -= 18;
   else if (/^dev$/.test(name)) score -= 14;
   else if (/^wiki:qa$/.test(name)) score -= 16;
+  else if (/^wiki:.*harness/.test(name)) score -= 14;
+  else if (/^agent:harness(?::ci)?$/.test(name)) score -= 13;
   else if (/^test/.test(name)) score -= 12;
   else if (/^lint/.test(name)) score -= 8;
   else if (/build/.test(name)) score -= 10;
-  if (/extension|generate|seed|debug|cleanup|script/i.test(name)) score += 8;
+  if (/extension|generate|seed|debug|cleanup|script|bakeoff/i.test(name)) score += 8;
   return score;
 };
 
@@ -1396,7 +1398,9 @@ const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => 
   const scripts = collectPackageScripts(configSources);
   const scriptLine = (script) => `${scriptCommandLabel(script)} -> ${script.command} [${script.sourceIndex}]`;
   const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
-  const testScripts = scripts.filter(script => /^test|wiki:qa|lint/i.test(script.name)).slice(0, 3);
+  const testScripts = scripts
+    .filter(script => /^(wiki:qa|wiki:.*harness|agent:harness(?::ci)?|test|lint)/i.test(script.name))
+    .slice(0, 3);
   const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
   const keyPathLines = repoSources
     .map(source => ({ path: extractRepoPath(source), index: source.index, type: repoSourceEvidenceType(source) }))
@@ -1445,7 +1449,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
   const scripts = collectPackageScripts(configSources);
   const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
-  const testScripts = scripts.filter(script => /^wiki:qa$|^test|^lint/i.test(script.name)).slice(0, 3);
+  const testScripts = scripts
+    .filter(script => /^(wiki:qa|wiki:.*harness|agent:harness(?::ci)?|test|lint)/i.test(script.name))
+    .slice(0, 3);
   const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
   const keyPaths = repoSources
     .map(source => extractRepoPath(source))
