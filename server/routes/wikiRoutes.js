@@ -975,7 +975,7 @@ const sourceRefFromWikiSourceEvent = (event = {}) => {
     objectId: raw.sourceObjectId || raw._id || null,
     parentObjectId: null,
     title: String(raw.title || raw.url || 'Repository source').trim().slice(0, 240),
-    snippet: cleanWikiSummary(raw.text || raw.summary || '').slice(0, snippetLimit),
+    snippet: cleanWikiSummary(raw.text || raw.summary || '', snippetLimit),
     url: String(raw.url || '').trim().slice(0, 1000),
     citationLabel: '',
     provider: String(raw.provider || '').trim().slice(0, 120),

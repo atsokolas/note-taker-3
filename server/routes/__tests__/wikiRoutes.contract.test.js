@@ -725,7 +725,7 @@ const run = async () => {
           description: 'Agents SDK for TypeScript',
           defaultBranch: 'main',
           headSha: 'abc1234567890abcdef',
-          docs: [{ path: 'README.md' }],
+          docs: [{ path: 'README.md' }, { path: 'package.json' }],
           latestRelease: { tagName: 'v1.2.3' }
         },
         events: [{
@@ -742,6 +742,28 @@ const run = async () => {
             path: 'README.md',
             evidenceType: 'document',
             docClass: 'readme',
+            commitSha: 'abc1234567890abcdef'
+          }
+        }, {
+          _id: new mongoose.Types.ObjectId().toString(),
+          title: 'openai/agents-js package.json',
+          status: 'pending',
+          externalId: 'github-doc:openai/agents-js:abc1234567890abcdef:package.json:package-sha',
+          url: 'https://github.com/openai/agents-js/blob/abc1234567890abcdef/package.json',
+          sourceUpdatedAt: null,
+          provider: 'github-repo',
+          text: [
+            'openai/agents-js repository developer evidence source.',
+            'Path: package.json.',
+            'Commit: abc1234567890abcdef.',
+            '{ "name": "agents-js", "scripts": { "start": "node server/server.js", "wiki:qa": "node scripts/wiki_qa.js", "build": "npm run build --workspace note-taker-ui" } }'
+          ].join('\n\n'),
+          metadata: {
+            source: 'github-repo',
+            fullName: 'openai/agents-js',
+            path: 'package.json',
+            evidenceType: 'config',
+            docClass: 'config',
             commitSha: 'abc1234567890abcdef'
           }
         }]
@@ -955,8 +977,8 @@ const run = async () => {
     assert.strictEqual(githubRepoWatch.res.status, 200, githubRepoWatch.text);
     assert.strictEqual(githubRepoWatch.body.page.externalWatches.githubRepo.owner, 'openai');
     assert.strictEqual(githubRepoWatch.body.snapshot.fullName, 'openai/agents-js');
-    assert.strictEqual(githubRepoWatch.body.snapshot.docCount, 1);
-    assert.strictEqual(githubRepoWatch.body.sourceEvents.length, 1);
+    assert.strictEqual(githubRepoWatch.body.snapshot.docCount, 2);
+    assert.strictEqual(githubRepoWatch.body.sourceEvents.length, 2);
     assert.ok(githubRepoWatch.body.page.sourceRefs.length >= 1);
     assert.ok(githubRepoWatch.body.page.sourceRefs.some(source => /openai\/agents-js/i.test(source.title || '')));
     const githubRef = githubRepoWatch.body.page.sourceRefs.find(source => /openai\/agents-js/i.test(source.title || ''));
@@ -964,6 +986,10 @@ const run = async () => {
     assert.strictEqual(githubRef.metadata.path, 'README.md');
     assert.strictEqual(githubRef.metadata.evidenceType, 'document');
     assert.strictEqual(githubRef.metadata.docClass, 'readme');
+    const githubPackageRef = githubRepoWatch.body.page.sourceRefs.find(source => source.metadata?.path === 'package.json');
+    assert.ok(githubPackageRef);
+    assert.match(githubPackageRef.snippet, /npm run build --workspace note-taker-ui/);
+    assert.match(githubPackageRef.snippet, /wiki:qa/);
     assert.deepStrictEqual(githubRepoWatchCalls[0], {
       userId: 'user-1',
       pageId: String(created.body._id),
@@ -983,8 +1009,8 @@ const run = async () => {
     assert.strictEqual(repoWikiCreate.body.page.aiState.draftStatus, 'ready');
     assert.match(repoWikiCreate.body.page.plainText, /source-backed sections/i);
     assert.strictEqual(repoWikiCreate.body.snapshot.fullName, 'openai/agents-js');
-    assert.strictEqual(repoWikiCreate.body.snapshot.docCount, 1);
-    assert.strictEqual(repoWikiCreate.body.sourceEvents.length, 1);
+    assert.strictEqual(repoWikiCreate.body.snapshot.docCount, 2);
+    assert.strictEqual(repoWikiCreate.body.sourceEvents.length, 2);
     assert.ok(repoWikiCreate.body.page.sourceRefs.length >= 1);
     const repoSourceRef = repoWikiCreate.body.page.sourceRefs.find(source => /openai\/agents-js/i.test(source.title || ''));
     assert.ok(repoSourceRef);
@@ -992,6 +1018,10 @@ const run = async () => {
     assert.strictEqual(repoSourceRef.metadata.path, 'README.md');
     assert.strictEqual(repoSourceRef.metadata.evidenceType, 'document');
     assert.strictEqual(repoSourceRef.metadata.docClass, 'readme');
+    const repoPackageRef = repoWikiCreate.body.page.sourceRefs.find(source => source.metadata?.path === 'package.json');
+    assert.ok(repoPackageRef);
+    assert.match(repoPackageRef.snippet, /npm run build --workspace note-taker-ui/);
+    assert.match(repoPackageRef.snippet, /wiki:qa/);
     assert.deepStrictEqual(githubRepoWatchCalls[githubRepoWatchCalls.length - 1], {
       userId: 'user-1',
       pageId: String(repoWikiCreate.body.page._id),
