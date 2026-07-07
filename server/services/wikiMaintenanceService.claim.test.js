@@ -854,6 +854,54 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(failures.join(' ')).toMatch(/current active-work signals/i);
   });
 
+  it('rejects nested package scripts when repo pages present them as root commands', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo'
+      },
+      text: [
+        'Summary: Noeis is a React and Express knowledge workspace.',
+        'Run locally: use npm run start from package.json.',
+        'Architecture: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
+        'Key files: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/App.js.',
+        'Tests and deploy: Testing can be performed using npm run test. For end-to-end tests, use npm run test:agent-harness. Deployment is handled through npm run build.',
+        'Current active work: recent commits are attached.',
+        'How to extend: change code and rerun the package scripts.',
+        'Known risks: scripts must be run from the package that defines them.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/package.json',
+        snippet: 'Path: note-taker-ui/package.json. "scripts": {"test":"react-scripts test","test:agent-harness":"npx @playwright/test test e2e/agent-harness.smoke.spec.js","build":"react-scripts build"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'note-taker-ui/package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. const app = express();',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        snippet: 'Path: note-taker-ui/src/App.js. React app routes.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'note-taker-ui/src/App.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/package.json',
+        snippet: 'Path: note-taker-ui/package.json. "scripts": {"build":"react-scripts build"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'note-taker-ui/package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 recent commits',
+        snippet: 'Head commit: abc123.',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/unqualified package script/i);
+    expect(failures.join(' ')).toMatch(/npm run test/);
+    expect(failures.join(' ')).toMatch(/npm run test:agent-harness/);
+  });
+
   it('fails unsupported testing-framework claims on GitHub repo pages', () => {
     const failures = findUnsupportedGitHubRepoClaims({
       page: {
@@ -879,7 +927,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       },
       text: [
         'Summary: Noeis is a React and Express knowledge workspace.',
-        'Run locally: run npm start at the repo root and npm run build in note-taker-ui.',
+        'Run locally: run npm start at the repo root and npm run build at the repo root.',
         'Architecture: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
         'Key files: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
         'Tests and deploy: npm run wiki:qa covers the wiki path and Vercel/Render ship the app.',
@@ -889,7 +937,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       ].join('\n\n'),
       sourceRefs: [{
         title: 'atsokolas/note-taker-3 package.json',
-        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}',
+        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js","build":"cd note-taker-ui && npm run build"}',
         metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
       }, {
         title: 'atsokolas/note-taker-3 server/server.js',

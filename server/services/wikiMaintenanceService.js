@@ -510,6 +510,7 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
     const name = escapeRegex(script.name);
     return new RegExp(`\\bnpm\\s+(?:run\\s+${name}|${name})\\b`, 'i').test(text);
   }).length;
+  const unqualifiedScriptMentions = findUnqualifiedPackageScriptMentions({ text, scripts: packageScripts });
   if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
     failures.push('GitHub repo article is missing developer-dossier sections: Run locally, Architecture, Key files, and Tests/deploy.');
   }
@@ -524,6 +525,9 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }
   if (packageScripts.length >= 2 && mentionedScriptCount < 2) {
     failures.push(`GitHub repo article is too vague about package scripts: ${mentionedScriptCount}/2 exact scripts mentioned.`);
+  }
+  if (unqualifiedScriptMentions.length) {
+    failures.push(`GitHub repo article has unsupported or unqualified package script references: ${unqualifiedScriptMentions.slice(0, 4).join(', ')}.`);
   }
   if (!evidenceTypes.has('recent_commits') && /\b(?:current|ongoing)\s+(?:development|active work|efforts)|\bdevelopment (?:focuses|is focused)|\bexpanding functionality\b|\bimproving the UI\b|\brecent commits?\b|\bissue tracker\b/i.test(text) && !/\b(?:no recent[-\s]?commit evidence|current active work remains unknown|no recent commits? (?:were|was) attached)\b/i.test(text)) {
     failures.push('GitHub repo article invents current active-work signals without recent-commit evidence.');
@@ -1341,6 +1345,44 @@ const scriptCommandLabel = (script = {}) => {
     ? ` from ${script.sourcePath}`
     : '';
   return `npm run ${script.name}${suffix}`;
+};
+
+const findUnqualifiedPackageScriptMentions = ({ text = '', scripts = [] } = {}) => {
+  const sourceScripts = Array.isArray(scripts) ? scripts : [];
+  if (!sourceScripts.length) return [];
+  const byName = new Map();
+  sourceScripts.forEach((script) => {
+    const name = asString(script.name);
+    if (!name) return;
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(script);
+  });
+  const issues = [];
+  const pattern = /\bnpm\s+run\s+([A-Za-z0-9:_-]+)\b/g;
+  let match = pattern.exec(text);
+  while (match) {
+    const name = match[1];
+    const matches = byName.get(name) || [];
+    if (!matches.length) {
+      issues.push(`npm run ${name}`);
+    } else if (!matches.some(script => asString(script.sourcePath) === 'package.json')) {
+      const start = Math.max(0, match.index - 60);
+      const end = Math.min(text.length, match.index + match[0].length + 120);
+      const context = text.slice(start, end).toLowerCase();
+      const qualified = matches.some((script) => {
+        const sourcePath = asString(script.sourcePath).toLowerCase();
+        const sourceDir = sourcePath.includes('/') ? sourcePath.split('/').slice(0, -1).join('/') : '';
+        const explicitSourcePhrase = sourcePath && text.toLowerCase().includes(`npm run ${name.toLowerCase()} from ${sourcePath}`);
+        return explicitSourcePhrase
+          || (sourcePath && context.includes(sourcePath))
+          || (sourceDir && context.includes(sourceDir))
+          || /\b--workspace\b|\bworkspace\b|\bfrontend\b|\bclient\b|\bui package\b/.test(context);
+      });
+      if (!qualified) issues.push(`npm run ${name}`);
+    }
+    match = pattern.exec(text);
+  }
+  return Array.from(new Set(issues));
 };
 
 const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => {
