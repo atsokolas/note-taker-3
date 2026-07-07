@@ -918,6 +918,57 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(failures.join(' ')).toMatch(/npm run build/);
   });
 
+  it('recognizes late package scripts in large repo package snippets', () => {
+    const fillerScripts = Array.from({ length: 45 }, (_, index) => `"script:${index}":"node scripts/filler-${index}.js"`).join(',');
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo'
+      },
+      text: [
+        'Purpose: Noeis is a React and Express knowledge workspace.',
+        'Five-minute setup: use npm run start from package.json.',
+        'Run, test, build: Prove wiki work with npm run wiki:qa before shipping.',
+        'Architecture map: server/server.js hosts the API while server/routes/wikiRoutes.js owns wiki routes.',
+        'Common change paths: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/App.js.',
+        'Deploy and operations: use npm run build from note-taker-ui/package.json for the frontend.',
+        'Known unknowns: CI status is unknown without workflow run evidence.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: `Path: package.json. "scripts": {"start":"node server/server.js",${fillerScripts},"wiki:qa":"node scripts/wiki_qa.js"}`,
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/package.json',
+        snippet: 'Path: note-taker-ui/package.json. "scripts": {"build":"react-scripts build"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'note-taker-ui/package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. const app = express();',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/routes/wikiRoutes.js',
+        snippet: 'Path: server/routes/wikiRoutes.js. router.post("/from-github").',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/routes/wikiRoutes.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/services/wikiMaintenanceService.js',
+        snippet: 'Path: server/services/wikiMaintenanceService.js. maintainWikiPage.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/services/wikiMaintenanceService.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        snippet: 'Path: note-taker-ui/src/App.js. React app routes.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'note-taker-ui/src/App.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 recent commits',
+        snippet: 'Head commit: abc123.',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }]
+    });
+
+    expect(failures.join(' ')).not.toMatch(/npm run wiki:qa/);
+    expect(failures.join(' ')).not.toMatch(/unqualified package script/i);
+  });
+
   it('fails unsupported testing-framework claims on GitHub repo pages', () => {
     const failures = findUnsupportedGitHubRepoClaims({
       page: {

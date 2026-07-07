@@ -1271,6 +1271,7 @@ const buildSectionMaintenancePlan = ({ claims = [], health = {}, changeLog = [],
 };
 
 const extractRepoPath = (source = {}) => asString(source.metadata?.path);
+const MAX_REPO_PACKAGE_SCRIPTS = 80;
 
 const extractPackageScripts = (source = {}) => {
   const text = asString(source.text || source.snippet);
@@ -1281,7 +1282,7 @@ const extractPackageScripts = (source = {}) => {
     if (scriptsBlock) {
       const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
       let pair = pairPattern.exec(scriptsBlock[1]);
-      while (pair && looseScripts.length < 30) {
+      while (pair && looseScripts.length < MAX_REPO_PACKAGE_SCRIPTS) {
         looseScripts.push({ name: pair[1], command: asString(pair[2]) });
         pair = pairPattern.exec(scriptsBlock[1]);
       }
@@ -1294,14 +1295,14 @@ const extractPackageScripts = (source = {}) => {
     return Object.entries(scriptsObject || {})
       .map(([name, command]) => ({ name, command: asString(command) }))
       .filter(script => script.name && script.command)
-      .slice(0, 30);
+      .slice(0, MAX_REPO_PACKAGE_SCRIPTS);
   } catch (_error) {
     const scriptsBlock = match[0].match(/"scripts"\s*:\s*\{([\s\S]*)/i);
     if (!scriptsBlock) return [];
     const scripts = [];
     const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
     let pair = pairPattern.exec(scriptsBlock[1]);
-    while (pair && scripts.length < 30) {
+    while (pair && scripts.length < MAX_REPO_PACKAGE_SCRIPTS) {
       scripts.push({ name: pair[1], command: asString(pair[2]) });
       pair = pairPattern.exec(scriptsBlock[1]);
     }
