@@ -557,7 +557,8 @@ GitHub repository page rules:
 - Include exact local commands only when package/config evidence supports them. Include exact key file paths only when they are present in the repository evidence.
 - Treat README, package files, docs, changelogs, and releases as repository evidence. Do not describe them as Library highlights.
 - Treat source metadata docClass="planned" as roadmap/spec material. It can appear only under Known risks, Current active work, or explicitly labeled planned work; never present it as shipped repository behavior.
-- If the repo evidence is thin, say which repository documents/files were found and what remains unknown.`;
+- If the repo evidence is thin, say which repository documents/files were found and what remains unknown.
+${formatGitHubRepoEvidenceDigest({ page, candidates })}`;
 };
 
 const formatCandidateMetadataLine = (source = {}) => {
@@ -1298,6 +1299,46 @@ const extractPackageScripts = (source = {}) => {
   }
 };
 
+const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => {
+  if (!isGitHubRepoPage({ page, candidates })) return '';
+  const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
+  const repoSources = repoCandidates.slice(0, 18);
+  const byEvidence = (kind) => repoSources.filter(source => repoSourceEvidenceType(source) === kind);
+  const configSources = byEvidence('config');
+  const codeSources = byEvidence('code');
+  const commitSources = byEvidence('recent_commits');
+  const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
+  const scripts = packageSource ? extractPackageScripts(packageSource) : [];
+  const scriptLine = (script) => `npm run ${script.name} -> ${script.command} [${packageSource?.index}]`;
+  const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
+  const testScripts = scripts.filter(script => /^test|wiki:qa|lint/i.test(script.name)).slice(0, 3);
+  const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
+  const keyPathLines = repoSources
+    .map(source => ({ path: extractRepoPath(source), index: source.index, type: repoSourceEvidenceType(source) }))
+    .filter(row => row.path)
+    .slice(0, 14)
+    .map(row => `${row.path} [${row.index}]`);
+  const plannedLines = repoSources
+    .filter(source => asString(source.metadata?.docClass).toLowerCase() === 'planned')
+    .map(source => `${extractRepoPath(source) || source.title} [${source.index}]`)
+    .slice(0, 5);
+  const currentHead = asString(page.externalWatches?.githubRepo?.lastHeadSha).slice(0, 7);
+  return [
+    '',
+    'Repository evidence digest. Use only these concrete facts unless another cited source block explicitly supports more:',
+    `- Current head: ${currentHead || 'unknown from attached evidence'}.`,
+    `- Run command: ${runScript ? scriptLine(runScript) : 'unknown; say no explicit run command was found.'}`,
+    `- Test commands: ${testScripts.length ? testScripts.map(scriptLine).join('; ') : 'unknown; say no explicit test command was found.'}`,
+    `- Build/deploy commands: ${buildScripts.length ? buildScripts.map(scriptLine).join('; ') : 'unknown; say no explicit build/deploy command was found.'}`,
+    `- Key paths you may name: ${keyPathLines.length ? keyPathLines.join('; ') : 'none attached yet.'}`,
+    `- Evidence mix: ${configSources.length} config/package source(s), ${codeSources.length} code source(s), ${commitSources.length} recent-commit source(s).`,
+    plannedLines.length
+      ? `- Planned/spec docs are context only, not shipped behavior: ${plannedLines.join('; ')}.`
+      : '- No planned/spec docs are in the selected source set.',
+    '- Unsupported unless cited verbatim: fully tested, comprehensive test suite, CI passing, published to npm, provenance-aware, React-Webpack, local-storage persistence.'
+  ].join('\n');
+};
+
 const repoFallbackParagraph = ({ text, sourceIndexes = [], support = 'supported' } = {}) => ({
   text,
   citationIndexes: sourceIndexes.filter(Boolean).slice(0, 6),
@@ -1869,6 +1910,9 @@ const maintainWikiPage = async ({
   };
   const allSources = await collectLibrarySources({ userId, models, fastProfile });
   const candidates = selectMaintenanceCandidates({ page, sources: allSources, limit: effectiveSourceLimit });
+  const repoMaintenance = isGitHubRepoPage({ page, candidates });
+  const draftTemperature = repoMaintenance ? 0.08 : 0.2;
+  const rebuildTemperature = repoMaintenance ? 0.12 : 0.28;
   const knownWikiPages = await collectKnownWikiPages({
     page,
     userId,
@@ -1917,7 +1961,7 @@ const maintainWikiPage = async ({
       const draftRequest = {
         route: 'artifact_draft',
         maxTokens: 2600,
-        temperature: 0.2,
+        temperature: draftTemperature,
         reasoningEffort: draftReasoningEffort,
         responseFormat: { type: 'json_object' },
         messages: [
@@ -2013,7 +2057,7 @@ const maintainWikiPage = async ({
       const completion = await chat({
         route: 'artifact_draft',
         maxTokens: 3600,
-        temperature: 0.28,
+        temperature: rebuildTemperature,
         reasoningEffort: 'medium',
         responseFormat: { type: 'json_object' },
         messages: [

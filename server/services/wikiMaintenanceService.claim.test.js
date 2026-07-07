@@ -110,6 +110,30 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         provider: 'github-repo',
         title: 'atsokolas/note-taker-3 README.md',
         text: 'Repository documentation source. Path: README.md.'
+      }, {
+        index: 2,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 package.json',
+        text: '{"scripts":{"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js","build":"cd note-taker-ui && npm run build"}}',
+        metadata: {
+          source: 'github-repo',
+          path: 'package.json',
+          evidenceType: 'config',
+          docClass: 'config'
+        }
+      }, {
+        index: 3,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 server/routes/wikiRoutes.js',
+        text: 'router.post("/api/wiki/pages/from-github", createRepoWikiFromGitHub);',
+        metadata: {
+          source: 'github-repo',
+          path: 'server/routes/wikiRoutes.js',
+          evidenceType: 'code',
+          docClass: 'code'
+        }
       }]
     });
 
@@ -123,6 +147,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Do not claim the repo is published to npm');
     expect(prompt).toContain('Prefer concrete repo facts');
     expect(prompt).toContain('Do not describe them as Library highlights');
+    expect(prompt).toContain('Repository evidence digest');
+    expect(prompt).toContain('Run command: npm run start -> node server/server.js [2]');
+    expect(prompt).toContain('Test commands: npm run wiki:qa -> node scripts/wiki_qa.js [2]');
+    expect(prompt).toContain('Key paths you may name: package.json [2]; server/routes/wikiRoutes.js [3]');
+    expect(prompt).toContain('Unsupported unless cited verbatim');
   });
 
   it('surfaces GitHub repo metadata in source blocks so specs stay quarantined', () => {
