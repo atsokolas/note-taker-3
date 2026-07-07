@@ -1274,7 +1274,7 @@ const extractPackageScripts = (source = {}) => {
     if (scriptsBlock) {
       const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
       let pair = pairPattern.exec(scriptsBlock[1]);
-      while (pair && looseScripts.length < 8) {
+      while (pair && looseScripts.length < 30) {
         looseScripts.push({ name: pair[1], command: asString(pair[2]) });
         pair = pairPattern.exec(scriptsBlock[1]);
       }
@@ -1287,14 +1287,14 @@ const extractPackageScripts = (source = {}) => {
     return Object.entries(scriptsObject || {})
       .map(([name, command]) => ({ name, command: asString(command) }))
       .filter(script => script.name && script.command)
-      .slice(0, 8);
+      .slice(0, 30);
   } catch (_error) {
     const scriptsBlock = match[0].match(/"scripts"\s*:\s*\{([\s\S]*)/i);
     if (!scriptsBlock) return [];
     const scripts = [];
     const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
     let pair = pairPattern.exec(scriptsBlock[1]);
-    while (pair && scripts.length < 8) {
+    while (pair && scripts.length < 30) {
       scripts.push({ name: pair[1], command: asString(pair[2]) });
       pair = pairPattern.exec(scriptsBlock[1]);
     }
