@@ -505,8 +505,7 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   const codeOrConfigCount = refs.filter(source => ['code', 'config'].includes(repoSourceEvidenceType(source))).length;
   const repoPaths = refs.map(extractRepoPath).filter(Boolean);
   const mentionedPathCount = repoPaths.filter(path => new RegExp(`\\b${escapeRegex(path)}\\b`, 'i').test(text)).length;
-  const packageSource = refs.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || null;
-  const packageScripts = packageSource ? extractPackageScripts(packageSource) : [];
+  const packageScripts = collectPackageScripts(refs);
   const mentionedScriptCount = packageScripts.filter(script => {
     const name = escapeRegex(script.name);
     return new RegExp(`\\bnpm\\s+(?:run\\s+${name}|${name})\\b`, 'i').test(text);
@@ -1299,6 +1298,47 @@ const extractPackageScripts = (source = {}) => {
   }
 };
 
+const repoScriptScore = (script = {}) => {
+  const name = asString(script.name).toLowerCase();
+  const path = asString(script.sourcePath).toLowerCase();
+  let score = 50;
+  if (path === 'package.json') score -= 20;
+  if (/^start$/.test(name)) score -= 18;
+  else if (/^dev$/.test(name)) score -= 14;
+  else if (/^wiki:qa$/.test(name)) score -= 16;
+  else if (/^test/.test(name)) score -= 12;
+  else if (/^lint/.test(name)) score -= 8;
+  else if (/build/.test(name)) score -= 10;
+  if (/extension|generate|seed|debug|cleanup|script/i.test(name)) score += 8;
+  return score;
+};
+
+const collectPackageScripts = (sources = []) => {
+  const seen = new Set();
+  return (Array.isArray(sources) ? sources : [])
+    .filter(source => /\bpackage\.json$/i.test(extractRepoPath(source)))
+    .flatMap(source => extractPackageScripts(source).map(script => ({
+      ...script,
+      sourceIndex: source.index,
+      sourcePath: extractRepoPath(source) || source.title
+    })))
+    .filter((script) => {
+      const key = `${script.sourcePath || ''}:${script.name}`;
+      if (!script.name || !script.command || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => repoScriptScore(a) - repoScriptScore(b) || asString(a.name).localeCompare(asString(b.name)));
+};
+
+const scriptCommandLabel = (script = {}) => {
+  if (!script?.name) return '';
+  const suffix = script.sourcePath && script.sourcePath !== 'package.json'
+    ? ` from ${script.sourcePath}`
+    : '';
+  return `npm run ${script.name}${suffix}`;
+};
+
 const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return '';
   const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
@@ -1307,9 +1347,8 @@ const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => 
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
   const commitSources = byEvidence('recent_commits');
-  const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
-  const scripts = packageSource ? extractPackageScripts(packageSource) : [];
-  const scriptLine = (script) => `npm run ${script.name} -> ${script.command} [${packageSource?.index}]`;
+  const scripts = collectPackageScripts(configSources);
+  const scriptLine = (script) => `${scriptCommandLabel(script)} -> ${script.command} [${script.sourceIndex}]`;
   const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
   const testScripts = scripts.filter(script => /^test|wiki:qa|lint/i.test(script.name)).slice(0, 3);
   const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
@@ -1358,10 +1397,10 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const commitSources = byEvidence('recent_commits');
   const readmeSource = repoSources.find(source => asString(source.metadata?.docClass).toLowerCase() === 'readme') || repoSources[0] || null;
   const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
-  const scripts = packageSource ? extractPackageScripts(packageSource) : [];
+  const scripts = collectPackageScripts(configSources);
   const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
-  const testScript = scripts.find(script => /^test|wiki:qa|lint/i.test(script.name)) || null;
-  const buildScript = scripts.find(script => /build/i.test(script.name)) || null;
+  const testScripts = scripts.filter(script => /^wiki:qa$|^test|^lint/i.test(script.name)).slice(0, 3);
+  const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
   const keyPaths = repoSources
     .map(source => extractRepoPath(source))
     .filter(Boolean)
@@ -1375,8 +1414,17 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     ...commitSources.slice(0, 1).map(source => source.index)
   ].filter(Boolean))).slice(0, 18);
   const runCommand = runScript ? `npm run ${runScript.name}` : 'the repository evidence does not expose a run command yet';
-  const testCommand = testScript ? `npm run ${testScript.name}` : 'no explicit test command was found in the selected package evidence';
-  const buildCommand = buildScript ? `npm run ${buildScript.name}` : 'no explicit build command was found in the selected package evidence';
+  const testCommand = testScripts.length
+    ? testScripts.map(scriptCommandLabel).join('; ')
+    : 'no explicit test command was found in the selected package evidence';
+  const buildCommand = buildScripts.length
+    ? buildScripts.map(scriptCommandLabel).join('; ')
+    : 'no explicit build command was found in the selected package evidence';
+  const commandSourceIndexes = Array.from(new Set([
+    runScript?.sourceIndex,
+    ...testScripts.map(script => script.sourceIndex),
+    ...buildScripts.map(script => script.sourceIndex)
+  ].filter(Boolean)));
   const summaryParagraph = repoFallbackParagraph({
     text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today. This page should answer the first engineer question first: what command starts it, what command proves it still works, and which files explain the active architecture.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
@@ -1397,11 +1445,11 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         heading: 'Run locally',
         paragraphs: [repoFallbackParagraph({
           text: `Start from the package/config evidence. Run: ${runCommand}. Test: ${testCommand}. Deploy/build: ${buildCommand}. Treat missing commands as unknown rather than inferred.`,
-          sourceIndexes: [packageSource?.index]
+          sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index]
         })],
         bullets: scripts.slice(0, 6).map(script => ({
-          text: `npm run ${script.name} — ${script.command}`,
-          citationIndexes: [packageSource?.index].filter(Boolean)
+          text: `${scriptCommandLabel(script)} — ${script.command}`,
+          citationIndexes: [script.sourceIndex].filter(Boolean)
         }))
       },
       {
@@ -1435,7 +1483,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         heading: 'Tests and deploy',
         paragraphs: [repoFallbackParagraph({
           text: `Use the explicit scripts from package/config evidence: ${testCommand}; ${buildCommand}. Do not assume CI or deployment health without workflow or deployment evidence.`,
-          sourceIndexes: [packageSource?.index, ...configSources.slice(0, 2).map(source => source.index)]
+          sourceIndexes: commandSourceIndexes.length
+            ? commandSourceIndexes
+            : [packageSource?.index, ...configSources.slice(0, 2).map(source => source.index)]
         })],
         bullets: []
       },

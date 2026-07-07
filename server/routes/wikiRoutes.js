@@ -967,12 +967,15 @@ const sourceRefFromWikiSourceEvent = (event = {}) => {
   const sourceType = SOURCE_REF_TYPES.has(String(raw.sourceType || '').trim())
     ? String(raw.sourceType || '').trim()
     : 'external';
+  const isGitHubConfig = raw.provider === 'github-repo'
+    && /\b(?:package\.json|\.github\/workflows\/[^/]+\.ya?ml)\b/i.test(String(raw.metadata?.path || raw.title || ''));
+  const snippetLimit = isGitHubConfig ? 4000 : 1000;
   return {
     type: sourceType,
     objectId: raw.sourceObjectId || raw._id || null,
     parentObjectId: null,
     title: String(raw.title || raw.url || 'Repository source').trim().slice(0, 240),
-    snippet: cleanWikiSummary(raw.text || raw.summary || '').slice(0, 1000),
+    snippet: cleanWikiSummary(raw.text || raw.summary || '').slice(0, snippetLimit),
     url: String(raw.url || '').trim().slice(0, 1000),
     citationLabel: '',
     provider: String(raw.provider || '').trim().slice(0, 120),
