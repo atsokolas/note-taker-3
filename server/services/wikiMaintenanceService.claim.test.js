@@ -686,6 +686,61 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).toMatch(/unsupported provenance boilerplate/i);
   });
 
+  it('fails GitHub repo pages with unsupported claim ledger entries', () => {
+    const body = docFromArticle({
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      article: {
+        summary: {
+          text: 'Atsokolas/Note-Taker-3 Repo Wiki documents the repo using cited package, route, and service evidence.',
+          citationIndexes: [1, 2]
+        },
+        sections: [{
+          heading: 'Run locally',
+          paragraphs: [{ text: 'Run locally with npm run start from package.json.', citationIndexes: [1] }]
+        }, {
+          heading: 'Architecture',
+          paragraphs: [{ text: 'The architecture uses server/server.js and server/routes/wikiRoutes.js.', citationIndexes: [2, 3] }]
+        }, {
+          heading: 'Key files',
+          paragraphs: [{ text: 'Key files include package.json, server/server.js, and server/routes/wikiRoutes.js.', citationIndexes: [1, 2, 3] }]
+        }, {
+          heading: 'Tests and deploy',
+          paragraphs: [{ text: 'Use npm run wiki:qa when validating wiki changes.', citationIndexes: [1] }]
+        }]
+      }
+    });
+
+    const quality = evaluateWikiArticleQuality({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo'
+      },
+      body,
+      claims: [
+        { section: 'Run locally', support: 'supported', citationIndexes: [1] },
+        { section: 'Architecture', support: 'unsupported', citationIndexes: [] },
+        { section: 'Key files', support: 'supported', citationIndexes: [2] },
+        { section: 'Tests and deploy', support: 'supported', citationIndexes: [1] }
+      ],
+      sourceRefs: [{
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. "scripts": {"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/server.js' }
+      }, {
+        title: 'atsokolas/note-taker-3 server/routes/wikiRoutes.js',
+        snippet: 'Path: server/routes/wikiRoutes.js.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/routes/wikiRoutes.js' }
+      }]
+    });
+
+    expect(quality.ok).toBe(false);
+    expect(quality.failures.join(' ')).toMatch(/unsupported claim ledger entries/i);
+  });
+
   it('fails GitHub repo pages that read like stale roadmap notes instead of developer dossiers', () => {
     const body = {
       type: 'doc',

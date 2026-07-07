@@ -1757,11 +1757,15 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
   });
-  const minWords = isGitHubRepoPage({ page, candidates: sourceRefs })
+  const isRepoQualityPage = isGitHubRepoPage({ page, candidates: sourceRefs });
+  const minWords = isRepoQualityPage
     ? 280
     : (sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
   if (sourceCount >= 3 && words < minWords) {
     failures.push(`Article is too thin for ${sourceCount} sources: ${words} words, expected at least ${minWords}.`);
+  }
+  if (isRepoQualityPage && unsupported > 0) {
+    failures.push(`GitHub repo article has unsupported claim ledger entries: ${unsupported}.`);
   }
   if (claimList.length >= 4 && supportedLike < Math.ceil(claimList.length * 0.45)) {
     failures.push(`Too few claims are evidence-backed: ${supportedLike}/${claimList.length}.`);
