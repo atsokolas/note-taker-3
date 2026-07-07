@@ -42,7 +42,7 @@ const CONTRACTS = {
   repo: {
     label: 'Repository',
     intent: 'Maintain a developer-facing dossier for a GitHub repository.',
-    sections: ['Summary', 'Run locally', 'Architecture', 'Key files', 'Tests and deploy', 'Current active work', 'How to extend', 'Known risks']
+    sections: ['Purpose', 'Five-minute setup', 'Run, test, build', 'Architecture map', 'Common change paths', 'Deploy and operations', 'Known unknowns']
   },
   log: {
     label: 'Log',

@@ -35,10 +35,13 @@ const UNSUPPORTED_REPO_PATTERNS = [
   /Library highlights?/i
 ];
 const REQUIRED_REPO_DOSSIER_PATTERNS = [
-  /\bRun locally\b/i,
-  /\bArchitecture\b/i,
-  /\bKey files\b/i,
-  /\bTests? (?:and|&|\+)?\s*deploy\b|\bDeploy(?:ment)?\b/i,
+  /\bPurpose\b/i,
+  /\bFive-minute setup\b/i,
+  /\bRun, test, build\b/i,
+  /\bArchitecture map\b/i,
+  /\bCommon change paths\b/i,
+  /\bDeploy and operations\b/i,
+  /\bKnown unknowns\b/i,
   /\bnpm\s+(?:run\s+)?(?:start|test|build|wiki:qa)\b/i
 ];
 const REPO_SCAFFOLD_PATTERNS = [

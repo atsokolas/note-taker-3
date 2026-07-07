@@ -40,10 +40,13 @@ const GITHUB_REPO_SCAFFOLD_PATTERNS = [
   /Noeis will build this project wiki/i
 ];
 const GITHUB_REPO_DEVELOPER_SECTION_PATTERNS = [
-  /\bRun locally\b/i,
-  /\bArchitecture\b/i,
-  /\bKey files\b/i,
-  /\bTests? (?:and|&|\+)?\s*deploy\b|\bDeploy(?:ment)?\b/i
+  /\bPurpose\b/i,
+  /\bFive-minute setup\b/i,
+  /\bRun, test, build\b/i,
+  /\bArchitecture map\b/i,
+  /\bCommon change paths\b/i,
+  /\bDeploy and operations\b/i,
+  /\bKnown unknowns\b/i
 ];
 const HEALTH_KEYS = [
   'newItems',
@@ -512,7 +515,7 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }).length;
   const unqualifiedScriptMentions = findUnqualifiedPackageScriptMentions({ text, scripts: packageScripts });
   if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
-    failures.push('GitHub repo article is missing developer-dossier sections: Run locally, Architecture, Key files, and Tests/deploy.');
+    failures.push('GitHub repo article is missing developer-dossier sections: Purpose, Five-minute setup, Run/test/build, Architecture map, Common change paths, Deploy and operations, and Known unknowns.');
   }
   if (!/\bnpm\s+(?:start|run|install|test|build|wiki:qa)\b|\byarn\s+(?:start|test|build)\b|\bpnpm\s+(?:start|test|build)\b/i.test(text)) {
     failures.push('GitHub repo article does not expose concrete local run or test commands.');
@@ -553,7 +556,7 @@ const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
 GitHub repository page rules:
 - This page is about a public GitHub repository. Write it as a developer dossier for someone trying to understand, run, change, and maintain the repo today.
 - Write only what the repository evidence actually supports.
-- Use this exact section shape: Summary | Run locally | Architecture | Key files | Tests and deploy | Current active work | How to extend | Known risks.
+- Use this exact section shape: Purpose | Five-minute setup | Run, test, build | Architecture map | Common change paths | Deploy and operations | Known unknowns.
 - Include a "Developer quickstart" section or subsection with exactly these labels when evidence exists: Run, Test, Deploy, Key paths.
 - Do not claim the repo is published to npm, continuously integrated, fully tested, provenance-aware, or accompanied by a wiki unless a cited repository source explicitly says that.
 - Prefer concrete repo facts: purpose, app/package type, major directories, package scripts, API routes, service/model entrypoints, frontend entrypoints, deployment targets, recent commits, documentation files, release notes, and open implementation risks.
@@ -1349,6 +1352,31 @@ const scriptCommandLabel = (script = {}) => {
   return `npm run ${script.name}${suffix}`;
 };
 
+const repoSourceForPath = (sources = [], pattern) => (
+  (Array.isArray(sources) ? sources : []).find(source => pattern.test(extractRepoPath(source) || source.title || '')) || null
+);
+
+const packageSnippetHasScript = (sources = [], name = '') => {
+  const needle = escapeRegex(name);
+  return (Array.isArray(sources) ? sources : [])
+    .some(source => /\bpackage\.json$/i.test(extractRepoPath(source))
+      && new RegExp(`["']${needle}["']\\s*:`, 'i').test(asString(source.text || source.snippet)));
+};
+
+const commandForScript = (scripts = [], namePattern, fallback = '') => {
+  const script = (Array.isArray(scripts) ? scripts : []).find(item => namePattern.test(item.name));
+  if (script) return scriptCommandLabel(script);
+  return fallback;
+};
+
+const bulletForSourcePath = ({ sources = [], path = '', label = '', reason = '' } = {}) => {
+  const source = repoSourceForPath(sources, new RegExp(`^${escapeRegex(path)}$`, 'i'));
+  return {
+    text: `${label || path}: ${reason || 'open this file first.'}`,
+    citationIndexes: [source?.index].filter(Boolean)
+  };
+};
+
 const findUnqualifiedPackageScriptMentions = ({ text = '', scripts = [] } = {}) => {
   const sourceScripts = Array.isArray(scripts) ? scripts : [];
   if (!sourceScripts.length) return [];
@@ -1472,102 +1500,196 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const buildCommand = buildScripts.length
     ? buildScripts.map(scriptCommandLabel).join('; ')
     : 'no explicit build command was found in the selected package evidence';
+  const uiStartScript = scripts.find(script => /^start$/i.test(script.name) && /note-taker-ui\/package\.json/i.test(script.sourcePath || ''));
+  const uiStartCommand = uiStartScript ? scriptCommandLabel(uiStartScript) : '';
+  const rootWikiQaCommand = packageSnippetHasScript(configSources, 'wiki:qa') ? 'npm run wiki:qa' : '';
+  const primaryProofCommand = rootWikiQaCommand || testScripts.map(scriptCommandLabel).find(command => /^npm run wiki:/i.test(command)) || testScripts.map(scriptCommandLabel)[0] || '';
+  const apiPath = repoSourceForPath(repoSources, /^server\/server\.[jt]s$/i);
+  const wikiRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/wikiRoutes\.[jt]s$/i);
+  const maintenancePath = repoSourceForPath(repoSources, /^server\/services\/wikiMaintenanceService\.[jt]s$/i);
+  const watcherPath = repoSourceForPath(repoSources, /^server\/services\/githubRepoWatcherService\.[jt]s$/i);
+  const modelsPath = repoSourceForPath(repoSources, /^server\/models\/index\.[jt]s$/i);
+  const chatRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/agentChatRoutes\.[jt]s$/i);
+  const wikiClientApiPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i);
+  const uiPackagePath = repoSourceForPath(repoSources, /^note-taker-ui\/package\.json$/i);
+  const apiDescription = apiPath ? 'server/server.js boots the Express API process.' : 'The API bootstrap file was not attached.';
+  const wikiRoutesDescription = wikiRoutesPath ? 'server/routes/wikiRoutes.js owns the wiki HTTP surface, including GitHub repo page creation and maintenance routes.' : 'The wiki route file was not attached.';
+  const maintenanceDescription = maintenancePath ? 'server/services/wikiMaintenanceService.js owns drafting, fallback generation, quality gates, citations, and article persistence.' : 'The wiki maintenance service was not attached.';
+  const watcherDescription = watcherPath ? 'server/services/githubRepoWatcherService.js attaches repository evidence from GitHub and maintains the repo watch state.' : 'The GitHub repo watcher service was not attached.';
+  const modelsDescription = modelsPath ? 'server/models/index.js defines the Mongo models and wiki source/reference shapes used by the page.' : 'The model definitions were not attached.';
+  const chatDescription = chatRoutesPath ? 'server/routes/agentChatRoutes.js is the adjacent agent-chat route surface; inspect it before changing ask/retrieval behavior.' : 'The agent chat route surface was not attached.';
+  const wikiClientDescription = wikiClientApiPath ? 'note-taker-ui/src/api/wiki.js is the frontend API client for wiki calls.' : 'The frontend wiki API client was not attached.';
   const commandSourceIndexes = Array.from(new Set([
     runScript?.sourceIndex,
     ...testScripts.map(script => script.sourceIndex),
     ...buildScripts.map(script => script.sourceIndex)
   ].filter(Boolean)));
   const summaryParagraph = repoFallbackParagraph({
-    text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today. This page should answer the first engineer question first: what command starts it, what command proves it still works, and which files explain the active architecture.`,
+    text: `${title} is a developer handoff for the GitHub repository. It should help a new engineer run the app, prove a change, and find the first file to open for wiki, agent, API, and repository-watch work.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
-  });
-  const sectionSummaryParagraph = repoFallbackParagraph({
-    text: `The current repository evidence identifies ${packageSource ? 'package/config files' : 'attached repository files'} as the starting point and ${codeSources.length ? `${codeSources.length} code path${codeSources.length === 1 ? '' : 's'}` : 'no attached code paths yet'} as the implementation surface to inspect before extending this project.`,
-    sourceIndexes: [packageSource?.index, ...codeSources.slice(0, 4).map(source => source.index)]
   });
   const article = {
     summary: summaryParagraph,
     sections: [
       {
-        heading: 'Summary',
-        paragraphs: [sectionSummaryParagraph],
-        bullets: []
+        heading: 'Purpose',
+        paragraphs: [repoFallbackParagraph({
+          text: `Use this page as a working map of the repository, not a marketing summary. The attached evidence shows ${packageSource ? 'root package/config evidence' : 'repository evidence'} plus ${codeSources.length} code path${codeSources.length === 1 ? '' : 's'}; the useful job is to connect commands to the files that implement the product.`,
+          sourceIndexes: [packageSource?.index, ...codeSources.slice(0, 4).map(source => source.index)]
+        })],
+        bullets: [
+          {
+            text: 'First question: what starts the app?',
+            citationIndexes: [packageSource?.index].filter(Boolean)
+          },
+          {
+            text: 'Second question: what command proves the wiki path still works?',
+            citationIndexes: [packageSource?.index].filter(Boolean)
+          },
+          {
+            text: 'Third question: which route/service/model file owns the behavior you are changing?',
+            citationIndexes: codeSources.slice(0, 4).map(source => source.index)
+          }
+        ]
       },
       {
-        heading: 'Run locally',
+        heading: 'Five-minute setup',
         paragraphs: [repoFallbackParagraph({
-          text: `Start from the package/config evidence. Run: ${runCommand}. Test: ${testCommand}. Deploy/build: ${buildCommand}. Treat missing commands as unknown rather than inferred.`,
+          text: `Start from the package files. Run the API with ${runCommand}. If you are changing the React client, use ${uiStartCommand || 'the note-taker-ui package scripts once that package evidence is attached'}. Prove wiki changes with ${primaryProofCommand || testCommand}. Build the UI with ${buildCommand}.`,
           sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index]
         })],
-        bullets: scripts.slice(0, 6).map(script => ({
-          text: `${scriptCommandLabel(script)} — ${script.command}`,
+        bullets: [
+          runScript,
+          scripts.find(script => /^dev$/i.test(script.name)),
+          uiStartScript,
+          scripts.find(script => /^build$/i.test(script.name) && /note-taker-ui/i.test(script.sourcePath || '')),
+          ...testScripts.slice(0, 3)
+        ].filter(Boolean).map(script => ({
+          text: `${scriptCommandLabel(script)} - ${script.command}`,
           citationIndexes: [script.sourceIndex].filter(Boolean)
         }))
       },
       {
-        heading: 'Architecture',
+        heading: 'Run, test, build',
         paragraphs: [repoFallbackParagraph({
-          text: codeSources.length
-            ? `The current code evidence points to these active implementation areas: ${codeSources.slice(0, 6).map(source => extractRepoPath(source) || source.title).join(', ')}. Read those paths before trusting older roadmap or QA notes; code/config evidence is the authority for shipped behavior.`
-            : 'The selected repository evidence did not include enough code entrypoints to describe the architecture safely.',
-          sourceIndexes: codeSources.slice(0, 6).map(source => source.index),
+          text: `Daily loop: start with ${runCommand}, make the narrow change, then run ${primaryProofCommand || testCommand}. Release confidence comes from package/config evidence, not from invented CI status; use ${buildCommand} when the frontend must be compiled.`,
+          sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index],
+          support: commandSourceIndexes.length ? 'supported' : 'partial'
+        })],
+        bullets: [
+          {
+            text: `Run API: ${runCommand}.`,
+            citationIndexes: [runScript?.sourceIndex].filter(Boolean)
+          },
+          {
+            text: `Wiki proof: ${primaryProofCommand || testCommand}.`,
+            citationIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index].filter(Boolean)
+          },
+          {
+            text: `Frontend build: ${buildCommand}.`,
+            citationIndexes: buildScripts.map(script => script.sourceIndex).filter(Boolean)
+          }
+        ]
+      },
+      {
+        heading: 'Architecture map',
+        paragraphs: [repoFallbackParagraph({
+          text: `${apiDescription} ${wikiRoutesDescription} ${maintenanceDescription} ${watcherDescription} ${modelsDescription} ${chatDescription} ${wikiClientDescription}`,
+          sourceIndexes: [
+            apiPath?.index,
+            wikiRoutesPath?.index,
+            maintenancePath?.index,
+            watcherPath?.index,
+            modelsPath?.index,
+            chatRoutesPath?.index,
+            wikiClientApiPath?.index
+          ].filter(Boolean),
           support: codeSources.length ? 'supported' : 'partial'
         })],
-        bullets: []
+        bullets: [
+          bulletForSourcePath({ sources: repoSources, path: 'server/server.js', label: 'API entrypoint', reason: 'boots the Express server.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/routes/wikiRoutes.js', label: 'Wiki API', reason: 'page create/read/build/share/watch routes live here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiMaintenanceService.js', label: 'Wiki generator', reason: 'drafting, fallback, quality checks, and citation assembly live here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/githubRepoWatcherService.js', label: 'GitHub watcher', reason: 'repo evidence selection and watch refresh live here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/models/index.js', label: 'Data model', reason: 'wiki page/source/ref schemas live here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/routes/agentChatRoutes.js', label: 'Agent chat', reason: 'adjacent agent ask/retrieval routes live here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Wiki client API', reason: 'frontend calls into the wiki API from here.' }),
+          ...codeSources
+            .filter(source => {
+              const sourcePath = extractRepoPath(source);
+              return sourcePath && ![
+                'server/server.js',
+                'server/routes/wikiRoutes.js',
+                'server/services/wikiMaintenanceService.js',
+                'server/services/githubRepoWatcherService.js',
+                'server/models/index.js',
+                'server/routes/agentChatRoutes.js',
+                'note-taker-ui/src/api/wiki.js'
+              ].includes(sourcePath);
+            })
+            .slice(0, 5)
+            .map(source => ({
+              text: `${extractRepoPath(source)}: attached code evidence for this repository.`,
+              citationIndexes: [source.index].filter(Boolean)
+            }))
+        ].filter(bullet => bullet.citationIndexes.length)
       },
       {
-        heading: 'Key files',
+        heading: 'Common change paths',
         paragraphs: [repoFallbackParagraph({
-          text: keyPaths.length
-            ? `The most useful files to open first are ${keyPaths.join(', ')}.`
-            : 'No key file paths were attached by the repository watch yet.',
-          sourceIndexes: sourceIndexesUsed
+          text: 'Use this as the routing table before editing. Start with the file that owns the behavior, then add or update the closest focused test before running the broader wiki proof command.',
+          sourceIndexes: sourceIndexesUsed.slice(0, 8)
         })],
-        bullets: keyPaths.slice(0, 12).map((path) => {
-          const source = repoSources.find(candidate => extractRepoPath(candidate) === path);
-          return {
-            text: path,
-            citationIndexes: [source?.index].filter(Boolean)
-          };
-        })
+        bullets: [
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiMaintenanceService.js', label: 'Improve generated wiki quality', reason: 'edit generation, fallback, quality gates, and claim/citation handling here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/githubRepoWatcherService.js', label: 'Change GitHub repo evidence', reason: 'edit path selection, GitHub fetches, source-event payloads, and watch refresh behavior here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/routes/wikiRoutes.js', label: 'Change wiki API behavior', reason: 'edit page creation, source attachment, share/adopt, watch, and draft endpoints here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/models/index.js', label: 'Change persisted wiki shape', reason: 'edit page/source/reference model schemas here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/routes/agentChatRoutes.js', label: 'Change agent ask behavior', reason: 'inspect this route before changing chat/retrieval behavior.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Change wiki client calls', reason: 'frontend API helper changes belong here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/package.json', label: 'Change frontend build/test loop', reason: 'React scripts and Playwright commands are declared here.' })
+        ].filter(bullet => bullet.citationIndexes.length)
       },
       {
-        heading: 'Tests and deploy',
+        heading: 'Deploy and operations',
         paragraphs: [repoFallbackParagraph({
-          text: `Use the explicit scripts from package/config evidence: ${testCommand}; ${buildCommand}. Do not assume CI or deployment health without workflow or deployment evidence.`,
-          sourceIndexes: commandSourceIndexes.length
-            ? commandSourceIndexes
-            : [packageSource?.index, ...configSources.slice(0, 2).map(source => source.index)]
+          text: `The attached evidence supports local scripts and selected workflow/config files. It does not prove production health by itself. Treat ${buildCommand} as the build evidence and inspect attached workflow/config evidence before claiming CI or deployment status.`,
+          sourceIndexes: [
+            ...buildScripts.map(script => script.sourceIndex),
+            ...configSources.slice(0, 3).map(source => source.index)
+          ].filter(Boolean),
+          support: configSources.length ? 'supported' : 'partial'
         })],
-        bullets: []
+        bullets: [
+          {
+            text: `Build evidence: ${buildCommand}.`,
+            citationIndexes: buildScripts.map(script => script.sourceIndex).filter(Boolean)
+          },
+          {
+            text: 'Do not claim CI is passing unless workflow run/status evidence is attached.',
+            citationIndexes: configSources.slice(0, 2).map(source => source.index)
+          }
+        ]
       },
       {
-        heading: 'Current active work',
+        heading: 'Known unknowns',
         paragraphs: [repoFallbackParagraph({
           text: commitSources.length
-            ? `Recent commit evidence is attached and should be treated as the freshest signal for what changed under the repo wiki.`
+            ? 'Recent commit evidence is attached, but this page still should not infer roadmap, issue-tracker state, CI status, package publication, or production health unless those exact sources are present.'
             : 'No recent-commit evidence was attached, so current active work remains unknown until the watch refreshes.',
-          sourceIndexes: commitSources.slice(0, 1).map(source => source.index),
-          support: commitSources.length ? 'supported' : 'partial'
-        })],
-        bullets: []
-      },
-      {
-        heading: 'Known risks',
-        paragraphs: [repoFallbackParagraph({
-          text: 'The main risk is letting stale planning, QA, or spike documents masquerade as shipped repo behavior. Keep planned docs quarantined as context unless current code/config or recent commits support the claim.',
           sourceIndexes: sourceIndexesUsed.slice(0, 4),
           support: 'partial'
         })],
-        bullets: []
-      },
-      {
-        heading: 'How to extend',
-        paragraphs: [repoFallbackParagraph({
-          text: 'Extend the page by refreshing the GitHub watch, attaching current code/config evidence, then asking the agent to rebuild this developer dossier from the selected repository sources.',
-          sourceIndexes: sourceIndexesUsed.slice(0, 4)
-        })],
-        bullets: []
+        bullets: [
+          {
+            text: 'Unknown unless cited: CI pass/fail, production deploy status, open issue status, npm publication, and complete test coverage.',
+            citationIndexes: sourceIndexesUsed.slice(0, 4)
+          },
+          {
+            text: 'Stale planning or QA documents should stay context-only unless current code/config or recent commits support the claim.',
+            citationIndexes: sourceIndexesUsed.slice(0, 4)
+          }
+        ]
       }
     ],
     preservedUserContent: safeManualNotes

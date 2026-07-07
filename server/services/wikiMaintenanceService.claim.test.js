@@ -140,8 +140,9 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('GitHub repository page rules');
     expect(prompt).toContain('Write only what the repository evidence actually supports');
     expect(prompt).toContain('developer dossier');
-    expect(prompt).toContain('Run locally');
-    expect(prompt).toContain('Key files');
+    expect(prompt).toContain('Five-minute setup');
+    expect(prompt).toContain('Architecture map');
+    expect(prompt).toContain('Common change paths');
     expect(prompt).toContain('Developer quickstart');
     expect(prompt).toContain('docClass="planned"');
     expect(prompt).toContain('Do not claim the repo is published to npm');
@@ -374,10 +375,13 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       article: result.article
     }));
 
-    expect(text).toContain('Run locally');
-    expect(text).toContain('Architecture');
-    expect(text).toContain('Key files');
-    expect(text).toContain('Tests and deploy');
+    expect(text).toContain('Purpose');
+    expect(text).toContain('Five-minute setup');
+    expect(text).toContain('Run, test, build');
+    expect(text).toContain('Architecture map');
+    expect(text).toContain('Common change paths');
+    expect(text).toContain('Deploy and operations');
+    expect(text).toContain('Known unknowns');
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
@@ -463,10 +467,13 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Run locally');
-    expect(text).toContain('Architecture');
-    expect(text).toContain('Key files');
-    expect(text).toContain('Tests and deploy');
+    expect(text).toContain('Purpose');
+    expect(text).toContain('Five-minute setup');
+    expect(text).toContain('Run, test, build');
+    expect(text).toContain('Architecture map');
+    expect(text).toContain('Common change paths');
+    expect(text).toContain('Deploy and operations');
+    expect(text).toContain('Known unknowns');
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
@@ -536,17 +543,17 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
               support: 'supported'
             },
             sections: [
-              section('Summary', [1, 2, 3]),
+              section('Purpose', [1, 2, 3]),
               {
-                heading: 'Run locally',
+                heading: 'Five-minute setup',
                 paragraphs: [{ text: `${paragraph} Run with npm run start, test with npm run wiki:qa, and build with npm run build because package.json explicitly exposes those scripts.`, citationIndexes: [1], support: 'supported' }],
                 bullets: [{ text: 'npm run start — node server/server.js', citationIndexes: [1], support: 'supported' }]
               },
-              section('Architecture', [2, 3]),
-              section('Key files', [1, 2, 3]),
-              section('Tests and deploy', [1]),
-              section('Current active work', [4]),
-              section('How to extend', [1, 2, 3])
+              section('Run, test, build', [1]),
+              section('Architecture map', [2, 3]),
+              section('Common change paths', [1, 2, 3]),
+              section('Deploy and operations', [1]),
+              section('Known unknowns', [4])
             ]
           },
           maintenance: { summary: 'Drafted repo dossier from cited evidence.', changelog: [], health: {} },
@@ -556,7 +563,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Known risks');
+    expect(text).toContain('Known unknowns');
     expect(text).toContain('npm run start');
     expect(text).toContain('server/routes/wikiRoutes.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
@@ -695,17 +702,26 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
           citationIndexes: [1, 2]
         },
         sections: [{
-          heading: 'Run locally',
+          heading: 'Purpose',
           paragraphs: [{ text: 'Run locally with npm run start from package.json.', citationIndexes: [1] }]
         }, {
-          heading: 'Architecture',
+          heading: 'Five-minute setup',
           paragraphs: [{ text: 'The architecture uses server/server.js and server/routes/wikiRoutes.js.', citationIndexes: [2, 3] }]
         }, {
-          heading: 'Key files',
+          heading: 'Run, test, build',
           paragraphs: [{ text: 'Key files include package.json, server/server.js, and server/routes/wikiRoutes.js.', citationIndexes: [1, 2, 3] }]
         }, {
-          heading: 'Tests and deploy',
+          heading: 'Architecture map',
+          paragraphs: [{ text: 'server/server.js and server/routes/wikiRoutes.js own the API and wiki route surface.', citationIndexes: [2, 3] }]
+        }, {
+          heading: 'Common change paths',
+          paragraphs: [{ text: 'Change wiki routes in server/routes/wikiRoutes.js.', citationIndexes: [3] }]
+        }, {
+          heading: 'Deploy and operations',
           paragraphs: [{ text: 'Use npm run wiki:qa when validating wiki changes.', citationIndexes: [1] }]
+        }, {
+          heading: 'Known unknowns',
+          paragraphs: [{ text: 'CI status is unknown without workflow run evidence.', citationIndexes: [1] }]
         }]
       }
     });
@@ -787,14 +803,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         pageType: 'repo'
       },
       text: [
-        'Summary: Noeis is a JavaScript SPA backed by Express and MongoDB.',
-        'Run locally: use npm install and npm start.',
-        'Architecture: server/server.js handles API routes and note-taker-ui/src/App.js owns the frontend.',
-        'Key files: package.json, server/server.js, note-taker-ui/src/App.js.',
-        'Tests and deploy: use npm run build.',
+        'Purpose: Noeis is a JavaScript SPA backed by Express and MongoDB.',
+        'Five-minute setup: use npm install and npm start.',
+        'Run, test, build: use npm run build.',
+        'Architecture map: server/server.js handles API routes and note-taker-ui/src/App.js owns the frontend.',
+        'Common change paths: package.json, server/server.js, note-taker-ui/src/App.js.',
+        'Deploy and operations: use npm run build.',
         'Current active work: current development efforts focus on backend performance and tasks are tracked in the issue tracker.',
-        'How to extend: add routes or frontend components.',
-        'Known risks: deployment documentation is limited.'
+        'Known unknowns: deployment documentation is limited.'
       ].join('\n\n'),
       sourceRefs: [{
         title: 'atsokolas/note-taker-3 package.json',
@@ -821,14 +837,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         pageType: 'repo'
       },
       text: [
-        'Summary: This repository provides a modern note-taking solution.',
-        'Run locally: use npm install and npm start to launch the application.',
-        'Architecture: the server handles API requests and the frontend communicates with REST APIs.',
-        'Key files: important files include server.js and various route files.',
-        'Tests and deploy: the repository includes a testing framework, although specific test files and deployment scripts are not detailed.',
+        'Purpose: This repository provides a modern note-taking solution.',
+        'Five-minute setup: use npm install and npm start to launch the application.',
+        'Run, test, build: the repository includes a testing framework, although specific test files and deployment scripts are not detailed.',
+        'Architecture map: the server handles API requests and the frontend communicates with REST APIs.',
+        'Common change paths: important files include server.js and various route files.',
+        'Deploy and operations: deployment scripts are not detailed.',
         'Current active work: ongoing development focuses on enhancing user experience and expanding functionality.',
-        'How to extend: add new routes in the server or frontend components.',
-        'Known risks: data handling and user authentication need care.'
+        'Known unknowns: data handling and user authentication need care.'
       ].join('\n\n'),
       sourceRefs: [{
         title: 'atsokolas/note-taker-3 package.json',
@@ -861,14 +877,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         pageType: 'repo'
       },
       text: [
-        'Summary: Noeis is a React and Express knowledge workspace.',
-        'Run locally: use npm run start from package.json.',
-        'Architecture: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
-        'Key files: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/App.js.',
-        'Tests and deploy: Testing can be performed using npm run test. For end-to-end tests, use npm run test:agent-harness. Deployment is handled through npm run build.',
+        'Purpose: Noeis is a React and Express knowledge workspace.',
+        'Five-minute setup: use npm run start from package.json.',
+        'Run, test, build: Testing can be performed using npm run test. For end-to-end tests, use npm run test:agent-harness. Deployment is handled through npm run build.',
+        'Architecture map: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
+        'Common change paths: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/App.js.',
+        'Deploy and operations: Deployment is handled through npm run build.',
         'Current active work: recent commits are attached.',
-        'How to extend: change code and rerun the package scripts.',
-        'Known risks: scripts must be run from the package that defines them.'
+        'Known unknowns: scripts must be run from the package that defines them.'
       ].join('\n\n'),
       sourceRefs: [{
         title: 'atsokolas/note-taker-3 package.json',
@@ -899,7 +915,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(failures.join(' ')).toMatch(/unqualified package script/i);
     expect(failures.join(' ')).toMatch(/npm run test/);
-    expect(failures.join(' ')).toMatch(/npm run test:agent-harness/);
+    expect(failures.join(' ')).toMatch(/npm run build/);
   });
 
   it('fails unsupported testing-framework claims on GitHub repo pages', () => {
@@ -926,14 +942,14 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
       },
       text: [
-        'Summary: Noeis is a React and Express knowledge workspace.',
-        'Run locally: run npm start at the repo root and npm run build at the repo root.',
-        'Architecture: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
-        'Key files: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
-        'Tests and deploy: npm run wiki:qa covers the wiki path and Vercel/Render ship the app.',
+        'Purpose: Noeis is a React and Express knowledge workspace.',
+        'Five-minute setup: run npm start at the repo root and npm run build at the repo root.',
+        'Run, test, build: npm run wiki:qa covers the wiki path and npm run build compiles the frontend.',
+        'Architecture map: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
+        'Common change paths: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
+        'Deploy and operations: npm run build is the attached build command.',
         'Current active work: recent commits are focused on repo wiki grounding.',
-        'How to extend: add a route, service, model, focused test, and browser proof.',
-        'Known risks: watcher source selection must avoid stale planning docs.'
+        'Known unknowns: watcher source selection must avoid stale planning docs.'
       ].join('\n\n'),
       sourceRefs: [{
         title: 'atsokolas/note-taker-3 package.json',
