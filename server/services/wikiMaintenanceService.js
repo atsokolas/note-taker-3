@@ -725,18 +725,22 @@ const shouldInlineQualityRebuild = ({ quality = {}, plainText = '', fastProfile 
   return wordCount < 30;
 };
 
-const sourceRefFromCandidate = (candidate) => ({
-  type: candidate.type,
-  objectId: candidate.objectId || null,
-  parentObjectId: candidate.parentObjectId || null,
-  title: truncate(candidate.title, 240),
-  snippet: truncate(candidate.text, 1000),
-  url: truncateRaw(candidate.url, 1000),
-  citationLabel: `[${candidate.index}]`,
-  addedBy: 'ai',
-  provider: candidate.provider || '',
-  metadata: candidate.metadata || {}
-});
+const sourceRefFromCandidate = (candidate) => {
+  const isGitHubConfig = isGitHubRepoCandidate(candidate)
+    && /\b(?:package\.json|\.github\/workflows\/[^/]+\.ya?ml)\b/i.test(String(candidate.metadata?.path || candidate.title || ''));
+  return {
+    type: candidate.type,
+    objectId: candidate.objectId || null,
+    parentObjectId: candidate.parentObjectId || null,
+    title: truncate(candidate.title, 240),
+    snippet: truncate(candidate.text, isGitHubConfig ? 4000 : 1000),
+    url: truncateRaw(candidate.url, 1000),
+    citationLabel: `[${candidate.index}]`,
+    addedBy: 'ai',
+    provider: candidate.provider || '',
+    metadata: candidate.metadata || {}
+  };
+};
 
 const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
   type: sourceRef.type || 'external',
