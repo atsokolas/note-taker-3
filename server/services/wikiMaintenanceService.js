@@ -40,13 +40,15 @@ const GITHUB_REPO_SCAFFOLD_PATTERNS = [
   /Noeis will build this project wiki/i
 ];
 const GITHUB_REPO_DEVELOPER_SECTION_PATTERNS = [
-  /\bPurpose\b/i,
-  /\bFive-minute setup\b/i,
-  /\bRun, test, build\b/i,
-  /\bArchitecture map\b/i,
+  /\bProduct orientation\b/i,
+  /\bUser experience map\b/i,
+  /\bDeveloper quickstart\b/i,
+  /\bCritical flows\b/i,
+  /\bArchitecture and ownership\b/i,
   /\bCommon change paths\b/i,
-  /\bDeploy and operations\b/i,
-  /\bKnown unknowns\b/i
+  /\bQuality bar and invariants\b/i,
+  /\bFailure modes\b/i,
+  /\bDeploy and unknowns\b/i
 ];
 const HEALTH_KEYS = [
   'newItems',
@@ -515,7 +517,7 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }).length;
   const unqualifiedScriptMentions = findUnqualifiedPackageScriptMentions({ text, scripts: packageScripts });
   if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
-    failures.push('GitHub repo article is missing developer-dossier sections: Purpose, Five-minute setup, Run/test/build, Architecture map, Common change paths, Deploy and operations, and Known unknowns.');
+    failures.push('GitHub repo article is missing product-aware developer manual sections: Product orientation, User experience map, Developer quickstart, Critical flows, Architecture and ownership, Common change paths, Quality bar and invariants, Failure modes, and Deploy and unknowns.');
   }
   if (!/\bnpm\s+(?:start|run|install|test|build|wiki:qa)\b|\byarn\s+(?:start|test|build)\b|\bpnpm\s+(?:start|test|build)\b/i.test(text)) {
     failures.push('GitHub repo article does not expose concrete local run or test commands.');
@@ -556,11 +558,14 @@ const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
 GitHub repository page rules:
 - This page is about a public GitHub repository. Write it as a developer dossier for someone trying to understand, run, change, and maintain the repo today.
 - Write only what the repository evidence actually supports.
-- Use this exact section shape: Purpose | Five-minute setup | Run, test, build | Architecture map | Common change paths | Deploy and operations | Known unknowns.
+- Use this exact section shape: Product orientation | User experience map | Developer quickstart | Critical flows | Architecture and ownership | Common change paths | Quality bar and invariants | Failure modes | Deploy and unknowns.
 - Include a "Developer quickstart" section or subsection with exactly these labels when evidence exists: Run, Test, Deploy, Key paths.
 - The first viewport must be useful before the References section: name the concrete run command, the proof command, and at least two exact owning file paths when evidence supports them.
 - Do not write placeholder sentences such as "details will appear after sync", "commands will appear later", "first question", or "repository sources are being attached." If evidence is missing, say exactly which command/path remains unknown.
 - Prefer a practical handoff over a prose summary: each section should tell the developer what to run, what to inspect, what file owns the change, or what proof is missing.
+- Start with what the product is and what user experience the repo serves before explaining files. Map user-visible rooms or flows to code only when evidence supports them.
+- Include at least three critical request/user flows with UI entrypoint, API route/client, service, persistence, and rendering surface when those paths are attached.
+- Include product/code invariants and failure modes. Prefer explicit "do not" rules over vague risk language.
 - Do not claim the repo is published to npm, continuously integrated, fully tested, provenance-aware, or accompanied by a wiki unless a cited repository source explicitly says that.
 - Prefer concrete repo facts: purpose, app/package type, major directories, package scripts, API routes, service/model entrypoints, frontend entrypoints, deployment targets, recent commits, documentation files, release notes, and open implementation risks.
 - Include exact local commands only when package/config evidence supports them. Include exact key file paths only when they are present in the repository evidence.
@@ -590,7 +595,7 @@ const buildPrompt = ({
   knownWikiPages = [],
   sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
 }) => {
-  const structure = getWikiPageStructure(page.pageType || 'topic');
+  const structure = getWikiPageStructure(isGitHubRepoPage({ page, candidates }) ? 'repo' : (page.pageType || 'topic'));
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
@@ -1540,83 +1545,132 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const buildCommandDetail = buildScripts[0]
     ? `${scriptCommandLabel(buildScripts[0])} - ${buildScripts[0].command}`
     : 'No explicit frontend build command was found in the selected package evidence.';
+  const repoEvidenceCorpus = [
+    page.title,
+    page.createdFrom?.text,
+    page.createdFrom?.label,
+    ...repoSources.flatMap(source => [source.title, source.text, source.snippet, source.metadata?.path])
+  ].filter(Boolean).join('\n');
+  const isNoeisRepo = /\b(?:Noeis|Note Taker|note-taker-3|Think-first|Library|Morning Paper)\b/i.test(repoEvidenceCorpus);
+  const productOrientationText = isNoeisRepo
+    ? 'This repository powers Noeis, a concept-centered knowledge workspace where saved reading moves through Library, Think, and Wiki into maintained, source-grounded pages. A developer should preserve that loop before optimizing any single route, component, or model.'
+    : 'This repository should be read as the implementation of a user-facing product or service, not just as a package tree. Start from README/package evidence to understand what user job the code serves before changing routes, services, models, or UI.';
+  const uxMapText = isNoeisRepo
+    ? 'The core experience is a maintained thinking loop: Library collects source material, Think turns source fragments into concepts/questions/notebook work, Wiki synthesizes mature material into durable cited pages, and sharing exposes safe public versions without private graph data.'
+    : 'The user experience map should connect visible entrypoints to code ownership. If the evidence does not name a product surface, state that the UX map is unknown rather than inventing flows.';
+  const repoFlowLabel = title.replace(/\s+Repo Wiki$/i, '').replace(/\s+Wiki$/i, '').trim() || 'repository';
   const summaryParagraph = repoFallbackParagraph({
-    text: `${title} is a developer handoff for this GitHub repository: run the API, run the client when UI work is involved, prove wiki changes with the attached harness, then edit the route/service/model file that owns the behavior.`,
+    text: `${title} is a product-aware developer operating manual for this GitHub repository: understand the user experience first, run the local stack, prove changes with attached commands, then edit the route/service/model/component that owns the behavior.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
   });
   const article = {
     summary: summaryParagraph,
     sections: [
       {
-        heading: 'Purpose',
+        heading: 'Product orientation',
         paragraphs: [repoFallbackParagraph({
-          text: `Use this as a practical map of the repo, not a generic summary. The attached sources include ${packageSource ? 'root package/config evidence' : 'repository evidence'} and ${codeSources.length} implementation path${codeSources.length === 1 ? '' : 's'}; the page should tell a developer which command to run, which proof to trust, and which file owns the change.`,
-          sourceIndexes: [packageSource?.index, ...codeSources.slice(0, 4).map(source => source.index)]
+          text: productOrientationText,
+          sourceIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean),
+          support: readmeSource || packageSource ? 'supported' : 'partial'
         })],
         bullets: [
-          {
-            text: `Start the backend from the root package: ${runCommandDetail}`,
-            citationIndexes: [packageSource?.index].filter(Boolean)
+          isNoeisRepo ? {
+            text: 'Core product loop: source intake and reading in Library, active synthesis in Think, maintained cited pages in Wiki, and safe public sharing when the user chooses to publish.',
+            citationIndexes: [readmeSource?.index].filter(Boolean)
+          } : {
+            text: 'First developer job: identify the product or service from README/package evidence before changing implementation details.',
+            citationIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean)
           },
           {
-            text: `Prove wiki behavior before shipping: ${proofCommandDetail}`,
-            citationIndexes: [packageSource?.index].filter(Boolean)
+            text: 'Repo wiki is a maintained page with a GitHub watcher attached; it should stay inside the wiki/source-monitor system rather than becoming a separate product surface.',
+            citationIndexes: [watcherPath?.index, wikiRoutesPath?.index, ...sourceIndexesUsed.slice(0, 2)].filter(Boolean)
           },
           {
-            text: 'Choose the owning file first: route for HTTP behavior, service for generation/watch logic, model for persisted shape, UI client/component for rendered workflow.',
-            citationIndexes: codeSources.slice(0, 4).map(source => source.index)
+            text: `Current repository identity: ${repoFlowLabel}.`,
+            citationIndexes: [readmeSource?.index, commitSources[0]?.index].filter(Boolean)
           }
-        ]
-      },
-      {
-        heading: 'Five-minute setup',
-        paragraphs: [repoFallbackParagraph({
-          text: `Start from the package files and keep root commands distinct from nested UI package commands. Run the backend, run the client only for UI work, then use the wiki proof command before relying on the page.`,
-          sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index]
-        })],
-        bullets: [
-          {
-            text: `Backend: ${runCommandDetail}`,
-            citationIndexes: [runScript?.sourceIndex].filter(Boolean)
-          },
-          uiStartScript ? {
-            text: `Client: ${uiCommandDetail}`,
-            citationIndexes: [uiStartScript?.sourceIndex].filter(Boolean)
-          } : null,
-          {
-            text: `Wiki proof: ${proofCommandDetail}`,
-            citationIndexes: [testScripts[0]?.sourceIndex].filter(Boolean)
-          },
-          buildScripts[0] ? {
-            text: `Frontend build: ${buildCommandDetail}`,
-            citationIndexes: [buildScripts[0]?.sourceIndex].filter(Boolean)
-          } : null
         ].filter(Boolean)
       },
       {
-        heading: 'Run, test, build',
+        heading: 'User experience map',
         paragraphs: [repoFallbackParagraph({
-          text: `Daily loop: start the backend with ${runCommand}, make the narrow change, then run ${primaryProofCommand || testCommand}. Use ${buildCommand} when the frontend must compile. Do not treat this as CI proof unless workflow status evidence is attached.`,
+          text: uxMapText,
+          sourceIndexes: [readmeSource?.index, wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean),
+          support: isNoeisRepo ? 'supported' : 'partial'
+        })],
+        bullets: [
+          {
+            text: `Create repo wiki: user pastes a GitHub URL, the UI calls the wiki API client, the backend creates or updates a maintained page, attaches repository evidence, and opens the wiki reader with the GitHub watch armed.`,
+            citationIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index, watcherPath?.index].filter(Boolean)
+          },
+          {
+            text: 'Read maintained page: the reader should show article content, citations, share privacy state, watch status, and quality state without requiring the user to inspect raw sources first.',
+            citationIndexes: [wikiRoutesPath?.index, maintenancePath?.index].filter(Boolean)
+          },
+          {
+            text: 'Public sharing must expose the article and references only; backlinks, highlights, private source notes, and agent work stay private.',
+            citationIndexes: [wikiRoutesPath?.index, modelsPath?.index].filter(Boolean)
+          }
+        ].filter(bullet => bullet.citationIndexes.length)
+      },
+      {
+        heading: 'Developer quickstart',
+        paragraphs: [repoFallbackParagraph({
+          text: `Start from package evidence and keep root commands distinct from nested UI commands. A useful first pass is: run the API, run the UI only when UI work is involved, prove wiki behavior, then build the frontend before shipping UI changes.`,
           sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index],
           support: commandSourceIndexes.length ? 'supported' : 'partial'
         })],
         bullets: [
           {
-            text: `Run API: ${runCommand}.`,
+            text: `Run: ${runCommandDetail}`,
             citationIndexes: [runScript?.sourceIndex].filter(Boolean)
           },
+          uiStartScript ? {
+            text: `UI: ${uiCommandDetail}`,
+            citationIndexes: [uiStartScript?.sourceIndex].filter(Boolean)
+          } : null,
           {
-            text: `Wiki proof: ${primaryProofCommand || testCommand}.`,
-            citationIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index].filter(Boolean)
+            text: `Test: ${proofCommandDetail}`,
+            citationIndexes: [testScripts[0]?.sourceIndex].filter(Boolean)
           },
+          buildScripts[0] ? {
+            text: `Build: ${buildCommandDetail}`,
+            citationIndexes: [buildScripts[0]?.sourceIndex].filter(Boolean)
+          } : null,
           {
-            text: `Frontend build: ${buildCommand}.`,
-            citationIndexes: buildScripts.map(script => script.sourceIndex).filter(Boolean)
+            text: `Key paths: ${keyPaths.slice(0, 6).join(', ') || 'No exact key paths were attached yet.'}`,
+            citationIndexes: sourceIndexesUsed.slice(0, 6)
           }
-        ]
+        ].filter(Boolean)
       },
       {
-        heading: 'Architecture map',
+        heading: 'Critical flows',
+        paragraphs: [repoFallbackParagraph({
+          text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries. The goal is to make the first correct file obvious, not to summarize the whole tree.',
+          sourceIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index, maintenancePath?.index, watcherPath?.index, modelsPath?.index].filter(Boolean),
+          support: [wikiClientApiPath, wikiRoutesPath, maintenancePath].filter(Boolean).length >= 2 ? 'supported' : 'partial'
+        })],
+        bullets: [
+          {
+            text: 'Repo creation: WikiRepoCreateComposer -> note-taker-ui/src/api/wiki.js -> POST /api/wiki/pages/from-github -> server/routes/wikiRoutes.js -> server/services/githubRepoWatcherService.js -> server/services/wikiMaintenanceService.js -> WikiPage persistence -> wiki reader.',
+            citationIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index, watcherPath?.index, maintenancePath?.index, modelsPath?.index].filter(Boolean)
+          },
+          {
+            text: 'Repo refresh: externalWatches.githubRepo marks the watch, githubRepoWatcherService refreshes read-only GitHub evidence, source events attach to the page, and wikiMaintenanceService rebuilds the maintained article from current sources.',
+            citationIndexes: [watcherPath?.index, maintenancePath?.index, modelsPath?.index].filter(Boolean)
+          },
+          {
+            text: 'Ask and retrieval: inspect agentChatRoutes before changing page-aware answers, then confirm whether the behavior should route through page-only retrieval or graph-aware wiki asking.',
+            citationIndexes: [chatRoutesPath?.index, maintenancePath?.index].filter(Boolean)
+          },
+          {
+            text: 'Share flow: wiki routes and serializers must create a safe public article/reference surface without exposing private graph, library, highlights, or agent state.',
+            citationIndexes: [wikiRoutesPath?.index, modelsPath?.index].filter(Boolean)
+          }
+        ].filter(bullet => bullet.citationIndexes.length)
+      },
+      {
+        heading: 'Architecture and ownership',
         paragraphs: [repoFallbackParagraph({
           text: `${apiDescription} ${wikiRoutesDescription} ${maintenanceDescription} ${watcherDescription} ${modelsDescription} ${chatDescription} ${wikiClientDescription}`,
           sourceIndexes: [
@@ -1651,9 +1705,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
                 'note-taker-ui/src/api/wiki.js'
               ].includes(sourcePath);
             })
-            .slice(0, 5)
+            .slice(0, 4)
             .map(source => ({
-              text: `${extractRepoPath(source)}: attached code evidence for this repository.`,
+              text: `${extractRepoPath(source)}: attached implementation evidence for this repository.`,
               citationIndexes: [source.index].filter(Boolean)
             }))
         ].filter(bullet => bullet.citationIndexes.length)
@@ -1675,36 +1729,65 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         ].filter(bullet => bullet.citationIndexes.length)
       },
       {
-        heading: 'Deploy and operations',
+        heading: 'Quality bar and invariants',
         paragraphs: [repoFallbackParagraph({
-          text: `The attached evidence supports local scripts and selected workflow/config files. It does not prove production health by itself. Treat ${buildCommand} as the build evidence and inspect attached workflow/config evidence before claiming CI or deployment status.`,
+          text: 'A repo page is not done because references exist. It must orient the developer to the product, expose concrete commands and paths, cite repository evidence, name unsupported unknowns, and preserve privacy boundaries.',
+          sourceIndexes: [maintenancePath?.index, wikiRoutesPath?.index, packageSource?.index].filter(Boolean)
+        })],
+        bullets: [
+          {
+            text: 'Do not optimize build speed by accepting thin output; repo pages should fail quality when they lack product orientation, concrete commands, exact file paths, or developer flow traces.',
+            citationIndexes: [maintenancePath?.index].filter(Boolean)
+          },
+          {
+            text: 'Do not expose private backlinks, highlights, source notes, user IDs, or agent state in public share surfaces.',
+            citationIndexes: [wikiRoutesPath?.index, modelsPath?.index].filter(Boolean)
+          },
+          {
+            text: 'Do not claim CI, deploy health, issue status, npm publication, or full test coverage unless workflow/status evidence explicitly supports it.',
+            citationIndexes: configSources.slice(0, 3).map(source => source.index)
+          },
+          {
+            text: 'Watchers should attach read-only evidence to maintained pages; they should not create a parallel repo product outside the wiki/source-monitor loop.',
+            citationIndexes: [watcherPath?.index, wikiRoutesPath?.index].filter(Boolean)
+          }
+        ].filter(bullet => bullet.citationIndexes.length)
+      },
+      {
+        heading: 'Failure modes',
+        paragraphs: [repoFallbackParagraph({
+          text: 'When this page feels wrong, debug the layer that owns the symptom instead of rebuilding blindly. Most repo-wiki failures are evidence-selection, quality-gate, route, stream, or render-state problems.',
+          sourceIndexes: [wikiRoutesPath?.index, maintenancePath?.index, watcherPath?.index, wikiClientApiPath?.index].filter(Boolean)
+        })],
+        bullets: [
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiMaintenanceService.js', label: 'Thin or generic article', reason: 'inspect prompt rules, deterministic fallback, sourceIndexesUsed, quality failures, and claim extraction.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/githubRepoWatcherService.js', label: 'Stale or missing GitHub evidence', reason: 'inspect token/rate-limit behavior, selected paths, source events, and lastHeadSha.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/routes/wikiRoutes.js', label: 'Page cannot open or duplicate builds race', reason: 'inspect create response, stream route, single-flight guards, and page id navigation.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Frontend opens stale or wrong page', reason: 'inspect createRepoWikiFromGitHub response handling and route construction.' }),
+          {
+            text: 'If Render logs show Mongoose VersionError during maintenance, suspect overlapping draft/maintenance streams on the same page before blaming the model provider.',
+            citationIndexes: [wikiRoutesPath?.index, maintenancePath?.index].filter(Boolean)
+          }
+        ].filter(bullet => bullet.citationIndexes.length)
+      },
+      {
+        heading: 'Deploy and unknowns',
+        paragraphs: [repoFallbackParagraph({
+          text: commitSources.length
+            ? `Recent commit evidence is attached, but this page still should not infer roadmap, issue-tracker state, CI status, package publication, or production health unless those exact sources are present. Treat ${buildCommand} as build evidence only when attached.`
+            : `No recent-commit evidence was attached, so current active work remains unknown until the watch refreshes. Treat ${buildCommand} as build evidence only when attached.`,
           sourceIndexes: [
+            ...commitSources.slice(0, 1).map(source => source.index),
             ...buildScripts.map(script => script.sourceIndex),
             ...configSources.slice(0, 3).map(source => source.index)
           ].filter(Boolean),
-          support: configSources.length ? 'supported' : 'partial'
+          support: 'partial'
         })],
         bullets: [
           {
             text: `Build evidence: ${buildCommand}.`,
             citationIndexes: buildScripts.map(script => script.sourceIndex).filter(Boolean)
           },
-          {
-            text: 'Do not claim CI is passing unless workflow run/status evidence is attached.',
-            citationIndexes: configSources.slice(0, 2).map(source => source.index)
-          }
-        ]
-      },
-      {
-        heading: 'Known unknowns',
-        paragraphs: [repoFallbackParagraph({
-          text: commitSources.length
-            ? 'Recent commit evidence is attached, but this page still should not infer roadmap, issue-tracker state, CI status, package publication, or production health unless those exact sources are present.'
-            : 'No recent-commit evidence was attached, so current active work remains unknown until the watch refreshes.',
-          sourceIndexes: sourceIndexesUsed.slice(0, 4),
-          support: 'partial'
-        })],
-        bullets: [
           {
             text: 'Unknown unless cited: CI pass/fail, production deploy status, open issue status, npm publication, and complete test coverage.',
             citationIndexes: sourceIndexesUsed.slice(0, 4)
@@ -1713,18 +1796,29 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             text: 'Stale planning or QA documents should stay context-only unless current code/config or recent commits support the claim.',
             citationIndexes: sourceIndexesUsed.slice(0, 4)
           }
-        ]
+        ].filter(Boolean)
       }
     ],
     preservedUserContent: safeManualNotes
       ? [{ text: safeManualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
       : []
   };
+  const supportedArticle = {
+    ...article,
+    sections: article.sections.map(section => ({
+      ...section,
+      bullets: (section.bullets || []).map((bullet) => (
+        bullet && !bullet.support && Array.isArray(bullet.citationIndexes) && bullet.citationIndexes.length
+          ? { ...bullet, support: 'supported' }
+          : bullet
+      ))
+    }))
+  };
   return {
     title,
     article: alignArticleToPageStructure({
       pageType: 'repo',
-      article
+      article: supportedArticle
     }),
     maintenance: {
       summary: `Built a developer dossier from ${repoSources.length} GitHub repository evidence source${repoSources.length === 1 ? '' : 's'}.`,

@@ -41,8 +41,18 @@ const CONTRACTS = {
   },
   repo: {
     label: 'Repository',
-    intent: 'Maintain a developer-facing dossier for a GitHub repository.',
-    sections: ['Purpose', 'Five-minute setup', 'Run, test, build', 'Architecture map', 'Common change paths', 'Deploy and operations', 'Known unknowns']
+    intent: 'Maintain a product-aware developer operating manual for a GitHub repository.',
+    sections: [
+      'Product orientation',
+      'User experience map',
+      'Developer quickstart',
+      'Critical flows',
+      'Architecture and ownership',
+      'Common change paths',
+      'Quality bar and invariants',
+      'Failure modes',
+      'Deploy and unknowns'
+    ]
   },
   log: {
     label: 'Log',

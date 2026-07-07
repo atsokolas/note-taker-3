@@ -140,12 +140,17 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('GitHub repository page rules');
     expect(prompt).toContain('Write only what the repository evidence actually supports');
     expect(prompt).toContain('developer dossier');
-    expect(prompt).toContain('Five-minute setup');
-    expect(prompt).toContain('Architecture map');
+    expect(prompt).toContain('Product orientation');
+    expect(prompt).toContain('User experience map');
+    expect(prompt).toContain('Critical flows');
+    expect(prompt).toContain('Architecture and ownership');
     expect(prompt).toContain('Common change paths');
+    expect(prompt).toContain('Quality bar and invariants');
+    expect(prompt).toContain('Failure modes');
     expect(prompt).toContain('Developer quickstart');
     expect(prompt).toContain('The first viewport must be useful before the References section');
     expect(prompt).toContain('Prefer a practical handoff over a prose summary');
+    expect(prompt).toContain('Start with what the product is and what user experience the repo serves');
     expect(prompt).toContain('docClass="planned"');
     expect(prompt).toContain('Do not claim the repo is published to npm');
     expect(prompt).toContain('Prefer concrete repo facts');
@@ -377,13 +382,19 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       article: result.article
     }));
 
-    expect(text).toContain('Purpose');
-    expect(text).toContain('Five-minute setup');
-    expect(text).toContain('Run, test, build');
-    expect(text).toContain('Architecture map');
+    expect(text).toContain('Product orientation');
+    expect(text).toContain('User experience map');
+    expect(text).toContain('Developer quickstart');
+    expect(text).toContain('Critical flows');
+    expect(text).toContain('Architecture and ownership');
     expect(text).toContain('Common change paths');
-    expect(text).toContain('Deploy and operations');
-    expect(text).toContain('Known unknowns');
+    expect(text).toContain('Quality bar and invariants');
+    expect(text).toContain('Failure modes');
+    expect(text).toContain('Deploy and unknowns');
+    expect(text).toContain('Library');
+    expect(text).toContain('Think');
+    expect(text).toContain('Wiki');
+    expect(text).toContain('Create repo wiki');
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
@@ -469,13 +480,15 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Purpose');
-    expect(text).toContain('Five-minute setup');
-    expect(text).toContain('Run, test, build');
-    expect(text).toContain('Architecture map');
+    expect(text).toContain('Product orientation');
+    expect(text).toContain('User experience map');
+    expect(text).toContain('Developer quickstart');
+    expect(text).toContain('Critical flows');
+    expect(text).toContain('Architecture and ownership');
     expect(text).toContain('Common change paths');
-    expect(text).toContain('Deploy and operations');
-    expect(text).toContain('Known unknowns');
+    expect(text).toContain('Quality bar and invariants');
+    expect(text).toContain('Failure modes');
+    expect(text).toContain('Deploy and unknowns');
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
@@ -565,7 +578,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Known unknowns');
+    expect(text).toContain('Deploy and unknowns');
     expect(text).toContain('npm run start');
     expect(text).toContain('server/routes/wikiRoutes.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
@@ -792,7 +805,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(quality.ok).toBe(false);
-    expect(quality.failures.join(' ')).toMatch(/developer-dossier sections/i);
+    expect(quality.failures.join(' ')).toMatch(/product-aware developer manual sections/i);
     expect(quality.failures.join(' ')).toMatch(/local run or test commands/i);
     expect(quality.failures.join(' ')).toMatch(/code\/config evidence/i);
     expect(quality.failures.join(' ')).toMatch(/stale planning or QA history/i);
@@ -995,12 +1008,15 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
       },
       text: [
-        'Purpose: Noeis is a React and Express knowledge workspace.',
-        'Five-minute setup: run npm start at the repo root and npm run build at the repo root.',
-        'Run, test, build: npm run wiki:qa covers the wiki path and npm run build compiles the frontend.',
-        'Architecture map: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
+        'Product orientation: Noeis is a React and Express knowledge workspace where Library, Think, and Wiki form the user-facing loop.',
+        'User experience map: users move from Library source intake to Think synthesis to Wiki maintained pages and safe public sharing.',
+        'Developer quickstart: run npm start at the repo root, prove wiki changes with npm run wiki:qa, and use npm run build for the frontend.',
+        'Critical flows: repo creation starts in the UI, calls the wiki API, persists a WikiPage, and renders the maintained page.',
+        'Architecture and ownership: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
         'Common change paths: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
-        'Deploy and operations: npm run build is the attached build command.',
+        'Quality bar and invariants: public share must not expose private backlinks, highlights, source notes, user IDs, or agent state.',
+        'Failure modes: thin repo output belongs in server/services/wikiMaintenanceService.js and stale repo evidence belongs in the watcher service.',
+        'Deploy and unknowns: npm run build is the attached build command.',
         'Current active work: recent commits are focused on repo wiki grounding.',
         'Known unknowns: watcher source selection must avoid stale planning docs.'
       ].join('\n\n'),
