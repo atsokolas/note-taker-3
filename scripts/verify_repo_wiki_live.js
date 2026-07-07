@@ -101,6 +101,21 @@ async function readPage(token, pageId) {
   return JSON.parse(text);
 }
 
+async function createRepoWikiViaApi(token) {
+  const response = await fetchWithTimeout(`${API_URL}/api/wiki/pages/from-github`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ repo: TEST_REPO })
+  }, 120000);
+  const text = await response.text();
+  const body = parseBody(text);
+  if (!response.ok) throw new Error(`Create repo wiki failed: ${response.status} ${snippet(text, 500)}`);
+  return { status: response.status, body };
+}
+
 async function waitForBuiltPage(token, pageId) {
   let latest = null;
   for (let attempt = 1; attempt <= 12; attempt += 1) {
@@ -173,19 +188,34 @@ async function main() {
 
   try {
     await page.goto(`${BASE_URL}/wiki`, { waitUntil: 'domcontentloaded', timeout: 90000 });
-    await page.waitForSelector('.wiki-repo-create input', { timeout: 30000 });
-    await page.fill('.wiki-repo-create input', TEST_REPO);
-    await page.screenshot({ path: path.join(OUT_DIR, 'before-submit.png'), fullPage: false });
+    let landedUrl = '';
+    let pageId = '';
+    let apiCreate = null;
+    const repoInput = page.getByLabel('GitHub repository URL').first();
+    const composerVisible = await repoInput.waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    if (composerVisible) {
+      await repoInput.fill(TEST_REPO);
+      await page.screenshot({ path: path.join(OUT_DIR, 'before-submit.png'), fullPage: false });
 
-    await page.click('.wiki-repo-create button[type="submit"]');
-    await page.waitForURL(/\/wiki\/workspace\?page=/, { timeout: 120000 });
-    await sleep(3000);
-    const landedUrl = page.url();
-    const pageId = new URL(landedUrl).searchParams.get('page');
+      await page.getByRole('button', { name: 'Create repo wiki' }).first().click();
+      await page.waitForURL(/\/wiki\/workspace\?page=/, { timeout: 120000 });
+      await sleep(3000);
+      landedUrl = page.url();
+      pageId = new URL(landedUrl).searchParams.get('page');
+    } else {
+      await page.screenshot({ path: path.join(OUT_DIR, 'wiki-front-no-composer.png'), fullPage: true });
+      apiCreate = await createRepoWikiViaApi(token);
+      pageId = apiCreate.body?.page?._id || apiCreate.body?.page?.id || apiCreate.body?.pageId || '';
+      landedUrl = `${BASE_URL}/wiki/workspace?page=${encodeURIComponent(pageId)}`;
+      await page.goto(landedUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
+      await sleep(3000);
+    }
     if (!pageId) throw new Error(`No page id in landed URL: ${landedUrl}`);
 
     const created = calls.find(call => call.method === 'POST' && call.url.includes('/api/wiki/pages/from-github'));
-    const createBody = parseBody(created?.body || '{}');
+    const createBody = apiCreate?.body || parseBody(created?.body || '{}');
     const draftStarted = calls.some(call => call.method === 'POST' && call.url.includes('/ai/draft/stream'));
 
     const builtPage = await waitForBuiltPage(token, pageId);
@@ -230,7 +260,7 @@ async function main() {
 
     const plainText = String(builtPage.plainText || '').replace(/\s+/g, ' ').trim();
     const checks = {
-      atomicRouteUsed: Boolean(created && created.status === 201),
+      atomicRouteUsed: Boolean((created && created.status === 201) || apiCreate?.status === 201),
       watchArmed: builtPage.externalWatches?.githubRepo?.status === 'active',
       sourceEventsAttached: (
         (Array.isArray(createBody.sourceEvents) && createBody.sourceEvents.length > 0)

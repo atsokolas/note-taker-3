@@ -1316,15 +1316,15 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const keyPaths = repoSources
     .map(source => extractRepoPath(source))
     .filter(Boolean)
-    .slice(0, 10);
+    .slice(0, 14);
   const title = truncate(page.title, 120) || 'Repository wiki';
   const sourceIndexesUsed = Array.from(new Set([
     readmeSource?.index,
     packageSource?.index,
     ...configSources.slice(0, 3).map(source => source.index),
-    ...codeSources.slice(0, 5).map(source => source.index),
+    ...codeSources.slice(0, 9).map(source => source.index),
     ...commitSources.slice(0, 1).map(source => source.index)
-  ].filter(Boolean))).slice(0, 14);
+  ].filter(Boolean))).slice(0, 18);
   const runCommand = runScript ? `npm run ${runScript.name}` : 'the repository evidence does not expose a run command yet';
   const testCommand = testScript ? `npm run ${testScript.name}` : 'no explicit test command was found in the selected package evidence';
   const buildCommand = buildScript ? `npm run ${buildScript.name}` : 'no explicit build command was found in the selected package evidence';
@@ -1370,7 +1370,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             : 'No key file paths were attached by the repository watch yet.',
           sourceIndexes: sourceIndexesUsed
         })],
-        bullets: keyPaths.slice(0, 8).map((path) => {
+        bullets: keyPaths.slice(0, 12).map((path) => {
           const source = repoSources.find(candidate => extractRepoPath(candidate) === path);
           return {
             text: path,
@@ -1427,7 +1427,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     }),
     maintenance: {
       summary: `Built a developer dossier from ${repoSources.length} GitHub repository evidence source${repoSources.length === 1 ? '' : 's'}.`,
-      changelog: repoSources.slice(0, 10).map(source => ({
+      changelog: repoSources.slice(0, 16).map(source => ({
         type: 'attached_source',
         target: source.title,
         summary: `Used ${extractRepoPath(source) || source.title} as repository evidence.`,

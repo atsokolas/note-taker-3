@@ -310,6 +310,34 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         text: 'recent commits. current1 2026-07-05 - repo wiki grounding.',
         provider: 'github-repo',
         metadata: { source: 'github-repo', evidenceType: 'recent_commits' }
+      }, {
+        index: 5,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/routes/wikiRoutes.js',
+        text: 'router.post("/api/wiki/pages/from-github", createRepoWikiFromGitHub);',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/routes/wikiRoutes.js', evidenceType: 'code', docClass: 'code' }
+      }, {
+        index: 6,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/services/wikiMaintenanceService.js',
+        text: 'maintainWikiPage builds and quality-checks wiki pages.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/services/wikiMaintenanceService.js', evidenceType: 'code', docClass: 'code' }
+      }, {
+        index: 7,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/services/githubRepoWatcherService.js',
+        text: 'armGitHubRepoWatchForPage attaches repository evidence.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/services/githubRepoWatcherService.js', evidenceType: 'code', docClass: 'code' }
+      }, {
+        index: 8,
+        type: 'external',
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/api/wiki.js',
+        text: 'createRepoWikiFromGitHub calls the repo wiki endpoint.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'note-taker-ui/src/api/wiki.js', evidenceType: 'code', docClass: 'code' }
       }]
     });
     const text = toPlainText(docFromArticle({
@@ -324,8 +352,12 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
+    expect(text).toContain('server/routes/wikiRoutes.js');
+    expect(text).toContain('server/services/wikiMaintenanceService.js');
+    expect(text).toContain('server/services/githubRepoWatcherService.js');
+    expect(text).toContain('note-taker-ui/src/api/wiki.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
-    expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+    expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4, 5, 6, 7, 8]));
   });
 
   it('publishes deterministic developer dossier content when a repo model draft fails quality gates', async () => {
