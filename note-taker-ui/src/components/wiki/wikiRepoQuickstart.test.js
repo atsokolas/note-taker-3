@@ -54,6 +54,28 @@ describe('wikiRepoQuickstart', () => {
     expect(quickstart?.keyPaths).toEqual(expect.arrayContaining(['note-taker-ui/', 'server/', 'scripts/']));
   });
 
+  it('extracts verification commands from repo handoff sections', () => {
+    const quickstart = extractRepoDeveloperQuickstart({
+      ...repoPage,
+      plainText: [
+        'Five-minute setup',
+        'Backend: npm run start - node server/server.js',
+        'Run, test, build',
+        'Wiki proof: npm run wiki:qa.',
+        'Frontend build: npm run build from note-taker-ui/package.json.',
+        'Architecture map',
+        'server/routes/wikiRoutes.js owns the wiki HTTP surface.'
+      ].join('\n'),
+      sourceRefs: [{
+        metadata: { source: 'github-repo', path: 'server/routes/wikiRoutes.js' }
+      }]
+    });
+
+    expect(quickstart?.run).toMatch(/npm run start/);
+    expect(quickstart?.test).toBe('npm run wiki:qa');
+    expect(quickstart?.keyPaths).toContain('server/routes/wikiRoutes.js');
+  });
+
   it('falls back to github source metadata paths', () => {
     const quickstart = extractRepoDeveloperQuickstart({
       ...repoPage,

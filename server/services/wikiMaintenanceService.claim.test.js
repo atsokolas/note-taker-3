@@ -144,6 +144,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Architecture map');
     expect(prompt).toContain('Common change paths');
     expect(prompt).toContain('Developer quickstart');
+    expect(prompt).toContain('The first viewport must be useful before the References section');
+    expect(prompt).toContain('Prefer a practical handoff over a prose summary');
     expect(prompt).toContain('docClass="planned"');
     expect(prompt).toContain('Do not claim the repo is published to npm');
     expect(prompt).toContain('Prefer concrete repo facts');

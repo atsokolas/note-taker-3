@@ -92,10 +92,14 @@ describe('WikiRepoCreateComposer', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create repo wiki' }));
 
-    expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Building...' })).toBeDisabled();
     expect(screen.getByLabelText('GitHub repository URL')).toBeDisabled();
+    expect(screen.getByRole('region', { name: 'Repo wiki build progress' })).toHaveTextContent('Validate repository');
+    expect(screen.getByRole('region', { name: 'Repo wiki build progress' })).toHaveTextContent('Attach evidence');
     fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
-    expect(screen.getByLabelText('Repo wiki trace')).toHaveTextContent('validating repository URL');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Repo wiki trace')).toHaveTextContent('validating repository URL');
+    });
 
     resolveCreate({
       page: { _id: 'wiki-repo-1', title: 'agents-js repo wiki' },

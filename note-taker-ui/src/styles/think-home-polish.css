@@ -4418,11 +4418,160 @@ html[data-ui-theme='dark'] {
   font-size: 0.84rem;
 }
 
+.wiki-repo-create__progress {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 28%, var(--nt-divider));
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent-primary, var(--primary-color)) 9%, transparent),
+      color-mix(in srgb, var(--surface) 92%, transparent));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, transparent);
+}
+
+.wiki-repo-create__progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.wiki-repo-create__progress-head strong {
+  display: block;
+  margin: 1px 0 3px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
+
+.wiki-repo-create__progress-head p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.wiki-repo-create__progress-kicker,
+.wiki-repo-create__elapsed {
+  color: color-mix(in srgb, var(--text-muted) 90%, var(--text-primary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.wiki-repo-create__elapsed {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+}
+
+.wiki-repo-create__progress-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nt-divider) 60%, transparent);
+}
+
+.wiki-repo-create__progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent-primary, var(--primary-color)) 68%, var(--text-primary)),
+    color-mix(in srgb, var(--accent-primary, var(--primary-color)) 38%, #fff));
+  transition: width 480ms ease;
+}
+
+.wiki-repo-create__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-repo-create__steps li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 58%, transparent);
+  border-radius: 8px;
+  opacity: 0.58;
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+.wiki-repo-create__steps li > span {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 68%, transparent);
+}
+
+.wiki-repo-create__steps li strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+
+.wiki-repo-create__steps li p {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  line-height: 1.32;
+}
+
+.wiki-repo-create__steps li.is-active {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 45%, var(--nt-divider));
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 8%, var(--surface));
+}
+
+.wiki-repo-create__steps li.is-active > span {
+  background: var(--accent-primary, var(--primary-color));
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 16%, transparent);
+}
+
+.wiki-repo-create__steps li.is-done {
+  opacity: 0.82;
+}
+
+.wiki-repo-create__steps li.is-done > span {
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 68%, var(--text-primary));
+}
+
 .wiki-build-page__ticker.agent-ticker,
 .wiki-repo-create__ticker.agent-ticker {
   max-width: none;
   padding: 9px 11px;
   border-radius: 8px;
+}
+
+@media (max-width: 720px) {
+  .wiki-repo-create__progress-head {
+    display: grid;
+  }
+
+  .wiki-repo-create__elapsed {
+    justify-self: start;
+  }
+
+  .wiki-repo-create__steps {
+    grid-template-columns: 1fr;
+  }
 }
 
 .wiki-read__build-page {

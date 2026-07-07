@@ -108,11 +108,14 @@ const RUN_INLINE_PATTERNS = [
 ];
 
 const TEST_LABEL_PATTERNS = [
+  /(?:^|\n|\.\s)(?:Wiki proof|Proof|Verify|Verification)\s*[:—-]\s*((?:CI=\d+\s+)?(?:npm|pnpm|yarn)[^\n.]{2,120})/i,
   /(?:^|\n|\.\s)(?:Test(?:ing)?|Tests?)\s*[:—-]\s*((?:CI=\d+\s+)?(?:npm|pnpm|yarn)[^\n.]{2,120})/i
 ];
 
 const TEST_INLINE_PATTERNS = [
+  /`(npm run wiki:qa[^`]*)`/i,
   /`(CI=\d+\s+)?npm(?: run)? test[^`]+`/i,
+  /(?:^|[\s>])(npm run wiki:qa[^\n.]{0,80})/im,
   /(?:^|[\s>])(CI=\d+\s+npm(?: run)? test[^\n.]{0,80}|npm run test[^\n.]{0,80}|npm test[^\n.]{0,40})/im
 ];
 
@@ -178,6 +181,8 @@ const extractRunCommand = ({ meta = {}, corpus = '' } = {}) => {
   if (fromMeta) return fromMeta;
   const quickstartSection = sectionText(corpus, [
     'Developer quickstart',
+    'Five-minute setup',
+    'Run, test, build',
     'Developer setup',
     'Getting started',
     'Local development',
@@ -192,8 +197,10 @@ const extractRunCommand = ({ meta = {}, corpus = '' } = {}) => {
 const extractTestCommand = ({ meta = {}, corpus = '' } = {}) => {
   const fromMeta = pickMeta(meta, ['testCommand', 'test']);
   if (fromMeta) return fromMeta;
-  const quickstartSection = sectionText(corpus, [
+  const proofSection = sectionText(corpus, ['Run, test, build', 'Verification', 'Testing']);
+  const quickstartSection = proofSection || sectionText(corpus, [
     'Developer quickstart',
+    'Five-minute setup',
     'Developer setup',
     'Testing',
     'Verification'
@@ -215,8 +222,10 @@ const extractDeploy = ({ meta = {}, corpus = '' } = {}) => {
       api
     };
   }
-  const quickstartSection = sectionText(corpus, [
+  const deploySection = sectionText(corpus, ['Deploy and operations', 'Deployment', 'Deploy', 'Production']);
+  const quickstartSection = deploySection || sectionText(corpus, [
     'Developer quickstart',
+    'Run, test, build',
     'Deployment',
     'Deploy',
     'Production'
