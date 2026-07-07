@@ -1340,12 +1340,16 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     text: `${title} is a GitHub-backed project page. The useful reading is developer-facing: start with the package/config evidence, then use the code entrypoints and recent commits to understand how to run, change, and maintain the repo today. This page should answer the first engineer question first: what command starts it, what command proves it still works, and which files explain the active architecture.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
   });
+  const sectionSummaryParagraph = repoFallbackParagraph({
+    text: `The current repository evidence identifies ${packageSource ? 'package/config files' : 'attached repository files'} as the starting point and ${codeSources.length ? `${codeSources.length} code path${codeSources.length === 1 ? '' : 's'}` : 'no attached code paths yet'} as the implementation surface to inspect before extending this project.`,
+    sourceIndexes: [packageSource?.index, ...codeSources.slice(0, 4).map(source => source.index)]
+  });
   const article = {
     summary: summaryParagraph,
     sections: [
       {
         heading: 'Summary',
-        paragraphs: [summaryParagraph],
+        paragraphs: [sectionSummaryParagraph],
         bullets: []
       },
       {
