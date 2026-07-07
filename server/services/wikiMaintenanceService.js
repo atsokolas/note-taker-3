@@ -1280,7 +1280,7 @@ const extractPackageScripts = (source = {}) => {
     const looseScripts = [];
     const scriptsBlock = text.match(/"scripts"\s*:\s*\{([\s\S]*)/i);
     if (scriptsBlock) {
-      const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
+      const pairPattern = /"([^"]+)"\s*:\s*"([^"]*)"?/g;
       let pair = pairPattern.exec(scriptsBlock[1]);
       while (pair && looseScripts.length < MAX_REPO_PACKAGE_SCRIPTS) {
         looseScripts.push({ name: pair[1], command: asString(pair[2]) });
@@ -1300,7 +1300,7 @@ const extractPackageScripts = (source = {}) => {
     const scriptsBlock = match[0].match(/"scripts"\s*:\s*\{([\s\S]*)/i);
     if (!scriptsBlock) return [];
     const scripts = [];
-    const pairPattern = /"([^"]+)"\s*:\s*"([^"]+)"/g;
+    const pairPattern = /"([^"]+)"\s*:\s*"([^"]*)"?/g;
     let pair = pairPattern.exec(scriptsBlock[1]);
     while (pair && scripts.length < MAX_REPO_PACKAGE_SCRIPTS) {
       scripts.push({ name: pair[1], command: asString(pair[2]) });

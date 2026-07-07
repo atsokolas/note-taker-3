@@ -936,7 +936,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       ].join('\n\n'),
       sourceRefs: [{
         title: 'atsokolas/note-taker-3 package.json',
-        snippet: `Path: package.json. "scripts": {"start":"node server/server.js",${fillerScripts},"wiki:qa":"node scripts/wiki_qa.js"}`,
+        snippet: `Path: package.json. "scripts": {"start":"node server/server.js",${fillerScripts},"wiki:qa":"git diff --check && node -c server/routes/wikiRoutes.js && node -c server/services/wikiMaintenanceService.js`,
         metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
       }, {
         title: 'atsokolas/note-taker-3 note-taker-ui/package.json',
