@@ -1624,6 +1624,24 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   };
 };
 
+const normalizeSectionHeading = (value = '') => asString(value).replace(/\s+/g, ' ').trim().toLowerCase();
+
+const mergeGitHubRepoFallbackSections = ({ article = {}, fallbackArticle = {} } = {}) => {
+  const fallbackByHeading = new Map(
+    (Array.isArray(fallbackArticle.sections) ? fallbackArticle.sections : [])
+      .map(section => [normalizeSectionHeading(section?.heading || section?.title), section])
+  );
+  return {
+    ...article,
+    sections: (Array.isArray(article.sections) ? article.sections : []).map((section) => {
+      const text = JSON.stringify(section || {});
+      if (!/\bstill needs source-backed development\b/i.test(text)) return section;
+      const fallbackSection = fallbackByHeading.get(normalizeSectionHeading(section?.heading || section?.title));
+      return fallbackSection || section;
+    })
+  };
+};
+
 const addMandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [], used }) => {
   if (!used || !isGitHubRepoPage({ page, candidates })) return;
   const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
@@ -1674,7 +1692,7 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
         changelog: raw.operations,
         health: raw.health
       };
-  const article = alignArticleToPageStructure({
+  let article = alignArticleToPageStructure({
     pageType: page.pageType || 'topic',
     article: normalizeArticle({
       rawArticle: raw.article || {
@@ -1687,6 +1705,12 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
       candidates
     })
   });
+  if (isGitHubRepoPage({ page, candidates })) {
+    article = mergeGitHubRepoFallbackSections({
+      article,
+      fallbackArticle: fallback.article
+    });
+  }
   const changelog = Array.isArray(rawMaintenance.changelog)
     ? rawMaintenance.changelog
     : Array.isArray(rawMaintenance.operations)

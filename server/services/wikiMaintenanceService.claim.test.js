@@ -476,6 +476,94 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
 
+  it('fills missing repo model sections from fallback without discarding a good draft', async () => {
+    const page = {
+      _id: 'repo-page-merge',
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      pageType: 'repo',
+      createdFrom: {
+        text: 'https://github.com/atsokolas/note-taker-3',
+        label: 'GitHub repo: atsokolas/note-taker-3'
+      },
+      externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', lastHeadSha: '0053101' } },
+      body: { type: 'doc', content: [] },
+      sourceRefs: [{
+        type: 'external',
+        title: 'atsokolas/note-taker-3 package.json',
+        snippet: 'Path: package.json. { "scripts": { "start": "node server/server.js", "wiki:qa": "node scripts/wiki_qa.js", "build": "cd note-taker-ui && npm run build" } }',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config', docClass: 'config', commitSha: '0053101' }
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/server.js',
+        snippet: 'Path: server/server.js. Express app and API bootstrap.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/server.js', evidenceType: 'code', docClass: 'code', commitSha: '0053101' }
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 server/routes/wikiRoutes.js',
+        snippet: 'Path: server/routes/wikiRoutes.js. Wiki API routes, including repo wiki creation.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', path: 'server/routes/wikiRoutes.js', evidenceType: 'code', docClass: 'code', commitSha: '0053101' }
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 recent commits',
+        snippet: 'recent commits. 0053101 2026-07-05 - prevent duplicate wiki build streams.',
+        provider: 'github-repo',
+        metadata: { source: 'github-repo', evidenceType: 'recent_commits', commitSha: '0053101' }
+      }]
+    };
+    const paragraph = 'The cited repository evidence should be treated as the authority for this page. It names the runnable package script, the server entrypoint, the wiki route surface, and the current commit signal, so the dossier can stay concrete without inventing test health, npm distribution, or unrelated framework claims.';
+    const section = (heading, citationIndexes = [1, 2]) => ({
+      heading,
+      paragraphs: [{ text: paragraph, citationIndexes, support: 'supported' }],
+      bullets: []
+    });
+
+    const maintained = await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      models: { WikiPage: fakeFindModel([]) },
+      isConfigured: () => true,
+      chat: async () => ({
+        model: 'test-model',
+        text: JSON.stringify({
+          title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+          article: {
+            summary: {
+              text: 'This repository dossier is grounded in package.json, server/server.js, server/routes/wikiRoutes.js, and recent commit evidence; it should start with the concrete run path and implementation files before discussing risk.',
+              citationIndexes: [1, 2, 3, 4],
+              support: 'supported'
+            },
+            sections: [
+              section('Summary', [1, 2, 3]),
+              {
+                heading: 'Run locally',
+                paragraphs: [{ text: `${paragraph} Run with npm run start, test with npm run wiki:qa, and build with npm run build because package.json explicitly exposes those scripts.`, citationIndexes: [1], support: 'supported' }],
+                bullets: [{ text: 'npm run start — node server/server.js', citationIndexes: [1], support: 'supported' }]
+              },
+              section('Architecture', [2, 3]),
+              section('Key files', [1, 2, 3]),
+              section('Tests and deploy', [1]),
+              section('Current active work', [4]),
+              section('How to extend', [1, 2, 3])
+            ]
+          },
+          maintenance: { summary: 'Drafted repo dossier from cited evidence.', changelog: [], health: {} },
+          sourceIndexesUsed: [1, 2, 3, 4]
+        })
+      })
+    });
+
+    const text = toPlainText(maintained.body);
+    expect(text).toContain('Known risks');
+    expect(text).toContain('npm run start');
+    expect(text).toContain('server/routes/wikiRoutes.js');
+    expect(text).not.toMatch(/still needs source-backed development/i);
+    expect(maintained.aiState.quality.ok).toBe(true);
+    expect(maintained.aiState.quality.fallbackApplied).not.toBe(true);
+  });
+
   it('extracts repo commands from truncated package.json evidence', () => {
     const result = fallbackMaintenance({
       page: {
