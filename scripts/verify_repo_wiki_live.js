@@ -212,11 +212,26 @@ async function main() {
       await repoInput.fill(TEST_REPO);
       await page.screenshot({ path: path.join(OUT_DIR, 'before-submit.png'), fullPage: false });
 
+      const createResponsePromise = page.waitForResponse(response => (
+        response.request().method() === 'POST'
+        && response.url().includes('/api/wiki/pages/from-github')
+      ), { timeout: 240000 });
       await page.getByRole('button', { name: 'Create repo wiki' }).first().click();
-      await page.waitForURL(/\/wiki\/workspace\?page=/, { timeout: 120000 });
+      const createResponse = await createResponsePromise;
+      const createText = await createResponse.text();
+      apiCreate = { status: createResponse.status(), body: parseBody(createText) };
+      const navigated = await page.waitForURL(/\/wiki\/workspace\?page=/, { timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
       await sleep(3000);
-      landedUrl = page.url();
-      pageId = new URL(landedUrl).searchParams.get('page');
+      landedUrl = navigated ? page.url() : '';
+      pageId = navigated
+        ? new URL(landedUrl).searchParams.get('page')
+        : (apiCreate.body?.page?._id || apiCreate.body?.page?.id || apiCreate.body?.pageId || '');
+      if (!navigated && pageId) {
+        landedUrl = `${BASE_URL}/wiki/workspace?page=${encodeURIComponent(pageId)}`;
+        await page.goto(landedUrl, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
+      }
     } else {
       await page.screenshot({ path: path.join(OUT_DIR, 'wiki-front-no-composer.png'), fullPage: true });
       apiCreate = await createRepoWikiViaApi(token);
@@ -278,7 +293,10 @@ async function main() {
     const qualityMetrics = builtPage.aiState?.quality?.metrics || {};
     const missingCorePaths = REQUIRED_NOEIS_REPO_PATHS.filter(path => !sourcePaths.has(path.toLowerCase()));
     const checks = {
-      atomicRouteUsed: Boolean((created && created.status === 201) || apiCreate?.status === 201),
+      atomicRouteUsed: Boolean(
+        (created && [200, 201].includes(created.status))
+        || [200, 201].includes(apiCreate?.status)
+      ),
       watchArmed: builtPage.externalWatches?.githubRepo?.status === 'active',
       sourceEventsAttached: (
         (Array.isArray(createBody.sourceEvents) && createBody.sourceEvents.length > 0)

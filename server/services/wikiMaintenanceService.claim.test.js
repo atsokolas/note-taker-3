@@ -603,6 +603,57 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
 
+  it('pulls central implementation evidence into the repo fallback after a saturated docs prefix', () => {
+    const docs = Array.from({ length: 40 }, (_item, index) => ({
+      index: index + 1,
+      type: 'external',
+      title: `atsokolas/note-taker-3 docs/current-${index + 1}.md`,
+      text: `Current repository documentation ${index + 1}.`,
+      provider: 'github-repo',
+      metadata: {
+        source: 'github-repo',
+        path: `docs/current-${index + 1}.md`,
+        evidenceType: 'document',
+        docClass: index === 0 ? 'readme' : 'current'
+      }
+    }));
+    const centralPaths = [
+      ['package.json', 'config'],
+      ['server/server.js', 'code'],
+      ['server/routes/wikiRoutes.js', 'code'],
+      ['server/services/wikiMaintenanceService.js', 'code'],
+      ['server/services/githubRepoWatcherService.js', 'code'],
+      ['server/models/index.js', 'code'],
+      ['note-taker-ui/src/api/wiki.js', 'code']
+    ].map(([path, evidenceType], offset) => ({
+      index: 41 + offset,
+      type: 'external',
+      title: `atsokolas/note-taker-3 ${path}`,
+      text: path === 'package.json'
+        ? 'Path: package.json. { "scripts": { "start": "node server/server.js", "wiki:qa": "node scripts/wiki_qa.js" } }'
+        : `Repository implementation evidence. Path: ${path}.`,
+      provider: 'github-repo',
+      metadata: { source: 'github-repo', path, evidenceType, docClass: evidenceType }
+    }));
+
+    const result = fallbackMaintenance({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      candidates: [...docs, ...centralPaths]
+    });
+    const text = toPlainText(docFromArticle({ title: result.title, article: result.article }));
+
+    centralPaths.forEach((source) => expect(result.sourceIndexesUsed).toContain(source.index));
+    expect(text).toContain('server/server.js');
+    expect(text).toContain('server/routes/wikiRoutes.js');
+    expect(text).toContain('server/services/wikiMaintenanceService.js');
+    expect(text).toContain('server/services/githubRepoWatcherService.js');
+    expect(text).toContain('note-taker-ui/src/api/wiki.js');
+  });
+
   it('falls back when a repo model draft mentions many paths without enough citation coverage', async () => {
     const page = {
       _id: 'repo-page-merge',

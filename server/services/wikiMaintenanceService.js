@@ -1566,10 +1566,36 @@ const findUnqualifiedPackageScriptMentions = ({ text = '', scripts = [] } = {}) 
   return Array.from(new Set(issues));
 };
 
+const REPO_FALLBACK_PRIORITY_PATHS = [
+  /^package\.json$/i,
+  /^note-taker-ui\/package\.json$/i,
+  /^server\/server\.[jt]s$/i,
+  /^server\/routes\/wikiRoutes\.[jt]s$/i,
+  /^server\/services\/wikiMaintenanceService\.[jt]s$/i,
+  /^server\/services\/githubRepoWatcherService\.[jt]s$/i,
+  /^server\/models\/index\.[jt]s$/i,
+  /^server\/routes\/agentChatRoutes\.[jt]s$/i,
+  /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i,
+  /^note-taker-ui\/src\/components\/wiki\/WikiRepoCreateComposer\.[jt]sx?$/i,
+  /^note-taker-ui\/src\/components\/wiki\/WikiPageReadView\.[jt]sx?$/i,
+  /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i,
+  /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i,
+  /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i
+];
+
+const selectRepoFallbackSources = (candidates = [], limit = 48) => {
+  const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
+  const selected = repoCandidates.slice(0, 40);
+  REPO_FALLBACK_PRIORITY_PATHS.forEach((pattern) => {
+    const source = repoCandidates.find(candidate => pattern.test(extractRepoPath(candidate)));
+    if (source && !selected.some(candidate => candidate.index === source.index)) selected.push(source);
+  });
+  return selected.slice(0, limit);
+};
+
 const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return '';
-  const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
-  const repoSources = repoCandidates.slice(0, 40);
+  const repoSources = selectRepoFallbackSources(candidates);
   const byEvidence = (kind) => repoSources.filter(source => repoSourceEvidenceType(source) === kind);
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
@@ -1617,9 +1643,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const safeManualNotes = GITHUB_REPO_SCAFFOLD_PATTERNS.some(pattern => pattern.test(manualNotes))
     ? ''
     : manualNotes;
-  const repoSources = (Array.isArray(candidates) ? candidates : [])
-    .filter(isGitHubRepoCandidate)
-    .slice(0, 40);
+  const repoSources = selectRepoFallbackSources(candidates);
   const byEvidence = (kind) => repoSources.filter(source => repoSourceEvidenceType(source) === kind);
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
