@@ -2217,12 +2217,30 @@ const mandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [] } = {}) =
   return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, 48);
 };
 
+const dedupeGitHubRepoSourceRefs = (sourceRefs = []) => {
+  const seen = new Set();
+  return (Array.isArray(sourceRefs) ? sourceRefs : []).filter((source) => {
+    const path = asString(source?.metadata?.path);
+    const key = path
+      ? `path:${path.toLowerCase()}`
+      : [
+        'fallback',
+        asString(source?.type),
+        asString(source?.url).toLowerCase(),
+        asString(source?.title).toLowerCase()
+      ].join(':');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], sourceRefs = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return sourceRefs;
   const attachedRefs = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
     .map(source => (source && typeof source.toObject === 'function' ? source.toObject({ virtuals: false }) : source))
     .filter(source => source && (asString(source.title) || asString(source.snippet) || asString(source.url)));
-  const initialRefs = dedupeSourceRefs([...(Array.isArray(sourceRefs) ? sourceRefs : []), ...attachedRefs]);
+  const initialRefs = dedupeGitHubRepoSourceRefs(dedupeSourceRefs([...attachedRefs, ...(Array.isArray(sourceRefs) ? sourceRefs : [])]));
   const existingKeys = new Set(initialRefs.map(source => [
     source.type || '',
     source.objectId ? String(source.objectId) : '',
@@ -2246,7 +2264,7 @@ const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], source
       existingKeys.add(key);
       return true;
     });
-  return dedupeSourceRefs([...initialRefs, ...additions]).slice(0, 80);
+  return dedupeGitHubRepoSourceRefs(dedupeSourceRefs([...initialRefs, ...additions])).slice(0, 80);
 };
 
 const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
