@@ -2208,6 +2208,40 @@ const addMandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [], used 
   ].filter(Boolean).forEach(source => used.add(source.index));
 };
 
+const mandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [] } = {}) => {
+  const used = new Set();
+  addMandatoryGitHubRepoSourceIndexes({ page, candidates, used });
+  return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, 48);
+};
+
+const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], sourceRefs = [] } = {}) => {
+  if (!isGitHubRepoPage({ page, candidates })) return sourceRefs;
+  const existingKeys = new Set((Array.isArray(sourceRefs) ? sourceRefs : []).map(source => [
+    source.type || '',
+    source.objectId ? String(source.objectId) : '',
+    source.url || '',
+    source.title || '',
+    source.metadata?.path || ''
+  ].join(':')));
+  const additions = mandatoryGitHubRepoSourceIndexes({ page, candidates })
+    .map(index => candidates.find(source => source.index === index))
+    .filter(Boolean)
+    .map(sourceRefFromCandidate)
+    .filter((source) => {
+      const key = [
+        source.type || '',
+        source.objectId ? String(source.objectId) : '',
+        source.url || '',
+        source.title || '',
+        source.metadata?.path || ''
+      ].join(':');
+      if (existingKeys.has(key)) return false;
+      existingKeys.add(key);
+      return true;
+    });
+  return dedupeSourceRefs([...(Array.isArray(sourceRefs) ? sourceRefs : []), ...additions]).slice(0, 80);
+};
+
 const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
   const used = new Set();
   normalizeCitationIndexes(rawIndexes).forEach(index => used.add(index));
@@ -2385,7 +2419,11 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     .map(index => candidates.find(source => source.index === index))
     .filter(Boolean)
     .map(sourceRefFromCandidate);
-  const mergedSourceRefs = dedupeSourceRefs(sourceRefs);
+  const mergedSourceRefs = mergeMandatoryGitHubRepoSourceRefs({
+    page,
+    candidates,
+    sourceRefs: dedupeSourceRefs(sourceRefs)
+  });
   const body = docFromArticle({
     title: normalized.title || page.title,
     article: normalized.article
