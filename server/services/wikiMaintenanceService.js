@@ -946,14 +946,17 @@ const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIM
   const existingCandidates = collectExistingSourceCandidates({ page });
   if (isGitHubRepoPage({ page, candidates: existingCandidates })) {
     const repoCandidates = existingCandidates.filter(isGitHubRepoCandidate);
-    if (repoCandidates.length) {
+    const candidatePool = repoCandidates.length >= Math.min(existingCandidates.length, 8)
+      ? repoCandidates
+      : existingCandidates;
+    if (candidatePool.length) {
       const currentHead = asString(page.externalWatches?.githubRepo?.lastHeadSha);
-      return repoCandidates
+      return candidatePool
         .sort((a, b) => (
           githubRepoEvidenceRank(a, currentHead) - githubRepoEvidenceRank(b, currentHead)
           || asString(a.metadata?.path || a.title).localeCompare(asString(b.metadata?.path || b.title))
         ))
-        .slice(0, Math.max(limit, Math.min(repoCandidates.length, 14)))
+        .slice(0, Math.max(limit, Math.min(candidatePool.length, 14)))
         .map((source, index) => ({ ...source, index: index + 1 }));
     }
   }
@@ -2216,7 +2219,11 @@ const mandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [] } = {}) =
 
 const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], sourceRefs = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return sourceRefs;
-  const existingKeys = new Set((Array.isArray(sourceRefs) ? sourceRefs : []).map(source => [
+  const attachedRefs = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    .map(source => (source && typeof source.toObject === 'function' ? source.toObject({ virtuals: false }) : source))
+    .filter(source => source && (asString(source.title) || asString(source.snippet) || asString(source.url)));
+  const initialRefs = dedupeSourceRefs([...(Array.isArray(sourceRefs) ? sourceRefs : []), ...attachedRefs]);
+  const existingKeys = new Set(initialRefs.map(source => [
     source.type || '',
     source.objectId ? String(source.objectId) : '',
     source.url || '',
@@ -2239,7 +2246,7 @@ const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], source
       existingKeys.add(key);
       return true;
     });
-  return dedupeSourceRefs([...(Array.isArray(sourceRefs) ? sourceRefs : []), ...additions]).slice(0, 80);
+  return dedupeSourceRefs([...initialRefs, ...additions]).slice(0, 80);
 };
 
 const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
