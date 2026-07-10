@@ -690,6 +690,49 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(indexes).toEqual(expect.arrayContaining([1, 3, 4]));
   });
 
+  it('keeps a full repo evidence ledger when the model cites only one source', () => {
+    const candidates = Array.from({ length: 32 }, (_, offset) => {
+      const index = offset + 1;
+      const isPackage = index === 1;
+      const isInventory = index === 2;
+      const isPolicy = index === 32;
+      return {
+        index,
+        title: `atsokolas/note-taker-3 source ${index}`,
+        provider: 'github-repo',
+        metadata: {
+          source: 'github-repo',
+          path: isPackage
+            ? 'package.json'
+            : isInventory
+              ? '__repo_inventory__/code-inventory.txt'
+              : isPolicy
+                ? 'AGENTS.md'
+                : `docs/source-${index}.md`,
+          evidenceType: isPackage ? 'config' : isInventory ? 'inventory' : isPolicy ? 'policy' : 'document',
+          docClass: isPackage ? 'config' : isInventory ? 'inventory' : isPolicy ? 'policy' : 'guide'
+        }
+      };
+    });
+
+    const indexes = normalizeSourceIndexesUsed({
+      page: {
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      rawIndexes: [1],
+      article: {
+        summary: { text: 'Repo summary.', citationIndexes: [1] },
+        sections: []
+      },
+      changelog: [],
+      candidates
+    });
+
+    expect(indexes.length).toBeGreaterThanOrEqual(25);
+    expect(indexes).toEqual(expect.arrayContaining([1, 2, 32]));
+  });
+
   it('infers GitHub-backed pages as repo pages during maintenance', () => {
     expect(inferMaintainedPageType({
       page: {

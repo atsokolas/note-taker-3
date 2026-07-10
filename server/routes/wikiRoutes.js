@@ -2656,7 +2656,8 @@ const buildWikiRouter = ({
         if (Array.isArray(result.events) && result.events.length) {
           result.page = await attachSourceEventsToPageRefs({
             page: result.page,
-            events: result.events
+            events: result.events,
+            limit: 48
           });
         }
         trackWikiEvent(req, EVENT_NAMES.WIKI_SOURCE_ATTACHED, {
@@ -2704,6 +2705,7 @@ const buildWikiRouter = ({
               Question
             },
             maintenanceProfile: 'standard',
+            sourceLimit: 32,
             skipQualityRebuild: false,
             streamDraft: false,
             trigger: 'github_repo_create'

@@ -526,6 +526,9 @@ const repoEvidenceText = ({ page = {}, sourceRefs = [] } = {}) => {
 };
 
 const repoSourceEvidenceType = (source = {}) => {
+  const explicitEvidenceType = asString(source.metadata?.evidenceType).toLowerCase();
+  if (explicitEvidenceType === 'inventory') return 'inventory';
+  if (explicitEvidenceType === 'policy') return 'policy';
   const raw = [
     source.metadata?.evidenceType,
     source.metadata?.path,
@@ -1612,7 +1615,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const sourceIndexesUsed = Array.from(new Set([
     readmeSource?.index,
     packageSource?.index,
-    ...documentSources.slice(0, 16).map(source => source.index),
+    ...documentSources.slice(0, 24).map(source => source.index),
     ...configSources.slice(0, 3).map(source => source.index),
     ...inventorySources.slice(0, 1).map(source => source.index),
     ...codeSources.slice(0, 12).map(source => source.index),
@@ -2197,7 +2200,7 @@ const addMandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [], used 
     packageSource,
     configSources.find(source => source.index !== packageSource?.index),
     inventorySources[0],
-    ...documentSources.slice(0, 16),
+    ...documentSources.slice(0, 24),
     ...configSources.slice(0, 6),
     ...codeSources.slice(0, 18),
     commitSources[0],
