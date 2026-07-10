@@ -220,8 +220,31 @@ const run = async () => {
       { path: '.github/workflows/ci.yml', type: 'blob' },
       { path: 'package.json', type: 'blob' }
     ], 5).map(entry => entry.path),
-    ['package.json', 'README.md', '.github/workflows/ci.yml', 'docs/usage.md', 'src/index.ts']
+    ['package.json', 'README.md', '.github/workflows/ci.yml', 'src/index.ts', 'docs/usage.md']
   );
+  const saturatedEvidence = selectRepoEvidenceEntries([
+    { path: 'package.json', type: 'blob' },
+    { path: 'README.md', type: 'blob' },
+    { path: 'server/server.js', type: 'blob' },
+    { path: 'server/routes/wikiRoutes.js', type: 'blob' },
+    { path: 'server/services/wikiMaintenanceService.js', type: 'blob' },
+    { path: 'server/services/githubRepoWatcherService.js', type: 'blob' },
+    { path: 'server/models/index.js', type: 'blob' },
+    { path: 'note-taker-ui/src/api/wiki.js', type: 'blob' },
+    ...Array.from({ length: 90 }, (_item, index) => ({
+      path: `docs/qa-report-${String(index).padStart(2, '0')}.md`,
+      type: 'blob'
+    })),
+    ...Array.from({ length: 60 }, (_item, index) => ({
+      path: `server/services/runtimeService${String(index).padStart(2, '0')}.js`,
+      type: 'blob'
+    }))
+  ], 48).map(entry => entry.path);
+  assert.strictEqual(saturatedEvidence.length, 48);
+  assert.ok(saturatedEvidence.includes('server/services/wikiMaintenanceService.js'));
+  assert.ok(saturatedEvidence.includes('server/services/githubRepoWatcherService.js'));
+  assert.ok(saturatedEvidence.includes('note-taker-ui/src/api/wiki.js'));
+  assert.ok(saturatedEvidence.filter(path => /qa-report/i.test(path)).length <= 4);
   assert.deepStrictEqual(
     selectRepoEvidenceEntries([
       { path: 'server/routes/agentActionRoutes.js', type: 'blob' },
@@ -238,7 +261,6 @@ const run = async () => {
       { path: 'docs/architecture.md', type: 'blob' }
     ], 11).map(entry => entry.path),
     [
-      'docs/architecture.md',
       'server/routes/wikiRoutes.js',
       'server/services/wikiMaintenanceService.js',
       'note-taker-ui/src/api/wiki.js',
@@ -249,6 +271,7 @@ const run = async () => {
       'server/services/agentProposalBundles.js',
       'server/routes/agentActionRoutes.js',
       'web/src/App.tsx',
+      'docs/architecture.md',
     ]
   );
   assert.deepStrictEqual(

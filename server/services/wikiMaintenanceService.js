@@ -594,6 +594,21 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   const flowSignalCount = NOEIS_REPO_FLOW_PATTERNS.filter(pattern => pattern.test(text)).length;
   const productSignalCount = NOEIS_REPO_PRODUCT_PATTERNS.filter(pattern => pattern.test(text)).length;
   const watchedRepo = Boolean(page.externalWatches?.githubRepo?.owner || page.externalWatches?.githubRepo?.repo);
+  const noeisCorePaths = [
+    'package.json',
+    'server/server.js',
+    'server/routes/wikiRoutes.js',
+    'server/services/wikiMaintenanceService.js',
+    'server/services/githubRepoWatcherService.js',
+    'server/models/index.js',
+    'note-taker-ui/src/api/wiki.js'
+  ];
+  const attachedNoeisCorePaths = noeisCorePaths.filter(requiredPath => (
+    repoPaths.some(path => path.toLowerCase() === requiredPath.toLowerCase())
+  ));
+  const mentionedNoeisCorePaths = attachedNoeisCorePaths.filter(requiredPath => (
+    new RegExp(`\\b${escapeRegex(requiredPath)}\\b`, 'i').test(text)
+  ));
   GITHUB_REPO_TEMPLATE_LEAK_PATTERNS.forEach((pattern) => {
     if (pattern.test(text)) failures.push('GitHub repo article leaks repo-wiki template or quality-gate phrasing.');
   });
@@ -638,6 +653,13 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }
   if (isNoeisRepo && flowSignalCount < 4) {
     failures.push(`Noeis repo article does not trace enough real repo flows: ${flowSignalCount}/4 implementation signals mentioned.`);
+  }
+  if (isNoeisRepo && watchedRepo && attachedNoeisCorePaths.length < 6) {
+    const missing = noeisCorePaths.filter(path => !attachedNoeisCorePaths.includes(path));
+    failures.push(`Noeis repo article is missing central implementation evidence: ${missing.join(', ')}.`);
+  }
+  if (isNoeisRepo && attachedNoeisCorePaths.length >= 6 && mentionedNoeisCorePaths.length < 5) {
+    failures.push(`Noeis repo article does not use enough central implementation paths: ${mentionedNoeisCorePaths.length}/5 mentioned.`);
   }
   if (isNoeisRepo && !/\b(?:Render|Vercel)\b/i.test(text)) {
     failures.push('Noeis repo article omits the split production deploy targets.');
@@ -956,7 +978,10 @@ const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIM
           githubRepoEvidenceRank(a, currentHead) - githubRepoEvidenceRank(b, currentHead)
           || asString(a.metadata?.path || a.title).localeCompare(asString(b.metadata?.path || b.title))
         ))
-        .slice(0, Math.max(limit, Math.min(candidatePool.length, 14)))
+        // Repo pages need enough breadth to connect product docs to the files
+        // that own the described flows. The ordinary 24-source cap routinely
+        // excluded those implementation files in documentation-heavy repos.
+        .slice(0, Math.max(limit, Math.min(candidatePool.length, 32)))
         .map((source, index) => ({ ...source, index: index + 1 }));
     }
   }
@@ -1584,7 +1609,7 @@ const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => 
 
 const repoFallbackParagraph = ({ text, sourceIndexes = [], support = 'supported' } = {}) => ({
   text,
-  citationIndexes: sourceIndexes.filter(Boolean).slice(0, 6),
+  citationIndexes: sourceIndexes.filter(Boolean).slice(0, 8),
   support
 });
 
@@ -1599,6 +1624,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
   const documentSources = byEvidence('document');
+  const currentDocumentSources = documentSources.filter(source => (
+    asString(source.metadata?.docClass).toLowerCase() !== 'planned'
+  ));
   const inventorySources = byEvidence('inventory');
   const policySources = byEvidence('policy');
   const commitSources = byEvidence('recent_commits');
@@ -1644,6 +1672,27 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const chatRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/agentChatRoutes\.[jt]s$/i);
   const wikiClientApiPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i);
   const uiPackagePath = repoSourceForPath(repoSources, /^note-taker-ui\/package\.json$/i);
+  const envExamplePath = repoSourceForPath(repoSources, /^\.env\.example$/i);
+  const uiAppPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/App\.[jt]sx?$/i);
+  const mcpPackagePath = repoSourceForPath(repoSources, /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i);
+  const aiClientPath = repoSourceForPath(repoSources, /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i);
+  const scheduledWorkerPath = repoSourceForPath(repoSources, /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i);
+  const coreArchitecturePaths = new Set([
+    'server/server.js',
+    'server/routes/wikiRoutes.js',
+    'server/services/wikiMaintenanceService.js',
+    'server/services/githubRepoWatcherService.js',
+    'server/models/index.js',
+    'server/routes/agentChatRoutes.js',
+    'note-taker-ui/src/api/wiki.js',
+    'note-taker-ui/src/App.js',
+    aiClientPath ? extractRepoPath(aiClientPath) : '',
+    scheduledWorkerPath ? extractRepoPath(scheduledWorkerPath) : '',
+    mcpPackagePath ? extractRepoPath(mcpPackagePath) : ''
+  ].filter(Boolean));
+  const additionalCodeSources = codeSources
+    .filter(source => !coreArchitecturePaths.has(extractRepoPath(source)))
+    .slice(0, 4);
   const apiDescription = apiPath ? 'server/server.js boots the Express API process.' : 'The API bootstrap file was not attached.';
   const wikiRoutesDescription = wikiRoutesPath ? 'server/routes/wikiRoutes.js owns the wiki HTTP surface, including GitHub repo page creation and maintenance routes.' : 'The wiki route file was not attached.';
   const maintenanceDescription = maintenancePath ? 'server/services/wikiMaintenanceService.js owns drafting, fallback generation, quality gates, citations, and article persistence.' : 'The wiki maintenance service was not attached.';
@@ -1651,6 +1700,10 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const modelsDescription = modelsPath ? 'server/models/index.js defines the Mongo models and wiki source/reference shapes used by the page.' : 'The model definitions were not attached.';
   const chatDescription = chatRoutesPath ? 'server/routes/agentChatRoutes.js is the adjacent agent-chat route surface; inspect it before changing ask/retrieval behavior.' : 'The agent chat route surface was not attached.';
   const wikiClientDescription = wikiClientApiPath ? 'note-taker-ui/src/api/wiki.js is the frontend API client for wiki calls.' : 'The frontend wiki API client was not attached.';
+  const uiAppDescription = uiAppPath ? 'note-taker-ui/src/App.js owns the top-level React routes and authenticated product shell.' : '';
+  const mcpDescription = mcpPackagePath ? 'packages/wiki-mcp exposes the wiki tool surface used by connected agents such as OpenClaw.' : '';
+  const aiDescription = aiClientPath ? `${extractRepoPath(aiClientPath)} owns text-model provider selection and upstream routing.` : '';
+  const workerDescription = scheduledWorkerPath ? 'server/services/wikiScheduledMaintenanceWorker.js runs background wiki maintenance outside the request path.' : '';
   const commandSourceIndexes = Array.from(new Set([
     runScript?.sourceIndex,
     ...testScripts.map(script => script.sourceIndex),
@@ -1679,7 +1732,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     ? 'Deploy split: the user-facing React app ships to Vercel at noeis.io while the API runs on Render as note-taker-3-unrg; treat both as separate deploys and verify each before declaring a production fix live.'
     : 'Deployment targets were not fully attached; do not infer production health from package scripts alone.';
   const productOrientationText = isNoeisRepo
-    ? 'This repository powers Noeis, a concept-centered knowledge workspace where saved reading moves through Library, Think, and Wiki into maintained, source-grounded pages. A developer should preserve that loop before optimizing any single route, component, or model.'
+    ? 'This repository powers Noeis, a concept-centered knowledge workspace where saved reading moves through Library, Think, and Wiki into maintained, source-grounded pages. The same repository contains the React product, Express API, persistence layer, background maintenance workers, integration clients, and connected-agent tooling.'
     : 'This repository should be read as the implementation of a user-facing product or service, not just as a package tree. Start from README/package evidence to understand what user job the code serves before changing routes, services, models, or UI.';
   const uxMapText = isNoeisRepo
     ? 'The core experience is a maintained thinking loop: Library collects source material, Think turns source fragments into concepts/questions/notebook work, Wiki synthesizes mature material into durable cited pages, and sharing exposes safe public versions without private graph data.'
@@ -1702,7 +1755,11 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         heading: 'Product orientation',
         paragraphs: [repoFallbackParagraph({
           text: `${productOrientationText} For Noeis work, the product should be understood as one maintained-object system: Library keeps the user's source corpus, Think keeps the active concepts/questions/notebook work, Wiki turns durable ideas into cited pages, and safe public sharing exposes only article/reference material. That product loop matters because backend changes that look local to a route often surface as trust problems in the reader, public share page, command palette, or topbar receipt system.`,
-          sourceIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean),
+          sourceIndexes: [
+            readmeSource?.index,
+            packageSource?.index,
+            ...currentDocumentSources.slice(0, 4).map(source => source.index)
+          ].filter(Boolean),
           support: readmeSource || packageSource ? 'supported' : 'partial'
         })],
         bullets: [
@@ -1712,26 +1769,19 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           } : {
             text: 'First developer job: identify the product or service from README/package evidence before changing implementation details.',
             citationIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean)
-          },
-          {
-            text: 'Repo wiki is a maintained page with a GitHub watcher attached; it should stay inside the wiki/source-monitor system rather than becoming a separate product surface.',
-            citationIndexes: [watcherPath?.index, wikiRoutesPath?.index, ...sourceIndexesUsed.slice(0, 2)].filter(Boolean)
-          },
-          {
-            text: `Current repository identity: ${repoFlowLabel}.`,
-            citationIndexes: [readmeSource?.index, commitSources[0]?.index].filter(Boolean)
-          },
-          isNoeisRepo ? {
-            text: 'Development invariant: preserve the Library -> Think -> Wiki -> share loop first; speed, automation, and repo-watch polish are secondary if they produce thin pages, stale evidence, or unclear user state.',
-            citationIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean)
-          } : null
+          }
         ].filter(Boolean)
       },
       {
         heading: 'User experience map',
         paragraphs: [repoFallbackParagraph({
           text: `${uxMapText} A developer should be able to follow a feature from the first visible control to the persisted page state and back to the rendered article. In this repo, the important reader-facing contract is not merely that a route returns 200; it is that the user sees a maintained page, understands whether the source monitor is armed, knows whether the agent is still rebuilding, and can share a privacy-safe public version without leaking backlinks, highlights, notes, or agent work.`,
-          sourceIndexes: [readmeSource?.index, wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean),
+          sourceIndexes: [
+            readmeSource?.index,
+            wikiClientApiPath?.index,
+            wikiRoutesPath?.index,
+            ...currentDocumentSources.slice(4, 8).map(source => source.index)
+          ].filter(Boolean),
           support: isNoeisRepo ? 'supported' : 'partial'
         })],
         bullets: [
@@ -1761,6 +1811,18 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           support: commandSourceIndexes.length ? 'supported' : 'partial'
         })],
         bullets: [
+          packageSource ? {
+            text: 'Install API dependencies from the repository root with npm install.',
+            citationIndexes: [packageSource.index].filter(Boolean)
+          } : null,
+          uiPackagePath ? {
+            text: 'Install UI dependencies with cd note-taker-ui && npm install.',
+            citationIndexes: [uiPackagePath.index].filter(Boolean)
+          } : null,
+          envExamplePath ? {
+            text: 'Environment: copy .env.example locally, then configure JWT_SECRET and MONGODB_URI; text generation uses OPENROUTER_API_KEY when present, while HF_TOKEN remains the embedding credential.',
+            citationIndexes: [envExamplePath.index].filter(Boolean)
+          } : null,
           {
             text: `Run: ${runCommandDetail}`,
             citationIndexes: [runScript?.sourceIndex].filter(Boolean)
@@ -1779,7 +1841,10 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           } : null,
           {
             text: `Key paths: ${keyPaths.slice(0, 6).join(', ') || 'No exact key paths were attached yet.'}`,
-            citationIndexes: sourceIndexesUsed.slice(0, 6)
+            citationIndexes: keyPaths
+              .slice(0, 6)
+              .map(path => repoSourceForPath(repoSources, new RegExp(`^${escapeRegex(path)}$`, 'i'))?.index)
+              .filter(Boolean)
           }
         ].filter(Boolean)
       },
@@ -1815,19 +1880,33 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       },
       {
         heading: 'Architecture and ownership',
-        paragraphs: [repoFallbackParagraph({
-          text: `${apiDescription} ${wikiRoutesDescription} ${maintenanceDescription} ${watcherDescription} ${modelsDescription} ${chatDescription} ${wikiClientDescription} ${deployDescription}`,
-          sourceIndexes: [
-            apiPath?.index,
-            wikiRoutesPath?.index,
-            maintenancePath?.index,
-            watcherPath?.index,
-            modelsPath?.index,
-            chatRoutesPath?.index,
-            wikiClientApiPath?.index
-          ].filter(Boolean),
-          support: codeSources.length ? 'supported' : 'partial'
-        })],
+        paragraphs: [
+          repoFallbackParagraph({
+            text: [uiAppPath ? uiAppDescription : '', wikiClientApiPath ? wikiClientDescription : '', mcpPackagePath ? mcpDescription : ''].filter(Boolean).join(' '),
+            sourceIndexes: [uiAppPath?.index, wikiClientApiPath?.index, mcpPackagePath?.index].filter(Boolean),
+            support: [uiAppPath, wikiClientApiPath, mcpPackagePath].some(Boolean) ? 'supported' : 'unsupported'
+          }),
+          repoFallbackParagraph({
+            text: [apiPath ? apiDescription : '', wikiRoutesPath ? wikiRoutesDescription : '', modelsPath ? modelsDescription : ''].filter(Boolean).join(' '),
+            sourceIndexes: [apiPath?.index, wikiRoutesPath?.index, modelsPath?.index].filter(Boolean),
+            support: [apiPath, wikiRoutesPath, modelsPath].some(Boolean) ? 'supported' : 'unsupported'
+          }),
+          repoFallbackParagraph({
+            text: [maintenancePath ? maintenanceDescription : '', watcherPath ? watcherDescription : '', chatRoutesPath ? chatDescription : '', aiClientPath ? aiDescription : '', scheduledWorkerPath ? workerDescription : ''].filter(Boolean).join(' '),
+            sourceIndexes: [maintenancePath?.index, watcherPath?.index, chatRoutesPath?.index, aiClientPath?.index, scheduledWorkerPath?.index].filter(Boolean),
+            support: [maintenancePath, watcherPath, chatRoutesPath, aiClientPath, scheduledWorkerPath].some(Boolean) ? 'supported' : 'unsupported'
+          }),
+          additionalCodeSources.length ? repoFallbackParagraph({
+            text: `Additional implementation entrypoints worth opening for adjacent changes: ${additionalCodeSources.map(source => extractRepoPath(source)).join(', ')}.`,
+            sourceIndexes: additionalCodeSources.map(source => source.index),
+            support: 'supported'
+          }) : null,
+          repoFallbackParagraph({
+            text: deployDescription,
+            sourceIndexes: [packageSource?.index, uiPackagePath?.index].filter(Boolean),
+            support: isNoeisRepo ? 'partial' : 'unsupported'
+          })
+        ].filter(paragraph => paragraph?.text),
         bullets: [
           bulletForSourcePath({ sources: repoSources, path: 'server/server.js', label: 'API entrypoint', reason: 'boots the Express server.' }),
           bulletForSourcePath({ sources: repoSources, path: 'server/routes/wikiRoutes.js', label: 'Wiki API', reason: 'page create/read/build/share/watch routes live here.' }),
@@ -1836,26 +1915,21 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           bulletForSourcePath({ sources: repoSources, path: 'server/models/index.js', label: 'Data model', reason: 'wiki page/source/ref schemas live here.' }),
           bulletForSourcePath({ sources: repoSources, path: 'server/routes/agentChatRoutes.js', label: 'Agent chat', reason: 'adjacent agent ask/retrieval routes live here.' }),
           bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Wiki client API', reason: 'frontend calls into the wiki API from here.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/App.js', label: 'React application shell', reason: 'top-level routes and authenticated product surfaces start here.' }),
+          aiClientPath ? {
+            text: `${extractRepoPath(aiClientPath)}: AI provider selection, model routing, and upstream configuration start here.`,
+            citationIndexes: [aiClientPath.index].filter(Boolean)
+          } : null,
+          scheduledWorkerPath ? {
+            text: `${extractRepoPath(scheduledWorkerPath)}: scheduled wiki maintenance and background refresh orchestration live here.`,
+            citationIndexes: [scheduledWorkerPath.index].filter(Boolean)
+          } : null,
+          mcpPackagePath ? {
+            text: `${extractRepoPath(mcpPackagePath)}: connected-agent wiki tools and runtime transport are documented here.`,
+            citationIndexes: [mcpPackagePath.index].filter(Boolean)
+          } : null,
           bulletForSourcePath({ sources: repoSources, path: 'AGENTS.md', label: 'Workspace runbook', reason: 'local/deploy conventions and user preferences live here.' }),
-          ...codeSources
-            .filter(source => {
-              const sourcePath = extractRepoPath(source);
-              return sourcePath && ![
-                'server/server.js',
-                'server/routes/wikiRoutes.js',
-                'server/services/wikiMaintenanceService.js',
-                'server/services/githubRepoWatcherService.js',
-                'server/models/index.js',
-                'server/routes/agentChatRoutes.js',
-                'note-taker-ui/src/api/wiki.js'
-              ].includes(sourcePath);
-            })
-            .slice(0, 4)
-            .map(source => ({
-              text: `${extractRepoPath(source)}: attached implementation evidence for this repository.`,
-              citationIndexes: [source.index].filter(Boolean)
-            }))
-        ].filter(bullet => bullet.citationIndexes.length)
+        ].filter(bullet => bullet?.citationIndexes?.length)
       },
       {
         heading: 'Common change paths',
@@ -1930,15 +2004,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         })],
         bullets: [
           {
-            text: `Build evidence: ${buildCommand}.`,
-            citationIndexes: buildScripts.map(script => script.sourceIndex).filter(Boolean)
-          },
-          {
             text: 'Unknown unless cited: CI pass/fail, production deploy status, open issue status, npm publication, and complete test coverage.',
-            citationIndexes: sourceIndexesUsed.slice(0, 4)
-          },
-          {
-            text: 'Stale planning or QA documents should stay context-only unless current code/config or recent commits support the claim.',
             citationIndexes: sourceIndexesUsed.slice(0, 4)
           },
           isNoeisRepo ? {
@@ -1973,10 +2039,12 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const evidenceShapedSections = isNoeisRepo
     ? [
         renameSection('Product orientation', 'What Noeis is'),
+        renameSection('User experience map', 'User experience map'),
         renameSection('Developer quickstart', 'Run and prove changes'),
         renameSection('Architecture and ownership', 'System map'),
         renameSection('Critical flows', 'Critical product flows'),
         renameSection('Common change paths', 'Where to make changes'),
+        renameSection('Quality bar and invariants', 'Engineering invariants'),
         policySection,
         renameSection('Failure modes', 'Failure modes'),
         renameSection('Deploy and unknowns', 'Deploy and unknowns')
@@ -1993,7 +2061,6 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     ...article,
     sections: evidenceShapedSections.filter(Boolean)
   };
-  const fallbackCitationIndexes = sourceIndexesUsed.slice(0, 6);
   const citeFallbackItem = (item) => {
     if (!item || typeof item !== 'object') return item;
     const citationIndexes = Array.isArray(item.citationIndexes)
@@ -2002,11 +2069,10 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     if (citationIndexes.length) {
       return item.support ? item : { ...item, support: 'supported' };
     }
-    if (!fallbackCitationIndexes.length) return item;
     return {
       ...item,
-      citationIndexes: fallbackCitationIndexes.slice(0, 2),
-      support: item.support || 'partial'
+      citationIndexes: [],
+      support: item.support || 'unsupported'
     };
   };
   const supportedArticle = {
@@ -2235,6 +2301,58 @@ const dedupeGitHubRepoSourceRefs = (sourceRefs = []) => {
   });
 };
 
+const repoSourceIdentityKey = (source = {}) => {
+  const path = asString(source?.metadata?.path).toLowerCase();
+  if (path) return `path:${path}`;
+  const objectId = asString(source?.objectId || source?._id || source?.id);
+  if (objectId) return `object:${asString(source?.type)}:${objectId}`;
+  const url = asString(source?.url).toLowerCase();
+  if (url) return `url:${url}`;
+  return `title:${asString(source?.type)}:${asString(source?.title).toLowerCase()}`;
+};
+
+const relabelSourceRefs = (sourceRefs = []) => (
+  (Array.isArray(sourceRefs) ? sourceRefs : []).map((source, index) => ({
+    ...source,
+    citationLabel: `[${index + 1}]`
+  }))
+);
+
+const remapRepoArticleCitationIndexes = ({ article = {}, candidates = [], sourceRefs = [] } = {}) => {
+  const sourcePositionByKey = new Map(
+    (Array.isArray(sourceRefs) ? sourceRefs : []).map((source, index) => [repoSourceIdentityKey(source), index + 1])
+  );
+  const positionByCandidateIndex = new Map(
+    (Array.isArray(candidates) ? candidates : [])
+      .map(candidate => [candidate.index, sourcePositionByKey.get(repoSourceIdentityKey(candidate))])
+      .filter(([, position]) => Number.isFinite(position))
+  );
+  const remapIndexes = (indexes = []) => Array.from(new Set(
+    normalizeCitationIndexes(indexes)
+      .map(index => positionByCandidateIndex.get(index))
+      .filter(Number.isFinite)
+  )).slice(0, 8);
+  const remapBlock = (block = {}) => ({
+    ...block,
+    citationIndexes: remapIndexes(block.citationIndexes || block.sourceIndexes),
+    contradictionIndexes: remapIndexes(
+      block.contradictionIndexes
+      || block.contradictedByIndexes
+      || block.contradictingSourceIndexes
+      || block.contradictionSourceIndexes
+    )
+  });
+  return {
+    ...article,
+    summary: article?.summary ? remapBlock(article.summary) : article?.summary,
+    sections: (Array.isArray(article?.sections) ? article.sections : []).map(section => ({
+      ...section,
+      paragraphs: (Array.isArray(section?.paragraphs) ? section.paragraphs : []).map(remapBlock),
+      bullets: (Array.isArray(section?.bullets) ? section.bullets : []).map(remapBlock)
+    }))
+  };
+};
+
 const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], sourceRefs = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return sourceRefs;
   const attachedRefs = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
@@ -2264,7 +2382,9 @@ const mergeMandatoryGitHubRepoSourceRefs = ({ page = {}, candidates = [], source
       existingKeys.add(key);
       return true;
     });
-  return dedupeGitHubRepoSourceRefs(dedupeSourceRefs([...initialRefs, ...additions])).slice(0, 80);
+  return relabelSourceRefs(
+    dedupeGitHubRepoSourceRefs(dedupeSourceRefs([...initialRefs, ...additions])).slice(0, 80)
+  );
 };
 
 const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, changelog = [], candidates = [] }) => {
@@ -2368,6 +2488,23 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     (claim.sourceRefIds || []).length ||
     (claim.citationIndexes || []).length
   )).length;
+  const docClaims = collectClaimsFromDoc(body || page?.body || '');
+  const usedCitationIndexes = Array.from(new Set(
+    docClaims.flatMap(claim => [
+      ...(claim.citationIndexes || []),
+      ...(claim.contradictionIndexes || [])
+    ])
+  )).filter(index => index > 0 && index <= sourceCount);
+  const danglingCitationIndexes = Array.from(new Set(
+    docClaims.flatMap(claim => [
+      ...(claim.citationIndexes || []),
+      ...(claim.contradictionIndexes || [])
+    ])
+  )).filter(index => index <= 0 || index > sourceCount);
+  const usedSubstantiveSourceCount = usedCitationIndexes.filter(index => (
+    repoSourceEvidenceType(sourceRefs[index - 1] || {}) !== 'policy'
+  )).length;
+  let repoClaimsPerUsedSource = null;
   const failures = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
@@ -2385,9 +2522,43 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   }
   if (isRepoQualityPage) {
     const substantiveSourceCount = repoSubstantiveSources(sourceRefs).length || sourceCount || 1;
-    const claimsPerSource = claimList.length / Math.max(1, substantiveSourceCount);
+    const claimsPerSource = claimList.length / Math.max(1, usedSubstantiveSourceCount);
+    repoClaimsPerUsedSource = Number(claimsPerSource.toFixed(2));
+    const minimumUsedSources = sourceCount >= 25
+      ? Math.min(14, Math.max(10, Math.ceil(substantiveSourceCount * 0.25)))
+      : Math.min(substantiveSourceCount, Math.max(3, Math.ceil(substantiveSourceCount * 0.35)));
+    if (danglingCitationIndexes.length) {
+      failures.push(`GitHub repo article has dangling citation indexes: ${danglingCitationIndexes.slice(0, 8).join(', ')}.`);
+    }
+    if (substantiveSourceCount >= 8 && usedSubstantiveSourceCount < minimumUsedSources) {
+      failures.push(`GitHub repo article underuses attached evidence: ${usedSubstantiveSourceCount}/${substantiveSourceCount} substantive sources cited, expected at least ${minimumUsedSources}.`);
+    }
     if (claimList.length >= 12 && claimsPerSource > GITHUB_REPO_MAX_CLAIMS_PER_SOURCE) {
-      failures.push(`GitHub repo article overstates thin evidence: ${claimsPerSource.toFixed(1)} claims per substantive source, expected <= ${GITHUB_REPO_MAX_CLAIMS_PER_SOURCE}.`);
+      failures.push(`GitHub repo article overstates thin evidence: ${claimsPerSource.toFixed(1)} claims per used substantive source, expected <= ${GITHUB_REPO_MAX_CLAIMS_PER_SOURCE}.`);
+    }
+    const inventoryIndexes = sourceRefs
+      .map((source, index) => repoSourceEvidenceType(source) === 'inventory' ? index + 1 : null)
+      .filter(Boolean);
+    const pathCitationMismatches = [];
+    docClaims.forEach((claim) => {
+      const claimIndexes = new Set(claim.citationIndexes || []);
+      sourceRefs.forEach((source, index) => {
+        const path = extractRepoPath(source);
+        if (!path || !asString(claim.text).includes(path)) return;
+        const citedSourceMentionsPath = Array.from(claimIndexes).some((citationIndex) => {
+          const citedSource = sourceRefs[citationIndex - 1] || {};
+          return [citedSource.snippet, citedSource.quote, citedSource.text]
+            .some(value => asString(value).includes(path));
+        });
+        if (!claimIndexes.has(index + 1)
+          && !inventoryIndexes.some(inventoryIndex => claimIndexes.has(inventoryIndex))
+          && !citedSourceMentionsPath) {
+          pathCitationMismatches.push(path);
+        }
+      });
+    });
+    if (pathCitationMismatches.length) {
+      failures.push(`GitHub repo article cites the wrong evidence for exact paths: ${Array.from(new Set(pathCitationMismatches)).slice(0, 6).join(', ')}.`);
     }
   }
   if (claimList.length >= 4 && supportedLike < Math.ceil(claimList.length * 0.45)) {
@@ -2422,6 +2593,10 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       unsupported,
       partial,
       cited,
+      usedSourceCount: usedCitationIndexes.length,
+      usedSubstantiveSourceCount,
+      claimsPerUsedSource: repoClaimsPerUsedSource,
+      danglingCitationCount: danglingCitationIndexes.length,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck)
     }
   };
@@ -2449,9 +2624,16 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     candidates,
     sourceRefs: dedupeSourceRefs(sourceRefs)
   });
+  const article = isGitHubRepoPage({ page, candidates })
+    ? remapRepoArticleCitationIndexes({
+        article: normalized.article,
+        candidates,
+        sourceRefs: mergedSourceRefs
+      })
+    : normalized.article;
   const body = docFromArticle({
     title: normalized.title || page.title,
-    article: normalized.article
+    article
   });
   const plainText = toPlainText(body);
   const citations = mergedSourceRefs.map(source => ({
@@ -3007,6 +3189,7 @@ module.exports = {
     claimConfidence,
     normalizeClaimIdentity,
     normalizeSourceIndexesUsed,
+    remapRepoArticleCitationIndexes,
     normalizeHealth,
     applyKnownWikiLinks,
     collectKnownWikiPages,

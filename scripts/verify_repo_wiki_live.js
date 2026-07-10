@@ -35,14 +35,24 @@ const UNSUPPORTED_REPO_PATTERNS = [
   /Library highlights?/i
 ];
 const REQUIRED_REPO_DOSSIER_PATTERNS = [
-  /\bPurpose\b/i,
-  /\bFive-minute setup\b/i,
-  /\bRun, test, build\b/i,
-  /\bArchitecture map\b/i,
-  /\bCommon change paths\b/i,
-  /\bDeploy and operations\b/i,
-  /\bKnown unknowns\b/i,
-  /\bnpm\s+(?:run\s+)?(?:start|test|build|wiki:qa)\b/i
+  /\b(?:Library|reading)\b/i,
+  /\bThink\b/i,
+  /\bWiki\b/i,
+  /\bnpm\s+(?:run\s+)?(?:start|test|build|wiki:qa)\b/i,
+  /server\/routes\/wikiRoutes\.js/i,
+  /server\/services\/wikiMaintenanceService\.js/i,
+  /server\/services\/githubRepoWatcherService\.js/i,
+  /note-taker-ui\/src\/api\/wiki\.js/i,
+  /\b(?:failure|risk|unknown|VersionError)\b/i
+];
+const REQUIRED_NOEIS_REPO_PATHS = [
+  'package.json',
+  'server/server.js',
+  'server/routes/wikiRoutes.js',
+  'server/services/wikiMaintenanceService.js',
+  'server/services/githubRepoWatcherService.js',
+  'server/models/index.js',
+  'note-taker-ui/src/api/wiki.js'
 ];
 const REPO_SCAFFOLD_PATTERNS = [
   /details will appear after the first GitHub sync/i,
@@ -262,6 +272,11 @@ async function main() {
     }
 
     const plainText = String(builtPage.plainText || '').replace(/\s+/g, ' ').trim();
+    const sourceRefs = Array.isArray(builtPage.sourceRefs) ? builtPage.sourceRefs : [];
+    const sourcePaths = new Set(sourceRefs.map(source => String(source?.metadata?.path || '').toLowerCase()).filter(Boolean));
+    const substantiveSourceCount = sourceRefs.filter(source => String(source?.metadata?.evidenceType || '').toLowerCase() !== 'policy').length;
+    const qualityMetrics = builtPage.aiState?.quality?.metrics || {};
+    const missingCorePaths = REQUIRED_NOEIS_REPO_PATHS.filter(path => !sourcePaths.has(path.toLowerCase()));
     const checks = {
       atomicRouteUsed: Boolean((created && created.status === 201) || apiCreate?.status === 201),
       watchArmed: builtPage.externalWatches?.githubRepo?.status === 'active',
@@ -269,11 +284,17 @@ async function main() {
         (Array.isArray(createBody.sourceEvents) && createBody.sourceEvents.length > 0)
         || (Array.isArray(builtPage.externalWatches?.githubRepo?.lastEventIds) && builtPage.externalWatches.githubRepo.lastEventIds.length > 0)
       ),
-      qualityPassed: builtPage.aiState?.quality?.ok !== false,
+      qualityPassed: builtPage.aiState?.quality?.ok === true,
+      substantiveEvidenceDepth: substantiveSourceCount >= 25,
+      centralImplementationEvidence: missingCorePaths.length === 0,
+      citationUtilization: Number(qualityMetrics.usedSubstantiveSourceCount || 0) >= 10,
+      noDanglingCitations: Number(qualityMetrics.danglingCitationCount || 0) === 0,
+      evidenceDensity: Number(qualityMetrics.claimsPerUsedSource || Infinity) <= 4,
       draftStarted: draftStarted || wordCount(plainText) >= 300,
       articleBuilt: wordCount(plainText) >= 300 && !/Repository sources are being attached/i.test(plainText),
       developerDossierBuilt: REQUIRED_REPO_DOSSIER_PATTERNS.every(pattern => pattern.test(plainText)),
       noRepoScaffoldCopy: !REPO_SCAFFOLD_PATTERNS.some(pattern => pattern.test(plainText)),
+      noMissingCoreEscapeHatches: !/\b(?:wiki maintenance service|GitHub repo watcher service|frontend wiki API client|model definitions) (?:was|were) not attached\b/i.test(plainText),
       renderedTitle: Boolean(rendered.title),
       noHorizontalOverflow: rendered.horizontalOverflow === false || rendered.browserInspectionTimedOut === true,
       noUnsupportedRepoBoilerplate: !UNSUPPORTED_REPO_PATTERNS.some(pattern => pattern.test(plainText))
@@ -298,7 +319,10 @@ async function main() {
         title: builtPage.title,
         watch: builtPage.externalWatches?.githubRepo || null,
         wordCount: wordCount(plainText),
-        excerpt: plainText.slice(0, 1200)
+        excerpt: plainText.slice(0, 1200),
+        substantiveSourceCount,
+        qualityMetrics,
+        missingCorePaths
       },
       rendered,
       calls,

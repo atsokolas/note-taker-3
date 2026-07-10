@@ -70,6 +70,8 @@ const repoEvidencePathRank = (path = '') => {
   if (lower === 'package.json') return 0;
   if (/^[^/]+\/package\.json$/.test(lower)) return 1;
   if (/^readme(\.|$)/.test(lower)) return 2;
+  if (/(^|\/)readme(\.|$)/.test(lower)) return 3;
+  if (/^(\.env\.example|render\.ya?ml|vercel\.json|dockerfile|docker-compose\.ya?ml)$/.test(lower)) return 4;
   if (lower === 'contributing.md') return 3;
   if (/^\.github\/workflows\/[^/]+\.(ya?ml)$/.test(lower)) return 4;
   if (/^(architecture|adr|adrs|decisions)(\.|\/|$)/.test(lower)) return 5;
@@ -82,6 +84,7 @@ const repoEvidencePathRank = (path = '') => {
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/api\/wiki\.[jt]sx?$/.test(lower)) return 8;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/components\/wiki\/(?:wikirepocreatecomposer|wikipagereadview|wikifrontpage|wikibuildpagecomposer)\.[jt]sx?$/.test(lower)) return 8;
   if (/^server\/(routes|services|models)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 9;
+  if (/^server\/(config|ai)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 9;
   if (/^src\/(index|main|app|server)\.[jt]sx?$/.test(lower)) return 10;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/(app|index|main|routes|api|utils|layout|pages)\b/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 10;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/(components|pages)\/(?:wiki|library|think|app|home)/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 11;
@@ -131,7 +134,9 @@ const isUsefulRepoEvidencePath = (path = '') => {
   if (/(^|\/)(__tests__|test|tests|fixtures|mocks)\//.test(lower)) return false;
   if (/\.(test|spec)\.[jt]sx?$/.test(lower)) return false;
   if (isRepoPolicyPath(lower)) return true;
-  if (!/\.(md|mdx|rst|txt|json|ya?ml|js|jsx|ts|tsx)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture|agents|claude)(\.|$)/i.test(lower)) return false;
+  if (!/\.(md|mdx|rst|txt|json|ya?ml|js|jsx|ts|tsx)$/i.test(lower)
+    && !/^(readme|contributing|changelog|changes|architecture|agents|claude)(\.|$)/i.test(lower)
+    && !/^(\.env\.example|dockerfile)$/i.test(lower)) return false;
   return repoEvidencePathRank(lower) < 100;
 };
 
@@ -156,10 +161,44 @@ const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) =>
     .sort((a, b) => repoPolicyPathRank(a.path) - repoPolicyPathRank(b.path) || String(a.path).localeCompare(String(b.path)))
     .slice(0, Math.min(4, max));
   const evidenceEntries = ranked.filter(entry => !isRepoPolicyPath(entry.path));
-  return [
-    ...evidenceEntries.slice(0, Math.max(0, max - policyEntries.length)),
-    ...policyEntries
-  ];
+  const selected = [];
+  const selectedPaths = new Set();
+  const add = (entries = [], count = entries.length) => {
+    for (const entry of entries) {
+      if (selected.length >= max - policyEntries.length || count <= 0) break;
+      const key = String(entry.path || '').toLowerCase();
+      if (!key || selectedPaths.has(key)) continue;
+      selected.push(entry);
+      selectedPaths.add(key);
+      count -= 1;
+    }
+  };
+
+  // Reserve the source budget by evidence job. A single large docs/ tree must
+  // not crowd out the files that actually own runtime behavior.
+  add(evidenceEntries.filter(entry => {
+    const path = String(entry.path || '').toLowerCase();
+    return path === 'package.json'
+      || /^[^/]+\/package\.json$/.test(path)
+      || /(^|\/)readme(\.|$)/.test(path)
+      || /^(\.env\.example|render\.ya?ml|vercel\.json|dockerfile|docker-compose\.ya?ml)$/.test(path)
+      || /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
+  }), 10);
+  add(evidenceEntries.filter(entry => {
+    const path = String(entry.path || '').toLowerCase();
+    return /\.(js|jsx|ts|tsx)$/.test(path)
+      && /^(server|api|src|note-taker-ui|client|web|app|frontend)\//.test(path);
+  }), 18);
+  add(evidenceEntries.filter(entry => {
+    const path = String(entry.path || '').toLowerCase();
+    return /\.(md|mdx|rst|txt)$/.test(path)
+      && !/(^|\/)readme(\.|$)/.test(path)
+      && classifyRepoDocClass(path) !== 'planned';
+  }), 12);
+  add(evidenceEntries.filter(entry => classifyRepoDocClass(entry.path) === 'planned'), 4);
+  add(evidenceEntries.filter(entry => classifyRepoDocClass(entry.path) !== 'planned'));
+  add(evidenceEntries);
+  return [...selected, ...policyEntries].slice(0, max);
 };
 
 const decodeBase64 = (value = '') => Buffer.from(String(value || '').replace(/\s/g, ''), 'base64').toString('utf8');
@@ -170,7 +209,7 @@ const classifyRepoDocClass = (path = '') => {
   if (isRepoPolicyPath(lower)) return 'policy';
   if (lower === 'package.json' || /^[^/]+\/package\.json$/.test(lower) || /^\.github\/workflows\//.test(lower)) return 'config';
   if (/\.(js|jsx|ts|tsx)$/i.test(lower)) return 'code';
-  if (/^readme(\.|$)/.test(lower)) return 'readme';
+  if (/(^|\/)readme(\.|$)/.test(lower)) return 'readme';
   if (lower === 'agents.md' || /(^|\/)(runbook|setup|getting-started|developer|dev|deploy)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 'runbook';
   if (/(^|\/)(adr|adrs|decisions)\//.test(lower)) return 'decision';
   if (/(^|\/)[^/]*(spec|roadmap|plan|investigation|spike|qa-report|sweep)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 'planned';

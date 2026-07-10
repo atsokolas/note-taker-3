@@ -14,6 +14,7 @@ const {
   inferMaintainedPageType,
   isGitHubRepoPage,
   normalizeSourceIndexesUsed,
+  remapRepoArticleCitationIndexes,
   formatKnownWikiPages,
   resolveClaimCitationIds,
   selectMaintenanceCandidates,
@@ -94,7 +95,87 @@ const repoQualitySupplementalSources = () => [
   metadata: { source: 'github-repo', path, evidenceType, docClass, commitSha: '0053101' }
 }));
 
+const repoCoreImplementationSources = () => [
+  'server/routes/wikiRoutes.js',
+  'server/services/wikiMaintenanceService.js',
+  'server/services/githubRepoWatcherService.js',
+  'server/models/index.js',
+  'note-taker-ui/src/api/wiki.js'
+].map(path => ({
+  type: 'external',
+  title: `atsokolas/note-taker-3 ${path}`,
+  snippet: `Repository implementation evidence. Path: ${path}.`,
+  provider: 'github-repo',
+  metadata: { source: 'github-repo', path, evidenceType: 'code', docClass: 'code', commitSha: '0053101' }
+}));
+
 describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
+  it('remaps repo citation indexes after retained refs reorder the final reference list', () => {
+    const article = {
+      summary: { text: 'The watcher owns repository refresh.', citationIndexes: [9] },
+      sections: []
+    };
+    const candidates = [{
+      index: 9,
+      type: 'external',
+      title: 'repo watcher',
+      metadata: { path: 'server/services/githubRepoWatcherService.js' }
+    }];
+    const remapped = remapRepoArticleCitationIndexes({
+      article,
+      candidates,
+      sourceRefs: [{
+        type: 'external',
+        title: 'retained old ref',
+        metadata: { path: 'README.md' }
+      }, {
+        type: 'external',
+        title: 'repo watcher',
+        metadata: { path: 'server/services/githubRepoWatcherService.js' }
+      }]
+    });
+
+    expect(remapped.summary.citationIndexes).toEqual([2]);
+  });
+
+  it('fails repo quality when a large attached corpus is barely used', () => {
+    const sourceRefs = Array.from({ length: 48 }, (_item, index) => ({
+      type: 'external',
+      title: `source ${index + 1}`,
+      snippet: `Path: server/services/source${index + 1}.js.`,
+      metadata: {
+        source: 'github-repo',
+        evidenceType: 'code',
+        path: `server/services/source${index + 1}.js`
+      }
+    }));
+    const paragraphs = Array.from({ length: 12 }, (_item, index) => ({
+      text: `Repository behavior claim ${index + 1} is grounded in attached implementation evidence and includes enough explanatory language to remain substantive for this quality test.`,
+      citationIndexes: [(index % 9) + 1],
+      support: 'partial'
+    }));
+    const body = docFromArticle({
+      title: 'example — repo wiki',
+      article: {
+        summary: paragraphs[0],
+        sections: [{ heading: 'Implementation', paragraphs: paragraphs.slice(1), bullets: [] }]
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'example — repo wiki', pageType: 'repo' },
+      body,
+      claims: paragraphs.map((paragraph, index) => ({
+        support: 'partial',
+        sourceRefIds: [`source-${(index % 9) + 1}`]
+      })),
+      sourceRefs,
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.metrics.usedSubstantiveSourceCount).toBe(9);
+    expect(quality.failures.join(' ')).toMatch(/underuses attached evidence/i);
+  });
+
   it('appends the wiki schema conventions to maintenance prompts', () => {
     const prompt = buildPrompt({
       page: { title: 'AI Memory', pageType: 'topic', body: {}, sourceRefs: [] },
@@ -479,7 +560,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         snippet: 'recent commits. 0053101 2026-07-05 - prevent duplicate wiki build streams.',
         provider: 'github-repo',
         metadata: { source: 'github-repo', evidenceType: 'recent_commits', commitSha: '0053101' }
-      }, ...repoQualitySupplementalSources()]
+      }, ...repoQualitySupplementalSources(), ...repoCoreImplementationSources()]
     };
 
     const maintained = await maintainWikiPage({
@@ -522,7 +603,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
 
-  it('fills missing repo model sections from fallback without discarding a good draft', async () => {
+  it('falls back when a repo model draft mentions many paths without enough citation coverage', async () => {
     const page = {
       _id: 'repo-page-merge',
       title: 'Atsokolas/Note-Taker-3 Repo Wiki',
@@ -557,10 +638,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         snippet: 'recent commits. 0053101 2026-07-05 - prevent duplicate wiki build streams.',
         provider: 'github-repo',
         metadata: { source: 'github-repo', evidenceType: 'recent_commits', commitSha: '0053101' }
-      }, ...repoQualitySupplementalSources()]
+      }, ...repoQualitySupplementalSources(), ...repoCoreImplementationSources()]
     };
     const paragraph = 'Noeis moves saved reading from Library into Think, then into maintained Wiki pages and privacy-safe public sharing. The repository evidence names package.json, README.md, docs/architecture.md, server/server.js, and server/routes/wikiRoutes.js as concrete ownership points. Repo creation runs through WikiRepoCreateComposer and createRepoWikiFromGitHub to POST /api/wiki/pages/from-github, then githubRepoWatcherService attaches sourceRefs under externalWatches.githubRepo and wikiMaintenanceService builds the article for WikiPageReadView. Contributors run npm run start, prove wiki behavior with npm run wiki:qa, and build the frontend with npm run build. The UI deploys through Vercel while the API deploys through Render. Overlapping maintenance streams can produce a Mongoose VersionError, so duplicate build prevention and visible status receipts are product invariants. This section stays grounded in attached repository files and does not infer CI health, npm publication, issue status, or production readiness from package scripts alone.';
-    const section = (heading, citationIndexes = [1, 2]) => ({
+    const section = (heading, citationIndexes = [1, 2, 10]) => ({
       heading,
       paragraphs: [{ text: paragraph, citationIndexes, support: 'supported' }],
       bullets: []
@@ -602,13 +683,13 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Deploy and operations');
+    expect(text).toContain('Deploy and unknowns');
     expect(text).toContain('npm run start');
     expect(text).toContain('server/routes/wikiRoutes.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
     expect(maintained.aiState.quality.failures).toEqual([]);
     expect(maintained.aiState.quality.ok).toBe(true);
-    expect(maintained.aiState.quality.fallbackApplied).not.toBe(true);
+    expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
 
   it('extracts repo commands from truncated package.json evidence', () => {
