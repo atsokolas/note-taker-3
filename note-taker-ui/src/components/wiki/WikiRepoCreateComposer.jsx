@@ -115,7 +115,9 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
         'opening build workspace'
       ]);
       setStatus(`Opening "${label}"...`);
-      navigate(`${wikiPagePath(pageId)}&build=1`, { replace: false });
+      // The create endpoint returns the maintained dossier. Starting another
+      // build here races the saved result and can incorrectly mark it failed.
+      navigate(wikiPagePath(pageId), { replace: false });
       setRepoUrl('');
       onCreated?.(page);
       setStatus(result?.watchResult?.watchError

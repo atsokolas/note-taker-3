@@ -65,7 +65,7 @@ describe('WikiRepoCreateComposer', () => {
       expect(createRepoWikiFromGitHub).toHaveBeenCalledWith('https://github.com/openai/agents-js');
     });
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ _id: 'wiki-repo-1' }));
-    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1&build=1', { replace: false });
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1', { replace: false });
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Created repo wiki.',
       summary: 'Created repo wiki for agents-js — repo wiki.',
@@ -95,7 +95,7 @@ describe('WikiRepoCreateComposer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create repo wiki' }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-existing&build=1', { replace: false });
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-existing', { replace: false });
     });
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Updated existing repo wiki.',
@@ -157,7 +157,7 @@ describe('WikiRepoCreateComposer', () => {
     });
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1&build=1', { replace: false });
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1', { replace: false });
     });
   });
 
@@ -171,7 +171,7 @@ describe('WikiRepoCreateComposer', () => {
 
     await waitFor(() => {
       expect(createRepoWikiFromGitHub).toHaveBeenCalledWith('https://github.com/openai/agents-js.git');
-      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1&build=1', { replace: false });
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-1', { replace: false });
     });
     await waitFor(() => {
       expect(screen.getByLabelText('GitHub repository URL')).toHaveValue('');
@@ -203,7 +203,7 @@ describe('WikiRepoCreateComposer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create repo wiki' }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-retry&build=1', { replace: false });
+      expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-repo-retry', { replace: false });
     });
     fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
     expect(screen.getByLabelText('Repo wiki trace')).toHaveTextContent('GitHub watch needs retry');
