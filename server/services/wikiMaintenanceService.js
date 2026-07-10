@@ -39,18 +39,15 @@ const GITHUB_REPO_SCAFFOLD_PATTERNS = [
   /Noeis will maintain this as a developer dossier/i,
   /Noeis will build this project wiki/i
 ];
-const GITHUB_REPO_DEVELOPER_SECTION_PATTERNS = [
-  /\bProduct orientation\b/i,
-  /\bUser experience map\b/i,
-  /\bDeveloper quickstart\b/i,
-  /\bCritical flows\b/i,
-  /\bArchitecture and ownership\b/i,
-  /\bCommon change paths\b/i,
-  /\bQuality bar and invariants\b/i,
-  /\bFailure modes\b/i,
-  /\bDeploy and unknowns\b/i
+const GITHUB_REPO_TEMPLATE_LEAK_PATTERNS = [
+  /\bproduct-aware developer operating manual\b/i,
+  /\broute\/service\/model\/component\b/i,
+  /\bworking map for a new contributor\b/i,
+  /\bDeveloper posture:\s*preserve\b/i
 ];
 const GITHUB_REPO_MIN_WORDS = 900;
+const GITHUB_REPO_MIN_SOURCE_REFS = 10;
+const GITHUB_REPO_MAX_CLAIMS_PER_SOURCE = 4;
 const NOEIS_REPO_PRODUCT_PATTERNS = [
   /\bLibrary\b/,
   /\bThink\b/,
@@ -486,8 +483,9 @@ const formatKnownWikiPages = (knownWikiPages = []) => {
 
 const isGitHubRepoPage = ({ page = {}, candidates = [] } = {}) => {
   const createdFrom = [page.createdFrom?.text, page.createdFrom?.label].join(' ');
+  const repoWatch = page.externalWatches?.githubRepo;
   if (asString(page.pageType).toLowerCase() === 'repo') return true;
-  if (page.externalWatches?.githubRepo) return true;
+  if (asString(repoWatch?.owner) && asString(repoWatch?.repo)) return true;
   if (/GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test(createdFrom)) return true;
   return (Array.isArray(candidates) ? candidates : []).some(source => (
     source.provider === 'github-repo'
@@ -536,18 +534,50 @@ const repoSourceEvidenceType = (source = {}) => {
     source.snippet,
     source.text
   ].filter(Boolean).join(' ');
+  if (/\bevidenceType=inventory\b|__repo_inventory__|code inventory/i.test(raw)) return 'inventory';
+  if (/\bevidenceType=policy\b|\bdocClass=policy\b|(^|\/)(AGENTS|CLAUDE)\.md\b|\.cursorrules|copilot-instructions/i.test(raw)) return 'policy';
   if (/\bpackage\.json\b|\.ya?ml\b|\.github\/workflows\//i.test(raw)) return 'config';
   if (/\b(server|src|routes|services|models|pages|utils|layout)\/[^ ]+\.(js|jsx|ts|tsx)\b/i.test(raw)) return 'code';
   if (/\brecent commits?\b|commit:|head commit/i.test(raw)) return 'recent_commits';
   return 'document';
 };
 
+const repoSubstantiveSources = (sourceRefs = []) => (
+  (Array.isArray(sourceRefs) ? sourceRefs : [])
+    .filter(source => !['policy'].includes(repoSourceEvidenceType(source)))
+);
+
+const repoPolicySources = (sourceRefs = []) => (
+  (Array.isArray(sourceRefs) ? sourceRefs : [])
+    .filter(source => repoSourceEvidenceType(source) === 'policy')
+);
+
+const extractMarkdownHeadings = (text = '') => (
+  asString(text)
+    .split(/\n+/)
+    .map(line => line.match(/^\s{0,3}#{1,3}\s+(.+?)\s*#*\s*$/)?.[1] || '')
+    .filter(Boolean)
+);
+
+const repoTitleMentionsDomain = ({ page = {}, text = '', sourceRefs = [] } = {}) => {
+  const evidence = repoEvidenceText({ page, sourceRefs });
+  const domainTerms = Array.from(new Set(
+    evidence
+      .replace(/https?:\/\/\S+/g, ' ')
+      .match(/\b(?:wiki|library|think|note|notes|knowledge|reader|reading|agent|extension|github|repo|repository|developer|workflow|api|server|react|chrome|capture|source|highlight|concept|question)\b/gi) || []
+  )).map(term => term.toLowerCase());
+  if (!domainTerms.length) return true;
+  const opening = asString(text).slice(0, 900).toLowerCase();
+  return domainTerms.some(term => opening.includes(term));
+};
+
 const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRefs = [] } = {}) => {
   if (!isGitHubRepoPage({ page })) return [];
   const failures = [];
   const refs = Array.isArray(sourceRefs) ? sourceRefs : [];
+  const substantiveRefs = repoSubstantiveSources(refs);
   const evidenceTypes = new Set(refs.map(repoSourceEvidenceType));
-  const codeOrConfigCount = refs.filter(source => ['code', 'config'].includes(repoSourceEvidenceType(source))).length;
+  const codeOrConfigCount = refs.filter(source => ['code', 'config', 'inventory'].includes(repoSourceEvidenceType(source))).length;
   const repoPaths = refs.map(extractRepoPath).filter(Boolean);
   const mentionedPathCount = repoPaths.filter(path => new RegExp(`\\b${escapeRegex(path)}\\b`, 'i').test(text)).length;
   const packageScripts = collectPackageScripts(refs);
@@ -560,8 +590,18 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   const exactPathMentions = repoPaths.filter(path => new RegExp(`\\b${escapeRegex(path)}\\b`, 'i').test(text));
   const flowSignalCount = NOEIS_REPO_FLOW_PATTERNS.filter(pattern => pattern.test(text)).length;
   const productSignalCount = NOEIS_REPO_PRODUCT_PATTERNS.filter(pattern => pattern.test(text)).length;
-  if (!GITHUB_REPO_DEVELOPER_SECTION_PATTERNS.every(pattern => pattern.test(text))) {
-    failures.push('GitHub repo article is missing product-aware developer manual sections: Product orientation, User experience map, Developer quickstart, Critical flows, Architecture and ownership, Common change paths, Quality bar and invariants, Failure modes, and Deploy and unknowns.');
+  const watchedRepo = Boolean(page.externalWatches?.githubRepo?.owner || page.externalWatches?.githubRepo?.repo);
+  GITHUB_REPO_TEMPLATE_LEAK_PATTERNS.forEach((pattern) => {
+    if (pattern.test(text)) failures.push('GitHub repo article leaks repo-wiki template or quality-gate phrasing.');
+  });
+  if (watchedRepo && substantiveRefs.length < GITHUB_REPO_MIN_SOURCE_REFS) {
+    failures.push(`GitHub repo article has too little substantive repository evidence: ${substantiveRefs.length}/${GITHUB_REPO_MIN_SOURCE_REFS} non-policy sources.`);
+  }
+  if (!repoTitleMentionsDomain({ page, text, sourceRefs: refs })) {
+    failures.push('GitHub repo article summary does not state what this repository actually does.');
+  }
+  if (extractMarkdownHeadings(text).length < 4 && !/\b(?:run|test|build|architecture|flow|risk|unknown|entrypoint|service|route)\b/i.test(text)) {
+    failures.push('GitHub repo article is not structured enough to orient a developer.');
   }
   if (!/\bnpm\s+(?:start|run|install|test|build|wiki:qa)\b|\byarn\s+(?:start|test|build)\b|\bpnpm\s+(?:start|test|build)\b/i.test(text)) {
     failures.push('GitHub repo article does not expose concrete local run or test commands.');
@@ -580,6 +620,9 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }
   if (unqualifiedScriptMentions.length) {
     failures.push(`GitHub repo article has unsupported or unqualified package script references: ${unqualifiedScriptMentions.slice(0, 4).join(', ')}.`);
+  }
+  if (repoPolicySources(refs).length && /\bDeveloper posture:\b/i.test(text)) {
+    failures.push('GitHub repo article repeats internal agent-policy language as product documentation.');
   }
   if (!evidenceTypes.has('recent_commits') && /\b(?:current|ongoing)\s+(?:development|active work|efforts)|\bdevelopment (?:focuses|is focused)|\bexpanding functionality\b|\bimproving the UI\b|\brecent commits?\b|\bissue tracker\b/i.test(text) && !/\b(?:no recent[-\s]?commit evidence|current active work remains unknown|no recent commits? (?:were|was) attached)\b/i.test(text)) {
     failures.push('GitHub repo article invents current active-work signals without recent-commit evidence.');
@@ -615,10 +658,11 @@ const formatGitHubRepoPromptBlock = ({ page = {}, candidates = [] } = {}) => {
   return `
 
 GitHub repository page rules:
-- This page is about a public GitHub repository. Write it as a developer dossier for someone trying to understand, run, change, and maintain the repo today.
+- This page is about a public GitHub repository. Write it as an evidence-first developer dossier for someone trying to understand, run, change, and maintain the repo today.
 - Write only what the repository evidence actually supports.
-- Use this exact section shape: Product orientation | User experience map | Developer quickstart | Critical flows | Architecture and ownership | Common change paths | Quality bar and invariants | Failure modes | Deploy and unknowns.
-- Include a "Developer quickstart" section or subsection with exactly these labels when evidence exists: Run, Test, Deploy, Key paths.
+- Let the section structure follow the repository. A web app, CLI, SDK, and infrastructure repo should not read like the same template.
+- Cover these jobs somewhere in the article when evidence supports them: what the repo/product is; how a developer runs and proves changes; the architecture map; critical user/request flows; common change paths; risks, invariants, and unknowns.
+- Include a quickstart section or subsection with concrete Run, Test, Build/Deploy, and Key paths only when package/config evidence supports them.
 - The first viewport must be useful before the References section: name the concrete run command, the proof command, and at least two exact owning file paths when evidence supports them.
 - For the Noeis repo, explicitly orient the product as Library -> Think -> Wiki -> safe public sharing before describing implementation files.
 - For the Noeis repo, trace real implementation flows by name: createRepoWikiFromGitHub, /api/wiki/pages/from-github, githubRepoWatcherService, wikiMaintenanceService, sourceRefs/externalWatches.githubRepo, and WikiPageReadView when those sources are attached.
@@ -634,7 +678,10 @@ GitHub repository page rules:
 - Include exact local commands only when package/config evidence supports them. Include exact key file paths only when they are present in the repository evidence.
 - Treat README, package files, docs, changelogs, and releases as repository evidence. Do not describe them as Library highlights.
 - Treat source metadata docClass="planned" as roadmap/spec material. It can appear only under Known risks, Current active work, or explicitly labeled planned work; never present it as shipped repository behavior.
+- Treat source metadata docClass="policy" as internal working convention evidence only. It can explain repo-local development expectations, but it must not become product truth or the article's lead.
+- Treat source metadata evidenceType="inventory" as structural evidence. Use it to name real directories and paths, not to infer behavior that source text does not show.
 - If the repo evidence is thin, say which repository documents/files were found and what remains unknown.
+- Do not use these phrases anywhere: "product-aware developer operating manual", "route/service/model/component", "working map for a new contributor", or "Developer posture:".
 ${formatGitHubRepoEvidenceDigest({ page, candidates })}`;
 };
 
@@ -658,7 +705,8 @@ const buildPrompt = ({
   knownWikiPages = [],
   sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
 }) => {
-  const structure = getWikiPageStructure(isGitHubRepoPage({ page, candidates }) ? 'repo' : (page.pageType || 'topic'));
+  const repoPage = isGitHubRepoPage({ page, candidates });
+  const structure = getWikiPageStructure(repoPage ? 'repo' : (page.pageType || 'topic'));
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
@@ -687,7 +735,7 @@ Page:
 Title: ${page.title}
 Type: ${page.pageType || 'topic'}
 Page intent: ${structure.intent}
-Required section shape, in this order: ${structure.sections.join(' | ')}
+${repoPage ? `Repo dossier section goals, not mandated headings: ${structure.sections.join(' | ')}` : `Required section shape, in this order: ${structure.sections.join(' | ')}`}
 Existing text: ${truncate(page.plainText || toPlainText(page.body), 2400)}
 Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '', 1200)}
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
@@ -1490,7 +1538,7 @@ const findUnqualifiedPackageScriptMentions = ({ text = '', scripts = [] } = {}) 
 const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => {
   if (!isGitHubRepoPage({ page, candidates })) return '';
   const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
-  const repoSources = repoCandidates.slice(0, 18);
+  const repoSources = repoCandidates.slice(0, 40);
   const byEvidence = (kind) => repoSources.filter(source => repoSourceEvidenceType(source) === kind);
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
@@ -1540,10 +1588,13 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     : manualNotes;
   const repoSources = (Array.isArray(candidates) ? candidates : [])
     .filter(isGitHubRepoCandidate)
-    .slice(0, 16);
+    .slice(0, 40);
   const byEvidence = (kind) => repoSources.filter(source => repoSourceEvidenceType(source) === kind);
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
+  const documentSources = byEvidence('document');
+  const inventorySources = byEvidence('inventory');
+  const policySources = byEvidence('policy');
   const commitSources = byEvidence('recent_commits');
   const readmeSource = repoSources.find(source => asString(source.metadata?.docClass).toLowerCase() === 'readme') || repoSources[0] || null;
   const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
@@ -1561,10 +1612,13 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const sourceIndexesUsed = Array.from(new Set([
     readmeSource?.index,
     packageSource?.index,
+    ...documentSources.slice(0, 16).map(source => source.index),
     ...configSources.slice(0, 3).map(source => source.index),
+    ...inventorySources.slice(0, 1).map(source => source.index),
     ...codeSources.slice(0, 12).map(source => source.index),
-    ...commitSources.slice(0, 1).map(source => source.index)
-  ].filter(Boolean))).slice(0, 18);
+    ...commitSources.slice(0, 1).map(source => source.index),
+    ...policySources.slice(0, 4).map(source => source.index)
+  ].filter(Boolean))).slice(0, 48);
   const runCommand = runScript ? `npm run ${runScript.name}` : 'the repository evidence does not expose a run command yet';
   const testCommand = testScripts.length
     ? testScripts.map(scriptCommandLabel).join('; ')
@@ -1584,7 +1638,6 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const chatRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/agentChatRoutes\.[jt]s$/i);
   const wikiClientApiPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i);
   const uiPackagePath = repoSourceForPath(repoSources, /^note-taker-ui\/package\.json$/i);
-  const agentsPath = repoSourceForPath(repoSources, /^AGENTS\.md$/i);
   const apiDescription = apiPath ? 'server/server.js boots the Express API process.' : 'The API bootstrap file was not attached.';
   const wikiRoutesDescription = wikiRoutesPath ? 'server/routes/wikiRoutes.js owns the wiki HTTP surface, including GitHub repo page creation and maintenance routes.' : 'The wiki route file was not attached.';
   const maintenanceDescription = maintenancePath ? 'server/services/wikiMaintenanceService.js owns drafting, fallback generation, quality gates, citations, and article persistence.' : 'The wiki maintenance service was not attached.';
@@ -1625,9 +1678,15 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const uxMapText = isNoeisRepo
     ? 'The core experience is a maintained thinking loop: Library collects source material, Think turns source fragments into concepts/questions/notebook work, Wiki synthesizes mature material into durable cited pages, and sharing exposes safe public versions without private graph data.'
     : 'The user experience map should connect visible entrypoints to code ownership. If the evidence does not name a product surface, state that the UX map is unknown rather than inventing flows.';
-  const repoFlowLabel = title.replace(/\s+Repo Wiki$/i, '').replace(/\s+Wiki$/i, '').trim() || 'repository';
+  const repoFlowLabel = title
+    .replace(/\s+(?:—|–|-)\s*repo wiki$/i, '')
+    .replace(/\s+Repo Wiki$/i, '')
+    .replace(/\s+Wiki$/i, '')
+    .trim() || 'repository';
   const summaryParagraph = repoFallbackParagraph({
-    text: `${title} is a product-aware developer operating manual for this GitHub repository: understand the user experience first, run the local stack, prove changes with attached commands, then edit the route/service/model/component that owns the behavior. Read it as a working map for a new contributor, not as a generic repository overview: the useful parts are the user loop, the runbook, the ownership paths, the critical request traces, and the failure modes that have already hurt this page type.`,
+    text: isNoeisRepo
+      ? `${repoFlowLabel} powers Noeis: a reading-to-thinking-to-wiki workspace where source material moves from Library into Think and then into maintained, cited Wiki pages that can be shared without exposing the private graph. A developer should start with the product loop, then use the package scripts and owning files below to change the right layer.`
+      : `${repoFlowLabel} is a GitHub-backed project page grounded in repository evidence. Use it to understand what the repository does, how to run and prove changes, which paths own the main flows, and which risks remain unknown from the attached sources.`,
     sourceIndexes: [readmeSource?.index, packageSource?.index, commitSources[0]?.index]
   });
   const article = {
@@ -1657,8 +1716,8 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             citationIndexes: [readmeSource?.index, commitSources[0]?.index].filter(Boolean)
           },
           isNoeisRepo ? {
-            text: 'Developer posture: preserve the Library -> Think -> Wiki -> share loop first; speed, automation, and repo-watch polish are secondary if they produce thin pages, stale evidence, or unclear user state.',
-            citationIndexes: [readmeSource?.index, packageSource?.index, agentsPath?.index].filter(Boolean)
+            text: 'Development invariant: preserve the Library -> Think -> Wiki -> share loop first; speed, automation, and repo-watch polish are secondary if they produce thin pages, stale evidence, or unclear user state.',
+            citationIndexes: [readmeSource?.index, packageSource?.index].filter(Boolean)
           } : null
         ].filter(Boolean)
       },
@@ -1759,8 +1818,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             watcherPath?.index,
             modelsPath?.index,
             chatRoutesPath?.index,
-            wikiClientApiPath?.index,
-            agentsPath?.index
+            wikiClientApiPath?.index
           ].filter(Boolean),
           support: codeSources.length ? 'supported' : 'partial'
         })],
@@ -1860,8 +1918,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           sourceIndexes: [
             ...commitSources.slice(0, 1).map(source => source.index),
             ...buildScripts.map(script => script.sourceIndex),
-            ...configSources.slice(0, 3).map(source => source.index),
-            agentsPath?.index
+            ...configSources.slice(0, 3).map(source => source.index)
           ].filter(Boolean),
           support: 'partial'
         })],
@@ -1880,7 +1937,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           },
           isNoeisRepo ? {
             text: 'Production verification should check both surfaces: Vercel for the frontend bundle and Render for the API behavior.',
-            citationIndexes: [agentsPath?.index, packageSource?.index].filter(Boolean)
+            citationIndexes: [packageSource?.index].filter(Boolean)
           } : null
         ].filter(Boolean)
       }
@@ -1888,6 +1945,47 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     preservedUserContent: safeManualNotes
       ? [{ text: safeManualNotes, placement: 'Notes', reason: 'Existing page text looked user-authored.' }]
       : []
+  };
+  const sectionByHeading = new Map(article.sections.map(section => [section.heading, section]));
+  const renameSection = (from, heading) => {
+    const section = sectionByHeading.get(from);
+    return section ? { ...section, heading } : null;
+  };
+  const policySection = policySources.length ? {
+    heading: 'Repository conventions',
+    paragraphs: [repoFallbackParagraph({
+      text: 'Agent and editor instruction files are retained as repository policy evidence. They can explain local contribution and automation conventions, but they are not evidence for product behavior, architecture, production health, or user-facing claims.',
+      sourceIndexes: policySources.map(source => source.index),
+      support: 'supported'
+    })],
+    bullets: policySources.slice(0, 6).map(source => ({
+      text: `${extractRepoPath(source) || source.title}: internal repository convention evidence; do not treat it as product truth.`,
+      citationIndexes: [source.index],
+      support: 'supported'
+    }))
+  } : null;
+  const evidenceShapedSections = isNoeisRepo
+    ? [
+        renameSection('Product orientation', 'What Noeis is'),
+        renameSection('Developer quickstart', 'Run and prove changes'),
+        renameSection('Architecture and ownership', 'System map'),
+        renameSection('Critical flows', 'Critical product flows'),
+        renameSection('Common change paths', 'Where to make changes'),
+        policySection,
+        renameSection('Failure modes', 'Failure modes'),
+        renameSection('Deploy and unknowns', 'Deploy and unknowns')
+      ]
+    : [
+        renameSection('Product orientation', 'What this repository is'),
+        renameSection('Developer quickstart', 'Run and prove changes'),
+        renameSection('Architecture and ownership', 'Architecture evidence'),
+        renameSection('Common change paths', 'Where to make changes'),
+        policySection,
+        renameSection('Deploy and unknowns', 'Risks and unknowns')
+      ];
+  const shapedArticle = {
+    ...article,
+    sections: evidenceShapedSections.filter(Boolean)
   };
   const fallbackCitationIndexes = sourceIndexesUsed.slice(0, 6);
   const citeFallbackItem = (item) => {
@@ -1906,9 +2004,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     };
   };
   const supportedArticle = {
-    ...article,
-    summary: citeFallbackItem(article.summary),
-    sections: article.sections.map(section => ({
+    ...shapedArticle,
+    summary: citeFallbackItem(shapedArticle.summary),
+    sections: shapedArticle.sections.map(section => ({
       ...section,
       paragraphs: (section.paragraphs || []).map(citeFallbackItem),
       bullets: (section.bullets || []).map(citeFallbackItem)
@@ -1922,7 +2020,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     }),
     maintenance: {
       summary: `Built a developer dossier from ${repoSources.length} GitHub repository evidence source${repoSources.length === 1 ? '' : 's'}.`,
-      changelog: repoSources.slice(0, 16).map(source => ({
+      changelog: repoSources.slice(0, 32).map(source => ({
         type: 'attached_source',
         target: source.title,
         summary: `Used ${extractRepoPath(source) || source.title} as repository evidence.`,
@@ -2090,14 +2188,20 @@ const addMandatoryGitHubRepoSourceIndexes = ({ page = {}, candidates = [], used 
   const byEvidence = (kind) => repoCandidates.filter(source => repoSourceEvidenceType(source) === kind);
   const configSources = byEvidence('config');
   const codeSources = byEvidence('code');
+  const documentSources = byEvidence('document');
+  const inventorySources = byEvidence('inventory');
+  const policySources = byEvidence('policy');
   const commitSources = byEvidence('recent_commits');
   const packageSource = configSources.find(source => /\bpackage\.json$/i.test(extractRepoPath(source))) || configSources[0] || null;
   [
     packageSource,
     configSources.find(source => source.index !== packageSource?.index),
-    codeSources[0],
-    codeSources[1],
-    commitSources[0]
+    inventorySources[0],
+    ...documentSources.slice(0, 16),
+    ...configSources.slice(0, 6),
+    ...codeSources.slice(0, 18),
+    commitSources[0],
+    policySources[0]
   ].filter(Boolean).forEach(source => used.add(source.index));
 };
 
@@ -2121,7 +2225,8 @@ const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, 
   });
   (changelog || []).forEach((entry) => normalizeCitationIndexes(entry.sourceIndexes).forEach(index => used.add(index)));
   addMandatoryGitHubRepoSourceIndexes({ page, candidates, used });
-  return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, 16);
+  const maxSources = isGitHubRepoPage({ page, candidates }) ? 48 : 16;
+  return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, maxSources);
 };
 
 const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
@@ -2134,20 +2239,27 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
         changelog: raw.operations,
         health: raw.health
       };
-  let article = alignArticleToPageStructure({
-    pageType: page.pageType || 'topic',
-    article: normalizeArticle({
-      rawArticle: raw.article || {
-        summary: raw.summary,
-        sections: raw.sections,
-        preservedUserContent: raw.preservedUserContent
-      },
-      page,
-      manualNotes,
-      candidates
-    })
+  const repoPage = isGitHubRepoPage({ page, candidates });
+  const normalizedArticle = normalizeArticle({
+    rawArticle: raw.article || {
+      summary: raw.summary,
+      sections: raw.sections,
+      preservedUserContent: raw.preservedUserContent
+    },
+    page,
+    manualNotes,
+    candidates
   });
-  if (isGitHubRepoPage({ page, candidates })) {
+  let article = repoPage
+    ? {
+        ...normalizedArticle,
+        sections: (Array.isArray(normalizedArticle.sections) ? normalizedArticle.sections : []).slice(0, 10)
+      }
+    : alignArticleToPageStructure({
+        pageType: page.pageType || 'topic',
+        article: normalizedArticle
+      });
+  if (repoPage) {
     article = mergeGitHubRepoFallbackSections({
       article,
       fallbackArticle: fallback.article
@@ -2208,6 +2320,13 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   }
   if (isRepoQualityPage && unsupported > 0) {
     failures.push(`GitHub repo article has unsupported claim ledger entries: ${unsupported}.`);
+  }
+  if (isRepoQualityPage) {
+    const substantiveSourceCount = repoSubstantiveSources(sourceRefs).length || sourceCount || 1;
+    const claimsPerSource = claimList.length / Math.max(1, substantiveSourceCount);
+    if (claimList.length >= 12 && claimsPerSource > GITHUB_REPO_MAX_CLAIMS_PER_SOURCE) {
+      failures.push(`GitHub repo article overstates thin evidence: ${claimsPerSource.toFixed(1)} claims per substantive source, expected <= ${GITHUB_REPO_MAX_CLAIMS_PER_SOURCE}.`);
+    }
   }
   if (claimList.length >= 4 && supportedLike < Math.ceil(claimList.length * 0.45)) {
     failures.push(`Too few claims are evidence-backed: ${supportedLike}/${claimList.length}.`);

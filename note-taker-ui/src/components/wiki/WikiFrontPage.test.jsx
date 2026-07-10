@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages, getWikiBriefing } from '../../api/wiki';
@@ -368,5 +368,54 @@ describe('WikiFrontPage (AT-394)', () => {
 
     await screen.findByText(/While you were away/i);
     expect(screen.queryByRole('link', { name: /open external target/i })).not.toBeInTheDocument();
+  });
+
+  it('dedupes duplicate repo wikis from Explore and keeps a non-repo Today\'s page', async () => {
+    const duplicateRepos = Array.from({ length: 6 }, (_, index) => ({
+      _id: `repo-dup-${index}`,
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      pageType: 'repo',
+      summary: 'Generic repo wiki template prose.',
+      sourceRefs: [{ _id: `repo-source-${index}` }],
+      claims: [{ _id: `repo-claim-${index}` }],
+      updatedAt: `2026-07-0${index + 1}T12:00:00.000Z`,
+      externalWatches: {
+        githubRepo: {
+          owner: 'atsokolas',
+          repo: 'note-taker-3',
+          status: 'active',
+          lastCheckedAt: '2026-01-01T12:00:00.000Z'
+        }
+      }
+    }));
+
+    listWikiPages.mockResolvedValueOnce([
+      ...duplicateRepos,
+      ...pages
+    ]);
+    getWikiBriefing.mockResolvedValueOnce({
+      ...briefing,
+      recentlyUpdatedPages: [{ _id: 'wiki-first-principles', title: 'First Principles Thinking' }],
+      pagesWithNewSourceMaterial: []
+    });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+      .toBeInTheDocument();
+
+    const explore = screen.getByText('Explore').closest('section');
+    const exploreLinks = within(explore).getAllByRole('link');
+    const repoTitles = exploreLinks.filter((link) => /repo wiki/i.test(link.textContent));
+
+    expect(repoTitles).toHaveLength(1);
+    expect(explore.textContent.match(/note-taker-3 — repo wiki/g)).toHaveLength(1);
+    expect(explore.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
+    expect(within(explore).getByText('Margin of Safety')).toBeInTheDocument();
+    expect(within(explore).getByText('Opportunity Cost')).toBeInTheDocument();
   });
 });

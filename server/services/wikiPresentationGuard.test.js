@@ -1,7 +1,12 @@
 const {
+  buildRepoWikiTitle,
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
-  sentenceBoundaryTrim
+  sentenceBoundaryTrim,
+  __testables: {
+    isRepoWikiTitle,
+    titleHasCodeIdentifiers
+  }
 } = require('./wikiPresentationGuard');
 
 describe('wikiPresentationGuard', () => {
@@ -20,6 +25,17 @@ describe('wikiPresentationGuard', () => {
       .toBe('Availability Heuristic');
     expect(normalizeExistingWikiTitleForPresentation('The Wealth of Nations'))
       .toBe('The Wealth of Nations');
+  });
+
+  it('preserves repo wiki titles and code identifiers without title-casing', () => {
+    expect(buildRepoWikiTitle('note-taker-3')).toBe('note-taker-3 — repo wiki');
+    expect(normalizeWikiTitleForPresentation('note-taker-3 — repo wiki')).toBe('note-taker-3 — repo wiki');
+    expect(normalizeWikiTitleForPresentation('atsokolas/note-taker-3 repo wiki'))
+      .toBe('atsokolas/note-taker-3 repo wiki');
+    expect(normalizeExistingWikiTitleForPresentation('note-taker-3 — repo wiki'))
+      .toBe('note-taker-3 — repo wiki');
+    expect(isRepoWikiTitle('note-taker-3 — repo wiki')).toBe(true);
+    expect(titleHasCodeIdentifiers('atsokolas/note-taker-3')).toBe(true);
   });
 
   it('returns a complete sentence instead of a mid-sentence character clamp', () => {

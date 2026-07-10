@@ -1,3 +1,5 @@
+import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
+
 const normalizeText = (value = '') => String(value || '').trim();
 
 export const pageMeta = (page = {}) => {
@@ -55,6 +57,74 @@ export const initialRepoValue = (page = {}, state = {}) => {
   if (state.fullName) return state.fullName;
   const meta = pageMeta(page);
   return normalizeRepoInput(meta.githubRepo || meta.repo || meta.repository || meta.githubUrl || meta.repoUrl || '');
+};
+
+/** @typedef {'created' | 'updated'} RepoWikiAction */
+
+/**
+ * @param {string} action
+ * @returns {RepoWikiAction}
+ */
+export const normalizeRepoWikiAction = (action = '') => {
+  const value = String(action || '').trim().toLowerCase();
+  return value === 'updated' ? 'updated' : 'created';
+};
+
+/**
+ * @param {RepoWikiAction} action
+ * @returns {string}
+ */
+export const repoWikiReceiptTitle = (action = 'created') => (
+  normalizeRepoWikiAction(action) === 'updated'
+    ? 'Updated existing repo wiki.'
+    : 'Created repo wiki.'
+);
+
+/**
+ * @param {{ pageId?: string; action?: RepoWikiAction; label?: string }} options
+ * @returns {import('../../system/systemStatusModel').SystemStatusReceipt}
+ */
+export const repoWikiSystemReceipt = ({ pageId = '', action = 'created', label = '' } = {}) => {
+  const normalizedAction = normalizeRepoWikiAction(action);
+  const title = repoWikiReceiptTitle(normalizedAction);
+  const repoLabel = normalizeText(label);
+  const href = pageId
+    ? `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+    : '/wiki/workspace';
+  return {
+    id: pageId ? `repo-wiki-${normalizedAction}-${pageId}` : undefined,
+    title,
+    summary: repoLabel ? `${title.replace(/\.$/, '')} for ${repoLabel}.` : title,
+    status: 'completed',
+    href
+  };
+};
+
+export const repoDossierGitHubLabel = (page = {}) => {
+  const state = githubWatchState(page?.externalWatches?.githubRepo);
+  if (state.fullName) return state.fullName;
+  const meta = pageMeta(page);
+  return normalizeRepoInput(meta.githubRepo || meta.repo || meta.repository || meta.githubUrl || meta.repoUrl || '');
+};
+
+/**
+ * Repo name segment from watch state or metadata (preserves GitHub casing).
+ */
+export const repoNameFromPage = (page = {}) => {
+  const slug = repoDossierGitHubLabel(page);
+  if (!slug) return '';
+  const parts = slug.split('/').filter(Boolean);
+  return parts[parts.length - 1] || '';
+};
+
+/**
+ * UI title for repo wikis: repo slug casing preserved, not title-cased owner/repo.
+ * Falls back to stored page.title for non-repo pages.
+ */
+export const displayWikiPageTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
+  const repoName = repoNameFromPage(page);
+  if (repoName) return buildRepoWikiTitle(repoName);
+  return normalizeText(page?.title) || fallback;
 };
 
 export const formatGitHubRepoWatchReceipt = (watch = {}) => {

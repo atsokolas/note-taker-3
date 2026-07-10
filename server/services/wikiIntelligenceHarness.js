@@ -2422,7 +2422,12 @@ const maintainWithFixtureModel = async ({ page, fixture }) => {
   await maintainWikiPage({
     page,
     userId: fixture.proposal?.userId || page.userId,
-    models: buildModels(fixture),
+    models: {
+      ...buildModels(fixture),
+      // Keep direct fixture maintenance off the real Mongoose model. Source
+      // event fixtures provide their own page model and must retain it.
+      WikiPage: createModel([])
+    },
     isConfigured: () => true,
     chat: async () => ({
       text: JSON.stringify(fixture.modelResult),
@@ -2574,7 +2579,7 @@ const evaluateSourceEventUpdateFixture = async (fixture, options = {}) => {
       await maintainWikiPage({
         page: targetPage,
         userId,
-        models,
+        models: { ...models, WikiPage: createModel([]) },
         trigger,
         isConfigured: () => true,
         chat: async () => ({
@@ -2647,7 +2652,7 @@ const runSourceEventMaintenance = async ({ fixture, pages, event, useQueue = fal
     await maintainWikiPage({
       page: targetPage,
       userId,
-      models: maintenanceModels,
+      models: { ...maintenanceModels, WikiPage: createModel([]) },
       trigger,
       isConfigured: () => true,
       chat: async () => ({
@@ -2746,7 +2751,7 @@ const evaluateSourceEventQueueDrainFixture = async (fixture, options = {}) => {
     await maintainWikiPage({
       page: targetPage,
       userId,
-      models: maintenanceModels,
+      models: { ...maintenanceModels, WikiPage: createModel([]) },
       trigger,
       isConfigured: () => true,
       chat: async () => ({
@@ -2894,7 +2899,7 @@ const evaluateConnectorIngestionQueueFixture = async (fixture, options = {}) => 
     await maintainWikiPage({
       page: targetPage,
       userId,
-      models: maintenanceModels,
+      models: { ...maintenanceModels, WikiPage: createModel([]) },
       trigger,
       isConfigured: () => true,
       chat: async () => ({

@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRepoWikiFromGitHub } from '../../api/wiki';
+import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { Button } from '../ui';
 import AgentTicker from '../agent/AgentTicker';
+import { repoWikiReceiptTitle, repoWikiSystemReceipt, displayWikiPageTitle } from './wikiRepoDossierModel';
+import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
 
 const REPO_BUILD_STAGES = [
   {
@@ -48,6 +51,7 @@ const stageIndexForElapsed = (elapsedSeconds = 0) => {
 
 const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) => {
   const navigate = useNavigate();
+  const systemStatus = useSystemStatusControls();
   const [repoUrl, setRepoUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [startedAt, setStartedAt] = useState(null);
@@ -96,9 +100,17 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
       const page = result?.page || {};
       const pageId = page?._id || page?.id;
       if (!pageId) throw new Error('Missing created page id');
-      const label = page.title || result?.repo?.fullName || input;
+      const label = displayWikiPageTitle(
+        result?.repo
+          ? { ...page, externalWatches: { githubRepo: result.repo } }
+          : page,
+        buildRepoWikiTitle(result?.repo?.repo || '') || result?.repo?.fullName || input
+      );
+      const action = result?.action || 'created';
+      const receiptTitle = repoWikiReceiptTitle(action);
+      systemStatus.setLatestReceipt(repoWikiSystemReceipt({ pageId, action, label }));
       setTickerLines([
-        `project wiki created · ${label}`,
+        `${receiptTitle.replace(/\.$/, '')} · ${label}`,
         result?.watchResult?.watchError ? 'GitHub watch needs retry' : 'GitHub repo watch armed',
         'opening build workspace'
       ]);
@@ -107,8 +119,8 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
       setRepoUrl('');
       onCreated?.(page);
       setStatus(result?.watchResult?.watchError
-        ? `Opened the repo wiki for ${label}. The GitHub watch can be retried from the page.`
-        : `Opened the repo wiki for ${label}.`);
+        ? `${receiptTitle} The GitHub watch can be retried from the page.`
+        : receiptTitle);
     } catch (submitError) {
       setTickerLines([
         `repo wiki failed · ${input}`,

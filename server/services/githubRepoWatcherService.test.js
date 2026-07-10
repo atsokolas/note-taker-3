@@ -201,7 +201,7 @@ const run = async () => {
   assert.strictEqual(isUsefulRepoEvidencePath('src/index.ts'), true);
   assert.strictEqual(classifyRepoDocClass('package.json'), 'config');
   assert.strictEqual(classifyRepoDocClass('server/server.js'), 'code');
-  assert.strictEqual(classifyRepoDocClass('AGENTS.md'), 'runbook');
+  assert.strictEqual(classifyRepoDocClass('AGENTS.md'), 'policy');
   assert.strictEqual(classifyRepoDocClass('docs/noeis-public-proof-gallery-spec-2026-07-03.md'), 'planned');
   assert.deepStrictEqual(
     selectRepoDocEntries([
@@ -220,7 +220,7 @@ const run = async () => {
       { path: '.github/workflows/ci.yml', type: 'blob' },
       { path: 'package.json', type: 'blob' }
     ], 5).map(entry => entry.path),
-    ['package.json', 'README.md', '.github/workflows/ci.yml', 'src/index.ts', 'docs/usage.md']
+    ['package.json', 'README.md', '.github/workflows/ci.yml', 'docs/usage.md', 'src/index.ts']
   );
   assert.deepStrictEqual(
     selectRepoEvidenceEntries([
@@ -238,6 +238,7 @@ const run = async () => {
       { path: 'docs/architecture.md', type: 'blob' }
     ], 11).map(entry => entry.path),
     [
+      'docs/architecture.md',
       'server/routes/wikiRoutes.js',
       'server/services/wikiMaintenanceService.js',
       'note-taker-ui/src/api/wiki.js',
@@ -245,11 +246,21 @@ const run = async () => {
       'web/src/api/wiki.ts',
       'note-taker-ui/src/components/wiki/WikiPageReadView.jsx',
       'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx',
-      'docs/architecture.md',
       'server/services/agentProposalBundles.js',
       'server/routes/agentActionRoutes.js',
       'web/src/App.tsx',
     ]
+  );
+  assert.deepStrictEqual(
+    selectRepoEvidenceEntries([
+      { path: 'package.json', type: 'blob' },
+      { path: 'README.md', type: 'blob' },
+      { path: 'docs/architecture.md', type: 'blob' },
+      { path: 'AGENTS.md', type: 'blob' },
+      { path: 'CLAUDE.md', type: 'blob' },
+      { path: '.cursorrules', type: 'blob' }
+    ], 5).map(entry => entry.path),
+    ['package.json', 'README.md', 'AGENTS.md', 'CLAUDE.md', '.cursorrules']
   );
 
   FakeWikiSourceEvent.reset();
@@ -264,20 +275,23 @@ const run = async () => {
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
   assert.strictEqual(result.snapshot.fullName, 'openai/agents-js');
-  assert.strictEqual(result.snapshot.docs.length, 13);
+  assert.strictEqual(result.snapshot.docs.length, 14);
   assert.strictEqual(result.snapshot.recentCommits.length, 1);
-  assert.strictEqual(result.events.length, 15);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 15);
+  assert.strictEqual(result.events.length, 16);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 16);
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.owner, 'openai');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.repo, 'agents-js');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.lastHeadSha, 'abc1234567890abcdef');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.lastReleaseTag, 'v1.2.3');
-  assert.match(FakeWikiSourceEvent.rows[0].metadata.ref, /package\.json @ abc1234/);
-  assert.strictEqual(FakeWikiSourceEvent.rows[0].metadata.docClass, 'config');
-  assert.match(FakeWikiSourceEvent.rows[0].text, /node server\/server\.js/);
+  const packageEvent = FakeWikiSourceEvent.rows.find(row => row.metadata.path === 'package.json');
+  assert.ok(packageEvent);
+  assert.match(packageEvent.metadata.ref, /package\.json @ abc1234/);
+  assert.strictEqual(packageEvent.metadata.docClass, 'config');
+  assert.match(packageEvent.text, /node server\/server\.js/);
   assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'server/routes/wikiRoutes.js'), true);
   assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'server/services/wikiMaintenanceService.js'), true);
   assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'web/src/App.tsx'), true);
+  assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === '__repo_inventory__/code-inventory.txt'), true);
   assert.strictEqual(FakeWikiSourceEvent.rows.some(row => row.metadata.path === 'server/routes/agentActionRoutes.test.js'), false);
   assert.strictEqual(FakeWikiSourceEvent.rows.some(row => /recent commits/i.test(row.title)), true);
 
@@ -290,9 +304,9 @@ const run = async () => {
     fetchImpl: makeFetch(),
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
-  assert.strictEqual(second.events.length, 15);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 15);
-  assert.match(second.events[0].text, /node server\/server\.js/);
+  assert.strictEqual(second.events.length, 16);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 16);
+  assert.match(second.events.find(row => row.metadata.path === 'package.json').text, /node server\/server\.js/);
 
   const dueQuery = dueGitHubRepoWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });
   assert.strictEqual(dueQuery['externalWatches.githubRepo.status'], 'active');

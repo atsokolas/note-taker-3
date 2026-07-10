@@ -43,6 +43,7 @@ import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
 import WikiTranscriptWatchControl from './WikiTranscriptWatchControl';
 import WikiGitHubRepoWatchControl, { isRepoDossierPage } from './WikiGitHubRepoWatchControl';
+import { githubWatchState, repoDossierGitHubLabel, displayWikiPageTitle } from './wikiRepoDossierModel';
 import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
@@ -595,6 +596,15 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
       { label: 'Scope', value: scopeText },
       { label: 'Sections', value: pickFirst(sectionTitles(value.body), 'No sections yet') },
       { label: 'Discussions', value: `${(value.discussions || []).length} discussion${(value.discussions || []).length === 1 ? '' : 's'}` },
+      ...baseRows
+    ];
+  }
+
+  if (type === 'repo' || githubWatchState(value?.externalWatches?.githubRepo).fullName) {
+    return [
+      { label: 'GitHub', value: pickFirst(repoDossierGitHubLabel(value), 'Not linked') },
+      { label: 'Summary', value: summaryText },
+      { label: 'Sections', value: pickFirst(sectionTitles(value.body), 'No sections yet') },
       ...baseRows
     ];
   }
@@ -2105,7 +2115,7 @@ const WikiPageReadView = ({
                 count, and "last reviewed" all live in the rail infobox now.
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
-            <WikiReadTitle title={page.title || 'Untitled Wiki Page'} />
+            <WikiReadTitle title={displayWikiPageTitle(page)} />
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}

@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRepoWikiFromGitHub, createWikiPage } from '../../api/wiki';
+import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { buildWikiCreatePayload } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { parseGitHubRepoInput } from '../../utils/githubRepoInput';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { Button } from '../ui';
 import AgentTicker from '../agent/AgentTicker';
+import { repoWikiReceiptTitle, repoWikiSystemReceipt, displayWikiPageTitle } from './wikiRepoDossierModel';
+import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
 
 const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => {
   const navigate = useNavigate();
+  const systemStatus = useSystemStatusControls();
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -44,17 +48,35 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
         }));
       const pageId = page?._id || page?.id;
       if (!pageId) throw new Error('Missing created page id');
+      if (repo) {
+        const action = repoResult?.action || 'created';
+        const displayPage = {
+          ...page,
+          externalWatches: page.externalWatches || { githubRepo: repo }
+        };
+        const label = displayWikiPageTitle(displayPage, buildRepoWikiTitle(repo.repo));
+        systemStatus.setLatestReceipt(repoWikiSystemReceipt({ pageId, action, label }));
+      }
+      const repoReceiptTitle = repo ? repoWikiReceiptTitle(repoResult?.action || 'created') : '';
+      const repoDisplayTitle = repo
+        ? displayWikiPageTitle(
+          { ...page, externalWatches: page.externalWatches || { githubRepo: repo } },
+          buildRepoWikiTitle(repo.repo)
+        )
+        : '';
       setTickerLines([
-        repo ? `repo watcher armed · ${repo.fullName}` : `captured topic · ${page.title || topic}`,
+        repo
+          ? `${repoReceiptTitle.replace(/\.$/, '')} · ${repoDisplayTitle || repo.fullName}`
+          : `captured topic · ${page.title || topic}`,
         `opening @wiki:${pageId}`,
         repo ? 'agent drafting from repository sources' : 'agent drafting from your library'
       ]);
-      setStatus(repo ? `Building repo wiki for ${repo.fullName}...` : `Building "${page.title || topic}"...`);
+      setStatus(repo ? repoReceiptTitle : `Building "${page.title || topic}"...`);
       navigate(`${wikiPagePath(pageId)}&build=1`, { replace: false });
       setPrompt('');
       onBuilt?.(page);
       setStatus(repo
-        ? `Opened the workspace. ${AGENT_DISPLAY_NAME} is drafting from repository sources there.`
+        ? repoReceiptTitle
         : `Opened the workspace. ${AGENT_DISPLAY_NAME} is drafting the page there.`);
     } catch (_error) {
       setTickerLines([

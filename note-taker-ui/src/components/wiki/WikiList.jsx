@@ -22,6 +22,8 @@ import {
   normalizeQualityReview,
   qualityReviewLabel
 } from './wikiPageQualityReview';
+import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const VISIBILITIES = ['all', 'private', 'shared'];
 const STATUSES = ['all', 'draft', 'published', 'archived'];
@@ -55,7 +57,7 @@ const WikiPageRow = ({
   const [activated, setActivated] = useState(false);
   const receiptTimerRef = useRef(null);
   const snippet = wikiPreviewForPage(page, compact ? 118 : 180);
-  const title = page.title || 'Untitled Wiki Page';
+  const title = displayWikiPageTitle(page);
   const qualityReview = normalizeQualityReview(page);
   const qualityLabel = qualityReviewLabel(qualityReview);
   const qualityReasons = formatQualityReviewReasons(qualityReview);
@@ -241,8 +243,13 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     return params;
   }, [needsReviewFilter, pageType, query, status, visibility]);
 
+  const displayPages = useMemo(
+    () => dedupePagesByRepoKey(pages),
+    [pages]
+  );
+
   const facetCounts = useMemo(
-    () => computeWikiFacetCounts(catalogPages),
+    () => computeWikiFacetCounts(dedupePagesByRepoKey(catalogPages)),
     [catalogPages]
   );
 
@@ -307,7 +314,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
 
   const handleDelete = async (page) => {
     if (!page?._id) return;
-    const title = page.title || 'Untitled Wiki Page';
+    const title = displayWikiPageTitle(page);
     if (!window.confirm(`Archive "${title}"?`)) return;
     setDeletingId(page._id);
     setError('');
@@ -385,7 +392,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       {loading ? <p className="wiki-index__status">Loading Wiki pages...</p> : null}
 
-      {!loading && pages.length === 0 ? (
+      {!loading && displayPages.length === 0 ? (
         <section className="wiki-index__empty">
           {needsReviewFilter ? (
             <>
@@ -406,7 +413,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         className={`library-article-list wiki-index__list${loading ? ' is-loading' : ''}`}
         aria-label="Wiki pages"
       >
-        {pages.map(page => (
+        {displayPages.map(page => (
           <WikiPageRow
             key={page._id}
             compact={compact}

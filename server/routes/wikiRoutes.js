@@ -67,6 +67,7 @@ const {
   isWikiPageSurfaceEligible
 } = require('../services/wikiPageQualityGuard');
 const {
+  buildRepoWikiTitle,
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation
 } = require('../services/wikiPresentationGuard');
@@ -2550,9 +2551,11 @@ const buildWikiRouter = ({
       const parsedRepo = repoInput
         ? parseGitHubRepoWatchInput(repoInput)
         : parseGitHubRepoWatchInput(`${owner}/${repoName}`);
-      const fullName = `${parsedRepo.owner}/${parsedRepo.repo}`;
+      const ownerKey = parsedRepo.owner.toLowerCase();
+      const repoKey = parsedRepo.repo.toLowerCase();
+      const fullName = `${ownerKey}/${repoKey}`;
       const repoUrl = `https://github.com/${fullName}`;
-      const title = normalizeTitle(req.body?.title || `${fullName} repo wiki`);
+      const title = normalizeTitle(req.body?.title || buildRepoWikiTitle(fullName));
       const body = req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
         ? req.body.body
         : {
@@ -2562,7 +2565,7 @@ const buildWikiRouter = ({
               type: 'paragraph',
               content: [{
                 type: 'text',
-                text: `${fullName} is a public GitHub repository. Noeis will maintain this as a developer dossier grounded in package files, entrypoints, workflows, docs, releases, and recent commits.`
+                text: `${fullName} is a public GitHub repository. This page will be rebuilt from repository evidence: package files, entrypoints, workflows, docs, releases, recent commits, and the generated code inventory.`
               }]
             },
             {
@@ -2574,7 +2577,7 @@ const buildWikiRouter = ({
               type: 'paragraph',
               content: [{
                 type: 'text',
-                text: 'Run, test, deploy, architecture, and key-path details will appear after the first GitHub sync attaches repository evidence.'
+                text: 'The first maintenance pass should replace this seed with concrete run commands, proof commands, architecture paths, critical flows, and unknowns supported by attached repository sources.'
               }]
             }
           ]
@@ -2585,7 +2588,21 @@ const buildWikiRouter = ({
         text: repoUrl,
         label: `GitHub repo: ${fullName}`
       });
-      const page = new WikiPage({
+      const existingCandidates = await WikiPage.find({
+        userId: req.user.id,
+        status: { $ne: 'archived' }
+      }).sort({ updatedAt: -1 }).limit(120);
+      const existingPage = (Array.isArray(existingCandidates) ? existingCandidates : []).find((candidate) => {
+        const watch = candidate.externalWatches?.githubRepo || {};
+        const watchedIdentity = `${String(watch.owner || '').toLowerCase()}/${String(watch.repo || '').toLowerCase()}`;
+        const createdLabel = String(candidate.createdFrom?.label || '').toLowerCase();
+        const createdText = String(candidate.createdFrom?.text || '').replace(/\/$/, '').toLowerCase();
+        return watchedIdentity === `${ownerKey}/${repoKey}`
+          || createdLabel === `github repo: ${ownerKey}/${repoKey}`
+          || createdText === repoUrl.toLowerCase();
+      }) || null;
+      const action = existingPage ? 'updated' : 'created';
+      const page = existingPage || new WikiPage({
         userId: req.user.id,
         title,
         slug: await buildUniqueSlug(req.user.id, title),
@@ -2598,25 +2615,33 @@ const buildWikiRouter = ({
         plainText: extractPlainText(body),
         sourceRefs: []
       });
-      refreshPageClaims(page);
+      if (existingPage) {
+        if (req.body?.title) page.title = title;
+        page.pageType = 'repo';
+        page.createdFrom = createdFrom;
+      } else {
+        refreshPageClaims(page);
+      }
       await page.save();
-      await syncPageGraph(page, req.user.id);
-      await createWikiRevision({
-        WikiRevision,
-        userId: req.user.id,
-        page,
-        reason: 'created',
-        actorType: 'user',
-        summary: `Created "${page.title}".`
-      });
-      trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
-        pageId: serializeId(page._id),
-        title: page.title,
-        pageType: page.pageType,
-        sourceCount: 0,
-        sourceScope: page.sourceScope,
-        sourceType: 'github_repo'
-      });
+      if (action === 'created') {
+        await syncPageGraph(page, req.user.id);
+        await createWikiRevision({
+          WikiRevision,
+          userId: req.user.id,
+          page,
+          reason: 'created',
+          actorType: 'user',
+          summary: `Created "${page.title}".`
+        });
+        trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
+          pageId: serializeId(page._id),
+          title: page.title,
+          pageType: page.pageType,
+          sourceCount: 0,
+          sourceScope: page.sourceScope,
+          sourceType: 'github_repo'
+        });
+      }
       let result = { page, snapshot: null, events: [] };
       let watchError = null;
       try {
@@ -2719,11 +2744,12 @@ const buildWikiRouter = ({
           });
         }
       }
-      res.status(201).json({
+      res.status(action === 'created' ? 201 : 200).json({
+        action,
         page: serializeWikiPage(result.page || page),
         repo: {
-          owner: parsedRepo.owner,
-          repo: parsedRepo.repo,
+          owner: ownerKey,
+          repo: repoKey,
           fullName,
           url: repoUrl
         },

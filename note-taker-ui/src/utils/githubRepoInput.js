@@ -21,3 +21,8 @@ export const isValidGitHubRepoInput = (value = '') => Boolean(parseGitHubRepoInp
 export const githubRepoUrl = ({ owner = '', repo = '' } = {}) => (
   owner && repo ? `https://github.com/${owner}/${repo}` : ''
 );
+
+export const buildRepoWikiTitle = (repoSlug = '') => {
+  const slug = normalizeText(repoSlug);
+  return slug ? `${slug} — repo wiki` : 'repo wiki';
+};

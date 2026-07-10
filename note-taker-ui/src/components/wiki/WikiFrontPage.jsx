@@ -14,6 +14,13 @@ import {
   selectPrimaryReturnLoopNote,
   selectBriefingReturnLoopNotes
 } from './wikiBriefingReturnLoopModel';
+import {
+  dedupePagesByRepoKey,
+  filterPagesForTodaysPage,
+  isEligibleForTodaysPage,
+  prepareExplorePages
+} from './wikiRepoDedupeModel';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -198,7 +205,7 @@ const WikiFrontPage = () => {
   }, []);
 
   const curatedPages = useMemo(
-    () => filterReturnViewItems(pages),
+    () => dedupePagesByRepoKey(filterReturnViewItems(pages)),
     [pages]
   );
   const onboardingComplete = (() => {
@@ -229,13 +236,13 @@ const WikiFrontPage = () => {
 
   const recentlyUpdated = useMemo(() => (
     Array.isArray(briefing?.recentlyUpdatedPages)
-      ? filterReturnViewItems(briefing.recentlyUpdatedPages.map(resolvePage))
+      ? dedupePagesByRepoKey(filterReturnViewItems(briefing.recentlyUpdatedPages.map(resolvePage)))
       : []
   ), [briefing, resolvePage]);
 
   const sourceMaterialPages = useMemo(() => (
     Array.isArray(briefing?.pagesWithNewSourceMaterial)
-      ? filterReturnViewItems(briefing.pagesWithNewSourceMaterial.map(resolvePage))
+      ? dedupePagesByRepoKey(filterReturnViewItems(briefing.pagesWithNewSourceMaterial.map(resolvePage)))
       : []
   ), [briefing, resolvePage]);
 
@@ -245,22 +252,30 @@ const WikiFrontPage = () => {
   ), [curatedPages]);
 
   // Today's page: the agent's most recently enriched page; otherwise the
-  // strongest page in the corpus. Different day to day because the corpus is.
-  const todaysPage = sourceMaterialPages[0] || recentlyUpdated[0] || weighted[0] || null;
+  // strongest page in the corpus. Repo wikis only lead when they actually changed.
+  const todaysPage = useMemo(() => {
+    const candidates = [
+      ...filterPagesForTodaysPage(sourceMaterialPages, briefing),
+      ...filterPagesForTodaysPage(recentlyUpdated, briefing),
+      ...filterPagesForTodaysPage(weighted, briefing)
+    ];
+    return candidates[0] || null;
+  }, [sourceMaterialPages, recentlyUpdated, weighted, briefing]);
 
   const recentlyGrown = useMemo(() => {
     const leadId = String(pageId(todaysPage));
     const fromBriefing = recentlyUpdated.filter(page => String(pageId(page)) !== leadId);
     if (fromBriefing.length >= GROWN_LIMIT) return fromBriefing.slice(0, GROWN_LIMIT);
-    const fallback = [...curatedPages]
+    const fallback = dedupePagesByRepoKey([...curatedPages])
       .filter(page => page.updatedAt && String(pageId(page)) !== leadId)
+      .filter(page => isEligibleForTodaysPage(page, briefing))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .filter(page => !fromBriefing.some(existing => pageId(existing) === pageId(page)));
-    return [...fromBriefing, ...fallback].slice(0, GROWN_LIMIT);
-  }, [recentlyUpdated, curatedPages, todaysPage]);
+    return dedupePagesByRepoKey([...fromBriefing, ...fallback]).slice(0, GROWN_LIMIT);
+  }, [recentlyUpdated, curatedPages, todaysPage, briefing]);
 
   const explorePages = useMemo(() => (
-    weighted.slice(0, EXPLORE_LIMIT)
+    prepareExplorePages(weighted, { limit: EXPLORE_LIMIT })
   ), [weighted]);
 
   const reviewCount = briefing?.counts?.driftingPages
@@ -395,7 +410,7 @@ const WikiFrontPage = () => {
           <section className="wiki-front-page__story wfp-anim wfp-anim--3" aria-labelledby="wfp-story-title">
             <p className="wiki-index__eyebrow">Today&rsquo;s page</p>
             <h1 id="wfp-story-title">
-              <Link to={wikiPagePath(pageId(todaysPage))}>{todaysPage.title || 'Untitled page'}</Link>
+              <Link to={wikiPagePath(pageId(todaysPage))}>{displayWikiPageTitle(todaysPage, 'Untitled page')}</Link>
             </h1>
             {leadExcerpt ? <p className="wiki-front-page__excerpt">{leadExcerpt}</p> : null}
             <Link className="wiki-front-page__continue" to={wikiPagePath(pageId(todaysPage))}>
@@ -412,7 +427,7 @@ const WikiFrontPage = () => {
             <ul>
               {recentlyGrown.map((page) => (
                 <li key={pageId(page)}>
-                  <Link to={wikiPagePath(pageId(page))}>{page.title || 'Untitled page'}</Link>
+                  <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
                   {growthNote(page)
                     ? <span className="wiki-front-page__growth-note">{growthNote(page)}</span>
                     : null}
@@ -430,7 +445,7 @@ const WikiFrontPage = () => {
             {explorePages.map((page, i) => (
               <React.Fragment key={pageId(page)}>
                 {i > 0 ? <span aria-hidden="true" className="wiki-front-page__dot"> · </span> : null}
-                <Link to={wikiPagePath(pageId(page))}>{page.title || 'Untitled page'}</Link>
+                <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
               </React.Fragment>
             ))}
           </p>

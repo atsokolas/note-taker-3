@@ -704,12 +704,14 @@ const run = async () => {
         error.statusCode = 403;
         throw error;
       }
+      const [repoOwner, repoName] = String(repo || '').split('/');
+      const repoFullName = `${repoOwner}/${repoName}`;
       const page = await WikiPageModel.findOne({ _id: pageId, userId });
       page.externalWatches = {
         ...(page.externalWatches || {}),
         githubRepo: {
-          owner: 'openai',
-          repo: 'agents-js',
+          owner: repoOwner,
+          repo: repoName,
           defaultBranch: 'main',
           status: 'active',
           lastCheckedAt: new Date('2026-07-04T00:00:00.000Z'),
@@ -721,7 +723,7 @@ const run = async () => {
       return {
         page,
         snapshot: {
-          fullName: 'openai/agents-js',
+          fullName: repoFullName,
           description: 'Agents SDK for TypeScript',
           defaultBranch: 'main',
           headSha: 'abc1234567890abcdef',
@@ -730,15 +732,15 @@ const run = async () => {
         },
         events: [{
           _id: new mongoose.Types.ObjectId().toString(),
-          title: 'openai/agents-js README.md',
+          title: `${repoFullName} README.md`,
           status: 'pending',
-          externalId: 'github-doc:openai/agents-js:abc1234567890abcdef:README.md:readme-sha',
-          url: 'https://github.com/openai/agents-js/blob/abc1234567890abcdef/README.md',
+          externalId: `github-doc:${repoFullName}:abc1234567890abcdef:README.md:readme-sha`,
+          url: `https://github.com/${repoFullName}/blob/abc1234567890abcdef/README.md`,
           sourceUpdatedAt: null,
           provider: 'github-repo',
           metadata: {
             source: 'github-repo',
-            fullName: 'openai/agents-js',
+            fullName: repoFullName,
             path: 'README.md',
             evidenceType: 'document',
             docClass: 'readme',
@@ -746,21 +748,21 @@ const run = async () => {
           }
         }, {
           _id: new mongoose.Types.ObjectId().toString(),
-          title: 'openai/agents-js package.json',
+          title: `${repoFullName} package.json`,
           status: 'pending',
-          externalId: 'github-doc:openai/agents-js:abc1234567890abcdef:package.json:package-sha',
-          url: 'https://github.com/openai/agents-js/blob/abc1234567890abcdef/package.json',
+          externalId: `github-doc:${repoFullName}:abc1234567890abcdef:package.json:package-sha`,
+          url: `https://github.com/${repoFullName}/blob/abc1234567890abcdef/package.json`,
           sourceUpdatedAt: null,
           provider: 'github-repo',
           text: [
-            'openai/agents-js repository developer evidence source.',
+            `${repoFullName} repository developer evidence source.`,
             'Path: package.json.',
             'Commit: abc1234567890abcdef.',
             '{ "name": "agents-js", "scripts": { "start": "node server/server.js", "wiki:qa": "node scripts/wiki_qa.js", "build": "npm run build --workspace note-taker-ui" } }'
           ].join('\n\n'),
           metadata: {
             source: 'github-repo',
-            fullName: 'openai/agents-js',
+            fullName: repoFullName,
             path: 'package.json',
             evidenceType: 'config',
             docClass: 'config',
@@ -972,16 +974,17 @@ const run = async () => {
 
     const githubRepoWatch = await request(url, `/api/wiki/pages/${created.body._id}/github-repo-watch`, {
       method: 'POST',
-      body: JSON.stringify({ repo: 'openai/agents-js' })
+      body: JSON.stringify({ repo: 'openai/agents-js-watch' })
     });
     assert.strictEqual(githubRepoWatch.res.status, 200, githubRepoWatch.text);
     assert.strictEqual(githubRepoWatch.body.page.externalWatches.githubRepo.owner, 'openai');
-    assert.strictEqual(githubRepoWatch.body.snapshot.fullName, 'openai/agents-js');
+    assert.strictEqual(githubRepoWatch.body.page.externalWatches.githubRepo.repo, 'agents-js-watch');
+    assert.strictEqual(githubRepoWatch.body.snapshot.fullName, 'openai/agents-js-watch');
     assert.strictEqual(githubRepoWatch.body.snapshot.docCount, 2);
     assert.strictEqual(githubRepoWatch.body.sourceEvents.length, 2);
     assert.ok(githubRepoWatch.body.page.sourceRefs.length >= 1);
-    assert.ok(githubRepoWatch.body.page.sourceRefs.some(source => /openai\/agents-js/i.test(source.title || '')));
-    const githubRef = githubRepoWatch.body.page.sourceRefs.find(source => /openai\/agents-js/i.test(source.title || ''));
+    assert.ok(githubRepoWatch.body.page.sourceRefs.some(source => /openai\/agents-js-watch/i.test(source.title || '')));
+    const githubRef = githubRepoWatch.body.page.sourceRefs.find(source => /openai\/agents-js-watch/i.test(source.title || ''));
     assert.strictEqual(githubRef.provider, 'github-repo');
     assert.strictEqual(githubRef.metadata.path, 'README.md');
     assert.strictEqual(githubRef.metadata.evidenceType, 'document');
@@ -993,7 +996,7 @@ const run = async () => {
     assert.deepStrictEqual(githubRepoWatchCalls[0], {
       userId: 'user-1',
       pageId: String(created.body._id),
-      repo: 'openai/agents-js',
+      repo: 'openai/agents-js-watch',
       checkNow: true
     });
 
@@ -1034,6 +1037,22 @@ const run = async () => {
       && call.skipQualityRebuild === false
       && call.streamDraft === false
     )));
+
+    const repoPageCountBeforeUpsert = WikiPage.records.filter(page => (
+      page.pageType === 'repo'
+      && page.createdFrom?.label === 'GitHub repo: openai/agents-js'
+    )).length;
+    const repoWikiUpdate = await request(url, '/api/wiki/pages/from-github', {
+      method: 'POST',
+      body: JSON.stringify({ repo: 'OPENAI/agents-js' })
+    });
+    assert.strictEqual(repoWikiUpdate.res.status, 200, repoWikiUpdate.text);
+    assert.strictEqual(repoWikiUpdate.body.action, 'updated');
+    assert.strictEqual(String(repoWikiUpdate.body.page._id), String(repoWikiCreate.body.page._id));
+    assert.strictEqual(WikiPage.records.filter(page => (
+      page.pageType === 'repo'
+      && page.createdFrom?.label === 'GitHub repo: openai/agents-js'
+    )).length, repoPageCountBeforeUpsert);
 
     const repoWikiPartial = await request(url, '/api/wiki/pages/from-github', {
       method: 'POST',

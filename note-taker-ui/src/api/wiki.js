@@ -600,9 +600,11 @@ export const createRepoWikiFromGitHub = async (repoInput = '') => {
       getAuthHeaders()
     );
     const watchResult = res.data || {};
+    const action = watchResult?.action === 'updated' ? 'updated' : 'created';
     return {
       page: watchResult?.page,
       repo: watchResult?.repo || parsed,
+      action,
       watchResult
     };
   } catch (error) {

@@ -28,7 +28,27 @@ const preserveWord = (word = '') => (
   || /[A-Z]&[A-Z]/.test(word)
   || /\d/.test(word)
   || /[A-Z][a-z]+[A-Z]/.test(word)
+  || /[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/.test(word)
+  || /^[a-z0-9]+(?:-[a-z0-9_.]+)+$/i.test(word)
+  || /^[A-Za-z0-9_]+\.[A-Za-z0-9_.-]+$/.test(word)
 );
+
+const REPO_WIKI_TITLE_SUFFIX = /\s+(?:—|–|-)\s*repo wiki\s*$/i;
+
+const isRepoWikiTitle = (value = '') => (
+  REPO_WIKI_TITLE_SUFFIX.test(value)
+  || /\brepo wiki\s*$/i.test(value)
+);
+
+const titleHasCodeIdentifiers = (value = '') => (
+  /[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/.test(value)
+  || /\b[a-z0-9]+(?:-[a-z0-9_.]+)+\b/.test(value)
+);
+
+const buildRepoWikiTitle = (repoSlug = '') => {
+  const slug = normalizeSpaces(repoSlug);
+  return slug ? `${slug} — repo wiki` : 'repo wiki';
+};
 
 const titleCaseWord = (word = '', index = 0, total = 1) => {
   if (!word) return '';
@@ -67,6 +87,10 @@ const normalizeWikiTitleForPresentation = (value = '', {
 
   if (stripLeadingArticle) {
     title = title.replace(/^(?:the|a|an)\s+/, '').trim() || title;
+  }
+
+  if (isRepoWikiTitle(title) || titleHasCodeIdentifiers(title)) {
+    return title || 'Untitled Wiki Page';
   }
 
   const words = title.split(/\s+/).filter(Boolean);
@@ -130,8 +154,11 @@ module.exports = {
   normalizeSpaces,
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
+  buildRepoWikiTitle,
   sentenceBoundaryTrim,
   __testables: {
-    titleCasePhrase
+    titleCasePhrase,
+    isRepoWikiTitle,
+    titleHasCodeIdentifiers
   }
 };

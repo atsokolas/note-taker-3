@@ -117,6 +117,29 @@ describe('WikiGitHubRepoWatchControl', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Private GitHub repositories are not supported.');
   });
 
+  it('shows armed receipt with preserved owner/repo casing', () => {
+    render(
+      <WikiGitHubRepoWatchControl
+        pageId="wiki-project-1"
+        page={{
+          ...projectPage,
+          externalWatches: {
+            githubRepo: {
+              owner: 'atsokolas',
+              repo: 'note-taker-3',
+              status: 'active',
+              lastCheckedAt: '2026-07-04T12:00:00.000Z',
+              lastHeadSha: 'e6acfc3abc1234567890'
+            }
+          }
+        }}
+      />
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(/GitHub watcher armed for atsokolas\/note-taker-3/);
+    expect(screen.getByLabelText('Repository')).toHaveValue('atsokolas/note-taker-3');
+  });
+
   it('shows armed receipt when watch is already active', () => {
     render(<WikiGitHubRepoWatchControl pageId="wiki-project-1" page={armedPage} />);
 

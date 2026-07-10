@@ -12,6 +12,7 @@ const {
   findGitHubRepoDeveloperDossierFailures,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
+  isGitHubRepoPage,
   normalizeSourceIndexesUsed,
   formatKnownWikiPages,
   resolveClaimCitationIds,
@@ -78,6 +79,21 @@ const fakeFindModel = (records = []) => ({
   })
 });
 
+const repoQualitySupplementalSources = () => [
+  ['README.md', 'document', 'readme'],
+  ['docs/architecture.md', 'document', 'architecture'],
+  ['docs/product.md', 'document', 'product'],
+  ['docs/development.md', 'document', 'runbook'],
+  ['.github/workflows/agent-harness-regression.yml', 'config', 'config'],
+  ['__repo_inventory__/code-inventory.txt', 'inventory', 'inventory']
+].map(([path, evidenceType, docClass]) => ({
+  type: 'external',
+  title: `atsokolas/note-taker-3 ${path}`,
+  snippet: `Repository evidence source. Path: ${path}.`,
+  provider: 'github-repo',
+  metadata: { source: 'github-repo', path, evidenceType, docClass, commitSha: '0053101' }
+}));
+
 describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
   it('appends the wiki schema conventions to maintenance prompts', () => {
     const prompt = buildPrompt({
@@ -139,19 +155,19 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(prompt).toContain('GitHub repository page rules');
     expect(prompt).toContain('Write only what the repository evidence actually supports');
-    expect(prompt).toContain('developer dossier');
-    expect(prompt).toContain('Product orientation');
-    expect(prompt).toContain('User experience map');
+    expect(prompt).toContain('evidence-first developer dossier');
+    expect(prompt).toContain('Let the section structure follow the repository');
+    expect(prompt).toContain('Repo dossier section goals, not mandated headings');
     expect(prompt).toContain('Critical flows');
-    expect(prompt).toContain('Architecture and ownership');
-    expect(prompt).toContain('Common change paths');
-    expect(prompt).toContain('Quality bar and invariants');
-    expect(prompt).toContain('Failure modes');
-    expect(prompt).toContain('Developer quickstart');
+    expect(prompt).toContain('Architecture map');
+    expect(prompt).toContain('Change paths');
+    expect(prompt).toContain('Risks and unknowns');
     expect(prompt).toContain('The first viewport must be useful before the References section');
     expect(prompt).toContain('Prefer a practical handoff over a prose summary');
     expect(prompt).toContain('Start with what the product is and what user experience the repo serves');
     expect(prompt).toContain('docClass="planned"');
+    expect(prompt).toContain('docClass="policy"');
+    expect(prompt).toContain('evidenceType="inventory"');
     expect(prompt).toContain('Do not claim the repo is published to npm');
     expect(prompt).toContain('Prefer concrete repo facts');
     expect(prompt).toContain('Do not describe them as Library highlights');
@@ -160,6 +176,17 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Test commands: npm run wiki:qa -> node scripts/wiki_qa.js [2]');
     expect(prompt).toContain('Key paths you may name: package.json [2]; server/routes/wikiRoutes.js [3]');
     expect(prompt).toContain('Unsupported unless cited verbatim');
+  });
+
+  it('does not classify an ordinary page as a repo when Mongoose materializes an empty repo-watch object', () => {
+    expect(isGitHubRepoPage({
+      page: {
+        title: 'Complementary Machines',
+        pageType: 'topic',
+        externalWatches: { githubRepo: {} }
+      },
+      candidates: []
+    })).toBe(false);
   });
 
   it('surfaces GitHub repo metadata in source blocks so specs stay quarantined', () => {
@@ -382,19 +409,17 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       article: result.article
     }));
 
-    expect(text).toContain('Product orientation');
-    expect(text).toContain('User experience map');
-    expect(text).toContain('Developer quickstart');
-    expect(text).toContain('Critical flows');
-    expect(text).toContain('Architecture and ownership');
-    expect(text).toContain('Common change paths');
-    expect(text).toContain('Quality bar and invariants');
+    expect(text).toContain('What Noeis is');
+    expect(text).toContain('Run and prove changes');
+    expect(text).toContain('Critical product flows');
+    expect(text).toContain('System map');
+    expect(text).toContain('Where to make changes');
     expect(text).toContain('Failure modes');
     expect(text).toContain('Deploy and unknowns');
     expect(text).toContain('Library');
     expect(text).toContain('Think');
     expect(text).toContain('Wiki');
-    expect(text).toContain('Create repo wiki');
+    expect(text).toContain('Repo creation');
     expect(text).toContain('npm run start');
     expect(text).toContain('npm run wiki:qa');
     expect(text).toContain('server/server.js');
@@ -454,7 +479,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         snippet: 'recent commits. 0053101 2026-07-05 - prevent duplicate wiki build streams.',
         provider: 'github-repo',
         metadata: { source: 'github-repo', evidenceType: 'recent_commits', commitSha: '0053101' }
-      }]
+      }, ...repoQualitySupplementalSources()]
     };
 
     const maintained = await maintainWikiPage({
@@ -480,13 +505,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Product orientation');
-    expect(text).toContain('User experience map');
-    expect(text).toContain('Developer quickstart');
-    expect(text).toContain('Critical flows');
-    expect(text).toContain('Architecture and ownership');
-    expect(text).toContain('Common change paths');
-    expect(text).toContain('Quality bar and invariants');
+    expect(text).toContain('What Noeis is');
+    expect(text).toContain('Run and prove changes');
+    expect(text).toContain('Critical product flows');
+    expect(text).toContain('System map');
+    expect(text).toContain('Where to make changes');
     expect(text).toContain('Failure modes');
     expect(text).toContain('Deploy and unknowns');
     expect(text).toContain('npm run start');
@@ -494,6 +517,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('server/server.js');
     expect(text).not.toMatch(/will appear after the first GitHub sync/i);
     expect(text).not.toMatch(/Noeis will maintain this as a developer dossier/i);
+    expect(maintained.aiState.quality.failures).toEqual([]);
     expect(maintained.aiState.quality.ok).toBe(true);
     expect(maintained.aiState.quality.fallbackApplied).toBe(true);
   });
@@ -533,9 +557,9 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         snippet: 'recent commits. 0053101 2026-07-05 - prevent duplicate wiki build streams.',
         provider: 'github-repo',
         metadata: { source: 'github-repo', evidenceType: 'recent_commits', commitSha: '0053101' }
-      }]
+      }, ...repoQualitySupplementalSources()]
     };
-    const paragraph = 'The cited repository evidence should be treated as the authority for this page. It names the runnable package script, the server entrypoint, the wiki route surface, and the current commit signal, so the dossier can stay concrete without inventing test health, npm distribution, or unrelated framework claims.';
+    const paragraph = 'Noeis moves saved reading from Library into Think, then into maintained Wiki pages and privacy-safe public sharing. The repository evidence names package.json, README.md, docs/architecture.md, server/server.js, and server/routes/wikiRoutes.js as concrete ownership points. Repo creation runs through WikiRepoCreateComposer and createRepoWikiFromGitHub to POST /api/wiki/pages/from-github, then githubRepoWatcherService attaches sourceRefs under externalWatches.githubRepo and wikiMaintenanceService builds the article for WikiPageReadView. Contributors run npm run start, prove wiki behavior with npm run wiki:qa, and build the frontend with npm run build. The UI deploys through Vercel while the API deploys through Render. Overlapping maintenance streams can produce a Mongoose VersionError, so duplicate build prevention and visible status receipts are product invariants. This section stays grounded in attached repository files and does not infer CI health, npm publication, issue status, or production readiness from package scripts alone.';
     const section = (heading, citationIndexes = [1, 2]) => ({
       heading,
       paragraphs: [{ text: paragraph, citationIndexes, support: 'supported' }],
@@ -553,7 +577,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
           title: 'Atsokolas/Note-Taker-3 Repo Wiki',
           article: {
             summary: {
-              text: 'This repository dossier is grounded in package.json, server/server.js, server/routes/wikiRoutes.js, and recent commit evidence; it should start with the concrete run path and implementation files before discussing risk.',
+              text: 'Noeis is a reading and knowledge workspace that moves source material through Library, Think, and Wiki into maintained pages and privacy-safe public sharing. This repository dossier is grounded in package.json, server/server.js, server/routes/wikiRoutes.js, and recent commit evidence.',
               citationIndexes: [1, 2, 3, 4],
               support: 'supported'
             },
@@ -578,10 +602,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     const text = toPlainText(maintained.body);
-    expect(text).toContain('Deploy and unknowns');
+    expect(text).toContain('Deploy and operations');
     expect(text).toContain('npm run start');
     expect(text).toContain('server/routes/wikiRoutes.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
+    expect(maintained.aiState.quality.failures).toEqual([]);
     expect(maintained.aiState.quality.ok).toBe(true);
     expect(maintained.aiState.quality.fallbackApplied).not.toBe(true);
   });
@@ -805,7 +830,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(quality.ok).toBe(false);
-    expect(quality.failures.join(' ')).toMatch(/product-aware developer manual sections/i);
+    expect(quality.failures.join(' ')).toMatch(/not structured enough to orient a developer/i);
     expect(quality.failures.join(' ')).toMatch(/local run or test commands/i);
     expect(quality.failures.join(' ')).toMatch(/code\/config evidence/i);
     expect(quality.failures.join(' ')).toMatch(/stale planning or QA history/i);

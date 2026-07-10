@@ -1,6 +1,6 @@
 import api from '../api';
 import { TextDecoder, TextEncoder } from 'util';
-import { streamMaintainWikiPage } from './wiki';
+import { createRepoWikiFromGitHub, streamMaintainWikiPage } from './wiki';
 
 jest.mock('../api', () => ({
   defaults: { baseURL: '' },
@@ -63,5 +63,57 @@ describe('wiki api streams', () => {
     expect(finalPage).toEqual({ _id: 'wiki-1', title: 'Complete' });
     expect(events).toContainEqual(['wiki-draft', 'connected']);
     expect(pages).toEqual(['Maintaining', 'Complete']);
+  });
+});
+
+describe('createRepoWikiFromGitHub', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns created action when the API creates a new repo wiki', async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        action: 'created',
+        page: { _id: 'wiki-repo-1', title: 'openai/agents-js repo wiki' },
+        repo: { owner: 'openai', repo: 'agents-js', fullName: 'openai/agents-js' }
+      }
+    });
+
+    const result = await createRepoWikiFromGitHub('https://github.com/openai/agents-js');
+
+    expect(api.post.mock.calls[0][0]).toBe('/api/wiki/pages/from-github');
+    expect(api.post.mock.calls[0][1]).toEqual({ repo: 'openai/agents-js' });
+    expect(result).toEqual(expect.objectContaining({
+      action: 'created',
+      page: expect.objectContaining({ _id: 'wiki-repo-1' })
+    }));
+  });
+
+  it('returns updated action when the API upserts an existing repo wiki', async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        action: 'updated',
+        page: { _id: 'wiki-repo-existing', title: 'openai/agents-js repo wiki' },
+        repo: { owner: 'openai', repo: 'agents-js', fullName: 'openai/agents-js' }
+      }
+    });
+
+    const result = await createRepoWikiFromGitHub('openai/agents-js');
+
+    expect(result.action).toBe('updated');
+    expect(result.page._id).toBe('wiki-repo-existing');
+  });
+
+  it('defaults to created when the API omits action', async () => {
+    api.post.mockResolvedValueOnce({
+      data: {
+        page: { _id: 'wiki-repo-legacy', title: 'openai/agents-js repo wiki' }
+      }
+    });
+
+    const result = await createRepoWikiFromGitHub('openai/agents-js');
+
+    expect(result.action).toBe('created');
   });
 });

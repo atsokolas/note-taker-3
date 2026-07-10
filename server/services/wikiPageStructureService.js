@@ -41,17 +41,14 @@ const CONTRACTS = {
   },
   repo: {
     label: 'Repository',
-    intent: 'Maintain a product-aware developer operating manual for a GitHub repository.',
+    intent: 'Maintain an evidence-first developer dossier for a GitHub repository.',
     sections: [
-      'Product orientation',
-      'User experience map',
-      'Developer quickstart',
+      'What this repo is',
+      'How to run and prove changes',
+      'Architecture map',
       'Critical flows',
-      'Architecture and ownership',
-      'Common change paths',
-      'Quality bar and invariants',
-      'Failure modes',
-      'Deploy and unknowns'
+      'Change paths',
+      'Risks and unknowns'
     ]
   },
   log: {
@@ -92,6 +89,13 @@ const emptySection = (heading) => ({
 
 const alignArticleToPageStructure = ({ article = {}, pageType = 'topic' } = {}) => {
   const contract = getWikiPageStructure(pageType);
+  if (contract.type === 'repo') {
+    const sections = Array.isArray(article.sections) ? article.sections : [];
+    return {
+      ...article,
+      sections: sections.slice(0, 10)
+    };
+  }
   const sections = Array.isArray(article.sections) ? article.sections : [];
   const sectionByHeading = new Map(sections.map(section => [normalizeHeading(section?.heading || section?.title), section]));
   const ordered = contract.sections.map((heading) => sectionByHeading.get(normalizeHeading(heading)) || emptySection(heading));

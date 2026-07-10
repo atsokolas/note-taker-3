@@ -2,7 +2,7 @@ const { createWikiSourceEvent } = require('./wikiSourceEventService');
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-const DEFAULT_DOC_PATH_LIMIT = 24;
+const DEFAULT_DOC_PATH_LIMIT = 48;
 const DEFAULT_REPO_COMMIT_LIMIT = 8;
 const DEFAULT_BLOB_TEXT_LIMIT = 7000;
 
@@ -70,8 +70,11 @@ const repoEvidencePathRank = (path = '') => {
   if (lower === 'package.json') return 0;
   if (/^[^/]+\/package\.json$/.test(lower)) return 1;
   if (/^readme(\.|$)/.test(lower)) return 2;
-  if (lower === 'agents.md' || lower === 'contributing.md') return 3;
+  if (lower === 'contributing.md') return 3;
   if (/^\.github\/workflows\/[^/]+\.(ya?ml)$/.test(lower)) return 4;
+  if (/^(architecture|adr|adrs|decisions)(\.|\/|$)/.test(lower)) return 5;
+  if (/^(docs|documentation)\/.*(architecture|developer|dev|deploy|runbook|getting-started|setup|adr|decision|design|system|product)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 6;
+  if (/^(docs|documentation)\//.test(lower) && /\.(md|mdx|rst|txt)$/i.test(lower)) return 7;
   if (/^(server|api)\/(server|app|index)\.[jt]sx?$/.test(lower)) return 5;
   if (/^server\/models\/index\.[jt]s$/.test(lower)) return 6;
   if (/^server\/routes\/(?:index|api|app|server|wiki|auth|agentchat)[^/]*\.[jt]s$/.test(lower)) return 7;
@@ -83,9 +86,8 @@ const repoEvidencePathRank = (path = '') => {
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/(app|index|main|routes|api|utils|layout|pages)\b/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 10;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/(components|pages)\/(?:wiki|library|think|app|home)/.test(lower) && /\.(js|jsx|ts|tsx)$/.test(lower)) return 11;
   if (/^architecture(\.|$)|(^|\/)architecture(\.|\/|$)/.test(lower)) return 8;
-  if (/^(docs|documentation)\/(architecture|developer|dev|deploy|runbook|readme|getting-started|setup)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)) return 9;
-  if (/^docs\//.test(lower)) return 20;
   if (/^changelog(\.|$)|^changes(\.|$)/.test(lower)) return 21;
+  if (isRepoPolicyPath(lower)) return 30;
   return 100;
 };
 
@@ -107,6 +109,15 @@ const repoEvidencePathTieBreak = (path = '') => {
   return 10;
 };
 
+const repoPolicyPathRank = (path = '') => {
+  const lower = String(path || '').toLowerCase();
+  if (lower === 'agents.md') return 0;
+  if (lower === 'claude.md') return 1;
+  if (lower === '.cursorrules') return 2;
+  if (lower === '.github/copilot-instructions.md') return 3;
+  return 10;
+};
+
 const isUsefulDocPath = (path = '') => {
   const lower = String(path || '').toLowerCase();
   if (!/\.(md|mdx|rst|txt)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture)(\.|$)/i.test(lower)) return false;
@@ -119,7 +130,8 @@ const isUsefulRepoEvidencePath = (path = '') => {
   if (/(^|\/)(node_modules|dist|build|vendor|coverage|test-results|playwright-report|\.next|\.vercel|tmp|temp)\//.test(lower)) return false;
   if (/(^|\/)(__tests__|test|tests|fixtures|mocks)\//.test(lower)) return false;
   if (/\.(test|spec)\.[jt]sx?$/.test(lower)) return false;
-  if (!/\.(md|mdx|rst|txt|json|ya?ml|js|jsx|ts|tsx)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture|agents)(\.|$)/i.test(lower)) return false;
+  if (isRepoPolicyPath(lower)) return true;
+  if (!/\.(md|mdx|rst|txt|json|ya?ml|js|jsx|ts|tsx)$/i.test(lower) && !/^(readme|contributing|changelog|changes|architecture|agents|claude)(\.|$)/i.test(lower)) return false;
   return repoEvidencePathRank(lower) < 100;
 };
 
@@ -130,21 +142,32 @@ const selectRepoDocEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
     .slice(0, Math.max(1, Math.min(Number(limit) || DEFAULT_DOC_PATH_LIMIT, 30)))
 );
 
-const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => (
-  (Array.isArray(tree) ? tree : [])
+const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) => {
+  const max = Math.max(1, Math.min(Number(limit) || DEFAULT_DOC_PATH_LIMIT, 60));
+  const ranked = (Array.isArray(tree) ? tree : [])
     .filter(entry => entry?.type === 'blob' && isUsefulRepoEvidencePath(entry.path))
     .sort((a, b) => (
       repoEvidencePathRank(a.path) - repoEvidencePathRank(b.path)
       || repoEvidencePathTieBreak(a.path) - repoEvidencePathTieBreak(b.path)
       || String(a.path).localeCompare(String(b.path))
-    ))
-    .slice(0, Math.max(1, Math.min(Number(limit) || DEFAULT_DOC_PATH_LIMIT, 30)))
-);
+    ));
+  const policyEntries = ranked
+    .filter(entry => isRepoPolicyPath(entry.path))
+    .sort((a, b) => repoPolicyPathRank(a.path) - repoPolicyPathRank(b.path) || String(a.path).localeCompare(String(b.path)))
+    .slice(0, Math.min(4, max));
+  const evidenceEntries = ranked.filter(entry => !isRepoPolicyPath(entry.path));
+  return [
+    ...evidenceEntries.slice(0, Math.max(0, max - policyEntries.length)),
+    ...policyEntries
+  ];
+};
 
 const decodeBase64 = (value = '') => Buffer.from(String(value || '').replace(/\s/g, ''), 'base64').toString('utf8');
 
 const classifyRepoDocClass = (path = '') => {
   const lower = String(path || '').toLowerCase();
+  if (lower === '__repo_inventory__/code-inventory.txt') return 'inventory';
+  if (isRepoPolicyPath(lower)) return 'policy';
   if (lower === 'package.json' || /^[^/]+\/package\.json$/.test(lower) || /^\.github\/workflows\//.test(lower)) return 'config';
   if (/\.(js|jsx|ts|tsx)$/i.test(lower)) return 'code';
   if (/^readme(\.|$)/.test(lower)) return 'readme';
@@ -154,6 +177,57 @@ const classifyRepoDocClass = (path = '') => {
   if (/^docs\/growth\//i.test(lower) || /^docs\/superpowers\/plans\//i.test(lower)) return 'planned';
   if (/^changelog(\.|$)|^changes(\.|$)/.test(lower)) return 'changelog';
   return 'document';
+};
+
+const isRepoPolicyPath = (path = '') => {
+  const lower = String(path || '').toLowerCase();
+  return lower === 'agents.md'
+    || lower === 'claude.md'
+    || lower === '.cursorrules'
+    || lower === '.github/copilot-instructions.md'
+    || /(^|\/)(cursor|claude|agent|agents)[^/]*\.(md|mdx|rst|txt)$/i.test(lower)
+    || /(^|\/)prompts?\//i.test(lower);
+};
+
+const buildCodeInventoryDoc = ({ owner, repo, headSha, tree = [] } = {}) => {
+  const entries = (Array.isArray(tree) ? tree : [])
+    .filter(entry => entry?.type === 'blob')
+    .map(entry => String(entry.path || ''))
+    .filter(Boolean);
+  const dirs = Array.from(new Set(entries.map(path => path.split('/')[0]).filter(Boolean))).sort();
+  const pick = (pattern, limit = 24) => entries.filter(path => pattern.test(path)).sort().slice(0, limit);
+  const lines = [
+    `${owner}/${repo} repository code inventory.`,
+    `Head commit: ${headSha}.`,
+    '',
+    `Top-level directories: ${dirs.join(', ') || 'none'}.`,
+    '',
+    'Package/config files:',
+    ...pick(/(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock|turbo\.json|vite\.config\.[jt]s|next\.config\.[jt]s|tsconfig\.json)$/i, 40).map(path => `- ${path}`),
+    '',
+    'Workflow files:',
+    ...pick(/^\.github\/workflows\/[^/]+\.(ya?ml)$/i, 40).map(path => `- ${path}`),
+    '',
+    'Server routes:',
+    ...pick(/^(server|api)\/routes\/.*\.[jt]s$/i, 48).map(path => `- ${path}`),
+    '',
+    'Server services:',
+    ...pick(/^(server|api)\/services\/.*\.[jt]s$/i, 64).map(path => `- ${path}`),
+    '',
+    'Models and persistence:',
+    ...pick(/^(server|api)\/models\/.*\.[jt]s$/i, 32).map(path => `- ${path}`),
+    '',
+    'Frontend wiki/library/think surfaces:',
+    ...pick(/^(note-taker-ui|client|web|app|frontend)\/src\/(components|pages|api)\/.*(Wiki|Library|Think|wiki|library|think).*?\.[jt]sx?$/i, 64).map(path => `- ${path}`)
+  ];
+  return {
+    path: '__repo_inventory__/code-inventory.txt',
+    sha: headSha,
+    size: lines.join('\n').length,
+    text: trim(lines.join('\n'), 12000),
+    htmlUrl: `https://github.com/${owner}/${repo}/tree/${headSha}`,
+    synthetic: true
+  };
 };
 
 const fetchRecentCommits = async ({
@@ -214,6 +288,8 @@ const fetchRepoSnapshot = async ({
   });
   const docEntries = selectRepoEvidenceEntries(tree.tree, docLimit);
   const docs = [];
+  const inventoryDoc = buildCodeInventoryDoc({ owner, repo, headSha, tree: tree.tree });
+  if (inventoryDoc.text) docs.push(inventoryDoc);
   for (const entry of docEntries) {
     const blob = await fetchJson({ url: repoApiUrl({ owner, repo, path: `/git/blobs/${encodeURIComponent(entry.sha)}` }), fetchImpl, token });
     docs.push({
@@ -285,7 +361,11 @@ const buildRepoDocEventPayload = ({ userId, page, snapshot, doc } = {}) => ({
     repo: snapshot.repo,
     fullName: snapshot.fullName,
     path: doc.path,
-    evidenceType: /\.(json|ya?ml)$/i.test(doc.path) ? 'config' : /\.(js|jsx|ts|tsx)$/i.test(doc.path) ? 'code' : 'document',
+    evidenceType: doc.path === '__repo_inventory__/code-inventory.txt'
+      ? 'inventory'
+      : isRepoPolicyPath(doc.path)
+        ? 'policy'
+        : /\.(json|ya?ml)$/i.test(doc.path) ? 'config' : /\.(js|jsx|ts|tsx)$/i.test(doc.path) ? 'code' : 'document',
     docClass: classifyRepoDocClass(doc.path),
     blobSha: doc.sha,
     commitSha: snapshot.headSha,

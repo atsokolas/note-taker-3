@@ -276,4 +276,54 @@ describe('WikiList', () => {
     expect(onOpenPage).toHaveBeenCalledWith('wiki-1');
     expect(screen.getByRole('status')).toHaveTextContent('Opening');
   });
+
+  it('dedupes duplicate repo wiki rows in the compact list', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'repo-old',
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        status: 'published',
+        updatedAt: '2026-06-01T12:00:00.000Z',
+        externalWatches: {
+          githubRepo: {
+            owner: 'atsokolas',
+            repo: 'note-taker-3',
+            status: 'active',
+            lastCheckedAt: '2026-06-02T12:00:00.000Z'
+          }
+        }
+      },
+      {
+        _id: 'repo-new',
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        status: 'published',
+        updatedAt: '2026-07-09T12:00:00.000Z',
+        externalWatches: {
+          githubRepo: {
+            owner: 'atsokolas',
+            repo: 'note-taker-3',
+            status: 'active',
+            lastCheckedAt: '2026-07-09T08:00:00.000Z'
+          }
+        }
+      },
+      {
+        _id: 'wiki-topic',
+        title: 'Margin of Safety',
+        pageType: 'topic',
+        status: 'published',
+        updatedAt: '2026-06-10T12:00:00.000Z'
+      }
+    ]);
+
+    renderWikiList();
+
+    expect(await screen.findByRole('article', { name: 'note-taker-3 — repo wiki' }))
+      .toBeInTheDocument();
+    expect(screen.getAllByRole('article', { name: 'note-taker-3 — repo wiki' })).toHaveLength(1);
+    expect(screen.getByRole('article', { name: 'Margin of Safety' })).toBeInTheDocument();
+    expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('2');
+  });
 });

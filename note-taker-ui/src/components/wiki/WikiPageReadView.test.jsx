@@ -1767,11 +1767,13 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
 
     expect(screen.getByRole('region', { name: 'Developer quickstart' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'note-taker-3 — repo wiki' })).toBeInTheDocument();
     expect(screen.getByText('npm start')).toBeInTheDocument();
     expect(screen.getByText(/CI=1 npm test/)).toBeInTheDocument();
     expect(screen.getByText('note-taker-ui/')).toBeInTheDocument();
     expect(screen.getByText('server/')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Track GitHub repo' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/atsokolas\/note-taker-3/);
   });
 
   it('does not show developer quickstart on ordinary wiki pages', async () => {
