@@ -177,7 +177,7 @@ const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) =>
   };
 
   const operationalCorePatterns = [
-    /^server\/routes\/(?:wikiRoutes|authRoutes|agentChatRoutes)\.[jt]s$/i,
+    /^server\/routes\/(?:wikiRoutes|authDiscoveryRoutes|agentChatRoutes)\.[jt]s$/i,
     /^server\/services\/(?:wikiMaintenanceService|wikiMaintenancePublicationService|githubRepoWatcherService|wikiScheduledMaintenanceWorker|wikiAskService)\.[jt]s$/i,
     /^server\/models\/index\.[jt]s$/i,
     /^note-taker-ui\/src\/(?:App|api\/wiki|system\/SystemStatusContext)\.[jt]sx?$/i,

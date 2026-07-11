@@ -291,7 +291,7 @@ const run = async () => {
   assert.ok(saturatedEvidence.filter(path => /qa-report/i.test(path)).length <= 4);
   const operationalEvidence = selectRepoEvidenceEntries([
     { path: 'package.json', type: 'blob' },
-    { path: 'server/routes/authRoutes.js', type: 'blob' },
+    { path: 'server/routes/authDiscoveryRoutes.js', type: 'blob' },
     { path: 'server/routes/wikiRoutes.js', type: 'blob' },
     { path: 'server/services/wikiMaintenanceService.js', type: 'blob' },
     { path: 'server/services/wikiMaintenancePublicationService.js', type: 'blob' },
@@ -308,7 +308,7 @@ const run = async () => {
     }))
   ], 20).map(entry => entry.path);
   [
-    'server/routes/authRoutes.js',
+    'server/routes/authDiscoveryRoutes.js',
     'server/routes/wikiRoutes.js',
     'server/services/wikiMaintenancePublicationService.js',
     'server/services/wikiScheduledMaintenanceWorker.js',

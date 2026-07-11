@@ -1664,15 +1664,22 @@ const findUnqualifiedPackageScriptMentions = ({ text = '', scripts = [] } = {}) 
 const REPO_FALLBACK_PRIORITY_PATHS = [
   /^package\.json$/i,
   /^note-taker-ui\/package\.json$/i,
+  /^\.env\.example$/i,
   /^server\/server\.[jt]s$/i,
+  /^server\/routes\/authDiscoveryRoutes\.[jt]s$/i,
   /^server\/routes\/wikiRoutes\.[jt]s$/i,
   /^server\/services\/wikiMaintenanceService\.[jt]s$/i,
+  /^server\/services\/wikiMaintenancePublicationService\.[jt]s$/i,
   /^server\/services\/githubRepoWatcherService\.[jt]s$/i,
   /^server\/models\/index\.[jt]s$/i,
   /^server\/routes\/agentChatRoutes\.[jt]s$/i,
+  /^server\/services\/wikiAskService\.[jt]s$/i,
   /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i,
+  /^note-taker-ui\/src\/system\/SystemStatusContext\.[jt]sx?$/i,
   /^note-taker-ui\/src\/components\/wiki\/WikiRepoCreateComposer\.[jt]sx?$/i,
   /^note-taker-ui\/src\/components\/wiki\/WikiPageReadView\.[jt]sx?$/i,
+  /^note-taker-ui\/src\/pages\/DataIntegrations\.[jt]sx?$/i,
+  /^note-taker-ui\/src\/pages\/SharedWikiPage\.[jt]sx?$/i,
   /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i,
   /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i,
   /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i
@@ -1771,6 +1778,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     asString(source.metadata?.docClass).toLowerCase() !== 'planned'
   ));
   const inventorySources = byEvidence('inventory');
+  const inventorySourceIndex = inventorySources[0]?.index;
   const policySources = byEvidence('policy');
   const commitSources = byEvidence('recent_commits');
   const readmeSource = repoSources.find(source => asString(source.metadata?.docClass).toLowerCase() === 'readme') || repoSources[0] || null;
@@ -1793,7 +1801,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     repoSourceForPath(repoSources, /^\.env\.example$/i)?.index,
     repoSourceForPath(repoSources, /^note-taker-ui\/package\.json$/i)?.index,
     repoSourceForPath(repoSources, /^server\/server\.[jt]s$/i)?.index,
-    repoSourceForPath(repoSources, /^server\/routes\/(?:wikiRoutes|authRoutes|agentChatRoutes)\.[jt]s$/i)?.index,
+    repoSourceForPath(repoSources, /^server\/routes\/(?:wikiRoutes|authDiscoveryRoutes|agentChatRoutes)\.[jt]s$/i)?.index,
     repoSourceForPath(repoSources, /^server\/services\/wikiMaintenanceService\.[jt]s$/i)?.index,
     repoSourceForPath(repoSources, /^server\/services\/wikiMaintenancePublicationService\.[jt]s$/i)?.index,
     repoSourceForPath(repoSources, /^server\/services\/githubRepoWatcherService\.[jt]s$/i)?.index,
@@ -1836,7 +1844,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const aiClientPath = repoSourceForPath(repoSources, /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i);
   const scheduledWorkerPath = repoSourceForPath(repoSources, /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i);
   const publicationPath = repoSourceForPath(repoSources, /^server\/services\/wikiMaintenancePublicationService\.[jt]s$/i);
-  const authRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/authRoutes\.[jt]s$/i);
+  const authRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/authDiscoveryRoutes\.[jt]s$/i);
   const systemStatusPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/system\/SystemStatusContext\.[jt]sx?$/i);
   const repoComposerPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/components\/wiki\/WikiRepoCreateComposer\.[jt]sx?$/i);
   const readViewPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/components\/wiki\/WikiPageReadView\.[jt]sx?$/i);
@@ -1879,7 +1887,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const aiDescription = aiClientPath ? `${extractRepoPath(aiClientPath)} owns text-model provider selection and upstream routing.` : '';
   const workerDescription = scheduledWorkerPath ? 'server/services/wikiScheduledMaintenanceWorker.js runs background wiki maintenance outside the request path.' : '';
   const publicationDescription = publicationPath ? 'server/services/wikiMaintenancePublicationService.js owns candidate-versus-published state and preserves the last trusted page when a rebuild fails.' : '';
-  const authDescription = authRoutesPath ? 'server/routes/authRoutes.js owns the login/token boundary; authenticated wiki routes remain distinct from deliberately public share serialization.' : '';
+  const authDescription = authRoutesPath ? 'server/routes/authDiscoveryRoutes.js owns the login/token boundary; authenticated wiki routes remain distinct from deliberately public share serialization.' : '';
   const statusDescription = systemStatusPath ? 'note-taker-ui/src/system/SystemStatusContext.js carries background work, durable receipts, and recoverable failures into the shared status surface.' : '';
   const commandSourceIndexes = Array.from(new Set([
     runScript?.sourceIndex,
@@ -2039,11 +2047,11 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         bullets: [
           {
             text: 'Repo creation: note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx -> note-taker-ui/src/api/wiki.js -> POST /api/wiki/pages/from-github -> server/routes/wikiRoutes.js -> server/services/githubRepoWatcherService.js -> server/services/wikiMaintenanceService.js -> server/models/index.js WikiPage persistence -> note-taker-ui/src/components/wiki/WikiPageReadView.jsx.',
-            citationIndexes: [repoComposerPath?.index, wikiClientApiPath?.index, wikiRoutesPath?.index, watcherPath?.index, maintenancePath?.index, modelsPath?.index, readViewPath?.index].filter(Boolean)
+            citationIndexes: [repoComposerPath?.index, wikiClientApiPath?.index, wikiRoutesPath?.index, watcherPath?.index, maintenancePath?.index, modelsPath?.index, readViewPath?.index, inventorySourceIndex].filter(Boolean)
           },
           {
             text: 'Repo refresh: externalWatches.githubRepo records observed and candidate heads -> server/services/githubRepoWatcherService.js refreshes read-only evidence -> source events attach to the page -> server/services/wikiMaintenanceService.js builds a candidate -> server/services/wikiMaintenancePublicationService.js publishes only an accepted candidate and otherwise leaves the last trusted page visible.',
-            citationIndexes: [watcherPath?.index, maintenancePath?.index, publicationPath?.index, modelsPath?.index].filter(Boolean)
+            citationIndexes: [watcherPath?.index, maintenancePath?.index, publicationPath?.index, modelsPath?.index, inventorySourceIndex].filter(Boolean)
           },
           {
             text: 'Ask and retrieval: inspect agentChatRoutes before changing page-aware answers, then confirm whether the behavior should route through page-only retrieval or graph-aware wiki asking.',
@@ -2055,7 +2063,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
           },
           {
             text: 'System status flow: long-running builds publish background work, success receipts, or recoverable failures through note-taker-ui/src/system/SystemStatusContext.js so the user can distinguish rebuilding, ready, and needs-review states.',
-            citationIndexes: [systemStatusPath?.index, wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean)
+            citationIndexes: [systemStatusPath?.index, wikiClientApiPath?.index, wikiRoutesPath?.index, inventorySourceIndex].filter(Boolean)
           }
         ]
       },
