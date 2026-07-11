@@ -46,6 +46,7 @@ const GITHUB_REPO_TEMPLATE_LEAK_PATTERNS = [
   /\bDeveloper posture:\s*preserve\b/i,
   /\b(?:wiki maintenance service|GitHub repo watcher service|frontend wiki API client|model definitions) (?:was|were) not attached\b/i
 ];
+const GITHUB_REPO_PLANNING_PATH_PATTERN = /\b(?:docs\/(?:deep-dive-qa-report|full-qa-sweep|evernote-cloud-oauth-spike|noeis-[\w-]*(?:spec|plan|qa|review|feedback|polish|roadmap)|test-plans\/)[\w./-]*\.(?:md|mdx|txt)|output\/[\w./-]+)\b/gi;
 const GITHUB_REPO_MIN_WORDS = 900;
 const GITHUB_REPO_MIN_SOURCE_REFS = 10;
 const GITHUB_REPO_MAX_CLAIMS_PER_SOURCE = 4;
@@ -632,6 +633,14 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
       const context = text.slice(Math.max(0, matchIndex - 140), matchIndex + path.length + 140);
       return !/\b(?:planned|planning|proposal|roadmap|historical|context only|not shipped|not current)\b/i.test(context);
     });
+  const unqualifiedPlanningPathMentions = Array.from(text.matchAll(GITHUB_REPO_PLANNING_PATH_PATTERN))
+    .map(match => match[0])
+    .filter((path) => {
+      const matchIndex = text.toLowerCase().indexOf(path.toLowerCase());
+      if (matchIndex < 0) return false;
+      const context = text.slice(Math.max(0, matchIndex - 140), matchIndex + path.length + 140);
+      return !/\b(?:planned|planning|proposal|roadmap|historical|context only|not shipped|not current|known unknown|current active work)\b/i.test(context);
+    });
   GITHUB_REPO_TEMPLATE_LEAK_PATTERNS.forEach((pattern) => {
     if (pattern.test(text)) failures.push('GitHub repo article leaks repo-wiki template or quality-gate phrasing.');
   });
@@ -677,8 +686,8 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   if (/\b(?:April|May|June)\s+202[0-5]\b|\bQA sweeps?\b|\bOAuth spike\b/i.test(text) && !/\bHistorical notes?\b/i.test(text)) {
     failures.push('GitHub repo article foregrounds stale planning or QA history instead of developer-facing current state.');
   }
-  if (unqualifiedPlannedPaths.length) {
-    failures.push(`GitHub repo article promotes planning or QA documents as current implementation paths: ${Array.from(new Set(unqualifiedPlannedPaths)).slice(0, 5).join(', ')}.`);
+  if (unqualifiedPlannedPaths.length || unqualifiedPlanningPathMentions.length) {
+    failures.push(`GitHub repo article promotes planning or QA documents as current implementation paths: ${Array.from(new Set([...unqualifiedPlannedPaths, ...unqualifiedPlanningPathMentions])).slice(0, 5).join(', ')}.`);
   }
   if (isNoeisRepo && productSignalCount < 4) {
     failures.push(`Noeis repo article does not orient the product loop clearly enough: ${productSignalCount}/4 product surfaces mentioned.`);
@@ -1722,11 +1731,29 @@ const selectRepoFallbackSources = (candidates = [], limit = 48) => {
       || extractRepoPath(a).localeCompare(extractRepoPath(b))
       || Number(a.index || 0) - Number(b.index || 0)
     ));
-  const selected = repoCandidates.slice(0, 40);
+  const isNoeisRepo = repoCandidates.some(source => /(?:^|\/)note-taker-3\b/i.test([
+    source.title,
+    source.url,
+    source.metadata?.repo,
+    source.metadata?.fullName
+  ].filter(Boolean).join(' ')));
+  const nonPlanned = repoCandidates.filter(source => repoSourceDocClass(source) !== 'planned');
+  const basePool = nonPlanned.length >= Math.min(24, repoCandidates.length)
+    ? nonPlanned
+    : repoCandidates;
+  const selected = basePool.slice(0, 40);
   REPO_FALLBACK_PRIORITY_PATHS.forEach((pattern) => {
     const source = repoCandidates.find(candidate => pattern.test(extractRepoPath(candidate)));
     if (source && !selected.some(candidate => candidate.index === source.index)) selected.push(source);
   });
+  if (!isNoeisRepo && selected.length < limit) {
+    repoCandidates
+      .filter(source => repoSourceDocClass(source) === 'planned')
+      .slice(0, 2)
+      .forEach((source) => {
+        if (!selected.some(candidate => candidate.index === source.index)) selected.push(source);
+      });
+  }
   return selected.slice(0, limit);
 };
 

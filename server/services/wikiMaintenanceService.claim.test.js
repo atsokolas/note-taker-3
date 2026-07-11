@@ -1201,6 +1201,44 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(failures.join(' ')).toMatch(/supported local API or UI URL/i);
   });
 
+  it('rejects QA and planning paths in current key paths even without source metadata', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'atsokolas/note-taker-3 - repo wiki',
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      text: [
+        'Product orientation: Noeis connects Library, Think, Wiki, and safe public sharing.',
+        'Developer quickstart: repository root npm run start, prove wiki changes with npm run wiki:qa, and build with CI=true npm run build.',
+        'Key paths: server/routes/wikiRoutes.js, package.json, docs/deep-dive-qa-report-2026-06-04.md, docs/evernote-cloud-oauth-spike-2026-06-07.md.',
+        'Repo creation: WikiRepoCreateComposer -> createRepoWikiFromGitHub -> /api/wiki/pages/from-github -> githubRepoWatcherService -> wikiMaintenanceService -> sourceRefs -> WikiPageReadView.',
+        'Repo refresh: externalWatches.githubRepo records observed heads, githubRepoWatcherService attaches source events, wikiMaintenanceService builds candidates, and wikiMaintenancePublicationService advances publishedHeadSha.',
+        'Architecture and ownership: server/server.js, server/models/index.js, authRoutes, wikiScheduledMaintenanceWorker, and SystemStatusContext own process, persistence, auth, background maintenance, and feedback state.',
+        'Failure modes: overlapping maintenance streams can create VersionError; Render and Vercel deploy independently.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'package.json',
+        snippet: 'Path: package.json. "scripts":{"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}',
+        metadata: { source: 'github-repo', evidenceType: 'config', path: 'package.json' }
+      }, {
+        title: 'server/routes/wikiRoutes.js',
+        snippet: 'Path: server/routes/wikiRoutes.js. Repo wiki routes.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/routes/wikiRoutes.js' }
+      }, {
+        title: 'server/services/wikiMaintenanceService.js',
+        snippet: 'Path: server/services/wikiMaintenanceService.js. Repo wiki generation.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/services/wikiMaintenanceService.js' }
+      }, {
+        title: 'server/services/githubRepoWatcherService.js',
+        snippet: 'Path: server/services/githubRepoWatcherService.js. GitHub evidence.',
+        metadata: { source: 'github-repo', evidenceType: 'code', path: 'server/services/githubRepoWatcherService.js' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/promotes planning or QA documents as current implementation paths/i);
+  });
+
   it('treats pageType repo as a GitHub repo page and rejects invented current-work claims', () => {
     const failures = findGitHubRepoDeveloperDossierFailures({
       page: {

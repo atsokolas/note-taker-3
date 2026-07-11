@@ -80,6 +80,25 @@ const sectionText = (text = '', headings = []) => {
   return '';
 };
 
+const boundedSectionText = (text = '', headings = [], stopHeadings = []) => {
+  const structured = sectionText(text, headings);
+  if (structured) return structured;
+
+  const source = normalizeText(text);
+  if (!source) return '';
+  const headingPattern = headings
+    .map(heading => heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  const stopPattern = stopHeadings
+    .map(heading => heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  if (!headingPattern) return '';
+  const pattern = stopPattern
+    ? new RegExp(`\\b(?:${headingPattern})\\b\\s*[:—-]?\\s*(.+?)(?=\\s+\\b(?:${stopPattern})\\b\\s*[:—-]?|$)`, 'i')
+    : new RegExp(`\\b(?:${headingPattern})\\b\\s*[:—-]?\\s*(.+)$`, 'i');
+  return normalizeText(source.match(pattern)?.[1] || '');
+};
+
 const collectCorpus = (page = {}) => {
   const refs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
   return [
@@ -131,7 +150,10 @@ const parseNamedCommandLine = (line = '') => {
     .replace(/^(?:Run|UI|Test|Build|Wiki proof|Proof|Frontend build|Backend|Install(?: UI)?)\s*:\s*/i, '');
   if (!stripped) return null;
 
-  const withoutCitation = stripped.replace(/\[\d+(?:,\d+)*\]\s*$/g, '').trim();
+  const withoutCitation = stripped
+    .replace(/^(repository root|[\w./-]+)\s+((?:CI\s*=\s*true\s+)?(?:npm|pnpm|yarn|node|npx|tsx|vite|react-scripts|next|python3?|pytest|go|cargo|make|docker|vercel|render)\b)/i, '$1: $2')
+    .replace(/\[\d+(?:,\d+)*\]\s*$/g, '')
+    .trim();
   if (!looksLikeRunnableCommand(withoutCitation)) return null;
   const cwdPrefix = withoutCitation.match(/^(repository root|[\w./-]+\/?):\s*(.+)$/i);
   if (cwdPrefix) {
@@ -241,69 +263,77 @@ const extractCommandsFromSection = (sectionTextValue = '') => {
   };
   if (!sectionTextValue) return result;
 
-  const lines = sectionTextValue.split('\n').map(line => line.trim()).filter(Boolean);
-  for (const line of lines) {
-    const cleaned = line.replace(/^[-*•]\s*/, '');
-    if (/install api dependencies.*npm install/i.test(cleaned)) {
-      result.install.push({ command: 'npm install', cwd: ROOT_CWD, entrypoint: '', sourceFile: '' });
-      continue;
-    }
-    if (/install ui dependencies.*note-taker-ui/i.test(cleaned)) {
-      result.install.push({
-        command: 'npm install',
-        cwd: 'note-taker-ui',
-        entrypoint: '',
-        sourceFile: 'note-taker-ui/package.json'
-      });
-      continue;
-    }
-    const kind = classifyCommandLine(cleaned);
-    const parsed = parseNamedCommandLine(cleaned);
-    if (!parsed?.command) continue;
+  const flattenedSource = normalizeText(sectionTextValue);
+  const flattenedContract = !String(sectionTextValue).includes('\n')
+    && /\bRun\s*:/i.test(flattenedSource)
+    && /\b(?:UI|Test|Build|Key paths)\b/i.test(flattenedSource);
 
-    switch (kind) {
-      case 'install':
-      case 'installUi':
-        result.install.push(parsed);
-        break;
-      case 'apiRun':
-        result.apiRun = {
-          ...parsed,
-          entrypoint: parsed.entrypoint || (parsed.command.includes('start') ? 'node server/server.js' : parsed.entrypoint),
-          sourceFile: parsed.sourceFile || 'package.json'
-        };
-        break;
-      case 'uiRun':
-        result.uiRun = {
-          ...parsed,
-          cwd: parsed.cwd === ROOT_CWD ? 'note-taker-ui' : parsed.cwd,
-          sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
-        };
-        break;
-      case 'test':
-        result.test = {
-          command: /^npm run /i.test(parsed.command) ? parsed.command : 'npm run wiki:qa',
-          cwd: ROOT_CWD,
+  if (!flattenedContract) {
+    const lines = sectionTextValue.split('\n').map(line => line.trim()).filter(Boolean);
+    for (const line of lines) {
+      const cleaned = line.replace(/^[-*•]\s*/, '');
+      if (/install api dependencies.*npm install/i.test(cleaned)) {
+        result.install.push({ command: 'npm install', cwd: ROOT_CWD, entrypoint: '', sourceFile: '' });
+        continue;
+      }
+      if (/install ui dependencies.*note-taker-ui/i.test(cleaned)) {
+        result.install.push({
+          command: 'npm install',
+          cwd: 'note-taker-ui',
           entrypoint: '',
-          sourceFile: 'package.json'
-        };
-        break;
-      case 'build':
-        result.build = {
-          command: /CI=/i.test(parsed.command) ? parsed.command : `CI=true ${parsed.command}`,
-          cwd: parsed.cwd === ROOT_CWD ? 'note-taker-ui' : parsed.cwd,
-          entrypoint: '',
-          sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
-        };
-        break;
-      default:
-        break;
+          sourceFile: 'note-taker-ui/package.json'
+        });
+        continue;
+      }
+      const kind = classifyCommandLine(cleaned);
+      const parsed = parseNamedCommandLine(cleaned);
+      if (!parsed?.command) continue;
+
+      switch (kind) {
+        case 'install':
+        case 'installUi':
+          result.install.push(parsed);
+          break;
+        case 'apiRun':
+          result.apiRun = {
+            ...parsed,
+            entrypoint: parsed.entrypoint || (parsed.command.includes('start') ? 'node server/server.js' : parsed.entrypoint),
+            sourceFile: parsed.sourceFile || 'package.json'
+          };
+          break;
+        case 'uiRun':
+          result.uiRun = {
+            ...parsed,
+            cwd: parsed.cwd === ROOT_CWD ? 'note-taker-ui' : parsed.cwd,
+            sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
+          };
+          break;
+        case 'test':
+          result.test = {
+            command: /^npm run /i.test(parsed.command) ? parsed.command : 'npm run wiki:qa',
+            cwd: ROOT_CWD,
+            entrypoint: '',
+            sourceFile: 'package.json'
+          };
+          break;
+        case 'build':
+          result.build = {
+            command: /CI=/i.test(parsed.command) ? parsed.command : `CI=true ${parsed.command}`,
+            cwd: parsed.cwd === ROOT_CWD ? 'note-taker-ui' : parsed.cwd,
+            entrypoint: '',
+            sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
+          };
+          break;
+        default:
+          break;
+      }
     }
   }
 
   // Wiki plainText is intentionally whitespace-normalized. Recover the
   // generated handoff contract by using its stable labels as delimiters.
-  const flattened = normalizeText(sectionTextValue);
+  const flattened = normalizeText(sectionTextValue)
+    .replace(/\b(Test|Build|Key paths)\s+(?=(?:repository root|note-taker-ui|CI\s*=\s*true|npm|pnpm|yarn|node|npx|server\/|note-taker-ui\/|package\.json)\b)/gi, '$1: ');
   const labeledCommand = (label, nextLabels) => firstMatch(flattened, [
     new RegExp(`\\b${label}:\\s*(.+?)(?=\\s+(?:${nextLabels.join('|')}):)`, 'i')
   ]);
@@ -510,7 +540,7 @@ export const extractRepoDeveloperQuickstart = (page = {}) => {
   // A referenced README can contain its own quickstart and is evidence rather
   // than this page's runnable contract.
   const authoredText = [page.plainText, page.summary, page.description].filter(Boolean).join('\n\n');
-  const quickstartSection = sectionText(authoredText, [
+  const quickstartSection = boundedSectionText(authoredText, [
     'Developer quickstart',
     'Five-minute setup',
     'Run, test, build',
@@ -519,10 +549,20 @@ export const extractRepoDeveloperQuickstart = (page = {}) => {
     'Getting started',
     'Local development',
     'Running locally'
+  ], [
+    'System map',
+    'Architecture and ownership',
+    'Critical flows',
+    'Common change paths',
+    'Quality bar and invariants',
+    'Failure modes',
+    'Deploy and unknowns',
+    'References'
   ]);
 
   const structured = readStructuredQuickstart(meta);
-  const parsed = extractCommandsFromSection(quickstartSection || authoredText);
+  const commandContractText = quickstartSection || (/^\s*(?:Run|UI|Test|Build|Install(?: UI)?)\s*:/i.test(authoredText) ? authoredText : '');
+  const parsed = extractCommandsFromSection(commandContractText);
   const hasParsedSignals = Boolean(
     parsed.install.length ||
     parsed.apiRun ||
