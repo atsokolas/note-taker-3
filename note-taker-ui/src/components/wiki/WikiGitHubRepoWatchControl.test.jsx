@@ -175,6 +175,28 @@ describe('WikiGitHubRepoWatchControl', () => {
     expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith(null);
   });
 
+  it('treats a stale building flag as current when the published head matches the repository head', () => {
+    renderControl({
+      page: {
+        ...armedPage,
+        externalWatches: {
+          githubRepo: {
+            ...armedPage.externalWatches.githubRepo,
+            lastHeadSha: 'c5cc24a04a4ea7a2cd087a716400f972fa1ec5d6',
+            publishedHeadSha: 'c5cc24a04a4ea7a2cd087a716400f972fa1ec5d6',
+            candidateHeadSha: 'c5cc24a04a4ea7a2cd087a716400f972fa1ec5d6',
+            buildStatus: 'building'
+          }
+        }
+      }
+    }, { systemStatusControls });
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Page current through c5cc24a/);
+    expect(screen.getByLabelText('Repository publication status')).toHaveTextContent(/Build state Current/);
+    expect(screen.getByRole('region', { name: 'GitHub repository watch' })).toHaveAttribute('data-repo-watch-state', 'current');
+    expect(systemStatusControls.setBackgroundWork).toHaveBeenCalledWith(null);
+  });
+
   it('shows rebuilding publication state when a new head is detected', () => {
     const { unmount } = renderControl({
       page: {

@@ -59,12 +59,13 @@ const releaseRepoBuildLease = async ({
 } = {}) => {
   if (!WikiPage?.findOneAndUpdate || !pageId || !userId || !token) return null;
   const current = typeof WikiPage.findOne === 'function'
-    ? await WikiPage.findOne({
-      _id: pageId,
-      userId,
-      'externalWatches.githubRepo.buildLease.token': token
-    })
+    ? await WikiPage.findOne({ _id: pageId, userId })
     : null;
+  const currentLease = current?.externalWatches?.githubRepo?.buildLease || {};
+  const currentToken = String(currentLease.token || '').trim();
+  const leaseExpiresAt = currentLease.expiresAt ? new Date(currentLease.expiresAt).getTime() : 0;
+  const leaseExpired = Boolean(leaseExpiresAt && leaseExpiresAt <= now.getTime());
+  if (current && currentToken && currentToken !== token && !leaseExpired) return null;
   const observedHeadSha = String(current?.externalWatches?.githubRepo?.lastHeadSha || '').trim();
   const newerHeadQueued = Boolean(promoted && observedHeadSha && headSha && observedHeadSha !== headSha);
   const updates = {
@@ -86,7 +87,13 @@ const releaseRepoBuildLease = async ({
     {
       _id: pageId,
       userId,
-      'externalWatches.githubRepo.buildLease.token': token
+      $or: [
+        { 'externalWatches.githubRepo.buildLease.token': token },
+        { 'externalWatches.githubRepo.buildLease.token': '' },
+        { 'externalWatches.githubRepo.buildLease.token': null },
+        { 'externalWatches.githubRepo.buildLease.token': { $exists: false } },
+        { 'externalWatches.githubRepo.buildLease.expiresAt': { $lte: now } }
+      ]
     },
     { $set: updates },
     { new: true }

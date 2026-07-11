@@ -61,6 +61,17 @@ export const repoWatchPublicationState = (watch = {}) => {
   const buildStatus = String(watch.buildStatus || 'idle').toLowerCase();
 
   if (
+    observed
+    && published
+    && observed === published
+    && (!candidate || candidate === published)
+    && buildStatus !== 'needs_review'
+    && buildStatus !== 'error'
+  ) {
+    return 'current';
+  }
+
+  if (
     candidate
     && observed
     && candidate !== observed
@@ -114,11 +125,14 @@ export const formatRepoWatchPublicationFacts = (watch = {}) => {
   const observed = shortHeadSha(watch.lastHeadSha);
   const published = shortHeadSha(watch.publishedHeadSha || watch.lastHeadSha);
   const buildStatus = String(watch.buildStatus || 'idle').toLowerCase();
+  const publicationState = repoWatchPublicationState(watch);
   return {
     observedHead: observed || 'unknown',
     publishedHead: published || 'unknown',
     checkedAgo: formatRepoWatchCheckedAgo(watch.lastCheckedAt) || 'not yet',
-    buildStateLabel: repoWatchBuildStatusLabel(buildStatus)
+    buildStateLabel: publicationState === 'current'
+      ? 'Current'
+      : repoWatchBuildStatusLabel(buildStatus)
   };
 };
 

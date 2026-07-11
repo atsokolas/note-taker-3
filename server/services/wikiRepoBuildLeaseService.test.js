@@ -93,6 +93,29 @@ const run = async () => {
   assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-a');
   assert.strictEqual(page.externalWatches.githubRepo.candidateHeadSha, 'head-b');
   assert.strictEqual(page.externalWatches.githubRepo.buildStatus, 'queued');
+
+  page.externalWatches.githubRepo.buildLease = {
+    token: '',
+    headSha: '',
+    acquiredAt: null,
+    expiresAt: null
+  };
+  page.externalWatches.githubRepo.lastHeadSha = 'head-b';
+  page.externalWatches.githubRepo.candidateHeadSha = 'head-b';
+  page.externalWatches.githubRepo.buildStatus = 'building';
+  const recovered = await releaseRepoBuildLease({
+    WikiPage,
+    pageId: page._id,
+    userId: page.userId,
+    token: 'lease-lost-by-watch-save',
+    headSha: 'head-b',
+    promoted: true,
+    now: new Date('2026-07-10T12:05:00Z')
+  });
+  assert.ok(recovered);
+  assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-b');
+  assert.strictEqual(page.externalWatches.githubRepo.candidateHeadSha, '');
+  assert.strictEqual(page.externalWatches.githubRepo.buildStatus, 'ready');
   console.log('wikiRepoBuildLeaseService tests passed');
 };
 
