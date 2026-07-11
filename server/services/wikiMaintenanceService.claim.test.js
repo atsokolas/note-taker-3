@@ -464,10 +464,56 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(candidates.slice(0, 3).map(source => source.metadata?.path || source.title)).toEqual([
       'package.json',
-      'atsokolas/note-taker-3 recent commits',
-      'server/server.js'
+      'server/server.js',
+      'atsokolas/note-taker-3 recent commits'
     ]);
     expect(candidates.slice(0, 3).map(source => source.metadata?.path || '')).not.toContain('docs/deep-dive-qa-report-2026-06-04.md');
+  });
+
+  it('keeps operational boundaries through the repo maintenance source cap', () => {
+    const currentHead = 'current-head';
+    const operationalPaths = [
+      '.env.example',
+      'server/routes/authDiscoveryRoutes.js',
+      'server/routes/wikiRoutes.js',
+      'server/services/wikiMaintenancePublicationService.js',
+      'server/services/githubRepoWatcherService.js',
+      'server/services/wikiScheduledMaintenanceWorker.js',
+      'note-taker-ui/src/api/wiki.js',
+      'note-taker-ui/src/system/SystemStatusContext.js',
+      'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx',
+      'note-taker-ui/src/components/wiki/WikiPageReadView.jsx'
+    ];
+    const sourceRef = (path, commitSha = currentHead) => ({
+      type: 'external',
+      title: `repo ${path}`,
+      snippet: `Repository evidence. Path: ${path}.`,
+      provider: 'github-repo',
+      metadata: {
+        source: 'github-repo',
+        path,
+        evidenceType: path.endsWith('.json') ? 'config' : 'code',
+        docClass: path.endsWith('.json') ? 'config' : 'code',
+        commitSha
+      }
+    });
+    const candidates = selectMaintenanceCandidates({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', lastHeadSha: currentHead } },
+        sourceRefs: [
+          sourceRef('server/services/wikiMaintenancePublicationService.js', 'stale-head'),
+          ...Array.from({ length: 45 }, (_item, index) => sourceRef(`server/services/noise${index}.js`)),
+          ...operationalPaths.map(path => sourceRef(path))
+        ]
+      },
+      sources: [],
+      limit: 24
+    });
+    const selectedPaths = candidates.map(source => source.metadata?.path);
+
+    operationalPaths.forEach(path => expect(selectedPaths).toContain(path));
+    expect(candidates.find(source => source.metadata?.path === 'server/services/wikiMaintenancePublicationService.js')?.metadata?.commitSha).toBe(currentHead);
   });
 
   it('falls back to a developer dossier for GitHub repo pages when model output is unavailable', () => {

@@ -1029,15 +1029,26 @@ const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIM
       : existingCandidates;
     if (candidatePool.length) {
       const currentHead = asString(page.externalWatches?.githubRepo?.lastHeadSha);
-      return candidatePool
+      const seenPaths = new Set();
+      const currentEvidence = candidatePool
         .sort((a, b) => (
           githubRepoEvidenceRank(a, currentHead) - githubRepoEvidenceRank(b, currentHead)
           || asString(a.metadata?.path || a.title).localeCompare(asString(b.metadata?.path || b.title))
         ))
-        // Repo pages need enough breadth to connect product docs to the files
-        // that own the described flows. The ordinary 24-source cap routinely
-        // excluded those implementation files in documentation-heavy repos.
-        .slice(0, Math.max(limit, Math.min(candidatePool.length, 32)))
+        .filter((source) => {
+          const path = asString(source.metadata?.path).toLowerCase();
+          if (!path) return true;
+          if (seenPaths.has(path)) return false;
+          seenPaths.add(path);
+          return true;
+        });
+      // Use the same job-aware priority as deterministic synthesis. The
+      // ordinary relevance cap dropped publication and feedback boundaries
+      // after GitHub had already collected them.
+      return selectRepoFallbackSources(
+        currentEvidence,
+        Math.max(limit, Math.min(currentEvidence.length, 48))
+      )
         .map((source, index) => ({ ...source, index: index + 1 }));
     }
   }
@@ -3401,6 +3412,7 @@ module.exports = {
     collectKnownWikiPages,
     fallbackMaintenance,
     fallbackGitHubRepoMaintenance,
+    materializeMaintenanceResult,
     formatKnownWikiPages,
     buildPrompt,
     buildRebuildPrompt,
