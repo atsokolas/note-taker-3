@@ -58,13 +58,24 @@ const releaseRepoBuildLease = async ({
   now = new Date()
 } = {}) => {
   if (!WikiPage?.findOneAndUpdate || !pageId || !userId || !token) return null;
+  const current = typeof WikiPage.findOne === 'function'
+    ? await WikiPage.findOne({
+      _id: pageId,
+      userId,
+      'externalWatches.githubRepo.buildLease.token': token
+    })
+    : null;
+  const observedHeadSha = String(current?.externalWatches?.githubRepo?.lastHeadSha || '').trim();
+  const newerHeadQueued = Boolean(promoted && observedHeadSha && headSha && observedHeadSha !== headSha);
   const updates = {
     'externalWatches.githubRepo.buildLease.token': '',
     'externalWatches.githubRepo.buildLease.headSha': '',
     'externalWatches.githubRepo.buildLease.acquiredAt': null,
     'externalWatches.githubRepo.buildLease.expiresAt': null,
-    'externalWatches.githubRepo.candidateHeadSha': promoted ? '' : headSha,
-    'externalWatches.githubRepo.buildStatus': status,
+    'externalWatches.githubRepo.candidateHeadSha': promoted
+      ? (newerHeadQueued ? observedHeadSha : '')
+      : headSha,
+    'externalWatches.githubRepo.buildStatus': newerHeadQueued ? 'queued' : status,
     'externalWatches.githubRepo.lastBuildError': error
   };
   if (promoted) {

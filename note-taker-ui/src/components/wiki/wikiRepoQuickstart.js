@@ -446,7 +446,11 @@ export const extractRepoDeveloperQuickstart = (page = {}) => {
   if (!isRepoDossierPage(page)) return null;
   const meta = pageMeta(page);
   const corpus = collectCorpus(page);
-  const quickstartSection = sectionText(corpus, [
+  // Commands must come from the maintained article, not cited source snippets.
+  // A referenced README can contain its own quickstart and is evidence rather
+  // than this page's runnable contract.
+  const authoredText = [page.plainText, page.summary, page.description].filter(Boolean).join('\n\n');
+  const quickstartSection = sectionText(authoredText, [
     'Developer quickstart',
     'Five-minute setup',
     'Run, test, build',
@@ -457,7 +461,7 @@ export const extractRepoDeveloperQuickstart = (page = {}) => {
   ]);
 
   const structured = readStructuredQuickstart(meta);
-  const parsed = extractCommandsFromSection(quickstartSection || corpus);
+  const parsed = extractCommandsFromSection(quickstartSection || authoredText);
   const hasParsedSignals = Boolean(
     parsed.install.length ||
     parsed.apiRun ||

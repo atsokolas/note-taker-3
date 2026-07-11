@@ -144,4 +144,20 @@ describe('wikiRepoQuickstart', () => {
       plainText: 'Repository sources are being attached.'
     })).toBeNull();
   });
+
+  it('does not treat a cited document quickstart as the page quickstart', () => {
+    const quickstart = extractRepoDeveloperQuickstart({
+      pageType: 'project',
+      createdFrom: { text: 'GitHub repo: atsokolas/note-taker-3' },
+      plainText: 'What Noeis is\nA maintained knowledge workspace.\n\nRun and prove changes\nRun: npm run start from package.json.',
+      sourceRefs: [{
+        title: 'Distribution checklist',
+        snippet: 'Developer quickstart\nInstall the public package after reading this long release checklist and its complete operational history.'
+      }]
+    });
+
+    expect(quickstart?.apiRun?.command).toBe('npm run start from package.json.');
+    expect(quickstart?.install.map(item => item.command)).toEqual(['npm install', 'npm install']);
+    expect(JSON.stringify(quickstart)).not.toContain('release checklist');
+  });
 });

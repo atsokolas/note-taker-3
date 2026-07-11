@@ -23,6 +23,7 @@ const matches = (record, query) => Object.entries(query).every(([key, value]) =>
   return String(actual ?? '') === String(value ?? '');
 });
 const makeModel = (page) => ({
+  findOne: async (query) => (matches(page, query) ? page : null),
   findOneAndUpdate: async (query, update) => {
     if (!matches(page, query)) return null;
     Object.entries(update.$set || {}).forEach(([path, value]) => setPath(page, path, value));
@@ -69,6 +70,29 @@ const run = async () => {
   assert.ok(released);
   assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-a');
   assert.strictEqual(page.externalWatches.githubRepo.buildLease.token, '');
+
+  const second = await acquireRepoBuildLease({
+    WikiPage,
+    pageId: page._id,
+    userId: page.userId,
+    headSha: 'head-a',
+    token: 'lease-c',
+    now: new Date('2026-07-10T12:03:00Z')
+  });
+  assert.strictEqual(second.acquired, true);
+  page.externalWatches.githubRepo.lastHeadSha = 'head-b';
+  await releaseRepoBuildLease({
+    WikiPage,
+    pageId: page._id,
+    userId: page.userId,
+    token: 'lease-c',
+    headSha: 'head-a',
+    promoted: true,
+    now: new Date('2026-07-10T12:04:00Z')
+  });
+  assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-a');
+  assert.strictEqual(page.externalWatches.githubRepo.candidateHeadSha, 'head-b');
+  assert.strictEqual(page.externalWatches.githubRepo.buildStatus, 'queued');
   console.log('wikiRepoBuildLeaseService tests passed');
 };
 
