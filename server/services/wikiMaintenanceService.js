@@ -67,6 +67,13 @@ const NOEIS_REPO_FLOW_PATTERNS = [
   /\bVersionError\b/,
   /\bSystemStatusContext\b/
 ];
+const NOEIS_REPO_OPERATIONAL_BOUNDARY_PATTERNS = [
+  { label: 'authentication boundary', pattern: /\b(?:authRoutes|JWT|authenticated|authentication boundary)\b/i },
+  { label: 'persistence boundary', pattern: /\b(?:server\/models\/index\.js|WikiPage persistence|Mongo(?:DB)?)\b/i },
+  { label: 'background worker', pattern: /\b(?:wikiScheduledMaintenanceWorker|background (?:worker|maintenance)|scheduled maintenance)\b/i },
+  { label: 'publication transaction', pattern: /\b(?:wikiMaintenancePublicationService|publishedHeadSha|candidateHeadSha|last trusted page|publication transaction)\b/i },
+  { label: 'feedback state', pattern: /\b(?:SystemStatusContext|background work|recoverable failure|success receipt)\b/i }
+];
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -593,6 +600,8 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   const isNoeisRepo = isNoeisRepositoryPage({ page, sourceRefs: refs });
   const exactPathMentions = repoPaths.filter(path => new RegExp(`\\b${escapeRegex(path)}\\b`, 'i').test(text));
   const flowSignalCount = NOEIS_REPO_FLOW_PATTERNS.filter(pattern => pattern.test(text)).length;
+  const operationalBoundaryMatches = NOEIS_REPO_OPERATIONAL_BOUNDARY_PATTERNS
+    .filter(({ pattern }) => pattern.test(text));
   const productSignalCount = NOEIS_REPO_PRODUCT_PATTERNS.filter(pattern => pattern.test(text)).length;
   const watchedRepo = Boolean(page.externalWatches?.githubRepo?.owner || page.externalWatches?.githubRepo?.repo);
   const noeisCorePaths = [
@@ -610,6 +619,19 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   const mentionedNoeisCorePaths = attachedNoeisCorePaths.filter(requiredPath => (
     new RegExp(`\\b${escapeRegex(requiredPath)}\\b`, 'i').test(text)
   ));
+  const hasRootPackage = repoPaths.some(path => path.toLowerCase() === 'package.json');
+  const hasUiPackage = repoPaths.some(path => path.toLowerCase() === 'note-taker-ui/package.json');
+  const hasEnvExample = repoPaths.some(path => path.toLowerCase() === '.env.example');
+  const unqualifiedPlannedPaths = refs
+    .filter(source => asString(source.metadata?.docClass).toLowerCase() === 'planned')
+    .map(extractRepoPath)
+    .filter(Boolean)
+    .filter((path) => {
+      const matchIndex = text.toLowerCase().indexOf(path.toLowerCase());
+      if (matchIndex < 0) return false;
+      const context = text.slice(Math.max(0, matchIndex - 140), matchIndex + path.length + 140);
+      return !/\b(?:planned|planning|proposal|roadmap|historical|context only|not shipped|not current)\b/i.test(context);
+    });
   GITHUB_REPO_TEMPLATE_LEAK_PATTERNS.forEach((pattern) => {
     if (pattern.test(text)) failures.push('GitHub repo article leaks repo-wiki template or quality-gate phrasing.');
   });
@@ -640,6 +662,12 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   if (unqualifiedScriptMentions.length) {
     failures.push(`GitHub repo article has unsupported or unqualified package script references: ${unqualifiedScriptMentions.slice(0, 4).join(', ')}.`);
   }
+  if (/\bnpm run wiki:qa\b[\s\S]{0,300}(?:\.\.\.|…)/i.test(text)) {
+    failures.push('GitHub repo article exposes a truncated setup or proof command.');
+  }
+  if (hasRootPackage && hasUiPackage && (!/\brepository root\b/i.test(text) || !/\bnote-taker-ui\/?\b|\bcd\s+note-taker-ui\b/i.test(text))) {
+    failures.push('GitHub repo article does not distinguish root and UI working directories.');
+  }
   if (repoPolicySources(refs).length && /\bDeveloper posture:\b/i.test(text)) {
     failures.push('GitHub repo article repeats internal agent-policy language as product documentation.');
   }
@@ -649,11 +677,26 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   if (/\b(?:April|May|June)\s+202[0-5]\b|\bQA sweeps?\b|\bOAuth spike\b/i.test(text) && !/\bHistorical notes?\b/i.test(text)) {
     failures.push('GitHub repo article foregrounds stale planning or QA history instead of developer-facing current state.');
   }
+  if (unqualifiedPlannedPaths.length) {
+    failures.push(`GitHub repo article promotes planning or QA documents as current implementation paths: ${Array.from(new Set(unqualifiedPlannedPaths)).slice(0, 5).join(', ')}.`);
+  }
   if (isNoeisRepo && productSignalCount < 4) {
     failures.push(`Noeis repo article does not orient the product loop clearly enough: ${productSignalCount}/4 product surfaces mentioned.`);
   }
   if (isNoeisRepo && flowSignalCount < 4) {
     failures.push(`Noeis repo article does not trace enough real repo flows: ${flowSignalCount}/4 implementation signals mentioned.`);
+  }
+  if (isNoeisRepo && operationalBoundaryMatches.length < 5) {
+    const missing = NOEIS_REPO_OPERATIONAL_BOUNDARY_PATTERNS
+      .filter(({ pattern }) => !pattern.test(text))
+      .map(({ label }) => label);
+    failures.push(`Noeis repo article omits operational boundaries: ${missing.join(', ')}.`);
+  }
+  if (isNoeisRepo && !/Repo creation:[\s\S]{0,700}(?:->|→)[\s\S]{0,700}(?:->|→)/i.test(text)) {
+    failures.push('Noeis repo article does not trace the repo creation flow across UI, API, service, persistence, and render state.');
+  }
+  if (isNoeisRepo && !/Repo refresh:[\s\S]{0,700}\b(?:githubRepoWatcherService|source events?)\b[\s\S]{0,700}\b(?:wikiMaintenanceService|publication)\b/i.test(text)) {
+    failures.push('Noeis repo article does not trace the repository refresh and publication flow.');
   }
   if (isNoeisRepo && watchedRepo && attachedNoeisCorePaths.length < 6) {
     const missing = noeisCorePaths.filter(path => !attachedNoeisCorePaths.includes(path));
@@ -664,6 +707,12 @@ const findGitHubRepoDeveloperDossierFailures = ({ page = {}, text = '', sourceRe
   }
   if (isNoeisRepo && !/\b(?:Render|Vercel)\b/i.test(text)) {
     failures.push('Noeis repo article omits the split production deploy targets.');
+  }
+  if (isNoeisRepo && hasEnvExample && (!/\bJWT_SECRET\b/.test(text) || !/\bMONGODB_URI\b/.test(text))) {
+    failures.push('Noeis repo article omits core local environment variable names from .env.example.');
+  }
+  if (isNoeisRepo && hasEnvExample && hasUiPackage && (!/localhost:5500/i.test(text) || !/localhost:3000/i.test(text))) {
+    failures.push('Noeis repo article omits the supported local API or UI URL.');
   }
   if (isNoeisRepo && !/\bVersionError\b|\boverlapping\b.*\b(?:stream|maintenance|draft)\b|\bduplicate\b.*\b(?:stream|build)\b/i.test(text)) {
     failures.push('Noeis repo article omits the known duplicate-stream or VersionError failure mode.');
@@ -688,7 +737,13 @@ GitHub repository page rules:
 - Write only what the repository evidence actually supports.
 - Let the section structure follow the repository. A web app, CLI, SDK, and infrastructure repo should not read like the same template.
 - Cover these jobs somewhere in the article when evidence supports them: what the repo/product is; how a developer runs and proves changes; the architecture map; critical user/request flows; common change paths; risks, invariants, and unknowns.
+- For a multi-process application, explicitly identify authentication, persistence, background-worker, publication, and user-feedback boundaries. Do not flatten them into “the backend.”
+- Trace at least two concrete flows from visible control through client, route, service, persistence/publication, and rendered feedback. Name exact paths at each supported hop.
+- Include a symptom-routing table or bullets that map a user-visible failure to the first owning file and the closest proof command.
 - Include a quickstart section or subsection with concrete Run, Test, Build/Deploy, and Key paths only when package/config evidence supports them.
+- Make every command copyable and name its working directory. Use "repository root" for root package scripts and "cd <directory> && npm run <script>" for nested packages.
+- Never expand a long package script into truncated prose. Show the named command and cite the package file instead.
+- When .env.example is attached, list variable names only, never values. Include local URLs only when port/proxy evidence supports them.
 - The first viewport must be useful before the References section: name the concrete run command, the proof command, and at least two exact owning file paths when evidence supports them.
 - For the Noeis repo, explicitly orient the product as Library -> Think -> Wiki -> safe public sharing before describing implementation files.
 - For the Noeis repo, trace real implementation flows by name: createRepoWikiFromGitHub, /api/wiki/pages/from-github, githubRepoWatcherService, wikiMaintenanceService, sourceRefs/externalWatches.githubRepo, and WikiPageReadView when those sources are attached.
@@ -1504,6 +1559,45 @@ const scriptCommandLabel = (script = {}) => {
   return `npm run ${script.name}${suffix}`;
 };
 
+const scriptWorkingDirectory = (script = {}) => {
+  const sourcePath = asString(script.sourcePath);
+  if (!sourcePath || sourcePath === 'package.json') return 'repository root';
+  const parts = sourcePath.split('/').filter(Boolean);
+  return parts.length > 1 ? `${parts.slice(0, -1).join('/')}/` : 'repository root';
+};
+
+const scriptRunnableCommand = (script = {}) => {
+  if (!script?.name) return '';
+  const workingDirectory = scriptWorkingDirectory(script);
+  return workingDirectory === 'repository root'
+    ? `npm run ${script.name}`
+    : `cd ${workingDirectory.replace(/\/$/, '')} && npm run ${script.name}`;
+};
+
+const scriptExecutionNote = (script = {}) => {
+  const command = asString(script.command);
+  if (!command) return '';
+  return command.length <= 80
+    ? ` (executes ${command})`
+    : ` (defined in ${script.sourcePath || 'package.json'})`;
+};
+
+const extractEnvVariableNames = (source = {}) => Array.from(new Set(
+  asString(source.text || source.snippet)
+    .split(/\n+/)
+    .map(line => line.match(/^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=/)?.[1] || '')
+    .filter(Boolean)
+));
+
+const prioritizedEnvVariableNames = (source = {}) => {
+  const priority = ['PORT', 'JWT_SECRET', 'MONGODB_URI', 'OPENROUTER_API_KEY', 'HF_TOKEN'];
+  const names = extractEnvVariableNames(source);
+  return [
+    ...priority.filter(name => names.includes(name)),
+    ...names.filter(name => !priority.includes(name))
+  ].slice(0, 12);
+};
+
 const repoSourceForPath = (sources = [], pattern) => (
   (Array.isArray(sources) ? sources : []).find(source => pattern.test(extractRepoPath(source) || source.title || '')) || null
 );
@@ -1584,8 +1678,32 @@ const REPO_FALLBACK_PRIORITY_PATHS = [
   /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i
 ];
 
+const repoSourceDocClass = (source = {}) => asString(source.metadata?.docClass).toLowerCase();
+
+const repoFallbackSourcePriority = (source = {}) => {
+  const path = extractRepoPath(source);
+  const mandatoryIndex = REPO_FALLBACK_PRIORITY_PATHS.findIndex(pattern => pattern.test(path));
+  if (mandatoryIndex >= 0) return mandatoryIndex;
+  const docClass = repoSourceDocClass(source);
+  if (docClass === 'planned') return 500;
+  if (repoSourceEvidenceType(source) === 'policy') return 600;
+  const evidenceType = repoSourceEvidenceType(source);
+  if (evidenceType === 'inventory') return 40;
+  if (evidenceType === 'config') return 50;
+  if (evidenceType === 'code') return 60;
+  if (evidenceType === 'recent_commits') return 70;
+  if (['readme', 'runbook', 'decision', 'document', 'changelog'].includes(docClass)) return 80;
+  return 100;
+};
+
 const selectRepoFallbackSources = (candidates = [], limit = 48) => {
-  const repoCandidates = (Array.isArray(candidates) ? candidates : []).filter(isGitHubRepoCandidate);
+  const repoCandidates = (Array.isArray(candidates) ? candidates : [])
+    .filter(isGitHubRepoCandidate)
+    .sort((a, b) => (
+      repoFallbackSourcePriority(a) - repoFallbackSourcePriority(b)
+      || extractRepoPath(a).localeCompare(extractRepoPath(b))
+      || Number(a.index || 0) - Number(b.index || 0)
+    ));
   const selected = repoCandidates.slice(0, 40);
   REPO_FALLBACK_PRIORITY_PATHS.forEach((pattern) => {
     const source = repoCandidates.find(candidate => pattern.test(extractRepoPath(candidate)));
@@ -1602,7 +1720,7 @@ const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => 
   const codeSources = byEvidence('code');
   const commitSources = byEvidence('recent_commits');
   const scripts = collectPackageScripts(configSources);
-  const scriptLine = (script) => `${scriptCommandLabel(script)} -> ${script.command} [${script.sourceIndex}]`;
+  const scriptLine = (script) => `${scriptWorkingDirectory(script)}: ${scriptRunnableCommand(script)}${scriptExecutionNote(script)} [${script.sourceIndex}]`;
   const runScript = scripts.find(script => /^(start|dev|serve)$/i.test(script.name)) || scripts[0] || null;
   const testScripts = scripts
     .filter(script => /^(wiki:qa|wiki:.*harness|agent:harness(?::ci)?|test|lint)/i.test(script.name))
@@ -1610,7 +1728,7 @@ const formatGitHubRepoEvidenceDigest = ({ page = {}, candidates = [] } = {}) => 
   const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
   const keyPathLines = repoSources
     .map(source => ({ path: extractRepoPath(source), index: source.index, type: repoSourceEvidenceType(source) }))
-    .filter(row => row.path)
+    .filter(row => row.path && ['code', 'config'].includes(row.type))
     .slice(0, 14)
     .map(row => `${row.path} [${row.index}]`);
   const plannedLines = repoSources
@@ -1664,8 +1782,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     .slice(0, 3);
   const buildScripts = scripts.filter(script => /build|deploy/i.test(script.name)).slice(0, 3);
   const keyPaths = repoSources
+    .filter(source => ['code', 'config'].includes(repoSourceEvidenceType(source)))
     .map(source => extractRepoPath(source))
-    .filter(Boolean)
+    .filter(path => path && path !== '__repo_inventory__/code-inventory.txt')
     .slice(0, 14);
   const title = truncate(page.title, 120) || 'Repository wiki';
   const sourceIndexesUsed = Array.from(new Set([
@@ -1698,10 +1817,19 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const wikiClientApiPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/api\/wiki\.[jt]sx?$/i);
   const uiPackagePath = repoSourceForPath(repoSources, /^note-taker-ui\/package\.json$/i);
   const envExamplePath = repoSourceForPath(repoSources, /^\.env\.example$/i);
+  const envVariableNames = envExamplePath ? prioritizedEnvVariableNames(envExamplePath) : [];
   const uiAppPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/App\.[jt]sx?$/i);
   const mcpPackagePath = repoSourceForPath(repoSources, /^packages\/wiki-mcp\/(?:README[^/]*|package\.json)$/i);
   const aiClientPath = repoSourceForPath(repoSources, /^server\/(?:config\/aiClient|ai\/hfTextClient)\.[jt]s$/i);
   const scheduledWorkerPath = repoSourceForPath(repoSources, /^server\/services\/wikiScheduledMaintenanceWorker\.[jt]s$/i);
+  const publicationPath = repoSourceForPath(repoSources, /^server\/services\/wikiMaintenancePublicationService\.[jt]s$/i);
+  const authRoutesPath = repoSourceForPath(repoSources, /^server\/routes\/authRoutes\.[jt]s$/i);
+  const systemStatusPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/system\/SystemStatusContext\.[jt]sx?$/i);
+  const repoComposerPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/components\/wiki\/WikiRepoCreateComposer\.[jt]sx?$/i);
+  const readViewPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/components\/wiki\/WikiPageReadView\.[jt]sx?$/i);
+  const wikiAskPath = repoSourceForPath(repoSources, /^server\/services\/wikiAskService\.[jt]s$/i);
+  const integrationsPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/pages\/DataIntegrations\.[jt]sx?$/i);
+  const sharedWikiPath = repoSourceForPath(repoSources, /^note-taker-ui\/src\/pages\/SharedWikiPage\.[jt]sx?$/i);
   const coreArchitecturePaths = new Set([
     'server/server.js',
     'server/routes/wikiRoutes.js',
@@ -1713,6 +1841,14 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
     'note-taker-ui/src/App.js',
     aiClientPath ? extractRepoPath(aiClientPath) : '',
     scheduledWorkerPath ? extractRepoPath(scheduledWorkerPath) : '',
+    publicationPath ? extractRepoPath(publicationPath) : '',
+    authRoutesPath ? extractRepoPath(authRoutesPath) : '',
+    systemStatusPath ? extractRepoPath(systemStatusPath) : '',
+    repoComposerPath ? extractRepoPath(repoComposerPath) : '',
+    readViewPath ? extractRepoPath(readViewPath) : '',
+    wikiAskPath ? extractRepoPath(wikiAskPath) : '',
+    integrationsPath ? extractRepoPath(integrationsPath) : '',
+    sharedWikiPath ? extractRepoPath(sharedWikiPath) : '',
     mcpPackagePath ? extractRepoPath(mcpPackagePath) : ''
   ].filter(Boolean));
   const additionalCodeSources = codeSources
@@ -1729,22 +1865,25 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
   const mcpDescription = mcpPackagePath ? 'packages/wiki-mcp exposes the wiki tool surface used by connected agents such as OpenClaw.' : '';
   const aiDescription = aiClientPath ? `${extractRepoPath(aiClientPath)} owns text-model provider selection and upstream routing.` : '';
   const workerDescription = scheduledWorkerPath ? 'server/services/wikiScheduledMaintenanceWorker.js runs background wiki maintenance outside the request path.' : '';
+  const publicationDescription = publicationPath ? 'server/services/wikiMaintenancePublicationService.js owns candidate-versus-published state and preserves the last trusted page when a rebuild fails.' : '';
+  const authDescription = authRoutesPath ? 'server/routes/authRoutes.js owns the login/token boundary; authenticated wiki routes remain distinct from deliberately public share serialization.' : '';
+  const statusDescription = systemStatusPath ? 'note-taker-ui/src/system/SystemStatusContext.js carries background work, durable receipts, and recoverable failures into the shared status surface.' : '';
   const commandSourceIndexes = Array.from(new Set([
     runScript?.sourceIndex,
     ...testScripts.map(script => script.sourceIndex),
     ...buildScripts.map(script => script.sourceIndex)
   ].filter(Boolean)));
   const runCommandDetail = runScript
-    ? `${scriptCommandLabel(runScript)} - ${runScript.command}`
+    ? `${scriptWorkingDirectory(runScript)}: ${scriptRunnableCommand(runScript)}${scriptExecutionNote(runScript)}`
     : 'No explicit run command was found in the selected package evidence.';
   const uiCommandDetail = uiStartScript
-    ? `${scriptCommandLabel(uiStartScript)} - ${uiStartScript.command}`
+    ? `${scriptWorkingDirectory(uiStartScript)}: ${scriptRunnableCommand(uiStartScript)}${scriptExecutionNote(uiStartScript)}`
     : 'UI start command was not attached; inspect the UI package before inventing one.';
   const proofCommandDetail = testScripts[0]
-    ? `${scriptCommandLabel(testScripts[0])} - ${testScripts[0].command}`
+    ? `${scriptWorkingDirectory(testScripts[0])}: ${scriptRunnableCommand(testScripts[0])}${scriptExecutionNote(testScripts[0])}`
     : 'No explicit wiki/test command was found in the selected package evidence.';
   const buildCommandDetail = buildScripts[0]
-    ? `${scriptCommandLabel(buildScripts[0])} - ${buildScripts[0].command}`
+    ? `${scriptWorkingDirectory(buildScripts[0])}: ${scriptRunnableCommand(buildScripts[0])}${scriptExecutionNote(buildScripts[0])}`
     : 'No explicit frontend build command was found in the selected package evidence.';
   const repoEvidenceCorpus = [
     page.title,
@@ -1845,8 +1984,12 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             citationIndexes: [uiPackagePath.index].filter(Boolean)
           } : null,
           envExamplePath ? {
-            text: 'Environment: copy .env.example locally, then configure JWT_SECRET and MONGODB_URI; text generation uses OPENROUTER_API_KEY when present, while HF_TOKEN remains the embedding credential.',
+            text: `Environment from .env.example: copy it locally and configure ${envVariableNames.join(', ') || 'the listed variable names'}. Keep values private.`,
             citationIndexes: [envExamplePath.index].filter(Boolean)
+          } : null,
+          envExamplePath && envVariableNames.includes('PORT') ? {
+            text: 'Local URLs: API localhost:5500; UI localhost:3000. The UI development proxy targets the API on port 5500.',
+            citationIndexes: [envExamplePath.index, uiPackagePath?.index].filter(Boolean)
           } : null,
           {
             text: `Run: ${runCommandDetail}`,
@@ -1882,12 +2025,12 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         })],
         bullets: [
           {
-            text: 'Repo creation: WikiRepoCreateComposer -> note-taker-ui/src/api/wiki.js -> POST /api/wiki/pages/from-github -> server/routes/wikiRoutes.js -> server/services/githubRepoWatcherService.js -> server/services/wikiMaintenanceService.js -> WikiPage persistence -> wiki reader.',
-            citationIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index, watcherPath?.index, maintenancePath?.index, modelsPath?.index].filter(Boolean)
+            text: 'Repo creation: note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx -> note-taker-ui/src/api/wiki.js -> POST /api/wiki/pages/from-github -> server/routes/wikiRoutes.js -> server/services/githubRepoWatcherService.js -> server/services/wikiMaintenanceService.js -> server/models/index.js WikiPage persistence -> note-taker-ui/src/components/wiki/WikiPageReadView.jsx.',
+            citationIndexes: [repoComposerPath?.index, wikiClientApiPath?.index, wikiRoutesPath?.index, watcherPath?.index, maintenancePath?.index, modelsPath?.index, readViewPath?.index].filter(Boolean)
           },
           {
-            text: 'Repo refresh: externalWatches.githubRepo marks the watch, githubRepoWatcherService refreshes read-only GitHub evidence, source events attach to the page, and wikiMaintenanceService rebuilds the maintained article from current sources.',
-            citationIndexes: [watcherPath?.index, maintenancePath?.index, modelsPath?.index].filter(Boolean)
+            text: 'Repo refresh: externalWatches.githubRepo records observed and candidate heads -> server/services/githubRepoWatcherService.js refreshes read-only evidence -> source events attach to the page -> server/services/wikiMaintenanceService.js builds a candidate -> server/services/wikiMaintenancePublicationService.js publishes only an accepted candidate and otherwise leaves the last trusted page visible.',
+            citationIndexes: [watcherPath?.index, maintenancePath?.index, publicationPath?.index, modelsPath?.index].filter(Boolean)
           },
           {
             text: 'Ask and retrieval: inspect agentChatRoutes before changing page-aware answers, then confirm whether the behavior should route through page-only retrieval or graph-aware wiki asking.',
@@ -1898,8 +2041,8 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             citationIndexes: [wikiRoutesPath?.index, modelsPath?.index].filter(Boolean)
           },
           {
-            text: 'System status flow: long-running builds should publish background work, success receipts, or recoverable failures through the shared status surface so the user can tell the page is changing live.',
-            citationIndexes: [wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean)
+            text: 'System status flow: long-running builds publish background work, success receipts, or recoverable failures through note-taker-ui/src/system/SystemStatusContext.js so the user can distinguish rebuilding, ready, and needs-review states.',
+            citationIndexes: [systemStatusPath?.index, wikiClientApiPath?.index, wikiRoutesPath?.index].filter(Boolean)
           }
         ]
       },
@@ -1907,19 +2050,19 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         heading: 'Architecture and ownership',
         paragraphs: [
           repoFallbackParagraph({
-            text: [uiAppPath ? uiAppDescription : '', wikiClientApiPath ? wikiClientDescription : '', mcpPackagePath ? mcpDescription : ''].filter(Boolean).join(' '),
-            sourceIndexes: [uiAppPath?.index, wikiClientApiPath?.index, mcpPackagePath?.index].filter(Boolean),
-            support: [uiAppPath, wikiClientApiPath, mcpPackagePath].some(Boolean) ? 'supported' : 'unsupported'
+            text: [uiAppPath ? uiAppDescription : '', wikiClientApiPath ? wikiClientDescription : '', systemStatusPath ? statusDescription : '', mcpPackagePath ? mcpDescription : ''].filter(Boolean).join(' '),
+            sourceIndexes: [uiAppPath?.index, wikiClientApiPath?.index, systemStatusPath?.index, mcpPackagePath?.index].filter(Boolean),
+            support: [uiAppPath, wikiClientApiPath, systemStatusPath, mcpPackagePath].some(Boolean) ? 'supported' : 'unsupported'
           }),
           repoFallbackParagraph({
-            text: [apiPath ? apiDescription : '', wikiRoutesPath ? wikiRoutesDescription : '', modelsPath ? modelsDescription : ''].filter(Boolean).join(' '),
-            sourceIndexes: [apiPath?.index, wikiRoutesPath?.index, modelsPath?.index].filter(Boolean),
-            support: [apiPath, wikiRoutesPath, modelsPath].some(Boolean) ? 'supported' : 'unsupported'
+            text: [apiPath ? apiDescription : '', authRoutesPath ? authDescription : 'Authentication boundary: the selected evidence does not identify the login or token-owning route, so its implementation remains unknown.', wikiRoutesPath ? wikiRoutesDescription : '', modelsPath ? modelsDescription : ''].filter(Boolean).join(' '),
+            sourceIndexes: [apiPath?.index, authRoutesPath?.index, wikiRoutesPath?.index, modelsPath?.index].filter(Boolean),
+            support: [apiPath, authRoutesPath, wikiRoutesPath, modelsPath].some(Boolean) ? 'supported' : 'unsupported'
           }),
           repoFallbackParagraph({
-            text: [maintenancePath ? maintenanceDescription : '', watcherPath ? watcherDescription : '', chatRoutesPath ? chatDescription : '', aiClientPath ? aiDescription : '', scheduledWorkerPath ? workerDescription : ''].filter(Boolean).join(' '),
-            sourceIndexes: [maintenancePath?.index, watcherPath?.index, chatRoutesPath?.index, aiClientPath?.index, scheduledWorkerPath?.index].filter(Boolean),
-            support: [maintenancePath, watcherPath, chatRoutesPath, aiClientPath, scheduledWorkerPath].some(Boolean) ? 'supported' : 'unsupported'
+            text: [maintenancePath ? maintenanceDescription : '', publicationPath ? publicationDescription : '', watcherPath ? watcherDescription : '', chatRoutesPath ? chatDescription : '', aiClientPath ? aiDescription : '', scheduledWorkerPath ? workerDescription : ''].filter(Boolean).join(' '),
+            sourceIndexes: [maintenancePath?.index, publicationPath?.index, watcherPath?.index, chatRoutesPath?.index, aiClientPath?.index, scheduledWorkerPath?.index].filter(Boolean),
+            support: [maintenancePath, publicationPath, watcherPath, chatRoutesPath, aiClientPath, scheduledWorkerPath].some(Boolean) ? 'supported' : 'unsupported'
           }),
           additionalCodeSources.length ? repoFallbackParagraph({
             text: `Additional implementation entrypoints worth opening for adjacent changes: ${additionalCodeSources.map(source => extractRepoPath(source)).join(', ')}.`,
@@ -1949,6 +2092,18 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
             text: `${extractRepoPath(scheduledWorkerPath)}: scheduled wiki maintenance and background refresh orchestration live here.`,
             citationIndexes: [scheduledWorkerPath.index].filter(Boolean)
           } : null,
+          publicationPath ? {
+            text: `${extractRepoPath(publicationPath)}: candidate acceptance, published-head advancement, and last-trusted-page preservation live here.`,
+            citationIndexes: [publicationPath.index].filter(Boolean)
+          } : null,
+          authRoutesPath ? {
+            text: `${extractRepoPath(authRoutesPath)}: authentication and token issuance start here; public share access is a separate, deliberately sanitized boundary.`,
+            citationIndexes: [authRoutesPath.index].filter(Boolean)
+          } : null,
+          systemStatusPath ? {
+            text: `${extractRepoPath(systemStatusPath)}: background work, receipts, and recoverable failure feedback live here.`,
+            citationIndexes: [systemStatusPath.index].filter(Boolean)
+          } : null,
           mcpPackagePath ? {
             text: `${extractRepoPath(mcpPackagePath)}: connected-agent wiki tools and runtime transport are documented here.`,
             citationIndexes: [mcpPackagePath.index].filter(Boolean)
@@ -1959,17 +2114,20 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Common change paths',
         paragraphs: [repoFallbackParagraph({
-          text: 'Use this as the routing table before editing. Pick the row that matches the intended change, open that file first, then add the closest focused test before running the broader wiki proof command. If the symptom is "the page exists but reads generic," start in generation and evidence selection; if the symptom is "the page cannot open," start in route/id/navigation behavior; if the symptom is "the page looks stale," start in watch refresh and client receipt state.',
+          text: `Use this as the routing table before editing. Pick the row that matches the visible symptom, open that file first, run its focused sibling test, then run ${primaryProofCommand || 'the repository proof command'}. If the page exists but reads generic, start in generation and evidence selection; if it cannot open, start in route/id/navigation behavior; if it looks stale, start in watch refresh, publication state, and client receipt state.`,
           sourceIndexes: sourceIndexesUsed.slice(0, 8)
         })],
         bullets: [
-          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiMaintenanceService.js', label: 'Repo-wiki output is wrong', reason: 'change generation prompts, deterministic fallback sections, quality gates, citations, and claim extraction here.' }),
-          bulletForSourcePath({ sources: repoSources, path: 'server/services/githubRepoWatcherService.js', label: 'Repo evidence is stale or thin', reason: 'change GitHub path selection, fetch behavior, source-event payloads, and watch refresh behavior here.' }),
-          bulletForSourcePath({ sources: repoSources, path: 'server/routes/wikiRoutes.js', label: 'Create/update flow fails', reason: 'change repo page creation, source attachment, share/adopt, watch, and draft endpoints here.' }),
-          bulletForSourcePath({ sources: repoSources, path: 'server/models/index.js', label: 'Data shape has to change', reason: 'change wiki page, source reference, watch, and claim model schemas here.' }),
-          bulletForSourcePath({ sources: repoSources, path: 'server/routes/agentChatRoutes.js', label: 'Agent answers are wrong', reason: 'inspect this route before changing chat, retrieval, and answer behavior.' }),
-          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/api/wiki.js', label: 'Frontend call is wrong', reason: 'change wiki API helpers and response handling here.' }),
-          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/package.json', label: 'Frontend proof changes', reason: 'React scripts and browser test commands are declared here.' })
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiMaintenanceService.js', label: 'Generated article is thin or wrong', reason: `change evidence selection, prompts, fallback sections, gates, and citations here; prove with ${primaryProofCommand || 'the wiki quality test'}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/githubRepoWatcherService.js', label: 'Repository evidence is stale or thin', reason: `change GitHub path selection, fetch behavior, source events, and watch refresh here; run the watcher service test, then ${primaryProofCommand || 'the wiki quality test'}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiMaintenancePublicationService.js', label: 'A rejected candidate replaced trusted content or head state is wrong', reason: `change publication transaction and head advancement here; run its focused service test, then ${primaryProofCommand || 'the wiki quality test'}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/routes/wikiRoutes.js', label: 'Create, rebuild, or public-share API behavior fails', reason: `change repo creation, source attachment, watch, maintenance, and sanitized share routes here; run focused route tests, then ${primaryProofCommand || 'the wiki quality test'}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/models/index.js', label: 'Persisted page, watch, claim, or source-reference shape is wrong', reason: 'change model schemas here and prove migration/backward compatibility before the broader wiki gate.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'server/services/wikiAskService.js', label: 'Wiki answers ignore graph context', reason: `change graph-aware retrieval here; run wikiAskService.test.js, then ${primaryProofCommand || 'the wiki quality test'}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/components/wiki/WikiPageReadView.jsx', label: 'Reader layout or live build feedback is wrong', reason: `change the maintained-page reader here; run WikiPageReadView.test.jsx and ${buildCommandDetail}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/system/SystemStatusContext.js', label: 'Background progress, receipt, or recoverable failure is missing', reason: 'change the shared status contract here and run SystemStatusContext.test.js.' }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/pages/DataIntegrations.jsx', label: 'Notion, Readwise, or Evernote connection UX is wrong', reason: `change connection status and sync presentation here; run DataIntegrations.test.jsx and ${buildCommandDetail}.` }),
+          bulletForSourcePath({ sources: repoSources, path: 'note-taker-ui/src/pages/SharedWikiPage.jsx', label: 'Public wiki presentation leaks private chrome or cannot scroll', reason: `change the public share surface here while preserving server-side serialization; run SharedWikiPage.test.jsx and ${buildCommandDetail}.` })
         ].filter(bullet => bullet.citationIndexes.length)
       },
       {

@@ -11,29 +11,82 @@ const QuickstartRow = ({ label, children }) => {
   );
 };
 
-const CommandValue = ({ command = '' }) => (
-  <code className="wiki-read__repo-quickstart-code">{command}</code>
-);
+const CommandBlock = ({ command }) => {
+  if (!command?.command) return null;
+  return (
+    <div className="wiki-read__repo-quickstart-command">
+      <span className="wiki-read__repo-quickstart-cwd">{command.cwd}</span>
+      <code className="wiki-read__repo-quickstart-code">{command.command}</code>
+      {command.entrypoint ? (
+        <span className="wiki-read__repo-quickstart-entrypoint">→ {command.entrypoint}</span>
+      ) : null}
+      {command.sourceFile ? (
+        <code className="wiki-read__repo-quickstart-source">{command.sourceFile}</code>
+      ) : null}
+    </div>
+  );
+};
 
 const WikiRepoDeveloperQuickstart = ({ page }) => {
   const quickstart = useMemo(() => extractRepoDeveloperQuickstart(page), [page]);
   if (!quickstart) return null;
 
-  const { run, test, deploy, keyPaths = [] } = quickstart;
+  const {
+    install = [],
+    apiRun,
+    uiRun,
+    test,
+    build,
+    envVars = [],
+    localUrls = [],
+    deploy,
+    keyPaths = []
+  } = quickstart;
 
   return (
     <section className="wiki-read__repo-quickstart" aria-label="Developer quickstart">
       <div className="wiki-read__repo-quickstart-head">
         <span className="wiki-read__repo-quickstart-kicker">Repo wiki</span>
         <h4>Developer quickstart</h4>
-        <p>Commands and paths pulled from this page&apos;s repository sources.</p>
+        <p>Runnable commands and paths pulled from this page&apos;s repository sources.</p>
       </div>
       <div className="wiki-read__repo-quickstart-grid">
-        <QuickstartRow label="Run">
-          {run ? <CommandValue command={run} /> : null}
+        <QuickstartRow label="Install">
+          {install.length ? (
+            <div className="wiki-read__repo-quickstart-command-stack">
+              {install.map((command) => (
+                <CommandBlock key={`${command.cwd}-${command.command}`} command={command} />
+              ))}
+            </div>
+          ) : null}
+        </QuickstartRow>
+        <QuickstartRow label="API run">
+          {apiRun ? <CommandBlock command={apiRun} /> : null}
+        </QuickstartRow>
+        <QuickstartRow label="UI run">
+          {uiRun ? <CommandBlock command={uiRun} /> : null}
         </QuickstartRow>
         <QuickstartRow label="Test">
-          {test ? <CommandValue command={test} /> : null}
+          {test ? <CommandBlock command={test} /> : null}
+        </QuickstartRow>
+        <QuickstartRow label="Build">
+          {build ? <CommandBlock command={build} /> : null}
+        </QuickstartRow>
+        <QuickstartRow label="Env">
+          {envVars.length ? (
+            <code className="wiki-read__repo-quickstart-code">{envVars.join(', ')}</code>
+          ) : null}
+        </QuickstartRow>
+        <QuickstartRow label="Local">
+          {localUrls.length ? (
+            <div className="wiki-read__repo-quickstart-local">
+              {localUrls.map((entry) => (
+                <span key={`${entry.label}-${entry.url}`}>
+                  <strong>{entry.label}</strong> {entry.url}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </QuickstartRow>
         <QuickstartRow label="Deploy">
           {deploy?.frontend || deploy?.api ? (

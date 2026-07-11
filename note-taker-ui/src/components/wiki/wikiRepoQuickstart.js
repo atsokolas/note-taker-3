@@ -2,15 +2,21 @@ import { isRepoDossierPage, pageMeta } from './wikiRepoDossierModel';
 
 const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
+const ROOT_CWD = 'repository root';
+
 const pickMeta = (meta = {}, keys = []) => {
   for (const key of keys) {
-    const value = normalizeText(meta[key]);
-    if (value) return value;
+    const value = meta[key];
+    if (value == null) continue;
+    if (typeof value === 'string') {
+      const text = normalizeText(value);
+      if (text) return text;
+    }
   }
   return '';
 };
 
-const listMeta = (meta = {}, keys = [], limit = 6) => {
+const listMeta = (meta = {}, keys = [], limit = 8) => {
   for (const key of keys) {
     const value = meta[key];
     if (Array.isArray(value)) {
@@ -91,43 +97,236 @@ const collectCorpus = (page = {}) => {
   ].filter(Boolean).join('\n\n');
 };
 
-const extractCommandFromText = (text = '', { labelPatterns = [], inlinePatterns = [] } = {}) => {
-  const labeled = firstMatch(text, labelPatterns);
-  if (labeled) return labeled;
-  return firstMatch(text, inlinePatterns);
+const normalizeCwd = (value = '') => {
+  const cwd = normalizeText(value);
+  if (!cwd || cwd === '.' || cwd === './') return ROOT_CWD;
+  return cwd.replace(/\/$/, '');
 };
 
-const RUN_LABEL_PATTERNS = [
-  /(?:^|\n|\.\s)(?:Run(?: locally)?|Start(?: locally)?|Dev(?:elopment)?|Getting started)\s*[:—-]\s*((?:npm|pnpm|yarn|node|cd)[^\n.]{2,120})/i
-];
+const isLongPackageExpansion = (value = '') => {
+  const expansion = normalizeText(value);
+  if (!expansion) return false;
+  return expansion.length > 72 || /\s&&\s/.test(expansion) || expansion.endsWith('...');
+};
 
-const RUN_INLINE_PATTERNS = [
-  /`(npm(?: run)? (?:start|dev)[^`]+)`/i,
-  /`(cd [^`]+ && npm(?: run)? (?:start|dev)[^`]+)`/i,
-  /(?:^|[\s>])(npm run (?:start|dev)|npm start|pnpm (?:dev|start)|yarn (?:dev|start)|cd [^\n]+ && npm(?: run)? start)/im
-];
+const splitCommandDetail = (text = '') => {
+  const trimmed = normalizeText(text);
+  const dashIndex = trimmed.indexOf(' - ');
+  if (dashIndex === -1) {
+    return { named: trimmed, expansion: '' };
+  }
+  return {
+    named: trimmed.slice(0, dashIndex).trim(),
+    expansion: trimmed.slice(dashIndex + 3).trim()
+  };
+};
 
-const TEST_LABEL_PATTERNS = [
-  /(?:^|\n|\.\s)(?:Wiki proof|Proof|Verify|Verification)\s*[:—-]\s*((?:CI=\d+\s+)?(?:npm|pnpm|yarn)[^\n.]{2,120})/i,
-  /(?:^|\n|\.\s)(?:Test(?:ing)?|Tests?)\s*[:—-]\s*((?:CI=\d+\s+)?(?:npm|pnpm|yarn)[^\n.]{2,120})/i
-];
+const parseNamedCommandLine = (line = '') => {
+  const stripped = normalizeText(line)
+    .replace(/^(?:Run|UI|Test|Build|Wiki proof|Proof|Frontend build|Backend|Install(?: UI)?)\s*:\s*/i, '');
+  if (!stripped) return null;
 
-const TEST_INLINE_PATTERNS = [
-  /`(npm run wiki:qa[^`]*)`/i,
-  /`(CI=\d+\s+)?npm(?: run)? test[^`]+`/i,
-  /(?:^|[\s>])(npm run wiki:qa[^\n.]{0,80})/im,
-  /(?:^|[\s>])(CI=\d+\s+npm(?: run)? test[^\n.]{0,80}|npm run test[^\n.]{0,80}|npm test[^\n.]{0,40})/im
-];
+  const { named, expansion } = splitCommandDetail(stripped);
+  const fromMatch = named.match(/^(.*?)\s+from\s+([\w./-]+\/package\.json)$/i);
+  if (fromMatch) {
+    const sourceFile = fromMatch[2];
+    const cwd = sourceFile.includes('/')
+      ? sourceFile.replace(/\/package\.json$/i, '')
+      : ROOT_CWD;
+    return {
+      command: normalizeText(fromMatch[1]),
+      cwd: normalizeCwd(cwd),
+      entrypoint: isLongPackageExpansion(expansion) ? '' : expansion,
+      sourceFile
+    };
+  }
 
-const DEPLOY_LABEL_PATTERNS = [
-  /(?:^|\n|\.\s)(?:Deploy(?:ment)?|Ship(?:ping)?|Production)\s*[:—-]\s*([^\n]{4,220})/i
-];
+  const cdMatch = named.match(/^cd\s+([^&]+)\s*&&\s*(.+)$/i);
+  if (cdMatch) {
+    return {
+      command: normalizeText(cdMatch[2]),
+      cwd: normalizeCwd(cdMatch[1]),
+      entrypoint: isLongPackageExpansion(expansion) ? '' : expansion,
+      sourceFile: ''
+    };
+  }
 
-const DEPLOY_INLINE_PATTERNS = [
-  /frontend[\s\S]{0,80}(?:vercel|noeis\.io)[\s\S]{0,80}/i,
-  /(?:api|backend)[\s\S]{0,80}(?:render|onrender\.com)[\s\S]{0,80}/i,
-  /`(npm run build[^`]+)`/i
-];
+  return {
+    command: named,
+    cwd: ROOT_CWD,
+    entrypoint: isLongPackageExpansion(expansion) ? '' : expansion,
+    sourceFile: /npm run \w+/i.test(named) ? 'package.json' : ''
+  };
+};
+
+const coerceQuickstartCommand = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    return parseNamedCommandLine(value);
+  }
+  if (typeof value === 'object') {
+    const command = normalizeText(value.command);
+    if (!command) return null;
+    return {
+      command,
+      cwd: normalizeCwd(value.cwd || ROOT_CWD),
+      entrypoint: normalizeText(value.entrypoint),
+      sourceFile: normalizeText(value.sourceFile)
+    };
+  }
+  return null;
+};
+
+const readStructuredQuickstart = (meta = {}) => {
+  const quickstart = meta.quickstart;
+  if (!quickstart || typeof quickstart !== 'object') return null;
+  const install = Array.isArray(quickstart.install)
+    ? quickstart.install.map(coerceQuickstartCommand).filter(Boolean)
+    : quickstart.install
+      ? [coerceQuickstartCommand(quickstart.install)].filter(Boolean)
+      : [];
+  const installUi = coerceQuickstartCommand(quickstart.installUi);
+  if (installUi) install.push(installUi);
+
+  return {
+    install,
+    apiRun: coerceQuickstartCommand(quickstart.apiRun),
+    uiRun: coerceQuickstartCommand(quickstart.uiRun),
+    test: coerceQuickstartCommand(quickstart.test || quickstart.proof),
+    build: coerceQuickstartCommand(quickstart.build),
+    envVars: listMeta(quickstart, ['envVars', 'environmentVariables'], 12),
+    localUrls: Array.isArray(quickstart.localUrls) ? quickstart.localUrls : []
+  };
+};
+
+const classifyCommandLine = (line = '') => {
+  const normalized = normalizeText(line).toLowerCase();
+  if (/^install ui|cd note-taker-ui && npm install/i.test(normalized)) return 'installUi';
+  if (/^install|npm install/i.test(normalized) && !/note-taker-ui/.test(normalized)) return 'install';
+  if (/^ui:|from note-taker-ui\/package\.json.*start|react-scripts start/i.test(normalized)) return 'uiRun';
+  if (/wiki:qa|wiki proof|^test:|^proof:/i.test(normalized)) return 'test';
+  if (/^build:|from note-taker-ui\/package\.json.*build|react-scripts build/i.test(normalized)) return 'build';
+  if (/^run:|npm run (?:start|dev)|node server\/server\.js/i.test(normalized)) return 'apiRun';
+  return '';
+};
+
+const extractCommandsFromSection = (sectionTextValue = '') => {
+  const result = {
+    install: [],
+    apiRun: null,
+    uiRun: null,
+    test: null,
+    build: null
+  };
+  if (!sectionTextValue) return result;
+
+  const lines = sectionTextValue.split('\n').map(line => line.trim()).filter(Boolean);
+  for (const line of lines) {
+    const cleaned = line.replace(/^[-*•]\s*/, '');
+    if (/install api dependencies.*npm install/i.test(cleaned)) {
+      result.install.push({ command: 'npm install', cwd: ROOT_CWD, entrypoint: '', sourceFile: '' });
+      continue;
+    }
+    if (/install ui dependencies.*note-taker-ui/i.test(cleaned)) {
+      result.install.push({
+        command: 'npm install',
+        cwd: 'note-taker-ui',
+        entrypoint: '',
+        sourceFile: 'note-taker-ui/package.json'
+      });
+      continue;
+    }
+    const kind = classifyCommandLine(cleaned);
+    const parsed = parseNamedCommandLine(cleaned);
+    if (!parsed?.command) continue;
+
+    switch (kind) {
+      case 'install':
+      case 'installUi':
+        result.install.push(parsed);
+        break;
+      case 'apiRun':
+        result.apiRun = {
+          ...parsed,
+          entrypoint: parsed.entrypoint || (parsed.command.includes('start') ? 'node server/server.js' : parsed.entrypoint),
+          sourceFile: parsed.sourceFile || 'package.json'
+        };
+        break;
+      case 'uiRun':
+        result.uiRun = {
+          ...parsed,
+          cwd: parsed.cwd === ROOT_CWD ? 'note-taker-ui' : parsed.cwd,
+          sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
+        };
+        break;
+      case 'test':
+        result.test = {
+          command: /^npm run /i.test(parsed.command) ? parsed.command : 'npm run wiki:qa',
+          cwd: ROOT_CWD,
+          entrypoint: '',
+          sourceFile: 'package.json'
+        };
+        break;
+      case 'build':
+        result.build = {
+          command: /CI=/i.test(parsed.command) ? parsed.command : `CI=true ${parsed.command}`,
+          cwd: parsed.cwd === ROOT_CWD ? 'note-taker-ui' : parsed.cwd,
+          entrypoint: '',
+          sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
+        };
+        break;
+      default:
+        break;
+    }
+  }
+  return result;
+};
+
+const extractEnvVars = ({ meta = {}, corpus = '' } = {}) => {
+  const fromMeta = listMeta(meta, ['envVars', 'environmentVariables', 'requiredEnvVars'], 12);
+  if (fromMeta.length) return fromMeta;
+
+  const envSection = firstMatch(corpus, [
+    /Environment:\s*copy \.env\.example[^,]*,\s*then configure ([^;]+)/i,
+    /configure ([A-Z][A-Z0-9_]+(?:,\s*(?:and\s+)?[A-Z][A-Z0-9_]+){0,8})/i
+  ]);
+  if (envSection) {
+    return unique(
+      envSection
+        .replace(/\btext generation uses\b.*$/i, '')
+        .split(/,\s+| and /i)
+        .map(item => normalizeText(item))
+        .filter(item => /^[A-Z][A-Z0-9_]+$/.test(item))
+    );
+  }
+
+  const envExample = firstMatch(corpus, [
+    /Path: \.env\.example[\s\S]{0,1200}?(JWT_SECRET[\s\S]{0,800})/i
+  ]);
+  if (envExample) {
+    return unique([...envExample.matchAll(/^([A-Z][A-Z0-9_]+)=/gm)].map(match => match[1])).slice(0, 8);
+  }
+
+  return [];
+};
+
+const extractLocalUrls = ({ meta = {}, corpus = '' } = {}) => {
+  const fromMeta = meta.quickstart?.localUrls;
+  if (Array.isArray(fromMeta) && fromMeta.length) return fromMeta;
+
+  const urls = [];
+  const apiUrl = firstMatch(corpus, [
+    /API(?:\s+URL)?\s*[:—-]\s*(https?:\/\/[^\s,;)]+)/i,
+    /(https?:\/\/(?:localhost|127\.0\.0\.1):5001[^\s,;)]*)/i
+  ]);
+  const uiUrl = firstMatch(corpus, [
+    /UI(?:\s+URL)?\s*[:—-]\s*(https?:\/\/[^\s,;)]+)/i,
+    /(https?:\/\/(?:localhost|127\.0\.0\.1):3000[^\s,;)]*)/i
+  ]);
+  if (apiUrl) urls.push({ label: 'API', url: apiUrl });
+  if (uiUrl) urls.push({ label: 'UI', url: uiUrl });
+  return urls;
+};
 
 const splitDeployTargets = (text = '') => {
   const normalized = normalizeText(text);
@@ -152,6 +351,24 @@ const splitDeployTargets = (text = '') => {
   return { summary: normalized, frontend: '', api: '' };
 };
 
+const extractDeploy = ({ meta = {}, corpus = '' } = {}) => {
+  const frontend = pickMeta(meta, ['deployFrontend', 'frontendDeploy', 'frontendHost']);
+  const api = pickMeta(meta, ['deployApi', 'deployBackend', 'apiDeploy', 'backendDeploy']);
+  const summary = pickMeta(meta, ['deploy', 'deployment', 'deploySummary']);
+  if (frontend || api || summary) {
+    return {
+      summary: summary || [frontend && `Frontend: ${frontend}`, api && `API: ${api}`].filter(Boolean).join(' · '),
+      frontend,
+      api
+    };
+  }
+  const deploySection = sectionText(corpus, ['Deploy and operations', 'Deployment', 'Deploy', 'Production']);
+  const deployText = firstMatch(deploySection || corpus, [
+    /(?:^|\n|\.\s)(?:Deploy(?:ment)?|Ship(?:ping)?|Production)\s*[:—-]\s*([^\n]{4,220})/i
+  ]);
+  return splitDeployTargets(deployText);
+};
+
 const extractKeyPaths = ({ page = {}, meta = {}, corpus = '' } = {}) => {
   const fromMeta = listMeta(meta, ['keyPaths', 'keyRepoPaths', 'repoPaths', 'paths', 'directories']);
   const fromRefs = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
@@ -168,17 +385,67 @@ const extractKeyPaths = ({ page = {}, meta = {}, corpus = '' } = {}) => {
     ? section.split('\n')
       .flatMap(line => line.replace(/^[-*•]\s*/, '').split(/[,;|]/))
       .map(item => normalizeText(item))
-      .filter(path => path && /^(?:[a-z0-9._-]+\/)+$/i.test(path))
+      .filter(path => path && (/^(?:[a-z0-9._-]+\/)+$/i.test(path) || /^[\w./-]+\.[jt]sx?$/i.test(path)))
     : [];
-  const inlinePaths = [...corpus.matchAll(/`([a-z0-9][a-z0-9._/-]{1,80}\/)`/gi)]
+  const inlinePaths = [...corpus.matchAll(/`([a-z0-9][a-z0-9._/-]{1,80}(?:\/|\.[jt]sx?))`/gi)]
     .map(match => normalizeText(match[1]))
     .filter(path => /^(note-taker-ui|server|scripts|docs|packages|src|app|lib)\//i.test(path));
   return unique([...fromMeta, ...fromRefs, ...fromSection, ...inlinePaths]).slice(0, 6);
 };
 
-const extractRunCommand = ({ meta = {}, corpus = '' } = {}) => {
-  const fromMeta = pickMeta(meta, ['runCommand', 'run', 'startCommand', 'devCommand']);
-  if (fromMeta) return fromMeta;
+const mergeInstallCommands = (commands = [], { allowDefaults = false } = {}) => {
+  const normalized = [];
+  const seen = new Set();
+  for (const command of commands) {
+    if (!command?.command) continue;
+    const key = `${command.cwd}::${command.command}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(command);
+  }
+  if (!allowDefaults) return normalized;
+  if (!normalized.some(item => /npm install/i.test(item.command) && item.cwd === ROOT_CWD)) {
+    normalized.unshift({ command: 'npm install', cwd: ROOT_CWD, entrypoint: '', sourceFile: '' });
+  }
+  if (!normalized.some(item => /note-taker-ui/.test(item.cwd))) {
+    normalized.push({ command: 'npm install', cwd: 'note-taker-ui', entrypoint: '', sourceFile: 'note-taker-ui/package.json' });
+  }
+  return normalized.slice(0, 2);
+};
+
+const applyLegacyMetadata = ({ meta = {}, quickstart = {} } = {}) => {
+  const next = { ...quickstart };
+  if (!next.apiRun) {
+    const run = pickMeta(meta, ['apiRunCommand', 'runCommand', 'run', 'startCommand', 'devCommand']);
+    if (run) {
+      next.apiRun = {
+        command: run,
+        cwd: ROOT_CWD,
+        entrypoint: run.includes('server/server.js') ? 'node server/server.js' : 'node server/server.js',
+        sourceFile: 'package.json'
+      };
+    }
+  }
+  if (!next.test) {
+    const test = pickMeta(meta, ['testCommand', 'proofCommand', 'test']);
+    if (test && !isLongPackageExpansion(test)) {
+      next.test = {
+        command: /^npm run /i.test(test) ? test : test,
+        cwd: ROOT_CWD,
+        entrypoint: '',
+        sourceFile: 'package.json'
+      };
+    } else if (/wiki:qa/i.test(test)) {
+      next.test = { command: 'npm run wiki:qa', cwd: ROOT_CWD, entrypoint: '', sourceFile: 'package.json' };
+    }
+  }
+  return next;
+};
+
+export const extractRepoDeveloperQuickstart = (page = {}) => {
+  if (!isRepoDossierPage(page)) return null;
+  const meta = pageMeta(page);
+  const corpus = collectCorpus(page);
   const quickstartSection = sectionText(corpus, [
     'Developer quickstart',
     'Five-minute setup',
@@ -188,68 +455,53 @@ const extractRunCommand = ({ meta = {}, corpus = '' } = {}) => {
     'Local development',
     'Running locally'
   ]);
-  return extractCommandFromText(quickstartSection || corpus, {
-    labelPatterns: RUN_LABEL_PATTERNS,
-    inlinePatterns: RUN_INLINE_PATTERNS
-  });
-};
 
-const extractTestCommand = ({ meta = {}, corpus = '' } = {}) => {
-  const fromMeta = pickMeta(meta, ['testCommand', 'test']);
-  if (fromMeta) return fromMeta;
-  const proofSection = sectionText(corpus, ['Run, test, build', 'Verification', 'Testing']);
-  const quickstartSection = proofSection || sectionText(corpus, [
-    'Developer quickstart',
-    'Five-minute setup',
-    'Developer setup',
-    'Testing',
-    'Verification'
-  ]);
-  return extractCommandFromText(quickstartSection || corpus, {
-    labelPatterns: TEST_LABEL_PATTERNS,
-    inlinePatterns: TEST_INLINE_PATTERNS
+  const structured = readStructuredQuickstart(meta);
+  const parsed = extractCommandsFromSection(quickstartSection || corpus);
+  const hasParsedSignals = Boolean(
+    parsed.install.length ||
+    parsed.apiRun ||
+    parsed.uiRun ||
+    parsed.test ||
+    parsed.build
+  );
+  const merged = applyLegacyMetadata({
+    meta,
+    quickstart: {
+      install: mergeInstallCommands([
+        ...(structured?.install || []),
+        ...parsed.install
+      ], { allowDefaults: Boolean(structured || hasParsedSignals) }),
+      apiRun: structured?.apiRun || parsed.apiRun,
+      uiRun: structured?.uiRun || parsed.uiRun,
+      test: structured?.test || parsed.test,
+      build: structured?.build || parsed.build,
+      envVars: structured?.envVars?.length ? structured.envVars : extractEnvVars({ meta, corpus }),
+      localUrls: structured?.localUrls?.length ? structured.localUrls : extractLocalUrls({ meta, corpus })
+    }
   });
-};
 
-const extractDeploy = ({ meta = {}, corpus = '' } = {}) => {
-  const frontend = pickMeta(meta, ['deployFrontend', 'frontendDeploy', 'frontendHost']);
-  const api = pickMeta(meta, ['deployApi', 'deployBackend', 'apiDeploy', 'backendDeploy']);
-  const summary = pickMeta(meta, ['deploy', 'deployment', 'deploySummary']);
-  if (frontend || api || summary) {
-    return {
-      summary: summary || [frontend && `Frontend: ${frontend}`, api && `API: ${api}`].filter(Boolean).join(' · '),
-      frontend,
-      api
-    };
-  }
-  const deploySection = sectionText(corpus, ['Deploy and operations', 'Deployment', 'Deploy', 'Production']);
-  const quickstartSection = deploySection || sectionText(corpus, [
-    'Developer quickstart',
-    'Run, test, build',
-    'Deployment',
-    'Deploy',
-    'Production'
-  ]);
-  const deployText = extractCommandFromText(quickstartSection || corpus, {
-    labelPatterns: DEPLOY_LABEL_PATTERNS,
-    inlinePatterns: DEPLOY_INLINE_PATTERNS
-  });
-  return splitDeployTargets(deployText);
-};
-
-export const extractRepoDeveloperQuickstart = (page = {}) => {
-  if (!isRepoDossierPage(page)) return null;
-  const meta = pageMeta(page);
-  const corpus = collectCorpus(page);
-  const run = extractRunCommand({ meta, corpus });
-  const test = extractTestCommand({ meta, corpus });
   const deploy = extractDeploy({ meta, corpus });
   const keyPaths = extractKeyPaths({ page, meta, corpus });
   const hasDeploy = Boolean(deploy?.summary || deploy?.frontend || deploy?.api);
-  if (!run && !test && !hasDeploy && !keyPaths.length) return null;
+  const hasCommands = Boolean(
+    merged.install.length ||
+    merged.apiRun ||
+    merged.uiRun ||
+    merged.test ||
+    merged.build
+  );
+
+  if (!hasCommands && !hasDeploy && !keyPaths.length && !merged.envVars.length) return null;
+
   return {
-    run,
-    test,
+    install: merged.install,
+    apiRun: merged.apiRun,
+    uiRun: merged.uiRun,
+    test: merged.test,
+    build: merged.build,
+    envVars: merged.envVars,
+    localUrls: merged.localUrls,
     deploy: hasDeploy ? deploy : null,
     keyPaths
   };

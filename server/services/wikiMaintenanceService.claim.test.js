@@ -253,8 +253,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Prefer concrete repo facts');
     expect(prompt).toContain('Do not describe them as Library highlights');
     expect(prompt).toContain('Repository evidence digest');
-    expect(prompt).toContain('Run command: npm run start -> node server/server.js [2]');
-    expect(prompt).toContain('Test commands: npm run wiki:qa -> node scripts/wiki_qa.js [2]');
+    expect(prompt).toContain('Run command: repository root: npm run start (executes node server/server.js) [2]');
+    expect(prompt).toContain('Test commands: repository root: npm run wiki:qa (executes node scripts/wiki_qa.js) [2]');
     expect(prompt).toContain('Key paths you may name: package.json [2]; server/routes/wikiRoutes.js [3]');
     expect(prompt).toContain('Unsupported unless cited verbatim');
   });
@@ -297,6 +297,59 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('path=docs/noeis-public-proof-gallery-spec-2026-07-03.md');
     expect(prompt).toContain('docClass=planned');
     expect(prompt).toContain('commit=795f0da');
+  });
+
+  it('keeps planning and QA documents out of the repo evidence key-path digest', () => {
+    const prompt = buildPrompt({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 docs/deep-dive-qa-report-2026-06-04.md',
+        text: 'Historical QA findings.',
+        metadata: {
+          source: 'github-repo',
+          path: 'docs/deep-dive-qa-report-2026-06-04.md',
+          evidenceType: 'document',
+          docClass: 'planned'
+        }
+      }, {
+        index: 2,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 server/services/wikiMaintenanceService.js',
+        text: 'Repository generation and quality evaluation.',
+        metadata: {
+          source: 'github-repo',
+          path: 'server/services/wikiMaintenanceService.js',
+          evidenceType: 'code',
+          docClass: 'code'
+        }
+      }, {
+        index: 3,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'atsokolas/note-taker-3 note-taker-ui/src/App.js',
+        text: 'React application shell and routes.',
+        metadata: {
+          source: 'github-repo',
+          path: 'note-taker-ui/src/App.js',
+          evidenceType: 'code',
+          docClass: 'code'
+        }
+      }]
+    });
+
+    const keyPaths = prompt.match(/Key paths you may name: ([^\n]+)/)?.[1] || '';
+    expect(keyPaths).toContain('server/services/wikiMaintenanceService.js [2]');
+    expect(keyPaths).toContain('note-taker-ui/src/App.js [3]');
+    expect(keyPaths).not.toContain('deep-dive-qa-report');
+    expect(prompt).toContain('Planned/spec docs are context only, not shipped behavior');
   });
 
   it('does not add GitHub repo rules to ordinary wiki pages', () => {
@@ -510,6 +563,47 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).toContain('note-taker-ui/src/api/wiki.js');
     expect(text).not.toMatch(/still needs source-backed development/i);
     expect(result.sourceIndexesUsed).toEqual(expect.arrayContaining([1, 2, 3, 4, 5, 6, 7, 8]));
+  });
+
+  it('builds a copyable two-process quickstart from package and environment evidence', () => {
+    const result = fallbackMaintenance({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'package.json',
+        text: '{"scripts":{"start":"node server/server.js","wiki:qa":"git diff --check && node -c server/routes/wikiRoutes.js && node scripts/run_wiki_intelligence_harness.js"}}',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config', docClass: 'config' }
+      }, {
+        index: 2,
+        type: 'external',
+        provider: 'github-repo',
+        title: 'note-taker-ui/package.json',
+        text: '{"scripts":{"start":"react-scripts start","build":"react-scripts build"},"proxy":"http://localhost:5500"}',
+        metadata: { source: 'github-repo', path: 'note-taker-ui/package.json', evidenceType: 'config', docClass: 'config' }
+      }, {
+        index: 3,
+        type: 'external',
+        provider: 'github-repo',
+        title: '.env.example',
+        text: 'PORT=5500\nJWT_SECRET=replace_me\nMONGODB_URI=mongodb://localhost:27017/note-taker\nOPENROUTER_API_KEY=\nHF_TOKEN=',
+        metadata: { source: 'github-repo', path: '.env.example', evidenceType: 'config', docClass: 'config' }
+      }, ...repoCoreImplementationSources()]
+    });
+    const text = toPlainText(docFromArticle({ title: result.title, article: result.article }));
+
+    expect(text).toContain('repository root: npm run start (executes node server/server.js)');
+    expect(text).toContain('note-taker-ui/: cd note-taker-ui && npm run start (executes react-scripts start)');
+    expect(text).toContain('repository root: npm run wiki:qa (defined in package.json)');
+    expect(text).toContain('note-taker-ui/: cd note-taker-ui && npm run build (executes react-scripts build)');
+    expect(text).toContain('PORT, JWT_SECRET, MONGODB_URI, OPENROUTER_API_KEY, HF_TOKEN');
+    expect(text).toContain('API localhost:5500; UI localhost:3000');
+    expect(text).not.toContain('node scripts/run_wiki_intelligence_harness.js...');
   });
 
   it('publishes deterministic developer dossier content when a repo model draft fails quality gates', async () => {
@@ -1011,6 +1105,56 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).toMatch(/stale planning or QA history/i);
   });
 
+  it('rejects missing-core escape language and planning documents promoted as implementation paths', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        pageType: 'repo',
+        externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+      },
+      text: [
+        'What Noeis is: Library, Think, Wiki, and safe public sharing form the product loop.',
+        'Run with npm run start and prove with npm run wiki:qa - git diff --check && node -c server/routes/wikiRoutes.js... before npm run build.',
+        'System map: the wiki maintenance service was not attached. The GitHub repo watcher service was not attached.',
+        'Key paths: docs/deep-dive-qa-report-2026-06-04.md and docs/evernote-cloud-oauth-spike-2026-06-07.md.',
+        'Repo creation uses WikiRepoCreateComposer, createRepoWikiFromGitHub, /api/wiki/pages/from-github, sourceRefs, and WikiPageReadView.',
+        'Deploy with Vercel and Render. Avoid duplicate maintenance streams that can cause VersionError.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'package.json',
+        snippet: 'Path: package.json. scripts include start, wiki:qa, and build.',
+        metadata: { source: 'github-repo', path: 'package.json', evidenceType: 'config', docClass: 'config' }
+      }, {
+        title: 'server/routes/wikiRoutes.js',
+        snippet: 'Path: server/routes/wikiRoutes.js.',
+        metadata: { source: 'github-repo', path: 'server/routes/wikiRoutes.js', evidenceType: 'code', docClass: 'code' }
+      }, {
+        title: 'docs/deep-dive-qa-report-2026-06-04.md',
+        snippet: 'Historical QA report.',
+        metadata: { source: 'github-repo', path: 'docs/deep-dive-qa-report-2026-06-04.md', evidenceType: 'document', docClass: 'planned' }
+      }, {
+        title: 'docs/evernote-cloud-oauth-spike-2026-06-07.md',
+        snippet: 'Historical integration spike.',
+        metadata: { source: 'github-repo', path: 'docs/evernote-cloud-oauth-spike-2026-06-07.md', evidenceType: 'document', docClass: 'planned' }
+      }, {
+        title: 'note-taker-ui/package.json',
+        snippet: 'Path: note-taker-ui/package.json. start uses react-scripts and proxy targets localhost:5500.',
+        metadata: { source: 'github-repo', path: 'note-taker-ui/package.json', evidenceType: 'config', docClass: 'config' }
+      }, {
+        title: '.env.example',
+        snippet: 'Path: .env.example. PORT, JWT_SECRET, and MONGODB_URI are listed.',
+        metadata: { source: 'github-repo', path: '.env.example', evidenceType: 'config', docClass: 'config' }
+      }]
+    });
+
+    expect(failures.join(' ')).toMatch(/template or quality-gate phrasing/i);
+    expect(failures.join(' ')).toMatch(/promotes planning or QA documents as current implementation paths/i);
+    expect(failures.join(' ')).toMatch(/truncated setup or proof command/i);
+    expect(failures.join(' ')).toMatch(/root and UI working directories/i);
+    expect(failures.join(' ')).toMatch(/core local environment variable names/i);
+    expect(failures.join(' ')).toMatch(/supported local API or UI URL/i);
+  });
+
   it('treats pageType repo as a GitHub repo page and rejects invented current-work claims', () => {
     const failures = findGitHubRepoDeveloperDossierFailures({
       page: {
@@ -1211,8 +1355,9 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         'Product orientation: Noeis is a React and Express knowledge workspace where Library, Think, and Wiki form the user-facing loop.',
         'User experience map: users move from Library source intake to Think synthesis to Wiki maintained pages and safe public sharing.',
         'Developer quickstart: run npm start at the repo root, prove wiki changes with npm run wiki:qa, and use npm run build for the frontend.',
-        'Critical flows: repo creation starts in WikiRepoCreateComposer, calls createRepoWikiFromGitHub, posts to /api/wiki/pages/from-github, attaches sourceRefs through githubRepoWatcherService, rebuilds through wikiMaintenanceService, and renders in WikiPageReadView.',
-        'Architecture and ownership: server/server.js hosts the API and note-taker-ui/src/App.js owns the client shell.',
+        'Critical flows: Repo creation: WikiRepoCreateComposer -> createRepoWikiFromGitHub -> /api/wiki/pages/from-github -> githubRepoWatcherService -> wikiMaintenanceService -> server/models/index.js WikiPage persistence -> WikiPageReadView.',
+        'Repo refresh: externalWatches.githubRepo -> githubRepoWatcherService source events -> wikiMaintenanceService candidate -> wikiMaintenancePublicationService publishedHeadSha transaction.',
+        'Architecture and ownership: server/server.js hosts the API, authRoutes owns the JWT authentication boundary, note-taker-ui/src/App.js owns the client shell, wikiScheduledMaintenanceWorker runs background maintenance, and SystemStatusContext reports background work and recoverable failure.',
         'Common change paths: server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, and note-taker-ui/src/utils/wikiCreate.js.',
         'Quality bar and invariants: public share must not expose private backlinks, highlights, source notes, user IDs, or agent state.',
         'Failure modes: thin repo output belongs in server/services/wikiMaintenanceService.js, stale repo evidence belongs in the watcher service, and Mongoose VersionError means overlapping draft or maintenance streams should be checked before blaming the model.',
@@ -1240,6 +1385,38 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(failures).toEqual([]);
+  });
+
+  it('rejects a Noeis dossier that collapses operational boundaries into a generic backend', () => {
+    const failures = findGitHubRepoDeveloperDossierFailures({
+      page: {
+        title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+        createdFrom: { text: 'https://github.com/atsokolas/note-taker-3' }
+      },
+      text: [
+        'Library, Think, Wiki, and safe public sharing form the product loop.',
+        'Run npm start from the repository root and npm run wiki:qa before shipping.',
+        'createRepoWikiFromGitHub calls /api/wiki/pages/from-github and githubRepoWatcherService before wikiMaintenanceService renders WikiPageReadView.',
+        'server/server.js, server/routes/wikiRoutes.js, server/services/wikiMaintenanceService.js, server/services/githubRepoWatcherService.js, server/models/index.js, and note-taker-ui/src/api/wiki.js own the system.',
+        'Render and Vercel deploy separately. VersionError can signal overlapping maintenance streams.'
+      ].join('\n\n'),
+      sourceRefs: [{
+        title: 'package.json',
+        snippet: 'Path: package.json. "scripts":{"start":"node server/server.js","wiki:qa":"node scripts/wiki_qa.js"}',
+        metadata: { evidenceType: 'config', path: 'package.json' }
+      }, ...[
+        'server/server.js',
+        'server/routes/wikiRoutes.js',
+        'server/services/wikiMaintenanceService.js',
+        'server/services/githubRepoWatcherService.js',
+        'server/models/index.js',
+        'note-taker-ui/src/api/wiki.js'
+      ].map(path => ({ title: path, snippet: `Path: ${path}.`, metadata: { evidenceType: 'code', path } }))]
+    });
+
+    expect(failures.join(' ')).toMatch(/operational boundaries/i);
+    expect(failures.join(' ')).toMatch(/repo creation flow/i);
+    expect(failures.join(' ')).toMatch(/repository refresh and publication flow/i);
   });
 
   it('rejects shallow Noeis repo output even when the headings are present', () => {

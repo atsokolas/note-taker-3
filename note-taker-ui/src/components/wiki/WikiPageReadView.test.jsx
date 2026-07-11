@@ -1755,11 +1755,19 @@ describe('WikiPageReadView', () => {
         }
       },
       metadata: {
-        runCommand: 'npm start',
-        testCommand: 'CI=1 npm test -- --watchAll=false --runInBand',
+        quickstart: {
+          apiRun: {
+            command: 'npm run start',
+            cwd: 'repository root',
+            entrypoint: 'node server/server.js',
+            sourceFile: 'package.json'
+          },
+          test: { command: 'npm run wiki:qa', cwd: 'repository root', sourceFile: 'package.json' },
+          build: { command: 'CI=true npm run build', cwd: 'note-taker-ui', sourceFile: 'note-taker-ui/package.json' }
+        },
         deployFrontend: 'Vercel · https://www.noeis.io',
         deployApi: 'Render · https://note-taker-3-unrg.onrender.com',
-        keyPaths: ['note-taker-ui/', 'server/']
+        keyPaths: ['note-taker-ui/', 'server/server.js']
       }
     });
 
@@ -1768,10 +1776,10 @@ describe('WikiPageReadView', () => {
 
     expect(screen.getByRole('region', { name: 'Developer quickstart' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'note-taker-3 — repo wiki' })).toBeInTheDocument();
-    expect(screen.getByText('npm start')).toBeInTheDocument();
-    expect(screen.getByText(/CI=1 npm test/)).toBeInTheDocument();
-    expect(screen.getByText('note-taker-ui/')).toBeInTheDocument();
-    expect(screen.getByText('server/')).toBeInTheDocument();
+    expect(screen.getByText('npm run start')).toBeInTheDocument();
+    expect(screen.getByText('→ node server/server.js')).toBeInTheDocument();
+    expect(screen.getByText('npm run wiki:qa')).toBeInTheDocument();
+    expect(screen.getByText('server/server.js')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Track GitHub repo' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/Page current/);
   });

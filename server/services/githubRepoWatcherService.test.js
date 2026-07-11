@@ -289,6 +289,33 @@ const run = async () => {
   assert.ok(saturatedEvidence.includes('server/services/githubRepoWatcherService.js'));
   assert.ok(saturatedEvidence.includes('note-taker-ui/src/api/wiki.js'));
   assert.ok(saturatedEvidence.filter(path => /qa-report/i.test(path)).length <= 4);
+  const operationalEvidence = selectRepoEvidenceEntries([
+    { path: 'package.json', type: 'blob' },
+    { path: 'server/routes/authRoutes.js', type: 'blob' },
+    { path: 'server/routes/wikiRoutes.js', type: 'blob' },
+    { path: 'server/services/wikiMaintenanceService.js', type: 'blob' },
+    { path: 'server/services/wikiMaintenancePublicationService.js', type: 'blob' },
+    { path: 'server/services/githubRepoWatcherService.js', type: 'blob' },
+    { path: 'server/services/wikiScheduledMaintenanceWorker.js', type: 'blob' },
+    { path: 'server/models/index.js', type: 'blob' },
+    { path: 'note-taker-ui/src/api/wiki.js', type: 'blob' },
+    { path: 'note-taker-ui/src/system/SystemStatusContext.js', type: 'blob' },
+    { path: 'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx', type: 'blob' },
+    { path: 'note-taker-ui/src/components/wiki/WikiPageReadView.jsx', type: 'blob' },
+    ...Array.from({ length: 80 }, (_item, index) => ({
+      path: `server/services/otherService${String(index).padStart(2, '0')}.js`,
+      type: 'blob'
+    }))
+  ], 20).map(entry => entry.path);
+  [
+    'server/routes/authRoutes.js',
+    'server/routes/wikiRoutes.js',
+    'server/services/wikiMaintenancePublicationService.js',
+    'server/services/wikiScheduledMaintenanceWorker.js',
+    'note-taker-ui/src/system/SystemStatusContext.js',
+    'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx',
+    'note-taker-ui/src/components/wiki/WikiPageReadView.jsx'
+  ].forEach(path => assert.ok(operationalEvidence.includes(path), `missing operational evidence: ${path}`));
   assert.deepStrictEqual(
     selectRepoEvidenceEntries([
       { path: 'server/routes/agentActionRoutes.js', type: 'blob' },
@@ -309,9 +336,9 @@ const run = async () => {
       'server/services/wikiMaintenanceService.js',
       'note-taker-ui/src/api/wiki.js',
       'server/services/githubRepoWatcherService.js',
-      'web/src/api/wiki.ts',
       'note-taker-ui/src/components/wiki/WikiPageReadView.jsx',
       'note-taker-ui/src/components/wiki/WikiRepoCreateComposer.jsx',
+      'web/src/api/wiki.ts',
       'server/services/agentProposalBundles.js',
       'server/routes/agentActionRoutes.js',
       'web/src/App.tsx',

@@ -6471,7 +6471,8 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
 }
 
 .wiki-read__repo-quickstart-code,
-.wiki-read__repo-quickstart-paths code {
+.wiki-read__repo-quickstart-paths code,
+.wiki-read__repo-quickstart-source {
   display: inline-block;
   max-width: 100%;
   padding: 2px 6px;
@@ -6483,6 +6484,44 @@ html[data-ui-theme='dark'] .wiki-read__github-watch-receipt {
   line-height: 1.35;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  user-select: all;
+}
+
+.wiki-read__repo-quickstart-command-stack,
+.wiki-read__repo-quickstart-command {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.wiki-read__repo-quickstart-cwd {
+  color: color-mix(in srgb, var(--text-muted) 86%, var(--text-primary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.wiki-read__repo-quickstart-entrypoint,
+.wiki-read__repo-quickstart-source {
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.wiki-read__repo-quickstart-local {
+  display: grid;
+  gap: 4px;
+}
+
+.wiki-read__repo-quickstart-local strong {
+  margin-right: 4px;
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--text-primary));
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .wiki-read__repo-quickstart-deploy {
@@ -6513,7 +6552,8 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart {
 }
 
 html[data-ui-theme='dark'] .wiki-read__repo-quickstart-code,
-html[data-ui-theme='dark'] .wiki-read__repo-quickstart-paths code {
+html[data-ui-theme='dark'] .wiki-read__repo-quickstart-paths code,
+html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
   background: color-mix(in srgb, var(--surface-muted, #211d18) 88%, rgba(255, 255, 255, 0.03));
 }
 
@@ -8358,6 +8398,10 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   .wiki-read__repo-quickstart-row {
     grid-template-columns: 1fr;
     gap: 3px;
+  }
+
+  .wiki-read__repo-quickstart-label {
+    margin-bottom: 1px;
   }
 
   .wiki-read__edgar-watch-input-row {

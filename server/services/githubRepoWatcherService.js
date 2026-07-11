@@ -83,6 +83,8 @@ const repoEvidencePathRank = (path = '') => {
   if (/^server\/services\/(?:wiki|github|repo|agent|auth|search|retrieval)[^/]*\.[jt]s$/.test(lower)) return 8;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/api\/wiki\.[jt]sx?$/.test(lower)) return 8;
   if (/^(note-taker-ui|client|web|app|frontend)\/src\/components\/wiki\/(?:wikirepocreatecomposer|wikipagereadview|wikifrontpage|wikibuildpagecomposer)\.[jt]sx?$/.test(lower)) return 8;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/system\/systemstatuscontext\.[jt]sx?$/.test(lower)) return 8;
+  if (/^(note-taker-ui|client|web|app|frontend)\/src\/pages\/(?:dataintegrations|sharedwikipage)\.[jt]sx?$/.test(lower)) return 9;
   if (/^server\/(routes|services|models)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 9;
   if (/^server\/(config|ai)\//.test(lower) && /\.(js|ts)$/.test(lower)) return 9;
   if (/^src\/(index|main|app|server)\.[jt]sx?$/.test(lower)) return 10;
@@ -174,6 +176,15 @@ const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) =>
     }
   };
 
+  const operationalCorePatterns = [
+    /^server\/routes\/(?:wikiRoutes|authRoutes|agentChatRoutes)\.[jt]s$/i,
+    /^server\/services\/(?:wikiMaintenanceService|wikiMaintenancePublicationService|githubRepoWatcherService|wikiScheduledMaintenanceWorker|wikiAskService)\.[jt]s$/i,
+    /^server\/models\/index\.[jt]s$/i,
+    /^note-taker-ui\/src\/(?:App|api\/wiki|system\/SystemStatusContext)\.[jt]sx?$/i,
+    /^note-taker-ui\/src\/components\/wiki\/(?:WikiRepoCreateComposer|WikiPageReadView)\.[jt]sx?$/i,
+    /^note-taker-ui\/src\/pages\/(?:DataIntegrations|SharedWikiPage)\.[jt]sx?$/i
+  ];
+
   // Reserve the source budget by evidence job. A single large docs/ tree must
   // not crowd out the files that actually own runtime behavior.
   add(evidenceEntries.filter(entry => {
@@ -184,6 +195,11 @@ const selectRepoEvidenceEntries = (tree = [], limit = DEFAULT_DOC_PATH_LIMIT) =>
       || /^(\.env\.example|render\.ya?ml|vercel\.json|dockerfile|docker-compose\.ya?ml)$/.test(path)
       || /^\.github\/workflows\/[^/]+\.ya?ml$/.test(path);
   }), 10);
+  // Keep the request/publication/render chain before filling the general code
+  // budget. Large route trees must not crowd out transaction boundaries.
+  add(evidenceEntries.filter(entry => (
+    operationalCorePatterns.some(pattern => pattern.test(String(entry.path || '')))
+  )), 20);
   add(evidenceEntries.filter(entry => {
     const path = String(entry.path || '').toLowerCase();
     return /\.(js|jsx|ts|tsx)$/.test(path)
