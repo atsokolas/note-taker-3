@@ -1048,6 +1048,7 @@ const run = async () => {
     assert.ok(proposalMaintainCalls.some(call => (
       call.pageId === String(repoWikiCreate.body.page._id)
       && call.maintenanceProfile === 'standard'
+      && call.sourceLimit === 48
       && call.skipQualityRebuild === false
       && call.streamDraft === false
     )));

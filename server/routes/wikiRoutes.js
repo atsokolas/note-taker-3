@@ -2758,7 +2758,11 @@ const buildWikiRouter = ({
                 Question
               },
               maintenanceProfile: 'standard',
-              sourceLimit: 32,
+              // Repo handoffs reserve operational evidence across frontend,
+              // API, persistence, workers, publication, and status surfaces.
+              // Keep creation aligned with the maintenance selector's 48-file
+              // budget or the first visible page can omit owning services.
+              sourceLimit: 48,
               skipQualityRebuild: false,
               streamDraft: false,
               trigger: 'github_repo_create'
