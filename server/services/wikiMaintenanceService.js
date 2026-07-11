@@ -1583,10 +1583,10 @@ const scriptExecutionNote = (script = {}) => {
 };
 
 const extractEnvVariableNames = (source = {}) => Array.from(new Set(
-  asString(source.text || source.snippet)
-    .split(/\n+/)
-    .map(line => line.match(/^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=/)?.[1] || '')
-    .filter(Boolean)
+  Array.from(
+    asString(source.text || source.snippet).matchAll(/(?:^|\s)(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=/g),
+    match => match[1]
+  ).filter(Boolean)
 ));
 
 const prioritizedEnvVariableNames = (source = {}) => {
@@ -3400,6 +3400,7 @@ module.exports = {
     applyKnownWikiLinks,
     collectKnownWikiPages,
     fallbackMaintenance,
+    fallbackGitHubRepoMaintenance,
     formatKnownWikiPages,
     buildPrompt,
     buildRebuildPrompt,

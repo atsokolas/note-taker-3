@@ -591,7 +591,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         type: 'external',
         provider: 'github-repo',
         title: '.env.example',
-        text: 'PORT=5500\nJWT_SECRET=replace_me\nMONGODB_URI=mongodb://localhost:27017/note-taker\nOPENROUTER_API_KEY=\nHF_TOKEN=',
+        text: 'Repository evidence. Path: .env.example. PORT=5500 JWT_SECRET=replace_me MONGODB_URI=mongodb://localhost:27017/note-taker OPENROUTER_API_KEY= HF_TOKEN=',
         metadata: { source: 'github-repo', path: '.env.example', evidenceType: 'config', docClass: 'config' }
       }, ...repoCoreImplementationSources()]
     });
