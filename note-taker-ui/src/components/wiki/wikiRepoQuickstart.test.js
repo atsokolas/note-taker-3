@@ -202,4 +202,27 @@ describe('wikiRepoQuickstart', () => {
     expect(quickstart?.build?.command).toBe('CI=true npm run build');
     expect(quickstart?.localUrls).toEqual([{ label: 'API', url: 'localhost:5500' }, { label: 'UI', url: 'localhost:3000' }]);
   });
+
+  it('does not swallow article prose into the UI command row when generated labels are malformed', () => {
+    const quickstart = extractRepoDeveloperQuickstart({
+      pageType: 'repo',
+      createdFrom: { text: 'GitHub repo: atsokolas/note-taker-3' },
+      plainText: [
+        'Run and prove changes',
+        'Install API dependencies from the repository root with npm install.',
+        'Install UI dependencies with cd note-taker-ui && npm install.',
+        'Run: npm run start - node server/server.js',
+        'UI: Atsokolas/Note-Taker-3 powers Noeis: a reading-to-thinking-to-wiki workspace where source material moves from Library into Think.',
+        'Test: repository root: npm run wiki:qa (defined in package.json)',
+        'Build: note-taker-ui/: cd note-taker-ui && npm run build (executes react-scripts build)',
+        'Key paths: package.json, note-taker-ui/package.json, server/server.js'
+      ].join(' ')
+    });
+
+    expect(quickstart?.apiRun).toMatchObject({ command: 'npm run start', entrypoint: 'node server/server.js' });
+    expect(quickstart?.uiRun).toBeNull();
+    expect(quickstart?.test?.command).toBe('npm run wiki:qa');
+    expect(quickstart?.build?.command).toBe('CI=true npm run build');
+    expect(JSON.stringify(quickstart)).not.toContain('reading-to-thinking-to-wiki workspace');
+  });
 });

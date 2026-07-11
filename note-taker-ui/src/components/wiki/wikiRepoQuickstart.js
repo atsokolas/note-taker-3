@@ -121,12 +121,19 @@ const splitCommandDetail = (text = '') => {
   };
 };
 
+const looksLikeRunnableCommand = (value = '') => (
+  /\b(?:npm|pnpm|yarn|node|npx|tsx|vite|react-scripts|next|python3?|pytest|go|cargo|make|docker|vercel|render)\b/i.test(value)
+  || /\bCI\s*=\s*true\b/i.test(value)
+  || /^cd\s+[\w./-]+\s*&&\s*/i.test(value)
+);
+
 const parseNamedCommandLine = (line = '') => {
   const stripped = normalizeText(line)
     .replace(/^(?:Run|UI|Test|Build|Wiki proof|Proof|Frontend build|Backend|Install(?: UI)?)\s*:\s*/i, '');
   if (!stripped) return null;
 
   const withoutCitation = stripped.replace(/\[\d+(?:,\d+)*\]\s*$/g, '').trim();
+  if (!looksLikeRunnableCommand(withoutCitation)) return null;
   const cwdPrefix = withoutCitation.match(/^(repository root|[\w./-]+\/?):\s*(.+)$/i);
   if (cwdPrefix) {
     const cwd = normalizeCwd(cwdPrefix[1]);
