@@ -294,6 +294,37 @@ const extractCommandsFromSection = (sectionTextValue = '') => {
         break;
     }
   }
+
+  // Wiki plainText is intentionally whitespace-normalized. Recover the
+  // generated handoff contract by using its stable labels as delimiters.
+  const flattened = normalizeText(sectionTextValue);
+  const labeledCommand = (label, nextLabels) => firstMatch(flattened, [
+    new RegExp(`\\b${label}:\\s*(.+?)(?=\\s+(?:${nextLabels.join('|')}):)`, 'i')
+  ]);
+  if (!result.install.length && /Install API dependencies[^.]*\bnpm install\b/i.test(flattened)) {
+    result.install.push({ command: 'npm install', cwd: ROOT_CWD, entrypoint: '', sourceFile: '' });
+  }
+  if (!result.install.some(item => item.cwd === 'note-taker-ui') && /Install UI dependencies[^.]*\bnote-taker-ui\b/i.test(flattened)) {
+    result.install.push({ command: 'npm install', cwd: 'note-taker-ui', entrypoint: '', sourceFile: 'note-taker-ui/package.json' });
+  }
+  if (!result.apiRun) {
+    result.apiRun = parseNamedCommandLine(labeledCommand('Run', ['UI', 'Test', 'Build', 'Key paths']));
+  }
+  if (!result.uiRun) {
+    result.uiRun = parseNamedCommandLine(labeledCommand('UI', ['Test', 'Build', 'Key paths']));
+  }
+  if (!result.test) {
+    const parsed = parseNamedCommandLine(labeledCommand('Test', ['Build', 'Key paths']));
+    if (parsed) result.test = { ...parsed, sourceFile: 'package.json' };
+  }
+  if (!result.build) {
+    const parsed = parseNamedCommandLine(labeledCommand('Build', ['Key paths', 'System map']));
+    if (parsed) result.build = {
+      ...parsed,
+      command: /CI=/i.test(parsed.command) ? parsed.command : `CI=true ${parsed.command}`,
+      sourceFile: parsed.sourceFile || 'note-taker-ui/package.json'
+    };
+  }
   return result;
 };
 
@@ -504,13 +535,13 @@ export const extractRepoDeveloperQuickstart = (page = {}) => {
       uiRun: structured?.uiRun || parsed.uiRun,
       test: structured?.test || parsed.test,
       build: structured?.build || parsed.build,
-      envVars: structured?.envVars?.length ? structured.envVars : extractEnvVars({ meta, corpus }),
-      localUrls: structured?.localUrls?.length ? structured.localUrls : extractLocalUrls({ meta, corpus })
+      envVars: structured?.envVars?.length ? structured.envVars : extractEnvVars({ meta, corpus: authoredText || corpus }),
+      localUrls: structured?.localUrls?.length ? structured.localUrls : extractLocalUrls({ meta, corpus: authoredText || corpus })
     }
   });
 
   const deploy = extractDeploy({ meta, corpus });
-  const keyPaths = extractKeyPaths({ page, meta, corpus });
+  const keyPaths = extractKeyPaths({ page, meta, corpus: authoredText || corpus });
   const hasDeploy = Boolean(deploy?.summary || deploy?.frontend || deploy?.api);
   const hasCommands = Boolean(
     merged.install.length ||
