@@ -1781,8 +1781,8 @@ const run = async () => {
       })
     });
     assert.strictEqual(fastStreamed.res.status, 200, fastStreamed.text);
-    assert.ok(fastStreamed.text.includes('"stage":"inbound_links_deferred"'));
-    assert.ok(!fastStreamed.text.includes('"stage":"graph_synced"'));
+    assert.ok(!fastStreamed.text.includes('"stage":"inbound_links_deferred"'));
+    assert.ok(fastStreamed.text.includes('Repository source and citation connections synced.'));
     assert.ok(proposalMaintainCalls.some(call => (
       call.pageId === String(created.body._id)
       && call.maintenanceProfile === 'fast'

@@ -3546,16 +3546,19 @@ const buildWikiRouter = ({
         });
       }
 
-      // AT-288: the agent just (re)wrote this page's body. Convert concept
-      // mentions of other pages into wikilinks (outbound) so the body reads
-      // like a wiki, not a footnoted doc.
-      await applyAutolinksForPage(page, req.user.id);
+      // Concept pages benefit from cross-wiki autolinking. Repo dossiers are
+      // repository-grounded developer manuals; scanning the entire personal
+      // wiki for concept links can hold their publication lease for minutes.
+      const repoWikiPage = isGitHubRepoWikiPage(page);
+      if (!repoWikiPage) await applyAutolinksForPage(page, req.user.id);
 
       await page.save();
       await syncPageGraph(page, req.user.id);
-      // AT-288: link this page FROM existing pages that mention its title (inbound),
-      // so a newly-authored concept becomes reachable across the wiki.
-      await autolinkPagesToTarget({ targetPage: page, userId: req.user.id });
+      // Repo dossiers remain connected through their source/citation graph;
+      // they do not need a corpus-wide inbound concept-link scan.
+      if (!repoWikiPage) {
+        await autolinkPagesToTarget({ targetPage: page, userId: req.user.id });
+      }
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -3706,10 +3709,12 @@ const buildWikiRouter = ({
         return;
       }
 
-      // AT-288: convert concept mentions in the freshly-maintained body into
-      // outbound wikilinks before emitting 'drafted', so the streamed page the
-      // reader sees already reads like a wiki.
-      await applyAutolinksForPage(page, req.user.id, { limit: maintenanceOptions.inlineAutolinkLimit });
+      const repoWikiPage = isGitHubRepoWikiPage(page);
+      // Repo dossiers prioritize a bounded publication transaction over a
+      // corpus-wide concept-link sweep. Their repository citations still sync.
+      if (!repoWikiPage) {
+        await applyAutolinksForPage(page, req.user.id, { limit: maintenanceOptions.inlineAutolinkLimit });
+      }
 
       writeSse(res, 'wiki-page', {
         stage: 'drafted',
@@ -3725,7 +3730,12 @@ const buildWikiRouter = ({
       });
 
       await syncPageGraph(page, req.user.id);
-      if (maintenanceOptions.deferInboundAutolinks) {
+      if (repoWikiPage) {
+        writeSse(res, 'wiki-draft', {
+          stage: 'graph_synced',
+          summary: 'Repository source and citation connections synced.'
+        });
+      } else if (maintenanceOptions.deferInboundAutolinks) {
         scheduleInboundAutolinks({ targetPage: page, userId: req.user.id, sourcePageId: page._id });
         writeSse(res, 'wiki-draft', {
           stage: 'inbound_links_deferred',
