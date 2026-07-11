@@ -93,4 +93,20 @@ describe('useSystemStatus', () => {
     expect(result.current.recentReceipts).toEqual([]);
     expect(result.current.latestReceipt?.title).toBe('Second');
   });
+
+  it('does not publish a new state for semantically identical background work', () => {
+    const { result } = renderHook(() => useSystemStatus());
+
+    act(() => {
+      result.current.setBackgroundWork({ label: 'Repo wiki rebuild', stage: 'Rebuilding owner/repo' });
+    });
+    const settled = result.current;
+
+    act(() => {
+      result.current.setBackgroundWork({ label: 'Repo wiki rebuild', stage: 'Rebuilding owner/repo' });
+      result.current.clearRecoverableFailure();
+    });
+
+    expect(result.current).toBe(settled);
+  });
 });

@@ -176,7 +176,7 @@ describe('WikiGitHubRepoWatchControl', () => {
   });
 
   it('shows rebuilding publication state when a new head is detected', () => {
-    renderControl({
+    const { unmount } = renderControl({
       page: {
         ...armedPage,
         sourceRefs: Array.from({ length: 50 }, (_, index) => ({ _id: `source-${index}` })),
@@ -201,6 +201,8 @@ describe('WikiGitHubRepoWatchControl', () => {
       label: 'Repo wiki rebuild',
       stage: 'Rebuilding openai/agents-js from repository sources'
     });
+    unmount();
+    expect(systemStatusControls.setBackgroundWork).not.toHaveBeenCalledWith(null);
   });
 
   it('shows failed candidate publication state and pushes a needs-review receipt', () => {

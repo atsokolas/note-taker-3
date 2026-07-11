@@ -156,9 +156,7 @@ const WikiGitHubRepoWatchControl = ({ pageId, page, onPageUpdate }) => {
           ? `Continuing with latest head for ${state.fullName || 'repository'}`
           : `Rebuilding ${state.fullName || 'repository'} from repository sources`
       });
-      return () => {
-        systemStatus.setBackgroundWork(null);
-      };
+      return undefined;
     }
 
     systemStatus.setBackgroundWork(null);

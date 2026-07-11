@@ -12,7 +12,20 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
   }));
 
   const setBackgroundWork = useCallback((backgroundWork) => {
-    setState((prev) => ({ ...prev, backgroundWork: backgroundWork || null }));
+    setState((prev) => {
+      const next = backgroundWork || null;
+      if (
+        prev.backgroundWork === next
+        || (
+          prev.backgroundWork
+          && next
+          && prev.backgroundWork.label === next.label
+          && prev.backgroundWork.stage === next.stage
+        )
+        || (!prev.backgroundWork && !next)
+      ) return prev;
+      return { ...prev, backgroundWork: next };
+    });
   }, []);
 
   const setLatestReceipt = useCallback((latestReceipt) => {
@@ -35,7 +48,7 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
   }, []);
 
   const clearRecoverableFailure = useCallback(() => {
-    setState((prev) => ({ ...prev, recoverableFailure: null }));
+    setState((prev) => (prev.recoverableFailure ? { ...prev, recoverableFailure: null } : prev));
   }, []);
 
   const resetSystemStatus = useCallback(() => {
