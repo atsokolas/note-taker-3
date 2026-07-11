@@ -225,4 +225,24 @@ describe('wikiRepoQuickstart', () => {
     expect(quickstart?.build?.command).toBe('CI=true npm run build');
     expect(JSON.stringify(quickstart)).not.toContain('reading-to-thinking-to-wiki workspace');
   });
+
+  it('rejects flattened prose that contains a later command but does not start as one', () => {
+    const quickstart = extractRepoDeveloperQuickstart({
+      pageType: 'repo',
+      createdFrom: { text: 'GitHub repo: atsokolas/note-taker-3' },
+      plainText: [
+        'Run and prove changes',
+        'Run: npm run start package.json',
+        'UI: note-taker-ui Atsokolas/Note-Taker-3 powers Noeis: a reading-to-thinking-to-wiki workspace where source material moves from Library into Think.',
+        'Do not collapse root and nested package scripts into a single generic "npm run start" instruction.',
+        'Test repository root npm run wiki:qa package.json',
+        'Build note-taker-ui CI=true npm run build react-scripts build note-taker-ui/package.json',
+        'Key paths server/routes/wikiRoutes.js package.json'
+      ].join(' ')
+    });
+
+    expect(quickstart?.apiRun?.command).toBe('npm run start package.json');
+    expect(quickstart?.uiRun).toBeNull();
+    expect(JSON.stringify(quickstart)).not.toContain('Atsokolas/Note-Taker-3 powers Noeis');
+  });
 });
