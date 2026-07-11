@@ -196,7 +196,8 @@ const listWikiSourceEvents = async ({ WikiSourceEvent, userId, status = '', limi
   const query = { userId };
   if (status) query.status = status;
   const result = WikiSourceEvent.find(query).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(Number(limit) || 40, 100))).lean();
-  const events = Array.isArray(await result) ? await result : [];
+  const resolved = await result;
+  const events = Array.isArray(resolved) ? resolved : [];
   if (status) return events;
   return events.sort((a, b) => statusRank(a.status) - statusRank(b.status) || new Date(b.createdAt) - new Date(a.createdAt));
 };

@@ -205,7 +205,8 @@ const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (explicitIds.length) {
     const query = { userId, _id: { $in: explicitIds }, status: { $ne: 'archived' } };
     const result = WikiPage.find(query).limit(limit);
-    return Array.isArray(await result) ? await result : [];
+    const resolved = await result;
+    return Array.isArray(resolved) ? resolved : [];
   }
 
   const title = asText(event.title);
