@@ -130,6 +130,89 @@ const run = async () => {
   assert.strictEqual(WikiMaintenanceRun.records[0].status, 'completed');
   assert.strictEqual(WikiMaintenanceRun.records[0].trigger, 'scheduled');
 
+  const rejectedPage = {
+    _id: 'page-rejected',
+    userId: 'user-1',
+    title: 'Trusted Page',
+    plainText: 'Trusted body',
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Trusted body' }] }] },
+    sourceRefs: [{ title: 'Trusted source' }],
+    aiState: { quality: { ok: true } },
+    freshness: { status: 'fresh' },
+    saveCount: 0,
+    save: async () => {
+      rejectedPage.saveCount += 1;
+      return rejectedPage;
+    }
+  };
+  const rejectedRunModel = createRunModel();
+  const rejectedRevisionModel = createRevisionModel();
+  const rejectedConnections = createConnectionModel();
+  const rejected = await drainScheduledWikiMaintenance({
+    models: {
+      WikiPage: createPageModel([rejectedPage]),
+      WikiMaintenanceRun: rejectedRunModel,
+      WikiRevision: rejectedRevisionModel,
+      Connection: rejectedConnections
+    },
+    maintainWikiPageFn: async ({ page: targetPage }) => {
+      targetPage.plainText = 'Untrusted candidate';
+      targetPage.body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Untrusted candidate' }] }] };
+      targetPage.sourceRefs = [{ title: 'Candidate source' }];
+      targetPage.aiState = {
+        quality: {
+          ok: false,
+          status: 'fail',
+          failures: ['Missing developer quickstart evidence.']
+        }
+      };
+      return targetPage;
+    }
+  });
+  assert.strictEqual(rejected.processed, 0);
+  assert.strictEqual(rejected.failed, 0);
+  assert.strictEqual(rejected.needsReview, 1);
+  assert.strictEqual(rejected.results[0].status, 'needs_review');
+  assert.strictEqual(rejectedPage.plainText, 'Trusted body');
+  assert.deepStrictEqual(rejectedPage.sourceRefs, [{ title: 'Trusted source' }]);
+  assert.strictEqual(rejectedPage.freshness.status, 'needs_review');
+  assert.strictEqual(rejectedRunModel.records[0].status, 'needs_review');
+  assert.strictEqual(rejectedRevisionModel.records.length, 1);
+  assert.strictEqual(rejectedRevisionModel.records[0].reason, 'agent_candidate');
+  assert.strictEqual(rejectedRevisionModel.records[0].promotionStatus, 'rejected');
+  assert.strictEqual(rejectedConnections.rows.length, 0);
+
+  let duplicateMaintainCalls = 0;
+  const leasedRepoPage = {
+    ...page,
+    _id: 'page-repo-leased',
+    pageType: 'repo',
+    externalWatches: {
+      githubRepo: {
+        owner: 'atsokolas',
+        repo: 'note-taker-3',
+        lastHeadSha: 'head-a',
+        buildLease: { token: 'active-lease', headSha: 'head-a', expiresAt: new Date(Date.now() + 60000) }
+      }
+    }
+  };
+  const leasedRepoModel = {
+    find: () => new Query([leasedRepoPage]),
+    findOneAndUpdate: async () => null
+  };
+  const duplicate = await drainScheduledWikiMaintenance({
+    models: {
+      WikiPage: leasedRepoModel,
+      WikiMaintenanceRun: createRunModel()
+    },
+    maintainWikiPageFn: async () => {
+      duplicateMaintainCalls += 1;
+      return leasedRepoPage;
+    }
+  });
+  assert.strictEqual(duplicate.skipped, 1);
+  assert.strictEqual(duplicateMaintainCalls, 0);
+
   const failedRunModel = createRunModel();
   const failed = await drainScheduledWikiMaintenance({
     models: {

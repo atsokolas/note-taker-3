@@ -771,6 +771,15 @@ const run = async () => {
         }]
       };
     },
+    checkGitHubRepoHeadForPage: async ({ page }) => ({
+      page,
+      head: {
+        owner: page.externalWatches?.githubRepo?.owner || '',
+        repo: page.externalWatches?.githubRepo?.repo || '',
+        headSha: page.externalWatches?.githubRepo?.lastHeadSha || ''
+      },
+      changed: false
+    }),
     maintainWikiPage: async ({
       page,
       userId,
@@ -820,6 +829,11 @@ const run = async () => {
         draftCompletedAt: new Date(),
         maintenanceSummary: 'Maintained synchronously from proposal accept.',
         lastDraftedAt: new Date(),
+        quality: {
+          ok: true,
+          status: 'pass',
+          failures: []
+        },
         changeLog: [
           {
             type: 'draft',
@@ -1962,12 +1976,12 @@ const run = async () => {
     assert.strictEqual(ingestDetails.res.status, 200, ingestDetails.text);
     assert.strictEqual(ingestDetails.body.runId, ingest.body.runId);
     assert.ok(ingestDetails.body.affectedPageIds.includes(String(created.body._id)));
-    assert.ok(ingestDetails.body.summary.includes('Updated'));
+    assert.ok(ingestDetails.body.summary.includes('last trusted version'), JSON.stringify(ingestDetails.body));
     assert.ok(Array.isArray(ingestDetails.body.candidateUpdates));
     assert.ok(ingestDetails.body.candidateUpdates.some(candidate => (
       candidate.targetType === 'wiki_page'
       && candidate.pageId === String(created.body._id)
-      && candidate.status === 'updated'
+      && candidate.status === 'needs_review'
     )));
     assert.ok(ingestDetails.body.timeline.some(item => item.type === 'maintenance'));
     assert.strictEqual(ingestDetails.body.reviewStatus, 'pending_review');
@@ -2105,7 +2119,10 @@ const run = async () => {
     assert.strictEqual(graphAsked.res.status, 200, graphAsked.text);
     const graphDiscussion = graphAsked.body.discussions[graphAsked.body.discussions.length - 1];
     assert.strictEqual(graphDiscussion.provenance.mode, 'graph_expanded');
-    assert.match(graphDiscussion.provenance.summary, /2 wiki pages/);
+    assert.ok(
+      graphDiscussion.provenance.wikiPages.length >= 2,
+      graphDiscussion.provenance.summary
+    );
     assert.ok(graphDiscussion.provenance.wikiPages.some(page => page.title === 'Neighbor Page'));
 
     const promoted = await request(

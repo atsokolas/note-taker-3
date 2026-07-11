@@ -43,7 +43,8 @@ const GITHUB_REPO_TEMPLATE_LEAK_PATTERNS = [
   /\bproduct-aware developer operating manual\b/i,
   /\broute\/service\/model\/component\b/i,
   /\bworking map for a new contributor\b/i,
-  /\bDeveloper posture:\s*preserve\b/i
+  /\bDeveloper posture:\s*preserve\b/i,
+  /\b(?:wiki maintenance service|GitHub repo watcher service|frontend wiki API client|model definitions) (?:was|were) not attached\b/i
 ];
 const GITHUB_REPO_MIN_WORDS = 900;
 const GITHUB_REPO_MIN_SOURCE_REFS = 10;
@@ -3196,6 +3197,8 @@ const maintainWikiPage = async ({
 
 module.exports = {
   maintainWikiPage,
+  evaluateWikiArticleQuality,
+  isGitHubRepoPage,
   deriveClaimsFromDoc,
   buildSectionMaintenancePlan,
   collectLibrarySources,

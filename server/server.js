@@ -326,7 +326,7 @@ const startGitHubRepoWatchWorker = () => {
     Number(process.env.GITHUB_REPO_WATCH_WORKER_INTERVAL_MS || 6 * 60 * 60 * 1000)
   );
   githubRepoWatchWorkerTimer = setInterval(runGitHubRepoWatchWorker, intervalMs);
-  if (process.env.GITHUB_REPO_WATCH_RUN_ON_START === 'true') {
+  if (process.env.GITHUB_REPO_WATCH_RUN_ON_START !== 'false') {
     runGitHubRepoWatchWorker();
   }
 };

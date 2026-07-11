@@ -160,6 +160,7 @@ const createWikiSourceEvent = async ({
   url = '',
   sourceUpdatedAt = null,
   affectedPageIds = [],
+  status = 'pending',
   metadata = {}
 } = {}) => {
   if (!WikiSourceEvent || !userId) return null;
@@ -183,6 +184,7 @@ const createWikiSourceEvent = async ({
     affectedPageIds: Array.isArray(affectedPageIds)
       ? affectedPageIds.map(normalizeObjectId).filter(Boolean).slice(0, 50)
       : [],
+    status: ['pending', 'processing', 'processed', 'failed', 'ignored'].includes(status) ? status : 'pending',
     metadata: metadata && typeof metadata === 'object' ? metadata : {}
   });
   await event.save();

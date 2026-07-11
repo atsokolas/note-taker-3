@@ -1,5 +1,10 @@
-const { maintainWikiPage } = require('./wikiMaintenanceService');
+const { isGitHubRepoPage, maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
+const { runWikiMaintenanceCandidate } = require('./wikiMaintenancePublicationService');
+const {
+  acquireRepoBuildLease,
+  releaseRepoBuildLease
+} = require('./wikiRepoBuildLeaseService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -115,26 +120,78 @@ const drainScheduledWikiMaintenance = async ({
   const results = [];
   for (const page of Array.isArray(pages) ? pages : []) {
     const run = await createRun({ WikiMaintenanceRun, page });
+    let buildLease = null;
+    let targetPage = page;
+    const repoHeadSha = String(page.externalWatches?.githubRepo?.lastHeadSha || '').trim();
     try {
-      const before = snapshotPage(page);
-      const maintainedPage = await maintainWikiPageFn({
-        page,
-        userId: page.userId,
-        trigger: 'scheduled',
-        models: {
+      if (isGitHubRepoPage({ page }) && repoHeadSha) {
+        buildLease = await acquireRepoBuildLease({
           WikiPage,
-          WikiRevision,
-          WikiMaintenanceRun,
-          Connection,
-          Article,
-          NotebookEntry,
-          TagMeta,
-          Question
+          pageId: page._id,
+          userId: page.userId,
+          headSha: repoHeadSha,
+          now
+        });
+        if (!buildLease.acquired) {
+          const summary = `Skipped duplicate scheduled repo build for ${page.title || 'wiki page'}.`;
+          await finishRun({ run, status: 'completed', summary });
+          results.push({ pageId: String(page._id), status: 'skipped', reason: 'lease_active' });
+          continue;
+        }
+        if (buildLease.page) targetPage = buildLease.page;
+      }
+      const before = snapshotPage(targetPage);
+      const publication = await runWikiMaintenanceCandidate({
+        page: targetPage,
+        userId: targetPage.userId,
+        WikiRevision,
+        beforeSnapshot: before,
+        maintenanceRunId: run?._id || null,
+        maintainWikiPageFn,
+        maintainArgs: {
+          trigger: 'scheduled',
+          models: {
+            WikiPage,
+            WikiRevision,
+            WikiMaintenanceRun,
+            Connection,
+            Article,
+            NotebookEntry,
+            TagMeta,
+            Question
+          }
         }
       });
+      const maintainedPage = publication.page;
+      if (!publication.promoted) {
+        if (typeof maintainedPage.save === 'function') await maintainedPage.save();
+        const summary = maintainedPage.aiState?.lastCandidateSummary || `Scheduled candidate needs review for ${targetPage.title || 'wiki page'}.`;
+        if (buildLease?.acquired) {
+          await releaseRepoBuildLease({
+            WikiPage,
+            pageId: targetPage._id,
+            userId: targetPage.userId,
+            token: buildLease.token,
+            headSha: repoHeadSha,
+            status: 'needs_review',
+            error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.',
+            now
+          });
+          buildLease = null;
+        }
+        await finishRun({ run, status: 'needs_review', summary });
+        results.push({
+          pageId: String(page._id),
+          status: 'needs_review',
+          saved: typeof maintainedPage.save === 'function',
+          graphSynced: false,
+          revisionCreated: Boolean(publication.rejectedRevision?._id || publication.rejectedRevision)
+        });
+        continue;
+      }
       const summary = maintainedPage?.aiState?.maintenanceSummary || `Scheduled refresh completed for ${page.title || 'wiki page'}.`;
       const persistence = await persistScheduledMaintenanceResult({
-        page: maintainedPage || page,
+        page: maintainedPage || targetPage,
         before,
         run,
         models: {
@@ -143,6 +200,19 @@ const drainScheduledWikiMaintenance = async ({
         },
         summary
       });
+      if (buildLease?.acquired) {
+        await releaseRepoBuildLease({
+          WikiPage,
+          pageId: targetPage._id,
+          userId: targetPage.userId,
+          token: buildLease.token,
+          headSha: repoHeadSha,
+          status: 'ready',
+          promoted: true,
+          now
+        });
+        buildLease = null;
+      }
       await finishRun({
         run,
         status: 'completed',
@@ -150,6 +220,18 @@ const drainScheduledWikiMaintenance = async ({
       });
       results.push({ pageId: String(page._id), status: 'completed', ...persistence });
     } catch (error) {
+      if (buildLease?.acquired) {
+        await releaseRepoBuildLease({
+          WikiPage,
+          pageId: targetPage._id,
+          userId: targetPage.userId,
+          token: buildLease.token,
+          headSha: repoHeadSha,
+          status: 'error',
+          error: error.message || 'Scheduled wiki maintenance failed.',
+          now
+        }).catch(() => null);
+      }
       await finishRun({
         run,
         status: 'failed',
@@ -162,6 +244,8 @@ const drainScheduledWikiMaintenance = async ({
   return {
     processed: results.filter(result => result.status === 'completed').length,
     failed: results.filter(result => result.status === 'failed').length,
+    needsReview: results.filter(result => result.status === 'needs_review').length,
+    skipped: results.filter(result => result.status === 'skipped').length,
     results
   };
 };

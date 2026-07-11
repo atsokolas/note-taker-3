@@ -21,6 +21,11 @@ const {
   saveWikiSchemaSettings
 } = require('../services/wikiSchemaService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
+const { runWikiMaintenanceCandidate } = require('../services/wikiMaintenancePublicationService');
+const {
+  acquireRepoBuildLease,
+  releaseRepoBuildLease
+} = require('../services/wikiRepoBuildLeaseService');
 const { createWikiSourceEvent, listWikiSourceEvents } = require('../services/wikiSourceEventService');
 const {
   armEdgarWatchForPage: defaultArmEdgarWatchForPage,
@@ -36,6 +41,7 @@ const {
 } = require('../services/earningsTranscriptWatcherService');
 const {
   armGitHubRepoWatchForPage: defaultArmGitHubRepoWatchForPage,
+  checkGitHubRepoHeadForPage: defaultCheckGitHubRepoHeadForPage,
   checkGitHubRepoWatchForPage: defaultCheckGitHubRepoWatchForPage,
   parseGitHubRepo: parseGitHubRepoWatchInput
 } = require('../services/githubRepoWatcherService');
@@ -1010,6 +1016,20 @@ const attachSourceEventsToPageRefs = async ({ page, events = [], limit = 12 } = 
   return page;
 };
 
+const markWikiSourceEventFinished = async ({ WikiSourceEvent, event, userId, status = 'processed', errorMessage = '' } = {}) => {
+  if (!event) return null;
+  event.status = status;
+  event.processedAt = new Date();
+  event.errorMessage = errorMessage;
+  if (typeof event.save === 'function') return event.save();
+  if (!WikiSourceEvent?.findOneAndUpdate) return event;
+  return WikiSourceEvent.findOneAndUpdate(
+    { _id: event._id, userId },
+    { $set: { status, processedAt: event.processedAt, errorMessage } },
+    { new: true }
+  );
+};
+
 const serializeIngestRun = ({ event, run = null } = {}) => {
   if (!event) return null;
   const rawEvent = typeof event.toObject === 'function' ? event.toObject({ virtuals: false }) : event;
@@ -1265,6 +1285,7 @@ const buildWikiRouter = ({
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
   checkTranscriptWatchForPage = defaultCheckTranscriptWatchForPage,
   armGitHubRepoWatchForPage = defaultArmGitHubRepoWatchForPage,
+  checkGitHubRepoHeadForPage = defaultCheckGitHubRepoHeadForPage,
   checkGitHubRepoWatchForPage = defaultCheckGitHubRepoWatchForPage,
   findWikiBacklinks = defaultFindWikiBacklinks,
   shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
@@ -2229,6 +2250,12 @@ const buildWikiRouter = ({
       )));
   };
 
+  const acquireRepoMaintenanceLease = async ({ page, userId } = {}) => {
+    const headSha = String(page?.externalWatches?.githubRepo?.lastHeadSha || '').trim();
+    if (!isGitHubRepoWikiPage(page) || !headSha) return null;
+    return acquireRepoBuildLease({ WikiPage, pageId: page._id, userId, headSha });
+  };
+
   const scheduleInboundAutolinks = ({ targetPage, userId, sourcePageId = null } = {}) => {
     const targetSnapshot = clonePlain(targetPage?.toObject ? targetPage.toObject() : targetPage);
     setImmediate(async () => {
@@ -2682,8 +2709,24 @@ const buildWikiRouter = ({
           error: watchError.message
         });
       }
-      if (!watchError && Array.isArray(result.events) && result.events.length) {
+      if (!watchError && result.buildRequired !== false && Array.isArray(result.events) && result.events.length) {
+        let buildLease = null;
         try {
+          buildLease = await acquireRepoBuildLease({
+            WikiPage,
+            pageId: result.page._id,
+            userId: req.user.id,
+            headSha: result.snapshot?.headSha || ''
+          });
+          if (!buildLease.acquired) {
+            return res.status(202).json({
+              action,
+              code: 'REPO_WIKI_BUILD_IN_PROGRESS',
+              message: 'This repository head is already being built.',
+              page: serializeWikiPage(result.page)
+            });
+          }
+          result.page = buildLease.page;
           const beforeMaintenance = snapshotPage(result.page);
           result.page.aiState = {
             ...(result.page.aiState?.toObject ? result.page.aiState.toObject() : result.page.aiState || {}),
@@ -2693,24 +2736,59 @@ const buildWikiRouter = ({
             lastError: '',
             errorCode: ''
           };
-          result.page = await maintainWikiPage({
+          const publication = await runWikiMaintenanceCandidate({
             page: result.page,
             userId: req.user.id,
-            wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
-            models: {
-              WikiPage,
-              Article,
-              NotebookEntry,
-              TagMeta,
-              Question
+            WikiRevision,
+            beforeSnapshot: beforeMaintenance,
+            hasTrustedVersion: action === 'updated',
+            sourceVersion: {
+              provider: 'github',
+              headSha: result.snapshot?.headSha || '',
+              snapshotKey: result.snapshot?.headSha ? `github-snapshot:${fullName}:${result.snapshot.headSha}` : ''
             },
-            maintenanceProfile: 'standard',
-            sourceLimit: 32,
-            skipQualityRebuild: false,
-            streamDraft: false,
-            trigger: 'github_repo_create'
+            maintainWikiPageFn: maintainWikiPage,
+            maintainArgs: {
+              wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
+              models: {
+                WikiPage,
+                Article,
+                NotebookEntry,
+                TagMeta,
+                Question
+              },
+              maintenanceProfile: 'standard',
+              sourceLimit: 32,
+              skipQualityRebuild: false,
+              streamDraft: false,
+              trigger: 'github_repo_create'
+            }
           });
+          result.page = publication.page;
           result.page = await savePageWithVersionRetry(result.page, req.user.id);
+          if (!publication.promoted) {
+            result.page = await releaseRepoBuildLease({
+              WikiPage,
+              pageId: result.page._id,
+              userId: req.user.id,
+              token: buildLease.token,
+              headSha: result.snapshot?.headSha || '',
+              status: 'needs_review',
+              error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
+            }) || result.page;
+            await markWikiSourceEventFinished({
+              WikiSourceEvent,
+              event: result.maintenanceEvent,
+              userId: req.user.id
+            });
+            return res.status(422).json({
+              error: 'The repo wiki candidate did not pass the evidence bar. The last trusted version is unchanged.',
+              code: 'REPO_WIKI_CANDIDATE_REJECTED',
+              action,
+              page: serializeWikiPage(result.page),
+              quality: publication.quality
+            });
+          }
           await syncPageGraph(result.page, req.user.id);
           await createWikiRevision({
             WikiRevision,
@@ -2720,6 +2798,20 @@ const buildWikiRouter = ({
             reason: 'agent_maintenance',
             actorType: 'agent',
             summary: result.page.aiState?.maintenanceSummary || `Built repo wiki for ${fullName}.`
+          });
+          result.page = await releaseRepoBuildLease({
+            WikiPage,
+            pageId: result.page._id,
+            userId: req.user.id,
+            token: buildLease.token,
+            headSha: result.snapshot?.headSha || '',
+            status: 'ready',
+            promoted: true
+          }) || result.page;
+          await markWikiSourceEventFinished({
+            WikiSourceEvent,
+            event: result.maintenanceEvent,
+            userId: req.user.id
           });
           trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
             pageId: serializeId(result.page._id),
@@ -2732,6 +2824,17 @@ const buildWikiRouter = ({
           });
         } catch (error) {
           console.error('Error building GitHub repo wiki:', error);
+          if (buildLease?.acquired) {
+            await releaseRepoBuildLease({
+              WikiPage,
+              pageId: result.page._id,
+              userId: req.user.id,
+              token: buildLease.token,
+              headSha: result.snapshot?.headSha || '',
+              status: 'error',
+              error: error.message || 'Repo wiki build failed.'
+            }).catch(() => null);
+          }
           result.page.aiState = {
             ...(result.page.aiState?.toObject ? result.page.aiState.toObject() : result.page.aiState || {}),
             draftStatus: 'error',
@@ -2782,8 +2885,33 @@ const buildWikiRouter = ({
 
   router.get('/api/wiki/pages/:id', wikiAuth, async (req, res) => {
     try {
-      const page = await findOwnedPage(req).lean();
+      let page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const repoWatch = page.externalWatches?.githubRepo || {};
+      const lastProbeAt = repoWatch.lastHeadProbeAt ? new Date(repoWatch.lastHeadProbeAt).getTime() : 0;
+      const probeStale = Date.now() - lastProbeAt >= 15 * 60 * 1000;
+      if (repoWatch.status === 'active' && repoWatch.owner && repoWatch.repo && probeStale) {
+        const probeController = new AbortController();
+        const probeTimer = setTimeout(() => probeController.abort(), 1800);
+        try {
+          const probe = await checkGitHubRepoHeadForPage({ WikiPage, page, signal: probeController.signal });
+          page = probe.page || page;
+          if (probe.changed) {
+            const pageId = page._id;
+            const userId = page.userId;
+            setImmediate(async () => {
+              try {
+                const freshPage = await WikiPage.findOne({ _id: pageId, userId });
+                if (freshPage) await checkGitHubRepoWatchForPage({ WikiSourceEvent, page: freshPage });
+              } catch (_syncError) {}
+            });
+          }
+        } catch (_probeError) {
+          // Page reads remain available when GitHub is unavailable or rate limited.
+        } finally {
+          clearTimeout(probeTimer);
+        }
+      }
       res.status(200).json(serializeWikiPage(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
@@ -3347,9 +3475,22 @@ const buildWikiRouter = ({
   });
 
   router.post('/api/wiki/pages/:id/ai/draft', wikiAuth, async (req, res) => {
+    let page = null;
+    let buildLease = null;
+    let repoHeadSha = '';
     try {
-      const page = await findOwnedPage(req);
+      page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      buildLease = await acquireRepoMaintenanceLease({ page, userId: req.user.id });
+      if (buildLease && !buildLease.acquired) {
+        return res.status(409).json({
+          error: 'Wiki maintenance already running for this repository head.',
+          code: 'REPO_WIKI_BUILD_IN_PROGRESS',
+          pageId: serializeId(page._id)
+        });
+      }
+      if (buildLease?.page) page = buildLease.page;
+      repoHeadSha = buildLease?.headSha || '';
       const before = snapshotPage(page);
 
       page.aiState = {
@@ -3361,17 +3502,45 @@ const buildWikiRouter = ({
         errorCode: ''
       };
 
-      await maintainWikiPage({
+      const publication = await runWikiMaintenanceCandidate({
         page,
         userId: req.user.id,
-        wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
-        models: {
-          Article,
-          NotebookEntry,
-          TagMeta,
-          Question
+        WikiRevision,
+        beforeSnapshot: before,
+        maintainWikiPageFn: maintainWikiPage,
+        maintainArgs: {
+          wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
+          models: {
+            Article,
+            NotebookEntry,
+            TagMeta,
+            Question
+          }
         }
       });
+      page = publication.page;
+
+      if (!publication.promoted) {
+        await page.save();
+        if (buildLease?.acquired) {
+          page = await releaseRepoBuildLease({
+            WikiPage,
+            pageId: page._id,
+            userId: req.user.id,
+            token: buildLease.token,
+            headSha: repoHeadSha,
+            status: 'needs_review',
+            error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
+          }) || page;
+          buildLease = null;
+        }
+        return res.status(422).json({
+          error: 'The wiki candidate did not pass the quality bar. The last trusted version is unchanged.',
+          code: 'WIKI_CANDIDATE_REJECTED',
+          page: serializeWikiPage(page),
+          quality: publication.quality
+        });
+      }
 
       // AT-288: the agent just (re)wrote this page's body. Convert concept
       // mentions of other pages into wikilinks (outbound) so the body reads
@@ -3392,6 +3561,18 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
       });
+      if (buildLease?.acquired) {
+        page = await releaseRepoBuildLease({
+          WikiPage,
+          pageId: page._id,
+          userId: req.user.id,
+          token: buildLease.token,
+          headSha: repoHeadSha,
+          status: 'ready',
+          promoted: true
+        }) || page;
+        buildLease = null;
+      }
       trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
         pageId: serializeId(page._id),
         title: page.title,
@@ -3402,6 +3583,17 @@ const buildWikiRouter = ({
       res.status(200).json(serializeWikiPage(page));
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
+      if (buildLease?.acquired && page) {
+        await releaseRepoBuildLease({
+          WikiPage,
+          pageId: page._id,
+          userId: req.user.id,
+          token: buildLease.token,
+          headSha: repoHeadSha,
+          status: 'error',
+          error: error.message || 'Wiki maintenance failed.'
+        }).catch(() => null);
+      }
       res.status(500).json({ error: 'Failed to maintain wiki page.' });
     }
   });
@@ -3409,6 +3601,8 @@ const buildWikiRouter = ({
   router.post('/api/wiki/pages/:id/ai/draft/stream', wikiAuth, async (req, res) => {
     let page = null;
     let activeStreamKey = '';
+    let buildLease = null;
+    let repoHeadSha = '';
     try {
       page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -3420,6 +3614,16 @@ const buildWikiRouter = ({
           pageId: serializeId(page._id)
         });
       }
+      buildLease = await acquireRepoMaintenanceLease({ page, userId: req.user.id });
+      if (buildLease && !buildLease.acquired) {
+        return res.status(409).json({
+          error: 'Wiki maintenance already running for this repository head.',
+          code: 'REPO_WIKI_BUILD_IN_PROGRESS',
+          pageId: serializeId(page._id)
+        });
+      }
+      if (buildLease?.page) page = buildLease.page;
+      repoHeadSha = buildLease?.headSha || '';
       activeWikiDraftStreams.set(activeStreamKey, Date.now());
       const before = snapshotPage(page);
       const maintenanceOptions = readMaintenanceRequestOptions(req.body || {});
@@ -3443,25 +3647,60 @@ const buildWikiRouter = ({
         page: serializeWikiPage(page)
       });
 
-      await maintainWikiPage({
+      const publication = await runWikiMaintenanceCandidate({
         page,
         userId: req.user.id,
-        wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
-        models: {
-          Article,
-          NotebookEntry,
-          TagMeta,
-          Question
-        },
-        maintenanceProfile: maintenanceOptions.maintenanceProfile,
-        sourceLimit: maintenanceOptions.sourceLimit,
-        sourceTextLimit: maintenanceOptions.sourceTextLimit,
-        skipQualityRebuild: maintenanceOptions.skipQualityRebuild,
-        streamDraft: maintenanceOptions.streamDraft,
-        onProgress: (event) => {
-          writeSse(res, 'wiki-draft', event);
+        WikiRevision,
+        beforeSnapshot: before,
+        maintainWikiPageFn: maintainWikiPage,
+        maintainArgs: {
+          wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
+          models: {
+            Article,
+            NotebookEntry,
+            TagMeta,
+            Question
+          },
+          maintenanceProfile: maintenanceOptions.maintenanceProfile,
+          sourceLimit: maintenanceOptions.sourceLimit,
+          sourceTextLimit: maintenanceOptions.sourceTextLimit,
+          skipQualityRebuild: maintenanceOptions.skipQualityRebuild,
+          streamDraft: maintenanceOptions.streamDraft,
+          onProgress: (event) => {
+            writeSse(res, 'wiki-draft', event);
+          }
         }
       });
+      page = publication.page;
+
+      if (!publication.promoted) {
+        page = await savePageWithVersionRetry(page, req.user.id);
+        if (buildLease?.acquired) {
+          page = await releaseRepoBuildLease({
+            WikiPage,
+            pageId: page._id,
+            userId: req.user.id,
+            token: buildLease.token,
+            headSha: repoHeadSha,
+            status: 'needs_review',
+            error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
+          }) || page;
+          buildLease = null;
+        }
+        writeSse(res, 'wiki-page', {
+          stage: 'quality_rejected',
+          summary: 'The candidate missed the quality bar. The last trusted version is unchanged.',
+          page: serializeWikiPage(page),
+          quality: publication.quality
+        });
+        writeSse(res, 'done', {
+          ok: false,
+          code: 'WIKI_CANDIDATE_REJECTED',
+          pageId: serializeId(page._id)
+        });
+        res.end();
+        return;
+      }
 
       // AT-288: convert concept mentions in the freshly-maintained body into
       // outbound wikilinks before emitting 'drafted', so the streamed page the
@@ -3506,6 +3745,18 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
       });
+      if (buildLease?.acquired) {
+        page = await releaseRepoBuildLease({
+          WikiPage,
+          pageId: page._id,
+          userId: req.user.id,
+          token: buildLease.token,
+          headSha: repoHeadSha,
+          status: 'ready',
+          promoted: true
+        }) || page;
+        buildLease = null;
+      }
       trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
         pageId: serializeId(page._id),
         title: page.title,
@@ -3523,6 +3774,18 @@ const buildWikiRouter = ({
       res.end();
     } catch (error) {
       console.error('Error streaming wiki maintenance:', error);
+      if (buildLease?.acquired && page) {
+        await releaseRepoBuildLease({
+          WikiPage,
+          pageId: page._id,
+          userId: req.user.id,
+          token: buildLease.token,
+          headSha: repoHeadSha,
+          status: 'error',
+          error: error.message || 'Wiki maintenance failed.'
+        }).catch(() => null);
+        buildLease = null;
+      }
       if (!res.headersSent) {
         return res.status(500).json({ error: 'Failed to maintain wiki page.' });
       }

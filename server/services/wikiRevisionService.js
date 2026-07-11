@@ -1,3 +1,5 @@
+const clonePlain = (value) => JSON.parse(JSON.stringify(value ?? null));
+
 const snapshotPage = (page) => {
   if (!page) return null;
   const raw = typeof page.toObject === 'function' ? page.toObject({ virtuals: false }) : { ...page };
@@ -20,6 +22,31 @@ const snapshotPage = (page) => {
   };
 };
 
+const restorePageSnapshot = (page, snapshot = {}) => {
+  if (!page || !snapshot) return page;
+  [
+    'title',
+    'slug',
+    'pageType',
+    'status',
+    'visibility',
+    'sourceScope',
+    'adoptedFrom',
+    'body',
+    'plainText',
+    'sourceRefs',
+    'claims',
+    'citations',
+    'freshness',
+    'aiState'
+  ].forEach((field) => {
+    if (snapshot[field] === undefined) return;
+    page[field] = clonePlain(snapshot[field]);
+    if (typeof page.markModified === 'function') page.markModified(field);
+  });
+  return page;
+};
+
 const createWikiRevision = async ({
   WikiRevision,
   userId,
@@ -31,6 +58,9 @@ const createWikiRevision = async ({
   actorType = 'user',
   sourceEventId = null,
   maintenanceRunId = null,
+  promotionStatus = 'promoted',
+  sourceVersion = null,
+  quality = null,
   summary = ''
 } = {}) => {
   if (!WikiRevision || !userId || (!page && !pageId)) return null;
@@ -44,6 +74,9 @@ const createWikiRevision = async ({
     actorType,
     sourceEventId,
     maintenanceRunId,
+    promotionStatus,
+    sourceVersion,
+    quality,
     summary
   });
   await revision.save();
@@ -52,5 +85,6 @@ const createWikiRevision = async ({
 
 module.exports = {
   createWikiRevision,
+  restorePageSnapshot,
   snapshotPage
 };

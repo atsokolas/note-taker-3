@@ -408,6 +408,10 @@ const wikiAiStateSchema = new mongoose.Schema({
       rebuiltAutomatically: false
     })
   },
+  candidateStatus: { type: String, enum: ['idle', 'building', 'promoted', 'rejected'], default: 'idle' },
+  lastCandidateAt: { type: Date, default: null },
+  lastCandidateQuality: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  lastCandidateSummary: { type: String, default: '', trim: true },
   health: {
     type: mongoose.Schema.Types.Mixed,
     default: () => ({
@@ -495,7 +499,24 @@ const wikiGitHubRepoWatchSchema = new mongoose.Schema({
   defaultBranch: { type: String, default: '', trim: true },
   status: { type: String, enum: ['idle', 'active', 'error'], default: 'idle' },
   lastCheckedAt: { type: Date, default: null },
+  lastHeadProbeAt: { type: Date, default: null },
   lastHeadSha: { type: String, default: '', trim: true },
+  publishedHeadSha: { type: String, default: '', trim: true },
+  candidateHeadSha: { type: String, default: '', trim: true },
+  lastPublishedAt: { type: Date, default: null },
+  lastBuildAttemptAt: { type: Date, default: null },
+  lastBuildError: { type: String, default: '', trim: true },
+  buildStatus: {
+    type: String,
+    enum: ['idle', 'queued', 'building', 'ready', 'needs_review', 'error'],
+    default: 'idle'
+  },
+  buildLease: {
+    token: { type: String, default: '', trim: true },
+    headSha: { type: String, default: '', trim: true },
+    acquiredAt: { type: Date, default: null },
+    expiresAt: { type: Date, default: null }
+  },
   lastReleaseTag: { type: String, default: '', trim: true },
   lastEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   errorMessage: { type: String, default: '', trim: true }
@@ -604,10 +625,13 @@ const WikiProposal = mongoose.model('WikiProposal', wikiProposalSchema);
 const wikiRevisionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
-  reason: { type: String, enum: ['created', 'user_edit', 'agent_maintenance', 'source_event', 'archived'], default: 'user_edit' },
+  reason: { type: String, enum: ['created', 'user_edit', 'agent_maintenance', 'agent_candidate', 'source_event', 'archived'], default: 'user_edit' },
   actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'user' },
   sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null },
   maintenanceRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiMaintenanceRun', default: null },
+  promotionStatus: { type: String, enum: ['candidate', 'promoted', 'rejected'], default: 'promoted' },
+  sourceVersion: { type: mongoose.Schema.Types.Mixed, default: null },
+  quality: { type: mongoose.Schema.Types.Mixed, default: null },
   before: { type: mongoose.Schema.Types.Mixed, default: null },
   after: { type: mongoose.Schema.Types.Mixed, default: null },
   summary: { type: String, default: '', trim: true }

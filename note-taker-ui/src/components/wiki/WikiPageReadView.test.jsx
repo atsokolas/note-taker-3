@@ -1773,7 +1773,7 @@ describe('WikiPageReadView', () => {
     expect(screen.getByText('note-taker-ui/')).toBeInTheDocument();
     expect(screen.getByText('server/')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Track GitHub repo' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/atsokolas\/note-taker-3/);
+    expect(screen.getByRole('status')).toHaveTextContent(/Page current/);
   });
 
   it('does not show developer quickstart on ordinary wiki pages', async () => {

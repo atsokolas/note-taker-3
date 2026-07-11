@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   armGitHubRepoWatchForPage,
+  checkGitHubRepoHeadForPage,
   drainDueGitHubRepoWatches,
   dueGitHubRepoWatchQuery,
   classifyRepoDocClass,
@@ -154,6 +155,13 @@ class FakeWikiSourceEvent {
       })
     };
   }
+
+  static async findOneAndUpdate(query = {}, update = {}) {
+    const row = FakeWikiSourceEvent.rows.find(event => String(event._id) === String(query._id));
+    if (!row) return null;
+    Object.assign(row, update.$set || update);
+    return row;
+  }
 }
 FakeWikiSourceEvent.rows = [];
 
@@ -192,6 +200,42 @@ class FakeWikiPage {
 
 const run = async () => {
   assert.deepStrictEqual(parseGitHubRepo('https://github.com/openai/agents-js'), { owner: 'openai', repo: 'agents-js' });
+
+  const headOnlyCalls = [];
+  const headOnlyPage = makePage();
+  headOnlyPage.externalWatches = {
+    githubRepo: {
+      owner: 'openai',
+      repo: 'agents-js',
+      status: 'active',
+      publishedHeadSha: 'older-head',
+      buildStatus: 'ready'
+    }
+  };
+  const headOnlyResult = await checkGitHubRepoHeadForPage({
+    page: headOnlyPage,
+    fetchImpl: async (url) => {
+      headOnlyCalls.push(String(url));
+      return makeFetch()(url);
+    },
+    now: () => new Date('2026-07-10T12:00:00.000Z')
+  });
+  assert.strictEqual(headOnlyResult.changed, true);
+  assert.strictEqual(headOnlyCalls.length, 2);
+  assert.strictEqual(headOnlyCalls.some(url => url.includes('/git/trees/')), false);
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.lastHeadSha, 'abc1234567890abcdef');
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.candidateHeadSha, 'abc1234567890abcdef');
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.buildStatus, 'queued');
+
+  headOnlyPage.externalWatches.githubRepo.publishedHeadSha = 'abc1234567890abcdef';
+  const currentHeadResult = await checkGitHubRepoHeadForPage({
+    page: headOnlyPage,
+    fetchImpl: makeFetch(),
+    now: () => new Date('2026-07-10T12:15:00.000Z')
+  });
+  assert.strictEqual(currentHeadResult.changed, false);
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.candidateHeadSha, '');
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.buildStatus, 'ready');
   assert.deepStrictEqual(parseGitHubRepo('openai/agents-js'), { owner: 'openai', repo: 'agents-js' });
   assert.strictEqual(isUsefulDocPath('README.md'), true);
   assert.strictEqual(isUsefulDocPath('docs/architecture.md'), true);
@@ -301,7 +345,11 @@ const run = async () => {
   assert.strictEqual(result.snapshot.docs.length, 14);
   assert.strictEqual(result.snapshot.recentCommits.length, 1);
   assert.strictEqual(result.events.length, 16);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 16);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 17);
+  assert.ok(result.maintenanceEvent);
+  assert.strictEqual(result.maintenanceEvent.provider, 'github-repo-snapshot');
+  assert.strictEqual(FakeWikiSourceEvent.rows.filter(row => row.status === 'pending').length, 1);
+  assert.strictEqual(FakeWikiSourceEvent.rows.filter(row => row.status === 'ignored').length, 16);
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.owner, 'openai');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.repo, 'agents-js');
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.lastHeadSha, 'abc1234567890abcdef');
@@ -328,7 +376,7 @@ const run = async () => {
     now: () => new Date('2026-07-04T00:00:00.000Z')
   });
   assert.strictEqual(second.events.length, 16);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 16);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 17);
   assert.match(second.events.find(row => row.metadata.path === 'package.json').text, /node server\/server\.js/);
 
   const dueQuery = dueGitHubRepoWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });

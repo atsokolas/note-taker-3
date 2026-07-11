@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('../note-taker-ui/node_modules/playwright');
+const { evaluateWikiArticleQuality } = require('../server/services/wikiMaintenanceService');
 
 const BASE_URL = process.env.QA_BASE_URL || 'https://www.noeis.io';
 const API_URL = process.env.QA_API_URL || 'https://note-taker-3-unrg.onrender.com';
@@ -290,7 +291,14 @@ async function main() {
     const sourceRefs = Array.isArray(builtPage.sourceRefs) ? builtPage.sourceRefs : [];
     const sourcePaths = new Set(sourceRefs.map(source => String(source?.metadata?.path || '').toLowerCase()).filter(Boolean));
     const substantiveSourceCount = sourceRefs.filter(source => String(source?.metadata?.evidenceType || '').toLowerCase() !== 'policy').length;
-    const qualityMetrics = builtPage.aiState?.quality?.metrics || {};
+    const canonicalQuality = evaluateWikiArticleQuality({
+      page: builtPage,
+      body: builtPage.body,
+      claims: builtPage.claims,
+      sourceRefs
+    });
+    const qualityMetrics = canonicalQuality.metrics || {};
+    const watch = builtPage.externalWatches?.githubRepo || {};
     const missingCorePaths = REQUIRED_NOEIS_REPO_PATHS.filter(path => !sourcePaths.has(path.toLowerCase()));
     const checks = {
       atomicRouteUsed: Boolean(
@@ -302,7 +310,14 @@ async function main() {
         (Array.isArray(createBody.sourceEvents) && createBody.sourceEvents.length > 0)
         || (Array.isArray(builtPage.externalWatches?.githubRepo?.lastEventIds) && builtPage.externalWatches.githubRepo.lastEventIds.length > 0)
       ),
-      qualityPassed: builtPage.aiState?.quality?.ok === true,
+      qualityPassed: canonicalQuality.ok === true,
+      publishedHeadMatchesObserved: Boolean(
+        watch.publishedHeadSha
+        && watch.lastHeadSha
+        && watch.publishedHeadSha === watch.lastHeadSha
+        && !watch.candidateHeadSha
+        && watch.buildStatus === 'ready'
+      ),
       substantiveEvidenceDepth: substantiveSourceCount >= 25,
       centralImplementationEvidence: missingCorePaths.length === 0,
       citationUtilization: Number(qualityMetrics.usedSubstantiveSourceCount || 0) >= 10,
@@ -340,6 +355,7 @@ async function main() {
         excerpt: plainText.slice(0, 1200),
         substantiveSourceCount,
         qualityMetrics,
+        canonicalQuality,
         missingCorePaths
       },
       rendered,

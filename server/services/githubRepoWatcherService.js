@@ -41,9 +41,9 @@ const githubHeaders = (token = githubToken()) => ({
   ...(token ? { Authorization: `Bearer ${token}` } : {})
 });
 
-const fetchJson = async ({ url, fetchImpl = global.fetch, token = githubToken() } = {}) => {
+const fetchJson = async ({ url, fetchImpl = global.fetch, token = githubToken(), signal } = {}) => {
   if (typeof fetchImpl !== 'function') throw new Error('fetch is not available for GitHub requests.');
-  const response = await fetchImpl(url, { headers: githubHeaders(token) });
+  const response = await fetchImpl(url, { headers: githubHeaders(token), signal });
   if (!response?.ok) {
     const error = new Error(`GitHub request failed with HTTP ${response?.status || 'unknown'}.`);
     error.statusCode = response?.status || 500;
@@ -303,6 +303,31 @@ const fetchRecentCommits = async ({
   }
 };
 
+const fetchRepoHead = async ({
+  owner,
+  repo,
+  fetchImpl = global.fetch,
+  token = githubToken(),
+  signal
+} = {}) => {
+  const repository = await fetchJson({ url: repoApiUrl({ owner, repo }), fetchImpl, token, signal });
+  if (repository.private) {
+    const error = new Error('Private GitHub repositories are not supported for public repo wiki v1.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const defaultBranch = trim(repository.default_branch || 'main', 120);
+  const branch = await fetchJson({ url: repoApiUrl({ owner, repo, path: `/branches/${encodeURIComponent(defaultBranch)}` }), fetchImpl, token, signal });
+  return {
+    owner,
+    repo,
+    fullName: `${owner}/${repo}`,
+    description: trim(repository.description || '', 500),
+    defaultBranch,
+    headSha: trim(branch?.commit?.sha || repository.default_branch_sha || '', 80)
+  };
+};
+
 const fetchRepoSnapshot = async ({
   owner,
   repo,
@@ -311,15 +336,8 @@ const fetchRepoSnapshot = async ({
   docLimit = DEFAULT_DOC_PATH_LIMIT,
   blobTextLimit = DEFAULT_BLOB_TEXT_LIMIT
 } = {}) => {
-  const repository = await fetchJson({ url: repoApiUrl({ owner, repo }), fetchImpl, token });
-  if (repository.private) {
-    const error = new Error('Private GitHub repositories are not supported for public repo wiki v1.');
-    error.statusCode = 400;
-    throw error;
-  }
-  const defaultBranch = trim(repository.default_branch || 'main', 120);
-  const branch = await fetchJson({ url: repoApiUrl({ owner, repo, path: `/branches/${encodeURIComponent(defaultBranch)}` }), fetchImpl, token });
-  const headSha = trim(branch?.commit?.sha || repository.default_branch_sha || '', 80);
+  const head = await fetchRepoHead({ owner, repo, fetchImpl, token });
+  const { defaultBranch, headSha } = head;
   const tree = await fetchJson({
     url: repoApiUrl({ owner, repo, path: `/git/trees/${encodeURIComponent(headSha || defaultBranch)}?recursive=1` }),
     fetchImpl,
@@ -364,7 +382,7 @@ const fetchRepoSnapshot = async ({
     owner,
     repo,
     fullName: `${owner}/${repo}`,
-    description: trim(repository.description || '', 500),
+    description: head.description,
     defaultBranch,
     headSha,
     docs,
@@ -373,9 +391,60 @@ const fetchRepoSnapshot = async ({
   };
 };
 
+const checkGitHubRepoHeadForPage = async ({
+  WikiPage,
+  page,
+  fetchImpl = global.fetch,
+  token = githubToken(),
+  now = () => new Date(),
+  signal
+} = {}) => {
+  if (!page) {
+    const error = new Error('Wiki page is required for GitHub repo head check.');
+    error.statusCode = 404;
+    throw error;
+  }
+  const watch = page.externalWatches?.githubRepo || {};
+  const owner = normalizeOwnerOrRepo(watch.owner);
+  const repo = normalizeOwnerOrRepo(watch.repo);
+  if (!owner || !repo) {
+    const error = new Error('This page does not have a GitHub repo configured.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const head = await fetchRepoHead({ owner, repo, fetchImpl, token, signal });
+  const changed = Boolean(head.headSha && head.headSha !== watch.publishedHeadSha);
+  const patch = {
+    owner,
+    repo,
+    defaultBranch: head.defaultBranch,
+    lastHeadProbeAt: now(),
+    lastHeadSha: head.headSha,
+    candidateHeadSha: changed ? head.headSha : '',
+    buildStatus: changed ? 'queued' : 'ready',
+    errorMessage: ''
+  };
+  if (WikiPage?.findOneAndUpdate && page._id && page.userId) {
+    const updates = Object.fromEntries(Object.entries(patch).map(([key, value]) => [
+      `externalWatches.githubRepo.${key}`,
+      value
+    ]));
+    const updated = await WikiPage.findOneAndUpdate(
+      { _id: page._id, userId: page.userId, status: { $ne: 'archived' } },
+      { $set: updates },
+      { new: true }
+    );
+    return { page: updated || page, head, changed };
+  }
+  setGitHubRepoWatch({ page, patch });
+  if (typeof page.save === 'function') await page.save();
+  return { page, head, changed };
+};
+
 const repoDocExternalId = ({ owner, repo, headSha, doc } = {}) => `github-doc:${owner}/${repo}:${headSha}:${doc?.path || ''}:${doc?.sha || ''}`;
 const repoReleaseExternalId = ({ owner, repo, release } = {}) => `github-release:${owner}/${repo}:${release?.tagName || ''}`;
 const repoCommitsExternalId = ({ owner, repo, headSha } = {}) => `github-commits:${owner}/${repo}:${headSha || ''}`;
+const repoSnapshotExternalId = ({ owner, repo, headSha } = {}) => `github-snapshot:${owner}/${repo}:${headSha || ''}`;
 
 const buildRepoDocEventPayload = ({ userId, page, snapshot, doc } = {}) => ({
   userId,
@@ -484,8 +553,29 @@ const findExistingRepoSourceEvent = async ({ WikiSourceEvent, userId, provider, 
   return query;
 };
 
+const markRepoEvidenceEventAttached = async ({ WikiSourceEvent, event, snapshotKey } = {}) => {
+  if (!event) return event;
+  const metadata = {
+    ...(event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {}),
+    batchStatus: 'attached',
+    snapshotKey
+  };
+  if (WikiSourceEvent?.findOneAndUpdate) {
+    return WikiSourceEvent.findOneAndUpdate(
+      { _id: event._id },
+      { $set: { status: 'ignored', metadata, errorMessage: '' } },
+      { new: true }
+    );
+  }
+  event.status = 'ignored';
+  event.metadata = metadata;
+  event.errorMessage = '';
+  if (typeof event.save === 'function') await event.save();
+  return event;
+};
+
 const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot } = {}) => {
-  if (!WikiSourceEvent || !userId || !page || !snapshot) return [];
+  if (!WikiSourceEvent || !userId || !page || !snapshot) return { evidenceEvents: [], maintenanceEvent: null };
   const payloads = [
     ...(snapshot.docs || []).map(doc => buildRepoDocEventPayload({ userId, page, snapshot, doc })),
     ...(snapshot.recentCommits?.length ? [buildRepoCommitsEventPayload({ userId, page, snapshot, commits: snapshot.recentCommits })] : []),
@@ -500,13 +590,60 @@ const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot
       externalId: payload.externalId
     });
     if (existing) {
-      created.push(existing);
+      created.push(await markRepoEvidenceEventAttached({
+        WikiSourceEvent,
+        event: existing,
+        snapshotKey: repoSnapshotExternalId(snapshot)
+      }) || existing);
       continue;
     }
-    const event = await createWikiSourceEvent({ WikiSourceEvent, ...payload });
+    const event = await createWikiSourceEvent({
+      WikiSourceEvent,
+      ...payload,
+      status: 'ignored',
+      metadata: {
+        ...(payload.metadata || {}),
+        batchStatus: 'attached',
+        snapshotKey: repoSnapshotExternalId(snapshot)
+      }
+    });
     if (event) created.push(event);
   }
-  return created;
+  const snapshotExternalId = repoSnapshotExternalId(snapshot);
+  let maintenanceEvent = await findExistingRepoSourceEvent({
+    WikiSourceEvent,
+    userId,
+    provider: 'github-repo-snapshot',
+    externalId: snapshotExternalId
+  });
+  if (!maintenanceEvent) {
+    maintenanceEvent = await createWikiSourceEvent({
+      WikiSourceEvent,
+      userId,
+      sourceType: 'external',
+      provider: 'github-repo-snapshot',
+      externalId: snapshotExternalId,
+      eventType: 'synced',
+      title: trim(`${snapshot.fullName} repository snapshot`, 240),
+      summary: trim(`${created.length} repository evidence records collected at ${snapshot.headSha.slice(0, 7)}.`, 1200),
+      text: `${snapshot.fullName} repository snapshot at ${snapshot.headSha}.`,
+      url: `https://github.com/${snapshot.owner}/${snapshot.repo}/tree/${snapshot.headSha}`,
+      affectedPageIds: [page._id].filter(Boolean),
+      metadata: {
+        source: 'github-repo-snapshot',
+        owner: snapshot.owner,
+        repo: snapshot.repo,
+        fullName: snapshot.fullName,
+        commitSha: snapshot.headSha,
+        snapshotKey: snapshotExternalId,
+        documentEventIds: created.map(event => event._id).filter(Boolean),
+        evidenceCount: created.length,
+        pageId: String(page._id || ''),
+        enforcePublicationQuality: true
+      }
+    });
+  }
+  return { evidenceEvents: created, maintenanceEvent };
 };
 
 const setGitHubRepoWatch = ({ page, patch = {} } = {}) => {
@@ -542,7 +679,13 @@ const checkGitHubRepoWatchForPage = async ({
   }
   try {
     const snapshot = await fetchRepoSnapshot({ owner, repo, fetchImpl, token });
-    const events = await createMissingRepoEvents({ WikiSourceEvent, userId: page.userId, page, snapshot });
+    const buildRequired = snapshot.headSha !== watch.publishedHeadSha;
+    const { evidenceEvents: events, maintenanceEvent } = await createMissingRepoEvents({
+      WikiSourceEvent,
+      userId: page.userId,
+      page,
+      snapshot
+    });
     setGitHubRepoWatch({
       page,
       patch: {
@@ -552,13 +695,15 @@ const checkGitHubRepoWatchForPage = async ({
         status: 'active',
         lastCheckedAt: now(),
         lastHeadSha: snapshot.headSha,
+        candidateHeadSha: buildRequired ? snapshot.headSha : '',
+        buildStatus: buildRequired ? 'queued' : 'ready',
         lastReleaseTag: snapshot.latestRelease?.tagName || watch.lastReleaseTag || '',
-        lastEventIds: events.map(event => event._id).filter(Boolean).slice(0, 20),
+        lastEventIds: [maintenanceEvent?._id, ...events.map(event => event._id)].filter(Boolean).slice(0, 20),
         errorMessage: ''
       }
     });
     if (typeof page.save === 'function') await page.save();
-    return { page, snapshot, events };
+    return { page, snapshot, events, maintenanceEvent, buildRequired };
   } catch (error) {
     setGitHubRepoWatch({
       page,
@@ -605,6 +750,11 @@ const armGitHubRepoWatchForPage = async ({
     error.statusCode = 404;
     throw error;
   }
+  const currentWatch = page.externalWatches?.githubRepo?.toObject
+    ? page.externalWatches.githubRepo.toObject()
+    : page.externalWatches?.githubRepo || {};
+  const sameRepo = normalizeOwnerOrRepo(currentWatch.owner).toLowerCase() === parsed.owner.toLowerCase()
+    && normalizeOwnerOrRepo(currentWatch.repo).toLowerCase() === parsed.repo.toLowerCase();
   setGitHubRepoWatch({
     page,
     patch: {
@@ -614,6 +764,15 @@ const armGitHubRepoWatchForPage = async ({
       status: 'active',
       lastCheckedAt: null,
       lastHeadSha: '',
+      publishedHeadSha: sameRepo ? currentWatch.publishedHeadSha || '' : '',
+      candidateHeadSha: sameRepo ? currentWatch.candidateHeadSha || '' : '',
+      lastPublishedAt: sameRepo ? currentWatch.lastPublishedAt || null : null,
+      lastBuildAttemptAt: sameRepo ? currentWatch.lastBuildAttemptAt || null : null,
+      lastBuildError: sameRepo ? currentWatch.lastBuildError || '' : '',
+      buildStatus: sameRepo ? currentWatch.buildStatus || 'idle' : 'idle',
+      buildLease: sameRepo
+        ? currentWatch.buildLease || { token: '', headSha: '', acquiredAt: null, expiresAt: null }
+        : { token: '', headSha: '', acquiredAt: null, expiresAt: null },
       lastReleaseTag: '',
       lastEventIds: [],
       errorMessage: ''
@@ -691,10 +850,12 @@ module.exports = {
   buildRepoDocEventPayload,
   buildRepoCommitsEventPayload,
   buildRepoReleaseEventPayload,
+  checkGitHubRepoHeadForPage,
   checkGitHubRepoWatchForPage,
   classifyRepoDocClass,
   drainDueGitHubRepoWatches,
   dueGitHubRepoWatchQuery,
+  fetchRepoHead,
   fetchRepoSnapshot,
   githubToken,
   isUsefulDocPath,
@@ -704,6 +865,7 @@ module.exports = {
   repoDocExternalId,
   repoCommitsExternalId,
   repoReleaseExternalId,
+  repoSnapshotExternalId,
   selectRepoDocEntries,
   selectRepoEvidenceEntries
 };

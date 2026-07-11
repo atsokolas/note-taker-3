@@ -1,5 +1,10 @@
-const { maintainWikiPage } = require('./wikiMaintenanceService');
+const { isGitHubRepoPage, maintainWikiPage } = require('./wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
+const { runWikiMaintenanceCandidate } = require('./wikiMaintenancePublicationService');
+const {
+  acquireRepoBuildLease,
+  releaseRepoBuildLease
+} = require('./wikiRepoBuildLeaseService');
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
@@ -166,6 +171,34 @@ const setEventMetadata = (event, updates = {}) => {
   };
 };
 
+const attachRepoSnapshotEvidence = async ({ WikiSourceEvent, page, event } = {}) => {
+  const eventIds = Array.isArray(event?.metadata?.documentEventIds)
+    ? event.metadata.documentEventIds.filter(Boolean)
+    : [];
+  if (!WikiSourceEvent?.find || !page || !eventIds.length) return page;
+  const evidenceEvents = await WikiSourceEvent.find({
+    _id: { $in: eventIds },
+    userId: event.userId
+  });
+  const refs = (Array.isArray(evidenceEvents) ? evidenceEvents : []).map(source => ({
+    type: 'external',
+    objectId: source._id || null,
+    title: asText(source.title || source.url).slice(0, 240),
+    snippet: asText(source.text || source.summary).slice(0, 4000),
+    url: String(source.url || '').slice(0, 1000),
+    provider: 'github-repo',
+    metadata: source.metadata?.toObject ? source.metadata.toObject() : source.metadata || {},
+    addedBy: 'ai'
+  }));
+  page.sourceRefs = [
+    ...(Array.isArray(page.sourceRefs) ? page.sourceRefs.filter(ref => ref.provider !== 'github-repo') : []),
+    ...refs
+  ].slice(0, 80);
+  if (typeof page.markModified === 'function') page.markModified('sourceRefs');
+  if (typeof page.save === 'function') await page.save();
+  return page;
+};
+
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (!WikiPage || !userId || !event) return [];
   const explicitIds = Array.isArray(event.affectedPageIds) ? event.affectedPageIds.filter(Boolean) : [];
@@ -326,7 +359,13 @@ const processWikiSourceEvent = async ({
       return { event, pages: [], run, proposal };
     }
 
-    for (const page of pages) {
+    let rejectedCount = 0;
+    let skippedCount = 0;
+    for (let page of pages) {
+      const repoSnapshotEvent = event.metadata?.source === 'github-repo-snapshot';
+      if (repoSnapshotEvent) {
+        page = await attachRepoSnapshotEvidence({ WikiSourceEvent, page, event });
+      }
       const before = snapshotPage(page);
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
@@ -334,13 +373,97 @@ const processWikiSourceEvent = async ({
         lastSourceEventAt: event.createdAt || new Date(),
         pendingSourceEventIds: [event._id]
       };
-      await maintainWikiPageFn({
-        page,
-        userId: event.userId,
+      const maintainArgs = {
         models: { Article, NotebookEntry, TagMeta, Question },
         trigger: 'source_event',
         wikiSchemaContent: effectiveWikiSchemaContent
-      });
+      };
+      const enforcePublicationShield = isGitHubRepoPage({ page })
+        || event.metadata?.enforcePublicationQuality === true;
+      const headSha = String(event.metadata?.commitSha || page.externalWatches?.githubRepo?.lastHeadSha || '');
+      const lease = enforcePublicationShield && headSha
+        ? await acquireRepoBuildLease({
+            WikiPage,
+            pageId: page._id,
+            userId: event.userId,
+            headSha
+          })
+        : null;
+      if (lease && !lease.acquired) {
+        skippedCount += 1;
+        continue;
+      }
+      if (lease?.page) page = lease.page;
+      let publication;
+      try {
+        publication = enforcePublicationShield
+          ? await runWikiMaintenanceCandidate({
+            page,
+            userId: event.userId,
+            WikiRevision,
+            beforeSnapshot: before,
+            sourceEventId: event._id,
+            maintenanceRunId: run?._id || null,
+            sourceVersion: event.metadata?.commitSha ? {
+              provider: 'github',
+              headSha: event.metadata.commitSha,
+              snapshotKey: event.metadata.snapshotKey || ''
+            } : null,
+            maintainWikiPageFn,
+            maintainArgs
+          })
+          : {
+            page: await maintainWikiPageFn({
+              ...maintainArgs,
+              page,
+              userId: event.userId
+            }) || page,
+            promoted: true
+          };
+      } catch (error) {
+        if (lease?.acquired) {
+          await releaseRepoBuildLease({
+            WikiPage,
+            pageId: page._id,
+            userId: event.userId,
+            token: lease.token,
+            headSha,
+            status: 'error',
+            error: error.message || 'Repo wiki build failed.'
+          }).catch(() => null);
+        }
+        throw error;
+      }
+      if (!publication.promoted) {
+        rejectedCount += 1;
+        const candidate = candidateUpdates.find(row => (
+          row.targetType === 'wiki_page' && row.pageId === String(page._id || '')
+        ));
+        if (candidate) {
+          candidate.status = 'needs_review';
+          candidate.reason = 'The source produced a candidate that did not pass the wiki quality contract.';
+          candidate.recommendedAction = 'Review the rejected candidate while the last trusted page stays published.';
+        }
+        page.freshness = {
+          ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
+          status: 'needs_review',
+          lastSourceEventAt: event.createdAt || new Date(),
+          pendingSourceEventIds: []
+        };
+        await page.save();
+        if (lease?.acquired) {
+          await releaseRepoBuildLease({
+            WikiPage,
+            pageId: page._id,
+            userId: event.userId,
+            token: lease.token,
+            headSha,
+            status: 'needs_review',
+            error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
+          });
+        }
+        continue;
+      }
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
         status: Array.isArray(page.aiState?.health?.contradictions) && page.aiState.health.contradictions.length ? 'conflicted' : 'fresh',
@@ -368,6 +491,17 @@ const processWikiSourceEvent = async ({
         maintenanceRunId: run?._id || null,
         summary: page.aiState?.maintenanceSummary || `Updated from ${event.title || event.sourceType}.`
       });
+      if (lease?.acquired) {
+        await releaseRepoBuildLease({
+          WikiPage,
+          pageId: page._id,
+          userId: event.userId,
+          token: lease.token,
+          headSha,
+          status: 'ready',
+          promoted: true
+        });
+      }
     }
 
     event.status = 'processed';
@@ -375,13 +509,17 @@ const processWikiSourceEvent = async ({
     event.affectedPageIds = pages.map(page => page._id).filter(Boolean);
     await event.save();
     if (run) {
-      run.status = 'completed';
+      run.status = rejectedCount ? 'needs_review' : 'completed';
       run.pageId = pages[0]?._id || null;
-      run.summary = `Updated ${pages.length} wiki ${pages.length === 1 ? 'page' : 'pages'}.`;
+      run.summary = rejectedCount
+        ? `Kept ${rejectedCount} wiki ${rejectedCount === 1 ? 'page' : 'pages'} on the last trusted version for review.`
+        : skippedCount
+          ? `Skipped ${skippedCount} duplicate repo build ${skippedCount === 1 ? 'delivery' : 'deliveries'} already in progress.`
+        : `Updated ${pages.length} wiki ${pages.length === 1 ? 'page' : 'pages'}.`;
       run.completedAt = new Date();
       await run.save();
     }
-    return { event, pages, run };
+    return { event, pages, run, rejectedCount, skippedCount };
   } catch (error) {
     event.status = 'failed';
     event.errorMessage = error.message || 'Failed to process wiki source event.';
