@@ -348,6 +348,10 @@ const run = async () => {
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 17);
   assert.ok(result.maintenanceEvent);
   assert.strictEqual(result.maintenanceEvent.provider, 'github-repo-snapshot');
+  assert.strictEqual(
+    result.maintenanceEvent.externalId,
+    'github-snapshot:openai/agents-js:abc1234567890abcdef:page:507f1f77bcf86cd799439031'
+  );
   assert.strictEqual(FakeWikiSourceEvent.rows.filter(row => row.status === 'pending').length, 1);
   assert.strictEqual(FakeWikiSourceEvent.rows.filter(row => row.status === 'ignored').length, 16);
   assert.strictEqual(FakeWikiPage.page.externalWatches.githubRepo.owner, 'openai');

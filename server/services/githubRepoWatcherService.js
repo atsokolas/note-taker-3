@@ -610,11 +610,12 @@ const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot
     if (event) created.push(event);
   }
   const snapshotExternalId = repoSnapshotExternalId(snapshot);
+  const maintenanceExternalId = `${snapshotExternalId}:page:${String(page._id || '')}`;
   let maintenanceEvent = await findExistingRepoSourceEvent({
     WikiSourceEvent,
     userId,
     provider: 'github-repo-snapshot',
-    externalId: snapshotExternalId
+    externalId: maintenanceExternalId
   });
   if (!maintenanceEvent) {
     maintenanceEvent = await createWikiSourceEvent({
@@ -622,7 +623,7 @@ const createMissingRepoEvents = async ({ WikiSourceEvent, userId, page, snapshot
       userId,
       sourceType: 'external',
       provider: 'github-repo-snapshot',
-      externalId: snapshotExternalId,
+      externalId: maintenanceExternalId,
       eventType: 'synced',
       title: trim(`${snapshot.fullName} repository snapshot`, 240),
       summary: trim(`${created.length} repository evidence records collected at ${snapshot.headSha.slice(0, 7)}.`, 1200),
