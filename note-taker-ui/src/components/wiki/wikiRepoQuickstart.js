@@ -126,7 +126,22 @@ const parseNamedCommandLine = (line = '') => {
     .replace(/^(?:Run|UI|Test|Build|Wiki proof|Proof|Frontend build|Backend|Install(?: UI)?)\s*:\s*/i, '');
   if (!stripped) return null;
 
-  const { named, expansion } = splitCommandDetail(stripped);
+  const withoutCitation = stripped.replace(/\[\d+(?:,\d+)*\]\s*$/g, '').trim();
+  const cwdPrefix = withoutCitation.match(/^(repository root|[\w./-]+\/?):\s*(.+)$/i);
+  if (cwdPrefix) {
+    const cwd = normalizeCwd(cwdPrefix[1]);
+    const executes = cwdPrefix[2].match(/\s*\(executes\s+([^)]*)\)\s*$/i);
+    const commandText = cwdPrefix[2].replace(/\s*\((?:executes|defined in)\s+[^)]*\)\s*$/i, '').trim();
+    const nested = parseNamedCommandLine(commandText);
+    return nested ? {
+      ...nested,
+      cwd: nested.cwd === ROOT_CWD ? cwd : nested.cwd,
+      entrypoint: executes?.[1] ? normalizeText(executes[1]) : nested.entrypoint,
+      sourceFile: cwd === ROOT_CWD ? 'package.json' : `${cwd}/package.json`
+    } : null;
+  }
+
+  const { named, expansion } = splitCommandDetail(withoutCitation);
   const fromMatch = named.match(/^(.*?)\s+from\s+([\w./-]+\/package\.json)$/i);
   if (fromMatch) {
     const sourceFile = fromMatch[2];
@@ -317,11 +332,13 @@ const extractLocalUrls = ({ meta = {}, corpus = '' } = {}) => {
   const urls = [];
   const apiUrl = firstMatch(corpus, [
     /API(?:\s+URL)?\s*[:—-]\s*(https?:\/\/[^\s,;)]+)/i,
-    /(https?:\/\/(?:localhost|127\.0\.0\.1):5001[^\s,;)]*)/i
+    /(https?:\/\/(?:localhost|127\.0\.0\.1):(?:5001|5500)[^\s,;)]*)/i,
+    /API\s+(localhost:\d+)/i
   ]);
   const uiUrl = firstMatch(corpus, [
     /UI(?:\s+URL)?\s*[:—-]\s*(https?:\/\/[^\s,;)]+)/i,
-    /(https?:\/\/(?:localhost|127\.0\.0\.1):3000[^\s,;)]*)/i
+    /(https?:\/\/(?:localhost|127\.0\.0\.1):3000[^\s,;)]*)/i,
+    /UI\s+(localhost:\d+)/i
   ]);
   if (apiUrl) urls.push({ label: 'API', url: apiUrl });
   if (uiUrl) urls.push({ label: 'UI', url: uiUrl });
@@ -387,10 +404,16 @@ const extractKeyPaths = ({ page = {}, meta = {}, corpus = '' } = {}) => {
       .map(item => normalizeText(item))
       .filter(path => path && (/^(?:[a-z0-9._-]+\/)+$/i.test(path) || /^[\w./-]+\.[jt]sx?$/i.test(path)))
     : [];
+  const inlineList = firstMatch(corpus, [
+    /Key paths:\s*([^\n]+)/i,
+    /Key repo paths:\s*([^\n]+)/i
+  ]).split(/[,;|]/).map(item => normalizeText(item)).filter(path => (
+    path && (/^(?:[a-z0-9._-]+\/)+$/i.test(path) || /^[\w./-]+\.[a-z0-9]+$/i.test(path))
+  ));
   const inlinePaths = [...corpus.matchAll(/`([a-z0-9][a-z0-9._/-]{1,80}(?:\/|\.[jt]sx?))`/gi)]
     .map(match => normalizeText(match[1]))
     .filter(path => /^(note-taker-ui|server|scripts|docs|packages|src|app|lib)\//i.test(path));
-  return unique([...fromMeta, ...fromRefs, ...fromSection, ...inlinePaths]).slice(0, 6);
+  return unique([...fromMeta, ...fromSection, ...inlineList, ...inlinePaths, ...fromRefs]).slice(0, 6);
 };
 
 const mergeInstallCommands = (commands = [], { allowDefaults = false } = {}) => {
@@ -454,6 +477,7 @@ export const extractRepoDeveloperQuickstart = (page = {}) => {
     'Developer quickstart',
     'Five-minute setup',
     'Run, test, build',
+    'Run and prove changes',
     'Developer setup',
     'Getting started',
     'Local development',

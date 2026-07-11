@@ -160,4 +160,32 @@ describe('wikiRepoQuickstart', () => {
     expect(quickstart?.install.map(item => item.command)).toEqual(['npm install', 'npm install']);
     expect(JSON.stringify(quickstart)).not.toContain('release checklist');
   });
+
+  it('parses the maintained repo handoff command contract shown in production', () => {
+    const quickstart = extractRepoDeveloperQuickstart({
+      pageType: 'repo',
+      createdFrom: { text: 'GitHub repo: atsokolas/note-taker-3' },
+      plainText: [
+        'Run and prove changes',
+        'Install API dependencies from the repository root with npm install.[7]',
+        'Install UI dependencies with cd note-taker-ui && npm install.[8]',
+        'Environment from .env.example: configure PORT, JWT_SECRET, MONGODB_URI.',
+        'Local URLs: API localhost:5500; UI localhost:3000.',
+        'Run: repository root: npm run start (executes node server/server.js)[7]',
+        'UI: note-taker-ui/: cd note-taker-ui && npm run start (executes react-scripts start)[8]',
+        'Test: repository root: npm run wiki:qa (defined in package.json)[7]',
+        'Build: note-taker-ui/: cd note-taker-ui && npm run build (executes react-scripts build)[8]',
+        'Key paths: package.json, note-taker-ui/package.json, server/server.js, server/routes/wikiRoutes.js',
+        'System map'
+      ].join('\n\n'),
+      sourceRefs: [{ metadata: { path: '__repo_inventory__/code-inventory.txt' } }]
+    });
+
+    expect(quickstart?.apiRun).toMatchObject({ command: 'npm run start', cwd: 'repository root', entrypoint: 'node server/server.js' });
+    expect(quickstart?.uiRun).toMatchObject({ command: 'npm run start', cwd: 'note-taker-ui', entrypoint: 'react-scripts start' });
+    expect(quickstart?.test?.command).toBe('npm run wiki:qa');
+    expect(quickstart?.build?.command).toBe('CI=true npm run build');
+    expect(quickstart?.localUrls).toEqual([{ label: 'API', url: 'localhost:5500' }, { label: 'UI', url: 'localhost:3000' }]);
+    expect(quickstart?.keyPaths.slice(0, 3)).toEqual(['package.json', 'note-taker-ui/package.json', 'server/server.js']);
+  });
 });
