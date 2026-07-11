@@ -109,4 +109,24 @@ describe('useSystemStatus', () => {
 
     expect(result.current).toBe(settled);
   });
+
+  it('does not republish identical receipts or recoverable failures', () => {
+    const { result } = renderHook(() => useSystemStatus());
+    const receipt = { id: 'repo-review', title: 'Needs review', summary: 'Trusted page preserved', status: 'needs_review' };
+    const failure = { stage: 'Repo rebuild', message: 'Candidate rejected', retryable: true };
+
+    act(() => {
+      result.current.setLatestReceipt(receipt);
+      result.current.setRecoverableFailure(failure);
+    });
+    const settled = result.current;
+
+    act(() => {
+      result.current.setLatestReceipt({ ...receipt });
+      result.current.setRecoverableFailure({ ...failure });
+    });
+
+    expect(result.current).toBe(settled);
+    expect(result.current.recentReceipts).toHaveLength(1);
+  });
 });

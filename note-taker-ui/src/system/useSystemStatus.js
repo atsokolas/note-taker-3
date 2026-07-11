@@ -31,6 +31,20 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
   const setLatestReceipt = useCallback((latestReceipt) => {
     setState((prev) => {
       const next = latestReceipt || null;
+      const current = prev.latestReceipt;
+      if (
+        current === next
+        || (!current && !next)
+        || (
+          current
+          && next
+          && current.id === next.id
+          && current.title === next.title
+          && current.summary === next.summary
+          && current.status === next.status
+          && current.href === next.href
+        )
+      ) return prev;
       return {
         ...prev,
         latestReceipt: next,
@@ -40,11 +54,27 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
   }, []);
 
   const clearRecentReceipts = useCallback(() => {
-    setState((prev) => ({ ...prev, recentReceipts: [] }));
+    setState((prev) => (prev.recentReceipts.length ? { ...prev, recentReceipts: [] } : prev));
   }, []);
 
   const setRecoverableFailure = useCallback((recoverableFailure) => {
-    setState((prev) => ({ ...prev, recoverableFailure: recoverableFailure || null }));
+    setState((prev) => {
+      const next = recoverableFailure || null;
+      const current = prev.recoverableFailure;
+      if (
+        current === next
+        || (!current && !next)
+        || (
+          current
+          && next
+          && current.stage === next.stage
+          && current.message === next.message
+          && current.retryable === next.retryable
+          && current.retry === next.retry
+        )
+      ) return prev;
+      return { ...prev, recoverableFailure: next };
+    });
   }, []);
 
   const clearRecoverableFailure = useCallback(() => {
