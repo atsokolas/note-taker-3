@@ -503,6 +503,8 @@ const wikiGitHubRepoWatchSchema = new mongoose.Schema({
   lastHeadSha: { type: String, default: '', trim: true },
   publishedHeadSha: { type: String, default: '', trim: true },
   candidateHeadSha: { type: String, default: '', trim: true },
+  publishedGeneratorVersion: { type: String, default: '', trim: true },
+  candidateGeneratorVersion: { type: String, default: '', trim: true },
   lastPublishedAt: { type: Date, default: null },
   lastBuildAttemptAt: { type: Date, default: null },
   lastBuildError: { type: String, default: '', trim: true },

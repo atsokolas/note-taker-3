@@ -11,6 +11,7 @@ const {
   selectRepoDocEntries,
   selectRepoEvidenceEntries
 } = require('./githubRepoWatcherService');
+const { REPO_WIKI_GENERATOR_VERSION } = require('./repoWikiGeneratorVersion');
 
 const makeFetch = () => async (url) => {
   const value = String(url);
@@ -228,6 +229,7 @@ const run = async () => {
   assert.strictEqual(headOnlyPage.externalWatches.githubRepo.buildStatus, 'queued');
 
   headOnlyPage.externalWatches.githubRepo.publishedHeadSha = 'abc1234567890abcdef';
+  headOnlyPage.externalWatches.githubRepo.publishedGeneratorVersion = REPO_WIKI_GENERATOR_VERSION;
   const currentHeadResult = await checkGitHubRepoHeadForPage({
     page: headOnlyPage,
     fetchImpl: makeFetch(),
@@ -236,6 +238,20 @@ const run = async () => {
   assert.strictEqual(currentHeadResult.changed, false);
   assert.strictEqual(headOnlyPage.externalWatches.githubRepo.candidateHeadSha, '');
   assert.strictEqual(headOnlyPage.externalWatches.githubRepo.buildStatus, 'ready');
+  headOnlyPage.externalWatches.githubRepo.publishedGeneratorVersion = 'old-repo-dossier-agent';
+  const staleGeneratorResult = await checkGitHubRepoHeadForPage({
+    page: headOnlyPage,
+    fetchImpl: makeFetch(),
+    now: () => new Date('2026-07-10T12:20:00.000Z')
+  });
+  assert.strictEqual(staleGeneratorResult.changed, true);
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.candidateHeadSha, 'abc1234567890abcdef');
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.candidateGeneratorVersion, REPO_WIKI_GENERATOR_VERSION);
+  assert.strictEqual(headOnlyPage.externalWatches.githubRepo.buildStatus, 'queued');
+  headOnlyPage.externalWatches.githubRepo.publishedGeneratorVersion = REPO_WIKI_GENERATOR_VERSION;
+  headOnlyPage.externalWatches.githubRepo.candidateHeadSha = '';
+  headOnlyPage.externalWatches.githubRepo.candidateGeneratorVersion = '';
+  headOnlyPage.externalWatches.githubRepo.buildStatus = 'ready';
   assert.deepStrictEqual(parseGitHubRepo('openai/agents-js'), { owner: 'openai', repo: 'agents-js' });
   assert.strictEqual(isUsefulDocPath('README.md'), true);
   assert.strictEqual(isUsefulDocPath('docs/architecture.md'), true);

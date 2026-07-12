@@ -26,6 +26,7 @@ const {
   acquireRepoBuildLease,
   releaseRepoBuildLease
 } = require('../services/wikiRepoBuildLeaseService');
+const { REPO_WIKI_GENERATOR_VERSION } = require('../services/repoWikiGeneratorVersion');
 const { createWikiSourceEvent, listWikiSourceEvents } = require('../services/wikiSourceEventService');
 const {
   armEdgarWatchForPage: defaultArmEdgarWatchForPage,
@@ -2253,7 +2254,13 @@ const buildWikiRouter = ({
   const acquireRepoMaintenanceLease = async ({ page, userId } = {}) => {
     const headSha = String(page?.externalWatches?.githubRepo?.lastHeadSha || '').trim();
     if (!isGitHubRepoWikiPage(page) || !headSha) return null;
-    return acquireRepoBuildLease({ WikiPage, pageId: page._id, userId, headSha });
+    return acquireRepoBuildLease({
+      WikiPage,
+      pageId: page._id,
+      userId,
+      headSha,
+      generatorVersion: REPO_WIKI_GENERATOR_VERSION
+    });
   };
 
   const scheduleInboundAutolinks = ({ targetPage, userId, sourcePageId = null } = {}) => {
@@ -2709,14 +2716,18 @@ const buildWikiRouter = ({
           error: watchError.message
         });
       }
-      if (!watchError && result.buildRequired !== false && Array.isArray(result.events) && result.events.length) {
+      const hasRepoEvidenceForBuild = Array.isArray(result.events) && result.events.length
+        ? true
+        : Array.isArray(result.page?.sourceRefs) && result.page.sourceRefs.length > 0;
+      if (!watchError && result.buildRequired !== false && hasRepoEvidenceForBuild) {
         let buildLease = null;
         try {
           buildLease = await acquireRepoBuildLease({
             WikiPage,
             pageId: result.page._id,
             userId: req.user.id,
-            headSha: result.snapshot?.headSha || ''
+            headSha: result.snapshot?.headSha || '',
+            generatorVersion: REPO_WIKI_GENERATOR_VERSION
           });
           if (!buildLease.acquired) {
             return res.status(202).json({
@@ -2777,6 +2788,7 @@ const buildWikiRouter = ({
               userId: req.user.id,
               token: buildLease.token,
               headSha: result.snapshot?.headSha || '',
+              generatorVersion: REPO_WIKI_GENERATOR_VERSION,
               status: 'needs_review',
               error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
             }) || result.page;
@@ -2809,6 +2821,7 @@ const buildWikiRouter = ({
             userId: req.user.id,
             token: buildLease.token,
             headSha: result.snapshot?.headSha || '',
+            generatorVersion: REPO_WIKI_GENERATOR_VERSION,
             status: 'ready',
             promoted: true
           }) || result.page;
@@ -2835,6 +2848,7 @@ const buildWikiRouter = ({
               userId: req.user.id,
               token: buildLease.token,
               headSha: result.snapshot?.headSha || '',
+              generatorVersion: REPO_WIKI_GENERATOR_VERSION,
               status: 'error',
               error: error.message || 'Repo wiki build failed.'
             }).catch(() => null);
@@ -3533,6 +3547,7 @@ const buildWikiRouter = ({
             userId: req.user.id,
             token: buildLease.token,
             headSha: repoHeadSha,
+            generatorVersion: REPO_WIKI_GENERATOR_VERSION,
             status: 'needs_review',
             error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
           }) || page;
@@ -3575,6 +3590,7 @@ const buildWikiRouter = ({
           userId: req.user.id,
           token: buildLease.token,
           headSha: repoHeadSha,
+          generatorVersion: REPO_WIKI_GENERATOR_VERSION,
           status: 'ready',
           promoted: true
         }) || page;
@@ -3597,6 +3613,7 @@ const buildWikiRouter = ({
           userId: req.user.id,
           token: buildLease.token,
           headSha: repoHeadSha,
+          generatorVersion: REPO_WIKI_GENERATOR_VERSION,
           status: 'error',
           error: error.message || 'Wiki maintenance failed.'
         }).catch(() => null);
@@ -3689,6 +3706,7 @@ const buildWikiRouter = ({
             userId: req.user.id,
             token: buildLease.token,
             headSha: repoHeadSha,
+            generatorVersion: REPO_WIKI_GENERATOR_VERSION,
             status: 'needs_review',
             error: publication.quality?.failures?.slice(0, 3).join(' ') || 'Candidate did not pass quality.'
           }) || page;
@@ -3766,6 +3784,7 @@ const buildWikiRouter = ({
           userId: req.user.id,
           token: buildLease.token,
           headSha: repoHeadSha,
+          generatorVersion: REPO_WIKI_GENERATOR_VERSION,
           status: 'ready',
           promoted: true
         }) || page;
@@ -3795,6 +3814,7 @@ const buildWikiRouter = ({
           userId: req.user.id,
           token: buildLease.token,
           headSha: repoHeadSha,
+          generatorVersion: REPO_WIKI_GENERATOR_VERSION,
           status: 'error',
           error: error.message || 'Wiki maintenance failed.'
         }).catch(() => null);

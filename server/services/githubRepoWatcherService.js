@@ -1,4 +1,5 @@
 const { createWikiSourceEvent } = require('./wikiSourceEventService');
+const { REPO_WIKI_GENERATOR_VERSION } = require('./repoWikiGeneratorVersion');
 
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 const DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -429,7 +430,12 @@ const checkGitHubRepoHeadForPage = async ({
     throw error;
   }
   const head = await fetchRepoHead({ owner, repo, fetchImpl, token, signal });
-  const changed = Boolean(head.headSha && head.headSha !== watch.publishedHeadSha);
+  const publishedGeneratorVersion = String(watch.publishedGeneratorVersion || '').trim();
+  const generatorStale = publishedGeneratorVersion !== REPO_WIKI_GENERATOR_VERSION;
+  const changed = Boolean(head.headSha && (
+    head.headSha !== watch.publishedHeadSha ||
+    generatorStale
+  ));
   const patch = {
     owner,
     repo,
@@ -437,6 +443,7 @@ const checkGitHubRepoHeadForPage = async ({
     lastHeadProbeAt: now(),
     lastHeadSha: head.headSha,
     candidateHeadSha: changed ? head.headSha : '',
+    candidateGeneratorVersion: changed ? REPO_WIKI_GENERATOR_VERSION : '',
     buildStatus: changed ? 'queued' : 'ready',
     errorMessage: ''
   };
@@ -696,7 +703,9 @@ const checkGitHubRepoWatchForPage = async ({
   }
   try {
     const snapshot = await fetchRepoSnapshot({ owner, repo, fetchImpl, token });
-    const buildRequired = snapshot.headSha !== watch.publishedHeadSha;
+    const publishedGeneratorVersion = String(watch.publishedGeneratorVersion || '').trim();
+    const buildRequired = snapshot.headSha !== watch.publishedHeadSha
+      || publishedGeneratorVersion !== REPO_WIKI_GENERATOR_VERSION;
     const { evidenceEvents: events, maintenanceEvent } = await createMissingRepoEvents({
       WikiSourceEvent,
       userId: page.userId,
@@ -713,6 +722,7 @@ const checkGitHubRepoWatchForPage = async ({
         lastCheckedAt: now(),
         lastHeadSha: snapshot.headSha,
         candidateHeadSha: buildRequired ? snapshot.headSha : '',
+        candidateGeneratorVersion: buildRequired ? REPO_WIKI_GENERATOR_VERSION : '',
         buildStatus: buildRequired ? 'queued' : 'ready',
         lastReleaseTag: snapshot.latestRelease?.tagName || watch.lastReleaseTag || '',
         lastEventIds: [maintenanceEvent?._id, ...events.map(event => event._id)].filter(Boolean).slice(0, 20),

@@ -7,6 +7,7 @@ const acquireRepoBuildLease = async ({
   pageId,
   userId,
   headSha,
+  generatorVersion = '',
   now = new Date(),
   leaseMs = DEFAULT_REPO_BUILD_LEASE_MS,
   token = crypto.randomUUID()
@@ -34,6 +35,7 @@ const acquireRepoBuildLease = async ({
         'externalWatches.githubRepo.buildLease.acquiredAt': now,
         'externalWatches.githubRepo.buildLease.expiresAt': expiresAt,
         'externalWatches.githubRepo.candidateHeadSha': headSha,
+        'externalWatches.githubRepo.candidateGeneratorVersion': generatorVersion,
         'externalWatches.githubRepo.lastBuildAttemptAt': now,
         'externalWatches.githubRepo.lastBuildError': '',
         'externalWatches.githubRepo.buildStatus': 'building'
@@ -52,6 +54,7 @@ const releaseRepoBuildLease = async ({
   userId,
   token,
   headSha = '',
+  generatorVersion = '',
   status = 'ready',
   error = '',
   promoted = false,
@@ -76,11 +79,13 @@ const releaseRepoBuildLease = async ({
     'externalWatches.githubRepo.candidateHeadSha': promoted
       ? (newerHeadQueued ? observedHeadSha : '')
       : headSha,
+    'externalWatches.githubRepo.candidateGeneratorVersion': promoted ? '' : generatorVersion,
     'externalWatches.githubRepo.buildStatus': newerHeadQueued ? 'queued' : status,
     'externalWatches.githubRepo.lastBuildError': error
   };
   if (promoted) {
     updates['externalWatches.githubRepo.publishedHeadSha'] = headSha;
+    updates['externalWatches.githubRepo.publishedGeneratorVersion'] = generatorVersion;
     updates['externalWatches.githubRepo.lastPublishedAt'] = now;
   }
   return WikiPage.findOneAndUpdate(

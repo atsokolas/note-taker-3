@@ -49,6 +49,7 @@ const run = async () => {
   });
   assert.strictEqual(first.acquired, true);
   assert.strictEqual(page.externalWatches.githubRepo.buildStatus, 'building');
+  assert.strictEqual(page.externalWatches.githubRepo.candidateGeneratorVersion, '');
   const duplicate = await acquireRepoBuildLease({
     WikiPage,
     pageId: page._id,
@@ -70,6 +71,7 @@ const run = async () => {
   assert.ok(released);
   assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-a');
   assert.strictEqual(page.externalWatches.githubRepo.buildLease.token, '');
+  assert.strictEqual(page.externalWatches.githubRepo.publishedGeneratorVersion, '');
 
   const second = await acquireRepoBuildLease({
     WikiPage,
@@ -116,6 +118,31 @@ const run = async () => {
   assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-b');
   assert.strictEqual(page.externalWatches.githubRepo.candidateHeadSha, '');
   assert.strictEqual(page.externalWatches.githubRepo.buildStatus, 'ready');
+
+  const versioned = await acquireRepoBuildLease({
+    WikiPage,
+    pageId: page._id,
+    userId: page.userId,
+    headSha: 'head-b',
+    generatorVersion: 'repo-dossier-test-v2',
+    token: 'lease-versioned',
+    now: new Date('2026-07-10T12:06:00Z')
+  });
+  assert.strictEqual(versioned.acquired, true);
+  assert.strictEqual(page.externalWatches.githubRepo.candidateGeneratorVersion, 'repo-dossier-test-v2');
+  await releaseRepoBuildLease({
+    WikiPage,
+    pageId: page._id,
+    userId: page.userId,
+    token: 'lease-versioned',
+    headSha: 'head-b',
+    generatorVersion: 'repo-dossier-test-v2',
+    promoted: true,
+    now: new Date('2026-07-10T12:07:00Z')
+  });
+  assert.strictEqual(page.externalWatches.githubRepo.publishedHeadSha, 'head-b');
+  assert.strictEqual(page.externalWatches.githubRepo.publishedGeneratorVersion, 'repo-dossier-test-v2');
+  assert.strictEqual(page.externalWatches.githubRepo.candidateGeneratorVersion, '');
   console.log('wikiRepoBuildLeaseService tests passed');
 };
 
