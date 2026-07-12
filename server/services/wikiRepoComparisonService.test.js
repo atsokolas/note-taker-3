@@ -83,6 +83,29 @@ const page = {
   assert.ok(buildProofPulse(comparison).headline.includes('trusted head-2'));
 })();
 
+(() => {
+  const rows = Array.from({ length: 20 }, (_, index) => ({
+    after: { text: `Changed claim ${index}`, section: 'System map', support: 'supported' }
+  }));
+  const serialized = serializePublicRepoComparison({
+    version: 1,
+    repository: {},
+    baseline: {},
+    current: {},
+    repositoryChanges: { added: [], changed: [], removed: [] },
+    claimComparison: {
+      counts: { added: 0, changed: 20, gainedSupport: 0, contradicted: 0, preserved: 0, removed: 0 },
+      deltas: { added: [], changed: rows, gainedSupport: [], contradicted: [], preserved: [], removed: [] }
+    },
+    rejectedCandidates: [],
+    staticWikiErrors: [],
+    supportingRefs: []
+  });
+  assert.strictEqual(serialized.claimComparison.deltas.changed.length, 12);
+  assert.strictEqual(serialized.claimComparison.detailsTruncated.changed, 8);
+  assert.strictEqual(serialized.claimComparison.counts.changed, 20);
+})();
+
 (async () => {
   const records = [];
   function Baseline(payload) { Object.assign(this, payload); this._id = `baseline-${records.length + 1}`; }

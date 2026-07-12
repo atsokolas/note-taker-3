@@ -3294,13 +3294,26 @@ const buildWikiRouter = ({
       const query = { visibility: 'shared', status: { $ne: 'archived' } };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
       else query.slug = idOrSlug;
-      const page = await WikiPage.findOne(query).lean();
+      let pageQuery = WikiPage.findOne(query);
+      if (pageQuery?.select) {
+        pageQuery = pageQuery.select('_id userId title slug pageType status visibility externalWatches.githubRepo sourceRefs._id sourceRefs.title sourceRefs.url sourceRefs.provider sourceRefs.metadata claims');
+      }
+      const page = pageQuery?.lean ? await pageQuery.lean() : await pageQuery;
       if (!page) return res.status(404).json({ error: 'Public repository comparison not found.' });
-      const baseline = await WikiRepoBaseline.findOne({ pageId: page._id, publicEligible: true }).lean();
+      let baselineQuery = WikiRepoBaseline.findOne({ pageId: page._id, publicEligible: true });
+      if (baselineQuery?.select) {
+        baselineQuery = baselineQuery.select('_id userId pageId owner repo defaultBranch headSha releaseTag generatorVersion claims sourceRefs capturedAt createdAt publicEligible');
+      }
+      const baseline = baselineQuery?.lean ? await baselineQuery.lean() : await baselineQuery;
       if (!baseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
-      const runs = WikiMaintenanceRun
-        ? await WikiMaintenanceRun.find({ userId: page.userId, pageId: page._id }).sort({ createdAt: -1 }).limit(50).lean()
-        : [];
+      let runs = [];
+      if (WikiMaintenanceRun) {
+        let runsQuery = WikiMaintenanceRun.find({ userId: page.userId, pageId: page._id });
+        if (runsQuery?.select) runsQuery = runsQuery.select('_id createdAt updatedAt completedAt metadata.comparisons.outcome metadata.comparisons.counts');
+        if (runsQuery?.sort) runsQuery = runsQuery.sort({ createdAt: -1 });
+        if (runsQuery?.limit) runsQuery = runsQuery.limit(50);
+        runs = runsQuery?.lean ? await runsQuery.lean() : await runsQuery;
+      }
       const comparison = buildRepoComparison({ baseline, page, maintenanceRuns: runs });
       if (!comparison) return res.status(404).json({ error: 'Public repository comparison not found.' });
       res.status(200).json({ comparison: serializePublicRepoComparison(comparison) });

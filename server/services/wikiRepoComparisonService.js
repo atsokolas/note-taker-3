@@ -1,5 +1,8 @@
 const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 
+const PUBLIC_COMPARISON_DETAIL_LIMIT = 12;
+const PUBLIC_COMPARISON_REF_LIMIT = 40;
+
 const clean = (value = '', limit = 800) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 const id = (value) => clean(value?._id || value?.id || value, 160);
 
@@ -236,7 +239,7 @@ const serializePublicClaimRow = (row = {}) => ({
 });
 
 const serializePublicRepositoryChanges = (changes = {}) => Object.fromEntries(
-  ['added', 'changed', 'removed'].map(group => [group, (changes[group] || []).map(row => ({
+  ['added', 'changed', 'removed'].map(group => [group, (changes[group] || []).slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT).map(row => ({
     path: clean(row.path || row.current?.path || row.baseline?.path, 500),
     ...(row.baseline ? { baseline: serializePublicRepoRef(row.baseline) } : {}),
     ...(row.current ? { current: serializePublicRepoRef(row.current) } : {})
@@ -247,7 +250,9 @@ const serializePublicClaimComparison = (claimComparison = {}) => ({
   counts: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
     .map(key => [key, Number(claimComparison.counts?.[key] || 0)])),
   deltas: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
-    .map(key => [key, (claimComparison.deltas?.[key] || []).map(serializePublicClaimRow)]))
+    .map(key => [key, (claimComparison.deltas?.[key] || []).slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT).map(serializePublicClaimRow)])),
+  detailsTruncated: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
+    .map(key => [key, Math.max(0, Number(claimComparison.counts?.[key] || 0) - PUBLIC_COMPARISON_DETAIL_LIMIT)]))
 });
 
 const serializePublicRepoComparison = (comparison = null) => {
@@ -258,6 +263,8 @@ const serializePublicRepoComparison = (comparison = null) => {
     baseline: comparison.baseline,
     current: comparison.current,
     repositoryChanges: serializePublicRepositoryChanges(comparison.repositoryChanges),
+    repositoryChangesTruncated: Object.fromEntries(['added', 'changed', 'removed']
+      .map(key => [key, Math.max(0, (comparison.repositoryChanges?.[key] || []).length - PUBLIC_COMPARISON_DETAIL_LIMIT)])),
     claimComparison: serializePublicClaimComparison(comparison.claimComparison),
     rejectedCandidates: (comparison.rejectedCandidates || []).map(candidate => ({
       at: candidate.at,
@@ -268,7 +275,8 @@ const serializePublicRepoComparison = (comparison = null) => {
       reason: clean(error.reason),
       refs: (error.refs || []).map(serializePublicRepoRef)
     })),
-    supportingRefs: (comparison.supportingRefs || []).map(serializePublicRepoRef),
+    supportingRefs: (comparison.supportingRefs || []).slice(0, PUBLIC_COMPARISON_REF_LIMIT).map(serializePublicRepoRef),
+    supportingRefsTruncated: Math.max(0, (comparison.supportingRefs || []).length - PUBLIC_COMPARISON_REF_LIMIT),
     proofPulse: buildProofPulse(comparison)
   };
 };
