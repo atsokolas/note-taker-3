@@ -718,13 +718,36 @@ const serializeWikiPage = (page) => {
   };
 };
 
+const sanitizePublicWikiBody = (node) => {
+  if (Array.isArray(node)) return node.map(sanitizePublicWikiBody);
+  if (!node || typeof node !== 'object') return node;
+  const next = { ...node };
+  if (Array.isArray(next.marks)) {
+    next.marks = next.marks
+      .filter(mark => mark?.type !== 'wikiLink')
+      .map((mark) => {
+        if (mark?.type !== 'claim') return sanitizePublicWikiBody(mark);
+        const attrs = mark.attrs || {};
+        return {
+          type: 'claim',
+          attrs: {
+            support: String(attrs.support || 'supported'),
+            citationIndexes: Array.isArray(attrs.citationIndexes) ? attrs.citationIndexes.map(Number).filter(Number.isFinite) : [],
+            contradictionIndexes: Array.isArray(attrs.contradictionIndexes) ? attrs.contradictionIndexes.map(Number).filter(Number.isFinite) : []
+          }
+        };
+      });
+  }
+  if (Array.isArray(next.content)) next.content = next.content.map(sanitizePublicWikiBody);
+  return next;
+};
+
 const serializePublicWikiPage = (page) => {
   const full = serializeWikiPage(page);
   if (!full) return full;
   if (full.qualityReview && full.qualityReview.surfaceEligible === false) return null;
   const publicSourceRefs = (Array.isArray(full.sourceRefs) ? full.sourceRefs : [])
-    .map((source, index) => ({
-      id: String(source?._id || source?.id || source?.sourceRefId || `source-${index}`),
+    .map((source) => ({
       type: String(source?.type || source?.sourceType || 'source'),
       title: String(source?.title || source?.url || 'Source').trim(),
       url: String(source?.url || '').trim(),
@@ -739,7 +762,7 @@ const serializePublicWikiPage = (page) => {
     pageType: full.pageType || 'topic',
     status: full.status || 'draft',
     visibility: 'shared',
-    body: full.body || emptyDoc(),
+    body: sanitizePublicWikiBody(full.body || emptyDoc()),
     plainText: full.plainText || '',
     createdAt: full.createdAt || null,
     updatedAt: full.updatedAt || null,

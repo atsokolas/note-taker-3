@@ -19,7 +19,7 @@ const page = (overrides = {}) => ({
   pageType: overrides.pageType || 'topic',
   status: 'published',
   visibility: 'shared',
-  body: { type: 'doc', content: [] },
+  body: overrides.body || { type: 'doc', content: [] },
   plainText: overrides.title,
   sourceRefs: overrides.sourceRefs || [],
   claims: overrides.claims || [],
@@ -40,8 +40,22 @@ const records = [
     _id: 'repo',
     title: 'Atsokolas/Note-Taker-3 Repo Wiki',
     pageType: 'repo',
-    sourceRefs: [{ title: 'README', url: 'https://github.com/atsokolas/note-taker-3' }],
+    sourceRefs: [{ _id: 'private-source-id', sourceRefId: 'private-source-link', title: 'README', url: 'https://github.com/atsokolas/note-taker-3' }],
     claims: [{ claimId: 'claim-1', text: 'Noeis is maintained.' }],
+    body: {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [{
+          type: 'text',
+          text: 'Noeis is maintained.',
+          marks: [
+            { type: 'claim', attrs: { claimId: 'private-claim-id', support: 'supported', citationIndexes: [1] } },
+            { type: 'wikiLink', attrs: { pageId: 'private-neighbor-id', title: 'Private neighbor' } }
+          ]
+        }]
+      }]
+    },
     externalWatches: {
       githubRepo: {
         owner: 'atsokolas',
@@ -80,6 +94,14 @@ const run = async () => {
     assert.strictEqual(payload.items[5].maintenanceProof.currentThrough.label, 'Commit 54154fb');
     assert.ok(!JSON.stringify(payload).includes('newer-candidate'));
     assert.ok(!JSON.stringify(payload).includes('externalWatches'));
+    assert.ok(!JSON.stringify(payload).includes('private-source-id'));
+    assert.ok(!JSON.stringify(payload).includes('private-source-link'));
+    assert.ok(!JSON.stringify(payload).includes('private-claim-id'));
+    assert.ok(!JSON.stringify(payload).includes('private-neighbor-id'));
+    assert.deepStrictEqual(payload.items[5].page.body.content[0].content[0].marks, [{
+      type: 'claim',
+      attrs: { support: 'supported', citationIndexes: [1], contradictionIndexes: [] }
+    }]);
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }
