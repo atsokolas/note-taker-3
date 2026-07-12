@@ -652,6 +652,62 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(text).not.toContain('node scripts/run_wiki_intelligence_harness.js...');
   });
 
+  it('builds a deep generic monorepo dossier without importing Noeis product language', () => {
+    const paths = [
+      ['package.json', 'config', '{"scripts":{"build":"pnpm build","test":"pnpm test","lint":"pnpm lint"},"workspaces":["packages/*"]}'],
+      ['packages/agents/package.json', 'config', '{"name":"@openai/agents","scripts":{"test":"vitest run","build":"tsc -b"}}'],
+      ['.github/workflows/test.yml', 'config', 'jobs: test; steps: pnpm test'],
+      ['README.md', 'document', 'A lightweight, powerful framework for multi-agent workflows, tools, handoffs, guardrails, tracing, and realtime agents.'],
+      ['packages/agents/src/index.ts', 'code', 'export * from ./agent; export * from ./run;'],
+      ['packages/agents/src/agent.ts', 'code', 'Agent configuration, instructions, tools, handoffs, model, and guardrails.'],
+      ['packages/agents/src/run.ts', 'code', 'Run loop executes an agent until a final output or handoff.'],
+      ['packages/agents/src/tools.ts', 'code', 'Tools expose typed functions to agents.'],
+      ['packages/agents/src/handoff.ts', 'code', 'Handoffs transfer execution between agents.'],
+      ['packages/agents/src/guardrail.ts', 'code', 'Input and output guardrails validate execution.'],
+      ['packages/agents/src/model.ts', 'code', 'Model provider boundary and response handling.'],
+      ['packages/agents/src/tracing.ts', 'code', 'Tracing records agent runs and spans.'],
+      ['packages/realtime/src/index.ts', 'code', 'Realtime agents use a separate realtime transport.'],
+      ['packages/extensions/src/index.ts', 'code', 'Extensions provide optional integrations.'],
+      ['docs/guides/agents.md', 'document', 'Create an agent with instructions, tools, handoffs, and guardrails.'],
+      ['docs/guides/running-agents.md', 'document', 'Run agents and inspect final output and traces.'],
+      ['docs/guides/tools.md', 'document', 'Tool schemas and invocation behavior.'],
+      ['docs/guides/handoffs.md', 'document', 'Handoff routing and input filters.']
+    ];
+    const candidates = paths.map(([path, evidenceType, text], offset) => ({
+      index: offset + 1,
+      type: 'external',
+      provider: 'github-repo',
+      title: `openai/openai-agents-js ${path}`,
+      text,
+      metadata: {
+        source: 'github-repo',
+        path,
+        evidenceType,
+        docClass: path === 'README.md' ? 'readme' : evidenceType
+      }
+    }));
+    const result = fallbackMaintenance({
+      page: {
+        title: 'OpenAI Agents JS Repo Wiki',
+        pageType: 'repo',
+        createdFrom: { text: 'https://github.com/openai/openai-agents-js' },
+        externalWatches: { githubRepo: { owner: 'openai', repo: 'openai-agents-js' } }
+      },
+      candidates
+    });
+    const text = toPlainText(docFromArticle({ title: result.title, article: result.article }));
+    const words = text.split(/\s+/).filter(Boolean).length;
+
+    expect(text).toContain('Implementation map');
+    expect(text).toContain('How to prove a change');
+    expect(text).toContain('packages/agents/src/run.ts');
+    expect(text).toContain('packages/realtime/src/index.ts');
+    expect(text).not.toMatch(/For Noeis work|Library keeps|Think keeps|Morning Paper/i);
+    expect(text).not.toContain('npm run start');
+    expect(words).toBeGreaterThanOrEqual(900);
+    expect(new Set(result.sourceIndexesUsed).size).toBeGreaterThanOrEqual(12);
+  });
+
   it('publishes deterministic developer dossier content when a repo model draft fails quality gates', async () => {
     const page = {
       _id: 'repo-page-1',

@@ -372,6 +372,26 @@ const run = async () => {
     ], 5).map(entry => entry.path),
     ['package.json', 'README.md', 'AGENTS.md', 'CLAUDE.md', '.cursorrules']
   );
+  const agentsMonorepoEvidence = selectRepoEvidenceEntries([
+    { path: 'package.json', type: 'blob' },
+    { path: 'README.md', type: 'blob' },
+    { path: 'packages/agents/package.json', type: 'blob' },
+    { path: 'packages/agents/src/index.ts', type: 'blob' },
+    { path: 'packages/agents/src/run.ts', type: 'blob' },
+    { path: 'packages/agents/src/tools.ts', type: 'blob' },
+    { path: 'packages/agents/src/handoff.ts', type: 'blob' },
+    { path: 'packages/realtime/src/index.ts', type: 'blob' },
+    { path: '.github/workflows/test.yml', type: 'blob' },
+    ...Array.from({ length: 40 }, (_item, index) => ({ path: `docs/guide-${index}.md`, type: 'blob' }))
+  ], 12).map(entry => entry.path);
+  [
+    'packages/agents/package.json',
+    'packages/agents/src/index.ts',
+    'packages/agents/src/run.ts',
+    'packages/agents/src/tools.ts',
+    'packages/agents/src/handoff.ts',
+    'packages/realtime/src/index.ts'
+  ].forEach(path => assert.ok(agentsMonorepoEvidence.includes(path), `missing generic monorepo evidence: ${path}`));
 
   FakeWikiSourceEvent.reset();
   FakeWikiPage.page = makePage();

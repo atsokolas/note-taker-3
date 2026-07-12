@@ -8,6 +8,9 @@ const {
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
+const { compareClaimLedgers } = require('./wikiClaimComparisonService');
+const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService');
+const { persistNoeisReceipt } = require('./noeisReceiptService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -294,7 +297,8 @@ const processWikiSourceEvent = async ({
     NotebookEntry,
     TagMeta,
     Question,
-    WikiSchemaSettings
+    WikiSchemaSettings,
+    NoeisReceipt
   } = models;
   if (!WikiSourceEvent || !WikiPage) throw new Error('Wiki source event processing requires WikiSourceEvent and WikiPage models.');
 
@@ -362,6 +366,7 @@ const processWikiSourceEvent = async ({
 
     let rejectedCount = 0;
     let skippedCount = 0;
+    const comparisons = [];
     for (let page of pages) {
       const repoSnapshotEvent = event.metadata?.source === 'github-repo-snapshot';
       if (repoSnapshotEvent) {
@@ -437,6 +442,16 @@ const processWikiSourceEvent = async ({
       }
       if (!publication.promoted) {
         rejectedCount += 1;
+        comparisons.push({
+          pageId: String(page._id || ''),
+          pageTitle: asText(page.title),
+          sourceEventId: String(event._id || ''),
+          ...compareClaimLedgers({
+            beforeClaims: before.claims || [],
+            afterClaims: publication.candidate?.claims || [],
+            outcome: 'rejected'
+          })
+        });
         const candidate = candidateUpdates.find(row => (
           row.targetType === 'wiki_page' && row.pageId === String(page._id || '')
         ));
@@ -465,6 +480,16 @@ const processWikiSourceEvent = async ({
         }
         continue;
       }
+      comparisons.push({
+        pageId: String(page._id || ''),
+        pageTitle: asText(page.title),
+        sourceEventId: String(event._id || ''),
+        ...compareClaimLedgers({
+          beforeClaims: before.claims || [],
+          afterClaims: page.claims || [],
+          outcome: 'accepted'
+        })
+      });
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
         status: Array.isArray(page.aiState?.health?.contradictions) && page.aiState.health.contradictions.length ? 'conflicted' : 'fresh',
@@ -518,9 +543,39 @@ const processWikiSourceEvent = async ({
           ? `Skipped ${skippedCount} duplicate repo build ${skippedCount === 1 ? 'delivery' : 'deliveries'} already in progress.`
         : `Updated ${pages.length} wiki ${pages.length === 1 ? 'page' : 'pages'}.`;
       run.completedAt = new Date();
+      run.metadata = {
+        ...(run.metadata?.toObject ? run.metadata.toObject() : run.metadata || {}),
+        comparisonVersion: 1,
+        comparisons
+      };
       await run.save();
+      if (comparisons.length) {
+        const receipt = buildWikiMaintenanceReceipt({
+          run,
+          event,
+          pages,
+          comparisons,
+          status: rejectedCount ? 'needs_review' : 'completed',
+          now: run.completedAt
+        });
+        try {
+          await persistNoeisReceipt({
+            NoeisReceipt,
+            userId: event.userId,
+            receipt
+          });
+        } catch (receiptError) {
+          // The accepted page and source event must not be replayed merely
+          // because the secondary Morning Paper receipt write failed.
+          run.metadata = {
+            ...(run.metadata?.toObject ? run.metadata.toObject() : run.metadata || {}),
+            receiptError: asText(receiptError?.message || 'Failed to persist maintenance receipt.')
+          };
+          await run.save();
+        }
+      }
     }
-    return { event, pages, run, rejectedCount, skippedCount };
+    return { event, pages, run, rejectedCount, skippedCount, comparisons };
   } catch (error) {
     event.status = 'failed';
     event.errorMessage = error.message || 'Failed to process wiki source event.';

@@ -1977,7 +1977,9 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Product orientation',
         paragraphs: [repoFallbackParagraph({
-          text: `${productOrientationText} For Noeis work, the product should be understood as one maintained-object system: Library keeps the user's source corpus, Think keeps the active concepts/questions/notebook work, Wiki turns durable ideas into cited pages, and safe public sharing exposes only article/reference material. That product loop matters because backend changes that look local to a route often surface as trust problems in the reader, public share page, command palette, or topbar receipt system.`,
+          text: isNoeisRepo
+            ? `${productOrientationText} For Noeis work, the product should be understood as one maintained-object system: Library keeps the user's source corpus, Think keeps the active concepts/questions/notebook work, Wiki turns durable ideas into cited pages, and safe public sharing exposes only article/reference material. That product loop matters because backend changes that look local to a route often surface as trust problems in the reader, public share page, command palette, or topbar receipt system.`
+            : `${productOrientationText} Treat the README as the product contract and package manifests as executable ownership evidence. In a monorepo, identify the package that owns the behavior, follow its public entrypoint into the implementation, and verify the change with commands actually declared by the repository. Do not transplant product language, commands, or architecture from a different repository.`,
           sourceIndexes: [
             readmeSource?.index,
             packageSource?.index,
@@ -2029,7 +2031,7 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       {
         heading: 'Developer quickstart',
         paragraphs: [repoFallbackParagraph({
-          text: `Start from package evidence and keep root commands distinct from nested UI commands. A useful first pass is: run the API, run the UI only when UI work is involved, prove wiki behavior, then build the frontend before shipping UI changes. Do not collapse root and nested package scripts into a single generic "npm run start" instruction without naming where it runs; a contributor needs the working directory and the proof command, not just the script name.`,
+          text: `Start from package evidence and keep root commands distinct from nested package commands. A useful first pass is: install with the repository's declared package manager, run the narrow package only when its work is involved, prove behavior with an attached test or lint script, then build before shipping. Do not invent a generic start command; a contributor needs the exact working directory and repository-declared proof command, not a familiar script name borrowed from another project.`,
           sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : [packageSource?.index],
           support: commandSourceIndexes.length ? 'supported' : 'partial'
         })],
@@ -2278,6 +2280,40 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
       support: 'supported'
     }))
   } : null;
+  const genericImplementationSection = !isNoeisRepo && (codeSources.length || configSources.length) ? {
+    heading: 'Implementation map',
+    paragraphs: [repoFallbackParagraph({
+      text: 'Read the repository as a set of explicit package boundaries. Root configuration establishes workspace-wide commands and dependency policy; nested manifests identify independently owned packages; public index files define supported imports; and implementation modules behind those entrypoints own runtime behavior. Start at the narrowest public boundary that matches the change, then trace inward. This keeps a contributor from editing an example, generated artifact, or adjacent package that resembles the real owner but does not ship the behavior.',
+      sourceIndexes: [...configSources.slice(0, 6), ...codeSources.slice(0, 2)].map(source => source.index),
+      support: 'supported'
+    }), repoFallbackParagraph({
+      text: 'For agent frameworks, inspect the run loop, model/provider boundary, tool invocation, handoff behavior, guardrails, tracing, realtime support, and extension packages separately when those modules are present. These are distinct contracts: a change to orchestration can affect tool execution and handoffs without belonging in the model adapter, while a provider change should not silently rewrite the agent lifecycle. The exact package and file names below are the attached evidence; anything absent remains unknown.',
+      sourceIndexes: codeSources.slice(0, 8).map(source => source.index),
+      support: codeSources.length ? 'supported' : 'unsupported'
+    })],
+    bullets: [...configSources.slice(0, 8), ...codeSources.slice(0, 14)].map(source => ({
+      text: `${extractRepoPath(source) || source.title}: ${repoSourceEvidenceType(source) === 'config' ? 'package or workflow boundary; inspect declared scripts, exports, dependencies, and workspace role.' : 'implementation evidence; inspect its exports and callers before changing the owning flow.'}`,
+      citationIndexes: [source.index],
+      support: 'supported'
+    }))
+  } : null;
+  const genericProofSection = !isNoeisRepo ? {
+    heading: 'How to prove a change',
+    paragraphs: [repoFallbackParagraph({
+      text: `Use repository-declared commands as the source of truth. Begin with the narrowest package test or lint command covering the edited module, then run the broader workspace proof when the change crosses package boundaries. The selected evidence reports the run command as ${runCommandDetail}, the first available proof command as ${proofCommandDetail}, and the build command as ${buildCommandDetail}. A missing command is an evidence gap, not permission to invent a conventional start script or substitute a command from another project.`,
+      sourceIndexes: commandSourceIndexes.length ? commandSourceIndexes : configSources.slice(0, 4).map(source => source.index),
+      support: commandSourceIndexes.length ? 'supported' : 'partial'
+    }), repoFallbackParagraph({
+      text: 'Review workflow files and contribution documentation for required runtimes, package managers, formatting, type checks, generated artifacts, and integration suites. Separate local command success from CI and release truth: a declared script proves how to invoke a check, not that the current commit passed it. After implementation, record the exact working directory, command, result, and any unverified external condition so the next maintainer can reproduce the proof.',
+      sourceIndexes: [...configSources.slice(0, 8), ...currentDocumentSources.slice(0, 4)].map(source => source.index),
+      support: 'supported'
+    })],
+    bullets: [...configSources.slice(0, 10), ...currentDocumentSources.slice(0, 6)].map(source => ({
+      text: `${extractRepoPath(source) || source.title}: use this evidence to verify commands, contribution constraints, or current documented behavior; do not infer live CI or release status from its presence alone.`,
+      citationIndexes: [source.index],
+      support: 'supported'
+    }))
+  } : null;
   const evidenceShapedSections = isNoeisRepo
     ? [
         renameSection('Product orientation', 'What Noeis is'),
@@ -2295,6 +2331,8 @@ const fallbackGitHubRepoMaintenance = ({ page, candidates, manualNotes = '' }) =
         renameSection('Product orientation', 'What this repository is'),
         renameSection('Developer quickstart', 'Run and prove changes'),
         renameSection('Architecture and ownership', 'Architecture evidence'),
+        genericImplementationSection,
+        genericProofSection,
         renameSection('Common change paths', 'Where to make changes'),
         policySection,
         renameSection('Deploy and unknowns', 'Risks and unknowns')

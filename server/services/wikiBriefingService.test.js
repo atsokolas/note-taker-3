@@ -445,6 +445,47 @@ describe('wikiBriefingService', () => {
       expect(briefing.summary).toMatch(/first stop: Opportunity Cost/);
     });
 
+    it('surfaces claim-level maintenance receipts in the briefing summary', async () => {
+      const recentReceipt = {
+        receiptId: 'wiki-maintenance:run-1',
+        kind: 'wiki_maintenance',
+        source: 'sec-edgar',
+        sourceLabel: 'SEC EDGAR',
+        status: 'completed',
+        summary: '2 changed · 1 gained support · 1 contradicted · 8 preserved',
+        metrics: {
+          claimsChanged: 2,
+          claimsGainedSupport: 1,
+          claimsContradicted: 1,
+          claimsPreserved: 8,
+          acceptedPages: 1
+        },
+        completedAt: new Date('2026-07-11T18:00:00.000Z')
+      };
+      const briefing = await buildWikiBriefing({
+        userId: 'user-1',
+        now: new Date('2026-07-11T20:00:00.000Z'),
+        models: {
+          NoeisReceipt: fakeModel([recentReceipt]),
+          WikiPage: fakeModel([]),
+          WikiSourceEvent: fakeModel([]),
+          WikiMaintenanceRun: fakeModel([]),
+          Article: fakeModel([]),
+          Question: fakeModel([])
+        },
+        generateText: null
+      });
+      expect(briefing.summary).toContain('SEC EDGAR maintenance');
+      expect(briefing.summary).toContain('1 contradicted');
+      expect(briefing.recentReceipts[0].metrics).toMatchObject({
+        claimsChanged: 2,
+        claimsGainedSupport: 1,
+        claimsContradicted: 1,
+        claimsPreserved: 8,
+        acceptedPages: 1
+      });
+    });
+
     it('keeps receipt-backed briefing alive when model configuration throws', async () => {
       const recentReceipt = {
         id: 'receipt-model-config',
@@ -687,6 +728,23 @@ describe('wikiBriefingService', () => {
       })).toMatchObject({
         type: 'answer_question',
         href: '/think?tab=questions&questionId=q1'
+      });
+
+      expect(buildBriefingNextAction({
+        recentReceipts: [{
+          id: 'receipt-review',
+          status: 'needs_review',
+          sourceLabel: 'SEC EDGAR',
+          summary: '1 claim contradicted',
+          nextAction: {
+            label: 'Review Alphabet thesis',
+            href: '/wiki/workspace?page=alphabet'
+          }
+        }]
+      })).toMatchObject({
+        type: 'review_maintenance',
+        href: '/wiki/workspace?page=alphabet',
+        target: { type: 'receipt', id: 'receipt-review' }
       });
 
       expect(buildBriefingNextAction({

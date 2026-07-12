@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui';
+import { getPublicProofRegistry } from '../api/wiki';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
 import { buildMarketingHref } from '../utils/marketingAttribution';
+import { normalizePublicProofRegistry } from '../utils/maintenanceProof';
 
 const Landing = () => {
   const navigate = useNavigate();
   const hasToken = Boolean(localStorage.getItem('token'));
+  const [livingDossierHref, setLivingDossierHref] = useState('/proof');
 
   const markLandingSeen = () => {
     localStorage.setItem('hasSeenLanding', 'true');
@@ -20,6 +23,24 @@ const Landing = () => {
       navigate('/login');
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicProofRegistry()
+      .then((payload) => {
+        if (cancelled) return;
+        const registry = normalizePublicProofRegistry(payload);
+        if (registry.homepageCta?.href) {
+          setLivingDossierHref(registry.homepageCta.href);
+        }
+      })
+      .catch(() => {
+        // Keep the gallery fallback when the registry is not yet published.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="landing-public">
@@ -71,8 +92,14 @@ const Landing = () => {
             <Button variant="secondary" onClick={() => document.getElementById('tour')?.scrollIntoView({ behavior: 'smooth' })}>
               See the tour
             </Button>
-            <Button variant="secondary" onClick={() => navigate('/proof')}>
-              See a living dossier
+            <Button
+              variant="secondary"
+              onClick={() => {
+                trackMarketingCta({ page: 'home', cta: 'living-dossier', target: livingDossierHref, pageType: 'home' });
+                navigate(livingDossierHref);
+              }}
+            >
+              Open a living dossier
             </Button>
           </div>
         </div>

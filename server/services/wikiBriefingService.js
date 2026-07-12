@@ -284,6 +284,16 @@ const buildBriefingNextAction = ({
       target: { type: 'receipt', id: failedReceipt.id, title: failedReceipt.sourceLabel }
     };
   }
+  const reviewReceipt = recentReceipts.find(receipt => receipt.status === 'needs_review');
+  if (reviewReceipt) {
+    return {
+      type: 'review_maintenance',
+      label: reviewReceipt.nextAction?.label || `Review ${reviewReceipt.sourceLabel} maintenance`,
+      href: reviewReceipt.nextAction?.href || '/wiki',
+      reason: reviewReceipt.summary || `${reviewReceipt.sourceLabel} maintenance needs review`,
+      target: { type: 'receipt', id: reviewReceipt.id, title: reviewReceipt.sourceLabel }
+    };
+  }
   const question = answerableQuestions[0];
   if (question) {
     return {
@@ -400,6 +410,14 @@ const summarizeReceiptMetric = (metrics = {}) => {
   if (importedHighlights > 0) parts.push(`${importedHighlights} highlight${importedHighlights === 1 ? '' : 's'}`);
   if (importedArticles > 0) parts.push(`${importedArticles} article${importedArticles === 1 ? '' : 's'}`);
   if (importedNotes > 0) parts.push(`${importedNotes} note${importedNotes === 1 ? '' : 's'}`);
+  const claimsChanged = Number(metrics.claimsChanged || 0);
+  const claimsGainedSupport = Number(metrics.claimsGainedSupport || 0);
+  const claimsContradicted = Number(metrics.claimsContradicted || 0);
+  const claimsPreserved = Number(metrics.claimsPreserved || 0);
+  if (claimsChanged > 0) parts.push(`${claimsChanged} claim${claimsChanged === 1 ? '' : 's'} changed`);
+  if (claimsGainedSupport > 0) parts.push(`${claimsGainedSupport} gained support`);
+  if (claimsContradicted > 0) parts.push(`${claimsContradicted} contradicted`);
+  if (claimsPreserved > 0) parts.push(`${claimsPreserved} preserved`);
   return parts.join(', ');
 };
 
@@ -421,7 +439,15 @@ const sanitizeBriefingReceipt = (receipt = {}) => {
       importedNotes: Number(metrics.importedNotes || 0),
       skippedRows: Number(metrics.skippedRows || 0),
       indexingQueued: Number(metrics.indexingQueued || 0),
-      indexingFailures: Number(metrics.indexingFailures || 0)
+      indexingFailures: Number(metrics.indexingFailures || 0),
+      claimsAdded: Number(metrics.claimsAdded || 0),
+      claimsChanged: Number(metrics.claimsChanged || 0),
+      claimsGainedSupport: Number(metrics.claimsGainedSupport || 0),
+      claimsContradicted: Number(metrics.claimsContradicted || 0),
+      claimsPreserved: Number(metrics.claimsPreserved || 0),
+      claimsRemoved: Number(metrics.claimsRemoved || 0),
+      acceptedPages: Number(metrics.acceptedPages || 0),
+      rejectedPages: Number(metrics.rejectedPages || 0)
     },
     touched: touched.slice(0, 4).map(item => ({
       type: asString(item.type) || 'item',
@@ -431,7 +457,10 @@ const sanitizeBriefingReceipt = (receipt = {}) => {
     nextAction: receipt.nextAction && typeof receipt.nextAction === 'object'
       ? {
         label: truncate(receipt.nextAction.label || '', 80),
-        intent: asString(receipt.nextAction.intent)
+        intent: asString(receipt.nextAction.intent),
+        href: /^\/(?:wiki|think|connections)(?:[/?#]|$)/.test(asString(receipt.nextAction.href))
+          ? asString(receipt.nextAction.href)
+          : ''
       }
       : null
   };
@@ -493,6 +522,9 @@ const buildReceiptSummaryPart = (receipts = []) => {
     || receipt.status === 'completed_with_warnings'
   ));
   if (successful) {
+    if (successful.kind === 'wiki_maintenance' && successful.summary) {
+      return `${successful.sourceLabel} maintenance: ${successful.summary}`;
+    }
     const metric = summarizeReceiptMetric(successful.metrics);
     const touchedItem = (Array.isArray(successful.touched) ? successful.touched : [])
       .find(item => asString(item?.title));
@@ -502,6 +534,8 @@ const buildReceiptSummaryPart = (receipts = []) => {
     if (metric) return `${successful.sourceLabel} added ${metric}${firstStop}`;
     return `${successful.sourceLabel} finished syncing${firstStop}`;
   }
+  const needsReview = receipts.find(receipt => receipt.status === 'needs_review');
+  if (needsReview) return `${needsReview.sourceLabel} maintenance needs review: ${needsReview.summary}`;
   const failed = receipts.find(receipt => receipt.status === 'failed');
   if (failed) return `${failed.sourceLabel} needs attention`;
   return '';

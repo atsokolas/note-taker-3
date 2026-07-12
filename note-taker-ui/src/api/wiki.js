@@ -61,6 +61,11 @@ export const getPublicWikiPage = async (idOrSlug) => {
   return res.data || {};
 };
 
+export const getPublicWikiComparison = async (idOrSlug) => {
+  const res = await api.get(`/api/public/wiki/pages/${safeId(idOrSlug)}/comparison`);
+  return res.data || {};
+};
+
 export const adoptPublicWikiPage = async (idOrSlug) => {
   const res = await api.post(`/api/public/wiki/pages/${safeId(idOrSlug)}/adopt`, {}, getAuthHeaders());
   return res.data || {};
@@ -73,6 +78,11 @@ export const createWikiCollection = async (payload = {}) => {
 
 export const getPublicWikiCollection = async (idOrSlug) => {
   const res = await api.get(`/api/public/wiki/collections/${safeId(idOrSlug)}`);
+  return res.data || {};
+};
+
+export const getPublicProofRegistry = async () => {
+  const res = await api.get('/api/public/wiki/proof');
   return res.data || {};
 };
 
@@ -664,6 +674,7 @@ const wikiApi = {
   createWikiPage,
   getWikiPage,
   getPublicWikiPage,
+  getPublicWikiComparison,
   getWikiPageMarkdown,
   getWikiExportZipUrl,
   downloadWikiExportZip,

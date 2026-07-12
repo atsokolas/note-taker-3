@@ -707,6 +707,26 @@ wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
 
+const wikiRepoBaselineSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, unique: true, index: true },
+  owner: { type: String, required: true, trim: true, lowercase: true },
+  repo: { type: String, required: true, trim: true, lowercase: true },
+  defaultBranch: { type: String, default: '', trim: true },
+  headSha: { type: String, required: true, trim: true },
+  releaseTag: { type: String, default: '', trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  generatorVersion: { type: String, default: '', trim: true },
+  claims: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  sourceRefs: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  publicEligible: { type: Boolean, default: false, index: true },
+  capturedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+wikiRepoBaselineSchema.index({ owner: 1, repo: 1, capturedAt: -1 });
+
+const WikiRepoBaseline = mongoose.model('WikiRepoBaseline', wikiRepoBaselineSchema);
+
 const wikiBriefingCacheSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
   payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
@@ -2011,6 +2031,7 @@ module.exports = {
   WikiLintRun,
   WikiSourceEvent,
   WikiMaintenanceRun,
+  WikiRepoBaseline,
   WikiBriefingCache,
   WikiSharedCollection,
   ConnectorActionLog,

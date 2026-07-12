@@ -56,6 +56,17 @@ const {
   normalizePageType
 } = require('../services/wikiPageStructureService');
 const {
+  DEFAULT_PUBLIC_PROOF_SLOTS,
+  buildPublicMaintenanceProof,
+  selectPublicProofPages,
+  serializePublicProofEntry
+} = require('../services/publicProofService');
+const {
+  buildRepoComparison,
+  captureRepoBaseline,
+  serializePublicRepoComparison
+} = require('../services/wikiRepoComparisonService');
+const {
   rebuildWikiGraphConnections,
   syncWikiPageGraphConnections
 } = require('../services/wikiGraphConnectionService');
@@ -741,7 +752,8 @@ const serializePublicWikiPage = (page) => {
     sourceRefs: publicSourceRefs,
     sourceCount: full.sourceCount ?? publicSourceRefs.length,
     claimCount: full.claimCount ?? 0,
-    wordCount: full.wordCount ?? countWords(full.plainText || '')
+    wordCount: full.wordCount ?? countWords(full.plainText || ''),
+    maintenanceProof: buildPublicMaintenanceProof(page)
   };
 };
 
@@ -1260,6 +1272,7 @@ const buildWikiRouter = ({
   WikiLintRun = null,
   WikiSourceEvent = null,
   WikiMaintenanceRun = null,
+  WikiRepoBaseline = null,
   WikiBriefingCache = null,
   WikiSharedCollection = null,
   WikiSchemaSettings = null,
@@ -3168,6 +3181,104 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error fetching public wiki page:', error);
       res.status(500).json({ error: 'Failed to fetch shared wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/repo-comparison/baseline', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiRepoBaseline) return res.status(501).json({ error: 'Repository comparisons are not configured.' });
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const result = await captureRepoBaseline({
+        WikiRepoBaseline,
+        WikiRevision,
+        page,
+        userId: req.user.id,
+        publicEligible: req.body?.publicEligible === true
+      });
+      const runs = WikiMaintenanceRun
+        ? await WikiMaintenanceRun.find({ userId: req.user.id, pageId: page._id }).sort({ createdAt: -1 }).limit(50).lean()
+        : [];
+      res.status(result.created ? 201 : 200).json({
+        created: result.created,
+        comparison: buildRepoComparison({ baseline: result.baseline, page, maintenanceRuns: runs })
+      });
+    } catch (error) {
+      const status = error.code === 'REPO_BASELINE_NO_PUBLISHED_HEAD' || error.code === 'REPO_BASELINE_INVALID_PAGE' ? 422 : 500;
+      res.status(status).json({ error: error.message || 'Failed to capture repository baseline.', code: error.code || '' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/repo-comparison', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiRepoBaseline) return res.status(501).json({ error: 'Repository comparisons are not configured.' });
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const baseline = await WikiRepoBaseline.findOne({ userId: req.user.id, pageId: page._id }).lean();
+      if (!baseline) return res.status(404).json({ error: 'Repository baseline not found.' });
+      const runs = WikiMaintenanceRun
+        ? await WikiMaintenanceRun.find({ userId: req.user.id, pageId: page._id }).sort({ createdAt: -1 }).limit(50).lean()
+        : [];
+      res.status(200).json({ comparison: buildRepoComparison({ baseline, page, maintenanceRuns: runs }) });
+    } catch (error) {
+      res.status(500).json({ error: error.message || 'Failed to read repository comparison.' });
+    }
+  });
+
+  const handlePublicProofRegistry = async (_req, res) => {
+    try {
+      const pages = await WikiPage.find({
+        visibility: 'shared',
+        status: { $ne: 'archived' }
+      }).sort({ updatedAt: -1 }).limit(250).lean();
+      const selected = selectPublicProofPages({
+        pages: Array.isArray(pages) ? pages : [],
+        slots: DEFAULT_PUBLIC_PROOF_SLOTS
+      });
+      const entries = selected
+        .map(({ slot, page }) => serializePublicProofEntry({
+          slot,
+          page,
+          serializePage: serializePublicWikiPage
+        }))
+        .filter(Boolean);
+      res.status(200).json({
+        items: entries,
+        homepageCta: entries[0] ? {
+          href: entries[0].publicUrl,
+          title: entries[0].title
+        } : null,
+        privacyStatement: entries[0]?.maintenanceProof?.privacyStatement || '',
+        expectedCount: DEFAULT_PUBLIC_PROOF_SLOTS.length,
+        complete: entries.length === DEFAULT_PUBLIC_PROOF_SLOTS.length
+      });
+    } catch (error) {
+      console.error('Error fetching public proof registry:', error);
+      res.status(500).json({ error: 'Failed to fetch public proof registry.' });
+    }
+  };
+
+  router.get('/api/public/wiki/proof', handlePublicProofRegistry);
+
+  router.get('/api/public/wiki/pages/:idOrSlug/comparison', async (req, res) => {
+    try {
+      if (!WikiRepoBaseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      const query = { visibility: 'shared', status: { $ne: 'archived' } };
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
+      else query.slug = idOrSlug;
+      const page = await WikiPage.findOne(query).lean();
+      if (!page) return res.status(404).json({ error: 'Public repository comparison not found.' });
+      const baseline = await WikiRepoBaseline.findOne({ pageId: page._id, publicEligible: true }).lean();
+      if (!baseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
+      const runs = WikiMaintenanceRun
+        ? await WikiMaintenanceRun.find({ userId: page.userId, pageId: page._id }).sort({ createdAt: -1 }).limit(50).lean()
+        : [];
+      const comparison = buildRepoComparison({ baseline, page, maintenanceRuns: runs });
+      if (!comparison) return res.status(404).json({ error: 'Public repository comparison not found.' });
+      res.status(200).json({ comparison: serializePublicRepoComparison(comparison) });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to read public repository comparison.' });
     }
   });
 

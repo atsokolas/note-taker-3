@@ -1,87 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getPublicWikiCollection } from '../api/wiki';
+import { getPublicProofRegistry } from '../api/wiki';
+import MaintenanceProofStamp from '../components/public/MaintenanceProofStamp';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
+import {
+  PUBLIC_PROOF_PRIVACY_STATEMENT,
+  formatMaintenanceDate,
+  normalizePublicProofRegistry
+} from '../utils/maintenanceProof';
 import '../styles/seo-article.css';
-
-const PROOF_COLLECTIONS = [
-  {
-    id: 'value-investing',
-    label: 'Investing dossier',
-    clock: 'Filings and transcripts next',
-    fallbackDescription: 'Intrinsic value, moats, capital allocation, and owner-oriented judgment.'
-  },
-  {
-    id: 'mental-models',
-    label: 'Concept dossier',
-    clock: 'Reading and source events',
-    fallbackDescription: 'Core models for tradeoffs, safety, incentives, and compounding.'
-  },
-  {
-    id: 'behavioral-economics',
-    label: 'Question cluster',
-    clock: 'Evidence and contradiction checks',
-    fallbackDescription: 'Biases, base rates, and the psychology of judgment.'
-  },
-  {
-    id: 'how-to-think-about-ai',
-    label: 'Technology map',
-    clock: 'Release and research drift next',
-    fallbackDescription: 'Agents, evals, context windows, and capability tradeoffs.'
-  }
-];
-
-const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
-const formatDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC'
-  });
-};
-
-const pageIdFor = (page = {}) => String(page?._id || page?.id || page?.slug || '');
-
-const newestTimestamp = (pages = []) => {
-  const timestamps = (Array.isArray(pages) ? pages : [])
-    .map(page => page?.lastReviewedAt || page?.updatedAt || page?.createdAt)
-    .map(value => new Date(value || 0).getTime())
-    .filter(value => Number.isFinite(value) && value > 0);
-  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : '';
-};
-
-const sumMetric = (pages = [], key) => (
-  (Array.isArray(pages) ? pages : []).reduce((sum, page) => sum + (Number(page?.[key]) || 0), 0)
-);
-
-const normalizeProofCollection = (entry, payload = {}) => {
-  const collection = payload?.collection || {};
-  const pages = Array.isArray(collection.pages) ? collection.pages : [];
-  return {
-    id: entry.id,
-    label: entry.label,
-    clock: entry.clock,
-    name: cleanText(collection.name || collection.title) || entry.id,
-    description: cleanText(collection.description) || entry.fallbackDescription,
-    href: `/share/wiki/collection/${entry.id}`,
-    pageCount: pages.length || Number(collection.pageCount) || 0,
-    sourceCount: sumMetric(pages, 'sourceCount'),
-    claimCount: sumMetric(pages, 'claimCount'),
-    reviewedAt: newestTimestamp(pages),
-    pages: pages.slice(0, 4).map(page => ({
-      id: pageIdFor(page),
-      title: cleanText(page.title) || 'Untitled page',
-      sourceCount: Number(page.sourceCount) || 0,
-      claimCount: Number(page.claimCount) || 0
-    }))
-  };
-};
+import '../styles/maintenance-proof-stamp.css';
 
 export const buildPublicProofGallerySchema = (items = []) => ({
   '@context': 'https://schema.org',
@@ -104,31 +33,39 @@ export const buildPublicProofGallerySchema = (items = []) => ({
     itemListElement: items.map((item, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      name: item.name,
+      name: item.title,
       url: `${CANONICAL_HOST}${item.href}`,
-      description: item.description
+      description: item.description,
+      ...(item.maintenanceProof?.lastReviewedAt
+        ? { dateReviewed: item.maintenanceProof.lastReviewedAt }
+        : {}),
+      ...(Array.isArray(item.page?.sourceRefs) && item.page.sourceRefs.length
+        ? {
+          citation: item.page.sourceRefs.slice(0, 8).map((source) => ({
+            '@type': 'CreativeWork',
+            name: source.title || source.url || 'Source',
+            ...(source.url ? { url: source.url } : {})
+          }))
+        }
+        : {})
     }))
   }
 });
 
 const PublicProofGallery = () => {
   const [items, setItems] = useState([]);
+  const [privacyStatement, setPrivacyStatement] = useState(PUBLIC_PROOF_PRIVACY_STATEMENT);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.allSettled(PROOF_COLLECTIONS.map(entry => getPublicWikiCollection(entry.id)))
-      .then((results) => {
+    getPublicProofRegistry()
+      .then((payload) => {
         if (cancelled) return;
-        const nextItems = results
-          .map((result, index) => (
-            result.status === 'fulfilled'
-              ? normalizeProofCollection(PROOF_COLLECTIONS[index], result.value)
-              : null
-          ))
-          .filter(Boolean);
-        setItems(nextItems);
+        const registry = normalizePublicProofRegistry(payload);
+        setItems(registry.items);
+        setPrivacyStatement(registry.privacyStatement);
         setLoading(false);
       })
       .catch(() => {
@@ -195,11 +132,12 @@ const PublicProofGallery = () => {
       <section className="public-proof-gallery__section" id="dossiers" aria-label="Living dossiers">
         <div className="public-proof-gallery__section-head">
           <p className="public-proof-gallery__eyebrow">Maintained examples</p>
-          <h2>Start with the public-safe proof set.</h2>
+          <h2>Six public-safe proof objects.</h2>
           <p>
-            These use the same shared-wiki serializer as public pages: body, references, and claims can
-            appear; private highlights, backlinks, source notes, and agent state do not.
+            Each card links directly to one maintained object. Clocks, current-through facts, review
+            dates, and material events come from accepted state only.
           </p>
+          <p className="public-proof-gallery__privacy">{privacyStatement}</p>
         </div>
 
         {loading ? (
@@ -207,41 +145,40 @@ const PublicProofGallery = () => {
         ) : items.length ? (
           <div className="public-proof-gallery__grid">
             {items.map(item => (
-              <article className="public-proof-gallery__card" key={item.id}>
+              <article className="public-proof-gallery__card" key={item.slot || item.href}>
                 <div className="public-proof-gallery__card-topline">
                   <span>{item.label}</span>
-                  <span>{item.clock}</span>
+                  {item.maintenanceProof?.clock?.label ? (
+                    <span>{item.maintenanceProof.clock.label}</span>
+                  ) : null}
                 </div>
-                <h3>{item.name}</h3>
-                <p>{item.description}</p>
-                <div className="public-proof-gallery__stamp" aria-label={`${item.name} maintenance stamp`}>
-                  <span>Maintained by the owner's agent</span>
-                  <strong>{item.reviewedAt ? `Last reviewed ${formatDate(item.reviewedAt)}` : 'Review date pending'}</strong>
-                </div>
+                <h3>{item.title}</h3>
+                {item.description ? <p>{item.description}</p> : null}
+                <MaintenanceProofStamp
+                  proof={item.maintenanceProof}
+                  className="public-proof-gallery__stamp maintenance-proof-stamp"
+                  showCounts={false}
+                />
                 <dl className="public-proof-gallery__metrics">
-                  <div>
-                    <dt>Pages</dt>
-                    <dd>{item.pageCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Sources</dt>
-                    <dd>{item.sourceCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Claims</dt>
-                    <dd>{item.claimCount}</dd>
-                  </div>
+                  {item.sourceCount !== null ? (
+                    <div>
+                      <dt>Sources</dt>
+                      <dd>{item.sourceCount}</dd>
+                    </div>
+                  ) : null}
+                  {item.claimCount !== null ? (
+                    <div>
+                      <dt>Claims</dt>
+                      <dd>{item.claimCount}</dd>
+                    </div>
+                  ) : null}
+                  {item.maintenanceProof?.lastReviewedAt ? (
+                    <div>
+                      <dt>Reviewed</dt>
+                      <dd>{formatMaintenanceDate(item.maintenanceProof.lastReviewedAt)}</dd>
+                    </div>
+                  ) : null}
                 </dl>
-                {item.pages.length ? (
-                  <ul className="public-proof-gallery__page-list">
-                    {item.pages.map(page => (
-                      <li key={page.id || page.title}>
-                        <span>{page.title}</span>
-                        <small>{page.sourceCount} sources · {page.claimCount} claims</small>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
                 <Link className="public-proof-gallery__card-link" to={item.href}>
                   Open public dossier
                 </Link>
@@ -250,7 +187,7 @@ const PublicProofGallery = () => {
           </div>
         ) : (
           <div className="public-proof-gallery__state">
-            Public proof pages are being curated. Try the shared starter wikis from the examples page.
+            Public proof pages are being curated. Check back once the proof registry is published.
           </div>
         )}
       </section>

@@ -1,0 +1,606 @@
+/* Scoped styles for the public repository maintenance comparison page. */
+
+.public-wiki-comparison {
+  --pwc-ink: #2c2922;
+  --pwc-muted: rgba(44, 41, 34, 0.68);
+  --pwc-line: rgba(44, 41, 34, 0.12);
+  --pwc-surface: #f7f2ea;
+  --pwc-panel: #fffdf8;
+  --pwc-accent: #b1862e;
+  --pwc-ok: #2f6b4f;
+  --pwc-warn: #8a5a18;
+  --pwc-danger: #8b3a2f;
+  min-height: 100vh;
+  background: var(--pwc-surface);
+  color: var(--pwc-ink);
+  overflow-x: hidden;
+}
+
+.public-wiki-comparison__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 18px 20px 8px;
+}
+
+.public-wiki-comparison__brand,
+.public-wiki-comparison__back {
+  color: var(--pwc-ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.public-wiki-comparison__brand {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.2rem;
+}
+
+.public-wiki-comparison__back {
+  font-size: 0.92rem;
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__state {
+  max-width: 720px;
+  margin: 48px auto;
+  padding: 0 20px 64px;
+}
+
+.public-wiki-comparison__state h1 {
+  margin: 0 0 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 500;
+}
+
+.public-wiki-comparison__state p {
+  margin: 0;
+  color: var(--pwc-muted);
+  line-height: 1.55;
+}
+
+.public-wiki-comparison__article {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 8px 20px 72px;
+  display: grid;
+  gap: 28px;
+}
+
+.public-wiki-comparison__hero {
+  display: grid;
+  gap: 14px;
+  padding: 18px 0 8px;
+}
+
+.public-wiki-comparison__eyebrow {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__hero h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4.2vw, 3rem);
+  font-weight: 500;
+  line-height: 1.12;
+  max-width: 18ch;
+}
+
+.public-wiki-comparison__lede {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--pwc-muted);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.public-wiki-comparison__privacy {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--pwc-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Screenshotable summary at 1440 */
+.public-wiki-comparison__summary {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--pwc-accent) 34%, var(--pwc-line));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pwc-accent) 10%, var(--pwc-panel)), var(--pwc-panel));
+  box-shadow: 0 10px 30px rgba(44, 41, 34, 0.05);
+}
+
+.public-wiki-comparison__summary h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+/* Optional proofPulse: opening “why maintenance matters” narrative */
+.public-wiki-comparison__proof-pulse {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 2px 8px;
+}
+
+.public-wiki-comparison__pulse-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__pulse-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--pwc-line);
+  background: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.08em;
+  font-size: 0.62rem;
+  color: var(--pwc-ink);
+}
+
+.public-wiki-comparison__pulse-headline {
+  margin: 0;
+  max-width: 34ch;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.55rem, 3.4vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--pwc-ink);
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__pulse-versions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.public-wiki-comparison__pulse-versions > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.88);
+}
+
+.public-wiki-comparison__pulse-versions dt {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__pulse-versions dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__pulse-versions [data-version-role="published"] {
+  border-color: color-mix(in srgb, var(--pwc-ok) 38%, var(--pwc-line));
+  background: color-mix(in srgb, var(--pwc-ok) 8%, rgba(255, 253, 248, 0.9));
+}
+
+.public-wiki-comparison__pulse-versions [data-version-role="observed"] {
+  border-color: color-mix(in srgb, var(--pwc-warn) 34%, var(--pwc-line));
+}
+
+.public-wiki-comparison__pulse-trust {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--pwc-ok);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--pwc-ok) 9%, transparent);
+  color: var(--pwc-ink);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.public-wiki-comparison__pulse-facts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.public-wiki-comparison__pulse-facts li {
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--pwc-ink);
+  font-size: 0.86rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* Distinct calm state tints for the summary shell */
+.public-wiki-comparison__summary.is-pulse-current {
+  border-color: color-mix(in srgb, var(--pwc-ok) 32%, var(--pwc-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pwc-ok) 9%, var(--pwc-panel)), var(--pwc-panel));
+}
+
+.public-wiki-comparison__summary.is-pulse-current .public-wiki-comparison__pulse-state {
+  border-color: color-mix(in srgb, var(--pwc-ok) 40%, var(--pwc-line));
+  color: var(--pwc-ok);
+}
+
+.public-wiki-comparison__summary.is-pulse-maintained {
+  border-color: color-mix(in srgb, var(--pwc-accent) 40%, var(--pwc-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pwc-accent) 12%, var(--pwc-panel)), var(--pwc-panel));
+}
+
+.public-wiki-comparison__summary.is-pulse-maintained .public-wiki-comparison__pulse-state {
+  border-color: color-mix(in srgb, var(--pwc-accent) 45%, var(--pwc-line));
+  color: var(--pwc-accent);
+}
+
+.public-wiki-comparison__summary.is-pulse-repository_ahead {
+  border-color: color-mix(in srgb, var(--pwc-warn) 40%, var(--pwc-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--pwc-warn) 11%, var(--pwc-panel)), var(--pwc-panel));
+}
+
+.public-wiki-comparison__summary.is-pulse-repository_ahead .public-wiki-comparison__pulse-state {
+  border-color: color-mix(in srgb, var(--pwc-warn) 45%, var(--pwc-line));
+  color: var(--pwc-warn);
+}
+
+.public-wiki-comparison__summary.is-pulse-held_for_review {
+  border-color: color-mix(in srgb, var(--pwc-ok) 28%, color-mix(in srgb, var(--pwc-warn) 24%, var(--pwc-line)));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--pwc-ok) 8%, color-mix(in srgb, var(--pwc-warn) 6%, var(--pwc-panel))),
+      var(--pwc-panel)
+    );
+}
+
+.public-wiki-comparison__summary.is-pulse-held_for_review .public-wiki-comparison__pulse-state {
+  border-color: color-mix(in srgb, var(--pwc-ok) 36%, var(--pwc-line));
+  color: var(--pwc-ok);
+}
+
+.public-wiki-comparison__three-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.public-wiki-comparison__three-facts > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 12px;
+  background: rgba(255, 253, 248, 0.82);
+}
+
+.public-wiki-comparison__three-facts dt {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__three-facts dd {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--pwc-ink);
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.public-wiki-comparison__metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--pwc-line);
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 0.86rem;
+  color: var(--pwc-ink);
+}
+
+.public-wiki-comparison__metric strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.public-wiki-comparison__zero-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--pwc-ok);
+  background: color-mix(in srgb, var(--pwc-ok) 8%, transparent);
+  border-radius: 0 10px 10px 0;
+  color: var(--pwc-ink);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.public-wiki-comparison__section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.public-wiki-comparison__section > h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 500;
+}
+
+.public-wiki-comparison__section > p {
+  margin: 0;
+  color: var(--pwc-muted);
+  line-height: 1.5;
+}
+
+.public-wiki-comparison__version-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.public-wiki-comparison__version-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 14px;
+  background: var(--pwc-panel);
+}
+
+.public-wiki-comparison__version-card h3 {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__sha {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__version-card p {
+  margin: 0;
+  color: var(--pwc-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__version-card.is-published {
+  border-color: color-mix(in srgb, var(--pwc-ok) 40%, var(--pwc-line));
+  background: color-mix(in srgb, var(--pwc-ok) 7%, var(--pwc-panel));
+}
+
+.public-wiki-comparison__version-card.is-observed {
+  border-color: color-mix(in srgb, var(--pwc-warn) 35%, var(--pwc-line));
+}
+
+.public-wiki-comparison__version-card.is-baseline {
+  border-color: color-mix(in srgb, var(--pwc-accent) 35%, var(--pwc-line));
+}
+
+.public-wiki-comparison__change-group,
+.public-wiki-comparison__claim-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 14px;
+  background: var(--pwc-panel);
+}
+
+.public-wiki-comparison__change-group h3,
+.public-wiki-comparison__claim-group h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.public-wiki-comparison__empty {
+  margin: 0;
+  color: var(--pwc-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.public-wiki-comparison__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 8px;
+}
+
+.public-wiki-comparison__list li {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.public-wiki-comparison__claim-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.public-wiki-comparison__claim-meta {
+  margin: 4px 0 0;
+  color: var(--pwc-muted);
+  font-size: 0.86rem;
+}
+
+.public-wiki-comparison__rejected-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.public-wiki-comparison__rejected-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--pwc-danger) 6%, var(--pwc-panel));
+  font-size: 0.92rem;
+}
+
+.public-wiki-comparison__error-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--pwc-danger) 28%, var(--pwc-line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--pwc-danger) 6%, var(--pwc-panel));
+}
+
+.public-wiki-comparison__error-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.public-wiki-comparison__refs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.public-wiki-comparison__refs a {
+  color: var(--pwc-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__refs li {
+  padding: 10px 12px;
+  border: 1px solid var(--pwc-line);
+  border-radius: 10px;
+  background: var(--pwc-panel);
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.public-wiki-comparison__refs span {
+  color: var(--pwc-muted);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+html[data-ui-theme='dark'] .public-wiki-comparison,
+html.dark .public-wiki-comparison {
+  --pwc-ink: #f3efe6;
+  --pwc-muted: rgba(243, 239, 230, 0.68);
+  --pwc-line: rgba(243, 239, 230, 0.12);
+  --pwc-surface: #16140f;
+  --pwc-panel: #1d1a14;
+  --pwc-accent: #d4a84b;
+  --pwc-ok: #6fbf95;
+  --pwc-warn: #d4a45a;
+  --pwc-danger: #e08a7a;
+}
+
+@media (max-width: 1100px) {
+  .public-wiki-comparison__three-facts,
+  .public-wiki-comparison__version-grid,
+  .public-wiki-comparison__pulse-versions {
+    grid-template-columns: 1fr;
+  }
+
+  .public-wiki-comparison__pulse-headline {
+    max-width: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-wiki-comparison__topbar,
+  .public-wiki-comparison__article {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .public-wiki-comparison__summary {
+    padding: 14px;
+  }
+
+  .public-wiki-comparison__hero h1 {
+    max-width: none;
+  }
+
+  .public-wiki-comparison__pulse-facts li {
+    border-radius: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-wiki-comparison * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

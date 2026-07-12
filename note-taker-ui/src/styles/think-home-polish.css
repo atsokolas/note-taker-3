@@ -8052,6 +8052,17 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   color: var(--text-secondary);
 }
 
+.shared-wiki-page__comparison-link {
+  margin: 0;
+}
+
+.shared-wiki-page__comparison-link a {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .shared-wiki-page__hero h1 {
   margin: 0;
   color: var(--text-primary);

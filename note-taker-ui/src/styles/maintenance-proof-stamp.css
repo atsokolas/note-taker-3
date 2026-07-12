@@ -1,0 +1,94 @@
+.maintenance-proof-stamp {
+  display: grid;
+  gap: 8px;
+}
+
+.maintenance-proof-stamp__eyebrow {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(44, 41, 34, 0.72);
+}
+
+.maintenance-proof-stamp__facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.maintenance-proof-stamp__facts div {
+  display: grid;
+  gap: 3px;
+}
+
+.maintenance-proof-stamp__facts dt {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(44, 41, 34, 0.58);
+}
+
+.maintenance-proof-stamp__facts dd {
+  margin: 0;
+  color: #2c2922;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.maintenance-proof-stamp__facts.is-compact {
+  gap: 6px;
+}
+
+.maintenance-proof-stamp__pending {
+  margin: 0;
+  color: rgba(44, 41, 34, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.shared-wiki-page__maintenance-stamp.maintenance-proof-stamp {
+  width: 100%;
+  max-width: 760px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 32%, var(--nt-divider));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-primary, #b1862e) 10%, var(--surface));
+}
+
+.shared-wiki-page__maintenance-stamp .maintenance-proof-stamp__eyebrow {
+  color: var(--text-primary);
+}
+
+.shared-wiki-page__maintenance-stamp .maintenance-proof-stamp__facts dt {
+  color: var(--text-secondary);
+}
+
+.shared-wiki-page__maintenance-stamp .maintenance-proof-stamp__facts dd,
+.shared-wiki-page__maintenance-stamp .maintenance-proof-stamp__pending {
+  color: var(--text-primary);
+}
+
+.public-proof-gallery__privacy {
+  padding: 12px 14px;
+  border: 1px solid rgba(44, 41, 34, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 252, 245, 0.72);
+}
+
+@media (max-width: 760px) {
+  .public-proof-gallery__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-proof-gallery__page-list a:hover {
+    text-decoration-thickness: 1px;
+  }
+}

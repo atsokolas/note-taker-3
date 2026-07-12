@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { adoptPublicWikiPage, getPublicWikiPage } from '../api/wiki';
+import { adoptPublicWikiPage, getPublicWikiComparison, getPublicWikiPage } from '../api/wiki';
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
@@ -8,22 +8,23 @@ import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
 import { trackSharedWikiAdoptClicked, trackSharedWikiViewed } from '../utils/marketingAnalytics';
+import MaintenanceProofStamp from '../components/public/MaintenanceProofStamp';
+import {
+  PUBLIC_PROOF_PRIVACY_STATEMENT,
+  reviewedDateForPublicPage
+} from '../utils/maintenanceProof';
+import '../styles/maintenance-proof-stamp.css';
 
-const formatDate = (value) => {
-  if (!value) return '';
-  try {
-    return new Date(value).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC'
-    });
-  } catch (_error) {
-    return '';
-  }
+const reviewedDateFor = (page = {}) => reviewedDateForPublicPage(page);
+
+/** Public-page heuristic: only probe comparison for GitHub-backed repo dossiers. */
+export const isPublicRepoWikiPage = (page = {}) => {
+  if (!page) return false;
+  if (page?.maintenanceProof?.clock?.type === 'github') return true;
+  if (/repo\s*wiki/i.test(String(page.title || ''))) return true;
+  if (String(page.pageType || '').toLowerCase() === 'repo') return true;
+  return false;
 };
-
-const reviewedDateFor = (page = {}) => page?.lastReviewedAt || page?.updatedAt || page?.createdAt || '';
 
 const usePublicShareScrollSurface = () => {
   useEffect(() => {
@@ -123,6 +124,7 @@ const SharedWikiPage = () => {
   const [error, setError] = useState('');
   const [adopting, setAdopting] = useState(false);
   const [adoptionError, setAdoptionError] = useState('');
+  const [comparisonAvailable, setComparisonAvailable] = useState(false);
   const autoAdoptAttemptedRef = useRef(false);
 
   useEffect(() => {
@@ -130,6 +132,7 @@ const SharedWikiPage = () => {
     setLoading(true);
     setError('');
     setPage(null);
+    setComparisonAvailable(false);
     getPublicWikiPage(idOrSlug)
       .then((payload) => {
         if (cancelled) return;
@@ -148,13 +151,36 @@ const SharedWikiPage = () => {
     };
   }, [idOrSlug]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!page || !isPublicRepoWikiPage(page) || !idOrSlug) {
+      setComparisonAvailable(false);
+      return undefined;
+    }
+    getPublicWikiComparison(idOrSlug)
+      .then((payload) => {
+        if (cancelled) return;
+        setComparisonAvailable(Boolean(payload?.comparison));
+      })
+      .catch(() => {
+        if (!cancelled) setComparisonAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idOrSlug, page]);
+
   const tocItems = useMemo(() => extractTocItems(page?.body), [page?.body]);
   const intro = useMemo(() => firstParagraphText(page?.body), [page?.body]);
   const wordCount = countWikiPageWords(page || {});
   const sourceCount = countWikiSources(page || {});
   const claimCount = countWikiClaims(page || {});
-  const updatedAt = formatDate(page?.updatedAt);
-  const reviewedAt = formatDate(reviewedDateFor(page));
+  const maintenanceProof = page?.maintenanceProof || null;
+  const stampProof = maintenanceProof || (page ? {
+    ...(page.lastReviewedAt ? { lastReviewedAt: page.lastReviewedAt } : {}),
+    ...(Number.isFinite(Number(page.sourceCount)) ? { sourceCount: Number(page.sourceCount) } : {}),
+    ...(Number.isFinite(Number(page.claimCount)) ? { claimCount: Number(page.claimCount) } : {})
+  } : null);
   const canonicalPath = location.pathname || `/share/wiki/${idOrSlug}`;
   const seoDescription = useMemo(
     () => buildSharedWikiDescription(page, intro),
@@ -282,18 +308,28 @@ const SharedWikiPage = () => {
             <p className="shared-wiki-page__receipt" role="status">
               {buildSharePreviewReceipt()}
             </p>
-            <p className="shared-wiki-page__maintenance-stamp">
-              Maintained by the owner&apos;s agent{reviewedAt ? ` · last reviewed ${reviewedAt}` : ''}
-            </p>
+            <MaintenanceProofStamp
+              proof={stampProof}
+              className="shared-wiki-page__maintenance-stamp maintenance-proof-stamp"
+            />
             <p className="shared-wiki-page__privacy-note">
-              References are visible as a static citation list. Private backlinks, source notes, graph edges, and agent work are not exposed.
+              {PUBLIC_PROOF_PRIVACY_STATEMENT}
             </p>
+            {comparisonAvailable ? (
+              <p className="shared-wiki-page__comparison-link">
+                <Link
+                  to={`/share/wiki/${encodeURIComponent(idOrSlug)}/comparison`}
+                  data-testid="shared-wiki-comparison-link"
+                >
+                  View repository maintenance comparison
+                </Link>
+              </p>
+            ) : null}
             {intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
             <div className="shared-wiki-page__metrics" aria-label="Wiki page metrics">
               <span>{wordCount} words</span>
               <span>{sourceCount} sources</span>
               <span>{claimCount} claims</span>
-              {updatedAt ? <span>Updated {updatedAt}</span> : null}
             </div>
           </header>
 
