@@ -680,6 +680,12 @@ const persistWikiBriefingCache = async ({
   return null;
 };
 
+const invalidateWikiBriefingCache = async ({ userId, WikiBriefingCache } = {}) => {
+  if (!userId || !WikiBriefingCache?.deleteOne) return false;
+  await WikiBriefingCache.deleteOne({ userId });
+  return true;
+};
+
 /**
  * Build the briefing for one user. Pure orchestration:
  *   1. Read the user's wiki pages + library counts.
@@ -816,6 +822,7 @@ module.exports = {
   DEFAULT_BRIEFING_CACHE_MAX_AGE_MS,
   loadCachedWikiBriefing,
   persistWikiBriefingCache,
+  invalidateWikiBriefingCache,
   __testables: {
     countNewSources,
     collectRecentImportReceipts,

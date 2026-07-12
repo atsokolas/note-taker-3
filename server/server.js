@@ -182,6 +182,7 @@ const runWikiSourceEventWorker = async () => {
         WikiRevision,
         WikiMaintenanceRun,
         NoeisReceipt,
+        WikiBriefingCache,
         Connection,
         Article,
         NotebookEntry,

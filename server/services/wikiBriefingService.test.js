@@ -1,4 +1,4 @@
-const { buildWikiBriefing, __testables } = require('./wikiBriefingService');
+const { buildWikiBriefing, invalidateWikiBriefingCache, __testables } = require('./wikiBriefingService');
 
 const {
   collectRecentlyUpdatedPages,
@@ -73,6 +73,15 @@ describe('wikiBriefingService', () => {
         expiresAt: new Date(NOW - 1000),
         generatedAt: new Date(NOW - 2 * ONE_DAY_MS)
       }, { now: NOW, maxAgeMs: ONE_DAY_MS })).toBe(false);
+    });
+
+    it('invalidates the user cache after a maintenance receipt is persisted', async () => {
+      const deleteOne = jest.fn().mockResolvedValue({ deletedCount: 1 });
+      await expect(invalidateWikiBriefingCache({
+        userId: 'user-1',
+        WikiBriefingCache: { deleteOne }
+      })).resolves.toBe(true);
+      expect(deleteOne).toHaveBeenCalledWith({ userId: 'user-1' });
     });
   });
 

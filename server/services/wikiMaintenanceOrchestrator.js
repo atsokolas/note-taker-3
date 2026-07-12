@@ -11,6 +11,7 @@ const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
 const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService');
 const { persistNoeisReceipt } = require('./noeisReceiptService');
+const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -322,7 +323,8 @@ const processWikiSourceEvent = async ({
     TagMeta,
     Question,
     WikiSchemaSettings,
-    NoeisReceipt
+    NoeisReceipt,
+    WikiBriefingCache
   } = models;
   if (!WikiSourceEvent || !WikiPage) throw new Error('Wiki source event processing requires WikiSourceEvent and WikiPage models.');
 
@@ -605,6 +607,10 @@ const processWikiSourceEvent = async ({
             NoeisReceipt,
             userId: event.userId,
             receipt
+          });
+          await invalidateWikiBriefingCache({
+            userId: event.userId,
+            WikiBriefingCache
           });
         } catch (receiptError) {
           // The accepted page and source event must not be replayed merely
