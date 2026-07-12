@@ -439,6 +439,7 @@ const processWikiSourceEvent = async ({
             sourceEventId: event._id,
             maintenanceRunId: run?._id || null,
             rejectDestructiveClaimLoss: event.sourceType === 'external',
+            promoteEvidenceOnlyOnDestructiveLoss: event.sourceType === 'external',
             sourceVersion: event.metadata?.commitSha ? {
               provider: 'github',
               headSha: event.metadata.commitSha,

@@ -66,6 +66,7 @@ const runWikiMaintenanceCandidate = async ({
   sourceVersion = null,
   hasTrustedVersion = true,
   rejectDestructiveClaimLoss = false,
+  promoteEvidenceOnlyOnDestructiveLoss = false,
   now = new Date()
 } = {}) => {
   if (!page || typeof maintainWikiPageFn !== 'function') {
@@ -80,7 +81,9 @@ const runWikiMaintenanceCandidate = async ({
   const candidatePage = maintainedPage || page;
   const candidate = snapshotPage(candidatePage);
   let quality = candidate.aiState?.quality || {};
-  if (rejectDestructiveClaimLoss && destructiveClaimLoss({ before, candidate })) {
+  const passedBeforeDestructiveGuard = !candidateFailedQuality(candidate);
+  const destructiveLossDetected = rejectDestructiveClaimLoss && destructiveClaimLoss({ before, candidate });
+  if (destructiveLossDetected) {
     quality = {
       ...quality,
       ok: false,
@@ -115,6 +118,29 @@ const runWikiMaintenanceCandidate = async ({
     summary: candidateFailureSummary(quality)
   });
   restorePageSnapshot(candidatePage, before);
+  if (promoteEvidenceOnlyOnDestructiveLoss && destructiveLossDetected && passedBeforeDestructiveGuard) {
+    const priorAiState = asPlain(candidatePage.aiState);
+    candidatePage.aiState = {
+      ...priorAiState,
+      draftStatus: 'ready',
+      lastError: '',
+      errorCode: '',
+      candidateStatus: 'evidence_only',
+      lastCandidateAt: now,
+      lastCandidateQuality: quality,
+      lastCandidateSummary: 'Reviewed the new source and preserved the trusted claim ledger because the generated rewrite was destructive.'
+    };
+    if (typeof candidatePage.markModified === 'function') candidatePage.markModified('aiState');
+    return {
+      page: candidatePage,
+      before,
+      candidate,
+      quality,
+      promoted: true,
+      evidenceOnly: true,
+      rejectedRevision
+    };
+  }
   const priorAiState = asPlain(candidatePage.aiState);
   const priorFreshness = asPlain(candidatePage.freshness);
   candidatePage.freshness = {
