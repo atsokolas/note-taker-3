@@ -3259,7 +3259,7 @@ const buildWikiRouter = ({
         status: { $ne: 'archived' }
       });
       if (pagesQuery?.select) {
-        pagesQuery = pagesQuery.select('_id slug title pageType status visibility plainText sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
+        pagesQuery = pagesQuery.select('_id slug title pageType status visibility plainText sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
       }
       if (pagesQuery?.sort) pagesQuery = pagesQuery.sort({ updatedAt: -1 });
       if (pagesQuery?.limit) pagesQuery = pagesQuery.limit(250);

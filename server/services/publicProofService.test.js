@@ -3,6 +3,7 @@ const {
   DEFAULT_PUBLIC_PROOF_SLOTS,
   PUBLIC_PROOF_PRIVACY_STATEMENT,
   buildPublicMaintenanceProof,
+  buildPublicProofGrade,
   selectPublicProofPages,
   serializePublicProofEntry
 } = require('./publicProofService');
@@ -60,6 +61,72 @@ const sharedPage = (overrides = {}) => ({
   assert.strictEqual(proof.sourceCount, 2);
   assert.strictEqual(proof.claimCount, 1);
   assert.strictEqual(proof.privacyStatement, PUBLIC_PROOF_PRIVACY_STATEMENT);
+})();
+
+(() => {
+  const candidate = sharedPage({
+    _id: 'repo-candidate',
+    sourceRefs: [{ title: 'README' }],
+    claims: [{ claimId: 'claim-1' }],
+    externalWatches: {
+      githubRepo: {
+        status: 'active',
+        owner: 'atsokolas',
+        repo: 'note-taker-3',
+        publishedHeadSha: 'accepted123',
+        lastPublishedAt: '2026-07-12T00:00:00.000Z'
+      }
+    },
+    aiState: {
+      changeLog: [{ type: 'edit', text: 'Used one file as evidence.', createdAt: '2026-07-12T00:00:00.000Z' }]
+    }
+  });
+  const grade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: candidate });
+  assert.strictEqual(grade.grade, 'candidate');
+  assert.strictEqual(grade.criteria.explicitlyAccepted, false);
+  assert.strictEqual(grade.comparisonUrl, '/share/wiki/repo-candidate/comparison');
+})();
+
+(() => {
+  const requestedButIncomplete = sharedPage({
+    sourceRefs: [{ title: 'README' }],
+    claims: [{ claimId: 'claim-1' }],
+    publicProof: { grade: 'proven', acceptedAt: '2026-07-12T00:00:00.000Z' }
+  });
+  assert.strictEqual(
+    buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: requestedButIncomplete }).grade,
+    'candidate'
+  );
+})();
+
+(() => {
+  const proven = sharedPage({
+    _id: 'accepted-repo',
+    sourceRefs: [{ title: 'README' }],
+    claims: [{ claimId: 'claim-1' }],
+    publicProof: {
+      grade: 'proven',
+      acceptedAt: '2026-07-12T00:00:00.000Z',
+      acceptedEventId: 'maintenance-receipt-1',
+      reason: 'A claim-level repository maintenance receipt passed editorial acceptance.'
+    },
+    externalWatches: {
+      githubRepo: {
+        status: 'active',
+        owner: 'atsokolas',
+        repo: 'note-taker-3',
+        publishedHeadSha: 'accepted123',
+        lastPublishedAt: '2026-07-12T00:00:00.000Z'
+      }
+    },
+    aiState: {
+      changeLog: [{ type: 'maintenance', text: 'Updated one claim from repository evidence.', createdAt: '2026-07-12T00:00:00.000Z' }]
+    }
+  });
+  const grade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: proven });
+  assert.strictEqual(grade.grade, 'proven');
+  assert.strictEqual(grade.criteria.explicitlyAccepted, true);
+  assert.strictEqual(grade.reason, 'A claim-level repository maintenance receipt passed editorial acceptance.');
 })();
 
 (() => {

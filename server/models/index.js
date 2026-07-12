@@ -378,6 +378,17 @@ const wikiFreshnessSchema = new mongoose.Schema({
   acceptedThrough: { type: mongoose.Schema.Types.Mixed, default: null }
 }, { _id: false });
 
+const wikiPublicProofSchema = new mongoose.Schema({
+  grade: {
+    type: String,
+    enum: ['proven', 'candidate', 'acceptance_in_progress', 'illustrative'],
+    default: 'candidate'
+  },
+  reason: { type: String, default: '', trim: true },
+  acceptedAt: { type: Date, default: null },
+  acceptedEventId: { type: String, default: '', trim: true }
+}, { _id: false });
+
 const wikiAiStateSchema = new mongoose.Schema({
   draftStatus: { type: String, enum: ['idle', 'drafting', 'maintaining', 'ready', 'error'], default: 'idle' },
   draftRequestedAt: { type: Date, default: null },
@@ -550,6 +561,7 @@ const wikiPageSchema = new mongoose.Schema({
   claims: { type: [wikiClaimSchema], default: [] },
   citations: { type: [wikiCitationSchema], default: [] },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
+  publicProof: { type: wikiPublicProofSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) },
   externalWatches: { type: wikiExternalWatchesSchema, default: () => ({}) },

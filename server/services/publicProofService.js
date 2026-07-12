@@ -2,6 +2,13 @@ const PUBLIC_PROOF_PRIVACY_STATEMENT = (
   'This public page includes the maintained article and public references. Private highlights, backlinks, notes, library context, and agent state stay private.'
 );
 
+const PUBLIC_PROOF_GRADES = Object.freeze({
+  PROVEN: 'proven',
+  CANDIDATE: 'candidate',
+  ACCEPTANCE_IN_PROGRESS: 'acceptance_in_progress',
+  ILLUSTRATIVE: 'illustrative'
+});
+
 const DEFAULT_PUBLIC_PROOF_SLOTS = Object.freeze([
   {
     key: 'alphabet',
@@ -178,6 +185,61 @@ const buildPublicMaintenanceProof = (input = {}) => {
   };
 };
 
+const defaultProofGrade = (slot = {}) => {
+  if (slot.key === 'alphabet') return PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS;
+  if (slot.key === 'noeis-repo') return PUBLIC_PROOF_GRADES.CANDIDATE;
+  return PUBLIC_PROOF_GRADES.ILLUSTRATIVE;
+};
+
+const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null } = {}) => {
+  const configured = asPlain(page.publicProof);
+  const requestedGrade = clean(configured.grade, 40);
+  const proof = maintenanceProof || buildPublicMaintenanceProof(page);
+  const acceptedAt = asDate(configured.acceptedAt);
+  const acceptedEventId = clean(configured.acceptedEventId, 180);
+  const hasAcceptedVersion = Boolean(
+    clean(proof.currentThrough?.ref, 1000)
+    || clean(page.freshness?.acceptedThrough?.sourceEventId, 180)
+  );
+  const hasEvidence = Number(proof.sourceCount || 0) > 0 && Number(proof.claimCount || 0) > 0;
+  const hasMaterialEvent = Boolean(proof.latestMaterialEvent?.at && clean(proof.latestMaterialEvent?.summary, 240));
+  const canBeProven = requestedGrade === PUBLIC_PROOF_GRADES.PROVEN
+    && acceptedAt
+    && acceptedEventId
+    && hasAcceptedVersion
+    && hasEvidence
+    && hasMaterialEvent;
+  const grade = canBeProven
+    ? PUBLIC_PROOF_GRADES.PROVEN
+    : requestedGrade === PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS
+      ? PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS
+      : requestedGrade === PUBLIC_PROOF_GRADES.ILLUSTRATIVE
+        ? PUBLIC_PROOF_GRADES.ILLUSTRATIVE
+        : defaultProofGrade(slot);
+  const comparisonUrl = slot.key === 'noeis-repo'
+    ? `/share/wiki/${encodeURIComponent(pageId(page) || clean(page.slug, 180))}/comparison`
+    : '';
+  const defaultReason = {
+    [PUBLIC_PROOF_GRADES.PROVEN]: 'An explicit public-proof acceptance record is backed by an accepted source version, evidence, claims, and a material maintenance event.',
+    [PUBLIC_PROOF_GRADES.CANDIDATE]: 'The object has a live source clock, but its claim-level maintenance event has not yet passed public-proof acceptance.',
+    [PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS]: 'The object remains under editorial and maintenance acceptance and must not be presented as proven.',
+    [PUBLIC_PROOF_GRADES.ILLUSTRATIVE]: 'The object illustrates the maintained knowledge system but does not yet prove the full maintenance loop.'
+  };
+  return {
+    grade,
+    label: grade.split('_').map(word => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' '),
+    reason: clean(configured.reason, 320) || defaultReason[grade],
+    acceptedAt: grade === PUBLIC_PROOF_GRADES.PROVEN ? acceptedAt : null,
+    comparisonUrl,
+    criteria: {
+      explicitlyAccepted: Boolean(canBeProven),
+      acceptedVersion: hasAcceptedVersion,
+      materialEvent: hasMaterialEvent,
+      sourceGrounded: hasEvidence
+    }
+  };
+};
+
 const configuredIdentifier = (slot = {}, env = process.env) => clean(env?.[slot.envKey], 180);
 
 const repoIdentityFor = (page = {}) => {
@@ -231,20 +293,24 @@ const serializePublicProofEntry = ({ slot = {}, page = {}, serializePage, compac
   const serializedPage = typeof serializePage === 'function' ? serializePage(page) : null;
   if (!serializedPage) return null;
   const maintenanceProof = serializedPage.maintenanceProof || buildPublicMaintenanceProof(page);
+  const proofGrade = buildPublicProofGrade({ slot, page, maintenanceProof });
   return {
     slot: slot.key,
     label: slot.label,
     title: clean(page.title, 300) || slot.title,
     publicUrl: `/share/wiki/${encodeURIComponent(pageId(page) || clean(page.slug, 180))}`,
     page: compact ? compactRegistryPage({ page, serializedPage, maintenanceProof }) : serializedPage,
-    maintenanceProof
+    maintenanceProof,
+    proofGrade
   };
 };
 
 module.exports = {
   DEFAULT_PUBLIC_PROOF_SLOTS,
   PUBLIC_PROOF_PRIVACY_STATEMENT,
+  PUBLIC_PROOF_GRADES,
   buildPublicMaintenanceProof,
+  buildPublicProofGrade,
   compactRegistryPage,
   selectPublicProofPages,
   serializePublicProofEntry,

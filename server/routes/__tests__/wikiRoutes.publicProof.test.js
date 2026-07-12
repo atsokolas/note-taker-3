@@ -92,6 +92,11 @@ const run = async () => {
     assert.strictEqual(payload.items[0].slot, 'alphabet');
     assert.strictEqual(payload.homepageCta.href, '/share/wiki/alphabet');
     assert.strictEqual(payload.items[5].maintenanceProof.currentThrough.label, 'Commit 54154fb');
+    assert.strictEqual(payload.items[0].proofGrade.grade, 'acceptance_in_progress');
+    assert.strictEqual(payload.items[1].proofGrade.grade, 'illustrative');
+    assert.strictEqual(payload.items[5].proofGrade.grade, 'candidate');
+    assert.strictEqual(payload.items[5].proofGrade.comparisonUrl, '/share/wiki/repo/comparison');
+    assert.strictEqual(payload.items.some(item => item.proofGrade.grade === 'proven'), false);
     assert.ok(!JSON.stringify(payload).includes('newer-candidate'));
     assert.ok(!JSON.stringify(payload).includes('externalWatches'));
     assert.ok(!JSON.stringify(payload).includes('private-source-id'));
