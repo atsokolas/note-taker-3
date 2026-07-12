@@ -37,11 +37,12 @@ const isWithin = (timestamp, windowMs, now) => {
   return now - t < windowMs;
 };
 
-const safeFind = async (Model, query = {}, limit = 200) => {
+const safeFind = async (Model, query = {}, limit = 200, projection = '') => {
   if (!Model?.find) return [];
   try {
     const cursor = Model.find(query);
-    const sorted = cursor.sort?.({ updatedAt: -1, createdAt: -1 }) || cursor;
+    const selected = projection && cursor.select ? cursor.select(projection) : cursor;
+    const sorted = selected.sort?.({ updatedAt: -1, createdAt: -1 }) || selected;
     const limited = sorted.limit?.(limit) || sorted;
     const lean = limited.lean?.() || limited;
     const result = await lean;
@@ -130,7 +131,8 @@ const collectRecentMaintenanceChanges = async ({
       userId,
       reason: { $in: ['agent_maintenance', 'source_event'] }
     },
-    80
+    80,
+    'pageId reason maintenanceRunId sourceEventId summary createdAt before.sourceRefs._id before.sourceRefs.objectId before.sourceRefs.url before.sourceRefs.title before.claims.support before.aiState.health after._id after.title after.sourceRefs._id after.sourceRefs.objectId after.sourceRefs.url after.sourceRefs.title after.claims.support after.aiState.health'
   );
   return revisions
     .filter(revision => (
@@ -210,7 +212,8 @@ const collectAnswerableQuestions = async ({
         debugOnly: { $ne: true },
         archived: { $ne: true }
       },
-      120
+      120,
+      '_id text status conceptName linkedTagName sourceType sourcePageId sourcePageTitle linkedHighlightId linkedNotebookEntryId linkedHighlightIds blocks hiddenFromHome debugOnly archived'
     )
     : [];
   const wikiOpenQuestions = buildWikiOpenQuestionRows(wikiPages);
@@ -344,8 +347,8 @@ const buildBriefingNextAction = ({
  */
 const countNewSources = async ({ userId, models = {}, windowMs = ONE_DAY_MS, now = Date.now() }) => {
   const [articles, notebooks, highlightsArticles] = await Promise.all([
-    safeFind(models.Article, { userId }, 400),
-    safeFind(models.NotebookEntry, { userId }, 400),
+    safeFind(models.Article, { userId }, 400, 'createdAt highlights.createdAt'),
+    safeFind(models.NotebookEntry, { userId }, 400, 'createdAt'),
     // Highlights live inside articles. We re-use the article list and
     // count highlights with a recent createdAt.
     Promise.resolve([])
@@ -477,7 +480,8 @@ const collectRecentImportReceipts = async ({
     const receiptRows = await safeFind(
       models.NoeisReceipt,
       { userId },
-      40
+      40,
+      'receiptId kind source sourceLabel status summary metrics touched nextAction error createdAtExternal createdAt completedAt'
     );
     const storedReceipts = receiptRows
       .map(row => sanitizeBriefingReceipt({
@@ -507,7 +511,8 @@ const collectRecentImportReceipts = async ({
       status: { $in: ['completed', 'completed_with_warnings', 'failed'] },
       receipt: { $ne: null }
     },
-    20
+    20,
+    'receipt result.receipt status'
   );
   return rows
     .map(row => sanitizeBriefingReceipt(row.receipt || row.result?.receipt || {}))
@@ -693,7 +698,12 @@ const buildWikiBriefing = async ({
   if (!userId) {
     throw new Error('buildWikiBriefing requires a userId.');
   }
-  const rawPages = await safeFind(models.WikiPage, { userId, status: { $ne: 'archived' } }, 600);
+  const rawPages = await safeFind(
+    models.WikiPage,
+    { userId, status: { $ne: 'archived' } },
+    600,
+    '_id title status hiddenFromHome debugOnly archived plainText sourceRefs._id aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.lastDraftedAt aiState.health createdAt updatedAt'
+  );
   const pages = rawPages.filter(isWikiPageSurfaceEligible);
   const [newSources, recentlyUpdatedPages, driftingPages, recentReceipts, recentMaintenanceChanges] = await Promise.all([
     countNewSources({ userId, models, windowMs, now }),
