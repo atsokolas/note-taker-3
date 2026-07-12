@@ -12,6 +12,7 @@ const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService');
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
+const { assessEventAgainstClaims } = require('./wikiEvidenceRelevanceService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -401,6 +402,7 @@ const processWikiSourceEvent = async ({
         page = await attachSourceEventEvidence({ page, event });
       }
       const before = snapshotPage(page);
+      const evidenceAssessment = assessEventAgainstClaims({ event, claims: before.claims || [] });
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
         status: 'needs_review',
@@ -517,6 +519,7 @@ const processWikiSourceEvent = async ({
         pageId: String(page._id || ''),
         pageTitle: asText(page.title),
         sourceEventId: String(event._id || ''),
+        evidenceAssessment,
         ...compareClaimLedgers({
           beforeClaims: before.claims || [],
           afterClaims: page.claims || [],
