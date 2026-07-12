@@ -450,7 +450,8 @@ const sanitizeBriefingReceipt = (receipt = {}) => {
       claimsPreserved: Number(metrics.claimsPreserved || 0),
       claimsRemoved: Number(metrics.claimsRemoved || 0),
       acceptedPages: Number(metrics.acceptedPages || 0),
-      rejectedPages: Number(metrics.rejectedPages || 0)
+      rejectedPages: Number(metrics.rejectedPages || 0),
+      directSourceClaimMatches: Number(metrics.directSourceClaimMatches || 0)
     },
     touched: touched.slice(0, 4).map(item => ({
       type: asString(item.type) || 'item',

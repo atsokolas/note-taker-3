@@ -467,7 +467,8 @@ describe('wikiBriefingService', () => {
           claimsGainedSupport: 1,
           claimsContradicted: 1,
           claimsPreserved: 8,
-          acceptedPages: 1
+          acceptedPages: 1,
+          directSourceClaimMatches: 1
         },
         completedAt: new Date('2026-07-11T18:00:00.000Z')
       };
@@ -491,7 +492,8 @@ describe('wikiBriefingService', () => {
         claimsGainedSupport: 1,
         claimsContradicted: 1,
         claimsPreserved: 8,
-        acceptedPages: 1
+        acceptedPages: 1,
+        directSourceClaimMatches: 1
       });
     });
 
