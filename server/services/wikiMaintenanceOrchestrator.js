@@ -474,6 +474,7 @@ const processWikiSourceEvent = async ({
           pageId: String(page._id || ''),
           pageTitle: asText(page.title),
           sourceEventId: String(event._id || ''),
+          revisionId: String(publication.rejectedRevision?._id || ''),
           ...compareClaimLedgers({
             beforeClaims: before.claims || [],
             afterClaims: publication.candidate?.claims || [],
