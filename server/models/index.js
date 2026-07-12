@@ -409,7 +409,7 @@ const wikiAiStateSchema = new mongoose.Schema({
       rebuiltAutomatically: false
     })
   },
-  candidateStatus: { type: String, enum: ['idle', 'building', 'promoted', 'rejected'], default: 'idle' },
+  candidateStatus: { type: String, enum: ['idle', 'building', 'promoted', 'rejected', 'evidence_only'], default: 'idle' },
   lastCandidateAt: { type: Date, default: null },
   lastCandidateQuality: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   lastCandidateSummary: { type: String, default: '', trim: true },
