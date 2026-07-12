@@ -98,9 +98,10 @@ const run = async () => {
     assert.ok(!JSON.stringify(payload).includes('private-source-link'));
     assert.ok(!JSON.stringify(payload).includes('private-claim-id'));
     assert.ok(!JSON.stringify(payload).includes('private-neighbor-id'));
-    assert.deepStrictEqual(payload.items[5].page.body.content[0].content[0].marks, [{
-      type: 'claim',
-      attrs: { support: 'supported', citationIndexes: [1], contradictionIndexes: [] }
+    assert.ok(!payload.items[5].page.body);
+    assert.deepStrictEqual(payload.items[5].page.sourceRefs, [{
+      title: 'README',
+      url: 'https://github.com/atsokolas/note-taker-3'
     }]);
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));

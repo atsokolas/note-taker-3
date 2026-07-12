@@ -153,4 +153,25 @@ const sharedPage = (overrides = {}) => ({
   assert.ok(!json.includes('discussions'));
 })();
 
+(() => {
+  const page = sharedPage({
+    _id: 'compact-page',
+    title: 'Compact proof',
+    plainText: 'A concise public summary.',
+    sourceRefs: [{ _id: 'private-source-id', title: 'Public source', url: 'https://example.com/source', snippet: 'Large private-adjacent excerpt' }],
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Large article body' }] }] }
+  });
+  const entry = serializePublicProofEntry({
+    slot: { key: 'compact', label: 'Proof' },
+    page,
+    compact: true,
+    serializePage: input => ({ ...input, maintenanceProof: buildPublicMaintenanceProof(input) })
+  });
+  const json = JSON.stringify(entry);
+  assert.ok(!json.includes('Large article body'));
+  assert.ok(!json.includes('private-source-id'));
+  assert.ok(!json.includes('Large private-adjacent excerpt'));
+  assert.deepStrictEqual(entry.page.sourceRefs, [{ title: 'Public source', url: 'https://example.com/source' }]);
+})();
+
 console.log('publicProofService tests passed');

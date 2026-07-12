@@ -3254,10 +3254,16 @@ const buildWikiRouter = ({
 
   const handlePublicProofRegistry = async (_req, res) => {
     try {
-      const pages = await WikiPage.find({
+      let pagesQuery = WikiPage.find({
         visibility: 'shared',
         status: { $ne: 'archived' }
-      }).sort({ updatedAt: -1 }).limit(250).lean();
+      });
+      if (pagesQuery?.select) {
+        pagesQuery = pagesQuery.select('_id slug title pageType status visibility plainText sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
+      }
+      if (pagesQuery?.sort) pagesQuery = pagesQuery.sort({ updatedAt: -1 });
+      if (pagesQuery?.limit) pagesQuery = pagesQuery.limit(250);
+      const pages = pagesQuery?.lean ? await pagesQuery.lean() : await pagesQuery;
       const selected = selectPublicProofPages({
         pages: Array.isArray(pages) ? pages : [],
         slots: DEFAULT_PUBLIC_PROOF_SLOTS
@@ -3266,7 +3272,8 @@ const buildWikiRouter = ({
         .map(({ slot, page }) => serializePublicProofEntry({
           slot,
           page,
-          serializePage: serializePublicWikiPage
+          serializePage: serializePublicWikiPage,
+          compact: true
         }))
         .filter(Boolean);
       res.status(200).json({

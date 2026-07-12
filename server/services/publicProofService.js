@@ -214,16 +214,30 @@ const selectPublicProofPages = ({ pages = [], slots = DEFAULT_PUBLIC_PROOF_SLOTS
   }).filter(Boolean);
 };
 
-const serializePublicProofEntry = ({ slot = {}, page = {}, serializePage } = {}) => {
+const compactRegistryPage = ({ page = {}, serializedPage = {}, maintenanceProof = null } = {}) => ({
+  title: clean(serializedPage.title || page.title, 300),
+  plainText: clean(serializedPage.plainText || page.plainText, 420),
+  sourceRefs: (Array.isArray(serializedPage.sourceRefs) ? serializedPage.sourceRefs : [])
+    .slice(0, 8)
+    .map(source => ({
+      title: clean(source?.title, 240),
+      url: clean(source?.url, 1000)
+    }))
+    .filter(source => source.title || source.url),
+  maintenanceProof
+});
+
+const serializePublicProofEntry = ({ slot = {}, page = {}, serializePage, compact = false } = {}) => {
   const serializedPage = typeof serializePage === 'function' ? serializePage(page) : null;
   if (!serializedPage) return null;
+  const maintenanceProof = serializedPage.maintenanceProof || buildPublicMaintenanceProof(page);
   return {
     slot: slot.key,
     label: slot.label,
     title: clean(page.title, 300) || slot.title,
     publicUrl: `/share/wiki/${encodeURIComponent(pageId(page) || clean(page.slug, 180))}`,
-    page: serializedPage,
-    maintenanceProof: serializedPage.maintenanceProof || buildPublicMaintenanceProof(page)
+    page: compact ? compactRegistryPage({ page, serializedPage, maintenanceProof }) : serializedPage,
+    maintenanceProof
   };
 };
 
@@ -231,6 +245,7 @@ module.exports = {
   DEFAULT_PUBLIC_PROOF_SLOTS,
   PUBLIC_PROOF_PRIVACY_STATEMENT,
   buildPublicMaintenanceProof,
+  compactRegistryPage,
   selectPublicProofPages,
   serializePublicProofEntry,
   slotMatchesPage
