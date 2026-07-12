@@ -12,7 +12,7 @@ const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService');
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
-const { assessEventAgainstClaims } = require('./wikiEvidenceRelevanceService');
+const { applyDirectEvidenceMatches, assessEventAgainstClaims } = require('./wikiEvidenceRelevanceService');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -536,6 +536,16 @@ const processWikiSourceEvent = async ({
           });
         }
         continue;
+      }
+      if (publication.evidenceOnly && evidenceAssessment.directMatchCount > 0) {
+        evidenceAssessment.applied = applyDirectEvidenceMatches({
+          page,
+          event,
+          assessment: evidenceAssessment,
+          now: new Date()
+        }).applied;
+      } else {
+        evidenceAssessment.applied = 0;
       }
       const acceptedComparison = {
         pageId: String(page._id || ''),
