@@ -18,6 +18,28 @@ const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g
 
 const asText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
+const asDate = (value = null) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const buildAcceptedThrough = ({ existing = null, event = {}, acceptedAt = new Date() } = {}) => {
+  const current = existing?.toObject ? existing.toObject() : existing || null;
+  const currentDate = asDate(current?.sourceUpdatedAt || current?.acceptedAt);
+  const eventDate = asDate(event.sourceUpdatedAt || event.createdAt || acceptedAt);
+  if (current?.sourceEventId && currentDate && eventDate && currentDate > eventDate) return current;
+  return {
+    sourceEventId: String(event._id || ''),
+    provider: asText(event.provider || event.metadata?.source || event.sourceType),
+    externalId: asText(event.externalId),
+    title: asText(event.title),
+    url: String(event.url || ''),
+    sourceUpdatedAt: eventDate,
+    acceptedAt
+  };
+};
+
 const sourceRefMatchesEvent = (source, event) => {
   if (!source || !event) return false;
   if (event.sourceObjectId && source.objectId && String(source.objectId) === String(event.sourceObjectId)) return true;
@@ -534,15 +556,11 @@ const processWikiSourceEvent = async ({
         pendingSourceEventIds: [],
         conflictCount: Array.isArray(page.aiState?.health?.contradictions) ? page.aiState.health.contradictions.length : 0,
         staleSectionCount: Array.isArray(page.aiState?.health?.staleSections) ? page.aiState.health.staleSections.length : 0,
-        acceptedThrough: {
-          sourceEventId: String(event._id || ''),
-          provider: asText(event.provider || event.metadata?.source || event.sourceType),
-          externalId: asText(event.externalId),
-          title: asText(event.title),
-          url: String(event.url || ''),
-          sourceUpdatedAt: event.sourceUpdatedAt || event.createdAt || null,
+        acceptedThrough: buildAcceptedThrough({
+          existing: page.freshness?.acceptedThrough,
+          event,
           acceptedAt: new Date()
-        }
+        })
       };
       await page.save();
       if (Connection) {
@@ -655,6 +673,7 @@ const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, 
 };
 
 module.exports = {
+  buildAcceptedThrough,
   processPendingWikiSourceEvents,
   processWikiSourceEvent
 };
