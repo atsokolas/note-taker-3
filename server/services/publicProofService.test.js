@@ -92,6 +92,23 @@ const sharedPage = (overrides = {}) => ({
 })();
 
 (() => {
+  const page = sharedPage({
+    title: 'Accepted filing dossier',
+    freshness: {
+      acceptedThrough: {
+        sourceEventId: 'event-accepted',
+        title: 'GOOGL 10-Q filed 2026-04-30',
+        url: 'https://www.sec.gov/Archives/accepted-filing',
+        sourceUpdatedAt: '2026-04-30T00:00:00.000Z'
+      }
+    }
+  });
+  const proof = buildPublicMaintenanceProof(page);
+  assert.strictEqual(proof.currentThrough.label, 'GOOGL 10-Q filed 2026-04-30');
+  assert.strictEqual(proof.currentThrough.ref, 'https://www.sec.gov/Archives/accepted-filing');
+})();
+
+(() => {
   const pages = [
     sharedPage({ _id: 'alphabet', title: 'Alphabet is Berkshire Hathaway 2.0' }),
     sharedPage({ _id: 'margin', title: 'Margin of Safety in Value Investing' }),

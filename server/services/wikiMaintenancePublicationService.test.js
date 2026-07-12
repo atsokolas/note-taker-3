@@ -66,6 +66,24 @@ const run = async () => {
   assert.strictEqual(WikiRevision.records[0].promotionStatus, 'rejected');
   assert.strictEqual(WikiRevision.records[0].after.plainText, 'Bad candidate.');
 
+  const destructivePage = trustedPage();
+  destructivePage.claims = Array.from({ length: 10 }, (_, index) => ({ id: `claim-${index}`, text: `Claim ${index}` }));
+  const destructive = await runWikiMaintenanceCandidate({
+    page: destructivePage,
+    userId: 'user-1',
+    WikiRevision,
+    rejectDestructiveClaimLoss: true,
+    maintainWikiPageFn: async ({ page }) => {
+      page.claims = [{ id: 'replacement', text: 'One replacement claim' }];
+      page.aiState = { draftStatus: 'ready', quality: { ok: true, status: 'pass' } };
+      return page;
+    }
+  });
+  assert.strictEqual(destructive.promoted, false);
+  assert.strictEqual(destructive.page.claims.length, 10);
+  assert.match(destructive.page.aiState.lastCandidateSummary, /removed more than 40%/);
+  assert.strictEqual(WikiRevision.records.length, 2);
+
   const passingPage = trustedPage();
   const passing = await runWikiMaintenanceCandidate({
     page: passingPage,
@@ -81,7 +99,7 @@ const run = async () => {
 
   assert.strictEqual(passing.promoted, true);
   assert.strictEqual(passing.page.plainText, 'Better candidate.');
-  assert.strictEqual(WikiRevision.records.length, 1);
+  assert.strictEqual(WikiRevision.records.length, 2);
 
   console.log('wikiMaintenancePublicationService tests passed');
 };

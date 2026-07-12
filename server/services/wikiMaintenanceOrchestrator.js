@@ -202,6 +202,30 @@ const attachRepoSnapshotEvidence = async ({ WikiSourceEvent, page, event } = {})
   return page;
 };
 
+const attachSourceEventEvidence = async ({ page, event } = {}) => {
+  if (!page || !event?._id || event.metadata?.source === 'github-repo-snapshot') return page;
+  const provider = asText(event.provider || event.metadata?.source || event.sourceType).slice(0, 120);
+  const eventId = String(event._id);
+  const ref = {
+    type: event.sourceType || 'external',
+    objectId: event._id,
+    title: asText(event.title || event.url || provider).slice(0, 240),
+    snippet: asText(event.text || event.summary).slice(0, 7800),
+    url: String(event.url || '').slice(0, 1000),
+    provider,
+    metadata: event.metadata?.toObject ? event.metadata.toObject() : event.metadata || {},
+    addedBy: 'ai'
+  };
+  const existing = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
+  page.sourceRefs = [
+    ...existing.filter(source => String(source?.objectId || '') !== eventId),
+    ref
+  ].slice(-80);
+  if (typeof page.markModified === 'function') page.markModified('sourceRefs');
+  if (typeof page.save === 'function') await page.save();
+  return page;
+};
+
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (!WikiPage || !userId || !event) return [];
   const explicitIds = Array.isArray(event.affectedPageIds) ? event.affectedPageIds.filter(Boolean) : [];
@@ -371,6 +395,8 @@ const processWikiSourceEvent = async ({
       const repoSnapshotEvent = event.metadata?.source === 'github-repo-snapshot';
       if (repoSnapshotEvent) {
         page = await attachRepoSnapshotEvidence({ WikiSourceEvent, page, event });
+      } else {
+        page = await attachSourceEventEvidence({ page, event });
       }
       const before = snapshotPage(page);
       page.freshness = {
@@ -385,6 +411,7 @@ const processWikiSourceEvent = async ({
         wikiSchemaContent: effectiveWikiSchemaContent
       };
       const enforcePublicationShield = isGitHubRepoPage({ page })
+        || event.sourceType === 'external'
         || event.metadata?.enforcePublicationQuality === true;
       const headSha = String(event.metadata?.commitSha || page.externalWatches?.githubRepo?.lastHeadSha || '');
       const lease = enforcePublicationShield && headSha
@@ -410,6 +437,7 @@ const processWikiSourceEvent = async ({
             beforeSnapshot: before,
             sourceEventId: event._id,
             maintenanceRunId: run?._id || null,
+            rejectDestructiveClaimLoss: event.sourceType === 'external',
             sourceVersion: event.metadata?.commitSha ? {
               provider: 'github',
               headSha: event.metadata.commitSha,
@@ -480,7 +508,7 @@ const processWikiSourceEvent = async ({
         }
         continue;
       }
-      comparisons.push({
+      const acceptedComparison = {
         pageId: String(page._id || ''),
         pageTitle: asText(page.title),
         sourceEventId: String(event._id || ''),
@@ -489,14 +517,24 @@ const processWikiSourceEvent = async ({
           afterClaims: page.claims || [],
           outcome: 'accepted'
         })
-      });
+      };
+      comparisons.push(acceptedComparison);
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
         status: Array.isArray(page.aiState?.health?.contradictions) && page.aiState.health.contradictions.length ? 'conflicted' : 'fresh',
         lastMaintainedAt: new Date(),
         pendingSourceEventIds: [],
         conflictCount: Array.isArray(page.aiState?.health?.contradictions) ? page.aiState.health.contradictions.length : 0,
-        staleSectionCount: Array.isArray(page.aiState?.health?.staleSections) ? page.aiState.health.staleSections.length : 0
+        staleSectionCount: Array.isArray(page.aiState?.health?.staleSections) ? page.aiState.health.staleSections.length : 0,
+        acceptedThrough: {
+          sourceEventId: String(event._id || ''),
+          provider: asText(event.provider || event.metadata?.source || event.sourceType),
+          externalId: asText(event.externalId),
+          title: asText(event.title),
+          url: String(event.url || ''),
+          sourceUpdatedAt: event.sourceUpdatedAt || event.createdAt || null,
+          acceptedAt: new Date()
+        }
       };
       await page.save();
       if (Connection) {
@@ -506,7 +544,7 @@ const processWikiSourceEvent = async ({
           page
         });
       }
-      await createWikiRevision({
+      const revision = await createWikiRevision({
         WikiRevision,
         userId: event.userId,
         page,
@@ -517,6 +555,7 @@ const processWikiSourceEvent = async ({
         maintenanceRunId: run?._id || null,
         summary: page.aiState?.maintenanceSummary || `Updated from ${event.title || event.sourceType}.`
       });
+      acceptedComparison.revisionId = String(revision?._id || '');
       if (lease?.acquired) {
         await releaseRepoBuildLease({
           WikiPage,

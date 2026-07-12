@@ -74,6 +74,16 @@ const buildWikiMaintenanceReceipt = ({ run, event = {}, pages = [], comparisons 
       intent: 'review_wiki_maintenance',
       href: `/wiki/workspace?page=${encodeURIComponent(String(firstPage._id || firstPage.id || ''))}`
     } : null,
+    provenance: {
+      sourceEventId: String(event._id || ''),
+      maintenanceRunId: String(run._id || ''),
+      pageIds: pages.map(page => String(page?._id || page?.id || '')).filter(Boolean),
+      revisionIds: comparisons.map(comparison => String(comparison?.revisionId || '')).filter(Boolean),
+      provider: clean(event.provider || event.metadata?.source || event.sourceType, 120),
+      externalId: clean(event.externalId, 240),
+      sourceUpdatedAt: event.sourceUpdatedAt || null,
+      sourceUrl: clean(event.url, 1000)
+    },
     completedAt: now
   };
 };

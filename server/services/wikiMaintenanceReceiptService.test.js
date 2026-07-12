@@ -6,7 +6,7 @@ const {
 
 (() => {
   const comparisons = [
-    { outcome: 'accepted', counts: { added: 1, changed: 2, gainedSupport: 1, contradicted: 1, preserved: 4, removed: 0 } },
+    { outcome: 'accepted', revisionId: 'revision-1', counts: { added: 1, changed: 2, gainedSupport: 1, contradicted: 1, preserved: 4, removed: 0 } },
     { outcome: 'rejected', counts: { added: 0, changed: 1, gainedSupport: 0, contradicted: 0, preserved: 2, removed: 1 } }
   ];
   assert.deepStrictEqual(aggregateComparisonCounts(comparisons), {
@@ -21,7 +21,7 @@ const {
   });
   const receipt = buildWikiMaintenanceReceipt({
     run: { _id: 'run-1' },
-    event: { _id: 'event-1', provider: 'sec-edgar' },
+    event: { _id: 'event-1', provider: 'sec-edgar', externalId: 'sec-edgar:filing-1', url: 'https://sec.example/filing-1' },
     pages: [{ _id: 'page-1', title: 'Alphabet thesis' }],
     comparisons,
     status: 'needs_review',
@@ -33,6 +33,9 @@ const {
   assert.ok(receipt.summary.includes('3 changed'));
   assert.strictEqual(receipt.metrics.claimsContradicted, 1);
   assert.strictEqual(receipt.nextAction.href, '/wiki/workspace?page=page-1');
+  assert.deepStrictEqual(receipt.provenance.revisionIds, ['revision-1']);
+  assert.strictEqual(receipt.provenance.sourceEventId, 'event-1');
+  assert.strictEqual(receipt.provenance.maintenanceRunId, 'run-1');
 })();
 
 console.log('wikiMaintenanceReceiptService tests passed');

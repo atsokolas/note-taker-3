@@ -122,10 +122,15 @@ const buildCurrentThrough = (page = {}, reviewedAt = pageReviewedAt(page)) => {
     };
   }
 
-  // EDGAR/transcript watches currently track the newest observed external
-  // event, not the newest event included in an accepted publication. Until
-  // that linkage exists, do not present observed filing/transcript state as
-  // the page's accepted "current through" version.
+  const accepted = asPlain(page.freshness?.acceptedThrough);
+  if (clean(accepted.sourceEventId) && clean(accepted.title)) {
+    return {
+      label: clean(accepted.title, 160),
+      at: asDate(accepted.sourceUpdatedAt || accepted.acceptedAt),
+      ref: clean(accepted.url, 1000)
+    };
+  }
+
   if (reviewedAt) {
     return {
       label: 'Last accepted review',

@@ -374,7 +374,8 @@ const wikiFreshnessSchema = new mongoose.Schema({
   lastMaintainedAt: { type: Date, default: null },
   pendingSourceEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   conflictCount: { type: Number, default: 0 },
-  staleSectionCount: { type: Number, default: 0 }
+  staleSectionCount: { type: Number, default: 0 },
+  acceptedThrough: { type: mongoose.Schema.Types.Mixed, default: null }
 }, { _id: false });
 
 const wikiAiStateSchema = new mongoose.Schema({
@@ -1940,6 +1941,7 @@ const noeisReceiptSchema = new mongoose.Schema({
   metrics: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   touched: { type: [mongoose.Schema.Types.Mixed], default: [] },
   nextAction: { type: mongoose.Schema.Types.Mixed, default: null },
+  provenance: { type: mongoose.Schema.Types.Mixed, default: null },
   error: { type: mongoose.Schema.Types.Mixed, default: null },
   createdAtExternal: { type: Date, default: null },
   completedAt: { type: Date, default: null },

@@ -40,6 +40,7 @@ const sanitizeReceiptForStorage = (receipt = {}) => {
     metrics: receipt.metrics && typeof receipt.metrics === 'object' ? receipt.metrics : {},
     touched: sanitizeTouched(receipt.touched),
     nextAction: receipt.nextAction && typeof receipt.nextAction === 'object' ? receipt.nextAction : null,
+    provenance: receipt.provenance && typeof receipt.provenance === 'object' ? receipt.provenance : null,
     error: receipt.error && typeof receipt.error === 'object' ? receipt.error : null,
     createdAtExternal: toDate(receipt.createdAt),
     completedAt
@@ -60,6 +61,7 @@ const serializeStoredReceipt = (doc = {}) => {
     metrics: raw.metrics && typeof raw.metrics === 'object' ? raw.metrics : {},
     touched: sanitizeTouched(raw.touched),
     nextAction: raw.nextAction && typeof raw.nextAction === 'object' ? raw.nextAction : null,
+    provenance: raw.provenance && typeof raw.provenance === 'object' ? raw.provenance : null,
     error: raw.error && typeof raw.error === 'object' ? raw.error : null,
     createdAt: raw.createdAtExternal || raw.createdAt || null,
     completedAt: raw.completedAt || raw.updatedAt || null

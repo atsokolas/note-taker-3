@@ -22,6 +22,12 @@ const candidateFailureSummary = (quality = {}) => {
     : 'The candidate did not pass the wiki quality contract.';
 };
 
+const destructiveClaimLoss = ({ before = {}, candidate = {} } = {}) => {
+  const beforeCount = Array.isArray(before.claims) ? before.claims.length : 0;
+  const afterCount = Array.isArray(candidate.claims) ? candidate.claims.length : 0;
+  return beforeCount >= 8 && afterCount < beforeCount * 0.6;
+};
+
 const recordRejectedCandidate = async ({
   WikiRevision,
   userId,
@@ -59,6 +65,7 @@ const runWikiMaintenanceCandidate = async ({
   maintenanceRunId = null,
   sourceVersion = null,
   hasTrustedVersion = true,
+  rejectDestructiveClaimLoss = false,
   now = new Date()
 } = {}) => {
   if (!page || typeof maintainWikiPageFn !== 'function') {
@@ -72,7 +79,19 @@ const runWikiMaintenanceCandidate = async ({
   });
   const candidatePage = maintainedPage || page;
   const candidate = snapshotPage(candidatePage);
-  const quality = candidate.aiState?.quality || {};
+  let quality = candidate.aiState?.quality || {};
+  if (rejectDestructiveClaimLoss && destructiveClaimLoss({ before, candidate })) {
+    quality = {
+      ...quality,
+      ok: false,
+      status: 'fail',
+      failures: [
+        ...(Array.isArray(quality.failures) ? quality.failures : []),
+        'Candidate removed more than 40% of the trusted claim ledger; manual review is required.'
+      ]
+    };
+    candidate.aiState = { ...(candidate.aiState || {}), quality };
+  }
   if (!candidateFailedQuality(candidate)) {
     return {
       page: candidatePage,
