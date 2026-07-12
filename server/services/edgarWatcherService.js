@@ -1,4 +1,5 @@
 const { createWikiSourceEvent } = require('./wikiSourceEventService');
+const { extractReadableText, normalizeIngestText } = require('./import/urlTextIngest');
 
 const SEC_SUBMISSIONS_BASE_URL = 'https://data.sec.gov/submissions';
 const SEC_COMPANY_TICKERS_URL = 'https://www.sec.gov/files/company_tickers.json';
@@ -47,6 +48,26 @@ const fetchJson = async ({ url, fetchImpl = global.fetch, userAgent = secUserAge
     throw error;
   }
   return response.json();
+};
+
+const fetchFilingDocument = async ({ url, fetchImpl = global.fetch, userAgent = secUserAgent() } = {}) => {
+  if (!url || typeof fetchImpl !== 'function') return '';
+  const response = await fetchImpl(url, {
+    headers: {
+      ...secHeaders(userAgent),
+      Accept: 'text/html, text/plain;q=0.9,*/*;q=0.5'
+    }
+  });
+  if (!response?.ok) {
+    const error = new Error(`SEC filing document request failed with HTTP ${response?.status || 'unknown'}.`);
+    error.statusCode = response?.status || 500;
+    throw error;
+  }
+  const raw = await response.text();
+  const visibleDocument = String(raw || '')
+    .replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, ' ')
+    .replace(/<(?:div|span)\b[^>]*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^>]*>[\s\S]*?<\/(?:div|span)>/gi, ' ');
+  return normalizeIngestText(extractReadableText(visibleDocument), 120000);
 };
 
 const resolveCompanyIdentifier = async ({
@@ -132,7 +153,7 @@ const filingSummary = ({ ticker = '', companyName = '', filing } = {}) => {
   return trim(details, 1200);
 };
 
-const buildFilingEventPayload = ({ userId, page, watch, filing } = {}) => {
+const buildFilingEventPayload = ({ userId, page, watch, filing, filingText = '' } = {}) => {
   const ticker = normalizeTicker(watch?.ticker);
   const cik = normalizeCik(watch?.cik);
   const companyName = trim(watch?.companyName || '', 240);
@@ -149,7 +170,8 @@ const buildFilingEventPayload = ({ userId, page, watch, filing } = {}) => {
       filingSummary({ ticker, companyName, filing }),
       `Accession number: ${filing.accessionNumber}.`,
       filing.reportDate ? `Report date: ${filing.reportDate}.` : '',
-      filing.primaryDocument ? `Primary document: ${filing.primaryDocument}.` : ''
+      filing.primaryDocument ? `Primary document: ${filing.primaryDocument}.` : '',
+      filingText
     ].filter(Boolean).join('\n'),
     url,
     sourceUpdatedAt: filing.filingDate || filing.acceptanceDateTime || null,
@@ -164,7 +186,9 @@ const buildFilingEventPayload = ({ userId, page, watch, filing } = {}) => {
       reportDate: filing.reportDate,
       accessionNumber: filing.accessionNumber,
       primaryDocument: filing.primaryDocument,
-      pageId: String(page?._id || '')
+      pageId: String(page?._id || ''),
+      hasFilingText: Boolean(filingText),
+      filingTextLength: filingText.length
     }
   };
 };
@@ -174,7 +198,9 @@ const createMissingFilingEvents = async ({
   userId,
   page,
   watch,
-  filings = []
+  filings = [],
+  fetchImpl = global.fetch,
+  userAgent = secUserAgent()
 } = {}) => {
   if (!WikiSourceEvent || !userId || !page || !watch) return [];
   const created = [];
@@ -184,11 +210,34 @@ const createMissingFilingEvents = async ({
       userId,
       provider: 'sec-edgar',
       externalId
-    }).select('_id').lean();
-    if (existing) continue;
+    }).select('_id text metadata').lean();
+    const url = buildFilingUrl({ cik: watch.cik, accessionNumber: filing.accessionNumber, primaryDocument: filing.primaryDocument });
+    if (existing && String(existing.text || '').length >= 2000) continue;
+    let filingText = '';
+    let documentError = '';
+    try {
+      filingText = await fetchFilingDocument({ url, fetchImpl, userAgent });
+    } catch (error) {
+      documentError = trim(error?.message || 'Failed to fetch SEC filing document.', 500);
+    }
+    const payload = buildFilingEventPayload({ userId, page, watch, filing, filingText });
+    if (documentError) payload.metadata.documentError = documentError;
+    if (existing) {
+      if (filingText && typeof WikiSourceEvent.findByIdAndUpdate === 'function') {
+        await WikiSourceEvent.findByIdAndUpdate(existing._id, {
+          $set: {
+            text: payload.text,
+            url: payload.url,
+            sourceUpdatedAt: payload.sourceUpdatedAt,
+            metadata: { ...(existing.metadata || {}), ...payload.metadata }
+          }
+        });
+      }
+      continue;
+    }
     const event = await createWikiSourceEvent({
       WikiSourceEvent,
-      ...buildFilingEventPayload({ userId, page, watch, filing })
+      ...payload
     });
     if (event) created.push(event);
   }
@@ -223,7 +272,7 @@ const checkEdgarWatchForPage = async ({
       userAgent
     });
     const filings = latestTrackedFilings({ submissions, forms: watch.forms, limit });
-    const events = await createMissingFilingEvents({ WikiSourceEvent, userId, page, watch, filings });
+    const events = await createMissingFilingEvents({ WikiSourceEvent, userId, page, watch, filings, fetchImpl, userAgent });
     const newest = filings[0] || null;
     page.externalWatches = {
       ...(page.externalWatches?.toObject ? page.externalWatches.toObject() : page.externalWatches || {}),
@@ -375,6 +424,7 @@ module.exports = {
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
   filingExternalId,
+  fetchFilingDocument,
   latestTrackedFilings,
   normalizeCik,
   normalizeForms,

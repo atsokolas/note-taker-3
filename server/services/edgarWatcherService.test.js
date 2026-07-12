@@ -39,6 +39,12 @@ const makeFetch = () => async (url) => {
       })
     };
   }
+  if (String(url).includes('/Archives/edgar/data/320193/')) {
+    return {
+      ok: true,
+      text: async () => '<html><body><main><h1>Quarterly results</h1><p>Services revenue increased while capital expenditures expanded for AI infrastructure.</p></main></body></html>'
+    };
+  }
   return { ok: false, status: 404, json: async () => ({}) };
 };
 
@@ -66,9 +72,15 @@ class FakeWikiSourceEvent {
     ));
     return {
       select: () => ({
-        lean: async () => (row ? { _id: row._id } : null)
+        lean: async () => (row ? { _id: row._id, text: row.text, metadata: row.metadata } : null)
       })
     };
+  }
+
+  static async findByIdAndUpdate(id, update = {}) {
+    const row = FakeWikiSourceEvent.rows.find(event => String(event._id) === String(id));
+    if (row) Object.assign(row, update.$set || {});
+    return row || null;
   }
 }
 FakeWikiSourceEvent.rows = [];
@@ -145,6 +157,9 @@ const run = async () => {
   assert.strictEqual(FakeWikiSourceEvent.rows[0].provider, 'sec-edgar');
   assert.strictEqual(FakeWikiSourceEvent.rows[0].affectedPageIds[0], '507f1f77bcf86cd799439011');
   assert.match(FakeWikiSourceEvent.rows[0].summary, /Apple Inc\. filed 10-Q/);
+  assert.match(FakeWikiSourceEvent.rows[0].text, /Services revenue increased/);
+  assert.strictEqual(FakeWikiSourceEvent.rows[0].metadata.hasFilingText, true);
+  assert.ok(FakeWikiSourceEvent.rows[0].metadata.filingTextLength > 50);
 
   const second = await armEdgarWatchForPage({
     WikiPage: FakeWikiPage,
@@ -158,6 +173,21 @@ const run = async () => {
   });
   assert.strictEqual(second.events.length, 0);
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
+
+  FakeWikiSourceEvent.rows[0].text = 'thin metadata';
+  FakeWikiSourceEvent.rows[0].metadata.hasFilingText = false;
+  const enriched = await armEdgarWatchForPage({
+    WikiPage: FakeWikiPage,
+    WikiSourceEvent: FakeWikiSourceEvent,
+    userId: 'user-1',
+    pageId: '507f1f77bcf86cd799439011',
+    ticker: 'AAPL',
+    forms: ['10-Q', '8-K'],
+    fetchImpl: makeFetch()
+  });
+  assert.strictEqual(enriched.events.length, 0);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
+  assert.match(FakeWikiSourceEvent.rows[0].text, /Services revenue increased/);
 
   const dueQuery = dueEdgarWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });
   assert.strictEqual(dueQuery['externalWatches.edgar.status'], 'active');
