@@ -1,4 +1,5 @@
 import { track } from '@vercel/analytics';
+import api from '../api';
 import {
   buildMarketingPayload,
   captureMarketingAttribution,
@@ -16,17 +17,13 @@ const safeTrack = (eventName, payload = {}) => {
 const postBackendMarketingEvent = async ({ event, reason = '', error = '' } = {}) => {
   try {
     const attribution = readMarketingAttribution();
-    await fetch('/api/analytics/marketing', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
-        event,
-        reason,
-        error,
-        attribution
-      })
+    await api.post('/api/analytics/marketing', {
+      event,
+      reason,
+      error,
+      attribution
+    }, {
+      skipAuthHandling: true
     });
   } catch (_error) {
     // Ignore analytics transport failures.

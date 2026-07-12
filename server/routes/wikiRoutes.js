@@ -796,7 +796,11 @@ const sanitizeSharedWikiSourceRefsForAdoption = (sourceRefs = []) => (
 const buildAdoptableWikiPageSnapshot = (page) => {
   const publicPage = serializePublicWikiPage(page);
   if (!publicPage) return null;
-  const body = clonePlain(publicPage.body || emptyDoc());
+  // Adoption runs server-side against an already-authorized shared page. Keep
+  // the original wiki-link ids here so collection adoption can remap them;
+  // the public transport serializer still strips those ids from responses.
+  const internalPage = serializeWikiPage(page);
+  const body = clonePlain(internalPage?.body || publicPage.body || emptyDoc());
   const sourceRefs = sanitizeSharedWikiSourceRefsForAdoption(publicPage.sourceRefs || []);
   return {
     origin: {
