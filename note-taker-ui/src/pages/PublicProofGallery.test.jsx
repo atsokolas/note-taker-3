@@ -15,6 +15,7 @@ const proofItem = ({
   title,
   description,
   publicUrl,
+  proofGrade,
   maintenanceProof = {},
   page = {}
 }) => ({
@@ -22,6 +23,7 @@ const proofItem = ({
   label,
   description,
   publicUrl,
+  proofGrade,
   page: {
     _id: `${slot}-id`,
     title,
@@ -46,6 +48,12 @@ const registryPayload = () => ({
       title: 'Alphabet is Berkshire Hathaway 2.0',
       description: 'A maintained company dossier.',
       publicUrl: '/share/wiki/alphabet-berkshire-2-0',
+      proofGrade: {
+        grade: 'acceptance_in_progress',
+        label: 'Acceptance In Progress',
+        reason: 'The object remains under editorial and maintenance acceptance.',
+        criteria: { explicitlyAccepted: false, acceptedVersion: false, materialEvent: true, sourceGrounded: true }
+      },
       maintenanceProof: {
         clock: { type: 'sec_edgar', label: 'SEC EDGAR filings' },
         currentThrough: { label: '10-Q filed Jul 1, 2026', at: '2026-07-01T00:00:00.000Z' },
@@ -65,6 +73,7 @@ const registryPayload = () => ({
       title: 'Margin of Safety in Value Investing',
       description: 'A maintained concept dossier.',
       publicUrl: '/share/wiki/margin-of-safety',
+      proofGrade: { grade: 'illustrative', label: 'Illustrative', reason: 'Example only.', criteria: {} },
       maintenanceProof: {
         clock: { type: 'reading', label: 'Reading and source events' },
         lastReviewedAt: '2026-07-03T00:00:00.000Z',
@@ -78,6 +87,7 @@ const registryPayload = () => ({
       title: 'Circle of Competence',
       description: 'A maintained concept dossier.',
       publicUrl: '/share/wiki/circle-of-competence',
+      proofGrade: { grade: 'illustrative', label: 'Illustrative', reason: 'Example only.', criteria: {} },
       maintenanceProof: {
         clock: { type: 'reading', label: 'Reading and source events' },
         lastReviewedAt: '2026-07-02T00:00:00.000Z',
@@ -91,6 +101,7 @@ const registryPayload = () => ({
       title: 'AI infrastructure market map',
       description: 'A maintained market map.',
       publicUrl: '/share/wiki/ai-infrastructure-market-map',
+      proofGrade: { grade: 'illustrative', label: 'Illustrative', reason: 'Example only.', criteria: {} },
       maintenanceProof: {
         clock: { type: 'manual', label: 'Manual review' },
         lastReviewedAt: '2026-07-01T00:00:00.000Z',
@@ -104,6 +115,7 @@ const registryPayload = () => ({
       title: 'Will agent evals outpace model releases?',
       description: 'A live question page.',
       publicUrl: '/share/wiki/agent-evals-question',
+      proofGrade: { grade: 'illustrative', label: 'Illustrative', reason: 'Example only.', criteria: {} },
       maintenanceProof: {
         clock: { type: 'reading', label: 'Evidence and contradiction checks' },
         lastReviewedAt: '2026-06-30T00:00:00.000Z',
@@ -117,6 +129,13 @@ const registryPayload = () => ({
       title: 'Noeis GitHub repo wiki',
       description: 'A maintained repository dossier.',
       publicUrl: '/share/wiki/note-taker-3-repo',
+      proofGrade: {
+        grade: 'candidate',
+        label: 'Candidate',
+        reason: 'Claim-level maintenance has not passed public-proof acceptance.',
+        comparisonUrl: '/share/wiki/note-taker-3-repo/comparison',
+        criteria: { explicitlyAccepted: false, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+      },
       maintenanceProof: {
         clock: { type: 'github', label: 'GitHub releases and HEAD' },
         currentThrough: { label: 'commit abc1234', at: '2026-07-05T00:00:00.000Z' },
@@ -139,56 +158,71 @@ describe('PublicProofGallery', () => {
     getPublicProofRegistry.mockResolvedValue(registryPayload());
   });
 
-  it('renders six individual proof objects in supplied order with maintenance stamps', async () => {
+  it('renders an honest candidate state without distributing the unaccepted Alphabet dossier', async () => {
     render(
       <MemoryRouter initialEntries={['/proof']}>
         <PublicProofGallery />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading public proof pages');
-    expect(await screen.findByRole('heading', { name: 'Living research dossiers, not generated pages.' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Resolving accepted proof');
+    expect(await screen.findByRole('heading', { name: 'Watch trusted knowledge survive a changing source.' })).toBeInTheDocument();
     expect(getPublicProofRegistry).toHaveBeenCalledTimes(1);
-    await screen.findByRole('heading', { name: 'Alphabet is Berkshire Hathaway 2.0' });
+    await screen.findByRole('heading', { name: 'Noeis GitHub repo wiki' });
 
-    const titles = [
-      'Alphabet is Berkshire Hathaway 2.0',
+    expect(screen.queryByRole('link', { name: /Alphabet is Berkshire Hathaway/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Alphabet is Berkshire Hathaway/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Alphabet is Berkshire Hathaway 2\.0 · Acceptance In Progress/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Noeis GitHub repo wiki' })).toBeInTheDocument();
+    [
       'Margin of Safety in Value Investing',
       'Circle of Competence',
       'AI infrastructure market map',
-      'Will agent evals outpace model releases?',
-      'Noeis GitHub repo wiki'
-    ];
-    titles.forEach((title) => {
-      expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
-    });
+      'Will agent evals outpace model releases?'
+    ].forEach((title) => expect(screen.getByRole('link', { name: title })).toBeInTheDocument());
 
-    expect(screen.getAllByRole('link', { name: 'Open public dossier' })).toHaveLength(6);
-    expect(screen.getAllByRole('link', { name: 'Open public dossier' })[0]).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Inspect the maintenance proof' })).toHaveAttribute(
       'href',
-      '/share/wiki/alphabet-berkshire-2-0'
+      '/share/wiki/note-taker-3-repo/comparison'
     );
-    expect(screen.getAllByRole('link', { name: 'Open public dossier' })[5]).toHaveAttribute(
-      'href',
-      '/share/wiki/note-taker-3-repo'
-    );
-
-    expect(screen.getAllByText('Current through').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('10-Q filed Jul 1, 2026')).toBeInTheDocument();
-    expect(screen.getByText('Accepted 10-Q maintenance · Jul 2, 2026')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Read maintained wiki' })).toHaveAttribute('href', '/share/wiki/note-taker-3-repo');
+    expect(screen.getByRole('heading', { name: 'No object meets the flagship bar yet.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Promising is not the same as proven.' })).toBeInTheDocument();
+    expect(screen.getAllByText(/example, not proof/i)).toHaveLength(4);
+    expect(screen.getByText(/No material accepted change has been demonstrated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Used server\//i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Proven$/i)).not.toBeInTheDocument();
     expect(screen.getByText(PUBLIC_PROOF_PRIVACY_STATEMENT)).toBeInTheDocument();
-    expect(screen.getAllByText(/Maintained by the owner's agent/i)).toHaveLength(6);
+    expect(screen.getAllByText(/Maintained by the owner's agent/i)).toHaveLength(1);
+  });
+
+  it('opts the long-form public route into document scrolling and cleans up', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/proof']}><PublicProofGallery /></MemoryRouter>
+    );
+    expect(document.documentElement).toHaveClass('noeis-public-share');
+    expect(document.body).toHaveClass('noeis-public-share');
+    expect(document.querySelector('.public-proof-gallery')).toBeInTheDocument();
+    unmount();
+    expect(document.documentElement).not.toHaveClass('noeis-public-share');
+    expect(document.body).not.toHaveClass('noeis-public-share');
   });
 
   it('does not invent maintenance events when optional fields are missing', async () => {
     getPublicProofRegistry.mockResolvedValue({
       items: [
         proofItem({
-          slot: 'margin-of-safety',
-          label: 'Concept dossier',
-          title: 'Margin of Safety in Value Investing',
-          description: 'A maintained concept dossier.',
-          publicUrl: '/share/wiki/margin-of-safety',
+          slot: 'alphabet',
+          label: 'Company dossier',
+          title: 'Alphabet is Berkshire Hathaway 2.0',
+          description: 'A company dossier in acceptance.',
+          publicUrl: '/share/wiki/alphabet',
+          proofGrade: {
+            grade: 'acceptance_in_progress',
+            label: 'Acceptance In Progress',
+            reason: 'Still under acceptance.',
+            criteria: {}
+          },
           maintenanceProof: {
             clock: { type: 'reading', label: 'Reading and source events' },
             lastReviewedAt: '2026-07-03T00:00:00.000Z',
@@ -205,9 +239,46 @@ describe('PublicProofGallery', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { name: 'Margin of Safety in Value Investing' })).toBeInTheDocument();
-    expect(screen.getByText('No accepted maintenance event yet')).toBeInTheDocument();
+    expect(await screen.findByText(/Alphabet is Berkshire Hathaway 2\.0 · Acceptance In Progress/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Alphabet is Berkshire/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Updated/i)).not.toBeInTheDocument();
+  });
+
+  it('renders a flagship only for an explicit proven proofGrade', async () => {
+    const payload = registryPayload();
+    const repo = payload.items.find((item) => item.slot === 'noeis-repo-wiki');
+    repo.proofGrade = {
+      grade: 'proven',
+      label: 'Proven',
+      reason: 'Explicitly accepted source-to-claim maintenance event.',
+      acceptedAt: '2026-07-12T12:00:00.000Z',
+      comparisonUrl: '/share/wiki/note-taker-3-repo/comparison',
+      criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+    };
+    getPublicProofRegistry.mockResolvedValue(payload);
+
+    render(<MemoryRouter initialEntries={['/proof']}><PublicProofGallery /></MemoryRouter>);
+
+    expect(await screen.findByRole('region', { name: 'Flagship proof' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'One accepted maintenance loop.' })).toBeInTheDocument();
+    expect(screen.getAllByText('Proven').length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: 'Inspect the maintenance proof' })).toHaveAttribute(
+      'href',
+      '/share/wiki/note-taker-3-repo/comparison'
+    );
+  });
+
+  it('does not create a false flagship from GitHub metadata when proofGrade is missing', async () => {
+    const payload = registryPayload();
+    const repo = payload.items.find((item) => item.slot === 'noeis-repo-wiki');
+    delete repo.proofGrade;
+    getPublicProofRegistry.mockResolvedValue(payload);
+
+    render(<MemoryRouter initialEntries={['/proof']}><PublicProofGallery /></MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'No object meets the flagship bar yet.' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Flagship proof' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Noeis GitHub repo wiki' })).not.toBeInTheDocument();
   });
 
   it('keeps the page useful when the registry is unavailable', async () => {
@@ -219,7 +290,7 @@ describe('PublicProofGallery', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Public proof pages are being curated/i)).toBeInTheDocument();
+    expect(await screen.findByText(/proof registry is temporarily unavailable/i)).toBeInTheDocument();
   });
 
   it('emits CollectionPage JSON-LD with maintenance dates and citations', async () => {
@@ -229,7 +300,7 @@ describe('PublicProofGallery', () => {
       </MemoryRouter>
     );
 
-    await screen.findByRole('heading', { name: 'Alphabet is Berkshire Hathaway 2.0' });
+    await screen.findByRole('heading', { name: 'Noeis GitHub repo wiki' });
     await waitFor(() => expect(document.title).toBe('Living Research Dossiers | Noeis'));
     expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute('href', 'https://www.noeis.io/proof');
     expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute('content', 'index,follow');
@@ -240,21 +311,22 @@ describe('PublicProofGallery', () => {
       name: 'Living Research Dossiers',
       mainEntityOfPage: 'https://www.noeis.io/proof'
     }));
-    expect(schema.mainEntity.numberOfItems).toBe(6);
+    expect(schema.mainEntity.numberOfItems).toBe(5);
     expect(schema.mainEntity.itemListElement[0]).toEqual(expect.objectContaining({
       '@type': 'ListItem',
       position: 1,
-      name: 'Alphabet is Berkshire Hathaway 2.0',
-      url: 'https://www.noeis.io/share/wiki/alphabet-berkshire-2-0',
-      dateReviewed: '2026-07-04T00:00:00.000Z',
+      name: 'Margin of Safety in Value Investing',
+      url: 'https://www.noeis.io/share/wiki/margin-of-safety',
+      dateReviewed: '2026-07-03T00:00:00.000Z',
       citation: [
         expect.objectContaining({
           '@type': 'CreativeWork',
-          name: 'Alphabet is Berkshire Hathaway 2.0 source',
-          url: 'https://example.com/alphabet-dossier'
+          name: 'Margin of Safety in Value Investing source',
+          url: 'https://example.com/margin-of-safety'
         })
       ]
     }));
+    expect(schema.mainEntity.itemListElement.map(item => item.name)).not.toContain('Alphabet is Berkshire Hathaway 2.0');
   });
 });
 

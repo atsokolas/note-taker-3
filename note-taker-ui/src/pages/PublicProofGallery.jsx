@@ -56,10 +56,21 @@ const PublicProofGallery = () => {
   const [items, setItems] = useState([]);
   const [privacyStatement, setPrivacyStatement] = useState(PUBLIC_PROOF_PRIVACY_STATEMENT);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.add('noeis-public-share');
+    document.body.classList.add('noeis-public-share');
+    return () => {
+      document.body.classList.remove('noeis-public-share');
+      document.documentElement.classList.remove('noeis-public-share');
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(false);
     getPublicProofRegistry()
       .then((payload) => {
         if (cancelled) return;
@@ -71,6 +82,7 @@ const PublicProofGallery = () => {
       .catch(() => {
         if (!cancelled) {
           setItems([]);
+          setError(true);
           setLoading(false);
         }
       });
@@ -79,7 +91,56 @@ const PublicProofGallery = () => {
     };
   }, []);
 
-  const schema = useMemo(() => buildPublicProofGallerySchema(items), [items]);
+  const publicItems = items.filter((item) => ['proven', 'candidate', 'illustrative'].includes(item.proofGrade?.grade));
+  const schema = useMemo(() => buildPublicProofGallerySchema(publicItems), [publicItems]);
+  const flagship = publicItems.find((item) => item.proofGrade?.grade === 'proven') || null;
+  const repoCandidate = publicItems.find((item) => item.proofGrade?.grade === 'candidate') || null;
+  const acceptanceItems = items.filter((item) => item.proofGrade?.grade === 'acceptance_in_progress');
+  const illustrativeItems = publicItems.filter((item) => item.proofGrade?.grade === 'illustrative');
+
+  const renderProofObject = (item, { primary = false, candidate = false } = {}) => {
+    const proof = candidate ? {
+      ...item.maintenanceProof,
+      latestMaterialEvent: {
+        type: 'candidate_review',
+        summary: 'No material accepted change has been demonstrated.',
+        at: null
+      }
+    } : item.maintenanceProof;
+    const comparisonHref = item.proofGrade?.comparisonUrl || '';
+    return (
+    <article
+      className={`public-proof-gallery__card${primary ? ' is-flagship' : ''}${candidate ? ' is-candidate' : ''}`}
+      key={item.slot || item.href}
+    >
+      <div className="public-proof-gallery__card-topline">
+        <span>{primary ? item.proofGrade?.label || 'Proven' : candidate ? 'Candidate proof' : item.label}</span>
+        {item.maintenanceProof?.clock?.label ? <span>{item.maintenanceProof.clock.label}</span> : null}
+      </div>
+      <h3>{item.title}</h3>
+      {item.description ? <p>{item.description}</p> : null}
+      {item.proofGrade?.reason ? <p className="public-proof-gallery__grade-reason">{item.proofGrade.reason}</p> : null}
+      <MaintenanceProofStamp
+        proof={proof}
+        className="public-proof-gallery__stamp maintenance-proof-stamp"
+        showCounts={false}
+      />
+      <dl className="public-proof-gallery__metrics">
+        {item.sourceCount !== null ? <div><dt>Sources</dt><dd>{item.sourceCount}</dd></div> : null}
+        {item.claimCount !== null ? <div><dt>Claims</dt><dd>{item.claimCount}</dd></div> : null}
+        {item.maintenanceProof?.lastReviewedAt ? (
+          <div><dt>Reviewed</dt><dd>{formatMaintenanceDate(item.maintenanceProof.lastReviewedAt)}</dd></div>
+        ) : null}
+      </dl>
+      <div className="public-proof-gallery__card-actions">
+        {comparisonHref ? (
+          <Link className="public-proof-gallery__card-link" to={comparisonHref}>Inspect the maintenance proof</Link>
+        ) : null}
+        <Link className="public-proof-gallery__text-link" to={item.href}>Read maintained wiki</Link>
+      </div>
+    </article>
+    );
+  };
 
   useSeoMetadata({
     title: 'Living Research Dossiers | Noeis',
@@ -102,103 +163,99 @@ const PublicProofGallery = () => {
 
       <section className="public-proof-gallery__hero">
         <p className="public-proof-gallery__eyebrow">Public proof gallery</p>
-        <h1>Living research dossiers, not generated pages.</h1>
+        <h1>Watch trusted knowledge survive a changing source.</h1>
         <p>
-          Noeis keeps knowledge objects attached to sources, review dates, and safe public citations.
-          These pages are public proof of the maintenance loop: the private graph stays sealed, while
-          the useful dossier can be read, shared, and adopted.
+          Noeis is one maintained-object knowledge system. A source changes; Noeis evaluates it,
+          protects or advances trusted state, and records an auditable receipt. Only accepted knowledge
+          is published.
         </p>
         <div className="public-proof-gallery__hero-actions">
-          <a href="#dossiers">See living dossiers</a>
+          <a href={flagship ? '#flagship' : '#candidate'}>
+            {flagship ? 'Inspect the flagship proof' : 'Inspect the candidate evidence'}
+          </a>
           <Link to="/register">Make one yours</Link>
         </div>
       </section>
 
       <section className="public-proof-gallery__principle" aria-label="How public proof works">
         <div>
-          <span>Object</span>
-          <p>A concept, company, question, or repo becomes a maintained wiki object.</p>
+          <span>1 · Source changed</span>
+          <p>A public repository, filing, or other attached source moves.</p>
         </div>
         <div>
-          <span>Clock</span>
-          <p>New filings, releases, reading, and citations become source events.</p>
+          <span>2 · Noeis evaluated it</span>
+          <p>The candidate is checked against evidence and the accepted page.</p>
         </div>
         <div>
-          <span>Receipt</span>
-          <p>The page shows what is public and what the agent last reviewed.</p>
+          <span>3 · Trusted state decided</span>
+          <p>The page advances or stays protected, and the outcome is recorded.</p>
         </div>
       </section>
 
-      <section className="public-proof-gallery__section" id="dossiers" aria-label="Living dossiers">
+      <section className="public-proof-gallery__section" id={flagship ? 'flagship' : 'candidate'} aria-label={flagship ? 'Flagship proof' : 'Candidate proof'}>
         <div className="public-proof-gallery__section-head">
-          <p className="public-proof-gallery__eyebrow">Maintained examples</p>
-          <h2>Six public-safe proof objects.</h2>
+          <p className="public-proof-gallery__eyebrow">
+            {loading ? 'Resolving proof grades' : flagship ? flagship.proofGrade.label || 'Proven' : repoCandidate?.proofGrade?.label || 'Candidate proof'}
+          </p>
+          <h2>{loading ? 'Checking the public acceptance registry…' : flagship ? 'One accepted maintenance loop.' : 'No object meets the flagship bar yet.'}</h2>
           <p>
-            Each card links directly to one maintained object. Clocks, current-through facts, review
-            dates, and material events come from accepted state only.
+            {loading
+              ? 'No object is promoted until its explicit public proof grade resolves.'
+              : flagship
+              ? flagship.proofGrade.reason
+              : repoCandidate?.proofGrade?.reason || 'No object has an explicit proven grade in the public registry.'}
           </p>
           <p className="public-proof-gallery__privacy">{privacyStatement}</p>
         </div>
 
         {loading ? (
-          <div className="public-proof-gallery__state" role="status">Loading public proof pages...</div>
-        ) : items.length ? (
-          <div className="public-proof-gallery__grid">
-            {items.map(item => (
-              <article className="public-proof-gallery__card" key={item.slot || item.href}>
-                <div className="public-proof-gallery__card-topline">
-                  <span>{item.label}</span>
-                  {item.maintenanceProof?.clock?.label ? (
-                    <span>{item.maintenanceProof.clock.label}</span>
-                  ) : null}
-                </div>
-                <h3>{item.title}</h3>
-                {item.description ? <p>{item.description}</p> : null}
-                <MaintenanceProofStamp
-                  proof={item.maintenanceProof}
-                  className="public-proof-gallery__stamp maintenance-proof-stamp"
-                  showCounts={false}
-                />
-                <dl className="public-proof-gallery__metrics">
-                  {item.sourceCount !== null ? (
-                    <div>
-                      <dt>Sources</dt>
-                      <dd>{item.sourceCount}</dd>
-                    </div>
-                  ) : null}
-                  {item.claimCount !== null ? (
-                    <div>
-                      <dt>Claims</dt>
-                      <dd>{item.claimCount}</dd>
-                    </div>
-                  ) : null}
-                  {item.maintenanceProof?.lastReviewedAt ? (
-                    <div>
-                      <dt>Reviewed</dt>
-                      <dd>{formatMaintenanceDate(item.maintenanceProof.lastReviewedAt)}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-                <Link className="public-proof-gallery__card-link" to={item.href}>
-                  Open public dossier
-                </Link>
-              </article>
-            ))}
+          <div className="public-proof-gallery__state" role="status">
+            <strong>Resolving accepted proof…</strong>
+            <span>The explanation remains available while the public registry responds.</span>
           </div>
+        ) : flagship ? renderProofObject(flagship, { primary: true }) : repoCandidate ? (
+          renderProofObject(repoCandidate, { candidate: true })
         ) : (
           <div className="public-proof-gallery__state">
-            Public proof pages are being curated. Check back once the proof registry is published.
+            <strong>{error ? 'The proof registry is temporarily unavailable.' : 'No candidate comparison is currently available.'}</strong>
+            <span>No object is promoted here until its accepted maintenance state is public and inspectable.</span>
           </div>
         )}
       </section>
 
-      <section className="public-proof-gallery__section public-proof-gallery__section--next" aria-label="What comes next">
-        <p className="public-proof-gallery__eyebrow">Next source clocks</p>
-        <h2>The core does not change. The clocks get louder.</h2>
-        <p>
-          Investing and OSS are not separate apps. They are source clocks attached to the same maintained
-          object loop: EDGAR filings and transcripts for company dossiers; GitHub releases and docs for repo wikis.
-        </p>
+      <section className="public-proof-gallery__section" aria-label="Acceptance in progress">
+        <div className="public-proof-gallery__section-head">
+          <p className="public-proof-gallery__eyebrow">Acceptance in progress</p>
+          <h2>Promising is not the same as proven.</h2>
+          <p>The Alphabet thesis remains unlisted as flagship proof until its material claims are rebuilt on primary sources and a real source-review event is accepted.</p>
+        </div>
+        {acceptanceItems.length ? acceptanceItems.map((item) => (
+          <div className="public-proof-gallery__acceptance-notice" role="note" key={item.slot || item.title}>
+            <strong>{item.title} · {item.proofGrade.label || 'Acceptance in progress'}</strong>
+            <span>{item.proofGrade.reason || 'No article link is distributed here until acceptance passes.'}</span>
+          </div>
+        )) : (
+          <div className="public-proof-gallery__acceptance-notice" role="note">
+            <strong>Acceptance work remains unlisted</strong>
+            <span>No article link is distributed from this section.</span>
+          </div>
+        )}
+      </section>
+
+      <section className="public-proof-gallery__section public-proof-gallery__section--next" aria-label="Illustrative examples">
+        <p className="public-proof-gallery__eyebrow">Illustrative · unlisted examples</p>
+        <h2>Useful objects, not equivalent proof.</h2>
+        <p>These examples show the range of the same knowledge system. They do not yet demonstrate the full source-change → evaluation → accepted-state → receipt loop.</p>
+        {illustrativeItems.length ? (
+          <ul className="public-proof-gallery__page-list">
+            {illustrativeItems.map((item) => (
+              <li key={item.slot || item.href}>
+                <Link to={item.href}>{item.title}</Link>
+                <small>{item.proofGrade.label || 'Illustrative'} · example, not proof</small>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
     </main>
   );

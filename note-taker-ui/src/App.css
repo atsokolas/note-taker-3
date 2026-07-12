@@ -156,6 +156,14 @@ html.noeis-public-share body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Public long-form routes own the document scroll surface; authenticated shells keep their existing panes. */
+html.noeis-public-share .public-proof-gallery,
+html.noeis-public-share .public-wiki-comparison {
+  min-height: 100dvh;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
 html.noeis-public-share body #root {
   min-height: 100vh;
   height: auto !important;

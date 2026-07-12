@@ -5,17 +5,19 @@ import * as router from 'react-router-dom';
 import PublicWikiComparison, {
   buildPublicWikiComparisonSchema,
   isZeroChangeComparison,
+  materialExamples,
   normalizeProofPulse,
   shortSha,
   summarizeNoeisChanges,
   summarizeRepositoryChanges,
   summarizeStaticWikiRisk
 } from './PublicWikiComparison';
-import { getPublicWikiComparison } from '../api/wiki';
+import { getPublicProofRegistry, getPublicWikiComparison } from '../api/wiki';
 import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
 
 jest.mock('../api/wiki', () => ({
-  getPublicWikiComparison: jest.fn()
+  getPublicWikiComparison: jest.fn(),
+  getPublicProofRegistry: jest.fn()
 }));
 
 const mockParams = (idOrSlug) => {
@@ -199,6 +201,8 @@ describe('PublicWikiComparison', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     getPublicWikiComparison.mockReset();
+    getPublicProofRegistry.mockReset();
+    getPublicProofRegistry.mockResolvedValue({ items: [] });
     mockParams('noeis-repo');
     jest.spyOn(router, 'useLocation').mockReturnValue({
       pathname: '/share/wiki/noeis-repo/comparison',
@@ -223,6 +227,44 @@ describe('PublicWikiComparison', () => {
     expect(within(baseline).getByText('4cbdac0')).toBeInTheDocument();
     expect(within(published).getByText('a7cc281')).toBeInTheDocument();
     expect(within(observed).getByText('91ab3f2')).toBeInTheDocument();
+  });
+
+  it('leads with four plain-English answers and keeps technical evidence collapsed', async () => {
+    getPublicWikiComparison.mockResolvedValue({
+      comparison: baseComparison({ withRepoChanges: true, withMaterialClaims: true })
+    });
+    renderComparison(<PublicWikiComparison />);
+
+    expect(await screen.findByText('1 · What changed?')).toBeInTheDocument();
+    expect(screen.getByText('2 · What does the trusted wiki reflect?')).toBeInTheDocument();
+    expect(screen.getByText('3 · Why publish or hold?')).toBeInTheDocument();
+    expect(screen.getByText('4 · What should I inspect?')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Material examples' })).toBeInTheDocument();
+    const detail = screen.getByText('Technical detail and full evidence').closest('details');
+    expect(detail).not.toHaveAttribute('open');
+    expect(detail.querySelectorAll('[data-claim-group]').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Candidate proof\. Promotion requires a legible source event/i)).toBeInTheDocument();
+  });
+
+  it('ranks claim examples ahead of repository filenames and shows the evidence disposition', async () => {
+    const comparison = baseComparison({ withRepoChanges: true, withMaterialClaims: true });
+    const examples = materialExamples(comparison);
+    expect(examples[0]).toEqual(expect.objectContaining({
+      type: 'Changed',
+      before: 'Old entrypoint claim.',
+      after: 'Updated entrypoint claim.',
+      disposition: 'Candidate changed'
+    }));
+    expect(examples.map(example => example.before)).not.toContain('package.json');
+
+    getPublicWikiComparison.mockResolvedValue({ comparison });
+    renderComparison(<PublicWikiComparison />);
+    await screen.findByRole('heading', { name: 'Material examples' });
+    const exampleSection = screen.getByRole('region', { name: 'Material examples' });
+    expect(within(exampleSection).getByText('Old entrypoint claim.')).toBeInTheDocument();
+    expect(within(exampleSection).getByText('Updated entrypoint claim.')).toBeInTheDocument();
+    expect(within(exampleSection).getAllByText(/No public source is linked/i).length).toBeGreaterThan(0);
+    expect(within(exampleSection).queryByText('package.json')).not.toBeInTheDocument();
   });
 
   it('never labels the observed or candidate head as published', async () => {
@@ -273,8 +315,8 @@ describe('PublicWikiComparison', () => {
     expect(document.querySelector('[data-claim-group="contradicted"]')).toHaveTextContent(/Contradicted \(1\)/);
     expect(document.querySelector('[data-claim-group="removed"]')).toHaveTextContent(/Removed \(1\)/);
     expect(document.querySelector('[data-claim-group="preserved"]')).toHaveTextContent(/Preserved \(2\)/);
-    expect(screen.getByText('New claim about releases.')).toBeInTheDocument();
-    expect(screen.getByText('Updated entrypoint claim.')).toBeInTheDocument();
+    expect(screen.getAllByText('New claim about releases.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Updated entrypoint claim.').length).toBeGreaterThan(0);
   });
 
   it('shows rejected counts without rejected candidate prose', async () => {
@@ -289,7 +331,7 @@ describe('PublicWikiComparison', () => {
     await screen.findByText('Claims rejected or flagged');
     expect(screen.getByText(/rejected candidate 1/i)).toBeInTheDocument();
     expect(screen.queryByText(/run-9/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/2 changed/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/2 changed/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/SECRET rejected candidate prose/i)).not.toBeInTheDocument();
   });
 
@@ -304,8 +346,8 @@ describe('PublicWikiComparison', () => {
     renderComparison(<PublicWikiComparison />);
 
     await screen.findByText('What a static wiki would now say incorrectly');
-    expect(screen.getByText('The entrypoint is still the old path.')).toBeInTheDocument();
-    expect(screen.getByText(/repository source supporting this baseline claim/i)).toBeInTheDocument();
+    expect(screen.getAllByText('The entrypoint is still the old path.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/repository source supporting this baseline claim/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: 'Supporting GitHub refs' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /package\.json/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /README\.md/i })).toHaveAttribute(
@@ -340,7 +382,7 @@ describe('PublicWikiComparison', () => {
 
     const pulse = await screen.findByTestId('proof-pulse');
     expect(screen.getByTestId('proof-pulse-headline')).toHaveTextContent(/67 claims held steady through a7cc281/i);
-    expect(screen.getByTestId('proof-pulse-state')).toHaveTextContent('Current');
+    expect(screen.getByTestId('proof-pulse-state')).toHaveTextContent('No drift observed');
     expect(document.querySelector('[data-proof-pulse-state="current"]')).toBeInTheDocument();
     expect(within(pulse).getByText(/Why maintenance matters/i)).toBeInTheDocument();
     expect(screen.getByTestId('proof-pulse-published')).toHaveTextContent('a7cc281');
@@ -410,7 +452,7 @@ describe('PublicWikiComparison', () => {
     renderComparison(<PublicWikiComparison />);
 
     await screen.findByTestId('proof-pulse');
-    expect(screen.getByTestId('proof-pulse-state')).toHaveTextContent('Maintained');
+    expect(screen.getByTestId('proof-pulse-state')).toHaveTextContent('Candidate update');
     expect(screen.getByTestId('proof-pulse-headline')).toHaveTextContent(/updated 3 claims and preserved 2/i);
     expect(screen.getByText(/1 claims gained support/i)).toBeInTheDocument();
   });

@@ -5,6 +5,30 @@ export const PUBLIC_PROOF_PRIVACY_STATEMENT = (
 export const NO_ACCEPTED_MAINTENANCE_EVENT_COPY = 'No accepted maintenance event yet';
 
 const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+const PUBLIC_PROOF_GRADES = new Set(['proven', 'candidate', 'acceptance_in_progress', 'illustrative']);
+
+export const normalizeProofGrade = (proofGrade = null) => {
+  if (!proofGrade || typeof proofGrade !== 'object') return null;
+  const grade = cleanText(proofGrade.grade).toLowerCase();
+  if (!PUBLIC_PROOF_GRADES.has(grade)) return null;
+  const comparisonUrl = cleanText(proofGrade.comparisonUrl);
+  const criteria = proofGrade.criteria && typeof proofGrade.criteria === 'object'
+    ? proofGrade.criteria
+    : {};
+  return {
+    grade,
+    label: cleanText(proofGrade.label),
+    reason: cleanText(proofGrade.reason),
+    acceptedAt: proofGrade.acceptedAt || null,
+    comparisonUrl: comparisonUrl.startsWith('/share/wiki/') ? comparisonUrl : '',
+    criteria: {
+      explicitlyAccepted: criteria.explicitlyAccepted === true,
+      acceptedVersion: criteria.acceptedVersion === true,
+      materialEvent: criteria.materialEvent === true,
+      sourceGrounded: criteria.sourceGrounded === true
+    }
+  };
+};
 
 export const formatMaintenanceDate = (value) => {
   if (!value) return '';
@@ -76,6 +100,7 @@ export const normalizeMaintenanceProof = (proof = null) => {
 export const normalizePublicProofItem = (entry = {}) => {
   const page = entry?.page && typeof entry.page === 'object' ? entry.page : {};
   const maintenanceProof = normalizeMaintenanceProof(entry.maintenanceProof);
+  const proofGrade = normalizeProofGrade(entry.proofGrade);
   const href = pagePublicPath(page, entry.publicUrl);
   const sourceCount = maintenanceProof?.sourceCount ?? (
     Number.isFinite(Number(page.sourceCount)) ? Number(page.sourceCount) : null
@@ -93,6 +118,7 @@ export const normalizePublicProofItem = (entry = {}) => {
     maintenanceProof,
     sourceCount,
     claimCount,
+    proofGrade,
     page
   };
 };

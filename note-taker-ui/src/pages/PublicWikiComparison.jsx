@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { getPublicWikiComparison } from '../api/wiki';
+import { getPublicProofRegistry, getPublicWikiComparison } from '../api/wiki';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
-import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
+import { PUBLIC_PROOF_PRIVACY_STATEMENT, normalizePublicProofRegistry } from '../utils/maintenanceProof';
 import '../styles/public-wiki-comparison.css';
 
 const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
@@ -60,8 +60,8 @@ export const PROOF_PULSE_STATES = Object.freeze([
 ]);
 
 export const PROOF_PULSE_STATE_LABELS = Object.freeze({
-  current: 'Current',
-  maintained: 'Maintained',
+  current: 'No drift observed',
+  maintained: 'Candidate update',
   repository_ahead: 'Repository ahead',
   held_for_review: 'Held for review'
 });
@@ -150,6 +150,70 @@ export const summarizeStaticWikiRisk = (comparison = {}) => {
     return 'A generate-once wiki has no demonstrated stale statements against this baseline yet.';
   }
   return `A generate-once wiki would now state ${errors.length} claim${errors.length === 1 ? '' : 's'} incorrectly.`;
+};
+
+export const materialExamples = (comparison = {}, limit = 5) => {
+  const examples = [];
+  const evidenceFor = (row = {}) => {
+    const claim = row.after || row.before || {};
+    const candidates = [
+      ...(Array.isArray(row.refs) ? row.refs : []),
+      ...(Array.isArray(row.evidenceRefs) ? row.evidenceRefs : []),
+      ...(Array.isArray(claim.sourceRefs) ? claim.sourceRefs : []),
+      ...(Array.isArray(claim.evidenceRefs) ? claim.evidenceRefs : [])
+    ];
+    const ref = candidates.find((item) => item && (item.title || item.path || item.url));
+    return ref ? {
+      label: cleanText(ref.title || ref.path || ref.url),
+      url: cleanText(ref.url)
+    } : null;
+  };
+  ['changed', 'gainedSupport', 'contradicted', 'preserved', 'added', 'removed'].forEach((group) => {
+    const rows = comparison.claimComparison?.deltas?.[group] || [];
+    rows.forEach((row) => {
+      const before = cleanText(row.before?.text);
+      const after = cleanText(row.after?.text);
+      if (before || after) examples.push({
+        type: claimDeltaLabels[group],
+        before: before || 'No prior accepted claim.',
+        after: after || 'Removed from the candidate claim set.',
+        evidence: evidenceFor(row),
+        disposition: group === 'preserved'
+          ? 'Preserved after review'
+          : group === 'contradicted'
+            ? 'Flagged as contradicted'
+            : group === 'gainedSupport'
+              ? 'Candidate gained support'
+              : `Candidate ${claimDeltaLabels[group].toLowerCase()}`
+      });
+    });
+  });
+  (comparison.rejectedCandidates || []).forEach((row) => {
+    const counts = Object.entries(row?.counts || {})
+      .filter(([, value]) => Number(value) > 0)
+      .map(([key, value]) => `${value} ${key}`)
+      .join(', ');
+    examples.push({
+      type: 'Rejected candidate',
+      before: 'Trusted published claims remained in place.',
+      after: 'Candidate prose is intentionally withheld from public output.',
+      evidence: null,
+      disposition: counts ? `Rejected or held: ${counts}` : 'Rejected or held for review'
+    });
+  });
+  (comparison.staticWikiErrors || []).forEach((row) => {
+    if (cleanText(row.staleClaim)) examples.push({
+      type: 'Static-wiki risk',
+      before: cleanText(row.staleClaim),
+      after: cleanText(row.reason) || 'The supporting repository source changed.',
+      evidence: Array.isArray(row.refs) && row.refs[0] ? {
+        label: cleanText(row.refs[0].title || row.refs[0].path || row.refs[0].url),
+        url: cleanText(row.refs[0].url)
+      } : null,
+      disposition: 'Demonstrably stale baseline claim'
+    });
+  });
+  return examples.slice(0, limit);
 };
 
 export const buildPublicWikiComparisonSchema = ({
@@ -253,6 +317,7 @@ const PublicWikiComparison = () => {
   const [comparison, setComparison] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [proofGrade, setProofGrade] = useState(null);
 
   usePublicShareScrollSurface();
 
@@ -281,6 +346,24 @@ const PublicWikiComparison = () => {
       cancelled = true;
     };
   }, [idOrSlug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const comparisonPath = location.pathname || `/share/wiki/${idOrSlug}/comparison`;
+    getPublicProofRegistry()
+      .then((payload) => {
+        if (cancelled) return;
+        const registry = normalizePublicProofRegistry(payload);
+        const matched = registry.items.find((item) => item.proofGrade?.comparisonUrl === comparisonPath);
+        setProofGrade(matched?.proofGrade || null);
+      })
+      .catch(() => {
+        if (!cancelled) setProofGrade(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idOrSlug, location.pathname]);
 
   const canonicalPath = location.pathname || `/share/wiki/${idOrSlug}/comparison`;
   const sharedPagePath = `/share/wiki/${encodeURIComponent(idOrSlug)}`;
@@ -325,6 +408,10 @@ const PublicWikiComparison = () => {
   const rejected = Array.isArray(comparison?.rejectedCandidates) ? comparison.rejectedCandidates : [];
   const staticErrors = Array.isArray(comparison?.staticWikiErrors) ? comparison.staticWikiErrors : [];
   const refs = Array.isArray(comparison?.supportingRefs) ? comparison.supportingRefs : [];
+  const examples = materialExamples(comparison || {});
+  const changedClaimCount = MATERIAL_CLAIM_KEYS.reduce((sum, key) => sum + countOf(comparison, key), 0);
+  const largeClaimDelta = changedClaimCount >= 25;
+  const provenComparison = proofGrade?.grade === 'proven';
   const summaryClassName = [
     'public-wiki-comparison__summary',
     proofPulse ? `is-pulse is-pulse-${proofPulse.state}` : '',
@@ -352,7 +439,13 @@ const PublicWikiComparison = () => {
       ) : comparison ? (
         <article className="public-wiki-comparison__article">
           <header className="public-wiki-comparison__hero">
-            <p className="public-wiki-comparison__eyebrow">Public repository maintenance comparison</p>
+            <p className="public-wiki-comparison__eyebrow">
+              {provenComparison
+                ? proofGrade.label || 'Proven'
+                : proofGrade?.label
+                  ? `${proofGrade.label} · regeneration stability under review`
+                  : 'Ungraded comparison · no proven status inferred'}
+            </p>
             <h1>{fullName}</h1>
             <p className="public-wiki-comparison__lede">
               Day-one baseline versus the currently published maintained wiki for this public GitHub repository.
@@ -366,7 +459,7 @@ const PublicWikiComparison = () => {
             data-screenshot-region="comparison-summary"
             data-proof-pulse-state={proofPulse?.state || undefined}
           >
-            <h2>Summary</h2>
+            <h2>The maintenance decision</h2>
             {proofPulse ? (
               <div
                 className="public-wiki-comparison__proof-pulse"
@@ -422,28 +515,42 @@ const PublicWikiComparison = () => {
                 ) : null}
               </div>
             ) : null}
-            <dl className="public-wiki-comparison__three-facts">
+            <dl className="public-wiki-comparison__three-facts public-wiki-comparison__four-answers">
               <div>
-                <dt>Repository changed</dt>
+                <dt>1 · What changed?</dt>
                 <dd>{summarizeRepositoryChanges(comparison)}</dd>
               </div>
               <div>
-                <dt>Noeis changed or preserved</dt>
+                <dt>2 · What does the trusted wiki reflect?</dt>
                 <dd>{summarizeNoeisChanges(comparison)}</dd>
               </div>
               <div>
-                <dt>Static wiki risk</dt>
-                <dd>{summarizeStaticWikiRisk(comparison)}</dd>
+                <dt>3 · Why publish or hold?</dt>
+                <dd>{!provenComparison
+                  ? 'A wiki version may be published, but this comparison has not cleared the public-proof acceptance bar.'
+                  : proofPulse?.state === 'held_for_review'
+                  ? 'The candidate did not clear the evidence bar, so the trusted published page stayed unchanged.'
+                  : publishedSha === observedSha
+                    ? 'The reviewed repository version cleared acceptance and now backs the public wiki.'
+                    : 'Repository ahead means GitHub has changed, but the public wiki stays on the last accepted version until review clears.'}</dd>
+              </div>
+              <div>
+                <dt>4 · What should I inspect?</dt>
+                <dd>{examples.length
+                  ? 'Start with the material examples below, then open the linked GitHub evidence.'
+                  : 'Inspect the accepted version and public GitHub references; no material delta has been demonstrated yet.'}</dd>
               </div>
             </dl>
-            <div className="public-wiki-comparison__metric-row" aria-label="Claim counts">
-              {CLAIM_DELTA_ORDER.map((key) => (
-                <span key={key} className="public-wiki-comparison__metric">
-                  <strong>{countOf(comparison, key)}</strong>
-                  {claimDeltaLabels[key]}
-                </span>
-              ))}
-            </div>
+            {largeClaimDelta ? (
+              <p className="public-wiki-comparison__stability-warning" role="status">
+                {changedClaimCount} material claim deltas is a regeneration-stability warning. It needs editorial inspection; volume alone is not proof of good maintenance.
+              </p>
+            ) : null}
+            {!provenComparison ? (
+              <p className="public-wiki-comparison__candidate-note" role="status">
+                Candidate proof. Promotion requires a legible source event tied to specific before-and-after claims, public evidence, an acceptance disposition, and preserved trusted state where change is not supported.
+              </p>
+            ) : null}
             {zeroChange && !proofPulse ? (
               <p className="public-wiki-comparison__zero-note" role="status">
                 Baseline state: the repository evidence set and claim ledger match the day-one snapshot.
@@ -453,6 +560,35 @@ const PublicWikiComparison = () => {
               </p>
             ) : null}
           </section>
+
+          <section className="public-wiki-comparison__section public-wiki-comparison__examples" aria-label="Material examples">
+            <h2>Material examples</h2>
+            <p>{examples.length ? 'Claim-level outcomes appear before technical repository paths.' : 'No claim-level source-to-claim example can be demonstrated from this public comparison.'}</p>
+            {examples.length ? (
+              <ol>
+                {examples.map((example, index) => (
+                  <li key={`${example.type}-${example.before}-${index}`}>
+                    <span>{example.type}</span>
+                    <dl>
+                      <div><dt>Before</dt><dd>{example.before}</dd></div>
+                      <div><dt>After</dt><dd>{example.after}</dd></div>
+                      <div>
+                        <dt>Evidence</dt>
+                        <dd>{example.evidence?.url ? (
+                          <a href={example.evidence.url} target="_blank" rel="noopener noreferrer">{example.evidence.label}</a>
+                        ) : example.evidence?.label || 'No public source is linked to this claim delta.'}</dd>
+                      </div>
+                      <div><dt>Disposition</dt><dd>{example.disposition}</dd></div>
+                    </dl>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+          </section>
+
+          <details className="public-wiki-comparison__technical">
+            <summary>Technical detail and full evidence</summary>
+            <div className="public-wiki-comparison__technical-body">
 
           <section className="public-wiki-comparison__section" aria-label="Repository versions">
             <h2>Repository versions</h2>
@@ -712,6 +848,8 @@ const PublicWikiComparison = () => {
               </ul>
             )}
           </section>
+            </div>
+          </details>
         </article>
       ) : null}
     </main>

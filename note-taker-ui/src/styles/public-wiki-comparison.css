@@ -308,6 +308,102 @@
   margin: 0;
 }
 
+.public-wiki-comparison__four-answers {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.public-wiki-comparison__stability-warning {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--pwc-warn);
+  background: color-mix(in srgb, var(--pwc-warn) 9%, transparent);
+  line-height: 1.5;
+}
+
+.public-wiki-comparison__candidate-note {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--pwc-warn) 36%, var(--pwc-line));
+  border-radius: 10px;
+  color: var(--pwc-ink);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.public-wiki-comparison__examples ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--pwc-line);
+}
+
+.public-wiki-comparison__examples li {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.28fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--pwc-line);
+}
+
+.public-wiki-comparison__examples li > span {
+  color: var(--pwc-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.public-wiki-comparison__examples li dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.public-wiki-comparison__examples li dl > div {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.public-wiki-comparison__examples li dt {
+  color: var(--pwc-muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.public-wiki-comparison__examples li dd {
+  margin: 0;
+  color: var(--pwc-ink);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.public-wiki-comparison__examples li a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.public-wiki-comparison__technical {
+  border-top: 1px solid var(--pwc-line);
+  border-bottom: 1px solid var(--pwc-line);
+}
+
+.public-wiki-comparison__technical > summary {
+  padding: 18px 0;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.public-wiki-comparison__technical-body {
+  display: grid;
+  gap: 28px;
+  padding: 6px 0 28px;
+}
+
 .public-wiki-comparison__three-facts > div {
   display: grid;
   gap: 6px;
@@ -595,6 +691,45 @@ html.dark .public-wiki-comparison {
 
   .public-wiki-comparison__pulse-facts li {
     border-radius: 10px;
+  }
+
+  .public-wiki-comparison__four-answers,
+  .public-wiki-comparison__examples li {
+    grid-template-columns: 1fr;
+  }
+
+  .public-wiki-comparison {
+    font-size: 17px;
+  }
+
+  .public-wiki-comparison__eyebrow,
+  .public-wiki-comparison__pulse-kicker,
+  .public-wiki-comparison__three-facts dt,
+  .public-wiki-comparison__examples li > span {
+    font-size: 0.76rem;
+    letter-spacing: 0.1em;
+  }
+
+  .public-wiki-comparison__privacy,
+  .public-wiki-comparison__lede,
+  .public-wiki-comparison__three-facts dd,
+  .public-wiki-comparison__pulse-facts li,
+  .public-wiki-comparison__empty,
+  .public-wiki-comparison__section > p {
+    font-size: 1.0625rem;
+  }
+
+  .public-wiki-comparison__pulse-facts {
+    display: grid;
+  }
+
+  .public-wiki-comparison__pulse-facts li:nth-child(n + 5) {
+    display: none;
+  }
+
+  .public-wiki-comparison__examples li dl > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
   }
 }
 
