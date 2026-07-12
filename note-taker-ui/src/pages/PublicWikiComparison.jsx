@@ -173,11 +173,24 @@ export const materialExamples = (comparison = {}, limit = 5) => {
     rows.forEach((row) => {
       const before = cleanText(row.before?.text);
       const after = cleanText(row.after?.text);
-      if (before || after) examples.push({
+      const beforeSupport = cleanText(row.before?.support);
+      const afterSupport = cleanText(row.after?.support);
+      const beforeSection = cleanText(row.before?.section);
+      const afterSection = cleanText(row.after?.section);
+      const evidence = evidenceFor(row);
+      const textChanged = before !== after;
+      const supportChanged = beforeSupport !== afterSupport;
+      const sectionChanged = beforeSection !== afterSection;
+      const demonstrable = textChanged || supportChanged || sectionChanged || Boolean(evidence);
+      if ((before || after) && demonstrable) examples.push({
         type: claimDeltaLabels[group],
-        before: before || 'No prior accepted claim.',
-        after: after || 'Removed from the candidate claim set.',
-        evidence: evidenceFor(row),
+        before: before
+          ? `${before}${supportChanged && beforeSupport ? ` · Support: ${beforeSupport}` : ''}${sectionChanged && beforeSection ? ` · Section: ${beforeSection}` : ''}`
+          : 'No prior accepted claim.',
+        after: after
+          ? `${after}${supportChanged && afterSupport ? ` · Support: ${afterSupport}` : ''}${sectionChanged && afterSection ? ` · Section: ${afterSection}` : ''}`
+          : 'Removed from the candidate claim set.',
+        evidence,
         disposition: group === 'preserved'
           ? 'Preserved after review'
           : group === 'contradicted'

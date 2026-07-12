@@ -267,6 +267,16 @@ describe('PublicWikiComparison', () => {
     expect(within(exampleSection).queryByText('package.json')).not.toBeInTheDocument();
   });
 
+  it('omits ledger deltas with no publicly visible before-after difference or evidence', () => {
+    const comparison = baseComparison();
+    comparison.claimComparison.counts.changed = 1;
+    comparison.claimComparison.deltas.changed = [{
+      before: { text: 'Same public claim.', support: 'supported', section: 'Overview' },
+      after: { text: 'Same public claim.', support: 'supported', section: 'Overview' }
+    }];
+    expect(materialExamples(comparison)).toEqual([]);
+  });
+
   it('never labels the observed or candidate head as published', async () => {
     getPublicWikiComparison.mockResolvedValue({ comparison: baseComparison() });
     renderComparison(<PublicWikiComparison />);
