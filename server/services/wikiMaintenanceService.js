@@ -1029,7 +1029,7 @@ const collectExistingSourceCandidates = ({ page = {} } = {}) => (
     .filter(source => asString(source.title) || asString(source.text) || asString(source.url))
 );
 
-const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT }) => {
+const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT, preferredSourceObjectId = '' }) => {
   const existingCandidates = collectExistingSourceCandidates({ page });
   if (isGitHubRepoPage({ page, candidates: existingCandidates })) {
     const repoCandidates = existingCandidates.filter(isGitHubRepoCandidate);
@@ -1060,6 +1060,22 @@ const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIM
       )
         .map((source, index) => ({ ...source, index: index + 1 }));
     }
+  }
+  const preferredId = asString(preferredSourceObjectId);
+  if (preferredId) {
+    const preferred = existingCandidates.filter(source => asString(source.objectId) === preferredId);
+    const attached = existingCandidates.filter(source => asString(source.objectId) !== preferredId);
+    const library = selectCandidateSources({ page, sources, limit });
+    const seen = new Set();
+    return [...preferred, ...attached, ...library]
+      .filter((source) => {
+        const key = [source.type, asString(source.objectId), asString(source.url), asString(source.title)].join(':');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, limit)
+      .map((source, index) => ({ ...source, index: index + 1 }));
   }
   return selectCandidateSources({ page, sources, limit });
 };
@@ -3001,6 +3017,7 @@ const maintainWikiPage = async ({
   maintenanceProfile = 'standard',
   sourceLimit = null,
   sourceTextLimit = null,
+  preferredSourceObjectId = '',
   skipQualityRebuild = false,
   streamDraft = false,
   onProgress = null
@@ -3026,7 +3043,12 @@ const maintainWikiPage = async ({
     });
   };
   const allSources = await collectLibrarySources({ userId, models, fastProfile });
-  const candidates = selectMaintenanceCandidates({ page, sources: allSources, limit: effectiveSourceLimit });
+  const candidates = selectMaintenanceCandidates({
+    page,
+    sources: allSources,
+    limit: effectiveSourceLimit,
+    preferredSourceObjectId
+  });
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
   const draftTemperature = repoMaintenance ? 0.08 : 0.2;
   const rebuildTemperature = repoMaintenance ? 0.12 : 0.28;

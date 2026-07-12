@@ -367,6 +367,41 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).not.toContain('Do not claim the repo is published to npm');
   });
 
+  it('puts the triggering external source first while retaining trusted attached evidence', () => {
+    const candidates = selectMaintenanceCandidates({
+      page: {
+        title: 'Alphabet investment dossier',
+        plainText: 'Alphabet advertising cash flow and capital allocation.',
+        sourceRefs: [{
+          type: 'external',
+          objectId: 'trusted-source',
+          title: 'Trusted annual report',
+          snippet: 'Alphabet advertising revenue and operating cash flow.'
+        }, {
+          type: 'external',
+          objectId: 'filing-event',
+          title: 'GOOGL 10-Q filed 2026-04-30',
+          snippet: 'Quarterly revenue increased and capital expenditures expanded.'
+        }]
+      },
+      sources: [{
+        type: 'article',
+        objectId: 'library-source',
+        title: 'Alphabet valuation note',
+        text: 'Alphabet advertising revenue valuation.'
+      }],
+      preferredSourceObjectId: 'filing-event',
+      limit: 3
+    });
+
+    expect(candidates.map(candidate => candidate.objectId)).toEqual([
+      'filing-event',
+      'trusted-source',
+      'library-source'
+    ]);
+    expect(candidates.map(candidate => candidate.index)).toEqual([1, 2, 3]);
+  });
+
   it('prefers attached GitHub repository evidence over unrelated library sources', () => {
     const candidates = selectMaintenanceCandidates({
       page: {

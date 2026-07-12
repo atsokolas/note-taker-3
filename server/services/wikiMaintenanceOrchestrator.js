@@ -408,6 +408,7 @@ const processWikiSourceEvent = async ({
       const maintainArgs = {
         models: { Article, NotebookEntry, TagMeta, Question },
         trigger: 'source_event',
+        preferredSourceObjectId: String(event._id || ''),
         wikiSchemaContent: effectiveWikiSchemaContent
       };
       const enforcePublicationShield = isGitHubRepoPage({ page })
