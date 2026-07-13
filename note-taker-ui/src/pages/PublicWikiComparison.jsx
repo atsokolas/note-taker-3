@@ -191,7 +191,9 @@ export const materialExamples = (comparison = {}, limit = 5) => {
           ? `${after}${supportChanged && afterSupport ? ` · Support: ${afterSupport}` : ''}${sectionChanged && afterSection ? ` · Section: ${afterSection}` : ''}`
           : 'Removed from the candidate claim set.',
         evidence,
-        disposition: group === 'preserved'
+        disposition: group === 'changed' && !textChanged && !supportChanged && !sectionChanged && evidence
+          ? 'Evidence changed; claim text preserved'
+          : group === 'preserved'
           ? 'Preserved after review'
           : group === 'contradicted'
             ? 'Flagged as contradicted'

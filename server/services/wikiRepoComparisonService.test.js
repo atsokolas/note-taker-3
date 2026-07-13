@@ -78,9 +78,42 @@ const page = {
   ['sourceRefId', 'claimId', 'citationIds', 'sourceRefIds', 'evidenceIds', 'contradictionIds', 'runId']
     .forEach(key => assert.ok(!publicJson.includes(`"${key}"`), `public comparison leaked ${key}`));
   assert.strictEqual(publicComparison.claimComparison.deltas.changed[0].before.text, 'The old entrypoint is src/index.ts.');
+  assert.deepStrictEqual(publicComparison.claimComparison.deltas.changed[0].evidenceRefs, [{
+    title: 'src/index.ts',
+    path: 'src/index.ts',
+    evidenceType: 'code',
+    blobSha: 'blob-2',
+    commitSha: 'head-2',
+    tagName: '',
+    url: 'https://github.com/openai/agents-js/blob/head-2/src/index.ts'
+  }]);
   assert.strictEqual(publicComparison.repositoryChanges.changed[0].current.path, 'src/index.ts');
   assert.strictEqual(buildProofPulse(comparison).state, 'repository_ahead');
   assert.ok(buildProofPulse(comparison).headline.includes('trusted head-2'));
+})();
+
+(() => {
+  const unsafe = serializePublicRepoComparison({
+    version: 1,
+    repository: {},
+    baseline: {},
+    current: {},
+    baselineSourceRefs: [{ sourceRefId: 'private-id', path: 'README.md', title: 'Unsafe', url: 'https://example.com/private' }],
+    repositoryChanges: { added: [], changed: [], removed: [] },
+    claimComparison: {
+      counts: { added: 1, changed: 0, gainedSupport: 0, contradicted: 0, preserved: 0, removed: 0 },
+      deltas: {
+        added: [{ after: { text: 'Claim', sourceRefIds: ['README.md'] } }],
+        changed: [], gainedSupport: [], contradicted: [], preserved: [], removed: []
+      }
+    },
+    rejectedCandidates: [],
+    staticWikiErrors: [],
+    supportingRefs: []
+  });
+  assert.ok(!unsafe.claimComparison.deltas.added[0].evidenceRefs);
+  assert.ok(!JSON.stringify(unsafe).includes('private-id'));
+  assert.ok(!JSON.stringify(unsafe).includes('example.com'));
 })();
 
 (() => {

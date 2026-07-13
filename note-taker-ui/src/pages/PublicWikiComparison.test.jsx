@@ -277,6 +277,21 @@ describe('PublicWikiComparison', () => {
     expect(materialExamples(comparison)).toEqual([]);
   });
 
+  it('labels an evidence-only ledger delta as preserved claim text', () => {
+    const comparison = baseComparison();
+    comparison.claimComparison.counts.changed = 1;
+    comparison.claimComparison.deltas.changed = [{
+      before: { text: 'Same public claim.', support: 'supported', section: 'Overview' },
+      after: { text: 'Same public claim.', support: 'supported', section: 'Overview' },
+      evidenceRefs: [{ title: 'README.md', url: 'https://github.com/example/repo/blob/head/README.md' }]
+    }];
+    expect(materialExamples(comparison)[0]).toEqual(expect.objectContaining({
+      before: 'Same public claim.',
+      after: 'Same public claim.',
+      disposition: 'Evidence changed; claim text preserved'
+    }));
+  });
+
   it('never labels the observed or candidate head as published', async () => {
     getPublicWikiComparison.mockResolvedValue({ comparison: baseComparison() });
     renderComparison(<PublicWikiComparison />);

@@ -2,6 +2,7 @@ const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 
 const PUBLIC_COMPARISON_DETAIL_LIMIT = 12;
 const PUBLIC_COMPARISON_REF_LIMIT = 40;
+const PUBLIC_CLAIM_EVIDENCE_REF_LIMIT = 4;
 
 const clean = (value = '', limit = 800) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 const id = (value) => clean(value?._id || value?.id || value, 160);
@@ -164,6 +165,7 @@ const buildRepoComparison = ({ baseline, page, maintenanceRuns = [] } = {}) => {
       generatorVersion: clean(baseline.generatorVersion, 120),
       capturedAt: baseline.capturedAt || baseline.createdAt || null
     },
+    baselineSourceRefs: baselineRefs,
     current: {
       observedHeadSha: clean(watch.lastHeadSha, 80),
       publishedHeadSha: clean(watch.publishedHeadSha, 80),
@@ -233,10 +235,26 @@ const serializePublicClaim = (claim = {}) => ({
   support: clean(claim.support, 40)
 });
 
-const serializePublicClaimRow = (row = {}) => ({
-  ...(row.before ? { before: serializePublicClaim(row.before) } : {}),
-  ...(row.after ? { after: serializePublicClaim(row.after) } : {})
-});
+const publicEvidenceRefsForClaimRow = (row = {}, refsByPath = new Map()) => {
+  const paths = [
+    ...(Array.isArray(row.after?.sourceRefIds) ? row.after.sourceRefIds : []),
+    ...(Array.isArray(row.before?.sourceRefIds) ? row.before.sourceRefIds : [])
+  ].map(value => clean(value, 500)).filter(Boolean);
+  return Array.from(new Set(paths))
+    .map(path => refsByPath.get(path))
+    .filter(ref => ref && /^https:\/\/github\.com\//i.test(clean(ref.url, 1000)))
+    .slice(0, PUBLIC_CLAIM_EVIDENCE_REF_LIMIT)
+    .map(serializePublicRepoRef);
+};
+
+const serializePublicClaimRow = (row = {}, refsByPath = new Map()) => {
+  const evidenceRefs = publicEvidenceRefsForClaimRow(row, refsByPath);
+  return {
+    ...(row.before ? { before: serializePublicClaim(row.before) } : {}),
+    ...(row.after ? { after: serializePublicClaim(row.after) } : {}),
+    ...(evidenceRefs.length ? { evidenceRefs } : {})
+  };
+};
 
 const serializePublicRepositoryChanges = (changes = {}) => Object.fromEntries(
   ['added', 'changed', 'removed'].map(group => [group, (changes[group] || []).slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT).map(row => ({
@@ -246,17 +264,23 @@ const serializePublicRepositoryChanges = (changes = {}) => Object.fromEntries(
   }))])
 );
 
-const serializePublicClaimComparison = (claimComparison = {}) => ({
+const serializePublicClaimComparison = (claimComparison = {}, refsByPath = new Map()) => ({
   counts: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
     .map(key => [key, Number(claimComparison.counts?.[key] || 0)])),
   deltas: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
-    .map(key => [key, (claimComparison.deltas?.[key] || []).slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT).map(serializePublicClaimRow)])),
+    .map(key => [key, (claimComparison.deltas?.[key] || [])
+      .slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT)
+      .map(row => serializePublicClaimRow(row, refsByPath))])),
   detailsTruncated: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
     .map(key => [key, Math.max(0, Number(claimComparison.counts?.[key] || 0) - PUBLIC_COMPARISON_DETAIL_LIMIT)]))
 });
 
 const serializePublicRepoComparison = (comparison = null) => {
   if (!comparison) return null;
+  const refsByPath = new Map([
+    ...(Array.isArray(comparison.baselineSourceRefs) ? comparison.baselineSourceRefs : []),
+    ...(Array.isArray(comparison.supportingRefs) ? comparison.supportingRefs : [])
+  ].filter(ref => ref?.path).map(ref => [clean(ref.path, 500), ref]));
   return {
     version: comparison.version,
     repository: comparison.repository,
@@ -265,7 +289,7 @@ const serializePublicRepoComparison = (comparison = null) => {
     repositoryChanges: serializePublicRepositoryChanges(comparison.repositoryChanges),
     repositoryChangesTruncated: Object.fromEntries(['added', 'changed', 'removed']
       .map(key => [key, Math.max(0, (comparison.repositoryChanges?.[key] || []).length - PUBLIC_COMPARISON_DETAIL_LIMIT)])),
-    claimComparison: serializePublicClaimComparison(comparison.claimComparison),
+    claimComparison: serializePublicClaimComparison(comparison.claimComparison, refsByPath),
     rejectedCandidates: (comparison.rejectedCandidates || []).map(candidate => ({
       at: candidate.at,
       counts: candidate.counts
