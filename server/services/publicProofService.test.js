@@ -130,6 +130,72 @@ const sharedPage = (overrides = {}) => ({
 })();
 
 (() => {
+  const alphabetBase = {
+    _id: 'alphabet-proof-gate',
+    title: 'Alphabet allocator dossier',
+    sourceRefs: [{ title: 'Alphabet 10-K' }, { title: 'Alphabet transcript' }],
+    claims: [{ claimId: 'claim-1' }],
+    freshness: {
+      acceptedThrough: {
+        sourceEventId: 'latest-event',
+        title: 'Alphabet accepted evidence',
+        url: 'https://www.sec.gov/Archives/alphabet',
+        sourceUpdatedAt: '2026-07-12T00:00:00.000Z'
+      }
+    },
+    aiState: {
+      changeLog: [{ type: 'maintenance', text: 'Accepted Alphabet evidence.', createdAt: '2026-07-12T00:00:00.000Z' }]
+    },
+    publicProof: {
+      grade: 'proven',
+      acceptedAt: '2026-07-12T00:00:00.000Z',
+      acceptedEventId: 'acceptance-record-1',
+      reason: 'This reason must not survive an incomplete acceptance record.'
+    }
+  };
+  const incomplete = buildPublicProofGrade({
+    slot: { key: 'alphabet' },
+    page: sharedPage(alphabetBase)
+  });
+  assert.strictEqual(incomplete.grade, 'acceptance_in_progress');
+  assert.deepStrictEqual(incomplete.criteria.requiredClocks, {
+    secEdgar: false,
+    earningsTranscript: false
+  });
+  assert.ok(!incomplete.reason.includes('must not survive'));
+
+  const accepted = buildPublicProofGrade({
+    slot: { key: 'alphabet' },
+    page: sharedPage({
+      ...alphabetBase,
+      publicProof: {
+        ...alphabetBase.publicProof,
+        reason: 'Both authoritative maintenance clocks passed editorial acceptance.',
+        acceptedClocks: [{
+          type: 'sec_edgar',
+          sourceEventId: 'private-filing-event',
+          revisionId: 'private-filing-revision',
+          acceptedAt: '2026-07-12T00:00:00.000Z'
+        }, {
+          type: 'earnings_transcript',
+          sourceEventId: 'private-transcript-event',
+          revisionId: 'private-transcript-revision',
+          acceptedAt: '2026-07-12T00:00:00.000Z'
+        }]
+      }
+    })
+  });
+  assert.strictEqual(accepted.grade, 'proven');
+  assert.strictEqual(accepted.criteria.explicitlyAccepted, true);
+  assert.deepStrictEqual(accepted.criteria.requiredClocks, {
+    secEdgar: true,
+    earningsTranscript: true
+  });
+  assert.ok(!JSON.stringify(accepted).includes('private-filing-event'));
+  assert.ok(!JSON.stringify(accepted).includes('private-transcript-revision'));
+})();
+
+(() => {
   const page = sharedPage({
     title: 'Alphabet is Berkshire Hathaway 2.0',
     externalWatches: {

@@ -58,9 +58,11 @@ const {
 const {
   DEFAULT_PUBLIC_PROOF_SLOTS,
   buildPublicMaintenanceProof,
+  buildPublicProofGrade,
   selectPublicProofPages,
   serializePublicProofEntry
 } = require('../services/publicProofService');
+const { buildAlphabetPublicProofAcceptance } = require('../services/wikiPublicProofAcceptanceService');
 const {
   buildRepoComparison,
   captureRepoBaseline,
@@ -3671,6 +3673,72 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error updating wiki page:', error);
       res.status(500).json({ error: 'Failed to update wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/public-proof/accept', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiSourceEvent || !WikiRevision) {
+        return res.status(503).json({ error: 'Public proof acceptance records are not available.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const requestedClocks = Array.isArray(req.body?.acceptedClocks) ? req.body.acceptedClocks : [];
+      const sourceEventIds = requestedClocks.map(clock => clock?.sourceEventId).filter(Boolean);
+      const revisionIds = requestedClocks.map(clock => clock?.revisionId).filter(Boolean);
+      const [events, revisions] = await Promise.all([
+        WikiSourceEvent.find({ _id: { $in: sourceEventIds }, userId: req.user.id }).lean(),
+        WikiRevision.find({ _id: { $in: revisionIds }, userId: req.user.id, pageId: page._id }).lean()
+      ]);
+      const decision = buildAlphabetPublicProofAcceptance({
+        page,
+        requestedClocks,
+        events,
+        revisions,
+        reason: req.body?.reason,
+        now: new Date()
+      });
+      if (!decision.ok) return res.status(422).json({ error: 'Alphabet public proof is not ready for acceptance.', gaps: decision.errors });
+
+      const pageSnapshot = page.toObject ? page.toObject({ virtuals: false }) : { ...page };
+      const candidatePage = { ...pageSnapshot, publicProof: decision.record };
+      const proofGrade = buildPublicProofGrade({ slot: { key: 'alphabet' }, page: candidatePage });
+      const ready = proofGrade.grade === 'proven' && proofGrade.criteria?.explicitlyAccepted === true;
+      if (req.body?.confirm !== true) {
+        return res.status(200).json({ dryRun: true, ready, proofGrade });
+      }
+      if (req.body?.decision !== 'accept_alphabet_public_proof') {
+        return res.status(400).json({ error: 'Set decision to accept_alphabet_public_proof for a confirmed acceptance.' });
+      }
+      if (!ready) return res.status(422).json({ error: 'Alphabet public proof criteria are incomplete.', proofGrade });
+
+      const clockSignature = clocks => (Array.isArray(clocks) ? clocks : [])
+        .map(clock => `${clock?.type || ''}:${clock?.sourceEventId || ''}:${clock?.revisionId || ''}`)
+        .sort()
+        .join('|');
+      if (page.publicProof?.grade === 'proven'
+        && clockSignature(page.publicProof?.acceptedClocks) === clockSignature(decision.record.acceptedClocks)) {
+        const existingProofGrade = buildPublicProofGrade({ slot: { key: 'alphabet' }, page });
+        return res.status(200).json({ dryRun: false, ready: true, unchanged: true, proofGrade: existingProofGrade });
+      }
+
+      const before = snapshotPage(page);
+      page.publicProof = decision.record;
+      if (typeof page.markModified === 'function') page.markModified('publicProof');
+      await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: 'Accepted the Alphabet dossier as public proof after dual-clock editorial review.'
+      });
+      res.status(200).json({ dryRun: false, ready: true, proofGrade });
+    } catch (error) {
+      console.error('Error accepting Alphabet public proof:', error);
+      res.status(500).json({ error: 'Failed to accept Alphabet public proof.' });
     }
   });
 

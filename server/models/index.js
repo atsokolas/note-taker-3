@@ -378,6 +378,17 @@ const wikiFreshnessSchema = new mongoose.Schema({
   acceptedThrough: { type: mongoose.Schema.Types.Mixed, default: null }
 }, { _id: false });
 
+const wikiPublicProofAcceptedClockSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['sec_edgar', 'earnings_transcript', 'github', 'reading', 'manual'],
+    required: true
+  },
+  sourceEventId: { type: String, required: true, trim: true },
+  revisionId: { type: String, required: true, trim: true },
+  acceptedAt: { type: Date, required: true }
+}, { _id: false });
+
 const wikiPublicProofSchema = new mongoose.Schema({
   grade: {
     type: String,
@@ -386,7 +397,8 @@ const wikiPublicProofSchema = new mongoose.Schema({
   },
   reason: { type: String, default: '', trim: true },
   acceptedAt: { type: Date, default: null },
-  acceptedEventId: { type: String, default: '', trim: true }
+  acceptedEventId: { type: String, default: '', trim: true },
+  acceptedClocks: { type: [wikiPublicProofAcceptedClockSchema], default: [] }
 }, { _id: false });
 
 const wikiAiStateSchema = new mongoose.Schema({

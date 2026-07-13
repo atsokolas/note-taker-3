@@ -18,6 +18,7 @@ const snapshotPage = (page) => {
     claims: Array.isArray(raw.claims) ? raw.claims : [],
     citations: Array.isArray(raw.citations) ? raw.citations : [],
     freshness: raw.freshness || {},
+    publicProof: raw.publicProof || {},
     aiState: raw.aiState || {}
   };
 };
@@ -38,6 +39,7 @@ const restorePageSnapshot = (page, snapshot = {}) => {
     'claims',
     'citations',
     'freshness',
+    'publicProof',
     'aiState'
   ].forEach((field) => {
     if (snapshot[field] === undefined) return;

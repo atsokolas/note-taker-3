@@ -197,6 +197,22 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
   const proof = maintenanceProof || buildPublicMaintenanceProof(page);
   const acceptedAt = asDate(configured.acceptedAt);
   const acceptedEventId = clean(configured.acceptedEventId, 180);
+  const acceptedClockTypes = new Set(
+    (Array.isArray(configured.acceptedClocks) ? configured.acceptedClocks : [])
+      .filter(clock => (
+        clean(clock?.type, 60)
+        && clean(clock?.sourceEventId, 180)
+        && clean(clock?.revisionId, 180)
+        && asDate(clock?.acceptedAt)
+      ))
+      .map(clock => clean(clock.type, 60))
+  );
+  const requiredClocks = {
+    secEdgar: acceptedClockTypes.has('sec_edgar'),
+    earningsTranscript: acceptedClockTypes.has('earnings_transcript')
+  };
+  const hasRequiredClockAcceptance = slot.key !== 'alphabet'
+    || (requiredClocks.secEdgar && requiredClocks.earningsTranscript);
   const hasAcceptedVersion = Boolean(
     clean(proof.currentThrough?.ref, 1000)
     || clean(page.freshness?.acceptedThrough?.sourceEventId, 180)
@@ -208,7 +224,8 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
     && acceptedEventId
     && hasAcceptedVersion
     && hasEvidence
-    && hasMaterialEvent;
+    && hasMaterialEvent
+    && hasRequiredClockAcceptance;
   const grade = canBeProven
     ? PUBLIC_PROOF_GRADES.PROVEN
     : requestedGrade === PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS
@@ -228,14 +245,17 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
   return {
     grade,
     label: grade.split('_').map(word => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' '),
-    reason: clean(configured.reason, 320) || defaultReason[grade],
+    reason: grade === requestedGrade && clean(configured.reason, 320)
+      ? clean(configured.reason, 320)
+      : defaultReason[grade],
     acceptedAt: grade === PUBLIC_PROOF_GRADES.PROVEN ? acceptedAt : null,
     comparisonUrl,
     criteria: {
       explicitlyAccepted: Boolean(canBeProven),
       acceptedVersion: hasAcceptedVersion,
       materialEvent: hasMaterialEvent,
-      sourceGrounded: hasEvidence
+      sourceGrounded: hasEvidence,
+      ...(slot.key === 'alphabet' ? { requiredClocks } : {})
     }
   };
 };

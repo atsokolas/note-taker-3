@@ -21,7 +21,13 @@ const completeFixture = () => ({
   }],
   briefing: { recentReceipts: [{ id: 'receipt-1', kind: 'wiki_maintenance', touched: [{ id: pageId }] }] },
   registryItem: {
-    proofGrade: { grade: 'proven', criteria: { explicitlyAccepted: true } },
+    proofGrade: {
+      grade: 'proven',
+      criteria: {
+        explicitlyAccepted: true,
+        requiredClocks: { secEdgar: true, earningsTranscript: true }
+      }
+    },
     maintenanceProof: { currentThrough: { ref: 'https://www.sec.gov/Archives/example' } }
   },
   publicPage: { id: pageId, maintenanceProof: { currentThrough: { ref: 'https://www.sec.gov/Archives/example' } } }

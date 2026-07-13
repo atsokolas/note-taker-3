@@ -93,6 +93,8 @@ const evaluateAlphabetProof = ({ page = {}, events = [], revisions = [], briefin
     publicPageResolved: Boolean(publicPage),
     publicProofExplicitlyProven: registryItem?.proofGrade?.grade === 'proven'
       && registryItem?.proofGrade?.criteria?.explicitlyAccepted === true,
+    publicSecClockAccepted: registryItem?.proofGrade?.criteria?.requiredClocks?.secEdgar === true,
+    publicTranscriptClockAccepted: registryItem?.proofGrade?.criteria?.requiredClocks?.earningsTranscript === true,
     publicCurrentThroughMatchesAcceptedEvent: Boolean(acceptedEventId && publicCurrentThroughMatches({ acceptedEvent, registryItem, publicPage })),
     publicPayloadPrivacyDenylistClean: leaks.length === 0
   };
