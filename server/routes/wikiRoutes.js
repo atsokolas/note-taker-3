@@ -67,6 +67,10 @@ const {
   serializePublicRepoComparison
 } = require('../services/wikiRepoComparisonService');
 const {
+  DEFAULT_PUBLIC_COMPARISON_CACHE_TTL_MS,
+  createPublicComparisonCache
+} = require('../services/publicComparisonCache');
+const {
   rebuildWikiGraphConnections,
   syncWikiPageGraphConnections
 } = require('../services/wikiGraphConnectionService');
@@ -1334,6 +1338,9 @@ const buildWikiRouter = ({
   EVENT_NAMES = {}
 }) => {
   const router = express.Router();
+  const publicComparisonCache = createPublicComparisonCache({
+    ttlMs: Number(process.env.PUBLIC_COMPARISON_CACHE_TTL_MS || DEFAULT_PUBLIC_COMPARISON_CACHE_TTL_MS)
+  });
 
   const trackWikiEvent = (req, event, properties = {}) => {
     if (!trackEvent || !event) return;
@@ -3298,6 +3305,12 @@ const buildWikiRouter = ({
     try {
       if (!WikiRepoBaseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
       const idOrSlug = String(req.params.idOrSlug || '').trim();
+      res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
+      const cachedPayload = publicComparisonCache.get(idOrSlug);
+      if (cachedPayload) {
+        res.setHeader('X-Noeis-Comparison-Cache', 'HIT');
+        return res.status(200).json(cachedPayload);
+      }
       const query = { visibility: 'shared', status: { $ne: 'archived' } };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
       else query.slug = idOrSlug;
@@ -3323,7 +3336,10 @@ const buildWikiRouter = ({
       }
       const comparison = buildRepoComparison({ baseline, page, maintenanceRuns: runs });
       if (!comparison) return res.status(404).json({ error: 'Public repository comparison not found.' });
-      res.status(200).json({ comparison: serializePublicRepoComparison(comparison) });
+      const payload = { comparison: serializePublicRepoComparison(comparison) };
+      publicComparisonCache.set(idOrSlug, payload);
+      res.setHeader('X-Noeis-Comparison-Cache', 'MISS');
+      res.status(200).json(payload);
     } catch (error) {
       res.status(500).json({ error: 'Failed to read public repository comparison.' });
     }
