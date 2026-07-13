@@ -1455,7 +1455,10 @@ const run = async () => {
         title: 'atsokolas/note-taker-3 package.json',
         url: 'https://github.com/atsokolas/note-taker-3/blob/abc123/package.json',
         snippet: `Repository evidence. ${'raw package data '.repeat(100)}`
-      }]
+      }],
+      externalWatches: {
+        githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', status: 'active' }
+      }
     });
     await sharedRepoPage.save();
     const privatePage = new WikiPage({
@@ -1505,6 +1508,7 @@ const run = async () => {
 
     const publicRepo = await request(url, '/api/public/wiki/pages/public-repo-page', { headers: {} });
     assert.strictEqual(publicRepo.res.status, 200, publicRepo.text);
+    assert.strictEqual(publicRepo.body.page.title, 'atsokolas/note-taker-3 Repo Wiki');
     assert.strictEqual(publicRepo.body.page.sourceCount, 1);
     assert.strictEqual(publicRepo.body.page.maintenanceProof.sourceCount, 1);
     assert.deepStrictEqual(publicRepo.body.page.sourceRefs, [{

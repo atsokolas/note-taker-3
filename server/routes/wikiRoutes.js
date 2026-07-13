@@ -756,6 +756,13 @@ const isRepoWikiPage = (page = {}) => (
   || page.externalWatches?.githubRepo?.status === 'active'
 );
 
+const publicRepoTitle = (page = {}) => {
+  const watch = page.externalWatches?.githubRepo || {};
+  const owner = String(watch.owner || '').trim();
+  const repo = String(watch.repo || '').trim();
+  return owner && repo ? `${owner}/${repo} Repo Wiki` : String(page.title || 'Untitled wiki page');
+};
+
 const isQaOnlyPublicSource = (source = {}) => {
   const value = `${source.title || ''} ${source.url || ''}`.toLowerCase();
   return /\bdebug fixture\b|debug-fixture\.noeis\.local|\bqa[_ -]?(?:fixture|seed)\b/.test(value);
@@ -790,7 +797,7 @@ const serializePublicWikiPage = (page) => {
 
   return {
     _id: String(full._id || ''),
-    title: full.title || 'Untitled wiki page',
+    title: repoPage ? publicRepoTitle(full) : (full.title || 'Untitled wiki page'),
     slug: full.slug || '',
     pageType: full.pageType || 'topic',
     status: full.status || 'draft',
