@@ -722,42 +722,71 @@ const serializeWikiPage = (page) => {
   };
 };
 
-const sanitizePublicWikiBody = (node) => {
-  if (Array.isArray(node)) return node.map(sanitizePublicWikiBody);
+const sanitizePublicWikiBody = (node, citationIndexMap = null) => {
+  if (Array.isArray(node)) return node.map(child => sanitizePublicWikiBody(child, citationIndexMap));
   if (!node || typeof node !== 'object') return node;
   const next = { ...node };
   if (Array.isArray(next.marks)) {
     next.marks = next.marks
       .filter(mark => mark?.type !== 'wikiLink')
       .map((mark) => {
-        if (mark?.type !== 'claim') return sanitizePublicWikiBody(mark);
+        if (mark?.type !== 'claim') return sanitizePublicWikiBody(mark, citationIndexMap);
         const attrs = mark.attrs || {};
+        const remapIndexes = (values) => (Array.isArray(values) ? values : [])
+          .map(Number)
+          .filter(Number.isFinite)
+          .map(index => (citationIndexMap instanceof Map ? citationIndexMap.get(index) : index))
+          .filter(Number.isFinite);
         return {
           type: 'claim',
           attrs: {
             support: String(attrs.support || 'supported'),
-            citationIndexes: Array.isArray(attrs.citationIndexes) ? attrs.citationIndexes.map(Number).filter(Number.isFinite) : [],
-            contradictionIndexes: Array.isArray(attrs.contradictionIndexes) ? attrs.contradictionIndexes.map(Number).filter(Number.isFinite) : []
+            citationIndexes: remapIndexes(attrs.citationIndexes),
+            contradictionIndexes: remapIndexes(attrs.contradictionIndexes)
           }
         };
       });
   }
-  if (Array.isArray(next.content)) next.content = next.content.map(sanitizePublicWikiBody);
+  if (Array.isArray(next.content)) next.content = next.content.map(child => sanitizePublicWikiBody(child, citationIndexMap));
   return next;
+};
+
+const isRepoWikiPage = (page = {}) => (
+  String(page.pageType || '').toLowerCase() === 'repo'
+  || page.externalWatches?.githubRepo?.status === 'active'
+);
+
+const isQaOnlyPublicSource = (source = {}) => {
+  const value = `${source.title || ''} ${source.url || ''}`.toLowerCase();
+  return /\bdebug fixture\b|debug-fixture\.noeis\.local|\bqa[_ -]?(?:fixture|seed)\b/.test(value);
+};
+
+const publicSourceSnippet = (source = {}, { repoPage = false } = {}) => {
+  const snippet = String(source?.snippet || source?.quote || source?.excerpt || '').replace(/\s+/g, ' ').trim();
+  if (!snippet) return '';
+  if (repoPage && /^https?:\/\/(?:www\.)?github\.com\//i.test(String(source?.url || ''))) return '';
+  return snippet.slice(0, repoPage ? 320 : 1000);
 };
 
 const serializePublicWikiPage = (page) => {
   const full = serializeWikiPage(page);
   if (!full) return full;
   if (full.qualityReview && full.qualityReview.surfaceEligible === false) return null;
-  const publicSourceRefs = (Array.isArray(full.sourceRefs) ? full.sourceRefs : [])
-    .map((source) => ({
+  const repoPage = isRepoWikiPage(full);
+  const publicSourceRows = (Array.isArray(full.sourceRefs) ? full.sourceRefs : [])
+    .map((source, originalIndex) => ({ source, originalIndex: originalIndex + 1 }))
+    .filter(({ source }) => !repoPage || !isQaOnlyPublicSource(source));
+  const citationIndexMap = new Map(publicSourceRows.map((row, index) => [row.originalIndex, index + 1]));
+  const publicSourceRefs = publicSourceRows
+    .map(({ source }) => ({
       type: String(source?.type || source?.sourceType || 'source'),
       title: String(source?.title || source?.url || 'Source').trim(),
       url: String(source?.url || '').trim(),
-      snippet: String(source?.snippet || source?.quote || source?.excerpt || '').trim()
+      snippet: publicSourceSnippet(source, { repoPage })
     }))
     .filter((source) => source.title || source.url || source.snippet);
+  const maintenanceProof = buildPublicMaintenanceProof(page);
+  if (repoPage && maintenanceProof) maintenanceProof.sourceCount = publicSourceRefs.length;
 
   return {
     _id: String(full._id || ''),
@@ -766,7 +795,7 @@ const serializePublicWikiPage = (page) => {
     pageType: full.pageType || 'topic',
     status: full.status || 'draft',
     visibility: 'shared',
-    body: sanitizePublicWikiBody(full.body || emptyDoc()),
+    body: sanitizePublicWikiBody(full.body || emptyDoc(), citationIndexMap),
     plainText: full.plainText || '',
     createdAt: full.createdAt || null,
     updatedAt: full.updatedAt || null,
@@ -777,10 +806,10 @@ const serializePublicWikiPage = (page) => {
       || full.createdAt
       || null,
     sourceRefs: publicSourceRefs,
-    sourceCount: full.sourceCount ?? publicSourceRefs.length,
+    sourceCount: repoPage ? publicSourceRefs.length : (full.sourceCount ?? publicSourceRefs.length),
     claimCount: full.claimCount ?? 0,
     wordCount: full.wordCount ?? countWords(full.plainText || ''),
-    maintenanceProof: buildPublicMaintenanceProof(page)
+    maintenanceProof
   };
 };
 

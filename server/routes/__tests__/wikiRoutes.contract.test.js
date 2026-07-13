@@ -1426,6 +1426,38 @@ const run = async () => {
       }
     });
     await sharedPage.save();
+    const sharedRepoPage = new WikiPage({
+      userId: 'user-1',
+      title: 'atsokolas/note-taker-3 Repo Wiki',
+      slug: 'public-repo-page',
+      pageType: 'repo',
+      status: 'published',
+      visibility: 'shared',
+      plainText: 'A public repository dossier.',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Repository claim.',
+            marks: [{ type: 'claim', attrs: { support: 'supported', citationIndexes: [1, 2] } }]
+          }]
+        }]
+      },
+      sourceRefs: [{
+        type: 'external',
+        title: 'Debug Fixture - internal QA evidence',
+        url: 'https://debug-fixture.noeis.local/repo-source',
+        snippet: 'This source must never appear publicly.'
+      }, {
+        type: 'external',
+        title: 'atsokolas/note-taker-3 package.json',
+        url: 'https://github.com/atsokolas/note-taker-3/blob/abc123/package.json',
+        snippet: `Repository evidence. ${'raw package data '.repeat(100)}`
+      }]
+    });
+    await sharedRepoPage.save();
     const privatePage = new WikiPage({
       userId: 'user-1',
       title: 'Private Systems Page',
@@ -1470,6 +1502,22 @@ const run = async () => {
     });
     assert.strictEqual(publicById.res.status, 200, publicById.text);
     assert.strictEqual(publicById.body.page.slug, 'public-systems-page');
+
+    const publicRepo = await request(url, '/api/public/wiki/pages/public-repo-page', { headers: {} });
+    assert.strictEqual(publicRepo.res.status, 200, publicRepo.text);
+    assert.strictEqual(publicRepo.body.page.sourceCount, 1);
+    assert.strictEqual(publicRepo.body.page.maintenanceProof.sourceCount, 1);
+    assert.deepStrictEqual(publicRepo.body.page.sourceRefs, [{
+      type: 'external',
+      title: 'atsokolas/note-taker-3 package.json',
+      url: 'https://github.com/atsokolas/note-taker-3/blob/abc123/package.json',
+      snippet: ''
+    }]);
+    assert.deepStrictEqual(
+      publicRepo.body.page.body.content[0].content[0].marks[0].attrs.citationIndexes,
+      [1]
+    );
+    assert.ok(!JSON.stringify(publicRepo.body).includes('Debug Fixture'));
 
     const adoptedPublicPage = await request(url, `/api/public/wiki/pages/${sharedPage._id}/adopt`, {
       method: 'POST',
