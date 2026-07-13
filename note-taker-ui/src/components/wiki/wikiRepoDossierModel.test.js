@@ -1,9 +1,13 @@
 import {
+  applyRepoDossierSectionAnchors,
+  buildRepoDossierSectionNav,
+  buildRepoSectionChangeBadges,
   displayWikiPageTitle,
   formatGitHubRepoWatchReceipt,
   githubWatchState,
   repoDossierGitHubLabel,
-  repoNameFromPage
+  repoNameFromPage,
+  repoSectionIdForHeading
 } from './wikiRepoDossierModel';
 
 describe('wikiRepoDossierModel', () => {
@@ -49,5 +53,52 @@ describe('wikiRepoDossierModel', () => {
 
   it('preserves package path casing in non-repo page titles', () => {
     expect(displayWikiPageTitle({ title: 'Margin of Safety' })).toBe('Margin of Safety');
+  });
+
+  it('maps repo dossier headings to stable canonical section ids', () => {
+    expect(repoSectionIdForHeading('What this repo is')).toBe('overview');
+    expect(repoSectionIdForHeading('What Noeis is')).toBe('overview');
+    expect(repoSectionIdForHeading('System map')).toBe('architecture');
+    expect(repoSectionIdForHeading('Change paths')).toBe('key-decisions');
+    expect(repoSectionIdForHeading('Risks and unknowns')).toBe('open-questions');
+  });
+
+  it('builds canonical section navigation and stable anchors from toc items', () => {
+    const nav = buildRepoDossierSectionNav({
+      tocItems: [
+        { id: 'what-this-repo-is', title: 'What this repo is', blockIndex: 1 },
+        { id: 'architecture-map', title: 'Architecture map', blockIndex: 4 },
+        { id: 'open-questions', title: 'Open questions', blockIndex: 8 }
+      ]
+    });
+    expect(nav.find(item => item.id === 'overview')).toMatchObject({
+      available: true,
+      anchorId: 'repo-section-overview'
+    });
+    expect(nav.find(item => item.id === 'architecture')).toMatchObject({ available: true });
+    expect(nav.find(item => item.id === 'changelog-digest')).toMatchObject({ available: false });
+
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Intro' }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Architecture map' }] }
+      ]
+    };
+    const anchored = applyRepoDossierSectionAnchors(doc, [{ title: 'Architecture map', blockIndex: 1 }]);
+    expect(anchored.content[1].attrs.anchorId).toBe('repo-section-architecture');
+  });
+
+  it('derives section change badges from comparison claim deltas', () => {
+    const badges = buildRepoSectionChangeBadges({
+      claimComparison: {
+        deltas: {
+          changed: [{ after: { section: 'Architecture map' } }],
+          added: [{ after: { section: 'Open questions' } }]
+        }
+      }
+    });
+    expect(badges.architecture).toBe(1);
+    expect(badges['open-questions']).toBe(1);
   });
 });

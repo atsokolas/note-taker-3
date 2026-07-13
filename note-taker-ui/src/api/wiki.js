@@ -66,6 +66,11 @@ export const getPublicWikiComparison = async (idOrSlug) => {
   return res.data || {};
 };
 
+export const getWikiRepoComparison = async (pageId) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(pageId)}/repo-comparison`, getAuthHeaders());
+  return res.data || {};
+};
+
 export const adoptPublicWikiPage = async (idOrSlug) => {
   const res = await api.post(`/api/public/wiki/pages/${safeId(idOrSlug)}/adopt`, {}, getAuthHeaders());
   return res.data || {};
@@ -675,6 +680,7 @@ const wikiApi = {
   getWikiPage,
   getPublicWikiPage,
   getPublicWikiComparison,
+  getWikiRepoComparison,
   getWikiPageMarkdown,
   getWikiExportZipUrl,
   downloadWikiExportZip,

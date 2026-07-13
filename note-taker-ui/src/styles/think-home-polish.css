@@ -6557,6 +6557,176 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
   background: color-mix(in srgb, var(--surface-muted, #211d18) 88%, rgba(255, 255, 255, 0.03));
 }
 
+.wiki-read__repo-dossier,
+.wiki-read__repo-dossier-toc {
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 88%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface, #fffaf2) 96%, rgba(255, 255, 255, 0.4));
+  padding: 14px 16px;
+}
+
+.wiki-read__repo-dossier {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wiki-read__repo-dossier-kicker,
+.wiki-read__repo-dossier-label {
+  color: var(--text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wiki-read__repo-dossier-head h4 {
+  margin: 4px 0 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.wiki-read__repo-dossier-lede,
+.wiki-read__repo-dossier-publication,
+.wiki-read__repo-dossier-comparison,
+.wiki-read__repo-dossier-collapse-note {
+  margin: 0;
+  color: var(--text-secondary, var(--text-primary));
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.wiki-read__repo-dossier-orientation {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 14px;
+}
+
+.wiki-read__repo-dossier-orientation > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wiki-read__repo-dossier-orientation a {
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.wiki-read__repo-dossier-nav ul,
+.wiki-read__repo-dossier-toc ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-read__repo-dossier-nav-item a,
+.wiki-read__repo-dossier-toc a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 90%, transparent);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.wiki-read__repo-dossier-nav-item.is-missing span {
+  opacity: 0.55;
+}
+
+.wiki-read__repo-dossier-nav-note {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.wiki-read__repo-dossier-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 18%, transparent);
+  color: var(--text-primary);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.wiki-read__repo-dossier-comparison a {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.wiki-read__repo-dossier-comparison--pending {
+  color: var(--text-muted);
+}
+
+.wiki-read__repo-dossier-body--collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wiki-read__repo-dossier-section {
+  border: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 84%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface, #fffaf2) 98%, transparent);
+}
+
+.wiki-read__repo-dossier-section > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.wiki-read__repo-dossier-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.wiki-read__repo-dossier-section-body {
+  padding: 0 12px 12px;
+}
+
+.wiki-read__repo-dossier-toc {
+  margin-bottom: 12px;
+}
+
+.wiki-read__repo-dossier-toc .is-missing a {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+html[data-ui-theme='dark'] .wiki-read__repo-dossier,
+html[data-ui-theme='dark'] .wiki-read__repo-dossier-toc,
+html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 12%, rgba(255, 255, 255, 0.06));
+  background: color-mix(in srgb, var(--surface, #171512) 96%, rgba(255, 255, 255, 0.02));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-read__repo-dossier-section > summary {
+    transition: none;
+  }
+}
+
 .wiki-read__body {
   max-width: 68ch;
   padding: 26px 0 12px;

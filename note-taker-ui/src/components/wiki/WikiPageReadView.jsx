@@ -6,6 +6,7 @@ import {
   getWikiBacklinks,
   getWikiPage,
   getWikiPageMarkdown,
+  getWikiRepoComparison,
   listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
@@ -42,9 +43,28 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
 import WikiTranscriptWatchControl from './WikiTranscriptWatchControl';
-import WikiGitHubRepoWatchControl, { isRepoDossierPage } from './WikiGitHubRepoWatchControl';
-import { githubWatchState, repoDossierGitHubLabel, displayWikiPageTitle } from './wikiRepoDossierModel';
+import WikiGitHubRepoWatchControl, {
+  formatRepoWatchPublicationFacts,
+  formatRepoWatchPublicationMessage,
+  isRepoDossierPage,
+  repoWatchPublicationState
+} from './WikiGitHubRepoWatchControl';
+import {
+  applyRepoDossierSectionAnchors,
+  buildRepoDossierComparisonHref,
+  buildRepoDossierSectionNav,
+  buildRepoSectionChangeBadges,
+  extractRepoDossierOverviewSummary,
+  githubWatchState,
+  repoDossierGitHubLabel,
+  displayWikiPageTitle,
+  repoDossierSectionAnchorId,
+  repoDossierShouldCollapseSections,
+  repoSectionIdForHeading
+} from './wikiRepoDossierModel';
 import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
+import WikiRepoDossierOverview from './WikiRepoDossierOverview';
+import WikiRepoDossierBody from './WikiRepoDossierBody';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -1097,6 +1117,8 @@ const WikiPageReadView = ({
   const [nonCriticalReady, setNonCriticalReady] = useState(false);
   const [pageTransitionState, setPageTransitionState] = useState('idle');
   const [rawWikiLinkPages, setRawWikiLinkPages] = useState([]);
+  const [repoComparison, setRepoComparison] = useState(null);
+  const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const reducedMotion = useReducedMotion();
   const [showMarginalia, setShowMarginalia] = useState(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -1233,6 +1255,27 @@ const WikiPageReadView = ({
       });
     return () => { cancelled = true; };
   }, [pageId, refreshNonce, requestedReadTab, streamBusy]);
+
+  useEffect(() => {
+    if (!page || !isRepoDossierPage(page)) {
+      setRepoComparison(null);
+      setRepoComparisonAvailable(false);
+      return undefined;
+    }
+    let cancelled = false;
+    getWikiRepoComparison(pageId)
+      .then((payload) => {
+        if (cancelled) return;
+        setRepoComparison(payload?.comparison || null);
+        setRepoComparisonAvailable(Boolean(payload?.comparison));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRepoComparison(null);
+        setRepoComparisonAvailable(false);
+      });
+    return () => { cancelled = true; };
+  }, [page, pageId]);
 
   useEffect(() => {
     if (!page) {
@@ -1653,9 +1696,44 @@ const WikiPageReadView = ({
     setMarkdownStatus('Markdown downloaded.');
   }, [loadMarkdown, page?.slug, page?.title]);
 
-  const displayBody = useMemo(
+  const strippedBody = useMemo(
     () => stripLeadingDuplicateTitleHeading(page?.body || emptyDoc, page?.title || ''),
     [page?.body, page?.title]
+  );
+  const bodyTocItems = useMemo(() => extractTocItems(strippedBody), [strippedBody]);
+  const displayBody = useMemo(() => {
+    if (!isRepoDossierPage(page)) return strippedBody;
+    return applyRepoDossierSectionAnchors(strippedBody, bodyTocItems);
+  }, [page, strippedBody, bodyTocItems]);
+  const repoDossierMode = isRepoDossierPage(page);
+  const repoSectionNav = useMemo(
+    () => (repoDossierMode ? buildRepoDossierSectionNav({ tocItems: bodyTocItems }) : []),
+    [repoDossierMode, bodyTocItems]
+  );
+  const repoOverviewSummary = useMemo(
+    () => (repoDossierMode ? extractRepoDossierOverviewSummary(displayBody, page) : ''),
+    [repoDossierMode, displayBody, page]
+  );
+  const repoSectionBadges = useMemo(
+    () => (repoDossierMode ? buildRepoSectionChangeBadges(repoComparison) : {}),
+    [repoDossierMode, repoComparison]
+  );
+  const repoCollapseSections = useMemo(
+    () => (repoDossierMode ? repoDossierShouldCollapseSections(page, bodyTocItems) : false),
+    [repoDossierMode, page, bodyTocItems]
+  );
+  const repoWatch = page?.externalWatches?.githubRepo;
+  const repoPublicationState = useMemo(
+    () => (repoDossierMode ? repoWatchPublicationState(repoWatch) : 'current'),
+    [repoDossierMode, repoWatch]
+  );
+  const repoPublicationMessage = useMemo(
+    () => (repoDossierMode ? formatRepoWatchPublicationMessage(repoWatch, page, repoPublicationState) : ''),
+    [repoDossierMode, repoWatch, page, repoPublicationState]
+  );
+  const repoPublicationFacts = useMemo(
+    () => (repoDossierMode ? formatRepoWatchPublicationFacts(repoWatch) : null),
+    [repoDossierMode, repoWatch]
   );
   useEffect(() => {
     let cancelled = false;
@@ -1679,14 +1757,23 @@ const WikiPageReadView = ({
       ...rawWikiLinkPages
     ].filter(Boolean)
   ), [page, rawWikiLinkPages]);
-  const bodyTocItems = useMemo(() => extractTocItems(displayBody), [displayBody]);
   const tocItems = useMemo(() => {
+    const mappedBodyToc = repoDossierMode
+      ? bodyTocItems.map(item => {
+        const sectionId = repoSectionIdForHeading(item.title);
+        if (!sectionId) return item;
+        return {
+          ...item,
+          id: repoDossierSectionAnchorId(sectionId)
+        };
+      })
+      : bodyTocItems;
     const hasReferences = Array.isArray(page?.sourceRefs) && page.sourceRefs.length > 0;
-    if (!hasReferences || bodyTocItems.some(item => item.id === 'wiki-read-references-title')) {
-      return bodyTocItems;
+    if (!hasReferences || mappedBodyToc.some(item => item.id === 'wiki-read-references-title')) {
+      return mappedBodyToc;
     }
     return [
-      ...bodyTocItems,
+      ...mappedBodyToc,
       {
         id: 'wiki-read-references-title',
         title: 'References',
@@ -1694,7 +1781,7 @@ const WikiPageReadView = ({
         blockIndex: Number.MAX_SAFE_INTEGER
       }
     ];
-  }, [bodyTocItems, page?.sourceRefs]);
+  }, [bodyTocItems, page?.sourceRefs, repoDossierMode]);
   const footnoteCitations = useMemo(() => collectFootnoteCitations(displayBody), [displayBody]);
   const [activeTocId, setActiveTocId] = useState('');
 
@@ -1953,6 +2040,13 @@ const WikiPageReadView = ({
   const publicShareReady = isSharedPublicly && !shareBlocked;
   const shareReceipt = formatShareReceipt({ page, blocked: shareBlocked });
   const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
+  const repoComparisonHref = buildRepoDossierComparisonHref({
+    pageId,
+    page,
+    shared: publicShareReady,
+    comparisonAvailable: repoComparisonAvailable
+  });
+  const repoComparisonPendingShare = repoComparisonAvailable && !publicShareReady;
   return (
     <main
       className={`wiki-page wiki-read wiki-read--type-${readPageType}`}
@@ -2063,9 +2157,32 @@ const WikiPageReadView = ({
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
         <aside className="wiki-read__toc">
+          {repoDossierMode && repoSectionNav.length ? (
+            <nav className="wiki-read__repo-dossier-toc" aria-label="Repository dossier contents">
+              <h2>Dossier</h2>
+              <ol>
+                {repoSectionNav.map(item => (
+                  <li key={item.id} className={`wiki-read__toc-item${item.available ? '' : ' is-missing'}`}>
+                    <a
+                      className={item.available && displayedActiveTocId === item.anchorId ? 'is-active' : ''}
+                      href={item.available ? `#${item.anchorId}` : undefined}
+                      aria-current={item.available && displayedActiveTocId === item.anchorId ? 'true' : undefined}
+                      aria-disabled={item.available ? undefined : 'true'}
+                      onClick={item.available ? (event) => handleTocClick(event, item.anchorId) : undefined}
+                    >
+                      {item.label}
+                      {Number(repoSectionBadges[item.id] || 0) > 0 ? (
+                        <span className="wiki-read__repo-dossier-nav-badge">{repoSectionBadges[item.id]}</span>
+                      ) : null}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          ) : null}
           {tocItems.length ? (
             <nav aria-label="Page sections">
-              <h2>Contents</h2>
+              <h2>{repoDossierMode ? 'All sections' : 'Contents'}</h2>
               <ol>
                 {tocItems.map(item => (
                   <li key={item.id} className={`wiki-read__toc-item wiki-read__toc-item--level-${item.level}`}>
@@ -2193,6 +2310,23 @@ const WikiPageReadView = ({
             ) : null}
             {isRepoDossierPage(page) ? (
               <div className="wiki-read__repo-watches">
+                <WikiRepoDossierOverview
+                  page={page}
+                  overviewSummary={repoOverviewSummary}
+                  sectionNav={repoSectionNav}
+                  sectionBadges={repoSectionBadges}
+                  publicationMessage={repoPublicationMessage}
+                  publishedHead={repoPublicationFacts?.publishedHead || ''}
+                  buildStateLabel={repoPublicationFacts?.buildStateLabel || ''}
+                  comparisonHref={repoComparisonHref}
+                  comparisonPendingShare={repoComparisonPendingShare}
+                  collapseEnabled={repoCollapseSections}
+                  onSectionNavigate={(event) => {
+                    const href = event.currentTarget.getAttribute('href') || '';
+                    const anchorId = href.startsWith('#') ? href.slice(1) : '';
+                    if (anchorId) handleTocClick(event, anchorId);
+                  }}
+                />
                 <WikiGitHubRepoWatchControl
                   pageId={pageId}
                   page={page}
@@ -2251,7 +2385,17 @@ const WikiPageReadView = ({
                 data-state={pageTransitionState}
                 data-page-transition-state={pageTransitionState}
               >
-                {renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors, wikiLinkPages })}
+                {repoDossierMode ? (
+                  <WikiRepoDossierBody
+                    doc={displayBody}
+                    tocItems={tocItems}
+                    collapseSections={repoCollapseSections}
+                    recentAnchorIds={recentParagraphAnchors}
+                    wikiLinkPages={wikiLinkPages}
+                  />
+                ) : (
+                  renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors, wikiLinkPages })
+                )}
               </section>
                 {showMarginalia ? (
                   <WikiReadMarginalia

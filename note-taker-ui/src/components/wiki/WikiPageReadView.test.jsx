@@ -11,6 +11,7 @@ import {
   getWikiBacklinks,
   getWikiPage,
   getWikiPageMarkdown,
+  getWikiRepoComparison,
   listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
@@ -28,6 +29,7 @@ jest.mock('../../api/wiki', () => ({
   getWikiBacklinks: jest.fn(),
   getWikiPage: jest.fn(),
   getWikiPageMarkdown: jest.fn(),
+  getWikiRepoComparison: jest.fn(),
   listWikiPages: jest.fn(),
   maintainWikiPage: jest.fn(),
   promoteWikiDiscussion: jest.fn(),
@@ -155,6 +157,7 @@ describe('WikiPageReadView', () => {
     jest.useFakeTimers();
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
     getWikiPage.mockResolvedValue(page);
+    getWikiRepoComparison.mockRejectedValue(new Error('not configured'));
     getWikiBacklinks.mockResolvedValue({
       backlinks: [{
         pageId: 'wiki-backlink',
@@ -1781,7 +1784,62 @@ describe('WikiPageReadView', () => {
     expect(screen.getByText('npm run wiki:qa')).toBeInTheDocument();
     expect(screen.getByText('server/server.js')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Track GitHub repo' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/Page current/);
+    expect(screen.getByLabelText('GitHub repository watch')).toHaveTextContent(/Page current/);
+  });
+
+  it('renders hybrid repo dossier overview navigation with stable section anchors', async () => {
+    getWikiRepoComparison.mockResolvedValueOnce({
+      comparison: {
+        claimComparison: {
+          deltas: {
+            changed: [{ after: { section: 'Architecture map' } }]
+          }
+        }
+      }
+    });
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      _id: 'wiki-repo-2',
+      title: 'note-taker-3 — repo wiki',
+      pageType: 'repo',
+      visibility: 'shared',
+      plainText: 'Noeis is a source-backed research wiki for developers.',
+      body: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Noeis is a source-backed research wiki for developers.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'What this repo is' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'It connects Library, Think, and Wiki.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Architecture map' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'server/routes/wikiRoutes.js owns wiki APIs.' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Open questions' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Which repos should enter the public fleet next?' }] }
+        ]
+      },
+      externalWatches: {
+        githubRepo: {
+          owner: 'atsokolas',
+          repo: 'note-taker-3',
+          status: 'active',
+          publishedHeadSha: 'a7cc281393dc2985c02a89a07d68d169ce3145b1',
+          lastHeadSha: 'a7cc281393dc2985c02a89a07d68d169ce3145b1',
+          buildStatus: 'idle',
+          lastCheckedAt: '2026-07-12T12:00:00.000Z'
+        }
+      }
+    });
+
+    renderReadView({ pageId: 'wiki-repo-2', workspaceMode: true });
+    await flushDeferredWikiReadWork();
+
+    expect(screen.getByRole('region', { name: 'Repository dossier overview' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Architecture');
+    expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Open questions');
+    expect(screen.getByRole('link', { name: /View repository maintenance comparison/i })).toHaveAttribute(
+      'href',
+      '/share/wiki/wiki-repo-2/comparison'
+    );
+    expect(document.getElementById('repo-section-architecture')).toBeInTheDocument();
   });
 
   it('does not show developer quickstart on ordinary wiki pages', async () => {
