@@ -1,7 +1,11 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
-import SharedWikiPage, { buildSharedWikiSchema } from './SharedWikiPage';
+import SharedWikiPage, {
+  buildSharedWikiSchema,
+  isPublicRepoWikiPage,
+  publicRepoGitHubLabel
+} from './SharedWikiPage';
 import { adoptPublicWikiPage, getPublicWikiComparison, getPublicWikiPage } from '../api/wiki';
 import { trackSharedWikiAdoptClicked, trackSharedWikiViewed } from '../utils/marketingAnalytics';
 import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
@@ -306,7 +310,7 @@ describe('SharedWikiPage', () => {
 
     render(<SharedWikiPage />);
 
-    const link = await screen.findByTestId('shared-wiki-comparison-link');
+    const link = await screen.findByRole('link', { name: /View repository maintenance comparison/i });
     expect(link).toHaveAttribute('href', '/share/wiki/noeis-repo/comparison');
     expect(getPublicWikiComparison).toHaveBeenCalledWith('noeis-repo');
   });
@@ -331,8 +335,180 @@ describe('SharedWikiPage', () => {
 
     render(<SharedWikiPage />);
     await screen.findByRole('heading', { name: 'Opportunity Cost' });
-    expect(screen.queryByTestId('shared-wiki-comparison-link')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /View repository maintenance comparison/i })).not.toBeInTheDocument();
     expect(getPublicWikiComparison).not.toHaveBeenCalled();
+  });
+
+  it('renders hybrid repo dossier overview, section nav, and stable anchors from the public envelope', async () => {
+    mockParams('noeis-repo');
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/share/wiki/noeis-repo',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'test'
+    });
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        _id: 'repo-1',
+        slug: 'noeis-repo',
+        title: 'atsokolas/note-taker-3 Repo Wiki',
+        pageType: 'repo',
+        visibility: 'shared',
+        wordCount: 1200,
+        maintenanceProof: {
+          clock: { type: 'github', label: 'GitHub default-branch and release monitoring' },
+          currentThrough: {
+            label: 'Commit a7cc281',
+            at: '2026-07-10T18:00:00.000Z',
+            ref: 'https://github.com/atsokolas/note-taker-3/commit/a7cc281393dc2985c02a89a07d68d169ce3145b1'
+          },
+          lastReviewedAt: '2026-07-10T18:00:00.000Z',
+          sourceCount: 12,
+          claimCount: 67
+        },
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Noeis is a source-backed research wiki for developers.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'What this repo is' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'It connects Library, Think, and Wiki.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Architecture map' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'server/routes/wikiRoutes.js owns wiki APIs.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Open questions' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Which repos should enter the public fleet next?' }] },
+            {
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Private architecture note',
+                marks: [{ type: 'wikiLink', attrs: { pageId: 'private-repo-note', title: 'Private architecture note' } }]
+              }]
+            }
+          ]
+        },
+        sourceRefs: []
+      }
+    });
+    getPublicWikiComparison.mockResolvedValue({
+      comparison: {
+        claimComparison: {
+          deltas: {
+            changed: [{ after: { section: 'Architecture map' } }]
+          }
+        }
+      }
+    });
+
+    render(<SharedWikiPage />);
+
+    expect(await screen.findByRole('region', { name: 'Repository dossier overview' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'note-taker-3 — repo wiki' })).toBeInTheDocument();
+    expect(screen.getByText('atsokolas/note-taker-3')).toBeInTheDocument();
+    expect(screen.getByText('a7cc281')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Architecture');
+    expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Open questions');
+    expect(screen.getByRole('complementary', { name: 'Repository dossier contents' })).toHaveTextContent('Overview');
+    expect(document.getElementById('repo-section-architecture')).toBeInTheDocument();
+    expect(screen.getByText(/Long sections stay collapsed below/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /View repository maintenance comparison/i })).toBeInTheDocument();
+    });
+    expect(screen.getByText(PUBLIC_PROOF_PRIVACY_STATEMENT)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Private architecture note' })).not.toBeInTheDocument();
+    expect(screen.getByText('Private architecture note')).toHaveClass('wiki-internal-link--static');
+    expect(screen.queryByText('Shared wiki')).not.toBeInTheDocument();
+  });
+
+  it('does not leak authenticated-only fields when they appear on the transport payload', async () => {
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        _id: 'repo-leak-test',
+        title: 'note-taker-3 — repo wiki',
+        pageType: 'repo',
+        visibility: 'shared',
+        maintenanceProof: {
+          clock: { type: 'github', label: 'GitHub default-branch and release monitoring' },
+          currentThrough: {
+            label: 'Commit deadbeef',
+            ref: 'https://github.com/atsokolas/note-taker-3/commit/deadbeef'
+          }
+        },
+        externalWatches: {
+          githubRepo: {
+            owner: 'secret-owner',
+            repo: 'secret-repo',
+            errorMessage: 'FORBIDDEN_WATCH_ERROR',
+            candidateHeadSha: 'FORBIDDEN_CANDIDATE_SHA'
+          }
+        },
+        claims: [{ claimId: 'FORBIDDEN_CLAIM_123', text: 'secret claim body' }],
+        notes: 'FORBIDDEN_NOTES_FIELD',
+        highlights: [{ text: 'FORBIDDEN_HIGHLIGHT_TEXT' }],
+        backlinks: [{ title: 'FORBIDDEN_BACKLINK_TITLE' }],
+        discussions: [{ text: 'FORBIDDEN_DISCUSSION_TEXT' }],
+        aiState: { maintenanceSummary: 'FORBIDDEN_AGENT_STATE_SUMMARY' },
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Public repo overview paragraph.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'What this repo is' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Public section copy only.' }] }
+          ]
+        },
+        sourceRefs: [{
+          _id: 'FORBIDDEN_SOURCE_ID',
+          title: 'Public reference title',
+          url: 'https://example.com/public-ref'
+        }]
+      }
+    });
+
+    const { container } = render(<SharedWikiPage />);
+    await screen.findByRole('region', { name: 'Repository dossier overview' });
+
+    const rendered = container.textContent || '';
+    const denylist = [
+      'FORBIDDEN_WATCH_ERROR',
+      'FORBIDDEN_CANDIDATE_SHA',
+      'FORBIDDEN_CLAIM_123',
+      'secret claim body',
+      'FORBIDDEN_NOTES_FIELD',
+      'FORBIDDEN_HIGHLIGHT_TEXT',
+      'FORBIDDEN_BACKLINK_TITLE',
+      'FORBIDDEN_DISCUSSION_TEXT',
+      'FORBIDDEN_AGENT_STATE_SUMMARY',
+      'FORBIDDEN_SOURCE_ID',
+      'secret-owner',
+      'secret-repo',
+      'externalWatches'
+    ];
+    denylist.forEach(token => expect(rendered).not.toContain(token));
+    expect(screen.getByRole('link', { name: 'Public reference title' })).toBeInTheDocument();
+  });
+});
+
+describe('public repo dossier helpers', () => {
+  it('detects repo dossiers from public-safe envelope fields only', () => {
+    expect(isPublicRepoWikiPage({
+      pageType: 'repo',
+      maintenanceProof: { clock: { type: 'github' } }
+    })).toBe(true);
+    expect(isPublicRepoWikiPage({
+      title: 'Margin of Safety',
+      maintenanceProof: { clock: { type: 'reading' } }
+    })).toBe(false);
+  });
+
+  it('derives GitHub slug from public maintenance proof refs', () => {
+    expect(publicRepoGitHubLabel({
+      title: 'Fallback title',
+      maintenanceProof: {
+        currentThrough: {
+          ref: 'https://github.com/atsokolas/note-taker-3/commit/a7cc281'
+        }
+      }
+    })).toBe('atsokolas/note-taker-3');
   });
 });
 

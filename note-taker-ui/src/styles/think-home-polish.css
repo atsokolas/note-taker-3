@@ -8222,6 +8222,18 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   color: var(--text-secondary);
 }
 
+.shared-wiki-page__hero .wiki-read__repo-dossier {
+  margin-top: 4px;
+}
+
+.shared-wiki-page__toc--dossier {
+  margin-bottom: 0;
+}
+
+.shared-wiki-page__toc--dossier + .shared-wiki-page__toc {
+  margin-top: 0;
+}
+
 .shared-wiki-page__comparison-link {
   margin: 0;
 }

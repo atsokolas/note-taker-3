@@ -1,8 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { adoptPublicWikiPage, getPublicWikiComparison, getPublicWikiPage } from '../api/wiki';
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../components/wiki/renderTiptapDoc';
+import WikiRepoDossierBody from '../components/wiki/WikiRepoDossierBody';
+import WikiRepoDossierOverview from '../components/wiki/WikiRepoDossierOverview';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
+import {
+  applyRepoDossierSectionAnchors,
+  buildRepoDossierComparisonHref,
+  buildRepoDossierSectionNav,
+  buildRepoSectionChangeBadges,
+  displayWikiPageTitle,
+  extractRepoDossierOverviewSummary,
+  repoDossierSectionAnchorId,
+  repoDossierShouldCollapseSections,
+  repoSectionIdForHeading
+} from '../components/wiki/wikiRepoDossierModel';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
@@ -17,13 +30,57 @@ import '../styles/maintenance-proof-stamp.css';
 
 const reviewedDateFor = (page = {}) => reviewedDateForPublicPage(page);
 
-/** Public-page heuristic: only probe comparison for GitHub-backed repo dossiers. */
+const GITHUB_REPO_REF_PATTERN = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)(?:\/|$)/i;
+const TITLE_REPO_SLUG_PATTERN = /^([\w.-]+)\/([\w.-]+)(?:\s+repo\s+wiki)?$/i;
+
+/** Public-page heuristic: only uses fields present on the public wiki envelope. */
 export const isPublicRepoWikiPage = (page = {}) => {
   if (!page) return false;
   if (page?.maintenanceProof?.clock?.type === 'github') return true;
   if (/repo\s*wiki/i.test(String(page.title || ''))) return true;
   if (String(page.pageType || '').toLowerCase() === 'repo') return true;
   return false;
+};
+
+/** Derive owner/repo from public maintenance proof or title — never externalWatches. */
+export const publicRepoGitHubLabel = (page = {}) => {
+  const ref = String(page?.maintenanceProof?.currentThrough?.ref || '').trim();
+  const refMatch = ref.match(GITHUB_REPO_REF_PATTERN);
+  if (refMatch) return `${refMatch[1]}/${refMatch[2]}`;
+
+  const title = String(page?.title || '').trim();
+  const titleMatch = title.match(TITLE_REPO_SLUG_PATTERN);
+  if (titleMatch) return `${titleMatch[1]}/${titleMatch[2]}`;
+
+  return '';
+};
+
+/** Minimal page view for shared dossier components — public envelope fields only. */
+export const buildPublicDossierPageView = (page = {}) => {
+  const repoSlug = publicRepoGitHubLabel(page);
+  return {
+    title: page?.title,
+    slug: page?.slug,
+    pageType: page?.pageType,
+    plainText: page?.plainText,
+    summary: page?.summary,
+    description: page?.description,
+    wordCount: page?.wordCount,
+    maintenanceProof: page?.maintenanceProof,
+    ...(repoSlug ? { metadata: { githubRepo: repoSlug } } : {})
+  };
+};
+
+export const publicRepoPublishedHead = (page = {}) => {
+  const label = String(page?.maintenanceProof?.currentThrough?.label || '').trim();
+  if (!label) return '';
+  const commitMatch = label.match(/^Commit\s+([a-f0-9]{7,40})$/i);
+  return commitMatch ? commitMatch[1].slice(0, 7) : label;
+};
+
+export const publicRepoPublicationMessage = (page = {}) => {
+  const head = publicRepoPublishedHead(page);
+  return head ? `Page current through ${head}` : '';
 };
 
 const usePublicShareScrollSurface = () => {
@@ -125,6 +182,7 @@ const SharedWikiPage = () => {
   const [adopting, setAdopting] = useState(false);
   const [adoptionError, setAdoptionError] = useState('');
   const [comparisonAvailable, setComparisonAvailable] = useState(false);
+  const [publicComparison, setPublicComparison] = useState(null);
   const autoAdoptAttemptedRef = useRef(false);
 
   useEffect(() => {
@@ -133,6 +191,7 @@ const SharedWikiPage = () => {
     setError('');
     setPage(null);
     setComparisonAvailable(false);
+    setPublicComparison(null);
     getPublicWikiPage(idOrSlug)
       .then((payload) => {
         if (cancelled) return;
@@ -155,15 +214,20 @@ const SharedWikiPage = () => {
     let cancelled = false;
     if (!page || !isPublicRepoWikiPage(page) || !idOrSlug) {
       setComparisonAvailable(false);
+      setPublicComparison(null);
       return undefined;
     }
     getPublicWikiComparison(idOrSlug)
       .then((payload) => {
         if (cancelled) return;
+        setPublicComparison(payload?.comparison || null);
         setComparisonAvailable(Boolean(payload?.comparison));
       })
       .catch(() => {
-        if (!cancelled) setComparisonAvailable(false);
+        if (!cancelled) {
+          setComparisonAvailable(false);
+          setPublicComparison(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -172,6 +236,55 @@ const SharedWikiPage = () => {
 
   const tocItems = useMemo(() => extractTocItems(page?.body), [page?.body]);
   const intro = useMemo(() => firstParagraphText(page?.body), [page?.body]);
+  const repoDossierMode = Boolean(page && isPublicRepoWikiPage(page));
+  const dossierPageView = useMemo(
+    () => (repoDossierMode ? buildPublicDossierPageView(page) : page),
+    [page, repoDossierMode]
+  );
+  const bodyTocItems = useMemo(() => extractTocItems(page?.body), [page?.body]);
+  const displayBody = useMemo(() => {
+    if (!repoDossierMode || !page?.body) return page?.body;
+    return applyRepoDossierSectionAnchors(page.body, bodyTocItems);
+  }, [bodyTocItems, page?.body, repoDossierMode]);
+  const repoSectionNav = useMemo(
+    () => (repoDossierMode ? buildRepoDossierSectionNav({ tocItems: bodyTocItems }) : []),
+    [bodyTocItems, repoDossierMode]
+  );
+  const repoOverviewSummary = useMemo(
+    () => (repoDossierMode ? extractRepoDossierOverviewSummary(displayBody, page) : ''),
+    [displayBody, page, repoDossierMode]
+  );
+  const repoSectionBadges = useMemo(
+    () => (repoDossierMode ? buildRepoSectionChangeBadges(publicComparison) : {}),
+    [publicComparison, repoDossierMode]
+  );
+  const repoCollapseSections = useMemo(
+    () => (repoDossierMode ? repoDossierShouldCollapseSections(page, bodyTocItems) : false),
+    [bodyTocItems, page, repoDossierMode]
+  );
+  const repoComparisonHref = useMemo(
+    () => buildRepoDossierComparisonHref({
+      pageId: idOrSlug,
+      page,
+      shared: true,
+      comparisonAvailable
+    }),
+    [comparisonAvailable, idOrSlug, page]
+  );
+  const mappedTocItems = useMemo(() => {
+    if (!repoDossierMode) return tocItems;
+    return bodyTocItems.map(item => {
+      const sectionId = repoSectionIdForHeading(item.title);
+      if (!sectionId) return item;
+      return {
+        ...item,
+        id: repoDossierSectionAnchorId(sectionId)
+      };
+    });
+  }, [bodyTocItems, repoDossierMode, tocItems]);
+  const displayTitle = repoDossierMode
+    ? displayWikiPageTitle(dossierPageView, page?.title || 'Untitled wiki page')
+    : (page?.title || 'Untitled wiki page');
   const wordCount = countWikiPageWords(page || {});
   const sourceCount = countWikiSources(page || {});
   const claimCount = countWikiClaims(page || {});
@@ -288,8 +401,8 @@ const SharedWikiPage = () => {
       ) : page ? (
         <article className="shared-wiki-page__article">
           <header className="shared-wiki-page__hero">
-            <p className="shared-wiki-page__eyebrow">Shared wiki</p>
-            <h1>{page.title || 'Untitled wiki page'}</h1>
+            <p className="shared-wiki-page__eyebrow">{repoDossierMode ? 'Shared repository dossier' : 'Shared wiki'}</p>
+            <h1>{displayTitle}</h1>
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
                 <h2>This is a shared wiki.</h2>
@@ -315,17 +428,19 @@ const SharedWikiPage = () => {
             <p className="shared-wiki-page__privacy-note">
               {PUBLIC_PROOF_PRIVACY_STATEMENT}
             </p>
-            {comparisonAvailable ? (
-              <p className="shared-wiki-page__comparison-link">
-                <Link
-                  to={`/share/wiki/${encodeURIComponent(idOrSlug)}/comparison`}
-                  data-testid="shared-wiki-comparison-link"
-                >
-                  View repository maintenance comparison
-                </Link>
-              </p>
+            {repoDossierMode ? (
+              <WikiRepoDossierOverview
+                page={dossierPageView}
+                overviewSummary={repoOverviewSummary}
+                sectionNav={repoSectionNav}
+                sectionBadges={repoSectionBadges}
+                publicationMessage={publicRepoPublicationMessage(page)}
+                publishedHead={publicRepoPublishedHead(page)}
+                comparisonHref={repoComparisonHref}
+                collapseEnabled={repoCollapseSections}
+              />
             ) : null}
-            {intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
+            {!repoDossierMode && intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
             <div className="shared-wiki-page__metrics" aria-label="Wiki page metrics">
               <span>{wordCount} words</span>
               <span>{sourceCount} sources</span>
@@ -334,10 +449,31 @@ const SharedWikiPage = () => {
           </header>
 
           <div className="shared-wiki-page__layout">
-            {tocItems.length > 0 ? (
+            {repoDossierMode && repoSectionNav.length ? (
+              <aside className="shared-wiki-page__toc shared-wiki-page__toc--dossier" aria-label="Repository dossier contents">
+                <nav className="wiki-read__repo-dossier-toc">
+                  <span>Dossier</span>
+                  <ol>
+                    {repoSectionNav.map(item => (
+                      <li
+                        key={item.id}
+                        className={`wiki-read__toc-item${item.available ? '' : ' is-missing'}`}
+                      >
+                        {item.available ? (
+                          <a href={`#${item.anchorId}`}>{item.label}</a>
+                        ) : (
+                          <span aria-disabled="true">{item.label}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              </aside>
+            ) : null}
+            {mappedTocItems.length > 0 ? (
               <aside className="shared-wiki-page__toc" aria-label="Contents">
-                <span>Contents</span>
-                {tocItems.map(item => (
+                <span>{repoDossierMode ? 'All sections' : 'Contents'}</span>
+                {mappedTocItems.map(item => (
                   <a key={item.id} href={`#${item.id}`} className={`is-level-${item.level}`}>
                     {item.title}
                   </a>
@@ -346,7 +482,16 @@ const SharedWikiPage = () => {
             ) : null}
 
             <div className="shared-wiki-page__body wiki-read">
-              {renderTiptapDoc(page.body, { tocItems, disableInternalWikiLinks: true })}
+              {repoDossierMode ? (
+                <WikiRepoDossierBody
+                  doc={displayBody}
+                  tocItems={mappedTocItems}
+                  collapseSections={repoCollapseSections}
+                  disableInternalWikiLinks
+                />
+              ) : (
+                renderTiptapDoc(page.body, { tocItems, disableInternalWikiLinks: true })
+              )}
             </div>
           </div>
 

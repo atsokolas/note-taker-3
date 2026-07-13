@@ -53,7 +53,8 @@ const WikiRepoDossierBody = ({
   tocItems = [],
   collapseSections = false,
   recentAnchorIds,
-  wikiLinkPages
+  wikiLinkPages,
+  disableInternalWikiLinks = false
 }) => {
   const sections = useMemo(() => splitDocIntoSections(doc), [doc]);
   const [openSectionIds, setOpenSectionIds] = useState(() => new Set());
@@ -67,7 +68,7 @@ const WikiRepoDossierBody = ({
   if (!collapseSections) {
     return (
       <div className="wiki-read__repo-dossier-body">
-        {renderTiptapDoc(doc, { tocItems, recentAnchorIds, wikiLinkPages })}
+        {renderTiptapDoc(doc, { tocItems, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
       </div>
     );
   }
@@ -82,7 +83,7 @@ const WikiRepoDossierBody = ({
         if (!section.title) {
           return (
             <div key={section.id} className="wiki-read__repo-dossier-section is-open">
-              {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages })}
+              {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
             </div>
           );
         }
@@ -105,7 +106,7 @@ const WikiRepoDossierBody = ({
           >
             <summary>{section.title}</summary>
             <div className="wiki-read__repo-dossier-section-body">
-              {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages })}
+              {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
             </div>
           </details>
         );
