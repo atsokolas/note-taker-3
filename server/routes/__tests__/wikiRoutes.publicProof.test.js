@@ -95,6 +95,7 @@ const run = async () => {
     assert.strictEqual(payload.items[0].proofGrade.grade, 'acceptance_in_progress');
     assert.strictEqual(payload.items[1].proofGrade.grade, 'illustrative');
     assert.strictEqual(payload.items[5].proofGrade.grade, 'candidate');
+    assert.strictEqual(payload.items[5].title, 'atsokolas/note-taker-3 Repo Wiki');
     assert.strictEqual(payload.items[5].proofGrade.comparisonUrl, '/share/wiki/repo/comparison');
     assert.strictEqual(payload.items.some(item => item.proofGrade.grade === 'proven'), false);
     assert.ok(!JSON.stringify(payload).includes('newer-candidate'));

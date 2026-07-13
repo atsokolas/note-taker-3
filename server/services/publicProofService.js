@@ -297,7 +297,7 @@ const serializePublicProofEntry = ({ slot = {}, page = {}, serializePage, compac
   return {
     slot: slot.key,
     label: slot.label,
-    title: clean(page.title, 300) || slot.title,
+    title: clean(serializedPage.title || page.title, 300) || slot.title,
     publicUrl: `/share/wiki/${encodeURIComponent(pageId(page) || clean(page.slug, 180))}`,
     page: compact ? compactRegistryPage({ page, serializedPage, maintenanceProof }) : serializedPage,
     maintenanceProof,
