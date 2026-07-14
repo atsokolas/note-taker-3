@@ -4,7 +4,8 @@ import * as router from 'react-router-dom';
 import SharedWikiPage, {
   buildSharedWikiSchema,
   isPublicRepoWikiPage,
-  publicRepoGitHubLabel
+  publicRepoGitHubLabel,
+  publicRepoPublishedHead
 } from './SharedWikiPage';
 import { adoptPublicWikiPage, getPublicWikiComparison, getPublicWikiPage } from '../api/wiki';
 import { trackSharedWikiAdoptClicked, trackSharedWikiViewed } from '../utils/marketingAnalytics';
@@ -491,6 +492,9 @@ describe('SharedWikiPage', () => {
 describe('public repo dossier helpers', () => {
   it('detects repo dossiers from public-safe envelope fields only', () => {
     expect(isPublicRepoWikiPage({
+      githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' }
+    })).toBe(true);
+    expect(isPublicRepoWikiPage({
       pageType: 'repo',
       maintenanceProof: { clock: { type: 'github' } }
     })).toBe(true);
@@ -502,6 +506,9 @@ describe('public repo dossier helpers', () => {
 
   it('derives GitHub slug from public maintenance proof refs', () => {
     expect(publicRepoGitHubLabel({
+      githubRepo: { owner: 'OpenAI', repo: 'openai-agents-js', fullName: 'OpenAI/openai-agents-js' }
+    })).toBe('OpenAI/openai-agents-js');
+    expect(publicRepoGitHubLabel({
       title: 'Fallback title',
       maintenanceProof: {
         currentThrough: {
@@ -509,6 +516,13 @@ describe('public repo dossier helpers', () => {
         }
       }
     })).toBe('atsokolas/note-taker-3');
+  });
+
+  it('uses the accepted published head from the explicit public envelope', () => {
+    expect(publicRepoPublishedHead({
+      githubRepo: { publishedHeadSha: 'ABC1234567890' },
+      maintenanceProof: { currentThrough: { label: 'Commit fallback1' } }
+    })).toBe('ABC1234');
   });
 });
 

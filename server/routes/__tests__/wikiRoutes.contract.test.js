@@ -1457,7 +1457,18 @@ const run = async () => {
         snippet: `Repository evidence. ${'raw package data '.repeat(100)}`
       }],
       externalWatches: {
-        githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', status: 'active' }
+        githubRepo: {
+          owner: 'atsokolas',
+          repo: 'note-taker-3',
+          defaultBranch: 'main',
+          status: 'active',
+          lastHeadSha: 'newer-private-head',
+          publishedHeadSha: 'abc1234567890',
+          candidateHeadSha: 'private-candidate-head',
+          buildStatus: 'needs_review',
+          lastBuildError: 'FORBIDDEN_PRIVATE_BUILD_ERROR',
+          lastPublishedAt: '2026-07-12T12:00:00.000Z'
+        }
       }
     });
     await sharedRepoPage.save();
@@ -1511,6 +1522,16 @@ const run = async () => {
     assert.strictEqual(publicRepo.body.page.title, 'atsokolas/note-taker-3 Repo Wiki');
     assert.strictEqual(publicRepo.body.page.sourceCount, 1);
     assert.strictEqual(publicRepo.body.page.maintenanceProof.sourceCount, 1);
+    assert.deepStrictEqual(publicRepo.body.page.githubRepo, {
+      owner: 'atsokolas',
+      repo: 'note-taker-3',
+      fullName: 'atsokolas/note-taker-3',
+      url: 'https://github.com/atsokolas/note-taker-3',
+      defaultBranch: 'main',
+      publishedHeadSha: 'abc1234567890',
+      lastPublishedAt: '2026-07-12T12:00:00.000Z'
+    });
+    assert.strictEqual(publicRepo.body.page.buildStateLabel, 'Last trusted version');
     assert.deepStrictEqual(publicRepo.body.page.sourceRefs, [{
       type: 'external',
       title: 'atsokolas/note-taker-3 package.json',
@@ -1522,6 +1543,9 @@ const run = async () => {
       [1]
     );
     assert.ok(!JSON.stringify(publicRepo.body).includes('Debug Fixture'));
+    assert.ok(!JSON.stringify(publicRepo.body).includes('newer-private-head'));
+    assert.ok(!JSON.stringify(publicRepo.body).includes('private-candidate-head'));
+    assert.ok(!JSON.stringify(publicRepo.body).includes('FORBIDDEN_PRIVATE_BUILD_ERROR'));
 
     const adoptedPublicPage = await request(url, `/api/public/wiki/pages/${sharedPage._id}/adopt`, {
       method: 'POST',

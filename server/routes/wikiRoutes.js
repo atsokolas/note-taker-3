@@ -765,6 +765,39 @@ const publicRepoTitle = (page = {}) => {
   return owner && repo ? `${owner}/${repo} Repo Wiki` : String(page.title || 'Untitled wiki page');
 };
 
+const buildPublicRepoEnvelope = (page = {}) => {
+  const watch = page.externalWatches?.githubRepo || {};
+  const owner = String(watch.owner || '').trim();
+  const repo = String(watch.repo || '').trim();
+  if (!owner || !repo) return null;
+  const publishedHeadSha = String(watch.publishedHeadSha || '').trim();
+  const observedHeadSha = String(watch.lastHeadSha || '').trim();
+  const candidateHeadSha = String(watch.candidateHeadSha || '').trim();
+  const buildStatus = String(watch.buildStatus || 'idle').trim().toLowerCase();
+  const hasUnacceptedState = (
+    !publishedHeadSha
+    || (observedHeadSha && observedHeadSha !== publishedHeadSha)
+    || (candidateHeadSha && candidateHeadSha !== publishedHeadSha)
+    || ['queued', 'building', 'ready', 'needs_review', 'error'].includes(buildStatus)
+  );
+  return {
+    githubRepo: {
+      owner,
+      repo,
+      fullName: `${owner}/${repo}`,
+      url: `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+      defaultBranch: String(watch.defaultBranch || '').trim(),
+      publishedHeadSha,
+      lastPublishedAt: watch.lastPublishedAt || null
+    },
+    buildStateLabel: !publishedHeadSha
+      ? 'Awaiting accepted build'
+      : hasUnacceptedState
+        ? 'Last trusted version'
+        : 'Current'
+  };
+};
+
 const isQaOnlyPublicSource = (source = {}) => {
   const value = `${source.title || ''} ${source.url || ''}`.toLowerCase();
   return /\bdebug fixture\b|debug-fixture\.noeis\.local|\bqa[_ -]?(?:fixture|seed)\b/.test(value);
@@ -796,6 +829,7 @@ const serializePublicWikiPage = (page) => {
     .filter((source) => source.title || source.url || source.snippet);
   const maintenanceProof = buildPublicMaintenanceProof(page);
   if (repoPage && maintenanceProof) maintenanceProof.sourceCount = publicSourceRefs.length;
+  const publicRepoEnvelope = repoPage ? buildPublicRepoEnvelope(full) : null;
 
   return {
     _id: String(full._id || ''),
@@ -818,7 +852,8 @@ const serializePublicWikiPage = (page) => {
     sourceCount: repoPage ? publicSourceRefs.length : (full.sourceCount ?? publicSourceRefs.length),
     claimCount: full.claimCount ?? 0,
     wordCount: full.wordCount ?? countWords(full.plainText || ''),
-    maintenanceProof
+    maintenanceProof,
+    ...(publicRepoEnvelope || {})
   };
 };
 

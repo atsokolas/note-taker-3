@@ -60,9 +60,13 @@ const records = [
       githubRepo: {
         owner: 'atsokolas',
         repo: 'note-taker-3',
+        defaultBranch: 'main',
         status: 'active',
+        lastHeadSha: '54154fb6123456789',
         publishedHeadSha: '54154fb6123456789',
-        candidateHeadSha: 'newer-candidate'
+        candidateHeadSha: 'newer-candidate',
+        buildStatus: 'building',
+        lastPublishedAt: '2026-07-11T00:00:00.000Z'
       }
     }
   })
@@ -101,6 +105,7 @@ const run = async () => {
     assert.strictEqual(payload.items[5].proofGrade.grade, 'candidate');
     assert.strictEqual(payload.items[5].title, 'atsokolas/note-taker-3 Repo Wiki');
     assert.strictEqual(payload.items[5].proofGrade.comparisonUrl, '/share/wiki/repo/comparison');
+    assert.strictEqual(payload.items[5].page.githubRepo, undefined);
     assert.strictEqual(payload.items.some(item => item.proofGrade.grade === 'proven'), false);
     assert.ok(!JSON.stringify(payload).includes('newer-candidate'));
     assert.ok(!JSON.stringify(payload).includes('externalWatches'));

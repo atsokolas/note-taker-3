@@ -36,6 +36,7 @@ const TITLE_REPO_SLUG_PATTERN = /^([\w.-]+)\/([\w.-]+)(?:\s+repo\s+wiki)?$/i;
 /** Public-page heuristic: only uses fields present on the public wiki envelope. */
 export const isPublicRepoWikiPage = (page = {}) => {
   if (!page) return false;
+  if (page?.githubRepo?.owner && page?.githubRepo?.repo) return true;
   if (page?.maintenanceProof?.clock?.type === 'github') return true;
   if (/repo\s*wiki/i.test(String(page.title || ''))) return true;
   if (String(page.pageType || '').toLowerCase() === 'repo') return true;
@@ -44,6 +45,11 @@ export const isPublicRepoWikiPage = (page = {}) => {
 
 /** Derive owner/repo from public maintenance proof or title — never externalWatches. */
 export const publicRepoGitHubLabel = (page = {}) => {
+  const explicit = String(page?.githubRepo?.fullName || '').trim();
+  if (explicit) return explicit;
+  const owner = String(page?.githubRepo?.owner || '').trim();
+  const repo = String(page?.githubRepo?.repo || '').trim();
+  if (owner && repo) return `${owner}/${repo}`;
   const ref = String(page?.maintenanceProof?.currentThrough?.ref || '').trim();
   const refMatch = ref.match(GITHUB_REPO_REF_PATTERN);
   if (refMatch) return `${refMatch[1]}/${refMatch[2]}`;
@@ -72,6 +78,8 @@ export const buildPublicDossierPageView = (page = {}) => {
 };
 
 export const publicRepoPublishedHead = (page = {}) => {
+  const explicit = String(page?.githubRepo?.publishedHeadSha || '').trim();
+  if (explicit) return explicit.slice(0, 7);
   const label = String(page?.maintenanceProof?.currentThrough?.label || '').trim();
   if (!label) return '';
   const commitMatch = label.match(/^Commit\s+([a-f0-9]{7,40})$/i);
@@ -436,6 +444,7 @@ const SharedWikiPage = () => {
                 sectionBadges={repoSectionBadges}
                 publicationMessage={publicRepoPublicationMessage(page)}
                 publishedHead={publicRepoPublishedHead(page)}
+                buildStateLabel={page?.buildStateLabel || ''}
                 comparisonHref={repoComparisonHref}
                 collapseEnabled={repoCollapseSections}
               />
