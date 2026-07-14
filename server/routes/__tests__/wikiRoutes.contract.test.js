@@ -260,6 +260,17 @@ const createFakeWikiSourceEventModel = () => {
     return new Query(found ? new WikiSourceEvent(clone(found)) : null);
   };
 
+  WikiSourceEvent.findOneAndUpdate = async (query = {}, updates = {}) => {
+    const found = records.find(record => matches(record, query));
+    if (!found) return null;
+    Object.assign(found, updates.$set || {});
+    Object.entries(updates.$inc || {}).forEach(([key, amount]) => {
+      found[key] = Number(found[key] || 0) + Number(amount || 0);
+    });
+    found.updatedAt = new Date();
+    return new WikiSourceEvent(clone(found));
+  };
+
   WikiSourceEvent.prototype.toObject = function toObject() {
     return clone(this);
   };
