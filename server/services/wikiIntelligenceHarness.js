@@ -2071,8 +2071,16 @@ const makePageModel = (pages = []) => {
   return HarnessPage;
 };
 
-const makeEventModel = () => ({
-  findOne: async () => null
+const makeEventModel = (event) => ({
+  findOne: async (query = {}) => (event && matchesHarnessQuery(event, query) ? event : null),
+  findOneAndUpdate: async (query = {}, updates = {}) => {
+    if (!event || !matchesHarnessQuery(event, query)) return null;
+    Object.assign(event, updates.$set || {});
+    Object.entries(updates.$inc || {}).forEach(([key, amount]) => {
+      event[key] = Number(event[key] || 0) + Number(amount || 0);
+    });
+    return event;
+  }
 });
 
 const makeEventQueueModel = (events = []) => {
@@ -2587,7 +2595,7 @@ const evaluateSourceEventUpdateFixture = async (fixture, options = {}) => {
     sourceEvent: event,
     userId: event.userId,
     models: {
-      WikiSourceEvent: makeEventModel(),
+      WikiSourceEvent: makeEventModel(event),
       WikiPage: makePageModel(pages),
       WikiRevision: makeRevisionModel(),
       WikiMaintenanceRun: makeMaintenanceRunModel(),
@@ -2659,7 +2667,7 @@ const runSourceEventMaintenance = async ({ fixture, pages, event, useQueue = fal
   const Connection = makeConnectionModel();
   let maintainCallIndex = 0;
   const models = {
-    WikiSourceEvent: useQueue ? makeEventQueueModel([event]) : makeEventModel(),
+    WikiSourceEvent: useQueue ? makeEventQueueModel([event]) : makeEventModel(event),
     WikiPage: makePageModel(pages),
     WikiRevision: makeRevisionModel(),
     WikiMaintenanceRun: makeMaintenanceRunModel(),
