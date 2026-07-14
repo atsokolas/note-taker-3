@@ -24,6 +24,52 @@ const cleanMarkdown = (value = '') => String(value || '')
 
 const claimId = (text = '') => `claim-${crypto.createHash('sha256').update(text).digest('hex').slice(0, 16)}`;
 
+const rewriteUnsupportedClaimText = (value = '') => String(value || '')
+  .replace(/\s*Waymo’s \$16 billion 2026 funding round, funded in significant majority by Alphabet, indicates continued commitment and some external validation\./, '')
+  .replace(/\s*The General Court annulled the Commission’s AdSense for Search decision and €1\.5 billion fine, though the Commission appealed\./, '')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const CLAIM_EVIDENCE_RULES = Object.freeze([
+  { startsWith: 'Alphabet has the funding capacity', sourceIds: ['A25K', 'B25AR'] },
+  { startsWith: 'Fact. Alphabet became the parent holding company', sourceIds: ['A25K'] },
+  { startsWith: 'Inference. That structure creates an allocator’s problem', sourceIds: ['A25K', 'A1Q26'] },
+  { startsWith: 'Analogy. This is the point at which Berkshire Hathaway becomes useful', sourceIds: ['A25K', 'B25AR', 'B25L'] },
+  { startsWith: 'Limit. The resemblance is not identity', sourceIds: ['A25K', 'B25AR'] },
+  { startsWith: 'Fact. Alphabet generated $164.713 billion', sourceIds: ['A25K'] },
+  { startsWith: 'Fact. Berkshire ended 2025 with approximately $176 billion', sourceIds: ['B25AR', 'B25K'] },
+  { startsWith: 'Correction. These are not equivalent numbers', sourceIds: ['A25K', 'B25AR', 'B25K'] },
+  { startsWith: 'Analogy. The narrow comparison is that both firms', sourceIds: ['A25K', 'B25AR'] },
+  { startsWith: 'Uncertainty. Alphabet’s funding advantage depends', sourceIds: ['A25K', 'A1Q26'] },
+  { startsWith: 'Fact. From 2016 through 2025', sourceIds: ['FY2016', 'FY2017', 'FY2018', 'FY2019', 'FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'FY2025'] },
+  { startsWith: 'Inference. Alphabet did not choose between reinvestment', sourceIds: ['A25K'] },
+  { startsWith: 'Disconfirming evidence. The reinvestment bill has accelerated sharply', sourceIds: ['FY2023', 'FY2025', 'A1Q26'] },
+  { startsWith: 'Uncertainty. Alphabet does not disclose a single portfolio-wide hurdle rate', sourceIds: ['A25K', 'A1Q26'] },
+  { startsWith: 'Fact. Other Bets generated $1.537 billion', sourceIds: ['A25K', 'A1Q26'] },
+  { startsWith: 'Fact. Adding the Other Bets operating losses', sourceIds: ['FY2016', 'FY2017', 'FY2018', 'FY2019', 'FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'FY2025'] },
+  { startsWith: 'Uncertainty. That cumulative sum is not a GAAP measure', sourceIds: ['FY2018', 'FY2023', 'A25K'] },
+  { startsWith: 'Inference. Other Bets should be understood as an option portfolio', sourceIds: ['A25K', 'A1Q26'] },
+  { startsWith: 'Disconfirming evidence. Revenue remains tiny relative to losses', sourceIds: ['A25K', 'A1Q26'] },
+  { startsWith: 'Fact. Alphabet’s Class A shares receive one vote each', sourceIds: ['AP26', 'ACOI'] },
+  { startsWith: 'Inference. Control can protect investments', sourceIds: ['AP26', 'ACOI'] },
+  { startsWith: 'Disconfirming evidence. The annual-meeting record', sourceIds: ['AP26', 'A25K'] },
+  { startsWith: 'Comparison. Berkshire also concentrates capital allocation', sourceIds: ['A25K', 'A1Q26', 'B25AR', 'B25L'] },
+  { startsWith: 'Fact. In the U.S. search case', sourceIds: ['DOJ-S'] },
+  { startsWith: 'Fact. In the Virginia ad-tech case', sourceIds: ['DOJ-AT'] },
+  { startsWith: 'Fact. The European Commission imposed a €2.95 billion', sourceIds: ['EC-AT', 'A1Q26', 'CMA-S'] },
+  { startsWith: 'Inference. Regulation is no longer merely a discount rate', sourceIds: ['DOJ-S', 'DOJ-AT', 'EC-AT', 'CMA-S', 'CMA-AT'] },
+  { startsWith: 'Disconfirming evidence. Alphabet has not lost every case', sourceIds: ['DOJ-AT'] },
+  { startsWith: 'Alphabet deserves analysis as a capital allocator', sourceIds: ['A25K', 'B25AR'] },
+  { startsWith: 'But “Berkshire Hathaway 2.0” hides the facts', sourceIds: ['A25K', 'A1Q26', 'AP26', 'B25AR', 'DOJ-S', 'DOJ-AT', 'CMA-S'] },
+  { startsWith: 'The investable question is therefore not whether Alphabet has copied Berkshire', sourceIds: ['A25K', 'A1Q26', 'AP26', 'DOJ-S', 'DOJ-AT', 'CMA-S'] }
+]);
+
+const claimEvidenceFor = (text = '') => {
+  const rule = CLAIM_EVIDENCE_RULES.find(candidate => String(text || '').startsWith(candidate.startsWith));
+  if (!rule) throw new Error(`No claim-level evidence mapping for: ${String(text || '').slice(0, 120)}`);
+  return [...rule.sourceIds];
+};
+
 const parseEvidencePackage = (markdown = '') => {
   const inventory = markdown.split('\n## 2. Financial series')[0] || '';
   const articleMatch = markdown.match(/## 7\. Complete article draft\s+#[^\n]+\n([\s\S]*?)\n---\s+\n## 8\./);
@@ -46,17 +92,6 @@ const parseEvidencePackage = (markdown = '') => {
   if (sourceRows.length < 20) throw new Error(`Expected at least 20 primary sources; found ${sourceRows.length}.`);
   sourceRows.forEach(row => { row.aliases = aliasesByUrl.get(row.url) || [row.id]; });
 
-  const sectionSourceIds = {
-    '': ['A25K', 'B25AR'],
-    'The analogy is useful only after it is cut down to size': ['A25K', 'AP26', 'B25AR', 'B25L'],
-    'The engine is advertising, not float': ['A25K', 'A1Q26', 'B25AR', 'B25K'],
-    'What Alphabet actually did with the cash': ['FY2016', 'FY2017', 'FY2018', 'FY2019', 'FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'A25K', 'A1Q26'],
-    'Other Bets is an option portfolio with an expensive disclosed history': ['FY2016', 'FY2017', 'FY2018', 'FY2019', 'FY2020', 'FY2021', 'FY2022', 'FY2023', 'FY2024', 'A25K', 'A1Q26'],
-    'Control permits patience and weakens accountability': ['AP26', 'ACOI', 'ABYL', 'ACG', 'B25L'],
-    'The state is now inside the capital-allocation system': ['A1Q26', 'DOJ-S', 'DOJ-AT', 'EC-AT', 'CMA-S', 'CMA-AT'],
-    'Verdict: a Berkshire-like question, not Berkshire 2.0': ['A25K', 'A1Q26', 'AP26', 'B25AR', 'B25L', 'DOJ-S', 'DOJ-AT', 'CMA-S']
-  };
-
   const blocks = [];
   let section = '';
   let paragraphLines = [];
@@ -64,9 +99,9 @@ const parseEvidencePackage = (markdown = '') => {
     const raw = paragraphLines.join(' ').trim();
     paragraphLines = [];
     if (!raw) return;
-    const text = cleanMarkdown(raw);
+    const text = rewriteUnsupportedClaimText(cleanMarkdown(raw));
     const label = raw.match(/^\*\*([^*]+)\.\*\*/)?.[1] || '';
-    const sourceIds = sectionSourceIds[section] || sectionSourceIds[''];
+    const sourceIds = claimEvidenceFor(text);
     blocks.push({ type: 'paragraph', text, section, label, sourceIds });
   };
   for (const line of articleMatch[1].trim().split('\n')) {
@@ -120,7 +155,7 @@ const buildCandidate = ({ sourcePage, parsed, now = new Date() }) => {
         return { type: 'heading', attrs: { level: block.level || 2 }, content: [{ type: 'text', text: block.text }] };
       }
       const citationIndexes = [...new Set(block.sourceIds.map(id => indexByEvidenceId.get(id)).filter(Boolean))];
-      const support = ['Inference', 'Analogy', 'Uncertainty'].includes(block.label) ? 'partial' : 'supported';
+      const support = ['Fact', 'Correction'].includes(block.label) ? 'supported' : 'partial';
       paragraphs.push({ ...block, citationIndexes, support });
       return {
         type: 'paragraph',
@@ -335,4 +370,10 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildCandidate, cleanMarkdown, parseEvidencePackage };
+module.exports = {
+  buildCandidate,
+  claimEvidenceFor,
+  cleanMarkdown,
+  parseEvidencePackage,
+  rewriteUnsupportedClaimText
+};
