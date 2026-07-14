@@ -13,6 +13,11 @@ const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
 const { applyDirectEvidenceMatches, assessEventAgainstClaims } = require('./wikiEvidenceRelevanceService');
+const {
+  claimableEventQuery,
+  hasActiveProcessingLease,
+  isLegacyUnrecoverableProcessingRow
+} = require('./wikiSourceEventLease');
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -351,16 +356,67 @@ const processWikiSourceEvent = async ({
   } = models;
   if (!WikiSourceEvent || !WikiPage) throw new Error('Wiki source event processing requires WikiSourceEvent and WikiPage models.');
 
-  const event = sourceEvent || await WikiSourceEvent.findOne({ _id: sourceEventId, ...(userId ? { userId } : {}) });
+  const at = new Date();
+  let event = sourceEvent || await WikiSourceEvent.findOne({ _id: sourceEventId, ...(userId ? { userId } : {}) });
   if (!event) {
     const error = new Error('Wiki source event not found.');
     error.code = 'SOURCE_EVENT_NOT_FOUND';
     throw error;
   }
 
-  event.status = 'processing';
-  event.errorMessage = '';
-  await event.save();
+  if (sourceEvent && hasActiveProcessingLease(sourceEvent, at)) {
+    event = sourceEvent;
+    event.errorMessage = '';
+  } else if (isLegacyUnrecoverableProcessingRow(event)) {
+    const error = new Error('Wiki source event is a legacy in-flight row without a recoverable lease.');
+    error.code = 'SOURCE_EVENT_LEGACY_PROCESSING';
+    throw error;
+  } else if (hasActiveProcessingLease(event, at)) {
+    const error = new Error('Wiki source event is already being processed.');
+    error.code = 'SOURCE_EVENT_ACTIVE_LEASE';
+    throw error;
+  } else if (sourceEvent && sourceEvent.status === 'processing' && sourceEvent.lockedAt) {
+    event = sourceEvent;
+    event.lockedAt = at;
+    event.attemptCount = Number(event.attemptCount || 0) + 1;
+    event.errorMessage = '';
+    await event.save();
+  } else {
+    const claimQuery = {
+      _id: event._id,
+      ...(userId ? { userId } : {}),
+      ...claimableEventQuery(at)
+    };
+    const claimed = await WikiSourceEvent.findOneAndUpdate(
+      claimQuery,
+      {
+        $set: {
+          status: 'processing',
+          lockedAt: at,
+          errorMessage: ''
+        },
+        $inc: { attemptCount: 1 }
+      },
+      { new: true }
+    );
+    if (!claimed) {
+      const current = await WikiSourceEvent.findOne({ _id: event._id, ...(userId ? { userId } : {}) });
+      if (hasActiveProcessingLease(current, at)) {
+        const error = new Error('Wiki source event is already being processed.');
+        error.code = 'SOURCE_EVENT_ACTIVE_LEASE';
+        throw error;
+      }
+      if (isLegacyUnrecoverableProcessingRow(current)) {
+        const error = new Error('Wiki source event is a legacy in-flight row without a recoverable lease.');
+        error.code = 'SOURCE_EVENT_LEGACY_PROCESSING';
+        throw error;
+      }
+      const error = new Error('Wiki source event is not claimable for processing.');
+      error.code = 'SOURCE_EVENT_NOT_CLAIMABLE';
+      throw error;
+    }
+    event = claimed;
+  }
   const effectiveWikiSchemaContent = wikiSchemaContent || await getWikiSchemaPromptContent({
     WikiSchemaSettings,
     userId: event.userId
@@ -398,6 +454,7 @@ const processWikiSourceEvent = async ({
       const proposal = await createProposalFromSourceEvent({ WikiProposal, event });
       event.status = 'ignored';
       event.processedAt = new Date();
+      event.lockedAt = null;
       event.errorMessage = '';
       setEventMetadata(event, {
         proposalId: proposal?._id || null,
@@ -607,6 +664,7 @@ const processWikiSourceEvent = async ({
 
     event.status = 'processed';
     event.processedAt = new Date();
+    event.lockedAt = null;
     event.affectedPageIds = pages.map(page => page._id).filter(Boolean);
     await event.save();
     if (run) {

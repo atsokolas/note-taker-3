@@ -1,32 +1,38 @@
 const { processWikiSourceEvent } = require('./wikiMaintenanceOrchestrator');
+const {
+  claimUpdate,
+  claimableEventQuery,
+  isClockEventQuery,
+  now
+} = require('./wikiSourceEventLease');
 
-const now = () => new Date();
-
-const claimPendingWikiSourceEvents = async ({ WikiSourceEvent, userId, limit = 5 } = {}) => {
+const claimPendingWikiSourceEvents = async ({
+  WikiSourceEvent,
+  userId,
+  limit = 5,
+  at = now()
+} = {}) => {
   if (!WikiSourceEvent || !userId) return [];
   const claimed = [];
   const max = Math.max(1, Math.min(Number(limit) || 5, 25));
+  const baseQuery = {
+    userId,
+    ...claimableEventQuery(at)
+  };
+  const claimPasses = [
+    { ...baseQuery, ...isClockEventQuery() },
+    baseQuery
+  ];
   for (let i = 0; i < max; i += 1) {
-    const event = await WikiSourceEvent.findOneAndUpdate(
-      {
-        userId,
-        status: { $in: ['pending', 'failed'] },
-        $or: [
-          { nextAttemptAt: null },
-          { nextAttemptAt: { $exists: false } },
-          { nextAttemptAt: { $lte: now() } }
-        ]
-      },
-      {
-        $set: {
-          status: 'processing',
-          lockedAt: now(),
-          errorMessage: ''
-        },
-        $inc: { attemptCount: 1 }
-      },
-      { sort: { createdAt: 1 }, new: true }
-    );
+    let event = null;
+    for (const query of claimPasses) {
+      event = await WikiSourceEvent.findOneAndUpdate(
+        query,
+        claimUpdate(at),
+        { sort: { createdAt: 1 }, new: true }
+      );
+      if (event) break;
+    }
     if (!event) break;
     claimed.push(event);
   }
@@ -60,14 +66,21 @@ const processPendingWikiSourceEvents = async ({
   return results;
 };
 
-const dueSourceEventQuery = () => ({
-  status: { $in: ['pending', 'failed'] },
-  $or: [
-    { nextAttemptAt: null },
-    { nextAttemptAt: { $exists: false } },
-    { nextAttemptAt: { $lte: now() } }
-  ]
-});
+const dueSourceEventQuery = (at = now()) => claimableEventQuery(at);
+
+const orderUserIdsForDrain = async ({ WikiSourceEvent, at = now() } = {}) => {
+  const dueQuery = dueSourceEventQuery(at);
+  const [clockUserIds, allUserIds] = await Promise.all([
+    WikiSourceEvent.distinct('userId', { ...dueQuery, ...isClockEventQuery() }),
+    WikiSourceEvent.distinct('userId', dueQuery)
+  ]);
+  const clockSet = new Set((clockUserIds || []).map(id => String(id)));
+  const ordered = [...clockUserIds];
+  (allUserIds || []).forEach((userId) => {
+    if (!clockSet.has(String(userId))) ordered.push(userId);
+  });
+  return ordered;
+};
 
 const drainWikiSourceEventQueue = async ({
   models = {},
@@ -75,12 +88,13 @@ const drainWikiSourceEventQueue = async ({
   perUserLimit = 5,
   buildUniqueSlug = null,
   processWikiSourceEventFn = processWikiSourceEvent,
-  wikiSchemaContent = ''
+  wikiSchemaContent = '',
+  at = now()
 } = {}) => {
   const { WikiSourceEvent } = models;
   if (!WikiSourceEvent) return { processed: 0, failed: 0, results: [] };
   const max = Math.max(1, Math.min(Number(limit) || 20, 100));
-  const userIds = await WikiSourceEvent.distinct('userId', dueSourceEventQuery());
+  const userIds = await orderUserIdsForDrain({ WikiSourceEvent, at });
   const results = [];
   for (const userId of userIds) {
     if (results.length >= max) break;
@@ -105,5 +119,6 @@ const drainWikiSourceEventQueue = async ({
 module.exports = {
   claimPendingWikiSourceEvents,
   drainWikiSourceEventQueue,
+  dueSourceEventQuery,
   processPendingWikiSourceEvents
 };

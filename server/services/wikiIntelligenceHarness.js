@@ -2039,7 +2039,13 @@ const normalizeId = (value) => String(value || '');
 
 const matchesHarnessQuery = (record, query = {}) => Object.entries(query).every(([key, value]) => {
   if (key === '$or') return value.some(condition => matchesHarnessQuery(record, condition));
-  if (value && typeof value === 'object' && value.$ne !== undefined) return normalizeId(record[key]) !== normalizeId(value.$ne);
+  if (value && typeof value === 'object' && value.$ne !== undefined) {
+    const actual = record[key];
+    if (Array.isArray(value.$ne) && Array.isArray(actual)) {
+      return JSON.stringify(actual) !== JSON.stringify(value.$ne);
+    }
+    return actual !== value.$ne;
+  }
   if (value && typeof value === 'object' && Array.isArray(value.$in)) {
     return value.$in.map(normalizeId).includes(normalizeId(record[key]));
   }
@@ -2087,10 +2093,28 @@ const makeEventQueueModel = (events = []) => {
   }
   HarnessEvent.events = events;
   HarnessEvent.findOne = async (query = {}) => events.find(event => matchesHarnessQuery(event, query)) || null;
-  HarnessEvent.findOneAndUpdate = async (query = {}, updates = {}) => {
+  HarnessEvent.findOneAndUpdate = async (query = {}, updates = {}, options = {}) => {
+    const at = new Date(updates.$set?.lockedAt || Date.now());
+    const staleBefore = new Date(at.getTime() - 30 * 60 * 1000);
+    const clockProviders = ['sec-edgar', 'fmp-transcripts'];
     const eligible = events
-      .filter(item => matchesHarnessQuery(item, query))
-      .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      .filter((item) => {
+        if (!matchesHarnessQuery(item, query)) return false;
+        if (['pending', 'failed'].includes(item.status)) {
+          if (item.nextAttemptAt && new Date(item.nextAttemptAt) > at) return false;
+          return true;
+        }
+        if (item.status === 'processing' && item.lockedAt) {
+          return new Date(item.lockedAt).getTime() <= staleBefore.getTime();
+        }
+        return false;
+      })
+      .sort((a, b) => {
+        const aClock = clockProviders.includes(a.provider) && Array.isArray(a.affectedPageIds) && a.affectedPageIds.length ? 0 : 1;
+        const bClock = clockProviders.includes(b.provider) && Array.isArray(b.affectedPageIds) && b.affectedPageIds.length ? 0 : 1;
+        if (aClock !== bClock) return aClock - bClock;
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      });
     const event = eligible[0] || null;
     if (!event) return null;
     Object.assign(event, updates.$set || {});
