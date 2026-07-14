@@ -151,7 +151,8 @@ const createMissingTranscriptEvent = async ({ WikiSourceEvent, userId, page, tra
   const existing = await WikiSourceEvent.findOne({
     userId,
     provider: payload.provider,
-    externalId: payload.externalId
+    externalId: payload.externalId,
+    affectedPageIds: page._id
   }).select('_id').lean();
   if (existing) return null;
   return createWikiSourceEvent({ WikiSourceEvent, ...payload });

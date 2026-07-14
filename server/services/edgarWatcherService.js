@@ -209,7 +209,8 @@ const createMissingFilingEvents = async ({
     const existing = await WikiSourceEvent.findOne({
       userId,
       provider: 'sec-edgar',
-      externalId
+      externalId,
+      affectedPageIds: page._id
     }).select('_id text metadata').lean();
     const url = buildFilingUrl({ cik: watch.cik, accessionNumber: filing.accessionNumber, primaryDocument: filing.primaryDocument });
     if (existing && String(existing.text || '').length >= 2000) continue;

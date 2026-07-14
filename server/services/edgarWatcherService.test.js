@@ -69,6 +69,7 @@ class FakeWikiSourceEvent {
       String(event.userId) === String(query.userId)
       && event.provider === query.provider
       && event.externalId === query.externalId
+      && (!query.affectedPageIds || (event.affectedPageIds || []).some(pageId => String(pageId) === String(query.affectedPageIds)))
     ));
     return {
       select: () => ({
@@ -174,6 +175,22 @@ const run = async () => {
   assert.strictEqual(second.events.length, 0);
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
 
+  FakeWikiPage.page = { ...makePage(), _id: '507f1f77bcf86cd799439012' };
+  const secondPage = await armEdgarWatchForPage({
+    WikiPage: FakeWikiPage,
+    WikiSourceEvent: FakeWikiSourceEvent,
+    userId: 'user-1',
+    pageId: '507f1f77bcf86cd799439012',
+    ticker: 'AAPL',
+    forms: ['10-Q', '8-K'],
+    fetchImpl: makeFetch()
+  });
+  assert.strictEqual(secondPage.events.length, 2);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 4);
+  assert.strictEqual(FakeWikiSourceEvent.rows[2].affectedPageIds[0], '507f1f77bcf86cd799439012');
+
+  FakeWikiPage.page = makePage();
+
   FakeWikiSourceEvent.rows[0].text = 'thin metadata';
   FakeWikiSourceEvent.rows[0].metadata.hasFilingText = false;
   const enriched = await armEdgarWatchForPage({
@@ -186,7 +203,7 @@ const run = async () => {
     fetchImpl: makeFetch()
   });
   assert.strictEqual(enriched.events.length, 0);
-  assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 4);
   assert.match(FakeWikiSourceEvent.rows[0].text, /Services revenue increased/);
 
   const dueQuery = dueEdgarWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });

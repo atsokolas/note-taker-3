@@ -58,6 +58,7 @@ class FakeWikiSourceEvent {
       String(event.userId) === String(query.userId)
       && event.provider === query.provider
       && event.externalId === query.externalId
+      && (!query.affectedPageIds || (event.affectedPageIds || []).some(pageId => String(pageId) === String(query.affectedPageIds)))
     ));
     return {
       select: () => ({
@@ -161,6 +162,22 @@ const run = async () => {
   });
   assert.strictEqual(second.events.length, 0);
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 1);
+
+  FakeWikiPage.page = { ...makePage(), _id: '507f1f77bcf86cd799439022' };
+  const secondPage = await armTranscriptWatchForPage({
+    WikiPage: FakeWikiPage,
+    WikiSourceEvent: FakeWikiSourceEvent,
+    userId: 'user-1',
+    pageId: '507f1f77bcf86cd799439022',
+    ticker: 'MSFT',
+    fetchImpl: makeFetch(),
+    apiKey: 'test-key'
+  });
+  assert.strictEqual(secondPage.events.length, 1);
+  assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
+  assert.strictEqual(FakeWikiSourceEvent.rows[1].affectedPageIds[0], '507f1f77bcf86cd799439022');
+
+  FakeWikiPage.page = makePage();
 
   const dueQuery = dueTranscriptWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });
   assert.strictEqual(dueQuery['externalWatches.transcripts.status'], 'active');
