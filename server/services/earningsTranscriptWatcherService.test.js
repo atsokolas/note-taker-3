@@ -177,6 +177,36 @@ const run = async () => {
   assert.strictEqual(FakeWikiSourceEvent.rows.length, 2);
   assert.strictEqual(FakeWikiSourceEvent.rows[1].affectedPageIds[0], '507f1f77bcf86cd799439022');
 
+  FakeWikiPage.page = { ...makePage(), _id: '507f1f77bcf86cd799439023' };
+  const blocked = await armTranscriptWatchForPage({
+    WikiPage: FakeWikiPage,
+    WikiSourceEvent: FakeWikiSourceEvent,
+    userId: 'user-1',
+    pageId: '507f1f77bcf86cd799439023',
+    ticker: 'MSFT',
+    apiKey: '',
+    checkNow: false,
+    now: () => new Date('2026-07-04T01:00:00.000Z')
+  });
+  assert.match(blocked.configurationError, /FMP_API_KEY/);
+  assert.strictEqual(FakeWikiPage.page.externalWatches.transcripts.status, 'error');
+  assert.strictEqual(FakeWikiPage.page.externalWatches.transcripts.lastCheckedAt.toISOString(), '2026-07-04T01:00:00.000Z');
+  assert.match(FakeWikiPage.page.externalWatches.transcripts.errorMessage, /FMP_API_KEY/);
+
+  FakeWikiPage.page = { ...makePage(), _id: '507f1f77bcf86cd799439024' };
+  await assert.rejects(
+    armTranscriptWatchForPage({
+      WikiPage: FakeWikiPage,
+      WikiSourceEvent: FakeWikiSourceEvent,
+      userId: 'user-1',
+      pageId: '507f1f77bcf86cd799439024',
+      ticker: 'MSFT',
+      apiKey: ''
+    }),
+    error => error.statusCode === 503 && /FMP_API_KEY/.test(error.message)
+  );
+  assert.strictEqual(FakeWikiPage.page.externalWatches.transcripts.status, 'error');
+
   FakeWikiPage.page = makePage();
 
   const dueQuery = dueTranscriptWatchQuery({ cutoff: new Date('2026-07-04T00:00:00.000Z') });

@@ -18,12 +18,14 @@ const fmpApiKey = () => trim(process.env.FMP_API_KEY || process.env.FINANCIAL_MO
 
 const transcriptWatchEnabled = () => Boolean(fmpApiKey());
 
+const missingFmpApiKeyError = () => {
+  const error = new Error('FMP_API_KEY is required for earnings transcript sync.');
+  error.statusCode = 503;
+  return error;
+};
+
 const withFmpKey = (url, apiKey = fmpApiKey()) => {
-  if (!apiKey) {
-    const error = new Error('FMP_API_KEY is required for earnings transcript sync.');
-    error.statusCode = 503;
-    throw error;
-  }
+  if (!apiKey) throw missingFmpApiKeyError();
   const next = new URL(url);
   next.searchParams.set('apikey', apiKey);
   return next.toString();
@@ -250,6 +252,25 @@ const armTranscriptWatchForPage = async ({
     const error = new Error('Wiki page not found.');
     error.statusCode = 404;
     throw error;
+  }
+  if (!apiKey) {
+    const error = missingFmpApiKeyError();
+    setTranscriptWatch({
+      page,
+      patch: {
+        provider: 'fmp',
+        ticker: symbol,
+        status: 'error',
+        lastCheckedAt: now(),
+        lastTranscriptAt: null,
+        lastTranscriptKey: '',
+        lastEventIds: [],
+        errorMessage: error.message
+      }
+    });
+    if (typeof page.save === 'function') await page.save();
+    if (checkNow) throw error;
+    return { page, transcript: null, events: [], configurationError: error.message };
   }
   setTranscriptWatch({
     page,
