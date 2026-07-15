@@ -2040,6 +2040,62 @@ const WikiPageReadView = ({
   const publicShareReady = isSharedPublicly && !shareBlocked;
   const shareReceipt = formatShareReceipt({ page, blocked: shareBlocked });
   const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
+  const companyDossier = isCompanyDossierPage(page);
+  const edgarWatch = page?.externalWatches?.edgar || {};
+  const transcriptWatch = page?.externalWatches?.transcripts || page?.externalWatches?.transcript || {};
+  const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
+  const transcriptWatchStatus = String(transcriptWatch.status || '').toLowerCase();
+  const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
+  const transcriptWatchConfigured = Boolean(normalizeId(transcriptWatch.ticker));
+  const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt;
+  const shareCard = (
+    <section
+      className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
+      aria-label="Share this wiki page"
+    >
+      <div className="wiki-read__share-card-copy">
+        <span className="wiki-read__share-card-kicker">
+          {shareBlocked ? 'Needs review before sharing' : publicShareReady ? 'Public link ready' : 'Private page'}
+        </span>
+        <p>
+          {shareBlocked
+            ? 'This page is hidden from public sharing until the review items are fixed or archived. Your private workspace copy is unchanged.'
+            : publicShareReady
+              ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
+              : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
+        </p>
+        <p className="wiki-read__share-receipt" aria-label="Public sharing receipt">
+          {shareReceipt}
+        </p>
+        {shareBlocked ? (
+          <p className="wiki-read__share-review-note">
+            {shareReviewSummary}
+          </p>
+        ) : null}
+      </div>
+      <div className="wiki-read__share-card-actions">
+        <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy || shareBlocked}>
+          {shareBusy ? 'Preparing...' : shareBlocked ? 'Review first' : publicShareReady ? 'Copy link' : 'Share'}
+        </Button>
+        {shareBlocked ? (
+          <Link className="wiki-read__share-open" to="/wiki/workspace?view=list&quality=needs_review">
+            Open review queue
+          </Link>
+        ) : null}
+        {publicShareReady && publicShareUrl ? (
+          <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
+            Open public page
+          </a>
+        ) : null}
+        {isSharedPublicly ? (
+          <Button type="button" variant="secondary" onClick={handleStopSharing} disabled={shareBusy}>
+            Stop sharing
+          </Button>
+        ) : null}
+      </div>
+      {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
+    </section>
+  );
   const repoComparisonHref = buildRepoDossierComparisonHref({
     pageId,
     page,
@@ -2109,7 +2165,7 @@ const WikiPageReadView = ({
       ) : null}
       {(!loading && page) ? (
         <section
-          className={`wiki-read__maintenance-receipt is-${maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}`}
+          className={`wiki-read__maintenance-receipt is-${maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
           aria-label="Wiki maintenance receipt"
           data-maintenance-state={maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}
         >
@@ -2242,72 +2298,61 @@ const WikiPageReadView = ({
                 {starterPackAttributionLine(page.adoptedFrom)}
               </p>
             ) : null}
-            <section
-              className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
-              aria-label="Share this wiki page"
-            >
-              <div className="wiki-read__share-card-copy">
-                <span className="wiki-read__share-card-kicker">
-                  {shareBlocked ? 'Needs review before sharing' : publicShareReady ? 'Public link ready' : 'Private page'}
-                </span>
-                <p>
-                  {shareBlocked
-                    ? 'This page is hidden from public sharing until the review items are fixed or archived. Your private workspace copy is unchanged.'
-                    : publicShareReady
-                      ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
-                      : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}
-                </p>
-                <p className="wiki-read__share-receipt" aria-label="Public sharing receipt">
-                  {shareReceipt}
-                </p>
-                {shareBlocked ? (
-                  <p className="wiki-read__share-review-note">
-                    {shareReviewSummary}
-                  </p>
-                ) : null}
-              </div>
-              <div className="wiki-read__share-card-actions">
-                <Button type="button" variant="secondary" onClick={handleShareSafely} disabled={shareBusy || shareBlocked}>
-                  {shareBusy ? 'Preparing...' : shareBlocked ? 'Review first' : publicShareReady ? 'Copy link' : 'Share'}
-                </Button>
-                {shareBlocked ? (
-                  <Link className="wiki-read__share-open" to="/wiki/workspace?view=list&quality=needs_review">
-                    Open review queue
-                  </Link>
-                ) : null}
-                {publicShareReady && publicShareUrl ? (
-                  <a className="wiki-read__share-open" href={publicShareUrl} target="_blank" rel="noopener noreferrer">
-                    Open public page
-                  </a>
-                ) : null}
-                {isSharedPublicly ? (
-                  <Button type="button" variant="secondary" onClick={handleStopSharing} disabled={shareBusy}>
-                    Stop sharing
-                  </Button>
-                ) : null}
-              </div>
-              {shareStatus ? <span className="wiki-read__share-status" role="status">{shareStatus}</span> : null}
-            </section>
-            {isCompanyDossierPage(page) ? (
-              <div className="wiki-read__entity-watches">
-                <WikiEdgarWatchControl
-                  pageId={pageId}
-                  page={page}
-                  onPageUpdate={(nextPage) => {
-                    latestPageRef.current = nextPage;
-                    setPage(nextPage);
-                  }}
-                />
-                <WikiTranscriptWatchControl
-                  pageId={pageId}
-                  page={page}
-                  onPageUpdate={(nextPage) => {
-                    latestPageRef.current = nextPage;
-                    setPage(nextPage);
-                  }}
-                />
-              </div>
-            ) : null}
+            {companyDossier ? (
+              <details className="wiki-read__page-status">
+                <summary className="wiki-read__page-status-summary">
+                  <span className="wiki-read__page-status-label">Page status</span>
+                  <span className="wiki-read__page-status-facts">
+                    <span>{shareBlocked ? 'Sharing blocked' : publicShareReady ? 'Public' : 'Private'}</span>
+                    {companyDossier ? (
+                      <>
+                        <span className={edgarWatchStatus === 'error' ? 'is-error' : ''}>
+                          {edgarWatchStatus === 'error' ? 'SEC watch issue' : edgarWatchConfigured ? 'SEC watch on' : 'SEC watch off'}
+                        </span>
+                        <span className={transcriptWatchStatus === 'error' ? 'is-error' : ''}>
+                          {transcriptWatchStatus === 'error'
+                            ? 'Transcripts unavailable'
+                            : transcriptWatchConfigured ? 'Transcript watch on' : 'Transcript watch off'}
+                        </span>
+                      </>
+                    ) : null}
+                  </span>
+                  <span className="wiki-read__page-status-action" aria-hidden="true">{companyDossier ? 'Manage' : 'Share'}</span>
+                </summary>
+                <div className="wiki-read__page-status-panel">
+                  {shareCard}
+                  {companyDossier ? <div className="wiki-read__entity-watches">
+                    <WikiEdgarWatchControl
+                      pageId={pageId}
+                      page={page}
+                      onPageUpdate={(nextPage) => {
+                        latestPageRef.current = nextPage;
+                        setPage(nextPage);
+                      }}
+                    />
+                    <WikiTranscriptWatchControl
+                      pageId={pageId}
+                      page={page}
+                      onPageUpdate={(nextPage) => {
+                        latestPageRef.current = nextPage;
+                        setPage(nextPage);
+                      }}
+                    />
+                  </div> : null}
+                </div>
+              </details>
+            ) : (
+              <details className="wiki-read__page-status">
+                <summary className="wiki-read__page-status-summary">
+                  <span className="wiki-read__page-status-label">Page status</span>
+                  <span className="wiki-read__page-status-facts">
+                    <span>{shareBlocked ? 'Sharing blocked' : publicShareReady ? 'Public' : 'Private'}</span>
+                  </span>
+                  <span className="wiki-read__page-status-action" aria-hidden="true">Share</span>
+                </summary>
+                <div className="wiki-read__page-status-panel">{shareCard}</div>
+              </details>
+            )}
             {isRepoDossierPage(page) ? (
               <div className="wiki-read__repo-watches">
                 <WikiRepoDossierOverview

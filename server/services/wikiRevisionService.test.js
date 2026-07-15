@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { restorePageSnapshot, snapshotPage } = require('./wikiRevisionService');
+const { createWikiRevision, restorePageSnapshot, snapshotPage } = require('./wikiRevisionService');
 
 const page = {
   _id: 'page-1',
@@ -28,4 +28,24 @@ restorePageSnapshot(target, snapshot);
 assert.deepStrictEqual(target.publicProof, page.publicProof);
 assert(target.modified.includes('publicProof'));
 
-console.log('wikiRevisionService tests passed');
+class FakeRevision {
+  constructor(fields) { Object.assign(this, fields); }
+  async save() { this.saved = true; }
+}
+
+(async () => {
+  let pruneArgs = null;
+  const revision = await createWikiRevision({
+    WikiRevision: FakeRevision,
+    userId: 'user-1',
+    page,
+    pruneRevisionHistory: async (args) => { pruneArgs = args; }
+  });
+  assert(revision.saved);
+  assert.strictEqual(pruneArgs.pageId, 'page-1');
+  assert.strictEqual(pruneArgs.page, page);
+  console.log('wikiRevisionService tests passed');
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

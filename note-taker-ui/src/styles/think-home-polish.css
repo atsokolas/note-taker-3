@@ -5924,6 +5924,99 @@ html[data-ui-theme='dark'] .wiki-read__share-card-actions .wiki-read__share-open
   color: color-mix(in srgb, var(--text-primary) 84%, var(--wiki-warm-accent, #d2a45f));
 }
 
+.wiki-read__page-status {
+  margin: 0 0 18px;
+  border-block: 1px solid color-mix(in srgb, var(--border-subtle, #d8d0c4) 72%, transparent);
+}
+
+.wiki-read__page-status-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 46px;
+  padding: 8px 2px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.wiki-read__page-status-summary::-webkit-details-marker {
+  display: none;
+}
+
+.wiki-read__page-status-summary::marker {
+  content: '';
+}
+
+.wiki-read__page-status-summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-primary, var(--primary-color)) 42%, transparent);
+  outline-offset: 3px;
+}
+
+.wiki-read__page-status-label,
+.wiki-read__page-status-action {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.wiki-read__page-status-label {
+  color: var(--text-primary);
+}
+
+.wiki-read__page-status-action {
+  color: var(--text-muted);
+}
+
+.wiki-read__page-status-action::after {
+  content: ' +';
+}
+
+.wiki-read__page-status[open] .wiki-read__page-status-action::after {
+  content: ' −';
+}
+
+.wiki-read__page-status-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.wiki-read__page-status-facts > span {
+  position: relative;
+  white-space: nowrap;
+}
+
+.wiki-read__page-status-facts > span:not(:first-child)::before {
+  content: '·';
+  position: absolute;
+  left: -9px;
+  color: color-mix(in srgb, var(--text-muted) 54%, transparent);
+}
+
+.wiki-read__page-status-facts .is-error {
+  color: var(--danger, #b44);
+}
+
+.wiki-read__page-status-panel {
+  padding: 4px 0 14px;
+}
+
+.wiki-read__page-status-panel .wiki-read__share-card {
+  margin-bottom: 8px;
+  box-shadow: none;
+}
+
+html[data-ui-theme='dark'] .wiki-read__page-status {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #d2a45f) 16%, rgba(255, 255, 255, 0.06));
+}
+
 .wiki-read__edgar-watch {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
@@ -8530,6 +8623,23 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 }
 
 @media (max-width: 860px) {
+  .wiki-read__page-status-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    padding-block: 10px;
+  }
+
+  .wiki-read__page-status-facts {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 5px 12px;
+    font-size: 0.72rem;
+  }
+
+  .wiki-read__page-status-facts > span:not(:first-child)::before {
+    left: -8px;
+  }
+
   .wiki-read__share-strip,
   .wiki-read__viewbar,
   .wiki-read__share-compact,
@@ -10658,17 +10768,33 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   width: min(100% - 24px, 1180px);
 }
 
+.wiki-workspace .wiki-read__header h1 {
+  font-size: clamp(2.25rem, 4vw, 3.8rem);
+  line-height: 1.01;
+}
+
+@media (max-width: 720px) {
+  .wiki-workspace .wiki-read__header h1 {
+    font-size: clamp(2rem, 7.4vw, 2.2rem);
+    line-height: 1.04;
+  }
+}
+
 /* AT-295: in the two-pane workspace, keep the article as the primary reading
    surface even when the agent pane and context rail are visible. */
 @container wikiread (max-width: 1200px) {
   .wiki-workspace .wiki-read__layout {
-    grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) minmax(132px, 160px);
+    grid-template-columns: minmax(0, 1fr) minmax(132px, 160px);
     gap: 12px;
   }
 
   .wiki-workspace .wiki-read__layout--rail-collapsed {
-    grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 48px;
+    grid-template-columns: minmax(0, 1fr) 48px;
     gap: 12px;
+  }
+
+  .wiki-workspace .wiki-read__toc {
+    display: none;
   }
 
   .wiki-workspace .wiki-read__toc nav,
@@ -12469,6 +12595,40 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: color-mix(in srgb, #9b5a46 6%, var(--surface));
 }
 
+.wiki-read__maintenance-receipt.is-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 46px;
+  padding: 7px 12px;
+  border-inline: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.wiki-read__maintenance-receipt.is-compact .wiki-read__promotion-kicker,
+.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-copy > p,
+.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-ticker {
+  display: none;
+}
+
+.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-copy h2 {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-actions > .btn,
+.wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-actions > button {
+  min-height: 34px;
+  padding: 5px 9px;
+  border: 0;
+  background: transparent;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .wiki-read__maintenance-copy {
   display: grid;
   gap: 3px;
@@ -12548,6 +12708,11 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 
   .wiki-read__maintenance-receipt {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wiki-read__maintenance-receipt.is-compact {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 10px;
   }
 
   .wiki-read__maintenance-actions {

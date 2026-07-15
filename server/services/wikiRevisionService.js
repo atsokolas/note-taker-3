@@ -63,7 +63,8 @@ const createWikiRevision = async ({
   promotionStatus = 'promoted',
   sourceVersion = null,
   quality = null,
-  summary = ''
+  summary = '',
+  pruneRevisionHistory
 } = {}) => {
   if (!WikiRevision || !userId || (!page && !pageId)) return null;
   const resolvedPageId = pageId || page?._id;
@@ -82,6 +83,15 @@ const createWikiRevision = async ({
     summary
   });
   await revision.save();
+  try {
+    if (pruneRevisionHistory || typeof WikiRevision.countDocuments === 'function') {
+      const prune = pruneRevisionHistory
+        || require('./wikiRevisionRetentionService').pruneWikiRevisionHistory;
+      await prune({ WikiRevision, userId, pageId: resolvedPageId, page });
+    }
+  } catch (error) {
+    console.warn('[wiki-revision-retention] Prune failed; revision was preserved.', error?.message || error);
+  }
   return revision;
 };
 

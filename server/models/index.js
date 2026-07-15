@@ -661,6 +661,7 @@ const wikiRevisionSchema = new mongoose.Schema({
   quality: { type: mongoose.Schema.Types.Mixed, default: null },
   before: { type: mongoose.Schema.Types.Mixed, default: null },
   after: { type: mongoose.Schema.Types.Mixed, default: null },
+  snapshotPrunedAt: { type: Date, default: null },
   summary: { type: String, default: '', trim: true }
 }, { timestamps: true });
 

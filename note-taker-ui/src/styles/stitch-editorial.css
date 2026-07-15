@@ -10113,6 +10113,12 @@ body.noeis-editorial a:hover {
   }
 }
 
+@media (max-width: 480px) {
+  body.noeis-editorial .topbar__primary-link:not(.is-active) {
+    display: none;
+  }
+}
+
 /* ============================================================
    Calm Think index — center column (tix-*) + left shelf rail.
    Three-column editorial shells keep 250px | 1fr | 300px; the

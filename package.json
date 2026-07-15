@@ -24,7 +24,7 @@
     "wiki:qa:live": "npm run wiki:qa && npm run wiki:intelligence-harness:judge && npm run wiki:maintenance-harness:live",
     "return-loop:verify:live": "node scripts/verify_return_loop_live.js",
     "proof:alphabet:verify": "node scripts/verify_alphabet_public_proof.js",
-    "proof:alphabet:test": "node server/services/alphabetProofAcceptanceService.test.js && node server/services/wikiPublicProofAcceptanceService.test.js && node server/services/wikiRevisionService.test.js && node server/services/publicProofService.test.js && node server/routes/__tests__/wikiRoutes.publicProofAcceptance.test.js && node server/routes/__tests__/wikiRoutes.publicProof.test.js",
+    "proof:alphabet:test": "node server/services/alphabetProofAcceptanceService.test.js && node server/services/wikiPublicProofAcceptanceService.test.js && node server/services/wikiRevisionService.test.js && node server/services/wikiRevisionRetentionService.test.js && node server/services/publicProofService.test.js && node server/routes/__tests__/wikiRoutes.publicProofAcceptance.test.js && node server/routes/__tests__/wikiRoutes.publicProof.test.js",
     "agent:approval-smoke": "node scripts/run_agent_memory_approval_smoke.js",
     "smoke:server": "node scripts/run_server_smoke.js",
     "smoke:imports": "node scripts/test_import_integrations_smoke.js",
