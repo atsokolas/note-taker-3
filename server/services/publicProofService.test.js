@@ -242,7 +242,7 @@ const sharedPage = (overrides = {}) => ({
 
 (() => {
   const pages = [
-    sharedPage({ _id: 'alphabet', title: 'Alphabet is Berkshire Hathaway 2.0' }),
+    sharedPage({ _id: 'alphabet', title: 'Alphabet is Berkshire Hathaway 2.0', status: 'draft' }),
     sharedPage({ _id: 'margin', title: 'Margin of Safety in Value Investing' }),
     sharedPage({ _id: 'circle', title: 'Circle of Competence' }),
     sharedPage({ _id: 'map', title: 'AI Infrastructure Market Map', pageType: 'overview' }),

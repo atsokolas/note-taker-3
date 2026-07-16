@@ -283,7 +283,7 @@ const repoIdentityFor = (page = {}) => {
 };
 
 const slotMatchesPage = ({ slot = {}, page = {}, identifier = '' } = {}) => {
-  if (!page || page.visibility !== 'shared' || page.status !== 'published') return false;
+  if (!page || page.visibility !== 'shared' || page.status === 'archived') return false;
   if (identifier) {
     return [pageId(page), clean(page.slug, 180)].includes(identifier);
   }
@@ -297,7 +297,7 @@ const slotMatchesPage = ({ slot = {}, page = {}, identifier = '' } = {}) => {
 
 const explicitlyProvenAlphabetPage = ({ slot = {}, page = {} } = {}) => {
   if (slot.key !== 'alphabet') return false;
-  if (!page || page.visibility !== 'shared' || page.status === 'archived') return false;
+  if (!page || page.visibility !== 'shared' || page.status !== 'published') return false;
   if (!/\balphabet\b/i.test(clean(page.title, 300))) return false;
   return buildPublicProofGrade({ slot, page }).grade === PUBLIC_PROOF_GRADES.PROVEN;
 };
