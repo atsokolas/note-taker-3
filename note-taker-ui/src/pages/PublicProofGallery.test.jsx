@@ -268,6 +268,33 @@ describe('PublicProofGallery', () => {
     );
   });
 
+  it('removes the stale Alphabet acceptance notice after Alphabet becomes proven', async () => {
+    const payload = registryPayload();
+    const alphabet = payload.items.find((item) => item.slot === 'alphabet-dossier');
+    alphabet.proofGrade = {
+      grade: 'proven',
+      label: 'Proven',
+      reason: 'The authoritative SEC filing clock passed editorial acceptance.',
+      acceptedAt: '2026-07-16T12:00:00.000Z',
+      comparisonUrl: '',
+      criteria: {
+        explicitlyAccepted: true,
+        acceptedVersion: true,
+        materialEvent: true,
+        sourceGrounded: true,
+        requiredClocks: { secEdgar: true },
+        optionalClocks: { earningsTranscript: false }
+      }
+    };
+    getPublicProofRegistry.mockResolvedValue(payload);
+
+    render(<MemoryRouter initialEntries={['/proof']}><PublicProofGallery /></MemoryRouter>);
+
+    expect(await screen.findByRole('region', { name: 'Flagship proof' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Acceptance in progress' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Promising is not the same as proven.')).not.toBeInTheDocument();
+  });
+
   it('does not create a false flagship from GitHub metadata when proofGrade is missing', async () => {
     const payload = registryPayload();
     const repo = payload.items.find((item) => item.slot === 'noeis-repo-wiki');

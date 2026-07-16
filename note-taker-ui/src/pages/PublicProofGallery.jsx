@@ -223,6 +223,7 @@ const PublicProofGallery = () => {
         )}
       </section>
 
+      {(!flagship || acceptanceItems.length > 0) ? (
       <section className="public-proof-gallery__section" aria-label="Acceptance in progress">
         <div className="public-proof-gallery__section-head">
           <p className="public-proof-gallery__eyebrow">Acceptance in progress</p>
@@ -241,6 +242,7 @@ const PublicProofGallery = () => {
           </div>
         )}
       </section>
+      ) : null}
 
       <section className="public-proof-gallery__section public-proof-gallery__section--next" aria-label="Illustrative examples">
         <p className="public-proof-gallery__eyebrow">Illustrative · unlisted examples</p>
