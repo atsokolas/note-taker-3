@@ -3736,11 +3736,16 @@ const buildWikiRouter = ({
       if (!decision.ok) return res.status(422).json({ error: 'Alphabet public proof is not ready for acceptance.', gaps: decision.errors });
 
       const pageSnapshot = page.toObject ? page.toObject({ virtuals: false }) : { ...page };
-      const candidatePage = { ...pageSnapshot, publicProof: decision.record };
+      const publishAsFlagship = req.body?.publishAsFlagship === true;
+      const candidatePage = {
+        ...pageSnapshot,
+        publicProof: decision.record,
+        ...(publishAsFlagship ? { visibility: 'shared', status: 'published' } : {})
+      };
       const proofGrade = buildPublicProofGrade({ slot: { key: 'alphabet' }, page: candidatePage });
       const ready = proofGrade.grade === 'proven' && proofGrade.criteria?.explicitlyAccepted === true;
       if (req.body?.confirm !== true) {
-        return res.status(200).json({ dryRun: true, ready, proofGrade });
+        return res.status(200).json({ dryRun: true, ready, publishAsFlagship, proofGrade });
       }
       if (req.body?.decision !== 'accept_alphabet_public_proof') {
         return res.status(400).json({ error: 'Set decision to accept_alphabet_public_proof for a confirmed acceptance.' });
@@ -3752,13 +3757,24 @@ const buildWikiRouter = ({
         .sort()
         .join('|');
       if (page.publicProof?.grade === 'proven'
-        && clockSignature(page.publicProof?.acceptedClocks) === clockSignature(decision.record.acceptedClocks)) {
+        && clockSignature(page.publicProof?.acceptedClocks) === clockSignature(decision.record.acceptedClocks)
+        && (!publishAsFlagship || (page.visibility === 'shared' && page.status === 'published'))) {
         const existingProofGrade = buildPublicProofGrade({ slot: { key: 'alphabet' }, page });
-        return res.status(200).json({ dryRun: false, ready: true, unchanged: true, proofGrade: existingProofGrade });
+        return res.status(200).json({
+          dryRun: false,
+          ready: true,
+          unchanged: true,
+          publishedAsFlagship: page.visibility === 'shared' && page.status === 'published',
+          proofGrade: existingProofGrade
+        });
       }
 
       const before = snapshotPage(page);
       page.publicProof = decision.record;
+      if (publishAsFlagship) {
+        page.visibility = 'shared';
+        page.status = 'published';
+      }
       if (typeof page.markModified === 'function') page.markModified('publicProof');
       await page.save();
       await createWikiRevision({
@@ -3768,9 +3784,14 @@ const buildWikiRouter = ({
         before,
         reason: 'user_edit',
         actorType: 'user',
-        summary: 'Accepted the Alphabet dossier as public proof after dual-clock editorial review.'
+        summary: 'Accepted the Alphabet dossier as filing-maintained public proof after editorial review.'
       });
-      res.status(200).json({ dryRun: false, ready: true, proofGrade });
+      res.status(200).json({
+        dryRun: false,
+        ready: true,
+        publishedAsFlagship: publishAsFlagship,
+        proofGrade
+      });
     } catch (error) {
       console.error('Error accepting Alphabet public proof:', error);
       res.status(500).json({ error: 'Failed to accept Alphabet public proof.' });

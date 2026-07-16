@@ -82,9 +82,7 @@ const evaluateAlphabetProof = ({ page = {}, events = [], revisions = [], briefin
   const checks = {
     alphabetPageResolved: Boolean(pageId && /alphabet/i.test(text(page.title))),
     filingWatchActive: watches.edgar?.status === 'active',
-    transcriptWatchActive: watches.transcripts?.status === 'active',
     processedSubstantiveFiling: filingEvents.some(event => eventIsSubstantive(event, 'filing')),
-    processedSubstantiveTranscript: transcriptEvents.some(event => eventIsSubstantive(event, 'transcript')),
     acceptedThroughSourceEvent: Boolean(acceptedEventId && acceptedEvent && eventIsSubstantive(acceptedEvent)),
     promotedRevisionForAcceptedEvent: Boolean(acceptedRevision),
     completeClaimDeltaTaxonomy: Boolean(comparison && hasAllDeltaClasses(comparison)),
@@ -94,7 +92,6 @@ const evaluateAlphabetProof = ({ page = {}, events = [], revisions = [], briefin
     publicProofExplicitlyProven: registryItem?.proofGrade?.grade === 'proven'
       && registryItem?.proofGrade?.criteria?.explicitlyAccepted === true,
     publicSecClockAccepted: registryItem?.proofGrade?.criteria?.requiredClocks?.secEdgar === true,
-    publicTranscriptClockAccepted: registryItem?.proofGrade?.criteria?.requiredClocks?.earningsTranscript === true,
     publicCurrentThroughMatchesAcceptedEvent: Boolean(acceptedEventId && publicCurrentThroughMatches({ acceptedEvent, registryItem, publicPage })),
     publicPayloadPrivacyDenylistClean: leaks.length === 0
   };

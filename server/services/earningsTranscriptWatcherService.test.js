@@ -103,6 +103,7 @@ class FakeWikiPage {
 }
 
 const run = async () => {
+  process.env.PAID_DATA_SOURCES_ENABLED = 'true';
   assert.deepStrictEqual(
     normalizeTranscriptMeta({ symbol: ' msft ', year: '2026', quarter: '2' }),
     {
@@ -238,13 +239,14 @@ const run = async () => {
   assert.strictEqual(drained.failed, 0);
   assert.strictEqual(drained.results[0].sourceEvents, 1);
   assert.strictEqual(FakeWikiPage.lastQuery['externalWatches.transcripts.status'], 'active');
+  delete process.env.PAID_DATA_SOURCES_ENABLED;
 
   const skipped = await drainDueTranscriptWatches({
     models: { WikiPage: FakeWikiPage, WikiSourceEvent: FakeWikiSourceEvent },
     apiKey: ''
   });
   assert.strictEqual(skipped.skipped, true);
-  assert.strictEqual(skipped.reason, 'missing_fmp_api_key');
+  assert.strictEqual(skipped.reason, 'paid_sources_disabled');
 };
 
 run()

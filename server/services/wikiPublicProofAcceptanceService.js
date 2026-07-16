@@ -56,9 +56,7 @@ const buildAlphabetPublicProofAcceptance = ({
     acceptedClocks.push({ type, sourceEventId, revisionId, acceptedAt: now });
   });
 
-  ['sec_edgar', 'earnings_transcript'].forEach((type) => {
-    if (!seenTypes.has(type)) errors.push(`Missing required accepted clock: ${type}.`);
-  });
+  if (!seenTypes.has('sec_edgar')) errors.push('Missing required accepted clock: sec_edgar.');
   if (errors.length) return { ok: false, errors, record: null };
 
   return {

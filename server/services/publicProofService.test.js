@@ -133,19 +133,18 @@ const sharedPage = (overrides = {}) => ({
   const alphabetBase = {
     _id: 'alphabet-proof-gate',
     title: 'Alphabet allocator dossier',
-    sourceRefs: [{ title: 'Alphabet 10-K' }, { title: 'Alphabet transcript' }],
+    sourceRefs: [{ title: 'Alphabet 10-K' }],
     claims: [{ claimId: 'claim-1' }],
     freshness: {
       acceptedThrough: {
         sourceEventId: 'latest-event',
         title: 'Alphabet accepted evidence',
         url: 'https://www.sec.gov/Archives/alphabet',
-        sourceUpdatedAt: '2026-07-12T00:00:00.000Z'
+        sourceUpdatedAt: '2026-07-12T00:00:00.000Z',
+        acceptedAt: '2026-07-12T01:00:00.000Z'
       }
     },
-    aiState: {
-      changeLog: [{ type: 'maintenance', text: 'Accepted Alphabet evidence.', createdAt: '2026-07-12T00:00:00.000Z' }]
-    },
+    aiState: { changeLog: [] },
     publicProof: {
       grade: 'proven',
       acceptedAt: '2026-07-12T00:00:00.000Z',
@@ -159,7 +158,9 @@ const sharedPage = (overrides = {}) => ({
   });
   assert.strictEqual(incomplete.grade, 'acceptance_in_progress');
   assert.deepStrictEqual(incomplete.criteria.requiredClocks, {
-    secEdgar: false,
+    secEdgar: false
+  });
+  assert.deepStrictEqual(incomplete.criteria.optionalClocks, {
     earningsTranscript: false
   });
   assert.ok(!incomplete.reason.includes('must not survive'));
@@ -170,16 +171,11 @@ const sharedPage = (overrides = {}) => ({
       ...alphabetBase,
       publicProof: {
         ...alphabetBase.publicProof,
-        reason: 'Both authoritative maintenance clocks passed editorial acceptance.',
+        reason: 'The authoritative SEC filing clock passed editorial acceptance.',
         acceptedClocks: [{
           type: 'sec_edgar',
           sourceEventId: 'private-filing-event',
           revisionId: 'private-filing-revision',
-          acceptedAt: '2026-07-12T00:00:00.000Z'
-        }, {
-          type: 'earnings_transcript',
-          sourceEventId: 'private-transcript-event',
-          revisionId: 'private-transcript-revision',
           acceptedAt: '2026-07-12T00:00:00.000Z'
         }]
       }
@@ -187,9 +183,12 @@ const sharedPage = (overrides = {}) => ({
   });
   assert.strictEqual(accepted.grade, 'proven');
   assert.strictEqual(accepted.criteria.explicitlyAccepted, true);
+  assert.strictEqual(accepted.criteria.materialEvent, true);
   assert.deepStrictEqual(accepted.criteria.requiredClocks, {
-    secEdgar: true,
-    earningsTranscript: true
+    secEdgar: true
+  });
+  assert.deepStrictEqual(accepted.criteria.optionalClocks, {
+    earningsTranscript: false
   });
   assert.ok(!JSON.stringify(accepted).includes('private-filing-event'));
   assert.ok(!JSON.stringify(accepted).includes('private-transcript-revision'));
@@ -260,6 +259,44 @@ const sharedPage = (overrides = {}) => ({
   assert.strictEqual(selected.length, 6);
   assert.deepStrictEqual(selected.map(item => item.slot.key), DEFAULT_PUBLIC_PROOF_SLOTS.map(slot => slot.key));
   assert.ok(!selected.some(item => item.page._id === 'private'));
+})();
+
+(() => {
+  const legacyConfiguredPage = sharedPage({
+    _id: 'legacy-alphabet',
+    title: 'Alphabet is Berkshire Hathaway 2.0'
+  });
+  const acceptedPage = sharedPage({
+    _id: 'accepted-alphabet',
+    title: 'Alphabet’s Berkshire-like allocator—and where the analogy breaks',
+    sourceRefs: [{ title: 'Alphabet 10-Q' }],
+    claims: [{ claimId: 'claim-1' }],
+    freshness: {
+      acceptedThrough: {
+        sourceEventId: 'filing-event',
+        title: 'GOOGL 10-Q filed 2026-04-30',
+        url: 'https://www.sec.gov/Archives/alphabet',
+        acceptedAt: '2026-07-16T00:00:00.000Z'
+      }
+    },
+    publicProof: {
+      grade: 'proven',
+      acceptedAt: '2026-07-16T00:00:00.000Z',
+      acceptedEventId: 'acceptance-record',
+      acceptedClocks: [{
+        type: 'sec_edgar',
+        sourceEventId: 'filing-event',
+        revisionId: 'filing-revision',
+        acceptedAt: '2026-07-16T00:00:00.000Z'
+      }]
+    }
+  });
+  const [selected] = selectPublicProofPages({
+    pages: [legacyConfiguredPage, acceptedPage],
+    slots: [DEFAULT_PUBLIC_PROOF_SLOTS[0]],
+    env: { PUBLIC_PROOF_ALPHABET_PAGE: 'legacy-alphabet' }
+  });
+  assert.strictEqual(selected.page._id, 'accepted-alphabet');
 })();
 
 (() => {

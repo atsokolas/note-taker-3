@@ -7,7 +7,6 @@ const path = require('path');
 const mongoose = require('mongoose');
 const { WikiPage, WikiRevision, WikiSourceEvent } = require('../server/models');
 const { armEdgarWatchForPage } = require('../server/services/edgarWatcherService');
-const { armTranscriptWatchForPage } = require('../server/services/earningsTranscriptWatcherService');
 const { createWikiRevision, snapshotPage } = require('../server/services/wikiRevisionService');
 
 const DEFAULT_SOURCE_PAGE_ID = '6a53b120a1e0e2129bfd9725';
@@ -207,7 +206,7 @@ const buildCandidate = ({ sourcePage, parsed, now = new Date() }) => {
       type: 'sources',
       objectId: sourcePage._id,
       objectIds: [sourcePage._id],
-      text: 'Dedicated Alphabet dual-clock public-proof acceptance copy.',
+      text: 'Dedicated Alphabet filing-maintenance public-proof acceptance copy.',
       label: 'Primary-source acceptance rebuild'
     },
     adoptedFrom: {
@@ -327,14 +326,6 @@ const main = async () => {
     forms: ['10-K', '10-Q', '8-K'],
     checkNow: false
   });
-  await armTranscriptWatchForPage({
-    WikiPage,
-    WikiSourceEvent,
-    userId: copy.userId,
-    pageId: copy._id,
-    ticker: 'GOOGL',
-    checkNow: false
-  });
   const armedCopy = await WikiPage.findById(copy._id);
   const revision = await createWikiRevision({
     WikiRevision,
@@ -343,7 +334,7 @@ const main = async () => {
     reason: 'created',
     actorType: 'user',
     promotionStatus: 'promoted',
-    summary: 'Created private Alphabet dual-clock acceptance copy from the primary-source editorial rebuild.'
+    summary: 'Created private Alphabet filing-maintenance acceptance copy from the primary-source editorial rebuild.'
   });
   const result = {
     ...report,

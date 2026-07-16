@@ -271,8 +271,8 @@ const runTranscriptWatchWorker = async () => {
     if (result.processed || result.failed) {
       const sourceEvents = result.results.reduce((sum, row) => sum + (Number(row.sourceEvents) || 0), 0);
       console.log(`[transcript-watch-worker] processed=${result.processed} failed=${result.failed} sourceEvents=${sourceEvents}`);
-    } else if (result.skipped && result.reason === 'missing_fmp_api_key' && process.env.TRANSCRIPT_WATCH_LOG_MISSING_KEY === 'true') {
-      console.log('[transcript-watch-worker] skipped: missing FMP_API_KEY');
+    } else if (result.skipped && result.reason === 'paid_sources_disabled' && process.env.TRANSCRIPT_WATCH_LOG_MISSING_KEY === 'true') {
+      console.log('[transcript-watch-worker] skipped: paid data sources disabled');
     }
   } catch (error) {
     console.error('[transcript-watch-worker] failed:', error);

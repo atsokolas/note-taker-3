@@ -20,11 +20,11 @@ const page = {
   title: 'Alphabet allocator dossier',
   slug: 'alphabet-allocator',
   pageType: 'entity_dossier',
-  status: 'published',
-  visibility: 'shared',
+  status: 'draft',
+  visibility: 'private',
   body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alphabet allocates capital.' }] }] },
   plainText: 'Alphabet allocates capital.',
-  sourceRefs: [{ title: 'Alphabet 10-K' }, { title: 'Alphabet earnings transcript' }],
+  sourceRefs: [{ title: 'Alphabet 10-K' }],
   claims: [{ claimId: 'claim-1', text: 'Alphabet allocates capital.' }],
   freshness: {
     acceptedThrough: {
@@ -93,11 +93,9 @@ const request = async (base, body) => {
 };
 
 const acceptanceBody = {
-  acceptedClocks: [
-    { sourceEventId: filingId, revisionId: filingRevisionId },
-    { sourceEventId: transcriptId, revisionId: transcriptRevisionId }
-  ],
-  reason: 'Both authoritative clocks and their claim deltas passed editorial review.'
+  acceptedClocks: [{ sourceEventId: filingId, revisionId: filingRevisionId }],
+  reason: 'The authoritative SEC filing clock and its claim deltas passed editorial review.',
+  publishAsFlagship: true
 };
 
 const run = async () => {
@@ -118,7 +116,10 @@ const run = async () => {
     assert.strictEqual(preview.status, 200);
     assert.strictEqual(preview.body.dryRun, true);
     assert.strictEqual(preview.body.ready, true);
+    assert.strictEqual(preview.body.publishAsFlagship, true);
     assert.strictEqual(page.publicProof.grade, 'acceptance_in_progress');
+    assert.strictEqual(page.visibility, 'private');
+    assert.strictEqual(page.status, 'draft');
     assert.ok(!JSON.stringify(preview.body).includes(filingId));
 
     const unconfirmed = await request(base, { ...acceptanceBody, confirm: true });
@@ -133,7 +134,10 @@ const run = async () => {
     assert.strictEqual(confirmed.status, 200);
     assert.strictEqual(confirmed.body.dryRun, false);
     assert.strictEqual(page.publicProof.grade, 'proven');
-    assert.strictEqual(page.publicProof.acceptedClocks.length, 2);
+    assert.strictEqual(page.visibility, 'shared');
+    assert.strictEqual(page.status, 'published');
+    assert.strictEqual(confirmed.body.publishedAsFlagship, true);
+    assert.strictEqual(page.publicProof.acceptedClocks.length, 1);
     assert.strictEqual(WikiRevision.created.length, 1);
 
     const replay = await request(base, {

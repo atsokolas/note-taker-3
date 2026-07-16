@@ -10,10 +10,7 @@ const now = new Date('2026-07-13T00:00:00.000Z');
 
 const fixture = () => ({
   page: { _id: pageId, title: 'Alphabet allocator dossier' },
-  requestedClocks: [
-    { sourceEventId: filingId, revisionId: filingRevisionId },
-    { sourceEventId: transcriptId, revisionId: transcriptRevisionId }
-  ],
+  requestedClocks: [{ sourceEventId: filingId, revisionId: filingRevisionId }],
   events: [
     { _id: filingId, provider: 'sec-edgar', status: 'processed', affectedPageIds: [pageId], url: 'https://www.sec.gov/Archives/filing', text: 'Substantive filing evidence. '.repeat(5) },
     { _id: transcriptId, provider: 'fmp-transcripts', status: 'processed', affectedPageIds: [pageId], text: 'Substantive transcript evidence. '.repeat(5) }
@@ -22,28 +19,28 @@ const fixture = () => ({
     { _id: filingRevisionId, pageId, sourceEventId: filingId, promotionStatus: 'promoted', reason: 'source_event' },
     { _id: transcriptRevisionId, pageId, sourceEventId: transcriptId, promotionStatus: 'promoted', reason: 'source_event' }
   ],
-  reason: 'Both authoritative clocks and their claim deltas passed editorial review.',
+  reason: 'The authoritative SEC filing clock and its claim deltas passed editorial review.',
   now
 });
 
 {
   const result = buildAlphabetPublicProofAcceptance(fixture());
   assert.strictEqual(result.ok, true);
-  assert.deepStrictEqual(result.record.acceptedClocks.map(clock => clock.type), ['sec_edgar', 'earnings_transcript']);
+  assert.deepStrictEqual(result.record.acceptedClocks.map(clock => clock.type), ['sec_edgar']);
   assert.strictEqual(result.record.acceptedAt, now);
 }
 
 {
   const input = fixture();
-  input.requestedClocks.pop();
+  input.requestedClocks = [];
   const result = buildAlphabetPublicProofAcceptance(input);
   assert.strictEqual(result.ok, false);
-  assert(result.errors.includes('Missing required accepted clock: earnings_transcript.'));
+  assert(result.errors.includes('Missing required accepted clock: sec_edgar.'));
 }
 
 {
   const input = fixture();
-  input.revisions[1].promotionStatus = 'candidate';
+  input.revisions[0].promotionStatus = 'candidate';
   const result = buildAlphabetPublicProofAcceptance(input);
   assert.strictEqual(result.ok, false);
   assert(result.errors.some(error => /promoted maintenance revision/.test(error)));

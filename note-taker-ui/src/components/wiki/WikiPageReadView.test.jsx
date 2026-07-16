@@ -363,17 +363,12 @@ describe('WikiPageReadView', () => {
     expect(within(shareRegion).getByRole('link', { name: 'Open public page' })).toHaveAttribute('href', `${window.location.origin}/share/wiki/wiki-1`);
   });
 
-  it('keeps company dossier operations compact while surfacing honest watch states', async () => {
+  it('keeps company dossier operations compact while surfacing the free SEC watch', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       pageType: 'entity',
       externalWatches: {
-        edgar: { ticker: 'GOOGL', status: 'active' },
-        transcripts: {
-          ticker: 'GOOGL',
-          status: 'error',
-          errorMessage: 'FMP_API_KEY is required for earnings transcript sync.'
-        }
+        edgar: { ticker: 'GOOGL', status: 'active' }
       }
     });
 
@@ -390,7 +385,7 @@ describe('WikiPageReadView', () => {
 
     expect(summary).toHaveTextContent('Private');
     expect(summary).toHaveTextContent('SEC watch on');
-    expect(summary).toHaveTextContent('Transcripts unavailable');
+    expect(summary).not.toHaveTextContent('Transcript');
     expect(details).not.toHaveAttribute('open');
 
     fireEvent.click(summary);
@@ -398,7 +393,7 @@ describe('WikiPageReadView', () => {
     expect(details).toHaveAttribute('open');
     expect(screen.getByRole('region', { name: 'Share this wiki page' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'SEC EDGAR filing watch' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Earnings transcript watch' })).toHaveTextContent(/Provider API key missing/i);
+    expect(screen.queryByRole('region', { name: 'Earnings transcript watch' })).not.toBeInTheDocument();
   });
 
   it('lets a shared wiki page stop exposing its public link from the read surface', async () => {

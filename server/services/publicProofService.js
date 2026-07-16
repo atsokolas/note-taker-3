@@ -167,8 +167,19 @@ const buildLatestMaterialEvent = (page = {}) => {
 
   const summary = clean(page.aiState?.maintenanceSummary, 240);
   const at = asDate(page.aiState?.lastDraftedAt) || asDate(page.freshness?.lastMaintainedAt);
-  if (!summary || !at) return null;
-  return { type: 'maintenance', summary, at };
+  if (summary && at) return { type: 'maintenance', summary, at };
+
+  const accepted = asPlain(page.freshness?.acceptedThrough);
+  const acceptedAt = asDate(accepted.acceptedAt);
+  const acceptedTitle = clean(accepted.title, 180);
+  if (clean(accepted.sourceEventId, 180) && acceptedTitle && acceptedAt) {
+    return {
+      type: 'accepted_source_maintenance',
+      summary: `Accepted ${acceptedTitle} into the maintained page.`,
+      at: acceptedAt
+    };
+  }
+  return null;
 };
 
 const buildPublicMaintenanceProof = (input = {}) => {
@@ -208,11 +219,13 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       .map(clock => clean(clock.type, 60))
   );
   const requiredClocks = {
-    secEdgar: acceptedClockTypes.has('sec_edgar'),
+    secEdgar: acceptedClockTypes.has('sec_edgar')
+  };
+  const optionalClocks = {
     earningsTranscript: acceptedClockTypes.has('earnings_transcript')
   };
   const hasRequiredClockAcceptance = slot.key !== 'alphabet'
-    || (requiredClocks.secEdgar && requiredClocks.earningsTranscript);
+    || requiredClocks.secEdgar;
   const hasAcceptedVersion = Boolean(
     clean(proof.currentThrough?.ref, 1000)
     || clean(page.freshness?.acceptedThrough?.sourceEventId, 180)
@@ -237,7 +250,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
     ? `/share/wiki/${encodeURIComponent(pageId(page) || clean(page.slug, 180))}/comparison`
     : '';
   const defaultReason = {
-    [PUBLIC_PROOF_GRADES.PROVEN]: 'An explicit public-proof acceptance record is backed by an accepted source version, evidence, claims, and a material maintenance event.',
+    [PUBLIC_PROOF_GRADES.PROVEN]: 'An explicit public-proof acceptance record is backed by an accepted authoritative source version, evidence, claims, and a material maintenance event.',
     [PUBLIC_PROOF_GRADES.CANDIDATE]: 'The object has a live source clock, but its claim-level maintenance event has not yet passed public-proof acceptance.',
     [PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS]: 'The object remains under editorial and maintenance acceptance and must not be presented as proven.',
     [PUBLIC_PROOF_GRADES.ILLUSTRATIVE]: 'The object illustrates the maintained knowledge system but does not yet prove the full maintenance loop.'
@@ -255,7 +268,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       acceptedVersion: hasAcceptedVersion,
       materialEvent: hasMaterialEvent,
       sourceGrounded: hasEvidence,
-      ...(slot.key === 'alphabet' ? { requiredClocks } : {})
+      ...(slot.key === 'alphabet' ? { requiredClocks, optionalClocks } : {})
     }
   };
 };
@@ -270,7 +283,7 @@ const repoIdentityFor = (page = {}) => {
 };
 
 const slotMatchesPage = ({ slot = {}, page = {}, identifier = '' } = {}) => {
-  if (!page || page.visibility !== 'shared' || page.status === 'archived') return false;
+  if (!page || page.visibility !== 'shared' || page.status !== 'published') return false;
   if (identifier) {
     return [pageId(page), clean(page.slug, 180)].includes(identifier);
   }
@@ -282,11 +295,24 @@ const slotMatchesPage = ({ slot = {}, page = {}, identifier = '' } = {}) => {
   return false;
 };
 
+const explicitlyProvenAlphabetPage = ({ slot = {}, page = {} } = {}) => {
+  if (slot.key !== 'alphabet') return false;
+  if (!page || page.visibility !== 'shared' || page.status === 'archived') return false;
+  if (!/\balphabet\b/i.test(clean(page.title, 300))) return false;
+  return buildPublicProofGrade({ slot, page }).grade === PUBLIC_PROOF_GRADES.PROVEN;
+};
+
 const selectPublicProofPages = ({ pages = [], slots = DEFAULT_PUBLIC_PROOF_SLOTS, env = process.env } = {}) => {
   const used = new Set();
   return slots.map((slot) => {
     const identifier = configuredIdentifier(slot, env);
-    const page = pages.find(candidate => (
+    const acceptedAlphabetPage = pages
+      .filter(candidate => !used.has(pageId(candidate)) && explicitlyProvenAlphabetPage({ slot, page: candidate }))
+      .sort((left, right) => (
+        (asDate(right.publicProof?.acceptedAt)?.getTime() || 0)
+        - (asDate(left.publicProof?.acceptedAt)?.getTime() || 0)
+      ))[0];
+    const page = acceptedAlphabetPage || pages.find(candidate => (
       !used.has(pageId(candidate))
       && slotMatchesPage({ slot, page: candidate, identifier })
     ));

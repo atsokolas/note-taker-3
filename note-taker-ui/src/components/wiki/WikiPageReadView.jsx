@@ -42,7 +42,6 @@ import { SUPPORT_STATES } from './extensions/Claim';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
-import WikiTranscriptWatchControl from './WikiTranscriptWatchControl';
 import WikiGitHubRepoWatchControl, {
   formatRepoWatchPublicationFacts,
   formatRepoWatchPublicationMessage,
@@ -2042,11 +2041,8 @@ const WikiPageReadView = ({
   const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
   const companyDossier = isCompanyDossierPage(page);
   const edgarWatch = page?.externalWatches?.edgar || {};
-  const transcriptWatch = page?.externalWatches?.transcripts || page?.externalWatches?.transcript || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
-  const transcriptWatchStatus = String(transcriptWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
-  const transcriptWatchConfigured = Boolean(normalizeId(transcriptWatch.ticker));
   const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt;
   const shareCard = (
     <section
@@ -2309,11 +2305,6 @@ const WikiPageReadView = ({
                         <span className={edgarWatchStatus === 'error' ? 'is-error' : ''}>
                           {edgarWatchStatus === 'error' ? 'SEC watch issue' : edgarWatchConfigured ? 'SEC watch on' : 'SEC watch off'}
                         </span>
-                        <span className={transcriptWatchStatus === 'error' ? 'is-error' : ''}>
-                          {transcriptWatchStatus === 'error'
-                            ? 'Transcripts unavailable'
-                            : transcriptWatchConfigured ? 'Transcript watch on' : 'Transcript watch off'}
-                        </span>
                       </>
                     ) : null}
                   </span>
@@ -2323,14 +2314,6 @@ const WikiPageReadView = ({
                   {shareCard}
                   {companyDossier ? <div className="wiki-read__entity-watches">
                     <WikiEdgarWatchControl
-                      pageId={pageId}
-                      page={page}
-                      onPageUpdate={(nextPage) => {
-                        latestPageRef.current = nextPage;
-                        setPage(nextPage);
-                      }}
-                    />
-                    <WikiTranscriptWatchControl
                       pageId={pageId}
                       page={page}
                       onPageUpdate={(nextPage) => {

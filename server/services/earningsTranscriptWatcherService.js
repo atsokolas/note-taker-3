@@ -15,8 +15,18 @@ const normalizeTicker = (value = '') => String(value || '')
   .slice(0, 16);
 
 const fmpApiKey = () => trim(process.env.FMP_API_KEY || process.env.FINANCIAL_MODELING_PREP_API_KEY || '', 240);
+const paidDataSourcesEnabled = () => process.env.PAID_DATA_SOURCES_ENABLED === 'true';
 
-const transcriptWatchEnabled = () => Boolean(fmpApiKey());
+const transcriptWatchEnabled = (apiKey = fmpApiKey()) => (
+  paidDataSourcesEnabled()
+  && Boolean(apiKey)
+);
+
+const paidSourcesDisabledError = () => {
+  const error = new Error('Paid transcript providers are disabled. Noeis currently uses free authoritative sources only.');
+  error.statusCode = 409;
+  return error;
+};
 
 const missingFmpApiKeyError = () => {
   const error = new Error('FMP_API_KEY is required for earnings transcript sync.');
@@ -178,6 +188,7 @@ const checkTranscriptWatchForPage = async ({
   apiKey = fmpApiKey(),
   now = () => new Date()
 } = {}) => {
+  if (!paidDataSourcesEnabled()) throw paidSourcesDisabledError();
   if (!page) {
     const error = new Error('Wiki page is required for transcript watch.');
     error.statusCode = 404;
@@ -236,6 +247,7 @@ const armTranscriptWatchForPage = async ({
   now = () => new Date(),
   checkNow = true
 } = {}) => {
+  if (!paidDataSourcesEnabled()) throw paidSourcesDisabledError();
   if (!WikiPage || !userId || !pageId) {
     const error = new Error('WikiPage, userId, and pageId are required to arm transcript watch.');
     error.statusCode = 400;
@@ -312,7 +324,9 @@ const drainDueTranscriptWatches = async ({
 } = {}) => {
   const { WikiPage, WikiSourceEvent } = models;
   if (!WikiPage || !WikiSourceEvent) return { processed: 0, failed: 0, skipped: true, results: [] };
-  if (!apiKey) return { processed: 0, failed: 0, skipped: true, reason: 'missing_fmp_api_key', results: [] };
+  if (!transcriptWatchEnabled(apiKey)) {
+    return { processed: 0, failed: 0, skipped: true, reason: 'paid_sources_disabled', results: [] };
+  }
   const max = Math.max(1, Math.min(Number(limit) || 5, 25));
   const cutoff = new Date(now.getTime() - Math.max(60 * 60 * 1000, Number(maxAgeMs) || DEFAULT_TRANSCRIPT_WATCH_MAX_AGE_MS));
   const pages = await WikiPage.find(dueTranscriptWatchQuery({ cutoff }))

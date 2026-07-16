@@ -4,6 +4,10 @@
 **Mode:** investigation and planning only; no product code changed
 **Confidence:** high on repository state and logged-out production state; moderate on authenticated production state where the newest evidence is a saved QA artifact rather than a fresh mutation
 
+## 2026-07-16 source-policy decision
+
+Noeis uses free sources only for the current proof phase. SEC EDGAR is the required authoritative Alphabet maintenance clock. Paid earnings-transcript providers, including FMP, are disabled and transcript evidence is optional enrichment rather than an acceptance requirement. “Proven” for Alphabet must be described narrowly as filing-maintained proof; it must not imply transcript monitoring. The remaining editorial and privacy gates still apply: a substantive SEC event, its promoted maintenance revision, preserved claim evidence, an explicit accepted-through record, a material receipt, human acceptance, and public-safe serialization.
+
 ## Executive recommendation
 
 Build the proof as one maintained-object system, not as investing and developer modes. The public gallery should be a curated registry of six individual shared objects. Each object keeps its private `WikiPage` and existing monitor data; the public API exposes only a deliberately sanitized maintenance proof envelope. The gallery reads that envelope and links directly to the object.

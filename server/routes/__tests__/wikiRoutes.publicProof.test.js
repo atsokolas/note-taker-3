@@ -98,7 +98,9 @@ const run = async () => {
     assert.strictEqual(payload.items[5].maintenanceProof.currentThrough.label, 'Commit 54154fb');
     assert.strictEqual(payload.items[0].proofGrade.grade, 'acceptance_in_progress');
     assert.deepStrictEqual(payload.items[0].proofGrade.criteria.requiredClocks, {
-      secEdgar: false,
+      secEdgar: false
+    });
+    assert.deepStrictEqual(payload.items[0].proofGrade.criteria.optionalClocks, {
       earningsTranscript: false
     });
     assert.strictEqual(payload.items[1].proofGrade.grade, 'illustrative');
