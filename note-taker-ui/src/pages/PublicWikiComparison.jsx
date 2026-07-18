@@ -25,9 +25,31 @@ export const formatComparisonDate = (value) => {
   });
 };
 
+/** Visible evidence link label: title first, then path, then URL. Never blank. */
+export const evidenceRefLabel = (ref = {}) => {
+  const title = cleanText(ref?.title);
+  const path = cleanText(ref?.path);
+  const url = cleanText(ref?.url);
+  return title || path || url || 'GitHub reference';
+};
+
+/**
+ * One-word / broken claim fragments are not material public proof.
+ * Examples: "Create", "repo wiki", leading-colon continuations.
+ */
+export const isMalformedClaimText = (text = '') => {
+  const value = cleanText(text);
+  if (!value) return true;
+  if (value.startsWith(':')) return true;
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length <= 2 && value.length < 24) return true;
+  return false;
+};
+
 export const claimDeltaLabels = Object.freeze({
   added: 'Added',
   changed: 'Changed',
+  evidenceRefreshed: 'Preserved with refreshed evidence',
   gainedSupport: 'Gained support',
   contradicted: 'Contradicted',
   preserved: 'Preserved',
@@ -37,12 +59,14 @@ export const claimDeltaLabels = Object.freeze({
 export const CLAIM_DELTA_ORDER = Object.freeze([
   'added',
   'changed',
+  'evidenceRefreshed',
   'gainedSupport',
   'contradicted',
   'preserved',
   'removed'
 ]);
 
+/** Semantic claim rewrites only — never include evidenceRefreshed. */
 export const MATERIAL_CLAIM_KEYS = Object.freeze([
   'added',
   'changed',
@@ -66,6 +90,16 @@ export const PROOF_PULSE_STATE_LABELS = Object.freeze({
   held_for_review: 'Held for review'
 });
 
+export const ACCEPTANCE_BLOCKER_LABELS = Object.freeze({
+  no_source_backed_claim_rewrite:
+    'No source-backed claim rewrite has been demonstrated.'
+});
+
+export const describeAcceptanceBlocker = (blocker = '') => {
+  const key = cleanText(blocker);
+  return ACCEPTANCE_BLOCKER_LABELS[key] || key.replace(/_/g, ' ') || 'Acceptance requirements unmet.';
+};
+
 /**
  * Normalize optional comparison.proofPulse for public rendering.
  * Returns null when absent so the page keeps its existing zero-change narrative.
@@ -79,11 +113,27 @@ export const normalizeProofPulse = (proofPulse = null) => {
   const facts = (Array.isArray(proofPulse.facts) ? proofPulse.facts : [])
     .map((fact) => cleanText(fact))
     .filter(Boolean)
-    .slice(0, 8);
+    .slice(0, 12);
+  const acceptanceRaw = proofPulse.acceptance && typeof proofPulse.acceptance === 'object'
+    ? proofPulse.acceptance
+    : null;
+  const acceptance = acceptanceRaw
+    ? {
+      eligible: Boolean(acceptanceRaw.eligible),
+      realClaimChanges: Number(acceptanceRaw.realClaimChanges) || 0,
+      sourceBackedClaimChanges: Number(acceptanceRaw.sourceBackedClaimChanges) || 0,
+      preservedClaims: Number(acceptanceRaw.preservedClaims) || 0,
+      blockers: (Array.isArray(acceptanceRaw.blockers) ? acceptanceRaw.blockers : [])
+        .map((item) => cleanText(item))
+        .filter(Boolean)
+    }
+    : null;
   return {
     state,
     headline,
     facts,
+    acceptance,
+    baselineVersion: cleanText(proofPulse.baselineVersion),
     observedVersion: cleanText(proofPulse.observedVersion),
     publishedVersion: cleanText(proofPulse.publishedVersion)
   };
@@ -95,10 +145,77 @@ const countOf = (comparison, key) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const repoChangeCount = (comparison = {}) => {
+export const repositoryPathTotals = (comparison = {}) => {
+  const totals = comparison.repositoryChangeTotals;
   const changes = comparison.repositoryChanges || {};
-  return ['added', 'changed', 'removed']
-    .reduce((sum, key) => sum + (Array.isArray(changes[key]) ? changes[key].length : 0), 0);
+  const truncated = comparison.repositoryChangesTruncated || {};
+  const added = Number.isFinite(Number(totals?.added))
+    ? Number(totals.added)
+    : (Array.isArray(changes.added) ? changes.added.length : 0);
+  const changed = Number.isFinite(Number(totals?.changed))
+    ? Number(totals.changed)
+    : (Array.isArray(changes.changed) ? changes.changed.length : 0)
+      + (Number(truncated.changed) || 0);
+  const removed = Number.isFinite(Number(totals?.removed))
+    ? Number(totals.removed)
+    : (Array.isArray(changes.removed) ? changes.removed.length : 0);
+  const displayed = {
+    added: Array.isArray(changes.added) ? changes.added.length : 0,
+    changed: Array.isArray(changes.changed) ? changes.changed.length : 0,
+    removed: Array.isArray(changes.removed) ? changes.removed.length : 0
+  };
+  const omitted = {
+    added: Number(truncated.added) || Math.max(0, added - displayed.added),
+    changed: Number(truncated.changed) || Math.max(0, changed - displayed.changed),
+    removed: Number(truncated.removed) || Math.max(0, removed - displayed.removed)
+  };
+  return {
+    added,
+    changed,
+    removed,
+    total: added + changed + removed,
+    displayed,
+    omitted
+  };
+};
+
+const repoChangeCount = (comparison = {}) => repositoryPathTotals(comparison).total;
+
+/**
+ * Deduplicate rejected candidate builds by disposition + counts + head SHA.
+ * Does not merge rejected with currently-held; those stay separate.
+ */
+export const uniqueRejectedCandidateBuilds = (rejectedCandidates = []) => {
+  const list = Array.isArray(rejectedCandidates) ? rejectedCandidates : [];
+  const seen = new Set();
+  const unique = [];
+  list.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const disposition = cleanText(item.disposition || 'rejected').toLowerCase() || 'rejected';
+    if (disposition === 'held' || disposition === 'held_for_review') return;
+    const counts = item.counts && typeof item.counts === 'object' ? item.counts : {};
+    const countSignature = Object.keys(counts)
+      .sort()
+      .map((key) => `${key}:${Number(counts[key]) || 0}`)
+      .join('|');
+    const signature = [
+      disposition,
+      cleanText(item.candidateHeadSha),
+      countSignature
+    ].join('::');
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    unique.push(item);
+  });
+  return unique;
+};
+
+export const currentlyHeldCandidateBuilds = (rejectedCandidates = []) => {
+  const list = Array.isArray(rejectedCandidates) ? rejectedCandidates : [];
+  return list.filter((item) => {
+    const disposition = cleanText(item?.disposition).toLowerCase();
+    return disposition === 'held' || disposition === 'held_for_review';
+  });
 };
 
 export const isZeroChangeComparison = (comparison = {}) => {
@@ -106,42 +223,71 @@ export const isZeroChangeComparison = (comparison = {}) => {
   const materialClaims = MATERIAL_CLAIM_KEYS.reduce((sum, key) => sum + countOf(comparison, key), 0);
   return repoChangeCount(comparison) === 0
     && materialClaims === 0
+    && countOf(comparison, 'evidenceRefreshed') === 0
     && countOf(comparison, 'preserved') >= 0
     && (!Array.isArray(comparison.staticWikiErrors) || comparison.staticWikiErrors.length === 0);
 };
 
 export const summarizeRepositoryChanges = (comparison = {}) => {
-  const n = repoChangeCount(comparison);
-  if (n === 0) {
+  const paths = repositoryPathTotals(comparison);
+  if (paths.total === 0) {
     return 'No repository files, docs, or releases changed since the baseline snapshot.';
   }
-  const changes = comparison.repositoryChanges || {};
   const parts = [];
-  if (changes.added?.length) parts.push(`${changes.added.length} added`);
-  if (changes.changed?.length) parts.push(`${changes.changed.length} changed`);
-  if (changes.removed?.length) parts.push(`${changes.removed.length} removed`);
-  return `Repository evidence moved: ${parts.join(', ')}.`;
+  if (paths.added) parts.push(`${paths.added} added`);
+  if (paths.changed) parts.push(`${paths.changed} changed`);
+  if (paths.removed) parts.push(`${paths.removed} removed`);
+  let summary = `Repository evidence moved: ${parts.join(', ')}.`;
+  if (paths.omitted.changed > 0) {
+    summary += ` ${paths.changed} paths changed in total; only ${paths.displayed.changed} are displayed (${paths.omitted.changed} omitted from this public envelope).`;
+  }
+  return summary;
 };
 
 export const summarizeNoeisChanges = (comparison = {}) => {
   const material = MATERIAL_CLAIM_KEYS.reduce((sum, key) => sum + countOf(comparison, key), 0);
   const preserved = countOf(comparison, 'preserved');
-  const rejected = Array.isArray(comparison.rejectedCandidates)
-    ? comparison.rejectedCandidates.length
-    : 0;
-  if (material === 0 && rejected === 0) {
+  const evidenceRefreshed = countOf(comparison, 'evidenceRefreshed');
+  const rejectedUnique = uniqueRejectedCandidateBuilds(comparison.rejectedCandidates).length;
+  if (material === 0 && rejectedUnique === 0 && evidenceRefreshed === 0) {
     return preserved > 0
       ? `Noeis preserved ${preserved} accepted claim${preserved === 1 ? '' : 's'} with no material claim edits.`
       : 'Noeis recorded no material claim edits against this baseline.';
   }
-  const parts = MATERIAL_CLAIM_KEYS
-    .map((key) => {
-      const n = countOf(comparison, key);
-      return n > 0 ? `${n} ${claimDeltaLabels[key].toLowerCase()}` : null;
-    })
-    .filter(Boolean);
-  if (rejected > 0) parts.push(`${rejected} rejected candidate run${rejected === 1 ? '' : 's'}`);
-  return `Noeis updated the maintained dossier: ${parts.join(', ')}.`;
+  const parts = [];
+  MATERIAL_CLAIM_KEYS.forEach((key) => {
+    const n = countOf(comparison, key);
+    if (n > 0) parts.push(`${n} ${claimDeltaLabels[key].toLowerCase()}`);
+  });
+  if (evidenceRefreshed > 0) {
+    parts.push(
+      `${evidenceRefreshed} preserved with refreshed evidence`
+    );
+  }
+  if (preserved > 0 && evidenceRefreshed === 0) {
+    parts.push(`${preserved} preserved`);
+  }
+  if (rejectedUnique > 0) {
+    parts.push(
+      `${rejectedUnique} unique rejected candidate build${rejectedUnique === 1 ? '' : 's'}`
+    );
+  }
+  return `Noeis recorded claim outcomes: ${parts.join(', ')}.`;
+};
+
+export const summarizePreservedClaims = (comparison = {}) => {
+  const preserved = countOf(comparison, 'preserved');
+  const evidenceRefreshed = countOf(comparison, 'evidenceRefreshed');
+  if (preserved === 0 && evidenceRefreshed === 0) {
+    return 'No accepted claims were preserved against this baseline.';
+  }
+  if (evidenceRefreshed > 0) {
+    return `${evidenceRefreshed} preserved with refreshed evidence`
+      + (preserved > evidenceRefreshed
+        ? ` (${preserved} preserved in total).`
+        : '. These are not semantic claim rewrites.');
+  }
+  return `${preserved} accepted claim${preserved === 1 ? '' : 's'} preserved with no material rewrite.`;
 };
 
 export const summarizeStaticWikiRisk = (comparison = {}) => {
@@ -152,83 +298,155 @@ export const summarizeStaticWikiRisk = (comparison = {}) => {
   return `A generate-once wiki would now state ${errors.length} claim${errors.length === 1 ? '' : 's'} incorrectly.`;
 };
 
+export const summarizeAcceptanceFailure = (comparison = {}, proofPulse = null) => {
+  const acceptance = proofPulse?.acceptance
+    || (comparison?.acceptance && typeof comparison.acceptance === 'object'
+      ? {
+        eligible: Boolean(comparison.acceptance.eligible),
+        blockers: (Array.isArray(comparison.acceptance.blockers)
+          ? comparison.acceptance.blockers
+          : []).map(cleanText).filter(Boolean)
+      }
+      : null);
+  if (!acceptance || acceptance.eligible) return null;
+  const blockers = acceptance.blockers || [];
+  const blockerText = blockers.length
+    ? blockers.map(describeAcceptanceBlocker).join(' ')
+    : 'Acceptance requirements unmet.';
+  return `This is a candidate comparison, not public proof. ${blockerText}`;
+};
+
+const evidenceFor = (row = {}) => {
+  const claim = row.after || row.before || {};
+  const candidates = [
+    ...(Array.isArray(row.refs) ? row.refs : []),
+    ...(Array.isArray(row.evidenceRefs) ? row.evidenceRefs : []),
+    ...(Array.isArray(claim.sourceRefs) ? claim.sourceRefs : []),
+    ...(Array.isArray(claim.evidenceRefs) ? claim.evidenceRefs : [])
+  ];
+  const ref = candidates.find((item) => item && (item.title || item.path || item.url));
+  return ref
+    ? {
+      label: evidenceRefLabel(ref),
+      url: cleanText(ref.url)
+    }
+    : null;
+};
+
+/**
+ * Curate claim-level examples for the public surface.
+ * Omits malformed standalone fragments; preserves aggregate counts elsewhere.
+ */
 export const materialExamples = (comparison = {}, limit = 5) => {
   const examples = [];
-  const evidenceFor = (row = {}) => {
-    const claim = row.after || row.before || {};
-    const candidates = [
-      ...(Array.isArray(row.refs) ? row.refs : []),
-      ...(Array.isArray(row.evidenceRefs) ? row.evidenceRefs : []),
-      ...(Array.isArray(claim.sourceRefs) ? claim.sourceRefs : []),
-      ...(Array.isArray(claim.evidenceRefs) ? claim.evidenceRefs : [])
-    ];
-    const ref = candidates.find((item) => item && (item.title || item.path || item.url));
-    return ref ? {
-      label: cleanText(ref.title || ref.path || ref.url),
-      url: cleanText(ref.url)
-    } : null;
-  };
-  ['changed', 'gainedSupport', 'contradicted', 'preserved', 'added', 'removed'].forEach((group) => {
-    const rows = comparison.claimComparison?.deltas?.[group] || [];
-    rows.forEach((row) => {
-      const before = cleanText(row.before?.text);
-      const after = cleanText(row.after?.text);
-      const beforeSupport = cleanText(row.before?.support);
-      const afterSupport = cleanText(row.after?.support);
-      const beforeSection = cleanText(row.before?.section);
-      const afterSection = cleanText(row.after?.section);
-      const evidence = evidenceFor(row);
-      const textChanged = before !== after;
-      const supportChanged = beforeSupport !== afterSupport;
-      const sectionChanged = beforeSection !== afterSection;
-      const demonstrable = textChanged || supportChanged || sectionChanged || Boolean(evidence);
-      if ((before || after) && demonstrable) examples.push({
-        type: claimDeltaLabels[group],
-        before: before
-          ? `${before}${supportChanged && beforeSupport ? ` · Support: ${beforeSupport}` : ''}${sectionChanged && beforeSection ? ` · Section: ${beforeSection}` : ''}`
-          : 'No prior accepted claim.',
-        after: after
-          ? `${after}${supportChanged && afterSupport ? ` · Support: ${afterSupport}` : ''}${sectionChanged && afterSection ? ` · Section: ${afterSection}` : ''}`
-          : 'Removed from the candidate claim set.',
-        evidence,
-        disposition: group === 'changed' && !textChanged && !supportChanged && !sectionChanged && evidence
-          ? 'Evidence changed; claim text preserved'
-          : group === 'preserved'
-          ? 'Preserved after review'
-          : group === 'contradicted'
-            ? 'Flagged as contradicted'
-            : group === 'gainedSupport'
-              ? 'Candidate gained support'
-              : `Candidate ${claimDeltaLabels[group].toLowerCase()}`
-      });
+  let omittedMalformedCount = 0;
+
+  const pushRow = (group, row) => {
+    const before = cleanText(row.before?.text);
+    const after = cleanText(row.after?.text);
+    const primaryText = after || before;
+    if (primaryText && isMalformedClaimText(primaryText) && (!before || isMalformedClaimText(before))) {
+      omittedMalformedCount += 1;
+      return;
+    }
+    if (before && after && isMalformedClaimText(before) && isMalformedClaimText(after)) {
+      omittedMalformedCount += 1;
+      return;
+    }
+    const beforeSupport = cleanText(row.before?.support);
+    const afterSupport = cleanText(row.after?.support);
+    const beforeSection = cleanText(row.before?.section);
+    const afterSection = cleanText(row.after?.section);
+    const evidence = evidenceFor(row);
+    const textChanged = before !== after;
+    const supportChanged = beforeSupport !== afterSupport;
+    const sectionChanged = beforeSection !== afterSection;
+    const demonstrable = textChanged || supportChanged || sectionChanged || Boolean(evidence);
+    if (!(before || after) || !demonstrable) return;
+
+    let disposition;
+    if (group === 'evidenceRefreshed') {
+      disposition = 'Preserved with refreshed evidence — not a semantic rewrite';
+    } else if (group === 'changed' && !textChanged && !supportChanged && !sectionChanged && evidence) {
+      disposition = 'Evidence changed; claim text preserved';
+    } else if (group === 'preserved') {
+      disposition = 'Preserved after review';
+    } else if (group === 'contradicted') {
+      disposition = 'Flagged as contradicted';
+    } else if (group === 'gainedSupport') {
+      disposition = 'Candidate gained support';
+    } else {
+      disposition = `Candidate ${claimDeltaLabels[group].toLowerCase()}`;
+    }
+
+    examples.push({
+      type: claimDeltaLabels[group],
+      before: before
+        ? `${before}${supportChanged && beforeSupport ? ` · Support: ${beforeSupport}` : ''}${sectionChanged && beforeSection ? ` · Section: ${beforeSection}` : ''}`
+        : 'No prior accepted claim.',
+      after: after
+        ? `${after}${supportChanged && afterSupport ? ` · Support: ${afterSupport}` : ''}${sectionChanged && afterSection ? ` · Section: ${afterSection}` : ''}`
+        : 'Removed from the candidate claim set.',
+      evidence,
+      disposition
     });
-  });
-  (comparison.rejectedCandidates || []).forEach((row) => {
+  };
+
+  // Prefer semantic rewrites; evidence refreshes are last and never labeled "changed".
+  ['changed', 'gainedSupport', 'contradicted', 'added', 'removed', 'evidenceRefreshed', 'preserved']
+    .forEach((group) => {
+      const rows = comparison.claimComparison?.deltas?.[group] || [];
+      rows.forEach((row) => pushRow(group, row));
+    });
+
+  const rejectedUnique = uniqueRejectedCandidateBuilds(comparison.rejectedCandidates);
+  rejectedUnique.forEach((row, index) => {
     const counts = Object.entries(row?.counts || {})
       .filter(([, value]) => Number(value) > 0)
       .map(([key, value]) => `${value} ${key}`)
       .join(', ');
     examples.push({
-      type: 'Rejected candidate',
+      type: 'Rejected candidate build',
       before: 'Trusted published claims remained in place.',
       after: 'Candidate prose is intentionally withheld from public output.',
       evidence: null,
-      disposition: counts ? `Rejected or held: ${counts}` : 'Rejected or held for review'
+      disposition: counts
+        ? `Rejected unique build ${index + 1}: ${counts}`
+        : `Rejected unique build ${index + 1}`
     });
   });
+
   (comparison.staticWikiErrors || []).forEach((row) => {
-    if (cleanText(row.staleClaim)) examples.push({
+    const stale = cleanText(row.staleClaim);
+    if (!stale || isMalformedClaimText(stale)) {
+      if (stale) omittedMalformedCount += 1;
+      return;
+    }
+    const ref = Array.isArray(row.refs) && row.refs[0] ? row.refs[0] : null;
+    examples.push({
       type: 'Static-wiki risk',
-      before: cleanText(row.staleClaim),
+      before: stale,
       after: cleanText(row.reason) || 'The supporting repository source changed.',
-      evidence: Array.isArray(row.refs) && row.refs[0] ? {
-        label: cleanText(row.refs[0].title || row.refs[0].path || row.refs[0].url),
-        url: cleanText(row.refs[0].url)
-      } : null,
+      evidence: ref
+        ? {
+          label: evidenceRefLabel(ref),
+          url: cleanText(ref.url)
+        }
+        : null,
       disposition: 'Demonstrably stale baseline claim'
     });
   });
-  return examples.slice(0, limit);
+
+  const sliced = examples.slice(0, limit);
+  const disclosure = omittedMalformedCount > 0
+    ? `${omittedMalformedCount} technical claim row${omittedMalformedCount === 1 ? '' : 's'} were excluded from curated examples because they were malformed standalone fragments; aggregate counts above are unchanged.`
+    : '';
+
+  return {
+    examples: sliced,
+    omittedMalformedCount,
+    disclosure
+  };
 };
 
 export const buildPublicWikiComparisonSchema = ({
@@ -253,7 +471,7 @@ export const buildPublicWikiComparisonSchema = ({
   const citations = (Array.isArray(comparison.supportingRefs) ? comparison.supportingRefs : [])
     .slice(0, 24)
     .map((ref) => {
-      const name = cleanText(ref?.title || ref?.path || ref?.url || 'GitHub reference');
+      const name = evidenceRefLabel(ref);
       if (!name) return null;
       return {
         '@type': 'CreativeWork',
@@ -312,7 +530,7 @@ const usePublicShareScrollSurface = () => {
 const ClaimRow = ({ row }) => {
   const claim = row?.after || row?.before || {};
   const text = cleanText(claim.text);
-  if (!text) return null;
+  if (!text || isMalformedClaimText(text)) return null;
   return (
     <li>
       <p className="public-wiki-comparison__claim-text">{text}</p>
@@ -413,23 +631,37 @@ const PublicWikiComparison = () => {
 
   const zeroChange = isZeroChangeComparison(comparison || {});
   const proofPulse = normalizeProofPulse(comparison?.proofPulse);
-  const baselineSha = shortSha(comparison?.baseline?.headSha);
+  const baselineSha = shortSha(
+    proofPulse?.baselineVersion || comparison?.baseline?.headSha
+  );
   const publishedSha = shortSha(comparison?.current?.publishedHeadSha);
   const observedSha = shortSha(comparison?.current?.observedHeadSha);
   const pulsePublishedSha = shortSha(proofPulse?.publishedVersion || comparison?.current?.publishedHeadSha);
   const pulseObservedSha = shortSha(proofPulse?.observedVersion || comparison?.current?.observedHeadSha);
   const changes = comparison?.repositoryChanges || {};
+  const pathTotals = repositoryPathTotals(comparison || {});
   const claimDeltas = comparison?.claimComparison?.deltas || {};
-  const rejected = Array.isArray(comparison?.rejectedCandidates) ? comparison.rejectedCandidates : [];
+  const rejectedAll = Array.isArray(comparison?.rejectedCandidates) ? comparison.rejectedCandidates : [];
+  const rejectedUnique = uniqueRejectedCandidateBuilds(rejectedAll);
+  const heldBuilds = currentlyHeldCandidateBuilds(rejectedAll);
   const staticErrors = Array.isArray(comparison?.staticWikiErrors) ? comparison.staticWikiErrors : [];
   const refs = Array.isArray(comparison?.supportingRefs) ? comparison.supportingRefs : [];
-  const examples = materialExamples(comparison || {});
-  const changedClaimCount = MATERIAL_CLAIM_KEYS.reduce((sum, key) => sum + countOf(comparison, key), 0);
-  const largeClaimDelta = changedClaimCount >= 25;
+  const exampleBundle = materialExamples(comparison || {});
+  const examples = exampleBundle.examples;
+  const exampleDisclosure = exampleBundle.disclosure;
+  const semanticClaimCount = MATERIAL_CLAIM_KEYS.reduce((sum, key) => sum + countOf(comparison, key), 0);
+  const evidenceRefreshedCount = countOf(comparison, 'evidenceRefreshed');
+  const largeClaimDelta = semanticClaimCount >= 25;
   const provenComparison = proofGrade?.grade === 'proven';
+  const acceptanceFailure = summarizeAcceptanceFailure(comparison, proofPulse);
+  const acceptanceIneligible = Boolean(acceptanceFailure);
+  const pulseStateLabel = acceptanceIneligible && proofPulse?.state === 'held_for_review' && heldBuilds.length === 0
+    ? 'Acceptance not met'
+    : (PROOF_PULSE_STATE_LABELS[proofPulse?.state] || proofPulse?.state);
   const summaryClassName = [
     'public-wiki-comparison__summary',
     proofPulse ? `is-pulse is-pulse-${proofPulse.state}` : '',
+    acceptanceIneligible ? 'is-acceptance-failed' : '',
     zeroChange && !proofPulse ? 'is-zero-change' : ''
   ].filter(Boolean).join(' ');
 
@@ -473,8 +705,18 @@ const PublicWikiComparison = () => {
             aria-label="Summary"
             data-screenshot-region="comparison-summary"
             data-proof-pulse-state={proofPulse?.state || undefined}
+            data-acceptance-eligible={acceptanceIneligible ? 'false' : (proofPulse?.acceptance ? 'true' : undefined)}
           >
             <h2>The maintenance decision</h2>
+            {acceptanceFailure ? (
+              <p
+                className="public-wiki-comparison__acceptance-failure"
+                role="status"
+                data-testid="acceptance-failure"
+              >
+                {acceptanceFailure}
+              </p>
+            ) : null}
             {proofPulse ? (
               <div
                 className="public-wiki-comparison__proof-pulse"
@@ -487,7 +729,7 @@ const PublicWikiComparison = () => {
                     className={`public-wiki-comparison__pulse-state is-${proofPulse.state}`}
                     data-testid="proof-pulse-state"
                   >
-                    {PROOF_PULSE_STATE_LABELS[proofPulse.state] || proofPulse.state}
+                    {pulseStateLabel}
                   </span>
                 </p>
                 <p
@@ -496,11 +738,17 @@ const PublicWikiComparison = () => {
                 >
                   {proofPulse.headline}
                 </p>
-                {(pulsePublishedSha || pulseObservedSha) ? (
+                {(baselineSha || pulsePublishedSha || pulseObservedSha) ? (
                   <dl
                     className="public-wiki-comparison__pulse-versions"
-                    aria-label="Published and observed repository versions"
+                    aria-label="Baseline, published, and observed repository versions"
                   >
+                    <div data-version-role="baseline">
+                      <dt>Baseline</dt>
+                      <dd data-testid="proof-pulse-baseline">
+                        {baselineSha || 'unknown'}
+                      </dd>
+                    </div>
                     <div data-version-role="published">
                       <dt>Published / trusted</dt>
                       <dd data-testid="proof-pulse-published">
@@ -508,7 +756,11 @@ const PublicWikiComparison = () => {
                       </dd>
                     </div>
                     <div data-version-role="observed">
-                      <dt>Latest observed</dt>
+                      <dt>
+                        {pulsePublishedSha && pulseObservedSha && pulsePublishedSha === pulseObservedSha
+                          ? 'Latest observed (matches published)'
+                          : 'Latest observed'}
+                      </dt>
                       <dd data-testid="proof-pulse-observed">
                         {pulseObservedSha || 'unknown'}
                       </dd>
@@ -517,8 +769,9 @@ const PublicWikiComparison = () => {
                 ) : null}
                 {proofPulse.state === 'held_for_review' ? (
                   <p className="public-wiki-comparison__pulse-trust" role="status">
-                    Noeis preserved the trusted published article. A weaker candidate was held for review
-                    rather than silently replacing what readers already rely on.
+                    {acceptanceIneligible && heldBuilds.length === 0
+                      ? `Noeis preserved the trusted published article. This comparison remains a candidate because the required claim-level proof is incomplete. ${rejectedUnique.length} prior candidate build${rejectedUnique.length === 1 ? ' was' : 's were'} rejected; no build is currently held for review.`
+                      : 'Noeis preserved the trusted published article. A candidate is currently held for review rather than silently replacing what readers already rely on. Rejected builds and currently-held builds are counted separately.'}
                   </p>
                 ) : null}
                 {proofPulse.facts.length > 0 ? (
@@ -530,38 +783,65 @@ const PublicWikiComparison = () => {
                 ) : null}
               </div>
             ) : null}
-            <dl className="public-wiki-comparison__three-facts public-wiki-comparison__four-answers">
+            <dl className="public-wiki-comparison__three-facts public-wiki-comparison__five-answers">
               <div>
-                <dt>1 · What changed?</dt>
-                <dd>{summarizeRepositoryChanges(comparison)}</dd>
+                <dt>1 · What was baseline?</dt>
+                <dd data-testid="answer-baseline">
+                  {baselineSha
+                    ? `Day-one accepted snapshot ${baselineSha}${comparison.baseline?.capturedAt ? `, captured ${formatComparisonDate(comparison.baseline.capturedAt)}` : ''}.`
+                    : 'Baseline commit is not available in this comparison envelope.'}
+                </dd>
               </div>
               <div>
-                <dt>2 · What does the trusted wiki reflect?</dt>
-                <dd>{summarizeNoeisChanges(comparison)}</dd>
+                <dt>2 · What is trusted now?</dt>
+                <dd data-testid="answer-trusted">
+                  {publishedSha
+                    ? `Published / trusted head ${publishedSha}${comparison.current?.buildStatus ? ` · build ${comparison.current.buildStatus}` : ''}.`
+                    : 'No published head is recorded yet.'}
+                </dd>
               </div>
               <div>
-                <dt>3 · Why publish or hold?</dt>
-                <dd>{!provenComparison
-                  ? 'A wiki version may be published, but this comparison has not cleared the public-proof acceptance bar.'
-                  : proofPulse?.state === 'held_for_review'
-                  ? 'The candidate did not clear the evidence bar, so the trusted published page stayed unchanged.'
-                  : publishedSha === observedSha
-                    ? 'The reviewed repository version cleared acceptance and now backs the public wiki.'
-                    : 'Repository ahead means GitHub has changed, but the public wiki stays on the last accepted version until review clears.'}</dd>
+                <dt>3 · What actually changed?</dt>
+                <dd data-testid="answer-changed">
+                  {summarizeRepositoryChanges(comparison)}
+                  {semanticClaimCount > 0
+                    ? ` Semantic claim outcomes: ${MATERIAL_CLAIM_KEYS
+                      .map((key) => {
+                        const n = countOf(comparison, key);
+                        return n > 0 ? `${n} ${claimDeltaLabels[key].toLowerCase()}` : null;
+                      })
+                      .filter(Boolean)
+                      .join(', ')}.`
+                    : ' No semantic claim rewrites were demonstrated.'}
+                  {evidenceRefreshedCount > 0
+                    ? ` ${evidenceRefreshedCount} claims were preserved with refreshed evidence — not counted as changed.`
+                    : ''}
+                </dd>
               </div>
               <div>
-                <dt>4 · What should I inspect?</dt>
-                <dd>{examples.length
-                  ? 'Start with the material examples below, then open the linked GitHub evidence.'
-                  : 'Inspect the accepted version and public GitHub references; no material delta has been demonstrated yet.'}</dd>
+                <dt>4 · What was preserved?</dt>
+                <dd data-testid="answer-preserved">{summarizePreservedClaims(comparison)}</dd>
+              </div>
+              <div>
+                <dt>5 · Why still only a candidate?</dt>
+                <dd data-testid="answer-candidate">
+                  {acceptanceFailure
+                    || (!provenComparison
+                      ? 'A wiki version may be published, but this comparison has not cleared the public-proof acceptance bar.'
+                      : proofPulse?.state === 'held_for_review'
+                        ? 'The candidate did not clear the evidence bar, so the trusted published page stayed unchanged.'
+                        : publishedSha === observedSha
+                          ? 'The reviewed repository version cleared acceptance and now backs the public wiki.'
+                          : 'Repository ahead means GitHub has changed, but the public wiki stays on the last accepted version until review clears.')}
+                </dd>
               </div>
             </dl>
             {largeClaimDelta ? (
               <p className="public-wiki-comparison__stability-warning" role="status">
-                {changedClaimCount} material claim deltas is a regeneration-stability warning. It needs editorial inspection; volume alone is not proof of good maintenance.
+                {semanticClaimCount} material claim deltas is a regeneration-stability warning. It needs editorial inspection; volume alone is not proof of good maintenance.
               </p>
             ) : null}
-            {!provenComparison ? (
+            {!provenComparison && !acceptanceFailure ? (
               <p className="public-wiki-comparison__candidate-note" role="status">
                 Candidate proof. Promotion requires a legible source event tied to specific before-and-after claims, public evidence, an acceptance disposition, and preserved trusted state where change is not supported.
               </p>
@@ -578,7 +858,16 @@ const PublicWikiComparison = () => {
 
           <section className="public-wiki-comparison__section public-wiki-comparison__examples" aria-label="Material examples">
             <h2>Material examples</h2>
-            <p>{examples.length ? 'Claim-level outcomes appear before technical repository paths.' : 'No claim-level source-to-claim example can be demonstrated from this public comparison.'}</p>
+            <p>
+              {examples.length
+                ? 'Claim-level outcomes appear before technical repository paths. Evidence-refreshed rows are labeled as preserved, never as changed.'
+                : 'No claim-level source-to-claim example can be demonstrated from this public comparison.'}
+            </p>
+            {exampleDisclosure ? (
+              <p className="public-wiki-comparison__example-disclosure" role="note" data-testid="example-disclosure">
+                {exampleDisclosure}
+              </p>
+            ) : null}
             {examples.length ? (
               <ol>
                 {examples.map((example, index) => (
@@ -590,7 +879,9 @@ const PublicWikiComparison = () => {
                       <div>
                         <dt>Evidence</dt>
                         <dd>{example.evidence?.url ? (
-                          <a href={example.evidence.url} target="_blank" rel="noopener noreferrer">{example.evidence.label}</a>
+                          <a href={example.evidence.url} target="_blank" rel="noopener noreferrer">
+                            {example.evidence.label}
+                          </a>
                         ) : example.evidence?.label || 'No public source is linked to this claim delta.'}</dd>
                       </div>
                       <div><dt>Disposition</dt><dd>{example.disposition}</dd></div>
@@ -609,7 +900,7 @@ const PublicWikiComparison = () => {
             <h2>Repository versions</h2>
             <p>
               Baseline is the day-one accepted snapshot. Published is the head that currently backs the shared article.
-              Observed is the latest GitHub head Noeis has checked — never the same as published unless they match.
+              Observed is the latest GitHub head Noeis has checked — never treated as a second published comparison when it matches.
             </p>
             <div className="public-wiki-comparison__version-grid">
               <div className="public-wiki-comparison__version-card is-baseline" data-version="baseline">
@@ -652,7 +943,9 @@ const PublicWikiComparison = () => {
                   Checked against GitHub
                   {repo.defaultBranch ? ` on ${repo.defaultBranch}` : ''}.
                   {' '}
-                  This is not the published/current-through head unless it equals the published commit.
+                  {publishedSha && observedSha && publishedSha === observedSha
+                    ? 'Matches the published head — shown for completeness, not as a separate comparison.'
+                    : 'This is not the published/current-through head unless it equals the published commit.'}
                 </p>
               </div>
             </div>
@@ -660,8 +953,15 @@ const PublicWikiComparison = () => {
 
           <section className="public-wiki-comparison__section" aria-label="Repository files docs and releases changed">
             <h2>Repository files, docs, and releases changed</h2>
+            <p data-testid="repository-path-totals">
+              Totals: {pathTotals.added} added, {pathTotals.changed} changed, {pathTotals.removed} removed
+              {pathTotals.omitted.changed > 0
+                ? ` · ${pathTotals.changed} paths changed; only ${pathTotals.displayed.changed} are displayed (${pathTotals.omitted.changed} truncated).`
+                : '.'}
+            </p>
             {['added', 'changed', 'removed'].map((group) => {
               const rows = Array.isArray(changes[group]) ? changes[group] : [];
+              const totalForGroup = pathTotals[group];
               return (
                 <div
                   key={group}
@@ -671,7 +971,8 @@ const PublicWikiComparison = () => {
                   <h3>
                     {group === 'added' ? 'Added' : group === 'changed' ? 'Changed' : 'Removed'}
                     {' '}
-                    ({rows.length})
+                    ({totalForGroup}
+                    {pathTotals.omitted[group] > 0 ? `; showing ${rows.length}` : ''})
                   </h3>
                   {rows.length === 0 ? (
                     <p className="public-wiki-comparison__empty">None in this group.</p>
@@ -680,11 +981,16 @@ const PublicWikiComparison = () => {
                       {rows.map((row) => {
                         const path = row.path || row.current?.path || row.baseline?.path || 'path';
                         const url = row.current?.url || row.baseline?.url;
+                        const label = evidenceRefLabel({
+                          title: row.current?.title || row.baseline?.title,
+                          path,
+                          url
+                        });
                         return (
                           <li key={`${group}-${path}`}>
                             {url ? (
-                              <a href={url} target="_blank" rel="noopener noreferrer">{path}</a>
-                            ) : path}
+                              <a href={url} target="_blank" rel="noopener noreferrer">{label}</a>
+                            ) : label}
                             {group === 'changed' && row.baseline?.blobSha && row.current?.blobSha ? (
                               <span>
                                 {' '}
@@ -707,7 +1013,10 @@ const PublicWikiComparison = () => {
 
           <section className="public-wiki-comparison__section" aria-label="Claims changed">
             <h2>Claims changed</h2>
-            <p>Material claim deltas since the baseline snapshot.</p>
+            <p>
+              Semantic claim rewrites only. Preserved claims with refreshed evidence are listed separately
+              and are never labeled changed or updated.
+            </p>
             {MATERIAL_CLAIM_KEYS.map((key) => {
               const rows = Array.isArray(claimDeltas[key]) ? claimDeltas[key] : [];
               return (
@@ -731,6 +1040,39 @@ const PublicWikiComparison = () => {
             })}
           </section>
 
+          <section className="public-wiki-comparison__section" aria-label="Claims preserved with refreshed evidence">
+            <h2>Preserved with refreshed evidence</h2>
+            <div className="public-wiki-comparison__claim-group" data-claim-group="evidenceRefreshed">
+              <h3>
+                Preserved with refreshed evidence
+                {' '}
+                ({evidenceRefreshedCount})
+              </h3>
+              <p className="public-wiki-comparison__empty">
+                These claims kept their accepted text. Supporting repository evidence was refreshed.
+                They are not semantic claim rewrites.
+              </p>
+              {(Array.isArray(claimDeltas.evidenceRefreshed) ? claimDeltas.evidenceRefreshed : []).length === 0 ? (
+                <p className="public-wiki-comparison__empty">
+                  No evidence-refreshed claim rows in this public envelope.
+                </p>
+              ) : (
+                <>
+                  <ul className="public-wiki-comparison__list">
+                    {claimDeltas.evidenceRefreshed.slice(0, 40).map((row, index) => (
+                      <ClaimRow key={`evidence-refreshed-${index}`} row={row} />
+                    ))}
+                  </ul>
+                  {claimDeltas.evidenceRefreshed.length > 40 ? (
+                    <p className="public-wiki-comparison__empty">
+                      Showing 40 of {claimDeltas.evidenceRefreshed.length} evidence-refreshed claims.
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </section>
+
           <section className="public-wiki-comparison__section" aria-label="Claims preserved">
             <h2>Claims preserved</h2>
             <div className="public-wiki-comparison__claim-group" data-claim-group="preserved">
@@ -741,7 +1083,10 @@ const PublicWikiComparison = () => {
               </h3>
               {(Array.isArray(claimDeltas.preserved) ? claimDeltas.preserved : []).length === 0 ? (
                 <p className="public-wiki-comparison__empty">
-                  No preserved claims in this comparison envelope.
+                  No preserved claim rows in this public envelope
+                  {countOf(comparison, 'preserved') > 0
+                    ? ` (aggregate count remains ${countOf(comparison, 'preserved')}).`
+                    : '.'}
                 </p>
               ) : (
                 <>
@@ -764,29 +1109,55 @@ const PublicWikiComparison = () => {
           </section>
 
           <section className="public-wiki-comparison__section" aria-label="Claims rejected or flagged">
-            <h2>Claims rejected or flagged</h2>
+            <h2>Rejected candidate builds</h2>
             <p>
-              Rejected candidate runs are summarized by counts only. Candidate prose is never shown.
+              Unique rejected builds are summarized by counts only. Candidate prose is never shown.
+              Currently-held builds are listed separately and are not merged into rejected totals.
             </p>
-            {rejected.length === 0 ? (
-              <p className="public-wiki-comparison__empty">No rejected candidate runs recorded.</p>
+            {rejectedUnique.length === 0 ? (
+              <p className="public-wiki-comparison__empty">No unique rejected candidate builds recorded.</p>
             ) : (
-              <ul className="public-wiki-comparison__rejected-list">
-                {rejected.map((item, index) => {
+              <ul className="public-wiki-comparison__rejected-list" data-testid="rejected-builds">
+                {rejectedUnique.map((item, index) => {
                   const counts = item?.counts || {};
                   const countSummary = Object.entries(counts)
                     .filter(([, value]) => Number(value) > 0)
                     .map(([key, value]) => `${value} ${key}`)
                     .join(', ');
                   return (
-                    <li key={index}>
-                      <span>Rejected candidate {index + 1}</span>
+                    <li key={`rejected-${index}`}>
+                      <span>Rejected unique build {index + 1}</span>
                       {item.at ? <span>{formatComparisonDate(item.at)}</span> : null}
                       <span>{countSummary || 'Rejected without material count detail'}</span>
                     </li>
                   );
                 })}
               </ul>
+            )}
+            {heldBuilds.length > 0 ? (
+              <div className="public-wiki-comparison__claim-group" data-testid="held-builds">
+                <h3>Currently held for review ({heldBuilds.length})</h3>
+                <ul className="public-wiki-comparison__rejected-list">
+                  {heldBuilds.map((item, index) => {
+                    const counts = item?.counts || {};
+                    const countSummary = Object.entries(counts)
+                      .filter(([, value]) => Number(value) > 0)
+                      .map(([key, value]) => `${value} ${key}`)
+                      .join(', ');
+                    return (
+                      <li key={`held-${index}`}>
+                        <span>Held build {index + 1}</span>
+                        {item.at ? <span>{formatComparisonDate(item.at)}</span> : null}
+                        <span>{countSummary || 'Held without material count detail'}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : (
+              <p className="public-wiki-comparison__empty" data-testid="held-builds-empty">
+                0 candidate builds are currently held for review.
+              </p>
             )}
             {(Array.isArray(claimDeltas.contradicted) ? claimDeltas.contradicted : []).length > 0 ? (
               <div className="public-wiki-comparison__claim-group" data-claim-group="flagged-contradicted">
@@ -807,31 +1178,35 @@ const PublicWikiComparison = () => {
                 No demonstrably stale baseline statements against changed repository sources.
               </p>
             ) : (
-              staticErrors.map((item, index) => (
-                <div
-                  key={index}
-                  className="public-wiki-comparison__error-card"
-                  data-static-wiki-error="true"
-                >
-                  <p>{cleanText(item.staleClaim)}</p>
-                  <p className="public-wiki-comparison__claim-meta">
-                    {cleanText(item.reason) || 'Supporting repository source drifted.'}
-                  </p>
-                  {Array.isArray(item.refs) && item.refs.length > 0 ? (
-                    <ul className="public-wiki-comparison__list">
-                      {item.refs.map((ref, refIndex) => (
-                        <li key={ref.path || ref.url || refIndex}>
-                          {ref.url ? (
-                            <a href={ref.url} target="_blank" rel="noopener noreferrer">
-                              {ref.path || ref.title || ref.url}
-                            </a>
-                          ) : (ref.path || ref.title || 'Reference')}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ))
+              staticErrors.map((item, index) => {
+                const stale = cleanText(item.staleClaim);
+                if (!stale || isMalformedClaimText(stale)) return null;
+                return (
+                  <div
+                    key={index}
+                    className="public-wiki-comparison__error-card"
+                    data-static-wiki-error="true"
+                  >
+                    <p>{stale}</p>
+                    <p className="public-wiki-comparison__claim-meta">
+                      {cleanText(item.reason) || 'Supporting repository source drifted.'}
+                    </p>
+                    {Array.isArray(item.refs) && item.refs.length > 0 ? (
+                      <ul className="public-wiki-comparison__list">
+                        {item.refs.map((ref, refIndex) => (
+                          <li key={ref.path || ref.url || refIndex}>
+                            {ref.url ? (
+                              <a href={ref.url} target="_blank" rel="noopener noreferrer">
+                                {evidenceRefLabel(ref)}
+                              </a>
+                            ) : evidenceRefLabel(ref)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </section>
 
@@ -841,25 +1216,28 @@ const PublicWikiComparison = () => {
               <p className="public-wiki-comparison__empty">No public GitHub references in this comparison.</p>
             ) : (
               <ul className="public-wiki-comparison__refs">
-                {refs.map((ref, index) => (
-                  <li key={ref.path || ref.url || index}>
-                    {ref.url ? (
-                      <a href={ref.url} target="_blank" rel="noopener noreferrer">
-                        {ref.title || ref.path || ref.url}
-                      </a>
-                    ) : (
-                      <strong>{ref.title || ref.path || 'Reference'}</strong>
-                    )}
-                    <span>
-                      {[
-                        ref.path,
-                        ref.evidenceType,
-                        ref.commitSha ? `commit ${shortSha(ref.commitSha)}` : null,
-                        ref.tagName ? `tag ${ref.tagName}` : null
-                      ].filter(Boolean).join(' · ')}
-                    </span>
-                  </li>
-                ))}
+                {refs.map((ref, index) => {
+                  const label = evidenceRefLabel(ref);
+                  return (
+                    <li key={ref.path || ref.url || index}>
+                      {ref.url ? (
+                        <a href={ref.url} target="_blank" rel="noopener noreferrer">
+                          {label}
+                        </a>
+                      ) : (
+                        <strong>{label}</strong>
+                      )}
+                      <span>
+                        {[
+                          ref.path && ref.path !== label ? ref.path : null,
+                          ref.evidenceType,
+                          ref.commitSha ? `commit ${shortSha(ref.commitSha)}` : null,
+                          ref.tagName ? `tag ${ref.tagName}` : null
+                        ].filter(Boolean).join(' · ')}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

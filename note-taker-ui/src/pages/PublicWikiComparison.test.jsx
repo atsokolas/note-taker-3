@@ -4,13 +4,18 @@ import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import PublicWikiComparison, {
   buildPublicWikiComparisonSchema,
+  evidenceRefLabel,
+  isMalformedClaimText,
   isZeroChangeComparison,
   materialExamples,
   normalizeProofPulse,
   shortSha,
+  summarizeAcceptanceFailure,
   summarizeNoeisChanges,
+  summarizePreservedClaims,
   summarizeRepositoryChanges,
-  summarizeStaticWikiRisk
+  summarizeStaticWikiRisk,
+  uniqueRejectedCandidateBuilds
 } from './PublicWikiComparison';
 import { getPublicProofRegistry, getPublicWikiComparison } from '../api/wiki';
 import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
@@ -32,6 +37,7 @@ const renderComparison = (ui) => render(
 
 const proofPulseFor = (state = 'current', overrides = {}) => {
   const publishedVersion = 'a7cc281393dc2985c02a89a07d68d169ce3145b1';
+  const baselineVersion = '4cbdac0b740a461cdb57b14cbc069f5ca7083c63';
   const observedVersion = state === 'repository_ahead' || state === 'held_for_review'
     ? '91ab3f2deadbeef0123456789abcdef01234567'
     : publishedVersion;
@@ -50,13 +56,40 @@ const proofPulseFor = (state = 'current', overrides = {}) => {
       '0 claims became contradicted',
       '67 claims were reviewed and preserved',
       '0 generate-once claims are now demonstrably stale',
-      '0 candidate claim changes were rejected or held for review'
+      '0 unique candidate builds were rejected',
+      '0 candidate builds are currently held for review'
     ],
+    baselineVersion,
     observedVersion,
     publishedVersion,
     ...overrides
   };
 };
+
+const liveV2ProofPulse = () => ({
+  state: 'held_for_review',
+  headline: 'This comparison remains a candidate because it has not demonstrated a source-backed claim rewrite with preserved peers.',
+  facts: [
+    '21 repository paths changed since baseline',
+    '0 claims gained support',
+    '0 claims became contradicted',
+    '63 claims were reviewed and preserved',
+    '63 preserved claims received refreshed evidence',
+    '3 generate-once claims are now demonstrably stale',
+    '2 unique candidate builds were rejected',
+    '0 candidate builds are currently held for review'
+  ],
+  acceptance: {
+    eligible: false,
+    realClaimChanges: 0,
+    sourceBackedClaimChanges: 0,
+    preservedClaims: 63,
+    blockers: ['no_source_backed_claim_rewrite']
+  },
+  baselineVersion: 'aaa9016a585629de49ed4b6df45906741ab7d8c4',
+  observedVersion: '10be62083ee75cab214417ec4eb91ac1a62f8f6e',
+  publishedVersion: '10be62083ee75cab214417ec4eb91ac1a62f8f6e'
+});
 
 const baseComparison = ({
   preservedCount = 67,
@@ -64,7 +97,9 @@ const baseComparison = ({
   withMaterialClaims = false,
   withStaticErrors = false,
   withRejected = false,
-  proofPulse = null
+  proofPulse = null,
+  version = 1,
+  v2LiveShape = false
 } = {}) => {
   const preserved = Array.from({ length: preservedCount }, (_, index) => ({
     before: {
@@ -82,7 +117,7 @@ const baseComparison = ({
   }));
 
   const added = withMaterialClaims
-    ? [{ after: { claimId: 'claim-a', text: 'New claim about releases.', support: 'supported', section: 'Changelog' } }]
+    ? [{ after: { claimId: 'claim-a', text: 'New claim about releases that is long enough to be material.', support: 'supported', section: 'Changelog' } }]
     : [];
   const changed = withMaterialClaims
     ? [{
@@ -103,23 +138,167 @@ const baseComparison = ({
     }]
     : [];
   const removed = withMaterialClaims
-    ? [{ before: { claimId: 'claim-r', text: 'Removed claim.', support: 'supported', section: 'Docs' } }]
+    ? [{ before: { claimId: 'claim-r', text: 'Removed claim about documentation paths that used to exist.', support: 'supported', section: 'Docs' } }]
     : [];
 
   const repositoryChanges = withRepoChanges
     ? {
-      added: [{ path: 'docs/new.md', current: { path: 'docs/new.md', url: 'https://github.com/atsokolas/note-taker-3/blob/head2/docs/new.md' } }],
+      added: [{ path: 'docs/new.md', current: { path: 'docs/new.md', title: 'docs/new.md', url: 'https://github.com/atsokolas/note-taker-3/blob/head2/docs/new.md' } }],
       changed: [{
         path: 'package.json',
         baseline: { path: 'package.json', blobSha: 'blob-old', url: 'https://github.com/atsokolas/note-taker-3/blob/head1/package.json' },
-        current: { path: 'package.json', blobSha: 'blob-new', url: 'https://github.com/atsokolas/note-taker-3/blob/head2/package.json' }
+        current: { path: 'package.json', blobSha: 'blob-new', title: 'package.json', url: 'https://github.com/atsokolas/note-taker-3/blob/head2/package.json' }
       }],
       removed: [{ path: 'docs/old.md', baseline: { path: 'docs/old.md', url: 'https://github.com/atsokolas/note-taker-3/blob/head1/docs/old.md' } }]
     }
     : { added: [], changed: [], removed: [] };
 
+  if (v2LiveShape) {
+    const evidenceRefreshed = Array.from({ length: 2 }, (_, index) => ({
+      before: {
+        text: `A long preserved claim ${index + 1} about the reading-to-thinking workspace that stays the same.`,
+        support: 'supported',
+        section: 'Overview'
+      },
+      after: {
+        text: `A long preserved claim ${index + 1} about the reading-to-thinking workspace that stays the same.`,
+        support: 'supported',
+        section: 'Overview'
+      },
+      evidenceRefs: [{
+        title: 'atsokolas/note-taker-3 .env.example',
+        path: '.env.example',
+        url: 'https://github.com/atsokolas/note-taker-3/blob/10be620/.env.example'
+      }]
+    }));
+    return {
+      version: 2,
+      repository: {
+        owner: 'atsokolas',
+        repo: 'note-taker-3',
+        defaultBranch: 'main',
+        url: 'https://github.com/atsokolas/note-taker-3'
+      },
+      baseline: {
+        headSha: 'aaa9016a585629de49ed4b6df45906741ab7d8c4',
+        releaseTag: '',
+        generatorVersion: '',
+        capturedAt: '2026-07-12T00:56:53.531Z'
+      },
+      current: {
+        observedHeadSha: '10be62083ee75cab214417ec4eb91ac1a62f8f6e',
+        publishedHeadSha: '10be62083ee75cab214417ec4eb91ac1a62f8f6e',
+        releaseTag: '',
+        generatorVersion: '',
+        publishedAt: '2026-07-16T17:52:04.099Z',
+        buildStatus: 'ready'
+      },
+      repositoryChanges: {
+        added: [
+          { path: 'packages/cli/package.json', current: { path: 'packages/cli/package.json', title: 'cli package', url: 'https://github.com/x/a' } },
+          { path: 'packages/wiki-mcp/package.json', current: { path: 'packages/wiki-mcp/package.json', title: 'mcp package', url: 'https://github.com/x/b' } },
+          { path: 'server/services/wikiMaintenanceReceiptService.js', current: { path: 'server/services/wikiMaintenanceReceiptService.js', title: 'receipt', url: 'https://github.com/x/c' } },
+          { path: 'docs/agentic-concept-center-plan.md', current: { path: 'docs/agentic-concept-center-plan.md', title: 'plan', url: 'https://github.com/x/d' } }
+        ],
+        changed: Array.from({ length: 12 }, (_, i) => ({
+          path: `changed/path-${i}.js`,
+          baseline: { path: `changed/path-${i}.js`, blobSha: `old${i}`, url: `https://github.com/x/old${i}` },
+          current: { path: `changed/path-${i}.js`, blobSha: `new${i}`, title: `changed path ${i}`, url: `https://github.com/x/new${i}` }
+        })),
+        removed: [
+          { path: '.github/workflows/agent-harness-regression.yml', baseline: { path: '.github/workflows/agent-harness-regression.yml', url: 'https://github.com/x/r1' } },
+          { path: 'server/services/agentRunReviewState.js', baseline: { path: 'server/services/agentRunReviewState.js', url: 'https://github.com/x/r2' } },
+          { path: 'docs/noeis-brand-system.md', baseline: { path: 'docs/noeis-brand-system.md', url: 'https://github.com/x/r3' } }
+        ]
+      },
+      repositoryChangeTotals: { added: 4, changed: 14, removed: 3 },
+      repositoryChangesTruncated: { added: 0, changed: 2, removed: 0 },
+      claimComparison: {
+        counts: {
+          added: 6,
+          changed: 0,
+          evidenceRefreshed: 63,
+          gainedSupport: 0,
+          contradicted: 0,
+          preserved: 63,
+          removed: 4
+        },
+        deltas: {
+          added: [
+            { after: { text: 'Create', support: 'supported', section: 'UX' }, evidenceRefs: [{ title: 'wiki.js', path: 'note-taker-ui/src/api/wiki.js', url: 'https://github.com/x/wiki' }] },
+            { after: { text: 'repo wiki', support: 'supported', section: 'UX' } },
+            { after: { text: 'packages/wiki-mcp/package.json: connected-agent wiki tools and runtime transport are documented here.', support: 'supported', section: 'Packages' }, evidenceRefs: [{ path: 'packages/wiki-mcp/package.json', url: 'https://github.com/x/mcp' }] }
+          ],
+          changed: [],
+          evidenceRefreshed,
+          gainedSupport: [],
+          contradicted: [],
+          preserved: evidenceRefreshed,
+          removed: [
+            { before: { text: 'Create repo wiki: user pastes a GitHub URL, the UI calls the wiki API client, then the backend creates a maintained page.', support: 'supported', section: 'UX' } }
+          ]
+        }
+      },
+      rejectedCandidates: [
+        {
+          at: '2026-07-16T15:09:20.389Z',
+          disposition: 'rejected',
+          candidateHeadSha: '',
+          counts: { added: 6, changed: 22, gainedSupport: 0, contradicted: 0, preserved: 0, removed: 47 }
+        },
+        {
+          at: '2026-07-16T13:53:42.080Z',
+          disposition: 'rejected',
+          candidateHeadSha: '',
+          counts: { added: 4, changed: 58, gainedSupport: 0, contradicted: 0, preserved: 0, removed: 11 }
+        },
+        // Duplicate of first shape — must be deduped in UI language
+        {
+          at: '2026-07-16T15:09:20.389Z',
+          disposition: 'rejected',
+          candidateHeadSha: '',
+          counts: { added: 6, changed: 22, gainedSupport: 0, contradicted: 0, preserved: 0, removed: 47 }
+        }
+      ],
+      staticWikiErrors: [
+        {
+          staleClaim: 'Create repo wiki: user pastes a GitHub URL, the UI calls the wiki API client, the backend creates or updates a maintained page.',
+          reason: 'A repository source supporting this baseline claim changed or disappeared.',
+          refs: [{ title: 'atsokolas/note-taker-3 note-taker-ui/src/api/wiki.js', path: 'note-taker-ui/src/api/wiki.js', url: 'https://github.com/x/wiki' }]
+        },
+        {
+          staleClaim: 'Start from package evidence and keep root commands distinct from nested UI commands.',
+          reason: 'Source drifted.',
+          refs: [{ path: 'package.json', url: 'https://github.com/x/pkg' }]
+        },
+        {
+          staleClaim: 'Another stale claim that remains readable for static-wiki risk.',
+          reason: 'Source drifted.',
+          refs: []
+        }
+      ],
+      supportingRefs: [
+        {
+          title: '',
+          path: 'package.json',
+          evidenceType: 'config',
+          commitSha: '10be62083ee75cab214417ec4eb91ac1a62f8f6e',
+          url: 'https://github.com/atsokolas/note-taker-3/blob/10be620/package.json'
+        },
+        {
+          title: 'atsokolas/note-taker-3 README.md',
+          path: 'README.md',
+          evidenceType: 'docs',
+          commitSha: '10be62083ee75cab214417ec4eb91ac1a62f8f6e',
+          url: 'https://github.com/atsokolas/note-taker-3/blob/10be620/README.md'
+        }
+      ],
+      proofPulse: liveV2ProofPulse()
+    };
+  }
+
   return {
-    version: 1,
+    version,
     repository: {
       owner: 'atsokolas',
       repo: 'note-taker-3',
@@ -163,12 +342,12 @@ const baseComparison = ({
       reviewedClaimCount: preserved.length + added.length + changed.length
     },
     rejectedCandidates: withRejected
-      ? [{ runId: 'run-9', at: '2026-07-09T10:00:00.000Z', counts: { changed: 2, removed: 1 } }]
+      ? [{ runId: 'run-9', at: '2026-07-09T10:00:00.000Z', disposition: 'rejected', counts: { changed: 2, removed: 1 } }]
       : [],
     staticWikiErrors: withStaticErrors
       ? [{
         claimId: 'claim-c',
-        staleClaim: 'The entrypoint is still the old path.',
+        staleClaim: 'The entrypoint is still the old path that readers used to follow.',
         reason: 'A repository source supporting this baseline claim changed or disappeared.',
         refs: [{ path: 'package.json', url: 'https://github.com/atsokolas/note-taker-3/blob/head2/package.json' }]
       }]
@@ -202,7 +381,17 @@ describe('PublicWikiComparison', () => {
     jest.restoreAllMocks();
     getPublicWikiComparison.mockReset();
     getPublicProofRegistry.mockReset();
-    getPublicProofRegistry.mockResolvedValue({ items: [] });
+    getPublicProofRegistry.mockResolvedValue({
+      items: [{
+        publicUrl: '/share/wiki/noeis-repo',
+        title: 'atsokolas/note-taker-3',
+        proofGrade: {
+          grade: 'candidate',
+          label: 'Candidate',
+          comparisonUrl: '/share/wiki/noeis-repo/comparison'
+        }
+      }]
+    });
     mockParams('noeis-repo');
     jest.spyOn(router, 'useLocation').mockReturnValue({
       pathname: '/share/wiki/noeis-repo/comparison',
@@ -220,7 +409,7 @@ describe('PublicWikiComparison', () => {
     await waitFor(() => expect(getPublicWikiComparison).toHaveBeenCalledWith('noeis-repo'));
     expect(await screen.findByRole('heading', { name: 'atsokolas/note-taker-3' })).toBeInTheDocument();
 
-    const baseline = screen.getByText('Baseline').closest('[data-version="baseline"]');
+    const baseline = screen.getByText('Baseline', { selector: 'h3' }).closest('[data-version="baseline"]');
     const published = screen.getByText('Successfully published').closest('[data-version="published"]');
     const observed = screen.getByText('Latest observed GitHub head').closest('[data-version="observed"]');
 
@@ -229,16 +418,130 @@ describe('PublicWikiComparison', () => {
     expect(within(observed).getByText('91ab3f2')).toBeInTheDocument();
   });
 
-  it('leads with four plain-English answers and keeps technical evidence collapsed', async () => {
+  it('shows baseline SHA above the fold alongside published and observed for v2', async () => {
+    getPublicWikiComparison.mockResolvedValue({ comparison: baseComparison({ v2LiveShape: true }) });
+    getPublicProofRegistry.mockResolvedValue({
+      items: [{
+        publicUrl: '/share/wiki/noeis-repo',
+        title: 'atsokolas/note-taker-3',
+        proofGrade: {
+          grade: 'candidate',
+          label: 'Candidate',
+          comparisonUrl: '/share/wiki/noeis-repo/comparison'
+        }
+      }]
+    });
+    renderComparison(<PublicWikiComparison />);
+
+    const pulse = await screen.findByTestId('proof-pulse');
+    expect(screen.getByTestId('proof-pulse-baseline')).toHaveTextContent('aaa9016');
+    expect(screen.getByTestId('proof-pulse-published')).toHaveTextContent('10be620');
+    expect(screen.getByTestId('proof-pulse-observed')).toHaveTextContent('10be620');
+    expect(within(pulse).getByText(/Latest observed \(matches published\)/i)).toBeInTheDocument();
+    expect(screen.getByTestId('answer-baseline')).toHaveTextContent(/aaa9016/);
+    expect(screen.getByTestId('answer-trusted')).toHaveTextContent(/10be620/);
+    expect(screen.getByTestId('answer-trusted')).toHaveTextContent(/build ready/i);
+  });
+
+  it('presents evidenceRefreshed separately and never as changed or updated', async () => {
+    getPublicWikiComparison.mockResolvedValue({ comparison: baseComparison({ v2LiveShape: true }) });
+    renderComparison(<PublicWikiComparison />);
+
+    await screen.findByTestId('acceptance-failure');
+    expect(screen.getByTestId('answer-preserved')).toHaveTextContent(/63 preserved with refreshed evidence/i);
+    expect(screen.getByTestId('answer-changed')).toHaveTextContent(/not counted as changed/i);
+    expect(screen.getByTestId('answer-changed')).not.toHaveTextContent(/63 changed/i);
+    expect(screen.getByTestId('answer-changed')).not.toHaveTextContent(/updated 63/i);
+    expect(summarizeNoeisChanges(baseComparison({ v2LiveShape: true }))).toMatch(/preserved with refreshed evidence/i);
+    expect(summarizeNoeisChanges(baseComparison({ v2LiveShape: true }))).not.toMatch(/63 changed/i);
+    expect(screen.getByRole('heading', { name: 'Preserved with refreshed evidence' })).toBeInTheDocument();
+  });
+
+  it('discloses repository path truncation from totals', async () => {
+    const comparison = baseComparison({ v2LiveShape: true });
+    expect(summarizeRepositoryChanges(comparison)).toMatch(/14 paths changed in total/i);
+    expect(summarizeRepositoryChanges(comparison)).toMatch(/only 12 are displayed/i);
+    expect(summarizeRepositoryChanges(comparison)).toMatch(/2 omitted/i);
+
+    getPublicWikiComparison.mockResolvedValue({ comparison });
+    renderComparison(<PublicWikiComparison />);
+
+    await screen.findByTestId('repository-path-totals');
+    expect(screen.getByTestId('repository-path-totals')).toHaveTextContent(/14 paths changed/i);
+    expect(screen.getByTestId('repository-path-totals')).toHaveTextContent(/only 12 are displayed/i);
+    expect(screen.getByTestId('answer-changed')).toHaveTextContent(/14 paths changed/i);
+  });
+
+  it('makes failed acceptance unmistakable as candidate comparison not public proof', async () => {
+    getPublicWikiComparison.mockResolvedValue({ comparison: baseComparison({ v2LiveShape: true }) });
+    renderComparison(<PublicWikiComparison />);
+
+    const failure = await screen.findByTestId('acceptance-failure');
+    expect(failure).toHaveTextContent(/candidate comparison, not public proof/i);
+    expect(failure).toHaveTextContent(/No source-backed claim rewrite has been demonstrated/i);
+    expect(screen.getByTestId('answer-candidate')).toHaveTextContent(/candidate comparison, not public proof/i);
+    expect(await screen.findByText(/Candidate · regeneration stability under review/i)).toBeInTheDocument();
+    expect(document.querySelector('[data-acceptance-eligible="false"]')).toBeInTheDocument();
+    expect(screen.getByTestId('proof-pulse-state')).toHaveTextContent(/acceptance not met/i);
+    expect(screen.getByText(/2 prior candidate builds were rejected; no build is currently held/i)).toBeInTheDocument();
+    expect(screen.queryByText(/weaker candidate was held/i)).not.toBeInTheDocument();
+  });
+
+  it('describes unique rejected builds and keeps held separate without 102 inflation', async () => {
+    const comparison = baseComparison({ v2LiveShape: true });
+    expect(uniqueRejectedCandidateBuilds(comparison.rejectedCandidates)).toHaveLength(2);
+
+    getPublicWikiComparison.mockResolvedValue({ comparison });
+    renderComparison(<PublicWikiComparison />);
+
+    const rejectedList = await screen.findByTestId('rejected-builds');
+    expect(within(rejectedList).getAllByText(/Rejected unique build/i)).toHaveLength(2);
+    expect(screen.getByTestId('held-builds-empty')).toHaveTextContent(/0 candidate builds are currently held/i);
+    expect(screen.queryByText(/102/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 unique candidate builds were rejected/i)).toBeInTheDocument();
+    const pulse = screen.getByTestId('proof-pulse');
+    expect(within(pulse).getByText(/0 candidate builds are currently held for review/i)).toBeInTheDocument();
+  });
+
+  it('gives evidence links an accessible visible label from title then path', async () => {
+    getPublicWikiComparison.mockResolvedValue({ comparison: baseComparison({ v2LiveShape: true }) });
+    renderComparison(<PublicWikiComparison />);
+
+    await screen.findByRole('heading', { name: 'Supporting GitHub refs' });
+    expect(evidenceRefLabel({ title: '', path: 'package.json', url: 'https://x' })).toBe('package.json');
+    expect(evidenceRefLabel({ title: 'Readable title', path: 'package.json' })).toBe('Readable title');
+    const refsSection = screen.getByRole('region', { name: 'Supporting GitHub refs' });
+    const pathFallbackLink = within(refsSection).getByRole('link', { name: 'package.json' });
+    expect(pathFallbackLink).toHaveAttribute('href', expect.stringContaining('package.json'));
+    expect(within(refsSection).getByRole('link', { name: /atsokolas\/note-taker-3 README\.md/i })).toBeInTheDocument();
+    const exampleSection = screen.getByRole('region', { name: 'Material examples' });
+    const exampleLinks = within(exampleSection).queryAllByRole('link');
+    exampleLinks.forEach((link) => {
+      expect(link).toHaveAccessibleName();
+      expect(link.textContent.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('omits malformed claim fragments from curated examples with disclosure', () => {
+    const comparison = baseComparison({ v2LiveShape: true });
+    const bundle = materialExamples(comparison, 8);
+    expect(bundle.omittedMalformedCount).toBeGreaterThan(0);
+    expect(bundle.disclosure).toMatch(/excluded from curated examples/i);
+    expect(bundle.examples.every((ex) => !isMalformedClaimText(ex.after) || ex.type.startsWith('Rejected'))).toBe(true);
+    expect(bundle.examples.some((ex) => /Create$/.test(ex.after))).toBe(false);
+  });
+
+  it('leads with five plain-English answers and keeps technical evidence collapsed', async () => {
     getPublicWikiComparison.mockResolvedValue({
       comparison: baseComparison({ withRepoChanges: true, withMaterialClaims: true })
     });
     renderComparison(<PublicWikiComparison />);
 
-    expect(await screen.findByText('1 · What changed?')).toBeInTheDocument();
-    expect(screen.getByText('2 · What does the trusted wiki reflect?')).toBeInTheDocument();
-    expect(screen.getByText('3 · Why publish or hold?')).toBeInTheDocument();
-    expect(screen.getByText('4 · What should I inspect?')).toBeInTheDocument();
+    expect(await screen.findByText('1 · What was baseline?')).toBeInTheDocument();
+    expect(screen.getByText('2 · What is trusted now?')).toBeInTheDocument();
+    expect(screen.getByText('3 · What actually changed?')).toBeInTheDocument();
+    expect(screen.getByText('4 · What was preserved?')).toBeInTheDocument();
+    expect(screen.getByText('5 · Why still only a candidate?')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Material examples' })).toBeInTheDocument();
     const detail = screen.getByText('Technical detail and full evidence').closest('details');
     expect(detail).not.toHaveAttribute('open');
@@ -248,14 +551,14 @@ describe('PublicWikiComparison', () => {
 
   it('ranks claim examples ahead of repository filenames and shows the evidence disposition', async () => {
     const comparison = baseComparison({ withRepoChanges: true, withMaterialClaims: true });
-    const examples = materialExamples(comparison);
+    const { examples } = materialExamples(comparison);
     expect(examples[0]).toEqual(expect.objectContaining({
       type: 'Changed',
       before: 'Old entrypoint claim.',
       after: 'Updated entrypoint claim.',
       disposition: 'Candidate changed'
     }));
-    expect(examples.map(example => example.before)).not.toContain('package.json');
+    expect(examples.map((example) => example.before)).not.toContain('package.json');
 
     getPublicWikiComparison.mockResolvedValue({ comparison });
     renderComparison(<PublicWikiComparison />);
@@ -274,21 +577,22 @@ describe('PublicWikiComparison', () => {
       before: { text: 'Same public claim.', support: 'supported', section: 'Overview' },
       after: { text: 'Same public claim.', support: 'supported', section: 'Overview' }
     }];
-    expect(materialExamples(comparison)).toEqual([]);
+    expect(materialExamples(comparison).examples).toEqual([]);
   });
 
   it('labels an evidence-only ledger delta as preserved claim text', () => {
     const comparison = baseComparison();
     comparison.claimComparison.counts.changed = 1;
     comparison.claimComparison.deltas.changed = [{
-      before: { text: 'Same public claim.', support: 'supported', section: 'Overview' },
-      after: { text: 'Same public claim.', support: 'supported', section: 'Overview' },
+      before: { text: 'Same public claim about a long enough sentence for display.', support: 'supported', section: 'Overview' },
+      after: { text: 'Same public claim about a long enough sentence for display.', support: 'supported', section: 'Overview' },
       evidenceRefs: [{ title: 'README.md', url: 'https://github.com/example/repo/blob/head/README.md' }]
     }];
-    expect(materialExamples(comparison)[0]).toEqual(expect.objectContaining({
-      before: 'Same public claim.',
-      after: 'Same public claim.',
-      disposition: 'Evidence changed; claim text preserved'
+    expect(materialExamples(comparison).examples[0]).toEqual(expect.objectContaining({
+      before: 'Same public claim about a long enough sentence for display.',
+      after: 'Same public claim about a long enough sentence for display.',
+      disposition: 'Evidence changed; claim text preserved',
+      evidence: expect.objectContaining({ label: 'README.md' })
     }));
   });
 
@@ -340,23 +644,23 @@ describe('PublicWikiComparison', () => {
     expect(document.querySelector('[data-claim-group="contradicted"]')).toHaveTextContent(/Contradicted \(1\)/);
     expect(document.querySelector('[data-claim-group="removed"]')).toHaveTextContent(/Removed \(1\)/);
     expect(document.querySelector('[data-claim-group="preserved"]')).toHaveTextContent(/Preserved \(2\)/);
-    expect(screen.getAllByText('New claim about releases.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/New claim about releases/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Updated entrypoint claim.').length).toBeGreaterThan(0);
   });
 
   it('shows rejected counts without rejected candidate prose', async () => {
     const comparison = baseComparison({ withRejected: true, preservedCount: 1 });
-    // Simulate a private field leaking into the mock payload — UI must not render prose.
     comparison.rejectedCandidates[0].deltas = {
       changed: [{ after: { text: 'SECRET rejected candidate prose should stay hidden' } }]
     };
     getPublicWikiComparison.mockResolvedValue({ comparison });
     renderComparison(<PublicWikiComparison />);
 
-    await screen.findByText('Claims rejected or flagged');
-    expect(screen.getByText(/rejected candidate 1/i)).toBeInTheDocument();
+    await screen.findByText('Rejected candidate builds');
+    const rejectedList = screen.getByTestId('rejected-builds');
+    expect(within(rejectedList).getByText(/rejected unique build 1/i)).toBeInTheDocument();
     expect(screen.queryByText(/run-9/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText(/2 changed/i).length).toBeGreaterThan(0);
+    expect(within(rejectedList).getByText(/2 changed/i)).toBeInTheDocument();
     expect(screen.queryByText(/SECRET rejected candidate prose/i)).not.toBeInTheDocument();
   });
 
@@ -371,7 +675,7 @@ describe('PublicWikiComparison', () => {
     renderComparison(<PublicWikiComparison />);
 
     await screen.findByText('What a static wiki would now say incorrectly');
-    expect(screen.getAllByText('The entrypoint is still the old path.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/The entrypoint is still the old path/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/repository source supporting this baseline claim/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: 'Supporting GitHub refs' })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /package\.json/i }).length).toBeGreaterThan(0);
@@ -410,10 +714,10 @@ describe('PublicWikiComparison', () => {
     expect(screen.getByTestId('proof-pulse-state')).toHaveTextContent('No drift observed');
     expect(document.querySelector('[data-proof-pulse-state="current"]')).toBeInTheDocument();
     expect(within(pulse).getByText(/Why maintenance matters/i)).toBeInTheDocument();
+    expect(screen.getByTestId('proof-pulse-baseline')).toHaveTextContent('4cbdac0');
     expect(screen.getByTestId('proof-pulse-published')).toHaveTextContent('a7cc281');
     expect(screen.getByTestId('proof-pulse-observed')).toHaveTextContent('a7cc281');
     expect(within(pulse).getByText(/67 claims were reviewed and preserved/i)).toBeInTheDocument();
-    // Zero-change baseline note is reserved for absent proofPulse.
     expect(screen.queryByText(/Baseline state: the repository evidence set/i)).not.toBeInTheDocument();
   });
 
@@ -442,7 +746,8 @@ describe('PublicWikiComparison', () => {
         proofPulse: proofPulseFor('held_for_review', {
           facts: [
             '1 repository paths changed since baseline',
-            '2 candidate claim changes were rejected or held for review',
+            '2 unique candidate builds were rejected',
+            '0 candidate builds are currently held for review',
             '67 claims were reviewed and preserved'
           ]
         })
@@ -541,15 +846,27 @@ describe('PublicWikiComparison helpers', () => {
     expect(summarizeRepositoryChanges(zero)).toMatch(/No repository files/i);
     expect(summarizeNoeisChanges(zero)).toMatch(/preserved 67/i);
     expect(summarizeStaticWikiRisk(zero)).toMatch(/no demonstrated stale/i);
+    expect(summarizePreservedClaims(zero)).toMatch(/67 accepted claims preserved/i);
   });
 
-  it('normalizes proofPulse and rejects empty headlines', () => {
+  it('normalizes proofPulse acceptance and baseline version', () => {
     expect(normalizeProofPulse(null)).toBeNull();
     expect(normalizeProofPulse({ state: 'current', headline: '' })).toBeNull();
-    const pulse = normalizeProofPulse(proofPulseFor('repository_ahead'));
-    expect(pulse.state).toBe('repository_ahead');
-    expect(pulse.observedVersion).toContain('91ab3f2');
-    expect(pulse.publishedVersion).toContain('a7cc281');
-    expect(pulse.facts.length).toBeGreaterThan(0);
+    const pulse = normalizeProofPulse(liveV2ProofPulse());
+    expect(pulse.state).toBe('held_for_review');
+    expect(pulse.baselineVersion).toContain('aaa9016');
+    expect(pulse.acceptance.eligible).toBe(false);
+    expect(pulse.acceptance.blockers).toContain('no_source_backed_claim_rewrite');
+    expect(pulse.facts.length).toBe(8);
+    expect(summarizeAcceptanceFailure({}, pulse)).toMatch(/candidate comparison, not public proof/i);
+  });
+
+  it('labels evidence refs with title then path fallback', () => {
+    expect(evidenceRefLabel({ title: 'Nice', path: 'a/b', url: 'https://x' })).toBe('Nice');
+    expect(evidenceRefLabel({ title: '', path: 'a/b.js', url: 'https://x' })).toBe('a/b.js');
+    expect(evidenceRefLabel({ url: 'https://github.com/x' })).toBe('https://github.com/x');
+    expect(isMalformedClaimText('Create')).toBe(true);
+    expect(isMalformedClaimText('repo wiki')).toBe(true);
+    expect(isMalformedClaimText('A full sentence about repository maintenance that is material.')).toBe(false);
   });
 });
