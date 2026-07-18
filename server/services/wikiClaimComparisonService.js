@@ -74,6 +74,7 @@ const compareClaimLedgers = ({ beforeClaims = [], afterClaims = [], outcome = 'a
   const deltas = {
     added: [],
     changed: [],
+    evidenceRefreshed: [],
     gainedSupport: [],
     contradicted: [],
     preserved: [],
@@ -106,9 +107,13 @@ const compareClaimLedgers = ({ beforeClaims = [], afterClaims = [], outcome = 'a
 
     if (newlyConflicted) deltas.contradicted.push(pair);
     if (gainedSupport) deltas.gainedSupport.push(pair);
-    if (textChanged || sectionChanged || supportChanged || evidenceChanged || contradictionChanged) {
+    if (evidenceChanged) deltas.evidenceRefreshed.push(pair);
+    if (textChanged || sectionChanged || supportChanged || contradictionChanged) {
       deltas.changed.push(pair);
     } else {
+      // A claim whose wording, placement, support grade, and contradiction
+      // status survive a source refresh is preserved. Evidence movement is
+      // reported independently; it is not a claim rewrite.
       deltas.preserved.push(pair);
     }
   });
@@ -119,7 +124,7 @@ const compareClaimLedgers = ({ beforeClaims = [], afterClaims = [], outcome = 'a
 
   const counts = Object.fromEntries(Object.entries(deltas).map(([key, rows]) => [key, rows.length]));
   return {
-    version: 1,
+    version: 2,
     outcome: outcome === 'rejected' ? 'rejected' : 'accepted',
     counts,
     deltas,

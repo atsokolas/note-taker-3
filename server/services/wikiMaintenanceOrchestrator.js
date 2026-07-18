@@ -559,6 +559,7 @@ const processWikiSourceEvent = async ({
           pageId: String(page._id || ''),
           pageTitle: asText(page.title),
           sourceEventId: String(event._id || ''),
+          candidateHeadSha: headSha,
           revisionId: String(publication.rejectedRevision?._id || ''),
           ...compareClaimLedgers({
             beforeClaims: before.claims || [],
@@ -678,7 +679,7 @@ const processWikiSourceEvent = async ({
       run.completedAt = new Date();
       run.metadata = {
         ...(run.metadata?.toObject ? run.metadata.toObject() : run.metadata || {}),
-        comparisonVersion: 1,
+        comparisonVersion: 2,
         comparisons
       };
       await run.save();

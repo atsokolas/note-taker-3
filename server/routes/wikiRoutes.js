@@ -3402,7 +3402,7 @@ const buildWikiRouter = ({
       let runs = [];
       if (WikiMaintenanceRun) {
         let runsQuery = WikiMaintenanceRun.find({ userId: page.userId, pageId: page._id });
-        if (runsQuery?.select) runsQuery = runsQuery.select('_id createdAt updatedAt completedAt metadata.comparisons.outcome metadata.comparisons.counts');
+        if (runsQuery?.select) runsQuery = runsQuery.select('_id createdAt updatedAt completedAt metadata.comparisons.pageId metadata.comparisons.sourceEventId metadata.comparisons.candidateHeadSha metadata.comparisons.outcome metadata.comparisons.counts');
         if (runsQuery?.sort) runsQuery = runsQuery.sort({ createdAt: -1 });
         if (runsQuery?.limit) runsQuery = runsQuery.limit(50);
         runs = runsQuery?.lean ? await runsQuery.lean() : await runsQuery;

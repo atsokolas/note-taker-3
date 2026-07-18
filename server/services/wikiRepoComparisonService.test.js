@@ -3,6 +3,7 @@ const {
   buildRepoComparison,
   buildProofPulse,
   captureRepoBaseline,
+  collectRejectedDeltas,
   compareRepoRefs,
   serializePublicRepoComparison
 } = require('./wikiRepoComparisonService');
@@ -70,6 +71,7 @@ const page = {
   assert.strictEqual(comparison.claimComparison.counts.preserved, 1);
   assert.strictEqual(comparison.rejectedCandidates.length, 1);
   assert.strictEqual(comparison.staticWikiErrors.length, 1);
+  assert.strictEqual(comparison.version, 2);
   assert.ok(JSON.stringify(comparison).includes('https://github.com/'));
   comparison.rejectedCandidates[0].deltas = { changed: [{ after: { text: 'Rejected private candidate prose' } }] };
   const publicComparison = serializePublicRepoComparison(comparison);
@@ -90,6 +92,71 @@ const page = {
   assert.strictEqual(publicComparison.repositoryChanges.changed[0].current.path, 'src/index.ts');
   assert.strictEqual(buildProofPulse(comparison).state, 'repository_ahead');
   assert.ok(buildProofPulse(comparison).headline.includes('trusted head-2'));
+  assert.strictEqual(buildProofPulse(comparison).acceptance.eligible, true);
+  assert.strictEqual(buildProofPulse(comparison).acceptance.sourceBackedClaimChanges, 1);
+})();
+
+(() => {
+  const stablePage = {
+    ...page,
+    sourceRefs: [
+      source('current-a', 'src/index.ts', 'blob-2', 'head-2'),
+      source('current-b', 'README.md', 'blob-b', 'head-2')
+    ],
+    claims: [{
+      claimId: 'claim-1',
+      text: 'The current entrypoint is src/index.ts.',
+      support: 'supported',
+      sourceRefIds: ['current-a', 'current-b']
+    }],
+    externalWatches: {
+      githubRepo: {
+        ...page.externalWatches.githubRepo,
+        lastHeadSha: 'head-2',
+        publishedHeadSha: 'head-2',
+        candidateHeadSha: '',
+        buildStatus: 'queued'
+      }
+    }
+  };
+  const baseline = {
+    headSha: 'head-1',
+    sourceRefs: [
+      { sourceRefId: 'base-a', path: 'src/index.ts', blobSha: 'blob-1', url: 'https://github.com/openai/agents-js/blob/head-1/src/index.ts' }
+    ],
+    claims: [{
+      claimId: 'claim-1',
+      text: 'The current entrypoint is src/index.ts.',
+      support: 'supported',
+      sourceRefIds: ['base-a']
+    }]
+  };
+  const comparison = buildRepoComparison({ baseline, page: stablePage });
+  assert.strictEqual(comparison.claimComparison.counts.changed, 0);
+  assert.strictEqual(comparison.claimComparison.counts.evidenceRefreshed, 1);
+  assert.strictEqual(comparison.claimComparison.counts.preserved, 1);
+  assert.strictEqual(comparison.staticWikiErrors.length, 0);
+  assert.strictEqual(comparison.current.buildStatus, 'ready');
+})();
+
+(() => {
+  const rejected = collectRejectedDeltas([
+    {
+      _id: 'run-1',
+      metadata: { comparisons: [{ outcome: 'rejected', pageId: 'page-1', counts: { added: 6, changed: 22, removed: 47 } }] }
+    },
+    {
+      _id: 'run-2',
+      metadata: { comparisons: [{ outcome: 'rejected', pageId: 'page-1', counts: { added: 6, changed: 22, removed: 47 } }] }
+    },
+    {
+      _id: 'run-3',
+      metadata: { comparisons: [{ outcome: 'rejected', pageId: 'page-1', candidateHeadSha: 'head-3', counts: { added: 4, changed: 58, removed: 11 } }] }
+    }
+  ]);
+  assert.strictEqual(rejected.length, 2);
+  assert.strictEqual(rejected[0].disposition, 'rejected');
+  assert.strictEqual(rejected[1].candidateHeadSha, 'head-3');
 })();
 
 (() => {

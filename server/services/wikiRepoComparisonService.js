@@ -1,8 +1,10 @@
-const { compareClaimLedgers } = require('./wikiClaimComparisonService');
+const { compareClaimLedgers, normalizeIdentity } = require('./wikiClaimComparisonService');
 
 const PUBLIC_COMPARISON_DETAIL_LIMIT = 12;
 const PUBLIC_COMPARISON_REF_LIMIT = 40;
 const PUBLIC_CLAIM_EVIDENCE_REF_LIMIT = 4;
+const CLAIM_COMPARISON_KEYS = ['added', 'changed', 'evidenceRefreshed', 'gainedSupport', 'contradicted', 'preserved', 'removed'];
+const REJECTED_COUNT_KEYS = ['added', 'changed', 'evidenceRefreshed', 'gainedSupport', 'contradicted', 'preserved', 'removed'];
 
 const clean = (value = '', limit = 800) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 const id = (value) => clean(value?._id || value?.id || value, 160);
@@ -94,19 +96,36 @@ const compareRepoRefs = (baselineRefs = [], currentRefs = []) => {
   return { added, changed, removed };
 };
 
-const collectRejectedDeltas = (runs = []) => (
-  (Array.isArray(runs) ? runs : []).flatMap(run => (
+const rejectedCandidateSignature = (comparison = {}) => {
+  const candidateHeadSha = clean(comparison.candidateHeadSha, 80);
+  if (candidateHeadSha) return `head:${candidateHeadSha}`;
+  const pageId = clean(comparison.pageId, 160);
+  const counts = Object.fromEntries(REJECTED_COUNT_KEYS.map(key => [key, Number(comparison.counts?.[key] || 0)]));
+  return `legacy:${pageId}:${JSON.stringify(counts)}`;
+};
+
+const collectRejectedDeltas = (runs = []) => {
+  const seen = new Set();
+  return (Array.isArray(runs) ? runs : []).flatMap(run => (
     (Array.isArray(run?.metadata?.comparisons) ? run.metadata.comparisons : [])
       .filter(comparison => comparison.outcome === 'rejected')
-      .map(comparison => ({
-        runId: id(run),
-        at: run.completedAt || run.updatedAt || run.createdAt || null,
-        pageId: clean(comparison.pageId, 160),
-        counts: comparison.counts || {},
-        deltas: comparison.deltas || {}
-      }))
-  ))
-);
+      .map(comparison => {
+        const signature = rejectedCandidateSignature(comparison);
+        if (seen.has(signature)) return null;
+        seen.add(signature);
+        return {
+          runId: id(run),
+          at: run.completedAt || run.updatedAt || run.createdAt || null,
+          pageId: clean(comparison.pageId, 160),
+          candidateHeadSha: clean(comparison.candidateHeadSha, 80),
+          disposition: 'rejected',
+          counts: comparison.counts || {},
+          deltas: comparison.deltas || {}
+        };
+      })
+      .filter(Boolean)
+  ));
+};
 
 const buildStaticWikiErrors = ({ claimComparison, changedRefs, baselineRefs }) => {
   const changedPaths = new Set([
@@ -115,7 +134,9 @@ const buildStaticWikiErrors = ({ claimComparison, changedRefs, baselineRefs }) =
   ].filter(Boolean));
   const refsByPath = new Map(baselineRefs.map(ref => [ref.path, ref]));
   return [
-    ...claimComparison.deltas.changed.map(row => row.before),
+    ...claimComparison.deltas.changed
+      .filter(row => normalizeIdentity(row.before?.text) !== normalizeIdentity(row.after?.text))
+      .map(row => row.before),
     ...claimComparison.deltas.removed.map(row => row.before)
   ].map((claim) => {
     const refs = claim.sourceRefIds.map(path => refsByPath.get(path)).filter(ref => ref && changedPaths.has(ref.path));
@@ -151,8 +172,17 @@ const buildRepoComparison = ({ baseline, page, maintenanceRuns = [] } = {}) => {
     outcome: 'accepted'
   });
   const watch = repoWatch(page);
+  const observedHeadSha = clean(watch.lastHeadSha, 80);
+  const publishedHeadSha = clean(watch.publishedHeadSha, 80);
+  const candidateHeadSha = clean(watch.candidateHeadSha, 80);
+  const rawBuildStatus = clean(watch.buildStatus, 40);
+  const buildStatus = observedHeadSha && observedHeadSha === publishedHeadSha
+    && (!candidateHeadSha || candidateHeadSha === publishedHeadSha)
+    && ['queued', 'building'].includes(rawBuildStatus)
+    ? 'ready'
+    : rawBuildStatus;
   return {
-    version: 1,
+    version: 2,
     repository: {
       owner: clean(watch.owner, 120),
       repo: clean(watch.repo, 120),
@@ -167,12 +197,13 @@ const buildRepoComparison = ({ baseline, page, maintenanceRuns = [] } = {}) => {
     },
     baselineSourceRefs: baselineRefs,
     current: {
-      observedHeadSha: clean(watch.lastHeadSha, 80),
-      publishedHeadSha: clean(watch.publishedHeadSha, 80),
+      observedHeadSha,
+      publishedHeadSha,
+      candidateHeadSha,
       releaseTag: clean(watch.lastReleaseTag, 120),
       generatorVersion: clean(watch.publishedGeneratorVersion, 120),
       publishedAt: watch.lastPublishedAt || null,
-      buildStatus: clean(watch.buildStatus, 40)
+      buildStatus
     },
     repositoryChanges,
     claimComparison,
@@ -183,6 +214,7 @@ const buildRepoComparison = ({ baseline, page, maintenanceRuns = [] } = {}) => {
 };
 
 const buildProofPulse = (comparison = {}) => {
+  const baseline = clean(comparison.baseline?.headSha, 80);
   const published = clean(comparison.current?.publishedHeadSha, 80);
   const observed = clean(comparison.current?.observedHeadSha, 80);
   const counts = comparison.claimComparison?.counts || {};
@@ -190,7 +222,18 @@ const buildProofPulse = (comparison = {}) => {
     + Number(comparison.repositoryChanges?.added?.length || 0)
     + Number(comparison.repositoryChanges?.removed?.length || 0);
   const staticErrors = Number(comparison.staticWikiErrors?.length || 0);
-  const rejected = (comparison.rejectedCandidates || []).reduce((sum, candidate) => sum + Number(candidate.counts?.changed || 0), 0);
+  const rejected = Number(comparison.rejectedCandidates?.length || 0);
+  const held = comparison.current?.buildStatus === 'needs_review' ? 1 : 0;
+  const supportingPaths = new Set((comparison.supportingRefs || []).map(ref => clean(ref.path, 500)).filter(Boolean));
+  const realClaimChangeRows = (comparison.claimComparison?.deltas?.changed || []).filter(row => (
+    normalizeIdentity(row.before?.text) !== normalizeIdentity(row.after?.text)
+  ));
+  const realClaimChanges = realClaimChangeRows.length;
+  const sourceBackedClaimChanges = realClaimChangeRows.filter(row => (
+    (row.after?.sourceRefIds || []).some(sourceRefId => supportingPaths.has(clean(sourceRefId, 500)))
+  )).length;
+  const preservedClaims = Number(counts.preserved || 0);
+  const acceptanceEligible = sourceBackedClaimChanges > 0 && preservedClaims > 0;
   let state = 'current';
   let headline = `${Number(counts.preserved || 0)} claims held steady through ${published ? published.slice(0, 7) : 'the published repository version'}.`;
   if (comparison.current?.buildStatus === 'needs_review') {
@@ -199,6 +242,9 @@ const buildProofPulse = (comparison = {}) => {
   } else if (observed && published && observed !== published) {
     state = 'repository_ahead';
     headline = `The repository moved to ${observed.slice(0, 7)}; Noeis is still showing the trusted ${published.slice(0, 7)} version.`;
+  } else if (Number(counts.added || 0) + realClaimChanges + Number(counts.removed || 0) > 0 && !acceptanceEligible) {
+    state = 'held_for_review';
+    headline = 'This comparison remains a candidate because it has not demonstrated a source-backed claim rewrite with preserved peers.';
   } else if (Number(counts.changed || 0) + Number(counts.added || 0) + Number(counts.removed || 0) > 0) {
     state = 'maintained';
     headline = `Noeis updated ${Number(counts.changed || 0) + Number(counts.added || 0) + Number(counts.removed || 0)} claims and preserved ${Number(counts.preserved || 0)} through ${published.slice(0, 7)}.`;
@@ -211,9 +257,22 @@ const buildProofPulse = (comparison = {}) => {
       `${Number(counts.gainedSupport || 0)} claims gained support`,
       `${Number(counts.contradicted || 0)} claims became contradicted`,
       `${Number(counts.preserved || 0)} claims were reviewed and preserved`,
+      `${Number(counts.evidenceRefreshed || 0)} preserved claims received refreshed evidence`,
       `${staticErrors} generate-once claims are now demonstrably stale`,
-      `${rejected} candidate claim changes were rejected or held for review`
+      `${rejected} unique candidate builds were rejected`,
+      `${held} candidate builds are currently held for review`
     ],
+    acceptance: {
+      eligible: acceptanceEligible,
+      realClaimChanges,
+      sourceBackedClaimChanges,
+      preservedClaims,
+      blockers: [
+        ...(sourceBackedClaimChanges > 0 ? [] : ['no_source_backed_claim_rewrite']),
+        ...(preservedClaims > 0 ? [] : ['no_preserved_peer_claims'])
+      ]
+    },
+    baselineVersion: baseline,
     observedVersion: observed,
     publishedVersion: published
   };
@@ -265,13 +324,13 @@ const serializePublicRepositoryChanges = (changes = {}) => Object.fromEntries(
 );
 
 const serializePublicClaimComparison = (claimComparison = {}, refsByPath = new Map()) => ({
-  counts: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
+  counts: Object.fromEntries(CLAIM_COMPARISON_KEYS
     .map(key => [key, Number(claimComparison.counts?.[key] || 0)])),
-  deltas: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
+  deltas: Object.fromEntries(CLAIM_COMPARISON_KEYS
     .map(key => [key, (claimComparison.deltas?.[key] || [])
       .slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT)
       .map(row => serializePublicClaimRow(row, refsByPath))])),
-  detailsTruncated: Object.fromEntries(['added', 'changed', 'gainedSupport', 'contradicted', 'preserved', 'removed']
+  detailsTruncated: Object.fromEntries(CLAIM_COMPARISON_KEYS
     .map(key => [key, Math.max(0, Number(claimComparison.counts?.[key] || 0) - PUBLIC_COMPARISON_DETAIL_LIMIT)]))
 });
 
@@ -289,9 +348,13 @@ const serializePublicRepoComparison = (comparison = null) => {
     repositoryChanges: serializePublicRepositoryChanges(comparison.repositoryChanges),
     repositoryChangesTruncated: Object.fromEntries(['added', 'changed', 'removed']
       .map(key => [key, Math.max(0, (comparison.repositoryChanges?.[key] || []).length - PUBLIC_COMPARISON_DETAIL_LIMIT)])),
+    repositoryChangeTotals: Object.fromEntries(['added', 'changed', 'removed']
+      .map(key => [key, Number(comparison.repositoryChanges?.[key]?.length || 0)])),
     claimComparison: serializePublicClaimComparison(comparison.claimComparison, refsByPath),
     rejectedCandidates: (comparison.rejectedCandidates || []).map(candidate => ({
       at: candidate.at,
+      candidateHeadSha: candidate.candidateHeadSha,
+      disposition: candidate.disposition,
       counts: candidate.counts
     })),
     staticWikiErrors: (comparison.staticWikiErrors || []).map(error => ({
