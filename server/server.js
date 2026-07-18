@@ -148,6 +148,7 @@ const { drainScheduledWikiMaintenance } = require('./services/wikiScheduledMaint
 const { drainDueEdgarWatches } = require('./services/edgarWatcherService');
 const { drainDueTranscriptWatches } = require('./services/earningsTranscriptWatcherService');
 const { drainDueGitHubRepoWatches } = require('./services/githubRepoWatcherService');
+const { runWikiStorageGovernor } = require('./services/wikiStorageGovernorService');
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
@@ -169,6 +170,8 @@ let githubRepoWatchWorkerTimer = null;
 let githubRepoWatchWorkerRunning = false;
 let embeddingJobWorkerTimer = null;
 let embeddingJobWorkerRunning = false;
+let wikiStorageGovernorTimer = null;
+let wikiStorageGovernorRunning = false;
 
 const runWikiSourceEventWorker = async () => {
   if (wikiSourceEventWorkerRunning || mongoose.connection.readyState !== 1) return;
@@ -415,6 +418,49 @@ if (mongoose.connection.readyState === 1) {
   startWikiScheduledMaintenance();
 } else {
   mongoose.connection.once('open', startWikiScheduledMaintenance);
+}
+
+const runWikiStorageGovernorWorker = async () => {
+  if (wikiStorageGovernorRunning || mongoose.connection.readyState !== 1) return;
+  wikiStorageGovernorRunning = true;
+  try {
+    const result = await runWikiStorageGovernor({
+      models: { WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, NoeisReceipt },
+      db: mongoose.connection.db,
+      retentionDays: Number(process.env.WIKI_STORAGE_RETENTION_DAYS || 45),
+      pressureRetentionDays: Number(process.env.WIKI_STORAGE_PRESSURE_RETENTION_DAYS || 14),
+      highWaterBytes: Number(process.env.WIKI_STORAGE_HIGH_WATER_BYTES || 420 * 1024 * 1024),
+      batchSize: Number(process.env.WIKI_STORAGE_GOVERNOR_BATCH_SIZE || 2500),
+      revisionPageLimit: Number(process.env.WIKI_STORAGE_REVISION_PAGE_LIMIT || 10),
+      dryRun: process.env.WIKI_STORAGE_GOVERNOR_APPLY !== 'true'
+    });
+    const compactable = result.revisionPages.reduce((sum, row) => sum + Number(row.compactableSnapshots || 0), 0);
+    if (compactable || result.maintenanceRuns.deletable || result.sourceEvents.deletable || result.underPressure) {
+      console.log(`[wiki-storage-governor] dryRun=${result.dryRun} pressure=${result.underPressure} snapshots=${compactable} runs=${result.maintenanceRuns.deletable} events=${result.sourceEvents.deletable}`);
+    }
+  } catch (error) {
+    console.error('[wiki-storage-governor] failed:', error);
+  } finally {
+    wikiStorageGovernorRunning = false;
+  }
+};
+
+const startWikiStorageGovernor = () => {
+  if (process.env.WIKI_STORAGE_GOVERNOR_DISABLED === 'true' || wikiStorageGovernorTimer) return;
+  const intervalMs = Math.max(
+    60 * 60 * 1000,
+    Number(process.env.WIKI_STORAGE_GOVERNOR_INTERVAL_MS || 6 * 60 * 60 * 1000)
+  );
+  wikiStorageGovernorTimer = setInterval(runWikiStorageGovernorWorker, intervalMs);
+  if (process.env.WIKI_STORAGE_GOVERNOR_RUN_ON_START !== 'false') {
+    runWikiStorageGovernorWorker();
+  }
+};
+
+if (mongoose.connection.readyState === 1) {
+  startWikiStorageGovernor();
+} else {
+  mongoose.connection.once('open', startWikiStorageGovernor);
 }
 const { buildFolderService } = require('./services/folderService');
 const { getFoldersWithCounts } = buildFolderService({ Folder, Article, mongoose });

@@ -1,7 +1,8 @@
 const assert = require('assert');
 const {
   buildWikiRevisionRetentionPlan,
-  collectPageRetentionReferences
+  collectPageRetentionReferences,
+  pruneWikiRevisionHistory
 } = require('./wikiRevisionRetentionService');
 
 const revisions = Array.from({ length: 60 }, (_, index) => ({
@@ -39,3 +40,42 @@ assert.deepStrictEqual(references.sourceEventIds.sort(), ['clock-event', 'fresh-
 assert.strictEqual(references.publishedHeadSha, 'head');
 
 console.log('wikiRevisionRetentionService tests passed');
+
+(async () => {
+  const updated = [];
+  const rows = Array.from({ length: 25 }, (_, index) => ({
+    _id: `byte-revision-${index}`,
+    createdAt: new Date(Date.UTC(2026, 6, 25 - index)),
+    promotionStatus: 'promoted'
+  }));
+  const WikiRevision = {
+    countDocuments: async () => rows.length,
+    aggregate: async () => [{ bytes: 16 * 1024 * 1024 }],
+    find: () => ({
+      select() { return this; },
+      sort() { return this; },
+      lean: async () => rows
+    }),
+    updateMany: async (query, update) => {
+      updated.push({ query, update });
+      return { matchedCount: query._id.$in.length };
+    },
+    db: { models: {} }
+  };
+  const result = await pruneWikiRevisionHistory({
+    WikiRevision,
+    userId: 'user-1',
+    pageId: 'page-1',
+    page: {},
+    recentLimit: 20
+  });
+  assert.strictEqual(result.skipped, false);
+  assert.strictEqual(result.deletedIds.length, 3);
+  assert.strictEqual(result.compactableSnapshotIds.length, 3);
+  assert.strictEqual(updated.length, 1);
+  assert.deepStrictEqual(updated[0].update.$set.before, null);
+  assert.deepStrictEqual(updated[0].update.$set.after, null);
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

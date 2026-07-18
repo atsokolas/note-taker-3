@@ -99,12 +99,21 @@ const pruneWikiRevisionHistory = async ({
   page = {},
   protectedRevisionIds = [],
   recentLimit = 20,
-  pruneThreshold = 40,
+  pruneThreshold = 24,
+  snapshotByteThreshold = 12 * 1024 * 1024,
   dryRun = false
 } = {}) => {
   if (!WikiRevision || !userId || !pageId) return null;
   const count = await WikiRevision.countDocuments({ userId, pageId });
-  if (count <= pruneThreshold) {
+  let snapshotBytes = 0;
+  if (count <= pruneThreshold && typeof WikiRevision.aggregate === 'function') {
+    const [size] = await WikiRevision.aggregate([
+      { $match: { userId, pageId, snapshotPrunedAt: null } },
+      { $group: { _id: null, bytes: { $sum: { $bsonSize: '$$ROOT' } } } }
+    ]);
+    snapshotBytes = Number(size?.bytes || 0);
+  }
+  if (count <= pruneThreshold && snapshotBytes <= snapshotByteThreshold) {
     return { total: count, keptIds: [], deletedIds: [], skipped: true };
   }
 
@@ -117,7 +126,7 @@ const pruneWikiRevisionHistory = async ({
   }
 
   const revisions = await WikiRevision.find({ userId, pageId })
-    .select('_id createdAt promotionStatus sourceEventId sourceVersion')
+    .select('_id createdAt promotionStatus sourceEventId sourceVersion snapshotPrunedAt')
     .sort({ createdAt: -1 })
     .lean();
   const plan = buildWikiRevisionRetentionPlan({
@@ -127,14 +136,16 @@ const pruneWikiRevisionHistory = async ({
     publishedHeadSha: references.publishedHeadSha,
     recentLimit
   });
+  const prunedById = new Map(revisions.map(revision => [cleanId(revision), Boolean(revision.snapshotPrunedAt)]));
+  const compactableSnapshotIds = plan.deletedIds.filter(id => !prunedById.get(id));
 
-  if (!dryRun && plan.deletedIds.length) {
+  if (!dryRun && compactableSnapshotIds.length) {
     await WikiRevision.updateMany(
-      { userId, pageId, _id: { $in: plan.deletedIds }, snapshotPrunedAt: null },
+      { userId, pageId, _id: { $in: compactableSnapshotIds }, snapshotPrunedAt: null },
       { $set: { before: null, after: null, snapshotPrunedAt: new Date() } }
     );
   }
-  return { ...plan, skipped: false, dryRun };
+  return { ...plan, compactableSnapshotIds, skipped: false, dryRun, snapshotBytes };
 };
 
 module.exports = {
