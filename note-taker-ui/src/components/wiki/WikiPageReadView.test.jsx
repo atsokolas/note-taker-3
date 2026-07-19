@@ -5,6 +5,7 @@ import * as router from 'react-router-dom';
 import WikiPageReadView from './WikiPageReadView';
 import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import {
+  approveWeekendReadingsRevision,
   askWikiPage,
   createWikiPage,
   getWikiAutolinkSuggestions,
@@ -12,9 +13,12 @@ import {
   getWikiPage,
   getWikiPageMarkdown,
   getWikiRepoComparison,
+  getWeekendReadingsStatus,
   listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
+  publishWeekendReadingsRevision,
+  requestWeekendReadingsReview,
   streamAskWikiPage,
   streamMaintainWikiPage,
   updateWikiPage
@@ -23,6 +27,7 @@ import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 
 jest.mock('../../api/wiki', () => ({
+  approveWeekendReadingsRevision: jest.fn(),
   askWikiPage: jest.fn(),
   armGitHubRepoWatch: jest.fn(),
   createWikiPage: jest.fn(),
@@ -31,9 +36,12 @@ jest.mock('../../api/wiki', () => ({
   getWikiPage: jest.fn(),
   getWikiPageMarkdown: jest.fn(),
   getWikiRepoComparison: jest.fn(),
+  getWeekendReadingsStatus: jest.fn(),
   listWikiPages: jest.fn(),
   maintainWikiPage: jest.fn(),
   promoteWikiDiscussion: jest.fn(),
+  publishWeekendReadingsRevision: jest.fn(),
+  requestWeekendReadingsReview: jest.fn(),
   streamAskWikiPage: jest.fn(),
   streamMaintainWikiPage: jest.fn(),
   updateWikiPage: jest.fn()
@@ -164,6 +172,13 @@ describe('WikiPageReadView', () => {
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'false';
     getWikiPage.mockResolvedValue(page);
     getWikiRepoComparison.mockRejectedValue(new Error('not configured'));
+    getWeekendReadingsStatus.mockResolvedValue({ approvalState: { code: 'private_draft', label: 'Private draft — not public' } });
+    requestWeekendReadingsReview.mockResolvedValue({ approvalState: { code: 'review_requested', label: 'Review requested — still private' } });
+    approveWeekendReadingsRevision.mockResolvedValue({ approvalState: { code: 'approved', label: 'Approved revision — not published' } });
+    publishWeekendReadingsRevision.mockResolvedValue({
+      approvalState: { code: 'published', label: 'Published — revision revision' },
+      publicUrl: '/share/wiki/weekend-readings-2026-07-19'
+    });
     getWikiBacklinks.mockResolvedValue({
       backlinks: [{
         pageId: 'wiki-backlink',
@@ -1916,5 +1931,28 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
 
     expect(screen.queryByRole('region', { name: 'Developer quickstart' })).not.toBeInTheDocument();
+  });
+
+  it('uses revision-bound Weekend Readings controls and suppresses generic sharing', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      _id: 'weekend-page-1',
+      title: 'Weekend Readings — 2026-07-19 — Edition 1',
+      pageType: 'log',
+      status: 'draft',
+      visibility: 'private',
+      createdFrom: { type: 'sources', label: 'weekend-readings:user-1:2026-07-06:2026-07-19' }
+    });
+    renderReadView({ pageId: 'weekend-page-1' });
+    await flushDeferredWikiReadWork();
+    const publicationHeading = await screen.findByRole('heading', { name: 'Review the exact revision' });
+    expect(publicationHeading).toBeInTheDocument();
+    expect(within(publicationHeading.closest('section')).getByRole('status')).toHaveTextContent('Private draft — not public');
+    expect(screen.queryByRole('region', { name: 'Share this wiki page' })).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Request review' }));
+    });
+    await waitFor(() => expect(requestWeekendReadingsReview).toHaveBeenCalledWith('weekend-page-1'));
+    expect(await screen.findByText('Review requested — still private')).toBeInTheDocument();
   });
 });

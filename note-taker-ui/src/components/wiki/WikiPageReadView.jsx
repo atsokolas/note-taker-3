@@ -2,7 +2,9 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import {
+  approveWeekendReadingsRevision,
   askWikiPage,
+  getWeekendReadingsStatus,
   getWikiBacklinks,
   getWikiPage,
   getWikiPageMarkdown,
@@ -10,6 +12,8 @@ import {
   listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
+  publishWeekendReadingsRevision,
+  requestWeekendReadingsReview,
   streamAskWikiPage,
   updateWikiPage
 } from '../../api/wiki';
@@ -66,6 +70,7 @@ import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 import WikiRepoDossierOverview from './WikiRepoDossierOverview';
 import WikiRepoDossierBody from './WikiRepoDossierBody';
 import WikiLivingThesis from './WikiLivingThesis';
+import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -81,6 +86,7 @@ const labelFor = (value = '') => String(value || '')
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
+const isWeekendReadingsPage = page => String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
 
 const wikiMaintenanceSystemReceipt = (pageId, { issueCount = 0, pageTitle = '' } = {}) => {
   const target = pageTitle || `@wiki:${pageId}`;
@@ -1107,6 +1113,10 @@ const WikiPageReadView = ({
   const [error, setError] = useState('');
   const [shareBusy, setShareBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
+  const [weekendPublicationState, setWeekendPublicationState] = useState({ code: 'loading', label: 'Loading publication state…' });
+  const [weekendPublicationBusy, setWeekendPublicationBusy] = useState(false);
+  const [weekendPublicationError, setWeekendPublicationError] = useState('');
+  const [weekendPublicUrl, setWeekendPublicUrl] = useState('');
   const [activeClaim, setActiveClaim] = useState(null);
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
@@ -1237,6 +1247,56 @@ const WikiPageReadView = ({
     setLoading(false);
     return undefined;
   }, [pageId, streamedPage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isWeekendReadingsPage(page)) {
+      setWeekendPublicationState({ code: 'loading', label: 'Loading publication state…' });
+      setWeekendPublicationError('');
+      setWeekendPublicUrl('');
+      return undefined;
+    }
+    setWeekendPublicationError('');
+    getWeekendReadingsStatus(pageId)
+      .then((payload) => {
+        if (cancelled) return;
+        setWeekendPublicationState(payload.approvalState || { code: 'private_draft', label: 'Private draft — not public' });
+        if (String(page?.visibility || '') === 'shared') setWeekendPublicUrl(buildPublicWikiShareUrl(page));
+      })
+      .catch((requestError) => {
+        if (cancelled) return;
+        setWeekendPublicationError(requestError?.message || 'Could not load publication state.');
+      });
+    return () => { cancelled = true; };
+  }, [page, pageId]);
+
+  const runWeekendPublicationAction = useCallback(async (action) => {
+    setWeekendPublicationBusy(true);
+    setWeekendPublicationError('');
+    try {
+      const payload = await action(pageId);
+      if (payload.approvalState) setWeekendPublicationState(payload.approvalState);
+      if (payload.publicUrl) {
+        const absoluteUrl = new URL(payload.publicUrl, window.location.origin).toString();
+        setWeekendPublicUrl(absoluteUrl);
+        setPage(current => current ? { ...current, visibility: 'shared', status: 'published' } : current);
+        latestPageRef.current = latestPageRef.current
+          ? { ...latestPageRef.current, visibility: 'shared', status: 'published' }
+          : latestPageRef.current;
+      }
+      if (payload.receipt) systemStatus.setLatestReceipt(payload.receipt);
+    } catch (requestError) {
+      const message = requestError?.message || 'Weekend Readings publication action failed.';
+      setWeekendPublicationError(message);
+      systemStatus.setRecoverableFailure({
+        stage: 'Weekend Readings publication',
+        message,
+        retryable: false
+      });
+    } finally {
+      setWeekendPublicationBusy(false);
+    }
+  }, [pageId, systemStatus]);
 
   useEffect(() => {
     if (!refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
@@ -2060,6 +2120,7 @@ const WikiPageReadView = ({
   const readPageType = String(page.pageType || 'topic').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
   const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
   const publicShareUrl = buildPublicWikiShareUrl(page);
+  const weekendReadingsPage = isWeekendReadingsPage(page);
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
   const publicShareReady = isSharedPublicly && !shareBlocked;
@@ -2070,7 +2131,7 @@ const WikiPageReadView = ({
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
   const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt;
-  const shareCard = (
+  const shareCard = weekendReadingsPage ? null : (
     <section
       className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
       aria-label="Share this wiki page"
@@ -2311,6 +2372,17 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <WikiReadTitle title={displayWikiPageTitle(page)} />
+            {weekendReadingsPage ? (
+              <WikiWeekendReadingsPublication
+                approvalState={weekendPublicationState}
+                busy={weekendPublicationBusy}
+                error={weekendPublicationError}
+                publicUrl={weekendPublicUrl}
+                onRequestReview={() => runWeekendPublicationAction(requestWeekendReadingsReview)}
+                onApprove={() => runWeekendPublicationAction(approveWeekendReadingsRevision)}
+                onPublish={() => runWeekendPublicationAction(publishWeekendReadingsRevision)}
+              />
+            ) : null}
             <WikiLivingThesis
               page={page}
               pageId={pageId}

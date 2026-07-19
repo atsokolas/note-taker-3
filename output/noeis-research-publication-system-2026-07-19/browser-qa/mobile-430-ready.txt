@@ -1,0 +1,14 @@
+### Result
+{
+  "ready": true,
+  "title": "Weekend Readings — 2026-07-19 — Edition 1"
+}
+### Ran Playwright code
+```js
+await page.evaluate('async () => { for (let attempt = 0; attempt < 100; attempt += 1) { const artifact = document.querySelector(\'main.shared-wiki-page.is-weekend-readings\'); const title = artifact?.querySelector(\'h1\')?.textContent?.trim(); if (artifact && /^Weekend Readings/.test(title || \'\')) return { ready: true, title }; await new Promise(resolve => setTimeout(resolve, 100)); } throw new Error(\'Weekend Readings artifact did not become ready within 10 seconds.\'); }');
+```
+### Page
+- Page URL: http://127.0.0.1:3100/share/wiki/weekend-readings-qa
+- Page Title: Weekend Readings — 2026-07-19 — Edition 1 · Shared Wiki · Noeis
+### Events
+- New console entries: .playwright-cli/console-2026-07-19T19-45-32-696Z.log#L6

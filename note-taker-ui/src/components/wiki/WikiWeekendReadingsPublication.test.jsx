@@ -34,6 +34,7 @@ describe('WikiWeekendReadingsPublication', () => {
   });
 
   it('requires review again when the draft changed after approval', () => {
+    expect(actionForState({ code: 'loading' })).toBeNull();
     expect(actionForState({ code: 'stale_approval' })).toEqual({ key: 'review', label: 'Request review of changed draft' });
     expect(actionForState({ code: 'published', draftChangedAfterPublication: true })).toEqual({ key: 'review', label: 'Request review of changed draft' });
   });

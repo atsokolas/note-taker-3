@@ -114,14 +114,18 @@ const buildApprovalCandidate = ({ snapshot, revisionId, editionKey = '' } = {}) 
     editorialNote,
     items
   });
+  const publicBody = {
+    ...body,
+    content: Array.isArray(body.content) ? body.content.slice(1) : []
+  };
   const publicArtifact = {
     artifactType: 'weekend_readings',
     editionKey: resolvedEditionKey,
     revisionId: resolvedRevisionId,
     title,
     authorLabel,
-    body,
-    plainText: body.content.flatMap(node => node.content || []).map(node => node.text || '').filter(Boolean).join('\n'),
+    body: publicBody,
+    plainText: publicBody.content.flatMap(node => node.content || []).map(node => node.text || '').filter(Boolean).join('\n'),
     sourceRefs: items.map(item => ({
       type: 'external',
       title: item.title,
@@ -239,12 +243,35 @@ const buildPublicationReceipt = ({ approvalReceipt, currentRevisionId, pageId, a
 const deriveApprovalState = ({ currentRevisionId, receipts = [] } = {}) => {
   const current = idOf(currentRevisionId);
   const rows = (Array.isArray(receipts) ? receipts : []).map(row => row?.toObject ? row.toObject() : row).filter(Boolean);
-  const latest = kind => rows.filter(row => row.kind === kind).sort((a, b) => new Date(b.completedAt || b.updatedAt || 0) - new Date(a.completedAt || a.updatedAt || 0))[0] || null;
+  const receiptTime = row => new Date(row?.completedAt || row?.updatedAt || 0).getTime();
+  const latest = (kind, revisionId = '') => rows
+    .filter(row => row.kind === kind && (!revisionId || idOf(row.provenance?.revisionId) === revisionId))
+    .sort((a, b) => receiptTime(b) - receiptTime(a))[0] || null;
   const publication = latest(RECEIPT_KINDS.publication);
   const approval = latest(RECEIPT_KINDS.approval);
   const review = latest(RECEIPT_KINDS.review);
   if (publication) {
     const revisionId = idOf(publication.provenance?.revisionId);
+    if (current && current !== revisionId) {
+      const currentApproval = latest(RECEIPT_KINDS.approval, current);
+      const currentReview = latest(RECEIPT_KINDS.review, current);
+      if (currentApproval && receiptTime(currentApproval) > receiptTime(publication)) {
+        return {
+          code: 'approved',
+          label: 'Approved revision — not published',
+          revisionId: current,
+          publishedRevisionId: revisionId
+        };
+      }
+      if (currentReview && receiptTime(currentReview) > receiptTime(publication)) {
+        return {
+          code: 'review_requested',
+          label: 'Review requested — still private',
+          revisionId: current,
+          publishedRevisionId: revisionId
+        };
+      }
+    }
     return { code: 'published', label: `Published — revision ${revisionId.slice(0, 8)}`, revisionId, draftChangedAfterPublication: Boolean(current && current !== revisionId) };
   }
   if (approval) {

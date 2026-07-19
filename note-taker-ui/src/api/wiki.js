@@ -219,6 +219,45 @@ export const updateWikiPage = async (id, updates = {}) => {
   return res.data;
 };
 
+const WEEKEND_READINGS_PATH = '/api/wiki/weekend-readings';
+
+export const createWeekendReadingsDraft = async (draft = {}) => {
+  const res = await api.post(`${WEEKEND_READINGS_PATH}/drafts`, draft, getAuthHeaders());
+  return res.data || {};
+};
+
+export const getWeekendReadingsStatus = async (pageId) => {
+  const res = await api.get(`${WEEKEND_READINGS_PATH}/${safeId(pageId)}/status`, getAuthHeaders());
+  return res.data || {};
+};
+
+const transitionWeekendReadings = async (pageId, action, confirmation) => {
+  const res = await api.post(
+    `${WEEKEND_READINGS_PATH}/${safeId(pageId)}/${action}`,
+    { confirmation },
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const requestWeekendReadingsReview = pageId => transitionWeekendReadings(
+  pageId,
+  'review',
+  'request_weekend_readings_review'
+);
+
+export const approveWeekendReadingsRevision = pageId => transitionWeekendReadings(
+  pageId,
+  'approve',
+  'approve_weekend_readings_revision'
+);
+
+export const publishWeekendReadingsRevision = pageId => transitionWeekendReadings(
+  pageId,
+  'publish',
+  'publish_approved_weekend_readings_revision'
+);
+
 export const saveInitialWikiJudgment = async (id) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/judgment/initial-snapshot`, {}, getAuthHeaders());
   return res.data || {};
@@ -701,6 +740,11 @@ const wikiApi = {
   ignoreWikiLintFinding,
   fixWikiLintFinding,
   updateWikiPage,
+  createWeekendReadingsDraft,
+  getWeekendReadingsStatus,
+  requestWeekendReadingsReview,
+  approveWeekendReadingsRevision,
+  publishWeekendReadingsRevision,
   saveInitialWikiJudgment,
   restoreInitialWikiJudgment,
   archiveWikiPage,

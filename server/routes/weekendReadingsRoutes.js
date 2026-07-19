@@ -36,12 +36,12 @@ const buildWeekendReadingsHandlers = ({
   const createDraft = async (req, res) => {
     try {
       const result = await createWeekendReadingsDraft({
+        ...req.body,
         WikiPage,
         WikiRevision,
         NoeisReceipt,
         userId: req.user.id,
-        buildUniqueSlug,
-        ...req.body
+        buildUniqueSlug
       });
       return res.status(result.created ? 201 : 200).json({
         created: result.created,

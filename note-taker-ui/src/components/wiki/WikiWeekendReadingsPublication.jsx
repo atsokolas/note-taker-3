@@ -3,6 +3,8 @@ import '../../styles/weekend-readings.css';
 
 const actionForState = (state = {}) => {
   switch (state.code) {
+    case 'loading':
+      return null;
     case 'review_requested':
       return { key: 'approve', label: 'Approve this revision' };
     case 'approved':

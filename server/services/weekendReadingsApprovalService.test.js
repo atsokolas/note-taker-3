@@ -54,6 +54,8 @@ test('approval candidate reconstructs a public-safe artifact from an exact revis
   assert.equal(candidate.sourceRefs.length, 1);
   assert.equal(candidate.sourceRefs[0].readingRole, 'thesis_evidence');
   assert.equal(candidate.sourceRefs[0].sourceDateLabel, '2026-07-18');
+  assert.equal(candidate.authorLabel, 'Athan Tsokolas');
+  assert.doesNotMatch(JSON.stringify(candidate.body), /researched and maintained with Noeis/);
   assert.match(candidate.plainText, /Qualification durability/);
   assert.doesNotMatch(JSON.stringify(candidate), new RegExp(privateSentinel));
 });
@@ -103,6 +105,40 @@ test('approval state exposes literal non-color status copy', () => {
   assert.equal(deriveApprovalState({ currentRevisionId: candidate.revisionId, receipts: [review, approval] }).label, 'Approved revision — not published');
   assert.equal(deriveApprovalState({ currentRevisionId: 'revision-new', receipts: [review, approval] }).label, 'Draft changed after approval — reapproval required');
   assert.equal(deriveApprovalState({ currentRevisionId: candidate.revisionId, receipts: [review, approval, publication] }).label, 'Published — revision revision');
+});
+
+test('a newer revision lifecycle takes precedence while the prior approved artifact remains published', () => {
+  const prior = lifecycle();
+  const candidate = candidateFor('revision-new-draft');
+  const review = buildReviewRequestReceipt({
+    candidate,
+    pageId: 'page-private-1',
+    actorUserId: 'athan-user',
+    confirmation: REVIEW_CONFIRMATION,
+    at: '2026-07-19T13:00:00.000Z'
+  });
+  const reviewing = deriveApprovalState({
+    currentRevisionId: candidate.revisionId,
+    receipts: [prior.review, prior.approval, prior.publication, review]
+  });
+  assert.equal(reviewing.code, 'review_requested');
+  assert.equal(reviewing.revisionId, candidate.revisionId);
+  assert.equal(reviewing.publishedRevisionId, prior.candidate.revisionId);
+
+  const approval = buildApprovalReceipt({
+    candidate,
+    reviewReceipt: review,
+    pageId: 'page-private-1',
+    actorUserId: 'athan-user',
+    confirmation: APPROVAL_CONFIRMATION,
+    at: '2026-07-19T13:05:00.000Z'
+  });
+  const approved = deriveApprovalState({
+    currentRevisionId: candidate.revisionId,
+    receipts: [prior.review, prior.approval, prior.publication, review, approval]
+  });
+  assert.equal(approved.code, 'approved');
+  assert.equal(approved.publishedRevisionId, prior.candidate.revisionId);
 });
 
 test('published serializer requires matching publication, approval, revision, and digest', () => {
