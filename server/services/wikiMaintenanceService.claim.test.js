@@ -1904,6 +1904,37 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(claims[0].support).toBe('conflicted');
   });
 
+  it('reassembles inline text fragments that share one claim mark', () => {
+    const sharedClaim = {
+      type: 'claim',
+      attrs: {
+        claimId: 'claim-split-link',
+        support: 'supported',
+        citationIndexes: [1, 2],
+        contradictionIndexes: []
+      }
+    };
+    const doc = {
+      type: 'doc',
+      content: [{
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Create', marks: [sharedClaim] },
+          { type: 'text', text: ' repo wiki', marks: [sharedClaim, { type: 'link', attrs: { href: '/wiki' } }] },
+          { type: 'text', text: ': user pastes a GitHub URL.', marks: [sharedClaim] }
+        ]
+      }]
+    };
+    const claims = collectClaimsFromDoc(doc, 'User experience map');
+    expect(claims).toHaveLength(1);
+    expect(claims[0]).toMatchObject({
+      claimId: 'claim-split-link',
+      text: 'Create repo wiki: user pastes a GitHub URL.',
+      section: 'User experience map',
+      citationIndexes: [1, 2]
+    });
+  });
+
   it('maps claim citation indexes to persisted citation ids', () => {
     const citationIds = resolveClaimCitationIds({
       citationIndexes: [2, 1, 2, 99],

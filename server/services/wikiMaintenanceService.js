@@ -1195,12 +1195,39 @@ const docFromArticle = ({ title, article = {} }) => {
   return { type: 'doc', content };
 };
 
-const collectClaimsFromDoc = (node, section = '') => {
+const mergeAdjacentClaimFragments = (claims = []) => (
+  (Array.isArray(claims) ? claims : []).reduce((merged, claim) => {
+    const previous = merged[merged.length - 1];
+    const sameMarkedClaim = previous
+      && claim?.claimId
+      && String(previous.claimId || '') === String(claim.claimId)
+      && String(previous.section || '') === String(claim.section || '');
+    if (!sameMarkedClaim) {
+      merged.push(claim);
+      return merged;
+    }
+    previous.text = `${previous.text || ''} ${claim.text || ''}`
+      .replace(/\s+([,.;:!?])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+    previous.citationIndexes = Array.from(new Set(normalizeCitationIndexes([
+      ...(previous.citationIndexes || []),
+      ...(claim.citationIndexes || [])
+    ])));
+    previous.contradictionIndexes = Array.from(new Set(normalizeCitationIndexes([
+      ...(previous.contradictionIndexes || []),
+      ...(claim.contradictionIndexes || [])
+    ])));
+    return merged;
+  }, [])
+);
+
+const collectClaimsFromDocRaw = (node, section = '') => {
   if (!node) return [];
   if (Array.isArray(node)) {
     let currentSection = section;
     return node.flatMap((child) => {
-      const claims = collectClaimsFromDoc(child, currentSection);
+      const claims = collectClaimsFromDocRaw(child, currentSection);
       if (child?.type === 'heading') currentSection = toPlainText(child) || currentSection;
       return claims;
     });
@@ -1224,8 +1251,16 @@ const collectClaimsFromDoc = (node, section = '') => {
     citationIds: [],
     lastReviewedAt: new Date()
   }] : [];
-  return [...own, ...collectClaimsFromDoc(node.content, nextSection)];
+  return [...own, ...collectClaimsFromDocRaw(node.content, nextSection)];
 };
+
+// Linkification and other inline transforms can split one marked sentence into
+// several text nodes while preserving the same claimId on every fragment. The
+// ledger represents the marked sentence, not the editor's incidental node
+// boundaries, so reassemble those adjacent fragments before persistence.
+const collectClaimsFromDoc = (node, section = '') => (
+  mergeAdjacentClaimFragments(collectClaimsFromDocRaw(node, section))
+);
 
 const normalizeMaybeObjectId = (value) => {
   const text = asString(value);

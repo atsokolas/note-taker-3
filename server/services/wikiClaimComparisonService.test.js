@@ -64,4 +64,75 @@ const claim = (claimId, text, support = 'unsupported', extra = {}) => ({
   assert.strictEqual(result.counts.removed, 0);
 })();
 
+(() => {
+  const result = compareClaimLedgers({
+    beforeClaims: [
+      claim('old-run', 'Start from package evidence and keep root commands distinct from nested UI commands. Run the API, run the UI only for UI work, prove wiki behavior, then build the frontend.', 'supported', { sourceRefIds: ['package.json'] }),
+      claim('stable-peer', 'The public share route excludes private graph state.', 'supported', { sourceRefIds: ['wikiRoutes.js'] })
+    ],
+    afterClaims: [
+      claim('new-run', 'Start from package evidence and keep root commands distinct from nested package commands. Install with the declared package manager, run the narrow package, prove behavior, then build before shipping.', 'supported', { sourceRefIds: ['package.json'] }),
+      claim('new-peer-id', 'The public share route excludes private graph state.', 'supported', { sourceRefIds: ['wikiRoutes.js'] })
+    ]
+  });
+  assert.strictEqual(result.counts.added, 0);
+  assert.strictEqual(result.counts.changed, 1);
+  assert.strictEqual(result.counts.preserved, 1);
+  assert.strictEqual(result.counts.removed, 0);
+  assert.strictEqual(result.deltas.changed[0].before.claimId, 'old-run');
+  assert.strictEqual(result.deltas.changed[0].after.claimId, 'new-run');
+})();
+
+(() => {
+  const result = compareClaimLedgers({
+    beforeClaims: [claim('old', 'The API uses Express routes for wiki maintenance.', 'supported', { sourceRefIds: ['wikiRoutes.js'] })],
+    afterClaims: [claim('new', 'The frontend uses calm index components for concepts.', 'supported', { sourceRefIds: ['wikiRoutes.js'] })]
+  });
+  assert.strictEqual(result.counts.changed, 0);
+  assert.strictEqual(result.counts.added, 1);
+  assert.strictEqual(result.counts.removed, 1);
+})();
+
+(() => {
+  const result = compareClaimLedgers({
+    beforeClaims: [claim('old-short', 'Run focused tests before shipping.', 'supported', { sourceRefIds: ['package.json'] })],
+    afterClaims: [claim('new-short', 'Run relevant tests before shipping.', 'supported', { sourceRefIds: ['package.json'] })]
+  });
+  assert.strictEqual(result.counts.changed, 0);
+  assert.strictEqual(result.counts.added, 1);
+  assert.strictEqual(result.counts.removed, 1);
+})();
+
+(() => {
+  const shared = { sourceRefIds: ['package.json'] };
+  const result = compareClaimLedgers({
+    beforeClaims: [
+      claim('old-a', 'The package workflow runs focused tests and builds the frontend before every production deployment.', 'supported', shared),
+      claim('old-b', 'The package workflow runs targeted tests and builds the frontend before each production deployment.', 'supported', shared)
+    ],
+    afterClaims: [claim('new', 'The package workflow runs relevant tests and builds the frontend before a production deployment.', 'supported', shared)]
+  });
+  assert.strictEqual(result.counts.changed, 0);
+  assert.strictEqual(result.counts.added, 1);
+  assert.strictEqual(result.counts.removed, 2);
+})();
+
+(() => {
+  const shared = { sourceRefIds: ['wikiRoutes.js'], section: 'User experience map' };
+  const result = compareClaimLedgers({
+    beforeClaims: [claim('baseline-create', 'Create repo wiki: user pastes a GitHub URL.', 'supported', shared)],
+    afterClaims: [
+      claim('current-create', 'Create', 'supported', shared),
+      claim('current-create', 'repo wiki', 'supported', shared),
+      claim('current-create', ': user pastes a GitHub URL.', 'supported', shared)
+    ]
+  });
+  assert.strictEqual(result.reviewedClaimCount, 1);
+  assert.strictEqual(result.counts.added, 0);
+  assert.strictEqual(result.counts.changed, 0);
+  assert.strictEqual(result.counts.preserved, 1);
+  assert.strictEqual(result.counts.removed, 0);
+  assert.strictEqual(result.deltas.preserved[0].after.text, 'Create repo wiki: user pastes a GitHub URL.');
+})();
+
 console.log('wikiClaimComparisonService tests passed');
