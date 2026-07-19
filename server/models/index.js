@@ -358,6 +358,94 @@ const wikiCitationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });
 
+const judgmentAssumptionSchema = new mongoose.Schema({
+  assumptionId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  status: { type: String, enum: ['unreviewed', 'holds', 'weakened', 'failed'], default: 'unreviewed' },
+  confidence: { type: Number, min: 0, max: 1, default: null },
+  affectedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  lastReviewedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const judgmentUnknownSchema = new mongoose.Schema({
+  unknownId: { type: String, required: true, trim: true },
+  question: { type: String, required: true, trim: true },
+  priority: { type: String, enum: ['critical', 'high', 'medium', 'low'], default: 'medium' },
+  status: { type: String, enum: ['open', 'researching', 'answered', 'deferred'], default: 'open' },
+  answer: { type: String, default: '', trim: true },
+  affectedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  ownerLabel: { type: String, default: '', trim: true },
+  dueAt: { type: Date, default: null },
+  resolvedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const judgmentFalsifierSchema = new mongoose.Schema({
+  falsifierId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  observableSignal: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['unobserved', 'warning', 'triggered', 'retired'], default: 'unobserved' },
+  affectedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  lastCheckedAt: { type: Date, default: null },
+  triggeredAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const judgmentDecisionOutcomeSchema = new mongoose.Schema({
+  observedAt: { type: Date, default: null },
+  summary: { type: String, default: '', trim: true },
+  result: { type: String, enum: ['positive', 'negative', 'mixed', 'unknown'], default: 'unknown' },
+  processScore: { type: Number, min: 0, max: 1, default: null },
+  calibrationNote: { type: String, default: '', trim: true },
+  lesson: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const judgmentDecisionSchema = new mongoose.Schema({
+  decisionId: { type: String, required: true, trim: true },
+  decidedAt: { type: Date, default: null },
+  decisionType: { type: String, enum: ['research', 'outreach', 'product', 'operating', 'investment', 'no_action', 'close'], default: 'research' },
+  summary: { type: String, required: true, trim: true },
+  rationale: { type: String, default: '', trim: true },
+  expectedOutcome: { type: String, default: '', trim: true },
+  horizon: { type: String, default: '', trim: true },
+  successCriteria: { type: [String], default: [] },
+  reviewAt: { type: Date, default: null },
+  status: { type: String, enum: ['planned', 'taken', 'cancelled', 'reviewed'], default: 'planned' },
+  relatedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  outcome: { type: judgmentDecisionOutcomeSchema, default: () => ({}) },
+  createdAt: { type: Date, default: Date.now },
+  createdBy: { type: String, enum: ['user', 'ai_proposed'], default: 'user' }
+}, { _id: false });
+
+const wikiJudgmentSchema = new mongoose.Schema({
+  kind: { type: String, enum: ['thesis', 'decision', 'prediction'], required: true },
+  governingQuestion: { type: String, required: true, trim: true },
+  currentJudgment: { type: String, default: '', trim: true },
+  confidence: { type: Number, min: 0, max: 1, default: null },
+  status: { type: String, enum: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'closed', 'archived'], default: 'framing' },
+  decisionPosture: { type: String, enum: ['investigate', 'watch', 'act', 'avoid', 'no_action', 'closed'], default: 'investigate' },
+  ownerLabel: { type: String, default: '', trim: true },
+  startedAt: { type: Date, default: null },
+  lastReviewedAt: { type: Date, default: null },
+  nextReviewAt: { type: Date, default: null },
+  nextReviewTrigger: { type: String, default: '', trim: true },
+  initialRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  strongestCounterargument: { type: String, default: '', trim: true },
+  causalModel: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ summary: '', nodes: [], edges: [] })
+  },
+  assumptions: { type: [judgmentAssumptionSchema], default: [] },
+  unknowns: { type: [judgmentUnknownSchema], default: [] },
+  falsifiers: { type: [judgmentFalsifierSchema], default: [] },
+  decisions: { type: [judgmentDecisionSchema], default: [] }
+}, { _id: false });
+
 const wikiClaimSchema = new mongoose.Schema({
   claimId: { type: String, required: true, trim: true },
   text: { type: String, required: true, trim: true },
@@ -367,6 +455,14 @@ const wikiClaimSchema = new mongoose.Schema({
   sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   confidence: { type: Number, min: 0, max: 1, default: 0 },
+  epistemicStatus: {
+    type: String,
+    enum: ['established_fact', 'supported_interpretation', 'plausible_hypothesis', 'speculation', 'rejected'],
+    default: 'plausible_hypothesis'
+  },
+  materiality: { type: String, enum: ['critical', 'major', 'supporting', 'context'], default: 'supporting' },
+  implication: { type: String, default: '', trim: true },
+  falsifierIds: { type: [String], default: [] },
   lastReviewedAt: { type: Date, default: null },
   lastVerifiedAt: { type: Date, default: null },
   checkInStatus: {
@@ -391,6 +487,10 @@ const wikiClaimSchema = new mongoose.Schema({
       action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored'], default: '' },
       note: { type: String, default: '', trim: true },
       evidenceDelta: { type: mongoose.Schema.Types.Mixed, default: null },
+      confidence: { type: Number, min: 0, max: 1, default: null },
+      epistemicStatus: { type: String, enum: ['established_fact', 'supported_interpretation', 'plausible_hypothesis', 'speculation', 'rejected'], default: null },
+      disposition: { type: String, enum: ['accepted', 'rejected', 'deferred', 'preserved'], default: null },
+      reason: { type: String, default: '', trim: true },
       actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'system' }
     }],
     default: []
@@ -631,6 +731,7 @@ const wikiPageSchema = new mongoose.Schema({
   sourceRefs: { type: [wikiSourceRefSchema], default: [] },
   claims: { type: [wikiClaimSchema], default: [] },
   citations: { type: [wikiCitationSchema], default: [] },
+  judgment: { type: wikiJudgmentSchema, default: null },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   publicProof: { type: wikiPublicProofSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },

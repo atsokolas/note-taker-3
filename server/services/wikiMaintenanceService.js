@@ -1384,7 +1384,11 @@ const hasClaimChanged = (previous = {}, next = {}) => (
   asString(previous.section) !== asString(next.section) ||
   JSON.stringify((previous.citationIds || []).map(String).sort()) !== JSON.stringify((next.citationIds || []).map(String).sort()) ||
   JSON.stringify((previous.sourceRefIds || []).map(String).sort()) !== JSON.stringify((next.sourceRefIds || []).map(String).sort()) ||
-  JSON.stringify((previous.contradictedByCitationIds || []).map(String).sort()) !== JSON.stringify((next.contradictedByCitationIds || []).map(String).sort())
+  JSON.stringify((previous.contradictedByCitationIds || []).map(String).sort()) !== JSON.stringify((next.contradictedByCitationIds || []).map(String).sort()) ||
+  asString(previous.epistemicStatus) !== asString(next.epistemicStatus) ||
+  asString(previous.materiality) !== asString(next.materiality) ||
+  asString(previous.implication) !== asString(next.implication) ||
+  JSON.stringify((previous.falsifierIds || []).map(String).sort()) !== JSON.stringify((next.falsifierIds || []).map(String).sort())
 );
 
 const claimHistoryEntry = ({ claim, event, now, summary }) => ({
@@ -1396,6 +1400,8 @@ const claimHistoryEntry = ({ claim, event, now, summary }) => ({
   citationIds: Array.isArray(claim.citationIds) ? claim.citationIds.filter(Boolean).slice(0, 12) : [],
   sourceRefIds: Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.filter(Boolean).slice(0, 12) : [],
   contradictedByCitationIds: Array.isArray(claim.contradictedByCitationIds) ? claim.contradictedByCitationIds.filter(Boolean).slice(0, 12) : [],
+  confidence: Number.isFinite(Number(claim.confidence)) ? Number(claim.confidence) : null,
+  epistemicStatus: claim.epistemicStatus || 'plausible_hypothesis',
   summary: truncate(summary || '', 300)
 });
 
@@ -1443,6 +1449,12 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
           ? citationIds
           : [],
       confidence: claimConfidence({ support, citationIds, sourceRefIds }),
+      epistemicStatus: previous?.epistemicStatus || claim.epistemicStatus || 'plausible_hypothesis',
+      materiality: previous?.materiality || claim.materiality || 'supporting',
+      implication: truncate(previous?.implication || claim.implication || '', 4000),
+      falsifierIds: Array.isArray(previous?.falsifierIds || claim.falsifierIds)
+        ? (previous?.falsifierIds || claim.falsifierIds).map(String).filter(Boolean).slice(0, 100)
+        : [],
       lastReviewedAt: now,
       lastVerifiedAt: citationIds.length || sourceRefIds.length
         ? now

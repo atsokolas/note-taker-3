@@ -15,6 +15,8 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
   const [prompt, setPrompt] = useState('');
+  const [creationMode, setCreationMode] = useState('page');
+  const [governingQuestion, setGoverningQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -23,24 +25,34 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
   const handleSubmit = async (event) => {
     event.preventDefault();
     const topic = prompt.trim();
-    if (!topic || busy) return;
+    const livingThesis = creationMode === 'living_thesis';
+    const question = governingQuestion.trim();
+    if (!topic || busy || (livingThesis && !question)) return;
     setBusy(true);
     setStatus('');
     setError('');
-    const repo = parseGitHubRepoInput(topic);
+    const repo = livingThesis ? null : parseGitHubRepoInput(topic);
     setTickerLines(repo
       ? [
         `recognized repo · ${repo.fullName}`,
         'creating project wiki scaffold',
         'attaching repository docs and releases'
       ]
-      : [
+      : livingThesis ? [
+        `opening living thesis · ${topic}`,
+        'creating the empty judgment contract',
+        'leaving conclusions and claims to you'
+      ] : [
         `capturing topic · ${topic}`,
         'creating overview scaffold'
     ]);
     try {
       const repoResult = repo ? await createRepoWikiFromGitHub(topic) : null;
-      const page = repoResult?.page || await createWikiPage(buildWikiCreatePayload({
+      const page = repoResult?.page || await createWikiPage(livingThesis ? {
+        ...buildWikiCreatePayload({ type: 'idea', title: topic, text: topic, pageType: 'overview' }),
+        preset: 'living_thesis',
+        governingQuestion: question
+      } : buildWikiCreatePayload({
           type: 'idea',
           title: topic,
           text: topic,
@@ -72,8 +84,9 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
         repo ? 'agent drafting from repository sources' : 'agent drafting from your library'
       ]);
       setStatus(repo ? repoReceiptTitle : `Building "${page.title || topic}"...`);
-      navigate(`${wikiPagePath(pageId)}&build=1`, { replace: false });
+      navigate(livingThesis ? wikiPagePath(pageId) : `${wikiPagePath(pageId)}&build=1`, { replace: false });
       setPrompt('');
+      if (livingThesis) setGoverningQuestion('');
       onBuilt?.(page);
       setStatus(repo
         ? repoReceiptTitle
@@ -101,17 +114,30 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
           <h2>Ask for a wiki page</h2>
         </div>
       ) : null}
+      {!compact ? (
+        <div className="wiki-build-page__mode" role="group" aria-label="Page creation type">
+          <button type="button" className={creationMode === 'page' ? 'is-active' : ''} onClick={() => setCreationMode('page')}>Page</button>
+          <button type="button" className={creationMode === 'living_thesis' ? 'is-active' : ''} onClick={() => setCreationMode('living_thesis')}>Living thesis</button>
+        </div>
+      ) : null}
       <div className="wiki-build-page__row">
         <input
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder={`Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a wiki page...`}
-          aria-label="Wiki page to build"
+          placeholder={creationMode === 'living_thesis' ? 'Living thesis title' : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a wiki page...`}
+          aria-label={creationMode === 'living_thesis' ? 'Living thesis title' : 'Wiki page to build'}
         />
-        <Button type="submit" disabled={busy || !prompt.trim()}>
-          {busy ? 'Building...' : 'Build page'}
+        <Button type="submit" disabled={busy || !prompt.trim() || (creationMode === 'living_thesis' && !governingQuestion.trim())}>
+          {busy ? 'Building...' : creationMode === 'living_thesis' ? 'Create thesis' : 'Build page'}
         </Button>
       </div>
+      {!compact && creationMode === 'living_thesis' ? (
+        <div className="wiki-build-page__thesis-question">
+          <label htmlFor="wiki-living-thesis-question">Governing question</label>
+          <textarea id="wiki-living-thesis-question" value={governingQuestion} onChange={event => setGoverningQuestion(event.target.value)} placeholder="What consequential question will this thesis maintain?" />
+          <p>No conclusion or claims will be drafted for you.</p>
+        </div>
+      ) : null}
       {(busy || tickerLines.length > 0) ? (
         <AgentTicker
           label="Wiki build trace"

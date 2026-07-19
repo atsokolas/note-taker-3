@@ -47,6 +47,15 @@ const getWorkerRoleDefinition = (role = '') => {
   return safeRole ? ROLE_DEFINITIONS[safeRole] : null;
 };
 
+const buildLivingThesisCriticMandate = () => [
+  'Living-thesis Critic mandate:',
+  'Identify unsupported critical and major claims, the strongest counterargument, and contradicting evidence.',
+  'Surface missing base rates, alternative causal models, likely owner biases, and concrete falsification tests.',
+  'Propose any confidence changes with explicit reasons and a before/after value; do not apply them.',
+  'All changes to claims, judgment, confidence, assumptions, falsifiers, or decisions require explicit human acceptance.',
+  'Do not mutate the page or imply that a proposed change has been accepted.'
+].join(' ');
+
 const inferWorkerRoleFromPlanKind = (kind = '') => {
   const safeKind = clean(kind).toLowerCase();
   if (['analysis', 'planning'].includes(safeKind)) return 'planner';
@@ -236,6 +245,7 @@ module.exports = {
   ROLE_VALUES,
   normalizeWorkerRole,
   getWorkerRoleDefinition,
+  buildLivingThesisCriticMandate,
   inferWorkerRoleFromPlanKind,
   inferWorkerRole,
   sanitizeAgentPlanner,

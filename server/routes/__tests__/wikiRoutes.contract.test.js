@@ -1429,6 +1429,16 @@ const run = async () => {
       }],
       claims: [{ text: 'Private claim draft', sourceRefIds: ['private-source'] }],
       citations: [{ claimId: 'private-claim', sourceRefId: 'private-source' }],
+      judgment: {
+        kind: 'thesis',
+        governingQuestion: 'Private QA governing question?',
+        currentJudgment: 'Private QA judgment.',
+        confidence: 0.44,
+        assumptions: [{ assumptionId: 'private-assumption', text: 'Private assumption' }],
+        unknowns: [{ unknownId: 'private-unknown', question: 'Private unknown?' }],
+        falsifiers: [{ falsifierId: 'private-falsifier', text: 'Private falsifier' }],
+        decisions: [{ decisionId: 'private-decision', summary: 'Private decision' }]
+      },
       discussions: [{ question: 'Private discussion', answer: { content: [] } }],
       aiState: {
         model: 'private-model',
@@ -1521,6 +1531,7 @@ const run = async () => {
     assert.strictEqual(publicBySlug.body.page.claims, undefined);
     assert.strictEqual(publicBySlug.body.page.citations, undefined);
     assert.strictEqual(publicBySlug.body.page.createdFrom, undefined);
+    assert.strictEqual(publicBySlug.body.page.judgment, undefined);
 
     const publicById = await request(url, `/api/public/wiki/pages/${sharedPage._id}`, {
       headers: {}
@@ -1582,6 +1593,7 @@ const run = async () => {
     assert.deepStrictEqual(adoptedPublicPage.body.page.aiState.suggestions, []);
     assert.notStrictEqual(adoptedPublicPage.body.page.aiState.model, 'private-model');
     assert.notStrictEqual(adoptedPublicPage.body.page.aiState.provider, 'private-provider');
+    assert.strictEqual(adoptedPublicPage.body.page.judgment, undefined);
     const adoptionRevision = WikiRevision.records.find(record => (
       String(record.pageId) === String(adoptedPublicPage.body.page._id)
       && record.summary.includes('Adopted shared wiki')

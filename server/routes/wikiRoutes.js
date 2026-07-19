@@ -21,6 +21,13 @@ const {
   saveWikiSchemaSettings
 } = require('../services/wikiSchemaService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
+const { persistNoeisReceipt } = require('../services/noeisReceiptService');
+const { buildLivingThesisBody } = require('../services/wikiPageStructureService');
+const {
+  JudgmentValidationError,
+  normalizeClaimUpdates,
+  normalizeJudgment
+} = require('../services/wikiJudgmentService');
 const { runWikiMaintenanceCandidate } = require('../services/wikiMaintenancePublicationService');
 const {
   acquireRepoBuildLease,
@@ -2222,6 +2229,7 @@ const buildWikiRouter = ({
 
   const restorePageSnapshot = (page, snapshot = {}) => {
     if (!page || !snapshot) return;
+    const initialRevisionId = page.judgment?.initialRevisionId || null;
     [
       'title',
       'slug',
@@ -2234,11 +2242,13 @@ const buildWikiRouter = ({
       'sourceRefs',
       'claims',
       'citations',
+      'judgment',
       'freshness',
       'aiState'
     ].forEach((field) => {
       if (snapshot[field] !== undefined) page[field] = clonePlain(snapshot[field]);
     });
+    if (initialRevisionId && page.judgment) page.judgment.initialRevisionId = initialRevisionId;
   };
 
   const savePageWithVersionRetry = async (page, userId) => {
@@ -2263,6 +2273,7 @@ const buildWikiRouter = ({
         'sourceRefs',
         'claims',
         'citations',
+        'judgment',
         'freshness',
         'aiState'
       ].forEach((field) => {
@@ -2634,6 +2645,7 @@ const buildWikiRouter = ({
 
   router.post('/api/wiki/pages', wikiAuth, async (req, res) => {
     try {
+      const livingThesisPreset = req.body?.preset === 'living_thesis';
       const unsupportedMetadataFields = ['sourceRefs', 'claims', 'citations']
         .filter(field => req.body?.[field] !== undefined);
       if (unsupportedMetadataFields.length) {
@@ -2654,21 +2666,41 @@ const buildWikiRouter = ({
       });
       if (initialSourceRefs?.error) return res.status(400).json({ error: initialSourceRefs.error });
       const title = normalizeTitle(req.body?.title || createdFrom.label);
-      const body = req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
+      const governingQuestion = String(req.body?.governingQuestion || '').replace(/\s+/g, ' ').trim();
+      if (livingThesisPreset && !governingQuestion) {
+        return res.status(400).json({ error: 'A governing question is required for a living thesis.' });
+      }
+      const body = livingThesisPreset
+        ? buildLivingThesisBody()
+        : req.body?.body && typeof req.body.body === 'object' && !Array.isArray(req.body.body)
         ? req.body.body
         : emptyDoc();
       const page = new WikiPage({
         userId: req.user.id,
         title,
         slug: await buildUniqueSlug(req.user.id, title),
-        pageType: pageType?.value || 'topic',
+        pageType: livingThesisPreset ? 'overview' : (pageType?.value || 'topic'),
         status: 'draft',
         visibility: 'private',
         sourceScope: sourceScope?.value || 'entire_library',
         createdFrom,
         body,
         plainText: extractPlainText(body),
-        sourceRefs: initialSourceRefs.value
+        sourceRefs: initialSourceRefs.value,
+        judgment: livingThesisPreset ? normalizeJudgment({
+          input: {
+            kind: 'thesis',
+            governingQuestion,
+            status: 'framing',
+            decisionPosture: 'investigate',
+            startedAt: new Date(),
+            causalModel: { summary: '', nodes: [], edges: [] },
+            assumptions: [],
+            unknowns: [],
+            falsifiers: [],
+            decisions: []
+          }
+        }) : null
       });
       refreshPageClaims(page);
       await page.save();
@@ -3719,6 +3751,13 @@ const buildWikiRouter = ({
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const before = snapshotPage(page);
+      const actorType = req.agentToken ? 'agent' : 'user';
+      const normalizedJudgment = req.body?.judgment !== undefined
+        ? normalizeJudgment({ input: req.body.judgment, existing: page.judgment, actorType })
+        : null;
+      const claimUpdates = req.body?.claimUpdates !== undefined
+        ? normalizeClaimUpdates(req.body.claimUpdates)
+        : [];
 
       if (req.body?.title !== undefined) {
         page.title = normalizeTitle(req.body.title);
@@ -3741,22 +3780,159 @@ const buildWikiRouter = ({
         page.plainText = extractPlainText(req.body.body);
       }
       if (req.body?.body !== undefined) refreshPageClaims(page);
+      if (normalizedJudgment) {
+        page.judgment = normalizedJudgment;
+        if (typeof page.markModified === 'function') page.markModified('judgment');
+      }
+      if (claimUpdates.length) {
+        const claimById = new Map((page.claims || []).map(claim => [String(claim.claimId), claim]));
+        for (const update of claimUpdates) {
+          const claim = claimById.get(update.claimId);
+          if (!claim) return res.status(400).json({ error: `Unknown claimId: ${update.claimId}.` });
+          const changed = claim.epistemicStatus !== update.epistemicStatus
+            || claim.materiality !== update.materiality
+            || claim.implication !== update.implication
+            || JSON.stringify(claim.falsifierIds || []) !== JSON.stringify(update.falsifierIds || []);
+          if (!changed) continue;
+          claim.epistemicStatus = update.epistemicStatus;
+          claim.materiality = update.materiality;
+          claim.implication = update.implication;
+          claim.falsifierIds = update.falsifierIds;
+          claim.history.push({
+            at: new Date(),
+            event: 'epistemic_review',
+            support: claim.support || 'unsupported',
+            text: claim.text || '',
+            section: claim.section || '',
+            confidence: claim.confidence,
+            epistemicStatus: update.epistemicStatus,
+            disposition: update.epistemicStatus === 'rejected' ? 'rejected' : 'accepted',
+            reason: 'Owner updated the claim judgment contract.',
+            actorType
+          });
+        }
+        if (typeof page.markModified === 'function') page.markModified('claims');
+      }
 
+      await page.save();
+      await syncPageGraph(page, req.user.id);
+      const revision = await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'user_edit',
+        actorType,
+        summary: `Updated "${page.title}".`
+      });
+      const decisionsChanged = JSON.stringify(before?.judgment?.decisions || [])
+        !== JSON.stringify(snapshotPage(page)?.judgment?.decisions || []);
+      if (decisionsChanged) {
+        await persistNoeisReceipt({
+          NoeisReceipt,
+          userId: req.user.id,
+          receipt: {
+            id: `judgment-decision:${serializeId(page._id)}:${serializeId(revision?._id)}`,
+            kind: 'judgment_decision_recorded',
+            source: actorType === 'agent' ? 'agent' : 'wiki',
+            sourceLabel: 'Living thesis decision ledger',
+            status: 'completed',
+            summary: 'Decision record saved; no external action executed.',
+            completedAt: new Date(),
+            touched: [{ type: 'wiki_page', id: serializeId(page._id), label: page.title }]
+          }
+        });
+      }
+      res.status(200).json(serializeWikiPage(page));
+    } catch (error) {
+      if (error instanceof JudgmentValidationError) return res.status(error.statusCode).json({ error: error.message });
+      console.error('Error updating wiki page:', error);
+      res.status(500).json({ error: 'Failed to update wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/judgment/initial-snapshot', wikiAuth, async (req, res) => {
+    const revisionId = new mongoose.Types.ObjectId();
+    let reservedPage = null;
+    try {
+      if (req.agentToken) return res.status(403).json({ error: 'Only the human owner can preserve the initial judgment.' });
+      if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
+      const existing = await findOwnedPage(req).lean();
+      if (!existing) return res.status(404).json({ error: 'Wiki page not found.' });
+      if (!existing.judgment?.kind) return res.status(400).json({ error: 'This page does not have a judgment contract.' });
+      if (existing.judgment?.initialRevisionId) {
+        return res.status(409).json({ error: 'The initial judgment has already been saved.', initialRevisionId: serializeId(existing.judgment.initialRevisionId) });
+      }
+      reservedPage = await WikiPage.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user.id, 'judgment.initialRevisionId': null },
+        { $set: { 'judgment.initialRevisionId': revisionId } },
+        { new: true, runValidators: true }
+      );
+      if (!reservedPage) return res.status(409).json({ error: 'The initial judgment has already been saved.' });
+      const revision = await createWikiRevision({
+        WikiRevision,
+        revisionId,
+        userId: req.user.id,
+        page: reservedPage,
+        reason: 'user_edit',
+        actorType: 'user',
+        summary: 'Preserved the initial judgment as a day-zero belief snapshot.'
+      });
+      await persistNoeisReceipt({
+        NoeisReceipt,
+        userId: req.user.id,
+        receipt: {
+          id: `judgment-initial:${serializeId(reservedPage._id)}:${serializeId(revision._id)}`,
+          kind: 'judgment_initial_snapshot',
+          source: 'wiki',
+          sourceLabel: 'Living thesis',
+          status: 'completed',
+          summary: 'Initial judgment preserved. This records the starting belief; it does not prove the thesis.',
+          completedAt: new Date(),
+          touched: [{ type: 'wiki_page', id: serializeId(reservedPage._id), label: reservedPage.title }]
+        }
+      });
+      res.status(201).json({ page: serializeWikiPage(reservedPage), revisionId: serializeId(revision._id) });
+    } catch (error) {
+      if (reservedPage) {
+        await WikiPage.updateOne(
+          { _id: reservedPage._id, userId: req.user.id, 'judgment.initialRevisionId': revisionId },
+          { $set: { 'judgment.initialRevisionId': null } }
+        ).catch(() => null);
+      }
+      console.error('Error saving initial judgment:', error);
+      res.status(500).json({ error: 'Failed to save the initial judgment.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/judgment/initial-snapshot/restore', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) return res.status(403).json({ error: 'Only the human owner can restore the initial judgment.' });
+      if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const initialRevisionId = page.judgment?.initialRevisionId;
+      if (!initialRevisionId) return res.status(404).json({ error: 'No initial judgment snapshot exists.' });
+      const revision = await WikiRevision.findOne({ _id: initialRevisionId, userId: req.user.id, pageId: page._id }).lean();
+      if (!revision?.after) return res.status(409).json({ error: 'The initial judgment snapshot is unavailable.' });
+      const beforeRestore = snapshotPage(page);
+      restorePageSnapshot(page, revision.after);
+      if (page.judgment) page.judgment.initialRevisionId = initialRevisionId;
       await page.save();
       await syncPageGraph(page, req.user.id);
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
         page,
-        before,
+        before: beforeRestore,
         reason: 'user_edit',
         actorType: 'user',
-        summary: `Updated "${page.title}".`
+        summary: 'Restored the page to its preserved initial judgment.'
       });
-      res.status(200).json(serializeWikiPage(page));
+      res.status(200).json({ page: serializeWikiPage(page), restoredRevisionId: serializeId(initialRevisionId) });
     } catch (error) {
-      console.error('Error updating wiki page:', error);
-      res.status(500).json({ error: 'Failed to update wiki page.' });
+      console.error('Error restoring initial judgment:', error);
+      res.status(500).json({ error: 'Failed to restore the initial judgment.' });
     }
   });
 

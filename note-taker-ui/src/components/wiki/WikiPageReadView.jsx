@@ -65,6 +65,7 @@ import {
 import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 import WikiRepoDossierOverview from './WikiRepoDossierOverview';
 import WikiRepoDossierBody from './WikiRepoDossierBody';
+import WikiLivingThesis from './WikiLivingThesis';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -2310,6 +2311,15 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <WikiReadTitle title={displayWikiPageTitle(page)} />
+            <WikiLivingThesis
+              page={page}
+              pageId={pageId}
+              onPageUpdate={(nextPage) => {
+                if (!nextPage) return;
+                latestPageRef.current = nextPage;
+                setPage(nextPage);
+              }}
+            />
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}

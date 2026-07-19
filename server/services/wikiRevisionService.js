@@ -17,6 +17,7 @@ const snapshotPage = (page) => {
     sourceRefs: Array.isArray(raw.sourceRefs) ? raw.sourceRefs : [],
     claims: Array.isArray(raw.claims) ? raw.claims : [],
     citations: Array.isArray(raw.citations) ? raw.citations : [],
+    judgment: raw.judgment || null,
     freshness: raw.freshness || {},
     publicProof: raw.publicProof || {},
     aiState: raw.aiState || {}
@@ -25,6 +26,7 @@ const snapshotPage = (page) => {
 
 const restorePageSnapshot = (page, snapshot = {}) => {
   if (!page || !snapshot) return page;
+  const initialRevisionId = page.judgment?.initialRevisionId || null;
   [
     'title',
     'slug',
@@ -38,6 +40,7 @@ const restorePageSnapshot = (page, snapshot = {}) => {
     'sourceRefs',
     'claims',
     'citations',
+    'judgment',
     'freshness',
     'publicProof',
     'aiState'
@@ -46,11 +49,16 @@ const restorePageSnapshot = (page, snapshot = {}) => {
     page[field] = clonePlain(snapshot[field]);
     if (typeof page.markModified === 'function') page.markModified(field);
   });
+  if (initialRevisionId && page.judgment) {
+    page.judgment.initialRevisionId = initialRevisionId;
+    if (typeof page.markModified === 'function') page.markModified('judgment');
+  }
   return page;
 };
 
 const createWikiRevision = async ({
   WikiRevision,
+  revisionId = null,
   userId,
   page,
   pageId,
@@ -69,6 +77,7 @@ const createWikiRevision = async ({
   if (!WikiRevision || !userId || (!page && !pageId)) return null;
   const resolvedPageId = pageId || page?._id;
   const revision = new WikiRevision({
+    ...(revisionId ? { _id: revisionId } : {}),
     userId,
     pageId: resolvedPageId,
     before,
