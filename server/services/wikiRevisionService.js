@@ -72,7 +72,8 @@ const createWikiRevision = async ({
   sourceVersion = null,
   quality = null,
   summary = '',
-  pruneRevisionHistory
+  pruneRevisionHistory,
+  session = null
 } = {}) => {
   if (!WikiRevision || !userId || (!page && !pageId)) return null;
   const resolvedPageId = pageId || page?._id;
@@ -91,9 +92,9 @@ const createWikiRevision = async ({
     quality,
     summary
   });
-  await revision.save();
+  await revision.save(session ? { session } : undefined);
   try {
-    if (pruneRevisionHistory || typeof WikiRevision.countDocuments === 'function') {
+    if (!session && (pruneRevisionHistory || typeof WikiRevision.countDocuments === 'function')) {
       const prune = pruneRevisionHistory
         || require('./wikiRevisionRetentionService').pruneWikiRevisionHistory;
       await prune({ WikiRevision, userId, pageId: resolvedPageId, page });

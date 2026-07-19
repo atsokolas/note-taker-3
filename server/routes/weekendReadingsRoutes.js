@@ -11,6 +11,13 @@ const { deriveApprovalState, persistLifecycleReceipt } = require('../services/we
 
 const idOf = value => String(value?._id || value?.id || value || '').trim();
 
+const requireHumanOwner = (req, res, next) => {
+  if (req.agentToken || req.authInfo?.tokenSource === 'agent-token') {
+    return res.status(403).json({ error: 'Only the human owner can mutate Weekend Readings.' });
+  }
+  return next();
+};
+
 const statusForError = (error = {}) => {
   const message = String(error?.message || '');
   if (/not found/i.test(message)) return 404;
@@ -152,12 +159,12 @@ const buildWeekendReadingsHandlers = ({
 const buildWeekendReadingsRouter = ({ authenticateToken, ...dependencies } = {}) => {
   const router = express.Router();
   const handlers = buildWeekendReadingsHandlers(dependencies);
-  router.post('/api/wiki/weekend-readings/drafts', authenticateToken, handlers.createDraft);
+  router.post('/api/wiki/weekend-readings/drafts', authenticateToken, requireHumanOwner, handlers.createDraft);
   router.get('/api/wiki/weekend-readings/:pageId/status', authenticateToken, handlers.getStatus);
-  router.post('/api/wiki/weekend-readings/:pageId/review', authenticateToken, handlers.requestReview);
-  router.post('/api/wiki/weekend-readings/:pageId/approve', authenticateToken, handlers.approve);
-  router.post('/api/wiki/weekend-readings/:pageId/publish', authenticateToken, handlers.publish);
+  router.post('/api/wiki/weekend-readings/:pageId/review', authenticateToken, requireHumanOwner, handlers.requestReview);
+  router.post('/api/wiki/weekend-readings/:pageId/approve', authenticateToken, requireHumanOwner, handlers.approve);
+  router.post('/api/wiki/weekend-readings/:pageId/publish', authenticateToken, requireHumanOwner, handlers.publish);
   return router;
 };
 
-module.exports = { buildWeekendReadingsHandlers, buildWeekendReadingsRouter, sendError, statusForError };
+module.exports = { buildWeekendReadingsHandlers, buildWeekendReadingsRouter, requireHumanOwner, sendError, statusForError };

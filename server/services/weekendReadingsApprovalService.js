@@ -295,7 +295,6 @@ const serializePublishedArtifact = ({ approvalReceipt, publicationReceipt, slug 
   if (idOf(publicationReceipt?.provenance?.revisionId) !== idOf(artifact.revisionId)) return null;
   return {
     artifactType: 'weekend_readings',
-    editionKey: artifact.editionKey,
     title: artifact.title,
     slug: clean(slug, 160),
     authorLabel: artifact.authorLabel,

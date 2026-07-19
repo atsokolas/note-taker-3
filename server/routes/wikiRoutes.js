@@ -128,6 +128,23 @@ const PAGE_TYPE_ALIASES = {
   synthesis: 'overview'
 };
 const STATUSES = new Set(['draft', 'published', 'archived']);
+
+const buildRequireHumanForWeekendReadingsMutation = ({ WikiPage } = {}) => async (req, res, next) => {
+  const method = String(req.method || '').toUpperCase();
+  if (!req.agentToken || !['PATCH', 'POST', 'PUT', 'DELETE'].includes(method)) return next();
+  if (!String(req.path || '').startsWith('/api/wiki/pages/') || !req.params?.id) return next();
+  try {
+    const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id })
+      .select('createdFrom.label')
+      .lean();
+    if (String(page?.createdFrom?.label || '').startsWith('weekend-readings:')) {
+      return res.status(403).json({ error: 'Only the human owner can mutate Weekend Readings.' });
+    }
+    return next();
+  } catch (_error) {
+    return res.status(400).json({ error: 'Invalid wiki page id.' });
+  }
+};
 const VISIBILITIES = new Set(['private', 'shared']);
 const SOURCE_SCOPES = new Set(['entire_library', 'current_item', 'selected_sources']);
 const CREATED_FROM_TYPES = new Set([
@@ -184,6 +201,25 @@ const slugify = (value = '') => {
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
   return base || 'untitled-wiki-page';
+};
+
+const buildUniqueWikiSlugBuilder = ({ WikiPage } = {}) => async (
+  userId,
+  title,
+  existingId = null,
+  { session = null } = {}
+) => {
+  const base = slugify(title);
+  for (let i = 0; i < 25; i += 1) {
+    const slug = i === 0 ? base : `${base}-${i + 1}`;
+    const query = { userId, slug };
+    if (existingId) query._id = { $ne: existingId };
+    let existingQuery = WikiPage.findOne(query).select('_id');
+    if (session && typeof existingQuery.session === 'function') existingQuery = existingQuery.session(session);
+    const existing = await existingQuery.lean();
+    if (!existing) return slug;
+  }
+  return `${base}-${Date.now()}`;
 };
 
 const starterOriginId = (packId, title) => `starter:${packId}:${slugify(title)}`;
@@ -1673,19 +1709,11 @@ const buildWikiRouter = ({
     return next();
   };
 
-  const wikiAuth = [authenticateToken, auditExternalAgentAction];
+  const requireHumanForWeekendReadingsMutation = buildRequireHumanForWeekendReadingsMutation({ WikiPage });
 
-  const buildUniqueSlug = async (userId, title, existingId = null) => {
-    const base = slugify(title);
-    for (let i = 0; i < 25; i += 1) {
-      const slug = i === 0 ? base : `${base}-${i + 1}`;
-      const query = { userId, slug };
-      if (existingId) query._id = { $ne: existingId };
-      const existing = await WikiPage.findOne(query).select('_id').lean();
-      if (!existing) return slug;
-    }
-    return `${base}-${Date.now()}`;
-  };
+  const wikiAuth = [authenticateToken, auditExternalAgentAction, requireHumanForWeekendReadingsMutation];
+
+  const buildUniqueSlug = buildUniqueWikiSlugBuilder({ WikiPage });
 
   router.use(buildWeekendReadingsRouter({
     authenticateToken: wikiAuth,
@@ -5654,6 +5682,8 @@ const buildWikiRouter = ({
 };
 
 module.exports = {
+  buildRequireHumanForWeekendReadingsMutation,
+  buildUniqueWikiSlugBuilder,
   buildWikiRouter,
   buildWikiDraftState,
   extractPlainText,

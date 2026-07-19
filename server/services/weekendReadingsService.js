@@ -22,6 +22,42 @@ const TRACKING_QUERY_KEYS = new Set([
   'mc_eid'
 ]);
 
+const SENSITIVE_QUERY_KEYS = new Set([
+  'access_key',
+  'access_token',
+  'api_key',
+  'apikey',
+  'auth',
+  'authorization',
+  'client_secret',
+  'credential',
+  'credentials',
+  'id_token',
+  'jwt',
+  'key',
+  'oauth_token',
+  'password',
+  'passwd',
+  'private_key',
+  'refresh_token',
+  'secret',
+  'session_token',
+  'sig',
+  'signature',
+  'token',
+  'x_amz_credential',
+  'x_amz_security_token',
+  'x_amz_signature',
+  'x_goog_credential',
+  'x_goog_signature'
+]);
+
+const normalizeSensitiveQueryKey = value => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/(?:\[\])+$/g, '')
+  .replace(/-/g, '_');
+
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 
 const toDate = (value, field) => {
@@ -43,6 +79,15 @@ const canonicalizeReadingUrl = (value = '', { allowHttp = false } = {}) => {
     throw new Error(allowHttp
       ? 'Weekend Readings URLs must use https or explicitly accepted http.'
       : 'Weekend Readings URLs must use https.');
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('Weekend Readings URLs cannot contain embedded credentials.');
+  }
+  const sensitiveKey = Array.from(parsed.searchParams.keys()).find(key => (
+    SENSITIVE_QUERY_KEYS.has(normalizeSensitiveQueryKey(key))
+  ));
+  if (sensitiveKey) {
+    throw new Error(`Weekend Readings URLs cannot contain sensitive query parameter "${sensitiveKey}".`);
   }
   parsed.hash = '';
   parsed.hostname = parsed.hostname.toLowerCase();
@@ -341,6 +386,7 @@ const createWeekendReadingsDraft = async ({
 
 module.exports = {
   READING_ROLES,
+  SENSITIVE_QUERY_KEYS,
   SOURCE_QUALITIES,
   buildWeekendReadingsBody,
   buildWeekendReadingsDraft,

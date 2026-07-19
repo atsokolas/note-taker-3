@@ -151,6 +151,8 @@ test('published serializer requires matching publication, approval, revision, an
   assert.equal(serialized.visibility, 'shared');
   assert.equal(serialized.status, 'published');
   assert.equal(serialized.publication.approvedRevisionId, 'revision-123456789');
+  assert.equal(serialized.editionKey, undefined);
+  assert.doesNotMatch(JSON.stringify(serialized), /athan-user/);
   assert.equal(serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: { ...publication, status: 'draft' } }), null);
   assert.equal(serializePublishedArtifact({
     approvalReceipt: approval,
@@ -159,6 +161,38 @@ test('published serializer requires matching publication, approval, revision, an
   const tamperedApproval = JSON.parse(JSON.stringify(approval));
   tamperedApproval.provenance.publicArtifact.title = privateSentinel;
   assert.equal(serializePublishedArtifact({ approvalReceipt: tamperedApproval, publicationReceipt: publication }), null);
+});
+
+test('approval rejects credentialed and token-bearing source URLs before they can enter a public artifact', () => {
+  const credentialed = weekendReadingsLeakFixture();
+  credentialed.sourceRefs[0].url = 'https://reader:owner-secret@example.com/filing';
+  credentialed.sourceRefs[0].metadata.weekendReadings.canonicalUrl = credentialed.sourceRefs[0].url;
+  assert.throws(() => buildApprovalCandidate({ snapshot: credentialed, revisionId: 'revision-credentials' }), /embedded credentials/);
+
+  const tokenBearing = weekendReadingsLeakFixture();
+  tokenBearing.sourceRefs[0].url = 'https://example.com/filing?token=OWNER_SECRET_TOKEN';
+  tokenBearing.sourceRefs[0].metadata.weekendReadings.canonicalUrl = tokenBearing.sourceRefs[0].url;
+  assert.throws(() => buildApprovalCandidate({ snapshot: tokenBearing, revisionId: 'revision-token' }), /sensitive query parameter/);
+
+  for (const sensitiveQuery of [
+    'client_secret=OWNER_SECRET_CLIENT',
+    'refresh-token=OWNER_SECRET_REFRESH',
+    'token[]=OWNER_SECRET_NORMALIZED'
+  ]) {
+    const hostile = weekendReadingsLeakFixture();
+    hostile.sourceRefs[0].url = `https://example.com/filing?${sensitiveQuery}`;
+    hostile.sourceRefs[0].metadata.weekendReadings.canonicalUrl = hostile.sourceRefs[0].url;
+    assert.throws(
+      () => buildApprovalCandidate({ snapshot: hostile, revisionId: `revision-${sensitiveQuery}` }),
+      /sensitive query parameter/
+    );
+  }
+
+  const { approval, publication } = lifecycle();
+  assert.doesNotMatch(
+    JSON.stringify(serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: publication })),
+    /OWNER_SECRET_TOKEN|OWNER_SECRET_CLIENT|OWNER_SECRET_REFRESH|OWNER_SECRET_NORMALIZED|owner-secret/
+  );
 });
 
 test('public output excludes private page, claim, question, agent, and thesis-routing fields', () => {
