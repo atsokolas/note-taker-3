@@ -302,6 +302,9 @@ const SharedWikiPage = () => {
     ...(Number.isFinite(Number(page.sourceCount)) ? { sourceCount: Number(page.sourceCount) } : {}),
     ...(Number.isFinite(Number(page.claimCount)) ? { claimCount: Number(page.claimCount) } : {})
   } : null);
+  const displayedStampProof = repoDossierMode && stampProof
+    ? { ...stampProof, latestMaterialEvent: null }
+    : stampProof;
   const canonicalPath = location.pathname || `/share/wiki/${idOrSlug}`;
   const seoDescription = useMemo(
     () => buildSharedWikiDescription(page, intro),
@@ -393,7 +396,7 @@ const SharedWikiPage = () => {
   }, [handleAdopt, page, shouldAutoAdopt]);
 
   return (
-    <main className="shared-wiki-page">
+    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}`}>
       <nav className="shared-wiki-page__topbar" aria-label="Shared wiki navigation">
         <Link to="/" className="shared-wiki-page__brand">Noeis</Link>
         <Link to="/" className="shared-wiki-page__home">Open Noeis</Link>
@@ -413,8 +416,12 @@ const SharedWikiPage = () => {
             <h1>{displayTitle}</h1>
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
-                <h2>This is a shared wiki.</h2>
-                <p>Make it yours to edit, expand, and connect to your own thinking. Your copy joins your own background maintenance loop; the original owner keeps their version.</p>
+                <h2>{repoDossierMode ? 'Make this dossier yours.' : 'This is a shared wiki.'}</h2>
+                <p>
+                  {repoDossierMode
+                    ? 'Copy it into your workspace to edit, extend, and maintain against your own sources.'
+                    : 'Make it yours to edit, expand, and connect to your own thinking. Your copy joins your own background maintenance loop; the original owner keeps their version.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -426,12 +433,16 @@ const SharedWikiPage = () => {
               </button>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>
-            <p className="shared-wiki-page__receipt" role="status">
-              {buildSharePreviewReceipt()}
-            </p>
+            {!repoDossierMode ? (
+              <p className="shared-wiki-page__receipt" role="status">
+                {buildSharePreviewReceipt()}
+              </p>
+            ) : null}
             <MaintenanceProofStamp
-              proof={stampProof}
+              proof={displayedStampProof}
               className="shared-wiki-page__maintenance-stamp maintenance-proof-stamp"
+              compact={repoDossierMode}
+              showCounts={!repoDossierMode}
             />
             <p className="shared-wiki-page__privacy-note">
               {PUBLIC_PROOF_PRIVACY_STATEMENT}
@@ -477,11 +488,21 @@ const SharedWikiPage = () => {
                     ))}
                   </ol>
                 </nav>
+                {mappedTocItems.length > 0 ? (
+                  <nav className="shared-wiki-page__toc-sections" aria-label="All repository sections">
+                    <span>On this page</span>
+                    {mappedTocItems.map(item => (
+                      <a key={item.id} href={`#${item.id}`} className={`is-level-${item.level}`}>
+                        {item.title}
+                      </a>
+                    ))}
+                  </nav>
+                ) : null}
               </aside>
             ) : null}
-            {mappedTocItems.length > 0 ? (
+            {!repoDossierMode && mappedTocItems.length > 0 ? (
               <aside className="shared-wiki-page__toc" aria-label="Contents">
-                <span>{repoDossierMode ? 'All sections' : 'Contents'}</span>
+                <span>Contents</span>
                 {mappedTocItems.map(item => (
                   <a key={item.id} href={`#${item.id}`} className={`is-level-${item.level}`}>
                     {item.title}

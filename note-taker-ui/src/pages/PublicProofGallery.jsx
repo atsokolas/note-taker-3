@@ -91,12 +91,13 @@ const PublicProofGallery = () => {
     };
   }, []);
 
-  const publicItems = items.filter((item) => ['proven', 'candidate', 'illustrative'].includes(item.proofGrade?.grade));
+  // A proof gallery should contain proof and inspectable candidates, not broad examples.
+  // Illustrative objects can live in /examples once they are useful enough on their own.
+  const publicItems = items.filter((item) => ['proven', 'candidate'].includes(item.proofGrade?.grade));
   const schema = useMemo(() => buildPublicProofGallerySchema(publicItems), [publicItems]);
   const flagship = publicItems.find((item) => item.proofGrade?.grade === 'proven') || null;
   const repoCandidate = publicItems.find((item) => item.proofGrade?.grade === 'candidate') || null;
   const acceptanceItems = items.filter((item) => item.proofGrade?.grade === 'acceptance_in_progress');
-  const illustrativeItems = publicItems.filter((item) => item.proofGrade?.grade === 'illustrative');
 
   const renderProofObject = (item, { primary = false, candidate = false } = {}) => {
     const proof = candidate ? {
@@ -244,20 +245,24 @@ const PublicProofGallery = () => {
       </section>
       ) : null}
 
-      <section className="public-proof-gallery__section public-proof-gallery__section--next" aria-label="Illustrative examples">
-        <p className="public-proof-gallery__eyebrow">Illustrative · unlisted examples</p>
-        <h2>Useful objects, not equivalent proof.</h2>
-        <p>These examples show the range of the same knowledge system. They do not yet demonstrate the full source-change → evaluation → accepted-state → receipt loop.</p>
-        {illustrativeItems.length ? (
-          <ul className="public-proof-gallery__page-list">
-            {illustrativeItems.map((item) => (
-              <li key={item.slot || item.href}>
-                <Link to={item.href}>{item.title}</Link>
-                <small>{item.proofGrade.label || 'Illustrative'} · example, not proof</small>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      {flagship && repoCandidate ? (
+        <section className="public-proof-gallery__section" id="candidate" aria-label="Candidate proof">
+          <div className="public-proof-gallery__section-head">
+            <p className="public-proof-gallery__eyebrow">Candidate · inspectable, not proven</p>
+            <h2>One maintenance comparison is still earning its grade.</h2>
+            <p>{repoCandidate.proofGrade?.reason}</p>
+          </div>
+          {renderProofObject(repoCandidate, { candidate: true })}
+        </section>
+      ) : null}
+
+      <section className="public-proof-gallery__section public-proof-gallery__section--next" aria-label="Proof standard">
+        <p className="public-proof-gallery__eyebrow">The bar</p>
+        <h2>Broad examples are not public proof.</h2>
+        <p>
+          This gallery stays deliberately small. An object appears here only when it has an accepted maintenance loop,
+          or a specific candidate comparison you can inspect. General concept pages and thin examples are excluded.
+        </p>
       </section>
     </main>
   );

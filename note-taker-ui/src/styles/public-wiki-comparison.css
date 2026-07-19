@@ -378,6 +378,135 @@
   line-height: 1.55;
 }
 
+.public-wiki-comparison__change-narratives {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--pwc-line);
+}
+
+.public-wiki-comparison__change-narrative {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.28fr) minmax(0, 1fr);
+  column-gap: 28px;
+  row-gap: 10px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--pwc-line);
+}
+
+.public-wiki-comparison__change-narrative.is-concern {
+  border-left: 3px solid var(--pwc-warn);
+  padding-left: 18px;
+}
+
+.public-wiki-comparison__change-narrative.is-concern .public-wiki-comparison__change-kicker {
+  color: color-mix(in srgb, var(--pwc-warn) 78%, var(--pwc-ink));
+}
+
+.public-wiki-comparison__change-kicker {
+  grid-row: 1 / span 4;
+  margin: 2px 0 0;
+  color: var(--pwc-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.public-wiki-comparison__change-narrative h3 {
+  margin: 0;
+  color: var(--pwc-ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+  font-weight: 520;
+  line-height: 1.15;
+}
+
+.public-wiki-comparison__change-explanation,
+.public-wiki-comparison__change-impact {
+  margin: 0;
+  color: var(--pwc-ink);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.public-wiki-comparison__change-impact {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid color-mix(in srgb, var(--pwc-line) 74%, transparent);
+  color: var(--pwc-muted);
+}
+
+.public-wiki-comparison__change-impact strong {
+  color: var(--pwc-ink);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-wiki-comparison__change-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-wiki-comparison__change-evidence li {
+  padding: 0;
+  border: 0;
+  color: var(--pwc-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.public-wiki-comparison__change-evidence a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.public-wiki-comparison__change-audit {
+  color: var(--pwc-muted);
+  font-size: 0.86rem;
+}
+
+.public-wiki-comparison__change-audit > summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--pwc-ink);
+  font-weight: 700;
+}
+
+.public-wiki-comparison__change-audit dl {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 14px;
+  border-left: 2px solid var(--pwc-line);
+}
+
+.public-wiki-comparison__change-audit dl > div {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.public-wiki-comparison__change-audit dt {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-wiki-comparison__change-audit dd {
+  margin: 0;
+  color: var(--pwc-ink);
+  line-height: 1.5;
+}
+
 .public-wiki-comparison__examples ol {
   display: grid;
   gap: 0;
@@ -744,8 +873,19 @@ html.dark .public-wiki-comparison {
   .public-wiki-comparison__four-answers,
   .public-wiki-comparison__five-answers,
   .public-wiki-comparison__five-answers > div:last-child,
-  .public-wiki-comparison__examples li {
+  .public-wiki-comparison__examples li,
+  .public-wiki-comparison__change-narrative {
     grid-template-columns: 1fr;
+  }
+
+  .public-wiki-comparison__change-kicker {
+    grid-row: auto;
+  }
+
+  .public-wiki-comparison__change-impact,
+  .public-wiki-comparison__change-audit dl > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .public-wiki-comparison {

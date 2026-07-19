@@ -8271,8 +8271,11 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 }
 
 .shared-wiki-page {
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
   padding: 24px;
+  overflow-x: hidden;
   background: var(--vellum-bg, var(--bg-primary));
   color: var(--text-primary);
 }
@@ -8307,6 +8310,17 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   max-width: 760px;
 }
 
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__hero {
+  max-width: 100%;
+}
+
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__hero h1 {
+  max-width: 920px;
+  font-size: clamp(2.75rem, 6vw, 5.25rem);
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+
 .shared-wiki-page__eyebrow,
 .shared-wiki-page__metrics,
 .shared-wiki-page__receipt,
@@ -8325,6 +8339,14 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 
 .shared-wiki-page__toc--dossier + .shared-wiki-page__toc {
   margin-top: 0;
+}
+
+.shared-wiki-page__toc-sections {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
 }
 
 .shared-wiki-page__comparison-link {
@@ -8359,6 +8381,27 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
     color-mix(in srgb, var(--accent-primary, #b1862e) 10%, transparent),
     color-mix(in srgb, var(--surface) 96%, transparent) 58%
   );
+}
+
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__adopt {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 15px 17px;
+}
+
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__adopt-cta {
+  justify-self: end;
+  min-height: 44px;
+  padding-inline: 22px;
+}
+
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__maintenance-stamp {
+  max-width: 100%;
+}
+
+.shared-wiki-page.is-repo-dossier .maintenance-proof-stamp__facts.is-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 18px;
 }
 
 .shared-wiki-page__adopt div {
@@ -8484,6 +8527,37 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   grid-template-columns: minmax(140px, 190px) minmax(0, 720px);
   gap: 34px;
   align-items: start;
+}
+
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__layout {
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+}
+
+.shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-body--collapsible {
+  gap: 0;
+}
+
+.shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-section {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-section:first-child {
+  border-top: 0;
+}
+
+.shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-section > summary {
+  padding: 15px 0;
+}
+
+.shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-section-body {
+  padding: 0 0 20px;
+}
+
+.shared-wiki-page__layout > * {
+  min-width: 0;
 }
 
 .shared-wiki-page__toc {
@@ -8622,7 +8696,30 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   cursor: default;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 960px) {
+  .shared-wiki-page {
+    padding: 16px;
+  }
+
+  .shared-wiki-page__article {
+    width: 100%;
+    padding: 40px 0 72px;
+  }
+
+  .shared-wiki-page.is-repo-dossier .shared-wiki-page__hero h1 {
+    font-size: clamp(2.5rem, 11vw, 4.4rem);
+  }
+
+  .shared-wiki-page.is-repo-dossier .shared-wiki-page__adopt,
+  .shared-wiki-page.is-repo-dossier .maintenance-proof-stamp__facts.is-compact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shared-wiki-page.is-repo-dossier .shared-wiki-page__adopt-cta {
+    width: 100%;
+    justify-self: stretch;
+  }
+
   .wiki-read__page-status-summary {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 5px 10px;
@@ -8724,7 +8821,8 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
     white-space: normal;
   }
 
-  .shared-wiki-page__layout {
+  .shared-wiki-page__layout,
+  .shared-wiki-page.is-repo-dossier .shared-wiki-page__layout {
     grid-template-columns: minmax(0, 1fr);
   }
 

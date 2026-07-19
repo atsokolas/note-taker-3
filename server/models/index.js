@@ -389,6 +389,20 @@ const wikiPublicProofAcceptedClockSchema = new mongoose.Schema({
   acceptedAt: { type: Date, required: true }
 }, { _id: false });
 
+const wikiPublicProofAcceptanceSnapshotSchema = new mongoose.Schema({
+  kind: { type: String, default: '', trim: true },
+  repository: { type: String, default: '', trim: true },
+  baselineHeadSha: { type: String, default: '', trim: true },
+  observedHeadSha: { type: String, default: '', trim: true },
+  publishedHeadSha: { type: String, default: '', trim: true },
+  comparisonVersion: { type: Number, default: 0 },
+  sourceEventId: { type: String, default: '', trim: true },
+  revisionId: { type: String, default: '', trim: true },
+  maintenanceRunId: { type: String, default: '', trim: true },
+  counts: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  acceptedAt: { type: Date, default: null }
+}, { _id: false });
+
 const wikiPublicProofSchema = new mongoose.Schema({
   grade: {
     type: String,
@@ -398,7 +412,8 @@ const wikiPublicProofSchema = new mongoose.Schema({
   reason: { type: String, default: '', trim: true },
   acceptedAt: { type: Date, default: null },
   acceptedEventId: { type: String, default: '', trim: true },
-  acceptedClocks: { type: [wikiPublicProofAcceptedClockSchema], default: [] }
+  acceptedClocks: { type: [wikiPublicProofAcceptedClockSchema], default: [] },
+  acceptanceSnapshot: { type: wikiPublicProofAcceptanceSnapshotSchema, default: null }
 }, { _id: false });
 
 const wikiAiStateSchema = new mongoose.Schema({

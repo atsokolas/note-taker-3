@@ -108,7 +108,13 @@ const sharedPage = (overrides = {}) => ({
       grade: 'proven',
       acceptedAt: '2026-07-12T00:00:00.000Z',
       acceptedEventId: 'maintenance-receipt-1',
-      reason: 'A claim-level repository maintenance receipt passed editorial acceptance.'
+      reason: 'A claim-level repository maintenance receipt passed editorial acceptance.',
+      acceptedClocks: [{
+        type: 'github',
+        sourceEventId: 'private-repo-event',
+        revisionId: 'private-repo-revision',
+        acceptedAt: '2026-07-12T00:00:00.000Z'
+      }]
     },
     externalWatches: {
       githubRepo: {
@@ -126,7 +132,9 @@ const sharedPage = (overrides = {}) => ({
   const grade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: proven });
   assert.strictEqual(grade.grade, 'proven');
   assert.strictEqual(grade.criteria.explicitlyAccepted, true);
+  assert.deepStrictEqual(grade.criteria.requiredClocks, { github: true });
   assert.strictEqual(grade.reason, 'A claim-level repository maintenance receipt passed editorial acceptance.');
+  assert.ok(!JSON.stringify(grade).includes('private-repo-event'));
 })();
 
 (() => {

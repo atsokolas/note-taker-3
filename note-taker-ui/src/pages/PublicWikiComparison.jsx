@@ -92,7 +92,11 @@ export const PROOF_PULSE_STATE_LABELS = Object.freeze({
 
 export const ACCEPTANCE_BLOCKER_LABELS = Object.freeze({
   no_source_backed_claim_rewrite:
-    'No source-backed claim rewrite has been demonstrated.'
+    'No source-backed claim rewrite has been demonstrated.',
+  no_preserved_peer_claims:
+    'No accepted peer claims were preserved through the update.',
+  editorial_quality_risks:
+    'One or more material rewrites failed structured editorial review.'
 });
 
 export const describeAcceptanceBlocker = (blocker = '') => {
@@ -123,6 +127,7 @@ export const normalizeProofPulse = (proofPulse = null) => {
       realClaimChanges: Number(acceptanceRaw.realClaimChanges) || 0,
       sourceBackedClaimChanges: Number(acceptanceRaw.sourceBackedClaimChanges) || 0,
       preservedClaims: Number(acceptanceRaw.preservedClaims) || 0,
+      blockingEditorialRisks: Number(acceptanceRaw.blockingEditorialRisks) || 0,
       blockers: (Array.isArray(acceptanceRaw.blockers) ? acceptanceRaw.blockers : [])
         .map((item) => cleanText(item))
         .filter(Boolean)
@@ -449,6 +454,137 @@ export const materialExamples = (comparison = {}, limit = 5) => {
   };
 };
 
+const publicEvidenceRefsFor = (row = {}) => {
+  const claim = row.after || row.before || {};
+  const seen = new Set();
+  return [
+    ...(Array.isArray(row.refs) ? row.refs : []),
+    ...(Array.isArray(row.evidenceRefs) ? row.evidenceRefs : []),
+    ...(Array.isArray(claim.sourceRefs) ? claim.sourceRefs : []),
+    ...(Array.isArray(claim.evidenceRefs) ? claim.evidenceRefs : [])
+  ].filter((ref) => {
+    const key = cleanText(ref?.url || ref?.path || ref?.title);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 4);
+};
+
+const genericChangeNarrative = ({ before, after, section, paths }) => {
+  const location = section ? ` in “${section}”` : '';
+  const evidence = paths.length
+    ? ` The current wording is grounded in ${paths.slice(0, 2).join(' and ')}.`
+    : '';
+  if (!before && after) {
+    return {
+      title: 'New accepted guidance',
+      explanation: `The maintained dossier added a claim${location} that was not present in the baseline.${evidence}`,
+      impact: 'Readers now receive guidance the baseline could not provide.'
+    };
+  }
+  if (before && !after) {
+    return {
+      title: 'Stale guidance removed',
+      explanation: `The maintained dossier removed a baseline claim${location} after the repository evidence no longer supported keeping it.${evidence}`,
+      impact: 'Readers are no longer asked to rely on guidance the current repository does not justify.'
+    };
+  }
+  return {
+    title: section ? `${section} guidance was corrected` : 'Accepted guidance was corrected',
+    explanation: `The maintained claim was rewritten to match the repository’s current source of truth${location}.${evidence}`,
+    impact: 'The page advances only the affected guidance while leaving unrelated accepted claims intact.'
+  };
+};
+
+/**
+ * Turn claim deltas into reader-facing explanations. Before/after text remains
+ * available as audit evidence, but is not asked to carry the explanation.
+ */
+export const explainMaterialChanges = (comparison = {}, limit = 5) => {
+  const narratives = [];
+  const groups = ['changed', 'gainedSupport', 'contradicted', 'added', 'removed'];
+  groups.forEach((group) => {
+    const rows = comparison?.claimComparison?.deltas?.[group] || [];
+    rows.forEach((row, rowIndex) => {
+      if (narratives.length >= limit) return;
+      const before = cleanText(row?.before?.text);
+      const after = cleanText(row?.after?.text);
+      const section = cleanText(row?.after?.section || row?.before?.section);
+      if ((!before && !after) || (isMalformedClaimText(before) && isMalformedClaimText(after))) return;
+      const refs = publicEvidenceRefsFor(row);
+      const paths = refs.map(ref => cleanText(ref.path || ref.title)).filter(Boolean);
+      const combined = `${before} ${after}`;
+      const structuredRisk = (comparison?.editorialReview?.risks || []).find(risk => (
+        cleanText(risk?.group) === group && Number(risk?.index) === rowIndex
+      ));
+      let narrative;
+
+      if (structuredRisk) {
+        narrative = {
+          title: cleanText(structuredRisk.title) || 'This rewrite requires editorial correction',
+          explanation: cleanText(structuredRisk.explanation) || 'The structured editorial review found a material regression in this rewrite.',
+          impact: cleanText(structuredRisk.impact) || 'This comparison cannot pass public-proof acceptance until the rewrite is corrected.',
+          tone: cleanText(structuredRisk.severity) === 'blocking' ? 'concern' : 'neutral'
+        };
+      } else if (paths.some(path => /(?:^|\/)\.env\.example$/i.test(path))
+        && /PUBLIC_PROOF_/i.test(after)
+        && /AI_SERVICE_/i.test(before)) {
+        narrative = {
+          title: 'Proof configuration was added, but AI settings disappeared from the claim',
+          explanation: 'The maintained wording now names the six public-proof page selectors, but it drops several AI-service variables that still exist in .env.example. The product configuration did not remove those variables; only the dossier’s summary stopped mentioning them.',
+          impact: 'The claim is more current about public proof but less complete as setup guidance. It should be reviewed before this comparison is promoted.',
+          tone: 'concern'
+        };
+      } else if (paths.some(path => /package\.json$/i.test(path))
+        && /declared package manager/i.test(after)
+        && /run the API/i.test(before)) {
+        narrative = {
+          title: 'Setup guidance became broader—and less executable',
+          explanation: 'The runbook moved from explicit API/UI startup guidance to a multi-package rule: use the repository’s package evidence, work only in the affected package, and run its own proof commands.',
+          impact: 'The new rule is safer across packages, but it no longer gives a new contributor the concrete local startup sequence. The dossier’s quickstart must carry that missing detail.',
+          tone: 'concern'
+        };
+      } else if (/wiki-mcp/i.test(combined)
+        && /README\.md/i.test(before)
+        && /package\.json/i.test(after)) {
+        narrative = {
+          title: 'The claim now points to metadata instead of the actual documentation',
+          explanation: 'The maintained wording replaced packages/wiki-mcp/README.md with packages/wiki-mcp/package.json as the file said to document connected-agent tools and runtime transport. Package metadata proves the binary entrypoint and scripts; the README still contains the transport instructions.',
+          impact: 'The new wording overstates what package.json documents. This looks like a weaker rewrite and should be corrected before public-proof acceptance.',
+          tone: 'concern'
+        };
+      } else {
+        narrative = genericChangeNarrative({ before, after, section, paths });
+      }
+
+      const beforeSupport = cleanText(row?.before?.support);
+      const afterSupport = cleanText(row?.after?.support);
+      if (group === 'gainedSupport' || (beforeSupport && afterSupport && beforeSupport !== afterSupport)) {
+        narrative.explanation += ` Evidence status moved from ${beforeSupport || 'unrated'} to ${afterSupport || 'unrated'}.`;
+      }
+      if (group === 'contradicted') {
+        narrative.impact = 'The page flags the conflict instead of silently presenting the prior claim as settled.';
+      }
+
+      narratives.push({
+        type: claimDeltaLabels[group],
+        section,
+        before: before || 'No prior accepted claim.',
+        after: after || 'Removed from the candidate claim set.',
+        refs,
+        disposition: group === 'contradicted'
+          ? 'Flagged as contradicted'
+          : group === 'gainedSupport'
+            ? 'Accepted with stronger support'
+            : `Accepted ${claimDeltaLabels[group].toLowerCase()}`,
+        tone: narrative.tone || 'neutral',
+        ...narrative
+      });
+    });
+  });
+  return narratives;
+};
+
 export const buildPublicWikiComparisonSchema = ({
   comparison,
   canonicalPath = '/',
@@ -543,6 +679,39 @@ const ClaimRow = ({ row }) => {
     </li>
   );
 };
+
+const ChangeNarrative = ({ change, index }) => (
+  <article className={`public-wiki-comparison__change-narrative${change.tone === 'concern' ? ' is-concern' : ''}`}>
+    <p className="public-wiki-comparison__change-kicker">
+      Change {index + 1}{change.section ? ` · ${change.section}` : ''}{change.tone === 'concern' ? ' · Editorial concern' : ''}
+    </p>
+    <h3>{change.title}</h3>
+    <p className="public-wiki-comparison__change-explanation">{change.explanation}</p>
+    <p className="public-wiki-comparison__change-impact">
+      <strong>Why it matters</strong>
+      {change.impact}
+    </p>
+    {change.refs.length ? (
+      <ul className="public-wiki-comparison__change-evidence" aria-label={`Evidence for change ${index + 1}`}>
+        {change.refs.map((ref, refIndex) => (
+          <li key={ref.url || ref.path || ref.title || refIndex}>
+            {ref.url ? (
+              <a href={ref.url} target="_blank" rel="noopener noreferrer">{evidenceRefLabel(ref)}</a>
+            ) : evidenceRefLabel(ref)}
+          </li>
+        ))}
+      </ul>
+    ) : null}
+    <details className="public-wiki-comparison__change-audit">
+      <summary>Inspect accepted wording</summary>
+      <dl>
+        <div><dt>Before</dt><dd>{change.before}</dd></div>
+        <div><dt>After</dt><dd>{change.after}</dd></div>
+        <div><dt>Disposition</dt><dd>{change.disposition}</dd></div>
+      </dl>
+    </details>
+  </article>
+);
 
 const PublicWikiComparison = () => {
   const { idOrSlug = '' } = useParams();
@@ -647,8 +816,9 @@ const PublicWikiComparison = () => {
   const staticErrors = Array.isArray(comparison?.staticWikiErrors) ? comparison.staticWikiErrors : [];
   const refs = Array.isArray(comparison?.supportingRefs) ? comparison.supportingRefs : [];
   const exampleBundle = materialExamples(comparison || {});
-  const examples = exampleBundle.examples;
   const exampleDisclosure = exampleBundle.disclosure;
+  const changeNarratives = explainMaterialChanges(comparison || {});
+  const editorialConcernCount = changeNarratives.filter(change => change.tone === 'concern').length;
   const semanticClaimCount = MATERIAL_CLAIM_KEYS.reduce((sum, key) => sum + countOf(comparison, key), 0);
   const evidenceRefreshedCount = countOf(comparison, 'evidenceRefreshed');
   const largeClaimDelta = semanticClaimCount >= 25;
@@ -826,13 +996,15 @@ const PublicWikiComparison = () => {
                 <dt>5 · Why still only a candidate?</dt>
                 <dd data-testid="answer-candidate">
                   {acceptanceFailure
-                    || (!provenComparison
-                      ? 'A wiki version may be published, but this comparison has not cleared the public-proof acceptance bar.'
-                      : proofPulse?.state === 'held_for_review'
-                        ? 'The candidate did not clear the evidence bar, so the trusted published page stayed unchanged.'
-                        : publishedSha === observedSha
-                          ? 'The reviewed repository version cleared acceptance and now backs the public wiki.'
-                          : 'Repository ahead means GitHub has changed, but the public wiki stays on the last accepted version until review clears.')}
+                    || (editorialConcernCount > 0
+                      ? `${editorialConcernCount} material claim rewrite${editorialConcernCount === 1 ? '' : 's'} still need editorial correction before this comparison should be treated as public proof.`
+                      : (!provenComparison
+                        ? 'A wiki version may be published, but this comparison has not cleared the public-proof acceptance bar.'
+                        : proofPulse?.state === 'held_for_review'
+                          ? 'The candidate did not clear the evidence bar, so the trusted published page stayed unchanged.'
+                          : publishedSha === observedSha
+                            ? 'The reviewed repository version cleared acceptance and now backs the public wiki.'
+                            : 'Repository ahead means GitHub has changed, but the public wiki stays on the last accepted version until review clears.'))}
                 </dd>
               </div>
             </dl>
@@ -856,39 +1028,24 @@ const PublicWikiComparison = () => {
             ) : null}
           </section>
 
-          <section className="public-wiki-comparison__section public-wiki-comparison__examples" aria-label="Material examples">
-            <h2>Material examples</h2>
+          <section className="public-wiki-comparison__section public-wiki-comparison__examples" aria-label="What actually changed">
+            <h2>What actually changed</h2>
             <p>
-              {examples.length
-                ? 'Claim-level outcomes appear before technical repository paths. Evidence-refreshed rows are labeled as preserved, never as changed.'
-                : 'No claim-level source-to-claim example can be demonstrated from this public comparison.'}
+              {changeNarratives.length
+                ? 'Each accepted change is explained first. The exact before-and-after wording remains available as audit evidence.'
+                : 'No material claim change can be explained from this public comparison.'}
             </p>
             {exampleDisclosure ? (
               <p className="public-wiki-comparison__example-disclosure" role="note" data-testid="example-disclosure">
                 {exampleDisclosure}
               </p>
             ) : null}
-            {examples.length ? (
-              <ol>
-                {examples.map((example, index) => (
-                  <li key={`${example.type}-${example.before}-${index}`}>
-                    <span>{example.type}</span>
-                    <dl>
-                      <div><dt>Before</dt><dd>{example.before}</dd></div>
-                      <div><dt>After</dt><dd>{example.after}</dd></div>
-                      <div>
-                        <dt>Evidence</dt>
-                        <dd>{example.evidence?.url ? (
-                          <a href={example.evidence.url} target="_blank" rel="noopener noreferrer">
-                            {example.evidence.label}
-                          </a>
-                        ) : example.evidence?.label || 'No public source is linked to this claim delta.'}</dd>
-                      </div>
-                      <div><dt>Disposition</dt><dd>{example.disposition}</dd></div>
-                    </dl>
-                  </li>
+            {changeNarratives.length ? (
+              <div className="public-wiki-comparison__change-narratives">
+                {changeNarratives.map((change, index) => (
+                  <ChangeNarrative key={`${change.type}-${change.title}-${index}`} change={change} index={index} />
                 ))}
-              </ol>
+              </div>
             ) : null}
           </section>
 

@@ -218,14 +218,19 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       ))
       .map(clock => clean(clock.type, 60))
   );
-  const requiredClocks = {
-    secEdgar: acceptedClockTypes.has('sec_edgar')
-  };
+  const requiredClocks = slot.key === 'alphabet'
+    ? { secEdgar: acceptedClockTypes.has('sec_edgar') }
+    : slot.key === 'noeis-repo'
+      ? { github: acceptedClockTypes.has('github') }
+      : {};
   const optionalClocks = {
     earningsTranscript: acceptedClockTypes.has('earnings_transcript')
   };
-  const hasRequiredClockAcceptance = slot.key !== 'alphabet'
-    || requiredClocks.secEdgar;
+  const hasRequiredClockAcceptance = slot.key === 'alphabet'
+    ? requiredClocks.secEdgar
+    : slot.key === 'noeis-repo'
+      ? requiredClocks.github
+      : true;
   const hasAcceptedVersion = Boolean(
     clean(proof.currentThrough?.ref, 1000)
     || clean(page.freshness?.acceptedThrough?.sourceEventId, 180)
@@ -268,7 +273,8 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       acceptedVersion: hasAcceptedVersion,
       materialEvent: hasMaterialEvent,
       sourceGrounded: hasEvidence,
-      ...(slot.key === 'alphabet' ? { requiredClocks, optionalClocks } : {})
+      ...(['alphabet', 'noeis-repo'].includes(slot.key) ? { requiredClocks } : {}),
+      ...(slot.key === 'alphabet' ? { optionalClocks } : {})
     }
   };
 };

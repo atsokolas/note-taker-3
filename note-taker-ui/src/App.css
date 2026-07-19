@@ -4189,6 +4189,10 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   padding-top: 42px;
 }
 
+.shared-wiki-page__layout > * {
+  min-width: 0;
+}
+
 .shared-wiki-page__toc {
   position: sticky;
   top: 24px;
@@ -4260,7 +4264,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   color: color-mix(in srgb, var(--vellum-ink, #35332f) 68%, transparent);
 }
 
-@media (max-width: 820px) {
+@media (max-width: 960px) {
   .shared-wiki-page__layout {
     grid-template-columns: minmax(0, 1fr);
   }

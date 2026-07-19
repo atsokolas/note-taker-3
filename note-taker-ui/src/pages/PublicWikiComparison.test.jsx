@@ -5,6 +5,7 @@ import * as router from 'react-router-dom';
 import PublicWikiComparison, {
   buildPublicWikiComparisonSchema,
   evidenceRefLabel,
+  explainMaterialChanges,
   isMalformedClaimText,
   isZeroChangeComparison,
   materialExamples,
@@ -514,7 +515,7 @@ describe('PublicWikiComparison', () => {
     const pathFallbackLink = within(refsSection).getByRole('link', { name: 'package.json' });
     expect(pathFallbackLink).toHaveAttribute('href', expect.stringContaining('package.json'));
     expect(within(refsSection).getByRole('link', { name: /atsokolas\/note-taker-3 README\.md/i })).toBeInTheDocument();
-    const exampleSection = screen.getByRole('region', { name: 'Material examples' });
+    const exampleSection = screen.getByRole('region', { name: 'What actually changed' });
     const exampleLinks = within(exampleSection).queryAllByRole('link');
     exampleLinks.forEach((link) => {
       expect(link).toHaveAccessibleName();
@@ -542,7 +543,7 @@ describe('PublicWikiComparison', () => {
     expect(screen.getByText('3 · What actually changed?')).toBeInTheDocument();
     expect(screen.getByText('4 · What was preserved?')).toBeInTheDocument();
     expect(screen.getByText('5 · Why still only a candidate?')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Material examples' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What actually changed' })).toBeInTheDocument();
     const detail = screen.getByText('Technical detail and full evidence').closest('details');
     expect(detail).not.toHaveAttribute('open');
     expect(detail.querySelectorAll('[data-claim-group]').length).toBeGreaterThan(0);
@@ -562,12 +563,18 @@ describe('PublicWikiComparison', () => {
 
     getPublicWikiComparison.mockResolvedValue({ comparison });
     renderComparison(<PublicWikiComparison />);
-    await screen.findByRole('heading', { name: 'Material examples' });
-    const exampleSection = screen.getByRole('region', { name: 'Material examples' });
-    expect(within(exampleSection).getByText('Old entrypoint claim.')).toBeInTheDocument();
-    expect(within(exampleSection).getByText('Updated entrypoint claim.')).toBeInTheDocument();
-    expect(within(exampleSection).getAllByText(/No public source is linked/i).length).toBeGreaterThan(0);
-    expect(within(exampleSection).queryByText('package.json')).not.toBeInTheDocument();
+    const narratives = explainMaterialChanges(comparison);
+    expect(narratives.length).toBeGreaterThan(0);
+    expect(narratives[0]).toEqual(expect.objectContaining({
+      title: expect.any(String),
+      explanation: expect.any(String),
+      impact: expect.any(String)
+    }));
+
+    await screen.findByRole('heading', { name: 'What actually changed' });
+    const exampleSection = screen.getByRole('region', { name: 'What actually changed' });
+    expect(within(exampleSection).getAllByText(/Why it matters/i).length).toBeGreaterThan(0);
+    expect(within(exampleSection).getAllByText(/Inspect accepted wording/i).length).toBeGreaterThan(0);
   });
 
   it('omits ledger deltas with no publicly visible before-after difference or evidence', () => {
@@ -578,6 +585,63 @@ describe('PublicWikiComparison', () => {
       after: { text: 'Same public claim.', support: 'supported', section: 'Overview' }
     }];
     expect(materialExamples(comparison).examples).toEqual([]);
+  });
+
+  it('explains the current repo changes instead of making before-and-after prose carry the meaning', () => {
+    const comparison = baseComparison();
+    comparison.claimComparison.counts.changed = 3;
+    comparison.claimComparison.deltas.changed = [
+      {
+        before: { text: 'Run the API and UI, then prove wiki behavior.', section: 'Run and prove changes', support: 'supported' },
+        after: { text: 'Use the declared package manager and the repository-declared proof command.', section: 'Run and prove changes', support: 'supported' },
+        evidenceRefs: [{ path: 'package.json', url: 'https://github.com/example/repo/blob/head/package.json' }]
+      },
+      {
+        before: { text: 'Configure AI_SERVICE_URL and AI_SERVICE_TIMEOUT_MS. Keep values private.', section: 'Run and prove changes', support: 'supported' },
+        after: { text: 'Configure PUBLIC_PROOF_ALPHABET_PAGE and PUBLIC_PROOF_NOEIS_REPO_PAGE. Keep values private.', section: 'Run and prove changes', support: 'supported' },
+        evidenceRefs: [{ path: '.env.example', url: 'https://github.com/example/repo/blob/head/.env.example' }]
+      },
+      {
+        before: { text: 'packages/wiki-mcp/README.md documents connected-agent wiki tools.', section: 'System map', support: 'supported' },
+        after: { text: 'packages/wiki-mcp/package.json documents connected-agent wiki tools.', section: 'System map', support: 'supported' },
+        evidenceRefs: [{ path: 'packages/wiki-mcp/package.json', url: 'https://github.com/example/repo/blob/head/packages/wiki-mcp/package.json' }]
+      }
+    ];
+    comparison.editorialReview = {
+      passed: false,
+      blockingRiskCount: 3,
+      risks: [
+        {
+          code: 'operational_detail_lost', severity: 'blocking', group: 'changed', index: 0,
+          title: 'Setup guidance became broader—and less executable',
+          explanation: 'The rewrite replaces explicit API/UI startup guidance with a general package-level rule.',
+          impact: 'The maintained claim no longer gives a contributor the concrete local startup sequence present in the accepted baseline.'
+        },
+        {
+          code: 'configuration_scope_regressed', severity: 'blocking', group: 'changed', index: 1,
+          title: 'Proof configuration was added, but AI settings disappeared from the claim',
+          explanation: 'The rewrite adds public-proof selectors while dropping AI-service variables that still exist in .env.example.',
+          impact: 'A claim grounded in the same configuration file became less complete and requires correction before acceptance.'
+        },
+        {
+          code: 'documentation_source_weakened', severity: 'blocking', group: 'changed', index: 2,
+          title: 'The claim now points to metadata instead of the actual documentation',
+          explanation: 'The rewrite replaces the package README with package.json as the file said to document runtime transport.',
+          impact: 'Package metadata is a weaker source for transport documentation and must be corrected before acceptance.'
+        }
+      ]
+    };
+
+    const narratives = explainMaterialChanges(comparison);
+    expect(narratives.map(item => item.title)).toEqual([
+      'Setup guidance became broader—and less executable',
+      'Proof configuration was added, but AI settings disappeared from the claim',
+      'The claim now points to metadata instead of the actual documentation'
+    ]);
+    expect(narratives.every(item => item.tone === 'concern')).toBe(true);
+    expect(narratives[0].impact).toMatch(/concrete local startup sequence/i);
+    expect(narratives[1].explanation).toMatch(/dropping AI-service variables/i);
+    expect(narratives[2].impact).toMatch(/weaker source/i);
   });
 
   it('labels an evidence-only ledger delta as preserved claim text', () => {

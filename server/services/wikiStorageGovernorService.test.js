@@ -9,6 +9,7 @@ const ids = {
   runRevision: '507f1f77bcf86cd799439011',
   runDelete: '507f1f77bcf86cd799439012',
   runReceipt: '507f1f77bcf86cd799439013',
+  runProof: '507f1f77bcf86cd799439014',
   eventAccepted: '507f1f77bcf86cd799439021',
   eventDelete: '507f1f77bcf86cd799439022',
   eventRevision: '507f1f77bcf86cd799439023',
@@ -51,7 +52,7 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   const WikiMaintenanceRun = {
     find(query) {
       if (query.sourceEventId) return new Query([{ sourceEventId: ids.eventRun }]);
-      return new Query(oldRows([ids.runRevision, ids.runDelete, ids.runReceipt]));
+      return new Query(oldRows([ids.runRevision, ids.runDelete, ids.runReceipt, ids.runProof]));
     },
     async deleteMany(query) { deleted.runs.push(...query._id.$in); return { deletedCount: query._id.$in.length }; }
   };
@@ -67,7 +68,7 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   const WikiPage = {
     find: () => new Query([{
       freshness: { acceptedThrough: { sourceEventId: ids.eventAccepted } },
-      publicProof: { acceptedClocks: [] }
+      publicProof: { acceptedClocks: [], acceptanceSnapshot: { maintenanceRunId: ids.runProof } }
     }])
   };
   const NoeisReceipt = {
@@ -86,7 +87,7 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   assert.strictEqual(result.effectiveRetentionDays, 14);
   assert.deepStrictEqual(deleted.runs, [ids.runDelete]);
   assert.deepStrictEqual(deleted.events, [ids.eventDelete]);
-  assert.strictEqual(result.maintenanceRuns.protected, 2);
+  assert.strictEqual(result.maintenanceRuns.protected, 3);
   assert.strictEqual(result.sourceEvents.protected, 3);
   console.log('wikiStorageGovernorService tests passed');
 })().catch((error) => {

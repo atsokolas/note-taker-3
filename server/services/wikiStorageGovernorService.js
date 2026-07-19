@@ -143,13 +143,14 @@ const runWikiStorageGovernor = async ({
   });
   const [receipts, pages] = await Promise.all([
     loadRows({ Model: NoeisReceipt, select: 'provenance' }),
-    loadRows({ Model: WikiPage, select: 'freshness.acceptedThrough publicProof.acceptedClocks' })
+    loadRows({ Model: WikiPage, select: 'freshness.acceptedThrough publicProof.acceptedClocks publicProof.acceptanceSnapshot' })
   ]);
   const durableIds = new Set();
   receipts.forEach(receipt => collectObjectIds(receipt.provenance, durableIds));
   pages.forEach(page => {
     collectObjectIds(page.freshness?.acceptedThrough, durableIds);
     collectObjectIds(page.publicProof?.acceptedClocks, durableIds);
+    collectObjectIds(page.publicProof?.acceptanceSnapshot, durableIds);
   });
 
   const runCandidates = await loadRows({

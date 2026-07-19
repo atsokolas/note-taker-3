@@ -44,6 +44,7 @@ const {
   armGitHubRepoWatchForPage: defaultArmGitHubRepoWatchForPage,
   checkGitHubRepoHeadForPage: defaultCheckGitHubRepoHeadForPage,
   checkGitHubRepoWatchForPage: defaultCheckGitHubRepoWatchForPage,
+  fetchRepoHead: defaultFetchGitHubRepoHead,
   parseGitHubRepo: parseGitHubRepoWatchInput
 } = require('../services/githubRepoWatcherService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
@@ -63,6 +64,10 @@ const {
   serializePublicProofEntry
 } = require('../services/publicProofService');
 const { buildAlphabetPublicProofAcceptance } = require('../services/wikiPublicProofAcceptanceService');
+const {
+  buildRepoPublicProofAcceptance,
+  serializeRepoAcceptancePreview
+} = require('../services/wikiRepoPublicProofAcceptanceService');
 const {
   buildRepoComparison,
   captureRepoBaseline,
@@ -1405,6 +1410,7 @@ const buildWikiRouter = ({
   armGitHubRepoWatchForPage = defaultArmGitHubRepoWatchForPage,
   checkGitHubRepoHeadForPage = defaultCheckGitHubRepoHeadForPage,
   checkGitHubRepoWatchForPage = defaultCheckGitHubRepoWatchForPage,
+  fetchGitHubRepoHead = defaultFetchGitHubRepoHead,
   findWikiBacklinks = defaultFindWikiBacklinks,
   shapeWikiProposalCandidates: shapeWikiProposalCandidatesRunner = shapeWikiProposalCandidates,
   trackEvent = null,
@@ -3795,6 +3801,113 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error accepting Alphabet public proof:', error);
       res.status(500).json({ error: 'Failed to accept Alphabet public proof.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/public-proof/accept-repo-comparison', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiRepoBaseline || !WikiSourceEvent || !WikiRevision || !WikiMaintenanceRun) {
+        return res.status(503).json({ error: 'Repository public proof acceptance records are not available.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const repoWatch = page.externalWatches?.githubRepo || {};
+      let liveRepoHead;
+      try {
+        liveRepoHead = await fetchGitHubRepoHead({ owner: repoWatch.owner, repo: repoWatch.repo });
+      } catch (error) {
+        console.error('Error verifying live GitHub head for repository public proof:', error);
+        return res.status(503).json({ error: 'Could not verify the live GitHub repository head. Acceptance was not evaluated.' });
+      }
+      const baseline = await WikiRepoBaseline.findOne({ userId: req.user.id, pageId: page._id }).lean();
+      if (!baseline) return res.status(422).json({ error: 'Repository public proof requires an immutable baseline.' });
+      const runs = await WikiMaintenanceRun.find({ userId: req.user.id, pageId: page._id }).sort({ createdAt: -1 }).limit(50).lean();
+      const comparison = buildRepoComparison({ baseline, page, maintenanceRuns: runs });
+      const sourceEventId = page.freshness?.acceptedThrough?.sourceEventId || null;
+      const [sourceEvent, revision, maintenanceRun] = sourceEventId ? await Promise.all([
+        WikiSourceEvent.findOne({ _id: sourceEventId, userId: req.user.id }).lean(),
+        WikiRevision.findOne({ userId: req.user.id, pageId: page._id, sourceEventId, promotionStatus: 'promoted' }).sort({ createdAt: -1 }).lean(),
+        WikiMaintenanceRun.findOne({ userId: req.user.id, pageId: page._id, sourceEventId, status: 'completed' }).sort({ createdAt: -1 }).lean()
+      ]) : [null, null, null];
+      const decision = buildRepoPublicProofAcceptance({
+        page,
+        baseline,
+        comparison,
+        sourceEvent,
+        revision,
+        maintenanceRun,
+        liveHeadSha: liveRepoHead?.headSha,
+        reason: req.body?.reason,
+        now: new Date()
+      });
+      if (!decision.ok) {
+        return res.status(422).json({
+          error: 'Repository public proof is not ready for acceptance.',
+          gaps: decision.errors,
+          acceptance: decision.proofPulse?.acceptance || null
+        });
+      }
+
+      const pageSnapshot = page.toObject ? page.toObject({ virtuals: false }) : { ...page };
+      const publishAsFlagship = req.body?.publishAsFlagship === true;
+      const candidatePage = {
+        ...pageSnapshot,
+        publicProof: decision.record,
+        ...(publishAsFlagship ? { visibility: 'shared', status: 'published' } : {})
+      };
+      const proofGrade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: candidatePage });
+      const ready = proofGrade.grade === 'proven' && proofGrade.criteria?.explicitlyAccepted === true;
+      const acceptancePreview = serializeRepoAcceptancePreview(decision.record, decision.proofPulse);
+      if (req.body?.confirm !== true) {
+        return res.status(200).json({ dryRun: true, ready, publishAsFlagship, proofGrade, acceptancePreview });
+      }
+      if (req.body?.decision !== 'accept_repo_public_proof') {
+        return res.status(400).json({ error: 'Set decision to accept_repo_public_proof for a confirmed acceptance.' });
+      }
+      if (!ready) return res.status(422).json({ error: 'Repository public proof criteria are incomplete.', proofGrade });
+
+      if (page.publicProof?.grade === 'proven'
+        && page.publicProof?.acceptedEventId === decision.record.acceptedEventId
+        && (!publishAsFlagship || (page.visibility === 'shared' && page.status === 'published'))) {
+        return res.status(200).json({
+          dryRun: false,
+          ready: true,
+          unchanged: true,
+          publishedAsFlagship: page.visibility === 'shared' && page.status === 'published',
+          proofGrade: buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page }),
+          acceptancePreview
+        });
+      }
+
+      const before = snapshotPage(page);
+      page.publicProof = decision.record;
+      if (publishAsFlagship) {
+        page.visibility = 'shared';
+        page.status = 'published';
+      }
+      if (typeof page.markModified === 'function') page.markModified('publicProof');
+      await page.save();
+      await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'user_edit',
+        actorType: 'user',
+        sourceEventId,
+        maintenanceRunId: maintenanceRun._id,
+        summary: 'Accepted the repository comparison as public proof after claim-level editorial review.'
+      });
+      res.status(200).json({
+        dryRun: false,
+        ready: true,
+        publishedAsFlagship: publishAsFlagship,
+        proofGrade,
+        acceptancePreview
+      });
+    } catch (error) {
+      console.error('Error accepting repository public proof:', error);
+      res.status(500).json({ error: 'Failed to accept repository public proof.' });
     }
   });
 

@@ -179,7 +179,7 @@ describe('PublicProofGallery', () => {
       'Circle of Competence',
       'AI infrastructure market map',
       'Will agent evals outpace model releases?'
-    ].forEach((title) => expect(screen.getByRole('link', { name: title })).toBeInTheDocument());
+    ].forEach((title) => expect(screen.queryByRole('link', { name: title })).not.toBeInTheDocument());
 
     expect(screen.getByRole('link', { name: 'Inspect the maintenance proof' })).toHaveAttribute(
       'href',
@@ -188,7 +188,7 @@ describe('PublicProofGallery', () => {
     expect(screen.getByRole('link', { name: 'Read maintained wiki' })).toHaveAttribute('href', '/share/wiki/note-taker-3-repo');
     expect(screen.getByRole('heading', { name: 'No object meets the flagship bar yet.' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Promising is not the same as proven.' })).toBeInTheDocument();
-    expect(screen.getAllByText(/example, not proof/i)).toHaveLength(4);
+    expect(screen.getByRole('heading', { name: 'Broad examples are not public proof.' })).toBeInTheDocument();
     expect(screen.getByText(/No material accepted change has been demonstrated/i)).toBeInTheDocument();
     expect(screen.queryByText(/Used server\//i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Proven$/i)).not.toBeInTheDocument();
@@ -338,20 +338,12 @@ describe('PublicProofGallery', () => {
       name: 'Living Research Dossiers',
       mainEntityOfPage: 'https://www.noeis.io/proof'
     }));
-    expect(schema.mainEntity.numberOfItems).toBe(5);
+    expect(schema.mainEntity.numberOfItems).toBe(1);
     expect(schema.mainEntity.itemListElement[0]).toEqual(expect.objectContaining({
       '@type': 'ListItem',
       position: 1,
-      name: 'Margin of Safety in Value Investing',
-      url: 'https://www.noeis.io/share/wiki/margin-of-safety',
-      dateReviewed: '2026-07-03T00:00:00.000Z',
-      citation: [
-        expect.objectContaining({
-          '@type': 'CreativeWork',
-          name: 'Margin of Safety in Value Investing source',
-          url: 'https://example.com/margin-of-safety'
-        })
-      ]
+      name: 'Noeis GitHub repo wiki',
+      url: 'https://www.noeis.io/share/wiki/note-taker-3-repo'
     }));
     expect(schema.mainEntity.itemListElement.map(item => item.name)).not.toContain('Alphabet is Berkshire Hathaway 2.0');
   });

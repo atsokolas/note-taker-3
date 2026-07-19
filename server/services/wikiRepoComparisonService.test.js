@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   buildRepoComparison,
+  buildRepoEditorialReview,
   buildProofPulse,
   captureRepoBaseline,
   collectRejectedDeltas,
@@ -94,6 +95,51 @@ const page = {
   assert.ok(buildProofPulse(comparison).headline.includes('trusted head-2'));
   assert.strictEqual(buildProofPulse(comparison).acceptance.eligible, true);
   assert.strictEqual(buildProofPulse(comparison).acceptance.sourceBackedClaimChanges, 1);
+})();
+
+(() => {
+  const comparison = {
+    claimComparison: {
+      counts: { changed: 3, preserved: 4 },
+      deltas: {
+        changed: [
+          {
+            before: { text: 'Run the API and UI, then prove wiki behavior.', sourceRefIds: ['package.json'] },
+            after: { text: 'Use the declared package manager and the repository-declared proof command.', sourceRefIds: ['package.json'] }
+          },
+          {
+            before: { text: 'Configure AI_SERVICE_URL and AI_SERVICE_TIMEOUT_MS.', sourceRefIds: ['.env.example'] },
+            after: { text: 'Configure PUBLIC_PROOF_ALPHABET_PAGE and PUBLIC_PROOF_NOEIS_REPO_PAGE.', sourceRefIds: ['.env.example'] }
+          },
+          {
+            before: { text: 'packages/wiki-mcp/README.md documents connected-agent wiki tools.', sourceRefIds: ['packages/wiki-mcp/README.md'] },
+            after: { text: 'packages/wiki-mcp/package.json documents connected-agent wiki tools.', sourceRefIds: ['packages/wiki-mcp/package.json'] }
+          }
+        ]
+      }
+    },
+    supportingRefs: [
+      { path: 'package.json' },
+      { path: '.env.example' },
+      { path: 'packages/wiki-mcp/package.json' }
+    ]
+  };
+  comparison.editorialReview = buildRepoEditorialReview(comparison);
+  assert.strictEqual(comparison.editorialReview.passed, false);
+  assert.deepStrictEqual(comparison.editorialReview.risks.map(risk => risk.code), [
+    'operational_detail_lost',
+    'configuration_scope_regressed',
+    'documentation_source_weakened'
+  ]);
+  const pulse = buildProofPulse(comparison);
+  assert.strictEqual(pulse.state, 'held_for_review');
+  assert.strictEqual(pulse.acceptance.eligible, false);
+  assert.strictEqual(pulse.acceptance.blockingEditorialRisks, 3);
+  assert(pulse.acceptance.blockers.includes('editorial_quality_risks'));
+
+  const serialized = serializePublicRepoComparison(comparison);
+  assert.strictEqual(serialized.editorialReview.blockingRiskCount, 3);
+  assert.ok(!JSON.stringify(serialized.editorialReview).includes('sourceRefIds'));
 })();
 
 (() => {

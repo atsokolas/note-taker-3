@@ -150,6 +150,70 @@ const buildStaticWikiErrors = ({ claimComparison, changedRefs, baselineRefs }) =
   }).filter(Boolean);
 };
 
+const repoPathsForClaimRow = (row = {}) => Array.from(new Set([
+  ...(Array.isArray(row.after?.sourceRefIds) ? row.after.sourceRefIds : []),
+  ...(Array.isArray(row.before?.sourceRefIds) ? row.before.sourceRefIds : [])
+].map(value => clean(value, 500)).filter(Boolean)));
+
+const buildRepoEditorialReview = (comparison = {}) => {
+  const risks = [];
+  const changedRows = comparison.claimComparison?.deltas?.changed || [];
+  changedRows.forEach((row, index) => {
+    const before = clean(row.before?.text);
+    const after = clean(row.after?.text);
+    const combined = `${before} ${after}`;
+    const paths = repoPathsForClaimRow(row);
+    const addRisk = (code, title, explanation, impact) => risks.push({
+      code,
+      severity: 'blocking',
+      group: 'changed',
+      index,
+      title,
+      explanation,
+      impact
+    });
+
+    if (paths.some(path => /package\.json$/i.test(path))
+      && /declared package manager/i.test(after)
+      && /run the (?:API|UI)/i.test(before)) {
+      addRisk(
+        'operational_detail_lost',
+        'Setup guidance became broader—and less executable',
+        'The rewrite replaces explicit API/UI startup guidance with a general package-level rule.',
+        'The maintained claim no longer gives a contributor the concrete local startup sequence present in the accepted baseline.'
+      );
+    }
+
+    if (paths.some(path => /(?:^|\/)\.env\.example$/i.test(path))
+      && /PUBLIC_PROOF_/i.test(after)
+      && /AI_SERVICE_/i.test(before)
+      && !/AI_SERVICE_/i.test(after)) {
+      addRisk(
+        'configuration_scope_regressed',
+        'Proof configuration was added, but AI settings disappeared from the claim',
+        'The rewrite adds public-proof selectors while dropping AI-service variables from the same configuration source.',
+        'A claim grounded in the same configuration file became less complete and requires correction before acceptance.'
+      );
+    }
+
+    if (/wiki-mcp/i.test(combined)
+      && /README\.md/i.test(before)
+      && /package\.json/i.test(after)) {
+      addRisk(
+        'documentation_source_weakened',
+        'The claim now points to metadata instead of the actual documentation',
+        'The rewrite replaces the package README with package.json as the file said to document runtime transport.',
+        'Package metadata can prove entrypoints and scripts, but it should not replace the repository documentation that explains behavior.'
+      );
+    }
+  });
+  return {
+    passed: risks.length === 0,
+    blockingRiskCount: risks.length,
+    risks
+  };
+};
+
 const claimsWithStableRepoRefs = (claims = [], refs = []) => {
   const pathById = new Map(refs.map(ref => [ref.sourceRefId, ref.path]).filter(([, path]) => path));
   return (Array.isArray(claims) ? claims : []).map((claim) => {
@@ -181,7 +245,7 @@ const buildRepoComparison = ({ baseline, page, maintenanceRuns = [] } = {}) => {
     && ['queued', 'building'].includes(rawBuildStatus)
     ? 'ready'
     : rawBuildStatus;
-  return {
+  const comparison = {
     version: 2,
     repository: {
       owner: clean(watch.owner, 120),
@@ -211,6 +275,8 @@ const buildRepoComparison = ({ baseline, page, maintenanceRuns = [] } = {}) => {
     staticWikiErrors: buildStaticWikiErrors({ claimComparison, changedRefs: repositoryChanges, baselineRefs }),
     supportingRefs: currentRefs
   };
+  comparison.editorialReview = buildRepoEditorialReview(comparison);
+  return comparison;
 };
 
 const buildProofPulse = (comparison = {}) => {
@@ -233,7 +299,11 @@ const buildProofPulse = (comparison = {}) => {
     (row.after?.sourceRefIds || []).some(sourceRefId => supportingPaths.has(clean(sourceRefId, 500)))
   )).length;
   const preservedClaims = Number(counts.preserved || 0);
-  const acceptanceEligible = sourceBackedClaimChanges > 0 && preservedClaims > 0;
+  const editorialReview = comparison.editorialReview || buildRepoEditorialReview(comparison);
+  const blockingEditorialRisks = Number(editorialReview.blockingRiskCount || 0);
+  const acceptanceEligible = sourceBackedClaimChanges > 0
+    && preservedClaims > 0
+    && blockingEditorialRisks === 0;
   let state = 'current';
   let headline = `${Number(counts.preserved || 0)} claims held steady through ${published ? published.slice(0, 7) : 'the published repository version'}.`;
   if (comparison.current?.buildStatus === 'needs_review') {
@@ -242,6 +312,9 @@ const buildProofPulse = (comparison = {}) => {
   } else if (observed && published && observed !== published) {
     state = 'repository_ahead';
     headline = `The repository moved to ${observed.slice(0, 7)}; Noeis is still showing the trusted ${published.slice(0, 7)} version.`;
+  } else if (blockingEditorialRisks > 0) {
+    state = 'held_for_review';
+    headline = `${blockingEditorialRisks} material claim rewrite${blockingEditorialRisks === 1 ? '' : 's'} failed editorial acceptance.`;
   } else if (Number(counts.added || 0) + realClaimChanges + Number(counts.removed || 0) > 0 && !acceptanceEligible) {
     state = 'held_for_review';
     headline = 'This comparison remains a candidate because it has not demonstrated a source-backed claim rewrite with preserved peers.';
@@ -267,9 +340,11 @@ const buildProofPulse = (comparison = {}) => {
       realClaimChanges,
       sourceBackedClaimChanges,
       preservedClaims,
+      blockingEditorialRisks,
       blockers: [
         ...(sourceBackedClaimChanges > 0 ? [] : ['no_source_backed_claim_rewrite']),
-        ...(preservedClaims > 0 ? [] : ['no_preserved_peer_claims'])
+        ...(preservedClaims > 0 ? [] : ['no_preserved_peer_claims']),
+        ...(blockingEditorialRisks > 0 ? ['editorial_quality_risks'] : [])
       ]
     },
     baselineVersion: baseline,
@@ -362,6 +437,19 @@ const serializePublicRepoComparison = (comparison = null) => {
       reason: clean(error.reason),
       refs: (error.refs || []).map(serializePublicRepoRef)
     })),
+    editorialReview: {
+      passed: comparison.editorialReview?.passed !== false,
+      blockingRiskCount: Number(comparison.editorialReview?.blockingRiskCount || 0),
+      risks: (comparison.editorialReview?.risks || []).slice(0, PUBLIC_COMPARISON_DETAIL_LIMIT).map(risk => ({
+        code: clean(risk.code, 80),
+        severity: clean(risk.severity, 40),
+        group: clean(risk.group, 40),
+        index: Number(risk.index || 0),
+        title: clean(risk.title, 240),
+        explanation: clean(risk.explanation),
+        impact: clean(risk.impact)
+      }))
+    },
     supportingRefs: (comparison.supportingRefs || []).slice(0, PUBLIC_COMPARISON_REF_LIMIT).map(serializePublicRepoRef),
     supportingRefsTruncated: Math.max(0, (comparison.supportingRefs || []).length - PUBLIC_COMPARISON_REF_LIMIT),
     proofPulse: buildProofPulse(comparison)
@@ -370,6 +458,7 @@ const serializePublicRepoComparison = (comparison = null) => {
 
 module.exports = {
   buildRepoComparison,
+  buildRepoEditorialReview,
   buildProofPulse,
   captureRepoBaseline,
   collectRejectedDeltas,
