@@ -355,6 +355,7 @@ const armEdgarWatchForPage = async ({
 };
 
 const dueEdgarWatchQuery = ({ cutoff = new Date(Date.now() - DEFAULT_EDGAR_WATCH_MAX_AGE_MS) } = {}) => ({
+  'createdFrom.label': { $not: /^weekend-readings:/ },
   status: { $ne: 'archived' },
   'externalWatches.edgar.status': 'active',
   'externalWatches.edgar.cik': { $nin: ['', null] },
@@ -382,7 +383,7 @@ const drainDueEdgarWatches = async ({
     .sort({ 'externalWatches.edgar.lastCheckedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
-  for (const page of Array.isArray(pages) ? pages : []) {
+  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))) {
     try {
       const result = await checkEdgarWatchForPageFn({
         WikiSourceEvent,

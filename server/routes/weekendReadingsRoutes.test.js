@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildWeekendReadingsHandlers, statusForError } = require('./weekendReadingsRoutes');
+const express = require('express');
+const { buildWeekendReadingsHandlers, buildWeekendReadingsRouter, statusForError } = require('./weekendReadingsRoutes');
 const {
   APPROVAL_CONFIRMATION,
   PUBLICATION_CONFIRMATION,
@@ -115,4 +116,52 @@ test('route errors distinguish stale conflicts from validation and internal fail
   assert.equal(statusForError(new Error('confirmation is required')), 400);
   assert.equal(statusForError(new Error('Weekend Readings page not found.')), 404);
   assert.equal(statusForError(new Error('database disconnected')), 500);
+});
+
+test('agent tokens receive 403 on every mutation route before receipts or visibility can change', async () => {
+  let modelCalls = 0;
+  const app = express();
+  app.use(express.json());
+  app.use(buildWeekendReadingsRouter({
+    authenticateToken: (req, _res, next) => {
+      req.user = { id: 'owner-user' };
+      req.agentToken = { id: 'agent-token-1', label: 'External agent' };
+      next();
+    },
+    WikiPage: {
+      findOne: () => { modelCalls += 1; throw new Error('mutation handler must not run'); },
+      create: () => { modelCalls += 1; throw new Error('mutation handler must not run'); }
+    },
+    WikiRevision: {
+      findOne: () => { modelCalls += 1; throw new Error('mutation handler must not run'); }
+    },
+    NoeisReceipt: {
+      find: () => { modelCalls += 1; throw new Error('mutation handler must not run'); },
+      findOneAndUpdate: () => { modelCalls += 1; throw new Error('mutation handler must not run'); }
+    }
+  }));
+  const server = await new Promise(resolve => {
+    const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+  });
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const paths = [
+      '/api/wiki/weekend-readings/drafts',
+      '/api/wiki/weekend-readings/page-1/review',
+      '/api/wiki/weekend-readings/page-1/approve',
+      '/api/wiki/weekend-readings/page-1/publish'
+    ];
+    for (const path of paths) {
+      const result = await fetch(`${base}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      assert.equal(result.status, 403, path);
+      assert.deepEqual(await result.json(), { error: 'Only the human owner can mutate Weekend Readings.' });
+    }
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+  assert.equal(modelCalls, 0);
 });

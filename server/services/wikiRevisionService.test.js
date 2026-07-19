@@ -45,7 +45,7 @@ assert(target.modified.includes('judgment'));
 
 class FakeRevision {
   constructor(fields) { Object.assign(this, fields); }
-  async save() { this.saved = true; }
+  async save(options) { this.saved = true; this.saveOptions = options; }
 }
 
 (async () => {
@@ -59,6 +59,17 @@ class FakeRevision {
   assert(revision.saved);
   assert.strictEqual(pruneArgs.pageId, 'page-1');
   assert.strictEqual(pruneArgs.page, page);
+  const session = { id: 'session-1' };
+  let transactionalPruneCalled = false;
+  const transactionalRevision = await createWikiRevision({
+    WikiRevision: FakeRevision,
+    userId: 'user-1',
+    page,
+    session,
+    pruneRevisionHistory: async () => { transactionalPruneCalled = true; }
+  });
+  assert.strictEqual(transactionalRevision.saveOptions.session, session);
+  assert.strictEqual(transactionalPruneCalled, false);
   console.log('wikiRevisionService tests passed');
 })().catch((error) => {
   console.error(error);

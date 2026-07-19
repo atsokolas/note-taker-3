@@ -1,4 +1,5 @@
 const {
+  persistNoeisReceipt,
   sanitizeReceiptForStorage,
   serializeStoredReceipt
 } = require('./noeisReceiptService');
@@ -28,5 +29,29 @@ describe('noeisReceiptService', () => {
       source: 'readwise',
       sourceLabel: 'Readwise Library'
     });
+  });
+
+  it('propagates a MongoDB session when a receipt is finalized transactionally', async () => {
+    const session = { id: 'session-1' };
+    let options = null;
+    const receipt = await persistNoeisReceipt({
+      NoeisReceipt: {
+        findOneAndUpdate: async (_query, update, receivedOptions) => {
+          options = receivedOptions;
+          return update.$set;
+        }
+      },
+      userId: 'user-1',
+      session,
+      receipt: {
+        id: 'receipt-session-1',
+        kind: 'research_operating_ledger_entry',
+        source: 'noeis',
+        status: 'completed',
+        completedAt: '2026-07-19T12:00:00.000Z'
+      }
+    });
+    expect(options.session).toBe(session);
+    expect(receipt.id).toBe('receipt-session-1');
   });
 });

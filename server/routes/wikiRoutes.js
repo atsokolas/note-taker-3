@@ -128,6 +128,43 @@ const PAGE_TYPE_ALIASES = {
   synthesis: 'overview'
 };
 const STATUSES = new Set(['draft', 'published', 'archived']);
+const isWeekendReadingsPage = page => String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+const rejectAgentReservedWeekendReadingsCreation = (req, res, createdFrom) => {
+  if (!req?.agentToken || !isWeekendReadingsPage({ createdFrom })) return false;
+  res.status(403).json({ error: 'Only the human owner can create Weekend Readings.' });
+  return true;
+};
+
+const assertHumanForResolvedWeekendReadingsTargets = async ({ WikiPage, req, pageIds = [] } = {}) => {
+  if (!req?.agentToken) return;
+  for (const pageId of Array.from(new Set(pageIds.map(serializeId).filter(Boolean)))) {
+    const page = await WikiPage.findOne({ _id: pageId, userId: req.user.id })
+      .select('createdFrom.label')
+      .lean();
+    if (isWeekendReadingsPage(page)) {
+      const error = new Error('Only the human owner can mutate Weekend Readings.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+};
+
+const buildRequireHumanForWeekendReadingsMutation = ({ WikiPage } = {}) => async (req, res, next) => {
+  const method = String(req.method || '').toUpperCase();
+  if (!req.agentToken || !['PATCH', 'POST', 'PUT', 'DELETE'].includes(method)) return next();
+  if (!String(req.path || '').startsWith('/api/wiki/pages/') || !req.params?.id) return next();
+  try {
+    const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id })
+      .select('createdFrom.label')
+      .lean();
+    if (isWeekendReadingsPage(page)) {
+      return res.status(403).json({ error: 'Only the human owner can mutate Weekend Readings.' });
+    }
+    return next();
+  } catch (_error) {
+    return res.status(400).json({ error: 'Invalid wiki page id.' });
+  }
+};
 const VISIBILITIES = new Set(['private', 'shared']);
 const SOURCE_SCOPES = new Set(['entire_library', 'current_item', 'selected_sources']);
 const CREATED_FROM_TYPES = new Set([
@@ -184,6 +221,25 @@ const slugify = (value = '') => {
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
   return base || 'untitled-wiki-page';
+};
+
+const buildUniqueWikiSlugBuilder = ({ WikiPage } = {}) => async (
+  userId,
+  title,
+  existingId = null,
+  { session = null } = {}
+) => {
+  const base = slugify(title);
+  for (let i = 0; i < 25; i += 1) {
+    const slug = i === 0 ? base : `${base}-${i + 1}`;
+    const query = { userId, slug };
+    if (existingId) query._id = { $ne: existingId };
+    let existingQuery = WikiPage.findOne(query).select('_id');
+    if (session && typeof existingQuery.session === 'function') existingQuery = existingQuery.session(session);
+    const existing = await existingQuery.lean();
+    if (!existing) return slug;
+  }
+  return `${base}-${Date.now()}`;
 };
 
 const starterOriginId = (packId, title) => `starter:${packId}:${slugify(title)}`;
@@ -1673,19 +1729,11 @@ const buildWikiRouter = ({
     return next();
   };
 
-  const wikiAuth = [authenticateToken, auditExternalAgentAction];
+  const requireHumanForWeekendReadingsMutation = buildRequireHumanForWeekendReadingsMutation({ WikiPage });
 
-  const buildUniqueSlug = async (userId, title, existingId = null) => {
-    const base = slugify(title);
-    for (let i = 0; i < 25; i += 1) {
-      const slug = i === 0 ? base : `${base}-${i + 1}`;
-      const query = { userId, slug };
-      if (existingId) query._id = { $ne: existingId };
-      const existing = await WikiPage.findOne(query).select('_id').lean();
-      if (!existing) return slug;
-    }
-    return `${base}-${Date.now()}`;
-  };
+  const wikiAuth = [authenticateToken, auditExternalAgentAction, requireHumanForWeekendReadingsMutation];
+
+  const buildUniqueSlug = buildUniqueWikiSlugBuilder({ WikiPage });
 
   router.use(buildWeekendReadingsRouter({
     authenticateToken: wikiAuth,
@@ -2331,11 +2379,13 @@ const buildWikiRouter = ({
     const query = {
       userId,
       status: { $ne: 'archived' },
-      _id: { $ne: targetPage._id }
+      _id: { $ne: targetPage._id },
+      'createdFrom.label': { $not: /^weekend-readings:/ }
     };
     const candidates = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(Math.max(1, Math.min(Number(candidateLimit) || 600, 600)));
     const updatedPages = [];
     const processCandidate = async (page) => {
+      if (isWeekendReadingsPage(page)) return null;
       const before = snapshotPage(page);
       const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
       if (!result.applied) return null;
@@ -2355,7 +2405,7 @@ const buildWikiRouter = ({
       });
       return page;
     };
-    const queue = Array.isArray(candidates) ? [...candidates] : [];
+    const queue = (Array.isArray(candidates) ? candidates : []).filter(page => !isWeekendReadingsPage(page));
     const workerCount = Math.max(1, Math.min(Number(concurrency) || 1, 10, queue.length || 1));
     await Promise.all(Array.from({ length: workerCount }, async () => {
       while (queue.length) {
@@ -2601,6 +2651,9 @@ const buildWikiRouter = ({
       if (!run) return res.status(404).json({ error: 'Wiki lint run not found.' });
       const finding = findLintFinding(run, req.params.findingId);
       if (!finding) return res.status(404).json({ error: 'Wiki lint finding not found.' });
+      if (action !== 'ignore') {
+        await assertHumanForResolvedWeekendReadingsTargets({ WikiPage, req, pageIds: [finding.pageId] });
+      }
       const result = await resolveLintFindingAction({ action, finding, userId: req.user.id });
       const status = action === 'ignore' ? 'ignored' : action === 'fix' ? 'fixed' : 'accepted';
       const updatedRun = await updateLintFinding({ run, finding, status, action, result });
@@ -2671,6 +2724,7 @@ const buildWikiRouter = ({
       if (sourceScope?.error) return res.status(400).json({ error: sourceScope.error });
 
       const createdFrom = normalizeCreatedFrom(req.body?.createdFrom);
+      if (rejectAgentReservedWeekendReadingsCreation(req, res, createdFrom)) return;
       const initialSourceRefs = normalizeInitialSourceRefs({
         initialSourceRef: req.body?.initialSourceRef,
         initialSourceRefs: req.body?.initialSourceRefs,
@@ -5218,6 +5272,12 @@ const buildWikiRouter = ({
         if (pageId && !latestByPage.has(pageId)) latestByPage.set(pageId, revision);
       });
 
+      await assertHumanForResolvedWeekendReadingsTargets({
+        WikiPage,
+        req,
+        pageIds: Array.from(latestByPage.keys())
+      });
+
       const restoredPageIds = [];
       for (const revision of latestByPage.values()) {
         const page = await WikiPage.findOne({ _id: revision.pageId, userId: req.user.id });
@@ -5253,7 +5313,9 @@ const buildWikiRouter = ({
       });
     } catch (error) {
       console.error('Error undoing wiki ingest run:', error);
-      res.status(500).json({ error: 'Failed to undo wiki ingest run.' });
+      res.status(error.statusCode || 500).json({
+        error: error.statusCode ? error.message : 'Failed to undo wiki ingest run.'
+      });
     }
   });
 
@@ -5654,11 +5716,15 @@ const buildWikiRouter = ({
 };
 
 module.exports = {
+  assertHumanForResolvedWeekendReadingsTargets,
+  buildRequireHumanForWeekendReadingsMutation,
+  buildUniqueWikiSlugBuilder,
   buildWikiRouter,
   buildWikiDraftState,
   extractPlainText,
   normalizeCreatedFrom,
   normalizeSourceRef,
+  rejectAgentReservedWeekendReadingsCreation,
   serializeWikiPage,
   slugify
 };

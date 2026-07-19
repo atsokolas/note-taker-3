@@ -39,6 +39,23 @@ test('canonicalizeReadingUrl strips tracking, fragments, and normalizes ordering
   assert.throws(() => canonicalizeReadingUrl('javascript:alert(1)'), /must use https/);
   assert.throws(() => canonicalizeReadingUrl('http://example.com/report'), /must use https/);
   assert.equal(canonicalizeReadingUrl('http://example.com/report', { allowHttp: true }), 'http://example.com/report');
+  assert.throws(() => canonicalizeReadingUrl('https://reader:secret@example.com/report'), /embedded credentials/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?api_key=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?token=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?x-amz-signature=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?client_secret=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?refresh-token=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?token%20=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?token[]=public-secret'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?accessToken=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?clientSecret=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?auth[token]=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?token.value=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?session_id=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?oauth_code=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://drive.google.com/file/d/1?resourcekey=SECRET'), /sensitive query parameter/);
+  assert.equal(canonicalizeReadingUrl('https://example.com/report?sort_key=published_at'), 'https://example.com/report?sort_key=published_at');
+  assert.equal(canonicalizeReadingUrl('https://example.com/report?token_count=42'), 'https://example.com/report?token_count=42');
 });
 
 test('normalizeWeekendReadingItems validates editorial fields and rejects canonical duplicates visibly', () => {

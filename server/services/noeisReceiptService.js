@@ -71,7 +71,8 @@ const serializeStoredReceipt = (doc = {}) => {
 const persistNoeisReceipt = async ({
   NoeisReceipt,
   userId = '',
-  receipt = null
+  receipt = null,
+  session = null
 } = {}) => {
   if (!NoeisReceipt || !userId) return null;
   const safeReceipt = sanitizeReceiptForStorage(receipt);
@@ -79,7 +80,7 @@ const persistNoeisReceipt = async ({
   const updated = await NoeisReceipt.findOneAndUpdate(
     { userId, receiptId: safeReceipt.receiptId },
     { $set: { ...safeReceipt, userId } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true, ...(session ? { session } : {}) }
   );
   return serializeStoredReceipt(updated);
 };

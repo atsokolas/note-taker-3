@@ -257,12 +257,14 @@ const attachSourceEventEvidence = async ({ page, event } = {}) => {
 
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (!WikiPage || !userId || !event) return [];
+  const eligiblePages = pages => (Array.isArray(pages) ? pages : [])
+    .filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'));
   const explicitIds = Array.isArray(event.affectedPageIds) ? event.affectedPageIds.filter(Boolean) : [];
   if (explicitIds.length) {
     const query = { userId, _id: { $in: explicitIds }, status: { $ne: 'archived' } };
     const result = WikiPage.find(query).limit(limit);
     const resolved = await result;
-    return Array.isArray(resolved) ? resolved : [];
+    return eligiblePages(resolved);
   }
 
   const title = asText(event.title);
@@ -273,11 +275,12 @@ const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
       status: { $ne: 'archived' },
       $or: [{ title: regex }, { plainText: regex }]
     }).sort({ updatedAt: -1 }).limit(limit);
-    if (Array.isArray(candidates) && candidates.length) return candidates;
+    const eligibleCandidates = eligiblePages(candidates);
+    if (eligibleCandidates.length) return eligibleCandidates;
   }
 
   const recent = await WikiPage.find({ userId, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(40);
-  return (Array.isArray(recent) ? recent : [])
+  return eligiblePages(recent)
     .map(page => ({ page, score: scorePageForEvent(page, event) }))
     .filter(item => item.score >= 0.4)
     .sort((a, b) => b.score - a.score)
@@ -295,6 +298,9 @@ const shouldCreateDraftPageForEvent = (event) => {
 
 const createPageForEvent = async ({ WikiPage, userId, event, buildUniqueSlug }) => {
   const title = asText(event.title) || 'Untitled Wiki Page';
+  if (title.startsWith('weekend-readings:')) {
+    throw new Error('Weekend Readings pages can only be created through the human-owned publication workflow.');
+  }
   const page = new WikiPage({
     userId,
     title,
@@ -743,6 +749,8 @@ const processPendingWikiSourceEvents = async ({ userId, models = {}, limit = 5, 
 
 module.exports = {
   buildAcceptedThrough,
+  createPageForEvent,
+  findAffectedPages,
   processPendingWikiSourceEvents,
   processWikiSourceEvent
 };

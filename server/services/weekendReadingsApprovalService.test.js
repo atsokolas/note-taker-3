@@ -5,6 +5,7 @@ const {
   APPROVAL_CONFIRMATION,
   PUBLICATION_CONFIRMATION,
   REVIEW_CONFIRMATION,
+  artifactDigest,
   buildApprovalCandidate,
   buildApprovalReceipt,
   buildPublicationReceipt,
@@ -151,6 +152,8 @@ test('published serializer requires matching publication, approval, revision, an
   assert.equal(serialized.visibility, 'shared');
   assert.equal(serialized.status, 'published');
   assert.equal(serialized.publication.approvedRevisionId, 'revision-123456789');
+  assert.equal(serialized.editionKey, undefined);
+  assert.doesNotMatch(JSON.stringify(serialized), /athan-user/);
   assert.equal(serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: { ...publication, status: 'draft' } }), null);
   assert.equal(serializePublishedArtifact({
     approvalReceipt: approval,
@@ -159,6 +162,97 @@ test('published serializer requires matching publication, approval, revision, an
   const tamperedApproval = JSON.parse(JSON.stringify(approval));
   tamperedApproval.provenance.publicArtifact.title = privateSentinel;
   assert.equal(serializePublishedArtifact({ approvalReceipt: tamperedApproval, publicationReceipt: publication }), null);
+});
+
+test('approval rejects credentialed and token-bearing source URLs before they can enter a public artifact', () => {
+  const credentialed = weekendReadingsLeakFixture();
+  credentialed.sourceRefs[0].url = 'https://reader:owner-secret@example.com/filing';
+  credentialed.sourceRefs[0].metadata.weekendReadings.canonicalUrl = credentialed.sourceRefs[0].url;
+  assert.throws(() => buildApprovalCandidate({ snapshot: credentialed, revisionId: 'revision-credentials' }), /embedded credentials/);
+
+  const tokenBearing = weekendReadingsLeakFixture();
+  tokenBearing.sourceRefs[0].url = 'https://example.com/filing?token=OWNER_SECRET_TOKEN';
+  tokenBearing.sourceRefs[0].metadata.weekendReadings.canonicalUrl = tokenBearing.sourceRefs[0].url;
+  assert.throws(() => buildApprovalCandidate({ snapshot: tokenBearing, revisionId: 'revision-token' }), /sensitive query parameter/);
+
+  for (const sensitiveQuery of [
+    'client_secret=OWNER_SECRET_CLIENT',
+    'refresh-token=OWNER_SECRET_REFRESH',
+    'token[]=OWNER_SECRET_NORMALIZED',
+    'accessToken=SECRET_ACCESS_CAMEL',
+    'clientSecret=SECRET_CLIENT_CAMEL',
+    'auth[token]=SECRET_AUTH_NESTED',
+    'token.value=SECRET_TOKEN_DOTTED',
+    'session_id=SECRET_SESSION_ID',
+    'oauth_code=SECRET_OAUTH_CODE',
+    'resourcekey=SECRET_RESOURCE_KEY'
+  ]) {
+    const hostile = weekendReadingsLeakFixture();
+    hostile.sourceRefs[0].url = `https://example.com/filing?${sensitiveQuery}`;
+    hostile.sourceRefs[0].metadata.weekendReadings.canonicalUrl = hostile.sourceRefs[0].url;
+    assert.throws(
+      () => buildApprovalCandidate({ snapshot: hostile, revisionId: `revision-${sensitiveQuery}` }),
+      /sensitive query parameter/
+    );
+  }
+
+  const { approval, publication } = lifecycle();
+  assert.doesNotMatch(
+    JSON.stringify(serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: publication })),
+    /OWNER_SECRET_TOKEN|OWNER_SECRET_CLIENT|OWNER_SECRET_REFRESH|OWNER_SECRET_NORMALIZED|SECRET_ACCESS_CAMEL|SECRET_CLIENT_CAMEL|SECRET_AUTH_NESTED|SECRET_TOKEN_DOTTED|SECRET_SESSION_ID|SECRET_OAUTH_CODE|SECRET_RESOURCE_KEY|owner-secret/
+  );
+  for (const hostileUrl of [
+    'https://example.com/filing?accessToken=SECRET_ACCESS_CAMEL',
+    'https://example.com/filing?clientSecret=SECRET_CLIENT_CAMEL',
+    'https://example.com/filing?auth[token]=SECRET_AUTH_NESTED',
+    'https://example.com/filing?token.value=SECRET_TOKEN_DOTTED'
+  ]) {
+    const hostileApproval = JSON.parse(JSON.stringify(approval));
+    hostileApproval.provenance.publicArtifact.sourceRefs[0].url = hostileUrl;
+    assert.equal(
+      serializePublishedArtifact({ approvalReceipt: hostileApproval, publicationReceipt: publication }),
+      null,
+      hostileUrl
+    );
+  }
+});
+
+test('legacy approval receipts with valid recomputed digests still fail final URL revalidation', () => {
+  for (const hostileUrl of [
+    'https://reader:SECRET@example.com/filing',
+    'https://example.com/filing?accessToken=SECRET',
+    'https://example.com/filing?session_id=SECRET',
+    'https://drive.google.com/file/d/1?resourcekey=SECRET'
+  ]) {
+    const { approval, publication } = lifecycle();
+    const artifact = approval.provenance.publicArtifact;
+    artifact.sourceRefs[0].url = hostileUrl;
+    const linkedText = artifact.body.content
+      .flatMap(node => node.content || [])
+      .find(node => (node.marks || []).some(mark => mark.type === 'link'));
+    linkedText.marks.find(mark => mark.type === 'link').attrs.href = hostileUrl;
+    artifact.digest = artifactDigest(artifact);
+    approval.provenance.digest = artifact.digest;
+    publication.provenance.digest = artifact.digest;
+    assert.equal(
+      serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: publication }),
+      null,
+      hostileUrl
+    );
+  }
+});
+
+test('valid-digest legacy artifacts fail closed when body links diverge from source URLs', () => {
+  const { approval, publication } = lifecycle();
+  const artifact = approval.provenance.publicArtifact;
+  const linkedText = artifact.body.content
+    .flatMap(node => node.content || [])
+    .find(node => (node.marks || []).some(mark => mark.type === 'link'));
+  linkedText.marks.find(mark => mark.type === 'link').attrs.href = 'https://example.net/different-safe-url';
+  artifact.digest = artifactDigest(artifact);
+  approval.provenance.digest = artifact.digest;
+  publication.provenance.digest = artifact.digest;
+  assert.equal(serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: publication }), null);
 });
 
 test('public output excludes private page, claim, question, agent, and thesis-routing fields', () => {

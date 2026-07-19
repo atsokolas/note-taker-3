@@ -683,6 +683,7 @@ const autoMergeProposalCandidates = async ({ WikiPage, userId, candidates = [] }
   for (const candidate of mergeCandidates) {
     const page = await WikiPage.findOne({ _id: candidate.proposalDecision.mergeTarget.pageId, userId });
     if (!page) continue;
+    if (String(page?.createdFrom?.label || '').startsWith('weekend-readings:')) continue;
     const existing = new Set((page.sourceRefs || []).map(sourceRefIdentity));
     let added = 0;
     (candidate.sourceRefs || []).forEach((ref = {}) => {
@@ -858,6 +859,9 @@ const refreshWikiProposals = async ({
 const createDraftPageFromProposal = async ({ proposal, WikiPage, buildUniqueSlug }) => {
   if (!proposal || !WikiPage) return null;
   const title = proposal.title || 'Untitled Wiki Page';
+  if (String(title).startsWith('weekend-readings:')) {
+    throw new Error('Weekend Readings pages can only be created through the human-owned publication workflow.');
+  }
   const starterClaims = (proposal.starterClaims || []).filter(Boolean).slice(0, 5);
   const openQuestions = (proposal.openQuestions || []).filter(Boolean).slice(0, 5);
   const body = {

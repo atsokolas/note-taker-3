@@ -22,6 +22,71 @@ const TRACKING_QUERY_KEYS = new Set([
   'mc_eid'
 ]);
 
+const SENSITIVE_QUERY_KEYS = new Set([
+  'access_key',
+  'access_token',
+  'api_key',
+  'apikey',
+  'auth',
+  'authorization',
+  'client_secret',
+  'credential',
+  'credentials',
+  'id_token',
+  'jwt',
+  'key',
+  'oauth_token',
+  'password',
+  'passwd',
+  'private_key',
+  'refresh_token',
+  'resource_key',
+  'resourcekey',
+  'secret',
+  'session_id',
+  'session_token',
+  'sig',
+  'signature',
+  'ticket',
+  'token',
+  'token_value',
+  'oauth_code',
+  'x_amz_credential',
+  'x_amz_security_token',
+  'x_amz_signature',
+  'x_goog_credential',
+  'x_goog_signature'
+]);
+
+const SENSITIVE_QUERY_COMPONENTS = new Set([
+  'auth', 'authorization', 'credential', 'credentials', 'jwt', 'password', 'passwd',
+  'secret', 'sig', 'signature'
+]);
+
+const normalizeSensitiveQueryKey = value => String(value || '')
+  .trim()
+  .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+  .toLowerCase()
+  .replace(/[.\[\]-]+/g, '_')
+  .replace(/_+/g, '_')
+  .replace(/^_|_$/g, '');
+
+const isSensitiveQueryKey = value => {
+  const normalized = normalizeSensitiveQueryKey(value);
+  if (SENSITIVE_QUERY_KEYS.has(normalized)) return true;
+  const components = normalized.split('_').filter(Boolean);
+  if (components.some(component => SENSITIVE_QUERY_COMPONENTS.has(component))) return true;
+  if (components.includes('ticket') || components.includes('resourcekey')) return true;
+  if (components.includes('resource') && components.includes('key')) return true;
+  if (components.includes('session') && components.some(component => ['id', 'key', 'token'].includes(component))) return true;
+  if (components.includes('oauth') && components.some(component => ['code', 'key', 'token'].includes(component))) return true;
+  if (components.includes('token')) return normalized !== 'token_count';
+  if (components.includes('key')) {
+    return components.some(component => ['access', 'api', 'client', 'private', 'public', 'secret', 'signing'].includes(component));
+  }
+  return false;
+};
+
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 
 const toDate = (value, field) => {
@@ -43,6 +108,13 @@ const canonicalizeReadingUrl = (value = '', { allowHttp = false } = {}) => {
     throw new Error(allowHttp
       ? 'Weekend Readings URLs must use https or explicitly accepted http.'
       : 'Weekend Readings URLs must use https.');
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('Weekend Readings URLs cannot contain embedded credentials.');
+  }
+  const sensitiveKey = Array.from(parsed.searchParams.keys()).find(isSensitiveQueryKey);
+  if (sensitiveKey) {
+    throw new Error(`Weekend Readings URLs cannot contain sensitive query parameter "${sensitiveKey}".`);
   }
   parsed.hash = '';
   parsed.hostname = parsed.hostname.toLowerCase();
@@ -341,6 +413,7 @@ const createWeekendReadingsDraft = async ({
 
 module.exports = {
   READING_ROLES,
+  SENSITIVE_QUERY_KEYS,
   SOURCE_QUALITIES,
   buildWeekendReadingsBody,
   buildWeekendReadingsDraft,

@@ -49,86 +49,226 @@ test('initial ledger page is a private canonical Wiki log, not a parallel thesis
   assert.match(JSON.stringify(page.body), /Private research operating ledger/);
 });
 
-test('persistResearchLedgerEntry creates WikiPage, revision, and receipt using existing primitives', async () => {
-  const createdPages = [];
-  const storedReceipts = [];
+const clone = value => JSON.parse(JSON.stringify(value));
+
+const transactionalHarness = () => {
+  const state = { page: null, receipts: new Map(), revisions: [] };
+  let lock = Promise.resolve();
+  let pageSequence = 0;
+  let revisionSequence = 0;
+  let failFinalization = 0;
+  let nullRevision = 0;
+  const sessionObservations = [];
+  const slugCalls = [];
+
+  const makePage = raw => ({
+    ...clone(raw),
+    markModified() {},
+    async save(options = {}) {
+      sessionObservations.push(options.session || null);
+      state.page = this;
+      return this;
+    }
+  });
+
+  const restore = snapshot => {
+    state.page = snapshot.page ? makePage(snapshot.page) : null;
+    state.receipts = new Map(snapshot.receipts.map(([key, value]) => [key, clone(value)]));
+    state.revisions = clone(snapshot.revisions);
+  };
+
   const WikiPage = {
-    findOne: async () => null,
-    create: async input => {
-      const page = { _id: 'ledger-page-1', ...input };
-      createdPages.push(page);
-      return page;
+    db: {
+      async startSession() {
+        const session = {
+          async withTransaction(callback) {
+            const prior = lock;
+            let unlock;
+            lock = new Promise(resolve => { unlock = resolve; });
+            await prior;
+            const snapshot = {
+              page: state.page ? clone(state.page) : null,
+              receipts: Array.from(state.receipts.entries()).map(([key, value]) => [key, clone(value)]),
+              revisions: clone(state.revisions)
+            };
+            try {
+              return await callback();
+            } catch (error) {
+              restore(snapshot);
+              throw error;
+            } finally {
+              unlock();
+            }
+          },
+          async endSession() {}
+        };
+        return session;
+      }
+    },
+    async findOne() { return state.page; },
+    async create(rows, options = {}) {
+      sessionObservations.push(options.session || null);
+      const page = makePage({ _id: `ledger-page-${++pageSequence}`, ...rows[0] });
+      state.page = page;
+      return [page];
     }
   };
-  const NoeisReceipt = { findOne: () => ({ lean: async () => null }) };
-  const result = await persistResearchLedgerEntry({
+
+  const NoeisReceipt = {
+    async findOne(query) { return state.receipts.get(query.receiptId) || null; },
+    async create(rows, options = {}) {
+      sessionObservations.push(options.session || null);
+      const row = clone(rows[0]);
+      if (state.receipts.has(row.receiptId)) {
+        const error = new Error('duplicate receipt');
+        error.code = 11000;
+        throw error;
+      }
+      state.receipts.set(row.receiptId, row);
+      return [row];
+    },
+    async findOneAndUpdate(query, update, options = {}) {
+      sessionObservations.push(options.session || null);
+      if (failFinalization > 0) {
+        failFinalization -= 1;
+        throw new Error('receipt finalization unavailable');
+      }
+      const row = { ...(state.receipts.get(query.receiptId) || {}), ...clone(update.$set) };
+      state.receipts.set(query.receiptId, row);
+      return row;
+    }
+  };
+
+  const createWikiRevision = async ({ session, sourceVersion }) => {
+    sessionObservations.push(session || null);
+    if (nullRevision > 0) {
+      nullRevision -= 1;
+      return null;
+    }
+    const revision = { _id: `revision-ledger-${++revisionSequence}`, sourceVersion };
+    state.revisions.push(revision);
+    return revision;
+  };
+
+  const run = input => persistResearchLedgerEntry({
     ...baseInput(),
+    ...input,
     WikiPage,
     WikiRevision: {},
     NoeisReceipt,
     userId: 'user-1',
-    buildUniqueSlug: async () => 'living-thesis-001-research-ledger-2026-07',
-    createWikiRevision: async input => ({ _id: 'revision-ledger-1', ...input }),
-    persistNoeisReceipt: async ({ receipt }) => {
-      storedReceipts.push(receipt);
-      return receipt;
-    }
+    buildUniqueSlug: async (...args) => {
+      slugCalls.push(args);
+      return 'living-thesis-001-research-ledger-2026-07';
+    },
+    createWikiRevision
   });
+
+  return {
+    run,
+    state,
+    sessionObservations,
+    slugCalls,
+    seedReceipt(receipt) { state.receipts.set(receipt.receiptId, clone(receipt)); },
+    failNextFinalization() { failFinalization += 1; },
+    returnNullRevisionOnce() { nullRevision += 1; }
+  };
+};
+
+test('atomic ledger transaction creates one private page, revision, and committed receipt', async () => {
+  const harness = transactionalHarness();
+  const result = await harness.run({});
   assert.equal(result.created, true);
   assert.equal(result.idempotent, false);
-  assert.equal(createdPages.length, 1);
   assert.equal(result.page.visibility, 'private');
-  assert.equal(result.revision._id, 'revision-ledger-1');
-  assert.equal(storedReceipts[0].kind, 'research_operating_ledger_entry');
-  assert.equal(storedReceipts[0].provenance.revisionId, 'revision-ledger-1');
-  assert.deepEqual(storedReceipts[0].touched.map(row => row.id), ['ledger-page-1', 'thesis-001']);
+  assert.equal(harness.state.revisions.length, 1);
+  assert.equal(harness.state.revisions[0].sourceVersion, result.entry.receiptId);
+  assert.equal(harness.state.receipts.get(result.entry.receiptId).provenance.persistenceState, 'committed');
+  assert.ok(harness.sessionObservations.length >= 4);
+  assert.ok(harness.sessionObservations.every(Boolean));
+  assert.equal(harness.slugCalls.length, 1);
+  assert.equal(harness.slugCalls[0][0], 'user-1');
+  assert.equal(harness.slugCalls[0][2], null);
+  assert.ok(harness.slugCalls[0][3].session);
 });
 
-test('same ledger entry receipt is idempotent and does not append the page twice', async () => {
-  let findPageCalls = 0;
-  let createPageCalls = 0;
-  const existingReceipt = { receiptId: 'research-ledger:2026-07:thesis-001:frame:2026-07-20' };
-  const result = await persistResearchLedgerEntry({
-    ...baseInput(),
-    WikiPage: {
-      findOne: async () => { findPageCalls += 1; return null; },
-      create: async () => { createPageCalls += 1; return null; }
-    },
-    NoeisReceipt: { findOne: () => ({ lean: async () => existingReceipt }) },
-    userId: 'user-1'
-  });
-  assert.equal(result.idempotent, true);
-  assert.equal(findPageCalls, 0);
-  assert.equal(createPageCalls, 0);
-});
-
-test('subsequent phase appends to the same private ledger and deduplicates evidence page references', async () => {
-  let saved = 0;
-  const existingPage = {
-    _id: 'ledger-page-1',
-    title: 'Existing ledger',
-    status: 'draft',
-    visibility: 'private',
-    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Existing entry' }] }] },
-    sourceRefs: [{ type: 'wiki_page', objectId: 'evidence-1' }],
-    markModified: () => {},
-    save: async () => { saved += 1; }
-  };
-  const result = await persistResearchLedgerEntry({
-    ...baseInput(),
-    phase: 'evidence',
-    summary: 'Connected bounded evidence without accepting or rewriting a thesis claim.',
-    evidencePageIds: ['evidence-1', 'evidence-2'],
-    WikiPage: { findOne: async () => existingPage },
-    WikiRevision: {},
-    NoeisReceipt: { findOne: () => ({ lean: async () => null }) },
+test('legacy in-progress receipt with persisted page and revision evidence remains idempotent', async () => {
+  const harness = transactionalHarness();
+  const entry = buildResearchLedgerEntry(baseInput());
+  harness.seedReceipt({
     userId: 'user-1',
-    createWikiRevision: async () => ({ _id: 'revision-ledger-2' }),
-    persistNoeisReceipt: async ({ receipt }) => receipt
+    receiptId: entry.receiptId,
+    kind: 'research_operating_ledger_entry',
+    status: 'in_progress',
+    provenance: { ledgerPageId: 'legacy-page', revisionId: 'legacy-revision' }
   });
-  assert.equal(result.created, false);
-  assert.equal(saved, 1);
-  assert.equal(existingPage.visibility, 'private');
-  assert.deepEqual(existingPage.sourceRefs.map(row => row.objectId), ['evidence-1', 'evidence-2']);
-  assert.match(existingPage.plainText, /Connected bounded evidence/);
+  const result = await harness.run({});
+  assert.equal(result.idempotent, true);
+  assert.equal(harness.state.receipts.size, 1);
+  assert.equal(harness.state.revisions.length, 0);
+});
+
+test('receipt failure aborts page and revision, then retry records the entry exactly once', async () => {
+  const harness = transactionalHarness();
+  harness.failNextFinalization();
+  await assert.rejects(() => harness.run({}), /receipt finalization unavailable/);
+  assert.equal(harness.state.page, null);
+  assert.equal(harness.state.revisions.length, 0);
+  assert.equal(harness.state.receipts.size, 0);
+
+  const retry = await harness.run({});
+  assert.equal(retry.idempotent, false);
+  assert.equal(harness.state.revisions.length, 1);
+  assert.equal(harness.state.receipts.size, 1);
+  assert.equal((harness.state.page.plainText.match(/Recorded the research frame/g) || []).length, 1);
+});
+
+test('null revision aborts every ledger write and retry remains clean', async () => {
+  const harness = transactionalHarness();
+  harness.returnNullRevisionOnce();
+  await assert.rejects(() => harness.run({}), /revision creation failed/);
+  assert.equal(harness.state.page, null);
+  assert.equal(harness.state.revisions.length, 0);
+  assert.equal(harness.state.receipts.size, 0);
+  await harness.run({});
+  assert.equal(harness.state.revisions.length, 1);
+  assert.equal(harness.state.receipts.size, 1);
+});
+
+test('two concurrent calls for the same entry produce one body entry, revision, and receipt', async () => {
+  const harness = transactionalHarness();
+  const results = await Promise.all([harness.run({}), harness.run({})]);
+  assert.deepEqual(results.map(result => result.idempotent).sort(), [false, true]);
+  assert.equal(harness.state.revisions.length, 1);
+  assert.equal(harness.state.receipts.size, 1);
+  assert.equal((harness.state.page.plainText.match(/Recorded the research frame/g) || []).length, 1);
+});
+
+test('concurrent distinct entries preserve both exactly once on one monthly ledger page', async () => {
+  const harness = transactionalHarness();
+  await Promise.all([
+    harness.run({}),
+    harness.run({
+      phase: 'evidence',
+      entryKey: 'evidence:2026-07-22',
+      summary: 'Connected bounded evidence without accepting a claim.',
+      evidencePageIds: ['evidence-1']
+    })
+  ]);
+  assert.equal(harness.state.revisions.length, 2);
+  assert.equal(harness.state.receipts.size, 2);
+  assert.match(harness.state.page.plainText, /Recorded the research frame/);
+  assert.match(harness.state.page.plainText, /Connected bounded evidence/);
+  assert.equal((harness.state.page.plainText.match(/Recorded the research frame/g) || []).length, 1);
+  assert.equal((harness.state.page.plainText.match(/Connected bounded evidence/g) || []).length, 1);
+});
+
+test('ledger fails before mutation when MongoDB transactions are unavailable', async () => {
+  await assert.rejects(() => persistResearchLedgerEntry({
+    ...baseInput(),
+    WikiPage: {},
+    WikiRevision: {},
+    NoeisReceipt: {},
+    userId: 'user-1'
+  }), /requires MongoDB transaction support/);
 });
