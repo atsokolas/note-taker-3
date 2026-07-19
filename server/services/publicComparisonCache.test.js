@@ -22,4 +22,15 @@ cache.set('', { value: 'ignored' });
 cache.set('missing-value', null);
 assert.strictEqual(cache.size(), 2);
 
+assert.strictEqual(cache.invalidate('A', '', ['c', 'missing']), 2);
+assert.strictEqual(cache.get('a'), null);
+assert.strictEqual(cache.get('c'), null);
+assert.strictEqual(cache.size(), 0);
+
+cache.set('page-id', { value: 'page' });
+cache.set('page-slug', { value: 'slug' });
+assert.strictEqual(cache.clear(), 2);
+assert.strictEqual(cache.size(), 0);
+assert.strictEqual(cache.clear(), 0);
+
 console.log('publicComparisonCache tests passed');
