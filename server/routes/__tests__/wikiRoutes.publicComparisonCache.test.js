@@ -18,6 +18,11 @@ const page = {
   pageType: 'repo',
   status: 'published',
   visibility: 'shared',
+  plainText: 'The repository README explains setup and the maintained repository dossier keeps that guidance current.',
+  body: {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The repository README explains setup.' }] }]
+  },
   sourceRefs: [{
     _id: 'source-1',
     title: 'README.md',
@@ -68,15 +73,27 @@ const run = async () => {
     const next = app.listen(0, '127.0.0.1', () => resolve(next));
   });
   try {
-    const url = `http://127.0.0.1:${server.address().port}/api/public/wiki/pages/repo-proof/comparison`;
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const publicPageUrl = `${base}/api/public/wiki/pages/repo-proof`;
+    const publicPageFirst = await fetch(publicPageUrl);
+    const publicPageSecond = await fetch(publicPageUrl);
+    assert.strictEqual(publicPageFirst.status, 200);
+    assert.strictEqual(publicPageSecond.status, 200);
+    assert.strictEqual(publicPageFirst.headers.get('x-noeis-public-page-cache'), 'MISS');
+    assert.strictEqual(publicPageSecond.headers.get('x-noeis-public-page-cache'), 'HIT');
+    assert.strictEqual(publicPageSecond.headers.get('cache-control'), 'public, max-age=60, stale-while-revalidate=300');
+    assert.strictEqual(pageReads, 1);
+    assert.deepStrictEqual(await publicPageSecond.json(), await publicPageFirst.json());
+
+    const url = `${base}/api/public/wiki/pages/repo-proof/comparison`;
     const first = await fetch(url);
     const second = await fetch(url);
     assert.strictEqual(first.status, 200);
     assert.strictEqual(second.status, 200);
     assert.strictEqual(first.headers.get('x-noeis-comparison-cache'), 'MISS');
     assert.strictEqual(second.headers.get('x-noeis-comparison-cache'), 'HIT');
-    assert.strictEqual(second.headers.get('cache-control'), 'public, max-age=15, stale-while-revalidate=45');
-    assert.strictEqual(pageReads, 1);
+    assert.strictEqual(second.headers.get('cache-control'), 'public, max-age=60, stale-while-revalidate=300');
+    assert.strictEqual(pageReads, 2);
     assert.deepStrictEqual(await second.json(), await first.json());
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));

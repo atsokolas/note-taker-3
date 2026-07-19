@@ -75,6 +75,7 @@ const {
 } = require('../services/wikiRepoComparisonService');
 const {
   DEFAULT_PUBLIC_COMPARISON_CACHE_TTL_MS,
+  DEFAULT_PUBLIC_PAGE_CACHE_TTL_MS,
   createPublicComparisonCache
 } = require('../services/publicComparisonCache');
 const {
@@ -1419,6 +1420,9 @@ const buildWikiRouter = ({
   const router = express.Router();
   const publicComparisonCache = createPublicComparisonCache({
     ttlMs: Number(process.env.PUBLIC_COMPARISON_CACHE_TTL_MS || DEFAULT_PUBLIC_COMPARISON_CACHE_TTL_MS)
+  });
+  const publicPageCache = createPublicComparisonCache({
+    ttlMs: Number(process.env.PUBLIC_WIKI_PAGE_CACHE_TTL_MS || DEFAULT_PUBLIC_PAGE_CACHE_TTL_MS)
   });
 
   const trackWikiEvent = (req, event, properties = {}) => {
@@ -3274,6 +3278,12 @@ const buildWikiRouter = ({
     try {
       const idOrSlug = String(req.params.idOrSlug || '').trim();
       if (!idOrSlug) return res.status(400).json({ error: 'Wiki page id or slug is required.' });
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      const cachedPayload = publicPageCache.get(idOrSlug);
+      if (cachedPayload) {
+        res.setHeader('X-Noeis-Public-Page-Cache', 'HIT');
+        return res.status(200).json(cachedPayload);
+      }
       const query = {
         visibility: 'shared',
         status: { $ne: 'archived' }
@@ -3283,14 +3293,23 @@ const buildWikiRouter = ({
       } else {
         query.slug = idOrSlug;
       }
-      const page = await WikiPage.findOne(query).lean();
+      let pageQuery = WikiPage.findOne(query);
+      if (pageQuery?.select) {
+        pageQuery = pageQuery.select('_id title slug pageType status visibility body plainText sourceRefs._id sourceRefs.type sourceRefs.sourceType sourceRefs.title sourceRefs.url sourceRefs.snippet sourceRefs.quote sourceRefs.excerpt claims._id claims.claimId citations._id citations.sourceRefId citations.claimId freshness externalWatches publicProof lastReviewedAt aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality.ok aiState.quality.status aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
+      }
+      const page = pageQuery?.lean ? await pageQuery.lean() : await pageQuery;
       if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
       const publicPage = serializePublicWikiPage(page);
       if (!publicPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
-      res.status(200).json({
+      const payload = {
         page: publicPage,
         sharedAt: page.updatedAt || page.createdAt || null
-      });
+      };
+      publicPageCache.set(idOrSlug, payload);
+      publicPageCache.set(page._id, payload);
+      publicPageCache.set(page.slug, payload);
+      res.setHeader('X-Noeis-Public-Page-Cache', 'MISS');
+      res.status(200).json(payload);
     } catch (error) {
       console.error('Error fetching public wiki page:', error);
       res.status(500).json({ error: 'Failed to fetch shared wiki page.' });
@@ -3384,7 +3403,7 @@ const buildWikiRouter = ({
     try {
       if (!WikiRepoBaseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
       const idOrSlug = String(req.params.idOrSlug || '').trim();
-      res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=45');
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
       const cachedPayload = publicComparisonCache.get(idOrSlug);
       if (cachedPayload) {
         res.setHeader('X-Noeis-Comparison-Cache', 'HIT');
@@ -3397,22 +3416,46 @@ const buildWikiRouter = ({
       if (pageQuery?.select) {
         pageQuery = pageQuery.select('_id userId title slug pageType status visibility externalWatches.githubRepo sourceRefs._id sourceRefs.title sourceRefs.url sourceRefs.provider sourceRefs.metadata claims');
       }
-      const page = pageQuery?.lean ? await pageQuery.lean() : await pageQuery;
-      if (!page) return res.status(404).json({ error: 'Public repository comparison not found.' });
-      let baselineQuery = WikiRepoBaseline.findOne({ pageId: page._id, publicEligible: true });
-      if (baselineQuery?.select) {
-        baselineQuery = baselineQuery.select('_id userId pageId owner repo defaultBranch headSha releaseTag generatorVersion claims sourceRefs capturedAt createdAt publicEligible');
+      const pagePromise = pageQuery?.lean ? pageQuery.lean() : pageQuery;
+      let baselinePromise = null;
+      let runsPromise = null;
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+        let baselineQuery = WikiRepoBaseline.findOne({ pageId: idOrSlug, publicEligible: true });
+        if (baselineQuery?.select) {
+          baselineQuery = baselineQuery.select('_id userId pageId owner repo defaultBranch headSha releaseTag generatorVersion claims sourceRefs capturedAt createdAt publicEligible');
+        }
+        baselinePromise = baselineQuery?.lean ? baselineQuery.lean() : baselineQuery;
+        if (WikiMaintenanceRun) {
+          let runsQuery = WikiMaintenanceRun.find({ pageId: idOrSlug });
+          if (runsQuery?.select) runsQuery = runsQuery.select('_id userId pageId createdAt updatedAt completedAt metadata.comparisons.pageId metadata.comparisons.sourceEventId metadata.comparisons.candidateHeadSha metadata.comparisons.outcome metadata.comparisons.counts');
+          if (runsQuery?.sort) runsQuery = runsQuery.sort({ createdAt: -1 });
+          if (runsQuery?.limit) runsQuery = runsQuery.limit(50);
+          runsPromise = runsQuery?.lean ? runsQuery.lean() : runsQuery;
+        }
       }
-      const baseline = baselineQuery?.lean ? await baselineQuery.lean() : await baselineQuery;
-      if (!baseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
-      let runs = [];
-      if (WikiMaintenanceRun) {
+      const page = await pagePromise;
+      if (!page) return res.status(404).json({ error: 'Public repository comparison not found.' });
+      if (!baselinePromise) {
+        let baselineQuery = WikiRepoBaseline.findOne({ pageId: page._id, publicEligible: true });
+        if (baselineQuery?.select) {
+          baselineQuery = baselineQuery.select('_id userId pageId owner repo defaultBranch headSha releaseTag generatorVersion claims sourceRefs capturedAt createdAt publicEligible');
+        }
+        baselinePromise = baselineQuery?.lean ? baselineQuery.lean() : baselineQuery;
+      }
+      if (!runsPromise && WikiMaintenanceRun) {
         let runsQuery = WikiMaintenanceRun.find({ userId: page.userId, pageId: page._id });
         if (runsQuery?.select) runsQuery = runsQuery.select('_id createdAt updatedAt completedAt metadata.comparisons.pageId metadata.comparisons.sourceEventId metadata.comparisons.candidateHeadSha metadata.comparisons.outcome metadata.comparisons.counts');
         if (runsQuery?.sort) runsQuery = runsQuery.sort({ createdAt: -1 });
         if (runsQuery?.limit) runsQuery = runsQuery.limit(50);
-        runs = runsQuery?.lean ? await runsQuery.lean() : await runsQuery;
+        runsPromise = runsQuery?.lean ? runsQuery.lean() : runsQuery;
       }
+      const [baseline, runsResult] = await Promise.all([baselinePromise, runsPromise || Promise.resolve([])]);
+      if (!baseline) return res.status(404).json({ error: 'Public repository comparison not found.' });
+      if (String(baseline.userId || '') !== String(page.userId || '')) {
+        return res.status(404).json({ error: 'Public repository comparison not found.' });
+      }
+      const runs = (Array.isArray(runsResult) ? runsResult : [])
+        .filter(run => String(run.userId || page.userId) === String(page.userId));
       const comparison = buildRepoComparison({ baseline, page, maintenanceRuns: runs });
       if (!comparison) return res.status(404).json({ error: 'Public repository comparison not found.' });
       const payload = { comparison: serializePublicRepoComparison(comparison) };

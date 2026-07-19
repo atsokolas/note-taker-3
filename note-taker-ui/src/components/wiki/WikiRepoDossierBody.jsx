@@ -52,18 +52,25 @@ const WikiRepoDossierBody = ({
   doc,
   tocItems = [],
   collapseSections = false,
+  expandAllSectionsByDefault = false,
   recentAnchorIds,
   wikiLinkPages,
   disableInternalWikiLinks = false
 }) => {
   const sections = useMemo(() => splitDocIntoSections(doc), [doc]);
-  const [openSectionIds, setOpenSectionIds] = useState(() => new Set());
+  const [openSectionIds, setOpenSectionIds] = useState(() => new Set(
+    sections
+      .filter(section => expandAllSectionsByDefault || section.openByDefault)
+      .map(section => section.id)
+  ));
 
   useEffect(() => {
     setOpenSectionIds(new Set(
-      sections.filter(section => section.openByDefault).map(section => section.id)
+      sections
+        .filter(section => expandAllSectionsByDefault || section.openByDefault)
+        .map(section => section.id)
     ));
-  }, [sections]);
+  }, [expandAllSectionsByDefault, sections]);
 
   if (!collapseSections) {
     return (
@@ -87,12 +94,13 @@ const WikiRepoDossierBody = ({
             </div>
           );
         }
+        const isOpen = openSectionIds.has(section.id);
         return (
           <details
             key={section.id}
             id={section.anchorId || undefined}
             className="wiki-read__repo-dossier-section"
-            open={openSectionIds.has(section.id)}
+            open={isOpen}
             data-repo-section={section.canonicalId}
             onToggle={(event) => {
               const isOpen = event.currentTarget.open;
@@ -104,7 +112,13 @@ const WikiRepoDossierBody = ({
               });
             }}
           >
-            <summary>{section.title}</summary>
+            <summary>
+              <span className="wiki-read__repo-dossier-section-title">{section.title}</span>
+              <span className="wiki-read__repo-dossier-section-disclosure">
+                <span className="wiki-read__repo-dossier-section-state">{isOpen ? 'Expanded' : 'Collapsed'}</span>
+                <span className="wiki-read__repo-dossier-section-arrow" aria-hidden="true" />
+              </span>
+            </summary>
             <div className="wiki-read__repo-dossier-section-body">
               {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
             </div>

@@ -458,6 +458,7 @@ const SharedWikiPage = () => {
                 buildStateLabel={page?.buildStateLabel || ''}
                 comparisonHref={repoComparisonHref}
                 collapseEnabled={repoCollapseSections}
+                sectionsExpandedByDefault
               />
             ) : null}
             {!repoDossierMode && intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
@@ -491,8 +492,8 @@ const SharedWikiPage = () => {
                 {mappedTocItems.length > 0 ? (
                   <nav className="shared-wiki-page__toc-sections" aria-label="All repository sections">
                     <span>On this page</span>
-                    {mappedTocItems.map(item => (
-                      <a key={item.id} href={`#${item.id}`} className={`is-level-${item.level}`}>
+                    {mappedTocItems.map((item, index) => (
+                      <a key={`${item.id}-${item.blockIndex ?? index}`} href={`#${item.id}`} className={`is-level-${item.level}`}>
                         {item.title}
                       </a>
                     ))}
@@ -503,8 +504,8 @@ const SharedWikiPage = () => {
             {!repoDossierMode && mappedTocItems.length > 0 ? (
               <aside className="shared-wiki-page__toc" aria-label="Contents">
                 <span>Contents</span>
-                {mappedTocItems.map(item => (
-                  <a key={item.id} href={`#${item.id}`} className={`is-level-${item.level}`}>
+                {mappedTocItems.map((item, index) => (
+                  <a key={`${item.id}-${item.blockIndex ?? index}`} href={`#${item.id}`} className={`is-level-${item.level}`}>
                     {item.title}
                   </a>
                 ))}
@@ -517,6 +518,7 @@ const SharedWikiPage = () => {
                   doc={displayBody}
                   tocItems={mappedTocItems}
                   collapseSections={repoCollapseSections}
+                  expandAllSectionsByDefault
                   disableInternalWikiLinks
                 />
               ) : (

@@ -411,7 +411,11 @@ describe('SharedWikiPage', () => {
     expect(screen.getByRole('navigation', { name: 'Repository dossier quick links' })).toHaveTextContent('Open questions');
     expect(screen.getByRole('complementary', { name: 'Repository dossier contents' })).toHaveTextContent('Overview');
     expect(document.getElementById('repo-section-architecture')).toBeInTheDocument();
-    expect(screen.getByText(/Long sections stay collapsed below/i)).toBeInTheDocument();
+    expect(screen.getByText(/All sections are expanded below/i)).toBeInTheDocument();
+    const disclosureSections = Array.from(document.querySelectorAll('details.wiki-read__repo-dossier-section'));
+    expect(disclosureSections).toHaveLength(3);
+    expect(disclosureSections.every(section => section.hasAttribute('open'))).toBe(true);
+    expect(screen.getAllByText('Expanded')).toHaveLength(3);
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /View repository maintenance comparison/i })).toBeInTheDocument();
     });

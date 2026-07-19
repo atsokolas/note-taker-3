@@ -36,6 +36,7 @@ const WikiRepoDossierOverview = ({
   comparisonHref = '',
   comparisonPendingShare = false,
   collapseEnabled = false,
+  sectionsExpandedByDefault = false,
   onSectionNavigate
 }) => {
   const repoLabel = repoDossierGitHubLabel(page);
@@ -106,7 +107,9 @@ const WikiRepoDossierOverview = ({
 
       {collapseEnabled ? (
         <p className="wiki-read__repo-dossier-collapse-note">
-          Long sections stay collapsed below. Open a section to read the full maintained article.
+          {sectionsExpandedByDefault
+            ? 'All sections are expanded below. Use each section arrow to collapse or reopen it.'
+            : 'Long sections stay collapsed below. Open a section to read the full maintained article.'}
         </p>
       ) : null}
     </section>

@@ -6784,10 +6784,44 @@ html[data-ui-theme='dark'] .wiki-read__repo-quickstart-source {
 .wiki-read__repo-dossier-section > summary {
   cursor: pointer;
   list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   padding: 10px 12px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 0.92rem;
   font-weight: 650;
+}
+
+.wiki-read__repo-dossier-section-disclosure {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.wiki-read__repo-dossier-section-state {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wiki-read__repo-dossier-section-arrow {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+  transform-origin: center;
+  transition: transform 160ms ease-out;
+}
+
+.wiki-read__repo-dossier-section:not([open]) .wiki-read__repo-dossier-section-arrow {
+  transform: rotate(-45deg);
 }
 
 .wiki-read__repo-dossier-section > summary::-webkit-details-marker {
@@ -6815,7 +6849,8 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wiki-read__repo-dossier-section > summary {
+  .wiki-read__repo-dossier-section > summary,
+  .wiki-read__repo-dossier-section-arrow {
     transition: none;
   }
 }
@@ -8550,6 +8585,12 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 
 .shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-section > summary {
   padding: 15px 0;
+}
+
+@media (max-width: 560px) {
+  .wiki-read__repo-dossier-section-state {
+    font-size: 0.62rem;
+  }
 }
 
 .shared-wiki-page.is-repo-dossier .wiki-read__repo-dossier-section-body {
