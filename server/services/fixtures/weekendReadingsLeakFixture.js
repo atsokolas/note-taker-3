@@ -7,7 +7,7 @@ const weekendReadingsLeakFixture = () => ({
   pageType: 'log',
   status: 'draft',
   visibility: 'private',
-  createdFrom: { type: 'sources', label: 'weekend-readings:2026-07-06:2026-07-19' },
+  createdFrom: { type: 'sources', label: 'weekend-readings:athan-user:2026-07-06:2026-07-19' },
   body: {
     type: 'doc',
     content: [

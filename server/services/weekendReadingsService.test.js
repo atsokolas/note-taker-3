@@ -65,6 +65,7 @@ test('normalizeWeekendReadingItems validates editorial fields and rejects canoni
 
 test('buildWeekendReadingsDraft creates a private canonical log with durable item metadata', () => {
   const result = buildWeekendReadingsDraft({
+    ownerId: 'user-1',
     editionNumber: 1,
     windowStart: '2026-07-06',
     windowEnd: '2026-07-19',
@@ -72,7 +73,7 @@ test('buildWeekendReadingsDraft creates a private canonical log with durable ite
     activeThesisPageId: 'thesis-001',
     items: baseItems()
   });
-  assert.equal(result.editionKey, 'weekend-readings:2026-07-06:2026-07-19');
+  assert.equal(result.editionKey, 'weekend-readings:user-1:2026-07-06:2026-07-19');
   assert.equal(result.page.status, 'draft');
   assert.equal(result.page.visibility, 'private');
   assert.equal(result.page.pageType, 'log');
@@ -169,7 +170,7 @@ test('createWeekendReadingsDraft persists one page, one revision, and one idempo
   assert.equal(result.page.visibility, 'private');
   assert.equal(result.revision._id, 'revision-1');
   assert.equal(receipts.length, 1);
-  assert.equal(receipts[0].receipt.id, 'weekend-readings:2026-07-06:2026-07-19:draft');
+  assert.equal(receipts[0].receipt.id, 'weekend-readings:user-1:2026-07-06:2026-07-19:draft');
   assert.equal(receipts[0].receipt.status, 'draft');
   assert.deepEqual(receipts[0].receipt.provenance.canonicalUrls, [
     'https://example.com/report?a=1&b=2',

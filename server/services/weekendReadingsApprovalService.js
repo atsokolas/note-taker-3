@@ -24,6 +24,12 @@ const isoDate = (value = new Date(), field = 'date') => {
 
 const editionKeyFromSnapshot = (snapshot = {}) => clean(snapshot?.createdFrom?.label, 240);
 
+const editionWindow = (editionKey = '') => {
+  const parts = clean(editionKey, 240).split(':');
+  if (parts[0] !== 'weekend-readings' || parts.length < 3) throw new Error('Weekend Readings edition key is invalid.');
+  return { windowStart: parts[parts.length - 2], windowEnd: parts[parts.length - 1] };
+};
+
 const assertEditionSnapshot = (snapshot = {}, editionKey = '') => {
   const snapshotKey = editionKeyFromSnapshot(snapshot);
   const expectedKey = clean(editionKey, 240) || snapshotKey;
@@ -99,11 +105,12 @@ const buildApprovalCandidate = ({ snapshot, revisionId, editionKey = '' } = {}) 
   const items = normalizeWeekendReadingItems((Array.isArray(snapshot.sourceRefs) ? snapshot.sourceRefs : []).map(publicItemFromSource));
   const title = clean(snapshot.title, 240);
   const authorLabel = extractAuthorLabel(snapshot.body);
+  const window = editionWindow(resolvedEditionKey);
   const body = buildWeekendReadingsBody({
     title,
     authorLabel,
-    windowStart: resolvedEditionKey.split(':')[1],
-    windowEnd: resolvedEditionKey.split(':')[2],
+    windowStart: window.windowStart,
+    windowEnd: window.windowEnd,
     editorialNote,
     items
   });
@@ -294,6 +301,7 @@ module.exports = {
   buildPublicationReceipt,
   buildReviewRequestReceipt,
   deriveApprovalState,
+  editionWindow,
   persistLifecycleReceipt,
   serializePublishedArtifact,
   stableDigest

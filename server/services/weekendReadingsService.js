@@ -162,6 +162,7 @@ const buildWeekendReadingsBody = ({
 });
 
 const buildWeekendReadingsDraft = ({
+  ownerId = '',
   editionNumber = null,
   windowStart,
   windowEnd,
@@ -181,7 +182,8 @@ const buildWeekendReadingsDraft = ({
     ? ` — Edition ${Number(editionNumber)}`
     : '';
   const title = `Weekend Readings — ${dateKey(end, 'windowEnd')}${editionSuffix}`;
-  const editionKey = `weekend-readings:${dateKey(start, 'windowStart')}:${dateKey(end, 'windowEnd')}`;
+  const ownerKey = clean(ownerId, 120) || 'unscoped';
+  const editionKey = `weekend-readings:${ownerKey}:${dateKey(start, 'windowStart')}:${dateKey(end, 'windowEnd')}`;
   const body = buildWeekendReadingsBody({
     title,
     authorLabel: clean(authorLabel, 160) || 'Athan Tsokolas',
@@ -257,7 +259,7 @@ const createWeekendReadingsDraft = async ({
   ...input
 } = {}) => {
   if (!WikiPage || !userId) throw new Error('WikiPage and userId are required.');
-  const draft = buildWeekendReadingsDraft(input);
+  const draft = buildWeekendReadingsDraft({ ...input, ownerId: userId });
   const existingPage = typeof WikiPage.findOne === 'function'
     ? await resolveQuery(WikiPage.findOne({ userId, 'createdFrom.label': draft.editionKey, status: { $ne: 'archived' } }))
     : null;

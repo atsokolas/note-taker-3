@@ -49,7 +49,7 @@ const lifecycle = () => {
 
 test('approval candidate reconstructs a public-safe artifact from an exact revision', () => {
   const candidate = candidateFor();
-  assert.equal(candidate.editionKey, 'weekend-readings:2026-07-06:2026-07-19');
+  assert.equal(candidate.editionKey, 'weekend-readings:athan-user:2026-07-06:2026-07-19');
   assert.equal(candidate.revisionId, 'revision-123456789');
   assert.equal(candidate.sourceRefs.length, 1);
   assert.equal(candidate.sourceRefs[0].readingRole, 'thesis_evidence');
