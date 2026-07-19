@@ -7,6 +7,23 @@
 
 This runbook begins the operating practice without inventing Athan's judgment or publishing anything automatically. The corresponding product/data contract is in `docs/noeis-research-publication-system-spec-2026-07-19.md`.
 
+## Strategic hierarchy
+
+**Mission**
+Build the intelligence infrastructure for exceptional decision-making.
+
+**Long-term vision**
+Create the first AI-native institution that continuously compounds judgment and converts superior understanding into companies, investments, and enduring organizations.
+
+**First product**
+Noeis: the operating system for maintained judgment.
+
+**First proving ground**
+Research and invest in the transformation of physical industries through AI, electrification, and automation.
+
+**Ultimate outcome**
+A permanent institution that gets smarter every year.
+
 ## 1. Standing cadence
 
 ### Every Sunday — private intake
@@ -26,20 +43,33 @@ This runbook begins the operating practice without inventing Athan's judgment or
 
 ### Every second weekend — Weekend Readings draft
 
-1. Open the prior two Sunday sweeps.
-2. Dedupe against all prior private sweeps, Friday lists, and public editions by canonical URL; use title similarity as a review warning.
-3. Select only items that earn an editorial explanation.
-4. Create one private dated Noeis Wiki draft.
-5. Write one editorial note naming the period's main intellectual pressure.
-6. For each item answer:
+1. Confirm OpenClaw has written and read back the dated and `latest.json` Afternoon Research handoffs. Treat every proposed thesis reference as unaccepted.
+2. Run the local intake collector for the two-week window. It combines OpenClaw handoffs with URL-bearing Sunday/Friday automation memory while preserving producer/run provenance.
+3. Send the normalized manifest to the authenticated human-only intake preview. No preview operation may write product state.
+4. Review canonical dedupe results across sources and prior published editions. A prior private draft is not publication history; a digest-valid publication receipt is.
+5. Select 8-15 items. Fill every missing rationale, source-quality judgment, public-safe relationship, and context boundary. Keep `requiresHumanAcceptance=true` until the item is explicitly selected.
+6. Create one private dated Noeis Wiki draft through the existing human-only draft route.
+7. Write one editorial note naming the period's main intellectual pressure.
+8. For each item answer:
    - Why does this matter?
    - What could it change or clarify?
    - Is it evidence, counterevidence, context, or broadening?
    - What does it not prove?
-7. Request Athan's review of the exact draft revision.
-8. Stop. No job, agent, or scheduler publishes it.
-9. After explicit approval, publish the approved revision to one canonical Wiki share URL and verify links/privacy.
-10. Athan owns every distribution action outside Noeis.
+9. Request Athan's review of the exact draft revision.
+10. Stop. No job, agent, or scheduler publishes it.
+11. After explicit approval, publish the approved revision to one canonical Wiki share URL and verify links/privacy.
+12. Athan owns every distribution action outside Noeis.
+
+Collector command for the next two-week window:
+
+```bash
+NOEIS_AUTH_TOKEN='<human session token>' node scripts/preview_weekend_readings_intake.js \
+  --window-start YYYY-MM-DD \
+  --window-end YYYY-MM-DD \
+  --api-base https://note-taker-3-unrg.onrender.com
+```
+
+The command calls only the preview endpoint. It cannot create, approve, or publish an edition. Do not paste or commit the token, the preview output, or raw private automation memory.
 
 ### Every Monday — research frame
 

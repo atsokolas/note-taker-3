@@ -2,10 +2,29 @@
 
 **Status:** Source of truth (supersedes the surface-by-surface framing)
 **Owner:** Athan
-**Last updated:** 2026-05-31
-**Related:** `docs/prd-llm-native-wiki-reshape.md` (the wiki reshape PRD sits *inside* this larger vision)
+**Last updated:** 2026-07-19
+**Related:** `docs/prd-llm-native-wiki-reshape.md`, `docs/noeis-research-publication-system-spec-2026-07-19.md`, `docs/noeis-research-operations-runbook-2026-07-19.md`
 
 ---
+
+## Strategic hierarchy
+
+**Mission**
+Build the intelligence infrastructure for exceptional decision-making.
+
+**Long-term vision**
+Create the first AI-native institution that continuously compounds judgment and converts superior understanding into companies, investments, and enduring organizations.
+
+**First product**
+Noeis: the operating system for maintained judgment.
+
+**First proving ground**
+Research and invest in the transformation of physical industries through AI, electrification, and automation.
+
+**Ultimate outcome**
+A permanent institution that gets smarter every year.
+
+The operating doctrine remains: real work -> observed friction -> bounded product change. The product experience described below serves this hierarchy.
 
 ## 1. What Noeis is (one line)
 

@@ -138,6 +138,19 @@ const normalizeIdList = (value = []) => Array.from(new Set(
     .filter(Boolean)
 )).slice(0, 40);
 
+const normalizeIntakeProvenance = (value = []) => (Array.isArray(value) ? value : [])
+  .slice(0, 12)
+  .map(entry => ({
+    sourceType: clean(entry?.sourceType, 120),
+    sourceName: clean(entry?.sourceName, 240),
+    schemaVersion: clean(entry?.schemaVersion, 40),
+    generatedAt: entry?.generatedAt ? toDate(entry.generatedAt, 'intakeProvenance.generatedAt') : null,
+    sourceJobId: clean(entry?.sourceJobId, 160),
+    externalId: clean(entry?.externalId, 240),
+    signalQuality: clean(entry?.signalQuality, 120)
+  }))
+  .filter(entry => entry.sourceType && entry.externalId);
+
 const normalizeWeekendReadingItem = (item = {}, index = 0, options = {}) => {
   const title = clean(item.title, 240);
   const canonicalUrl = canonicalizeReadingUrl(item.url || item.canonicalUrl, options);
@@ -172,7 +185,9 @@ const normalizeWeekendReadingItem = (item = {}, index = 0, options = {}) => {
     affectedQuestion: clean(item.affectedQuestion, 500),
     affectedClaimIds: normalizeIdList(item.affectedClaimIds),
     affectedUnknownIds: normalizeIdList(item.affectedUnknownIds),
-    affectedFalsifierIds: normalizeIdList(item.affectedFalsifierIds)
+    affectedFalsifierIds: normalizeIdList(item.affectedFalsifierIds),
+    intakeProvenance: normalizeIntakeProvenance(item.intakeProvenance),
+    requiresHumanAcceptance: item.requiresHumanAcceptance !== false
   };
 };
 
@@ -305,6 +320,8 @@ const buildWeekendReadingsDraft = ({
             affectedClaimIds: item.affectedClaimIds,
             affectedUnknownIds: item.affectedUnknownIds,
             affectedFalsifierIds: item.affectedFalsifierIds,
+            intakeProvenance: item.intakeProvenance,
+            requiresHumanAcceptance: true,
             thesisConnectionDisposition: 'unreviewed',
             activeThesisPageId: clean(activeThesisPageId, 120)
           }
@@ -336,6 +353,16 @@ const createWeekendReadingsDraft = async ({
     ? await resolveQuery(WikiPage.findOne({ userId, 'createdFrom.label': draft.editionKey, status: { $ne: 'archived' } }))
     : null;
   if (existingPage) return { created: false, page: existingPage, revision: null, receipt: null, draft };
+  if (!NoeisReceipt?.find || !NoeisReceipt?.findOneAndUpdate) {
+    throw new Error('Weekend Readings receipt history and persistence are required before draft creation.');
+  }
+  // Loaded lazily to keep the intake parser reusable without creating a module cycle at startup.
+  const { loadPriorWeekendReadingsUrls } = require('./weekendReadingsIntakeService');
+  const priorUrls = new Set(await loadPriorWeekendReadingsUrls({ NoeisReceipt, userId }));
+  const repeated = draft.items.find(item => priorUrls.has(item.canonicalUrl));
+  if (repeated) {
+    throw new Error(`Weekend Readings source already appeared in a prior published edition: ${repeated.canonicalUrl}`);
+  }
 
   const slug = typeof buildUniqueSlug === 'function'
     ? await buildUniqueSlug(userId, draft.title)
@@ -401,7 +428,9 @@ const createWeekendReadingsDraft = async ({
               whyItMatters: item.whyItMatters,
               publicRelationship: item.publicRelationship,
               boundary: item.boundary,
-              affectedClaimIds: item.affectedClaimIds
+              affectedClaimIds: item.affectedClaimIds,
+              intakeProvenance: item.intakeProvenance,
+              requiresHumanAcceptance: true
             }))
           },
           completedAt: new Date()

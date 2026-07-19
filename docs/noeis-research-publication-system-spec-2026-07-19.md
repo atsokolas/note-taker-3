@@ -1,9 +1,26 @@
 # Noeis research and publication system
 
-**Status:** Locally implemented and verified on the landed Judgment base; release and live acceptance pending
+**Status:** Weekend Readings production base landed; private operator-intake increment in implementation
 **Date:** 2026-07-19
 **Owner:** Athan Tsokolas
 **System objective:** Operate one durable research-and-publication practice in which private reading, maintained judgment, selective public proof, decisions, and postmortems remain connected inside canonical Noeis objects.
+
+## Strategic hierarchy
+
+**Mission**
+Build the intelligence infrastructure for exceptional decision-making.
+
+**Long-term vision**
+Create the first AI-native institution that continuously compounds judgment and converts superior understanding into companies, investments, and enduring organizations.
+
+**First product**
+Noeis: the operating system for maintained judgment.
+
+**First proving ground**
+Research and invest in the transformation of physical industries through AI, electrification, and automation.
+
+**Ultimate outcome**
+A permanent institution that gets smarter every year.
 
 ## 1. Directive
 
@@ -27,9 +44,9 @@ Noeis remains the canonical internal and public artifact. Distribution outside N
 
 ### 2.1 Live and repository baseline
 
-- Preflight began at `2095a55a` (`Speed up public repo dossiers`). The Daily Loop and Judgment system subsequently landed on `main` through merge `3de6adbf`; this publication branch is rebased on that exact merge.
+- The Daily Loop and Judgment system landed through PR #47. Weekend Readings and the research operating ledger landed through PR #48 at merge `71839eb1`; the release-review hardening landed through PR #49 at exact reviewed tip `599a2f07` and merge `ece79e4c`.
 - `https://www.noeis.io/`, `/wiki`, and `/proof` returned HTTP 200 on 2026-07-19. The Render health endpoint returned HTTP 200 with `{"status":"ok","message":"Server is warm."}`. These checks establish availability, not authenticated workflow acceptance.
-- The deployed homepage still describes Noeis primarily as a source-grounded personal research wiki. There is no public Weekend Readings artifact or research-program surface proven live in this pass.
+- No real Weekend Readings artifact has been created or published. Production acceptance is limited to deployment, runtime health, authorization boundaries, and synthetic fixtures.
 
 ### 2.2 Existing primitives to reuse
 
@@ -81,6 +98,22 @@ Current `main` does not yet prove the following complete contracts:
 10. Public cache invalidation when an artifact is unpublished or replaced. Current public-page caching can outlive the visibility change and the HTTP response also permits stale reuse.
 11. Safe public URL validation. Normal source normalization accepts arbitrary URL strings, which the shared page later renders as links (`server/routes/wikiRoutes.js:1300-1308`; `note-taker-ui/src/pages/SharedWikiPage.jsx:530-550`).
 12. An explicit public-safe maintenance summary. The public proof envelope can derive visible text from private `aiState.changeLog` or `maintenanceSummary`; Weekend Readings must publish only an approved summary.
+
+### 2.5 Afternoon Research operator-intake contract
+
+OpenClaw's producer is cron job `0a35a454-de07-47b7-b8c5-f3229717af35`, **Jarvis Afternoon Research Brief**, scheduled for 15:00 America/Chicago. OpenClaw remains an upstream private producer. It may write the dated and `latest.json` handoffs under `state/noeis-intake/afternoon-research/`, but it may not mutate Noeis, attach evidence to accepted claims, approve, publish, email, or distribute.
+
+The safe integration is deliberately split:
+
+1. A local read-only collector reads only the fixed OpenClaw handoff directory and the three fixed Sunday/Friday automation-memory files. It rejects symlinks, nonregular or oversized files, detects changes during reads, and never fetches or executes source content.
+2. The collector validates the OpenClaw schema, 3-5 item bound, exact producer job ID, unique external IDs and canonical URLs, safe URLs, and `requiresHumanAcceptance=true`.
+3. It locally parses dated URL-bearing Sunday/Friday memory sections. Friday Research Papers prose memory is reported as incomplete rather than having URLs invented.
+4. It sends only normalized candidates and sanitized provenance to the human-only, non-mutating `POST /api/wiki/weekend-readings/intake/preview` endpoint. Raw automation memory and local absolute paths do not enter Noeis.
+5. Noeis canonicalizes and dedupes across producers and against owner-scoped, digest-valid published-edition receipts. Draft, review, and approved-but-unpublished receipts do not count as prior public editions.
+6. The preview returns candidates with `accepted=false`, `requiresHumanAcceptance=true`, and explicit missing human editorial fields. It creates no WikiPage, revision, receipt, connection, approval, or publication.
+7. The existing human-only draft creator repeats the prior-published-edition check immediately before any write. Selected intake provenance is stored privately in source metadata and remains excluded by the public serializer.
+
+This is an operator intake, not a second CMS or autonomous research agent. Athan still supplies selection, source quality, public-safe relationship/boundary copy, editorial note, approval, publication, and all distribution.
 
 ## 3. Ownership fence and landed handoff
 
@@ -436,11 +469,12 @@ Live acceptance must prove:
 | 2. Operating/spec contract | This evidence-backed specification and operating runbook | Complete |
 | 3. Low-collision implementation | Private draft builder, provenance/dedupe, approval, receipts, operating ledger, and public serializer | Complete |
 | 4. Shared integration and verification | Authenticated routes, operator controls, immutable public reader, leak checks, full Wiki QA/build, responsive browser QA | Complete locally on `3de6adbf` |
-| 5. Landing and live proof | Commit/PR/deploy/live route and UI acceptance | In progress; no real artifact will be created |
+| 5. Landing and live proof | PR #48/#49, deployment, live route and UI acceptance | Complete for the base at merge `ece79e4c`; no real artifact created |
+| 5A. Private operator intake | Fixed-path collector, schema/parser, receipt-backed preview dedupe, provenance/leak gates | In progress on a fresh branch from `ece79e4c` |
 | 6. Real operation | Guided day-zero Thesis 001 session | Pending Athan only when product readiness is proven |
 
-**Overall completion against this pass:** 92% at the landed-base local acceptance checkpoint; only PR landing, deployment verification, and the user-operated day-zero session remain.
-**Deviation:** none from the settled causal order or approval boundary. Browser acceptance uses a synthetic localhost-only approved fixture because creating a real-account draft or public artifact is explicitly out of scope without Athan's approval.
+**Overall completion against the original pass:** 100% through landed/deployed Weekend Readings base; real operation remains intentionally user-gated. **Current intake increment:** implementation and focused verification in progress.
+**Deviation:** no frontend intake form is being added. Current operating evidence supports a backend/operator CLI preview; the existing Wiki reader owns review/approval once a private draft exists.
 **Standout deliverable:** one revision-bound manual publication path that turns private biweekly selection into an immutable public Wiki artifact while preserving thesis connections as proposals and monthly continuity in existing Wiki/revision/receipt primitives.
 
 ## 10. Non-goals
