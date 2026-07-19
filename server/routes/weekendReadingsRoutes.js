@@ -1,6 +1,10 @@
 const express = require('express');
 const { createWeekendReadingsDraft } = require('../services/weekendReadingsService');
 const {
+  buildWeekendReadingsIntake,
+  loadPriorWeekendReadingsUrls
+} = require('../services/weekendReadingsIntakeService');
+const {
   approveWeekendReadingsRevision,
   findCurrentRevision,
   loadWorkflowContext,
@@ -21,8 +25,8 @@ const requireHumanOwner = (req, res, next) => {
 const statusForError = (error = {}) => {
   const message = String(error?.message || '');
   if (/not found/i.test(message)) return 404;
-  if (/changed after approval|same exact revision|cross .*revision|snapshot is unavailable|reapproval/i.test(message)) return 409;
-  if (/confirmation|required|invalid|must |supports at most|needs /i.test(message)) return 400;
+  if (/changed after approval|same exact revision|cross .*revision|snapshot is unavailable|reapproval|prior published edition/i.test(message)) return 409;
+  if (/confirmation|required|requires|invalid|must |supports at most|needs /i.test(message)) return 400;
   return 500;
 };
 
@@ -60,6 +64,21 @@ const buildWeekendReadingsHandlers = ({
       });
     } catch (error) {
       return sendError(res, error, 'Failed to create Weekend Readings draft.');
+    }
+  };
+
+  const previewIntake = async (req, res) => {
+    try {
+      const priorEditionUrls = await loadPriorWeekendReadingsUrls({ NoeisReceipt, userId: req.user.id });
+      const preview = buildWeekendReadingsIntake({
+        openClawHandoffs: req.body?.openClawHandoffs,
+        automationMemories: req.body?.automationMemories,
+        candidateItems: req.body?.candidateItems,
+        priorEditionUrls
+      });
+      return res.status(200).json(preview);
+    } catch (error) {
+      return sendError(res, error, 'Failed to preview Weekend Readings intake.');
     }
   };
 
@@ -123,6 +142,15 @@ const buildWeekendReadingsHandlers = ({
       const latestRevision = await findCurrentRevision({ WikiRevision, userId: req.user.id, pageId: req.params.pageId });
       if (idOf(latestRevision) !== idOf(prepared.revision)) throw new Error('Draft changed after approval; reapproval is required before publication.');
 
+      const priorEditionUrls = new Set(await loadPriorWeekendReadingsUrls({
+        NoeisReceipt,
+        userId: req.user.id,
+        excludePageId: req.params.pageId
+      }));
+      const repeated = (Array.isArray(prepared.publicArtifact?.sourceRefs) ? prepared.publicArtifact.sourceRefs : [])
+        .find(source => priorEditionUrls.has(source.url));
+      if (repeated) throw new Error(`Weekend Readings source already appeared in a prior published edition: ${repeated.url}`);
+
       page = await WikiPage.findOne({ _id: req.params.pageId, userId: req.user.id, status: { $ne: 'archived' } });
       if (!page) throw new Error('Weekend Readings page not found.');
       previousVisibility = page.visibility;
@@ -153,12 +181,13 @@ const buildWeekendReadingsHandlers = ({
     }
   };
 
-  return { approve, createDraft, getStatus, publish, requestReview };
+  return { approve, createDraft, getStatus, previewIntake, publish, requestReview };
 };
 
 const buildWeekendReadingsRouter = ({ authenticateToken, ...dependencies } = {}) => {
   const router = express.Router();
   const handlers = buildWeekendReadingsHandlers(dependencies);
+  router.post('/api/wiki/weekend-readings/intake/preview', authenticateToken, requireHumanOwner, handlers.previewIntake);
   router.post('/api/wiki/weekend-readings/drafts', authenticateToken, requireHumanOwner, handlers.createDraft);
   router.get('/api/wiki/weekend-readings/:pageId/status', authenticateToken, handlers.getStatus);
   router.post('/api/wiki/weekend-readings/:pageId/review', authenticateToken, requireHumanOwner, handlers.requestReview);

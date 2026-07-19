@@ -7,6 +7,7 @@ const {
   createWeekendReadingsDraft,
   normalizeWeekendReadingItems
 } = require('./weekendReadingsService');
+const { buildApprovalCandidate } = require('./weekendReadingsApprovalService');
 
 const baseItems = () => ([
   {
@@ -171,7 +172,10 @@ test('createWeekendReadingsDraft persists one page, one revision, and one idempo
   const result = await createWeekendReadingsDraft({
     WikiPage,
     WikiRevision: {},
-    NoeisReceipt: {},
+    NoeisReceipt: {
+      find: () => ({ lean: async () => [] }),
+      findOneAndUpdate: async () => null
+    },
     userId: 'user-1',
     buildUniqueSlug: async () => 'weekend-readings-2026-07-19',
     createWikiRevision,
@@ -214,4 +218,77 @@ test('createWeekendReadingsDraft returns the existing edition instead of duplica
   assert.equal(result.created, false);
   assert.equal(result.page._id, 'existing-page');
   assert.equal(createCalls, 0);
+});
+
+test('direct draft creation rejects a URL from a prior published edition before any write', async () => {
+  const priorDraft = buildWeekendReadingsDraft({
+    ownerId: 'user-1',
+    windowStart: '2026-06-01',
+    windowEnd: '2026-06-14',
+    editorialNote: 'Prior approved edition.',
+    items: baseItems()
+  });
+  const artifact = buildApprovalCandidate({ snapshot: priorDraft.page, revisionId: 'prior-revision' });
+  const approval = {
+    receiptId: 'approval-prior',
+    kind: 'weekend_readings_revision_approved',
+    status: 'approved',
+    provenance: {
+      pageId: 'prior-page',
+      revisionId: 'prior-revision',
+      editionKey: artifact.editionKey,
+      digest: artifact.digest,
+      publicArtifact: artifact
+    }
+  };
+  const publication = {
+    receiptId: 'publication-prior',
+    kind: 'weekend_readings_revision_published',
+    status: 'published',
+    provenance: {
+      approvalReceiptId: 'approval-prior',
+      pageId: 'prior-page',
+      revisionId: 'prior-revision',
+      editionKey: artifact.editionKey,
+      digest: artifact.digest
+    }
+  };
+  let writes = 0;
+  const NoeisReceipt = {
+    find(query) {
+      return { lean: async () => query.kind === 'weekend_readings_revision_published' ? [publication] : [approval] };
+    },
+    findOneAndUpdate: () => { writes += 1; }
+  };
+  await assert.rejects(() => createWeekendReadingsDraft({
+    WikiPage: {
+      findOne: () => ({ lean: async () => null }),
+      create: () => { writes += 1; }
+    },
+    WikiRevision: { create: () => { writes += 1; } },
+    NoeisReceipt,
+    userId: 'user-1',
+    windowStart: '2026-07-06',
+    windowEnd: '2026-07-19',
+    editorialNote: 'A later edition must not repeat a published source.',
+    items: baseItems()
+  }), /prior published edition/);
+  assert.equal(writes, 0);
+});
+
+test('draft creation fails closed without receipt history or persistence before any write', async () => {
+  let writes = 0;
+  await assert.rejects(() => createWeekendReadingsDraft({
+    WikiPage: {
+      findOne: () => ({ lean: async () => null }),
+      create: () => { writes += 1; }
+    },
+    WikiRevision: { create: () => { writes += 1; } },
+    userId: 'user-1',
+    windowStart: '2026-07-06',
+    windowEnd: '2026-07-19',
+    editorialNote: 'Receipt continuity is mandatory.',
+    items: baseItems()
+  }), /receipt history and persistence are required/);
+  assert.equal(writes, 0);
 });

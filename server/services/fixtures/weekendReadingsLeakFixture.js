@@ -38,6 +38,13 @@ const weekendReadingsLeakFixture = () => ({
         affectedClaimIds: [`${privateSentinel}-claim`],
         affectedUnknownIds: [`${privateSentinel}-unknown`],
         affectedFalsifierIds: [`${privateSentinel}-falsifier`],
+        requiresHumanAcceptance: true,
+        intakeProvenance: [{
+          sourceType: 'openclaw_afternoon_research',
+          sourceName: `${privateSentinel}-latest.json`,
+          sourceJobId: `${privateSentinel}-job`,
+          externalId: `${privateSentinel}-external`
+        }],
         thesisConnectionDisposition: 'unreviewed',
         activeThesisPageId: `${privateSentinel}-page`
       }

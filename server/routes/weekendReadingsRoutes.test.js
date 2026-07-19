@@ -6,9 +6,14 @@ const { buildWeekendReadingsHandlers, buildWeekendReadingsRouter, statusForError
 const {
   APPROVAL_CONFIRMATION,
   PUBLICATION_CONFIRMATION,
-  REVIEW_CONFIRMATION
+  REVIEW_CONFIRMATION,
+  buildApprovalCandidate,
+  buildApprovalReceipt,
+  buildPublicationReceipt,
+  buildReviewRequestReceipt
 } = require('../services/weekendReadingsApprovalService');
 const { weekendReadingsLeakFixture, privateSentinel } = require('../services/fixtures/weekendReadingsLeakFixture');
+const { OPENCLAW_AFTERNOON_RESEARCH_JOB_ID } = require('../services/weekendReadingsIntakeService');
 
 const response = () => ({
   statusCode: 0,
@@ -27,7 +32,13 @@ const buildHarness = () => {
   };
   const revision = { _id: 'revision-123456789', pageId: page._id, after: weekendReadingsLeakFixture() };
   const NoeisReceipt = {
-    find: () => receipts,
+    find: query => receipts.filter(row => (
+      (!query.userId || row.userId === query.userId)
+      && (!query.kind || (query.kind.$in ? query.kind.$in.includes(row.kind) : row.kind === query.kind))
+      && (!query.status || row.status === query.status)
+      && (!query.receiptId || (query.receiptId.$in ? query.receiptId.$in.includes(row.receiptId) : row.receiptId === query.receiptId))
+      && (!query['provenance.pageId'] || row.provenance?.pageId === query['provenance.pageId'])
+    )),
     findOne: query => receipts.find(row => (
       (!query.receiptId || row.receiptId === query.receiptId)
       && (!query.kind || row.kind === query.kind)
@@ -111,11 +122,139 @@ test('publication receipt failure rolls the page back to private draft', async (
   assert.equal(harness.invalidations.length, 0);
 });
 
+test('publication rechecks prior editions and leaves a duplicate private with no publication receipt', async () => {
+  const harness = buildHarness();
+  await harness.handlers.requestReview(request(REVIEW_CONFIRMATION), response());
+  await harness.handlers.approve(request(APPROVAL_CONFIRMATION), response());
+
+  const priorSnapshot = weekendReadingsLeakFixture();
+  priorSnapshot._id = 'prior-page';
+  priorSnapshot.createdFrom.label = 'weekend-readings:athan-user:2026-06-01:2026-06-14';
+  const priorCandidate = buildApprovalCandidate({ snapshot: priorSnapshot, revisionId: 'prior-revision' });
+  const priorReview = buildReviewRequestReceipt({
+    candidate: priorCandidate,
+    pageId: 'prior-page',
+    actorUserId: 'athan-user',
+    confirmation: REVIEW_CONFIRMATION,
+    at: '2026-06-14T12:00:00.000Z'
+  });
+  const priorApproval = buildApprovalReceipt({
+    candidate: priorCandidate,
+    reviewReceipt: priorReview,
+    pageId: 'prior-page',
+    actorUserId: 'athan-user',
+    confirmation: APPROVAL_CONFIRMATION,
+    at: '2026-06-14T12:05:00.000Z'
+  });
+  const priorPublication = buildPublicationReceipt({
+    approvalReceipt: priorApproval,
+    currentRevisionId: 'prior-revision',
+    pageId: 'prior-page',
+    actorUserId: 'athan-user',
+    confirmation: PUBLICATION_CONFIRMATION,
+    at: '2026-06-14T12:10:00.000Z'
+  });
+  const storedPriorApproval = { ...priorApproval, receiptId: priorApproval.id, userId: 'athan-user' };
+  const storedPriorPublication = { ...priorPublication, receiptId: priorPublication.id, userId: 'athan-user' };
+  harness.receipts.push(storedPriorApproval, storedPriorPublication);
+
+  const res = response();
+  await harness.handlers.publish(request(PUBLICATION_CONFIRMATION), res);
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.error, /prior published edition/);
+  assert.equal(harness.page.visibility, 'private');
+  assert.equal(harness.page.status, 'draft');
+  assert.equal(harness.page.saveCount, 0);
+  assert.equal(harness.invalidations.length, 0);
+  assert.equal(harness.receipts.filter(row => row.kind === 'weekend_readings_revision_published').length, 1);
+});
+
 test('route errors distinguish stale conflicts from validation and internal failures', () => {
   assert.equal(statusForError(new Error('Draft changed after approval; reapproval is required.')), 409);
   assert.equal(statusForError(new Error('confirmation is required')), 400);
+  assert.equal(statusForError(new Error('source already appeared in a prior published edition')), 409);
   assert.equal(statusForError(new Error('Weekend Readings page not found.')), 404);
   assert.equal(statusForError(new Error('database disconnected')), 500);
+});
+
+test('unauthenticated intake preview returns 401 before parsing or model access', async () => {
+  let downstreamCalls = 0;
+  const app = express();
+  app.use(express.json());
+  app.use(buildWeekendReadingsRouter({
+    authenticateToken: (_req, res) => res.status(401).json({ error: 'AUTH_REQUIRED' }),
+    NoeisReceipt: { find: () => { downstreamCalls += 1; } }
+  }));
+  const server = await new Promise(resolve => {
+    const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+  });
+  try {
+    const result = await fetch(`http://127.0.0.1:${server.address().port}/api/wiki/weekend-readings/intake/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    assert.equal(result.status, 401);
+    assert.deepEqual(await result.json(), { error: 'AUTH_REQUIRED' });
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+  assert.equal(downstreamCalls, 0);
+});
+
+test('human intake preview is read-only and returns an explicit candidate contract', async () => {
+  let findCalls = 0;
+  let writeCalls = 0;
+  const handlers = buildWeekendReadingsHandlers({
+    NoeisReceipt: {
+      find: () => {
+        findCalls += 1;
+        return { lean: async () => [] };
+      },
+      findOneAndUpdate: () => { writeCalls += 1; }
+    },
+    WikiPage: { create: () => { writeCalls += 1; } },
+    WikiRevision: { create: () => { writeCalls += 1; } }
+  });
+  const req = {
+    user: { id: 'private-owner-id' },
+    body: {
+      openClawHandoffs: [{
+        sourceName: '/Users/private/2026-07-19.json',
+        payload: {
+          schemaVersion: '1',
+          generatedAt: '2026-07-19T20:00:00.000Z',
+          sourceJobId: OPENCLAW_AFTERNOON_RESEARCH_JOB_ID,
+          signalQuality: 'high',
+          takeaway: 'A bounded operator intake.',
+          items: [1, 2, 3].map(index => ({
+            externalId: `paper-${index}`,
+            title: `Paper ${index}`,
+            canonicalUrl: `https://example.com/paper-${index}`,
+            sourceLabel: 'Example',
+            summary: 'Summary.',
+            whyItMatters: 'It may affect the maintained research question.',
+            lanes: ['electrification'],
+            proposedEvidenceRole: index === 2 ? 'counterevidence' : 'support',
+            proposedThesisRefs: ['Living Thesis 001'],
+            requiresHumanAcceptance: true
+          }))
+        }
+      }]
+    }
+  };
+  const res = response();
+  await handlers.previewIntake(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.candidates.length, 3);
+  assert.equal(res.body.candidates[0].requiresHumanAcceptance, true);
+  assert.equal(res.body.candidates[0].accepted, false);
+  assert.equal(findCalls, 1);
+  assert.equal(writeCalls, 0);
+  const serialized = JSON.stringify(res.body);
+  assert.doesNotMatch(serialized, /private-owner-id/);
+  assert.doesNotMatch(serialized, /\/Users\/private/);
+  assert.doesNotMatch(serialized, /editionKey|revisionId|receiptId|actorUserId/);
 });
 
 test('agent tokens receive 403 on every mutation route before receipts or visibility can change', async () => {
@@ -146,6 +285,7 @@ test('agent tokens receive 403 on every mutation route before receipts or visibi
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
     const paths = [
+      '/api/wiki/weekend-readings/intake/preview',
       '/api/wiki/weekend-readings/drafts',
       '/api/wiki/weekend-readings/page-1/review',
       '/api/wiki/weekend-readings/page-1/approve',
