@@ -52,11 +52,24 @@ const SENSITIVE_QUERY_KEYS = new Set([
   'x_goog_signature'
 ]);
 
+const SENSITIVE_QUERY_COMPONENTS = new Set([
+  'auth', 'authorization', 'credential', 'credentials', 'jwt', 'key', 'password', 'passwd',
+  'secret', 'sig', 'signature', 'token'
+]);
+
 const normalizeSensitiveQueryKey = value => String(value || '')
   .trim()
+  .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
   .toLowerCase()
-  .replace(/(?:\[\])+$/g, '')
-  .replace(/-/g, '_');
+  .replace(/[.\[\]-]+/g, '_')
+  .replace(/_+/g, '_')
+  .replace(/^_|_$/g, '');
+
+const isSensitiveQueryKey = value => {
+  const normalized = normalizeSensitiveQueryKey(value);
+  if (SENSITIVE_QUERY_KEYS.has(normalized)) return true;
+  return normalized.split('_').some(component => SENSITIVE_QUERY_COMPONENTS.has(component));
+};
 
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 
@@ -83,9 +96,7 @@ const canonicalizeReadingUrl = (value = '', { allowHttp = false } = {}) => {
   if (parsed.username || parsed.password) {
     throw new Error('Weekend Readings URLs cannot contain embedded credentials.');
   }
-  const sensitiveKey = Array.from(parsed.searchParams.keys()).find(key => (
-    SENSITIVE_QUERY_KEYS.has(normalizeSensitiveQueryKey(key))
-  ));
+  const sensitiveKey = Array.from(parsed.searchParams.keys()).find(isSensitiveQueryKey);
   if (sensitiveKey) {
     throw new Error(`Weekend Readings URLs cannot contain sensitive query parameter "${sensitiveKey}".`);
   }

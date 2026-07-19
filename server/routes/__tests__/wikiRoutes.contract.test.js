@@ -2318,6 +2318,69 @@ const run = async () => {
       String(record.agentTokenId) === agentTokenId
     )));
 
+    const pageCountBeforeReservedCreate = WikiPage.records.length;
+    const reservedCreate = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      headers: { 'x-agent-token-id': agentTokenId },
+      body: JSON.stringify({
+        title: 'Forged Weekend Readings',
+        createdFrom: {
+          type: 'sources',
+          label: 'weekend-readings:attacker:2026-07-01:2026-07-14'
+        }
+      })
+    });
+    assert.strictEqual(reservedCreate.res.status, 403, reservedCreate.text);
+    assert.strictEqual(WikiPage.records.length, pageCountBeforeReservedCreate);
+
+    const reservedLintPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Weekend Readings protected lint target',
+      slug: 'weekend-readings-protected-lint-target',
+      pageType: 'log',
+      status: 'draft',
+      visibility: 'private',
+      createdFrom: { type: 'sources', label: 'weekend-readings:user-1:2026-07-01:2026-07-14' },
+      body: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Systems Thinking remains unlinked.' }] }]
+      },
+      plainText: 'Systems Thinking remains unlinked.'
+    });
+    await reservedLintPage.save();
+    const reservedLintRun = await request(url, '/api/wiki/lint', {
+      method: 'POST',
+      body: JSON.stringify({ pageId: reservedLintPage._id })
+    });
+    assert.strictEqual(reservedLintRun.res.status, 200, reservedLintRun.text);
+    const reservedFinding = reservedLintRun.body.findings.missingLinks.find(finding => (
+      String(finding.pageId) === String(reservedLintPage._id)
+    ));
+    assert.ok(reservedFinding, JSON.stringify(reservedLintRun.body.findings.missingLinks));
+    const reservedBodyBeforeLint = JSON.stringify((await WikiPage.findOne({ _id: reservedLintPage._id })).body);
+    const blockedLint = await request(
+      url,
+      `/api/wiki/lint/${reservedLintRun.body.runId}/findings/${encodeURIComponent(reservedFinding.id)}/fix`,
+      { method: 'POST', headers: { 'x-agent-token-id': agentTokenId } }
+    );
+    assert.strictEqual(blockedLint.res.status, 403, blockedLint.text);
+    assert.strictEqual(JSON.stringify((await WikiPage.findOne({ _id: reservedLintPage._id })).body), reservedBodyBeforeLint);
+
+    const ingestTarget = await WikiPage.findOne({ _id: created.body._id });
+    ingestTarget.createdFrom = { type: 'sources', label: 'weekend-readings:user-1:2026-07-01:2026-07-14' };
+    await ingestTarget.save();
+    const ingestBodyBeforeUndo = JSON.stringify(ingestTarget.body);
+    const blockedUndo = await request(url, `/api/wiki/ingest/${ingest.body.runId}/undo`, {
+      method: 'POST',
+      headers: { 'x-agent-token-id': agentTokenId }
+    });
+    assert.strictEqual(blockedUndo.res.status, 403, blockedUndo.text);
+    assert.strictEqual(JSON.stringify((await WikiPage.findOne({ _id: created.body._id })).body), ingestBodyBeforeUndo);
+    const unmodifiedIngestEvent = await WikiSourceEvent.findOne({ _id: ingest.body.runId });
+    assert.ok(!unmodifiedIngestEvent.metadata?.undoneAt);
+    ingestTarget.createdFrom = { type: 'wiki_index', label: 'Contract test page' };
+    await ingestTarget.save();
+
     const activity = await request(url, '/api/wiki/activity?limit=20');
     assert.strictEqual(activity.res.status, 200, activity.text);
     assert.ok(activity.body.events.some(event => event.type === 'ingest' && event.runId === ingest.body.runId));

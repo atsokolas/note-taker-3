@@ -128,6 +128,26 @@ const PAGE_TYPE_ALIASES = {
   synthesis: 'overview'
 };
 const STATUSES = new Set(['draft', 'published', 'archived']);
+const isWeekendReadingsPage = page => String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+const rejectAgentReservedWeekendReadingsCreation = (req, res, createdFrom) => {
+  if (!req?.agentToken || !isWeekendReadingsPage({ createdFrom })) return false;
+  res.status(403).json({ error: 'Only the human owner can create Weekend Readings.' });
+  return true;
+};
+
+const assertHumanForResolvedWeekendReadingsTargets = async ({ WikiPage, req, pageIds = [] } = {}) => {
+  if (!req?.agentToken) return;
+  for (const pageId of Array.from(new Set(pageIds.map(serializeId).filter(Boolean)))) {
+    const page = await WikiPage.findOne({ _id: pageId, userId: req.user.id })
+      .select('createdFrom.label')
+      .lean();
+    if (isWeekendReadingsPage(page)) {
+      const error = new Error('Only the human owner can mutate Weekend Readings.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+};
 
 const buildRequireHumanForWeekendReadingsMutation = ({ WikiPage } = {}) => async (req, res, next) => {
   const method = String(req.method || '').toUpperCase();
@@ -137,7 +157,7 @@ const buildRequireHumanForWeekendReadingsMutation = ({ WikiPage } = {}) => async
     const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id })
       .select('createdFrom.label')
       .lean();
-    if (String(page?.createdFrom?.label || '').startsWith('weekend-readings:')) {
+    if (isWeekendReadingsPage(page)) {
       return res.status(403).json({ error: 'Only the human owner can mutate Weekend Readings.' });
     }
     return next();
@@ -2629,6 +2649,9 @@ const buildWikiRouter = ({
       if (!run) return res.status(404).json({ error: 'Wiki lint run not found.' });
       const finding = findLintFinding(run, req.params.findingId);
       if (!finding) return res.status(404).json({ error: 'Wiki lint finding not found.' });
+      if (action !== 'ignore') {
+        await assertHumanForResolvedWeekendReadingsTargets({ WikiPage, req, pageIds: [finding.pageId] });
+      }
       const result = await resolveLintFindingAction({ action, finding, userId: req.user.id });
       const status = action === 'ignore' ? 'ignored' : action === 'fix' ? 'fixed' : 'accepted';
       const updatedRun = await updateLintFinding({ run, finding, status, action, result });
@@ -2699,6 +2722,7 @@ const buildWikiRouter = ({
       if (sourceScope?.error) return res.status(400).json({ error: sourceScope.error });
 
       const createdFrom = normalizeCreatedFrom(req.body?.createdFrom);
+      if (rejectAgentReservedWeekendReadingsCreation(req, res, createdFrom)) return;
       const initialSourceRefs = normalizeInitialSourceRefs({
         initialSourceRef: req.body?.initialSourceRef,
         initialSourceRefs: req.body?.initialSourceRefs,
@@ -5246,6 +5270,12 @@ const buildWikiRouter = ({
         if (pageId && !latestByPage.has(pageId)) latestByPage.set(pageId, revision);
       });
 
+      await assertHumanForResolvedWeekendReadingsTargets({
+        WikiPage,
+        req,
+        pageIds: Array.from(latestByPage.keys())
+      });
+
       const restoredPageIds = [];
       for (const revision of latestByPage.values()) {
         const page = await WikiPage.findOne({ _id: revision.pageId, userId: req.user.id });
@@ -5281,7 +5311,9 @@ const buildWikiRouter = ({
       });
     } catch (error) {
       console.error('Error undoing wiki ingest run:', error);
-      res.status(500).json({ error: 'Failed to undo wiki ingest run.' });
+      res.status(error.statusCode || 500).json({
+        error: error.statusCode ? error.message : 'Failed to undo wiki ingest run.'
+      });
     }
   });
 
@@ -5682,6 +5714,7 @@ const buildWikiRouter = ({
 };
 
 module.exports = {
+  assertHumanForResolvedWeekendReadingsTargets,
   buildRequireHumanForWeekendReadingsMutation,
   buildUniqueWikiSlugBuilder,
   buildWikiRouter,
@@ -5689,6 +5722,7 @@ module.exports = {
   extractPlainText,
   normalizeCreatedFrom,
   normalizeSourceRef,
+  rejectAgentReservedWeekendReadingsCreation,
   serializeWikiPage,
   slugify
 };

@@ -177,7 +177,11 @@ test('approval rejects credentialed and token-bearing source URLs before they ca
   for (const sensitiveQuery of [
     'client_secret=OWNER_SECRET_CLIENT',
     'refresh-token=OWNER_SECRET_REFRESH',
-    'token[]=OWNER_SECRET_NORMALIZED'
+    'token[]=OWNER_SECRET_NORMALIZED',
+    'accessToken=SECRET_ACCESS_CAMEL',
+    'clientSecret=SECRET_CLIENT_CAMEL',
+    'auth[token]=SECRET_AUTH_NESTED',
+    'token.value=SECRET_TOKEN_DOTTED'
   ]) {
     const hostile = weekendReadingsLeakFixture();
     hostile.sourceRefs[0].url = `https://example.com/filing?${sensitiveQuery}`;
@@ -191,8 +195,22 @@ test('approval rejects credentialed and token-bearing source URLs before they ca
   const { approval, publication } = lifecycle();
   assert.doesNotMatch(
     JSON.stringify(serializePublishedArtifact({ approvalReceipt: approval, publicationReceipt: publication })),
-    /OWNER_SECRET_TOKEN|OWNER_SECRET_CLIENT|OWNER_SECRET_REFRESH|OWNER_SECRET_NORMALIZED|owner-secret/
+    /OWNER_SECRET_TOKEN|OWNER_SECRET_CLIENT|OWNER_SECRET_REFRESH|OWNER_SECRET_NORMALIZED|SECRET_ACCESS_CAMEL|SECRET_CLIENT_CAMEL|SECRET_AUTH_NESTED|SECRET_TOKEN_DOTTED|owner-secret/
   );
+  for (const hostileUrl of [
+    'https://example.com/filing?accessToken=SECRET_ACCESS_CAMEL',
+    'https://example.com/filing?clientSecret=SECRET_CLIENT_CAMEL',
+    'https://example.com/filing?auth[token]=SECRET_AUTH_NESTED',
+    'https://example.com/filing?token.value=SECRET_TOKEN_DOTTED'
+  ]) {
+    const hostileApproval = JSON.parse(JSON.stringify(approval));
+    hostileApproval.provenance.publicArtifact.sourceRefs[0].url = hostileUrl;
+    assert.equal(
+      serializePublishedArtifact({ approvalReceipt: hostileApproval, publicationReceipt: publication }),
+      null,
+      hostileUrl
+    );
+  }
 });
 
 test('public output excludes private page, claim, question, agent, and thesis-routing fields', () => {

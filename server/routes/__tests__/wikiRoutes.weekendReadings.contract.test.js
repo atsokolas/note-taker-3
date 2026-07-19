@@ -2,7 +2,12 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { buildRequireHumanForWeekendReadingsMutation, buildUniqueWikiSlugBuilder } = require('../wikiRoutes');
+const {
+  assertHumanForResolvedWeekendReadingsTargets,
+  buildRequireHumanForWeekendReadingsMutation,
+  buildUniqueWikiSlugBuilder,
+  rejectAgentReservedWeekendReadingsCreation
+} = require('../wikiRoutes');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'wikiRoutes.js'), 'utf8');
 
@@ -20,6 +25,9 @@ assert.match(source, /const wikiAuth = \[authenticateToken, auditExternalAgentAc
 assert.match(source, /Only the human owner can mutate Weekend Readings/);
 assert.match(source, /const buildUniqueSlug = buildUniqueWikiSlugBuilder\(\{ WikiPage \}\)/);
 assert.match(source, /existingQuery = existingQuery\.session\(session\)/);
+assert.match(source, /rejectAgentReservedWeekendReadingsCreation\(req, res, createdFrom\)/);
+assert.match(source, /pageIds: \[finding\.pageId\]/);
+assert.match(source, /pageIds: Array\.from\(latestByPage\.keys\(\)\)/);
 
 console.log('wikiRoutes Weekend Readings integration contract tests passed');
 
@@ -99,7 +107,53 @@ const runTransactionalSlugContract = async () => {
   console.log('wikiRoutes transactional slug builder contract passed');
 };
 
-Promise.all([runAuthorizationContract(), runTransactionalSlugContract()]).catch(error => {
+const runIndirectMutationContract = async () => {
+  let mutationCount = 0;
+  let targetLookups = 0;
+  const req = { user: { id: 'owner-user' }, agentToken: { id: 'agent-token' } };
+  const WikiPage = {
+    findOne(query) {
+      targetLookups += 1;
+      assert.equal(query.userId, 'owner-user');
+      return {
+        select() { return this; },
+        async lean() { return { createdFrom: { label: 'weekend-readings:private-owner:2026-07-01:2026-07-14' } }; }
+      };
+    }
+  };
+  for (const indirectCase of ['lint finding pageId', 'ingest undo revision pageId']) {
+    await assert.rejects(
+      () => assertHumanForResolvedWeekendReadingsTargets({ WikiPage, req, pageIds: ['weekend-page'] })
+        .then(() => { mutationCount += 1; }),
+      error => error.statusCode === 403 && /human owner/.test(error.message),
+      indirectCase
+    );
+  }
+
+  const response = {
+    statusCode: 0,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; }
+  };
+  const rejected = rejectAgentReservedWeekendReadingsCreation(
+    req,
+    response,
+    { label: 'weekend-readings:attacker-owner:2026-07-01:2026-07-14' }
+  );
+  if (!rejected) mutationCount += 1;
+  assert.equal(rejected, true);
+  assert.equal(response.statusCode, 403);
+  assert.equal(targetLookups, 2);
+  assert.equal(mutationCount, 0);
+  console.log('wikiRoutes indirect Weekend Readings zero-mutation guards passed');
+};
+
+Promise.all([
+  runAuthorizationContract(),
+  runTransactionalSlugContract(),
+  runIndirectMutationContract()
+]).catch(error => {
   console.error(error);
   process.exitCode = 1;
 });

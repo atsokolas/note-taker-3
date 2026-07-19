@@ -464,6 +464,35 @@ const run = async () => {
     assert.strictEqual(proposal.saveCalls, 1);
     assert.strictEqual(savedPages.length, 1);
   }
+
+  {
+    let saved = 0;
+    const reservedPage = {
+      _id: 'weekend-page',
+      createdFrom: { label: 'weekend-readings:owner:2026-07-01:2026-07-14' },
+      sourceRefs: [],
+      async save() { saved += 1; }
+    };
+    const result = await autoMergeProposalCandidates({
+      WikiPage: { findOne: async () => reservedPage },
+      userId: 'user-1',
+      candidates: [{
+        title: 'Reserved publication target',
+        proposalDecision: { action: 'merge_into_existing', mergeTarget: { pageId: 'weekend-page' } },
+        sourceRefs: [{ type: 'article', objectId: 'article-1', title: 'Source' }]
+      }]
+    });
+    assert.deepStrictEqual(result, { merged: 0, pageIds: [] });
+    assert.strictEqual(saved, 0);
+  }
+
+  await assert.rejects(
+    () => createDraftPageFromProposal({
+      proposal: { userId: 'user-1', title: 'weekend-readings:attacker:2026-07-01:2026-07-14' },
+      WikiPage: function WikiPage() { throw new Error('must not construct reserved page'); }
+    }),
+    /human-owned publication workflow/
+  );
 };
 
 run().catch(error => {
