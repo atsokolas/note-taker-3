@@ -1,0 +1,119 @@
+.wiki-weekend-publication {
+  align-items: flex-end;
+  background: color-mix(in srgb, var(--surface, #fff) 92%, var(--ink, #1c1b18) 8%);
+  border: 1px solid color-mix(in srgb, var(--ink, #1c1b18) 15%, transparent);
+  border-radius: 18px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-block: 24px;
+  padding: 20px;
+}
+
+.wiki-weekend-publication__copy {
+  min-width: 0;
+}
+
+.wiki-weekend-publication__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.wiki-weekend-publication h2 {
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  margin: 0;
+}
+
+.wiki-weekend-publication__status,
+.wiki-weekend-publication__note,
+.wiki-weekend-publication__error {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.wiki-weekend-publication__status {
+  font-weight: 650;
+}
+
+.wiki-weekend-publication__note {
+  color: var(--muted, #66625b);
+  max-width: 64ch;
+}
+
+.wiki-weekend-publication__error {
+  color: var(--danger, #9d2d25);
+}
+
+.wiki-weekend-publication__actions {
+  align-items: stretch;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.wiki-weekend-publication__actions button,
+.wiki-weekend-publication__actions a {
+  align-items: center;
+  border-radius: 999px;
+  box-sizing: border-box;
+  display: inline-flex;
+  font: inherit;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  text-align: center;
+}
+
+.wiki-weekend-publication__actions button {
+  background: var(--ink, #1c1b18);
+  border: 1px solid var(--ink, #1c1b18);
+  color: var(--surface, #fff);
+  cursor: pointer;
+}
+
+.wiki-weekend-publication__actions button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.wiki-weekend-publication__actions a {
+  border: 1px solid color-mix(in srgb, var(--ink, #1c1b18) 24%, transparent);
+  color: inherit;
+}
+
+.wiki-weekend-publication__actions button:focus-visible,
+.wiki-weekend-publication__actions a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent, #4361ee) 70%, white);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .wiki-weekend-publication {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .wiki-weekend-publication__actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .wiki-weekend-publication__actions button,
+  .wiki-weekend-publication__actions a {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-weekend-publication *,
+  .wiki-weekend-publication *::before,
+  .wiki-weekend-publication *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

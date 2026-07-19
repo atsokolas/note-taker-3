@@ -22,6 +22,8 @@ const {
 } = require('../services/wikiSchemaService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
+const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
+const { loadPublishedWeekendReadingsArtifact } = require('../services/weekendReadingsWorkflowService');
 const { buildLivingThesisBody } = require('../services/wikiPageStructureService');
 const {
   JudgmentValidationError,
@@ -938,6 +940,7 @@ const serializePublicWikiCollection = ({ collection, pages = [] } = {}) => {
   const raw = typeof collection.toObject === 'function'
     ? collection.toObject({ virtuals: false })
     : { ...collection };
+  const publicPages = pages.filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'));
   return {
     _id: serializeId(raw._id),
     name: raw.name || 'Shared wiki',
@@ -946,8 +949,8 @@ const serializePublicWikiCollection = ({ collection, pages = [] } = {}) => {
     visibility: raw.visibility || 'shared',
     sourceType: raw.sourceType || 'user',
     packId: raw.packId || '',
-    pageCount: pages.filter(isWikiPageSurfaceEligible).length,
-    pages: pages.map(serializePublicWikiPage).filter(Boolean)
+    pageCount: publicPages.filter(isWikiPageSurfaceEligible).length,
+    pages: publicPages.map(serializePublicWikiPage).filter(Boolean)
   };
 };
 
@@ -1683,6 +1686,15 @@ const buildWikiRouter = ({
     }
     return `${base}-${Date.now()}`;
   };
+
+  router.use(buildWeekendReadingsRouter({
+    authenticateToken: wikiAuth,
+    WikiPage,
+    WikiRevision,
+    NoeisReceipt,
+    buildUniqueSlug,
+    invalidatePublicPageCache: (...keys) => publicPageCache.invalidate(keys)
+  }));
 
   const buildUniqueCollectionSlug = async (slugBase) => {
     const base = slugify(slugBase || 'shared-wiki');
@@ -3327,11 +3339,14 @@ const buildWikiRouter = ({
       }
       let pageQuery = WikiPage.findOne(query);
       if (pageQuery?.select) {
-        pageQuery = pageQuery.select('_id title slug pageType status visibility body plainText sourceRefs._id sourceRefs.type sourceRefs.sourceType sourceRefs.title sourceRefs.url sourceRefs.snippet sourceRefs.quote sourceRefs.excerpt claims._id claims.claimId citations._id citations.sourceRefId citations.claimId freshness externalWatches publicProof lastReviewedAt aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality.ok aiState.quality.status aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
+        pageQuery = pageQuery.select('_id userId title slug pageType status visibility createdFrom body plainText sourceRefs._id sourceRefs.type sourceRefs.sourceType sourceRefs.title sourceRefs.url sourceRefs.snippet sourceRefs.quote sourceRefs.excerpt claims._id claims.claimId citations._id citations.sourceRefId citations.claimId freshness externalWatches publicProof lastReviewedAt aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality.ok aiState.quality.status aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
       }
       const page = pageQuery?.lean ? await pageQuery.lean() : await pageQuery;
       if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
-      const publicPage = serializePublicWikiPage(page);
+      const weekendReadingsPage = String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+      const publicPage = weekendReadingsPage
+        ? await loadPublishedWeekendReadingsArtifact({ NoeisReceipt, page, ownerUserId: page.userId })
+        : serializePublicWikiPage(page);
       if (!publicPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
       const payload = {
         page: publicPage,
@@ -3514,6 +3529,11 @@ const buildWikiRouter = ({
       }
       const originPage = await WikiPage.findOne(query).lean();
       if (!originPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      if (String(originPage?.createdFrom?.label || '').startsWith('weekend-readings:')) {
+        return res.status(409).json({
+          error: 'Published Weekend Readings editions are immutable public artifacts and cannot be adopted from the private draft.'
+        });
+      }
 
       const adoptable = buildAdoptableWikiPageSnapshot(originPage);
       if (!adoptable?.page) return res.status(422).json({ error: 'Shared wiki page could not be adopted.' });
@@ -3690,7 +3710,10 @@ const buildWikiRouter = ({
         visibility: 'shared',
         status: { $ne: 'archived' }
       }).sort({ updatedAt: -1 }).lean();
-      const snapshots = (Array.isArray(pages) ? pages : []).map(buildAdoptableWikiPageSnapshot).filter(Boolean);
+      const snapshots = (Array.isArray(pages) ? pages : [])
+        .filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))
+        .map(buildAdoptableWikiPageSnapshot)
+        .filter(Boolean);
       if (!snapshots.length) return res.status(422).json({ error: 'Shared wiki collection has no adoptable pages.' });
       const result = await createAdoptedWikiPages({
         userId: req.user.id,
@@ -3750,6 +3773,12 @@ const buildWikiRouter = ({
 
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const weekendReadingsPage = String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+      if (weekendReadingsPage && enumChecks[2]?.value === 'shared') {
+        return res.status(409).json({
+          error: 'Weekend Readings must be reviewed, approved, and published through its revision-bound publication controls.'
+        });
+      }
       const before = snapshotPage(page);
       const actorType = req.agentToken ? 'agent' : 'user';
       const normalizedJudgment = req.body?.judgment !== undefined
@@ -3815,6 +3844,7 @@ const buildWikiRouter = ({
       }
 
       await page.save();
+      publicPageCache.invalidate(serializeId(page._id), before?.slug, page.slug);
       await syncPageGraph(page, req.user.id);
       const revision = await createWikiRevision({
         WikiRevision,
@@ -4137,6 +4167,7 @@ const buildWikiRouter = ({
       const before = snapshotPage(page);
       page.status = 'archived';
       await page.save();
+      publicPageCache.invalidate(serializeId(page._id), before?.slug, page.slug);
       await syncPageGraph({
         _id: page._id,
         userId: page.userId,

@@ -35,7 +35,22 @@ const createPublicComparisonCache = ({
     }
   };
 
-  return { get, set, size: () => entries.size };
+  const invalidate = (...keys) => {
+    let invalidated = 0;
+    keys.flat().forEach((key) => {
+      const normalizedKey = String(key || '').trim().toLowerCase();
+      if (normalizedKey && entries.delete(normalizedKey)) invalidated += 1;
+    });
+    return invalidated;
+  };
+
+  const clear = () => {
+    const cleared = entries.size;
+    entries.clear();
+    return cleared;
+  };
+
+  return { clear, get, invalidate, set, size: () => entries.size };
 };
 
 module.exports = {

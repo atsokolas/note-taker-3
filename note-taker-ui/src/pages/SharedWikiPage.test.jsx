@@ -175,6 +175,62 @@ describe('SharedWikiPage', () => {
     expect(navigate).toHaveBeenCalledWith('/register');
   });
 
+  it('renders Weekend Readings as an immutable narrative artifact with public provenance', async () => {
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        artifactType: 'weekend_readings',
+        title: 'Weekend Readings — 2026-07-19 — Edition 1',
+        slug: 'weekend-readings-2026-07-19',
+        authorLabel: 'Athan Tsokolas',
+        visibility: 'shared',
+        status: 'published',
+        publication: {
+          approvedRevisionId: 'revision-public-1',
+          publishedAt: '2026-07-19T12:10:00.000Z'
+        },
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Editorial note' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Qualification durability is the central pressure in this edition.' }] },
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Thesis evidence' }] },
+            {
+              type: 'heading',
+              attrs: { level: 3 },
+              content: [{
+                type: 'text',
+                text: 'Primary filing',
+                marks: [{ type: 'link', attrs: { href: 'https://example.com/filing' } }]
+              }]
+            },
+            { type: 'paragraph', content: [{ type: 'text', text: 'It tests the demand premise with primary evidence.' }] }
+          ]
+        },
+        sourceRefs: [{
+          title: 'Primary filing',
+          url: 'https://example.com/filing',
+          snippet: 'It tests the demand premise with primary evidence.',
+          readingRole: 'thesis_evidence',
+          publicRelationship: 'The durability of service economics.'
+        }]
+      }
+    });
+
+    const { container } = render(<SharedWikiPage />);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Weekend Readings — 2026-07-19 — Edition 1' })).toBeInTheDocument();
+    expect(screen.getByText('Athan Tsokolas — researched and maintained with Noeis')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Primary filing' })).toHaveLength(2);
+    expect(screen.queryByLabelText('Adopt shared wiki')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make this mine' })).not.toBeInTheDocument();
+    expect(screen.queryByText(PUBLIC_PROOF_PRIVACY_STATEMENT)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('h1')).toHaveLength(1);
+    expect(container.textContent).not.toContain('FORBIDDEN_PRIVATE_SENTINEL');
+    const schema = JSON.parse(document.getElementById('seo-schema').textContent);
+    expect(schema.author).toEqual({ '@type': 'Person', name: 'Athan Tsokolas' });
+    expect(schema.datePublished).toBe('2026-07-19T12:10:00.000Z');
+  });
+
   it('adopts shared pages for signed-in readers and opens the private copy', async () => {
     localStorage.setItem('token', 'test-token');
     getPublicWikiPage.mockResolvedValue({

@@ -151,9 +151,15 @@ export const buildSharedWikiSchema = ({
     mainEntityOfPage: canonicalUrl,
     isAccessibleForFree: true,
     inLanguage: 'en',
-    datePublished: page?.createdAt || undefined,
-    dateModified: page?.updatedAt || undefined,
+    datePublished: page?.publication?.publishedAt || page?.createdAt || undefined,
+    dateModified: page?.publication?.publishedAt || page?.updatedAt || undefined,
     dateReviewed: reviewedDateFor(page) || undefined,
+    ...(page?.authorLabel ? {
+      author: {
+        '@type': 'Person',
+        name: cleanText(page.authorLabel)
+      }
+    } : {}),
     publisher: {
       '@type': 'Organization',
       name: SITE_NAME,
@@ -244,6 +250,7 @@ const SharedWikiPage = () => {
 
   const tocItems = useMemo(() => extractTocItems(page?.body), [page?.body]);
   const intro = useMemo(() => firstParagraphText(page?.body), [page?.body]);
+  const weekendReadingsMode = page?.artifactType === 'weekend_readings';
   const repoDossierMode = Boolean(page && isPublicRepoWikiPage(page));
   const dossierPageView = useMemo(
     () => (repoDossierMode ? buildPublicDossierPageView(page) : page),
@@ -323,9 +330,10 @@ const SharedWikiPage = () => {
     [canonicalPath, claimCount, page, seoDescription, sourceCount, wordCount]
   );
   const shouldAutoAdopt = useMemo(() => {
+    if (weekendReadingsMode) return false;
     const params = new URLSearchParams(location.search || '');
     return params.get('adopt') === '1';
-  }, [location.search]);
+  }, [location.search, weekendReadingsMode]);
   usePublicShareScrollSurface();
   useSeoMetadata({
     title: seoTitle,
@@ -396,7 +404,7 @@ const SharedWikiPage = () => {
   }, [handleAdopt, page, shouldAutoAdopt]);
 
   return (
-    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}`}>
+    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}`}>
       <nav className="shared-wiki-page__topbar" aria-label="Shared wiki navigation">
         <Link to="/" className="shared-wiki-page__brand">Noeis</Link>
         <Link to="/" className="shared-wiki-page__home">Open Noeis</Link>
@@ -412,8 +420,15 @@ const SharedWikiPage = () => {
       ) : page ? (
         <article className="shared-wiki-page__article">
           <header className="shared-wiki-page__hero">
-            <p className="shared-wiki-page__eyebrow">{repoDossierMode ? 'Shared repository dossier' : 'Shared wiki'}</p>
+            <p className="shared-wiki-page__eyebrow">
+              {weekendReadingsMode ? 'Weekend Readings' : (repoDossierMode ? 'Shared repository dossier' : 'Shared wiki')}
+            </p>
             <h1>{displayTitle}</h1>
+            {weekendReadingsMode ? (
+              <p className="shared-wiki-page__receipt">
+                {page.authorLabel || 'Athan Tsokolas'} — researched and maintained with Noeis
+              </p>
+            ) : (
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
                 <h2>{repoDossierMode ? 'Make this dossier yours.' : 'This is a shared wiki.'}</h2>
@@ -433,20 +448,25 @@ const SharedWikiPage = () => {
               </button>
               {adoptionError ? <p className="shared-wiki-page__adopt-error" role="alert">{adoptionError}</p> : null}
             </section>
-            {!repoDossierMode ? (
+            )}
+            {!repoDossierMode && !weekendReadingsMode ? (
               <p className="shared-wiki-page__receipt" role="status">
                 {buildSharePreviewReceipt()}
               </p>
             ) : null}
-            <MaintenanceProofStamp
-              proof={displayedStampProof}
-              className="shared-wiki-page__maintenance-stamp maintenance-proof-stamp"
-              compact={repoDossierMode}
-              showCounts={!repoDossierMode}
-            />
-            <p className="shared-wiki-page__privacy-note">
-              {PUBLIC_PROOF_PRIVACY_STATEMENT}
-            </p>
+            {!weekendReadingsMode ? (
+              <>
+                <MaintenanceProofStamp
+                  proof={displayedStampProof}
+                  className="shared-wiki-page__maintenance-stamp maintenance-proof-stamp"
+                  compact={repoDossierMode}
+                  showCounts={!repoDossierMode}
+                />
+                <p className="shared-wiki-page__privacy-note">
+                  {PUBLIC_PROOF_PRIVACY_STATEMENT}
+                </p>
+              </>
+            ) : null}
             {repoDossierMode ? (
               <WikiRepoDossierOverview
                 page={dossierPageView}
@@ -461,11 +481,11 @@ const SharedWikiPage = () => {
                 sectionsExpandedByDefault
               />
             ) : null}
-            {!repoDossierMode && intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
+            {!repoDossierMode && !weekendReadingsMode && intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
             <div className="shared-wiki-page__metrics" aria-label="Wiki page metrics">
               <span>{wordCount} words</span>
               <span>{sourceCount} sources</span>
-              <span>{claimCount} claims</span>
+              {!weekendReadingsMode ? <span>{claimCount} claims</span> : null}
             </div>
           </header>
 

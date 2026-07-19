@@ -1,6 +1,15 @@
 import api from '../api';
 import { TextDecoder, TextEncoder } from 'util';
-import { createRepoWikiFromGitHub, restoreInitialWikiJudgment, saveInitialWikiJudgment, streamMaintainWikiPage } from './wiki';
+import {
+  approveWeekendReadingsRevision,
+  createRepoWikiFromGitHub,
+  getWeekendReadingsStatus,
+  publishWeekendReadingsRevision,
+  requestWeekendReadingsReview,
+  restoreInitialWikiJudgment,
+  saveInitialWikiJudgment,
+  streamMaintainWikiPage
+} from './wiki';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 jest.mock('../api', () => ({
@@ -28,6 +37,26 @@ describe('wiki judgment api', () => {
     expect(api.post.mock.calls[0][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot');
     expect(api.post.mock.calls[1][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot/restore');
     expect(getAuthHeaders).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('Weekend Readings publication api', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('uses separate authenticated review, approval, and publication actions', async () => {
+    api.get.mockResolvedValueOnce({ data: { approvalState: { code: 'private_draft' } } });
+    api.post.mockResolvedValue({ data: { approvalState: { code: 'ok' } } });
+    await getWeekendReadingsStatus('page 1');
+    await requestWeekendReadingsReview('page 1');
+    await approveWeekendReadingsRevision('page 1');
+    await publishWeekendReadingsRevision('page 1');
+    expect(api.get.mock.calls[0][0]).toBe('/api/wiki/weekend-readings/page%201/status');
+    expect(api.post.mock.calls.map(call => [call[0], call[1]])).toEqual([
+      ['/api/wiki/weekend-readings/page%201/review', { confirmation: 'request_weekend_readings_review' }],
+      ['/api/wiki/weekend-readings/page%201/approve', { confirmation: 'approve_weekend_readings_revision' }],
+      ['/api/wiki/weekend-readings/page%201/publish', { confirmation: 'publish_approved_weekend_readings_revision' }]
+    ]);
+    expect(getAuthHeaders).toHaveBeenCalledTimes(4);
   });
 });
 

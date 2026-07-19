@@ -1,0 +1,46 @@
+### Page
+- Page URL: http://127.0.0.1:3100/share/wiki/weekend-readings-qa
+- Page Title: Weekend Readings — 2026-07-19 — Edition 1 · Shared Wiki · Noeis
+### Snapshot
+```yaml
+- main [ref=f1e5]:
+  - navigation "Shared wiki navigation" [ref=f1e6]:
+    - link "Noeis" [ref=f1e7] [cursor=pointer]:
+      - /url: /
+    - link "Open Noeis" [ref=f1e8] [cursor=pointer]:
+      - /url: /
+  - article [ref=f1e9]:
+    - generic [ref=f1e10]:
+      - paragraph [ref=f1e11]: Weekend Readings
+      - heading "Weekend Readings — 2026-07-19 — Edition 1" [level=1] [ref=f1e12]
+      - paragraph [ref=f1e13]: Athan Tsokolas — researched and maintained with Noeis
+      - generic "Wiki page metrics" [ref=f1e14]:
+        - generic [ref=f1e15]: 47 words
+        - generic [ref=f1e16]: 1 sources
+    - generic [ref=f1e17]:
+      - complementary "Contents" [ref=f1e18]:
+        - link "Editorial note" [ref=f1e20] [cursor=pointer]:
+          - /url: "#editorial-note"
+        - link "Selected readings" [ref=f1e21] [cursor=pointer]:
+          - /url: "#selected-readings"
+        - link "1. Primary filing" [ref=f1e22] [cursor=pointer]:
+          - /url: "#1-primary-filing"
+      - generic [ref=f1e23]:
+        - paragraph [ref=f1e24]: "Reading window: 2026-07-06 through 2026-07-19"
+        - heading "Editorial note" [level=2] [ref=f1e25]
+        - paragraph [ref=f1e26]: Qualification durability is the public-safe pressure in this edition.
+        - heading "Selected readings" [level=2] [ref=f1e27]
+        - heading "1. Primary filing" [level=3] [ref=f1e28]
+        - paragraph [ref=f1e29]: Example filing · 2026-07-18
+        - paragraph [ref=f1e30]: It tests the public demand premise.
+        - paragraph [ref=f1e31]: "Role: Thesis evidence · Source quality: primary"
+        - paragraph [ref=f1e32]: "May affect: Whether qualification cycles create durable switching costs."
+    - region "References" [ref=f1e33]:
+      - heading "References" [level=2] [ref=f1e34]
+      - paragraph [ref=f1e35]: These are static references for the shared page. They do not open the private Noeis graph.
+      - list [ref=f1e36]:
+        - listitem [ref=f1e37]:
+          - link "Primary filing" [ref=f1e38] [cursor=pointer]:
+            - /url: https://example.com/filing
+          - paragraph [ref=f1e39]: It tests the public demand premise.
+```

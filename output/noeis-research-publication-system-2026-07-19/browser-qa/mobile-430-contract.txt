@@ -1,0 +1,18 @@
+### Result
+{
+  "url": "http://127.0.0.1:3100/share/wiki/weekend-readings-qa",
+  "width": 430,
+  "artifactMode": true,
+  "h1s": [
+    "Weekend Readings — 2026-07-19 — Edition 1"
+  ],
+  "hScroll": false,
+  "sourceLinkCount": 1,
+  "hasPrivateStatusCopy": false,
+  "hasFatalError": false,
+  "emptyLinks": 0
+}
+### Ran Playwright code
+```js
+await page.evaluate('() => { const root = document.documentElement; const artifact = document.querySelector(\'main.shared-wiki-page.is-weekend-readings\'); const text = artifact?.innerText || \'\'; const h1s = [...(artifact?.querySelectorAll(\'h1\') || [])].map(node => node.textContent.trim()).filter(Boolean); const sourceLinks = [...(artifact?.querySelectorAll(\'a[href^="http"]\') || [])]; const result = { url: location.href, width: innerWidth, artifactMode: Boolean(artifact), h1s, hScroll: root.scrollWidth > root.clientWidth + 2, sourceLinkCount: sourceLinks.length, hasPrivateStatusCopy: /Private draft|Review requested|Approved revision|reapproval required/i.test(text), hasFatalError: /Cannot read|TypeError|Application error|Something went wrong/i.test(text), emptyLinks: sourceLinks.filter(link => !link.textContent.trim()).length }; if (!result.artifactMode) throw new Error(\'Weekend Readings artifact mode is absent.\'); if (result.h1s.length !== 1 || !/^Weekend Readings/.test(result.h1s[0])) throw new Error(\'Weekend Readings public artifact must render exactly one edition h1.\'); if (result.sourceLinkCount < 1) throw new Error(\'Weekend Readings artifact must retain at least one direct source link.\'); if (result.hScroll) throw new Error(\'Weekend Readings artifact has horizontal clipping.\'); if (result.hasPrivateStatusCopy) throw new Error(\'Public artifact leaked private approval-state copy.\'); if (result.hasFatalError) throw new Error(\'Public artifact contains fatal error text.\'); if (result.emptyLinks) throw new Error(\'Public artifact contains unlabeled source links.\'); return result; }');
+```
