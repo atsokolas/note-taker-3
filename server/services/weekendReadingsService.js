@@ -221,6 +221,7 @@ const buildWeekendReadingsDraft = ({
           weekendReadings: {
             canonicalUrl: item.canonicalUrl,
             publishedAt: item.publishedAt,
+            sourceDateLabel: item.sourceDateLabel,
             sourceQuality: item.sourceQuality,
             readingRole: item.readingRole,
             whyItMatters: item.whyItMatters,
