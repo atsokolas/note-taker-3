@@ -177,6 +177,18 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose }) 
               <dd>{claim.section}</dd>
             </div>
           ) : null}
+          {claim.epistemicStatus ? (
+            <div>
+              <dt>Epistemic status</dt>
+              <dd>{String(claim.epistemicStatus).replace(/_/g, ' ')}</dd>
+            </div>
+          ) : null}
+          {claim.materiality ? (
+            <div>
+              <dt>Materiality</dt>
+              <dd>{claim.materiality}</dd>
+            </div>
+          ) : null}
           {historyCount ? (
             <div>
               <dt>Ledger</dt>
@@ -184,6 +196,9 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose }) 
             </div>
           ) : null}
         </dl>
+      ) : null}
+      {claim?.epistemicStatus === 'established_fact' && ['unsupported', 'conflicted'].includes(claim?.support) ? (
+        <p className="wiki-claim-popover__empty">Inconsistent: this is labeled an established fact without supporting evidence.</p>
       ) : null}
       {sources.length > 0 ? (
         <div className="wiki-claim-popover__evidence-groups">

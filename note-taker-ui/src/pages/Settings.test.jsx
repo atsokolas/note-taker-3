@@ -12,6 +12,7 @@ import {
 } from '../api/agent';
 import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
 import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
+import { getMorningPaperSettings, updateMorningPaperSettings } from '../api/dailyLoop';
 
 jest.mock('../api/agent', () => ({
   createAgentToken: jest.fn(),
@@ -31,6 +32,11 @@ jest.mock('../api/wiki', () => ({
   saveWikiSchema: jest.fn(),
   revertWikiSchema: jest.fn(),
   suggestWikiSchemaUpdates: jest.fn()
+}));
+
+jest.mock('../api/dailyLoop', () => ({
+  getMorningPaperSettings: jest.fn(),
+  updateMorningPaperSettings: jest.fn()
 }));
 
 jest.mock('../utils/wikiAnalytics', () => ({
@@ -78,6 +84,22 @@ describe('Settings marketing reporting', () => {
     deleteAgentToken.mockResolvedValue({});
     listAgentTokenActions.mockResolvedValue({ actions: [], counts: { today: 0, week: 0 } });
     undoAgentTokenAction.mockResolvedValue({});
+    getMorningPaperSettings.mockResolvedValue({
+      enabled: false,
+      email: '',
+      emailConfirmed: false,
+      timezone: 'America/Chicago',
+      sendHourLocal: 7,
+      configuration: { ready: false, missing: ['RESEND_API_KEY'] }
+    });
+    updateMorningPaperSettings.mockImplementation(async patch => ({
+      enabled: Boolean(patch.enabled),
+      email: patch.email || 'founder@example.com',
+      emailConfirmed: Boolean(patch.confirmEmail),
+      timezone: patch.timezone || 'America/Chicago',
+      sendHourLocal: patch.sendHourLocal ?? 7,
+      configuration: { ready: false, missing: ['RESEND_API_KEY'] }
+    }));
   });
 
   afterEach(() => {

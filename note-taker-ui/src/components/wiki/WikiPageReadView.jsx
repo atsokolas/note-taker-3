@@ -14,6 +14,7 @@ import {
   updateWikiPage
 } from '../../api/wiki';
 import { getConnectionsForItem } from '../../api/connections';
+import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
@@ -64,6 +65,7 @@ import {
 import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 import WikiRepoDossierOverview from './WikiRepoDossierOverview';
 import WikiRepoDossierBody from './WikiRepoDossierBody';
+import WikiLivingThesis from './WikiLivingThesis';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -399,6 +401,7 @@ const adoptedAttributionLine = (adoptedFrom = {}) => {
 
 const claimHealthCounts = (claims = []) => (
   (Array.isArray(claims) ? claims : []).reduce((counts, claim) => {
+    if (claim?.checkInStatus === 'retired' || claim?.retiredAt) return counts;
     const support = String(claim?.support || 'unsupported').trim() || 'unsupported';
     if (support === 'supported') counts.supported += 1;
     else if (support === 'partial') counts.partial += 1;
@@ -1201,6 +1204,7 @@ const WikiPageReadView = ({
           sourceCount: Array.isArray(loaded.sourceRefs) ? loaded.sourceRefs.length : 0,
           claimCount: Array.isArray(loaded.claims) ? loaded.claims.length : 0
         });
+        recordWikiPageVisit(pageId).catch(() => null);
       } catch (_error) {
         if (!cancelled) {
           setError('Failed to load Wiki page.');
@@ -1599,6 +1603,28 @@ const WikiPageReadView = ({
     });
     return map;
   }, [page?.claims]);
+
+  const retiredClaims = useMemo(() => (
+    (page?.claims || []).filter(claim => claim?.checkInStatus === 'retired' || claim?.retiredAt)
+  ), [page?.claims]);
+  const [restoringClaimId, setRestoringClaimId] = useState('');
+  const [restoreClaimStatus, setRestoreClaimStatus] = useState('');
+  const handleRestoreClaim = useCallback(async (claimId) => {
+    setRestoringClaimId(claimId);
+    setRestoreClaimStatus('');
+    try {
+      const result = await recordClaimCheckIn({ pageId, claimId, action: 'restored' });
+      setPage(current => current ? {
+        ...current,
+        claims: (current.claims || []).map(claim => claim.claimId === claimId ? result.claim : claim)
+      } : current);
+      setRestoreClaimStatus('Claim restored to active review.');
+    } catch (error) {
+      setRestoreClaimStatus(error?.response?.data?.error || 'Claim restoration failed.');
+    } finally {
+      setRestoringClaimId('');
+    }
+  }, [pageId]);
 
   const resolvedActiveSources = useMemo(() => {
     if (!activeClaim || !page?.sourceRefs?.length) return [];
@@ -2285,6 +2311,15 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             <WikiReadTitle title={displayWikiPageTitle(page)} />
+            <WikiLivingThesis
+              page={page}
+              pageId={pageId}
+              onPageUpdate={(nextPage) => {
+                if (!nextPage) return;
+                latestPageRef.current = nextPage;
+                setPage(nextPage);
+              }}
+            />
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}
@@ -2422,7 +2457,7 @@ const WikiPageReadView = ({
                     wikiLinkPages={wikiLinkPages}
                   />
                 ) : (
-                  renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors, wikiLinkPages })
+                  renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors, wikiLinkPages, claimLedgerById })
                 )}
               </section>
                 {showMarginalia ? (
@@ -2526,6 +2561,29 @@ const WikiPageReadView = ({
                     <li>{healthCounts.conflicted} conflicted</li>
                   </ul>
                 </section> : null}
+                {retiredClaims.length || restoreClaimStatus ? (
+                  <section className="wiki-read__infobox wiki-read__retired-claims">
+                    <h2>Retired claims</h2>
+                    {retiredClaims.length ? <ul>
+                      {retiredClaims.map(claim => (
+                        <li key={claim.claimId}>
+                          <span>{claim.text}</span>
+                          <small>
+                            Retired {claim.retiredAt ? new Date(claim.retiredAt).toLocaleDateString() : 'previously'}
+                          </small>
+                          <button
+                            type="button"
+                            disabled={restoringClaimId === claim.claimId}
+                            onClick={() => handleRestoreClaim(claim.claimId)}
+                          >
+                            {restoringClaimId === claim.claimId ? 'Restoring…' : 'Restore claim'}
+                          </button>
+                        </li>
+                      ))}
+                    </ul> : null}
+                    {restoreClaimStatus ? <p role="status">{restoreClaimStatus}</p> : null}
+                  </section>
+                ) : null}
                 {showUtilityRail && (page.sourceRefs || []).length ? (
                   <section className="wiki-read__infobox wiki-read__source-list">
                     <h2>Sources</h2>

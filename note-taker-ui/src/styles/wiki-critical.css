@@ -681,6 +681,41 @@
   line-height: 1.42;
   overflow-wrap: anywhere;
 }
+.wiki-read__retired-claims ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wiki-read__retired-claims li {
+  display: grid;
+  gap: 5px;
+}
+.wiki-read__retired-claims li > span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-decoration: line-through;
+}
+.wiki-read__retired-claims small {
+  color: var(--text-muted);
+}
+.wiki-read__retired-claims button {
+  justify-self: start;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-primary, var(--primary-color));
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.wiki-read__retired-claims button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
 .wiki-numeric-value {
   font-variant-numeric: tabular-nums;
 }
@@ -740,6 +775,12 @@
 .wiki-read-link-preview__meta {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+
+.wiki-claim--retired {
+  opacity: .68;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
 }
 @media (prefers-reduced-motion: reduce) {
   .wiki-read__body {

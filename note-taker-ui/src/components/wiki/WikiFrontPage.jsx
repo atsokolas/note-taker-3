@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getWikiBriefing, listWikiPages } from '../../api/wiki';
+import { listWikiPages } from '../../api/wiki';
+import {
+  armReadingWatch,
+  disarmWatcher,
+  getDailyLoop,
+  recordClaimCheckIn
+} from '../../api/dailyLoop';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
@@ -148,6 +154,13 @@ const WikiFrontPage = () => {
   const [hasAnyWikiContent, setHasAnyWikiContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [checkInBusy, setCheckInBusy] = useState(false);
+  const [checkInMessage, setCheckInMessage] = useState('');
+  const [revisionDraft, setRevisionDraft] = useState('');
+  const [showRevisionDraft, setShowRevisionDraft] = useState(false);
+  const [readingFeedUrl, setReadingFeedUrl] = useState('');
+  const [readingPageId, setReadingPageId] = useState('');
+  const [watchingBusy, setWatchingBusy] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -170,7 +183,7 @@ const WikiFrontPage = () => {
     setError('');
     Promise.allSettled([
       listWikiPages({ limit: INDEX_PAGE_LIMIT, includeLowQuality: 1 }),
-      getWikiBriefing()
+      getDailyLoop()
     ]).then(([pagesResult, briefingResult]) => {
       if (cancelled) return;
       const nextPages = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
@@ -179,8 +192,8 @@ const WikiFrontPage = () => {
       const nextHasAnyWikiContent = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
         ? pagesResult.value.length > 0
         : cached?.hasAnyWikiContent ?? null;
-      const nextBriefing = briefingResult.status === 'fulfilled' && briefingResult.value
-        ? briefingResult.value
+      const nextBriefing = briefingResult.status === 'fulfilled' && briefingResult.value?.briefing
+        ? briefingResult.value.briefing
         : cached?.briefing || null;
 
       if (pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)) {
@@ -189,7 +202,7 @@ const WikiFrontPage = () => {
         setError('Failed to load wiki pages.');
       }
       setHasAnyWikiContent(nextHasAnyWikiContent);
-      if (briefingResult.status === 'fulfilled' && briefingResult.value) {
+      if (briefingResult.status === 'fulfilled' && briefingResult.value?.briefing) {
         setBriefing(nextBriefing);
       }
       if (pagesResult.status === 'fulfilled' || briefingResult.status === 'fulfilled') {
@@ -254,13 +267,17 @@ const WikiFrontPage = () => {
   // Today's page: the agent's most recently enriched page; otherwise the
   // strongest page in the corpus. Repo wikis only lead when they actually changed.
   const todaysPage = useMemo(() => {
+    const watcherPage = briefing?.lead?.page?.id
+      ? resolvePage({ _id: briefing.lead.page.id, title: briefing.lead.page.title })
+      : null;
     const candidates = [
+      ...(watcherPage ? [watcherPage] : []),
       ...filterPagesForTodaysPage(sourceMaterialPages, briefing),
       ...filterPagesForTodaysPage(recentlyUpdated, briefing),
       ...filterPagesForTodaysPage(weighted, briefing)
     ];
     return candidates[0] || null;
-  }, [sourceMaterialPages, recentlyUpdated, weighted, briefing]);
+  }, [sourceMaterialPages, recentlyUpdated, weighted, briefing, resolvePage]);
 
   const recentlyGrown = useMemo(() => {
     const leadId = String(pageId(todaysPage));
@@ -292,10 +309,18 @@ const WikiFrontPage = () => {
     </nav>
   );
 
-  const leadSentence = completeLeadSentence(briefing?.summary || '');
+  const leadSentence = completeLeadSentence(
+    briefing?.lead
+      ? `${briefing.lead.title}. ${briefing.lead.page?.title || 'A watched page'} · ${briefing.lead.impactSummary || 'not yet analyzed — queued'}.`
+      : briefing?.summary || ''
+  );
   const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
   const briefingNextAction = useMemo(
-    () => normalizeBriefingNextAction(briefing),
+    () => briefing?.lead?.page?.id ? {
+      label: `Open ${briefing.lead.page.title || 'watched page'}`,
+      href: briefing.lead.href || wikiPagePath(briefing.lead.page.id),
+      reason: `${briefing.lead.watcherLabel || 'Watcher'} · ${briefing.lead.maintenanceStatus || 'queued'}`
+    } : normalizeBriefingNextAction(briefing),
     [briefing]
   );
   const returnLoopNotes = useMemo(
@@ -306,6 +331,63 @@ const WikiFrontPage = () => {
     () => selectPrimaryReturnLoopNote(returnLoopNotes),
     [returnLoopNotes]
   );
+  const claimCheckIn = briefing?.claimCheckIn || null;
+  const watching = Array.isArray(briefing?.watching) ? briefing.watching : [];
+
+  const handleCheckIn = async (action, revisedText = '') => {
+    if (!claimCheckIn || checkInBusy) return;
+    if (action === 'retired' && !window.confirm('Retire this claim? It will remain permanently auditable and can be explicitly restored later.')) return;
+    setCheckInBusy(true);
+    setCheckInMessage('');
+    try {
+      const result = await recordClaimCheckIn({
+        pageId: claimCheckIn.pageId,
+        claimId: claimCheckIn.claimId,
+        action,
+        revisedText
+      });
+      setCheckInMessage(result.acknowledgment || `Claim ${action}.`);
+      setBriefing(previous => ({ ...previous, claimCheckIn: null, checkInStreak: result.streak ?? previous?.checkInStreak }));
+      setShowRevisionDraft(false);
+    } catch (requestError) {
+      setCheckInMessage(requestError?.response?.data?.error || 'Could not record the claim check-in.');
+    } finally {
+      setCheckInBusy(false);
+    }
+  };
+
+  const handleArmReading = async (event) => {
+    event.preventDefault();
+    if (!readingPageId || !readingFeedUrl || watchingBusy) return;
+    setWatchingBusy(true);
+    setError('');
+    try {
+      await armReadingWatch(readingPageId, { feedUrl: readingFeedUrl });
+      const refreshed = await getDailyLoop();
+      setBriefing(refreshed.briefing || null);
+      setReadingFeedUrl('');
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || 'Failed to arm reading watch.');
+    } finally {
+      setWatchingBusy(false);
+    }
+  };
+
+  const handleDisarmWatcher = async (watch) => {
+    if (watchingBusy) return;
+    setWatchingBusy(true);
+    try {
+      await disarmWatcher(watch.page.id, watch.type);
+      setBriefing(previous => ({
+        ...previous,
+        watching: (previous?.watching || []).filter(row => row.id !== watch.id)
+      }));
+    } catch (requestError) {
+      setError(requestError?.response?.data?.error || 'Failed to disarm watcher.');
+    } finally {
+      setWatchingBusy(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -394,6 +476,21 @@ const WikiFrontPage = () => {
               ) : null}
             </div>
           ) : null}
+          {briefing?.lead ? (
+            <section className="wiki-front-page__watcher-contract" aria-label="Watcher lead analysis">
+              <span>{briefing.lead.watcherLabel || 'Watcher'} → {briefing.lead.page?.title || 'Affected page'} → {briefing.lead.maintenanceStatus || 'queued'}</span>
+              {briefing.lead.claimImpacts?.length ? (
+                <ul>
+                  {briefing.lead.claimImpacts.map(impact => (
+                    <li key={impact.claimId}>
+                      <code>{impact.claimId}</code>
+                      <span>{impact.beforeSupport || 'untracked'} → {impact.afterSupport || 'untracked'}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p>{briefing.lead.impactSummary || 'not yet analyzed — queued'}</p>}
+            </section>
+          ) : null}
           {primaryReturnLoopNote ? (
             <p className="wiki-front-page__evidence-strip">
               <span>Evidence surfaced</span>
@@ -401,6 +498,34 @@ const WikiFrontPage = () => {
               <em>{primaryReturnLoopNote.detail}</em>
             </p>
           ) : null}
+          {claimCheckIn ? (
+            <section className="wiki-front-page__check-in" aria-labelledby="morning-claim-check-in">
+              <span className="wiki-front-page__next-action-kicker">Claim check-in</span>
+              <h2 id="morning-claim-check-in">{claimCheckIn.text}</h2>
+              <p>{claimCheckIn.pageTitle}{claimCheckIn.changedSinceLastCheck ? ' · evidence changed since your last review' : ''}</p>
+              {showRevisionDraft ? (
+                <div className="wiki-front-page__check-in-revision">
+                  <textarea
+                    aria-label="Revised claim"
+                    value={revisionDraft}
+                    onChange={(event) => setRevisionDraft(event.target.value)}
+                    rows={3}
+                  />
+                  <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
+                  <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
+                </div>
+              ) : (
+                <div className="wiki-front-page__check-in-actions">
+                  <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
+                  <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
+                  <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
+                  <Link to={claimCheckIn.href}>Open claim</Link>
+                </div>
+              )}
+            </section>
+          ) : null}
+          {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
+          {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
           {workspaceNav}
         </div>
       </header>
@@ -437,6 +562,44 @@ const WikiFrontPage = () => {
           </aside>
         ) : null}
       </div>
+
+      <section className="wiki-front-page__watching wfp-anim wfp-anim--5" aria-labelledby="wfp-watching-title">
+        <div className="wiki-front-page__watching-header">
+          <div>
+            <p className="wiki-index__eyebrow">Peripheral vision</p>
+            <h2 id="wfp-watching-title">Watching</h2>
+          </div>
+          <span>{watching.length} armed</span>
+        </div>
+        {watching.length ? (
+          <ul>
+            {watching.map(watch => (
+              <li key={watch.id}>
+                <div>
+                  <strong>{watch.label}</strong>
+                  <span>{watch.page.title} · {watch.detail}</span>
+                  {watch.errorMessage ? <em>{watch.errorMessage}</em> : null}
+                </div>
+                <button type="button" disabled={watchingBusy} onClick={() => handleDisarmWatcher(watch)}>Disarm</button>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="wiki-front-page__watching-empty">No watchers armed yet.</p>}
+        <form className="wiki-front-page__reading-watch" onSubmit={handleArmReading}>
+          <label>
+            Page
+            <select aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
+              <option value="">Choose a page</option>
+              {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
+            </select>
+          </label>
+          <label>
+            RSS or Atom URL
+            <input type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
+          </label>
+          <button type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
+        </form>
+      </section>
 
       {explorePages.length ? (
         <section className="wiki-front-page__explore wfp-anim wfp-anim--5" aria-labelledby="wfp-explore-title">

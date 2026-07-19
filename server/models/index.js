@@ -38,11 +38,29 @@ const userAgentProtocolPolicySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const morningPaperSettingsSchema = new mongoose.Schema({
+  enabled: { type: Boolean, default: false },
+  email: { type: String, default: '', trim: true, lowercase: true },
+  emailConfirmedAt: { type: Date, default: null },
+  timezone: { type: String, default: 'UTC', trim: true },
+  sendHourLocal: { type: Number, min: 0, max: 23, default: 7 },
+  unsubscribedAt: { type: Date, default: null },
+  unsubscribeTokenVersion: { type: Number, min: 1, default: 1 },
+  lastOpenedAt: { type: Date, default: null },
+  lastSentAt: { type: Date, default: null },
+  lastAttemptedAt: { type: Date, default: null },
+  lastSkippedAt: { type: Date, default: null },
+  lastSkipReason: { type: String, default: '', trim: true },
+  lastCheckInLocalDate: { type: String, default: '', trim: true },
+  checkInStreak: { type: Number, min: 0, default: 0 }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   password: { type: String, required: true },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
-  agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) }
+  agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
+  morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -340,6 +358,94 @@ const wikiCitationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });
 
+const judgmentAssumptionSchema = new mongoose.Schema({
+  assumptionId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  status: { type: String, enum: ['unreviewed', 'holds', 'weakened', 'failed'], default: 'unreviewed' },
+  confidence: { type: Number, min: 0, max: 1, default: null },
+  affectedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  lastReviewedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const judgmentUnknownSchema = new mongoose.Schema({
+  unknownId: { type: String, required: true, trim: true },
+  question: { type: String, required: true, trim: true },
+  priority: { type: String, enum: ['critical', 'high', 'medium', 'low'], default: 'medium' },
+  status: { type: String, enum: ['open', 'researching', 'answered', 'deferred'], default: 'open' },
+  answer: { type: String, default: '', trim: true },
+  affectedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  ownerLabel: { type: String, default: '', trim: true },
+  dueAt: { type: Date, default: null },
+  resolvedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const judgmentFalsifierSchema = new mongoose.Schema({
+  falsifierId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  observableSignal: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['unobserved', 'warning', 'triggered', 'retired'], default: 'unobserved' },
+  affectedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  lastCheckedAt: { type: Date, default: null },
+  triggeredAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+const judgmentDecisionOutcomeSchema = new mongoose.Schema({
+  observedAt: { type: Date, default: null },
+  summary: { type: String, default: '', trim: true },
+  result: { type: String, enum: ['positive', 'negative', 'mixed', 'unknown'], default: 'unknown' },
+  processScore: { type: Number, min: 0, max: 1, default: null },
+  calibrationNote: { type: String, default: '', trim: true },
+  lesson: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const judgmentDecisionSchema = new mongoose.Schema({
+  decisionId: { type: String, required: true, trim: true },
+  decidedAt: { type: Date, default: null },
+  decisionType: { type: String, enum: ['research', 'outreach', 'product', 'operating', 'investment', 'no_action', 'close'], default: 'research' },
+  summary: { type: String, required: true, trim: true },
+  rationale: { type: String, default: '', trim: true },
+  expectedOutcome: { type: String, default: '', trim: true },
+  horizon: { type: String, default: '', trim: true },
+  successCriteria: { type: [String], default: [] },
+  reviewAt: { type: Date, default: null },
+  status: { type: String, enum: ['planned', 'taken', 'cancelled', 'reviewed'], default: 'planned' },
+  relatedClaimIds: { type: [String], default: [] },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  outcome: { type: judgmentDecisionOutcomeSchema, default: () => ({}) },
+  createdAt: { type: Date, default: Date.now },
+  createdBy: { type: String, enum: ['user', 'ai_proposed'], default: 'user' }
+}, { _id: false });
+
+const wikiJudgmentSchema = new mongoose.Schema({
+  kind: { type: String, enum: ['thesis', 'decision', 'prediction'], required: true },
+  governingQuestion: { type: String, required: true, trim: true },
+  currentJudgment: { type: String, default: '', trim: true },
+  confidence: { type: Number, min: 0, max: 1, default: null },
+  status: { type: String, enum: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'closed', 'archived'], default: 'framing' },
+  decisionPosture: { type: String, enum: ['investigate', 'watch', 'act', 'avoid', 'no_action', 'closed'], default: 'investigate' },
+  ownerLabel: { type: String, default: '', trim: true },
+  startedAt: { type: Date, default: null },
+  lastReviewedAt: { type: Date, default: null },
+  nextReviewAt: { type: Date, default: null },
+  nextReviewTrigger: { type: String, default: '', trim: true },
+  initialRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  strongestCounterargument: { type: String, default: '', trim: true },
+  causalModel: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ summary: '', nodes: [], edges: [] })
+  },
+  assumptions: { type: [judgmentAssumptionSchema], default: [] },
+  unknowns: { type: [judgmentUnknownSchema], default: [] },
+  falsifiers: { type: [judgmentFalsifierSchema], default: [] },
+  decisions: { type: [judgmentDecisionSchema], default: [] }
+}, { _id: false });
+
 const wikiClaimSchema = new mongoose.Schema({
   claimId: { type: String, required: true, trim: true },
   text: { type: String, required: true, trim: true },
@@ -349,8 +455,24 @@ const wikiClaimSchema = new mongoose.Schema({
   sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   confidence: { type: Number, min: 0, max: 1, default: 0 },
+  epistemicStatus: {
+    type: String,
+    enum: ['established_fact', 'supported_interpretation', 'plausible_hypothesis', 'speculation', 'rejected'],
+    default: 'plausible_hypothesis'
+  },
+  materiality: { type: String, enum: ['critical', 'major', 'supporting', 'context'], default: 'supporting' },
+  implication: { type: String, default: '', trim: true },
+  falsifierIds: { type: [String], default: [] },
   lastReviewedAt: { type: Date, default: null },
   lastVerifiedAt: { type: Date, default: null },
+  checkInStatus: {
+    type: String,
+    enum: ['unreviewed', 'reaffirmed', 'revised', 'retired'],
+    default: 'unreviewed'
+  },
+  lastCheckedAt: { type: Date, default: null },
+  retiredAt: { type: Date, default: null },
+  restoredAt: { type: Date, default: null },
   history: {
     type: [{
       at: { type: Date, default: Date.now },
@@ -361,7 +483,15 @@ const wikiClaimSchema = new mongoose.Schema({
       citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
-      summary: { type: String, default: '', trim: true }
+      summary: { type: String, default: '', trim: true },
+      action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored'], default: '' },
+      note: { type: String, default: '', trim: true },
+      evidenceDelta: { type: mongoose.Schema.Types.Mixed, default: null },
+      confidence: { type: Number, min: 0, max: 1, default: null },
+      epistemicStatus: { type: String, enum: ['established_fact', 'supported_interpretation', 'plausible_hypothesis', 'speculation', 'rejected'], default: null },
+      disposition: { type: String, enum: ['accepted', 'rejected', 'deferred', 'preserved'], default: null },
+      reason: { type: String, default: '', trim: true },
+      actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'system' }
     }],
     default: []
   },
@@ -563,10 +693,24 @@ const wikiGitHubRepoWatchSchema = new mongoose.Schema({
   errorMessage: { type: String, default: '', trim: true }
 }, { _id: false });
 
+const wikiReadingWatchSchema = new mongoose.Schema({
+  feedUrl: { type: String, default: '', trim: true },
+  canonicalFeedUrl: { type: String, default: '', trim: true },
+  label: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['idle', 'active', 'error'], default: 'idle' },
+  lastCheckedAt: { type: Date, default: null },
+  lastItemAt: { type: Date, default: null },
+  lastItemId: { type: String, default: '', trim: true },
+  lastItemTitle: { type: String, default: '', trim: true },
+  lastEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  errorMessage: { type: String, default: '', trim: true }
+}, { _id: false });
+
 const wikiExternalWatchesSchema = new mongoose.Schema({
   edgar: { type: wikiEdgarWatchSchema, default: () => ({}) },
   transcripts: { type: wikiTranscriptWatchSchema, default: () => ({}) },
-  githubRepo: { type: wikiGitHubRepoWatchSchema, default: () => ({}) }
+  githubRepo: { type: wikiGitHubRepoWatchSchema, default: () => ({}) },
+  reading: { type: wikiReadingWatchSchema, default: () => ({}) }
 }, { _id: false });
 
 const wikiPageSchema = new mongoose.Schema({
@@ -587,6 +731,7 @@ const wikiPageSchema = new mongoose.Schema({
   sourceRefs: { type: [wikiSourceRefSchema], default: [] },
   claims: { type: [wikiClaimSchema], default: [] },
   citations: { type: [wikiCitationSchema], default: [] },
+  judgment: { type: wikiJudgmentSchema, default: null },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   publicProof: { type: wikiPublicProofSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },
@@ -1993,6 +2138,41 @@ noeisReceiptSchema.index({ userId: 1, receiptId: 1 }, { unique: true });
 
 const NoeisReceipt = mongoose.model('NoeisReceipt', noeisReceiptSchema);
 
+const morningPaperDeliverySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  localDate: { type: String, required: true, trim: true },
+  briefingVersion: { type: String, required: true, trim: true },
+  status: { type: String, enum: ['attempting', 'sent', 'skipped', 'failed'], default: 'attempting', index: true },
+  provider: { type: String, default: 'resend', trim: true },
+  providerMessageId: { type: String, default: '', trim: true },
+  recipient: { type: String, default: '', trim: true, lowercase: true },
+  attemptedAt: { type: Date, default: Date.now },
+  sentAt: { type: Date, default: null },
+  skippedAt: { type: Date, default: null },
+  skipReason: { type: String, default: '', trim: true },
+  failedAt: { type: Date, default: null },
+  errorMessage: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+morningPaperDeliverySchema.index(
+  { userId: 1, localDate: 1, briefingVersion: 1 },
+  { unique: true }
+);
+
+const MorningPaperDelivery = mongoose.model('MorningPaperDelivery', morningPaperDeliverySchema);
+
+const wikiPageVisitSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  lastVisitedAt: { type: Date, required: true, default: Date.now },
+  visitCount: { type: Number, min: 1, default: 1 }
+}, { timestamps: true });
+
+wikiPageVisitSchema.index({ userId: 1, pageId: 1 }, { unique: true });
+wikiPageVisitSchema.index({ userId: 1, lastVisitedAt: -1 });
+
+const WikiPageVisit = mongoose.model('WikiPageVisit', wikiPageVisitSchema);
+
 const embeddingJobSchema = new mongoose.Schema({
   collection: { type: String, required: true, trim: true },
   objectId: { type: String, required: true, trim: true },
@@ -2115,6 +2295,8 @@ module.exports = {
   IntegrationConnection,
   ImportSession,
   NoeisReceipt,
+  MorningPaperDelivery,
+  WikiPageVisit,
   EmbeddingJob,
   SharedConcept,
   SharedQuestion,

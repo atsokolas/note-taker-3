@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { buildAgentPlanner } = require('./agentWorkerRoles');
+const { buildAgentPlanner, buildLivingThesisCriticMandate } = require('./agentWorkerRoles');
 const { buildProposalBundle } = require('./agentProposalBundles');
 const { chatComplete, chatCompleteStream, isTextGenerationConfigured } = require('../ai/hfTextClient');
 
@@ -1319,6 +1319,9 @@ const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
         'Never output raw database ids; refer to wiki pages as [[Page Title]].'
       ].join(' ')
     : '';
+  const livingThesisCriticHint = intent === 'challenge' && contextItem?.judgmentKind === 'thesis'
+    ? buildLivingThesisCriticMandate()
+    : '';
   return [
     'You are a grounded thought partner inside a private research workspace.',
     'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
@@ -1328,6 +1331,7 @@ const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
     'Prefer 2 to 4 sentences unless the user explicitly asks for a longer artifact.',
     contextLabel ? `Stay anchored to ${contextLabel}.` : '',
     wikiHint,
+    livingThesisCriticHint,
     intentHint
   ].filter(Boolean).join(' ');
 };
@@ -1357,6 +1361,7 @@ const buildPartnerGroundingBlock = ({
     contextItem?.fullText ? `Selected wiki page body:\n"""${truncateRawAtSentenceBoundary(contextItem.fullText, 6000)}"""` : '',
     contextItem?.sourceText ? `Attached wiki sources:\n${contextItem.sourceText}` : '',
     contextItem?.claimText ? `Wiki claims:\n${contextItem.claimText}` : '',
+    contextItem?.judgmentText ? `Living thesis contract:\n${contextItem.judgmentText}` : '',
     anchorUserText ? `Anchor request: ${anchorUserText}` : '',
     relatedItems.length
       ? 'Retrieved internal material:'
@@ -1829,7 +1834,7 @@ const resolveContextItem = async ({
   const pageId = toSafeString(context.pageId);
   if (WikiPage && pageId && mongoose.Types.ObjectId.isValid(pageId)) {
     const page = await WikiPage.findOne({ _id: pageId, userId: userObjectId })
-      .select('_id title slug plainText body sourceRefs claims citations updatedAt')
+      .select('_id title slug plainText body sourceRefs claims citations judgment updatedAt')
       .lean();
     if (page) {
       const pageTitle = toSafeString(page.title) || 'Wiki page';
@@ -1896,6 +1901,16 @@ const resolveContextItem = async ({
         })
         .filter(entry => entry.claim);
       const bodyText = truncateRaw(page.plainText || toPlainText(page.body), 10000);
+      const judgment = page.judgment && typeof page.judgment === 'object' ? page.judgment : null;
+      const judgmentText = judgment?.kind ? [
+        `Governing question: ${truncate(judgment.governingQuestion || 'Not recorded', 500)}`,
+        `Current judgment: ${truncate(judgment.currentJudgment || 'Not recorded', 1200)}`,
+        `Confidence: ${judgment.confidence == null ? 'Not set' : judgment.confidence}`,
+        `Status: ${judgment.status || 'framing'}`,
+        `Decision posture: ${judgment.decisionPosture || 'investigate'}`,
+        `Strongest counterargument: ${truncate(judgment.strongestCounterargument || 'Not recorded', 1000)}`,
+        `Causal model summary: ${truncate(judgment.causalModel?.summary || 'Not recorded', 1000)}`
+      ].join('\n') : '';
       return {
         type: 'wiki_page',
         id: `wiki:${page.slug || pageTitle}`,
@@ -1905,6 +1920,8 @@ const resolveContextItem = async ({
         sourceText,
         claimText,
         claimSourceMap,
+        judgmentKind: judgment?.kind || '',
+        judgmentText,
         sources: Array.from(sourceByIndex.values()),
         updatedAt: page.updatedAt
       };

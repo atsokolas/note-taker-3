@@ -87,6 +87,30 @@ const emptySection = (heading) => ({
   bullets: []
 });
 
+const LIVING_THESIS_SECTIONS = Object.freeze([
+  'Current judgment',
+  'Why this matters',
+  'Causal model',
+  'Claims ledger',
+  'Evidence for',
+  'Evidence against',
+  'Critical assumptions',
+  'Unknowns',
+  'What would change my mind',
+  'Implications',
+  'Next evidence',
+  'Decision ledger',
+  'Change log'
+]);
+
+const buildLivingThesisBody = () => ({
+  type: 'doc',
+  content: LIVING_THESIS_SECTIONS.flatMap(heading => ([
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: heading }] },
+    { type: 'paragraph' }
+  ]))
+});
+
 const alignArticleToPageStructure = ({ article = {}, pageType = 'topic' } = {}) => {
   const contract = getWikiPageStructure(pageType);
   if (contract.type === 'repo') {
@@ -108,7 +132,9 @@ const alignArticleToPageStructure = ({ article = {}, pageType = 'topic' } = {}) 
 
 module.exports = {
   alignArticleToPageStructure,
+  buildLivingThesisBody,
   getWikiPageStructure,
+  LIVING_THESIS_SECTIONS,
   normalizePageType,
   WIKI_PAGE_TYPES
 };

@@ -1,12 +1,19 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
-import { listWikiPages, getWikiBriefing } from '../../api/wiki';
+import { listWikiPages } from '../../api/wiki';
+import { getDailyLoop, recordClaimCheckIn, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
 
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn(),
-  getWikiBriefing: jest.fn()
+  listWikiPages: jest.fn()
+}));
+
+jest.mock('../../api/dailyLoop', () => ({
+  getDailyLoop: jest.fn(),
+  recordClaimCheckIn: jest.fn(),
+  armReadingWatch: jest.fn(),
+  disarmWatcher: jest.fn()
 }));
 
 jest.mock('./WikiBuildPageComposer', () => ({ className = '' }) => (
@@ -68,12 +75,15 @@ describe('WikiFrontPage (AT-394)', () => {
     navigate = jest.fn();
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
     listWikiPages.mockResolvedValue(pages);
-    getWikiBriefing.mockResolvedValue(briefing);
+    getDailyLoop.mockResolvedValue({ briefing });
+    recordClaimCheckIn.mockResolvedValue({ acknowledgment: 'reaffirmed · 1st time · held 12 days', streak: 1 });
+    armReadingWatch.mockResolvedValue({});
+    disarmWatcher.mockResolvedValue({});
   });
 
   it('names the loading work before the paper arrives', () => {
     listWikiPages.mockReturnValueOnce(new Promise(() => {}));
-    getWikiBriefing.mockReturnValueOnce(new Promise(() => {}));
+    getDailyLoop.mockReturnValueOnce(new Promise(() => {}));
 
     render(
       <router.MemoryRouter>
@@ -141,7 +151,7 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 
   it('falls back to the strongest page when the briefing fails', async () => {
-    getWikiBriefing.mockRejectedValueOnce(new Error('down'));
+    getDailyLoop.mockRejectedValueOnce(new Error('down'));
 
     render(
       <router.MemoryRouter>
@@ -157,7 +167,7 @@ describe('WikiFrontPage (AT-394)', () => {
 
   it('opens the onboarding arc when the corpus is empty and onboarding is incomplete', async () => {
     listWikiPages.mockResolvedValueOnce([]);
-    getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 0 });
+    getDailyLoop.mockResolvedValueOnce({ briefing: { ...briefing, recentlyUpdatedPages: [], totalPages: 0 } });
 
     render(
       <router.MemoryRouter>
@@ -173,7 +183,7 @@ describe('WikiFrontPage (AT-394)', () => {
   it('keeps the fallback empty composer after onboarding has been completed', async () => {
     localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
     listWikiPages.mockResolvedValueOnce([]);
-    getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 0 });
+    getDailyLoop.mockResolvedValueOnce({ briefing: { ...briefing, recentlyUpdatedPages: [], totalPages: 0 } });
 
     render(
       <router.MemoryRouter>
@@ -189,7 +199,7 @@ describe('WikiFrontPage (AT-394)', () => {
 
   it('does not redirect returning users whose pages are hidden from the front page', async () => {
     listWikiPages.mockResolvedValueOnce([{ _id: 'debug-page', title: 'Internal QA', debugOnly: true }]);
-    getWikiBriefing.mockResolvedValueOnce({ ...briefing, recentlyUpdatedPages: [], totalPages: 1 });
+    getDailyLoop.mockResolvedValueOnce({ briefing: { ...briefing, recentlyUpdatedPages: [], totalPages: 1 } });
 
     render(
       <router.MemoryRouter>
@@ -214,10 +224,10 @@ describe('WikiFrontPage (AT-394)', () => {
       },
       ...pages
     ]);
-    getWikiBriefing.mockResolvedValueOnce({
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       recentlyUpdatedPages: [{ _id: 'qa-page', title: 'QA Build Order Verification 2026-06-19' }]
-    });
+    } });
 
     render(
       <router.MemoryRouter>
@@ -238,7 +248,7 @@ describe('WikiFrontPage (AT-394)', () => {
       hasAnyWikiContent: true
     }));
     listWikiPages.mockReturnValueOnce(new Promise(() => {}));
-    getWikiBriefing.mockReturnValueOnce(new Promise(() => {}));
+    getDailyLoop.mockReturnValueOnce(new Promise(() => {}));
 
     render(
       <router.MemoryRouter>
@@ -252,11 +262,11 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledTimes(1);
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, includeLowQuality: 1 });
-    expect(getWikiBriefing).toHaveBeenCalledTimes(1);
+    expect(getDailyLoop).toHaveBeenCalledTimes(1);
   });
 
   it('shows a failed-import next action in the briefing area', async () => {
-    getWikiBriefing.mockResolvedValueOnce({
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       summary: 'Readwise needs attention before the next sync.',
       nextAction: {
@@ -265,7 +275,7 @@ describe('WikiFrontPage (AT-394)', () => {
         href: '/connections',
         reason: 'Readwise needs a fresh authorization.'
       }
-    });
+    } });
 
     render(
       <router.MemoryRouter>
@@ -279,7 +289,7 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 
   it('shows an answerable-question next action and question note', async () => {
-    getWikiBriefing.mockResolvedValueOnce({
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       summary: 'One open question now has fresh evidence.',
       nextAction: {
@@ -295,7 +305,7 @@ describe('WikiFrontPage (AT-394)', () => {
         evidenceCount: 2,
         href: '/think?tab=questions&questionId=q1'
       }]
-    });
+    } });
 
     render(
       <router.MemoryRouter>
@@ -316,7 +326,7 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 
   it('uses pages that gained source material as the lead story and compact evidence line', async () => {
-    getWikiBriefing.mockResolvedValueOnce({
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       summary: 'Opportunity Cost gained new backing sources overnight.',
       nextAction: {
@@ -331,7 +341,7 @@ describe('WikiFrontPage (AT-394)', () => {
         addedSourceCount: 2,
         sourceTitles: ['Tradeoff note', 'Capital allocation note']
       }]
-    });
+    } });
 
     render(
       <router.MemoryRouter>
@@ -350,7 +360,7 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 
   it('does not render unsafe backend-provided next-action hrefs', async () => {
-    getWikiBriefing.mockResolvedValueOnce({
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       nextAction: {
         type: 'review_page',
@@ -358,7 +368,7 @@ describe('WikiFrontPage (AT-394)', () => {
         href: 'https://example.com/bad',
         reason: 'This should not become a router link.'
       }
-    });
+    } });
 
     render(
       <router.MemoryRouter>
@@ -393,11 +403,11 @@ describe('WikiFrontPage (AT-394)', () => {
       ...duplicateRepos,
       ...pages
     ]);
-    getWikiBriefing.mockResolvedValueOnce({
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       recentlyUpdatedPages: [{ _id: 'wiki-first-principles', title: 'First Principles Thinking' }],
       pagesWithNewSourceMaterial: []
-    });
+    } });
 
     render(
       <router.MemoryRouter>
@@ -417,5 +427,58 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(explore.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
     expect(within(explore).getByText('Margin of Safety')).toBeInTheDocument();
     expect(within(explore).getByText('Opportunity Cost')).toBeInTheDocument();
+  });
+
+  it('leads with a watcher event, renders exact claim impact, and completes a check-in', async () => {
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
+      ...briefing,
+      lead: {
+        title: 'NVDA filed a 10-Q',
+        page: { id: 'wiki-first-principles', title: 'Nvidia dossier' },
+        watcherLabel: 'EDGAR',
+        maintenanceStatus: 'completed',
+        href: '/wiki/workspace?page=wiki-first-principles',
+        impactSummary: '2 claims touched · 1 contradicted',
+        claimImpacts: [{ claimId: 'c1', beforeSupport: 'partial', afterSupport: 'conflicted' }]
+      },
+      watcherLeads: [{
+        title: 'NVDA filed a 10-Q',
+        page: { id: 'wiki-first-principles', title: 'Nvidia dossier' },
+        impactSummary: '2 claims touched · 1 contradicted',
+        claimImpacts: [{ claimId: 'c1', beforeSupport: 'partial', afterSupport: 'conflicted' }]
+      }],
+      claimCheckIn: {
+        pageId: 'wiki-first-principles',
+        pageTitle: 'Nvidia dossier',
+        claimId: 'c1',
+        text: 'Integration retains pricing power.',
+        changedSinceLastCheck: true,
+        href: '/wiki/workspace?page=wiki-first-principles&claimId=c1'
+      },
+      watching: [{
+        id: 'wiki-first-principles:sec_edgar',
+        type: 'sec_edgar',
+        label: 'EDGAR · NVDA',
+        detail: '10-Q Jul 19',
+        status: 'active',
+        page: { id: 'wiki-first-principles', title: 'Nvidia dossier' }
+      }]
+    } });
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByText(/NVDA filed a 10-Q/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 claims touched · 1 contradicted/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open Nvidia dossier →' }))
+      .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
+    expect(screen.getByText('c1')).toBeInTheDocument();
+    expect(screen.getByText('partial → conflicted')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Integration retains pricing power.' })).toBeInTheDocument();
+    expect(screen.getByText('EDGAR · NVDA')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Still hold' }));
+    await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({
+      pageId: 'wiki-first-principles', claimId: 'c1', action: 'reaffirmed', revisedText: ''
+    }));
+    expect(await screen.findByText(/reaffirmed · 1st time/i)).toBeInTheDocument();
   });
 });

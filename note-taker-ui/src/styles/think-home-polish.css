@@ -12911,3 +12911,99 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 .wiki-workspace__qa-fixture-message.is-error {
   color: color-mix(in srgb, #9b2f2f 80%, var(--text-primary));
 }
+
+.wiki-build-page__mode {
+  display: inline-flex;
+  gap: 4px;
+  margin: 10px 0 8px;
+  padding: 3px;
+  border: 1px solid var(--nt-divider);
+  border-radius: 999px;
+}
+.wiki-build-page__mode button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.wiki-build-page__mode button.is-active {
+  background: var(--text-primary);
+  color: var(--surface);
+}
+.wiki-build-page__thesis-question {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.wiki-build-page__thesis-question label,
+.wiki-thesis__field > span {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wiki-build-page__thesis-question textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+.wiki-build-page__thesis-question p { margin: 0; color: var(--text-secondary); font-size: 0.78rem; }
+
+.wiki-thesis {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0 30px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 34%, var(--nt-divider));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 94%, var(--wiki-warm-accent, #a47f32) 6%);
+  overflow-wrap: anywhere;
+}
+.wiki-thesis__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.wiki-thesis__heading p { margin: 0 0 6px; color: var(--text-secondary); font: 700 0.68rem/1.2 ui-monospace, monospace; letter-spacing: 0.12em; text-transform: uppercase; }
+.wiki-thesis__heading h2 { margin: 0; font: 500 clamp(1.15rem, 2.2vw, 1.55rem)/1.28 Georgia, serif; }
+.wiki-thesis button { min-height: 42px; padding: 8px 13px; border: 1px solid var(--nt-divider); border-radius: 9px; background: var(--surface); color: var(--text-primary); }
+.wiki-thesis__judgment { padding-left: 14px; border-left: 3px solid var(--wiki-warm-accent, #a47f32); }
+.wiki-thesis__judgment span { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.wiki-thesis__judgment p { margin: 5px 0 0; font: 1.05rem/1.55 Georgia, serif; }
+.wiki-thesis__facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 0; }
+.wiki-thesis__facts div { min-width: 0; padding: 10px 12px; border-top: 1px solid var(--nt-divider); }
+.wiki-thesis__facts dt { color: var(--text-secondary); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; }
+.wiki-thesis__facts dd { margin: 4px 0 0; }
+.wiki-thesis__causal { display: grid; gap: 5px; margin: 0; }
+.wiki-thesis__ledger { display: grid; gap: 6px; }
+.wiki-thesis__ledger-section, .wiki-thesis__edit-list { border-top: 1px solid var(--nt-divider); }
+.wiki-thesis__ledger-section summary, .wiki-thesis__edit-list summary { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; cursor: pointer; font-weight: 700; }
+.wiki-thesis__ledger-section summary span, .wiki-thesis__edit-list summary span { color: var(--text-secondary); font-weight: 500; }
+.wiki-thesis__ledger-section ul { display: grid; gap: 10px; margin: 0 0 12px; padding: 0; list-style: none; }
+.wiki-thesis__ledger-section li { display: grid; gap: 3px; }
+.wiki-thesis__ledger-section small, .wiki-thesis__ledger-section em { color: var(--text-secondary); font-size: 0.78rem; }
+.wiki-thesis__ledger-section em { color: #9b4c2d; }
+.wiki-thesis__editor { display: grid; gap: 18px; padding-top: 16px; border-top: 1px solid var(--nt-divider); }
+.wiki-thesis__form-grid, .wiki-thesis__edit-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.wiki-thesis__field { display: grid; min-width: 0; gap: 5px; }
+.wiki-thesis__field input, .wiki-thesis__field select, .wiki-thesis__field textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; padding: 9px 10px; border: 1px solid var(--nt-divider); border-radius: 8px; background: var(--surface); color: var(--text-primary); }
+.wiki-thesis__field textarea { min-height: 88px; resize: vertical; }
+.wiki-thesis__field small, .wiki-thesis__edit-row small { color: var(--text-secondary); font-size: 0.76rem; }
+.wiki-thesis__edit-row { margin-bottom: 12px; padding: 13px; border: 1px solid var(--nt-divider); border-radius: 10px; }
+.wiki-thesis__edit-row p { display: grid; gap: 4px; margin: 0; }
+.wiki-thesis__remove { justify-self: start; color: #9b4c2d !important; }
+.wiki-thesis__warning, .wiki-thesis__error { color: #9b4c2d; }
+.wiki-thesis__actions, .wiki-thesis__snapshot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.wiki-thesis__snapshot { padding-top: 14px; border-top: 1px solid var(--nt-divider); }
+.wiki-thesis__snapshot p, .wiki-thesis__status, .wiki-thesis__error { margin: 0; font-size: 0.84rem; }
+
+@media (max-width: 620px) {
+  .wiki-thesis { padding: 16px; }
+  .wiki-thesis__heading { display: grid; }
+  .wiki-thesis__heading button { justify-self: start; }
+  .wiki-thesis__facts, .wiki-thesis__form-grid, .wiki-thesis__edit-row { grid-template-columns: minmax(0, 1fr); }
+  .wiki-thesis__actions, .wiki-thesis__snapshot { align-items: stretch; flex-direction: column; }
+  .wiki-thesis__actions button, .wiki-thesis__snapshot button { width: 100%; }
+  .wiki-read .wiki-read__header:has(.wiki-thesis) h1 {
+    font-size: clamp(2rem, 9vw, 2.75rem) !important;
+    line-height: 0.98;
+  }
+}

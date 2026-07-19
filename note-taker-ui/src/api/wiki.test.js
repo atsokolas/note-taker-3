@@ -1,6 +1,7 @@
 import api from '../api';
 import { TextDecoder, TextEncoder } from 'util';
-import { createRepoWikiFromGitHub, streamMaintainWikiPage } from './wiki';
+import { createRepoWikiFromGitHub, restoreInitialWikiJudgment, saveInitialWikiJudgment, streamMaintainWikiPage } from './wiki';
+import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
 jest.mock('../api', () => ({
   defaults: { baseURL: '' },
@@ -14,6 +15,21 @@ jest.mock('../api', () => ({
 jest.mock('../hooks/useAuthHeaders', () => ({
   getAuthHeaders: jest.fn(() => ({ headers: { Authorization: 'Bearer token' } }))
 }));
+
+describe('wiki judgment api', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('uses the dedicated authenticated initial snapshot actions', async () => {
+    api.post
+      .mockResolvedValueOnce({ data: { revisionId: 'revision-1' } })
+      .mockResolvedValueOnce({ data: { restoredRevisionId: 'revision-1' } });
+    await expect(saveInitialWikiJudgment('page 1')).resolves.toEqual({ revisionId: 'revision-1' });
+    await expect(restoreInitialWikiJudgment('page 1')).resolves.toEqual({ restoredRevisionId: 'revision-1' });
+    expect(api.post.mock.calls[0][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot');
+    expect(api.post.mock.calls[1][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot/restore');
+    expect(getAuthHeaders).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('wiki api streams', () => {
   beforeEach(() => {

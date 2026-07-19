@@ -29,6 +29,9 @@ const collectPageRetentionReferences = (page = {}) => {
   if (page?.freshness?.acceptedThrough?.sourceEventId) {
     sourceEventIds.add(cleanId(page.freshness.acceptedThrough.sourceEventId));
   }
+  if (page?.judgment?.initialRevisionId) {
+    revisionIds.add(cleanId(page.judgment.initialRevisionId));
+  }
 
   return {
     revisionIds: [...revisionIds].filter(Boolean),

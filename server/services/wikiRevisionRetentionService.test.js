@@ -33,9 +33,10 @@ assert(plan.deletedIds.length > 0, 'identifies redundant snapshots');
 const references = collectPageRetentionReferences({
   publicProof: { acceptedClocks: [{ revisionId: 'clock-revision', sourceEventId: 'clock-event' }] },
   freshness: { acceptedThrough: { revisionId: 'fresh-revision', sourceEventId: 'fresh-event' } },
+  judgment: { initialRevisionId: 'initial-judgment-revision' },
   externalWatches: { githubRepo: { publishedHeadSha: 'head' } }
 });
-assert.deepStrictEqual(references.revisionIds.sort(), ['clock-revision', 'fresh-revision']);
+assert.deepStrictEqual(references.revisionIds.sort(), ['clock-revision', 'fresh-revision', 'initial-judgment-revision']);
 assert.deepStrictEqual(references.sourceEventIds.sort(), ['clock-event', 'fresh-event']);
 assert.strictEqual(references.publishedHeadSha, 'head');
 

@@ -47,14 +47,20 @@ export const countWikiClaims = (page = {}) => {
   page = page || {};
   const explicit = Number(page.claimCount ?? page.claimsCount);
   const claimIds = new Set();
+  const retiredClaimIds = new Set();
   (Array.isArray(page.claims) ? page.claims : []).forEach((claim, index) => {
-    claimIds.add(claim?.claimId || claim?._id || claim?.id || `claim-${index}`);
+    const claimId = claim?.claimId || claim?._id || claim?.id || `claim-${index}`;
+    if (claim?.checkInStatus === 'retired' || claim?.retiredAt) retiredClaimIds.add(String(claimId));
+    else claimIds.add(claimId);
   });
   (Array.isArray(page.citations) ? page.citations : []).forEach((citation) => {
     const id = citation.claimId || citation.claim?._id || citation.claim?.id;
-    if (id) claimIds.add(id);
+    if (id && !retiredClaimIds.has(String(id))) claimIds.add(id);
   });
-  countWikiClaimMarks(page.body).forEach(id => claimIds.add(id));
+  countWikiClaimMarks(page.body).forEach(id => {
+    if (!retiredClaimIds.has(String(id))) claimIds.add(id);
+  });
+  if (Array.isArray(page.claims)) return claimIds.size;
   return Math.max(Number.isFinite(explicit) ? explicit : 0, claimIds.size);
 };
 

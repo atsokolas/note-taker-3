@@ -86,6 +86,25 @@ describe('WikiBuildPageComposer', () => {
     });
   });
 
+  it('creates an empty living-thesis preset without starting an agent draft', async () => {
+    renderComposer({}, { systemStatusControls });
+    fireEvent.click(screen.getByRole('button', { name: 'Living thesis' }));
+    fireEvent.change(screen.getByLabelText('Living thesis title'), { target: { value: 'QA Demo — Electrification Thesis' } });
+    fireEvent.change(screen.getByLabelText('Governing question'), { target: { value: 'What evidence would change this QA-only view?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create thesis' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'QA Demo — Electrification Thesis',
+      pageType: 'overview',
+      preset: 'living_thesis',
+      governingQuestion: 'What evidence would change this QA-only view?'
+    })));
+    expect(createRepoWikiFromGitHub).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-new', { replace: false });
+    expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('build=1'), expect.anything());
+    expect(screen.getByText('No conclusion or claims will be drafted for you.')).toBeInTheDocument();
+  });
+
   it('parses GitHub repo URLs and owner/repo shorthand', () => {
     expect(parseGitHubRepoInput('https://github.com/openai/agents-js.git')).toEqual({
       owner: 'openai',

@@ -219,6 +219,16 @@ export const updateWikiPage = async (id, updates = {}) => {
   return res.data;
 };
 
+export const saveInitialWikiJudgment = async (id) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/judgment/initial-snapshot`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const restoreInitialWikiJudgment = async (id) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/judgment/initial-snapshot/restore`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
 export const archiveWikiPage = async (id) => {
   const res = await api.delete(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
   return res.data;
@@ -691,6 +701,8 @@ const wikiApi = {
   ignoreWikiLintFinding,
   fixWikiLintFinding,
   updateWikiPage,
+  saveInitialWikiJudgment,
+  restoreInitialWikiJudgment,
   archiveWikiPage,
   deleteWikiPage,
   maintainWikiPage,

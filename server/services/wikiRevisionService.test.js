@@ -3,7 +3,18 @@ const { createWikiRevision, restorePageSnapshot, snapshotPage } = require('./wik
 
 const page = {
   _id: 'page-1',
-  title: 'Alphabet dossier',
+  title: 'QA living thesis',
+  judgment: {
+    kind: 'thesis',
+    governingQuestion: 'What would change this QA judgment?',
+    currentJudgment: 'QA-only provisional judgment.',
+    initialRevisionId: 'initial-revision',
+    causalModel: { summary: 'QA causal narrative.', nodes: [], edges: [] },
+    assumptions: [{ assumptionId: 'assumption-1', text: 'QA assumption' }],
+    unknowns: [{ unknownId: 'unknown-1', question: 'QA unknown?' }],
+    falsifiers: [{ falsifierId: 'falsifier-1', text: 'QA falsifier' }],
+    decisions: [{ decisionId: 'decision-1', summary: 'QA research step', status: 'planned' }]
+  },
   publicProof: {
     grade: 'proven',
     acceptedEventId: 'private-acceptance-record',
@@ -18,8 +29,10 @@ const page = {
 
 const snapshot = snapshotPage(page);
 assert.deepStrictEqual(snapshot.publicProof, page.publicProof);
+assert.deepStrictEqual(snapshot.judgment, page.judgment);
 
 const target = {
+  judgment: { kind: 'thesis', initialRevisionId: 'initial-revision', currentJudgment: 'Changed' },
   publicProof: { grade: 'candidate' },
   modified: [],
   markModified(field) { this.modified.push(field); }
@@ -27,6 +40,8 @@ const target = {
 restorePageSnapshot(target, snapshot);
 assert.deepStrictEqual(target.publicProof, page.publicProof);
 assert(target.modified.includes('publicProof'));
+assert.deepStrictEqual(target.judgment, page.judgment);
+assert(target.modified.includes('judgment'));
 
 class FakeRevision {
   constructor(fields) { Object.assign(this, fields); }
