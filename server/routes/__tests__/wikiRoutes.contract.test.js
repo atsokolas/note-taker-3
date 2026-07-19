@@ -10,20 +10,29 @@ const listen = (app) => new Promise((resolve) => {
   const server = app.listen(0, '127.0.0.1', () => resolve(server));
 });
 
+const valueAtPath = (record, key) => String(key || '').split('.').reduce(
+  (value, segment) => (value == null ? undefined : value[segment]),
+  record
+);
+
 const matches = (record, query = {}) => Object.entries(query).every(([key, value]) => {
   if (key === '$or') {
     return value.some(condition => matches(record, condition));
   }
+  const recordValue = valueAtPath(record, key);
   if (value && typeof value === 'object' && value.$ne !== undefined) {
-    return String(record[key]) !== String(value.$ne);
+    return String(recordValue) !== String(value.$ne);
   }
   if (value && typeof value === 'object' && Array.isArray(value.$in)) {
-    return value.$in.map(String).includes(String(record[key] || ''));
+    return value.$in.map(String).includes(String(recordValue || ''));
+  }
+  if (value && typeof value === 'object' && value.$not instanceof RegExp) {
+    return !value.$not.test(String(recordValue || ''));
   }
   if (value instanceof RegExp) {
-    return value.test(String(record[key] || ''));
+    return value.test(String(recordValue || ''));
   }
-  return String(record[key] || '') === String(value || '');
+  return String(recordValue || '') === String(value || '');
 });
 
 const attachSourceHelpers = (doc) => {
@@ -2212,6 +2221,29 @@ const run = async () => {
     });
     await neighborPage.save();
 
+    const protectedInboundPage = new WikiPage({
+      userId: 'user-1',
+      title: 'Weekend Readings protected inbound candidate',
+      slug: 'weekend-readings-protected-inbound-candidate',
+      pageType: 'log',
+      status: 'draft',
+      visibility: 'private',
+      createdFrom: { type: 'sources', label: 'weekend-readings:user-1:2026-07-01:2026-07-14' },
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'This protected edition mentions Ingest Change Answer but must remain byte-identical.' }]
+        }]
+      },
+      plainText: 'This protected edition mentions Ingest Change Answer but must remain byte-identical.'
+    });
+    await protectedInboundPage.save();
+    const protectedInboundBodyBefore = JSON.stringify(protectedInboundPage.body);
+    const protectedInboundRevisionCountBefore = WikiRevision.records.filter(record => (
+      String(record.pageId) === String(protectedInboundPage._id)
+    )).length;
+
     const graphAsked = await request(url, `/api/wiki/pages/${created.body._id}/ask`, {
       method: 'POST',
       body: JSON.stringify({ question: 'How does this connect to Neighbor Page?' })
@@ -2247,6 +2279,13 @@ const run = async () => {
     const linkedNeighbor = WikiPage.records.find(record => String(record._id) === String(neighborPage._id));
     const neighborLinkText = linkedNeighbor.body.content[0].content.find(node => node.text === 'Ingest Change Answer');
     assert.strictEqual(neighborLinkText.marks[0].type, 'wikiLink');
+    const protectedInboundAfter = WikiPage.records.find(record => String(record._id) === String(protectedInboundPage._id));
+    assert.strictEqual(JSON.stringify(protectedInboundAfter.body), protectedInboundBodyBefore);
+    assert.strictEqual(
+      WikiRevision.records.filter(record => String(record.pageId) === String(protectedInboundPage._id)).length,
+      protectedInboundRevisionCountBefore
+    );
+    assert.ok(!promoted.body.linkedNeighborPageIds.includes(String(protectedInboundPage._id)));
 
     const citedOnlyDiscussionId = new mongoose.Types.ObjectId().toString();
     const sourceRecordForPromotion = WikiPage.records.find(record => String(record._id) === String(created.body._id));

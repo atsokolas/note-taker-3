@@ -11,6 +11,7 @@ const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const duePageQuery = ({ cutoff = new Date(Date.now() - DEFAULT_MAX_AGE_MS) } = {}) => ({
   status: { $ne: 'archived' },
+  'createdFrom.label': { $not: /^weekend-readings:/ },
   $or: [
     { 'aiState.lastDraftedAt': null },
     { 'aiState.lastDraftedAt': { $exists: false } },
@@ -118,7 +119,10 @@ const drainScheduledWikiMaintenance = async ({
     .sort({ 'aiState.lastDraftedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
-  for (const page of Array.isArray(pages) ? pages : []) {
+  const eligiblePages = (Array.isArray(pages) ? pages : []).filter(page => (
+    !String(page?.createdFrom?.label || '').startsWith('weekend-readings:')
+  ));
+  for (const page of eligiblePages) {
     const run = await createRun({ WikiMaintenanceRun, page });
     let buildLease = null;
     let targetPage = page;

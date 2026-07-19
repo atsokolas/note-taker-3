@@ -51,6 +51,11 @@ test('canonicalizeReadingUrl strips tracking, fragments, and normalizes ordering
   assert.throws(() => canonicalizeReadingUrl('https://example.com/report?clientSecret=SECRET'), /sensitive query parameter/);
   assert.throws(() => canonicalizeReadingUrl('https://example.com/report?auth[token]=SECRET'), /sensitive query parameter/);
   assert.throws(() => canonicalizeReadingUrl('https://example.com/report?token.value=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?session_id=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://example.com/report?oauth_code=SECRET'), /sensitive query parameter/);
+  assert.throws(() => canonicalizeReadingUrl('https://drive.google.com/file/d/1?resourcekey=SECRET'), /sensitive query parameter/);
+  assert.equal(canonicalizeReadingUrl('https://example.com/report?sort_key=published_at'), 'https://example.com/report?sort_key=published_at');
+  assert.equal(canonicalizeReadingUrl('https://example.com/report?token_count=42'), 'https://example.com/report?token_count=42');
 });
 
 test('normalizeWeekendReadingItems validates editorial fields and rejects canonical duplicates visibly', () => {

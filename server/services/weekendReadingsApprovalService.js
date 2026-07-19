@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { buildWeekendReadingsBody, normalizeWeekendReadingItems } = require('./weekendReadingsService');
+const { buildWeekendReadingsBody, canonicalizeReadingUrl, normalizeWeekendReadingItems } = require('./weekendReadingsService');
 const { persistNoeisReceipt: defaultPersistNoeisReceipt } = require('./noeisReceiptService');
 
 const REVIEW_CONFIRMATION = 'request_weekend_readings_review';
@@ -85,6 +85,29 @@ const stableDigest = (value) => crypto.createHash('sha256').update(JSON.stringif
 const artifactDigest = (artifact = {}) => {
   const { digest: _digest, ...unsigned } = artifact || {};
   return stableDigest(unsigned);
+};
+
+const bodyLinkUrls = (node = {}) => {
+  if (!node || typeof node !== 'object') return [];
+  const own = (Array.isArray(node.marks) ? node.marks : [])
+    .filter(mark => mark?.type === 'link' && mark?.attrs?.href)
+    .map(mark => clean(mark.attrs.href, 2000));
+  return [...own, ...(Array.isArray(node.content) ? node.content.flatMap(bodyLinkUrls) : [])];
+};
+
+const storedPublicArtifactUrlsAreSafe = (artifact = {}) => {
+  try {
+    const sourceUrls = (Array.isArray(artifact.sourceRefs) ? artifact.sourceRefs : []).map(source => clean(source?.url, 2000));
+    const linkedUrls = bodyLinkUrls(artifact.body);
+    if (!sourceUrls.length || linkedUrls.length !== sourceUrls.length) return false;
+    const validateCanonical = url => Boolean(url) && canonicalizeReadingUrl(url) === url;
+    if (!sourceUrls.every(validateCanonical) || !linkedUrls.every(validateCanonical)) return false;
+    const sortedSources = sourceUrls.slice().sort();
+    const sortedLinks = linkedUrls.slice().sort();
+    return sortedSources.every((url, index) => url === sortedLinks[index]);
+  } catch (_error) {
+    return false;
+  }
 };
 
 const assertCandidateIntegrity = (candidate = {}) => {
@@ -293,6 +316,7 @@ const serializePublishedArtifact = ({ approvalReceipt, publicationReceipt, slug 
   const digest = clean(approvalReceipt?.provenance?.digest, 128);
   if (!artifact || artifact.digest !== digest || artifactDigest(artifact) !== digest || clean(publicationReceipt?.provenance?.digest, 128) !== digest) return null;
   if (idOf(publicationReceipt?.provenance?.revisionId) !== idOf(artifact.revisionId)) return null;
+  if (!storedPublicArtifactUrlsAreSafe(artifact)) return null;
   return {
     artifactType: 'weekend_readings',
     title: artifact.title,

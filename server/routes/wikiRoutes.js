@@ -2379,11 +2379,13 @@ const buildWikiRouter = ({
     const query = {
       userId,
       status: { $ne: 'archived' },
-      _id: { $ne: targetPage._id }
+      _id: { $ne: targetPage._id },
+      'createdFrom.label': { $not: /^weekend-readings:/ }
     };
     const candidates = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(Math.max(1, Math.min(Number(candidateLimit) || 600, 600)));
     const updatedPages = [];
     const processCandidate = async (page) => {
+      if (isWeekendReadingsPage(page)) return null;
       const before = snapshotPage(page);
       const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
       if (!result.applied) return null;
@@ -2403,7 +2405,7 @@ const buildWikiRouter = ({
       });
       return page;
     };
-    const queue = Array.isArray(candidates) ? [...candidates] : [];
+    const queue = (Array.isArray(candidates) ? candidates : []).filter(page => !isWeekendReadingsPage(page));
     const workerCount = Math.max(1, Math.min(Number(concurrency) || 1, 10, queue.length || 1));
     await Promise.all(Array.from({ length: workerCount }, async () => {
       while (queue.length) {

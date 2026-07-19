@@ -309,6 +309,7 @@ const drainDueReadingWatches = async ({ models = {}, limit = 10, maxAgeMs = DEFA
   const cutoff = new Date(now.getTime() - Math.max(15 * 60 * 1000, Number(maxAgeMs) || DEFAULT_READING_WATCH_MAX_AGE_MS));
   const pages = await WikiPage.find({
     'externalWatches.reading.status': 'active',
+    'createdFrom.label': { $not: /^weekend-readings:/ },
     $or: [
       { 'externalWatches.reading.lastCheckedAt': null },
       { 'externalWatches.reading.lastCheckedAt': { $exists: false } },
@@ -317,7 +318,7 @@ const drainDueReadingWatches = async ({ models = {}, limit = 10, maxAgeMs = DEFA
   }).sort({ 'externalWatches.reading.lastCheckedAt': 1 }).limit(Math.max(1, Math.min(Number(limit) || 10, 50)));
   const results = [];
   let failed = 0;
-  for (const page of pages) {
+  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))) {
     try {
       const result = await checkReadingWatchForPage({ WikiSourceEvent, page, fetchImpl, lookup, now: () => now });
       results.push({ pageId: String(page._id), status: 'completed', sourceEvents: result.events.length });

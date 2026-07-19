@@ -40,11 +40,17 @@ const SENSITIVE_QUERY_KEYS = new Set([
   'passwd',
   'private_key',
   'refresh_token',
+  'resource_key',
+  'resourcekey',
   'secret',
+  'session_id',
   'session_token',
   'sig',
   'signature',
+  'ticket',
   'token',
+  'token_value',
+  'oauth_code',
   'x_amz_credential',
   'x_amz_security_token',
   'x_amz_signature',
@@ -53,8 +59,8 @@ const SENSITIVE_QUERY_KEYS = new Set([
 ]);
 
 const SENSITIVE_QUERY_COMPONENTS = new Set([
-  'auth', 'authorization', 'credential', 'credentials', 'jwt', 'key', 'password', 'passwd',
-  'secret', 'sig', 'signature', 'token'
+  'auth', 'authorization', 'credential', 'credentials', 'jwt', 'password', 'passwd',
+  'secret', 'sig', 'signature'
 ]);
 
 const normalizeSensitiveQueryKey = value => String(value || '')
@@ -68,7 +74,17 @@ const normalizeSensitiveQueryKey = value => String(value || '')
 const isSensitiveQueryKey = value => {
   const normalized = normalizeSensitiveQueryKey(value);
   if (SENSITIVE_QUERY_KEYS.has(normalized)) return true;
-  return normalized.split('_').some(component => SENSITIVE_QUERY_COMPONENTS.has(component));
+  const components = normalized.split('_').filter(Boolean);
+  if (components.some(component => SENSITIVE_QUERY_COMPONENTS.has(component))) return true;
+  if (components.includes('ticket') || components.includes('resourcekey')) return true;
+  if (components.includes('resource') && components.includes('key')) return true;
+  if (components.includes('session') && components.some(component => ['id', 'key', 'token'].includes(component))) return true;
+  if (components.includes('oauth') && components.some(component => ['code', 'key', 'token'].includes(component))) return true;
+  if (components.includes('token')) return normalized !== 'token_count';
+  if (components.includes('key')) {
+    return components.some(component => ['access', 'api', 'client', 'private', 'public', 'secret', 'signing'].includes(component));
+  }
+  return false;
 };
 
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);

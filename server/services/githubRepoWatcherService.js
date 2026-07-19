@@ -817,6 +817,7 @@ const armGitHubRepoWatchForPage = async ({
 };
 
 const dueGitHubRepoWatchQuery = ({ cutoff = new Date(Date.now() - DEFAULT_GITHUB_REPO_WATCH_MAX_AGE_MS) } = {}) => ({
+  'createdFrom.label': { $not: /^weekend-readings:/ },
   status: { $ne: 'archived' },
   'externalWatches.githubRepo.status': 'active',
   'externalWatches.githubRepo.owner': { $nin: ['', null] },
@@ -845,7 +846,7 @@ const drainDueGitHubRepoWatches = async ({
     .sort({ 'externalWatches.githubRepo.lastCheckedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
-  for (const page of Array.isArray(pages) ? pages : []) {
+  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))) {
     try {
       const result = await checkGitHubRepoWatchForPageFn({
         WikiSourceEvent,
