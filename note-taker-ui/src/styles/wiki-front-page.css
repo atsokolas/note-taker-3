@@ -178,6 +178,37 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   font-size: 0.82rem;
   line-height: 1.45;
 }
+.wiki-front-page__watcher-contract {
+  display: grid;
+  gap: 7px;
+  max-width: min(58ch, 100%);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+.wiki-front-page__watcher-contract > span {
+  color: var(--text-secondary);
+}
+.wiki-front-page__watcher-contract p,
+.wiki-front-page__watcher-contract ul {
+  margin: 0;
+}
+.wiki-front-page__watcher-contract ul {
+  display: grid;
+  gap: 3px;
+  padding: 0;
+  list-style: none;
+}
+.wiki-front-page__watcher-contract li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wiki-front-page__watcher-contract code {
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
 
 .wiki-front-page__evidence-strip {
   display: flex;
@@ -472,4 +503,134 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   .wiki-front-page__composer::before { animation: none; }
   .wiki-front-page .wiki-skeleton { animation: none; }
   .wiki-front-page__graph-motif-network { animation: none; }
+}
+
+.wiki-front-page__check-in,
+.wiki-front-page__watching {
+  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 45%, transparent);
+  margin-top: 22px;
+  padding-top: 18px;
+}
+
+.wiki-front-page__check-in h2 {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  line-height: 1.35;
+  margin: 8px 0 6px;
+}
+
+.wiki-front-page__check-in > p,
+.wiki-front-page__check-in-register,
+.wiki-front-page__streak {
+  color: var(--text-muted, #8c867c);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .75rem;
+}
+
+.wiki-front-page__check-in-actions,
+.wiki-front-page__check-in-revision,
+.wiki-front-page__reading-watch {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.wiki-front-page__check-in button,
+.wiki-front-page__watching button {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 62%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  padding: 7px 12px;
+}
+
+.wiki-front-page__check-in button:disabled,
+.wiki-front-page__watching button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
+.wiki-front-page__check-in-revision textarea {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.wiki-front-page__watching {
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 45%, transparent);
+  margin-bottom: 30px;
+  padding-bottom: 24px;
+}
+
+.wiki-front-page__watching-header,
+.wiki-front-page__watching li {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wiki-front-page__watching-header h2 {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 1.55rem;
+  margin: 4px 0 0;
+}
+
+.wiki-front-page__watching-header > span,
+.wiki-front-page__watching li span,
+.wiki-front-page__watching li em,
+.wiki-front-page__watching-empty {
+  color: var(--text-muted, #8c867c);
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .72rem;
+  font-style: normal;
+  margin-top: 4px;
+}
+
+.wiki-front-page__watching ul {
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+}
+
+.wiki-front-page__watching li {
+  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  padding: 12px 0;
+}
+
+.wiki-front-page__reading-watch label {
+  display: grid;
+  flex: 1 1 210px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .7rem;
+  gap: 5px;
+}
+
+.wiki-front-page__reading-watch input,
+.wiki-front-page__reading-watch select,
+.wiki-front-page__check-in-revision textarea {
+  background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 52%, transparent);
+  border-radius: 8px;
+  color: inherit;
+  padding: 9px 10px;
+}
+
+@media (max-width: 560px) {
+  .wiki-front-page__watching-header,
+  .wiki-front-page__watching li {
+    align-items: flex-start;
+  }
+
+  .wiki-front-page__watching li {
+    flex-direction: column;
+  }
+
+  .wiki-front-page__watching li button,
+  .wiki-front-page__reading-watch button {
+    width: 100%;
+  }
 }

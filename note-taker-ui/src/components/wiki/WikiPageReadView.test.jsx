@@ -20,6 +20,7 @@ import {
   updateWikiPage
 } from '../../api/wiki';
 import { getConnectionsForItem } from '../../api/connections';
+import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 
 jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
@@ -40,6 +41,11 @@ jest.mock('../../api/wiki', () => ({
 
 jest.mock('../../api/connections', () => ({
   getConnectionsForItem: jest.fn()
+}));
+
+jest.mock('../../api/dailyLoop', () => ({
+  recordClaimCheckIn: jest.fn(),
+  recordWikiPageVisit: jest.fn()
 }));
 
 jest.mock('../../utils/wikiAnalytics', () => ({
@@ -170,6 +176,10 @@ describe('WikiPageReadView', () => {
     getWikiAutolinkSuggestions.mockResolvedValue({ suggestions: [], scanned: 0 });
     listWikiPages.mockResolvedValue([{ _id: 'wiki-related', title: 'Compounding interest' }]);
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
+    recordWikiPageVisit.mockResolvedValue({ lastVisitedAt: '2026-07-19T12:00:00.000Z', visitCount: 1 });
+    recordClaimCheckIn.mockResolvedValue({
+      claim: { ...page.claims[0], checkInStatus: 'restored', restoredAt: '2026-07-19T12:05:00.000Z' }
+    });
     maintainWikiPage.mockResolvedValue(page);
     getWikiPageMarkdown.mockResolvedValue('---\ntitle: "Enterprise AI Memory"\n---\n\n## Core idea\n');
     askWikiPage.mockResolvedValue(page);
@@ -192,6 +202,32 @@ describe('WikiPageReadView', () => {
     window.matchMedia = originalMatchMedia;
     window.sessionStorage.clear();
     window.history.pushState({}, '', '/');
+  });
+
+  it('records a durable page visit and renders retired claims as auditable, explicitly restorable text', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      claims: page.claims.map(claim => claim.claimId === 'claim-1'
+        ? { ...claim, checkInStatus: 'retired', retiredAt: '2026-07-19T00:00:00.000Z' }
+        : claim)
+    });
+
+    const { container } = renderReadView();
+    expect(await screen.findByText('Memory compounds with review.')).toBeInTheDocument();
+    expect(container.querySelector('.wiki-claim--retired')).toHaveTextContent('Memory compounds with review.');
+    await waitFor(() => expect(recordWikiPageVisit).toHaveBeenCalledWith('wiki-1'));
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByRole('button', { name: /show context/i }));
+    const restoreButton = await screen.findByRole('button', { name: 'Restore claim' });
+    await act(async () => {
+      fireEvent.click(restoreButton);
+    });
+    await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({
+      pageId: 'wiki-1',
+      claimId: 'claim-1',
+      action: 'restored'
+    }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Claim restored to active review.');
   });
 
   it('does not label starter-pack sample pages as adapted from a shared wiki', async () => {

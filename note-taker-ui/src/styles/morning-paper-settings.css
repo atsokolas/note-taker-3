@@ -1,0 +1,30 @@
+.morning-paper-settings__grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.morning-paper-settings__grid label {
+  color: var(--text-secondary);
+  display: grid;
+  font-size: .78rem;
+  gap: 6px;
+}
+
+.morning-paper-settings__grid input,
+.morning-paper-settings__grid select {
+  background: var(--surface-raised, rgba(255,255,255,.03));
+  border: 1px solid var(--border-subtle, rgba(255,255,255,.14));
+  border-radius: 8px;
+  color: var(--text-primary);
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.morning-paper-settings__actions { margin-top: 14px; }
+
+@media (max-width: 760px) {
+  .morning-paper-settings__grid { grid-template-columns: 1fr; }
+  .morning-paper-settings__actions { align-items: stretch; flex-direction: column; }
+}

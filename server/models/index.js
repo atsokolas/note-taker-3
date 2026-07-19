@@ -38,11 +38,29 @@ const userAgentProtocolPolicySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const morningPaperSettingsSchema = new mongoose.Schema({
+  enabled: { type: Boolean, default: false },
+  email: { type: String, default: '', trim: true, lowercase: true },
+  emailConfirmedAt: { type: Date, default: null },
+  timezone: { type: String, default: 'UTC', trim: true },
+  sendHourLocal: { type: Number, min: 0, max: 23, default: 7 },
+  unsubscribedAt: { type: Date, default: null },
+  unsubscribeTokenVersion: { type: Number, min: 1, default: 1 },
+  lastOpenedAt: { type: Date, default: null },
+  lastSentAt: { type: Date, default: null },
+  lastAttemptedAt: { type: Date, default: null },
+  lastSkippedAt: { type: Date, default: null },
+  lastSkipReason: { type: String, default: '', trim: true },
+  lastCheckInLocalDate: { type: String, default: '', trim: true },
+  checkInStreak: { type: Number, min: 0, default: 0 }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   password: { type: String, required: true },
   agentProfile: { type: userAgentProfileSchema, default: () => ({}) },
-  agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) }
+  agentProtocolPolicy: { type: userAgentProtocolPolicySchema, default: () => ({}) },
+  morningPaper: { type: morningPaperSettingsSchema, default: () => ({}) }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
@@ -351,6 +369,14 @@ const wikiClaimSchema = new mongoose.Schema({
   confidence: { type: Number, min: 0, max: 1, default: 0 },
   lastReviewedAt: { type: Date, default: null },
   lastVerifiedAt: { type: Date, default: null },
+  checkInStatus: {
+    type: String,
+    enum: ['unreviewed', 'reaffirmed', 'revised', 'retired'],
+    default: 'unreviewed'
+  },
+  lastCheckedAt: { type: Date, default: null },
+  retiredAt: { type: Date, default: null },
+  restoredAt: { type: Date, default: null },
   history: {
     type: [{
       at: { type: Date, default: Date.now },
@@ -361,7 +387,11 @@ const wikiClaimSchema = new mongoose.Schema({
       citationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
-      summary: { type: String, default: '', trim: true }
+      summary: { type: String, default: '', trim: true },
+      action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored'], default: '' },
+      note: { type: String, default: '', trim: true },
+      evidenceDelta: { type: mongoose.Schema.Types.Mixed, default: null },
+      actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'system' }
     }],
     default: []
   },
@@ -563,10 +593,24 @@ const wikiGitHubRepoWatchSchema = new mongoose.Schema({
   errorMessage: { type: String, default: '', trim: true }
 }, { _id: false });
 
+const wikiReadingWatchSchema = new mongoose.Schema({
+  feedUrl: { type: String, default: '', trim: true },
+  canonicalFeedUrl: { type: String, default: '', trim: true },
+  label: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['idle', 'active', 'error'], default: 'idle' },
+  lastCheckedAt: { type: Date, default: null },
+  lastItemAt: { type: Date, default: null },
+  lastItemId: { type: String, default: '', trim: true },
+  lastItemTitle: { type: String, default: '', trim: true },
+  lastEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  errorMessage: { type: String, default: '', trim: true }
+}, { _id: false });
+
 const wikiExternalWatchesSchema = new mongoose.Schema({
   edgar: { type: wikiEdgarWatchSchema, default: () => ({}) },
   transcripts: { type: wikiTranscriptWatchSchema, default: () => ({}) },
-  githubRepo: { type: wikiGitHubRepoWatchSchema, default: () => ({}) }
+  githubRepo: { type: wikiGitHubRepoWatchSchema, default: () => ({}) },
+  reading: { type: wikiReadingWatchSchema, default: () => ({}) }
 }, { _id: false });
 
 const wikiPageSchema = new mongoose.Schema({
@@ -1993,6 +2037,41 @@ noeisReceiptSchema.index({ userId: 1, receiptId: 1 }, { unique: true });
 
 const NoeisReceipt = mongoose.model('NoeisReceipt', noeisReceiptSchema);
 
+const morningPaperDeliverySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  localDate: { type: String, required: true, trim: true },
+  briefingVersion: { type: String, required: true, trim: true },
+  status: { type: String, enum: ['attempting', 'sent', 'skipped', 'failed'], default: 'attempting', index: true },
+  provider: { type: String, default: 'resend', trim: true },
+  providerMessageId: { type: String, default: '', trim: true },
+  recipient: { type: String, default: '', trim: true, lowercase: true },
+  attemptedAt: { type: Date, default: Date.now },
+  sentAt: { type: Date, default: null },
+  skippedAt: { type: Date, default: null },
+  skipReason: { type: String, default: '', trim: true },
+  failedAt: { type: Date, default: null },
+  errorMessage: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+morningPaperDeliverySchema.index(
+  { userId: 1, localDate: 1, briefingVersion: 1 },
+  { unique: true }
+);
+
+const MorningPaperDelivery = mongoose.model('MorningPaperDelivery', morningPaperDeliverySchema);
+
+const wikiPageVisitSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  lastVisitedAt: { type: Date, required: true, default: Date.now },
+  visitCount: { type: Number, min: 1, default: 1 }
+}, { timestamps: true });
+
+wikiPageVisitSchema.index({ userId: 1, pageId: 1 }, { unique: true });
+wikiPageVisitSchema.index({ userId: 1, lastVisitedAt: -1 });
+
+const WikiPageVisit = mongoose.model('WikiPageVisit', wikiPageVisitSchema);
+
 const embeddingJobSchema = new mongoose.Schema({
   collection: { type: String, required: true, trim: true },
   objectId: { type: String, required: true, trim: true },
@@ -2115,6 +2194,8 @@ module.exports = {
   IntegrationConnection,
   ImportSession,
   NoeisReceipt,
+  MorningPaperDelivery,
+  WikiPageVisit,
   EmbeddingJob,
   SharedConcept,
   SharedQuestion,

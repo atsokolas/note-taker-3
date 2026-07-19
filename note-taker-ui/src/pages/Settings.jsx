@@ -11,6 +11,7 @@ import useAgentTokens from '../hooks/integrations/useAgentTokens';
 import { trackWikiSchemaSaved, trackWikiSchemaSuggested } from '../utils/wikiAnalytics';
 import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
 import { TOUR_CACHE_KEY } from '../tour/tourConfig';
+import MorningPaperEmailSettingsCard from '../components/settings/MorningPaperEmailSettingsCard';
 
 const TYPOGRAPHY_OPTIONS = [
   { value: 'small', label: 'Small' },
@@ -282,6 +283,8 @@ const Settings = ({
           </div>
         </div>
       </Card>
+
+      <MorningPaperEmailSettingsCard Card={Card} Button={Button} />
 
       <Card className="settings-card">
         <h2>Onboarding</h2>

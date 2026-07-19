@@ -232,6 +232,8 @@ const renderTextNode = (node, key, options = {}) => {
     : null;
   if (claimMark) {
     const attrs = claimAttrs(claimMark);
+    const ledgerClaim = options.claimLedgerById?.get?.(attrs['data-claim-id']);
+    const retired = ledgerClaim?.checkInStatus === 'retired' || Boolean(ledgerClaim?.retiredAt);
     const indexes = attrs['data-citation-indexes'];
     const contradictionIndexes = attrs['data-contradiction-indexes'];
     const visibleIndexes = indexes || contradictionIndexes;
@@ -241,7 +243,11 @@ const renderTextNode = (node, key, options = {}) => {
       : '';
     return (
       <React.Fragment key={key}>
-        <span className="wiki-claim" {...attrs}>
+        <span
+          className={`wiki-claim${retired ? ' wiki-claim--retired' : ''}`}
+          title={retired && ledgerClaim?.retiredAt ? `Retired ${new Date(ledgerClaim.retiredAt).toLocaleDateString()}` : undefined}
+          {...attrs}
+        >
           {wikiLinkedText}
         </span>
         {visibleIndexes ? (

@@ -128,6 +128,8 @@ const {
   IntegrationConnection,
   ImportSession,
   NoeisReceipt,
+  MorningPaperDelivery,
+  WikiPageVisit,
   EmbeddingJob,
   SharedConcept,
   SharedQuestion,
@@ -148,6 +150,8 @@ const { drainScheduledWikiMaintenance } = require('./services/wikiScheduledMaint
 const { drainDueEdgarWatches } = require('./services/edgarWatcherService');
 const { drainDueTranscriptWatches } = require('./services/earningsTranscriptWatcherService');
 const { drainDueGitHubRepoWatches } = require('./services/githubRepoWatcherService');
+const { drainDueReadingWatches } = require('./services/readingWatcherService');
+const { drainDueMorningPaperEmails } = require('./services/morningPaperEmailService');
 const { runWikiStorageGovernor } = require('./services/wikiStorageGovernorService');
 
 if (mongoose.connection.readyState === 1) {
@@ -168,6 +172,10 @@ let transcriptWatchWorkerTimer = null;
 let transcriptWatchWorkerRunning = false;
 let githubRepoWatchWorkerTimer = null;
 let githubRepoWatchWorkerRunning = false;
+let readingWatchWorkerTimer = null;
+let readingWatchWorkerRunning = false;
+let morningPaperEmailWorkerTimer = null;
+let morningPaperEmailWorkerRunning = false;
 let embeddingJobWorkerTimer = null;
 let embeddingJobWorkerRunning = false;
 let wikiStorageGovernorTimer = null;
@@ -343,6 +351,81 @@ if (mongoose.connection.readyState === 1) {
   mongoose.connection.once('open', startGitHubRepoWatchWorker);
 }
 
+const runReadingWatchWorker = async () => {
+  if (readingWatchWorkerRunning || mongoose.connection.readyState !== 1) return;
+  readingWatchWorkerRunning = true;
+  try {
+    const result = await drainDueReadingWatches({
+      models: { WikiPage, WikiSourceEvent },
+      limit: Number(process.env.READING_WATCH_WORKER_BATCH_SIZE || 10),
+      maxAgeMs: Number(process.env.READING_WATCH_MAX_AGE_MS || 6 * 60 * 60 * 1000)
+    });
+    if (result.processed || result.failed) {
+      console.log(`[reading-watch-worker] processed=${result.processed} failed=${result.failed}`);
+    }
+  } catch (error) {
+    console.error('[reading-watch-worker] failed:', error);
+  } finally {
+    readingWatchWorkerRunning = false;
+  }
+};
+
+const startReadingWatchWorker = () => {
+  if (process.env.READING_WATCH_WORKER_DISABLED === 'true' || readingWatchWorkerTimer) return;
+  const intervalMs = Math.max(15 * 60 * 1000, Number(process.env.READING_WATCH_WORKER_INTERVAL_MS || 6 * 60 * 60 * 1000));
+  readingWatchWorkerTimer = setInterval(runReadingWatchWorker, intervalMs);
+  if (process.env.READING_WATCH_RUN_ON_START === 'true') runReadingWatchWorker();
+};
+
+const runMorningPaperEmailWorker = async () => {
+  if (morningPaperEmailWorkerRunning || mongoose.connection.readyState !== 1) return;
+  morningPaperEmailWorkerRunning = true;
+  try {
+    const result = await drainDueMorningPaperEmails({
+      models: {
+        User,
+        WikiPage,
+        WikiRevision,
+        WikiSourceEvent,
+        WikiMaintenanceRun,
+        WikiBriefingCache,
+        WikiPageVisit,
+        MorningPaperDelivery,
+        NoeisReceipt,
+        Article,
+        NotebookEntry,
+        TagMeta,
+        Question,
+        ImportSession,
+        Connection
+      },
+      limit: Number(process.env.MORNING_PAPER_EMAIL_BATCH_SIZE || 50)
+    });
+    if (result.due || result.failed) {
+      console.log(`[morning-paper-email-worker] due=${result.due} sent=${result.sent} skipped=${result.skipped} failed=${result.failed}`);
+    }
+  } catch (error) {
+    console.error('[morning-paper-email-worker] failed:', error);
+  } finally {
+    morningPaperEmailWorkerRunning = false;
+  }
+};
+
+const startMorningPaperEmailWorker = () => {
+  if (process.env.MORNING_PAPER_EMAIL_WORKER_DISABLED === 'true' || morningPaperEmailWorkerTimer) return;
+  const intervalMs = Math.max(15 * 60 * 1000, Number(process.env.MORNING_PAPER_EMAIL_WORKER_INTERVAL_MS || 15 * 60 * 1000));
+  morningPaperEmailWorkerTimer = setInterval(runMorningPaperEmailWorker, intervalMs);
+  if (process.env.MORNING_PAPER_EMAIL_RUN_ON_START === 'true') runMorningPaperEmailWorker();
+};
+
+if (mongoose.connection.readyState === 1) {
+  startReadingWatchWorker();
+  startMorningPaperEmailWorker();
+} else {
+  mongoose.connection.once('open', startReadingWatchWorker);
+  mongoose.connection.once('open', startMorningPaperEmailWorker);
+}
+
 const runEmbeddingJobWorker = async () => {
   if (!isAiEnabled() || embeddingJobWorkerRunning || mongoose.connection.readyState !== 1) return;
   embeddingJobWorkerRunning = true;
@@ -489,6 +572,7 @@ const notionClientForAgent = require('./services/import/notionClient');
 const notionTransformForAgent = require('./services/import/notionTransform');
 const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
+const { buildDailyLoopRouter } = require('./routes/dailyLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -5190,6 +5274,24 @@ app.use(buildNotebookRouter({
   Article,
   TagMeta,
   Question
+}));
+
+app.use(buildDailyLoopRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  User,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  WikiMaintenanceRun,
+  WikiBriefingCache,
+  WikiPageVisit,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  Question,
+  ImportSession,
+  NoeisReceipt,
+  Connection
 }));
 
 app.use(buildWikiRouter({
