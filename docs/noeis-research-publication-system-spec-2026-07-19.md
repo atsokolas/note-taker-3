@@ -412,12 +412,12 @@ Live acceptance must prove:
 | 1. Independent inventory | Ingestion, automation continuity, privacy/approval, and UX investigations | Complete |
 | 2. Operating/spec contract | This evidence-backed specification and operating runbook | Complete |
 | 3. Low-collision implementation | Private draft builder, canonical URL dedupe, classifications, revision, and receipt | Backend-only slice complete; route/model/public integration remains ownership-gated |
-| 4. Local and browser verification | Focused tests, Wiki QA, build, responsive/leak checks | Pending implementation |
+| 4. Local and browser verification | Focused tests, Wiki QA, build, responsive/leak checks | Backend/service checks, Wiki frontend suites, and production build complete; artifact-specific browser/leak checks await integration |
 | 5. Landing and live proof | Commit/PR/deploy/live acceptance | Pending; cannot precede Daily Loop landing |
 | 6. Real operation | Guided day-zero Thesis 001 session | Pending Athan only when product readiness is proven |
 
-**Overall completion against this pass:** 50% at the low-collision implementation checkpoint.
-**Deviation:** implementation is deliberately sequenced behind the active Daily Loop task because that task is changing the shared model and primary Wiki surfaces.
+**Overall completion against this pass:** 60% at the verified low-collision implementation checkpoint.
+**Deviation:** the branch is now rebased onto Daily Loop stable commit `d10b824b`, but shared route/model/public-reader integration remains deliberately sequenced behind that task's unresolved Judgment interaction decision and final base.
 **Standout deliverable:** a single ownership-safe operating contract that separates the weekly intake, biweekly public artifact, maintained thesis, and quarterly calibration while keeping all durable state in the existing Wiki/revision/source/receipt system.
 
 ## 10. Non-goals
