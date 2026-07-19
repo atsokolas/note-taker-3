@@ -1,6 +1,6 @@
 # Noeis research and publication system
 
-**Status:** Evidence-backed operating and implementation specification; pre-implementation ownership gate
+**Status:** Locally implemented and verified on the landed Judgment base; release and live acceptance pending
 **Date:** 2026-07-19
 **Owner:** Athan Tsokolas
 **System objective:** Operate one durable research-and-publication practice in which private reading, maintained judgment, selective public proof, decisions, and postmortems remain connected inside canonical Noeis objects.
@@ -27,7 +27,7 @@ Noeis remains the canonical internal and public artifact. Distribution outside N
 
 ### 2.1 Live and repository baseline
 
-- This worktree is clean at `2095a55a` (`Speed up public repo dossiers`), which is also current `origin/main` at preflight.
+- Preflight began at `2095a55a` (`Speed up public repo dossiers`). The Daily Loop and Judgment system subsequently landed on `main` through merge `3de6adbf`; this publication branch is rebased on that exact merge.
 - `https://www.noeis.io/`, `/wiki`, and `/proof` returned HTTP 200 on 2026-07-19. The Render health endpoint returned HTTP 200 with `{"status":"ok","message":"Server is warm."}`. These checks establish availability, not authenticated workflow acceptance.
 - The deployed homepage still describes Noeis primarily as a source-grounded personal research wiki. There is no public Weekend Readings artifact or research-program surface proven live in this pass.
 
@@ -82,9 +82,9 @@ Current `main` does not yet prove the following complete contracts:
 11. Safe public URL validation. Normal source normalization accepts arbitrary URL strings, which the shared page later renders as links (`server/routes/wikiRoutes.js:1300-1308`; `note-taker-ui/src/pages/SharedWikiPage.jsx:530-550`).
 12. An explicit public-safe maintenance summary. The public proof envelope can derive visible text from private `aiState.changeLog` or `maintenanceSummary`; Weekend Readings must publish only an approved summary.
 
-## 3. Ownership fence against the active Daily Loop task
+## 3. Ownership fence and landed handoff
 
-The active task `019f7b94-690d-72e0-9c08-4b1bd0810220` is still running in the canonical checkout on branch `codex/noeis-daily-loop-judgment-2026-07-19`.
+The Daily/Judgment task `019f7b94-690d-72e0-9c08-4b1bd0810220` landed PR #47 at merge `3de6adbf`. The fence below governed the investigation and isolated implementation phases and prevented pre-handoff collisions.
 
 It currently owns or is actively editing:
 
@@ -103,14 +103,14 @@ It currently owns or is actively editing:
 - Settings and morning-paper settings files
 - `.env.example`
 
-This task must not edit those files until the Daily Loop task lands and its final commit/base is known. `wikiRoutes.js`, `wikiRevisionService.js`, the public serializer, and related tests are not currently modified there, but they depend on the model and revision contract; implementation touching them is therefore also deferred until a clean rebase/cherry-pick decision can be made.
+After the handoff, the publication branch rebased cleanly and changed only the demonstrated shared seams: `wikiRoutes.js`, `WikiPageReadView.jsx`, their tests, and the Wiki API. It did not alter the landed Judgment model, serializer allowlist for `judgment`, revision-retention rules, causal-model contract, or agent decision constraints.
 
-Safe ownership in the current phase:
+Owned implementation remains:
 
 - this specification and later dated evidence artifacts;
 - read-only current/live investigation;
 - operating templates and interview protocol;
-- after the gate, a narrowly named Weekend Readings service/route/test slice plus the smallest shared-model additions agreed against the landed Daily Loop/Judgment base.
+- narrowly named Weekend Readings services, routes, fixtures, operator controls, public-reader mode, QA scripts, and the smallest shared route/API wiring against the landed base.
 
 ## 4. Operating system
 
@@ -323,12 +323,12 @@ The isolated implementation now provides:
 - a private monthly operating ledger implemented as `WikiPage(pageType=log)` plus Wiki revisions and idempotent phase receipts;
 - a read-only Playwright CLI scaffold for 1440px Chrome, 1366px WebKit, and 430px WebKit acceptance.
 
-The shared integration patch after the Judgment handoff is intentionally small:
+The shared integration patch after the Judgment handoff is intentionally small and complete locally:
 
 1. Mount authenticated draft/review/approve/publish handlers that delegate to `weekendReadingsWorkflowService`.
 2. On explicit publish, set the canonical page to `shared/published`, invalidate page-ID and slug cache keys, and preserve the approval/publication receipts.
 3. In the existing public Wiki page route, detect Weekend Readings pages and call `loadPublishedWeekendReadingsArtifact`; return 404 when it fails closed instead of falling through to the generic mutable-page serializer.
-4. Expose derived approval state in the authenticated page envelope without exposing receipt provenance publicly.
+4. Expose derived approval state through an authenticated status endpoint without exposing receipt provenance publicly.
 5. Add the smallest reader controls and status copy necessary for review, approval, publication, and stale-revision handling.
 6. Run fixture-backed route leak tests before any browser or deployment acceptance.
 
@@ -403,7 +403,7 @@ Responsive/accessibility acceptance:
 
 ## 8. Verification and evidence plan
 
-After the Daily Loop/Judgment base lands:
+Verification on the landed Daily Loop/Judgment base:
 
 1. Rebase this worktree on the landed commit and re-run the inventory.
 2. Add focused backend tests for edition idempotency, URL canonicalization, classification validation, approval race/stale revision rejection, receipts, and no claim auto-mutation.
@@ -434,14 +434,14 @@ Live acceptance must prove:
 | 0. Preflight and ownership | Governing docs read, worktree/live truth checked, Daily Loop fence recorded | Complete |
 | 1. Independent inventory | Ingestion, automation continuity, privacy/approval, and UX investigations | Complete |
 | 2. Operating/spec contract | This evidence-backed specification and operating runbook | Complete |
-| 3. Low-collision implementation | Private draft builder, canonical URL dedupe, classifications, revision, and receipt | Backend-only slice complete; route/model/public integration remains ownership-gated |
-| 4. Local and browser verification | Focused tests, Wiki QA, build, responsive/leak checks | Backend/service checks, Wiki frontend suites, and production build complete; artifact-specific browser/leak checks await integration |
-| 5. Landing and live proof | Commit/PR/deploy/live acceptance | Pending; cannot precede Daily Loop landing |
+| 3. Low-collision implementation | Private draft builder, provenance/dedupe, approval, receipts, operating ledger, and public serializer | Complete |
+| 4. Shared integration and verification | Authenticated routes, operator controls, immutable public reader, leak checks, full Wiki QA/build, responsive browser QA | Complete locally on `3de6adbf` |
+| 5. Landing and live proof | Commit/PR/deploy/live route and UI acceptance | In progress; no real artifact will be created |
 | 6. Real operation | Guided day-zero Thesis 001 session | Pending Athan only when product readiness is proven |
 
-**Overall completion against this pass:** 75% at the verified publication-contract checkpoint.
-**Deviation:** the narrative-first decision is resolved and the branch remains based on Daily Loop commit `d10b824b`; shared route/model/public-reader integration is still deliberately sequenced behind the active Judgment WP-1 through WP-6 implementation and its next stable base.
-**Standout deliverable:** a single ownership-safe operating contract that separates the weekly intake, biweekly public artifact, maintained thesis, and quarterly calibration while keeping all durable state in the existing Wiki/revision/source/receipt system.
+**Overall completion against this pass:** 92% at the landed-base local acceptance checkpoint; only PR landing, deployment verification, and the user-operated day-zero session remain.
+**Deviation:** none from the settled causal order or approval boundary. Browser acceptance uses a synthetic localhost-only approved fixture because creating a real-account draft or public artifact is explicitly out of scope without Athan's approval.
+**Standout deliverable:** one revision-bound manual publication path that turns private biweekly selection into an immutable public Wiki artifact while preserving thesis connections as proposals and monthly continuity in existing Wiki/revision/receipt primitives.
 
 ## 10. Non-goals
 
