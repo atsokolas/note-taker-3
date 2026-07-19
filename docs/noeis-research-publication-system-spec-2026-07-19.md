@@ -309,6 +309,29 @@ Do not add a parallel program model. Record monthly status through a small curre
 
 The page holds current truth; revisions hold history; receipts hold operational continuity.
 
+### 5.7 Implemented collision-free contracts
+
+The isolated implementation now provides:
+
+- owner-scoped edition identity: `weekend-readings:<owner-id>:<window-start>:<window-end>`;
+- private draft creation with canonical URL dedupe, durable source classifications, a Wiki revision, and a draft receipt;
+- exact-revision review, approval, and publication receipts with three different literal confirmation strings;
+- SHA-256 integrity binding for the approved public artifact snapshot;
+- publication refusal after the current draft revision diverges from the approved revision;
+- public serialization rebuilt from an allowlisted approved snapshot rather than the mutable WikiPage;
+- a hostile leak fixture containing private claim, question, unknown, falsifier, thesis-page, discussion, and agent-state sentinels;
+- a private monthly operating ledger implemented as `WikiPage(pageType=log)` plus Wiki revisions and idempotent phase receipts;
+- a read-only Playwright CLI scaffold for 1440px Chrome, 1366px WebKit, and 430px WebKit acceptance.
+
+The shared integration patch after the Judgment handoff is intentionally small:
+
+1. Mount authenticated draft/review/approve/publish handlers that delegate to `weekendReadingsWorkflowService`.
+2. On explicit publish, set the canonical page to `shared/published`, invalidate page-ID and slug cache keys, and preserve the approval/publication receipts.
+3. In the existing public Wiki page route, detect Weekend Readings pages and call `loadPublishedWeekendReadingsArtifact`; return 404 when it fails closed instead of falling through to the generic mutable-page serializer.
+4. Expose derived approval state in the authenticated page envelope without exposing receipt provenance publicly.
+5. Add the smallest reader controls and status copy necessary for review, approval, publication, and stale-revision handling.
+6. Run fixture-backed route leak tests before any browser or deployment acceptance.
+
 ## 6. Thesis 001 day-zero readiness gate
 
 The system is ready for the real 60-90 minute session only when Athan can complete the following without any generated substantive answer being inserted for him:
@@ -416,8 +439,8 @@ Live acceptance must prove:
 | 5. Landing and live proof | Commit/PR/deploy/live acceptance | Pending; cannot precede Daily Loop landing |
 | 6. Real operation | Guided day-zero Thesis 001 session | Pending Athan only when product readiness is proven |
 
-**Overall completion against this pass:** 60% at the verified low-collision implementation checkpoint.
-**Deviation:** the branch is now rebased onto Daily Loop stable commit `d10b824b`, but shared route/model/public-reader integration remains deliberately sequenced behind that task's unresolved Judgment interaction decision and final base.
+**Overall completion against this pass:** 75% at the verified publication-contract checkpoint.
+**Deviation:** the narrative-first decision is resolved and the branch remains based on Daily Loop commit `d10b824b`; shared route/model/public-reader integration is still deliberately sequenced behind the active Judgment WP-1 through WP-6 implementation and its next stable base.
 **Standout deliverable:** a single ownership-safe operating contract that separates the weekly intake, biweekly public artifact, maintained thesis, and quarterly calibration while keeping all durable state in the existing Wiki/revision/source/receipt system.
 
 ## 10. Non-goals

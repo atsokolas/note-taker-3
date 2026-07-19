@@ -14,6 +14,8 @@
 - Wrote the operating/implementation specification and operating runbook.
 - Added an isolated backend Weekend Readings draft primitive and tests.
 - Added a public comparison cache invalidation primitive and tests; route wiring remains ownership-gated.
+- Added exact-revision review, approval, publication, public-serializer, hostile leak-fixture, workflow-orchestration, and operating-ledger contracts.
+- Added a read-only responsive QA scaffold for 1440px Chrome, 1366px WebKit, and 430px WebKit.
 - Rebased the owned commits onto the Daily Loop task's declared stable integration point.
 - Did not modify production data, send email, create a real-account draft, or publish.
 
@@ -80,6 +82,26 @@ syntax checks: pass
 diff check: pass
 ```
 
+Publication/operator contract command:
+
+```bash
+node --test \
+  server/services/weekendReadingsService.test.js \
+  server/services/weekendReadingsApprovalService.test.js \
+  server/services/weekendReadingsWorkflowService.test.js \
+  server/services/researchOperatingLedgerService.test.js
+```
+
+Result:
+
+```text
+tests 27
+pass 27
+fail 0
+```
+
+These tests cover owner-scoped edition dedupe, exact-revision approval, literal confirmation gates, stale-draft refusal, digest validation, immutable public snapshots, hostile private-field leak checks, pruned-revision refusal, lifecycle receipt orchestration, private monthly ledgers, and ledger-entry idempotency.
+
 Broader Wiki verification:
 
 ```bash
@@ -102,8 +124,8 @@ The first `wiki:qa` attempt reached the frontend segment and stopped because thi
 ## Release-critical findings still open
 
 1. Current URL ingest mutates matched pages before the later accept/defer/reject review.
-2. Generic Share can expose a draft and does not bind public output to an approved revision.
-3. Later edits to a shared page can change the public artifact without reapproval.
+2. Generic Share can expose a draft and does not bind public output to an approved revision. The isolated approval-bound serializer is complete but not yet selected by the shared route.
+3. Later edits to a shared page can change the public artifact without reapproval. The isolated workflow now binds output to a digested approved revision and blocks stale publication, but route wiring remains.
 4. Unshare/archive can leave a cached public payload reachable until cache expiry. An invalidation primitive now exists, but mutation routes are not yet wired to it.
 5. Public maintenance proof can derive visible summary text from private AI state.
 6. The normal source API drops provider/classification metadata and caps initial sources at eight.
@@ -111,8 +133,8 @@ The first `wiki:qa` attempt reached the frontend segment and stopped because thi
 
 ## Ownership gate
 
-The active Daily Loop task `019f7b94-690d-72e0-9c08-4b1bd0810220` supplied `d10b824b` as a stable integration point, and this branch is rebased onto it. That task still owns the shared Wiki model, main reader/front page, Settings, server boot, maintenance, and the unresolved Judgment interaction model. Route/model/public-reader integration remains fenced until that owner lands the Judgment decision and gives a final base.
+The active Daily/Judgment task `019f7b94-690d-72e0-9c08-4b1bd0810220` supplied `d10b824b` as the Daily Loop integration point, and this branch is rebased onto it. Athan has since approved the narrative-first causal model, and that task is actively editing the shared Wiki model, main routes, revision services, and reader for Judgment WP-1 through WP-6. Route/model/public-reader integration remains fenced until that owner supplies its next stable commit.
 
 ## Honest completion statement
 
-This checkpoint proves the inventory, operating contract, low-collision private-draft primitive, regression safety, and frontend buildability on the Daily Loop base. It does not prove publication, public/private safety under the new artifact contract, responsive artifact UI, live Noeis draft creation, or Thesis 001 day-zero readiness.
+This checkpoint proves the inventory, operating contract, private-draft primitive, revision-bound manual publication lifecycle, fail-closed public serializer, private operating ledger, regression safety, and frontend buildability on the Daily Loop base. It does not yet prove shared-route enforcement, artifact UI, responsive rendering of the integrated artifact, live Noeis draft creation, deployment, or Thesis 001 day-zero readiness.
