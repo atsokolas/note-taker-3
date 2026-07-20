@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   findAffectedPages,
   isAcceptedPublicProofPage,
+  isProtectedPublicPage,
   sourceEventMayTouchAcceptedPublicProof
 } = require('./wikiMaintenanceOrchestrator');
 
@@ -19,6 +20,16 @@ const acceptedPage = {
 };
 
 assert.strictEqual(isAcceptedPublicProofPage(acceptedPage), true);
+assert.strictEqual(isProtectedPublicPage(acceptedPage), true);
+assert.strictEqual(isProtectedPublicPage({
+  status: 'published',
+  visibility: 'shared',
+  publicProof: { grade: 'illustrative' }
+}), true);
+assert.strictEqual(isProtectedPublicPage({
+  status: 'draft',
+  visibility: 'private'
+}), false);
 assert.strictEqual(isAcceptedPublicProofPage({
   status: 'published',
   visibility: 'shared',
