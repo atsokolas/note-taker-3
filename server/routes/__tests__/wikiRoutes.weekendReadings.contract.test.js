@@ -17,12 +17,13 @@ assert.match(source, /invalidatePublicPageCache:\s*\(\.\.\.keys\)\s*=>\s*publicP
 assert.match(source, /pageQuery\.select\('_id userId title slug pageType status visibility createdFrom/);
 assert.match(source, /loadPublishedWeekendReadingsArtifact\(\{ NoeisReceipt, page, ownerUserId: page\.userId \}\)/);
 assert.match(source, /Weekend Readings must be reviewed, approved, and published through its revision-bound publication controls/);
-assert.match(source, /Published Weekend Readings editions are immutable public artifacts and cannot be adopted from the private draft/);
-assert.match(source, /publicPages = pages\.filter\(page => !String\(page\?\.createdFrom\?\.label/);
-assert.match(source, /const snapshots = \(Array\.isArray\(pages\) \? pages : \[\]\)[\s\S]*?filter\(page => !String\(page\?\.createdFrom\?\.label/);
+assert.match(source, /Protected research artifacts cannot be adopted into a private mutable copy/);
+assert.match(source, /publicPages = pages\.filter\(page => !isHumanOnlyWikiArtifact\(page\)\)/);
+assert.match(source, /const snapshots = \(Array\.isArray\(pages\) \? pages : \[\]\)[\s\S]*?filter\(page => !isHumanOnlyWikiArtifact\(page\)\)/);
 assert.match(source, /publicPageCache\.invalidate\(serializeId\(page\._id\), before\?\.slug, page\.slug\)/);
 assert.match(source, /const wikiAuth = \[authenticateToken, auditExternalAgentAction, requireHumanForWeekendReadingsMutation\]/);
-assert.match(source, /Only the human owner can mutate Weekend Readings/);
+assert.match(source, /Only the human owner can mutate protected research artifacts/);
+assert.match(source, /Research operating ledgers are permanently private/);
 assert.match(source, /const buildUniqueSlug = buildUniqueWikiSlugBuilder\(\{ WikiPage \}\)/);
 assert.match(source, /existingQuery = existingQuery\.session\(session\)/);
 assert.match(source, /rejectAgentReservedWeekendReadingsCreation\(req, res, createdFrom\)/);
@@ -48,7 +49,7 @@ const runAuthorizationContract = async () => {
         assert.deepEqual(query, { _id: 'weekend-page', userId: 'owner-user' });
         return {
           select() { return this; },
-          async lean() { return { createdFrom: { label: 'weekend-readings:private-owner:2026-07-01:2026-07-14' } }; }
+          async lean() { return { createdFrom: { label: 'research-ledger:2026-07:living-thesis-001' } }; }
         };
       }
     }
@@ -74,14 +75,14 @@ const runAuthorizationContract = async () => {
     ]) {
       const response = await fetch(`${base}/api/wiki/pages/weekend-page${suffix}`, { method });
       assert.equal(response.status, 403, `${method} ${suffix}`);
-      assert.deepEqual(await response.json(), { error: 'Only the human owner can mutate Weekend Readings.' });
+      assert.deepEqual(await response.json(), { error: 'Only the human owner can mutate protected research artifacts.' });
     }
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
   assert.equal(lookups, 4);
   assert.equal(downstreamMutations, 0);
-  console.log('wikiRoutes Weekend Readings agent-token mutation guard passed');
+  console.log('wikiRoutes protected research artifact agent-token mutation guard passed');
 };
 
 const runTransactionalSlugContract = async () => {
@@ -117,7 +118,7 @@ const runIndirectMutationContract = async () => {
       assert.equal(query.userId, 'owner-user');
       return {
         select() { return this; },
-        async lean() { return { createdFrom: { label: 'weekend-readings:private-owner:2026-07-01:2026-07-14' } }; }
+        async lean() { return { createdFrom: { label: 'research-ledger:2026-07:living-thesis-001' } }; }
       };
     }
   };
@@ -139,14 +140,14 @@ const runIndirectMutationContract = async () => {
   const rejected = rejectAgentReservedWeekendReadingsCreation(
     req,
     response,
-    { label: 'weekend-readings:attacker-owner:2026-07-01:2026-07-14' }
+    { label: 'research-ledger:2026-07:attacker-owner' }
   );
   if (!rejected) mutationCount += 1;
   assert.equal(rejected, true);
   assert.equal(response.statusCode, 403);
   assert.equal(targetLookups, 2);
   assert.equal(mutationCount, 0);
-  console.log('wikiRoutes indirect Weekend Readings zero-mutation guards passed');
+  console.log('wikiRoutes indirect protected-artifact zero-mutation guards passed');
 };
 
 Promise.all([

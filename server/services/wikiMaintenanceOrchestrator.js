@@ -12,6 +12,7 @@ const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService');
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
+const { isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
 const { applyDirectEvidenceMatches, assessEventAgainstClaims } = require('./wikiEvidenceRelevanceService');
 const {
   claimableEventQuery,
@@ -278,7 +279,7 @@ const attachSourceEventEvidence = async ({ page, event } = {}) => {
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (!WikiPage || !userId || !event) return [];
   const eligiblePages = pages => (Array.isArray(pages) ? pages : [])
-    .filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))
+    .filter(page => !isHumanOnlyWikiArtifact(page))
     .filter(page => (
       !isProtectedPublicPage(page)
       || sourceEventMayTouchAcceptedPublicProof(event)
@@ -322,8 +323,8 @@ const shouldCreateDraftPageForEvent = (event) => {
 
 const createPageForEvent = async ({ WikiPage, userId, event, buildUniqueSlug }) => {
   const title = asText(event.title) || 'Untitled Wiki Page';
-  if (title.startsWith('weekend-readings:')) {
-    throw new Error('Weekend Readings pages can only be created through the human-owned publication workflow.');
+  if (isHumanOnlyWikiArtifact({ createdFrom: { label: title } })) {
+    throw new Error('Protected research artifacts can only be created through a human-owned publication workflow.');
   }
   const page = new WikiPage({
     userId,

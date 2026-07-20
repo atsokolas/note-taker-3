@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { createWikiRevision: defaultCreateWikiRevision } = require('./wikiRevisionService');
 const { persistNoeisReceipt: defaultPersistNoeisReceipt } = require('./noeisReceiptService');
 
@@ -10,6 +11,7 @@ const MONTHLY_OUTPUT_TYPES = new Set([
   'material_change_note',
   'preserved_judgment_note'
 ]);
+const DISPOSITIONS = new Set(['accepted', 'rejected', 'deferred', 'preserved']);
 
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 const idOf = value => clean(value?._id || value?.id || value, 160);
@@ -29,11 +31,44 @@ const normalizeDate = (value = new Date()) => {
   return date;
 };
 
-const normalizeDispositions = (value = []) => (Array.isArray(value) ? value : []).map((row = {}) => ({
-  subjectId: clean(row.subjectId, 160),
-  disposition: clean(row.disposition, 120),
-  reason: clean(row.reason, 1200)
-})).filter(row => row.subjectId && row.disposition).slice(0, 40);
+const assertArray = (name, value) => {
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array.`);
+  return value;
+};
+
+const normalizeDispositions = (value = []) => assertArray('dispositions', value).map((row = {}) => {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Each disposition must be an object.');
+  const normalized = {
+    subjectId: clean(row.subjectId, 160),
+    disposition: clean(row.disposition, 120),
+    reason: clean(row.reason, 1200)
+  };
+  if (!normalized.subjectId) throw new Error('Each disposition requires subjectId.');
+  if (!DISPOSITIONS.has(normalized.disposition)) throw new Error('disposition is not supported for a research-ledger entry.');
+  return normalized;
+}).slice(0, 40);
+
+const semanticEntryPayload = (entry = {}) => ({
+  ledgerKey: entry.ledgerKey,
+  entryKey: entry.entryKey,
+  thesisPageId: entry.thesisPageId,
+  month: entry.month,
+  phase: entry.phase,
+  status: entry.status,
+  summary: entry.summary,
+  priorOrDecision: entry.priorOrDecision,
+  unknowns: entry.unknowns,
+  evidencePageIds: entry.evidencePageIds,
+  dispositions: entry.dispositions,
+  friction: entry.friction,
+  outputType: entry.outputType,
+  nextAction: entry.nextAction
+});
+
+const researchLedgerEntryDigest = entry => crypto
+  .createHash('sha256')
+  .update(JSON.stringify(semanticEntryPayload(entry)))
+  .digest('hex');
 
 const buildResearchLedgerEntry = ({
   thesisPageId,
@@ -52,6 +87,10 @@ const buildResearchLedgerEntry = ({
   recordedAt = new Date(),
   entryKey = ''
 } = {}) => {
+  assertArray('unknowns', unknowns);
+  assertArray('evidencePageIds', evidencePageIds);
+  assertArray('dispositions', dispositions);
+  assertArray('friction', friction);
   const resolvedThesisPageId = idOf(thesisPageId);
   if (!resolvedThesisPageId) throw new Error('thesisPageId is required.');
   const resolvedMonth = normalizeMonth(month);
@@ -66,7 +105,7 @@ const buildResearchLedgerEntry = ({
   const at = normalizeDate(recordedAt);
   const ledgerKey = `research-ledger:${resolvedMonth}:${resolvedThesisPageId}`;
   const resolvedEntryKey = clean(entryKey, 240) || `${resolvedPhase}:${at.toISOString().slice(0, 10)}`;
-  return {
+  const entry = {
     ledgerKey,
     entryKey: resolvedEntryKey,
     receiptId: `${ledgerKey}:${resolvedEntryKey}`,
@@ -78,13 +117,14 @@ const buildResearchLedgerEntry = ({
     summary: resolvedSummary,
     priorOrDecision: clean(priorOrDecision, 2400),
     unknowns: uniqueStrings(unknowns),
-    evidencePageIds: uniqueStrings((Array.isArray(evidencePageIds) ? evidencePageIds : []).map(idOf), 80),
+    evidencePageIds: uniqueStrings(evidencePageIds.map(idOf), 80),
     dispositions: normalizeDispositions(dispositions),
     friction: uniqueStrings(friction),
     outputType: resolvedOutputType,
     nextAction: clean(nextAction, 1200),
     recordedAt: at.toISOString()
   };
+  return { ...entry, payloadDigest: researchLedgerEntryDigest(entry) };
 };
 
 const textNode = text => ({ type: 'text', text });
@@ -167,6 +207,47 @@ const isCommittedLedgerReceipt = (receipt = {}) => {
     && Boolean(raw.provenance?.revisionId);
 };
 
+const entryFromReceipt = (receipt = {}) => {
+  const provenance = rawReceipt(receipt)?.provenance || {};
+  if (!provenance.ledgerKey || !provenance.entryKey) return null;
+  const entry = {
+    ledgerKey: provenance.ledgerKey,
+    entryKey: provenance.entryKey,
+    receiptId: rawReceipt(receipt)?.receiptId || provenance.receiptId || '',
+    thesisPageId: provenance.thesisPageId,
+    thesisTitle: provenance.thesisTitle,
+    month: provenance.month,
+    phase: provenance.phase,
+    status: provenance.status,
+    summary: provenance.summary,
+    priorOrDecision: provenance.priorOrDecision,
+    unknowns: provenance.unknowns || [],
+    evidencePageIds: provenance.evidencePageIds || [],
+    dispositions: provenance.dispositions || [],
+    friction: provenance.friction || [],
+    outputType: provenance.outputType,
+    nextAction: provenance.nextAction,
+    recordedAt: provenance.recordedAt
+  };
+  const computedDigest = researchLedgerEntryDigest(entry);
+  if (provenance.payloadDigest && provenance.payloadDigest !== computedDigest) {
+    const error = new Error('Research-ledger receipt provenance failed its semantic integrity check.');
+    error.code = 'RESEARCH_LEDGER_RECEIPT_INTEGRITY';
+    throw error;
+  }
+  return { ...entry, payloadDigest: computedDigest };
+};
+
+const assertIdempotentLedgerRetry = ({ receipt, entry }) => {
+  const storedEntry = entryFromReceipt(receipt);
+  if (!storedEntry || storedEntry.payloadDigest !== entry.payloadDigest) {
+    const error = new Error('Research-ledger idempotency key already exists with different content.');
+    error.code = 'RESEARCH_LEDGER_IDEMPOTENCY_CONFLICT';
+    throw error;
+  }
+  return storedEntry;
+};
+
 const reservationDocument = ({ entry, userId }) => ({
   userId,
   receiptId: entry.receiptId,
@@ -210,7 +291,8 @@ const persistResearchLedgerEntry = async ({
           : null;
         if (existingReceipt) {
           if (!isCommittedLedgerReceipt(existingReceipt)) throw new Error('Research-ledger receipt reservation is incomplete.');
-          outcome = { created: false, idempotent: true, page: null, revision: null, receipt: existingReceipt, entry };
+          const storedEntry = assertIdempotentLedgerRetry({ receipt: existingReceipt, entry });
+          outcome = { created: false, idempotent: true, page: null, revision: null, receipt: existingReceipt, entry: storedEntry };
           return;
         }
 
@@ -305,7 +387,8 @@ const persistResearchLedgerEntry = async ({
         ? await resolveQuery(NoeisReceipt.findOne({ userId, receiptId: entry.receiptId }))
         : null;
       if (committed && isCommittedLedgerReceipt(committed)) {
-        return { created: false, idempotent: true, page: null, revision: null, receipt: committed, entry };
+        const storedEntry = assertIdempotentLedgerRetry({ receipt: committed, entry });
+        return { created: false, idempotent: true, page: null, revision: null, receipt: committed, entry: storedEntry };
       }
     } finally {
       await session.endSession();
@@ -318,7 +401,11 @@ module.exports = {
   LEDGER_PHASES,
   LEDGER_STATUSES,
   MONTHLY_OUTPUT_TYPES,
+  DISPOSITIONS,
+  assertIdempotentLedgerRetry,
   buildResearchLedgerEntry,
+  entryFromReceipt,
   initialLedgerPage,
-  persistResearchLedgerEntry
+  persistResearchLedgerEntry,
+  researchLedgerEntryDigest
 };

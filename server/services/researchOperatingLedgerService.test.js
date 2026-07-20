@@ -39,6 +39,15 @@ test('ledger permits honest material outputs and rejects invented calendar fille
   assert.throws(() => buildResearchLedgerEntry({ ...baseInput(), summary: '   ' }), /summary is required/);
 });
 
+test('ledger rejects malformed collections and unsupported human dispositions', () => {
+  assert.throws(() => buildResearchLedgerEntry({ ...baseInput(), unknowns: 'not-an-array' }), /unknowns must be an array/);
+  assert.throws(() => buildResearchLedgerEntry({ ...baseInput(), friction: { note: 'hidden loss' } }), /friction must be an array/);
+  assert.throws(() => buildResearchLedgerEntry({
+    ...baseInput(),
+    dispositions: [{ subjectId: 'claim-1', disposition: 'auto_accepted' }]
+  }), /disposition is not supported/);
+});
+
 test('initial ledger page is a private canonical Wiki log, not a parallel thesis object', () => {
   const entry = buildResearchLedgerEntry(baseInput());
   const page = initialLedgerPage(entry);
@@ -200,12 +209,52 @@ test('legacy in-progress receipt with persisted page and revision evidence remai
     receiptId: entry.receiptId,
     kind: 'research_operating_ledger_entry',
     status: 'in_progress',
-    provenance: { ledgerPageId: 'legacy-page', revisionId: 'legacy-revision' }
+    provenance: { ...entry, payloadDigest: undefined, ledgerPageId: 'legacy-page', revisionId: 'legacy-revision' }
   });
   const result = await harness.run({});
   assert.equal(result.idempotent, true);
   assert.equal(harness.state.receipts.size, 1);
   assert.equal(harness.state.revisions.length, 0);
+});
+
+test('exact semantic retry returns the stored entry and ignores retry time', async () => {
+  const harness = transactionalHarness();
+  const first = await harness.run({ entryKey: 'frame-week-1' });
+  const retry = await harness.run({
+    entryKey: 'frame-week-1',
+    thesisTitle: 'Renamed living thesis',
+    recordedAt: '2026-07-21T18:00:00.000Z'
+  });
+  assert.equal(retry.idempotent, true);
+  assert.equal(retry.entry.recordedAt, first.entry.recordedAt);
+  assert.equal(retry.entry.summary, first.entry.summary);
+  assert.equal(retry.entry.thesisTitle, first.entry.thesisTitle);
+  assert.equal(harness.state.revisions.length, 1);
+  assert.equal(harness.state.receipts.size, 1);
+});
+
+test('same idempotency key with changed semantic content fails closed', async () => {
+  const harness = transactionalHarness();
+  await harness.run({});
+  await assert.rejects(
+    () => harness.run({ summary: 'Changed content that was never persisted.' }),
+    error => error.code === 'RESEARCH_LEDGER_IDEMPOTENCY_CONFLICT'
+  );
+  assert.equal(harness.state.revisions.length, 1);
+  assert.equal(harness.state.receipts.size, 1);
+  assert.equal((harness.state.page.plainText.match(/Changed content/g) || []).length, 0);
+});
+
+test('stored digest is recomputed and corrupted receipt provenance fails closed', async () => {
+  const harness = transactionalHarness();
+  const first = await harness.run({ entryKey: 'frame-integrity' });
+  const stored = harness.state.receipts.get(first.entry.receiptId);
+  stored.provenance.summary = 'CORRUPTED-STORED-SUMMARY';
+  await assert.rejects(
+    () => harness.run({ entryKey: 'frame-integrity' }),
+    error => error.code === 'RESEARCH_LEDGER_RECEIPT_INTEGRITY'
+  );
+  assert.equal(harness.state.revisions.length, 1);
 });
 
 test('receipt failure aborts page and revision, then retry records the entry exactly once', async () => {
