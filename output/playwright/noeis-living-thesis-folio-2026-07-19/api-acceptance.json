@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-07-19T23:57:20.096Z",
+  "baseUrl": "http://localhost:5500",
+  "qaOnly": true,
+  "title": "QA Demo — Industrial Electrification Living Thesis — 2026-07-19T23-57-16-525Z",
+  "pageId": "6a5d645c1d1fd7328262a06a",
+  "checks": {
+    "canonicalWikiPage": true,
+    "privateByDefault": true,
+    "orderedHeadingCount": 13,
+    "judgmentRoundTrip": true,
+    "narrativeCausalModel": {
+      "summary": "QA DEMO ONLY: Investment, bottlenecks, and service intensity interact in this fixture narrative.",
+      "nodes": [],
+      "edges": []
+    },
+    "claimEpistemicStatus": [
+      {
+        "claimId": "qa-electrification-claim-1",
+        "epistemicStatus": "established_fact",
+        "materiality": "critical",
+        "support": "unsupported"
+      },
+      {
+        "claimId": "qa-electrification-claim-2",
+        "epistemicStatus": "supported_interpretation",
+        "materiality": "major",
+        "support": "partial"
+      },
+      {
+        "claimId": "qa-electrification-claim-3",
+        "epistemicStatus": "plausible_hypothesis",
+        "materiality": "supporting",
+        "support": "conflicted"
+      }
+    ],
+    "stableIds": {
+      "assumptionId": "assumption_046c8bd4-1807-4a9a-bbe8-325534bfa030",
+      "unknownId": "unknown_a1a15f44-358a-49c3-b111-2ce427f4a209",
+      "falsifierId": "falsifier_f9879270-e366-4740-ac62-54ba9bdc172b",
+      "decisionId": "decision_502f2fd8-bfb8-47ee-8a0e-23ae6e15e39b"
+    },
+    "initialRevisionId": "6a5d645d1d1fd7328262a085",
+    "restoreMatchedInitial": true,
+    "secondSnapshotStatus": 409,
+    "privatePublicReadStatus": 404,
+    "decisionRecordOnly": true
+  }
+}

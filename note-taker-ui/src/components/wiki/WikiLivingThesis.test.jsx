@@ -63,12 +63,46 @@ describe('WikiLivingThesis', () => {
 
   it('saves the narrative causal model with reserved empty graph arrays', async () => {
     renderThesis();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit thesis' }));
-    fireEvent.change(screen.getByLabelText(/^Causal model summary/), { target: { value: 'QA narrative causal model.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save thesis contract' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit narrative' }));
+    fireEvent.change(screen.getByLabelText('Causal narrative'), { target: { value: 'QA narrative causal model.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save narrative' }));
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('qa-thesis', expect.objectContaining({
       judgment: expect.objectContaining({ causalModel: { summary: 'QA narrative causal model.', nodes: [], edges: [] } })
     })));
+  });
+
+  it('replaces primary read values in place and moves focus into the editor', async () => {
+    renderThesis();
+    const editTrigger = screen.getByRole('button', { name: 'Edit thesis' });
+    fireEvent.click(editTrigger);
+
+    const questionEditor = await screen.findByLabelText('Governing question');
+    await waitFor(() => expect(questionEditor).toHaveFocus());
+    expect(screen.queryByRole('heading', { name: thesisPage.judgment.governingQuestion })).not.toBeInTheDocument();
+    expect(screen.queryByText('No current judgment recorded.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Current judgment')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Save initial judgment' })).toBeDisabled();
+  });
+
+  it('keeps one structured editor active and Escape cancels without a motion delay', async () => {
+    renderThesis();
+    fireEvent.click(screen.getByText('Assumptions'));
+    const assumptionsTrigger = screen.getByRole('button', { name: 'Edit assumptions' });
+    fireEvent.click(assumptionsTrigger);
+    const assumptionEditor = await screen.findByLabelText('Assumption');
+    await waitFor(() => expect(assumptionEditor).toHaveFocus());
+    expect(screen.getByRole('button', { name: 'Edit thesis' })).toBeDisabled();
+
+    fireEvent.keyDown(screen.getByLabelText('Assumption'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByLabelText('Assumption')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Edit assumptions' })).toHaveFocus());
+  });
+
+  it('uses item-specific accessible labels for destructive row actions', () => {
+    renderThesis();
+    fireEvent.click(screen.getByText('Decisions'));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit decisions' }));
+    expect(screen.getByRole('button', { name: 'Remove decision 1' })).toBeInTheDocument();
   });
 
   it('confirms and saves the initial judgment exactly through the dedicated action', async () => {
