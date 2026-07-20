@@ -27,6 +27,45 @@ const sharedPage = (overrides = {}) => ({
 });
 
 (() => {
+  const acceptedShape = sharedPage({
+    claims: [{
+      claimId: 'stable-claim',
+      text: 'The accepted claim is unchanged.',
+      history: [{ at: '2026-07-12T00:00:00.000Z', event: 'created' }]
+    }]
+  });
+  const hydratedShape = sharedPage({
+    claims: [{
+      ...acceptedShape.claims[0],
+      checkInStatus: 'unreviewed',
+      epistemicStatus: 'plausible_hypothesis',
+      falsifierIds: [],
+      implication: '',
+      lastCheckedAt: null,
+      materiality: 'supporting',
+      restoredAt: null,
+      retiredAt: null,
+      history: [{
+        ...acceptedShape.claims[0].history[0],
+        action: '',
+        actorType: 'system',
+        confidence: null,
+        disposition: null,
+        epistemicStatus: null,
+        evidenceDelta: null,
+        note: '',
+        reason: ''
+      }]
+    }]
+  });
+  assert.strictEqual(
+    buildPublicProofHeadHash(hydratedShape),
+    buildPublicProofHeadHash(acceptedShape),
+    'Mongoose hydration defaults must not stale an unchanged accepted head'
+  );
+})();
+
+(() => {
   const page = sharedPage({
     title: 'Noeis repo',
     sourceRefs: [{ title: 'README' }, { title: 'package.json' }],

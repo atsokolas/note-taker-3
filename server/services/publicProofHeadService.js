@@ -24,6 +24,52 @@ const normalize = (value) => {
   return plain;
 };
 
+// Mongoose applies these defaults when an older claim is hydrated even though
+// they were absent from the accepted revision snapshot. They carry no editorial
+// information, so allowing them into the hash would make an unchanged page fail
+// exact-head acceptance after a process restart.
+const CLAIM_HYDRATION_DEFAULTS = {
+  checkInStatus: 'unreviewed',
+  epistemicStatus: 'plausible_hypothesis',
+  falsifierIds: [],
+  implication: '',
+  lastCheckedAt: null,
+  materiality: 'supporting',
+  restoredAt: null,
+  retiredAt: null
+};
+
+const CLAIM_HISTORY_HYDRATION_DEFAULTS = {
+  action: '',
+  actorType: 'system',
+  confidence: null,
+  disposition: null,
+  epistemicStatus: null,
+  evidenceDelta: null,
+  note: '',
+  reason: ''
+};
+
+const omitMatchingDefaults = (value, defaults) => Object.entries(value || {})
+  .reduce((result, [key, fieldValue]) => {
+    if (Object.prototype.hasOwnProperty.call(defaults, key)
+      && JSON.stringify(fieldValue) === JSON.stringify(defaults[key])) return result;
+    result[key] = fieldValue;
+    return result;
+  }, {});
+
+const canonicalClaim = (claim = {}) => {
+  const plain = asPlain(claim) || {};
+  const result = omitMatchingDefaults(plain, CLAIM_HYDRATION_DEFAULTS);
+  if (Array.isArray(plain.history)) {
+    result.history = plain.history.map(entry => omitMatchingDefaults(
+      asPlain(entry) || {},
+      CLAIM_HISTORY_HYDRATION_DEFAULTS
+    ));
+  }
+  return result;
+};
+
 const publicProofHeadPayload = (page = {}) => {
   const plain = asPlain(page) || {};
   return normalize({
@@ -35,7 +81,7 @@ const publicProofHeadPayload = (page = {}) => {
     plainText: plain.plainText || '',
     sourceRefs: Array.isArray(plain.sourceRefs) ? plain.sourceRefs : [],
     citations: Array.isArray(plain.citations) ? plain.citations : [],
-    claims: Array.isArray(plain.claims) ? plain.claims : []
+    claims: Array.isArray(plain.claims) ? plain.claims.map(canonicalClaim) : []
   });
 };
 
