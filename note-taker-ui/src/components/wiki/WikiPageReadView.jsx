@@ -2121,6 +2121,7 @@ const WikiPageReadView = ({
   const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
   const publicShareUrl = buildPublicWikiShareUrl(page);
   const weekendReadingsPage = isWeekendReadingsPage(page);
+  const livingThesisPage = Boolean(page?.judgment?.kind);
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
   const publicShareReady = isSharedPublicly && !shareBlocked;
@@ -2360,7 +2361,7 @@ const WikiPageReadView = ({
           <div className="wiki-read__progress" aria-hidden="true">
             <span />
           </div>
-          <header className="wiki-read__header">
+          <header className={`wiki-read__header${livingThesisPage ? ' wiki-read__header--living-thesis' : ''}`}>
             {/* AT-21 (Bucket 2 UI rework): the page header used to render an
                 uppercase eyebrow, a 4-chip facts row, and a quality state
                 card stacked above the title. All three duplicated what the
@@ -2371,6 +2372,7 @@ const WikiPageReadView = ({
                 count, and "last reviewed" all live in the rail infobox now.
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
+            {livingThesisPage ? <p className="wiki-read__object-label">Living thesis</p> : null}
             <WikiReadTitle title={displayWikiPageTitle(page)} />
             {weekendReadingsPage ? (
               <WikiWeekendReadingsPublication

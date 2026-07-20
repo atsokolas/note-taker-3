@@ -12951,59 +12951,357 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
 }
 .wiki-build-page__thesis-question p { margin: 0; color: var(--text-secondary); font-size: 0.78rem; }
 
+.wiki-read__object-label {
+  margin: 0 0 10px;
+  color: var(--wiki-warm-accent, #a47f32);
+  font: 720 0.68rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.wiki-read__header--living-thesis h1,
+.wiki-workspace .wiki-read__header--living-thesis h1 {
+  max-width: 31ch;
+  font-size: clamp(2rem, 3.35vw, 2.75rem);
+  font-optical-sizing: auto;
+  font-weight: 520;
+  letter-spacing: -0.035em;
+  line-height: 1.03;
+  text-wrap: balance;
+}
+
 .wiki-thesis {
+  --wiki-thesis-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   display: grid;
-  gap: 16px;
-  margin: 24px 0 30px;
-  padding: clamp(18px, 3vw, 28px);
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 34%, var(--nt-divider));
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 94%, var(--wiki-warm-accent, #a47f32) 6%);
+  gap: 0;
+  margin: clamp(24px, 4vw, 42px) 0 34px;
   overflow-wrap: anywhere;
 }
-.wiki-thesis__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-.wiki-thesis__heading p { margin: 0 0 6px; color: var(--text-secondary); font: 700 0.68rem/1.2 ui-monospace, monospace; letter-spacing: 0.12em; text-transform: uppercase; }
-.wiki-thesis__heading h2 { margin: 0; font: 500 clamp(1.15rem, 2.2vw, 1.55rem)/1.28 Georgia, serif; }
-.wiki-thesis button { min-height: 42px; padding: 8px 13px; border: 1px solid var(--nt-divider); border-radius: 9px; background: var(--surface); color: var(--text-primary); }
-.wiki-thesis__judgment { padding-left: 14px; border-left: 3px solid var(--wiki-warm-accent, #a47f32); }
-.wiki-thesis__judgment span { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.wiki-thesis__judgment p { margin: 5px 0 0; font: 1.05rem/1.55 Georgia, serif; }
-.wiki-thesis__facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 0; }
-.wiki-thesis__facts div { min-width: 0; padding: 10px 12px; border-top: 1px solid var(--nt-divider); }
-.wiki-thesis__facts dt { color: var(--text-secondary); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; }
-.wiki-thesis__facts dd { margin: 4px 0 0; }
-.wiki-thesis__causal { display: grid; gap: 5px; margin: 0; }
-.wiki-thesis__ledger { display: grid; gap: 6px; }
-.wiki-thesis__ledger-section, .wiki-thesis__edit-list { border-top: 1px solid var(--nt-divider); }
-.wiki-thesis__ledger-section summary, .wiki-thesis__edit-list summary { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; cursor: pointer; font-weight: 700; }
-.wiki-thesis__ledger-section summary span, .wiki-thesis__edit-list summary span { color: var(--text-secondary); font-weight: 500; }
-.wiki-thesis__ledger-section ul { display: grid; gap: 10px; margin: 0 0 12px; padding: 0; list-style: none; }
-.wiki-thesis__ledger-section li { display: grid; gap: 3px; }
-.wiki-thesis__ledger-section small, .wiki-thesis__ledger-section em { color: var(--text-secondary); font-size: 0.78rem; }
+
+.wiki-thesis__primary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(168px, 210px);
+  grid-template-areas:
+    "question register"
+    "judgment register"
+    "actions register";
+  column-gap: clamp(24px, 4vw, 46px);
+  row-gap: 22px;
+  padding: clamp(22px, 3vw, 34px) 0 clamp(26px, 4vw, 42px);
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 44%, var(--nt-divider));
+}
+
+.wiki-thesis__heading {
+  grid-area: question;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.wiki-thesis__question { flex: 1 1 auto; min-width: 0; }
+.wiki-thesis__question p,
+.wiki-thesis__judgment > span,
+.wiki-thesis__facts dt,
+.wiki-thesis__snapshot p > span,
+.wiki-thesis__counterargument > span {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 720;
+  letter-spacing: 0.095em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.wiki-thesis__question h2 {
+  max-width: 28ch;
+  margin: 0;
+  font: 500 clamp(1.5rem, 2.55vw, 2.1rem)/1.16 Georgia, "Times New Roman", serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.wiki-thesis button {
+  min-height: 42px;
+  padding: 8px 13px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 86%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  color: var(--text-primary);
+  transition: opacity 140ms var(--wiki-thesis-ease-out), transform 100ms var(--wiki-thesis-ease-out);
+}
+
+.wiki-thesis button:active {
+  transform: scale(0.98);
+  transition-duration: 140ms, 140ms;
+}
+.wiki-thesis button:disabled { cursor: not-allowed; opacity: 0.45; }
+.wiki-thesis__edit-trigger { flex: 0 0 auto; }
+
+.wiki-thesis__judgment {
+  grid-area: judgment;
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--wiki-warm-accent, #a47f32);
+}
+
+.wiki-thesis__judgment p {
+  max-width: 62ch;
+  margin: 0;
+  font: 1.08rem/1.62 Georgia, "Times New Roman", serif;
+}
+
+.wiki-thesis__facts {
+  grid-area: register;
+  align-self: stretch;
+  display: grid;
+  align-content: start;
+  margin: 0;
+  border-top: 1px solid var(--nt-divider);
+}
+
+.wiki-thesis__facts div {
+  min-width: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--nt-divider);
+}
+
+.wiki-thesis__facts dt { margin-bottom: 4px; }
+.wiki-thesis__facts dd {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  font-size: 0.87rem;
+  line-height: 1.35;
+}
+
+.wiki-thesis__primary > .wiki-thesis__inline-actions { grid-area: actions; }
+
+.wiki-thesis__narrative {
+  display: grid;
+  grid-template-columns: minmax(128px, 170px) minmax(0, 1fr);
+  gap: 18px clamp(22px, 4vw, 44px);
+  padding: clamp(24px, 3vw, 34px) 0;
+  border-top: 1px solid var(--nt-divider);
+}
+
+.wiki-thesis__section-heading {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+}
+
+.wiki-thesis__section-heading h3 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.wiki-thesis__narrative > p {
+  max-width: 68ch;
+  margin: 0;
+  font: 1.04rem/1.68 Georgia, "Times New Roman", serif;
+}
+
+.wiki-thesis__counterargument {
+  grid-column: 2;
+  display: grid;
+  gap: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--nt-divider);
+  color: var(--text-secondary);
+}
+.wiki-thesis__narrative > .wiki-thesis__field,
+.wiki-thesis__narrative > .wiki-thesis__inline-actions { grid-column: 2; }
+
+.wiki-thesis__ledger { border-bottom: 1px solid var(--nt-divider); }
+.wiki-thesis__ledger-section { border-top: 1px solid var(--nt-divider); }
+.wiki-thesis__ledger-section summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 16px 0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.wiki-thesis__ledger-section summary span {
+  color: var(--text-secondary);
+  font: 500 0.88rem/1.2 Georgia, serif;
+  letter-spacing: 0;
+}
+
+.wiki-thesis__ledger-content { padding: 0 0 20px; }
+.wiki-thesis__section-tools { display: flex; justify-content: flex-end; margin: -5px 0 8px; }
+.wiki-thesis__ledger-section ul { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
+.wiki-thesis__ledger-section li { display: grid; gap: 4px; max-width: 72ch; }
+.wiki-thesis__ledger-section small,
+.wiki-thesis__ledger-section em { color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; }
 .wiki-thesis__ledger-section em { color: #9b4c2d; }
-.wiki-thesis__editor { display: grid; gap: 18px; padding-top: 16px; border-top: 1px solid var(--nt-divider); }
-.wiki-thesis__form-grid, .wiki-thesis__edit-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.wiki-thesis__field { display: grid; min-width: 0; gap: 5px; }
-.wiki-thesis__field input, .wiki-thesis__field select, .wiki-thesis__field textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; padding: 9px 10px; border: 1px solid var(--nt-divider); border-radius: 8px; background: var(--surface); color: var(--text-primary); }
-.wiki-thesis__field textarea { min-height: 88px; resize: vertical; }
-.wiki-thesis__field small, .wiki-thesis__edit-row small { color: var(--text-secondary); font-size: 0.76rem; }
-.wiki-thesis__edit-row { margin-bottom: 12px; padding: 13px; border: 1px solid var(--nt-divider); border-radius: 10px; }
+.wiki-thesis__empty { margin: 0; color: var(--text-secondary); font-size: 0.88rem; }
+
+.wiki-thesis__field { display: grid; min-width: 0; gap: 6px; }
+.wiki-thesis__field > span { margin: 0; }
+.wiki-thesis input,
+.wiki-thesis select,
+.wiki-thesis textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 34%, var(--nt-divider));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.wiki-thesis textarea { min-height: 96px; resize: vertical; }
+.wiki-thesis__question textarea {
+  min-height: 112px;
+  font: 500 clamp(1.35rem, 2.2vw, 1.85rem)/1.2 Georgia, "Times New Roman", serif;
+  letter-spacing: -0.02em;
+}
+.wiki-thesis__judgment textarea {
+  min-height: 104px;
+  padding-left: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+  font: 1.08rem/1.55 Georgia, "Times New Roman", serif;
+}
+.wiki-thesis__narrative > textarea {
+  min-height: 132px;
+  font: 1.04rem/1.62 Georgia, "Times New Roman", serif;
+}
+.wiki-thesis__field small,
+.wiki-thesis__edit-row small { color: var(--text-secondary); font-size: 0.76rem; }
+.wiki-thesis__edit-surface { display: grid; gap: 14px; }
+.wiki-thesis__edit-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+}
+.wiki-thesis__edit-row:first-child { border-top: 0; padding-top: 0; }
 .wiki-thesis__edit-row p { display: grid; gap: 4px; margin: 0; }
 .wiki-thesis__remove { justify-self: start; color: #9b4c2d !important; }
-.wiki-thesis__warning, .wiki-thesis__error { color: #9b4c2d; }
-.wiki-thesis__actions, .wiki-thesis__snapshot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.wiki-thesis__snapshot { padding-top: 14px; border-top: 1px solid var(--nt-divider); }
-.wiki-thesis__snapshot p, .wiki-thesis__status, .wiki-thesis__error { margin: 0; font-size: 0.84rem; }
+.wiki-thesis__warning,
+.wiki-thesis__error { color: #9b4c2d; }
+
+.wiki-thesis__inline-actions,
+.wiki-thesis__edit-footer,
+.wiki-thesis__snapshot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.wiki-thesis__inline-actions { justify-content: flex-start; }
+.wiki-thesis__primary-action,
+.wiki-thesis__snapshot-action {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 76%, var(--nt-divider)) !important;
+  background: color-mix(in srgb, var(--wiki-warm-accent, #a47f32) 82%, var(--surface)) !important;
+  color: #17130b !important;
+}
+.wiki-thesis__text-action { min-height: 34px !important; padding: 5px 8px !important; border-color: transparent !important; background: transparent !important; color: var(--text-secondary) !important; }
+
+.wiki-thesis__snapshot {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--nt-divider);
+}
+.wiki-thesis__snapshot p { display: grid; gap: 2px; max-width: 58ch; margin: 0; font-size: 0.84rem; line-height: 1.5; }
+.wiki-thesis__snapshot p > span { margin-bottom: 2px; }
+.wiki-thesis__status,
+.wiki-thesis__error { margin: 12px 0 0; font-size: 0.84rem; }
+
+.wiki-thesis [data-editor-section] {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 180ms var(--wiki-thesis-ease-out), transform 180ms var(--wiki-thesis-ease-out);
+}
+.wiki-thesis [data-editor-section][data-motion-state="opening"],
+.wiki-thesis [data-editor-section][data-motion-state="closing"] {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wiki-thesis__text-action:hover,
+  .wiki-thesis__edit-trigger:hover { transform: translateY(-1px); }
+}
+
+@media (max-width: 820px) {
+  .wiki-thesis__primary {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "question" "judgment" "register" "actions";
+  }
+  .wiki-thesis__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wiki-thesis__facts div { padding-right: 14px; }
+  .wiki-thesis__narrative { grid-template-columns: minmax(0, 1fr); }
+  .wiki-thesis__counterargument,
+  .wiki-thesis__narrative > .wiki-thesis__field,
+  .wiki-thesis__narrative > .wiki-thesis__inline-actions { grid-column: 1; }
+  .wiki-thesis__section-heading { display: flex; align-items: center; justify-content: space-between; }
+}
 
 @media (max-width: 620px) {
-  .wiki-thesis { padding: 16px; }
+  .wiki-read__header--living-thesis h1,
+  .wiki-workspace .wiki-read__header--living-thesis h1 {
+    max-width: none;
+    font-size: clamp(1.45rem, 6vw, 1.82rem) !important;
+    line-height: 1.06;
+  }
+  .wiki-thesis { margin-top: 22px; }
+  .wiki-thesis__primary { row-gap: 18px; padding-top: 20px; }
   .wiki-thesis__heading { display: grid; }
   .wiki-thesis__heading button { justify-self: start; }
-  .wiki-thesis__facts, .wiki-thesis__form-grid, .wiki-thesis__edit-row { grid-template-columns: minmax(0, 1fr); }
-  .wiki-thesis__actions, .wiki-thesis__snapshot { align-items: stretch; flex-direction: column; }
-  .wiki-thesis__actions button, .wiki-thesis__snapshot button { width: 100%; }
-  .wiki-read .wiki-read__header:has(.wiki-thesis) h1 {
-    font-size: clamp(2rem, 9vw, 2.75rem) !important;
-    line-height: 0.98;
+  .wiki-thesis__question h2 { font-size: clamp(1.4rem, 6.6vw, 1.78rem); }
+  .wiki-thesis__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wiki-thesis__facts div:last-child { grid-column: 1 / -1; }
+  .wiki-thesis__edit-row { grid-template-columns: minmax(0, 1fr); }
+  .wiki-thesis__snapshot { align-items: stretch; flex-direction: column; }
+  .wiki-thesis__snapshot button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-thesis button,
+  .wiki-thesis [data-editor-section] {
+    transform: none !important;
+    transition: opacity 120ms var(--wiki-thesis-ease-out);
   }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .wiki-thesis button,
+  .wiki-thesis input,
+  .wiki-thesis select,
+  .wiki-thesis textarea { background: var(--surface); }
+}
+
+@media (prefers-contrast: more) {
+  .wiki-thesis__primary,
+  .wiki-thesis__narrative,
+  .wiki-thesis__ledger-section,
+  .wiki-thesis__snapshot { border-color: currentColor; }
+  .wiki-thesis button,
+  .wiki-thesis input,
+  .wiki-thesis select,
+  .wiki-thesis textarea { border-color: currentColor; }
 }

@@ -526,6 +526,41 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Model Section Title' })).toBeInTheDocument();
   });
 
+  it('orients living thesis pages with a quiet object label and a dedicated header modifier', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      judgment: {
+        kind: 'living_thesis',
+        governingQuestion: 'What would make this judgment wrong?',
+        currentJudgment: 'The evidence remains incomplete.',
+        causalModel: { summary: '', nodes: [], edges: [] },
+        assumptions: [],
+        unknowns: [],
+        falsifiers: [],
+        decisions: []
+      }
+    });
+
+    const { container } = renderReadView();
+
+    const title = await screen.findByRole('heading', { level: 1, name: 'Enterprise AI Memory' });
+    const header = container.querySelector('.wiki-read__header');
+    const objectLabel = container.querySelector('.wiki-read__object-label');
+    expect(header).toHaveClass('wiki-read__header--living-thesis');
+    expect(objectLabel).toHaveTextContent('Living thesis');
+    expect(objectLabel.nextElementSibling).toBe(title);
+  });
+
+  it('leaves the ordinary Wiki header and title sequence unchanged', async () => {
+    const { container } = renderReadView();
+
+    const title = await screen.findByRole('heading', { level: 1, name: 'Enterprise AI Memory' });
+    const header = container.querySelector('.wiki-read__header');
+    expect(header).not.toHaveClass('wiki-read__header--living-thesis');
+    expect(container.querySelector('.wiki-read__object-label')).not.toBeInTheDocument();
+    expect(header.firstElementChild).toBe(title);
+  });
+
   it('renders citation marginalia on wide readers without replacing references', async () => {
     window.matchMedia = jest.fn().mockReturnValue({
       matches: true,
