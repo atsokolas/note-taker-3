@@ -3498,7 +3498,7 @@ const buildWikiRouter = ({
       if (selectedIds.length > 0) {
         let detailQuery = WikiPage.find({ _id: { $in: selectedIds } });
         if (detailQuery?.select) {
-          detailQuery = detailQuery.select('_id slug title pageType status visibility body plainText sourceRefs citations claims externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog createdAt updatedAt');
+          detailQuery = detailQuery.select('_id slug title pageType status visibility body plainText sourceRefs citations claims externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.ok aiState.quality.status aiState.quality.failures aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog createdAt updatedAt');
         }
         const detailedPages = detailQuery?.lean ? await detailQuery.lean() : await detailQuery;
         const detailsById = new Map((Array.isArray(detailedPages) ? detailedPages : [])

@@ -244,7 +244,7 @@ const PublicProofGallery = () => {
         <div className="public-proof-gallery__section-head">
           <p className="public-proof-gallery__eyebrow">Acceptance in progress</p>
           <h2>Promising is not the same as proven.</h2>
-          <p>The Alphabet thesis remains unlisted as flagship proof until its material claims are rebuilt on primary sources and a real source-review event is accepted.</p>
+          <p>These objects remain outside the proven set until their material claims and source-review events pass the same acceptance bar.</p>
         </div>
         {acceptanceItems.length ? acceptanceItems.map((item) => (
           <div className="public-proof-gallery__acceptance-notice" role="note" key={item.slot || item.title}>

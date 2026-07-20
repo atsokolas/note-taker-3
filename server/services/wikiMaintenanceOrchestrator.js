@@ -29,6 +29,18 @@ const asDate = (value = null) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const isAcceptedPublicProofPage = (page = {}) => Boolean(
+  asText(page.status).toLowerCase() === 'published'
+  && asText(page.visibility).toLowerCase() === 'shared'
+  && asText(page.publicProof?.grade).toLowerCase() === 'proven'
+  && asDate(page.publicProof?.acceptedAt)
+  && asText(page.publicProof?.acceptedEventId)
+);
+
+const sourceEventMayTouchAcceptedPublicProof = (event = {}) => (
+  event.metadata?.allowAcceptedPublicProofMutation === true
+);
+
 const buildAcceptedThrough = ({ existing = null, event = {}, acceptedAt = new Date() } = {}) => {
   const current = existing?.toObject ? existing.toObject() : existing || null;
   const currentDate = asDate(current?.sourceUpdatedAt || current?.acceptedAt);
@@ -258,7 +270,11 @@ const attachSourceEventEvidence = async ({ page, event } = {}) => {
 const findAffectedPages = async ({ WikiPage, userId, event, limit = 8 }) => {
   if (!WikiPage || !userId || !event) return [];
   const eligiblePages = pages => (Array.isArray(pages) ? pages : [])
-    .filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'));
+    .filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))
+    .filter(page => (
+      !isAcceptedPublicProofPage(page)
+      || sourceEventMayTouchAcceptedPublicProof(event)
+    ));
   const explicitIds = Array.isArray(event.affectedPageIds) ? event.affectedPageIds.filter(Boolean) : [];
   if (explicitIds.length) {
     const query = { userId, _id: { $in: explicitIds }, status: { $ne: 'archived' } };
@@ -480,13 +496,14 @@ const processWikiSourceEvent = async ({
     let skippedCount = 0;
     const comparisons = [];
     for (let page of pages) {
+      const before = snapshotPage(page);
+      const acceptedPublicProof = isAcceptedPublicProofPage(page);
       const repoSnapshotEvent = event.metadata?.source === 'github-repo-snapshot';
       if (repoSnapshotEvent) {
         page = await attachRepoSnapshotEvidence({ WikiSourceEvent, page, event });
       } else {
         page = await attachSourceEventEvidence({ page, event });
       }
-      const before = snapshotPage(page);
       const evidenceAssessment = assessEventAgainstClaims({ event, claims: before.claims || [] });
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
@@ -501,6 +518,7 @@ const processWikiSourceEvent = async ({
         wikiSchemaContent: effectiveWikiSchemaContent
       };
       const enforcePublicationShield = isGitHubRepoPage({ page })
+        || acceptedPublicProof
         || event.sourceType === 'external'
         || event.metadata?.enforcePublicationQuality === true;
       const headSha = String(event.metadata?.commitSha || page.externalWatches?.githubRepo?.lastHeadSha || '');
@@ -527,8 +545,9 @@ const processWikiSourceEvent = async ({
             beforeSnapshot: before,
             sourceEventId: event._id,
             maintenanceRunId: run?._id || null,
-            rejectDestructiveClaimLoss: event.sourceType === 'external',
-            promoteEvidenceOnlyOnDestructiveLoss: event.sourceType === 'external',
+            rejectDestructiveClaimLoss: event.sourceType === 'external' || acceptedPublicProof,
+            promoteEvidenceOnlyOnDestructiveLoss: event.sourceType === 'external' && !acceptedPublicProof,
+            requireManualReview: acceptedPublicProof,
             sourceVersion: event.metadata?.commitSha ? {
               provider: 'github',
               headSha: event.metadata.commitSha,
@@ -751,6 +770,8 @@ module.exports = {
   buildAcceptedThrough,
   createPageForEvent,
   findAffectedPages,
+  isAcceptedPublicProofPage,
+  sourceEventMayTouchAcceptedPublicProof,
   processPendingWikiSourceEvents,
   processWikiSourceEvent
 };

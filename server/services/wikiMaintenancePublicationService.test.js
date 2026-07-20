@@ -104,6 +104,30 @@ const run = async () => {
   assert.strictEqual(evidenceOnly.page.aiState.candidateStatus, 'evidence_only');
   assert.strictEqual(WikiRevision.records.length, 3);
 
+  const acceptedProofPage = trustedPage();
+  acceptedProofPage.status = 'published';
+  acceptedProofPage.visibility = 'shared';
+  acceptedProofPage.publicProof = {
+    grade: 'proven',
+    acceptedAt: '2026-07-20T00:00:00.000Z',
+    acceptedEventId: 'accepted-event'
+  };
+  const heldForAcceptance = await runWikiMaintenanceCandidate({
+    page: acceptedProofPage,
+    userId: 'user-1',
+    WikiRevision,
+    requireManualReview: true,
+    maintainWikiPageFn: async ({ page }) => {
+      page.plainText = 'Plausible but not explicitly accepted replacement.';
+      page.aiState = { draftStatus: 'ready', quality: { ok: true, status: 'pass' } };
+      return page;
+    }
+  });
+  assert.strictEqual(heldForAcceptance.promoted, false);
+  assert.strictEqual(heldForAcceptance.page.plainText, 'Trusted article.');
+  assert.match(heldForAcceptance.page.aiState.lastCandidateSummary, /explicit human acceptance/);
+  assert.strictEqual(WikiRevision.records.length, 4);
+
   const passingPage = trustedPage();
   const passing = await runWikiMaintenanceCandidate({
     page: passingPage,
@@ -119,7 +143,7 @@ const run = async () => {
 
   assert.strictEqual(passing.promoted, true);
   assert.strictEqual(passing.page.plainText, 'Better candidate.');
-  assert.strictEqual(WikiRevision.records.length, 3);
+  assert.strictEqual(WikiRevision.records.length, 4);
 
   console.log('wikiMaintenancePublicationService tests passed');
 };

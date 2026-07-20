@@ -67,6 +67,7 @@ const runWikiMaintenanceCandidate = async ({
   hasTrustedVersion = true,
   rejectDestructiveClaimLoss = false,
   promoteEvidenceOnlyOnDestructiveLoss = false,
+  requireManualReview = false,
   now = new Date()
 } = {}) => {
   if (!page || typeof maintainWikiPageFn !== 'function') {
@@ -91,6 +92,18 @@ const runWikiMaintenanceCandidate = async ({
       failures: [
         ...(Array.isArray(quality.failures) ? quality.failures : []),
         'Candidate removed more than 40% of the trusted claim ledger; manual review is required.'
+      ]
+    };
+    candidate.aiState = { ...(candidate.aiState || {}), quality };
+  }
+  if (requireManualReview) {
+    quality = {
+      ...quality,
+      ok: false,
+      status: 'fail',
+      failures: [
+        ...(Array.isArray(quality.failures) ? quality.failures : []),
+        'Accepted public proof cannot be auto-published; explicit human acceptance is required.'
       ]
     };
     candidate.aiState = { ...(candidate.aiState || {}), quality };
