@@ -66,14 +66,16 @@ const existingRevisions = [{
   pageId,
   sourceEventId: filingId,
   promotionStatus: 'promoted',
-  reason: 'source_event'
+  reason: 'source_event',
+  after: page.toObject()
 }, {
   _id: transcriptRevisionId,
   userId: 'user-1',
   pageId,
   sourceEventId: transcriptId,
   promotionStatus: 'promoted',
-  reason: 'source_event'
+  reason: 'source_event',
+  after: page.toObject()
 }];
 
 const WikiPage = { findOne: () => new Query(page) };

@@ -309,9 +309,7 @@ const SharedWikiPage = () => {
     ...(Number.isFinite(Number(page.sourceCount)) ? { sourceCount: Number(page.sourceCount) } : {}),
     ...(Number.isFinite(Number(page.claimCount)) ? { claimCount: Number(page.claimCount) } : {})
   } : null);
-  const displayedStampProof = repoDossierMode && stampProof
-    ? { ...stampProof, latestMaterialEvent: null }
-    : stampProof;
+  const displayedStampProof = stampProof;
   const canonicalPath = location.pathname || `/share/wiki/${idOrSlug}`;
   const seoDescription = useMemo(
     () => buildSharedWikiDescription(page, intro),
@@ -403,6 +401,25 @@ const SharedWikiPage = () => {
     handleAdopt();
   }, [handleAdopt, page, shouldAutoAdopt]);
 
+  const handleCitationClick = useCallback((event) => {
+    const target = event.target.closest?.('.wiki-claim-citation');
+    if (!target) return;
+    const refId = target.getAttribute('data-footnote-target') || '';
+    const reference = refId ? document.getElementById(refId) : null;
+    if (!reference) return;
+    event.preventDefault();
+    const reduceMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    reference.scrollIntoView?.({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'center'
+    });
+    reference.focus?.({ preventScroll: true });
+    if (window.history?.replaceState) {
+      window.history.replaceState(window.history.state, '', `#${refId}`);
+    }
+  }, []);
+
   return (
     <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}`}>
       <nav className="shared-wiki-page__topbar" aria-label="Shared wiki navigation">
@@ -418,7 +435,7 @@ const SharedWikiPage = () => {
           <p>{error}</p>
         </section>
       ) : page ? (
-        <article className="shared-wiki-page__article">
+        <article className="shared-wiki-page__article" onClick={handleCitationClick}>
           <header className="shared-wiki-page__hero">
             <p className="shared-wiki-page__eyebrow">
               {weekendReadingsMode ? 'Weekend Readings' : (repoDossierMode ? 'Shared repository dossier' : 'Shared wiki')}
@@ -554,8 +571,12 @@ const SharedWikiPage = () => {
                 These are static references for the shared page. They do not open the private Noeis graph.
               </p>
               <ol>
-                {page.sourceRefs.slice(0, 24).map((source, index) => (
-                  <li key={source._id || source.id || index}>
+                {page.sourceRefs.map((source, index) => (
+                  <li
+                    key={source._id || source.id || index}
+                    id={`wiki-ref-${index + 1}`}
+                    tabIndex="-1"
+                  >
                     {source.url ? (
                       <a href={source.url} target="_blank" rel="noopener noreferrer">
                         {source.title || source.url}

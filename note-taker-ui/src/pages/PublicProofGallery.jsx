@@ -95,7 +95,9 @@ const PublicProofGallery = () => {
   // Illustrative objects can live in /examples once they are useful enough on their own.
   const publicItems = items.filter((item) => ['proven', 'candidate'].includes(item.proofGrade?.grade));
   const schema = useMemo(() => buildPublicProofGallerySchema(publicItems), [publicItems]);
-  const flagship = publicItems.find((item) => item.proofGrade?.grade === 'proven') || null;
+  const provenItems = publicItems.filter((item) => item.proofGrade?.grade === 'proven');
+  const flagship = provenItems[0] || null;
+  const additionalProven = provenItems.slice(1);
   const repoCandidate = publicItems.find((item) => item.proofGrade?.grade === 'candidate') || null;
   const acceptanceItems = items.filter((item) => item.proofGrade?.grade === 'acceptance_in_progress');
 
@@ -223,6 +225,19 @@ const PublicProofGallery = () => {
           </div>
         )}
       </section>
+
+      {additionalProven.length > 0 ? (
+        <section className="public-proof-gallery__section" aria-label="More proven maintenance loops">
+          <div className="public-proof-gallery__section-head">
+            <p className="public-proof-gallery__eyebrow">More proven objects</p>
+            <h2>Different sources. The same acceptance bar.</h2>
+            <p>Each object below has its own source clock, accepted material event, and inspectable maintenance record.</p>
+          </div>
+          <div className="public-proof-gallery__grid">
+            {additionalProven.map(item => renderProofObject(item))}
+          </div>
+        </section>
+      ) : null}
 
       {(!flagship || acceptanceItems.length > 0) ? (
       <section className="public-proof-gallery__section" aria-label="Acceptance in progress">

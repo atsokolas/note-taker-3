@@ -7,6 +7,7 @@ const {
   selectPublicProofPages,
   serializePublicProofEntry
 } = require('./publicProofService');
+const { buildPublicProofHeadHash } = require('./publicProofHeadService');
 
 const sharedPage = (overrides = {}) => ({
   _id: overrides._id || `page-${Math.random()}`,
@@ -251,6 +252,7 @@ const sharedPage = (overrides = {}) => ({
 (() => {
   const pages = [
     sharedPage({ _id: 'alphabet', title: 'Alphabet is Berkshire Hathaway 2.0', status: 'draft' }),
+    sharedPage({ _id: 'nvidia', title: 'NVIDIA’s AI engine—and the obligations underneath it' }),
     sharedPage({ _id: 'margin', title: 'Margin of Safety in Value Investing' }),
     sharedPage({ _id: 'circle', title: 'Circle of Competence' }),
     sharedPage({ _id: 'map', title: 'AI Infrastructure Market Map', pageType: 'overview' }),
@@ -261,12 +263,76 @@ const sharedPage = (overrides = {}) => ({
       pageType: 'repo',
       externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', status: 'active' } }
     }),
+    sharedPage({
+      _id: 'openai-agents',
+      title: 'openai/openai-agents-js maintained developer dossier',
+      pageType: 'repo',
+      externalWatches: { githubRepo: { owner: 'openai', repo: 'openai-agents-js', status: 'active' } }
+    }),
     sharedPage({ _id: 'private', title: 'Margin of Safety', visibility: 'private' })
   ];
   const selected = selectPublicProofPages({ pages, env: {} });
-  assert.strictEqual(selected.length, 6);
+  assert.strictEqual(selected.length, 8);
   assert.deepStrictEqual(selected.map(item => item.slot.key), DEFAULT_PUBLIC_PROOF_SLOTS.map(slot => slot.key));
   assert.ok(!selected.some(item => item.page._id === 'private'));
+})();
+
+(() => {
+  const page = sharedPage({
+    _id: 'nvidia-proof',
+    title: 'NVIDIA’s AI engine—and the obligations underneath it',
+    sourceRefs: [{ title: 'NVIDIA Q1 FY2027 10-Q' }],
+    claims: [{ claimId: 'nvda-claim-1' }],
+    externalWatches: { edgar: { status: 'active', ticker: 'NVDA', cik: '0001045810' } },
+    freshness: {
+      acceptedThrough: {
+        sourceEventId: 'nvda-debt-event',
+        title: 'NVIDIA 8-K filed 2026-06-18',
+        url: 'https://www.sec.gov/Archives/edgar/data/1045810/debt.htm',
+        acceptedAt: '2026-07-19T00:00:00.000Z'
+      }
+    },
+    aiState: { changeLog: [{ type: 'maintenance', text: 'Updated the balance-sheet claim for the senior-notes offering.', createdAt: '2026-07-19T00:00:00.000Z' }] },
+    publicProof: {
+      grade: 'proven', acceptedAt: '2026-07-19T00:00:00.000Z', acceptedEventId: 'nvda-acceptance',
+      acceptedClocks: [{ type: 'sec_edgar', sourceEventId: 'nvda-debt-event', revisionId: 'nvda-revision', acceptedAt: '2026-07-19T00:00:00.000Z' }]
+    }
+  });
+  const slot = DEFAULT_PUBLIC_PROOF_SLOTS.find(candidate => candidate.key === 'nvidia');
+  const grade = buildPublicProofGrade({ slot, page });
+  assert.strictEqual(grade.grade, 'proven');
+  assert.deepStrictEqual(grade.criteria.requiredClocks, { secEdgar: true });
+  assert.deepStrictEqual(grade.criteria.optionalClocks, { earningsTranscript: false });
+})();
+
+(() => {
+  const staleHead = sharedPage({
+    _id: 'nvidia-stale-head',
+    title: 'NVIDIA’s AI engine—and the obligations underneath it',
+    updatedAt: '2026-07-19T19:32:00.000Z',
+    sourceRefs: [{ title: 'NVIDIA 10-Q' }],
+    claims: [{ claimId: 'claim-1' }],
+    externalWatches: { edgar: { status: 'active', ticker: 'NVDA', cik: '0001045810' } },
+    freshness: { acceptedThrough: { sourceEventId: 'filing', title: 'NVIDIA 8-K', url: 'https://www.sec.gov/nvda' } },
+    aiState: { changeLog: [{ text: 'Research rewrite.', createdAt: '2026-07-19T19:32:00.000Z' }] },
+    publicProof: {
+      grade: 'proven', acceptedAt: '2026-07-19T19:15:00.000Z', acceptedEventId: 'sec:NVDA:filing',
+      acceptedClocks: [{ type: 'sec_edgar', sourceEventId: 'filing', revisionId: 'filing-revision', acceptedAt: '2026-07-19T19:15:00.000Z' }]
+    }
+  });
+  const slot = DEFAULT_PUBLIC_PROOF_SLOTS.find(candidate => candidate.key === 'nvidia');
+  const staleGrade = buildPublicProofGrade({ slot, page: staleHead });
+  assert.strictEqual(staleGrade.grade, 'acceptance_in_progress');
+  assert.strictEqual(staleGrade.criteria.headAccepted, false);
+
+  staleHead.publicProof.acceptanceSnapshot = {
+    kind: 'sec_dossier_head_v1',
+    revisionId: 'research-revision',
+    headContentHash: buildPublicProofHeadHash(staleHead)
+  };
+  const boundGrade = buildPublicProofGrade({ slot, page: staleHead });
+  assert.strictEqual(boundGrade.grade, 'proven');
+  assert.strictEqual(boundGrade.criteria.headAccepted, true);
 })();
 
 (() => {

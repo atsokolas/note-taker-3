@@ -151,6 +151,59 @@ describe('SharedWikiPage', () => {
     expect(document.documentElement).not.toHaveClass('noeis-public-share');
   });
 
+  it('renders every public reference and makes claim citations navigate to their target', async () => {
+    const sourceRefs = Array.from({ length: 30 }, (_, index) => ({
+      _id: `source-${index + 1}`,
+      title: `Source ${index + 1}`,
+      url: `https://example.com/source-${index + 1}`
+    }));
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        _id: 'wiki-citations',
+        title: 'Citation navigation',
+        visibility: 'shared',
+        sourceRefs,
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'A claim backed by the final public source.',
+              marks: [{
+                type: 'claim',
+                attrs: {
+                  claimId: 'claim-30',
+                  support: 'supported',
+                  citationIndexes: [30],
+                  contradictionIndexes: []
+                }
+              }]
+            }]
+          }]
+        }
+      }
+    });
+
+    render(<SharedWikiPage />);
+
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 30' });
+    const finalReference = document.getElementById('wiki-ref-30');
+    expect(finalReference).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Source 30' })).toHaveAttribute(
+      'href',
+      'https://example.com/source-30'
+    );
+    finalReference.scrollIntoView = jest.fn();
+
+    fireEvent.click(citation);
+
+    expect(finalReference.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    expect(document.activeElement).toBe(finalReference);
+    expect(window.location.hash).toBe('#wiki-ref-30');
+    window.history.replaceState({}, '', '/');
+  });
+
   it('sends logged-out readers through auth with a return-to adoption URL', async () => {
     getPublicWikiPage.mockResolvedValue({
       page: {
@@ -341,6 +394,11 @@ describe('SharedWikiPage', () => {
           clock: { type: 'github', label: 'GitHub default-branch and release monitoring' },
           currentThrough: { label: 'Commit a7cc281', at: '2026-07-10T18:00:00.000Z' },
           lastReviewedAt: '2026-07-10T18:00:00.000Z',
+          latestMaterialEvent: {
+            type: 'maintenance',
+            summary: 'Rewrote the provider tool-search contract from changed source paths.',
+            at: '2026-07-10T18:00:00.000Z'
+          },
           sourceCount: 12,
           claimCount: 67
         },
@@ -369,6 +427,7 @@ describe('SharedWikiPage', () => {
 
     const link = await screen.findByRole('link', { name: /View repository maintenance comparison/i });
     expect(link).toHaveAttribute('href', '/share/wiki/noeis-repo/comparison');
+    expect(screen.getByText(/Rewrote the provider tool-search contract from changed source paths/i)).toBeInTheDocument();
     expect(getPublicWikiComparison).toHaveBeenCalledWith('noeis-repo');
   });
 

@@ -1,6 +1,7 @@
 const PUBLIC_PROOF_PRIVACY_STATEMENT = (
   'This public page includes the maintained article and public references. Private highlights, backlinks, notes, library context, and agent state stay private.'
 );
+const { buildPublicProofHeadHash } = require('./publicProofHeadService');
 
 const PUBLIC_PROOF_GRADES = Object.freeze({
   PROVEN: 'proven',
@@ -15,10 +16,20 @@ const DEFAULT_PUBLIC_PROOF_SLOTS = Object.freeze([
     label: 'Company dossier',
     title: 'Alphabet is Berkshire Hathaway 2.0',
     envKey: 'PUBLIC_PROOF_ALPHABET_PAGE',
+    requiredClock: 'sec_edgar',
+    identityPattern: /\balphabet\b/i,
     exactTitles: [
       'Alphabet is Berkshire Hathaway 2.0',
       'Alphabet is Berkshire Hathaway 2.0 – Investing Notes'
     ]
+  },
+  {
+    key: 'nvidia',
+    label: 'Company dossier',
+    title: 'NVIDIA’s AI engine—and the obligations underneath it',
+    envKey: 'PUBLIC_PROOF_NVIDIA_PAGE',
+    requiredClock: 'sec_edgar',
+    titlePattern: /NVIDIA.+AI engine.+obligations/i
   },
   {
     key: 'margin-of-safety',
@@ -54,6 +65,13 @@ const DEFAULT_PUBLIC_PROOF_SLOTS = Object.freeze([
     title: 'The Noeis GitHub repo wiki',
     envKey: 'PUBLIC_PROOF_NOEIS_REPO_PAGE',
     repoIdentity: 'atsokolas/note-taker-3'
+  },
+  {
+    key: 'openai-agents-js',
+    label: 'External repository dossier',
+    title: 'openai/openai-agents-js maintained developer dossier',
+    envKey: 'PUBLIC_PROOF_OPENAI_AGENTS_JS_PAGE',
+    repoIdentity: 'openai/openai-agents-js'
   }
 ]);
 
@@ -197,8 +215,8 @@ const buildPublicMaintenanceProof = (input = {}) => {
 };
 
 const defaultProofGrade = (slot = {}) => {
-  if (slot.key === 'alphabet') return PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS;
-  if (slot.key === 'noeis-repo') return PUBLIC_PROOF_GRADES.CANDIDATE;
+  if (slot.requiredClock === 'sec_edgar' || slot.key === 'alphabet') return PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS;
+  if (slot.key === 'noeis-repo' || slot.repoIdentity) return PUBLIC_PROOF_GRADES.CANDIDATE;
   return PUBLIC_PROOF_GRADES.ILLUSTRATIVE;
 };
 
@@ -218,17 +236,19 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       ))
       .map(clock => clean(clock.type, 60))
   );
-  const requiredClocks = slot.key === 'alphabet'
+  const repoProof = slot.key === 'noeis-repo' || Boolean(slot.repoIdentity);
+  const requiredClock = clean(slot.requiredClock, 60) || (slot.key === 'alphabet' ? 'sec_edgar' : repoProof ? 'github' : '');
+  const requiredClocks = requiredClock === 'sec_edgar'
     ? { secEdgar: acceptedClockTypes.has('sec_edgar') }
-    : slot.key === 'noeis-repo'
+    : repoProof
       ? { github: acceptedClockTypes.has('github') }
       : {};
   const optionalClocks = {
     earningsTranscript: acceptedClockTypes.has('earnings_transcript')
   };
-  const hasRequiredClockAcceptance = slot.key === 'alphabet'
+  const hasRequiredClockAcceptance = requiredClock === 'sec_edgar'
     ? requiredClocks.secEdgar
-    : slot.key === 'noeis-repo'
+    : repoProof
       ? requiredClocks.github
       : true;
   const hasAcceptedVersion = Boolean(
@@ -237,13 +257,26 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
   );
   const hasEvidence = Number(proof.sourceCount || 0) > 0 && Number(proof.claimCount || 0) > 0;
   const hasMaterialEvent = Boolean(proof.latestMaterialEvent?.at && clean(proof.latestMaterialEvent?.summary, 240));
+  const acceptanceSnapshot = asPlain(configured.acceptanceSnapshot);
+  const snapshotHash = clean(acceptanceSnapshot.headContentHash, 128);
+  const hasExactHeadAcceptance = acceptanceSnapshot.kind === 'sec_dossier_head_v1'
+    && clean(acceptanceSnapshot.revisionId, 180)
+    && snapshotHash
+    && snapshotHash === buildPublicProofHeadHash(page);
+  const updatedAt = asDate(page.updatedAt);
+  const legacyHeadNotKnownToBeStale = !snapshotHash && (!updatedAt || !acceptedAt
+    || updatedAt.getTime() <= acceptedAt.getTime() + (5 * 60 * 1000));
+  const headAccepted = requiredClock !== 'sec_edgar'
+    ? true
+    : Boolean(hasExactHeadAcceptance || legacyHeadNotKnownToBeStale);
   const canBeProven = requestedGrade === PUBLIC_PROOF_GRADES.PROVEN
     && acceptedAt
     && acceptedEventId
     && hasAcceptedVersion
     && hasEvidence
     && hasMaterialEvent
-    && hasRequiredClockAcceptance;
+    && hasRequiredClockAcceptance
+    && headAccepted;
   const grade = canBeProven
     ? PUBLIC_PROOF_GRADES.PROVEN
     : requestedGrade === PUBLIC_PROOF_GRADES.ACCEPTANCE_IN_PROGRESS
@@ -251,7 +284,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       : requestedGrade === PUBLIC_PROOF_GRADES.ILLUSTRATIVE
         ? PUBLIC_PROOF_GRADES.ILLUSTRATIVE
         : defaultProofGrade(slot);
-  const comparisonUrl = slot.key === 'noeis-repo'
+  const comparisonUrl = repoProof
     ? `/share/wiki/${encodeURIComponent(pageId(page) || clean(page.slug, 180))}/comparison`
     : '';
   const defaultReason = {
@@ -273,8 +306,9 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       acceptedVersion: hasAcceptedVersion,
       materialEvent: hasMaterialEvent,
       sourceGrounded: hasEvidence,
-      ...(['alphabet', 'noeis-repo'].includes(slot.key) ? { requiredClocks } : {}),
-      ...(slot.key === 'alphabet' ? { optionalClocks } : {})
+      ...(requiredClock === 'sec_edgar' ? { headAccepted } : {}),
+      ...((requiredClock || repoProof) ? { requiredClocks } : {}),
+      ...(requiredClock === 'sec_edgar' ? { optionalClocks } : {})
     }
   };
 };
@@ -301,10 +335,13 @@ const slotMatchesPage = ({ slot = {}, page = {}, identifier = '' } = {}) => {
   return false;
 };
 
-const explicitlyProvenAlphabetPage = ({ slot = {}, page = {} } = {}) => {
-  if (slot.key !== 'alphabet') return false;
+const explicitlyProvenSecPage = ({ slot = {}, page = {} } = {}) => {
+  if ((clean(slot.requiredClock, 60) || (slot.key === 'alphabet' ? 'sec_edgar' : '')) !== 'sec_edgar') return false;
   if (!page || page.visibility !== 'shared' || page.status !== 'published') return false;
-  if (!/\balphabet\b/i.test(clean(page.title, 300))) return false;
+  const identityMatches = slot.identityPattern
+    ? slot.identityPattern.test(clean(page.title, 300))
+    : slotMatchesPage({ slot, page });
+  if (!identityMatches) return false;
   return buildPublicProofGrade({ slot, page }).grade === PUBLIC_PROOF_GRADES.PROVEN;
 };
 
@@ -312,13 +349,13 @@ const selectPublicProofPages = ({ pages = [], slots = DEFAULT_PUBLIC_PROOF_SLOTS
   const used = new Set();
   return slots.map((slot) => {
     const identifier = configuredIdentifier(slot, env);
-    const acceptedAlphabetPage = pages
-      .filter(candidate => !used.has(pageId(candidate)) && explicitlyProvenAlphabetPage({ slot, page: candidate }))
+    const acceptedSecPage = pages
+      .filter(candidate => !used.has(pageId(candidate)) && explicitlyProvenSecPage({ slot, page: candidate }))
       .sort((left, right) => (
         (asDate(right.publicProof?.acceptedAt)?.getTime() || 0)
         - (asDate(left.publicProof?.acceptedAt)?.getTime() || 0)
       ))[0];
-    const page = acceptedAlphabetPage || pages.find(candidate => (
+    const page = acceptedSecPage || pages.find(candidate => (
       !used.has(pageId(candidate))
       && slotMatchesPage({ slot, page: candidate, identifier })
     ));

@@ -8658,6 +8658,15 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 .shared-wiki-page__sources li {
   color: var(--text-secondary);
   line-height: 1.45;
+  scroll-margin-top: 18vh;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.shared-wiki-page__sources li:target,
+.shared-wiki-page__sources li:focus {
+  background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+  box-shadow: -8px 0 0 color-mix(in srgb, var(--accent) 34%, transparent);
+  outline: none;
 }
 
 .shared-wiki-page__sources a {

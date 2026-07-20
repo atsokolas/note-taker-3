@@ -1,6 +1,6 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import PublicProofGallery, { buildPublicProofGallerySchema } from './PublicProofGallery';
 import { getPublicProofRegistry } from '../api/wiki';
 import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
@@ -265,6 +265,49 @@ describe('PublicProofGallery', () => {
     expect(screen.getByRole('link', { name: 'Inspect the maintenance proof' })).toHaveAttribute(
       'href',
       '/share/wiki/note-taker-3-repo/comparison'
+    );
+  });
+
+  it('keeps additional proven objects visible instead of dropping them behind the flagship', async () => {
+    const payload = registryPayload();
+    const alphabet = payload.items.find((item) => item.slot === 'alphabet-dossier');
+    alphabet.proofGrade = {
+      grade: 'proven', label: 'Proven', reason: 'The SEC filing clock passed acceptance.',
+      acceptedAt: '2026-07-16T12:00:00.000Z', comparisonUrl: '',
+      criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+    };
+    payload.items.push(proofItem({
+      slot: 'openai-agents-js',
+      label: 'External repository dossier',
+      title: 'openai/openai-agents-js maintained developer dossier',
+      description: 'A source-backed external repository maintenance proof.',
+      publicUrl: '/share/wiki/openai-agents-js-proof',
+      proofGrade: {
+        grade: 'proven', label: 'Proven', reason: 'The GitHub comparison passed acceptance.',
+        acceptedAt: '2026-07-19T12:00:00.000Z',
+        comparisonUrl: '/share/wiki/openai-agents-js-proof/comparison',
+        criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+      },
+      maintenanceProof: {
+        clock: { type: 'github', label: 'GitHub default-branch and release monitoring' },
+        currentThrough: { label: 'Commit 710cccf', at: '2026-07-19T12:00:00.000Z' },
+        lastReviewedAt: '2026-07-19T12:00:00.000Z',
+        latestMaterialEvent: { type: 'maintenance', summary: 'Rewrote three developer contracts.', at: '2026-07-19T12:00:00.000Z' },
+        sourceCount: 63,
+        claimCount: 24
+      }
+    }));
+    getPublicProofRegistry.mockResolvedValue(payload);
+
+    render(<MemoryRouter initialEntries={['/proof']}><PublicProofGallery /></MemoryRouter>);
+
+    expect(await screen.findByRole('region', { name: 'Flagship proof' })).toBeInTheDocument();
+    const moreProven = screen.getByRole('region', { name: 'More proven maintenance loops' });
+    expect(moreProven).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'openai/openai-agents-js maintained developer dossier' })).toBeInTheDocument();
+    expect(within(moreProven).getByRole('link', { name: 'Inspect the maintenance proof' })).toHaveAttribute(
+      'href',
+      '/share/wiki/openai-agents-js-proof/comparison'
     );
   });
 

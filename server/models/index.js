@@ -528,6 +528,8 @@ const wikiPublicProofAcceptanceSnapshotSchema = new mongoose.Schema({
   comparisonVersion: { type: Number, default: 0 },
   sourceEventId: { type: String, default: '', trim: true },
   revisionId: { type: String, default: '', trim: true },
+  headContentHash: { type: String, default: '', trim: true },
+  researchAsOf: { type: Date, default: null },
   maintenanceRunId: { type: String, default: '', trim: true },
   counts: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   acceptedAt: { type: Date, default: null }
