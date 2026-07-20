@@ -1,6 +1,7 @@
 const assert = require('assert');
 const express = require('express');
 const { buildWikiRouter } = require('../wikiRoutes');
+const { buildPublicProofHeadHash } = require('../../services/publicProofHeadService');
 
 class Query {
   constructor(value) {
@@ -110,8 +111,25 @@ const records = [
   })
 ];
 
+const nvidiaRecord = records.find(record => record._id === 'nvidia');
+nvidiaRecord.updatedAt = '2026-07-20T00:00:00.000Z';
+nvidiaRecord.publicProof.acceptanceSnapshot = {
+  kind: 'sec_dossier_head_v1',
+  revisionId: 'nvidia-head-revision',
+  headContentHash: buildPublicProofHeadHash(nvidiaRecord)
+};
+
+const compactRegistryRecords = records.map(record => ({
+  ...record,
+  body: undefined,
+  citations: undefined,
+  sourceRefs: record.sourceRefs.map(source => ({ title: source.title, url: source.url })),
+  claims: record.claims.map(claim => ({ claimId: claim.claimId }))
+}));
+
+let findCalls = 0;
 const WikiPage = {
-  find: () => new Query(records)
+  find: () => new Query(findCalls++ === 0 ? compactRegistryRecords : records)
 };
 
 const run = async () => {
@@ -124,6 +142,7 @@ const run = async () => {
     const next = app.listen(0, '127.0.0.1', () => resolve(next));
   });
   try {
+    findCalls = 0;
     const address = server.address();
     const response = await fetch(`http://127.0.0.1:${address.port}/api/public/wiki/proof`);
     const payload = await response.json();
@@ -143,6 +162,7 @@ const run = async () => {
     });
     assert.strictEqual(payload.items[1].slot, 'nvidia');
     assert.strictEqual(payload.items[1].proofGrade.grade, 'proven');
+    assert.strictEqual(payload.items[1].proofGrade.criteria.headAccepted, true);
     assert.deepStrictEqual(payload.items[1].proofGrade.criteria.requiredClocks, { secEdgar: true });
     assert.strictEqual(payload.items[2].proofGrade.grade, 'illustrative');
     assert.strictEqual(payload.items[6].proofGrade.grade, 'candidate');

@@ -70,7 +70,8 @@ const {
   buildPublicMaintenanceProof,
   buildPublicProofGrade,
   selectPublicProofPages,
-  serializePublicProofEntry
+  serializePublicProofEntry,
+  slotMatchesPage
 } = require('../services/publicProofService');
 const { buildAlphabetPublicProofAcceptance } = require('../services/wikiPublicProofAcceptanceService');
 const {
@@ -3470,8 +3471,45 @@ const buildWikiRouter = ({
       if (pagesQuery?.sort) pagesQuery = pagesQuery.sort({ updatedAt: -1 });
       if (pagesQuery?.limit) pagesQuery = pagesQuery.limit(250);
       const pages = pagesQuery?.lean ? await pagesQuery.lean() : await pagesQuery;
+      const registryCandidates = Array.isArray(pages) ? pages : [];
+      const preliminarySelection = selectPublicProofPages({
+        pages: registryCandidates,
+        slots: DEFAULT_PUBLIC_PROOF_SLOTS
+      });
+      // The registry scan stays deliberately small, but exact-head acceptance
+      // hashes the complete editorial object. Rehydrate only the selected pages
+      // plus plausible SEC dossier duplicates before grading them. Computing a
+      // full-page hash from the compact projection above creates a guaranteed
+      // false mismatch for otherwise accepted proof objects.
+      const detailIds = new Set(preliminarySelection.map(({ page }) => String(page?._id || page?.id || '')));
+      DEFAULT_PUBLIC_PROOF_SLOTS
+        .filter(slot => slot.requiredClock === 'sec_edgar')
+        .forEach((slot) => {
+          const identifier = String(process.env?.[slot.envKey] || '').trim();
+          registryCandidates.forEach((page) => {
+            if (slotMatchesPage({ slot, page, identifier })) {
+              detailIds.add(String(page?._id || page?.id || ''));
+            }
+          });
+        });
+
+      let proofPages = registryCandidates;
+      const selectedIds = [...detailIds].filter(Boolean);
+      if (selectedIds.length > 0) {
+        let detailQuery = WikiPage.find({ _id: { $in: selectedIds } });
+        if (detailQuery?.select) {
+          detailQuery = detailQuery.select('_id slug title pageType status visibility body plainText sourceRefs citations claims externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog createdAt updatedAt');
+        }
+        const detailedPages = detailQuery?.lean ? await detailQuery.lean() : await detailQuery;
+        const detailsById = new Map((Array.isArray(detailedPages) ? detailedPages : [])
+          .map(page => [String(page?._id || page?.id || ''), page]));
+        proofPages = registryCandidates.map(page => (
+          detailsById.get(String(page?._id || page?.id || '')) || page
+        ));
+      }
+
       const selected = selectPublicProofPages({
-        pages: Array.isArray(pages) ? pages : [],
+        pages: proofPages,
         slots: DEFAULT_PUBLIC_PROOF_SLOTS
       });
       const entries = selected
