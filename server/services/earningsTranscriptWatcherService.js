@@ -303,7 +303,7 @@ const armTranscriptWatchForPage = async ({
 };
 
 const dueTranscriptWatchQuery = ({ cutoff = new Date(Date.now() - DEFAULT_TRANSCRIPT_WATCH_MAX_AGE_MS) } = {}) => ({
-  'createdFrom.label': { $not: /^weekend-readings:/ },
+  'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN },
   status: { $ne: 'archived' },
   'externalWatches.transcripts.status': 'active',
   'externalWatches.transcripts.ticker': { $nin: ['', null] },
@@ -334,7 +334,7 @@ const drainDueTranscriptWatches = async ({
     .sort({ 'externalWatches.transcripts.lastCheckedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
-  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))) {
+  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !isHumanOnlyWikiArtifact(page))) {
     try {
       const result = await checkTranscriptWatchForPageFn({
         WikiSourceEvent,
@@ -381,3 +381,4 @@ module.exports = {
   transcriptKey,
   transcriptWatchEnabled
 };
+const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');

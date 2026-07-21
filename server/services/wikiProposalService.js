@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { classifyWikiPageQuality } = require('./wikiPageQualityGuard');
+const { isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
 
 const STOPWORDS = new Set([
   'about', 'after', 'again', 'against', 'also', 'and', 'because', 'before', 'being', 'between', 'by', 'can', 'could',
@@ -683,7 +684,7 @@ const autoMergeProposalCandidates = async ({ WikiPage, userId, candidates = [] }
   for (const candidate of mergeCandidates) {
     const page = await WikiPage.findOne({ _id: candidate.proposalDecision.mergeTarget.pageId, userId });
     if (!page) continue;
-    if (String(page?.createdFrom?.label || '').startsWith('weekend-readings:')) continue;
+    if (isHumanOnlyWikiArtifact(page)) continue;
     const existing = new Set((page.sourceRefs || []).map(sourceRefIdentity));
     let added = 0;
     (candidate.sourceRefs || []).forEach((ref = {}) => {
@@ -859,8 +860,8 @@ const refreshWikiProposals = async ({
 const createDraftPageFromProposal = async ({ proposal, WikiPage, buildUniqueSlug }) => {
   if (!proposal || !WikiPage) return null;
   const title = proposal.title || 'Untitled Wiki Page';
-  if (String(title).startsWith('weekend-readings:')) {
-    throw new Error('Weekend Readings pages can only be created through the human-owned publication workflow.');
+  if (isHumanOnlyWikiArtifact({ createdFrom: { label: title } })) {
+    throw new Error('Protected research artifacts can only be created through a human-owned publication workflow.');
   }
   const starterClaims = (proposal.starterClaims || []).filter(Boolean).slice(0, 5);
   const openQuestions = (proposal.openQuestions || []).filter(Boolean).slice(0, 5);

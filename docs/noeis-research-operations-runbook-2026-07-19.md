@@ -75,6 +75,8 @@ The command calls only the preview endpoint. It cannot create, approve, or publi
 
 Record the week's highest-value unknown, why resolving it could change the decision, the bounded evidence set, and a completion test.
 
+After Athan has saved the real Thesis 001 initial snapshot, record each phase through the human-only `POST /api/wiki/research-ledger/entries` route. This operation writes only a private monthly Wiki log, revision, and receipt. It does not modify the living thesis or any accepted claim.
+
 ### Tuesday-Wednesday — evidence
 
 Prefer primary sources. Attach evidence to a claim, unknown, assumption, or falsifier. Separate what the source demonstrates from what Athan or an agent infers.
@@ -172,29 +174,31 @@ Boundary: <what this source does not establish>
 
 ## 4. Monthly phase receipt template
 
-```yaml
-month: YYYY-MM
-thesis_page_id: null
-phase: frame | evidence | challenge | decide
-weekly_objective: ""
-completion_test: ""
-priority_unknown_id: null
-sources_added: []
-affected_claim_ids: []
-affected_unknown_ids: []
-critic_run_id: null
-dispositions:
-  accepted: 0
-  rejected: 0
-  deferred: 0
-  preserved: 0
-decision_record_id: null
-artifact_type: none | thesis | chapter | material_change | preserved_judgment
-publication_state: private | awaiting_approval | approved | published
-observed_friction: []
-next_review_at: null
-next_review_trigger: ""
+```json
+{
+  "thesisPageId": "<canonical living-thesis WikiPage ID>",
+  "month": "YYYY-MM",
+  "phase": "frame | evidence | critic | decision | postmortem | quarterly_calibration",
+  "status": "planned | in_progress | completed | deferred | no_material_change",
+  "summary": "What was actually completed or learned",
+  "priorOrDecision": "Athan's prior, disposition, decision, or explicit no-action record",
+  "unknowns": ["Highest-value unresolved question"],
+  "evidencePageIds": ["<active owner-scoped WikiPage ID>"],
+  "dispositions": [
+    {
+      "subjectId": "<claim, unknown, assumption, or falsifier ID>",
+      "disposition": "accepted | rejected | deferred | preserved",
+      "reason": "Human rationale"
+    }
+  ],
+  "friction": ["Observed workflow or product friction"],
+  "outputType": "not_yet_determined | complete_thesis | substantial_chapter | material_change_note | preserved_judgment_note",
+  "nextAction": "Exact next research action",
+  "entryKey": "<optional stable idempotency key>"
+}
 ```
+
+Do not send `thesisTitle`, `recordedAt`, owner identity, claim changes, confidence changes, or publication instructions. The server derives identity and time from canonical state and treats the entry as an operating receipt, not authority to change judgment.
 
 ## 5. Monthly friction postmortem
 

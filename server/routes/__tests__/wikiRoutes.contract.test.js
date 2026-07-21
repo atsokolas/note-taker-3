@@ -2223,12 +2223,12 @@ const run = async () => {
 
     const protectedInboundPage = new WikiPage({
       userId: 'user-1',
-      title: 'Weekend Readings protected inbound candidate',
-      slug: 'weekend-readings-protected-inbound-candidate',
+      title: 'Research ledger protected inbound candidate',
+      slug: 'research-ledger-protected-inbound-candidate',
       pageType: 'log',
       status: 'draft',
       visibility: 'private',
-      createdFrom: { type: 'sources', label: 'weekend-readings:user-1:2026-07-01:2026-07-14' },
+      createdFrom: { type: 'wiki_index', label: 'research-ledger:2026-07:thesis-001' },
       body: {
         type: 'doc',
         content: [{
