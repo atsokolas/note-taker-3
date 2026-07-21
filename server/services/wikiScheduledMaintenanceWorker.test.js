@@ -75,6 +75,7 @@ const run = async () => {
   assert.strictEqual(query.status.$ne, 'archived');
   assert.ok(Array.isArray(query.$or));
   assert.ok(query['createdFrom.label'].$not.test('weekend-readings:owner:2026-07-01:2026-07-14'));
+  assert.ok(query['createdFrom.label'].$not.test('research-ledger:2026-07:thesis-001'));
 
   const page = {
     _id: 'page-1',
@@ -222,11 +223,18 @@ const run = async () => {
     saveCount: 0,
     async save() { this.saveCount += 1; return this; }
   };
+  const reservedLedgerPage = {
+    ...page,
+    _id: 'research-ledger-page',
+    createdFrom: { label: 'research-ledger:2026-07:thesis-001' },
+    saveCount: 0,
+    async save() { this.saveCount += 1; return this; }
+  };
   const reservedRunModel = createRunModel();
   const reservedRevisionModel = createRevisionModel();
   const reserved = await drainScheduledWikiMaintenance({
     models: {
-      WikiPage: createPageModel([reservedPage]),
+      WikiPage: createPageModel([reservedPage, reservedLedgerPage]),
       WikiMaintenanceRun: reservedRunModel,
       WikiRevision: reservedRevisionModel
     },
@@ -238,6 +246,7 @@ const run = async () => {
   assert.strictEqual(reserved.processed, 0);
   assert.strictEqual(reservedMaintainCalls, 0);
   assert.strictEqual(reservedPage.saveCount, 0);
+  assert.strictEqual(reservedLedgerPage.saveCount, 0);
   assert.strictEqual(reservedRunModel.records.length, 0);
   assert.strictEqual(reservedRevisionModel.records.length, 0);
 

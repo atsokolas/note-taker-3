@@ -6,12 +6,13 @@ const {
   releaseRepoBuildLease
 } = require('./wikiRepoBuildLeaseService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
+const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
 
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const duePageQuery = ({ cutoff = new Date(Date.now() - DEFAULT_MAX_AGE_MS) } = {}) => ({
   status: { $ne: 'archived' },
-  'createdFrom.label': { $not: /^weekend-readings:/ },
+  'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN },
   $or: [
     { 'aiState.lastDraftedAt': null },
     { 'aiState.lastDraftedAt': { $exists: false } },
@@ -119,9 +120,7 @@ const drainScheduledWikiMaintenance = async ({
     .sort({ 'aiState.lastDraftedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
-  const eligiblePages = (Array.isArray(pages) ? pages : []).filter(page => (
-    !String(page?.createdFrom?.label || '').startsWith('weekend-readings:')
-  ));
+  const eligiblePages = (Array.isArray(pages) ? pages : []).filter(page => !isHumanOnlyWikiArtifact(page));
   for (const page of eligiblePages) {
     const run = await createRun({ WikiMaintenanceRun, page });
     let buildLease = null;

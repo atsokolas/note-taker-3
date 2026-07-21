@@ -355,7 +355,7 @@ const armEdgarWatchForPage = async ({
 };
 
 const dueEdgarWatchQuery = ({ cutoff = new Date(Date.now() - DEFAULT_EDGAR_WATCH_MAX_AGE_MS) } = {}) => ({
-  'createdFrom.label': { $not: /^weekend-readings:/ },
+  'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN },
   status: { $ne: 'archived' },
   'externalWatches.edgar.status': 'active',
   'externalWatches.edgar.cik': { $nin: ['', null] },
@@ -383,7 +383,7 @@ const drainDueEdgarWatches = async ({
     .sort({ 'externalWatches.edgar.lastCheckedAt': 1, updatedAt: 1 })
     .limit(max);
   const results = [];
-  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))) {
+  for (const page of (Array.isArray(pages) ? pages : []).filter(page => !isHumanOnlyWikiArtifact(page))) {
     try {
       const result = await checkEdgarWatchForPageFn({
         WikiSourceEvent,
@@ -437,3 +437,4 @@ module.exports = {
   secUserAgent,
   armEdgarWatchForPage
 };
+const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');

@@ -23,6 +23,14 @@ const {
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
+const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
+const {
+  HUMAN_ONLY_WIKI_LABEL_PATTERN,
+  RESEARCH_LEDGER_LABEL_PATTERN,
+  isHumanOnlyWikiArtifact,
+  isResearchOperatingLedgerPage,
+  isWeekendReadingsPage
+} = require('../services/wikiProtectedArtifactService');
 const { loadPublishedWeekendReadingsArtifact } = require('../services/weekendReadingsWorkflowService');
 const { buildLivingThesisBody } = require('../services/wikiPageStructureService');
 const {
@@ -129,10 +137,9 @@ const PAGE_TYPE_ALIASES = {
   synthesis: 'overview'
 };
 const STATUSES = new Set(['draft', 'published', 'archived']);
-const isWeekendReadingsPage = page => String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
 const rejectAgentReservedWeekendReadingsCreation = (req, res, createdFrom) => {
-  if (!req?.agentToken || !isWeekendReadingsPage({ createdFrom })) return false;
-  res.status(403).json({ error: 'Only the human owner can create Weekend Readings.' });
+  if (!req?.agentToken || !isHumanOnlyWikiArtifact({ createdFrom })) return false;
+  res.status(403).json({ error: 'Only the human owner can create protected research artifacts.' });
   return true;
 };
 
@@ -142,8 +149,8 @@ const assertHumanForResolvedWeekendReadingsTargets = async ({ WikiPage, req, pag
     const page = await WikiPage.findOne({ _id: pageId, userId: req.user.id })
       .select('createdFrom.label')
       .lean();
-    if (isWeekendReadingsPage(page)) {
-      const error = new Error('Only the human owner can mutate Weekend Readings.');
+    if (isHumanOnlyWikiArtifact(page)) {
+      const error = new Error('Only the human owner can mutate protected research artifacts.');
       error.statusCode = 403;
       throw error;
     }
@@ -158,8 +165,8 @@ const buildRequireHumanForWeekendReadingsMutation = ({ WikiPage } = {}) => async
     const page = await WikiPage.findOne({ _id: req.params.id, userId: req.user.id })
       .select('createdFrom.label')
       .lean();
-    if (isWeekendReadingsPage(page)) {
-      return res.status(403).json({ error: 'Only the human owner can mutate Weekend Readings.' });
+    if (isHumanOnlyWikiArtifact(page)) {
+      return res.status(403).json({ error: 'Only the human owner can mutate protected research artifacts.' });
     }
     return next();
   } catch (_error) {
@@ -883,6 +890,7 @@ const publicSourceSnippet = (source = {}, { repoPage = false } = {}) => {
 };
 
 const serializePublicWikiPage = (page) => {
+  if (isResearchOperatingLedgerPage(page)) return null;
   const full = serializeWikiPage(page);
   if (!full) return full;
   if (full.qualityReview && full.qualityReview.surfaceEligible === false) return null;
@@ -997,7 +1005,7 @@ const serializePublicWikiCollection = ({ collection, pages = [] } = {}) => {
   const raw = typeof collection.toObject === 'function'
     ? collection.toObject({ virtuals: false })
     : { ...collection };
-  const publicPages = pages.filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'));
+  const publicPages = pages.filter(page => !isHumanOnlyWikiArtifact(page));
   return {
     _id: serializeId(raw._id),
     name: raw.name || 'Shared wiki',
@@ -1745,6 +1753,14 @@ const buildWikiRouter = ({
     invalidatePublicPageCache: (...keys) => publicPageCache.invalidate(keys)
   }));
 
+  router.use(buildResearchOperatingLedgerRouter({
+    authenticateToken: wikiAuth,
+    WikiPage,
+    WikiRevision,
+    NoeisReceipt,
+    buildUniqueSlug
+  }));
+
   const buildUniqueCollectionSlug = async (slugBase) => {
     const base = slugify(slugBase || 'shared-wiki');
     if (!WikiSharedCollection?.findOne) return base;
@@ -2381,12 +2397,12 @@ const buildWikiRouter = ({
       userId,
       status: { $ne: 'archived' },
       _id: { $ne: targetPage._id },
-      'createdFrom.label': { $not: /^weekend-readings:/ }
+      'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN }
     };
     const candidates = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(Math.max(1, Math.min(Number(candidateLimit) || 600, 600)));
     const updatedPages = [];
     const processCandidate = async (page) => {
-      if (isWeekendReadingsPage(page)) return null;
+      if (isHumanOnlyWikiArtifact(page)) return null;
       const before = snapshotPage(page);
       const result = applyWikiAutolinkToDoc({ doc: page.body || emptyDoc(), targetPage });
       if (!result.applied) return null;
@@ -2406,7 +2422,7 @@ const buildWikiRouter = ({
       });
       return page;
     };
-    const queue = (Array.isArray(candidates) ? candidates : []).filter(page => !isWeekendReadingsPage(page));
+    const queue = (Array.isArray(candidates) ? candidates : []).filter(page => !isHumanOnlyWikiArtifact(page));
     const workerCount = Math.max(1, Math.min(Number(concurrency) || 1, 10, queue.length || 1));
     await Promise.all(Array.from({ length: workerCount }, async () => {
       while (queue.length) {
@@ -3385,7 +3401,8 @@ const buildWikiRouter = ({
       }
       const query = {
         visibility: 'shared',
-        status: { $ne: 'archived' }
+        status: { $ne: 'archived' },
+        'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
       };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
         query._id = idOrSlug;
@@ -3463,10 +3480,11 @@ const buildWikiRouter = ({
     try {
       let pagesQuery = WikiPage.find({
         visibility: 'shared',
-        status: { $ne: 'archived' }
+        status: { $ne: 'archived' },
+        'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN }
       });
       if (pagesQuery?.select) {
-        pagesQuery = pagesQuery.select('_id slug title pageType status visibility plainText sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
+        pagesQuery = pagesQuery.select('_id slug title pageType status visibility createdFrom plainText sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
       }
       if (pagesQuery?.sort) pagesQuery = pagesQuery.sort({ updatedAt: -1 });
       if (pagesQuery?.limit) pagesQuery = pagesQuery.limit(250);
@@ -3509,7 +3527,7 @@ const buildWikiRouter = ({
       }
 
       const selected = selectPublicProofPages({
-        pages: proofPages,
+        pages: (Array.isArray(proofPages) ? proofPages : []).filter(page => !isHumanOnlyWikiArtifact(page)),
         slots: DEFAULT_PUBLIC_PROOF_SLOTS
       });
       const entries = selected
@@ -3548,7 +3566,11 @@ const buildWikiRouter = ({
         res.setHeader('X-Noeis-Comparison-Cache', 'HIT');
         return res.status(200).json(cachedPayload);
       }
-      const query = { visibility: 'shared', status: { $ne: 'archived' } };
+      const query = {
+        visibility: 'shared',
+        status: { $ne: 'archived' },
+        'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
+      };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
       else query.slug = idOrSlug;
       let pageQuery = WikiPage.findOne(query);
@@ -3612,7 +3634,8 @@ const buildWikiRouter = ({
       if (!idOrSlug) return res.status(400).json({ error: 'Wiki page id or slug is required.' });
       const query = {
         visibility: 'shared',
-        status: { $ne: 'archived' }
+        status: { $ne: 'archived' },
+        'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
       };
       if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
         query._id = idOrSlug;
@@ -3621,9 +3644,9 @@ const buildWikiRouter = ({
       }
       const originPage = await WikiPage.findOne(query).lean();
       if (!originPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
-      if (String(originPage?.createdFrom?.label || '').startsWith('weekend-readings:')) {
+      if (isHumanOnlyWikiArtifact(originPage)) {
         return res.status(409).json({
-          error: 'Published Weekend Readings editions are immutable public artifacts and cannot be adopted from the private draft.'
+          error: 'Protected research artifacts cannot be adopted into a private mutable copy.'
         });
       }
 
@@ -3752,7 +3775,8 @@ const buildWikiRouter = ({
       const pages = await WikiPage.find({
         _id: { $in: collection.pageIds || [] },
         visibility: 'shared',
-        status: { $ne: 'archived' }
+        status: { $ne: 'archived' },
+        'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
       }).sort({ updatedAt: -1 }).lean();
       res.status(200).json({
         collection: serializePublicWikiCollection({ collection, pages })
@@ -3800,10 +3824,11 @@ const buildWikiRouter = ({
       const pages = await WikiPage.find({
         _id: { $in: collection.pageIds || [] },
         visibility: 'shared',
-        status: { $ne: 'archived' }
+        status: { $ne: 'archived' },
+        'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
       }).sort({ updatedAt: -1 }).lean();
       const snapshots = (Array.isArray(pages) ? pages : [])
-        .filter(page => !String(page?.createdFrom?.label || '').startsWith('weekend-readings:'))
+        .filter(page => !isHumanOnlyWikiArtifact(page))
         .map(buildAdoptableWikiPageSnapshot)
         .filter(Boolean);
       if (!snapshots.length) return res.status(422).json({ error: 'Shared wiki collection has no adoptable pages.' });
@@ -3866,10 +3891,14 @@ const buildWikiRouter = ({
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const weekendReadingsPage = String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+      const researchLedgerPage = isResearchOperatingLedgerPage(page);
       if (weekendReadingsPage && enumChecks[2]?.value === 'shared') {
         return res.status(409).json({
           error: 'Weekend Readings must be reviewed, approved, and published through its revision-bound publication controls.'
         });
+      }
+      if (researchLedgerPage && enumChecks[2]?.value === 'shared') {
+        return res.status(409).json({ error: 'Research operating ledgers are permanently private.' });
       }
       const before = snapshotPage(page);
       const actorType = req.agentToken ? 'agent' : 'user';

@@ -13,12 +13,28 @@ const {
   emailConfigurationStatus,
   verifyUnsubscribeToken
 } = require('../services/morningPaperEmailService');
+const { isHumanOnlyWikiArtifact } = require('../services/wikiProtectedArtifactService');
 
 const clean = (value = '', limit = 500) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return text.length > limit ? text.slice(0, limit).trim() : text;
 };
 const plain = (value) => value?.toObject ? value.toObject({ virtuals: false }) : value;
+
+const buildRequireHumanForProtectedPageMutation = ({ WikiPage } = {}) => async (req, res, next) => {
+  if (!req.agentToken && req.authInfo?.tokenSource !== 'agent-token') return next();
+  try {
+    const page = await WikiPage.findOne({ _id: req.params.pageId, userId: req.user.id })
+      .select('createdFrom.label')
+      .lean();
+    if (isHumanOnlyWikiArtifact(page)) {
+      return res.status(403).json({ error: 'Only the human owner can mutate protected research artifacts.' });
+    }
+    return next();
+  } catch (_error) {
+    return res.status(400).json({ error: 'Invalid wiki page id.' });
+  }
+};
 
 const safeEmail = (value = '') => {
   const email = clean(value, 320).toLowerCase();
@@ -73,6 +89,7 @@ const buildDailyLoopRouter = ({
 } = {}) => {
   const router = express.Router();
   const auth = authenticateToken;
+  const requireHumanForProtectedPageMutation = buildRequireHumanForProtectedPageMutation({ WikiPage });
   const dailyLoopFlights = new Map();
   const models = {
     User, WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, WikiBriefingCache,
@@ -119,7 +136,7 @@ const buildDailyLoopRouter = ({
     }
   });
 
-  router.post('/api/daily-loop/check-ins/:pageId/:claimId', auth, async (req, res) => {
+  router.post('/api/daily-loop/check-ins/:pageId/:claimId', auth, requireHumanForProtectedPageMutation, async (req, res) => {
     try {
       const result = await recordClaimCheckIn({
         models,
@@ -214,7 +231,7 @@ const buildDailyLoopRouter = ({
   router.get('/api/morning-paper/unsubscribe', unsubscribe);
   router.post('/api/morning-paper/unsubscribe', unsubscribe);
 
-  router.post('/api/wiki/pages/:pageId/reading-watch', auth, async (req, res) => {
+  router.post('/api/wiki/pages/:pageId/reading-watch', auth, requireHumanForProtectedPageMutation, async (req, res) => {
     try {
       const page = await WikiPage.findOne({ _id: req.params.pageId, userId: req.user.id });
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -226,7 +243,7 @@ const buildDailyLoopRouter = ({
     }
   });
 
-  router.post('/api/wiki/pages/:pageId/reading-watch/check', auth, async (req, res) => {
+  router.post('/api/wiki/pages/:pageId/reading-watch/check', auth, requireHumanForProtectedPageMutation, async (req, res) => {
     try {
       const page = await WikiPage.findOne({ _id: req.params.pageId, userId: req.user.id });
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
@@ -238,7 +255,7 @@ const buildDailyLoopRouter = ({
     }
   });
 
-  router.post('/api/daily-loop/watchers/:pageId/:type/disarm', auth, async (req, res) => {
+  router.post('/api/daily-loop/watchers/:pageId/:type/disarm', auth, requireHumanForProtectedPageMutation, async (req, res) => {
     const field = { sec_edgar: 'edgar', earnings_transcript: 'transcripts', github: 'githubRepo', reading: 'reading' }[req.params.type];
     if (!field) return res.status(400).json({ error: 'Unknown watcher type.' });
     const page = await WikiPage.findOne({ _id: req.params.pageId, userId: req.user.id });
@@ -253,4 +270,4 @@ const buildDailyLoopRouter = ({
   return router;
 };
 
-module.exports = { buildDailyLoopRouter, serializeSettings, safeTimezone };
+module.exports = { buildDailyLoopRouter, buildRequireHumanForProtectedPageMutation, serializeSettings, safeTimezone };

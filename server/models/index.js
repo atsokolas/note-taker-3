@@ -721,7 +721,18 @@ const wikiPageSchema = new mongoose.Schema({
   slug: { type: String, required: true, trim: true },
   pageType: { type: String, enum: WIKI_PAGE_TYPES, default: 'topic', set: normalizeWikiPageTypeForModel },
   status: { type: String, enum: WIKI_PAGE_STATUSES, default: 'draft', index: true },
-  visibility: { type: String, enum: WIKI_VISIBILITY_VALUES, default: 'private', index: true },
+  visibility: {
+    type: String,
+    enum: WIKI_VISIBILITY_VALUES,
+    default: 'private',
+    index: true,
+    validate: {
+      validator(value) {
+        return !(value === 'shared' && String(this.createdFrom?.label || '').startsWith('research-ledger:'));
+      },
+      message: 'Research operating ledgers are permanently private.'
+    }
+  },
   sourceScope: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },
   createdFrom: { type: wikiCreatedFromSchema, default: () => ({}) },
   adoptedFrom: { type: wikiAdoptedFromSchema, default: () => ({}) },

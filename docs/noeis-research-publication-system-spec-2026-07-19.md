@@ -1,6 +1,6 @@
 # Noeis research and publication system
 
-**Status:** Weekend Readings production base landed; private operator-intake increment in implementation
+**Status:** Weekend Readings intake and publication base landed; monthly research-ledger operator route rebased and locally verified in PR #52, pending exact-tip review and merge
 **Date:** 2026-07-19
 **Owner:** Athan Tsokolas
 **System objective:** Operate one durable research-and-publication practice in which private reading, maintained judgment, selective public proof, decisions, and postmortems remain connected inside canonical Noeis objects.
@@ -44,7 +44,8 @@ Noeis remains the canonical internal and public artifact. Distribution outside N
 
 ### 2.1 Live and repository baseline
 
-- The Daily Loop and Judgment system landed through PR #47. Weekend Readings and the research operating ledger landed through PR #48 at merge `71839eb1`; the release-review hardening landed through PR #49 at exact reviewed tip `599a2f07` and merge `ece79e4c`.
+- The Daily Loop and Judgment system landed through PR #47. Weekend Readings and the research operating ledger landed through PR #48 at merge `71839eb1`; the release-review hardening landed through PR #49 at exact reviewed tip `599a2f07` and merge `ece79e4c`; the private operator intake landed through PR #50 at reviewed tip `cad9b77a` and merge `84107f52`; and the living-thesis folio landed through PR #51 at merge `1dab7ec1`.
+- PR #52 adds the human-only monthly research-ledger operator route. It has been rebased onto `origin/main` at `c08f33c1` and passed the complete local `wiki:qa` gate on 2026-07-20; it remains unmerged and undeployed until exact-tip review completes.
 - `https://www.noeis.io/`, `/wiki`, and `/proof` returned HTTP 200 on 2026-07-19. The Render health endpoint returned HTTP 200 with `{"status":"ok","message":"Server is warm."}`. These checks establish availability, not authenticated workflow acceptance.
 - No real Weekend Readings artifact has been created or published. Production acceptance is limited to deployment, runtime health, authorization boundaries, and synthetic fixtures.
 
@@ -84,7 +85,7 @@ The existing continuity is fragmented across prose memory and Gmail history. Exa
 
 ### 2.4 Demonstrated gaps
 
-Current `main` does not yet prove the following complete contracts:
+The original gap inventory below is retained as implementation history. Items 1-6 and 9-12 are now covered by the landed Weekend Readings, judgment, intake, and research-ledger services; item 7 is mechanically ready but cannot complete until Athan conducts the real day-zero session; item 8 remains a deliberate boundary around the generic ingest path.
 
 1. An idempotent operation that creates one dated Weekend Readings draft from selected URLs and stores the selection rationale/classification durably.
 2. A distinct review state that cannot be mistaken for public publication.
@@ -341,6 +342,8 @@ Do not add a parallel program model. Record monthly status through a small curre
 - next review date or event trigger.
 
 The page holds current truth; revisions hold history; receipts hold operational continuity.
+
+The operator write contract is `POST /api/wiki/research-ledger/entries`. It is authenticated and human-only; agent tokens receive `403` before page resolution or persistence. The route derives the thesis title and owner from the canonical living-thesis WikiPage, verifies that every evidence page is active and owner-scoped, ignores client-supplied timestamps and thesis titles, and delegates to the transactional ledger service. Recording an entry creates or appends to one private monthly `WikiPage(pageType=log)`, one revision, and one idempotent receipt. A semantic payload digest makes an exact retry return stored truth and makes conflicting reuse of an entry key fail with `409`. Research-ledger pages are a reserved permanently-private class: agent mutations, corpus-wide writers, shared visibility, public serialization, public collections, and public adoption all fail closed. The operation does not alter the thesis body, judgment, claims, confidence, or publication state.
 
 ### 5.7 Implemented collision-free contracts
 
