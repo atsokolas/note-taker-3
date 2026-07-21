@@ -43,6 +43,11 @@ export const isPublicRepoWikiPage = (page = {}) => {
   return false;
 };
 
+/** Company dossiers are identified only by their public-safe filing clock. */
+export const isPublicCompanyDossierPage = (page = {}) => (
+  String(page?.maintenanceProof?.clock?.type || '').toLowerCase() === 'sec_edgar'
+);
+
 /** Derive owner/repo from public maintenance proof or title — never externalWatches. */
 export const publicRepoGitHubLabel = (page = {}) => {
   const explicit = String(page?.githubRepo?.fullName || '').trim();
@@ -108,6 +113,28 @@ const hasAuthToken = () => {
 };
 
 const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+const publicNodeText = (node = {}) => [
+  node?.text || '',
+  ...((node?.content || []).map(publicNodeText))
+].join('');
+
+export const splitPublicCompanyBrief = (body = null) => {
+  const content = Array.isArray(body?.content) ? body.content : [];
+  const start = content.findIndex(node => (
+    node?.type === 'heading' && cleanText(publicNodeText(node)).toLowerCase() === 'investor brief'
+  ));
+  if (start < 0) return null;
+  const level = Number(content[start]?.attrs?.level || 2);
+  const relativeEnd = content.slice(start + 1).findIndex(node => (
+    node?.type === 'heading' && Number(node?.attrs?.level || 2) <= level
+  ));
+  const end = relativeEnd < 0 ? content.length : start + 1 + relativeEnd;
+  return {
+    brief: { ...body, content: content.slice(start, end) },
+    remainder: { ...body, content: [...content.slice(0, start), ...content.slice(end)] }
+  };
+};
 
 const buildSharedWikiDescription = (page, intro = '') => {
   const fromIntro = cleanText(intro).slice(0, 220);
@@ -252,6 +279,19 @@ const SharedWikiPage = () => {
   const intro = useMemo(() => firstParagraphText(page?.body), [page?.body]);
   const weekendReadingsMode = page?.artifactType === 'weekend_readings';
   const repoDossierMode = Boolean(page && isPublicRepoWikiPage(page));
+  const companyDossierMode = Boolean(page && !repoDossierMode && isPublicCompanyDossierPage(page));
+  const companyBriefSplit = useMemo(
+    () => (companyDossierMode ? splitPublicCompanyBrief(page?.body) : null),
+    [companyDossierMode, page?.body]
+  );
+  const companyBriefTocItems = useMemo(
+    () => extractTocItems(companyBriefSplit?.brief),
+    [companyBriefSplit?.brief]
+  );
+  const companyBodyTocItems = useMemo(
+    () => extractTocItems(companyBriefSplit?.remainder),
+    [companyBriefSplit?.remainder]
+  );
   const dossierPageView = useMemo(
     () => (repoDossierMode ? buildPublicDossierPageView(page) : page),
     [page, repoDossierMode]
@@ -421,7 +461,7 @@ const SharedWikiPage = () => {
   }, []);
 
   return (
-    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}`}>
+    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${companyDossierMode ? ' is-company-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}`}>
       <nav className="shared-wiki-page__topbar" aria-label="Shared wiki navigation">
         <Link to="/" className="shared-wiki-page__brand">Noeis</Link>
         <Link to="/" className="shared-wiki-page__home">Open Noeis</Link>
@@ -441,6 +481,14 @@ const SharedWikiPage = () => {
               {weekendReadingsMode ? 'Weekend Readings' : (repoDossierMode ? 'Shared repository dossier' : 'Shared wiki')}
             </p>
             <h1>{displayTitle}</h1>
+            {companyBriefSplit?.brief ? (
+              <div className="shared-wiki-page__company-brief wiki-read" aria-label="Investor brief">
+                {renderTiptapDoc(companyBriefSplit.brief, {
+                  tocItems: companyBriefTocItems,
+                  disableInternalWikiLinks: true
+                })}
+              </div>
+            ) : null}
             {weekendReadingsMode ? (
               <p className="shared-wiki-page__receipt">
                 {page.authorLabel || 'Athan Tsokolas'} — researched and maintained with Noeis
@@ -476,8 +524,8 @@ const SharedWikiPage = () => {
                 <MaintenanceProofStamp
                   proof={displayedStampProof}
                   className="shared-wiki-page__maintenance-stamp maintenance-proof-stamp"
-                  compact={repoDossierMode}
-                  showCounts={!repoDossierMode}
+                  compact={repoDossierMode || companyDossierMode}
+                  showCounts={!repoDossierMode && !companyDossierMode}
                 />
                 <p className="shared-wiki-page__privacy-note">
                   {PUBLIC_PROOF_PRIVACY_STATEMENT}
@@ -498,7 +546,7 @@ const SharedWikiPage = () => {
                 sectionsExpandedByDefault
               />
             ) : null}
-            {!repoDossierMode && !weekendReadingsMode && intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
+            {!repoDossierMode && !companyDossierMode && !weekendReadingsMode && intro ? <p className="shared-wiki-page__intro">{intro}</p> : null}
             <div className="shared-wiki-page__metrics" aria-label="Wiki page metrics">
               <span>{wordCount} words</span>
               <span>{sourceCount} sources</span>
@@ -559,7 +607,13 @@ const SharedWikiPage = () => {
                   disableInternalWikiLinks
                 />
               ) : (
-                renderTiptapDoc(page.body, { tocItems, disableInternalWikiLinks: true })
+                renderTiptapDoc(
+                  companyBriefSplit?.remainder || page.body,
+                  {
+                    tocItems: companyBriefSplit?.remainder ? companyBodyTocItems : tocItems,
+                    disableInternalWikiLinks: true
+                  }
+                )
               )}
             </div>
           </div>

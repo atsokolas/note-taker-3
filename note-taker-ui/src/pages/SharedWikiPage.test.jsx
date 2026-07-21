@@ -3,9 +3,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import SharedWikiPage, {
   buildSharedWikiSchema,
+  isPublicCompanyDossierPage,
   isPublicRepoWikiPage,
   publicRepoGitHubLabel,
-  publicRepoPublishedHead
+  publicRepoPublishedHead,
+  splitPublicCompanyBrief
 } from './SharedWikiPage';
 import { adoptPublicWikiPage, getPublicWikiComparison, getPublicWikiPage } from '../api/wiki';
 import { trackSharedWikiAdoptClicked, trackSharedWikiViewed } from '../utils/marketingAnalytics';
@@ -149,6 +151,46 @@ describe('SharedWikiPage', () => {
     unmount();
     expect(document.body).not.toHaveClass('noeis-public-share');
     expect(document.documentElement).not.toHaveClass('noeis-public-share');
+  });
+
+  it('uses the compact investor-first shell for public SEC company dossiers', async () => {
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        _id: 'nvidia-dossier',
+        title: 'NVIDIA dossier',
+        visibility: 'shared',
+        maintenanceProof: {
+          clock: { type: 'sec_edgar', label: 'SEC filings' },
+          currentThrough: { label: 'Q1 filing', at: '2026-05-20T00:00:00.000Z' },
+          lastReviewedAt: '2026-07-20T00:00:00.000Z',
+          sourceCount: 45,
+          claimCount: 50
+        },
+        sourceCount: 45,
+        claimCount: 50,
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Investor brief' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Current judgment appears once.' }] }
+          ]
+        },
+        sourceRefs: []
+      }
+    });
+
+    const { container } = render(<SharedWikiPage />);
+
+    expect(await screen.findByRole('heading', { name: 'NVIDIA dossier' })).toBeInTheDocument();
+    expect(container.querySelector('.shared-wiki-page')).toHaveClass('is-company-dossier');
+    expect(screen.getAllByText('Current judgment appears once.')).toHaveLength(1);
+    const investorBrief = screen.getByLabelText('Investor brief');
+    const adoption = screen.getByLabelText('Adopt shared wiki');
+    expect(investorBrief.compareDocumentPosition(adoption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText('Sources')).not.toBeInTheDocument();
+    expect(screen.queryByText('Claims')).not.toBeInTheDocument();
+    expect(screen.getByText('45 sources')).toBeInTheDocument();
+    expect(screen.getByText('50 claims')).toBeInTheDocument();
   });
 
   it('renders every public reference and makes claim citations navigate to their target', async () => {
@@ -623,6 +665,16 @@ describe('public repo dossier helpers', () => {
     })).toBe(false);
   });
 
+  it('detects company dossiers only from the public SEC clock', () => {
+    expect(isPublicCompanyDossierPage({
+      maintenanceProof: { clock: { type: 'sec_edgar' } }
+    })).toBe(true);
+    expect(isPublicCompanyDossierPage({
+      title: 'NVIDIA dossier',
+      maintenanceProof: { clock: { type: 'reading' } }
+    })).toBe(false);
+  });
+
   it('derives GitHub slug from public maintenance proof refs', () => {
     expect(publicRepoGitHubLabel({
       githubRepo: { owner: 'OpenAI', repo: 'openai-agents-js', fullName: 'OpenAI/openai-agents-js' }
@@ -642,6 +694,26 @@ describe('public repo dossier helpers', () => {
       githubRepo: { publishedHeadSha: 'ABC1234567890' },
       maintenanceProof: { currentThrough: { label: 'Commit fallback1' } }
     })).toBe('ABC1234');
+  });
+});
+
+describe('public company dossier helpers', () => {
+  it('extracts the opening investor brief without duplicating it in the remainder', () => {
+    const body = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Investor brief' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Current judgment.' }] },
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Five questions' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Question one.' }] }
+      ]
+    };
+
+    const split = splitPublicCompanyBrief(body);
+    expect(split.brief.content).toHaveLength(2);
+    expect(split.remainder.content).toHaveLength(2);
+    expect(split.brief.content[0].content[0].text).toBe('Investor brief');
+    expect(split.remainder.content[0].content[0].text).toBe('Five questions');
   });
 });
 
