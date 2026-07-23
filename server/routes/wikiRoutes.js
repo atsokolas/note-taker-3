@@ -22,6 +22,11 @@ const {
 } = require('../services/wikiSchemaService');
 const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
+const {
+  buildCompanyDossierBody,
+  buildInvestmentDossierProfile,
+  normalizeCompanyDossierInput
+} = require('../services/companyDossierService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
 const {
@@ -50,7 +55,8 @@ const {
   checkEdgarWatchForPage: defaultCheckEdgarWatchForPage,
   normalizeForms: normalizeEdgarForms,
   normalizeTicker: normalizeEdgarTicker,
-  padCik: padEdgarCik
+  padCik: padEdgarCik,
+  resolveCompanyIdentifier: defaultResolveEdgarCompanyIdentifier
 } = require('../services/edgarWatcherService');
 const {
   armTranscriptWatchForPage: defaultArmTranscriptWatchForPage,
@@ -1481,6 +1487,7 @@ const buildWikiRouter = ({
   buildWikiBriefing = defaultBuildWikiBriefing,
   armEdgarWatchForPage = defaultArmEdgarWatchForPage,
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
+  resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
   checkTranscriptWatchForPage = defaultCheckTranscriptWatchForPage,
   armGitHubRepoWatchForPage = defaultArmGitHubRepoWatchForPage,
@@ -2816,6 +2823,189 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error creating wiki page:', error);
       res.status(500).json({ error: 'Failed to create wiki page.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/from-company', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) {
+        return res.status(403).json({ error: 'Only the human owner can create an investment dossier.' });
+      }
+      let input;
+      try {
+        input = normalizeCompanyDossierInput(req.body || {});
+      } catch (validationError) {
+        return res.status(400).json({ error: validationError.message });
+      }
+      const company = await resolveEdgarCompanyIdentifier({ ticker: input.ticker });
+      const existing = await WikiPage.findOne({
+        userId: req.user.id,
+        archived: { $ne: true },
+        'externalWatches.edgar.cik': company.cik
+      });
+      if (existing) {
+        return res.status(200).json({
+          action: 'existing',
+          page: serializeWikiPage(existing),
+          company
+        });
+      }
+
+      const title = normalizeTitle(`${company.companyName || company.ticker} investment dossier`);
+      const body = buildCompanyDossierBody({ ...input, ...company });
+      const page = new WikiPage({
+        userId: req.user.id,
+        title,
+        slug: await buildUniqueSlug(req.user.id, title),
+        pageType: 'entity',
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: 'entire_library',
+        createdFrom: {
+          type: 'wiki_index',
+          objectIds: [],
+          text: input.startingJudgment,
+          label: `company-dossier:${company.ticker}`
+        },
+        body,
+        plainText: extractPlainText(body),
+        judgment: normalizeJudgment({
+          input: {
+            kind: 'thesis',
+            governingQuestion: `Can ${company.companyName || company.ticker} compound owner value above a ${(input.requiredReturn * 100).toFixed(1)}% annual hurdle over ${input.horizonYears} years?`,
+            currentJudgment: input.startingJudgment,
+            status: 'researching',
+            decisionPosture: 'investigate',
+            ownerLabel: 'Owner',
+            startedAt: new Date(),
+            causalModel: { summary: '', nodes: [], edges: [] },
+            assumptions: [],
+            unknowns: [],
+            falsifiers: [],
+            decisions: []
+          }
+        }),
+        investmentDossier: buildInvestmentDossierProfile({ ...input, ...company }),
+        externalWatches: {
+          edgar: {
+            ticker: company.ticker,
+            cik: company.cik,
+            companyName: company.companyName,
+            forms: ['10-K', '10-Q'],
+            status: 'active'
+          }
+        }
+      });
+      refreshPageClaims(page);
+      await page.save();
+      await syncPageGraph(page, req.user.id);
+      const revision = await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'created',
+        actorType: 'user',
+        summary: `Created ${company.ticker} investment dossier from the owner's starting judgment.`
+      });
+      if (revision?._id && page.judgment) {
+        page.judgment.initialRevisionId = revision._id;
+        await page.save();
+      }
+
+      let watchResult = { filings: [], events: [] };
+      let watchError = '';
+      try {
+        watchResult = await checkEdgarWatchForPage({
+          WikiSourceEvent,
+          page,
+          limit: 4
+        });
+        const latestByForm = new Map();
+        (watchResult.events || []).forEach((event) => {
+          const raw = event?.toObject ? event.toObject() : event;
+          const form = String(raw?.metadata?.form || '').toUpperCase();
+          if (!['10-K', '10-Q'].includes(form) || latestByForm.has(form)) return;
+          latestByForm.set(form, raw);
+        });
+        latestByForm.forEach((event) => {
+          page.sourceRefs.push({
+            type: 'external',
+            title: event.title || `${company.ticker} ${event.metadata?.form || 'SEC filing'}`,
+            snippet: String(event.text || '').slice(0, 120000),
+            url: event.url || '',
+            citationLabel: `${event.metadata?.form || 'SEC filing'} · ${event.metadata?.filingDate || 'date unavailable'}`,
+            provider: 'sec-edgar',
+            metadata: {
+              ...event.metadata,
+              sourceEventId: serializeId(event._id),
+              evidenceState: 'attached_at_creation'
+            },
+            addedBy: 'ai'
+          });
+        });
+        if (latestByForm.size > 0) {
+          page.markModified?.('sourceRefs');
+          await page.save();
+        }
+      } catch (error) {
+        watchError = String(error?.message || 'SEC filing check failed.');
+      }
+      const receipt = await persistNoeisReceipt({
+        NoeisReceipt,
+        userId: req.user.id,
+        receipt: {
+          id: `company-dossier:${serializeId(page._id)}`,
+          kind: 'company_dossier_created',
+          source: 'wiki',
+          sourceLabel: 'Company dossier',
+          status: watchError ? 'partial' : 'completed',
+          title: `Created ${company.ticker} investment dossier.`,
+          summary: watchError
+            ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
+            : 'The private dossier, owner judgment, return hurdle, and free SEC filing watch were saved.',
+          metrics: {
+            ticker: company.ticker,
+            requiredReturn: input.requiredReturn,
+            horizonYears: input.horizonYears,
+            filingsFound: watchResult.filings?.length || 0,
+            sourceEventsCreated: watchResult.events?.length || 0,
+            filingsAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          },
+          touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+          nextAction: {
+            type: 'review_wiki_page',
+            id: serializeId(page._id),
+            title: 'Build and review the first trusted head'
+          },
+          completedAt: new Date()
+        }
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        ticker: company.ticker,
+        source: 'company_dossier'
+      });
+      res.status(201).json({
+        action: 'created',
+        page: serializeWikiPage(page),
+        company,
+        watchResult: {
+          filingsFound: watchResult.filings?.length || 0,
+          sourceEventsCreated: watchResult.events?.length || 0,
+          filingsAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+          watchError
+        },
+        receipt
+      });
+    } catch (error) {
+      console.error('Error creating company dossier:', error);
+      res.status(Number(error?.statusCode) || 500).json({
+        error: Number(error?.statusCode) < 500
+          ? error.message
+          : 'Failed to create the company dossier.'
+      });
     }
   });
 

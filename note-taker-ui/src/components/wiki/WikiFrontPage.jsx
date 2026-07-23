@@ -11,6 +11,7 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiRepoCreateComposer from './WikiRepoCreateComposer';
+import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
@@ -448,6 +449,7 @@ const WikiFrontPage = () => {
         <section className="wiki-front-page__repo-create wfp-anim wfp-anim--5" aria-label="Create a repo wiki">
           <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
         </section>
+        <WikiCompanyDossierComposer className="wiki-front-page__company-builder wfp-anim wfp-anim--6" />
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       </WikiFrontPageShell>
     );
@@ -622,6 +624,7 @@ const WikiFrontPage = () => {
       <section className="wiki-front-page__repo-create wfp-anim wfp-anim--7" aria-label="Create a repo wiki from GitHub">
         <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
       </section>
+      <WikiCompanyDossierComposer className="wiki-front-page__company-builder wfp-anim wfp-anim--7" />
 
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
     </WikiFrontPageShell>

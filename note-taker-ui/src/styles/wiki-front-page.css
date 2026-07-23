@@ -380,6 +380,75 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   width: 100%;
 }
 
+.wiki-front-page__company-builder {
+  max-width: min(100%, 760px);
+  margin-top: 14px;
+}
+
+.wiki-company-dossier__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wiki-company-dossier__form {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-primary);
+}
+
+.wiki-company-dossier__form > p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.wiki-company-dossier__form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.wiki-company-dossier__form input,
+.wiki-company-dossier__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.wiki-company-dossier__assumptions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.wiki-company-dossier__assumptions span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .wiki-company-dossier__assumptions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 1280px) {
   .wiki-front-page__repo-create {
     max-width: min(100%, 720px);

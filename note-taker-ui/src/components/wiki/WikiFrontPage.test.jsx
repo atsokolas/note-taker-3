@@ -23,6 +23,10 @@ jest.mock('./WikiBuildPageComposer', () => ({ className = '' }) => (
   </form>
 ));
 
+jest.mock('./WikiCompanyDossierComposer', () => ({ className = '' }) => (
+  <section className={className}>Company dossier composer</section>
+));
+
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`
 }));

@@ -51,6 +51,11 @@ export const createWikiPage = async (payload = {}) => {
   return res.data;
 };
 
+export const createCompanyDossier = async (payload = {}) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/from-company`, payload, getAuthHeaders());
+  return res.data || {};
+};
+
 export const getWikiPage = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
   return res.data;
@@ -726,6 +731,7 @@ export const clearLibrarySourceProvenanceFixture = async () => {
 const wikiApi = {
   listWikiPages,
   createWikiPage,
+  createCompanyDossier,
   getWikiPage,
   getPublicWikiPage,
   getPublicWikiComparison,

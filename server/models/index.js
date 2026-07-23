@@ -745,6 +745,7 @@ const wikiPageSchema = new mongoose.Schema({
   claims: { type: [wikiClaimSchema], default: [] },
   citations: { type: [wikiCitationSchema], default: [] },
   judgment: { type: wikiJudgmentSchema, default: null },
+  investmentDossier: { type: mongoose.Schema.Types.Mixed, default: null },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   publicProof: { type: wikiPublicProofSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },
