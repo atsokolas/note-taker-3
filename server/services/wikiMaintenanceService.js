@@ -1,7 +1,8 @@
 const { chatComplete, chatCompleteStream, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const {
   alignArticleToPageStructure,
-  getWikiPageStructure
+  getWikiPageStructure,
+  getWikiPageStructureForPage
 } = require('./wikiPageStructureService');
 const { findAutolinkSuggestions } = require('./wikiAutolinkService');
 const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
@@ -787,6 +788,20 @@ const formatCandidateMetadataLine = (source = {}) => {
   return parts.length ? `Repository metadata: ${parts.join(' · ')}\n` : '';
 };
 
+const formatInvestmentDossierPromptBlock = (structure = {}) => {
+  if (structure.profile !== 'investment_dossier') return '';
+  return `
+Investment dossier rules:
+- Lead with a current judgment, not a company description. Separate business quality from security attractiveness.
+- Make valuation an implied-expectations problem. State the price or market-value snapshot date, distinguish reported figures from calculations, and show what operating outcome must be true for a reasonable return.
+- Never turn one quarter into a forecast. If annualizing a quarter, label it as a sensitivity boundary and compare it with the last full fiscal year.
+- Connect product and technical advantage to customer economics: utilization, deployment time, switching or porting labor, reliability, energy, workload coverage, and system attach.
+- Treat capital commitments, customer concentration, regulation, and ecosystem financing as mechanisms that can strengthen or weaken the moat, not as a generic risk list.
+- End with observable falsifiers and the exact next filing or public evidence that should update the page.
+- Do not issue a buy/sell instruction or invent a founder conviction. The page may conclude that evidence is insufficient to establish an attractive expected return.
+`;
+};
+
 const buildPrompt = ({
   page,
   candidates,
@@ -796,7 +811,9 @@ const buildPrompt = ({
   sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
 }) => {
   const repoPage = isGitHubRepoPage({ page, candidates });
-  const structure = getWikiPageStructure(repoPage ? 'repo' : (page.pageType || 'topic'));
+  const structure = repoPage
+    ? getWikiPageStructure('repo')
+    : getWikiPageStructureForPage({ page, candidates });
   const sourceBlock = candidates.map(source => (
     `[${source.index}] ${source.type.toUpperCase()}: ${source.title}\n` +
     `Updated: ${source.updatedAt || source.createdAt || 'unknown'}\n` +
@@ -819,7 +836,7 @@ Hard rules:
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 - Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
-${formatGitHubRepoPromptBlock({ page, candidates })}
+${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock(structure)}
 
 Page:
 Title: ${page.title}
@@ -2592,6 +2609,7 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
   ];
   const structuredArticle = alignArticleToPageStructure({
     pageType: page.pageType || 'topic',
+    structure: getWikiPageStructureForPage({ page, candidates }),
     article
   });
   return {
@@ -2818,6 +2836,7 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
       }
     : alignArticleToPageStructure({
         pageType: page.pageType || 'topic',
+        structure: getWikiPageStructureForPage({ page, candidates }),
         article: normalizedArticle
       });
   if (repoPage) {

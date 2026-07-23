@@ -63,6 +63,18 @@ const CONTRACTS = {
   }
 };
 
+const INVESTMENT_DOSSIER_SECTIONS = Object.freeze([
+  'Current Judgment',
+  'Implied Expectations',
+  'Thesis-Changing Questions',
+  'Product and Technical Moat',
+  'System and Unit Economics',
+  'Operating Engine and Capital Allocation',
+  'Obligations, Concentration, and Policy',
+  'What Would Change the Thesis',
+  'Next Evidence and Maintenance Test'
+]);
+
 const WIKI_PAGE_TYPES = Object.freeze(Object.keys(CONTRACTS));
 
 const normalizePageType = (pageType = '') => {
@@ -74,6 +86,34 @@ const normalizePageType = (pageType = '') => {
 const getWikiPageStructure = (pageType = 'topic') => {
   const type = normalizePageType(pageType);
   return { type, ...CONTRACTS[type] };
+};
+
+const isInvestmentDossierPage = ({ page = {}, candidates = [] } = {}) => {
+  if (normalizePageType(page?.pageType) === 'repo') return false;
+  const edgar = page?.externalWatches?.edgar || {};
+  const watchedCompany = Boolean(
+    String(edgar.ticker || '').trim()
+    || String(edgar.cik || '').trim()
+  );
+  const hasSecEvidence = (Array.isArray(candidates) ? candidates : []).some((source) => {
+    const provider = String(source?.provider || '').trim().toLowerCase();
+    const sourceType = String(source?.metadata?.source || source?.metadata?.provider || '').trim().toLowerCase();
+    return provider === 'sec-edgar' || sourceType === 'sec-edgar';
+  });
+  return watchedCompany || hasSecEvidence;
+};
+
+const getWikiPageStructureForPage = ({ page = {}, candidates = [] } = {}) => {
+  if (!isInvestmentDossierPage({ page, candidates })) {
+    return getWikiPageStructure(page?.pageType || 'topic');
+  }
+  return {
+    type: normalizePageType(page?.pageType || 'entity'),
+    profile: 'investment_dossier',
+    label: 'Company dossier',
+    intent: 'Maintain an evidence-backed investment judgment that connects business quality, technical moat, unit economics, capital obligations, valuation, falsifiers, and the next public evidence clock.',
+    sections: [...INVESTMENT_DOSSIER_SECTIONS]
+  };
 };
 
 const normalizeHeading = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -111,8 +151,8 @@ const buildLivingThesisBody = () => ({
   ]))
 });
 
-const alignArticleToPageStructure = ({ article = {}, pageType = 'topic' } = {}) => {
-  const contract = getWikiPageStructure(pageType);
+const alignArticleToPageStructure = ({ article = {}, pageType = 'topic', structure = null } = {}) => {
+  const contract = structure || getWikiPageStructure(pageType);
   if (contract.type === 'repo') {
     const sections = Array.isArray(article.sections) ? article.sections : [];
     return {
@@ -134,6 +174,9 @@ module.exports = {
   alignArticleToPageStructure,
   buildLivingThesisBody,
   getWikiPageStructure,
+  getWikiPageStructureForPage,
+  INVESTMENT_DOSSIER_SECTIONS,
+  isInvestmentDossierPage,
   LIVING_THESIS_SECTIONS,
   normalizePageType,
   WIKI_PAGE_TYPES

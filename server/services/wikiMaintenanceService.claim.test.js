@@ -189,6 +189,29 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Compounding Interest');
   });
 
+  it('turns SEC-watched pages into investment-decision dossiers', () => {
+    const prompt = buildPrompt({
+      page: {
+        title: 'NVIDIA',
+        pageType: 'entity',
+        externalWatches: { edgar: { ticker: 'NVDA', cik: '0001045810' } }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        provider: 'sec-edgar',
+        title: 'NVIDIA Form 10-Q',
+        text: 'Quarterly filing evidence.'
+      }]
+    });
+
+    expect(prompt).toContain('Investment dossier rules');
+    expect(prompt).toContain('Implied Expectations');
+    expect(prompt).toContain('Product and Technical Moat');
+    expect(prompt).toContain('Never turn one quarter into a forecast');
+    expect(prompt).toContain('Do not issue a buy/sell instruction or invent a founder conviction');
+  });
+
   it('adds concrete anti-hallucination rules for GitHub repo pages', () => {
     const prompt = buildPrompt({
       page: {

@@ -2,6 +2,10 @@ const assert = require('assert');
 
 const {
   getWikiPageStructure,
+  getWikiPageStructureForPage,
+  INVESTMENT_DOSSIER_SECTIONS,
+  isInvestmentDossierPage,
+  alignArticleToPageStructure,
   normalizePageType
 } = require('./wikiPageStructureService');
 
@@ -19,6 +23,38 @@ const run = () => {
   const overview = getWikiPageStructure('synthesis');
   assert.strictEqual(overview.type, 'overview');
   assert.strictEqual(overview.label, 'Overview');
+
+  assert.strictEqual(isInvestmentDossierPage({
+    page: { pageType: 'entity', externalWatches: { edgar: { ticker: 'NVDA' } } }
+  }), true);
+  assert.strictEqual(isInvestmentDossierPage({
+    page: { pageType: 'source' },
+    candidates: [{ provider: 'sec-edgar' }]
+  }), true);
+  assert.strictEqual(isInvestmentDossierPage({
+    page: { pageType: 'repo', externalWatches: { edgar: { ticker: 'NVDA' } } }
+  }), false);
+
+  const dossier = getWikiPageStructureForPage({
+    page: { pageType: 'entity', externalWatches: { edgar: { cik: '0001045810' } } }
+  });
+  assert.strictEqual(dossier.profile, 'investment_dossier');
+  assert.deepStrictEqual(dossier.sections, INVESTMENT_DOSSIER_SECTIONS);
+
+  const aligned = alignArticleToPageStructure({
+    pageType: 'entity',
+    structure: dossier,
+    article: {
+      sections: [
+        { heading: 'Product and Technical Moat', paragraphs: [], bullets: [] },
+        { heading: 'Current Judgment', paragraphs: [], bullets: [] }
+      ]
+    }
+  });
+  assert.deepStrictEqual(
+    aligned.sections.map(section => section.heading),
+    INVESTMENT_DOSSIER_SECTIONS
+  );
 };
 
 if (require.main === module) {
