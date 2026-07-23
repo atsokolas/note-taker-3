@@ -88,10 +88,14 @@ const run = async () => {
           summary: 'QA DEMO ONLY: Review one bounded official-source evidence packet.',
           decisionType: 'research',
           rationale: 'Prove the decision ledger without taking an external action.',
-          expectedOutcome: 'A QA-only evidence review record.',
+          expectedOutcome: 'Choose whether to advance, monitor, or stop the QA-only thesis.',
           horizon: 'one QA session',
+          successCriteria: [
+            'The evidence distinguishes advance, monitor, and stop.',
+            'The human reviewer can see why the decision matters before opening the evidence ledger.'
+          ],
           status: 'planned',
-          createdBy: 'user'
+          createdBy: 'ai_proposed'
         }]
       },
       claimUpdates: [
@@ -154,7 +158,9 @@ const run = async () => {
       restoreMatchedInitial: true,
       secondSnapshotStatus: secondSnapshot.status,
       privatePublicReadStatus: publicPrivate.status,
-      decisionRecordOnly: true
+      decisionRecordOnly: true,
+      decisionCompletionTest: restored.body.page.judgment.decisions[0].successCriteria,
+      decisionRequiresHumanAcceptance: restored.body.page.judgment.decisions[0].createdBy === 'ai_proposed'
     }
   };
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
