@@ -32,7 +32,18 @@ const thesisPage = {
     assumptions: [{ assumptionId: 'a-1', text: 'QA assumption', status: 'unreviewed' }],
     unknowns: [{ unknownId: 'u-1', question: 'QA unknown?', priority: 'critical', status: 'open' }],
     falsifiers: [{ falsifierId: 'f-1', text: 'QA falsifier', observableSignal: 'QA signal', status: 'unobserved' }],
-    decisions: [{ decisionId: 'd-1', summary: 'QA research step', decisionType: 'research', status: 'planned' }]
+    decisions: [{
+      decisionId: 'd-1',
+      summary: 'Choose whether to advance, monitor, or stop this QA thesis',
+      decisionType: 'research',
+      status: 'planned',
+      rationale: 'Research must change an explicit choice.',
+      expectedOutcome: 'Record one bounded action or explicit no-action decision.',
+      horizon: 'This review',
+      successCriteria: ['Evidence distinguishes advance, monitor, and stop.'],
+      reviewAt: '2026-08-01T00:00:00.000Z',
+      createdBy: 'ai_proposed'
+    }]
   },
   claims: [{ claimId: 'c-1', text: 'QA claim', support: 'unsupported', epistemicStatus: 'established_fact', materiality: 'critical' }]
 };
@@ -59,6 +70,30 @@ describe('WikiLivingThesis', () => {
     expect(screen.getByText('Not scheduled')).toBeInTheDocument();
     expect(screen.getByText(/Inconsistent: established fact without supporting evidence/i)).toBeInTheDocument();
     expect(screen.getByText(/Research · Planned · record only/i)).toBeInTheDocument();
+  });
+
+  it('keeps the active decision and its completion test in the primary reading sequence', () => {
+    renderThesis();
+    expect(screen.getByRole('heading', { name: 'Choose whether to advance, monitor, or stop this QA thesis' })).toBeInTheDocument();
+    expect(screen.getByText('Proposed by Noeis · human acceptance required · Research · This review')).toBeInTheDocument();
+    expect(screen.getByText('Research must change an explicit choice.')).toBeInTheDocument();
+    expect(screen.getByText('Record one bounded action or explicit no-action decision.')).toBeInTheDocument();
+    expect(screen.getByText('Evidence distinguishes advance, monitor, and stop.')).toBeInTheDocument();
+  });
+
+  it('opens the existing decision editor from the primary decision focus', async () => {
+    renderThesis();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit decision' }));
+    const decisionEditor = await screen.findByLabelText('Decision record');
+    await waitFor(() => expect(decisionEditor).toHaveFocus());
+    expect(screen.getByLabelText('Completion test (one per line)')).toHaveValue('Evidence distinguishes advance, monitor, and stop.');
+    expect(screen.getByRole('button', { name: 'Edit thesis' })).toBeDisabled();
+  });
+
+  it('warns when a thesis has no planned decision', () => {
+    renderThesis({ page: { ...thesisPage, judgment: { ...thesisPage.judgment, decisions: [{ ...thesisPage.judgment.decisions[0], status: 'taken' }] } } });
+    expect(screen.getByRole('heading', { name: 'No active decision is defined.' })).toBeInTheDocument();
+    expect(screen.getByText('Define the action, no-action, or monitoring choice before collecting more evidence.')).toBeInTheDocument();
   });
 
   it('saves the narrative causal model with reserved empty graph arrays', async () => {

@@ -25,7 +25,7 @@ const emptyItem = kind => ({
   ...(kind === 'unknowns' ? { question: '', priority: 'medium', status: 'open', answer: '' } : {}),
   ...(kind === 'falsifiers' ? { text: '', observableSignal: '', status: 'unobserved' } : {}),
   ...(kind === 'decisions' ? {
-    summary: '', decisionType: 'research', status: 'planned', rationale: '', expectedOutcome: '', horizon: '', reviewAt: null, createdBy: 'user'
+    summary: '', decisionType: 'research', status: 'planned', rationale: '', expectedOutcome: '', horizon: '', successCriteria: [], reviewAt: null, createdBy: 'user'
   } : {}),
   _draftKey: `${kind}-${Date.now()}-${Math.random()}`
 });
@@ -101,6 +101,9 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate }) => {
   }, [activeSection, closingSection]);
 
   const claimsById = useMemo(() => new Map((page?.claims || []).map(claim => [claim.claimId, claim])), [page?.claims]);
+  const activeDecision = useMemo(() => (
+    [...(judgment?.decisions || [])].reverse().find(decision => decision.status === 'planned') || null
+  ), [judgment?.decisions]);
   if (!judgment?.kind) return null;
 
   const setValue = (field, value) => setDraft(current => ({ ...current, [field]: value }));
@@ -273,6 +276,50 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate }) => {
           ) : <p>{judgment.currentJudgment || 'No current judgment recorded.'}</p>}
         </div>
 
+        <section className={`wiki-thesis__decision-focus${activeDecision ? '' : ' is-empty'}`} aria-labelledby="wiki-thesis-decision-focus-title">
+          <div className="wiki-thesis__decision-focus-heading">
+            <div>
+              <span>Decision being advanced</span>
+              <h3 id="wiki-thesis-decision-focus-title">
+                {activeDecision?.summary || 'No active decision is defined.'}
+              </h3>
+            </div>
+            <button
+              type="button"
+              className="wiki-thesis__text-action"
+              data-editor-trigger="decisions"
+              onClick={event => openEditor('decisions', event)}
+              disabled={busy || Boolean(activeSection)}
+            >
+              {activeDecision ? 'Edit decision' : 'Define decision'}
+            </button>
+          </div>
+          {activeDecision ? <>
+            <p className="wiki-thesis__decision-provenance">
+              {activeDecision.createdBy === 'ai_proposed' ? 'Proposed by Noeis · human acceptance required' : 'Owner-defined decision'}
+              {' · '}{labelFor(activeDecision.decisionType || 'research')}
+              {activeDecision.horizon ? ` · ${activeDecision.horizon}` : ''}
+            </p>
+            {(activeDecision.rationale || activeDecision.expectedOutcome) ? (
+              <dl className="wiki-thesis__decision-context">
+                {activeDecision.rationale ? <div><dt>Why this matters</dt><dd>{activeDecision.rationale}</dd></div> : null}
+                {activeDecision.expectedOutcome ? <div><dt>Decision this should produce</dt><dd>{activeDecision.expectedOutcome}</dd></div> : null}
+              </dl>
+            ) : null}
+            {(activeDecision.successCriteria || []).length ? (
+              <div className="wiki-thesis__decision-test">
+                <span>Completion test</span>
+                <ul>{activeDecision.successCriteria.map((criterion, index) => <li key={`${criterion}-${index}`}>{criterion}</li>)}</ul>
+              </div>
+            ) : <p className="wiki-thesis__decision-warning">No completion test is recorded. Research can expand without changing a decision.</p>}
+            <p className="wiki-thesis__decision-review">
+              Review {dateLabel(activeDecision.reviewAt, judgment.nextReviewTrigger || 'when the completion test is met')}
+            </p>
+          </> : (
+            <p className="wiki-thesis__decision-warning">Define the action, no-action, or monitoring choice before collecting more evidence.</p>
+          )}
+        </section>
+
         <dl className="wiki-thesis__facts" aria-label="Judgment register">
           <div><dt>Confidence</dt><dd>{activeSection === 'core' ? <input aria-label="Confidence (0–1)" type="number" min="0" max="1" step="0.01" value={draft.confidence ?? ''} onChange={event => setValue('confidence', event.target.value === '' ? null : Number(event.target.value))} /> : confidenceLabel(judgment.confidence)}</dd></div>
           <div><dt>Status</dt><dd>{activeSection === 'core' ? <select aria-label="Status" value={draft.status || 'framing'} onChange={event => setValue('status', event.target.value)}>{['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'closed', 'archived'].map(value => <option key={value} value={value}>{labelFor(value)}</option>)}</select> : labelFor(judgment.status || 'framing')}</dd></div>
@@ -348,6 +395,7 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate }) => {
                     <Field label="Rationale"><textarea value={item.rationale || ''} onChange={event => changeItem(kind, index, 'rationale', event.target.value)} /></Field>
                     <Field label="Expected outcome"><textarea value={item.expectedOutcome || ''} onChange={event => changeItem(kind, index, 'expectedOutcome', event.target.value)} /></Field>
                     <Field label="Horizon"><input value={item.horizon || ''} onChange={event => changeItem(kind, index, 'horizon', event.target.value)} /></Field>
+                    <Field label="Completion test (one per line)"><textarea value={(item.successCriteria || []).join('\n')} onChange={event => changeItem(kind, index, 'successCriteria', event.target.value.split('\n').map(value => value.trim()).filter(Boolean))} /></Field>
                     <Field label="Review date"><input type="date" value={dateInput(item.reviewAt)} onChange={event => changeItem(kind, index, 'reviewAt', event.target.value || null)} /></Field>
                     <small>Records a decision; performs no external action.</small>
                   </> : null}
