@@ -3293,7 +3293,12 @@ const maintainWikiPage = async ({
       ...payload
     });
   };
-  const allSources = asString(page?.sourceScope).toLowerCase() === 'selected_sources'
+  const attachedCandidates = collectExistingSourceCandidates({ page });
+  const investmentDossierAtStart = getWikiPageStructureForPage({
+    page,
+    candidates: attachedCandidates
+  }).profile === 'investment_dossier';
+  const allSources = asString(page?.sourceScope).toLowerCase() === 'selected_sources' || investmentDossierAtStart
     ? []
     : await collectLibrarySources({ userId, models, fastProfile });
   let candidates = selectMaintenanceCandidates({
@@ -3584,7 +3589,7 @@ const maintainWikiPage = async ({
 
   page.title = materialized.title || page.title;
   page.pageType = inferMaintainedPageType({ page, candidates });
-  page.sourceScope = 'entire_library';
+  page.sourceScope = investmentDossier ? 'selected_sources' : 'entire_library';
   page.body = materialized.body;
   page.plainText = materialized.plainText;
   page.sourceRefs = materialized.sourceRefs;
@@ -3640,7 +3645,7 @@ const maintainWikiPage = async ({
     rebuiltAutomatically = true;
     page.title = materialized.title || page.title;
     page.pageType = inferMaintainedPageType({ page, candidates });
-    page.sourceScope = 'entire_library';
+    page.sourceScope = investmentDossier ? 'selected_sources' : 'entire_library';
     page.body = materialized.body;
     page.plainText = materialized.plainText;
     page.sourceRefs = materialized.sourceRefs;

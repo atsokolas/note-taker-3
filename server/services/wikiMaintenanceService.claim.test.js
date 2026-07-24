@@ -563,6 +563,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       responseFormat: { type: 'json_object' }
     });
     expect(chat.mock.calls[0][0].messages[1].content).toContain('Customer concentration remained material');
+    expect(page.sourceScope).toBe('selected_sources');
   });
 
   it('prefers attached GitHub repository evidence over unrelated library sources', () => {
