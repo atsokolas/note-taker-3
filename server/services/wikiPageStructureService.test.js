@@ -55,6 +55,25 @@ const run = () => {
     aligned.sections.map(section => section.heading),
     INVESTMENT_DOSSIER_SECTIONS
   );
+
+  const alignedDossierAlias = alignArticleToPageStructure({
+    pageType: 'entity',
+    structure: dossier,
+    article: {
+      sections: [
+        ...INVESTMENT_DOSSIER_SECTIONS.slice(0, -1).map(heading => ({ heading, paragraphs: [], bullets: [] })),
+        {
+          heading: 'Next Evidence & Maintenance',
+          paragraphs: [{ text: 'Recheck customer concentration and financing terms in the next 10-Q.' }],
+          bullets: []
+        }
+      ]
+    }
+  });
+  assert.strictEqual(
+    alignedDossierAlias.sections.at(-1).paragraphs[0].text,
+    'Recheck customer concentration and financing terms in the next 10-Q.'
+  );
 };
 
 if (require.main === module) {

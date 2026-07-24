@@ -116,7 +116,24 @@ const getWikiPageStructureForPage = ({ page = {}, candidates = [] } = {}) => {
   };
 };
 
-const normalizeHeading = (value = '') => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+const normalizeHeading = (value = '') => String(value || '')
+  .replace(/&/g, ' and ')
+  .replace(/[^\p{L}\p{N}]+/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
+const investmentDossierHeadingMatch = (target = '', candidate = '') => {
+  const expected = normalizeHeading(target);
+  const actual = normalizeHeading(candidate);
+  if (expected === actual) return true;
+  if (expected === 'next evidence and maintenance test') {
+    return actual === 'next evidence'
+      || actual === 'maintenance test'
+      || (actual.includes('next evidence') && actual.includes('maintenance'));
+  }
+  return false;
+};
 
 const emptySection = (heading) => ({
   heading,
@@ -162,8 +179,19 @@ const alignArticleToPageStructure = ({ article = {}, pageType = 'topic', structu
   }
   const sections = Array.isArray(article.sections) ? article.sections : [];
   const sectionByHeading = new Map(sections.map(section => [normalizeHeading(section?.heading || section?.title), section]));
-  const ordered = contract.sections.map((heading) => sectionByHeading.get(normalizeHeading(heading)) || emptySection(heading));
-  const extra = sections.filter(section => !contract.sections.some(heading => normalizeHeading(heading) === normalizeHeading(section?.heading || section?.title)));
+  const findSection = (heading) => sectionByHeading.get(normalizeHeading(heading))
+    || (contract.profile === 'investment_dossier'
+      ? sections.find(section => investmentDossierHeadingMatch(heading, section?.heading || section?.title))
+      : null);
+  const ordered = contract.sections.map((heading) => {
+    const section = findSection(heading);
+    return section ? { ...section, heading } : emptySection(heading);
+  });
+  const extra = sections.filter(section => !contract.sections.some(heading => (
+    contract.profile === 'investment_dossier'
+      ? investmentDossierHeadingMatch(heading, section?.heading || section?.title)
+      : normalizeHeading(heading) === normalizeHeading(section?.heading || section?.title)
+  )));
   return {
     ...article,
     sections: [...ordered, ...extra].slice(0, 9)

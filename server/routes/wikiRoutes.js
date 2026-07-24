@@ -1918,7 +1918,7 @@ const buildWikiRouter = ({
         page,
         userId,
         wikiSchemaContent: await loadWikiSchemaContent(userId),
-        models: { Article, NotebookEntry, TagMeta, Question }
+        models: { Article, NotebookEntry, TagMeta, Question, WikiSourceEvent }
       });
       await page.save();
       return page;
@@ -2106,7 +2106,8 @@ const buildWikiRouter = ({
         Article,
         NotebookEntry,
         TagMeta,
-        Question
+        Question,
+        WikiSourceEvent
       }
     });
     await page.save();
@@ -3233,7 +3234,8 @@ const buildWikiRouter = ({
                 Article,
                 NotebookEntry,
                 TagMeta,
-                Question
+                Question,
+                WikiSourceEvent
               },
               maintenanceProfile: 'standard',
               // Repo handoffs reserve operational evidence across frontend,
@@ -4572,7 +4574,8 @@ const buildWikiRouter = ({
             Article,
             NotebookEntry,
             TagMeta,
-            Question
+            Question,
+            WikiSourceEvent
           }
         }
       });
@@ -4723,7 +4726,8 @@ const buildWikiRouter = ({
             Article,
             NotebookEntry,
             TagMeta,
-            Question
+            Question,
+            WikiSourceEvent
           },
           maintenanceProfile: maintenanceOptions.maintenanceProfile,
           sourceLimit: maintenanceOptions.sourceLimit,

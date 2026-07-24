@@ -213,7 +213,9 @@ const createMissingFilingEvents = async ({
       affectedPageIds: page._id
     }).select('_id text metadata').lean();
     const url = buildFilingUrl({ cik: watch.cik, accessionNumber: filing.accessionNumber, primaryDocument: filing.primaryDocument });
-    if (existing && String(existing.text || '').length >= 2000) continue;
+    const persistedLength = String(existing?.text || '').length;
+    const expectedFilingLength = Number(existing?.metadata?.filingTextLength || 0);
+    if (existing && persistedLength >= 2000 && expectedFilingLength <= persistedLength) continue;
     let filingText = '';
     let documentError = '';
     try {

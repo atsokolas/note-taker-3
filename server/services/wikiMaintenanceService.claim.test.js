@@ -9,6 +9,7 @@ const {
   docFromArticle,
   evaluateWikiArticleQuality,
   fallbackMaintenance,
+  fillInvestmentDossierMaintenanceTest,
   findGitHubRepoDeveloperDossierFailures,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
@@ -455,6 +456,99 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(candidates.map(candidate => candidate.objectId)).toEqual(['crwv-10k', 'crwv-10q']);
     expect(candidates.map(candidate => candidate.index)).toEqual([1, 2]);
+  });
+
+  it('fills a missing investment-dossier maintenance test from the filing clock', () => {
+    const article = fillInvestmentDossierMaintenanceTest({
+      page: {
+        title: 'CoreWeave investment dossier',
+        pageType: 'entity',
+        externalWatches: { edgar: { ticker: 'CRWV', companyName: 'CoreWeave' } }
+      },
+      candidates: [{ index: 1, provider: 'sec-edgar' }, { index: 2, provider: 'sec-edgar' }],
+      article: {
+        sections: [{
+          heading: 'Next Evidence and Maintenance Test',
+          paragraphs: [{ text: 'Next Evidence and Maintenance Test still needs source-backed development.' }],
+          bullets: []
+        }]
+      }
+    });
+
+    expect(article.sections[0].paragraphs[0].text).toContain("At CoreWeave's next 10-Q");
+    expect(article.sections[0].paragraphs[0].citationIndexes).toEqual([1, 2]);
+    expect(article.sections[0].paragraphs[0].support).toBe('partial');
+  });
+
+  it('gives investment dossiers enough output budget to finish strict JSON', async () => {
+    const page = {
+      _id: 'coreweave-page',
+      title: 'CoreWeave investment dossier',
+      pageType: 'entity',
+      sourceScope: 'selected_sources',
+      plainText: 'CoreWeave serves accelerated compute workloads.',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [{
+        type: 'external',
+        objectId: 'crwv-10k',
+        title: 'CoreWeave 10-K',
+        snippet: 'CoreWeave operates a specialized cloud platform for accelerated computing.',
+        provider: 'sec-edgar',
+        metadata: { source: 'sec-edgar', sourceEventId: 'crwv-filing-event' }
+      }],
+      claims: [],
+      aiState: {}
+    };
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: 'CoreWeave investment dossier',
+        article: {
+          summary: {
+            text: 'CoreWeave has a specialized accelerated-compute platform, while the security case remains unresolved without a dated valuation.',
+            citationIndexes: [1],
+            support: 'supported'
+          },
+          sections: []
+        },
+        maintenance: { summary: 'Drafted dossier.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      skipQualityRebuild: true,
+      models: {
+        Article: fakeFindModel([]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([]),
+        WikiSourceEvent: {
+          find: jest.fn(() => ({
+            select() { return this; },
+            lean: async () => [{
+              _id: 'crwv-filing-event',
+              text: `${'Filing boilerplate. '.repeat(300)} Customer concentration remained material, while remaining performance obligations and long-term debt increased. ${'Additional filing evidence. '.repeat(1800)}`
+            }]
+          }))
+        }
+      }
+    });
+
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(chat.mock.calls[0][0]).toMatchObject({
+      route: 'artifact_draft',
+      maxTokens: 8000,
+      responseFormat: { type: 'json_object' }
+    });
+    expect(chat.mock.calls[0][0].messages[1].content).toContain('Customer concentration remained material');
   });
 
   it('prefers attached GitHub repository evidence over unrelated library sources', () => {

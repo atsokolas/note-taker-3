@@ -178,7 +178,7 @@ const createWikiSourceEvent = async ({
     eventType: normalizedEventType,
     title: trim(title, 240),
     summary: trim(summary, 1200),
-    text: trim(text, 8000),
+    text: trim(text, String(provider || '').trim().toLowerCase() === 'sec-edgar' ? 120000 : 8000),
     url: trim(url, 1000),
     sourceUpdatedAt: sourceUpdatedAt ? new Date(sourceUpdatedAt) : null,
     affectedPageIds: Array.isArray(affectedPageIds)

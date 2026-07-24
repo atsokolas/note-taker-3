@@ -7,12 +7,19 @@ const {
 const { findAutolinkSuggestions } = require('./wikiAutolinkService');
 const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
+const { fetchFilingDocument } = require('./edgarWatcherService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const FAST_SOURCE_LIMIT = 8;
 const MAX_SOURCE_TEXT = 1800;
 const DEFAULT_PROMPT_SOURCE_TEXT_LIMIT = 1300;
 const FAST_PROMPT_SOURCE_TEXT_LIMIT = 800;
+const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 30000;
+const SEC_FILING_EVIDENCE_TEXT_LIMIT = 36000;
+const DEFAULT_DRAFT_MAX_TOKENS = 2600;
+const DEFAULT_REBUILD_MAX_TOKENS = 3600;
+const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 8000;
+const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 10000;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
 const QUALITY_MIN_WORDS = 450;
@@ -792,7 +799,11 @@ const formatInvestmentDossierPromptBlock = (structure = {}) => {
   if (structure.profile !== 'investment_dossier') return '';
   return `
 Investment dossier rules:
+- Return all nine required section headings exactly as written and omit none.
 - Lead with a current judgment, not a company description. Separate business quality from security attractiveness.
+- Write 900-1,400 words. Use one dense paragraph per required section; add bullets only for discrete falsifiers or next-evidence tests. Keep the maintenance object terse so the strict JSON finishes reliably.
+- Tie every paragraph containing reported facts to citationIndexes. Use "supported" when the cited filing directly establishes the material facts, "partial" only when the paragraph mixes filing facts with interpretation, and "unsupported" only for an explicitly labeled owner judgment or unresolved question.
+- Include at least four directly filing-supported paragraphs when the supplied filings contain substantive business or financial evidence. Do not downgrade directly reported facts merely because only two primary filings are attached.
 - Make valuation an implied-expectations problem. State the price or market-value snapshot date, distinguish reported figures from calculations, and show what operating outcome must be true for a reasonable return.
 - Never turn one quarter into a forecast. If annualizing a quarter, label it as a sensitivity boundary and compare it with the last full fiscal year.
 - Connect product and technical advantage to customer economics: utilization, deployment time, switching or porting labor, reliability, energy, workload coverage, and system attach.
@@ -989,6 +1000,102 @@ const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
   metadata: sourceRef.metadata || {},
   index
 });
+
+const isSecFilingCandidate = (source = {}) => {
+  const provider = asString(source?.provider).toLowerCase();
+  const metadataProvider = asString(source?.metadata?.source || source?.metadata?.provider).toLowerCase();
+  return provider === 'sec-edgar' || metadataProvider === 'sec-edgar';
+};
+
+const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TEXT_LIMIT) => {
+  const text = asString(value).replace(/\s+/g, ' ');
+  if (text.length <= limit) return text;
+  const windows = [];
+  const ranges = [];
+  const addWindow = ({ start, end, label }) => {
+    const safeStart = Math.max(0, start);
+    const safeEnd = Math.min(text.length, end);
+    if (safeEnd <= safeStart || ranges.some(range => safeStart < range.end && safeEnd > range.start)) return;
+    const remaining = limit - windows.join('\n\n').length;
+    if (remaining < 600) return;
+    ranges.push({ start: safeStart, end: safeEnd });
+    windows.push(`[Filing excerpt: ${label}]\n${text.slice(safeStart, Math.min(safeEnd, safeStart + remaining))}`);
+  };
+  addWindow({ start: 0, end: 2400, label: 'filing identity and period' });
+  [
+    ['business and platform', /\b(?:business overview|our platform|our cloud platform|products and services)\b/ig],
+    ['technical infrastructure', /\b(?:technology and infrastructure|accelerated computing|gpu infrastructure|data centers?)\b/ig],
+    ['competition', /\bcompetition\b/ig],
+    ['customer concentration', /\b(?:customer concentration|major customers?|largest customer)\b/ig],
+    ['contracted demand', /\b(?:remaining performance obligations|revenue backlog|contracted backlog)\b/ig],
+    ['results of operations', /\b(?:management['’]s discussion and analysis|results of operations)\b/ig],
+    ['revenue and cost structure', /\b(?:cost of revenue|gross profit|gross margin|operating loss)\b/ig],
+    ['cash flow and capital intensity', /\b(?:cash flows?|capital expenditures?|purchases of property and equipment|depreciation and amortization)\b/ig],
+    ['financing and obligations', /\b(?:long-term debt|credit facilit|commitments and contingencies|purchase commitments?|lease liabilities)\b/ig],
+    ['power and facilities', /\b(?:power capacity|power commitments?|data center leases?|facility commitments?)\b/ig],
+    ['supplier and GPU dependency', /\b(?:NVIDIA|GPU supply|supplier concentration)\b/ig],
+    ['material risks', /\bRisk Factors\b/ig]
+  ].forEach(([label, pattern]) => {
+    const positions = [];
+    let match = pattern.exec(text);
+    while (match) {
+      if (match.index > 1800) positions.push(match.index);
+      match = pattern.exec(text);
+    }
+    if (!positions.length) return;
+    const selected = positions.length > 1
+      ? [positions[Math.floor(positions.length / 2)], positions.at(-1)]
+      : positions;
+    selected.forEach(position => addWindow({
+      start: position - 700,
+      end: position + 3000,
+      label
+    }));
+  });
+  return truncateRaw(windows.join('\n\n'), limit);
+};
+
+const hydrateSecFilingCandidates = async ({ candidates = [], userId, models = {} } = {}) => {
+  const WikiSourceEvent = models?.WikiSourceEvent;
+  if (!WikiSourceEvent?.find) return candidates;
+  const sourceEventIds = candidates
+    .filter(isSecFilingCandidate)
+    .map(source => asString(source?.metadata?.sourceEventId))
+    .filter(Boolean);
+  if (!sourceEventIds.length) return candidates;
+  let query = WikiSourceEvent.find({
+    _id: { $in: sourceEventIds },
+    ...(userId ? { userId } : {})
+  });
+  if (typeof query?.select === 'function') query = query.select('_id text url metadata');
+  if (typeof query?.lean === 'function') query = query.lean();
+  const events = await query;
+  const eventById = new Map(
+    (Array.isArray(events) ? events : []).map(event => [asString(event?._id), event])
+  );
+  return Promise.all(candidates.map(async (source) => {
+    if (!isSecFilingCandidate(source)) return source;
+    const event = eventById.get(asString(source?.metadata?.sourceEventId));
+    let eventText = asString(event?.text);
+    const expectedLength = Number(event?.metadata?.filingTextLength || source?.metadata?.filingTextLength || 0);
+    const filingUrl = asString(event?.url || source?.url);
+    if (
+      expectedLength > eventText.length
+      && /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//i.test(filingUrl)
+    ) {
+      try {
+        eventText = await fetchFilingDocument({ url: filingUrl });
+      } catch (_error) {
+        // Keep the persisted excerpt; the quality gate will reject an under-evidenced dossier.
+      }
+    }
+    if (!eventText || eventText.length <= asString(source.text).length) return source;
+    return {
+      ...source,
+      text: extractSecFilingEvidenceText(eventText)
+    };
+  }));
+};
 
 const dedupeSourceRefs = (existing = [], next = []) => {
   const seen = new Set();
@@ -2820,6 +2927,34 @@ const normalizeSourceIndexesUsed = ({ page = {}, rawIndexes = [], article = {}, 
   return Array.from(used).filter(index => candidates.some(source => source.index === index)).slice(0, maxSources);
 };
 
+const fillInvestmentDossierMaintenanceTest = ({ article = {}, page = {}, candidates = [] } = {}) => {
+  const structure = getWikiPageStructureForPage({ page, candidates });
+  if (structure.profile !== 'investment_dossier') return article;
+  const citationIndexes = candidates.filter(isSecFilingCandidate).map(source => source.index).slice(0, 4);
+  if (!citationIndexes.length) return article;
+  return {
+    ...article,
+    sections: (Array.isArray(article.sections) ? article.sections : []).map((section) => {
+      if (normalizeSectionHeading(section?.heading) !== 'next evidence and maintenance test') return section;
+      const sectionText = JSON.stringify(section || {});
+      if (!/\bstill needs source-backed development\b/i.test(sectionText)) return section;
+      const companyLabel = asString(page?.externalWatches?.edgar?.companyName || page?.title)
+        .replace(/\s+investment dossier$/i, '')
+        .trim() || 'the company';
+      return {
+        ...section,
+        paragraphs: [{
+          text: `At ${companyLabel}'s next 10-Q, compare revenue growth with cost of revenue, technology and infrastructure expense, operating loss, operating cash flow, remaining performance obligation conversion, customer concentration, and debt or lease obligations. Before that filing, review any 8-K for material customer-contract, financing, capacity, or supplier changes. Treat each change as a candidate update until the owner accepts the revised judgment.`,
+          citationIndexes,
+          contradictionIndexes: [],
+          support: 'partial'
+        }],
+        bullets: []
+      };
+    })
+  };
+};
+
 const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
   const fallback = fallbackMaintenance({ page, candidates, manualNotes });
   if (!raw || typeof raw !== 'object') return fallback;
@@ -2851,6 +2986,7 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
         structure: getWikiPageStructureForPage({ page, candidates }),
         article: normalizedArticle
       });
+  article = fillInvestmentDossierMaintenanceTest({ article, page, candidates });
   if (repoPage) {
     article = mergeGitHubRepoFallbackSections({
       article,
@@ -3141,7 +3277,7 @@ const maintainWikiPage = async ({
   const effectiveSourceLimit = Number.isFinite(Number(sourceLimit)) && Number(sourceLimit) > 0
     ? Number(sourceLimit)
     : (fastProfile ? FAST_SOURCE_LIMIT : DEFAULT_SOURCE_LIMIT);
-  const effectiveSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0
+  const requestedSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0
     ? Number(sourceTextLimit)
     : (fastProfile ? FAST_PROMPT_SOURCE_TEXT_LIMIT : DEFAULT_PROMPT_SOURCE_TEXT_LIMIT);
   // The draft model (gpt-oss-class) spends most of its wall-clock generating an
@@ -3159,15 +3295,26 @@ const maintainWikiPage = async ({
   const allSources = asString(page?.sourceScope).toLowerCase() === 'selected_sources'
     ? []
     : await collectLibrarySources({ userId, models, fastProfile });
-  const candidates = selectMaintenanceCandidates({
+  let candidates = selectMaintenanceCandidates({
     page,
     sources: allSources,
     limit: effectiveSourceLimit,
     preferredSourceObjectId
   });
+  candidates = await hydrateSecFilingCandidates({ candidates, userId, models });
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
+  const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
+  const effectiveSourceTextLimit = investmentDossier
+    ? Math.max(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
+    : requestedSourceTextLimit;
   const draftTemperature = repoMaintenance ? 0.08 : 0.2;
   const rebuildTemperature = repoMaintenance ? 0.12 : 0.28;
+  const draftMaxTokens = investmentDossier
+    ? INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS
+    : DEFAULT_DRAFT_MAX_TOKENS;
+  const rebuildMaxTokens = investmentDossier
+    ? INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS
+    : DEFAULT_REBUILD_MAX_TOKENS;
   const knownWikiPages = await collectKnownWikiPages({
     page,
     userId,
@@ -3215,7 +3362,7 @@ const maintainWikiPage = async ({
       });
       const draftRequest = {
         route: 'artifact_draft',
-        maxTokens: 2600,
+        maxTokens: draftMaxTokens,
         temperature: draftTemperature,
         reasoningEffort: draftReasoningEffort,
         responseFormat: { type: 'json_object' },
@@ -3311,7 +3458,7 @@ const maintainWikiPage = async ({
       });
       const completion = await chat({
         route: 'artifact_draft',
-        maxTokens: 3600,
+        maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
         reasoningEffort: 'medium',
         responseFormat: { type: 'json_object' },
@@ -3623,6 +3770,9 @@ module.exports = {
     inferMaintainedPageType,
     isGitHubRepoPage,
     selectMaintenanceCandidates,
+    extractSecFilingEvidenceText,
+    hydrateSecFilingCandidates,
+    fillInvestmentDossierMaintenanceTest,
     findUnsupportedGitHubRepoClaims,
     findGitHubRepoDeveloperDossierFailures,
     cleanWikiText,
