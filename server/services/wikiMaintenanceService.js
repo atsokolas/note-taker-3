@@ -3301,8 +3301,14 @@ const maintainWikiPage = async ({
   const allSources = asString(page?.sourceScope).toLowerCase() === 'selected_sources' || investmentDossierAtStart
     ? []
     : await collectLibrarySources({ userId, models, fastProfile });
+  const selectionPage = investmentDossierAtStart
+    ? {
+        ...(typeof page?.toObject === 'function' ? page.toObject() : page),
+        sourceScope: 'selected_sources'
+      }
+    : page;
   let candidates = selectMaintenanceCandidates({
-    page,
+    page: selectionPage,
     sources: allSources,
     limit: effectiveSourceLimit,
     preferredSourceObjectId
@@ -3715,8 +3721,10 @@ const maintainWikiPage = async ({
     errorCode: '',
     model: modelInfo.provider ? `${modelInfo.model}:${modelInfo.provider}` : modelInfo.model,
     provider: modelInfo.provider || '',
-    sourceScopeAtDraft: 'entire_library',
-    sourceRefIdsAtDraft: [],
+    sourceScopeAtDraft: investmentDossier ? 'selected_sources' : 'entire_library',
+    sourceRefIdsAtDraft: investmentDossier
+      ? persistedSourceRefs.map(source => source.objectId).filter(Boolean)
+      : [],
     maintenanceProfile: normalizedProfile,
     maintenanceSummary: finalNormalized.maintenance.summary,
     sectionMaintenance,

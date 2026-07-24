@@ -566,6 +566,70 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.sourceScope).toBe('selected_sources');
   });
 
+  it('keeps a watched company dossier on attached filings after a rejected candidate restores the old scope', async () => {
+    const page = {
+      _id: 'coreweave-page',
+      title: 'CoreWeave, Inc. investment dossier',
+      pageType: 'entity',
+      sourceScope: 'entire_library',
+      externalWatches: {
+        edgar: { ticker: 'CRWV', cik: '1769628', companyName: 'CoreWeave, Inc.' }
+      },
+      plainText: 'A previously accepted CoreWeave dossier.',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [{
+        type: 'external',
+        objectId: 'crwv-10k',
+        title: 'CoreWeave 10-K',
+        snippet: 'CoreWeave operates a specialized cloud platform for accelerated computing.',
+        provider: 'sec-edgar',
+        metadata: { source: 'sec-edgar' }
+      }],
+      claims: [],
+      aiState: {}
+    };
+    const chat = jest.fn().mockResolvedValue({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: page.title,
+        article: {
+          summary: {
+            text: 'CoreWeave operates a specialized accelerated-compute platform while valuation remains unresolved.',
+            citationIndexes: [1],
+            support: 'supported'
+          },
+          sections: []
+        },
+        maintenance: { summary: 'Maintained dossier.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      skipQualityRebuild: true,
+      models: {
+        Article: fakeFindModel([]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([]),
+        WikiSourceEvent: fakeFindModel([])
+      }
+    });
+
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(chat.mock.calls[0][0].messages[1].content).toContain('CoreWeave 10-K');
+    expect(page.sourceScope).toBe('selected_sources');
+    expect(page.aiState.sourceScopeAtDraft).toBe('selected_sources');
+    expect(page.aiState.sourceRefIdsAtDraft).toEqual(['crwv-10k']);
+  });
+
   it('prefers attached GitHub repository evidence over unrelated library sources', () => {
     const candidates = selectMaintenanceCandidates({
       page: {
