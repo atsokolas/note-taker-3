@@ -20,6 +20,7 @@ const DEFAULT_DRAFT_MAX_TOKENS = 2600;
 const DEFAULT_REBUILD_MAX_TOKENS = 3600;
 const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 8000;
 const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 10000;
+const MAX_ARTICLE_BLOCK_TEXT = 2400;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
 const QUALITY_MIN_WORDS = 450;
@@ -1243,10 +1244,10 @@ const citationSuffix = (indexes = []) => {
 
 const normalizeArticleTextBlock = (value = {}) => {
   if (typeof value === 'string') {
-    return { text: truncate(value, 1000), citationIndexes: [], contradictionIndexes: [], support: null };
+    return { text: truncate(value, MAX_ARTICLE_BLOCK_TEXT), citationIndexes: [], contradictionIndexes: [], support: null };
   }
   if (!value || typeof value !== 'object') return null;
-  const text = truncate(value.text || value.body || value.summary || '', 1000);
+  const text = truncate(value.text || value.body || value.summary || '', MAX_ARTICLE_BLOCK_TEXT);
   if (!text) return null;
   const citationIndexes = normalizeCitationIndexes(value.citationIndexes || value.sourceIndexes || value.sources);
   const contradictionIndexes = normalizeCitationIndexes(

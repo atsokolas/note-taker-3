@@ -480,6 +480,20 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(article.sections[0].paragraphs[0].support).toBe('partial');
   });
 
+  it('preserves dossier-scale paragraphs beyond the old 1,000-character ceiling', () => {
+    const longParagraph = `${'Source-backed operating evidence remains material. '.repeat(30)}Final sentence survives.`;
+    const body = docFromArticle({
+      title: 'CoreWeave investment dossier',
+      article: {
+        summary: { text: longParagraph, citationIndexes: [1], support: 'supported' },
+        sections: []
+      }
+    });
+
+    expect(toPlainText(body)).toContain('Final sentence survives.');
+    expect(toPlainText(body)).not.toContain('...');
+  });
+
   it('gives investment dossiers enough output budget to finish strict JSON', async () => {
     const page = {
       _id: 'coreweave-page',
