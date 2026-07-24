@@ -66,6 +66,27 @@ const run = async () => {
   assert.strictEqual(WikiRevision.records[0].promotionStatus, 'rejected');
   assert.strictEqual(WikiRevision.records[0].after.plainText, 'Bad candidate.');
 
+  const freshDossierPage = trustedPage();
+  freshDossierPage.createdFrom = { label: 'company-dossier:CRWV' };
+  freshDossierPage.claims = [];
+  freshDossierPage.aiState = { draftStatus: 'idle', quality: {} };
+  const rejectedFreshDossier = await runWikiMaintenanceCandidate({
+    page: freshDossierPage,
+    userId: 'user-1',
+    WikiRevision,
+    maintainWikiPageFn: async ({ page }) => {
+      page.aiState = {
+        draftStatus: 'ready',
+        quality: { ok: false, status: 'fail', failures: ['The dossier is only a scaffold.'] }
+      };
+      return page;
+    }
+  });
+  assert.strictEqual(rejectedFreshDossier.promoted, false);
+  assert.strictEqual(rejectedFreshDossier.page.aiState.draftStatus, 'error');
+  assert.strictEqual(rejectedFreshDossier.page.aiState.errorCode, 'WIKI_CANDIDATE_REJECTED');
+  assert.match(rejectedFreshDossier.page.aiState.lastError, /first wiki candidate/i);
+
   const destructivePage = trustedPage();
   destructivePage.claims = Array.from({ length: 10 }, (_, index) => ({ id: `claim-${index}`, text: `Claim ${index}` }));
   const destructive = await runWikiMaintenanceCandidate({
@@ -82,7 +103,7 @@ const run = async () => {
   assert.strictEqual(destructive.promoted, false);
   assert.strictEqual(destructive.page.claims.length, 10);
   assert.match(destructive.page.aiState.lastCandidateSummary, /removed more than 40%/);
-  assert.strictEqual(WikiRevision.records.length, 2);
+  assert.strictEqual(WikiRevision.records.length, 3);
 
   const evidenceOnlyPage = trustedPage();
   evidenceOnlyPage.claims = Array.from({ length: 10 }, (_, index) => ({ id: `claim-${index}`, text: `Claim ${index}` }));
@@ -102,7 +123,7 @@ const run = async () => {
   assert.strictEqual(evidenceOnly.evidenceOnly, true);
   assert.strictEqual(evidenceOnly.page.claims.length, 10);
   assert.strictEqual(evidenceOnly.page.aiState.candidateStatus, 'evidence_only');
-  assert.strictEqual(WikiRevision.records.length, 3);
+  assert.strictEqual(WikiRevision.records.length, 4);
 
   const acceptedProofPage = trustedPage();
   acceptedProofPage.status = 'published';
@@ -126,7 +147,7 @@ const run = async () => {
   assert.strictEqual(heldForAcceptance.promoted, false);
   assert.strictEqual(heldForAcceptance.page.plainText, 'Trusted article.');
   assert.match(heldForAcceptance.page.aiState.lastCandidateSummary, /explicit human acceptance/);
-  assert.strictEqual(WikiRevision.records.length, 4);
+  assert.strictEqual(WikiRevision.records.length, 5);
 
   const passingPage = trustedPage();
   const passing = await runWikiMaintenanceCandidate({
@@ -143,7 +164,7 @@ const run = async () => {
 
   assert.strictEqual(passing.promoted, true);
   assert.strictEqual(passing.page.plainText, 'Better candidate.');
-  assert.strictEqual(WikiRevision.records.length, 4);
+  assert.strictEqual(WikiRevision.records.length, 5);
 
   console.log('wikiMaintenancePublicationService tests passed');
 };

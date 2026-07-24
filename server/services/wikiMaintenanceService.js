@@ -1078,6 +1078,18 @@ const selectMaintenanceCandidates = ({ page, sources, limit = DEFAULT_SOURCE_LIM
         .map((source, index) => ({ ...source, index: index + 1 }));
     }
   }
+  if (asString(page?.sourceScope).toLowerCase() === 'selected_sources' && existingCandidates.length) {
+    const seen = new Set();
+    return existingCandidates
+      .filter((source) => {
+        const key = [source.type, asString(source.objectId), asString(source.url), asString(source.title)].join(':');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, limit)
+      .map((source, index) => ({ ...source, index: index + 1 }));
+  }
   const preferredId = asString(preferredSourceObjectId);
   if (preferredId) {
     const preferred = existingCandidates.filter(source => asString(source.objectId) === preferredId);
@@ -3144,7 +3156,9 @@ const maintainWikiPage = async ({
       ...payload
     });
   };
-  const allSources = await collectLibrarySources({ userId, models, fastProfile });
+  const allSources = asString(page?.sourceScope).toLowerCase() === 'selected_sources'
+    ? []
+    : await collectLibrarySources({ userId, models, fastProfile });
   const candidates = selectMaintenanceCandidates({
     page,
     sources: allSources,

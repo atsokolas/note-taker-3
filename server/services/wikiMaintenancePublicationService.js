@@ -64,7 +64,7 @@ const runWikiMaintenanceCandidate = async ({
   sourceEventId = null,
   maintenanceRunId = null,
   sourceVersion = null,
-  hasTrustedVersion = true,
+  hasTrustedVersion = null,
   rejectDestructiveClaimLoss = false,
   promoteEvidenceOnlyOnDestructiveLoss = false,
   requireManualReview = false,
@@ -74,6 +74,12 @@ const runWikiMaintenanceCandidate = async ({
     throw new Error('Wiki candidate publication requires a page and maintenance function.');
   }
   const before = beforeSnapshot || snapshotPage(page);
+  const isFreshCompanyDossier = /^company-dossier:/i.test(String(page?.createdFrom?.label || ''))
+    && !before?.aiState?.lastDraftedAt
+    && (!Array.isArray(before?.claims) || before.claims.length === 0);
+  const trustedVersionAvailable = typeof hasTrustedVersion === 'boolean'
+    ? hasTrustedVersion
+    : !isFreshCompanyDossier;
   const maintainedPage = await maintainWikiPageFn({
     ...maintainArgs,
     page,
@@ -162,9 +168,9 @@ const runWikiMaintenanceCandidate = async ({
   };
   candidatePage.aiState = {
     ...priorAiState,
-    draftStatus: hasTrustedVersion ? 'ready' : 'error',
-    lastError: hasTrustedVersion ? '' : 'The first wiki candidate did not pass the quality contract.',
-    errorCode: hasTrustedVersion ? '' : 'WIKI_CANDIDATE_REJECTED',
+    draftStatus: trustedVersionAvailable ? 'ready' : 'error',
+    lastError: trustedVersionAvailable ? '' : 'The first wiki candidate did not pass the quality contract.',
+    errorCode: trustedVersionAvailable ? '' : 'WIKI_CANDIDATE_REJECTED',
     candidateStatus: 'rejected',
     lastCandidateAt: now,
     lastCandidateQuality: quality,

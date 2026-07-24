@@ -447,6 +447,30 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('region', { name: 'Earnings transcript watch' })).not.toBeInTheDocument();
   });
 
+  it('keeps a rejected first dossier build visibly failed after reload', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      pageType: 'entity',
+      aiState: {
+        draftStatus: 'error',
+        errorCode: 'WIKI_CANDIDATE_REJECTED',
+        candidateStatus: 'rejected'
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
+    expect(receipt).toHaveAttribute('data-maintenance-state', 'failed');
+    expect(within(receipt).getByRole('heading', { name: 'Build failed the quality gate' })).toBeInTheDocument();
+    expect(receipt).not.toHaveTextContent('Ready for maintenance');
+  });
+
   it('lets a shared wiki page stop exposing its public link from the read surface', async () => {
     getWikiPage.mockResolvedValueOnce({ ...page, visibility: 'shared' });
     updateWikiPage.mockResolvedValueOnce({ ...page, visibility: 'private' });

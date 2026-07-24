@@ -425,6 +425,38 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(candidates.map(candidate => candidate.index)).toEqual([1, 2, 3]);
   });
 
+  it('limits selected-source dossiers to their attached evidence', () => {
+    const candidates = selectMaintenanceCandidates({
+      page: {
+        title: 'CoreWeave investment dossier',
+        sourceScope: 'selected_sources',
+        sourceRefs: [{
+          type: 'external',
+          objectId: 'crwv-10k',
+          title: 'CoreWeave 10-K',
+          url: 'https://www.sec.gov/Archives/crwv-10k',
+          snippet: 'Annual filing evidence.'
+        }, {
+          type: 'external',
+          objectId: 'crwv-10q',
+          title: 'CoreWeave 10-Q',
+          url: 'https://www.sec.gov/Archives/crwv-10q',
+          snippet: 'Quarterly filing evidence.'
+        }]
+      },
+      sources: [{
+        type: 'article',
+        objectId: 'unrelated-library-source',
+        title: 'Berkshire shareholder letter',
+        text: 'Unrelated personal-library evidence.'
+      }],
+      limit: 8
+    });
+
+    expect(candidates.map(candidate => candidate.objectId)).toEqual(['crwv-10k', 'crwv-10q']);
+    expect(candidates.map(candidate => candidate.index)).toEqual([1, 2]);
+  });
+
   it('prefers attached GitHub repository evidence over unrelated library sources', () => {
     const candidates = selectMaintenanceCandidates({
       page: {

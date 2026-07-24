@@ -2131,6 +2131,10 @@ const WikiPageReadView = ({
   const edgarWatch = page?.externalWatches?.edgar || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
+  const persistedMaintenanceFailure = page?.aiState?.draftStatus === 'error'
+    || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED';
+  const maintenanceDisplayState = maintenanceReceipt?.status
+    || (maintenanceActive ? 'working' : persistedMaintenanceFailure ? 'failed' : 'idle');
   const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt;
   const shareCard = weekendReadingsPage ? null : (
     <section
@@ -2249,17 +2253,19 @@ const WikiPageReadView = ({
       ) : null}
       {(!loading && page) ? (
         <section
-          className={`wiki-read__maintenance-receipt is-${maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
+          className={`wiki-read__maintenance-receipt is-${maintenanceDisplayState}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
           aria-label="Wiki maintenance receipt"
-          data-maintenance-state={maintenanceReceipt?.status || (maintenanceActive ? 'working' : 'idle')}
+          data-maintenance-state={maintenanceDisplayState}
         >
           <div className="wiki-read__maintenance-copy">
             <p className="wiki-read__promotion-kicker">Agent-owned page</p>
             <h2>
               {maintenanceActive
                 ? 'Checking this page against your corpus'
-                : maintenanceReceipt?.status === 'failed'
-                  ? 'Maintenance needs a retry'
+                : maintenanceDisplayState === 'failed'
+                  ? (page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
+                    ? 'Build failed the quality gate'
+                    : 'Maintenance needs a retry')
                   : maintenanceReceipt?.status === 'review'
                     ? 'Maintenance surfaced review work'
                     : maintenanceReceipt?.status === 'settled'

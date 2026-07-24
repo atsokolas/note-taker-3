@@ -2860,7 +2860,7 @@ const buildWikiRouter = ({
         pageType: 'entity',
         status: 'draft',
         visibility: 'private',
-        sourceScope: 'entire_library',
+        sourceScope: 'selected_sources',
         createdFrom: {
           type: 'wiki_index',
           objectIds: [],
@@ -2947,6 +2947,38 @@ const buildWikiRouter = ({
           page.markModified?.('sourceRefs');
           await page.save();
         }
+        await Promise.all((watchResult.events || []).map(async (event) => {
+          const raw = event?.toObject ? event.toObject() : event;
+          const form = String(raw?.metadata?.form || '').toUpperCase();
+          const selected = latestByForm.get(form);
+          const attached = selected && serializeId(selected._id) === serializeId(raw?._id);
+          const metadata = {
+            ...(raw?.metadata || {}),
+            bootstrapDisposition: attached ? 'attached_for_first_build' : 'superseded_historical_filing'
+          };
+          if (typeof event?.save === 'function') {
+            event.status = 'ignored';
+            event.processedAt = new Date();
+            event.errorMessage = '';
+            event.metadata = metadata;
+            event.markModified?.('metadata');
+            await event.save();
+            return;
+          }
+          if (WikiSourceEvent?.findOneAndUpdate && raw?._id) {
+            await WikiSourceEvent.findOneAndUpdate(
+              { _id: raw._id, userId: req.user.id },
+              {
+                $set: {
+                  status: 'ignored',
+                  processedAt: new Date(),
+                  errorMessage: '',
+                  metadata
+                }
+              }
+            );
+          }
+        }));
       } catch (error) {
         watchError = String(error?.message || 'SEC filing check failed.');
       }
