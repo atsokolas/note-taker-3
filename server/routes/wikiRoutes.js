@@ -20,13 +20,23 @@ const {
   revertWikiSchemaSettings,
   saveWikiSchemaSettings
 } = require('../services/wikiSchemaService');
-const { createWikiRevision, snapshotPage } = require('../services/wikiRevisionService');
+const {
+  createWikiRevision,
+  restorePageSnapshot,
+  snapshotContentHash,
+  snapshotPage
+} = require('../services/wikiRevisionService');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const {
+  activeCompanyDossierKey,
   buildCompanyDossierBody,
   buildInvestmentDossierProfile,
+  companyDossierInputsMatch,
   normalizeCompanyDossierInput
 } = require('../services/companyDossierService');
+const { buildValuationSnapshot } = require('../services/investmentValuationService');
+const { buildInvestmentMaintenanceComparison } = require('../services/investmentDossierComparisonService');
+const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
 const {
@@ -141,6 +151,24 @@ const activeWikiDraftStreams = new Map();
 const PAGE_TYPE_ALIASES = {
   person: 'entity',
   synthesis: 'overview'
+};
+
+const normalizeExternalHttpUrl = (value = '', label = 'URL') => {
+  const raw = String(value || '').trim();
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_error) {
+    const error = new Error(`${label} must be a valid public URL.`);
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    const error = new Error(`${label} must use http or https.`);
+    error.statusCode = 400;
+    throw error;
+  }
+  return parsed.toString();
 };
 const STATUSES = new Set(['draft', 'published', 'archived']);
 const rejectAgentReservedWeekendReadingsCreation = (req, res, createdFrom) => {
@@ -787,6 +815,17 @@ const serializeWikiPage = (page) => {
       sourceScopeAtDraft: raw.aiState?.sourceScopeAtDraft || raw.sourceScope || 'entire_library',
       sourceRefIdsAtDraft: Array.isArray(raw.aiState?.sourceRefIdsAtDraft) ? raw.aiState.sourceRefIdsAtDraft : [],
       maintenanceSummary: raw.aiState?.maintenanceSummary || '',
+      candidateStatus: raw.aiState?.candidateStatus || 'idle',
+      firstHeadCandidateRevisionId: raw.aiState?.firstHeadCandidateRevisionId || '',
+      firstHeadCandidateAt: raw.aiState?.firstHeadCandidateAt || null,
+      firstHeadCandidateSummary: raw.aiState?.firstHeadCandidateSummary || null,
+      firstHeadAcceptedAt: raw.aiState?.firstHeadAcceptedAt || null,
+      maintenanceCandidateRevisionId: raw.aiState?.maintenanceCandidateRevisionId || '',
+      maintenanceCandidateAt: raw.aiState?.maintenanceCandidateAt || null,
+      maintenanceCandidateSummary: raw.aiState?.maintenanceCandidateSummary || null,
+      lastCandidateAt: raw.aiState?.lastCandidateAt || null,
+      lastCandidateQuality: raw.aiState?.lastCandidateQuality || {},
+      lastCandidateSummary: raw.aiState?.lastCandidateSummary || '',
       health: raw.aiState?.health || {
         newItems: [],
         unsupportedClaims: [],
@@ -895,6 +934,64 @@ const publicSourceSnippet = (source = {}, { repoPage = false } = {}) => {
   return snippet.slice(0, repoPage ? 320 : 1000);
 };
 
+const buildPublicInvestmentValuation = (page = {}) => {
+  const valuation = page?.investmentDossier?.valuation || {};
+  if (valuation.status !== 'complete' || !Array.isArray(valuation.scenarios) || valuation.scenarios.length === 0) {
+    return null;
+  }
+  const sourceById = new Map(
+    (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+      .map(source => [String(source?._id || source?.id || ''), source])
+      .filter(([id]) => id)
+  );
+  const publicSources = (Array.isArray(valuation.sourceRefIds) ? valuation.sourceRefIds : [])
+    .map((sourceRefId) => {
+      const source = sourceById.get(String(sourceRefId));
+      if (!source) return null;
+      return {
+        title: String(source.title || source.url || 'Valuation source').trim(),
+        url: String(source.url || '').trim()
+      };
+    })
+    .filter(Boolean);
+  return {
+    status: 'complete',
+    asOf: valuation.asOf || null,
+    currency: String(valuation.currency || 'USD'),
+    unitScale: String(valuation.unitScale || 'millions'),
+    price: Number(valuation.price),
+    dilutedShares: Number(valuation.dilutedShares),
+    equityValue: Number(valuation.equityValue),
+    netCashOrDebt: Number(valuation.netCashOrDebt || 0),
+    enterpriseValue: Number(valuation.enterpriseValue),
+    currentOperatingMultiple: Number(valuation.currentOperatingMultiple),
+    currentOperatingYield: Number(valuation.currentOperatingYield),
+    requiredEndingEquityValue: Number(valuation.requiredEndingEquityValue),
+    operatingBase: {
+      metric: String(valuation.operatingBase?.metric || ''),
+      period: String(valuation.operatingBase?.period || ''),
+      value: Number(valuation.operatingBase?.value),
+      derivation: String(valuation.operatingBase?.derivation || '')
+    },
+    hurdle: {
+      annualReturn: Number(valuation.hurdle?.annualReturn),
+      horizonYears: Number(valuation.hurdle?.horizonYears),
+      terminalMultiples: (valuation.hurdle?.terminalMultiples || []).map(Number).filter(Number.isFinite)
+    },
+    scenarios: valuation.scenarios.map(row => ({
+      terminalMultiple: Number(row.terminalMultiple),
+      requiredOperatingValue: Number(row.requiredOperatingValue),
+      requiredCagr: Number(row.requiredCagr)
+    })).filter(row => (
+      Number.isFinite(row.terminalMultiple)
+      && Number.isFinite(row.requiredOperatingValue)
+      && Number.isFinite(row.requiredCagr)
+    )),
+    sources: publicSources,
+    calculatedAt: valuation.calculatedAt || null
+  };
+};
+
 const serializePublicWikiPage = (page) => {
   if (isResearchOperatingLedgerPage(page)) return null;
   const full = serializeWikiPage(page);
@@ -916,6 +1013,7 @@ const serializePublicWikiPage = (page) => {
   const maintenanceProof = buildPublicMaintenanceProof(page);
   if (repoPage && maintenanceProof) maintenanceProof.sourceCount = publicSourceRefs.length;
   const publicRepoEnvelope = repoPage ? buildPublicRepoEnvelope(full) : null;
+  const investmentValuation = buildPublicInvestmentValuation(full);
 
   return {
     _id: String(full._id || ''),
@@ -939,6 +1037,7 @@ const serializePublicWikiPage = (page) => {
     claimCount: full.claimCount ?? 0,
     wordCount: full.wordCount ?? countWords(full.plainText || ''),
     maintenanceProof,
+    ...(investmentValuation ? { investmentValuation } : {}),
     ...(publicRepoEnvelope || {})
   };
 };
@@ -2839,16 +2938,58 @@ const buildWikiRouter = ({
         return res.status(400).json({ error: validationError.message });
       }
       const company = await resolveEdgarCompanyIdentifier({ ticker: input.ticker });
-      const existing = await WikiPage.findOne({
+      const dossierKey = activeCompanyDossierKey(company.cik);
+      let existing = await WikiPage.findOne({
         userId: req.user.id,
+        activeCompanyDossierKey: dossierKey,
+        status: { $ne: 'archived' },
+        archived: { $ne: true }
+      });
+      if (!existing) existing = await WikiPage.findOne({
+        userId: req.user.id,
+        status: { $ne: 'archived' },
         archived: { $ne: true },
         'externalWatches.edgar.cik': company.cik
       });
       if (existing) {
+        if (!existing.activeCompanyDossierKey) {
+          existing.activeCompanyDossierKey = dossierKey;
+          await existing.save();
+        }
+        const existingProfile = existing.investmentDossier || {};
+        if (!companyDossierInputsMatch(existingProfile, input)) {
+          return res.status(409).json({
+            code: 'DOSSIER_INPUT_CONFLICT',
+            error: `${company.ticker} already has an active dossier with a different owner judgment or return hurdle. Open that dossier to revise the decision record explicitly.`,
+            page: serializeWikiPage(existing),
+            company
+          });
+        }
         return res.status(200).json({
           action: 'existing',
           page: serializeWikiPage(existing),
-          company
+          company,
+          receipt: {
+            id: `company-dossier:${serializeId(existing._id)}`,
+            kind: 'company_dossier_existing',
+            source: 'wiki',
+            sourceLabel: 'Company dossier',
+            status: 'completed',
+            title: `Opened existing ${company.ticker} investment dossier.`,
+            summary: 'No duplicate page was created. The saved owner judgment and return hurdle were unchanged.',
+            metrics: {
+              ticker: company.ticker,
+              cik: company.cik,
+              requiredReturn: input.requiredReturn,
+              horizonYears: input.horizonYears
+            },
+            touched: [{ type: 'wiki_page', id: serializeId(existing._id), title: existing.title }],
+            nextAction: {
+              type: 'review_wiki_page',
+              id: serializeId(existing._id),
+              title: 'Review the existing trusted page'
+            }
+          }
         });
       }
 
@@ -2887,6 +3028,7 @@ const buildWikiRouter = ({
           }
         }),
         investmentDossier: buildInvestmentDossierProfile({ ...input, ...company }),
+        activeCompanyDossierKey: dossierKey,
         externalWatches: {
           edgar: {
             ticker: company.ticker,
@@ -2898,7 +3040,34 @@ const buildWikiRouter = ({
         }
       });
       refreshPageClaims(page);
-      await page.save();
+      try {
+        await page.save();
+      } catch (saveError) {
+        if (Number(saveError?.code) !== 11000) throw saveError;
+        const winner = await WikiPage.findOne({
+          userId: req.user.id,
+          activeCompanyDossierKey: dossierKey,
+          status: { $ne: 'archived' },
+          archived: { $ne: true }
+        });
+        if (!winner) throw saveError;
+        return res.status(200).json({
+          action: 'existing',
+          page: serializeWikiPage(winner),
+          company,
+          receipt: {
+            id: `company-dossier:${serializeId(winner._id)}`,
+            kind: 'company_dossier_existing',
+            source: 'wiki',
+            sourceLabel: 'Company dossier',
+            status: 'completed',
+            title: `Opened existing ${company.ticker} investment dossier.`,
+            summary: 'A simultaneous request already created this active dossier. No duplicate page was saved.',
+            metrics: { ticker: company.ticker, cik: company.cik },
+            touched: [{ type: 'wiki_page', id: serializeId(winner._id), title: winner.title }]
+          }
+        });
+      }
       await syncPageGraph(page, req.user.id);
       const revision = await createWikiRevision({
         WikiRevision,
@@ -2983,36 +3152,52 @@ const buildWikiRouter = ({
       } catch (error) {
         watchError = String(error?.message || 'SEC filing check failed.');
       }
-      const receipt = await persistNoeisReceipt({
+      const receiptInput = {
+        id: `company-dossier:${serializeId(page._id)}`,
+        kind: 'company_dossier_created',
+        source: 'wiki',
+        sourceLabel: 'Company dossier',
+        status: watchError ? 'partial' : 'completed',
+        title: `Created ${company.ticker} investment dossier.`,
+        summary: watchError
+          ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
+          : 'The private dossier, owner judgment, return hurdle, and free SEC filing watch were saved.',
+        metrics: {
+          ticker: company.ticker,
+          cik: company.cik,
+          requiredReturn: input.requiredReturn,
+          horizonYears: input.horizonYears,
+          filingsFound: watchResult.filings?.length || 0,
+          sourceEventsCreated: watchResult.events?.length || 0,
+          filingsAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+        },
+        provenance: {
+          initialRevisionId: serializeId(revision?._id),
+          firstHeadState: 'draft_pending_review',
+          filings: (watchResult.events || []).map((event) => {
+            const raw = event?.toObject ? event.toObject() : event;
+            return {
+              form: String(raw?.metadata?.form || ''),
+              accessionNumber: String(raw?.metadata?.accessionNumber || ''),
+              filingDate: raw?.metadata?.filingDate || null,
+              attached: raw?.metadata?.bootstrapDisposition === 'attached_for_first_build'
+            };
+          })
+        },
+        touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+        nextAction: {
+          type: 'review_wiki_page',
+          id: serializeId(page._id),
+          title: 'Build and review the first trusted head'
+        },
+        completedAt: new Date()
+      };
+      const persistedReceipt = await persistNoeisReceipt({
         NoeisReceipt,
         userId: req.user.id,
-        receipt: {
-          id: `company-dossier:${serializeId(page._id)}`,
-          kind: 'company_dossier_created',
-          source: 'wiki',
-          sourceLabel: 'Company dossier',
-          status: watchError ? 'partial' : 'completed',
-          title: `Created ${company.ticker} investment dossier.`,
-          summary: watchError
-            ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
-            : 'The private dossier, owner judgment, return hurdle, and free SEC filing watch were saved.',
-          metrics: {
-            ticker: company.ticker,
-            requiredReturn: input.requiredReturn,
-            horizonYears: input.horizonYears,
-            filingsFound: watchResult.filings?.length || 0,
-            sourceEventsCreated: watchResult.events?.length || 0,
-            filingsAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
-          },
-          touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
-          nextAction: {
-            type: 'review_wiki_page',
-            id: serializeId(page._id),
-            title: 'Build and review the first trusted head'
-          },
-          completedAt: new Date()
-        }
+        receipt: receiptInput
       });
+      const receipt = persistedReceipt || receiptInput;
       trackWikiEvent(req, EVENT_NAMES.WIKI_PAGE_CREATED, {
         pageId: serializeId(page._id),
         title: page.title,
@@ -3038,6 +3223,407 @@ const buildWikiRouter = ({
         error: Number(error?.statusCode) < 500
           ? error.message
           : 'Failed to create the company dossier.'
+      });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/research-candidate', wikiAuth, async (req, res) => {
+    try {
+      if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const firstHead = page.aiState?.candidateStatus === 'awaiting_first_head_acceptance';
+      const maintenance = page.aiState?.candidateStatus === 'awaiting_maintenance_acceptance';
+      const revisionId = String(firstHead
+        ? page.aiState?.firstHeadCandidateRevisionId
+        : page.aiState?.maintenanceCandidateRevisionId || '');
+      if ((!firstHead && !maintenance) || !revisionId) {
+        return res.status(404).json({ error: 'No research candidate is awaiting review.' });
+      }
+      const revision = await WikiRevision.findOne({
+        _id: revisionId,
+        userId: req.user.id,
+        pageId: page._id,
+        promotionStatus: 'candidate'
+      }).lean();
+      if (!revision?.after) return res.status(404).json({ error: 'The first-head candidate is unavailable.' });
+      res.status(200).json({
+        revisionId: serializeId(revision._id),
+        status: firstHead ? 'awaiting_first_head_acceptance' : 'awaiting_maintenance_acceptance',
+        kind: firstHead ? 'first_head' : 'maintenance',
+        summary: firstHead
+          ? page.aiState?.firstHeadCandidateSummary || {}
+          : page.aiState?.maintenanceCandidateSummary || {},
+        candidate: serializeWikiPage(revision.after)
+      });
+    } catch (error) {
+      console.error('Error loading first-head candidate:', error);
+      res.status(500).json({ error: 'Failed to load the first-head candidate.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/research-candidate/:decision', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) {
+        return res.status(403).json({ error: 'Only the human owner can accept or reject the first trusted head.' });
+      }
+      if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
+      const decision = String(req.params.decision || '').toLowerCase();
+      if (!['accept', 'reject'].includes(decision)) {
+        return res.status(400).json({ error: 'Decision must be accept or reject.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const firstHead = page.aiState?.candidateStatus === 'awaiting_first_head_acceptance';
+      const maintenance = page.aiState?.candidateStatus === 'awaiting_maintenance_acceptance';
+      const revisionId = String(firstHead
+        ? page.aiState?.firstHeadCandidateRevisionId
+        : page.aiState?.maintenanceCandidateRevisionId || '');
+      if ((!firstHead && !maintenance) || !revisionId) {
+        return res.status(409).json({ error: 'No research candidate is awaiting review.' });
+      }
+      const revision = await WikiRevision.findOne({
+        _id: revisionId,
+        userId: req.user.id,
+        pageId: page._id,
+        promotionStatus: 'candidate'
+      });
+      if (!revision?.after) return res.status(404).json({ error: 'The first-head candidate is unavailable.' });
+      const before = snapshotPage(page);
+      const expectedTrustedHeadHash = String(revision.sourceVersion?.trustedHeadHash || '');
+      if (!expectedTrustedHeadHash || snapshotContentHash(before) !== expectedTrustedHeadHash) {
+        return res.status(409).json({
+          code: 'WIKI_RESEARCH_CANDIDATE_STALE',
+          error: 'The trusted page changed after this candidate was generated. Rebuild the candidate before accepting it.'
+        });
+      }
+      const now = new Date();
+      if (decision === 'accept') {
+        restorePageSnapshot(page, revision.after);
+        const profile = page.investmentDossier || {};
+        const claimComparison = compareClaimLedgers({
+          beforeClaims: before.claims || [],
+          afterClaims: page.claims || [],
+          outcome: 'accepted'
+        });
+        const maintenanceComparison = buildInvestmentMaintenanceComparison({
+          before,
+          after: snapshotPage(page),
+          claimComparison,
+          sourceLabel: revision.sourceVersion?.provider || (firstHead ? 'Initial SEC research build' : 'Accepted maintenance candidate'),
+          sourceEventId: serializeId(revision.sourceEventId),
+          revisionId: serializeId(revision._id),
+          now
+        });
+        page.investmentDossier = firstHead
+          ? {
+            ...profile,
+            firstHead: {
+              status: 'accepted',
+              acceptedAt: now,
+              candidateRevisionId: serializeId(revision._id)
+            },
+            lastMaintenanceComparison: maintenanceComparison
+          }
+          : {
+            ...profile,
+            lastMaintenanceComparison: maintenanceComparison
+          };
+        page.aiState = {
+          ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+          candidateStatus: 'accepted',
+          firstHeadAcceptedAt: now,
+          draftStatus: 'ready',
+          lastError: '',
+          errorCode: '',
+          lastCandidateQuality: {},
+          lastCandidateSummary: ''
+        };
+        delete page.aiState.firstHeadCandidateRevisionId;
+        delete page.aiState.firstHeadCandidateAt;
+        delete page.aiState.firstHeadCandidateSummary;
+        delete page.aiState.maintenanceCandidateRevisionId;
+        delete page.aiState.maintenanceCandidateAt;
+        delete page.aiState.maintenanceCandidateSummary;
+        page.freshness = {
+          ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
+          status: 'fresh',
+          lastMaintainedAt: now
+        };
+        page.markModified?.('investmentDossier');
+        page.markModified?.('aiState');
+        page.markModified?.('freshness');
+        await page.save();
+        revision.promotionStatus = 'promoted';
+        revision.summary = `Accepted first trusted head for "${page.title}".`;
+        await revision.save();
+        await syncPageGraph(page, req.user.id);
+        const acceptanceRevision = await createWikiRevision({
+          WikiRevision,
+          userId: req.user.id,
+          page,
+          before,
+          reason: 'user_edit',
+          actorType: 'user',
+          summary: `Owner accepted the first trusted head for "${page.title}".`
+        });
+        const receiptInput = {
+          id: `company-dossier-${firstHead ? 'first-head' : 'maintenance'}:${serializeId(page._id)}:${serializeId(revision._id)}`,
+          kind: firstHead ? 'company_dossier_first_head_accepted' : 'company_dossier_maintenance_accepted',
+          source: 'wiki',
+          sourceLabel: 'Company dossier',
+          status: 'completed',
+          title: `Accepted the ${firstHead ? 'first trusted head' : 'maintenance candidate'} for ${page.investmentDossier?.company?.ticker || page.title}`,
+          summary: `${maintenanceComparison.headline} ${maintenanceComparison.judgmentSummary}`,
+          provenance: {
+            candidateRevisionId: serializeId(revision._id),
+            acceptanceRevisionId: serializeId(acceptanceRevision?._id)
+          },
+          touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+          completedAt: now
+        };
+        const persistedReceipt = await persistNoeisReceipt({
+          NoeisReceipt,
+          userId: req.user.id,
+          receipt: receiptInput
+        });
+        trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
+          pageId: serializeId(page._id),
+          title: page.title,
+          pageType: page.pageType,
+          sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+          claimCount: Array.isArray(page.claims) ? page.claims.length : 0,
+          sourceType: 'company_dossier',
+          acceptance: firstHead ? 'first_head' : 'maintenance'
+        });
+        return res.status(200).json({
+          page: serializeWikiPage(page),
+          receipt: persistedReceipt || receiptInput
+        });
+      }
+
+      revision.promotionStatus = 'rejected';
+      revision.summary = `Owner rejected first-head candidate for "${page.title}".`;
+      await revision.save();
+      page.aiState = {
+        ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+        candidateStatus: firstHead ? 'first_head_rejected' : 'maintenance_rejected',
+        lastCandidateAt: now,
+        lastCandidateSummary: 'The owner rejected the first research head. The original private scaffold and judgment remain unchanged.'
+      };
+      delete page.aiState.firstHeadCandidateRevisionId;
+      delete page.aiState.firstHeadCandidateAt;
+      delete page.aiState.firstHeadCandidateSummary;
+      delete page.aiState.maintenanceCandidateRevisionId;
+      delete page.aiState.maintenanceCandidateAt;
+      delete page.aiState.maintenanceCandidateSummary;
+      page.markModified?.('aiState');
+      await page.save();
+      const receiptInput = {
+        id: `company-dossier-${firstHead ? 'first-head' : 'maintenance'}-rejected:${serializeId(page._id)}:${serializeId(revision._id)}`,
+        kind: firstHead ? 'company_dossier_first_head_rejected' : 'company_dossier_maintenance_rejected',
+        source: 'wiki',
+        sourceLabel: 'Company dossier',
+        status: 'needs_review',
+        title: `Rejected the ${firstHead ? 'first research head' : 'maintenance candidate'} for ${page.investmentDossier?.company?.ticker || page.title}.`,
+        summary: `The generated candidate was rejected. The trusted private ${firstHead ? 'scaffold' : 'research head'} and owner judgment are unchanged.`,
+        provenance: { candidateRevisionId: serializeId(revision._id) },
+        touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+        completedAt: now
+      };
+      const persistedReceipt = await persistNoeisReceipt({
+        NoeisReceipt,
+        userId: req.user.id,
+        receipt: receiptInput
+      });
+      return res.status(200).json({
+        page: serializeWikiPage(page),
+        receipt: persistedReceipt || receiptInput
+      });
+    } catch (error) {
+      console.error('Error reviewing first-head candidate:', error);
+      res.status(500).json({ error: 'Failed to review the first-head candidate.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/valuation', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) {
+        return res.status(403).json({ error: 'Only the human owner can refresh investment expectations.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const profile = page.investmentDossier || {};
+      if (!profile.version || !profile.company?.ticker) {
+        return res.status(409).json({ error: 'This page is not a structured investment dossier.' });
+      }
+      const hurdle = profile.hurdle || profile.valuation?.hurdle || {};
+      const annualReturn = Number(hurdle.annualReturn);
+      const horizonYears = Number(hurdle.horizonYears);
+      if (!Number.isFinite(annualReturn) || !Number.isFinite(horizonYears)) {
+        return res.status(409).json({ error: 'Set the owner return hurdle and horizon before refreshing valuation.' });
+      }
+
+      const operatingSourceRefId = String(req.body?.operatingSourceRefId || '').trim();
+      const operatingSource = (page.sourceRefs || []).find(
+        source => serializeId(source?._id) === operatingSourceRefId
+      );
+      if (!operatingSource) {
+        return res.status(400).json({ error: 'Choose an attached filing or operating source for the valuation base.' });
+      }
+      const marketSourceUrl = normalizeExternalHttpUrl(req.body?.marketSourceUrl, 'Market source URL');
+      const asOf = String(req.body?.asOf || '').trim();
+      const now = new Date();
+      const before = snapshotPage(page);
+      let marketSource = (page.sourceRefs || []).find(source => (
+        source?.metadata?.marketSnapshot === true
+        && String(source.url || '') === marketSourceUrl
+        && String(source?.metadata?.asOf || '') === asOf
+      ));
+      if (!marketSource) {
+        page.sourceRefs.push({
+          _id: new mongoose.Types.ObjectId(),
+          type: 'external',
+          title: String(req.body?.marketSourceTitle || `${profile.company.ticker} market price snapshot`).trim().slice(0, 300),
+          snippet: `${profile.company.ticker} price observation of ${req.body?.price} as of ${asOf}. User-supplied market input; does not advance the SEC evidence clock.`,
+          url: marketSourceUrl,
+          citationLabel: `Market price · ${asOf}`,
+          provider: 'market-observation',
+          metadata: {
+            marketSnapshot: true,
+            evidenceArchetype: 'market_snapshot',
+            ticker: profile.company.ticker,
+            price: Number(req.body?.price),
+            asOf
+          },
+          addedBy: 'user'
+        });
+        marketSource = page.sourceRefs[page.sourceRefs.length - 1];
+      }
+      const marketSourceRefId = serializeId(marketSource?._id);
+      let valuation;
+      try {
+        valuation = buildValuationSnapshot({
+          asOf,
+          currency: 'USD',
+          unitScale: req.body?.unitScale,
+          price: req.body?.price,
+          dilutedShares: req.body?.dilutedShares,
+          netCashOrDebt: req.body?.netCashOrDebt,
+          operatingBase: {
+            metric: req.body?.operatingMetric,
+            period: req.body?.operatingPeriod,
+            value: req.body?.operatingBase,
+            derivation: req.body?.operatingDerivation,
+            sourceRefIds: [operatingSourceRefId]
+          },
+          annualReturn,
+          horizonYears,
+          terminalMultiples: req.body?.terminalMultiples,
+          sourceRefIds: [marketSourceRefId, operatingSourceRefId],
+          calculatedAt: now
+        });
+      } catch (validationError) {
+        if (!before?.sourceRefs?.some(source => serializeId(source?._id) === marketSourceRefId)) {
+          const index = page.sourceRefs.findIndex(source => serializeId(source?._id) === marketSourceRefId);
+          if (index >= 0) page.sourceRefs.splice(index, 1);
+        }
+        return res.status(400).json({ error: validationError.message });
+      }
+
+      const comparison = buildInvestmentMaintenanceComparison({
+        before,
+        after: {
+          ...before,
+          investmentDossier: {
+            ...profile,
+            valuation
+          }
+        },
+        claimComparison: {
+          counts: {
+            added: 0,
+            changed: 0,
+            gainedSupport: 0,
+            contradicted: 0,
+            preserved: Array.isArray(page.claims) ? page.claims.length : 0,
+            removed: 0
+          },
+          deltas: {}
+        },
+        sourceLabel: `${profile.company.ticker} market-price refresh`,
+        now
+      });
+      page.investmentDossier = {
+        ...profile,
+        valuation,
+        lastMaintenanceComparison: comparison,
+        clocks: {
+          ...(profile.clocks || {}),
+          priceRefreshedAt: valuation.calculatedAt
+        }
+      };
+      page.markModified?.('sourceRefs');
+      page.markModified?.('investmentDossier');
+      await page.save();
+      const revision = await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'valuation_refreshed',
+        actorType: 'user',
+        summary: `Refreshed ${profile.company.ticker} implied expectations without advancing the SEC filing clock.`
+      });
+      publicPageCache.invalidate(serializeId(page._id), page.slug);
+
+      const receiptInput = {
+        id: `investment-valuation:${serializeId(page._id)}:${String(asOf).slice(0, 10)}`,
+        kind: 'investment_valuation_refreshed',
+        source: 'wiki',
+        sourceLabel: 'Investment expectations',
+        status: 'completed',
+        title: `Refreshed ${profile.company.ticker} implied expectations.`,
+        summary: `${comparison.expectations.summary} The accepted SEC clock was not changed.`,
+        metrics: {
+          ticker: profile.company.ticker,
+          price: valuation.price,
+          asOf: valuation.asOf,
+          annualReturn,
+          horizonYears,
+          scenarioCount: valuation.scenarios.length
+        },
+        provenance: {
+          revisionId: serializeId(revision?._id),
+          marketSourceRefId,
+          operatingSourceRefId,
+          filingAcceptedAt: profile.clocks?.filingAcceptedAt || null,
+          priceRefreshedAt: valuation.calculatedAt
+        },
+        touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+        nextAction: {
+          type: 'review_wiki_page',
+          id: serializeId(page._id),
+          title: 'Review what the current price requires'
+        },
+        completedAt: now
+      };
+      const persistedReceipt = await persistNoeisReceipt({
+        NoeisReceipt,
+        userId: req.user.id,
+        receipt: receiptInput
+      });
+      res.status(200).json({
+        page: serializeWikiPage(page),
+        valuation,
+        receipt: persistedReceipt || receiptInput
+      });
+    } catch (error) {
+      console.error('Error refreshing investment valuation:', error);
+      res.status(Number(error?.statusCode) || 500).json({
+        error: Number(error?.statusCode) < 500
+          ? error.message
+          : 'Failed to refresh investment expectations.'
       });
     }
   });
@@ -4511,6 +5097,8 @@ const buildWikiRouter = ({
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const before = snapshotPage(page);
       page.status = 'archived';
+      page.archived = true;
+      page.activeCompanyDossierKey = undefined;
       await page.save();
       publicPageCache.invalidate(serializeId(page._id), before?.slug, page.slug);
       await syncPageGraph({
@@ -4567,6 +5155,8 @@ const buildWikiRouter = ({
         userId: req.user.id,
         WikiRevision,
         beforeSnapshot: before,
+        requireFirstHeadAcceptance: /^company-dossier:/i.test(String(page?.createdFrom?.label || '')),
+        requireOwnerAcceptance: Boolean(page?.investmentDossier?.version),
         maintainWikiPageFn: maintainWikiPage,
         maintainArgs: {
           wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
@@ -4583,6 +5173,19 @@ const buildWikiRouter = ({
 
       if (!publication.promoted) {
         await page.save();
+        if (publication.awaitingAcceptance) {
+          return res.status(202).json({
+            ...serializeWikiPage(page),
+            firstHeadReview: {
+              status: 'awaiting_acceptance',
+              kind: publication.reviewKind,
+              revisionId: serializeId(publication.reviewRevision?._id),
+              summary: publication.reviewKind === 'first_head'
+                ? page.aiState?.firstHeadCandidateSummary || {}
+                : page.aiState?.maintenanceCandidateSummary || {}
+            }
+          });
+        }
         if (buildLease?.acquired) {
           page = await releaseRepoBuildLease({
             WikiPage,
@@ -4719,6 +5322,8 @@ const buildWikiRouter = ({
         userId: req.user.id,
         WikiRevision,
         beforeSnapshot: before,
+        requireFirstHeadAcceptance: /^company-dossier:/i.test(String(page?.createdFrom?.label || '')),
+        requireOwnerAcceptance: Boolean(page?.investmentDossier?.version),
         maintainWikiPageFn: maintainWikiPage,
         maintainArgs: {
           wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
@@ -4743,6 +5348,30 @@ const buildWikiRouter = ({
 
       if (!publication.promoted) {
         page = await savePageWithVersionRetry(page, req.user.id);
+        if (publication.awaitingAcceptance) {
+          writeSse(res, 'wiki-page', {
+            stage: 'candidate_ready',
+            summary: 'The first research head is ready for explicit owner review.',
+            page: serializeWikiPage(page),
+            firstHeadReview: {
+              status: 'awaiting_acceptance',
+              kind: publication.reviewKind,
+              revisionId: serializeId(publication.reviewRevision?._id),
+              summary: publication.reviewKind === 'first_head'
+                ? page.aiState?.firstHeadCandidateSummary || {}
+                : page.aiState?.maintenanceCandidateSummary || {}
+            }
+          });
+          writeSse(res, 'done', {
+            ok: true,
+            code: publication.reviewKind === 'first_head'
+              ? 'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE'
+              : 'WIKI_MAINTENANCE_AWAITING_ACCEPTANCE',
+            pageId: serializeId(page._id)
+          });
+          res.end();
+          return;
+        }
         if (buildLease?.acquired) {
           page = await releaseRepoBuildLease({
             WikiPage,
@@ -6010,6 +6639,7 @@ const buildWikiRouter = ({
 
 module.exports = {
   assertHumanForResolvedWeekendReadingsTargets,
+  buildPublicInvestmentValuation,
   buildRequireHumanForWeekendReadingsMutation,
   buildUniqueWikiSlugBuilder,
   buildWikiRouter,
@@ -6018,6 +6648,7 @@ module.exports = {
   normalizeCreatedFrom,
   normalizeSourceRef,
   rejectAgentReservedWeekendReadingsCreation,
+  serializePublicWikiPage,
   serializeWikiPage,
   slugify
 };

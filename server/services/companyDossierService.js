@@ -90,8 +90,25 @@ const buildInvestmentDossierProfile = ({ companyName, cik, ticker, startingJudgm
   })
 );
 
+const companyDossierInputsMatch = (profile = {}, input = {}) => {
+  const hurdle = profile.hurdle || {};
+  return (
+    clean(profile.startingJudgment) === clean(input.startingJudgment)
+    && Number(hurdle.annualReturn) === Number(input.requiredReturn)
+    && Number(hurdle.horizonYears) === Number(input.horizonYears)
+  );
+};
+
+const activeCompanyDossierKey = (cik = '') => {
+  const normalized = clean(cik, 20).replace(/\D/g, '').padStart(10, '0');
+  if (!/^\d{10}$/.test(normalized)) throw new Error('A valid CIK is required for active dossier identity.');
+  return `sec:${normalized}`;
+};
+
 module.exports = {
+  activeCompanyDossierKey,
   buildCompanyDossierBody,
   buildInvestmentDossierProfile,
+  companyDossierInputsMatch,
   normalizeCompanyDossierInput
 };

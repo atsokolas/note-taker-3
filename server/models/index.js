@@ -579,7 +579,29 @@ const wikiAiStateSchema = new mongoose.Schema({
       rebuiltAutomatically: false
     })
   },
-  candidateStatus: { type: String, enum: ['idle', 'building', 'promoted', 'rejected', 'evidence_only'], default: 'idle' },
+  candidateStatus: {
+    type: String,
+    enum: [
+      'idle',
+      'building',
+      'promoted',
+      'rejected',
+      'evidence_only',
+      'awaiting_first_head_acceptance',
+      'awaiting_maintenance_acceptance',
+      'accepted',
+      'first_head_rejected',
+      'maintenance_rejected'
+    ],
+    default: 'idle'
+  },
+  firstHeadCandidateRevisionId: { type: String, default: '', trim: true },
+  firstHeadCandidateAt: { type: Date, default: null },
+  firstHeadCandidateSummary: { type: mongoose.Schema.Types.Mixed, default: null },
+  firstHeadAcceptedAt: { type: Date, default: null },
+  maintenanceCandidateRevisionId: { type: String, default: '', trim: true },
+  maintenanceCandidateAt: { type: Date, default: null },
+  maintenanceCandidateSummary: { type: mongoose.Schema.Types.Mixed, default: null },
   lastCandidateAt: { type: Date, default: null },
   lastCandidateQuality: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   lastCandidateSummary: { type: String, default: '', trim: true },
@@ -746,6 +768,7 @@ const wikiPageSchema = new mongoose.Schema({
   citations: { type: [wikiCitationSchema], default: [] },
   judgment: { type: wikiJudgmentSchema, default: null },
   investmentDossier: { type: mongoose.Schema.Types.Mixed, default: null },
+  activeCompanyDossierKey: { type: String, trim: true },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   publicProof: { type: wikiPublicProofSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },
@@ -760,6 +783,16 @@ wikiPageSchema.index({ userId: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
+wikiPageSchema.index(
+  { userId: 1, activeCompanyDossierKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      activeCompanyDossierKey: { $type: 'string' },
+      archived: false
+    }
+  }
+);
 
 wikiPageSchema.pre('validate', function normalizeLegacyWikiPageType(next) {
   this.pageType = normalizeWikiPageTypeForModel(this.pageType);
@@ -826,7 +859,7 @@ const WikiProposal = mongoose.model('WikiProposal', wikiProposalSchema);
 const wikiRevisionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
-  reason: { type: String, enum: ['created', 'user_edit', 'agent_maintenance', 'agent_candidate', 'source_event', 'archived'], default: 'user_edit' },
+  reason: { type: String, enum: ['created', 'user_edit', 'agent_maintenance', 'agent_candidate', 'source_event', 'valuation_refreshed', 'archived'], default: 'user_edit' },
   actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'user' },
   sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null },
   maintenanceRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiMaintenanceRun', default: null },

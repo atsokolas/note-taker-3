@@ -9,6 +9,7 @@ const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
 const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
 const { compareClaimLedgers } = require('./wikiClaimComparisonService');
+const { buildInvestmentMaintenanceComparison } = require('./investmentDossierComparisonService');
 const { buildWikiMaintenanceReceipt } = require('./wikiMaintenanceReceiptService');
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { invalidateWikiBriefingCache } = require('./wikiBriefingService');
@@ -502,6 +503,7 @@ const processWikiSourceEvent = async ({
     }
 
     let rejectedCount = 0;
+    let reviewCount = 0;
     let skippedCount = 0;
     const comparisons = [];
     for (let page of pages) {
@@ -557,6 +559,7 @@ const processWikiSourceEvent = async ({
             rejectDestructiveClaimLoss: event.sourceType === 'external' || protectedPublicPage,
             promoteEvidenceOnlyOnDestructiveLoss: event.sourceType === 'external' && !protectedPublicPage,
             requireManualReview: protectedPublicPage,
+            requireOwnerAcceptance: Boolean(page.investmentDossier?.version),
             sourceVersion: event.metadata?.commitSha ? {
               provider: 'github',
               headSha: event.metadata.commitSha,
@@ -588,6 +591,31 @@ const processWikiSourceEvent = async ({
         throw error;
       }
       if (!publication.promoted) {
+        if (publication.awaitingAcceptance) {
+          reviewCount += 1;
+          comparisons.push({
+            pageId: String(page._id || ''),
+            pageTitle: asText(page.title),
+            sourceEventId: String(event._id || ''),
+            revisionId: String(publication.reviewRevision?._id || ''),
+            outcome: 'awaiting_owner_acceptance',
+            ...compareClaimLedgers({
+              beforeClaims: before.claims || [],
+              afterClaims: publication.candidate?.claims || [],
+              outcome: 'accepted'
+            })
+          });
+          const candidate = candidateUpdates.find(row => (
+            row.targetType === 'wiki_page' && row.pageId === String(page._id || '')
+          ));
+          if (candidate) {
+            candidate.status = 'needs_review';
+            candidate.reason = 'A source-backed dossier candidate is ready for explicit owner acceptance.';
+            candidate.recommendedAction = 'Review the candidate and accept or reject the exact trusted head.';
+          }
+          await page.save();
+          continue;
+        }
         rejectedCount += 1;
         comparisons.push({
           pageId: String(page._id || ''),
@@ -650,6 +678,21 @@ const processWikiSourceEvent = async ({
           outcome: 'accepted'
         })
       };
+      if (page.investmentDossier?.version) {
+        const investmentExplanation = buildInvestmentMaintenanceComparison({
+          before,
+          after: snapshotPage(page),
+          claimComparison: acceptedComparison,
+          sourceLabel: event.title || event.provider || event.sourceType,
+          now: new Date()
+        });
+        acceptedComparison.investmentExplanation = investmentExplanation;
+        page.investmentDossier = {
+          ...(page.investmentDossier?.toObject ? page.investmentDossier.toObject() : page.investmentDossier),
+          lastMaintenanceComparison: investmentExplanation
+        };
+        page.markModified?.('investmentDossier');
+      }
       comparisons.push(acceptedComparison);
       page.freshness = {
         ...(page.freshness?.toObject ? page.freshness.toObject() : page.freshness || {}),
@@ -703,9 +746,11 @@ const processWikiSourceEvent = async ({
     event.affectedPageIds = pages.map(page => page._id).filter(Boolean);
     await event.save();
     if (run) {
-      run.status = rejectedCount ? 'needs_review' : 'completed';
+      run.status = rejectedCount || reviewCount ? 'needs_review' : 'completed';
       run.pageId = pages[0]?._id || null;
-      run.summary = rejectedCount
+      run.summary = reviewCount
+        ? `Held ${reviewCount} company dossier candidate${reviewCount === 1 ? '' : 's'} for explicit owner acceptance.`
+        : rejectedCount
         ? `Kept ${rejectedCount} wiki ${rejectedCount === 1 ? 'page' : 'pages'} on the last trusted version for review.`
         : skippedCount
           ? `Skipped ${skippedCount} duplicate repo build ${skippedCount === 1 ? 'delivery' : 'deliveries'} already in progress.`
@@ -723,7 +768,7 @@ const processWikiSourceEvent = async ({
           event,
           pages,
           comparisons,
-          status: rejectedCount ? 'needs_review' : 'completed',
+          status: rejectedCount || reviewCount ? 'needs_review' : 'completed',
           now: run.completedAt
         });
         try {
@@ -747,7 +792,7 @@ const processWikiSourceEvent = async ({
         }
       }
     }
-    return { event, pages, run, rejectedCount, skippedCount, comparisons };
+    return { event, pages, run, rejectedCount, reviewCount, skippedCount, comparisons };
   } catch (error) {
     event.status = 'failed';
     event.errorMessage = error.message || 'Failed to process wiki source event.';

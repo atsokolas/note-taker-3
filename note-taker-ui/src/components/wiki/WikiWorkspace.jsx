@@ -2952,16 +2952,30 @@ const WikiWorkspace = () => {
     systemStatus.clearRecoverableFailure();
     systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: 'Drafting from sources' });
     setBusy(true);
+    let autoBuildDone = null;
     withMaintenanceTimeout(streamMaintainWikiPage(selectedPageId, {}, {
       onPage: (page, event = {}) => {
         if (lastSelectedPageRef.current !== selectedPageId) return;
         if (page) setStreamedWikiPage(page);
         const anchorId = clean(event.anchorId || event.sectionId || event.changedSectionId);
         if (anchorId) setLiveUpdate({ anchorId, pageId: selectedPageId, at: Date.now() });
+      },
+      onDone: (payload) => {
+        autoBuildDone = payload;
       }
     }), selectedPageId).then(() => {
       if (lastSelectedPageRef.current !== selectedPageId) return;
-      systemStatus.setLatestReceipt(wikiBuildSystemReceipt({ pageId: selectedPageId }));
+      if (autoBuildDone?.code === 'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE') {
+        setAutoBuildNotice('The first research candidate is ready. Review and explicitly accept or reject it below.');
+        systemStatus.setLatestReceipt({
+          title: 'First research head needs review.',
+          summary: 'The candidate is private and has not replaced the trusted page.',
+          status: 'needs_review',
+          href: `/wiki/workspace?page=${encodeURIComponent(selectedPageId)}`
+        });
+      } else {
+        systemStatus.setLatestReceipt(wikiBuildSystemReceipt({ pageId: selectedPageId }));
+      }
     }).catch(() => {
       if (lastSelectedPageRef.current === selectedPageId) {
         setAutoBuildNotice('The page was created, but the build stream did not finish. Use Run again or /draft to retry.');

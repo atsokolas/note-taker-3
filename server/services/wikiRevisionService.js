@@ -1,4 +1,20 @@
+const crypto = require('crypto');
+
 const clonePlain = (value) => JSON.parse(JSON.stringify(value ?? null));
+
+const snapshotContentHash = (snapshot = {}) => crypto
+  .createHash('sha256')
+  .update(JSON.stringify({
+    title: snapshot?.title || '',
+    body: snapshot?.body || null,
+    plainText: snapshot?.plainText || '',
+    sourceRefs: snapshot?.sourceRefs || [],
+    claims: snapshot?.claims || [],
+    citations: snapshot?.citations || [],
+    judgment: snapshot?.judgment || null,
+    investmentDossier: snapshot?.investmentDossier || null
+  }))
+  .digest('hex');
 
 const snapshotPage = (page) => {
   if (!page) return null;
@@ -110,5 +126,6 @@ const createWikiRevision = async ({
 module.exports = {
   createWikiRevision,
   restorePageSnapshot,
+  snapshotContentHash,
   snapshotPage
 };

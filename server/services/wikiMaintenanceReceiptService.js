@@ -50,6 +50,7 @@ const buildWikiMaintenanceReceipt = ({ run, event = {}, pages = [], comparisons 
     sum + Number(comparison?.evidenceAssessment?.directMatchCount || 0)
   ), 0);
   const baseSummary = comparisonSummary(counts);
+  const investmentSummary = comparisons.find(comparison => comparison?.investmentExplanation)?.investmentExplanation;
   return {
     id: `wiki-maintenance:${run._id}`,
     kind: 'wiki_maintenance',
@@ -57,7 +58,9 @@ const buildWikiMaintenanceReceipt = ({ run, event = {}, pages = [], comparisons 
     sourceLabel: source.label,
     status,
     title: `${source.label} maintained ${pages.length === 1 ? clean(firstPage?.title, 100) || 'a wiki page' : `${pages.length} wiki pages`}`,
-    summary: `${baseSummary} · ${directMatchCount ? `${directMatchCount} direct source match${directMatchCount === 1 ? '' : 'es'}` : 'source reviewed, no direct claim match'}`,
+    summary: investmentSummary
+      ? `${clean(investmentSummary.headline, 220)} ${clean(investmentSummary.summary, 320)}`
+      : `${baseSummary} · ${directMatchCount ? `${directMatchCount} direct source match${directMatchCount === 1 ? '' : 'es'}` : 'source reviewed, no direct claim match'}`,
     metrics: {
       claimsAdded: counts.added,
       claimsChanged: counts.changed,

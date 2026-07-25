@@ -1,5 +1,6 @@
 const assert = require('assert');
 const {
+  buildValuationSnapshot,
   buildReverseExpectations,
   compoundAnnualGrowthRate,
   round
@@ -18,6 +19,7 @@ assert.strictEqual(round(model.equityValue, 1), 5052.0);
 assert.strictEqual(round(model.currentOperatingMultiple, 1), 52.3);
 assert.strictEqual(round(model.currentOperatingYield * 100, 2), 1.91);
 assert.strictEqual(round(model.requiredEndingEquityValue, 1), 8136.3);
+assert.strictEqual(round(model.enterpriseValue, 1), 5052.0);
 assert.deepStrictEqual(model.scenarios.map(row => row.terminalMultiple), [25, 30, 35, 40]);
 assert.deepStrictEqual(
   model.scenarios.map(row => round(row.requiredOperatingValue, 1)),
@@ -50,5 +52,48 @@ assert.throws(() => buildReverseExpectations({
   horizonYears: 5,
   terminalMultiples: []
 }), /At least one terminal multiple/);
+
+const snapshot = buildValuationSnapshot({
+  asOf: '2026-07-24',
+  unitScale: 'billions',
+  price: 208.76,
+  dilutedShares: 24.2,
+  netCashOrDebt: -35,
+  operatingBase: {
+    metric: 'free_cash_flow',
+    period: 'FY2026 trailing twelve months',
+    value: 96.676,
+    derivation: 'Operating cash flow less purchases of property and equipment.',
+    sourceRefIds: ['filing-source']
+  },
+  annualReturn: 0.1,
+  horizonYears: 5,
+  terminalMultiples: [25, 30, 35, 40],
+  sourceRefIds: ['market-source', 'filing-source'],
+  calculatedAt: new Date('2026-07-25T00:00:00.000Z')
+});
+assert.strictEqual(snapshot.status, 'complete');
+assert.strictEqual(snapshot.currency, 'USD');
+assert.strictEqual(snapshot.unitScale, 'billions');
+assert.strictEqual(snapshot.netCashOrDebt, -35);
+assert.strictEqual(round(snapshot.enterpriseValue, 1), 5017.0);
+assert.strictEqual(snapshot.operatingBase.sourceRefIds[0], 'filing-source');
+assert.deepStrictEqual(snapshot.sourceRefIds, ['market-source', 'filing-source']);
+assert.strictEqual(snapshot.scenarios.length, 4);
+assert(snapshot.scenarios.every(row => Number.isFinite(row.requiredCagr)));
+
+assert.throws(() => buildValuationSnapshot({
+  ...snapshot,
+  operatingBase: { ...snapshot.operatingBase, sourceRefIds: [] }
+}), /at least one source/);
+assert.throws(() => buildValuationSnapshot({
+  ...snapshot,
+  sourceRefIds: ['filing-source']
+}), /separate market and operating evidence/);
+assert.throws(() => buildValuationSnapshot({
+  ...snapshot,
+  asOf: '2027-01-01',
+  calculatedAt: new Date('2026-07-25T00:00:00.000Z')
+}), /future/);
 
 console.log('investmentValuationService tests passed');

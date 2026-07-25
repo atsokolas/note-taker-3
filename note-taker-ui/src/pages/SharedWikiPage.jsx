@@ -4,6 +4,7 @@ import { adoptPublicWikiPage, getPublicWikiComparison, getPublicWikiPage } from 
 import renderTiptapDoc, { extractTocItems, firstParagraphText } from '../components/wiki/renderTiptapDoc';
 import WikiRepoDossierBody from '../components/wiki/WikiRepoDossierBody';
 import WikiRepoDossierOverview from '../components/wiki/WikiRepoDossierOverview';
+import WikiInvestmentValuation from '../components/wiki/WikiInvestmentValuation';
 import { countWikiClaims, countWikiPageWords, countWikiSources } from '../components/wiki/wikiPageMetrics';
 import {
   applyRepoDossierSectionAnchors,
@@ -598,6 +599,9 @@ const SharedWikiPage = () => {
             ) : null}
 
             <div className="shared-wiki-page__body wiki-read">
+              {companyDossierMode && page?.investmentValuation ? (
+                <WikiInvestmentValuation valuation={page.investmentValuation} readOnly />
+              ) : null}
               {repoDossierMode ? (
                 <WikiRepoDossierBody
                   doc={displayBody}
