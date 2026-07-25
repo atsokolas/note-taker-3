@@ -2121,7 +2121,8 @@ const WikiPageReadView = ({
   const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
   const publicShareUrl = buildPublicWikiShareUrl(page);
   const weekendReadingsPage = isWeekendReadingsPage(page);
-  const livingThesisPage = Boolean(page?.judgment?.kind);
+  const investmentDossierPage = Boolean(page?.investmentDossier?.version);
+  const livingThesisPage = Boolean(page?.judgment?.kind) && !investmentDossierPage;
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
   const shareBlocked = isPageQualityBlocked(page);
   const publicShareReady = isSharedPublicly && !shareBlocked;
@@ -2391,15 +2392,17 @@ const WikiPageReadView = ({
                 onPublish={() => runWeekendPublicationAction(publishWeekendReadingsRevision)}
               />
             ) : null}
-            <WikiLivingThesis
-              page={page}
-              pageId={pageId}
-              onPageUpdate={(nextPage) => {
-                if (!nextPage) return;
-                latestPageRef.current = nextPage;
-                setPage(nextPage);
-              }}
-            />
+            {livingThesisPage ? (
+              <WikiLivingThesis
+                page={page}
+                pageId={pageId}
+                onPageUpdate={(nextPage) => {
+                  if (!nextPage) return;
+                  latestPageRef.current = nextPage;
+                  setPage(nextPage);
+                }}
+              />
+            ) : null}
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}
@@ -2556,6 +2559,32 @@ const WikiPageReadView = ({
                 highlightedRef={highlightedRef}
                 onJumpBack={handleReferenceBacklink}
               />
+              {investmentDossierPage && page?.judgment?.kind ? (
+                <details
+                  id="wiki-investment-decision-record"
+                  className="wiki-read__page-status wiki-read__decision-record"
+                >
+                  <summary className="wiki-read__page-status-summary">
+                    <span className="wiki-read__page-status-label">Decision record</span>
+                    <span className="wiki-read__page-status-facts">
+                      <span>Owner judgment workspace</span>
+                      <span>Separate from the research draft</span>
+                    </span>
+                    <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
+                  </summary>
+                  <div className="wiki-read__page-status-panel">
+                    <WikiLivingThesis
+                      page={page}
+                      pageId={pageId}
+                      onPageUpdate={(nextPage) => {
+                        if (!nextPage) return;
+                        latestPageRef.current = nextPage;
+                        setPage(nextPage);
+                      }}
+                    />
+                  </div>
+                </details>
+              ) : null}
               {showMentionedInFooter ? <WikiMentionedInFooter pageId={pageId} pageTitle={page.title} /> : null}
             </section>
           ) : (

@@ -24,15 +24,22 @@ const page = {
       revisionId: 'filing-revision',
       acceptedAt: '2026-07-13T00:00:00.000Z'
     }]
+  },
+  investmentDossier: {
+    version: 2,
+    businessModel: { primary: 'membership_retail' },
+    researchPlan: { status: 'decision_ready' }
   }
 };
 
 const snapshot = snapshotPage(page);
 assert.deepStrictEqual(snapshot.publicProof, page.publicProof);
 assert.deepStrictEqual(snapshot.judgment, page.judgment);
+assert.deepStrictEqual(snapshot.investmentDossier, page.investmentDossier);
 
 const target = {
   judgment: { kind: 'thesis', initialRevisionId: 'initial-revision', currentJudgment: 'Changed' },
+  investmentDossier: { version: 1 },
   publicProof: { grade: 'candidate' },
   modified: [],
   markModified(field) { this.modified.push(field); }
@@ -42,6 +49,8 @@ assert.deepStrictEqual(target.publicProof, page.publicProof);
 assert(target.modified.includes('publicProof'));
 assert.deepStrictEqual(target.judgment, page.judgment);
 assert(target.modified.includes('judgment'));
+assert.deepStrictEqual(target.investmentDossier, page.investmentDossier);
+assert(target.modified.includes('investmentDossier'));
 
 class FakeRevision {
   constructor(fields) { Object.assign(this, fields); }

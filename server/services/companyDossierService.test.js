@@ -23,7 +23,11 @@ const profile = buildInvestmentDossierProfile({
 });
 assert.strictEqual(profile.valuation.status, 'awaiting_inputs');
 assert.strictEqual(profile.clocks.filingAcceptedAt, null);
+assert.strictEqual(profile.clocks.domainEvidenceAcceptedAt, null);
 assert.strictEqual(profile.startingJudgment, input.startingJudgment);
+assert.strictEqual(profile.version, 2);
+assert.strictEqual(profile.researchPlan.status, 'research_incomplete');
+assert(profile.researchPlan.requiredModuleIds.includes('customer_value_unit'));
 
 const body = buildCompanyDossierBody({ ...input, companyName: 'NVIDIA CORP' });
 const text = JSON.stringify(body);

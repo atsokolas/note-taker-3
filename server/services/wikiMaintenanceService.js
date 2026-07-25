@@ -8,6 +8,11 @@ const { findAutolinkSuggestions } = require('./wikiAutolinkService');
 const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 const { fetchFilingDocument } = require('./edgarWatcherService');
+const {
+  BUSINESS_MODEL_ADAPTERS,
+  upgradeInvestmentDossierProfile
+} = require('./investmentDossierProfileService');
+const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const FAST_SOURCE_LIMIT = 8;
@@ -796,21 +801,30 @@ const formatCandidateMetadataLine = (source = {}) => {
   return parts.length ? `Repository metadata: ${parts.join(' · ')}\n` : '';
 };
 
-const formatInvestmentDossierPromptBlock = (structure = {}) => {
+const formatInvestmentDossierPromptBlock = ({ structure = {}, page = {} } = {}) => {
   if (structure.profile !== 'investment_dossier') return '';
+  const profile = page?.investmentDossier || {};
+  const model = profile?.businessModel || {};
+  const plan = profile?.researchPlan || {};
+  const modelLabel = BUSINESS_MODEL_ADAPTERS[model.primary]?.label || 'Unclassified';
   return `
 Investment dossier rules:
 - Return all nine required section headings exactly as written and omit none.
 - Lead with a current judgment, not a company description. Separate business quality from security attractiveness.
-- Write 900-1,400 words. Use one dense paragraph per required section; add bullets only for discrete falsifiers or next-evidence tests. Keep the maintenance object terse so the strict JSON finishes reliably.
+- The selected business-model adapter is "${modelLabel}". Do not import AI-infrastructure metrics unless this company's economics actually require them.
+- Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
+- Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
+- Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
+- Write for analytical density, not a word target. Every paragraph must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.
 - Tie every paragraph containing reported facts to citationIndexes. Use "supported" when the cited filing directly establishes the material facts, "partial" only when the paragraph mixes filing facts with interpretation, and "unsupported" only for an explicitly labeled owner judgment or unresolved question.
 - Include at least four directly filing-supported paragraphs when the supplied filings contain substantive business or financial evidence. Do not downgrade directly reported facts merely because only two primary filings are attached.
 - Make valuation an implied-expectations problem. State the price or market-value snapshot date, distinguish reported figures from calculations, and show what operating outcome must be true for a reasonable return.
 - Never turn one quarter into a forecast. If annualizing a quarter, label it as a sensitivity boundary and compare it with the last full fiscal year.
-- Connect product and technical advantage to customer economics: utilization, deployment time, switching or porting labor, reliability, energy, workload coverage, and system attach.
+- Explain what the customer buys, why it chooses the company, the scarce control point, and how that control point becomes cash. Use the selected adapter's economics rather than generic technology language.
 - Treat capital commitments, customer concentration, regulation, and ecosystem financing as mechanisms that can strengthen or weaken the moat, not as a generic risk list.
 - End with observable falsifiers and the exact next filing or public evidence that should update the page.
 - Do not issue a buy/sell instruction or invent a founder conviction. The page may conclude that evidence is insufficient to establish an attractive expected return.
+- The prose cannot complete research modules by assertion. Missing structured modules or evidence must remain visibly incomplete.
 `;
 };
 
@@ -848,7 +862,7 @@ Hard rules:
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 - Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
-${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock(structure)}
+${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}
 
 Page:
 Title: ${page.title}
@@ -3058,6 +3072,10 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     if (pattern.test(plainText)) failures.push(`Article contains ${label}.`);
   });
   const isRepoQualityPage = isGitHubRepoPage({ page, candidates: sourceRefs });
+  const isInvestmentQualityPage = getWikiPageStructureForPage({
+    page,
+    candidates: sourceRefs
+  }).profile === 'investment_dossier';
   const minWords = isRepoQualityPage
     ? GITHUB_REPO_MIN_WORDS
     : (sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
@@ -3111,7 +3129,9 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   if (claimList.length >= 4 && supportedLike < Math.ceil(claimList.length * 0.45)) {
     failures.push(`Too few claims are evidence-backed: ${supportedLike}/${claimList.length}.`);
   }
-  if (claimList.length >= 6 && unsupported + partial > Math.ceil(claimList.length * 0.75)) {
+  if (!isInvestmentQualityPage
+    && claimList.length >= 6
+    && unsupported + partial > Math.ceil(claimList.length * 0.75)) {
     failures.push(`Too many claims are weak or unsupported: ${unsupported + partial}/${claimList.length}.`);
   }
   if (!skipDurableCitationCheck && claimList.length >= 4 && cited < Math.ceil(claimList.length * 0.4)) {
@@ -3124,6 +3144,19 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     .forEach(failure => failures.push(failure));
   findGitHubRepoDeveloperDossierFailures({ page, text: plainText, sourceRefs })
     .forEach(failure => failures.push(failure));
+
+  const investmentDossierQuality = isInvestmentQualityPage
+    ? evaluateInvestmentDossierQuality({
+        page,
+        body: body || page?.body || {},
+        claims: claimList,
+        sourceRefs,
+        words
+      })
+    : null;
+  if (investmentDossierQuality && !investmentDossierQuality.ok) {
+    investmentDossierQuality.failures.forEach(failure => failures.push(failure));
+  }
 
   const score = Math.max(0, Number((1 - Math.min(1, failures.length / 6)).toFixed(2)));
   return {
@@ -3144,7 +3177,10 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       usedSubstantiveSourceCount,
       claimsPerUsedSource: repoClaimsPerUsedSource,
       danglingCitationCount: danglingCitationIndexes.length,
-      durableCitationCheckSkipped: Boolean(skipDurableCitationCheck)
+      durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
+      ...(investmentDossierQuality
+        ? { investmentDossier: investmentDossierQuality.metrics }
+        : {})
     }
   };
 };
@@ -3316,6 +3352,15 @@ const maintainWikiPage = async ({
   candidates = await hydrateSecFilingCandidates({ candidates, userId, models });
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
   const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
+  if (investmentDossier) {
+    page.investmentDossier = upgradeInvestmentDossierProfile({
+      profile: page.investmentDossier || {},
+      page,
+      candidates,
+      now
+    });
+    if (typeof page.markModified === 'function') page.markModified('investmentDossier');
+  }
   const effectiveSourceTextLimit = investmentDossier
     ? Math.max(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
     : requestedSourceTextLimit;
