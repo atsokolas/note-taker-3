@@ -18,6 +18,7 @@ const snapshotPage = (page) => {
     claims: Array.isArray(raw.claims) ? raw.claims : [],
     citations: Array.isArray(raw.citations) ? raw.citations : [],
     judgment: raw.judgment || null,
+    investmentDossier: raw.investmentDossier || null,
     freshness: raw.freshness || {},
     publicProof: raw.publicProof || {},
     aiState: raw.aiState || {}
@@ -41,6 +42,7 @@ const restorePageSnapshot = (page, snapshot = {}) => {
     'claims',
     'citations',
     'judgment',
+    'investmentDossier',
     'freshness',
     'publicProof',
     'aiState'

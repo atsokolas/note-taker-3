@@ -575,6 +575,41 @@ describe('WikiPageReadView', () => {
     expect(objectLabel.nextElementSibling).toBe(title);
   });
 
+  it('leads investment dossiers with the research article and collapses the owner decision record after it', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'Costco Wholesale investment dossier',
+      investmentDossier: {
+        version: 2,
+        businessModel: { primary: 'membership_retail' }
+      },
+      judgment: {
+        kind: 'living_thesis',
+        governingQuestion: 'Can Costco compound owner value above the hurdle?',
+        currentJudgment: '',
+        causalModel: { summary: 'Member surplus drives renewal.', nodes: [], edges: [] },
+        assumptions: [],
+        unknowns: [],
+        falsifiers: [],
+        decisions: []
+      }
+    });
+
+    const { container } = renderReadView();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Costco Wholesale investment dossier' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Core idea' })).toBeInTheDocument();
+    const header = container.querySelector('.wiki-read__header');
+    const body = container.querySelector('.wiki-read__body');
+    const decisionRecord = container.querySelector('.wiki-read__decision-record');
+    expect(header).not.toHaveClass('wiki-read__header--living-thesis');
+    expect(container.querySelector('.wiki-read__object-label')).not.toBeInTheDocument();
+    expect(decisionRecord).not.toHaveAttribute('open');
+    expect(body.compareDocumentPosition(decisionRecord) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(decisionRecord).getByText('Owner judgment workspace')).toBeInTheDocument();
+    expect(within(decisionRecord).getByText('Can Costco compound owner value above the hurdle?')).toBeInTheDocument();
+  });
+
   it('leaves the ordinary Wiki header and title sequence unchanged', async () => {
     const { container } = renderReadView();
 

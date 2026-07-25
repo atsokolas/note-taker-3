@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-23
 
-**Status:** first reusable contract implemented; creation and structured valuation UI remain open
+**Status:** version-2 decision-grade research contract implemented; creation, research acquisition orchestration, and structured valuation UI remain open
 
 **Product frame:** one maintained Noeis page with an investment-dossier profile, not a separate investing application
 
@@ -33,6 +33,66 @@ Every SEC-watched company dossier should maintain these nine decision surfaces:
 7. **Obligations, Concentration, and Policy** — supply commitments, customer power, financing dependencies, regulation, and stranded-capacity risk.
 8. **What Would Change the Thesis** — observable falsifiers and strengthening evidence.
 9. **Next Evidence and Maintenance Test** — the exact filing or public evidence expected to update the object.
+
+The headings are stable product surfaces; the analysis underneath them is selected by business model. “Product and Technical Moat” means the mechanism by which the company creates and defends customer value. It must not force semiconductor or AI-infrastructure vocabulary onto retailers, financial companies, marketplaces, industrial companies, or healthcare businesses.
+
+## Decision-grade research compiler
+
+A dossier is not decision-ready because a model filled the nine sections. New company dossiers persist a versioned research profile with:
+
+- a classified business model;
+- the customer’s unit of value;
+- required evidence archetypes;
+- required deterministic analysis modules;
+- claim-level outputs for each completed module;
+- reproducible calculations where the module requires arithmetic;
+- at least one non-obvious, reproducible insight;
+- explicit missing evidence and missing modules.
+
+The universal analysis modules are:
+
+1. current judgment;
+2. customer value unit;
+3. control-point moat;
+4. unit economics and cash conversion;
+5. capital reinvestment;
+6. competitive substitution;
+7. reverse expectations;
+8. falsifiers;
+9. next evidence clock.
+
+Business-model adapters add the economics the universal layer cannot specify:
+
+- subscription: retention, expansion, sales efficiency, implementation and switching cost;
+- marketplace: liquidity, take rate, contribution margin, disintermediation;
+- industrial: price/volume/mix, installed base, aftermarket, working capital;
+- consumer or brand: volume/price/mix, repeat, distribution, promotion dependence;
+- membership retail: membership economics, merchandise value gap, inventory funding, warehouse density;
+- financial or payments: funding, losses, transaction yield, regulatory capital and liquidity;
+- semiconductor or infrastructure: accepted-work economics, utilization, reliability, capacity and refresh;
+- healthcare or biotech: pipeline probability, clinical and regulatory gates, runway and dilution.
+
+The model may explain completed modules. It may not complete a module by asserting that the prose is analytical.
+
+## Decision-grade acceptance gate
+
+Investment-dossier candidates fail closed when any of the following is true:
+
+- the business model is unclassified;
+- the version-2 research profile is absent;
+- a required analysis module is incomplete;
+- a required evidence archetype is absent;
+- a decision claim is unsupported or uncited;
+- reverse expectations or unit economics lack reproducible calculations;
+- the article lacks a reproducible, source-linked insight;
+- one of the nine decision surfaces is absent;
+- the result is shorter than the minimum needed to contain the analytical units.
+
+Word count alone never creates a pass. The current minimum prevents filing abstracts from passing, while the decisive checks are structured module completion, evidence coverage, claim support, and reproducible analysis.
+
+Rejected maintenance candidates must restore the `investmentDossier` profile with the rest of the trusted page. Research-plan state cannot leak from a rejected candidate into the accepted object.
+
+The reader must lead with the dossier article. An investment dossier must not be replaced or visually buried by the Living Thesis shell merely because a judgment record exists. When the owner has supplied a real judgment, its decision record remains available after the research article in a collapsed workspace. When the owner has not supplied a judgment, the compiler must not create an empty or synthetic `judgment` object.
 
 ## Source policy
 
@@ -126,6 +186,9 @@ A public dossier may show the article, public citations, valuation assumptions, 
 - The prompt explicitly separates company quality from security attractiveness.
 - It requires implied-expectations analysis, technical-to-economic moat analysis, falsifiers, and a named next evidence test.
 - NVIDIA is the first full example of the valuation contract in prose.
+- New dossiers persist a version-2 business-model research profile.
+- The quality gate rejects unclassified, two-filing, generic-prose dossiers.
+- Membership retail is the first non-AI adapter, validated with Costco.
 
 ### Next bounded product slices
 
