@@ -1119,6 +1119,68 @@ describe('ThinkMode template integration', () => {
     expect(screen.getByTestId('think-shelf-rail')).toBeInTheDocument();
   });
 
+  it.each([
+    ['home', '/think?tab=home'],
+    ['concepts', '/think?tab=concepts'],
+    ['notebook', '/think?tab=notebook']
+  ])('populates ThinkShelfRail questions on %s from the questions list fetch', async (tab, path) => {
+    const wikiOpenQuestion = {
+      _id: 'wiki-open-question:page-rail-1:0',
+      text: 'What quantitative threshold best balances protection against valuation error?',
+      status: 'open',
+      sourceType: 'wiki_open_question',
+      href: '/wiki/workspace?page=page-rail-1#open-questions',
+      sourcePageTitle: 'Margin of Safety',
+      createdAt: '2026-04-11T00:00:00.000Z'
+    };
+
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams(`tab=${tab}`),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValue([
+      { _id: 'note-1', title: 'Draft memo', updatedAt: '2026-04-11T00:00:00.000Z' }
+    ]);
+    useConcepts.mockReturnValue({
+      concepts: [{
+        _id: 'concept-rail-1',
+        name: 'Rail Concept',
+        count: 1,
+        description: '',
+        freshness: { stale: false, lastReviewedAt: '2026-04-10T00:00:00.000Z' }
+      }],
+      loading: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    // Mirror the real hook: empty when fetch is gated off so Concepts/Notebook
+    // regressions cannot hide behind an always-on mock.
+    useQuestions.mockImplementation(({ enabled = true } = {}) => ({
+      questions: enabled ? [wikiOpenQuestion] : [],
+      loading: false,
+      error: '',
+      setQuestions: jest.fn()
+    }));
+
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    const shelf = await screen.findByTestId('think-shelf-rail');
+    expect(within(shelf).getByRole('region', { name: 'Questions' })).toBeInTheDocument();
+    const questionLink = within(shelf).getByRole('link', {
+      name: /what quantitative threshold best balances protection against valuation error/i
+    });
+    expect(questionLink).toHaveAttribute('href', '/wiki/workspace?page=page-rail-1#open-questions');
+    expect(within(shelf).queryByText('No questions yet.')).not.toBeInTheDocument();
+    expect(useQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: true,
+      status: expect.any(String)
+    }));
+  });
+
   it('opens template picker from Think home and handles successful create callback', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=home'),
@@ -1142,7 +1204,7 @@ describe('ThinkMode template integration', () => {
       expect(refreshConceptsMock).toHaveBeenCalled();
     });
 
-    expect(within(screen.getByTestId('think-calm-index')).getByText('Template Concept')).toBeInTheDocument();
+    expect(within(screen.getByTestId('think-calm-index')).getAllByText('Template Concept').length).toBeGreaterThan(0);
   });
 
   it('persists pulled Home references when a Home command creates a question', async () => {

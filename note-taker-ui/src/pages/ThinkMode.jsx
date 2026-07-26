@@ -382,7 +382,14 @@ const ThinkMode = () => {
     || activeView === 'insights'
   );
   const highlightsEnabled = activeView === 'home' || highlightSearchEnabled;
-  const questionsListEnabled = activeView === 'home' || activeView === 'questions';
+  // ThinkShelfRail always shows Concepts / Questions / Notebook together on calm
+  // index surfaces — fetch questions wherever that rail mounts, not only on Home.
+  const questionsListEnabled = (
+    activeView === 'home'
+    || activeView === 'questions'
+    || activeView === 'concepts'
+    || activeView === 'notebook'
+  );
   const notebookListEnabled = activeView === 'home' || activeView === 'notebook';
   const notebookFoldersEnabled = activeView === 'notebook';
   const conceptsListEnabled = activeView === 'home' || activeView === 'concepts';

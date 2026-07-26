@@ -1,0 +1,168 @@
+{
+  "env": "local API http://localhost:5500 + UI http://localhost:3000",
+  "user": "qa_wiki_seed",
+  "checks": [
+    {
+      "route": "/think?tab=home",
+      "width": 1440,
+      "file": "home-desktop-1440.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=home",
+      "width": 1360,
+      "file": "home-safari-sidebar-1360.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 1360,
+        "clientWidth": 1360,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=home",
+      "width": 430,
+      "file": "home-mobile-430.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 430,
+        "clientWidth": 430,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=concepts",
+      "width": 1440,
+      "file": "concepts-desktop-1440.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=concepts",
+      "width": 1360,
+      "file": "concepts-safari-sidebar-1360.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 1360,
+        "clientWidth": 1360,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=concepts",
+      "width": 430,
+      "file": "concepts-mobile-430.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 430,
+        "clientWidth": 430,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=notebook",
+      "width": 1440,
+      "file": "notebook-desktop-1440.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=notebook",
+      "width": 1360,
+      "file": "notebook-safari-sidebar-1360.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 1360,
+        "clientWidth": 1360,
+        "hasHorizontalOverflow": false
+      }
+    },
+    {
+      "route": "/think?tab=notebook",
+      "width": 430,
+      "file": "notebook-mobile-430.png",
+      "shelfVisible": true,
+      "questionsEmpty": false,
+      "questionSample": [
+        "It remains unclear how much process structure is enough before the process becomes mechanical and slow.",
+        "The unresolved question is how to size concentrated positions without converting conviction into hidden fragility.",
+        "Several open questions remain regarding the implementation of promoted source provenance. How can platforms effectively balance the need for transparency with the potential for information overload? What specific mechanisms can be put in place to ensure that users are not only aware of the sources but also understand their relevance and reliability? Additionally, how can the community address the challenges posed by counter-evidence without undermining the credibility of established claims?"
+      ],
+      "questionCount": 5,
+      "overflow": {
+        "scrollWidth": 430,
+        "clientWidth": 430,
+        "hasHorizontalOverflow": false
+      }
+    }
+  ]
+}
