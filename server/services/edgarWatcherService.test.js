@@ -174,10 +174,16 @@ const run = async () => {
   );
   const domestic = classifyCompanyDossierFiler({
     company: { ticker: 'AAPL', cik: '320193', companyName: 'Apple Inc.' },
-    submissions: { filings: { recent: { accessionNumber: ['a1', 'a2'], form: ['10-K', '10-Q'] } } }
+    submissions: {
+      sic: '3571',
+      sicDescription: 'Electronic Computers',
+      filings: { recent: { accessionNumber: ['a1', 'a2'], form: ['10-K', '10-Q'] } }
+    }
   });
   assert.strictEqual(domestic.supported, true);
   assert.strictEqual(domestic.reason, 'domestic_filer');
+  assert.strictEqual(domestic.sic, '3571');
+  assert.strictEqual(domestic.sicDescription, 'Electronic Computers');
   const companyFacts = await fetchCompanyFacts({
     cik: '320193',
     fetchImpl: makeFetch()

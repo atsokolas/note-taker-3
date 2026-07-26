@@ -166,6 +166,8 @@ const classifyCompanyDossierFiler = ({ company = {}, submissions = {} } = {}) =>
     ticker: normalizeTicker(company.ticker),
     cik: normalizeCik(company.cik),
     companyName: trim(company.companyName || submissions.name || '', 240),
+    sic: trim(submissions.sic || '', 20),
+    sicDescription: trim(submissions.sicDescription || '', 240),
     forms,
     domesticForms,
     foreignForms,

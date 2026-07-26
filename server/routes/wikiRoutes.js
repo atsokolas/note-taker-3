@@ -47,6 +47,9 @@ const {
 const {
   acquireCompetitorPrimarySource: defaultAcquireCompetitorPrimarySource
 } = require('../services/investmentDossierCompetitorSourceService');
+const {
+  acquireIndependentDomainSource: defaultAcquireIndependentDomainSource
+} = require('../services/investmentDossierIndependentSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
@@ -1613,6 +1616,7 @@ const buildWikiRouter = ({
   fetchCompanyFacts = defaultFetchCompanyFacts,
   acquireOfficialProductSources = defaultAcquireOfficialProductSources,
   acquireCompetitorPrimarySource = defaultAcquireCompetitorPrimarySource,
+  acquireIndependentDomainSource = defaultAcquireIndependentDomainSource,
   inspectCompanyDossierFiler = defaultInspectCompanyDossierFiler,
   resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
@@ -2699,6 +2703,78 @@ const buildWikiRouter = ({
     };
   };
 
+  const acquireIndependentDomainForDossier = async ({
+    page,
+    now = new Date()
+  } = {}) => {
+    if (!page || !isCompanyDossier(page)) {
+      return { sourceAdded: false, sourceRef: null, stop: null, skipped: true };
+    }
+    const existingSource = (page.sourceRefs || []).find(source => (
+      source?.metadata?.evidenceArchetype === 'independent_domain'
+      && source?.metadata?.validation?.status === 'accepted'
+    ));
+    if (existingSource) {
+      return { sourceAdded: false, sourceRef: existingSource, stop: null, skipped: true };
+    }
+    const priorProfile = page.investmentDossier?.toObject
+      ? page.investmentDossier.toObject()
+      : page.investmentDossier || {};
+    const company = priorProfile.company || {};
+    let acquisition;
+    try {
+      acquisition = await withTransientRetries({
+        attempts: 2,
+        delaysMs: [750],
+        operation: () => acquireIndependentDomainSource({
+          cik: company.cik || page.externalWatches?.edgar?.cik || '',
+          sic: company.sic || '',
+          sicDescription: company.sicDescription || '',
+          now
+        })
+      });
+    } catch (error) {
+      acquisition = {
+        sourceRef: null,
+        stop: {
+          code: 'INDEPENDENT_DOMAIN_SOURCE_UNAVAILABLE',
+          evidenceArchetype: 'independent_domain',
+          message: 'The verified independent benchmark could not be loaded after automatic retries. The saved evidence is unchanged.'
+        },
+        diagnostic: String(error?.message || '')
+      };
+    }
+    if (acquisition.sourceRef) {
+      page.sourceRefs = [...(page.sourceRefs || []), acquisition.sourceRef].slice(0, 80);
+      page.markModified?.('sourceRefs');
+    }
+    page.investmentDossier = {
+      ...priorProfile,
+      company: {
+        ...company,
+        sic: acquisition.classification?.sic || company.sic || '',
+        sicDescription: acquisition.classification?.sicDescription || company.sicDescription || ''
+      },
+      acquisition: {
+        ...(priorProfile.acquisition || {}),
+        independentDomain: {
+          status: acquisition.sourceRef ? 'attached' : 'unavailable',
+          lastAttemptedAt: now,
+          registryId: acquisition.sourceRef?.metadata?.registryId || '',
+          sourceUrl: acquisition.sourceRef?.url || '',
+          stop: acquisition.stop || null
+        }
+      }
+    };
+    page.markModified?.('investmentDossier');
+    return {
+      sourceAdded: Boolean(acquisition.sourceRef),
+      sourceRef: acquisition.sourceRef || null,
+      stop: acquisition.stop || null,
+      skipped: false
+    };
+  };
+
   const acquireOfficialProductSourcesForDossier = async ({ page, now = new Date() } = {}) => {
     if (!page || !isCompanyDossier(page)) {
       return { sourcesAdded: 0, sourceRefs: [], stop: null, skipped: true };
@@ -3477,7 +3553,12 @@ const buildWikiRouter = ({
             decisions: []
           }
         }),
-        investmentDossier: buildInvestmentDossierProfile({ ...input, ...company }),
+        investmentDossier: buildInvestmentDossierProfile({
+          ...input,
+          ...company,
+          sic: filer.sic,
+          sicDescription: filer.sicDescription
+        }),
         activeCompanyDossierKey: dossierKey,
         externalWatches: {
           edgar: {
@@ -3548,11 +3629,13 @@ const buildWikiRouter = ({
         page,
         userId: req.user.id
       });
+      const independentDomainAcquisition = await acquireIndependentDomainForDossier({ page });
       if (
         !secPrimaryPackAcquisition.skipped
         || !companyFactsAcquisition.skipped
         || !officialProductAcquisition.skipped
         || !competitorPrimaryAcquisition.skipped
+        || !independentDomainAcquisition.skipped
       ) await page.save();
       const filingSourceCount = (page.sourceRefs || []).filter(source => (
         source?.provider === 'sec-edgar'
@@ -3561,7 +3644,8 @@ const buildWikiRouter = ({
       const acquisitionStops = [
         companyFactsAcquisition.stop,
         officialProductAcquisition.stop,
-        competitorPrimaryAcquisition.stop
+        competitorPrimaryAcquisition.stop,
+        independentDomainAcquisition.stop
       ].filter(Boolean);
       const receiptInput = {
         id: `company-dossier:${serializeId(page._id)}`,
@@ -3574,7 +3658,7 @@ const buildWikiRouter = ({
           ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
           : acquisitionStops.length
             ? `The private dossier and filing watch were saved. ${acquisitionStops.map(stop => stop.message).join(' ')}`
-            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, and a named-competitor primary filing were saved.',
+            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, a named-competitor filing, and a verified independent benchmark were saved.',
         metrics: {
           ticker: company.ticker,
           cik: company.cik,
@@ -3587,6 +3671,7 @@ const buildWikiRouter = ({
           operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
           officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
           competitorPrimaryAttached: Boolean(competitorPrimaryAcquisition.sourceRef),
+          independentDomainAttached: Boolean(independentDomainAcquisition.sourceRef),
           acquisitionStops: acquisitionStops.map(stop => stop.code)
         },
         provenance: {
@@ -3635,6 +3720,7 @@ const buildWikiRouter = ({
           operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
           officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
           competitorPrimaryAttached: Boolean(competitorPrimaryAcquisition.sourceRef),
+          independentDomainAttached: Boolean(independentDomainAcquisition.sourceRef),
           acquisitionStops,
           watchError
         },
@@ -5976,6 +6062,19 @@ const buildWikiRouter = ({
             summary: competitorPrimaryAcquisition.sourceRef
               ? 'Attached a primary annual filing from a competitor explicitly named by the issuer.'
               : competitorPrimaryAcquisition.stop?.message,
+            sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          });
+        }
+        const independentDomainAcquisition = await acquireIndependentDomainForDossier({ page });
+        if (!independentDomainAcquisition.skipped) {
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-draft', {
+            stage: independentDomainAcquisition.sourceRef
+              ? 'independent_domain_evidence_attached'
+              : 'independent_domain_evidence_unavailable',
+            summary: independentDomainAcquisition.sourceRef
+              ? 'Attached a verified government or regulator benchmark for this SEC industry.'
+              : independentDomainAcquisition.stop?.message,
             sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
           });
         }

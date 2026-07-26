@@ -162,6 +162,7 @@ const run = async () => {
   let officialProductCalls = 0;
   let officialProductFailuresRemaining = 1;
   let competitorPrimaryCalls = 0;
+  let independentDomainCalls = 0;
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: ownerId };
@@ -303,6 +304,33 @@ const run = async () => {
         stop: null
       };
     },
+    acquireIndependentDomainSource: async ({ cik, sic, sicDescription }) => {
+      independentDomainCalls += 1;
+      assert.equal(cik, company.cik);
+      assert.equal(sic, '3571');
+      assert.equal(sicDescription, 'Electronic Computers');
+      return {
+        sourceRef: {
+          type: 'external',
+          title: 'Independent accelerator market benchmark',
+          snippet: 'A verified government technology assessment with adoption, cost, and interoperability evidence.',
+          url: 'https://www.gao.gov/products/example',
+          provider: 'gao-technology-assessment',
+          metadata: {
+            evidenceArchetype: 'independent_domain',
+            sourceClass: 'government_technology_assessment',
+            acquisitionMethod: 'curated_sic_official_registry',
+            registryId: 'gao-example',
+            validation: { status: 'accepted' }
+          }
+        },
+        stop: null,
+        classification: {
+          sic: '3571',
+          sicDescription: 'Electronic Computers'
+        }
+      };
+    },
     maintainWikiPage: async () => {
       maintainCalls += 1;
       throw new Error('The evidence preflight should prevent model drafting.');
@@ -339,6 +367,8 @@ const run = async () => {
       supported: true,
       ticker: company.ticker,
       cik: company.cik,
+      sic: '3571',
+      sicDescription: 'Electronic Computers',
       domesticForms: ['10-K', '10-Q'],
       foreignForms: [],
       primaryForeignForm: '',
@@ -387,14 +417,18 @@ const run = async () => {
       WikiPage.records.at(-1).sourceRefs[3].metadata.sourceEventId,
       WikiPage.records.at(-1).sourceRefs[3].objectId
     );
+    assert.equal(WikiPage.records.at(-1).sourceRefs[4].provider, 'gao-technology-assessment');
+    assert.equal(WikiPage.records.at(-1).sourceRefs[4].metadata.evidenceArchetype, 'independent_domain');
     assert.equal(recreated.body.receipt.metrics.filingsAttached, 1);
-    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 4);
+    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 5);
     assert.equal(recreated.body.receipt.metrics.operatingBenchmarkAttached, true);
     assert.equal(recreated.body.receipt.metrics.officialProductSourcesAttached, 1);
     assert.equal(recreated.body.receipt.metrics.competitorPrimaryAttached, true);
+    assert.equal(recreated.body.receipt.metrics.independentDomainAttached, true);
     assert.equal(companyFactsCalls, 1);
     assert.equal(officialProductCalls, 2);
     assert.equal(competitorPrimaryCalls, 1);
+    assert.equal(independentDomainCalls, 1);
     assert.equal(
       FakeWikiSourceEvent.records.filter(
         event => event.metadata?.evidenceArchetype === 'competitor_primary'
@@ -408,6 +442,7 @@ const run = async () => {
       .filter(sourceRef => (
         !['sec-companyfacts', 'official-company-site'].includes(sourceRef.provider)
         && sourceRef.metadata?.evidenceArchetype !== 'competitor_primary'
+        && sourceRef.metadata?.evidenceArchetype !== 'independent_domain'
       ));
     delete WikiPage.records.at(-1).investmentDossier.acquisition;
     WikiPage.records.at(-1).aiState.lastCandidateSummary = 'Stale candidate quality from an older run.';
@@ -426,13 +461,15 @@ const run = async () => {
     assert.match(streamBody, /operating_benchmark_attached/);
     assert.match(streamBody, /official_product_evidence_attached/);
     assert.match(streamBody, /competitor_primary_evidence_attached/);
+    assert.match(streamBody, /independent_domain_evidence_attached/);
     assert.doesNotMatch(streamBody, /a primary source from a named competitor/);
-    assert.match(streamBody, /independent regulator/);
+    assert.doesNotMatch(streamBody, /independent regulator/);
     assert.match(streamBody, /dated market price/);
     assert.equal(maintainCalls, 0);
     assert.equal(companyFactsCalls, 2);
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
+    assert.equal(independentDomainCalls, 2);
     assert.equal(watchCalls, 2);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(
@@ -442,11 +479,11 @@ const run = async () => {
     );
     assert.deepEqual(
       WikiPage.records.at(-1).investmentDossier.researchPlan.evidenceArchetypes,
-      ['filing', 'operating_benchmark', 'company_product', 'competitor_primary']
+      ['filing', 'operating_benchmark', 'company_product', 'competitor_primary', 'independent_domain']
     );
     assert.deepEqual(
       WikiPage.records.at(-1).investmentDossier.researchPlan.missingEvidenceArchetypes,
-      ['independent_domain', 'market_snapshot']
+      ['market_snapshot']
     );
     assert.equal(WikiPage.records.at(-1).aiState.lastCandidateSummary, '');
     assert.equal(
@@ -481,6 +518,7 @@ const run = async () => {
     assert.equal(companyFactsCalls, 2);
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
+    assert.equal(independentDomainCalls, 2);
     assert.equal(watchCalls, 2);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
