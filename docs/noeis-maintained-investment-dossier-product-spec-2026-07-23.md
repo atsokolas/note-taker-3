@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-23
 
-**Status:** version-2 decision-grade research contract implemented; creation, research acquisition orchestration, and structured valuation UI remain open
+**Status:** version-2 research contract, ticker-first creation, free SEC bootstrap, structured valuation, explicit owner acceptance, and maintenance explanation are implemented; real-user activation proof remains open
 
 **Product frame:** one maintained Noeis page with an investment-dossier profile, not a separate investing application
 
@@ -189,14 +189,23 @@ A public dossier may show the article, public citations, valuation assumptions, 
 - New dossiers persist a version-2 business-model research profile.
 - The quality gate rejects unclassified, two-filing, generic-prose dossiers.
 - Membership retail is the first non-AI adapter, validated with Costco.
+- A user can create a private maintained dossier from a ticker, their own starting judgment, return hurdle, and horizon.
+- Creation resolves the CIK, attaches the latest free 10-K and 10-Q, arms the EDGAR watcher, and returns a durable provenance receipt.
+- Repeating identical creation inputs reopens the existing active dossier; changed owner inputs fail with an explicit conflict instead of being silently discarded; archived dossiers do not block recreation.
+- A deterministic valuation service persists dated price, diluted shares, net cash or debt, a source-backed operating base, terminal scenarios, and the required operating CAGR.
+- The private article reader exposes a compact expectations editor before the dossier; the public reader exposes only complete public-safe assumptions and scenarios.
+- The expectations clock advances independently from the accepted filing clock and writes both a revision and a durable refresh receipt.
+- Local QA created a Fastenal dossier from the real user path with current free SEC filings and no paid transcript or market-data dependency.
+- Initial and later research candidates remain private and cannot replace the trusted head until the owner reviews the exact revision and explicitly accepts it.
+- Decision-grade dossiers created before the acceptance contract can be adopted once, by the human owner, without regenerating or changing the current article, claims, sources, valuation, or evidence clock. Adoption requires an existing owner judgment, a passing current quality gate, an exact confirmation, a bound revision, and a durable first-head receipt.
+- Accepted maintenance now persists a reader-facing explanation of what changed, why it matters, what the valuation burden did, and whether the owner judgment changed.
+- A database-level active owner-and-CIK key prevents simultaneous requests from creating duplicate active dossiers; archiving releases the key.
+- The five-user activation protocol is defined in `docs/noeis-company-dossier-five-user-activation-test-2026-07-25.md`, and its four durable funnel steps map to existing receipts and analytics events.
 
 ### Next bounded product slices
 
-1. **Structured valuation engine** — deterministic service and persisted snapshot using the contract above.
-2. **Company-dossier creation receipt** — ticker-to-CIK resolution, latest filings attached, EDGAR watcher armed, and first trusted-head review.
-3. **Valuation component** — compact assumptions and scenario table shared by private and public readers.
-4. **Maintenance comparison** — show both claim deltas and expectation deltas in plain English.
-5. **Activation proof** — five real users create a dossier, accept a judgment, and return after a filing or price refresh.
+1. **Activation proof** — run the defined protocol with five real users; QA/demo accounts do not count.
+2. **Research-quality calibration** — inspect the first five accepted dossiers against the NVIDIA/Gavin Baker bar and tighten business-model adapters where the analysis remains generic.
 
 ## Acceptance
 

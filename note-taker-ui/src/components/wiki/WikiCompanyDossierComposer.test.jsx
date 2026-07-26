@@ -8,6 +8,19 @@ import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
 
 jest.mock('../../api/wiki', () => ({ createCompanyDossier: jest.fn() }));
 
+const fillDossierForm = () => {
+  fireEvent.click(screen.getByRole('button', { name: /create a maintained company dossier/i }));
+  fireEvent.change(screen.getByLabelText('Company ticker'), { target: { value: 'amd' } });
+  fireEvent.change(screen.getByLabelText('Starting investment judgment'), {
+    target: { value: 'AMD can gain durable share if its accelerator roadmap and software improve.' }
+  });
+};
+
+afterEach(() => {
+  jest.restoreAllMocks();
+  jest.clearAllMocks();
+});
+
 test('creates a human-owned company dossier and opens first-head build review', async () => {
   const navigate = jest.fn();
   jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
@@ -17,7 +30,12 @@ test('creates a human-owned company dossier and opens first-head build review', 
     page: { _id: 'page-amd' },
     receipt: { title: 'Created AMD investment dossier.', summary: 'SEC filing watch armed.' }
   });
-  const controls = { setLatestReceipt: jest.fn() };
+  const controls = {
+    setLatestReceipt: jest.fn(),
+    setBackgroundWork: jest.fn(),
+    setRecoverableFailure: jest.fn(),
+    clearRecoverableFailure: jest.fn()
+  };
   render(
     <MemoryRouter>
       <SystemStatusProvider value={controls}>
@@ -25,11 +43,7 @@ test('creates a human-owned company dossier and opens first-head build review', 
       </SystemStatusProvider>
     </MemoryRouter>
   );
-  fireEvent.click(screen.getByRole('button', { name: /create a maintained company dossier/i }));
-  fireEvent.change(screen.getByLabelText('Company ticker'), { target: { value: 'amd' } });
-  fireEvent.change(screen.getByLabelText('Starting investment judgment'), {
-    target: { value: 'AMD can gain durable share if its accelerator roadmap and software improve.' }
-  });
+  fillDossierForm();
   fireEvent.click(screen.getByRole('button', { name: 'Create dossier' }));
   await waitFor(() => expect(createCompanyDossier).toHaveBeenCalledWith({
     ticker: 'AMD',
@@ -39,6 +53,80 @@ test('creates a human-owned company dossier and opens first-head build review', 
   }));
   expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=page-amd&build=1', { replace: false });
   expect(controls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-    title: 'Created AMD investment dossier.'
+    title: 'Created AMD investment dossier.',
+    status: 'completed'
+  }));
+});
+
+test('opens a partial creation without starting an evidence-free first build', async () => {
+  const navigate = jest.fn();
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+  createCompanyDossier.mockResolvedValue({
+    action: 'created',
+    company: { ticker: 'AMD' },
+    page: { _id: 'page-amd' },
+    watchResult: { watchError: 'SEC temporarily unavailable' },
+    receipt: {
+      status: 'partial',
+      title: 'Created AMD investment dossier.',
+      summary: 'The private dossier was saved. The SEC filing check needs retry.'
+    }
+  });
+  const controls = {
+    setLatestReceipt: jest.fn(),
+    setBackgroundWork: jest.fn(),
+    setRecoverableFailure: jest.fn(),
+    clearRecoverableFailure: jest.fn()
+  };
+  render(
+    <MemoryRouter>
+      <SystemStatusProvider value={controls}>
+        <WikiCompanyDossierComposer />
+      </SystemStatusProvider>
+    </MemoryRouter>
+  );
+  fillDossierForm();
+  fireEvent.click(screen.getByRole('button', { name: 'Create dossier' }));
+
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=page-amd', { replace: false }));
+  expect(navigate).not.toHaveBeenCalledWith(expect.stringContaining('&build=1'), expect.anything());
+  expect(controls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+    status: 'completed_with_warnings'
+  }));
+  expect(screen.getByRole('status')).toHaveTextContent('SEC filing check needs retry');
+});
+
+test('shows a changed-input conflict without navigating or discarding the new judgment', async () => {
+  const navigate = jest.fn();
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+  createCompanyDossier.mockRejectedValue({
+    response: {
+      data: {
+        code: 'DOSSIER_INPUT_CONFLICT',
+        error: 'AMD already has an active dossier with a different owner judgment or return hurdle.'
+      }
+    }
+  });
+  const controls = {
+    setLatestReceipt: jest.fn(),
+    setBackgroundWork: jest.fn(),
+    setRecoverableFailure: jest.fn(),
+    clearRecoverableFailure: jest.fn()
+  };
+  render(
+    <MemoryRouter>
+      <SystemStatusProvider value={controls}>
+        <WikiCompanyDossierComposer />
+      </SystemStatusProvider>
+    </MemoryRouter>
+  );
+  fillDossierForm();
+  fireEvent.click(screen.getByRole('button', { name: 'Create dossier' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('different owner judgment');
+  expect(navigate).not.toHaveBeenCalled();
+  expect(controls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+    stage: 'Existing dossier conflict',
+    retryable: false
   }));
 });

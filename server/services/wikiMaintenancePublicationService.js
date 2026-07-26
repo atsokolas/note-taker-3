@@ -1,6 +1,7 @@
 const {
   createWikiRevision,
   restorePageSnapshot,
+  snapshotContentHash,
   snapshotPage
 } = require('./wikiRevisionService');
 
@@ -54,6 +55,35 @@ const recordRejectedCandidate = async ({
   summary: summary || `Rejected wiki candidate for "${candidate?.title || page?.title || 'page'}".`
 });
 
+const recordReviewCandidate = async ({
+  WikiRevision,
+  userId,
+  page,
+  before,
+  candidate,
+  sourceEventId = null,
+  maintenanceRunId = null,
+  sourceVersion = null,
+  summary = ''
+} = {}) => createWikiRevision({
+  WikiRevision,
+  userId,
+  page,
+  before,
+  after: candidate,
+  reason: 'agent_candidate',
+  actorType: 'agent',
+  sourceEventId,
+  maintenanceRunId,
+  promotionStatus: 'candidate',
+  sourceVersion: {
+    ...(sourceVersion || {}),
+    trustedHeadHash: snapshotContentHash(before)
+  },
+  quality: candidate?.aiState?.quality || {},
+  summary: summary || `Held first trusted-head candidate for "${candidate?.title || page?.title || 'page'}" for owner review.`
+});
+
 const runWikiMaintenanceCandidate = async ({
   page,
   userId,
@@ -68,6 +98,8 @@ const runWikiMaintenanceCandidate = async ({
   rejectDestructiveClaimLoss = false,
   promoteEvidenceOnlyOnDestructiveLoss = false,
   requireManualReview = false,
+  requireFirstHeadAcceptance = false,
+  requireOwnerAcceptance = false,
   now = new Date()
 } = {}) => {
   if (!page || typeof maintainWikiPageFn !== 'function') {
@@ -113,6 +145,62 @@ const runWikiMaintenanceCandidate = async ({
       ]
     };
     candidate.aiState = { ...(candidate.aiState || {}), quality };
+  }
+  const awaitingFirstHead = requireFirstHeadAcceptance && isFreshCompanyDossier;
+  if ((awaitingFirstHead || requireOwnerAcceptance) && !candidateFailedQuality(candidate)) {
+    const reviewRevision = await recordReviewCandidate({
+      WikiRevision,
+      userId,
+      page: candidatePage,
+      before,
+      candidate,
+      sourceEventId,
+      maintenanceRunId,
+      sourceVersion
+    });
+    restorePageSnapshot(candidatePage, before);
+    const priorAiState = asPlain(candidatePage.aiState);
+    const reviewKind = awaitingFirstHead ? 'first_head' : 'maintenance';
+    const revisionField = awaitingFirstHead ? 'firstHeadCandidateRevisionId' : 'maintenanceCandidateRevisionId';
+    const atField = awaitingFirstHead ? 'firstHeadCandidateAt' : 'maintenanceCandidateAt';
+    const summaryField = awaitingFirstHead ? 'firstHeadCandidateSummary' : 'maintenanceCandidateSummary';
+    candidatePage.freshness = {
+      ...asPlain(candidatePage.freshness),
+      status: 'needs_review'
+    };
+    candidatePage.aiState = {
+      ...priorAiState,
+      draftStatus: 'ready',
+      lastError: '',
+      errorCode: '',
+      candidateStatus: awaitingFirstHead
+        ? 'awaiting_first_head_acceptance'
+        : 'awaiting_maintenance_acceptance',
+      [revisionField]: String(reviewRevision?._id || ''),
+      [atField]: now,
+      [summaryField]: {
+        kind: reviewKind,
+        title: candidate.title || candidatePage.title,
+        wordCount: String(candidate.plainText || '').trim().split(/\s+/).filter(Boolean).length,
+        claimCount: Array.isArray(candidate.claims) ? candidate.claims.length : 0,
+        sourceCount: Array.isArray(candidate.sourceRefs) ? candidate.sourceRefs.length : 0,
+        quality: candidate.aiState?.quality || {}
+      }
+    };
+    if (typeof candidatePage.markModified === 'function') {
+      candidatePage.markModified('freshness');
+      candidatePage.markModified('aiState');
+    }
+    return {
+      page: candidatePage,
+      before,
+      candidate,
+      quality,
+      promoted: false,
+      awaitingAcceptance: true,
+      reviewKind,
+      reviewRevision
+    };
   }
   if (!candidateFailedQuality(candidate)) {
     return {
@@ -192,5 +280,6 @@ const runWikiMaintenanceCandidate = async ({
 
 module.exports = {
   candidateFailedQuality,
+  recordReviewCandidate,
   runWikiMaintenanceCandidate
 };

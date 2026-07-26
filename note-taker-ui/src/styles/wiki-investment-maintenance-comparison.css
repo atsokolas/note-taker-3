@@ -1,0 +1,58 @@
+.wiki-investment-change {
+  margin: 1.25rem 0;
+  padding: clamp(1rem, 2vw, 1.6rem);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-primary, var(--surface)) 94%, var(--surface-secondary, var(--surface-muted)) 6%);
+  color: var(--text-primary);
+}
+
+.wiki-investment-change__eyebrow {
+  margin: 0;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.wiki-investment-change h2 {
+  margin: .35rem 0 .65rem;
+}
+
+.wiki-investment-change__claims {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: .8rem;
+  margin: 1rem 0;
+}
+
+.wiki-investment-change__claims article,
+.wiki-investment-change__expectations {
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 75%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-primary, var(--surface)) 97%, transparent);
+}
+
+.wiki-investment-change__claims span {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.wiki-investment-change__claims h3,
+.wiki-investment-change__expectations h3 {
+  margin: .35rem 0 .5rem;
+}
+
+.wiki-investment-change__claims strong {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.wiki-investment-change__judgment {
+  margin-bottom: 0;
+  font-weight: 600;
+}

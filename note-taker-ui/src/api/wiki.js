@@ -56,6 +56,42 @@ export const createCompanyDossier = async (payload = {}) => {
   return res.data || {};
 };
 
+export const refreshInvestmentValuation = async (pageId, payload = {}) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/valuation`,
+    payload,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const getWikiFirstHeadCandidate = async (pageId) => {
+  const res = await api.get(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/research-candidate`,
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const reviewWikiFirstHeadCandidate = async (pageId, decision) => {
+  const action = decision === 'reject' ? 'reject' : 'accept';
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/research-candidate/${action}`,
+    {},
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const adoptWikiCurrentResearchHead = async (pageId) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/research-head/adopt`,
+    { confirmation: 'ADOPT CURRENT TRUSTED HEAD' },
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const getWikiPage = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
   return res.data;
@@ -340,6 +376,7 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
   let buffer = '';
   let finalPage = null;
   let streamError = null;
+  let finalDone = null;
 
   const consumeBlock = (block) => {
     const { event, payload } = parseSseBlock(block);
@@ -351,6 +388,10 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
     }
     if (event === 'error') {
       streamError = new Error(payload.error || payload.message || 'Failed to maintain wiki page.');
+    }
+    if (event === 'done') {
+      finalDone = payload;
+      handlers.onDone?.(payload);
     }
   };
 
@@ -376,6 +417,7 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
   buffer += decoder.decode();
   if (buffer.trim()) consumeBlock(buffer);
   if (streamError) throw streamError;
+  handlers.onComplete?.({ page: finalPage, done: finalDone });
   return finalPage;
 };
 
@@ -732,6 +774,9 @@ const wikiApi = {
   listWikiPages,
   createWikiPage,
   createCompanyDossier,
+  refreshInvestmentValuation,
+  getWikiFirstHeadCandidate,
+  reviewWikiFirstHeadCandidate,
   getWikiPage,
   getPublicWikiPage,
   getPublicWikiComparison,

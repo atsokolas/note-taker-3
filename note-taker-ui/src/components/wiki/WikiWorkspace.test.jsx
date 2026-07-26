@@ -1175,6 +1175,32 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByTestId('wiki-streamed-page-title')).toHaveTextContent('Updated page');
   });
 
+  it('reports first-head auto-builds as awaiting owner review instead of completed', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
+      handlers.onPage?.({
+        _id: 'wiki-new',
+        title: 'FAST investment dossier',
+        aiState: { candidateStatus: 'awaiting_first_head_acceptance' }
+      }, { stage: 'candidate_ready' });
+      handlers.onDone?.({
+        ok: true,
+        code: 'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE',
+        pageId: 'wiki-new'
+      });
+      return { _id: 'wiki-new', title: 'FAST investment dossier' };
+    });
+
+    renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    expect(await screen.findByText(/first research candidate is ready/i)).toBeInTheDocument();
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'First research head needs review.',
+      status: 'needs_review'
+    }));
+  });
+
   it('does not launch duplicate auto-build streams when the workspace remounts mid-build', async () => {
     let resolveDraft;
     streamMaintainWikiPage.mockImplementationOnce(() => new Promise(resolve => {

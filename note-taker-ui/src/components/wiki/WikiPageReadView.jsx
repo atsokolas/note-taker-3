@@ -70,6 +70,9 @@ import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 import WikiRepoDossierOverview from './WikiRepoDossierOverview';
 import WikiRepoDossierBody from './WikiRepoDossierBody';
 import WikiLivingThesis from './WikiLivingThesis';
+import WikiInvestmentValuation from './WikiInvestmentValuation';
+import WikiFirstHeadReview from './WikiFirstHeadReview';
+import WikiInvestmentMaintenanceComparison from './WikiInvestmentMaintenanceComparison';
 import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
@@ -1388,6 +1391,10 @@ const WikiPageReadView = ({
       setPage(maintained);
       const nextSourceCount = countPageSources(maintained);
       const nextClaimCount = countPageClaims(maintained);
+      const awaitingOwnerAcceptance = [
+        'awaiting_first_head_acceptance',
+        'awaiting_maintenance_acceptance'
+      ].includes(maintained?.aiState?.candidateStatus);
       const issueCount = Array.isArray(maintained?.aiState?.maintenanceQualityIssues)
         ? maintained.aiState.maintenanceQualityIssues.length
         : Array.isArray(maintained?.aiState?.quality?.failures)
@@ -1396,15 +1403,22 @@ const WikiPageReadView = ({
       setMaintenanceTraceLines([
         `checked ${nextSourceCount} source${nextSourceCount === 1 ? '' : 's'}`,
         `reviewed ${nextClaimCount} claim${nextClaimCount === 1 ? '' : 's'}`,
-        issueCount ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced` : 'page settled'
+        awaitingOwnerAcceptance
+          ? 'candidate held for owner acceptance'
+          : issueCount ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced` : 'page settled'
       ]);
       setMaintenanceReceipt({
-        status: issueCount ? 'review' : 'settled',
+        status: issueCount || awaitingOwnerAcceptance ? 'review' : 'settled',
         issueCount,
         sourceCount: nextSourceCount,
         claimCount: nextClaimCount
       });
-      systemStatus.setLatestReceipt(wikiMaintenanceSystemReceipt(pageId, {
+      systemStatus.setLatestReceipt(awaitingOwnerAcceptance ? {
+        title: 'Research candidate needs review.',
+        summary: 'The trusted page is unchanged until you explicitly accept the candidate.',
+        status: 'needs_review',
+        href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+      } : wikiMaintenanceSystemReceipt(pageId, {
         issueCount,
         pageTitle: maintained?.title
       }));
@@ -2525,6 +2539,31 @@ const WikiPageReadView = ({
               role="tabpanel"
               aria-labelledby="wiki-read-tab-article"
             >
+              {investmentDossierPage ? (
+                <>
+                  <WikiFirstHeadReview
+                    page={page}
+                    pageId={pageId}
+                    onPageUpdate={(nextPage) => {
+                      if (!nextPage) return;
+                      latestPageRef.current = nextPage;
+                      setPage(nextPage);
+                    }}
+                  />
+                  <WikiInvestmentValuation
+                    page={page}
+                    pageId={pageId}
+                    onPageUpdate={(nextPage) => {
+                      if (!nextPage) return;
+                      latestPageRef.current = nextPage;
+                      setPage(nextPage);
+                    }}
+                  />
+                  <WikiInvestmentMaintenanceComparison
+                    comparison={page?.investmentDossier?.lastMaintenanceComparison}
+                  />
+                </>
+              ) : null}
               <section className="wiki-read__article-panel">
               <section
                 className={`wiki-read__body${bodyTransitionClass}`}

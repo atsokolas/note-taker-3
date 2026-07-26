@@ -87,6 +87,30 @@ const run = async () => {
   assert.strictEqual(rejectedFreshDossier.page.aiState.errorCode, 'WIKI_CANDIDATE_REJECTED');
   assert.match(rejectedFreshDossier.page.aiState.lastError, /first wiki candidate/i);
 
+  const reviewDossierPage = trustedPage();
+  reviewDossierPage.createdFrom = { label: 'company-dossier:FAST' };
+  reviewDossierPage.claims = [];
+  reviewDossierPage.aiState = { draftStatus: 'idle', quality: {} };
+  const heldFirstHead = await runWikiMaintenanceCandidate({
+    page: reviewDossierPage,
+    userId: 'user-1',
+    WikiRevision,
+    requireFirstHeadAcceptance: true,
+    maintainWikiPageFn: async ({ page }) => {
+      page.plainText = 'Decision-grade first-head candidate.';
+      page.claims = [{ id: 'candidate-claim', text: 'The onsite channel deepens switching costs.' }];
+      page.aiState = { draftStatus: 'ready', quality: { ok: true, status: 'pass' } };
+      return page;
+    }
+  });
+  assert.strictEqual(heldFirstHead.promoted, false);
+  assert.strictEqual(heldFirstHead.awaitingAcceptance, true);
+  assert.strictEqual(heldFirstHead.page.plainText, 'Trusted article.');
+  assert.strictEqual(heldFirstHead.page.aiState.candidateStatus, 'awaiting_first_head_acceptance');
+  assert.ok(heldFirstHead.page.aiState.firstHeadCandidateRevisionId);
+  assert.strictEqual(heldFirstHead.page.aiState.firstHeadCandidateSummary.claimCount, 1);
+  assert.strictEqual(WikiRevision.records.at(-1).promotionStatus, 'candidate');
+
   const destructivePage = trustedPage();
   destructivePage.claims = Array.from({ length: 10 }, (_, index) => ({ id: `claim-${index}`, text: `Claim ${index}` }));
   const destructive = await runWikiMaintenanceCandidate({
@@ -103,7 +127,7 @@ const run = async () => {
   assert.strictEqual(destructive.promoted, false);
   assert.strictEqual(destructive.page.claims.length, 10);
   assert.match(destructive.page.aiState.lastCandidateSummary, /removed more than 40%/);
-  assert.strictEqual(WikiRevision.records.length, 3);
+  assert.strictEqual(WikiRevision.records.length, 4);
 
   const evidenceOnlyPage = trustedPage();
   evidenceOnlyPage.claims = Array.from({ length: 10 }, (_, index) => ({ id: `claim-${index}`, text: `Claim ${index}` }));
@@ -123,7 +147,7 @@ const run = async () => {
   assert.strictEqual(evidenceOnly.evidenceOnly, true);
   assert.strictEqual(evidenceOnly.page.claims.length, 10);
   assert.strictEqual(evidenceOnly.page.aiState.candidateStatus, 'evidence_only');
-  assert.strictEqual(WikiRevision.records.length, 4);
+  assert.strictEqual(WikiRevision.records.length, 5);
 
   const acceptedProofPage = trustedPage();
   acceptedProofPage.status = 'published';
@@ -147,7 +171,7 @@ const run = async () => {
   assert.strictEqual(heldForAcceptance.promoted, false);
   assert.strictEqual(heldForAcceptance.page.plainText, 'Trusted article.');
   assert.match(heldForAcceptance.page.aiState.lastCandidateSummary, /explicit human acceptance/);
-  assert.strictEqual(WikiRevision.records.length, 5);
+  assert.strictEqual(WikiRevision.records.length, 6);
 
   const passingPage = trustedPage();
   const passing = await runWikiMaintenanceCandidate({
@@ -164,7 +188,7 @@ const run = async () => {
 
   assert.strictEqual(passing.promoted, true);
   assert.strictEqual(passing.page.plainText, 'Better candidate.');
-  assert.strictEqual(WikiRevision.records.length, 5);
+  assert.strictEqual(WikiRevision.records.length, 6);
 
   console.log('wikiMaintenancePublicationService tests passed');
 };

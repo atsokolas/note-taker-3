@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   buildCompanyDossierBody,
   buildInvestmentDossierProfile,
+  companyDossierInputsMatch,
   normalizeCompanyDossierInput
 } = require('./companyDossierService');
 
@@ -28,6 +29,15 @@ assert.strictEqual(profile.startingJudgment, input.startingJudgment);
 assert.strictEqual(profile.version, 2);
 assert.strictEqual(profile.researchPlan.status, 'research_incomplete');
 assert(profile.researchPlan.requiredModuleIds.includes('customer_value_unit'));
+assert.strictEqual(companyDossierInputsMatch(profile, input), true);
+assert.strictEqual(companyDossierInputsMatch(profile, {
+  ...input,
+  requiredReturn: 0.12
+}), false);
+assert.strictEqual(companyDossierInputsMatch(profile, {
+  ...input,
+  startingJudgment: 'NVIDIA is already fully valued at the current security price.'
+}), false);
 
 const body = buildCompanyDossierBody({ ...input, companyName: 'NVIDIA CORP' });
 const text = JSON.stringify(body);
