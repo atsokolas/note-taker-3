@@ -112,6 +112,15 @@ const run = async () => {
     externalWatches: { edgar: { ...company, status: 'active' } }
   }]);
   let resolveCalls = 0;
+  let filer = {
+    supported: true,
+    ticker: company.ticker,
+    cik: company.cik,
+    domesticForms: ['10-K', '10-Q'],
+    foreignForms: [],
+    primaryForeignForm: '',
+    reason: 'domestic_filer'
+  };
   const app = express();
   app.use(express.json());
   app.use(buildWikiRouter({
@@ -126,6 +135,7 @@ const run = async () => {
       resolveCalls += 1;
       return company;
     },
+    inspectCompanyDossierFiler: async () => filer,
     checkEdgarWatchForPage: async () => {
       const event = {
         _id: new mongoose.Types.ObjectId().toString(),
@@ -151,6 +161,33 @@ const run = async () => {
     assert.equal(agent.response.status, 403);
     assert.equal(resolveCalls, 0);
 
+    filer = {
+      supported: false,
+      ticker: 'ASML',
+      cik: '0000937966',
+      domesticForms: [],
+      foreignForms: ['20-F', '6-K'],
+      primaryForeignForm: '20-F',
+      reason: 'foreign_private_issuer'
+    };
+    const foreign = await request(base, '/api/wiki/pages/from-company', {
+      ...input,
+      ticker: 'ASML'
+    });
+    assert.equal(foreign.response.status, 422);
+    assert.equal(foreign.body.code, 'DOSSIER_FOREIGN_FILER_UNSUPPORTED');
+    assert.match(foreign.body.error, /foreign private issuer \(20-F\)/);
+    assert.equal(WikiPage.records.length, 1);
+
+    filer = {
+      supported: true,
+      ticker: company.ticker,
+      cik: company.cik,
+      domesticForms: ['10-K', '10-Q'],
+      foreignForms: [],
+      primaryForeignForm: '',
+      reason: 'domestic_filer'
+    };
     const existing = await request(base, '/api/wiki/pages/from-company', input);
     assert.equal(existing.response.status, 200, JSON.stringify(existing.body));
     assert.equal(existing.body.action, 'existing');

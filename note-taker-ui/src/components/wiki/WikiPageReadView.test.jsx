@@ -28,6 +28,7 @@ import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 
 jest.mock('../../api/wiki', () => ({
   approveWeekendReadingsRevision: jest.fn(),
+  archiveWikiPage: jest.fn(),
   askWikiPage: jest.fn(),
   armGitHubRepoWatch: jest.fn(),
   createWikiPage: jest.fn(),
@@ -467,7 +468,7 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
     expect(receipt).toHaveAttribute('data-maintenance-state', 'failed');
-    expect(within(receipt).getByRole('heading', { name: 'Build failed the quality gate' })).toBeInTheDocument();
+    expect(within(receipt).getByRole('heading', { name: 'This dossier did not reach the evidence bar' })).toBeInTheDocument();
     expect(receipt).not.toHaveTextContent('Ready for maintenance');
   });
 
@@ -1704,11 +1705,38 @@ describe('WikiPageReadView', () => {
 
     await waitFor(() => expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki maintenance',
-      message: 'Failed to maintain Wiki page.',
+      message: 'maintenance failed',
       retryable: true,
       retry: expect.any(Function)
     })));
     expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not expose dossier resume or discard actions on a generic entity page', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      pageType: 'entity',
+      title: 'Generic company note',
+      aiState: {
+        ...page.aiState,
+        draftStatus: 'error',
+        errorCode: 'WIKI_DRAFT_STREAM_FAILED',
+        lastError: 'Maintenance stopped.'
+      }
+    });
+
+    renderReadView();
+
+    expect(await screen.findByRole('heading', { name: 'Generic company note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resume build' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1'));
+    await waitFor(() => expect(screen.getByLabelText('Wiki maintenance receipt')).toHaveAttribute(
+      'data-maintenance-state',
+      'settled'
+    ));
+    expect(streamMaintainWikiPage).not.toHaveBeenCalled();
   });
 
   it('lets the reader run page maintenance and keeps the agent trace visible', async () => {

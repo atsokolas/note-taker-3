@@ -13,6 +13,7 @@ const {
   upgradeInvestmentDossierProfile
 } = require('./investmentDossierProfileService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
+const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const FAST_SOURCE_LIMIT = 8;
@@ -1070,7 +1071,12 @@ const extractSecFilingEvidenceText = (value = '', limit = SEC_FILING_EVIDENCE_TE
   return truncateRaw(windows.join('\n\n'), limit);
 };
 
-const hydrateSecFilingCandidates = async ({ candidates = [], userId, models = {} } = {}) => {
+const hydrateSecFilingCandidates = async ({
+  candidates = [],
+  userId,
+  models = {},
+  onProgress = null
+} = {}) => {
   const WikiSourceEvent = models?.WikiSourceEvent;
   if (!WikiSourceEvent?.find) return candidates;
   const sourceEventIds = candidates
@@ -1099,7 +1105,20 @@ const hydrateSecFilingCandidates = async ({ candidates = [], userId, models = {}
       && /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//i.test(filingUrl)
     ) {
       try {
-        eventText = await fetchFilingDocument({ url: filingUrl });
+        eventText = await withTransientRetries({
+          attempts: 3,
+          delaysMs: [750, 2000],
+          onAttempt: ({ attempt, total }) => (
+            attempt > 1
+              ? onProgress?.({
+                  stage: 'fetch_filings_retry',
+                  summary: `SEC filing text was interrupted; retrying automatically (${attempt}/${total}).`,
+                  attempt
+                })
+              : null
+          ),
+          operation: () => fetchFilingDocument({ url: filingUrl })
+        });
       } catch (_error) {
         // Keep the persisted excerpt; the quality gate will reject an under-evidenced dossier.
       }
@@ -3349,7 +3368,24 @@ const maintainWikiPage = async ({
     limit: effectiveSourceLimit,
     preferredSourceObjectId
   });
-  candidates = await hydrateSecFilingCandidates({ candidates, userId, models });
+  await emitProgress({
+    stage: 'fetch_filings',
+    summary: candidates.length
+      ? 'Loading saved filing evidence and completing any missing SEC document text.'
+      : 'Checking the page for saved SEC filing evidence.',
+    sourceCount: candidates.length
+  });
+  candidates = await hydrateSecFilingCandidates({
+    candidates,
+    userId,
+    models,
+    onProgress: emitProgress
+  });
+  await emitProgress({
+    stage: 'parse_filings',
+    summary: `${candidates.length} saved source${candidates.length === 1 ? '' : 's'} ready for analysis.`,
+    sourceCount: candidates.length
+  });
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
   const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
   if (investmentDossier) {
@@ -3458,7 +3494,20 @@ const maintainWikiPage = async ({
         }
       }
       if (!completion) {
-        completion = await chat(draftRequest);
+        completion = await withTransientRetries({
+          attempts: 3,
+          delaysMs: [1000, 3000],
+          onAttempt: ({ attempt, total }) => (
+            attempt > 1
+              ? emitProgress({
+                  stage: 'model_retry',
+                  summary: `The model request was interrupted; retrying automatically (${attempt}/${total}).`,
+                  attempt
+                })
+              : null
+          ),
+          operation: () => chat(draftRequest)
+        });
       }
       flushDraftDelta({ force: true });
       modelInfo = {
@@ -3513,7 +3562,7 @@ const maintainWikiPage = async ({
         summary: 'Initial draft missed quality gates; rebuilding once with stricter instructions.',
         failures: materialized.quality.failures || []
       });
-      const completion = await chat({
+      const rebuildRequest = {
         route: 'artifact_draft',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
@@ -3537,6 +3586,20 @@ const maintainWikiPage = async ({
             })
           }
         ]
+      };
+      const completion = await withTransientRetries({
+        attempts: 3,
+        delaysMs: [1000, 3000],
+        onAttempt: ({ attempt, total }) => (
+          attempt > 1
+            ? emitProgress({
+                stage: 'quality_rebuild_retry',
+                summary: `The evidence rebuild was interrupted; retrying automatically (${attempt}/${total}).`,
+                attempt
+              })
+            : null
+        ),
+        operation: () => chat(rebuildRequest)
       });
       const retryRaw = extractJson(completion.text);
       if (retryRaw) {
@@ -3665,6 +3728,11 @@ const maintainWikiPage = async ({
     previousClaims,
     now
   });
+  await emitProgress({
+    stage: 'claims_built',
+    summary: `${page.claims.length} claim${page.claims.length === 1 ? '' : 's'} extracted into the evidence ledger.`,
+    claimCount: page.claims.length
+  });
   let persistedQuality = evaluateWikiArticleQuality({
     page,
     body: page.body,
@@ -3672,6 +3740,13 @@ const maintainWikiPage = async ({
     sourceRefs: persistedSourceRefs,
     now,
     skipDurableCitationCheck: isGitHubRepoPage({ page, candidates })
+  });
+  await emitProgress({
+    stage: 'evidence_gate',
+    summary: persistedQuality.ok
+      ? 'The dossier reached the evidence bar.'
+      : 'The dossier needs stronger evidence before it can become a trusted head.',
+    failureCount: Array.isArray(persistedQuality.failures) ? persistedQuality.failures.length : 0
   });
   if (!persistedQuality.ok && candidates.length && isGitHubRepoPage({ page, candidates })) {
     const repoFallbackNormalized = fallbackMaintenance({ page, candidates, manualNotes });

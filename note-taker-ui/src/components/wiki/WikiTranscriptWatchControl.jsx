@@ -55,7 +55,7 @@ export const formatTranscriptWatchReceipt = (watch = {}) => {
   return `Transcript watcher armed for ${label} · last checked ${checked}${suffix}`;
 };
 
-const isProviderKeyError = (message = '') => /FMP_API_KEY|provider key|financial modeling prep/i.test(String(message || ''));
+const isProviderKeyError = (message = '') => /provider (?:key|configuration)|financial modeling prep/i.test(String(message || ''));
 
 const WikiTranscriptWatchControl = ({ pageId, page, onPageUpdate }) => {
   const meta = useMemo(() => pageMeta(page), [page]);
@@ -121,7 +121,7 @@ const WikiTranscriptWatchControl = ({ pageId, page, onPageUpdate }) => {
         {activeError ? (
           <p className="wiki-read__transcript-watch-error" role="alert">
             {providerKeyMissing
-              ? 'Provider API key missing on server. Transcript sync is unavailable until FMP_API_KEY is configured.'
+              ? 'Earnings transcripts are not connected yet.'
               : activeError}
           </p>
         ) : null}

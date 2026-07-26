@@ -85,7 +85,7 @@ const run = async () => {
   assert.strictEqual(rejectedFreshDossier.promoted, false);
   assert.strictEqual(rejectedFreshDossier.page.aiState.draftStatus, 'error');
   assert.strictEqual(rejectedFreshDossier.page.aiState.errorCode, 'WIKI_CANDIDATE_REJECTED');
-  assert.match(rejectedFreshDossier.page.aiState.lastError, /first wiki candidate/i);
+  assert.match(rejectedFreshDossier.page.aiState.lastError, /did not reach the evidence bar/i);
 
   const reviewDossierPage = trustedPage();
   reviewDossierPage.createdFrom = { label: 'company-dossier:FAST' };

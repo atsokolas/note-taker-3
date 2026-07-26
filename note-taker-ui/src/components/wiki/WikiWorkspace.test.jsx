@@ -1249,11 +1249,11 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-new&build=1', { systemStatusControls });
     await settleWorkspaceEffects();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('The page was created, but the build stream did not finish.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('The maintenance stream for wiki-new timed out.');
     expect(await screen.findByRole('status', { name: 'Thought partner status' })).not.toHaveAttribute('data-status', 'working');
     expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki build',
-      message: 'The page was created, but the build stream did not finish.',
+      message: 'The maintenance stream for wiki-new timed out.',
       retryable: true,
       retry: expect.any(Function)
     }));

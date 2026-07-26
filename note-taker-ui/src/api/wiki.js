@@ -323,9 +323,17 @@ export const maintainWikiPage = async (id, options = {}) => {
 
 export const draftWikiPage = maintainWikiPage;
 
-const WIKI_STREAM_READ_TIMEOUT_MS = 24000;
+const WIKI_STREAM_READ_TIMEOUT_MS = 45000;
+const RETRYABLE_WIKI_STREAM_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) => {
+const interruptedWikiStreamError = (message = 'The build was interrupted partway. Noeis will resume it from saved evidence.') => {
+  const error = new Error(message);
+  error.code = 'WIKI_DRAFT_STREAM_INTERRUPTED';
+  error.retryable = true;
+  return error;
+};
+
+const streamMaintainWikiPageOnce = async (id, options = {}, handlers = {}) => {
   const pageId = String(id || '').trim();
   const token = localStorage.getItem('token');
   const controller = new AbortController();
@@ -344,31 +352,48 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
     }, timeoutMs);
   };
   armReadTimeout();
-  const res = await fetch(apiUrl(`${WIKI_PAGES_PATH}/${safeId(pageId)}/ai/draft/stream`), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify(options || {}),
-    signal: controller.signal
-  });
+  let res;
+  try {
+    res = await fetch(apiUrl(`${WIKI_PAGES_PATH}/${safeId(pageId)}/ai/draft/stream`), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(options || {}),
+      signal: controller.signal
+    });
+  } catch (error) {
+    clearReadTimeout();
+    if (controller.signal.aborted) {
+      const timeoutError = interruptedWikiStreamError();
+      timeoutError.code = 'WIKI_DRAFT_STREAM_TIMEOUT';
+      throw timeoutError;
+    }
+    throw interruptedWikiStreamError(error?.message || undefined);
+  }
 
   if (!res.ok) {
     let message = 'Failed to maintain wiki page.';
+    let code = '';
     try {
       const body = await res.json();
       message = body?.error || message;
+      code = body?.code || '';
     } catch (_error) {
       // Preserve the generic error if the stream endpoint did not return JSON.
     }
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = code;
+    error.status = res.status;
+    error.retryable = RETRYABLE_WIKI_STREAM_STATUSES.has(res.status);
+    throw error;
   }
 
   if (!res.body?.getReader) {
     const body = await res.json();
     handlers.onPage?.(body);
-    return body;
+    throw interruptedWikiStreamError('The dossier endpoint closed without a completion receipt. Noeis will resume it.');
   }
 
   const reader = res.body.getReader();
@@ -388,6 +413,8 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
     }
     if (event === 'error') {
       streamError = new Error(payload.error || payload.message || 'Failed to maintain wiki page.');
+      streamError.code = payload.code || 'WIKI_DRAFT_STREAM_FAILED';
+      streamError.retryable = payload.retryable !== false;
     }
     if (event === 'done') {
       finalDone = payload;
@@ -408,7 +435,9 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
     }
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error('Wiki maintenance stream timed out.');
+      const timeoutError = interruptedWikiStreamError();
+      timeoutError.code = 'WIKI_DRAFT_STREAM_TIMEOUT';
+      throw timeoutError;
     }
     throw error;
   } finally {
@@ -417,8 +446,44 @@ export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) =>
   buffer += decoder.decode();
   if (buffer.trim()) consumeBlock(buffer);
   if (streamError) throw streamError;
+  if (!finalDone) {
+    throw interruptedWikiStreamError('The build stream closed before Noeis recorded completion. Resuming from saved evidence.');
+  }
+  if (finalDone?.ok === false) {
+    const reason = finalPage?.aiState?.lastCandidateSummary
+      || finalPage?.aiState?.lastError
+      || 'Not enough filing evidence was incorporated.';
+    const rejected = new Error(`This dossier did not reach the evidence bar — ${reason} Rebuild, or discard the draft.`);
+    rejected.code = finalDone.code || 'WIKI_CANDIDATE_REJECTED';
+    rejected.retryable = false;
+    throw rejected;
+  }
   handlers.onComplete?.({ page: finalPage, done: finalDone });
   return finalPage;
+};
+
+const waitForWikiRetry = ms => new Promise(resolve => window.setTimeout(resolve, ms));
+
+export const streamMaintainWikiPage = async (id, options = {}, handlers = {}) => {
+  const retryDelaysMs = [5000, 20000, 45000];
+  let lastError = null;
+  for (let attempt = 1; attempt <= retryDelaysMs.length + 1; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        handlers.onEvent?.('wiki-draft', {
+          stage: 'resuming',
+          summary: `Resuming the interrupted build automatically (${attempt}/${retryDelaysMs.length + 1}).`,
+          attempt
+        });
+      }
+      return await streamMaintainWikiPageOnce(id, options, handlers);
+    } catch (error) {
+      lastError = error;
+      if (error?.retryable !== true || attempt > retryDelaysMs.length) break;
+      await waitForWikiRetry(retryDelaysMs[attempt - 1]);
+    }
+  }
+  throw lastError;
 };
 
 export const addWikiSource = async (id, source = {}) => {

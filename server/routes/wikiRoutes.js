@@ -58,6 +58,14 @@ const {
 } = require('../services/wikiJudgmentService');
 const { runWikiMaintenanceCandidate } = require('../services/wikiMaintenancePublicationService');
 const {
+  createDossierBuildRun,
+  finishDossierBuildRun,
+  isCompanyDossier,
+  recordDossierBuildStage,
+  touchDossierBuildRun,
+  withTransientRetries
+} = require('../services/wikiDossierBuildReliabilityService');
+const {
   acquireRepoBuildLease,
   releaseRepoBuildLease
 } = require('../services/wikiRepoBuildLeaseService');
@@ -69,6 +77,7 @@ const {
   normalizeForms: normalizeEdgarForms,
   normalizeTicker: normalizeEdgarTicker,
   padCik: padEdgarCik,
+  inspectCompanyDossierFiler: defaultInspectCompanyDossierFiler,
   resolveCompanyIdentifier: defaultResolveEdgarCompanyIdentifier
 } = require('../services/edgarWatcherService');
 const {
@@ -1590,6 +1599,7 @@ const buildWikiRouter = ({
   buildWikiBriefing = defaultBuildWikiBriefing,
   armEdgarWatchForPage = defaultArmEdgarWatchForPage,
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
+  inspectCompanyDossierFiler = defaultInspectCompanyDossierFiler,
   resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
   checkTranscriptWatchForPage = defaultCheckTranscriptWatchForPage,
@@ -2931,6 +2941,7 @@ const buildWikiRouter = ({
   });
 
   router.post('/api/wiki/pages/from-company', wikiAuth, async (req, res) => {
+    let createdCompanyDossierPage = null;
     try {
       if (req.agentToken) {
         return res.status(403).json({ error: 'Only the human owner can create an investment dossier.' });
@@ -2941,7 +2952,28 @@ const buildWikiRouter = ({
       } catch (validationError) {
         return res.status(400).json({ error: validationError.message });
       }
-      const company = await resolveEdgarCompanyIdentifier({ ticker: input.ticker });
+      const company = await withTransientRetries({
+        attempts: 3,
+        delaysMs: [750, 2000],
+        operation: () => resolveEdgarCompanyIdentifier({ ticker: input.ticker })
+      });
+      const filer = await withTransientRetries({
+        attempts: 3,
+        delaysMs: [750, 2000],
+        operation: () => inspectCompanyDossierFiler({ company })
+      });
+      if (!filer.supported) {
+        const form = filer.primaryForeignForm || 'no supported annual filing';
+        const foreign = filer.reason === 'foreign_private_issuer';
+        return res.status(422).json({
+          code: foreign ? 'DOSSIER_FOREIGN_FILER_UNSUPPORTED' : 'DOSSIER_FILER_UNSUPPORTED',
+          error: foreign
+            ? `${company.ticker} files as a foreign private issuer (${form}). Noeis dossiers currently support US domestic filers (10-K/10-Q). Foreign-filer support is coming.`
+            : `${company.ticker} does not have a supported US domestic filing history (10-K/10-Q), so Noeis cannot build this dossier yet.`,
+          company,
+          filer
+        });
+      }
       const dossierKey = activeCompanyDossierKey(company.cik);
       let existing = await WikiPage.findOne({
         userId: req.user.id,
@@ -3046,6 +3078,7 @@ const buildWikiRouter = ({
       refreshPageClaims(page);
       try {
         await page.save();
+        createdCompanyDossierPage = page;
       } catch (saveError) {
         if (Number(saveError?.code) !== 11000) throw saveError;
         const winner = await WikiPage.findOne({
@@ -3089,10 +3122,14 @@ const buildWikiRouter = ({
       let watchResult = { filings: [], events: [] };
       let watchError = '';
       try {
-        watchResult = await checkEdgarWatchForPage({
-          WikiSourceEvent,
-          page,
-          limit: 4
+        watchResult = await withTransientRetries({
+          attempts: 3,
+          delaysMs: [750, 2000],
+          operation: () => checkEdgarWatchForPage({
+            WikiSourceEvent,
+            page,
+            limit: 4
+          })
         });
         const latestByForm = new Map();
         (watchResult.events || []).forEach((event) => {
@@ -3223,10 +3260,20 @@ const buildWikiRouter = ({
       });
     } catch (error) {
       console.error('Error creating company dossier:', error);
+      if (createdCompanyDossierPage) {
+        return res.status(500).json({
+          code: 'DOSSIER_CREATE_PARTIAL',
+          error: 'The private dossier was created, but setup did not finish. Open the saved page from Wiki and resume the build.',
+          page: serializeWikiPage(createdCompanyDossierPage)
+        });
+      }
       res.status(Number(error?.statusCode) || 500).json({
-        error: Number(error?.statusCode) < 500
-          ? error.message
-          : 'Failed to create the company dossier.'
+        code: error.code || 'DOSSIER_CREATE_FAILED',
+        error: Number(error?.statusCode) === 404
+          ? 'No SEC company record was found for that ticker. Check the ticker and try again.'
+          : Number(error?.statusCode) < 500
+            ? error.message
+            : 'Noeis could not validate this company against SEC filings. Nothing was created; try again shortly.'
       });
     }
   });
@@ -5430,10 +5477,35 @@ const buildWikiRouter = ({
     let page = null;
     let activeStreamKey = '';
     let buildLease = null;
+    let dossierBuildRun = null;
+    let heartbeatTimer = null;
     let repoHeadSha = '';
     try {
       page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      if (isCompanyDossier(page)
+        && page.aiState?.draftStatus === 'ready'
+        && ['awaiting_first_head_acceptance', 'awaiting_maintenance_acceptance'].includes(page.aiState?.candidateStatus)) {
+        openWikiDraftStream(res);
+        const firstHead = page.aiState.candidateStatus === 'awaiting_first_head_acceptance';
+        writeSse(res, 'wiki-page', {
+          stage: 'candidate_ready',
+          summary: firstHead
+            ? 'The first research head is already ready for owner review.'
+            : 'The maintenance candidate is already ready for owner review.',
+          page: serializeWikiPage(page)
+        });
+        writeSse(res, 'done', {
+          ok: true,
+          code: firstHead
+            ? 'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE'
+            : 'WIKI_MAINTENANCE_AWAITING_ACCEPTANCE',
+          pageId: serializeId(page._id),
+          resumed: true
+        });
+        res.end();
+        return;
+      }
       activeStreamKey = `${serializeId(req.user.id)}:${serializeId(page._id)}`;
       if (activeWikiDraftStreams.has(activeStreamKey)) {
         return res.status(409).json({
@@ -5460,13 +5532,45 @@ const buildWikiRouter = ({
       }
       openWikiDraftStream(res);
 
+      const resumingDossier = isCompanyDossier(page) && (
+        page.aiState?.errorCode === 'WIKI_BUILD_INTERRUPTED'
+        || (Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 && !page.aiState?.lastDraftedAt)
+      );
+      dossierBuildRun = await createDossierBuildRun({
+        WikiMaintenanceRun,
+        page,
+        userId: req.user.id,
+        resume: resumingDossier
+      });
+      if (dossierBuildRun) {
+        heartbeatTimer = setInterval(() => {
+          writeSse(res, 'wiki-draft', {
+            stage: 'heartbeat',
+            summary: 'The dossier build is still working.',
+            runId: serializeId(dossierBuildRun._id)
+          });
+          touchDossierBuildRun({ run: dossierBuildRun })
+            .catch(error => console.error('[dossier-build-heartbeat] failed:', error));
+        }, 10000);
+        heartbeatTimer.unref?.();
+      }
+
       page.aiState = {
         ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
         draftStatus: 'maintaining',
         draftRequestedAt: new Date(),
         draftStartedAt: new Date(),
         lastError: '',
-        errorCode: ''
+        errorCode: '',
+        ...(dossierBuildRun ? {
+          build: {
+            runId: serializeId(dossierBuildRun._id),
+            resumable: true,
+            resumed: resumingDossier,
+            lastStage: 'starting',
+            startedAt: dossierBuildRun.startedAt || new Date()
+          }
+        } : {})
       };
       page = await savePageWithVersionRetry(page, req.user.id);
       writeSse(res, 'wiki-page', {
@@ -5475,6 +5579,26 @@ const buildWikiRouter = ({
         page: serializeWikiPage(page)
       });
 
+      let stageWrite = Promise.resolve();
+      const recordProgress = (event = {}) => {
+        writeSse(res, 'wiki-draft', event);
+        if (!dossierBuildRun || event.stage === 'model_streaming') return;
+        stageWrite = stageWrite
+          .then(() => recordDossierBuildStage({
+            run: dossierBuildRun,
+            stage: event.stage,
+            summary: event.summary,
+            attempt: event.attempt || 1,
+            details: {
+              sourceCount: event.sourceCount,
+              claimCount: event.claimCount,
+              failureCount: event.failureCount,
+              model: event.model,
+              provider: event.provider
+            }
+          }))
+          .catch(error => console.error('[dossier-build-stage] failed:', error));
+      };
       const publication = await runWikiMaintenanceCandidate({
         page,
         userId: req.user.id,
@@ -5482,7 +5606,23 @@ const buildWikiRouter = ({
         beforeSnapshot: before,
         requireFirstHeadAcceptance: /^company-dossier:/i.test(String(page?.createdFrom?.label || '')),
         requireOwnerAcceptance: Boolean(page?.investmentDossier?.version),
-        maintainWikiPageFn: maintainWikiPage,
+        maintainWikiPageFn: args => (
+          dossierBuildRun
+            ? withTransientRetries({
+                attempts: 3,
+                delaysMs: [1000, 3000],
+                onAttempt: ({ attempt, total }) => recordDossierBuildStage({
+                  run: dossierBuildRun,
+                  stage: 'maintenance_attempt',
+                  summary: attempt === 1
+                    ? 'Building from saved SEC evidence.'
+                    : `Retrying the interrupted build automatically (${attempt}/${total}).`,
+                  attempt
+                }),
+                operation: () => maintainWikiPage(args)
+              })
+            : maintainWikiPage(args)
+        ),
         maintainArgs: {
           wikiSchemaContent: await loadWikiSchemaContent(req.user.id),
           models: {
@@ -5497,16 +5637,20 @@ const buildWikiRouter = ({
           sourceTextLimit: maintenanceOptions.sourceTextLimit,
           skipQualityRebuild: maintenanceOptions.skipQualityRebuild,
           streamDraft: maintenanceOptions.streamDraft,
-          onProgress: (event) => {
-            writeSse(res, 'wiki-draft', event);
-          }
+          onProgress: recordProgress
         }
       });
+      await stageWrite;
       page = publication.page;
 
       if (!publication.promoted) {
         page = await savePageWithVersionRetry(page, req.user.id);
         if (publication.awaitingAcceptance) {
+          await finishDossierBuildRun({
+            run: dossierBuildRun,
+            status: 'needs_review',
+            summary: 'The first dossier candidate is ready for owner review.'
+          });
           writeSse(res, 'wiki-page', {
             stage: 'candidate_ready',
             summary: 'The first research head is ready for explicit owner review.',
@@ -5530,6 +5674,12 @@ const buildWikiRouter = ({
           res.end();
           return;
         }
+        await finishDossierBuildRun({
+          run: dossierBuildRun,
+          status: 'failed',
+          summary: 'The dossier did not reach the evidence bar.',
+          errorMessage: publication.quality?.failures?.slice(0, 3).join(' ') || 'Not enough filing evidence was incorporated.'
+        });
         if (buildLease?.acquired) {
           page = await releaseRepoBuildLease({
             WikiPage,
@@ -5608,6 +5758,11 @@ const buildWikiRouter = ({
         actorType: 'agent',
         summary: page.aiState?.maintenanceSummary || `Maintained "${page.title}".`
       });
+      await finishDossierBuildRun({
+        run: dossierBuildRun,
+        status: 'completed',
+        summary: 'Company dossier build completed.'
+      });
       if (buildLease?.acquired) {
         page = await releaseRepoBuildLease({
           WikiPage,
@@ -5638,6 +5793,18 @@ const buildWikiRouter = ({
       res.end();
     } catch (error) {
       console.error('Error streaming wiki maintenance:', error);
+      await recordDossierBuildStage({
+        run: dossierBuildRun,
+        stage: 'failed',
+        summary: 'The dossier build stopped before completion.',
+        details: { errorCode: String(error.code || 'WIKI_DRAFT_STREAM_FAILED') }
+      }).catch(() => null);
+      await finishDossierBuildRun({
+        run: dossierBuildRun,
+        status: 'failed',
+        summary: 'The dossier build was interrupted and can be resumed.',
+        errorMessage: error.message || 'The build stopped before completion.'
+      }).catch(() => null);
       if (buildLease?.acquired && page) {
         await releaseRepoBuildLease({
           WikiPage,
@@ -5658,7 +5825,7 @@ const buildWikiRouter = ({
         page.aiState = {
           ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
           draftStatus: 'error',
-          lastError: String(error.message || 'Failed to maintain wiki page.'),
+          lastError: 'The build was interrupted partway. Resume it to continue from saved SEC evidence.',
           errorCode: 'WIKI_DRAFT_STREAM_FAILED'
         };
         try {
@@ -5668,11 +5835,14 @@ const buildWikiRouter = ({
         }
       }
       writeSse(res, 'error', {
-        error: 'Failed to maintain wiki page.',
-        message: String(error.message || '')
+        error: 'The build was interrupted partway. Noeis will resume from saved evidence.',
+        message: String(error.message || ''),
+        code: 'WIKI_DRAFT_STREAM_FAILED',
+        retryable: true
       });
       res.end();
     } finally {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (activeStreamKey) activeWikiDraftStreams.delete(activeStreamKey);
     }
   });

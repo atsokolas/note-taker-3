@@ -257,7 +257,7 @@ const runWikiMaintenanceCandidate = async ({
   candidatePage.aiState = {
     ...priorAiState,
     draftStatus: trustedVersionAvailable ? 'ready' : 'error',
-    lastError: trustedVersionAvailable ? '' : 'The first wiki candidate did not pass the quality contract.',
+    lastError: trustedVersionAvailable ? '' : `This dossier did not reach the evidence bar — ${candidateFailureSummary(quality)}`,
     errorCode: trustedVersionAvailable ? '' : 'WIKI_CANDIDATE_REJECTED',
     candidateStatus: 'rejected',
     lastCandidateAt: now,

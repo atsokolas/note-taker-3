@@ -59,9 +59,13 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
       const message = response.error || submitError?.message || 'Failed to create company dossier.';
       setError(message);
       systemStatus.setRecoverableFailure?.({
-        stage: response.code === 'DOSSIER_INPUT_CONFLICT' ? 'Existing dossier conflict' : 'Company dossier creation',
+        stage: response.code === 'DOSSIER_INPUT_CONFLICT'
+          ? 'Existing dossier conflict'
+          : response.code === 'DOSSIER_FOREIGN_FILER_UNSUPPORTED'
+            ? 'Filer not supported yet'
+            : 'Company dossier creation',
         message,
-        retryable: response.code !== 'DOSSIER_INPUT_CONFLICT'
+        retryable: !['DOSSIER_INPUT_CONFLICT', 'DOSSIER_FOREIGN_FILER_UNSUPPORTED', 'DOSSIER_FILER_UNSUPPORTED'].includes(response.code)
       });
     } finally {
       setBusy(false);
