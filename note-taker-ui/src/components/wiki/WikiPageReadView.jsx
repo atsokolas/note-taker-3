@@ -1433,23 +1433,45 @@ const WikiPageReadView = ({
       }));
     } catch (maintainError) {
       const message = maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
+      const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+      const freshestPage = maintainError?.page || latestPageRef.current || page;
+      if (maintainError?.page) {
+        latestPageRef.current = maintainError.page;
+        setPage(maintainError.page);
+      }
       setError(message);
-      setMaintenanceTraceLines([
-        `maintenance failed · @wiki:${pageId}`,
-        'waiting for retry'
-      ]);
+      setMaintenanceTraceLines(evidenceIncomplete
+        ? [
+          `checked ${countPageSources(freshestPage)} source${countPageSources(freshestPage) === 1 ? '' : 's'}`,
+          'research stopped before drafting',
+          'waiting for missing evidence classes'
+        ]
+        : [
+          `maintenance failed · @wiki:${pageId}`,
+          'waiting for retry'
+        ]);
       setMaintenanceReceipt({
-        status: 'failed',
+        status: evidenceIncomplete ? 'research' : 'failed',
         issueCount: 0,
-        sourceCount: countPageSources(latestPageRef.current || page),
-        claimCount: countPageClaims(latestPageRef.current || page)
+        sourceCount: countPageSources(freshestPage),
+        claimCount: countPageClaims(freshestPage),
+        summary: message
       });
-      systemStatus.setRecoverableFailure({
-        stage: 'Wiki maintenance',
-        message,
-        retryable: true,
-        retry: () => { handleMaintain(); }
-      });
+      if (evidenceIncomplete) {
+        systemStatus.setLatestReceipt({
+          title: 'Dossier research is incomplete',
+          summary: message,
+          status: 'needs_review',
+          href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+        });
+      } else {
+        systemStatus.setRecoverableFailure({
+          stage: 'Wiki maintenance',
+          message,
+          retryable: true,
+          retry: () => { handleMaintain(); }
+        });
+      }
     } finally {
       systemStatus.setBackgroundWork(null);
       setMaintaining(false);
@@ -2166,11 +2188,21 @@ const WikiPageReadView = ({
   const edgarWatch = page?.externalWatches?.edgar || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
-  const persistedMaintenanceFailure = page?.aiState?.draftStatus === 'error'
-    || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED';
+  const evidenceIncomplete = companyDossier
+    && page?.aiState?.errorCode === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+  const persistedMaintenanceFailure = !evidenceIncomplete && (
+    page?.aiState?.draftStatus === 'error'
+    || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
+  );
   const maintenanceDisplayState = maintenanceReceipt?.status
-    || (maintenanceActive ? 'working' : persistedMaintenanceFailure ? 'failed' : 'idle');
-  const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt;
+    || (maintenanceActive
+      ? 'working'
+      : evidenceIncomplete
+        ? 'research'
+        : persistedMaintenanceFailure
+          ? 'failed'
+          : 'idle');
+  const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt && !evidenceIncomplete;
   const shareCard = weekendReadingsPage ? null : (
     <section
       className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
@@ -2297,6 +2329,8 @@ const WikiPageReadView = ({
             <h2>
               {maintenanceActive
                 ? 'Checking this page against your corpus'
+                : maintenanceDisplayState === 'research'
+                  ? 'This dossier needs more evidence'
                 : maintenanceDisplayState === 'failed'
                   ? (page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
                     ? 'This dossier did not reach the evidence bar'
@@ -2311,13 +2345,19 @@ const WikiPageReadView = ({
             </h2>
             {maintenanceReceipt ? (
               <p>
-                {maintenanceReceipt.sourceCount} source{maintenanceReceipt.sourceCount === 1 ? '' : 's'} ·{' '}
-                {maintenanceReceipt.claimCount} claim{maintenanceReceipt.claimCount === 1 ? '' : 's'} ·{' '}
-                {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
+                {maintenanceReceipt.status === 'research'
+                  ? maintenanceReceipt.summary
+                  : <>
+                    {maintenanceReceipt.sourceCount} source{maintenanceReceipt.sourceCount === 1 ? '' : 's'} ·{' '}
+                    {maintenanceReceipt.claimCount} claim{maintenanceReceipt.claimCount === 1 ? '' : 's'} ·{' '}
+                    {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
+                  </>}
               </p>
             ) : (
               <p>
-                {maintenanceDisplayState === 'failed'
+                {maintenanceDisplayState === 'research'
+                  ? (page?.aiState?.lastError || 'The saved evidence pack is incomplete. Continue research when more sources are available.')
+                  : maintenanceDisplayState === 'failed'
                   ? (page?.aiState?.lastCandidateSummary || page?.aiState?.lastError || 'Resume from saved evidence, or discard this failed draft.')
                   : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to check sources, claims, and weak signals without leaving the reading surface.`}
               </p>
@@ -2337,7 +2377,13 @@ const WikiPageReadView = ({
           />
           <div className="wiki-read__maintenance-actions">
             <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
-              {maintenanceActive ? 'Running...' : persistedMaintenanceFailure && companyDossier ? 'Resume build' : 'Run again'}
+              {maintenanceActive
+                ? 'Running...'
+                : evidenceIncomplete
+                  ? 'Continue research'
+                  : persistedMaintenanceFailure && companyDossier
+                    ? 'Resume build'
+                    : 'Run again'}
             </Button>
             {persistedMaintenanceFailure && companyDossier && !page?.aiState?.lastDraftedAt ? (
               <Button type="button" variant="ghost" onClick={handleDiscardFailedDossier} disabled={maintenanceActive}>

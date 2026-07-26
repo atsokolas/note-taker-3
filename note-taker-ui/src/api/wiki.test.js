@@ -131,6 +131,47 @@ describe('wiki api streams', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves the fresh page and live coverage for incomplete dossier research', async () => {
+    const encoder = new TextEncoder();
+    const liveMessage = 'Add an independent regulator source and a dated market price before building.';
+    const freshPage = {
+      _id: 'wiki-1',
+      sourceRefs: Array.from({ length: 5 }, (_, index) => ({ title: `Source ${index + 1}` })),
+      aiState: {
+        lastCandidateSummary: 'Stale candidate quality from an older run.',
+        lastError: liveMessage,
+        errorCode: 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE'
+      }
+    };
+    const evidenceCoverage = {
+      sourceCount: 5,
+      missingEvidenceArchetypes: ['independent_domain', 'market_snapshot'],
+      message: liveMessage
+    };
+    const chunks = [
+      `event: wiki-page\ndata: ${JSON.stringify({ stage: 'evidence_incomplete', page: freshPage, evidenceCoverage })}\n\n`,
+      `event: done\ndata: ${JSON.stringify({ ok: false, code: 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE', evidenceCoverage })}\n\n`
+    ].map(chunk => encoder.encode(chunk));
+    const read = jest.fn()
+      .mockResolvedValueOnce({ done: false, value: chunks[0] })
+      .mockResolvedValueOnce({ done: false, value: chunks[1] })
+      .mockResolvedValueOnce({ done: true });
+    global.fetch.mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read }) }
+    });
+
+    const error = await streamMaintainWikiPage('wiki-1').catch(value => value);
+
+    expect(error.code).toBe('WIKI_DOSSIER_EVIDENCE_INCOMPLETE');
+    expect(error.message).toContain(liveMessage);
+    expect(error.message).not.toContain('Stale candidate quality');
+    expect(error.page).toEqual(freshPage);
+    expect(error.evidenceCoverage).toEqual(evidenceCoverage);
+    expect(error.retryable).toBe(false);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('treats a stream that closes without a done receipt as retryable interruption', async () => {
     const encoder = new TextEncoder();
     const chunk = encoder.encode(

@@ -401,6 +401,7 @@ const run = async () => {
         && sourceRef.metadata?.evidenceArchetype !== 'competitor_primary'
       ));
     delete WikiPage.records.at(-1).investmentDossier.acquisition;
+    WikiPage.records.at(-1).aiState.lastCandidateSummary = 'Stale candidate quality from an older run.';
     const streamResponse = await fetch(
       `${base}/api/wiki/pages/${recreated.body.page._id}/ai/draft/stream`,
       {
@@ -422,6 +423,15 @@ const run = async () => {
     assert.equal(companyFactsCalls, 2);
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
+    assert.deepEqual(
+      WikiPage.records.at(-1).investmentDossier.researchPlan.evidenceArchetypes,
+      ['filing', 'operating_benchmark', 'company_product', 'competitor_primary']
+    );
+    assert.deepEqual(
+      WikiPage.records.at(-1).investmentDossier.researchPlan.missingEvidenceArchetypes,
+      ['independent_domain', 'market_snapshot']
+    );
+    assert.equal(WikiPage.records.at(-1).aiState.lastCandidateSummary, '');
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
       1
