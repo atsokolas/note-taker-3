@@ -40,6 +40,7 @@ const {
 const { buildValuationSnapshot } = require('../services/investmentValuationService');
 const { buildInvestmentMaintenanceComparison } = require('../services/investmentDossierComparisonService');
 const { buildCompanyDossierEvidenceCoverage } = require('../services/companyDossierEvidenceService');
+const { buildCompanyFactsOperatingBenchmark } = require('../services/investmentDossierFreeSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
@@ -76,6 +77,7 @@ const { createWikiSourceEvent, listWikiSourceEvents } = require('../services/wik
 const {
   armEdgarWatchForPage: defaultArmEdgarWatchForPage,
   checkEdgarWatchForPage: defaultCheckEdgarWatchForPage,
+  fetchCompanyFacts: defaultFetchCompanyFacts,
   normalizeForms: normalizeEdgarForms,
   normalizeTicker: normalizeEdgarTicker,
   padCik: padEdgarCik,
@@ -1602,6 +1604,7 @@ const buildWikiRouter = ({
   buildWikiBriefing = defaultBuildWikiBriefing,
   armEdgarWatchForPage = defaultArmEdgarWatchForPage,
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
+  fetchCompanyFacts = defaultFetchCompanyFacts,
   inspectCompanyDossierFiler = defaultInspectCompanyDossierFiler,
   resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
@@ -2475,6 +2478,7 @@ const buildWikiRouter = ({
         'claims',
         'citations',
         'judgment',
+        'investmentDossier',
         'freshness',
         'aiState'
       ].forEach((field) => {
@@ -2488,6 +2492,71 @@ const buildWikiRouter = ({
       if (!updatedPage) throw error;
       return updatedPage;
     }
+  };
+
+  const acquireCompanyFactsForDossier = async ({ page, now = new Date() } = {}) => {
+    if (!page || !isCompanyDossier(page)) {
+      return { sourceAdded: false, sourceRef: null, stop: null, skipped: true };
+    }
+    const existingSource = (page.sourceRefs || []).find(source => (
+      source?.provider === 'sec-companyfacts'
+      || source?.metadata?.acquisitionMethod === 'sec_companyfacts'
+    ));
+    if (existingSource) {
+      return { sourceAdded: false, sourceRef: existingSource, stop: null, skipped: true };
+    }
+    const cik = page.investmentDossier?.company?.cik || page.externalWatches?.edgar?.cik || '';
+    const ticker = page.investmentDossier?.company?.ticker || page.externalWatches?.edgar?.ticker || '';
+    const companyName = page.investmentDossier?.company?.name || page.externalWatches?.edgar?.companyName || '';
+    let acquisition;
+    try {
+      const companyFacts = await withTransientRetries({
+        attempts: 3,
+        delaysMs: [750, 2000],
+        operation: () => fetchCompanyFacts({ cik })
+      });
+      acquisition = buildCompanyFactsOperatingBenchmark({
+        companyFacts,
+        cik,
+        ticker,
+        companyName,
+        now
+      });
+    } catch (error) {
+      acquisition = {
+        sourceRef: null,
+        stop: {
+          code: 'SEC_COMPANY_FACTS_UNAVAILABLE',
+          evidenceArchetype: 'operating_benchmark',
+          message: 'SEC Company Facts could not be loaded after automatic retries. The saved filing evidence is unchanged.'
+        },
+        diagnostic: String(error?.message || '')
+      };
+    }
+    if (acquisition.sourceRef) {
+      page.sourceRefs = [...(page.sourceRefs || []), acquisition.sourceRef].slice(0, 80);
+      page.markModified?.('sourceRefs');
+    }
+    const priorProfile = page.investmentDossier || {};
+    page.investmentDossier = {
+      ...priorProfile,
+      acquisition: {
+        ...(priorProfile.acquisition || {}),
+        companyFacts: {
+          status: acquisition.sourceRef ? 'attached' : 'unavailable',
+          lastAttemptedAt: now,
+          sourceUrl: acquisition.sourceRef?.url || '',
+          stop: acquisition.stop || null
+        }
+      }
+    };
+    page.markModified?.('investmentDossier');
+    return {
+      sourceAdded: Boolean(acquisition.sourceRef),
+      sourceRef: acquisition.sourceRef || null,
+      stop: acquisition.stop || null,
+      skipped: false
+    };
   };
 
   const applyAutolinksForPage = async (page, userId, options = {}) => {
@@ -3187,16 +3256,21 @@ const buildWikiRouter = ({
       } catch (error) {
         watchError = String(error?.message || 'SEC filing check failed.');
       }
+      const companyFactsAcquisition = await acquireCompanyFactsForDossier({ page });
+      if (!companyFactsAcquisition.skipped) await page.save();
+      const filingSourceCount = (page.sourceRefs || []).filter(source => source?.provider === 'sec-edgar').length;
       const receiptInput = {
         id: `company-dossier:${serializeId(page._id)}`,
         kind: 'company_dossier_created',
         source: 'wiki',
         sourceLabel: 'Company dossier',
-        status: watchError ? 'partial' : 'completed',
+        status: watchError || companyFactsAcquisition.stop ? 'partial' : 'completed',
         title: `Created ${company.ticker} investment dossier.`,
         summary: watchError
           ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
-          : 'The private dossier, owner judgment, return hurdle, and free SEC filing watch were saved.',
+          : companyFactsAcquisition.stop
+            ? `The private dossier and filing watch were saved. ${companyFactsAcquisition.stop.message}`
+            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, and Company Facts operating history were saved.',
         metrics: {
           ticker: company.ticker,
           cik: company.cik,
@@ -3204,7 +3278,10 @@ const buildWikiRouter = ({
           horizonYears: input.horizonYears,
           filingsFound: watchResult.filings?.length || 0,
           sourceEventsCreated: watchResult.events?.length || 0,
-          filingsAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          filingsAttached: filingSourceCount,
+          totalSourcesAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+          operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
+          acquisitionStops: companyFactsAcquisition.stop ? [companyFactsAcquisition.stop.code] : []
         },
         provenance: {
           initialRevisionId: serializeId(revision?._id),
@@ -3247,7 +3324,10 @@ const buildWikiRouter = ({
         watchResult: {
           filingsFound: watchResult.filings?.length || 0,
           sourceEventsCreated: watchResult.events?.length || 0,
-          filingsAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+          filingsAttached: filingSourceCount,
+          totalSourcesAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
+          operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
+          acquisitionStops: companyFactsAcquisition.stop ? [companyFactsAcquisition.stop] : [],
           watchError
         },
         receipt
@@ -5524,7 +5604,7 @@ const buildWikiRouter = ({
         activeWikiDraftStreams.set(activeStreamKey, Date.now());
         ownsActiveStreamKey = true;
       }
-      const before = snapshotPage(page);
+      let before = snapshotPage(page);
       const maintenanceOptions = readMaintenanceRequestOptions(req.body || {});
       if (isGitHubRepoWikiPage(page)) {
         maintenanceOptions.skipQualityRebuild = false;
@@ -5532,6 +5612,19 @@ const buildWikiRouter = ({
       openWikiDraftStream(res);
 
       if (isCompanyDossier(page)) {
+        const companyFactsAcquisition = await acquireCompanyFactsForDossier({ page });
+        if (!companyFactsAcquisition.skipped) {
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-draft', {
+            stage: companyFactsAcquisition.sourceRef
+              ? 'operating_benchmark_attached'
+              : 'operating_benchmark_unavailable',
+            summary: companyFactsAcquisition.sourceRef
+              ? 'Attached a free SEC Company Facts operating history.'
+              : companyFactsAcquisition.stop?.message,
+            sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          });
+        }
         const evidenceCoverage = buildCompanyDossierEvidenceCoverage({ page });
         if (!evidenceCoverage.ready) {
           page.aiState = {
@@ -5560,6 +5653,7 @@ const buildWikiRouter = ({
           res.end();
           return;
         }
+        before = snapshotPage(page);
       }
 
       const resumingDossier = isCompanyDossier(page) && (

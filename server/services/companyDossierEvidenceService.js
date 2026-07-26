@@ -12,7 +12,11 @@ const buildCompanyDossierEvidenceCoverage = ({
   minimumSourceCount = COMPANY_DOSSIER_MIN_SOURCE_COUNT
 } = {}) => {
   const sourceRefs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
-  const researchPlan = page.investmentDossier?.researchPlan || {};
+  const dossier = page.investmentDossier || {};
+  const researchPlan = dossier.researchPlan || {};
+  const acquisitionStops = Object.values(dossier.acquisition || {})
+    .map(state => state?.stop)
+    .filter(stop => stop?.code && stop?.message);
   const requiredEvidenceArchetypes = unique(
     researchPlan.requiredEvidenceArchetypes?.length
       ? researchPlan.requiredEvidenceArchetypes
@@ -39,6 +43,9 @@ const buildCompanyDossierEvidenceCoverage = ({
     summaryParts.push(`${missingSourceCount} more substantive source${missingSourceCount === 1 ? '' : 's'}`);
   }
   if (checklist.length) summaryParts.push(checklist.join('; '));
+  if (acquisitionStops.length) {
+    summaryParts.push(...acquisitionStops.map(stop => stop.message));
+  }
   return {
     ready,
     status: ready ? 'ready_for_draft' : 'research_incomplete',
@@ -48,6 +55,7 @@ const buildCompanyDossierEvidenceCoverage = ({
     requiredEvidenceArchetypes,
     observedEvidenceArchetypes,
     missingEvidenceArchetypes,
+    acquisitionStops,
     checklist,
     message: ready
       ? 'The evidence pack covers the minimum source count and required evidence classes.'
