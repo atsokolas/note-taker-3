@@ -56,6 +56,20 @@ assert(result.addedClaimCount >= 30);
 assert.strictEqual(result.candidate.investmentDossier.version, 2);
 assert.strictEqual(result.candidate.investmentDossier.businessModel.primary, 'membership_retail');
 assert.strictEqual(result.candidate.investmentDossier.researchPlan.status, 'decision_ready');
+assert.strictEqual(result.candidate.investmentDossier.valuation.status, 'complete');
+assert.strictEqual(result.candidate.investmentDossier.valuation.unitScale, 'billions');
+assert.strictEqual(
+  result.candidate.investmentDossier.valuation.dilutedShares,
+  0.443478804
+);
+assert.strictEqual(
+  result.candidate.investmentDossier.valuation.netCashOrDebt,
+  -derived.netCash
+);
+assert.strictEqual(
+  Number(result.candidate.investmentDossier.valuation.enterpriseValue.toFixed(3)),
+  Number(derived.enterpriseValue.toFixed(3))
+);
 assert.strictEqual(result.candidate.judgment, undefined);
 assert(result.candidate.plainText.includes('matched-SKU basket'));
 assert(result.candidate.plainText.includes('supplier financing'));

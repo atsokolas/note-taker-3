@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const { WikiPage, WikiRevision, WikiSourceEvent } = require('../server/models');
 const { buildInvestmentDossierProfile } = require('../server/services/companyDossierService');
 const { completeResearchPlan } = require('../server/services/investmentDossierProfileService');
+const { buildValuationSnapshot } = require('../server/services/investmentValuationService');
 const { evaluateWikiArticleQuality } = require('../server/services/wikiMaintenanceService');
 const { createWikiRevision, snapshotPage } = require('../server/services/wikiRevisionService');
 
@@ -638,15 +639,13 @@ const applyResearch = ({ page, now = new Date() }) => {
     profile: {
       ...baseProfile,
       startingJudgment: 'Owner judgment not yet supplied; this remains a research draft.',
-      valuation: {
-        status: 'calculated',
+      valuation: buildValuationSnapshot({
         asOf: RESEARCH_AS_OF,
         currency: 'USD',
+        unitScale: 'billions',
         price: INPUTS.price,
-        dilutedShares: INPUTS.shares,
-        equityValue: derived.equityValue,
-        netCashOrDebt: derived.netCash,
-        enterpriseValue: derived.enterpriseValue,
+        dilutedShares: INPUTS.shares / 1e9,
+        netCashOrDebt: -derived.netCash,
         operatingBase: {
           metric: 'mechanical_trailing_free_cash_flow',
           period: 'Trailing period through May 10, 2026',
@@ -654,23 +653,16 @@ const applyResearch = ({ page, now = new Date() }) => {
           derivation: 'FY2025 FCF less first-36-weeks FY2025 FCF plus first-36-weeks FY2026 FCF',
           sourceRefIds: [id(map.get('fy2025-10k').source._id), id(map.get('q3-2026-10q').source._id)]
         },
-        hurdle: {
-          annualReturn: INPUTS.requiredReturn,
-          horizonYears: INPUTS.horizonYears,
-          terminalMultiples: [25, 30, 35, 40]
-        },
-        scenarios: [25, 30, 35, 40].map(terminalMultiple => ({
-          terminalMultiple,
-          requiredOperatingValue: derived[`terminalFcf${terminalMultiple}x`],
-          requiredCagr: derived[`requiredFcfCagr${terminalMultiple}x`]
-        })),
-        sourceRefs: [
+        annualReturn: INPUTS.requiredReturn,
+        horizonYears: INPUTS.horizonYears,
+        terminalMultiples: [25, 30, 35, 40],
+        sourceRefIds: [
           id(map.get('fy2025-10k').source._id),
           id(map.get('q3-2026-10q').source._id),
           id(map.get('cost-market-snapshot').source._id)
         ],
         calculatedAt: now
-      },
+      }),
       clocks: {
         ...(baseProfile.clocks || {}),
         domainEvidenceAcceptedAt: RESEARCH_AS_OF,
