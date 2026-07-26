@@ -78,6 +78,27 @@ const run = () => {
   });
   assert.equal(adapterGap.ready, false);
   assert.deepEqual(adapterGap.missingEvidenceArchetypes, ['operating_benchmark']);
+
+  const stopped = buildCompanyDossierEvidenceCoverage({
+    page: {
+      sourceRefs: [],
+      investmentDossier: {
+        acquisition: {
+          companyFacts: {
+            stop: {
+              code: 'OPERATING_BENCHMARK_UNAVAILABLE',
+              message: 'SEC Company Facts did not contain a comparable operating series.'
+            }
+          }
+        }
+      }
+    }
+  });
+  assert.deepEqual(
+    stopped.acquisitionStops.map(stop => stop.code),
+    ['OPERATING_BENCHMARK_UNAVAILABLE']
+  );
+  assert.match(stopped.message, /did not contain a comparable operating series/);
 };
 
 if (require.main === module) {

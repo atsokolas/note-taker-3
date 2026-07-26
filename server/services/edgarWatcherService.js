@@ -2,6 +2,7 @@ const { createWikiSourceEvent } = require('./wikiSourceEventService');
 const { extractReadableText, normalizeIngestText } = require('./import/urlTextIngest');
 
 const SEC_SUBMISSIONS_BASE_URL = 'https://data.sec.gov/submissions';
+const SEC_COMPANY_FACTS_BASE_URL = 'https://data.sec.gov/api/xbrl/companyfacts';
 const SEC_COMPANY_TICKERS_URL = 'https://www.sec.gov/files/company_tickers.json';
 const DEFAULT_EDGAR_FORMS = ['10-K', '10-Q', '8-K', '13F-HR'];
 const DEFAULT_SEC_USER_AGENT = 'Noeis research maintenance contact@noeis.io';
@@ -114,6 +115,24 @@ const fetchCompanySubmissions = async ({
   }
   return fetchJson({
     url: `${SEC_SUBMISSIONS_BASE_URL}/CIK${padCik(normalizedCik)}.json`,
+    fetchImpl,
+    userAgent
+  });
+};
+
+const fetchCompanyFacts = async ({
+  cik = '',
+  fetchImpl = global.fetch,
+  userAgent = secUserAgent()
+} = {}) => {
+  const normalizedCik = normalizeCik(cik);
+  if (!normalizedCik) {
+    const error = new Error('A valid SEC CIK is required to load company facts.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return fetchJson({
+    url: `${SEC_COMPANY_FACTS_BASE_URL}/CIK${padCik(normalizedCik)}.json`,
     fetchImpl,
     userAgent
   });
@@ -522,6 +541,7 @@ module.exports = {
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
   filingExternalId,
+  fetchCompanyFacts,
   fetchCompanySubmissions,
   fetchFilingDocument,
   classifyCompanyDossierFiler,

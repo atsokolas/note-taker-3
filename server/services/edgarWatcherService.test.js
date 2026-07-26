@@ -5,6 +5,7 @@ const {
   classifyCompanyDossierFiler,
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
+  fetchCompanyFacts,
   latestTrackedFilings,
   normalizeRecentFilings,
   selectCompanyDossierBootstrapFilings
@@ -38,6 +39,16 @@ const makeFetch = () => async (url) => {
             size: [123, 50, 75]
           }
         }
+      })
+    };
+  }
+  if (String(url).includes('/api/xbrl/companyfacts/CIK0000320193.json')) {
+    return {
+      ok: true,
+      json: async () => ({
+        cik: 320193,
+        entityName: 'Apple Inc.',
+        facts: { 'us-gaap': {} }
       })
     };
   }
@@ -166,6 +177,11 @@ const run = async () => {
   });
   assert.strictEqual(domestic.supported, true);
   assert.strictEqual(domestic.reason, 'domestic_filer');
+  const companyFacts = await fetchCompanyFacts({
+    cik: '320193',
+    fetchImpl: makeFetch()
+  });
+  assert.strictEqual(companyFacts.entityName, 'Apple Inc.');
 
   const foreign = classifyCompanyDossierFiler({
     company: { ticker: 'ASML', cik: '937966', companyName: 'ASML HOLDING NV' },

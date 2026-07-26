@@ -125,6 +125,7 @@ const run = async () => {
   app.use(express.json());
   let watchOptions = null;
   let maintainCalls = 0;
+  let companyFactsCalls = 0;
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: ownerId };
@@ -145,6 +146,8 @@ const run = async () => {
         title: 'AMD FY2025 10-K',
         text: 'AMD annual filing evidence.',
         url: 'https://www.sec.gov/Archives/amd-10-k',
+        sourceType: 'external',
+        provider: 'sec-edgar',
         metadata: {
           form: '10-K',
           filingDate: '2026-02-04',
@@ -153,6 +156,41 @@ const run = async () => {
         async save() {}
       };
       return { filings: [{ form: '10-K' }], events: [event] };
+    },
+    fetchCompanyFacts: async () => {
+      companyFactsCalls += 1;
+      const annual = (tag, values) => ({
+        label: tag,
+        units: {
+          USD: values.map(({ fy, val }) => ({
+            fy,
+            fp: 'FY',
+            form: '10-K',
+            end: `${fy}-12-31`,
+            filed: `${fy + 1}-02-01`,
+            accn: `${tag}-${fy}`,
+            val
+          }))
+        }
+      });
+      return {
+        cik: Number(company.cik),
+        entityName: company.companyName,
+        facts: {
+          'us-gaap': {
+            RevenueFromContractWithCustomerExcludingAssessedTax: annual('Revenue', [
+              { fy: 2023, val: 100 },
+              { fy: 2024, val: 120 },
+              { fy: 2025, val: 140 }
+            ]),
+            OperatingIncomeLoss: annual('Operating income', [
+              { fy: 2023, val: 10 },
+              { fy: 2024, val: 12 },
+              { fy: 2025, val: 14 }
+            ])
+          }
+        }
+      };
     },
     maintainWikiPage: async () => {
       maintainCalls += 1;
@@ -228,9 +266,18 @@ const run = async () => {
       WikiPage.records.at(-1).sourceRefs[0].metadata.sourceEventId,
       WikiPage.records.at(-1).sourceRefs[0].objectId
     );
+    assert.equal(WikiPage.records.at(-1).sourceRefs[1].provider, 'sec-companyfacts');
+    assert.equal(WikiPage.records.at(-1).sourceRefs[1].metadata.evidenceArchetype, 'operating_benchmark');
+    assert.equal(recreated.body.receipt.metrics.filingsAttached, 1);
+    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 2);
+    assert.equal(recreated.body.receipt.metrics.operatingBenchmarkAttached, true);
+    assert.equal(companyFactsCalls, 1);
     assert.equal(WikiPage.records.length, 2);
     assert.equal(WikiPage.records.filter(page => page.status !== 'archived').length, 1);
 
+    WikiPage.records.at(-1).sourceRefs = WikiPage.records.at(-1).sourceRefs
+      .filter(sourceRef => sourceRef.provider !== 'sec-companyfacts');
+    delete WikiPage.records.at(-1).investmentDossier.acquisition;
     const streamResponse = await fetch(
       `${base}/api/wiki/pages/${recreated.body.page._id}/ai/draft/stream`,
       {
@@ -242,8 +289,28 @@ const run = async () => {
     const streamBody = await streamResponse.text();
     assert.equal(streamResponse.status, 200);
     assert.match(streamBody, /WIKI_DOSSIER_EVIDENCE_INCOMPLETE/);
+    assert.match(streamBody, /operating_benchmark_attached/);
     assert.match(streamBody, /official product/);
     assert.equal(maintainCalls, 0);
+    assert.equal(companyFactsCalls, 2);
+    assert.equal(
+      WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
+      1
+    );
+    const repeatedStream = await fetch(
+      `${base}/api/wiki/pages/${recreated.body.page._id}/ai/draft/stream`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}'
+      }
+    );
+    assert.match(await repeatedStream.text(), /WIKI_DOSSIER_EVIDENCE_INCOMPLETE/);
+    assert.equal(companyFactsCalls, 2);
+    assert.equal(
+      WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
+      1
+    );
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }
