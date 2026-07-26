@@ -156,6 +156,7 @@ const run = async () => {
   const app = express();
   app.use(express.json());
   let watchOptions = null;
+  let watchCalls = 0;
   let maintainCalls = 0;
   let companyFactsCalls = 0;
   let officialProductCalls = 0;
@@ -177,22 +178,30 @@ const run = async () => {
     inspectCompanyDossierFiler: async () => filer,
     checkEdgarWatchForPage: async (options) => {
       watchOptions = options;
+      watchCalls += 1;
+      const isRepairRun = watchCalls > 1;
       const event = new FakeWikiSourceEvent({
-        title: 'AMD FY2025 10-K',
-        text: `Competition. Our principal competitors include NVIDIA Corporation. ${'AMD annual filing evidence. '.repeat(120)}`,
-        url: 'https://www.sec.gov/Archives/amd-10-k',
+        title: isRepairRun ? 'AMD Q3 FY2025 10-Q' : 'AMD FY2025 10-K',
+        text: isRepairRun
+          ? `AMD quarterly filing evidence. ${'Operating update. '.repeat(180)}`
+          : `Competition. Our principal competitors include NVIDIA Corporation. ${'AMD annual filing evidence. '.repeat(120)}`,
+        url: isRepairRun
+          ? 'https://www.sec.gov/Archives/amd-q3-10-q'
+          : 'https://www.sec.gov/Archives/amd-10-k',
         sourceType: 'external',
         provider: 'sec-edgar',
         userId: ownerId,
-        externalId: 'amd-10-k',
+        externalId: isRepairRun ? 'amd-q3-10-q' : 'amd-10-k',
         metadata: {
-          form: '10-K',
-          filingDate: '2026-02-04',
-          accessionNumber: '0000002488-26-000001'
+          form: isRepairRun ? '10-Q' : '10-K',
+          filingDate: isRepairRun ? '2025-10-30' : '2026-02-04',
+          accessionNumber: isRepairRun
+            ? '0000002488-25-000003'
+            : '0000002488-26-000001'
         }
       });
       await event.save();
-      return { filings: [{ form: '10-K' }], events: [event] };
+      return { filings: [{ form: event.metadata.form }], events: [event] };
     },
     fetchCompanyFacts: async () => {
       companyFactsCalls += 1;
@@ -413,6 +422,7 @@ const run = async () => {
     const streamBody = await streamResponse.text();
     assert.equal(streamResponse.status, 200);
     assert.match(streamBody, /WIKI_DOSSIER_EVIDENCE_INCOMPLETE/);
+    assert.match(streamBody, /sec_primary_pack_checked/);
     assert.match(streamBody, /operating_benchmark_attached/);
     assert.match(streamBody, /official_product_evidence_attached/);
     assert.match(streamBody, /competitor_primary_evidence_attached/);
@@ -423,6 +433,13 @@ const run = async () => {
     assert.equal(companyFactsCalls, 2);
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
+    assert.equal(watchCalls, 2);
+    assert.equal(
+      WikiPage.records.at(-1).sourceRefs.filter(
+        sourceRef => sourceRef.metadata?.evidenceArchetype === 'filing'
+      ).length,
+      2
+    );
     assert.deepEqual(
       WikiPage.records.at(-1).investmentDossier.researchPlan.evidenceArchetypes,
       ['filing', 'operating_benchmark', 'company_product', 'competitor_primary']
@@ -464,6 +481,7 @@ const run = async () => {
     assert.equal(companyFactsCalls, 2);
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
+    assert.equal(watchCalls, 2);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
       1
