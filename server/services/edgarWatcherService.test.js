@@ -6,7 +6,8 @@ const {
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
   latestTrackedFilings,
-  normalizeRecentFilings
+  normalizeRecentFilings,
+  selectCompanyDossierBootstrapFilings
 } = require('./edgarWatcherService');
 
 const makeFetch = () => async (url) => {
@@ -133,6 +134,28 @@ const run = async () => {
   });
   assert.strictEqual(filings.length, 2);
   assert.strictEqual(latestTrackedFilings({ submissions: { filings: { recent: { accessionNumber: ['a1', 'a2'], form: ['10-K', '4'] } } }, forms: ['10-K'] }).length, 1);
+  const bootstrap = selectCompanyDossierBootstrapFilings({
+    submissions: {
+      filings: {
+        recent: {
+          accessionNumber: ['8k-new', 'q3', 'proxy', 'q2', '8k-earnings', 'q1', 'annual', '8k-old', 'q4-old'],
+          form: ['8-K', '10-Q', 'DEF 14A', '10-Q', '8-K', '10-Q', '10-K', '8-K', '10-Q'],
+          items: ['Item 1.01', '', '', '', 'Item 2.02, Item 9.01', '', '', 'Item 2.02', ''],
+          filingDate: ['2026-07-01', '2026-06-01', '2026-05-01', '2026-04-01', '2026-03-01', '2026-02-01', '2026-01-01', '2025-12-01', '2025-11-01'],
+          primaryDocument: Array.from({ length: 9 }, (_, index) => `document-${index}.htm`)
+        }
+      }
+    },
+    limit: 8
+  });
+  assert.strictEqual(bootstrap.length, 8);
+  assert.deepStrictEqual(
+    bootstrap.map(filing => filing.accessionNumber),
+    ['q3', 'proxy', 'q2', '8k-earnings', 'q1', 'annual', '8k-old', 'q4-old']
+  );
+  assert.strictEqual(bootstrap.filter(filing => filing.form === '10-K').length, 1);
+  assert.strictEqual(bootstrap.filter(filing => filing.form === 'DEF 14A').length, 1);
+  assert.strictEqual(bootstrap.filter(filing => filing.form === '10-Q').length, 4);
   assert.strictEqual(
     buildFilingUrl({ cik: '0000320193', accessionNumber: '0000320193-26-000100', primaryDocument: 'aapl-20260630.htm' }),
     'https://www.sec.gov/Archives/edgar/data/320193/000032019326000100/aapl-20260630.htm'

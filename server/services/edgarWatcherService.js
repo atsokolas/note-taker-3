@@ -193,6 +193,39 @@ const latestTrackedFilings = ({ submissions, forms = DEFAULT_EDGAR_FORMS, limit 
     .slice(0, Math.max(1, Math.min(Number(limit) || 8, 40)));
 };
 
+const selectCompanyDossierBootstrapFilings = ({ submissions, limit = 8 } = {}) => {
+  const max = Math.max(1, Math.min(Number(limit) || 8, 12));
+  const eligible = normalizeRecentFilings(submissions)
+    .filter(filing => ['10-K', '10-Q', 'DEF 14A', '8-K'].includes(filing.form));
+  const selected = [];
+  const seen = new Set();
+  const take = (filings = [], count = 1) => {
+    filings.some((filing) => {
+      if (selected.length >= max || count <= 0) return true;
+      const key = filing.accessionNumber;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      selected.push(filing);
+      count -= 1;
+      return count <= 0;
+    });
+  };
+
+  take(eligible.filter(filing => filing.form === '10-K'), 1);
+  take(eligible.filter(filing => filing.form === '10-Q'), 4);
+  take(eligible.filter(filing => filing.form === 'DEF 14A'), 1);
+  take(eligible.filter(filing => (
+    filing.form === '8-K'
+    && /\b2\.02\b/.test(filing.items)
+  )), 2);
+  take(eligible, max - selected.length);
+
+  const order = new Map(eligible.map((filing, index) => [filing.accessionNumber, index]));
+  return selected
+    .sort((a, b) => order.get(a.accessionNumber) - order.get(b.accessionNumber))
+    .slice(0, max);
+};
+
 const filingExternalId = ({ cik, filing } = {}) => `sec-edgar:${padCik(cik)}:${String(filing?.accessionNumber || '').trim()}`;
 
 const filingTitle = ({ ticker = '', companyName = '', filing } = {}) => {
@@ -311,6 +344,7 @@ const checkEdgarWatchForPage = async ({
   fetchImpl = global.fetch,
   userAgent = secUserAgent(),
   limit = 8,
+  selectionMode = 'latest',
   now = () => new Date()
 } = {}) => {
   if (!page) {
@@ -332,7 +366,9 @@ const checkEdgarWatchForPage = async ({
       fetchImpl,
       userAgent
     });
-    const filings = latestTrackedFilings({ submissions, forms: watch.forms, limit });
+    const filings = selectionMode === 'company_dossier_bootstrap'
+      ? selectCompanyDossierBootstrapFilings({ submissions, limit })
+      : latestTrackedFilings({ submissions, forms: watch.forms, limit });
     const events = await createMissingFilingEvents({ WikiSourceEvent, userId, page, watch, filings, fetchImpl, userAgent });
     const newest = filings[0] || null;
     page.externalWatches = {
@@ -497,6 +533,7 @@ module.exports = {
   normalizeTicker,
   padCik,
   resolveCompanyIdentifier,
+  selectCompanyDossierBootstrapFilings,
   secUserAgent,
   armEdgarWatchForPage
 };

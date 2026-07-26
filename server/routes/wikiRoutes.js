@@ -39,6 +39,7 @@ const {
 } = require('../services/companyDossierService');
 const { buildValuationSnapshot } = require('../services/investmentValuationService');
 const { buildInvestmentMaintenanceComparison } = require('../services/investmentDossierComparisonService');
+const { buildCompanyDossierEvidenceCoverage } = require('../services/companyDossierEvidenceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
@@ -3072,7 +3073,7 @@ const buildWikiRouter = ({
             ticker: company.ticker,
             cik: company.cik,
             companyName: company.companyName,
-            forms: ['10-K', '10-Q'],
+            forms: ['10-K', '10-Q', 'DEF 14A', '8-K'],
             status: 'active'
           }
         }
@@ -3130,44 +3131,35 @@ const buildWikiRouter = ({
           operation: () => checkEdgarWatchForPage({
             WikiSourceEvent,
             page,
-            limit: 4
+            limit: 8,
+            selectionMode: 'company_dossier_bootstrap'
           })
         });
-        const latestByForm = new Map();
-        (watchResult.events || []).forEach((event) => {
+        const bootstrapEvents = (watchResult.events || []).map((event) => {
           const raw = event?.toObject ? event.toObject() : event;
-          const form = String(raw?.metadata?.form || '').toUpperCase();
-          if (!['10-K', '10-Q'].includes(form) || latestByForm.has(form)) return;
-          latestByForm.set(form, raw);
-        });
-        latestByForm.forEach((event) => {
-          page.sourceRefs.push({
-            type: 'external',
-            title: event.title || `${company.ticker} ${event.metadata?.form || 'SEC filing'}`,
-            snippet: String(event.text || '').slice(0, 120000),
-            url: event.url || '',
-            citationLabel: `${event.metadata?.form || 'SEC filing'} · ${event.metadata?.filingDate || 'date unavailable'}`,
-            provider: 'sec-edgar',
+          return {
+            ...raw,
             metadata: {
-              ...event.metadata,
-              sourceEventId: serializeId(event._id),
-              evidenceState: 'attached_at_creation'
-            },
-            addedBy: 'ai'
-          });
+              ...(raw?.metadata || {}),
+              sourceEventId: serializeId(raw?._id),
+              evidenceArchetype: 'filing',
+              evidenceState: 'attached_at_creation',
+              bootstrapDisposition: 'attached_for_first_build'
+            }
+          };
         });
-        if (latestByForm.size > 0) {
-          page.markModified?.('sourceRefs');
-          await page.save();
-        }
+        await attachSourceEventsToPageRefs({
+          page,
+          events: bootstrapEvents,
+          limit: 8
+        });
         await Promise.all((watchResult.events || []).map(async (event) => {
           const raw = event?.toObject ? event.toObject() : event;
-          const form = String(raw?.metadata?.form || '').toUpperCase();
-          const selected = latestByForm.get(form);
-          const attached = selected && serializeId(selected._id) === serializeId(raw?._id);
           const metadata = {
             ...(raw?.metadata || {}),
-            bootstrapDisposition: attached ? 'attached_for_first_build' : 'superseded_historical_filing'
+            evidenceArchetype: 'filing',
+            evidenceState: 'attached_at_creation',
+            bootstrapDisposition: 'attached_for_first_build'
           };
           if (typeof event?.save === 'function') {
             event.status = 'ignored';
@@ -5538,6 +5530,37 @@ const buildWikiRouter = ({
         maintenanceOptions.skipQualityRebuild = false;
       }
       openWikiDraftStream(res);
+
+      if (isCompanyDossier(page)) {
+        const evidenceCoverage = buildCompanyDossierEvidenceCoverage({ page });
+        if (!evidenceCoverage.ready) {
+          page.aiState = {
+            ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+            draftStatus: 'error',
+            lastError: evidenceCoverage.message,
+            errorCode: 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE',
+            lastCandidateQuality: {
+              status: evidenceCoverage.status,
+              metrics: evidenceCoverage
+            }
+          };
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-page', {
+            stage: 'evidence_incomplete',
+            summary: evidenceCoverage.message,
+            page: serializeWikiPage(page),
+            evidenceCoverage
+          });
+          writeSse(res, 'done', {
+            ok: false,
+            code: 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE',
+            pageId: serializeId(page._id),
+            evidenceCoverage
+          });
+          res.end();
+          return;
+        }
+      }
 
       const resumingDossier = isCompanyDossier(page) && (
         page.aiState?.errorCode === 'WIKI_BUILD_INTERRUPTED'
