@@ -126,6 +126,8 @@ const run = async () => {
   let watchOptions = null;
   let maintainCalls = 0;
   let companyFactsCalls = 0;
+  let officialProductCalls = 0;
+  let officialProductFailuresRemaining = 1;
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: ownerId };
@@ -189,6 +191,35 @@ const run = async () => {
               { fy: 2025, val: 14 }
             ])
           }
+        }
+      };
+    },
+    acquireOfficialProductSources: async ({ ticker }) => {
+      officialProductCalls += 1;
+      if (officialProductFailuresRemaining > 0) {
+        officialProductFailuresRemaining -= 1;
+        const error = new Error('Reader temporarily unavailable.');
+        error.statusCode = 503;
+        throw error;
+      }
+      return {
+        sourceRefs: [
+          {
+            type: 'external',
+            title: `${ticker} products`,
+            snippet: 'Official product and technology evidence.',
+            url: 'https://www.amd.com/en/products',
+            provider: 'official-company-site',
+            metadata: {
+              evidenceArchetype: 'company_product',
+              acquisitionMethod: 'wikidata_jina_reader'
+            }
+          }
+        ],
+        stop: null,
+        discovery: {
+          website: 'https://www.amd.com/',
+          itemUrl: 'https://www.wikidata.org/entity/Q128896'
         }
       };
     },
@@ -268,15 +299,19 @@ const run = async () => {
     );
     assert.equal(WikiPage.records.at(-1).sourceRefs[1].provider, 'sec-companyfacts');
     assert.equal(WikiPage.records.at(-1).sourceRefs[1].metadata.evidenceArchetype, 'operating_benchmark');
+    assert.equal(WikiPage.records.at(-1).sourceRefs[2].provider, 'official-company-site');
+    assert.equal(WikiPage.records.at(-1).sourceRefs[2].metadata.evidenceArchetype, 'company_product');
     assert.equal(recreated.body.receipt.metrics.filingsAttached, 1);
-    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 2);
+    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 3);
     assert.equal(recreated.body.receipt.metrics.operatingBenchmarkAttached, true);
+    assert.equal(recreated.body.receipt.metrics.officialProductSourcesAttached, 1);
     assert.equal(companyFactsCalls, 1);
+    assert.equal(officialProductCalls, 2);
     assert.equal(WikiPage.records.length, 2);
     assert.equal(WikiPage.records.filter(page => page.status !== 'archived').length, 1);
 
     WikiPage.records.at(-1).sourceRefs = WikiPage.records.at(-1).sourceRefs
-      .filter(sourceRef => sourceRef.provider !== 'sec-companyfacts');
+      .filter(sourceRef => !['sec-companyfacts', 'official-company-site'].includes(sourceRef.provider));
     delete WikiPage.records.at(-1).investmentDossier.acquisition;
     const streamResponse = await fetch(
       `${base}/api/wiki/pages/${recreated.body.page._id}/ai/draft/stream`,
@@ -290,11 +325,17 @@ const run = async () => {
     assert.equal(streamResponse.status, 200);
     assert.match(streamBody, /WIKI_DOSSIER_EVIDENCE_INCOMPLETE/);
     assert.match(streamBody, /operating_benchmark_attached/);
-    assert.match(streamBody, /official product/);
+    assert.match(streamBody, /official_product_evidence_attached/);
+    assert.match(streamBody, /a primary source from a named competitor/);
     assert.equal(maintainCalls, 0);
     assert.equal(companyFactsCalls, 2);
+    assert.equal(officialProductCalls, 3);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
+      1
+    );
+    assert.equal(
+      WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'official-company-site').length,
       1
     );
     const repeatedStream = await fetch(
@@ -307,6 +348,7 @@ const run = async () => {
     );
     assert.match(await repeatedStream.text(), /WIKI_DOSSIER_EVIDENCE_INCOMPLETE/);
     assert.equal(companyFactsCalls, 2);
+    assert.equal(officialProductCalls, 3);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
       1

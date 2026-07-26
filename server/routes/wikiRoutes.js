@@ -41,6 +41,9 @@ const { buildValuationSnapshot } = require('../services/investmentValuationServi
 const { buildInvestmentMaintenanceComparison } = require('../services/investmentDossierComparisonService');
 const { buildCompanyDossierEvidenceCoverage } = require('../services/companyDossierEvidenceService');
 const { buildCompanyFactsOperatingBenchmark } = require('../services/investmentDossierFreeSourceService');
+const {
+  acquireOfficialProductSources: defaultAcquireOfficialProductSources
+} = require('../services/investmentDossierOfficialSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
@@ -1605,6 +1608,7 @@ const buildWikiRouter = ({
   armEdgarWatchForPage = defaultArmEdgarWatchForPage,
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
   fetchCompanyFacts = defaultFetchCompanyFacts,
+  acquireOfficialProductSources = defaultAcquireOfficialProductSources,
   inspectCompanyDossierFiler = defaultInspectCompanyDossierFiler,
   resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
@@ -2559,6 +2563,74 @@ const buildWikiRouter = ({
     };
   };
 
+  const acquireOfficialProductSourcesForDossier = async ({ page, now = new Date() } = {}) => {
+    if (!page || !isCompanyDossier(page)) {
+      return { sourcesAdded: 0, sourceRefs: [], stop: null, skipped: true };
+    }
+    const existingSources = (page.sourceRefs || []).filter(source => (
+      source?.provider === 'official-company-site'
+      || source?.metadata?.acquisitionMethod === 'wikidata_jina_reader'
+    ));
+    if (existingSources.length) {
+      return { sourcesAdded: 0, sourceRefs: existingSources, stop: null, skipped: true };
+    }
+    const cik = page.investmentDossier?.company?.cik || page.externalWatches?.edgar?.cik || '';
+    const ticker = page.investmentDossier?.company?.ticker || page.externalWatches?.edgar?.ticker || '';
+    const companyName = page.investmentDossier?.company?.name || page.externalWatches?.edgar?.companyName || '';
+    let acquisition;
+    try {
+      acquisition = await withTransientRetries({
+        attempts: 2,
+        delaysMs: [750],
+        operation: () => acquireOfficialProductSources({
+          cik,
+          ticker,
+          companyName,
+          now
+        })
+      });
+    } catch (error) {
+      acquisition = {
+        sourceRefs: [],
+        stop: {
+          code: 'OFFICIAL_PRODUCT_ACQUISITION_UNAVAILABLE',
+          evidenceArchetype: 'company_product',
+          message: 'Official company evidence could not be loaded after automatic retries. The saved evidence is unchanged.'
+        },
+        diagnostic: String(error?.message || '')
+      };
+    }
+    const existingUrls = new Set((page.sourceRefs || []).map(source => String(source?.url || '')));
+    const sourceRefs = (acquisition.sourceRefs || []).filter(source => (
+      source?.url && !existingUrls.has(String(source.url))
+    ));
+    if (sourceRefs.length) {
+      page.sourceRefs = [...(page.sourceRefs || []), ...sourceRefs].slice(0, 80);
+      page.markModified?.('sourceRefs');
+    }
+    const priorProfile = page.investmentDossier || {};
+    page.investmentDossier = {
+      ...priorProfile,
+      acquisition: {
+        ...(priorProfile.acquisition || {}),
+        officialProduct: {
+          status: sourceRefs.length ? 'attached' : 'unavailable',
+          lastAttemptedAt: now,
+          sourceUrls: sourceRefs.map(source => source.url),
+          discovery: acquisition.discovery || null,
+          stop: acquisition.stop || null
+        }
+      }
+    };
+    page.markModified?.('investmentDossier');
+    return {
+      sourcesAdded: sourceRefs.length,
+      sourceRefs,
+      stop: acquisition.stop || null,
+      skipped: false
+    };
+  };
+
   const applyAutolinksForPage = async (page, userId, options = {}) => {
     const result = await findAutolinkSuggestions({
       targetPage: page,
@@ -3257,20 +3329,25 @@ const buildWikiRouter = ({
         watchError = String(error?.message || 'SEC filing check failed.');
       }
       const companyFactsAcquisition = await acquireCompanyFactsForDossier({ page });
-      if (!companyFactsAcquisition.skipped) await page.save();
+      const officialProductAcquisition = await acquireOfficialProductSourcesForDossier({ page });
+      if (!companyFactsAcquisition.skipped || !officialProductAcquisition.skipped) await page.save();
       const filingSourceCount = (page.sourceRefs || []).filter(source => source?.provider === 'sec-edgar').length;
+      const acquisitionStops = [
+        companyFactsAcquisition.stop,
+        officialProductAcquisition.stop
+      ].filter(Boolean);
       const receiptInput = {
         id: `company-dossier:${serializeId(page._id)}`,
         kind: 'company_dossier_created',
         source: 'wiki',
         sourceLabel: 'Company dossier',
-        status: watchError || companyFactsAcquisition.stop ? 'partial' : 'completed',
+        status: watchError || acquisitionStops.length ? 'partial' : 'completed',
         title: `Created ${company.ticker} investment dossier.`,
         summary: watchError
           ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
-          : companyFactsAcquisition.stop
-            ? `The private dossier and filing watch were saved. ${companyFactsAcquisition.stop.message}`
-            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, and Company Facts operating history were saved.',
+          : acquisitionStops.length
+            ? `The private dossier and filing watch were saved. ${acquisitionStops.map(stop => stop.message).join(' ')}`
+            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, and official product evidence were saved.',
         metrics: {
           ticker: company.ticker,
           cik: company.cik,
@@ -3281,7 +3358,8 @@ const buildWikiRouter = ({
           filingsAttached: filingSourceCount,
           totalSourcesAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
           operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
-          acquisitionStops: companyFactsAcquisition.stop ? [companyFactsAcquisition.stop.code] : []
+          officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
+          acquisitionStops: acquisitionStops.map(stop => stop.code)
         },
         provenance: {
           initialRevisionId: serializeId(revision?._id),
@@ -3327,7 +3405,8 @@ const buildWikiRouter = ({
           filingsAttached: filingSourceCount,
           totalSourcesAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
           operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
-          acquisitionStops: companyFactsAcquisition.stop ? [companyFactsAcquisition.stop] : [],
+          officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
+          acquisitionStops,
           watchError
         },
         receipt
@@ -5622,6 +5701,19 @@ const buildWikiRouter = ({
             summary: companyFactsAcquisition.sourceRef
               ? 'Attached a free SEC Company Facts operating history.'
               : companyFactsAcquisition.stop?.message,
+            sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          });
+        }
+        const officialProductAcquisition = await acquireOfficialProductSourcesForDossier({ page });
+        if (!officialProductAcquisition.skipped) {
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-draft', {
+            stage: officialProductAcquisition.sourceRefs.length
+              ? 'official_product_evidence_attached'
+              : 'official_product_evidence_unavailable',
+            summary: officialProductAcquisition.sourceRefs.length
+              ? `Attached ${officialProductAcquisition.sourceRefs.length} verified official company source${officialProductAcquisition.sourceRefs.length === 1 ? '' : 's'}.`
+              : officialProductAcquisition.stop?.message,
             sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
           });
         }
