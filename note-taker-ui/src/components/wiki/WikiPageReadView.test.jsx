@@ -472,6 +472,70 @@ describe('WikiPageReadView', () => {
     expect(receipt).not.toHaveTextContent('Ready for maintenance');
   });
 
+  it('shows incomplete dossier research as a truthful non-crash state', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    const initialMessage = 'Add a primary competitor source before building.';
+    const liveMessage = 'Add an independent regulator source and a dated market price before building.';
+    const dossierPage = {
+      ...page,
+      title: 'DEERE & CO investment dossier',
+      investmentDossier: {
+        version: 2,
+        company: { ticker: 'DE', cik: '0000315189', name: 'DEERE & CO' }
+      },
+      aiState: {
+        draftStatus: 'error',
+        errorCode: 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE',
+        lastCandidateSummary: 'Stale rejected-candidate copy.',
+        lastError: initialMessage
+      }
+    };
+    const freshPage = {
+      ...dossierPage,
+      sourceRefs: [
+        ...dossierPage.sourceRefs,
+        { _id: 'source-3', title: 'Company Facts' },
+        { _id: 'source-4', title: 'Official product evidence' },
+        { _id: 'source-5', title: 'Competitor primary evidence' }
+      ],
+      aiState: {
+        ...dossierPage.aiState,
+        lastError: liveMessage
+      }
+    };
+    const incompleteError = new Error(`This dossier needs more evidence — ${liveMessage}`);
+    incompleteError.code = 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+    incompleteError.retryable = false;
+    incompleteError.page = freshPage;
+    getWikiPage.mockResolvedValueOnce(dossierPage);
+    streamMaintainWikiPage.mockRejectedValueOnce(incompleteError);
+
+    renderReadView({}, { systemStatusControls });
+
+    expect(await screen.findByRole('heading', { name: 'DEERE & CO investment dossier' })).toBeInTheDocument();
+    const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
+    expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
+    expect(receipt).not.toHaveClass('is-compact');
+    expect(within(receipt).getByRole('heading', { name: 'This dossier needs more evidence' })).toBeInTheDocument();
+    expect(receipt).toHaveTextContent(initialMessage);
+    expect(receipt).not.toHaveTextContent('Stale rejected-candidate copy');
+    expect(within(receipt).getByRole('button', { name: 'Continue research' })).toBeInTheDocument();
+    expect(within(receipt).queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(receipt).getByRole('button', { name: 'Continue research' }));
+
+    await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith({
+      title: 'Dossier research is incomplete',
+      summary: `This dossier needs more evidence — ${liveMessage}`,
+      status: 'needs_review',
+      href: '/wiki/workspace?page=wiki-1'
+    }));
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(liveMessage);
+    expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
+    expect(receipt).toHaveTextContent(liveMessage);
+  });
+
   it('lets a shared wiki page stop exposing its public link from the read surface', async () => {
     getWikiPage.mockResolvedValueOnce({ ...page, visibility: 'shared' });
     updateWikiPage.mockResolvedValueOnce({ ...page, visibility: 'private' });

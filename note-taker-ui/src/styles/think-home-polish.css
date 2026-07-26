@@ -12806,6 +12806,11 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   background: color-mix(in srgb, #b1862e 6%, var(--surface));
 }
 
+.wiki-read__maintenance-receipt.is-research {
+  border-color: color-mix(in srgb, #b1862e 32%, var(--nt-divider));
+  background: color-mix(in srgb, #b1862e 4%, var(--surface));
+}
+
 .wiki-read__maintenance-receipt.is-failed {
   border-color: color-mix(in srgb, #9b5a46 42%, var(--nt-divider));
   background: color-mix(in srgb, #9b5a46 6%, var(--surface));

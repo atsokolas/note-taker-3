@@ -450,12 +450,22 @@ const streamMaintainWikiPageOnce = async (id, options = {}, handlers = {}) => {
     throw interruptedWikiStreamError('The build stream closed before Noeis recorded completion. Resuming from saved evidence.');
   }
   if (finalDone?.ok === false) {
-    const reason = finalPage?.aiState?.lastCandidateSummary
-      || finalPage?.aiState?.lastError
-      || 'Not enough filing evidence was incorporated.';
-    const rejected = new Error(`This dossier did not reach the evidence bar — ${reason} Rebuild, or discard the draft.`);
-    rejected.code = finalDone.code || 'WIKI_CANDIDATE_REJECTED';
+    const code = finalDone.code || 'WIKI_CANDIDATE_REJECTED';
+    const evidenceIncomplete = code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+    const reason = evidenceIncomplete
+      ? finalPage?.aiState?.lastError
+        || finalDone?.evidenceCoverage?.message
+        || 'The saved evidence pack is incomplete.'
+      : finalPage?.aiState?.lastCandidateSummary
+        || finalPage?.aiState?.lastError
+        || 'Not enough filing evidence was incorporated.';
+    const rejected = new Error(evidenceIncomplete
+      ? `This dossier needs more evidence — ${reason}`
+      : `This dossier did not reach the evidence bar — ${reason} Rebuild, or discard the draft.`);
+    rejected.code = code;
     rejected.retryable = false;
+    rejected.page = finalPage;
+    rejected.evidenceCoverage = finalDone.evidenceCoverage || null;
     throw rejected;
   }
   handlers.onComplete?.({ page: finalPage, done: finalDone });

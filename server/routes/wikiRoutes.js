@@ -5887,11 +5887,27 @@ const buildWikiRouter = ({
         }
         const evidenceCoverage = buildCompanyDossierEvidenceCoverage({ page });
         if (!evidenceCoverage.ready) {
+          const priorDossier = page.investmentDossier?.toObject
+            ? page.investmentDossier.toObject()
+            : page.investmentDossier || {};
+          const priorResearchPlan = priorDossier.researchPlan || {};
+          page.investmentDossier = {
+            ...priorDossier,
+            researchPlan: {
+              ...priorResearchPlan,
+              status: 'research_incomplete',
+              evidenceArchetypes: evidenceCoverage.observedEvidenceArchetypes,
+              missingEvidenceArchetypes: evidenceCoverage.missingEvidenceArchetypes,
+              updatedAt: new Date()
+            }
+          };
+          page.markModified?.('investmentDossier');
           page.aiState = {
             ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
             draftStatus: 'error',
             lastError: evidenceCoverage.message,
             errorCode: 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE',
+            lastCandidateSummary: '',
             lastCandidateQuality: {
               status: evidenceCoverage.status,
               metrics: evidenceCoverage
