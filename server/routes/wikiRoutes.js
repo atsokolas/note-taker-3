@@ -63,6 +63,7 @@ const {
   isCompanyDossier,
   recordDossierBuildStage,
   touchDossierBuildRun,
+  waitForDossierBuildRun,
   withTransientRetries
 } = require('../services/wikiDossierBuildReliabilityService');
 const {
@@ -5478,6 +5479,7 @@ const buildWikiRouter = ({
   router.post('/api/wiki/pages/:id/ai/draft/stream', wikiAuth, async (req, res) => {
     let page = null;
     let activeStreamKey = '';
+    let ownsActiveStreamKey = false;
     let buildLease = null;
     let dossierBuildRun = null;
     let heartbeatTimer = null;
@@ -5509,7 +5511,7 @@ const buildWikiRouter = ({
         return;
       }
       activeStreamKey = `${serializeId(req.user.id)}:${serializeId(page._id)}`;
-      if (activeWikiDraftStreams.has(activeStreamKey)) {
+      if (activeWikiDraftStreams.has(activeStreamKey) && !isCompanyDossier(page)) {
         return res.status(409).json({
           error: 'Wiki maintenance already running.',
           code: 'WIKI_DRAFT_STREAM_IN_PROGRESS',
@@ -5526,7 +5528,10 @@ const buildWikiRouter = ({
       }
       if (buildLease?.page) page = buildLease.page;
       repoHeadSha = buildLease?.headSha || '';
-      activeWikiDraftStreams.set(activeStreamKey, Date.now());
+      if (!isCompanyDossier(page)) {
+        activeWikiDraftStreams.set(activeStreamKey, Date.now());
+        ownsActiveStreamKey = true;
+      }
       const before = snapshotPage(page);
       const maintenanceOptions = readMaintenanceRequestOptions(req.body || {});
       if (isGitHubRepoWikiPage(page)) {
@@ -5538,12 +5543,66 @@ const buildWikiRouter = ({
         page.aiState?.errorCode === 'WIKI_BUILD_INTERRUPTED'
         || (Array.isArray(page.sourceRefs) && page.sourceRefs.length > 0 && !page.aiState?.lastDraftedAt)
       );
-      dossierBuildRun = await createDossierBuildRun({
+      const dossierBuildClaim = await createDossierBuildRun({
         WikiMaintenanceRun,
         page,
         userId: req.user.id,
         resume: resumingDossier
       });
+      dossierBuildRun = dossierBuildClaim?.run || null;
+      if (dossierBuildClaim && !dossierBuildClaim.acquired) {
+        writeSse(res, 'wiki-draft', {
+          stage: 'following_active_build',
+          summary: 'Reconnected to the company dossier build already running.',
+          runId: serializeId(dossierBuildRun._id)
+        });
+        const finalRun = await waitForDossierBuildRun({
+          WikiMaintenanceRun,
+          runId: dossierBuildRun._id,
+          onPoll: current => writeSse(res, 'wiki-draft', {
+            stage: current.metadata?.lastStage || 'heartbeat',
+            summary: current.metadata?.stages?.at?.(-1)?.summary || 'The dossier build is still working.',
+            runId: serializeId(dossierBuildRun._id)
+          })
+        });
+        page = await findOwnedPage(req);
+        if (page && ['completed', 'needs_review'].includes(finalRun?.status)) {
+          const needsReview = finalRun.status === 'needs_review';
+          writeSse(res, 'wiki-page', {
+            stage: needsReview ? 'candidate_ready' : 'complete',
+            summary: finalRun.summary || (needsReview
+              ? 'The research candidate is ready for owner review.'
+              : 'Company dossier build completed.'),
+            page: serializeWikiPage(page)
+          });
+          writeSse(res, 'done', {
+            ok: true,
+            code: needsReview
+              ? (page.aiState?.candidateStatus === 'awaiting_first_head_acceptance'
+                  ? 'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE'
+                  : 'WIKI_MAINTENANCE_AWAITING_ACCEPTANCE')
+              : 'WIKI_DOSSIER_BUILD_COMPLETED',
+            pageId: serializeId(page._id),
+            reconnected: true
+          });
+        } else {
+          writeSse(res, 'error', {
+            error: finalRun?.status === 'timed_out'
+              ? 'The active dossier build is taking longer than expected. Noeis will reconnect again.'
+              : 'The active dossier build was interrupted. Noeis will resume from saved evidence.',
+            code: finalRun?.status === 'timed_out'
+              ? 'WIKI_DOSSIER_FOLLOW_TIMEOUT'
+              : 'WIKI_BUILD_INTERRUPTED',
+            retryable: true
+          });
+        }
+        res.end();
+        return;
+      }
+      if (dossierBuildClaim?.acquired && !activeWikiDraftStreams.has(activeStreamKey)) {
+        activeWikiDraftStreams.set(activeStreamKey, Date.now());
+        ownsActiveStreamKey = true;
+      }
       if (dossierBuildRun) {
         heartbeatTimer = setInterval(() => {
           writeSse(res, 'wiki-draft', {
@@ -5845,7 +5904,7 @@ const buildWikiRouter = ({
       res.end();
     } finally {
       if (heartbeatTimer) clearInterval(heartbeatTimer);
-      if (activeStreamKey) activeWikiDraftStreams.delete(activeStreamKey);
+      if (activeStreamKey && ownsActiveStreamKey) activeWikiDraftStreams.delete(activeStreamKey);
     }
   });
 

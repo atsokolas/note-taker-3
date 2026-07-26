@@ -5,6 +5,7 @@ const {
   finishDossierBuildRun,
   recordDossierBuildStage,
   recoverInterruptedDossierBuilds,
+  waitForDossierBuildRun,
   withTransientRetries
 } = require('./wikiDossierBuildReliabilityService');
 
@@ -21,6 +22,12 @@ class FakeRun {
   markModified() {}
 
   async save() {
+    const leased = FakeRun.records.find(row => row.leaseKey && row.leaseKey === this.leaseKey && row._id !== this._id);
+    if (leased) {
+      const error = new Error('duplicate lease');
+      error.code = 11000;
+      throw error;
+    }
     this.updatedAt = new Date();
     const index = FakeRun.records.findIndex(row => row._id === this._id);
     const raw = JSON.parse(JSON.stringify(this));
@@ -39,6 +46,18 @@ class FakeRun {
     return { lean: async () => rows };
   }
 
+  static findOne(query = {}) {
+    const row = FakeRun.records.find(item => item.leaseKey === query.leaseKey && item.status === query.status) || null;
+    return {
+      sort: async () => (row ? new FakeRun(row) : null)
+    };
+  }
+
+  static findById(id) {
+    const row = FakeRun.records.find(item => item._id === id) || null;
+    return { lean: async () => row };
+  }
+
   static async updateOne(query, update) {
     const row = FakeRun.records.find(item => item._id === query._id && item.status === query.status);
     if (row) Object.assign(row, update.$set || {});
@@ -52,14 +71,17 @@ const run = async () => {
     createdFrom: { label: 'company-dossier:DE' },
     aiState: { build: { lastCompletedStage: 'parse_filings' } }
   };
-  const build = await createDossierBuildRun({
+  const buildClaim = await createDossierBuildRun({
     WikiMaintenanceRun: FakeRun,
     page,
     userId: 'user-1',
     resume: true,
     now: new Date('2026-07-26T12:00:00Z')
   });
+  assert.equal(buildClaim.acquired, true);
+  const build = buildClaim.run;
   assert.equal(build.status, 'running');
+  assert.equal(build.leaseKey, `${BUILD_KIND}:page-1`);
   assert.equal(build.metadata.kind, BUILD_KIND);
   assert.equal(build.metadata.resumedFromStage, 'parse_filings');
 
@@ -79,6 +101,40 @@ const run = async () => {
     now: new Date('2026-07-26T12:00:06Z')
   });
   assert.equal(build.status, 'completed');
+  assert.equal(build.leaseKey, undefined);
+
+  const leaderClaim = await createDossierBuildRun({
+    WikiMaintenanceRun: FakeRun,
+    page,
+    userId: 'user-1',
+    now: new Date('2026-07-26T12:01:00Z')
+  });
+  const followerClaim = await createDossierBuildRun({
+    WikiMaintenanceRun: FakeRun,
+    page,
+    userId: 'user-1',
+    now: new Date('2026-07-26T12:01:01Z')
+  });
+  assert.equal(leaderClaim.acquired, true);
+  assert.equal(followerClaim.acquired, false);
+  assert.equal(followerClaim.run._id, leaderClaim.run._id);
+  let polls = 0;
+  const followed = await waitForDossierBuildRun({
+    WikiMaintenanceRun: {
+      findById: () => ({
+        lean: async () => {
+          polls += 1;
+          return polls < 2
+            ? { _id: leaderClaim.run._id, status: 'running' }
+            : { _id: leaderClaim.run._id, status: 'needs_review' };
+        }
+      })
+    },
+    runId: leaderClaim.run._id,
+    pollMs: 1,
+    timeoutMs: 1000
+  });
+  assert.equal(followed.status, 'needs_review');
 
   let attempts = 0;
   const value = await withTransientRetries({

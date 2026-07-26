@@ -20,10 +20,12 @@ const createDossierBuildRun = async ({
   now = new Date()
 } = {}) => {
   if (!WikiMaintenanceRun || !page || !isCompanyDossier(page)) return null;
+  const leaseKey = `${BUILD_KIND}:${String(page._id || '')}`;
   const priorStage = clean(page.aiState?.build?.lastCompletedStage || page.aiState?.build?.lastStage || '', 80);
   const run = new WikiMaintenanceRun({
     userId,
     pageId: page._id,
+    leaseKey,
     status: 'running',
     trigger: 'manual',
     summary: resume ? 'Resuming an interrupted company dossier build.' : 'Building a company dossier.',
@@ -43,8 +45,18 @@ const createDossierBuildRun = async ({
       }]
     }
   });
-  await run.save();
-  return run;
+  try {
+    await run.save();
+    return { run, acquired: true };
+  } catch (error) {
+    if (Number(error?.code) !== 11000 || !WikiMaintenanceRun.findOne) throw error;
+    const existingQuery = WikiMaintenanceRun.findOne({ leaseKey, status: 'running' });
+    const existing = await (existingQuery?.sort
+      ? existingQuery.sort({ createdAt: -1 })
+      : existingQuery);
+    if (!existing) throw error;
+    return { run: existing, acquired: false };
+  }
 };
 
 const recordDossierBuildStage = async ({
@@ -93,6 +105,7 @@ const finishDossierBuildRun = async ({
   run.summary = clean(summary || (status === 'completed' ? 'Company dossier build completed.' : 'Company dossier build stopped.'));
   run.errorMessage = clean(errorMessage);
   run.completedAt = now;
+  run.leaseKey = undefined;
   const metadata = plain(run.metadata);
   run.metadata = { ...metadata, lastHeartbeatAt: now };
   run.markModified?.('metadata');
@@ -141,7 +154,8 @@ const recoverInterruptedDossierBuilds = async ({
           'metadata.interrupted': true,
           'metadata.interruptedAt': now,
           'metadata.lastHeartbeatAt': now
-        }
+        },
+        $unset: { leaseKey: 1 }
       }
     );
     if (claimed && Number(claimed.matchedCount ?? claimed.n ?? 1) === 0) continue;
@@ -167,6 +181,25 @@ const recoverInterruptedDossierBuilds = async ({
 };
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const waitForDossierBuildRun = async ({
+  WikiMaintenanceRun,
+  runId,
+  timeoutMs = 4 * 60 * 1000,
+  pollMs = 2500,
+  onPoll = null
+} = {}) => {
+  if (!WikiMaintenanceRun?.findById || !runId) return null;
+  const deadline = Date.now() + Math.max(1000, Number(timeoutMs) || 0);
+  while (Date.now() < deadline) {
+    const query = WikiMaintenanceRun.findById(runId);
+    const current = await (query?.lean ? query.lean() : query);
+    if (!current || current.status !== 'running') return current || null;
+    await onPoll?.(current);
+    await wait(Math.max(250, Number(pollMs) || 0));
+  }
+  return { _id: runId, status: 'timed_out' };
+};
 
 const isTransientDossierError = (error = {}) => {
   const status = Number(error.statusCode || error.status || error.response?.status || 0);
@@ -209,5 +242,6 @@ module.exports = {
   recordDossierBuildStage,
   recoverInterruptedDossierBuilds,
   touchDossierBuildRun,
+  waitForDossierBuildRun,
   withTransientRetries
 };
