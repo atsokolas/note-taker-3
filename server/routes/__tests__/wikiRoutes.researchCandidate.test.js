@@ -68,6 +68,7 @@ const createRevisionModel = (seed) => {
 const run = async () => {
   const ownerId = new mongoose.Types.ObjectId().toString();
   const pageId = new mongoose.Types.ObjectId().toString();
+  const legacyPageId = new mongoose.Types.ObjectId().toString();
   const candidateId = new mongoose.Types.ObjectId().toString();
   const base = {
     _id: pageId,
@@ -110,7 +111,25 @@ const run = async () => {
     aiState: { draftStatus: 'ready', quality: { ok: true, status: 'pass' } }
   };
   const trustedHash = snapshotContentHash(snapshotPage(base));
-  const WikiPage = createWikiPageModel([base]);
+  const legacyPage = {
+    ...clone(base),
+    _id: legacyPageId,
+    title: 'Legacy investment dossier',
+    slug: 'legacy-investment-dossier',
+    plainText: 'A reviewed legacy investment dossier.',
+    judgment: {
+      kind: 'thesis',
+      governingQuestion: 'Can the company compound?',
+      currentJudgment: 'The business can compound if its moat survives.'
+    },
+    investmentDossier: {
+      version: 2,
+      company: { ticker: 'LEG', cik: '0000000001' },
+      researchPlan: { status: 'decision_ready' }
+    },
+    aiState: { draftStatus: 'ready', candidateStatus: 'idle' }
+  };
+  const WikiPage = createWikiPageModel([base, legacyPage]);
   const WikiRevision = createRevisionModel([{
     _id: candidateId,
     userId: ownerId,
@@ -139,16 +158,22 @@ const run = async () => {
     },
     WikiPage,
     WikiRevision,
-    NoeisReceipt
+    NoeisReceipt,
+    evaluateWikiArticleQuality: () => ({
+      ok: true,
+      status: 'pass',
+      failures: [],
+      metrics: { investmentDossier: { completedModuleCount: 9 } }
+    })
   }));
   const server = await new Promise(resolve => {
     const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
   });
-  const request = async (path, { method = 'GET', headers = {} } = {}) => {
+  const request = async (path, { method = 'GET', headers = {}, body = {} } = {}) => {
     const response = await fetch(`http://127.0.0.1:${server.address().port}${path}`, {
       method,
       headers: { 'content-type': 'application/json', ...headers },
-      ...(method === 'POST' ? { body: '{}' } : {})
+      ...(method === 'POST' ? { body: JSON.stringify(body) } : {})
     });
     return { response, body: await response.json() };
   };
@@ -183,6 +208,44 @@ const run = async () => {
 
     const repeated = await request(`/api/wiki/pages/${pageId}/research-candidate/accept`, { method: 'POST' });
     assert.equal(repeated.response.status, 409);
+
+    const missingConfirmation = await request(`/api/wiki/pages/${legacyPageId}/research-head/adopt`, {
+      method: 'POST'
+    });
+    assert.equal(missingConfirmation.response.status, 400);
+
+    const agentAdoption = await request(`/api/wiki/pages/${legacyPageId}/research-head/adopt`, {
+      method: 'POST',
+      headers: { 'x-agent-token': 'yes' },
+      body: { confirmation: 'ADOPT CURRENT TRUSTED HEAD' }
+    });
+    assert.equal(agentAdoption.response.status, 403);
+
+    const legacyRecord = WikiPage.records.find(row => String(row._id) === legacyPageId);
+    legacyRecord.judgment.currentJudgment = '';
+    const missingJudgment = await request(`/api/wiki/pages/${legacyPageId}/research-head/adopt`, {
+      method: 'POST',
+      body: { confirmation: 'ADOPT CURRENT TRUSTED HEAD' }
+    });
+    assert.equal(missingJudgment.response.status, 409);
+    assert.equal(missingJudgment.body.code, 'WIKI_OWNER_JUDGMENT_REQUIRED');
+    legacyRecord.judgment.currentJudgment = 'The business can compound if its moat survives.';
+
+    const adopted = await request(`/api/wiki/pages/${legacyPageId}/research-head/adopt`, {
+      method: 'POST',
+      body: { confirmation: 'ADOPT CURRENT TRUSTED HEAD' }
+    });
+    assert.equal(adopted.response.status, 200, JSON.stringify(adopted.body));
+    assert.equal(adopted.body.page.investmentDossier.firstHead.status, 'accepted');
+    assert.equal(adopted.body.page.investmentDossier.firstHead.method, 'legacy_trusted_head_adoption');
+    assert.equal(receipts.at(-1).kind, 'company_dossier_first_head_accepted');
+    assert.match(receipts.at(-1).summary, /No claim, source, valuation input, or evidence clock changed/);
+
+    const repeatedAdoption = await request(`/api/wiki/pages/${legacyPageId}/research-head/adopt`, {
+      method: 'POST',
+      body: { confirmation: 'ADOPT CURRENT TRUSTED HEAD' }
+    });
+    assert.equal(repeatedAdoption.response.status, 409);
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }

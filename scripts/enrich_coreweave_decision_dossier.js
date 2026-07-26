@@ -146,7 +146,7 @@ const SOURCES = Object.freeze([
     key: 'mlperf-training-v6',
     provider: 'mlcommons',
     type: 'independent_benchmark_record',
-    archetype: 'independent_domain',
+    archetype: 'technical_benchmark',
     title: 'MLPerf Training v6.0 supplemental results discussion',
     url: 'https://mlcommons.org/wp-content/uploads/2026/06/Final-MLPerf-Training-v6.0-Supplemental-Discussion-UNDER-EMBARGO-UNTIL-6_16_26-8_00-AM-PT.pdf',
     snippet: 'MLCommons record of CoreWeave DeepSeek-V3 target-quality training times: 5.54 minutes on 2,048 GB300 GPUs, 3.09 minutes on 4,096, and 2.02 minutes on 8,192.'
@@ -469,7 +469,20 @@ const ensureSources = ({ candidate, now }) => {
   });
   let added = 0;
   SOURCES.forEach(row => {
-    if (map.has(row.key)) return;
+    if (map.has(row.key)) {
+      const existing = map.get(row.key).source;
+      existing.metadata = {
+        ...(existing.metadata || {}),
+        evidenceKey: row.key,
+        evidenceType: row.type,
+        evidenceArchetype: row.archetype,
+        reviewedAt: now,
+        asOf: RESEARCH_AS_OF,
+        researchRevision: true,
+        maintenanceClockEligible: false
+      };
+      return;
+    }
     const source = {
       _id: new mongoose.Types.ObjectId(),
       type: 'external',
@@ -597,6 +610,7 @@ const applyResearch = ({ page, now = new Date() }) => {
     businessModel: 'infrastructure',
     evidenceArchetypes: Array.from(new Set([
       'filing',
+      'independent_domain',
       ...SOURCES.map(source => source.archetype)
     ])),
     modules: moduleIds.map(moduleId => ({

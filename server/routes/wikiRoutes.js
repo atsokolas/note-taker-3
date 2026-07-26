@@ -1,7 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const archiver = require('archiver');
-const { maintainWikiPage: defaultMaintainWikiPage } = require('../services/wikiMaintenanceService');
+const {
+  maintainWikiPage: defaultMaintainWikiPage,
+  evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality
+} = require('../services/wikiMaintenanceService');
 const {
   buildSectionMaintenancePlan,
   deriveClaimsFromDoc
@@ -1580,6 +1583,7 @@ const buildWikiRouter = ({
   updateNotionPageTitle = null,
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
+  evaluateWikiArticleQuality = defaultEvaluateWikiArticleQuality,
   lintWiki = defaultLintWiki,
   askWikiPage = defaultAskWikiPage,
   loadWikiAskCorpus = defaultLoadWikiAskCorpus,
@@ -3443,6 +3447,160 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error reviewing first-head candidate:', error);
       res.status(500).json({ error: 'Failed to review the first-head candidate.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/research-head/adopt', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) {
+        return res.status(403).json({ error: 'Only the human owner can adopt a trusted research head.' });
+      }
+      if (String(req.body?.confirmation || '') !== 'ADOPT CURRENT TRUSTED HEAD') {
+        return res.status(400).json({
+          code: 'WIKI_RESEARCH_HEAD_CONFIRMATION_REQUIRED',
+          error: 'Review the current article and confirm that you want to adopt this exact head.'
+        });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const profile = page.investmentDossier || {};
+      if (!profile.version || !profile.company?.ticker) {
+        return res.status(409).json({ error: 'This page is not a structured investment dossier.' });
+      }
+      if (profile.firstHead?.status === 'accepted') {
+        return res.status(409).json({
+          code: 'WIKI_RESEARCH_HEAD_ALREADY_ACCEPTED',
+          error: 'This dossier already has an accepted trusted head.'
+        });
+      }
+      if (['awaiting_first_head_acceptance', 'awaiting_maintenance_acceptance'].includes(page.aiState?.candidateStatus)) {
+        return res.status(409).json({
+          code: 'WIKI_RESEARCH_CANDIDATE_PENDING',
+          error: 'Review the pending research candidate instead of adopting an older trusted head.'
+        });
+      }
+      if (!String(page.judgment?.currentJudgment || '').trim()) {
+        return res.status(409).json({
+          code: 'WIKI_OWNER_JUDGMENT_REQUIRED',
+          error: 'Record your current judgment in the Decision record before adopting this research head.'
+        });
+      }
+      const quality = evaluateWikiArticleQuality({
+        page,
+        body: page.body,
+        claims: page.claims || [],
+        sourceRefs: page.sourceRefs || []
+      });
+      if (!quality?.ok) {
+        return res.status(409).json({
+          code: 'WIKI_RESEARCH_HEAD_QUALITY_FAILED',
+          error: 'The current article does not satisfy the decision-grade dossier contract.',
+          failures: Array.isArray(quality?.failures) ? quality.failures : []
+        });
+      }
+
+      const now = new Date();
+      const before = snapshotPage(page);
+      const trustedHeadHash = snapshotContentHash(before);
+      page.investmentDossier = {
+        ...profile,
+        firstHead: {
+          status: 'accepted',
+          acceptedAt: now,
+          method: 'legacy_trusted_head_adoption',
+          trustedHeadHash
+        }
+      };
+      page.aiState = {
+        ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+        candidateStatus: 'accepted',
+        firstHeadAcceptedAt: now,
+        draftStatus: 'ready',
+        lastError: '',
+        errorCode: ''
+      };
+      page.markModified?.('investmentDossier');
+      page.markModified?.('aiState');
+      await page.save();
+      const acceptanceRevision = await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        before,
+        reason: 'user_edit',
+        actorType: 'user',
+        sourceVersion: {
+          provider: 'legacy-trusted-head-adoption',
+          trustedHeadHash,
+          adoptedWithoutContentChange: true
+        },
+        quality,
+        summary: `Owner adopted the existing trusted research head for "${page.title}" without changing its content or evidence clock.`
+      });
+      if (!acceptanceRevision) {
+        restorePageSnapshot(page, before);
+        await page.save();
+        return res.status(500).json({ error: 'Could not bind the adopted head to a durable revision.' });
+      }
+      page.investmentDossier = {
+        ...(page.investmentDossier?.toObject
+          ? page.investmentDossier.toObject()
+          : page.investmentDossier || {}),
+        firstHead: {
+          ...(page.investmentDossier?.firstHead || {}),
+          acceptanceRevisionId: serializeId(acceptanceRevision._id)
+        }
+      };
+      page.markModified?.('investmentDossier');
+      await page.save();
+      publicPageCache.invalidate(serializeId(page._id), page.slug);
+
+      const receiptInput = {
+        id: `company-dossier-first-head-adopted:${serializeId(page._id)}:${trustedHeadHash.slice(0, 16)}`,
+        kind: 'company_dossier_first_head_accepted',
+        source: 'wiki',
+        sourceLabel: 'Company dossier',
+        status: 'completed',
+        title: `Adopted the current trusted head for ${profile.company.ticker}`,
+        summary: 'The owner accepted the exact existing private article. No claim, source, valuation input, or evidence clock changed.',
+        metrics: {
+          ticker: profile.company.ticker,
+          words: String(page.plainText || '').trim().split(/\s+/).filter(Boolean).length,
+          claims: Array.isArray(page.claims) ? page.claims.length : 0,
+          sources: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+        },
+        provenance: {
+          acceptanceRevisionId: serializeId(acceptanceRevision._id),
+          trustedHeadHash,
+          method: 'legacy_trusted_head_adoption'
+        },
+        touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+        nextAction: {
+          type: 'review_wiki_page',
+          id: serializeId(page._id),
+          title: 'Refresh expectations or wait for new evidence'
+        },
+        completedAt: now
+      };
+      const persistedReceipt = await persistNoeisReceipt({
+        NoeisReceipt,
+        userId: req.user.id,
+        receipt: receiptInput
+      });
+      trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
+        pageId: serializeId(page._id),
+        title: page.title,
+        pageType: page.pageType,
+        sourceType: 'company_dossier',
+        acceptance: 'legacy_first_head'
+      });
+      return res.status(200).json({
+        page: serializeWikiPage(page),
+        receipt: persistedReceipt || receiptInput
+      });
+    } catch (error) {
+      console.error('Error adopting legacy research head:', error);
+      res.status(500).json({ error: 'Failed to adopt the current research head.' });
     }
   });
 

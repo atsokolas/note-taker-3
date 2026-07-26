@@ -83,6 +83,15 @@ export const reviewWikiFirstHeadCandidate = async (pageId, decision) => {
   return res.data || {};
 };
 
+export const adoptWikiCurrentResearchHead = async (pageId) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/research-head/adopt`,
+    { confirmation: 'ADOPT CURRENT TRUSTED HEAD' },
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const getWikiPage = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
   return res.data;

@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-23
 
-**Status:** version-2 research contract, ticker-first creation, free SEC bootstrap, and structured valuation are implemented; explicit first-head acceptance and maintenance explanation remain open
+**Status:** version-2 research contract, ticker-first creation, free SEC bootstrap, structured valuation, explicit owner acceptance, and maintenance explanation are implemented; real-user activation proof remains open
 
 **Product frame:** one maintained Noeis page with an investment-dossier profile, not a separate investing application
 
@@ -197,6 +197,7 @@ A public dossier may show the article, public citations, valuation assumptions, 
 - The expectations clock advances independently from the accepted filing clock and writes both a revision and a durable refresh receipt.
 - Local QA created a Fastenal dossier from the real user path with current free SEC filings and no paid transcript or market-data dependency.
 - Initial and later research candidates remain private and cannot replace the trusted head until the owner reviews the exact revision and explicitly accepts it.
+- Decision-grade dossiers created before the acceptance contract can be adopted once, by the human owner, without regenerating or changing the current article, claims, sources, valuation, or evidence clock. Adoption requires an existing owner judgment, a passing current quality gate, an exact confirmation, a bound revision, and a durable first-head receipt.
 - Accepted maintenance now persists a reader-facing explanation of what changed, why it matters, what the valuation burden did, and whether the owner judgment changed.
 - A database-level active owner-and-CIK key prevents simultaneous requests from creating duplicate active dossiers; archiving releases the key.
 - The five-user activation protocol is defined in `docs/noeis-company-dossier-five-user-activation-test-2026-07-25.md`, and its four durable funnel steps map to existing receipts and analytics events.

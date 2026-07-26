@@ -2,11 +2,13 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import WikiFirstHeadReview from './WikiFirstHeadReview';
 import {
+  adoptWikiCurrentResearchHead,
   getWikiFirstHeadCandidate,
   reviewWikiFirstHeadCandidate
 } from '../../api/wiki';
 
 jest.mock('../../api/wiki', () => ({
+  adoptWikiCurrentResearchHead: jest.fn(),
   getWikiFirstHeadCandidate: jest.fn(),
   reviewWikiFirstHeadCandidate: jest.fn()
 }));
@@ -79,4 +81,49 @@ test('supports rejecting a maintenance candidate without acceptance confirmation
   const reject = await screen.findByRole('button', { name: 'Reject draft' });
   fireEvent.click(reject);
   await waitFor(() => expect(reviewWikiFirstHeadCandidate).toHaveBeenCalledWith('page-1', 'reject'));
+});
+
+test('adopts an exact legacy head only after owner confirmation', async () => {
+  const legacyPage = {
+    aiState: { candidateStatus: 'idle' },
+    investmentDossier: { version: 2 },
+    judgment: { currentJudgment: 'The moat is real, but the price remains demanding.' },
+    wordCount: 2500,
+    claimCount: 30,
+    sourceCount: 10
+  };
+  adoptWikiCurrentResearchHead.mockResolvedValue({
+    page: {
+      ...legacyPage,
+      investmentDossier: { version: 2, firstHead: { status: 'accepted' } }
+    },
+    receipt: { title: 'Adopted', summary: 'No content changed.' }
+  });
+  const onPageUpdate = jest.fn();
+  render(<WikiFirstHeadReview page={legacyPage} pageId="page-legacy" onPageUpdate={onPageUpdate} />);
+
+  const adopt = screen.getByRole('button', { name: 'Adopt current head' });
+  expect(adopt).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(adopt);
+
+  await waitFor(() => expect(adoptWikiCurrentResearchHead).toHaveBeenCalledWith('page-legacy'));
+  expect(onPageUpdate).toHaveBeenCalled();
+});
+
+test('blocks legacy adoption until the owner records a judgment', () => {
+  render(<WikiFirstHeadReview
+    page={{
+      aiState: { candidateStatus: 'idle' },
+      investmentDossier: { version: 2 },
+      judgment: { currentJudgment: '' },
+      wordCount: 2900,
+      claimCount: 31,
+      sourceCount: 9
+    }}
+    pageId="page-costco"
+  />);
+
+  expect(screen.getByText(/Record your actual current judgment/i)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Adopt current head' })).not.toBeInTheDocument();
 });

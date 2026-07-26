@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  adoptWikiCurrentResearchHead,
   getWikiFirstHeadCandidate,
   reviewWikiFirstHeadCandidate
 } from '../../api/wiki';
@@ -14,6 +15,15 @@ const WikiFirstHeadReview = ({ page, pageId, onPageUpdate }) => {
   const maintenanceAwaiting = page?.aiState?.candidateStatus === 'awaiting_maintenance_acceptance';
   const awaiting = firstHeadAwaiting || maintenanceAwaiting;
   const accepted = page?.investmentDossier?.firstHead?.status === 'accepted';
+  const legacyHeadAvailable = Boolean(
+    page?.investmentDossier?.version
+    && !accepted
+    && !awaiting
+    && Number(page?.wordCount || 0) > 0
+    && Number(page?.sourceCount || 0) > 0
+    && Number(page?.claimCount || 0) > 0
+  );
+  const hasOwnerJudgment = Boolean(String(page?.judgment?.currentJudgment || '').trim());
   const [candidate, setCandidate] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState('');
@@ -36,13 +46,84 @@ const WikiFirstHeadReview = ({ page, pageId, onPageUpdate }) => {
     return () => { cancelled = true; };
   }, [awaiting, pageId]);
 
+  const adoptCurrentHead = async () => {
+    if (busy || !confirmed || !hasOwnerJudgment) return;
+    setBusy('adopt');
+    setError('');
+    systemStatus.clearRecoverableFailure?.();
+    systemStatus.setBackgroundWork?.({
+      label: 'Trusted research head',
+      stage: 'Adopting reviewed article'
+    });
+    try {
+      const result = await adoptWikiCurrentResearchHead(pageId);
+      if (result?.page) onPageUpdate?.(result.page);
+      systemStatus.setLatestReceipt?.({
+        title: result?.receipt?.title || 'Current trusted head adopted',
+        summary: result?.receipt?.summary || '',
+        status: 'completed',
+        href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+      });
+    } catch (requestError) {
+      const message = requestError?.response?.data?.error || requestError?.message || 'Could not adopt the current research head.';
+      setError(message);
+      systemStatus.setRecoverableFailure?.({
+        stage: 'Trusted research head',
+        message,
+        retryable: true
+      });
+    } finally {
+      setBusy('');
+      systemStatus.setBackgroundWork?.(null);
+    }
+  };
+
   if (!awaiting) {
-    return accepted ? (
+    if (accepted) return (
       <section className="wiki-first-head is-accepted" aria-label="First trusted head">
         <p className="wiki-first-head__eyebrow">Research head</p>
         <p><strong>Owner accepted.</strong> Future evidence creates reviewable maintenance candidates.</p>
       </section>
-    ) : null;
+    );
+    if (!legacyHeadAvailable) return null;
+    return (
+      <section className="wiki-first-head is-adoption" aria-labelledby="wiki-legacy-head-title">
+        <p className="wiki-first-head__eyebrow">Legacy research head</p>
+        <h2 id="wiki-legacy-head-title">Adopt this exact article as the trusted head</h2>
+        <p>
+          This dossier predates explicit first-head acceptance. Adoption records your approval of the current private
+          article without changing its claims, sources, valuation, or evidence clock.
+        </p>
+        <dl className="wiki-first-head__facts">
+          <div><dt>Words</dt><dd>{Number(page?.wordCount || 0).toLocaleString()}</dd></div>
+          <div><dt>Claims</dt><dd>{Number(page?.claimCount || 0).toLocaleString()}</dd></div>
+          <div><dt>Sources</dt><dd>{Number(page?.sourceCount || 0).toLocaleString()}</dd></div>
+        </dl>
+        {hasOwnerJudgment ? (
+          <>
+            <label className="wiki-first-head__confirmation">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={event => setConfirmed(event.target.checked)}
+                disabled={Boolean(busy)}
+              />
+              I reviewed this exact article and want it to become the trusted private research head.
+            </label>
+            <div className="wiki-first-head__actions">
+              <Button type="button" onClick={adoptCurrentHead} disabled={!confirmed || Boolean(busy)}>
+                {busy === 'adopt' ? 'Adopting…' : 'Adopt current head'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="wiki-first-head__error" role="status">
+            Record your actual current judgment in the Decision record below before adopting this research head.
+          </p>
+        )}
+        {error ? <p className="wiki-first-head__error" role="alert">{error}</p> : null}
+      </section>
+    );
   }
 
   const reviewKind = candidate?.kind || (firstHeadAwaiting ? 'first_head' : 'maintenance');
