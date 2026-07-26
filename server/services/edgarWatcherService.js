@@ -71,6 +71,20 @@ const fetchFilingDocument = async ({ url, fetchImpl = global.fetch, userAgent = 
   return normalizeIngestText(extractReadableText(visibleDocument), 120000);
 };
 
+const fetchCompanyTickerRegistry = async ({
+  fetchImpl = global.fetch,
+  userAgent = secUserAgent()
+} = {}) => {
+  const payload = await fetchJson({ url: SEC_COMPANY_TICKERS_URL, fetchImpl, userAgent });
+  return (Array.isArray(payload) ? payload : Object.values(payload || {}))
+    .map(row => ({
+      cik: normalizeCik(row?.cik_str || row?.cik),
+      ticker: normalizeTicker(row?.ticker),
+      companyName: trim(row?.title || row?.name || '', 240)
+    }))
+    .filter(row => row.cik && row.ticker && row.companyName);
+};
+
 const resolveCompanyIdentifier = async ({
   ticker = '',
   cik = '',
@@ -87,18 +101,17 @@ const resolveCompanyIdentifier = async ({
     error.statusCode = 400;
     throw error;
   }
-  const payload = await fetchJson({ url: SEC_COMPANY_TICKERS_URL, fetchImpl, userAgent });
-  const rows = Array.isArray(payload) ? payload : Object.values(payload || {});
-  const match = rows.find(row => normalizeTicker(row?.ticker) === normalizedTicker);
-  if (!match?.cik_str) {
+  const rows = await fetchCompanyTickerRegistry({ fetchImpl, userAgent });
+  const match = rows.find(row => row.ticker === normalizedTicker);
+  if (!match?.cik) {
     const error = new Error(`No SEC CIK found for ticker ${normalizedTicker}.`);
     error.statusCode = 404;
     throw error;
   }
   return {
-    cik: normalizeCik(match.cik_str),
+    cik: match.cik,
     ticker: normalizedTicker,
-    companyName: trim(match.title || match.name || '', 240)
+    companyName: match.companyName
   };
 };
 
@@ -543,6 +556,7 @@ module.exports = {
   filingExternalId,
   fetchCompanyFacts,
   fetchCompanySubmissions,
+  fetchCompanyTickerRegistry,
   fetchFilingDocument,
   classifyCompanyDossierFiler,
   inspectCompanyDossierFiler,

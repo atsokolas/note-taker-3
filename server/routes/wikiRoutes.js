@@ -44,6 +44,9 @@ const { buildCompanyFactsOperatingBenchmark } = require('../services/investmentD
 const {
   acquireOfficialProductSources: defaultAcquireOfficialProductSources
 } = require('../services/investmentDossierOfficialSourceService');
+const {
+  acquireCompetitorPrimarySource: defaultAcquireCompetitorPrimarySource
+} = require('../services/investmentDossierCompetitorSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
@@ -1609,6 +1612,7 @@ const buildWikiRouter = ({
   checkEdgarWatchForPage = defaultCheckEdgarWatchForPage,
   fetchCompanyFacts = defaultFetchCompanyFacts,
   acquireOfficialProductSources = defaultAcquireOfficialProductSources,
+  acquireCompetitorPrimarySource = defaultAcquireCompetitorPrimarySource,
   inspectCompanyDossierFiler = defaultInspectCompanyDossierFiler,
   resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
@@ -2631,6 +2635,140 @@ const buildWikiRouter = ({
     };
   };
 
+  const loadIssuerAnnualFilingForDossier = async ({ page, userId } = {}) => {
+    if (!page || !WikiSourceEvent?.findOne) return null;
+    const issuerSource = [...(page.sourceRefs || [])]
+      .reverse()
+      .find(source => (
+        source?.provider === 'sec-edgar'
+        && source?.metadata?.form === '10-K'
+        && source?.metadata?.evidenceArchetype !== 'competitor_primary'
+      ));
+    const sourceEventId = issuerSource?.metadata?.sourceEventId || issuerSource?.objectId;
+    if (!sourceEventId) return null;
+    const event = await WikiSourceEvent.findOne({ _id: sourceEventId, userId });
+    if (!event || String(event.text || '').trim().length < 2000) return null;
+    return {
+      text: event.text,
+      url: event.url || issuerSource.url || '',
+      accessionNumber: event.metadata?.accessionNumber || issuerSource.metadata?.accessionNumber || '',
+      primaryDocument: event.metadata?.primaryDocument || issuerSource.metadata?.primaryDocument || '',
+      filingDate: event.metadata?.filingDate || issuerSource.metadata?.filingDate || '',
+      reportDate: event.metadata?.reportDate || issuerSource.metadata?.reportDate || ''
+    };
+  };
+
+  const acquireCompetitorPrimaryForDossier = async ({
+    page,
+    userId,
+    now = new Date()
+  } = {}) => {
+    if (!page || !isCompanyDossier(page)) {
+      return { sourceAdded: false, sourceRef: null, stop: null, skipped: true };
+    }
+    const existingSource = (page.sourceRefs || []).find(source => (
+      source?.metadata?.evidenceArchetype === 'competitor_primary'
+      && source?.metadata?.sourceEventId
+    ));
+    if (existingSource) {
+      return { sourceAdded: false, sourceRef: existingSource, stop: null, skipped: true };
+    }
+    const cik = page.investmentDossier?.company?.cik || page.externalWatches?.edgar?.cik || '';
+    const ticker = page.investmentDossier?.company?.ticker || page.externalWatches?.edgar?.ticker || '';
+    const companyName = page.investmentDossier?.company?.name || page.externalWatches?.edgar?.companyName || '';
+    let acquisition;
+    try {
+      const issuerFiling = await loadIssuerAnnualFilingForDossier({ page, userId });
+      acquisition = await withTransientRetries({
+        attempts: 2,
+        delaysMs: [750],
+        operation: () => acquireCompetitorPrimarySource({
+          issuer: { cik, ticker, companyName },
+          issuerFiling,
+          now
+        })
+      });
+    } catch (error) {
+      acquisition = {
+        evidence: null,
+        stop: {
+          code: 'COMPETITOR_PRIMARY_ACQUISITION_UNAVAILABLE',
+          evidenceArchetype: 'competitor_primary',
+          message: 'Named-competitor evidence could not be loaded after automatic retries. The saved evidence is unchanged.'
+        },
+        diagnostic: String(error?.message || '')
+      };
+    }
+    let sourceEvent = null;
+    if (acquisition.evidence && WikiSourceEvent) {
+      sourceEvent = WikiSourceEvent.findOne
+        ? await WikiSourceEvent.findOne({
+          userId,
+          provider: acquisition.evidence.provider,
+          externalId: acquisition.evidence.externalId
+        })
+        : null;
+      if (!sourceEvent) {
+        sourceEvent = await createWikiSourceEvent({
+          WikiSourceEvent,
+          userId,
+          ...acquisition.evidence,
+          affectedPageIds: [page._id]
+        });
+      }
+      if (sourceEvent) {
+        const rawMetadata = sourceEvent.metadata?.toObject
+          ? sourceEvent.metadata.toObject()
+          : sourceEvent.metadata || {};
+        sourceEvent.status = 'ignored';
+        sourceEvent.processedAt = sourceEvent.processedAt || now;
+        sourceEvent.errorMessage = '';
+        sourceEvent.metadata = {
+          ...rawMetadata,
+          sourceEventId: serializeId(sourceEvent._id),
+          evidenceState: 'attached_for_dossier_build',
+          bootstrapDisposition: 'attached_for_dossier_competitor'
+        };
+        const affectedPageIds = Array.isArray(sourceEvent.affectedPageIds)
+          ? sourceEvent.affectedPageIds.map(serializeId).filter(Boolean)
+          : [];
+        if (!affectedPageIds.includes(serializeId(page._id))) {
+          sourceEvent.affectedPageIds = [...affectedPageIds, page._id].slice(0, 50);
+        }
+        sourceEvent.markModified?.('metadata');
+        sourceEvent.markModified?.('affectedPageIds');
+        if (typeof sourceEvent.save === 'function') await sourceEvent.save();
+        await attachSourceEventsToPageRefs({ page, events: [sourceEvent], limit: 1 });
+      }
+    }
+    const sourceRef = sourceEvent
+      ? (page.sourceRefs || []).find(source => (
+        serializeId(source.objectId) === serializeId(sourceEvent._id)
+      )) || null
+      : null;
+    const priorProfile = page.investmentDossier || {};
+    page.investmentDossier = {
+      ...priorProfile,
+      acquisition: {
+        ...(priorProfile.acquisition || {}),
+        competitorPrimary: {
+          status: sourceRef ? 'attached' : 'unavailable',
+          lastAttemptedAt: now,
+          sourceEventId: sourceRef?.metadata?.sourceEventId || null,
+          sourceUrl: sourceRef?.url || '',
+          stop: acquisition.stop || null
+        }
+      }
+    };
+    page.markModified?.('investmentDossier');
+    return {
+      sourceAdded: Boolean(sourceRef),
+      sourceRef,
+      stop: acquisition.stop || null,
+      skipped: false
+    };
+  };
+
   const applyAutolinksForPage = async (page, userId, options = {}) => {
     const result = await findAutolinkSuggestions({
       targetPage: page,
@@ -3330,11 +3468,23 @@ const buildWikiRouter = ({
       }
       const companyFactsAcquisition = await acquireCompanyFactsForDossier({ page });
       const officialProductAcquisition = await acquireOfficialProductSourcesForDossier({ page });
-      if (!companyFactsAcquisition.skipped || !officialProductAcquisition.skipped) await page.save();
-      const filingSourceCount = (page.sourceRefs || []).filter(source => source?.provider === 'sec-edgar').length;
+      const competitorPrimaryAcquisition = await acquireCompetitorPrimaryForDossier({
+        page,
+        userId: req.user.id
+      });
+      if (
+        !companyFactsAcquisition.skipped
+        || !officialProductAcquisition.skipped
+        || !competitorPrimaryAcquisition.skipped
+      ) await page.save();
+      const filingSourceCount = (page.sourceRefs || []).filter(source => (
+        source?.provider === 'sec-edgar'
+        && source?.metadata?.evidenceArchetype === 'filing'
+      )).length;
       const acquisitionStops = [
         companyFactsAcquisition.stop,
-        officialProductAcquisition.stop
+        officialProductAcquisition.stop,
+        competitorPrimaryAcquisition.stop
       ].filter(Boolean);
       const receiptInput = {
         id: `company-dossier:${serializeId(page._id)}`,
@@ -3347,7 +3497,7 @@ const buildWikiRouter = ({
           ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
           : acquisitionStops.length
             ? `The private dossier and filing watch were saved. ${acquisitionStops.map(stop => stop.message).join(' ')}`
-            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, and official product evidence were saved.',
+            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, and a named-competitor primary filing were saved.',
         metrics: {
           ticker: company.ticker,
           cik: company.cik,
@@ -3359,6 +3509,7 @@ const buildWikiRouter = ({
           totalSourcesAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
           operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
           officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
+          competitorPrimaryAttached: Boolean(competitorPrimaryAcquisition.sourceRef),
           acquisitionStops: acquisitionStops.map(stop => stop.code)
         },
         provenance: {
@@ -3406,6 +3557,7 @@ const buildWikiRouter = ({
           totalSourcesAttached: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0,
           operatingBenchmarkAttached: Boolean(companyFactsAcquisition.sourceRef),
           officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
+          competitorPrimaryAttached: Boolean(competitorPrimaryAcquisition.sourceRef),
           acquisitionStops,
           watchError
         },
@@ -5714,6 +5866,22 @@ const buildWikiRouter = ({
             summary: officialProductAcquisition.sourceRefs.length
               ? `Attached ${officialProductAcquisition.sourceRefs.length} verified official company source${officialProductAcquisition.sourceRefs.length === 1 ? '' : 's'}.`
               : officialProductAcquisition.stop?.message,
+            sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          });
+        }
+        const competitorPrimaryAcquisition = await acquireCompetitorPrimaryForDossier({
+          page,
+          userId: req.user.id
+        });
+        if (!competitorPrimaryAcquisition.skipped) {
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-draft', {
+            stage: competitorPrimaryAcquisition.sourceRef
+              ? 'competitor_primary_evidence_attached'
+              : 'competitor_primary_evidence_unavailable',
+            summary: competitorPrimaryAcquisition.sourceRef
+              ? 'Attached a primary annual filing from a competitor explicitly named by the issuer.'
+              : competitorPrimaryAcquisition.stop?.message,
             sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
           });
         }
