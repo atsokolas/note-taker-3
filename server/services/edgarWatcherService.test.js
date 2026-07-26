@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   armEdgarWatchForPage,
   buildFilingUrl,
+  classifyCompanyDossierFiler,
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
   latestTrackedFilings,
@@ -136,6 +137,20 @@ const run = async () => {
     buildFilingUrl({ cik: '0000320193', accessionNumber: '0000320193-26-000100', primaryDocument: 'aapl-20260630.htm' }),
     'https://www.sec.gov/Archives/edgar/data/320193/000032019326000100/aapl-20260630.htm'
   );
+  const domestic = classifyCompanyDossierFiler({
+    company: { ticker: 'AAPL', cik: '320193', companyName: 'Apple Inc.' },
+    submissions: { filings: { recent: { accessionNumber: ['a1', 'a2'], form: ['10-K', '10-Q'] } } }
+  });
+  assert.strictEqual(domestic.supported, true);
+  assert.strictEqual(domestic.reason, 'domestic_filer');
+
+  const foreign = classifyCompanyDossierFiler({
+    company: { ticker: 'ASML', cik: '937966', companyName: 'ASML HOLDING NV' },
+    submissions: { filings: { recent: { accessionNumber: ['a1', 'a2'], form: ['20-F', '6-K'] } } }
+  });
+  assert.strictEqual(foreign.supported, false);
+  assert.strictEqual(foreign.reason, 'foreign_private_issuer');
+  assert.strictEqual(foreign.primaryForeignForm, '20-F');
 
   FakeWikiSourceEvent.reset();
   FakeWikiPage.page = makePage();

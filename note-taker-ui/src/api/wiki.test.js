@@ -109,6 +109,64 @@ describe('wiki api streams', () => {
     expect(events).toContainEqual(['wiki-draft', 'connected']);
     expect(pages).toEqual(['Maintaining', 'Complete']);
   });
+
+  it('treats a non-ok done event as a terminal evidence rejection', async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      'event: wiki-page\ndata: {"stage":"quality_rejected","page":{"_id":"wiki-1","aiState":{"lastCandidateSummary":"Only two filing claims were supported."}}}\n\n',
+      'event: done\ndata: {"ok":false,"code":"WIKI_CANDIDATE_REJECTED"}\n\n'
+    ].map(chunk => encoder.encode(chunk));
+    const read = jest.fn()
+      .mockResolvedValueOnce({ done: false, value: chunks[0] })
+      .mockResolvedValueOnce({ done: false, value: chunks[1] })
+      .mockResolvedValueOnce({ done: true });
+    global.fetch.mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read }) }
+    });
+
+    await expect(streamMaintainWikiPage('wiki-1')).rejects.toThrow(
+      'This dossier did not reach the evidence bar — Only two filing claims were supported.'
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a stream that closes without a done receipt as retryable interruption', async () => {
+    const encoder = new TextEncoder();
+    const chunk = encoder.encode(
+      'event: wiki-page\ndata: {"stage":"maintaining","page":{"_id":"wiki-1","title":"Still building"}}\n\n'
+    );
+    global.fetch.mockImplementation(async () => {
+      const read = jest.fn()
+        .mockResolvedValueOnce({ done: false, value: chunk })
+        .mockResolvedValueOnce({ done: true });
+      return {
+        ok: true,
+        body: { getReader: () => ({ read }) }
+      };
+    });
+    window.setTimeout = jest.fn((callback) => {
+      callback();
+      return 1;
+    });
+
+    await expect(streamMaintainWikiPage('wiki-1')).rejects.toThrow(
+      'The build stream closed before Noeis recorded completion.'
+    );
+    expect(window.setTimeout).toHaveBeenCalledWith(expect.any(Function), 5000);
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not retry a permanent HTTP failure', async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ code: 'WIKI_NOT_FOUND', error: 'Wiki page not found.' })
+    });
+
+    await expect(streamMaintainWikiPage('missing')).rejects.toThrow('Wiki page not found.');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('createRepoWikiFromGitHub', () => {

@@ -6,7 +6,10 @@ const {
   DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
 } = require('./wikiBriefingService');
 
-const WATCHER_PROVIDERS = ['sec-edgar', 'fmp-transcripts', 'github-repo', 'reading-feed'];
+// Paid transcript providers are intentionally excluded from the product while
+// Noeis operates on free authoritative sources only. Historical rows can remain
+// in storage without leaking a permanently misconfigured watcher into Watching.
+const WATCHER_PROVIDERS = ['sec-edgar', 'github-repo', 'reading-feed'];
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const MORNING_PAPER_OPEN_REUSE_MS = 2 * 60 * 1000;
 
@@ -25,7 +28,6 @@ const execQuery = async (query) => {
 
 const watcherLabel = (provider = '') => ({
   'sec-edgar': 'EDGAR',
-  'fmp-transcripts': 'Transcript',
   'github-repo': 'GitHub',
   'reading-feed': 'Reading'
 }[provider] || 'Watcher');
@@ -201,7 +203,6 @@ const listWatching = (pages = []) => (Array.isArray(pages) ? pages : []).flatMap
     });
   };
   push('sec_edgar', watches.edgar, `EDGAR · ${watches.edgar?.ticker || watches.edgar?.cik || ''}`, watches.edgar?.lastAccessionNumber || 'Awaiting filing', watches.edgar?.lastFilingAt);
-  push('earnings_transcript', watches.transcripts, `Transcript · ${watches.transcripts?.ticker || ''}`, watches.transcripts?.lastTranscriptKey || 'Awaiting transcript', watches.transcripts?.lastTranscriptAt);
   push('github', watches.githubRepo, `GitHub · ${[watches.githubRepo?.owner, watches.githubRepo?.repo].filter(Boolean).join('/')}`, watches.githubRepo?.lastHeadSha ? `head ${String(watches.githubRepo.lastHeadSha).slice(0, 7)}` : 'Awaiting repository head', watches.githubRepo?.lastPublishedAt);
   push('reading', watches.reading, `Reading · ${watches.reading?.label || ''}`, watches.reading?.lastItemTitle || watches.reading?.canonicalFeedUrl || watches.reading?.feedUrl || 'Awaiting feed item', watches.reading?.lastItemAt);
   return rows;

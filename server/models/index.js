@@ -556,6 +556,17 @@ const wikiAiStateSchema = new mongoose.Schema({
   lastDraftedAt: { type: Date, default: null },
   lastError: { type: String, default: '', trim: true },
   errorCode: { type: String, default: '', trim: true },
+  build: {
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({
+      runId: '',
+      resumable: false,
+      resumed: false,
+      lastStage: '',
+      startedAt: null,
+      interruptedAt: null
+    })
+  },
   model: { type: String, default: '', trim: true },
   provider: { type: String, default: '', trim: true },
   sourceScopeAtDraft: { type: String, enum: WIKI_SOURCE_SCOPES, default: 'entire_library' },

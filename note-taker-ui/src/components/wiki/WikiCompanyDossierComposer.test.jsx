@@ -130,3 +130,45 @@ test('shows a changed-input conflict without navigating or discarding the new ju
     retryable: false
   }));
 });
+
+test('declines a foreign filer inline and preserves the entered judgment', async () => {
+  const navigate = jest.fn();
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+  createCompanyDossier.mockRejectedValue({
+    response: {
+      data: {
+        code: 'DOSSIER_FOREIGN_FILER_UNSUPPORTED',
+        error: 'ASML files as a foreign private issuer (20-F). Noeis dossiers currently support US domestic filers (10-K/10-Q). Foreign-filer support is coming.'
+      }
+    }
+  });
+  const controls = {
+    setLatestReceipt: jest.fn(),
+    setBackgroundWork: jest.fn(),
+    setRecoverableFailure: jest.fn(),
+    clearRecoverableFailure: jest.fn()
+  };
+  render(
+    <MemoryRouter>
+      <SystemStatusProvider value={controls}>
+        <WikiCompanyDossierComposer />
+      </SystemStatusProvider>
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Create a maintained company dossier' }));
+  fireEvent.change(screen.getByLabelText('Company ticker'), { target: { value: 'ASML' } });
+  fireEvent.change(screen.getByLabelText('Starting investment judgment'), {
+    target: { value: 'ASML has durable lithography economics but geopolitical concentration matters.' }
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Create dossier' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('foreign private issuer (20-F)');
+  expect(screen.getByLabelText('Starting investment judgment')).toHaveValue(
+    'ASML has durable lithography economics but geopolitical concentration matters.'
+  );
+  expect(navigate).not.toHaveBeenCalled();
+  expect(controls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+    stage: 'Filer not supported yet',
+    retryable: false
+  }));
+});

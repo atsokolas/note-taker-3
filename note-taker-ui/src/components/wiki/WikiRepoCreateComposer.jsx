@@ -30,7 +30,7 @@ const REPO_BUILD_STAGES = [
     detail: 'Writing the practical setup, architecture map, and change playbooks.'
   },
   {
-    label: 'Quality gate',
+    label: 'Evidence review',
     trace: 'checking claims, commands, and unsupported repo assumptions',
     detail: 'Rejecting scaffold copy, stale docs, unsupported CI claims, and vague file references.'
   },

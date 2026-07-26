@@ -37,6 +37,7 @@ const pages = [{
   ],
   externalWatches: {
     edgar: { status: 'active', ticker: 'NVDA', lastAccessionNumber: '0001', lastFilingAt: '2026-07-19' },
+    transcripts: { status: 'error', ticker: 'NVDA', errorMessage: 'Legacy provider configuration error.' },
     reading: { status: 'active', label: 'Example', lastItemTitle: 'New post' }
   }
 }];
@@ -45,6 +46,7 @@ const selected = selectDailyClaimCheckIn({ pages, watcherLeads: [], now: new Dat
 assert.strictEqual(selected.claimId, 'eligible');
 assert.strictEqual(listWatching(pages).length, 2);
 assert.match(listWatching(pages)[0].label, /EDGAR/);
+assert.ok(listWatching(pages).every(row => row.type !== 'earnings_transcript'));
 
 const retiredPrior = {
   claimId: 'retired-stable',

@@ -52,7 +52,9 @@ const MIN_CHAT_WIDTH = 260;
 const MAX_CHAT_WIDTH = 420;
 const WIKI_MOBILE_BREAKPOINT = 720;
 const getWorkspaceWidth = () => (typeof window === 'undefined' ? 1024 : window.innerWidth || 1024);
-const MAINTENANCE_STREAM_TIMEOUT_MS = 25000;
+// The stream has its own heartbeat/read timeout. This is only a final safety
+// ceiling for a full dossier build including automatic reconnects.
+const MAINTENANCE_STREAM_TIMEOUT_MS = 12 * 60 * 1000;
 const INGEST_POLL_INTERVAL_MS = 1800;
 const INGEST_POLL_TIMEOUT_MS = 70000;
 const activeAutoBuildPageIds = new Set();
@@ -2976,12 +2978,14 @@ const WikiWorkspace = () => {
       } else {
         systemStatus.setLatestReceipt(wikiBuildSystemReceipt({ pageId: selectedPageId }));
       }
-    }).catch(() => {
+    }).catch((error) => {
       if (lastSelectedPageRef.current === selectedPageId) {
-        setAutoBuildNotice('The page was created, but the build stream did not finish. Use Run again or /draft to retry.');
+        const message = error?.message
+          || 'The build was interrupted partway. Resume it to continue from saved SEC evidence.';
+        setAutoBuildNotice(message);
         systemStatus.setRecoverableFailure({
           stage: 'Wiki build',
-          message: 'The page was created, but the build stream did not finish.',
+          message,
           retryable: true,
           retry: () => {
             setMobilePane('chat');

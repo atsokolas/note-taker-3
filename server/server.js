@@ -153,12 +153,30 @@ const { drainDueGitHubRepoWatches } = require('./services/githubRepoWatcherServi
 const { drainDueReadingWatches } = require('./services/readingWatcherService');
 const { drainDueMorningPaperEmails } = require('./services/morningPaperEmailService');
 const { runWikiStorageGovernor } = require('./services/wikiStorageGovernorService');
+const { recoverInterruptedDossierBuilds } = require('./services/wikiDossierBuildReliabilityService');
+
+let dossierBuildRecoveryTimer = null;
+const recoverStaleDossierBuilds = () => (
+  recoverInterruptedDossierBuilds({ WikiMaintenanceRun, WikiPage, graceMs: 90 * 1000 })
+    .then(result => {
+      if (result.recovered) console.log(`[dossier-build-recovery] recovered=${result.recovered}`);
+    })
+    .catch(error => console.error('[dossier-build-recovery] failed:', error))
+);
+const startDossierBuildRecovery = () => {
+  recoverStaleDossierBuilds();
+  if (dossierBuildRecoveryTimer) return;
+  dossierBuildRecoveryTimer = setInterval(recoverStaleDossierBuilds, 60 * 1000);
+  dossierBuildRecoveryTimer.unref?.();
+};
 
 if (mongoose.connection.readyState === 1) {
   dropLegacyConnectionIndex();
+  startDossierBuildRecovery();
 } else {
   mongoose.connection.once('open', () => {
     dropLegacyConnectionIndex();
+    startDossierBuildRecovery();
   });
 }
 

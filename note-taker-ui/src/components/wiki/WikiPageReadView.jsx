@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../ui';
 import {
   approveWeekendReadingsRevision,
+  archiveWikiPage,
   askWikiPage,
   getWeekendReadingsStatus,
   getWikiBacklinks,
@@ -15,6 +16,7 @@ import {
   publishWeekendReadingsRevision,
   requestWeekendReadingsReview,
   streamAskWikiPage,
+  streamMaintainWikiPage,
   updateWikiPage
 } from '../../api/wiki';
 import { getConnectionsForItem } from '../../api/connections';
@@ -46,7 +48,7 @@ import {
 import { SUPPORT_STATES } from './extensions/Claim';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
-import WikiEdgarWatchControl, { isCompanyDossierPage } from './WikiEdgarWatchControl';
+import WikiEdgarWatchControl from './WikiEdgarWatchControl';
 import WikiGitHubRepoWatchControl, {
   formatRepoWatchPublicationFacts,
   formatRepoWatchPublicationMessage,
@@ -90,6 +92,11 @@ const labelFor = (value = '') => String(value || '')
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
 const isWeekendReadingsPage = page => String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+const isGeneratedCompanyDossierPage = (page = {}) => (
+  /^company-dossier:/i.test(String(page?.createdFrom?.label || ''))
+  || Boolean(page?.investmentDossier?.version && page?.investmentDossier?.company?.ticker)
+  || Boolean(page?.externalWatches?.edgar?.ticker && page?.externalWatches?.edgar?.status === 'active')
+);
 
 const wikiMaintenanceSystemReceipt = (pageId, { issueCount = 0, pageTitle = '' } = {}) => {
   const target = pageTitle || `@wiki:${pageId}`;
@@ -1386,7 +1393,9 @@ const WikiPageReadView = ({
       'reading sources and claims'
     ]);
     try {
-      const maintained = await maintainWikiPage(pageId);
+      const maintained = isGeneratedCompanyDossierPage(page)
+        ? await streamMaintainWikiPage(pageId)
+        : await maintainWikiPage(pageId);
       latestPageRef.current = maintained;
       setPage(maintained);
       const nextSourceCount = countPageSources(maintained);
@@ -1422,8 +1431,9 @@ const WikiPageReadView = ({
         issueCount,
         pageTitle: maintained?.title
       }));
-    } catch (_error) {
-      setError('Failed to maintain Wiki page.');
+    } catch (maintainError) {
+      const message = maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
+      setError(message);
       setMaintenanceTraceLines([
         `maintenance failed · @wiki:${pageId}`,
         'waiting for retry'
@@ -1436,7 +1446,7 @@ const WikiPageReadView = ({
       });
       systemStatus.setRecoverableFailure({
         stage: 'Wiki maintenance',
-        message: 'Failed to maintain Wiki page.',
+        message,
         retryable: true,
         retry: () => { handleMaintain(); }
       });
@@ -1445,6 +1455,16 @@ const WikiPageReadView = ({
       setMaintaining(false);
     }
   }, [page, pageId, systemStatus]);
+
+  const handleDiscardFailedDossier = useCallback(async () => {
+    if (!pageId) return;
+    try {
+      await archiveWikiPage(pageId);
+      navigate('/wiki/workspace?view=list', { replace: true });
+    } catch (_error) {
+      setError('The failed draft could not be discarded. Try again.');
+    }
+  }, [navigate, pageId]);
 
   const handleShareSafely = useCallback(async () => {
     const currentPage = latestPageRef.current || page;
@@ -2142,7 +2162,7 @@ const WikiPageReadView = ({
   const publicShareReady = isSharedPublicly && !shareBlocked;
   const shareReceipt = formatShareReceipt({ page, blocked: shareBlocked });
   const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
-  const companyDossier = isCompanyDossierPage(page);
+  const companyDossier = isGeneratedCompanyDossierPage(page);
   const edgarWatch = page?.externalWatches?.edgar || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
@@ -2279,8 +2299,10 @@ const WikiPageReadView = ({
                 ? 'Checking this page against your corpus'
                 : maintenanceDisplayState === 'failed'
                   ? (page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
-                    ? 'Build failed the quality gate'
-                    : 'Maintenance needs a retry')
+                    ? 'This dossier did not reach the evidence bar'
+                    : page?.aiState?.errorCode === 'WIKI_BUILD_INTERRUPTED'
+                      ? 'The build was interrupted partway'
+                      : 'Maintenance needs a retry')
                   : maintenanceReceipt?.status === 'review'
                     ? 'Maintenance surfaced review work'
                     : maintenanceReceipt?.status === 'settled'
@@ -2294,7 +2316,11 @@ const WikiPageReadView = ({
                 {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
               </p>
             ) : (
-              <p>Ask {AGENT_DISPLAY_NAME.toLowerCase()} to check sources, claims, and weak signals without leaving the reading surface.</p>
+              <p>
+                {maintenanceDisplayState === 'failed'
+                  ? (page?.aiState?.lastCandidateSummary || page?.aiState?.lastError || 'Resume from saved evidence, or discard this failed draft.')
+                  : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to check sources, claims, and weak signals without leaving the reading surface.`}
+              </p>
             )}
           </div>
           <AgentTicker
@@ -2311,8 +2337,13 @@ const WikiPageReadView = ({
           />
           <div className="wiki-read__maintenance-actions">
             <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
-              {maintenanceActive ? 'Running...' : 'Run again'}
+              {maintenanceActive ? 'Running...' : persistedMaintenanceFailure && companyDossier ? 'Resume build' : 'Run again'}
             </Button>
+            {persistedMaintenanceFailure && companyDossier && !page?.aiState?.lastDraftedAt ? (
+              <Button type="button" variant="ghost" onClick={handleDiscardFailedDossier} disabled={maintenanceActive}>
+                Discard draft
+              </Button>
+            ) : null}
           </div>
         </section>
       ) : null}

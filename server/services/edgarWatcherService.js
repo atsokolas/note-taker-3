@@ -101,6 +101,64 @@ const resolveCompanyIdentifier = async ({
   };
 };
 
+const fetchCompanySubmissions = async ({
+  cik = '',
+  fetchImpl = global.fetch,
+  userAgent = secUserAgent()
+} = {}) => {
+  const normalizedCik = normalizeCik(cik);
+  if (!normalizedCik) {
+    const error = new Error('A valid SEC CIK is required to inspect filer forms.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return fetchJson({
+    url: `${SEC_SUBMISSIONS_BASE_URL}/CIK${padCik(normalizedCik)}.json`,
+    fetchImpl,
+    userAgent
+  });
+};
+
+const classifyCompanyDossierFiler = ({ company = {}, submissions = {} } = {}) => {
+  const forms = Array.from(new Set(
+    normalizeRecentFilings(submissions)
+      .map(filing => filing.form)
+      .filter(Boolean)
+  ));
+  const domesticForms = forms.filter(form => ['10-K', '10-K/A', '10-Q', '10-Q/A'].includes(form));
+  const foreignForms = forms.filter(form => ['20-F', '20-F/A', '40-F', '40-F/A', '6-K'].includes(form));
+  const supported = domesticForms.length > 0;
+  const primaryForeignForm = foreignForms.find(form => ['20-F', '40-F'].includes(form)) || foreignForms[0] || '';
+  return {
+    supported,
+    ticker: normalizeTicker(company.ticker),
+    cik: normalizeCik(company.cik),
+    companyName: trim(company.companyName || submissions.name || '', 240),
+    forms,
+    domesticForms,
+    foreignForms,
+    primaryForeignForm,
+    reason: supported
+      ? 'domestic_filer'
+      : primaryForeignForm
+        ? 'foreign_private_issuer'
+        : 'unsupported_filing_history'
+  };
+};
+
+const inspectCompanyDossierFiler = async ({
+  company = {},
+  fetchImpl = global.fetch,
+  userAgent = secUserAgent()
+} = {}) => classifyCompanyDossierFiler({
+  company,
+  submissions: await fetchCompanySubmissions({
+    cik: company.cik,
+    fetchImpl,
+    userAgent
+  })
+});
+
 const buildFilingUrl = ({ cik, accessionNumber, primaryDocument } = {}) => {
   const normalizedCik = normalizeCik(cik);
   const accession = String(accessionNumber || '').replace(/-/g, '').trim();
@@ -428,7 +486,10 @@ module.exports = {
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
   filingExternalId,
+  fetchCompanySubmissions,
   fetchFilingDocument,
+  classifyCompanyDossierFiler,
+  inspectCompanyDossierFiler,
   latestTrackedFilings,
   normalizeCik,
   normalizeForms,
