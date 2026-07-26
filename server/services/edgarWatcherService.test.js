@@ -6,6 +6,7 @@ const {
   drainDueEdgarWatches,
   dueEdgarWatchQuery,
   fetchCompanyFacts,
+  fetchCompanyTickerRegistry,
   latestTrackedFilings,
   normalizeRecentFilings,
   selectCompanyDossierBootstrapFilings
@@ -182,6 +183,12 @@ const run = async () => {
     fetchImpl: makeFetch()
   });
   assert.strictEqual(companyFacts.entityName, 'Apple Inc.');
+  const registry = await fetchCompanyTickerRegistry({ fetchImpl: makeFetch() });
+  assert.deepStrictEqual(registry, [{
+    cik: '320193',
+    ticker: 'AAPL',
+    companyName: 'Apple Inc.'
+  }]);
 
   const foreign = classifyCompanyDossierFiler({
     company: { ticker: 'ASML', cik: '937966', companyName: 'ASML HOLDING NV' },
