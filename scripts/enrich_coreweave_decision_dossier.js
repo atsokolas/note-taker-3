@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const { WikiPage, WikiRevision, WikiSourceEvent } = require('../server/models');
 const { createWikiRevision, snapshotPage } = require('../server/services/wikiRevisionService');
 const { evaluateWikiArticleQuality } = require('../server/services/wikiMaintenanceService');
+const { buildValuationSnapshot } = require('../server/services/investmentValuationService');
 const {
   completeResearchPlan,
   upgradeInvestmentDossierProfile
@@ -606,7 +607,32 @@ const applyResearch = ({ page, now = new Date() }) => {
   const moduleIds = baseProfile.researchPlan.requiredModuleIds;
   const allSourceIds = candidate.sourceRefs.map(source => id(source._id)).filter(Boolean);
   candidate.investmentDossier = completeResearchPlan({
-    profile: baseProfile,
+    profile: {
+      ...baseProfile,
+      valuation: buildValuationSnapshot({
+        asOf: RESEARCH_AS_OF,
+        currency: 'USD',
+        unitScale: 'billions',
+        price: INPUTS.price,
+        dilutedShares: derived.shares / 1e9,
+        netCashOrDebt: derived.netDebt,
+        operatingBase: {
+          metric: 'revenue',
+          period: 'Fiscal 2025',
+          value: INPUTS.fy2025Revenue / 1e3,
+          derivation: 'Reported fiscal 2025 revenue from the CoreWeave Form 10-K.',
+          sourceRefIds: [id(map.get('fy2025-10k').source._id)]
+        },
+        annualReturn: INPUTS.requiredReturn,
+        horizonYears: INPUTS.horizonYears,
+        terminalMultiples: [4, 6, 8],
+        sourceRefIds: [
+          id(map.get('fy2025-10k').source._id),
+          id(map.get('price-snapshot').source._id)
+        ],
+        calculatedAt: now
+      })
+    },
     businessModel: 'infrastructure',
     evidenceArchetypes: Array.from(new Set([
       'filing',

@@ -70,6 +70,7 @@ test('submits explicit market and operating inputs without changing the owner hu
       <WikiInvestmentValuation page={page} pageId="page-cost" onPageUpdate={onPageUpdate} />
     </SystemStatusProvider>
   );
+  expect(screen.getByRole('option', { name: 'Revenue' })).toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText('Price as of'), { target: { value: '2026-07-24' } });
   fireEvent.change(screen.getByLabelText('Share price'), { target: { value: '950' } });
