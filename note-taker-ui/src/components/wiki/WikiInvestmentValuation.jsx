@@ -260,6 +260,7 @@ const WikiInvestmentValuation = ({
                 Operating metric
                 <select value={form.operatingMetric} onChange={event => setValue('operatingMetric', event.target.value)} disabled={busy}>
                   <option value="free_cash_flow">Free cash flow</option>
+                  <option value="revenue">Revenue</option>
                   <option value="operating_income">Operating income</option>
                   <option value="ebitda">EBITDA</option>
                   <option value="net_income">Net income</option>

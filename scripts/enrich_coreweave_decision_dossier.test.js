@@ -38,6 +38,10 @@ const result = applyResearch({ page, now: new Date('2026-07-24T10:00:00.000Z') }
 const validation = strictValidate(result.candidate);
 
 assert.strictEqual(validation.ok, true, validation.failures.join('\n'));
+assert.strictEqual(result.candidate.investmentDossier.valuation.status, 'complete');
+assert.strictEqual(result.candidate.investmentDossier.valuation.unitScale, 'billions');
+assert.strictEqual(result.candidate.investmentDossier.valuation.operatingBase.metric, 'revenue');
+assert.strictEqual(result.candidate.investmentDossier.valuation.scenarios.length, 3);
 assert.strictEqual(result.addedSourceCount, SOURCES.length);
 assert.ok(result.candidate.plainText.includes('45.8%'));
 assert.ok(result.candidate.plainText.includes('negative $4.711 billion'));
