@@ -937,6 +937,7 @@ const WikiSourceEvent = mongoose.model('WikiSourceEvent', wikiSourceEventSchema)
 const wikiMaintenanceRunSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  leaseKey: { type: String, default: undefined, trim: true },
   sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null, index: true },
   status: { type: String, enum: ['queued', 'running', 'completed', 'failed', 'needs_review'], default: 'queued', index: true },
   trigger: { type: String, enum: ['manual', 'source_event', 'batch', 'scheduled'], default: 'manual' },
@@ -948,6 +949,7 @@ const wikiMaintenanceRunSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
+wikiMaintenanceRunSchema.index({ leaseKey: 1 }, { unique: true, sparse: true });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
 
