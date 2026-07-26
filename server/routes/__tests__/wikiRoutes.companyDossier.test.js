@@ -123,6 +123,8 @@ const run = async () => {
   };
   const app = express();
   app.use(express.json());
+  let watchOptions = null;
+  let maintainCalls = 0;
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: ownerId };
@@ -136,7 +138,8 @@ const run = async () => {
       return company;
     },
     inspectCompanyDossierFiler: async () => filer,
-    checkEdgarWatchForPage: async () => {
+    checkEdgarWatchForPage: async (options) => {
+      watchOptions = options;
       const event = {
         _id: new mongoose.Types.ObjectId().toString(),
         title: 'AMD FY2025 10-K',
@@ -150,6 +153,10 @@ const run = async () => {
         async save() {}
       };
       return { filings: [{ form: '10-K' }], events: [event] };
+    },
+    maintainWikiPage: async () => {
+      maintainCalls += 1;
+      throw new Error('The evidence preflight should prevent model drafting.');
     }
   }));
   const server = await new Promise(resolve => {
@@ -210,8 +217,33 @@ const run = async () => {
     assert.equal(recreated.body.receipt.metrics.cik, company.cik);
     assert.equal(recreated.body.receipt.provenance.firstHeadState, 'draft_pending_review');
     assert.equal(recreated.body.receipt.provenance.filings[0].accessionNumber, '0000002488-26-000001');
+    assert.equal(watchOptions.limit, 8);
+    assert.equal(watchOptions.selectionMode, 'company_dossier_bootstrap');
+    assert.deepEqual(
+      WikiPage.records.at(-1).externalWatches.edgar.forms,
+      ['10-K', '10-Q', 'DEF 14A', '8-K']
+    );
+    assert.equal(WikiPage.records.at(-1).sourceRefs[0].metadata.evidenceArchetype, 'filing');
+    assert.equal(
+      WikiPage.records.at(-1).sourceRefs[0].metadata.sourceEventId,
+      WikiPage.records.at(-1).sourceRefs[0].objectId
+    );
     assert.equal(WikiPage.records.length, 2);
     assert.equal(WikiPage.records.filter(page => page.status !== 'archived').length, 1);
+
+    const streamResponse = await fetch(
+      `${base}/api/wiki/pages/${recreated.body.page._id}/ai/draft/stream`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}'
+      }
+    );
+    const streamBody = await streamResponse.text();
+    assert.equal(streamResponse.status, 200);
+    assert.match(streamBody, /WIKI_DOSSIER_EVIDENCE_INCOMPLETE/);
+    assert.match(streamBody, /official product/);
+    assert.equal(maintainCalls, 0);
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }
