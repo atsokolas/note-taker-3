@@ -57,6 +57,7 @@ const PublicProofGallery = () => {
   const [privacyStatement, setPrivacyStatement] = useState(PUBLIC_PROOF_PRIVACY_STATEMENT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [registryState, setRegistryState] = useState('loading');
 
   useEffect(() => {
     document.documentElement.classList.add('noeis-public-share');
@@ -71,18 +72,21 @@ const PublicProofGallery = () => {
     let cancelled = false;
     setLoading(true);
     setError(false);
+    setRegistryState('loading');
     getPublicProofRegistry()
       .then((payload) => {
         if (cancelled) return;
         const registry = normalizePublicProofRegistry(payload);
         setItems(registry.items);
         setPrivacyStatement(registry.privacyStatement);
+        setRegistryState(registry.registryState);
         setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
           setItems([]);
           setError(true);
+          setRegistryState('error');
           setLoading(false);
         }
       });
@@ -155,7 +159,7 @@ const PublicProofGallery = () => {
   });
 
   return (
-    <main className="public-proof-gallery">
+    <main className="public-proof-gallery" data-proof-registry-state={registryState}>
       <nav className="public-proof-gallery__topbar" aria-label="Proof gallery navigation">
         <Link to="/" className="public-proof-gallery__brand">Noeis</Link>
         <div className="public-proof-gallery__navlinks">

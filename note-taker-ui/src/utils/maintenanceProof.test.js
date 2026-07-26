@@ -25,6 +25,23 @@ describe('maintenanceProof utils', () => {
     expect(registry.privacyStatement).toBe(PUBLIC_PROOF_PRIVACY_STATEMENT);
   });
 
+  it('derives a resolved registry from an explicit proven object', () => {
+    const registry = normalizePublicProofRegistry({
+      complete: false,
+      slotCoverageComplete: false,
+      items: [{
+        slot: 'nvidia',
+        publicUrl: '/share/wiki/nvidia',
+        proofGrade: { grade: 'proven', label: 'Proven', criteria: {} },
+        page: { title: 'NVIDIA dossier' }
+      }]
+    });
+
+    expect(registry.registryState).toBe('resolved');
+    expect(registry.provenCount).toBe(1);
+    expect(registry.slotCoverageComplete).toBe(false);
+  });
+
   it('builds honest unavailable copy for missing material events', () => {
     const facts = buildMaintenanceStampFacts({
       clock: { label: 'Reading and source events' },

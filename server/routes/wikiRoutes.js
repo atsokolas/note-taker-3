@@ -105,6 +105,7 @@ const {
   DEFAULT_PUBLIC_PROOF_SLOTS,
   buildPublicMaintenanceProof,
   buildPublicProofGrade,
+  buildPublicProofRegistryState,
   selectPublicProofPages,
   serializePublicProofEntry,
   slotMatchesPage
@@ -4553,15 +4554,16 @@ const buildWikiRouter = ({
           compact: true
         }))
         .filter(Boolean);
+      const registryState = buildPublicProofRegistryState({
+        entries,
+        expectedCount: DEFAULT_PUBLIC_PROOF_SLOTS.length
+      });
       res.status(200).json({
         items: entries,
-        homepageCta: entries[0] ? {
-          href: entries[0].publicUrl,
-          title: entries[0].title
-        } : null,
         privacyStatement: entries[0]?.maintenanceProof?.privacyStatement || '',
-        expectedCount: DEFAULT_PUBLIC_PROOF_SLOTS.length,
-        complete: entries.length === DEFAULT_PUBLIC_PROOF_SLOTS.length
+        // Campaign readiness is not blocked by obsolete illustrative slots.
+        // Preserve exact slot coverage as a separate diagnostic.
+        ...registryState
       });
     } catch (error) {
       console.error('Error fetching public proof registry:', error);
