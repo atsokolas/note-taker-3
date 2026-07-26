@@ -50,6 +50,7 @@ const ThreadsSidebar = ({
           <label className="think-index__filter">
             <span>Status</span>
             <select
+              className="noeis-form-control"
               value={threadStatusFilter}
               onChange={(event) => setThreadStatusFilter(event.target.value)}
             >
@@ -61,6 +62,7 @@ const ThreadsSidebar = ({
           <label className="think-index__filter">
             <span>Scope</span>
             <select
+              className="noeis-form-control"
               value={threadScopeFilter}
               onChange={(event) => setThreadScopeFilter(event.target.value)}
             >

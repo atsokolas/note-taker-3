@@ -126,15 +126,30 @@ describe('app theme design-system tokens', () => {
     expect(editorialCss).toMatch(/\.concept-editorial-partner \{[\s\S]*box-sizing: border-box;/);
   });
 
-  it('pins the alive composer and presence motion to reduced-motion-safe primitives', () => {
+  it('keeps idle composer and presence static while reserving motion for active work', () => {
     const css = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
 
     expect(css).toContain('@property --composer-angle');
-    expect(css).toContain('animation: composer-breathe 7s linear infinite;');
-    expect(css).toContain('animation: wikiWorkspacePresenceBreathe 4s ease-in-out infinite;');
+    expect(css).toContain(".wiki-workspace-chat__composer[data-streaming='true'] .wiki-workspace-chat__composer-field::before");
+    expect(css).toContain('animation: composer-breathe 2.2s linear infinite;');
+    expect(css).toContain("wiki-workspace-chat__presence[data-status='working']");
+    expect(css).toContain('animation: wikiWorkspacePresenceBreathe 1s ease-in-out infinite;');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('.wiki-workspace-chat__composer-field::before {\n    animation: none;');
     expect(css).toContain('.wiki-workspace-chat__presence-dot,\n  .wiki-workspace-chat__presence-dot::after');
     expect(css).toContain('animation: none !important;');
+  });
+
+  it('defines one finished control grammar and keeps ambient brand energy static', () => {
+    const themeCss = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
+    const brandCss = fs.readFileSync(path.join(__dirname, 'brand-energy.css'), 'utf8');
+
+    expect(themeCss).toContain('.ui-button-tertiary');
+    expect(themeCss).toContain('.noeis-form-control');
+    expect(themeCss).toContain('min-height: 40px;');
+    expect(themeCss).toContain('box-shadow: 0 0 0 3px var(--focus-ring);');
+    expect(themeCss).not.toContain('transition: all');
+    expect(brandCss).not.toContain('infinite');
+    expect(brandCss).toContain('animation: none;');
   });
 });

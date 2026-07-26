@@ -55,15 +55,15 @@ const MorningPaperEmailSettingsCard = ({ Card, Button }) => {
           <div className="morning-paper-settings__grid">
             <label>
               Delivery email
-              <input type="email" value={draft.email} onChange={event => setDraft(previous => ({ ...previous, email: event.target.value }))} placeholder="you@example.com" />
+              <input className="noeis-form-control" type="email" value={draft.email} onChange={event => setDraft(previous => ({ ...previous, email: event.target.value }))} placeholder="you@example.com" />
             </label>
             <label>
               Timezone
-              <input value={draft.timezone} onChange={event => setDraft(previous => ({ ...previous, timezone: event.target.value }))} placeholder="America/Chicago" />
+              <input className="noeis-form-control" value={draft.timezone} onChange={event => setDraft(previous => ({ ...previous, timezone: event.target.value }))} placeholder="America/Chicago" />
             </label>
             <label>
               Delivery hour
-              <select value={draft.sendHourLocal} onChange={event => setDraft(previous => ({ ...previous, sendHourLocal: Number(event.target.value) }))}>
+              <select className="noeis-form-control" value={draft.sendHourLocal} onChange={event => setDraft(previous => ({ ...previous, sendHourLocal: Number(event.target.value) }))}>
                 {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')}:00</option>)}
               </select>
             </label>

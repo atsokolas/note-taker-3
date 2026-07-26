@@ -557,6 +557,12 @@ const countPageClaims = (page = {}) => countWikiClaims(page);
 
 const countPageWords = (page = {}, body = null) => countWikiPageWords(page, body);
 
+const hasInfoboxValue = (value) => (
+  typeof value === 'number'
+    ? Number.isFinite(value)
+    : value !== null && value !== undefined && String(value).trim() !== ''
+);
+
 const sectionTitles = (body) => extractTocItems(body || emptyDoc)
   .filter(item => item.level === 2)
   .map(item => item.title)
@@ -589,9 +595,10 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
     return [
       { label: 'Role', value: pickFirst(meta.role, meta.description, firstParagraphText(value.body)) },
       { label: 'Born', value: pickFirst(formatOptionalDate(meta.born), meta.founded, meta.created) },
-      { label: 'Key claim', value: pickFirst(keyClaimText(value.claims), meta.keyClaim) },
+      { label: 'Key claim', value: pickFirst(keyClaimText(value.claims), meta.keyClaim) }
+    ].filter(row => hasInfoboxValue(row.value)).concat([
       ...baseRows
-    ];
+    ]);
   }
 
   if (type === 'concept') {
@@ -757,7 +764,7 @@ const InfoboxValue = ({ value, pageId, label }) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return <AnimatedNumber value={value} resetKey={`${pageId}:${label}`} />;
   }
-  return value === null || value === undefined || value === '' ? 'Unknown' : value;
+  return hasInfoboxValue(value) ? value : '—';
 };
 
 const InfoboxRow = ({ row, pageId }) => {

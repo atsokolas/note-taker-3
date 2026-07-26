@@ -480,18 +480,21 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText('c1')).toBeInTheDocument();
     expect(screen.getByText('partial → conflicted')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Integration retains pricing power.' })).toBeInTheDocument();
-    expect(screen.getByText('EDGAR · NVDA')).toBeInTheDocument();
+    const watchingRegion = screen.getByRole('region', { name: 'Watching' });
+    expect(within(watchingRegion).getByText('EDGAR')).toHaveClass('wiki-front-page__watching-type');
+    expect(within(watchingRegion).getByText('NVDA')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Disarm' }));
     await waitFor(() => expect(disarmWatcher).toHaveBeenCalledTimes(1));
     expect(disarmWatcher).toHaveBeenCalledWith('wiki-first-principles', 'sec_edgar');
-    await waitFor(() => expect(screen.queryByText('EDGAR · NVDA')).not.toBeInTheDocument());
+    await waitFor(() => expect(within(watchingRegion).queryByText('NVDA')).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Still hold' }));
     await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({
       pageId: 'wiki-first-principles', claimId: 'c1', action: 'reaffirmed', revisedText: ''
     }));
     expect(await screen.findByText(/reaffirmed · 1st time/i)).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveClass('wiki-front-page__check-in-register');
   });
 
   it('keeps a dense Watching rail compact until the user expands it', async () => {

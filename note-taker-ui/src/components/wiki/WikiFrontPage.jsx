@@ -391,16 +391,32 @@ const WikiFrontPage = () => {
     }
   };
 
-  const renderWatcher = (watch) => (
-    <li key={watch.id}>
-      <div>
-        <strong>{watch.label}</strong>
-        <span>{watch.page.title} · {watch.detail}</span>
-        {watch.errorMessage ? <em>{watch.errorMessage}</em> : null}
-      </div>
-      <button type="button" disabled={watchingBusy} onClick={() => handleDisarmWatcher(watch)}>Disarm</button>
-    </li>
-  );
+  const renderWatcher = (watch) => {
+    const labelParts = String(watch.label || '').split('·').map(part => part.trim()).filter(Boolean);
+    const watcherType = labelParts[0] || 'Watch';
+    const watcherIdentity = labelParts.slice(1).join(' · ') || watch.page?.title || 'Source';
+    const attention = Boolean(watch.errorMessage) || ['error', 'failed', 'attention'].includes(String(watch.status || '').toLowerCase());
+    return (
+      <li key={watch.id} className={attention ? 'is-attention' : ''}>
+        <div className="wiki-front-page__watching-main">
+          <span className="wiki-front-page__watching-type">{watcherType}</span>
+          <div className="wiki-front-page__watching-copy">
+            <strong>{watcherIdentity}</strong>
+            <span>{watch.page.title} · {watch.detail}</span>
+            {watch.errorMessage ? <em>{watch.errorMessage}</em> : null}
+          </div>
+        </div>
+        <button
+          className="ui-button ui-button-tertiary wiki-front-page__watching-action"
+          type="button"
+          disabled={watchingBusy}
+          onClick={() => handleDisarmWatcher(watch)}
+        >
+          Disarm
+        </button>
+      </li>
+    );
+  };
 
   if (loading) {
     return (
@@ -527,20 +543,21 @@ const WikiFrontPage = () => {
                   {showRevisionDraft ? (
                     <div className="wiki-front-page__check-in-revision">
                       <textarea
+                        className="noeis-form-control"
                         aria-label="Revised claim"
                         value={revisionDraft}
                         onChange={(event) => setRevisionDraft(event.target.value)}
                         rows={3}
                       />
-                      <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
-                      <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
+                      <button className="ui-button ui-button-primary" type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
+                      <button className="ui-button ui-button-tertiary" type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
                     </div>
                   ) : (
                     <div className="wiki-front-page__check-in-actions">
-                      <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
-                      <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
-                      <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
-                      <Link to={claimCheckIn.href}>Open claim</Link>
+                      <button className="ui-button ui-button-tertiary wiki-front-page__judgment-action" type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
+                      <button className="ui-button ui-button-tertiary wiki-front-page__judgment-action" type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
+                      <button className="ui-button ui-button-tertiary wiki-front-page__judgment-action" type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
+                      <Link className="ui-button ui-button-tertiary wiki-front-page__judgment-action" to={claimCheckIn.href}>Open claim →</Link>
                     </div>
                   )}
                 </section>
@@ -656,16 +673,16 @@ const WikiFrontPage = () => {
               <form className="wiki-front-page__reading-watch" onSubmit={handleArmReading}>
                 <label>
                   Page
-                  <select aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
+                  <select className="noeis-form-control" aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
                     <option value="">Choose a page</option>
                     {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
                   </select>
                 </label>
                 <label>
                   RSS or Atom URL
-                  <input type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
+                  <input className="noeis-form-control" type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
                 </label>
-                <button type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
+                <button className="ui-button ui-button-secondary" type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
               </form>
             </details>
           </section>

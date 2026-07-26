@@ -30,6 +30,8 @@ describe('MorningPaperEmailSettingsCard', () => {
     expect(await screen.findByRole('button', { name: 'Turn on' })).toBeDisabled();
     expect(screen.getByText(/quiet days send nothing/i)).toBeInTheDocument();
     expect(screen.getByText(/server delivery is not configured yet/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('you@example.com')).toHaveClass('noeis-form-control');
+    expect(screen.getByDisplayValue('07:00')).toHaveClass('noeis-form-control');
   });
 
   it('saves and confirms a delivery address before enabling', async () => {

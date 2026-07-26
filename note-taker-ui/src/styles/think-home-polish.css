@@ -248,21 +248,14 @@ html[data-ui-theme='dark'] {
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
 }
 
-.think-layout__left-panel .feedback-field input,
-.think-index__filter select {
-  min-height: 36px;
-  padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--nt-surface-2) 52%, transparent);
-  color: var(--text-secondary);
-  box-shadow: none;
+.think-layout__left-panel .feedback-field .noeis-form-control,
+.think-index__filter .noeis-form-control {
+  min-height: 40px;
 }
 
-.think-layout__left-panel .feedback-field input:focus,
-.think-index__filter select:focus {
-  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-soft) 16%, transparent);
+.think-index__filter .noeis-form-control:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--nt-divider));
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .agent-skill-dock {
@@ -4391,11 +4384,15 @@ html[data-ui-theme='dark'] {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.wiki-build-page__row input,
-.wiki-repo-create__row input,
+.wiki-build-page__row .noeis-form-control,
+.wiki-repo-create__row .noeis-form-control,
 .wiki-drop-source__row select,
 .wiki-drop-source__row input {
   min-height: 40px;
+}
+
+.wiki-drop-source__row select,
+.wiki-drop-source__row input {
   border: 1px solid color-mix(in srgb, var(--nt-divider) 80%, transparent);
   border-radius: 8px;
   padding: 8px 10px;
@@ -6916,23 +6913,25 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 }
 
 .wiki-read__paragraph--recent {
+  position: relative;
+  isolation: isolate;
   border-radius: 7px;
-  animation: wikiParagraphRecentHalo 2s ease-out;
+}
+
+.wiki-read__paragraph--recent::before {
+  content: '';
+  position: absolute;
+  inset: -3px -6px;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, transparent);
+  pointer-events: none;
+  animation: wikiParagraphRecentHalo 280ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 @keyframes wikiParagraphRecentHalo {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--primary-color)) 42%, transparent);
-    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 10px transparent;
-    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 5%, transparent);
-  }
-  100% {
-    box-shadow: none;
-    background: transparent;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .wiki-read__body li {
@@ -7008,8 +7007,20 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 }
 
 .wiki-read__infobox-row.is-updated {
+  position: relative;
+  isolation: isolate;
   border-radius: 6px;
-  animation: wikiInfoboxRowFlash 900ms ease-out;
+}
+
+.wiki-read__infobox-row.is-updated::before {
+  content: '';
+  position: absolute;
+  inset: -3px -5px;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 14%, transparent);
+  pointer-events: none;
+  animation: wikiInfoboxRowFlash 260ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 .wiki-read__infobox dt {
@@ -7030,7 +7041,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 }
 
 .wiki-numeric-value.is-counting {
-  animation: wikiMetricCountPulse 360ms ease-out;
+  animation: wikiMetricCountPulse 220ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .wiki-read__infobox--structured dd {
@@ -7138,15 +7149,8 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
 }
 
 @keyframes wikiInfoboxRowFlash {
-  0% {
-    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 14%, transparent);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--primary-color)) 28%, transparent);
-  }
-
-  100% {
-    background: transparent;
-    box-shadow: 0 0 0 8px transparent;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes wikiMetricCountPulse {
@@ -7768,8 +7772,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   border-color: color-mix(in srgb, var(--wiki-quiet-danger, #9b5a46) 30%, var(--vellum-line));
 }
 
-/* Breathing dot — the always-on signal the agent is around. Idle pulses
-   gently; maintaining pulses faster. */
+/* Presence is static at rest; motion is reserved for active maintenance. */
 .wiki-agent-presence__dot {
   position: relative;
   width: 12px;
@@ -7787,7 +7790,7 @@ html[data-ui-theme='dark'] .wiki-read__repo-dossier-section {
   inset: 0;
   border-radius: 50%;
   background: inherit;
-  animation: wikiAgentDotIdle 4s ease-in-out infinite;
+  animation: none;
 }
 
 .wiki-agent-presence[data-status='maintaining'] .wiki-agent-presence__dot {
@@ -11894,11 +11897,11 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 96%, #fff);
-  animation: wikiWorkspaceComposerBreath 4s ease-in-out infinite;
+  animation: none;
 }
 
 .wiki-workspace-chat__composer[data-streaming='true'] {
-  animation-duration: 1.4s;
+  animation: wikiWorkspaceComposerBreath 1.4s ease-in-out infinite;
 }
 
 .wiki-workspace-chat__composer::after {
@@ -11916,7 +11919,6 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   pointer-events: none;
 }
 
-.wiki-workspace-chat__composer:focus-within::after,
 .wiki-workspace-chat__composer[data-streaming='true']::after {
   opacity: 1;
   transform: scaleX(1);
@@ -11966,17 +11968,16 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   mask-composite: exclude;
   opacity: 0.4;
   pointer-events: none;
-  animation: composer-breathe 7s linear infinite;
+  animation: none;
 }
 
 .wiki-workspace-chat__composer-field:focus-within::before {
   opacity: 0.72;
-  animation-duration: 4.5s;
 }
 
 .wiki-workspace-chat__composer[data-streaming='true'] .wiki-workspace-chat__composer-field::before {
   opacity: 1;
-  animation-duration: 2.2s;
+  animation: composer-breathe 2.2s linear infinite;
 }
 
 @keyframes composer-breathe {
@@ -12412,7 +12413,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
     inset 0 1px 1px rgba(255, 255, 255, 0.42),
     0 0 0 1px color-mix(in srgb, var(--surface) 60%, transparent),
     0 4px 10px rgba(15, 23, 42, 0.12);
-  animation: wikiWorkspacePresenceBreathe 4s ease-in-out infinite;
+  animation: none;
 }
 
 .wiki-workspace-chat__presence-dot::after {
@@ -12434,7 +12435,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
     inset 0 1px 1px rgba(255, 255, 255, 0.5),
     0 0 0 1px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 20%, transparent),
     0 0 18px color-mix(in srgb, var(--accent-primary, var(--primary-color)) 34%, transparent);
-  animation-duration: 1s;
+  animation: wikiWorkspacePresenceBreathe 1s ease-in-out infinite;
 }
 
 .wiki-workspace-chat__presence[data-status='ready'] .wiki-workspace-chat__presence-dot {
@@ -12515,9 +12516,15 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   .wiki-workspace-chat__context button[data-landed='true'],
   .wiki-workspace-chat__presence-dot,
   .wiki-workspace-chat__presence-dot::after,
-  .wiki-read__infobox-row.is-updated,
+  .wiki-read__paragraph--recent::before,
+  .wiki-read__infobox-row.is-updated::before,
   .wiki-numeric-value.is-counting {
     animation: none !important;
+  }
+
+  .wiki-read__paragraph--recent::before,
+  .wiki-read__infobox-row.is-updated::before {
+    opacity: 0;
   }
 }
 
@@ -12728,7 +12735,7 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
       color-mix(in srgb, var(--accent-primary, #b1862e) 10%, transparent),
       color-mix(in srgb, var(--surface) 94%, transparent));
   color: var(--text-primary);
-  animation: wikiPromotionWitness 620ms cubic-bezier(0.2, 0.85, 0.2, 1);
+  animation: wikiPromotionWitness 260ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .wiki-read__promotion-mark {

@@ -515,16 +515,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   font-size: 0.82rem;
 }
 
-.wiki-company-dossier__form input,
-.wiki-company-dossier__form textarea {
+.wiki-company-dossier__form .noeis-form-control {
   width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--surface-secondary);
-  color: var(--text-primary);
-  font: inherit;
 }
 
 .wiki-company-dossier__assumptions {
@@ -722,14 +714,50 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   margin-top: 12px;
 }
 
-.wiki-front-page__check-in button,
-.wiki-front-page__watching button {
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 62%, transparent);
-  border-radius: 999px;
-  color: inherit;
-  cursor: pointer;
-  padding: 7px 12px;
+.wiki-front-page__check-in-actions {
+  gap: 0 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+}
+
+.wiki-front-page__judgment-action {
+  position: relative;
+  min-height: 42px;
+  padding: 8px 0 10px;
+  border-radius: 0;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.wiki-front-page__judgment-action::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--wiki-warm-accent, var(--vellum-accent));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.wiki-front-page__judgment-action:hover,
+.wiki-front-page__judgment-action:focus-visible {
+  color: var(--text-primary);
+}
+
+.wiki-front-page__judgment-action:hover::after,
+.wiki-front-page__judgment-action:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.wiki-front-page__check-in-register {
+  animation: wfp-register-in 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes wfp-register-in {
+  from { opacity: 0; transform: translate3d(0, 4px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 .wiki-front-page__check-in button:disabled,
@@ -754,9 +782,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   top: 92px;
   padding: 4px 0 20px 26px;
   border-left: 1px solid color-mix(in srgb, var(--nt-divider) 74%, transparent);
-  background: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 84%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(118%);
-  backdrop-filter: blur(18px) saturate(118%);
+  background: var(--vellum-bg, var(--canvas));
 }
 
 .wiki-front-page__watching-header,
@@ -797,6 +823,37 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   padding: 14px 0 14px 18px;
 }
 
+.wiki-front-page__watching-main {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wiki-front-page__watching-copy {
+  min-width: 0;
+}
+
+.wiki-front-page__watching .wiki-front-page__watching-type {
+  margin: 1px 0 0;
+  color: var(--text-muted, #8c867c);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .62rem;
+  font-weight: 720;
+  letter-spacing: .08em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.wiki-front-page__watching-copy strong {
+  display: block;
+  color: var(--text-primary);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: .82rem;
+  font-weight: 650;
+}
+
 .wiki-front-page__watching li::before {
   content: '';
   position: absolute;
@@ -808,6 +865,21 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   background: color-mix(in srgb, var(--text-muted) 70%, transparent);
 }
 
+.wiki-front-page__watching li.is-attention::before {
+  background: var(--wiki-warm-accent, var(--vellum-accent));
+}
+
+.wiki-front-page__watching li.is-attention .wiki-front-page__watching-type,
+.wiki-front-page__watching li.is-attention .wiki-front-page__watching-copy strong,
+.wiki-front-page__watching li.is-attention em {
+  color: var(--wiki-warm-accent, var(--vellum-accent));
+}
+
+.wiki-front-page__watching-action {
+  flex: 0 0 auto;
+  min-height: 36px;
+}
+
 .wiki-front-page__reading-watch label {
   display: grid;
   flex: 1 1 210px;
@@ -816,14 +888,9 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 5px;
 }
 
-.wiki-front-page__reading-watch input,
-.wiki-front-page__reading-watch select,
-.wiki-front-page__check-in-revision textarea {
-  background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 52%, transparent);
-  border-radius: 8px;
-  color: inherit;
-  padding: 9px 10px;
+.wiki-front-page__reading-watch .noeis-form-control,
+.wiki-front-page__check-in-revision .noeis-form-control {
+  min-width: 0;
 }
 
 .wiki-front-page__watching-add {
@@ -939,11 +1006,16 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   .wiki-front-page__reading-watch button {
     width: 100%;
   }
+
+  .wiki-front-page__watching li .wiki-front-page__watching-action {
+    width: fit-content;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .wiki-front-page__watching-more[open] > ul,
-  .wiki-front-page__watching-add[open] .wiki-front-page__reading-watch {
+  .wiki-front-page__watching-add[open] .wiki-front-page__reading-watch,
+  .wiki-front-page__check-in-register {
     animation: none;
   }
 

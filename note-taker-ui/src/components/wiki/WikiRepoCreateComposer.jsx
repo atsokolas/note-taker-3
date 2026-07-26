@@ -152,6 +152,7 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
       ) : null}
       <div className="wiki-repo-create__row">
         <input
+          className="noeis-form-control"
           value={repoUrl}
           onChange={(event) => setRepoUrl(event.target.value)}
           placeholder="https://github.com/openai/agents-js"

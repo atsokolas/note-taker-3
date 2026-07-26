@@ -183,17 +183,8 @@
   font-size: 0.75rem;
 }
 
-.wiki-valuation__form-grid input,
-.wiki-valuation__form-grid select,
-.wiki-valuation__form-grid textarea {
+.wiki-valuation__form-grid .noeis-form-control {
   width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 9px 10px;
-  background: var(--surface-secondary);
-  color: var(--text-primary);
-  font: inherit;
 }
 
 .wiki-valuation__wide {

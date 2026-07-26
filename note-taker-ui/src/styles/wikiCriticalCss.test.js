@@ -98,7 +98,7 @@ describe('wiki critical CSS loading', () => {
     expect(desktopBlock).not.toContain('left: calc(100% + 24px)');
   });
 
-  it('guards the living-agent composer breathing border primitives', () => {
+  it('guards streaming-only composer motion primitives', () => {
     const polishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
 
     expect(polishCss).toContain('@property --composer-angle');
@@ -106,9 +106,9 @@ describe('wiki critical CSS loading', () => {
     expect(polishCss).toContain('initial-value: 0deg');
     expect(polishCss).toContain('.wiki-workspace-chat__composer-field::before');
     expect(polishCss).toContain('conic-gradient(');
-    expect(polishCss).toContain('animation: composer-breathe 7s linear infinite');
+    expect(polishCss).toContain('animation: none;');
     expect(polishCss).toContain(".wiki-workspace-chat__composer[data-streaming='true'] .wiki-workspace-chat__composer-field::before");
-    expect(polishCss).toContain('animation-duration: 2.2s');
+    expect(polishCss).toContain('animation: composer-breathe 2.2s linear infinite');
     expect(polishCss).toContain('@keyframes composer-breathe');
     expect(polishCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(polishCss).toContain('animation: none');

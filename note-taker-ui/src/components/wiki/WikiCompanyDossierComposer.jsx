@@ -72,7 +72,7 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
   return (
     <section className={`wiki-company-dossier${className ? ` ${className}` : ''}`}>
       <button
-        className="wiki-company-dossier__toggle"
+        className="ui-button ui-button-tertiary wiki-company-dossier__toggle"
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(value => !value)}
@@ -85,11 +85,12 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
           <p>Your judgment stays yours. Noeis uses free SEC filings and opens a private draft for review.</p>
           <label>
             Ticker
-            <input aria-label="Company ticker" value={ticker} onChange={event => setTicker(event.target.value)} placeholder="AMD" disabled={busy} />
+            <input className="noeis-form-control" aria-label="Company ticker" value={ticker} onChange={event => setTicker(event.target.value)} placeholder="AMD" disabled={busy} />
           </label>
           <label>
             Starting judgment
             <textarea
+              className="noeis-form-control"
               aria-label="Starting investment judgment"
               value={startingJudgment}
               onChange={event => setStartingJudgment(event.target.value)}
@@ -101,14 +102,14 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
           <div className="wiki-company-dossier__assumptions">
             <label>
               Required annual return
-              <span><input aria-label="Required annual return" type="number" min="1" max="100" step="0.5" value={requiredReturn} onChange={event => setRequiredReturn(event.target.value)} disabled={busy} />%</span>
+              <span><input className="noeis-form-control" aria-label="Required annual return" type="number" min="1" max="100" step="0.5" value={requiredReturn} onChange={event => setRequiredReturn(event.target.value)} disabled={busy} />%</span>
             </label>
             <label>
               Horizon
-              <span><input aria-label="Investment horizon" type="number" min="1" max="20" step="1" value={horizonYears} onChange={event => setHorizonYears(event.target.value)} disabled={busy} /> years</span>
+              <span><input className="noeis-form-control" aria-label="Investment horizon" type="number" min="1" max="20" step="1" value={horizonYears} onChange={event => setHorizonYears(event.target.value)} disabled={busy} /> years</span>
             </label>
           </div>
-          <Button type="submit" variant="secondary" disabled={busy || !ticker.trim() || startingJudgment.trim().length < 20}>
+          <Button type="submit" variant="primary" disabled={busy || !ticker.trim() || startingJudgment.trim().length < 20}>
             {busy ? 'Attaching SEC filings…' : 'Create dossier'}
           </Button>
           {status ? <p className="wiki-company-dossier__status" role="status">{status}</p> : null}

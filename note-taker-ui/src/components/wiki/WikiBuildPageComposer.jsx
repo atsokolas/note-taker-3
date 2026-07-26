@@ -122,19 +122,20 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
       ) : null}
       <div className="wiki-build-page__row">
         <input
+          className="noeis-form-control"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder={creationMode === 'living_thesis' ? 'Living thesis title' : `Ask ${AGENT_DISPLAY_NAME.toLowerCase()} to build a wiki page...`}
           aria-label={creationMode === 'living_thesis' ? 'Living thesis title' : 'Wiki page to build'}
         />
-        <Button type="submit" disabled={busy || !prompt.trim() || (creationMode === 'living_thesis' && !governingQuestion.trim())}>
+        <Button type="submit" variant="primary" disabled={busy || !prompt.trim() || (creationMode === 'living_thesis' && !governingQuestion.trim())}>
           {busy ? 'Building...' : creationMode === 'living_thesis' ? 'Create thesis' : 'Build page'}
         </Button>
       </div>
       {!compact && creationMode === 'living_thesis' ? (
         <div className="wiki-build-page__thesis-question">
           <label htmlFor="wiki-living-thesis-question">Governing question</label>
-          <textarea id="wiki-living-thesis-question" value={governingQuestion} onChange={event => setGoverningQuestion(event.target.value)} placeholder="What consequential question will this thesis maintain?" />
+          <textarea className="noeis-form-control" id="wiki-living-thesis-question" value={governingQuestion} onChange={event => setGoverningQuestion(event.target.value)} placeholder="What consequential question will this thesis maintain?" />
           <p>No conclusion or claims will be drafted for you.</p>
         </div>
       ) : null}

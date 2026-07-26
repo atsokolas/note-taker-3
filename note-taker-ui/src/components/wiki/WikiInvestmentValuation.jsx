@@ -218,16 +218,16 @@ const WikiInvestmentValuation = ({
           <p>Expectations clock</p>
           <h2>Implied expectations</h2>
         </div>
-        <span>{complete ? `Price refreshed ${displayDate(valuation.asOf)}` : 'Awaiting explicit market inputs'}</span>
+        <span>{complete ? `Price refreshed ${displayDate(valuation.asOf)}` : 'Awaiting dated market inputs'}</span>
       </div>
       {complete ? <ValuationSummary valuation={valuation} /> : (
         <p className="wiki-valuation__empty">
-          Add a dated price, reported operating base, and source trail to calculate what performance the current security price requires.
+          Add a dated price and operating base to calculate what performance the current security price requires.
         </p>
       )}
       {!readOnly ? (
-        <details className="wiki-valuation__editor" open={!complete}>
-          <summary>{complete ? 'Refresh assumptions' : 'Calculate implied expectations'}</summary>
+        <details className="wiki-valuation__editor">
+          <summary>{complete ? 'Refresh assumptions' : 'Add dated market inputs'}</summary>
           <form onSubmit={handleSubmit}>
             <p>
               The expectations clock is separate from the filing clock. Refreshing price inputs does not rewrite the accepted company evidence.
@@ -235,30 +235,30 @@ const WikiInvestmentValuation = ({
             <div className="wiki-valuation__form-grid">
               <label>
                 Price as of
-                <input type="date" value={form.asOf} onChange={event => setValue('asOf', event.target.value)} required disabled={busy} />
+                <input className="noeis-form-control" type="date" value={form.asOf} onChange={event => setValue('asOf', event.target.value)} required disabled={busy} />
               </label>
               <label>
                 Share price
-                <span className="wiki-valuation__input-affix"><b>$</b><input aria-label="Share price" type="number" min="0.0001" step="0.01" value={form.price} onChange={event => setValue('price', event.target.value)} required disabled={busy} /></span>
+                <span className="wiki-valuation__input-affix"><b>$</b><input className="noeis-form-control" aria-label="Share price" type="number" min="0.0001" step="0.01" value={form.price} onChange={event => setValue('price', event.target.value)} required disabled={busy} /></span>
               </label>
               <label>
                 Calculation scale
-                <select value={form.unitScale} onChange={event => setValue('unitScale', event.target.value)} disabled={busy}>
+                <select className="noeis-form-control" value={form.unitScale} onChange={event => setValue('unitScale', event.target.value)} disabled={busy}>
                   <option value="millions">USD millions</option>
                   <option value="billions">USD billions</option>
                 </select>
               </label>
               <label>
                 Diluted shares ({form.unitScale})
-                <input type="number" min="0.0001" step="any" value={form.dilutedShares} onChange={event => setValue('dilutedShares', event.target.value)} required disabled={busy} />
+                <input className="noeis-form-control" type="number" min="0.0001" step="any" value={form.dilutedShares} onChange={event => setValue('dilutedShares', event.target.value)} required disabled={busy} />
               </label>
               <label>
                 Net debt; negative for net cash ({form.unitScale})
-                <input type="number" step="any" value={form.netCashOrDebt} onChange={event => setValue('netCashOrDebt', event.target.value)} required disabled={busy} />
+                <input className="noeis-form-control" type="number" step="any" value={form.netCashOrDebt} onChange={event => setValue('netCashOrDebt', event.target.value)} required disabled={busy} />
               </label>
               <label>
                 Operating metric
-                <select value={form.operatingMetric} onChange={event => setValue('operatingMetric', event.target.value)} disabled={busy}>
+                <select className="noeis-form-control" value={form.operatingMetric} onChange={event => setValue('operatingMetric', event.target.value)} disabled={busy}>
                   <option value="free_cash_flow">Free cash flow</option>
                   <option value="revenue">Revenue</option>
                   <option value="operating_income">Operating income</option>
@@ -268,19 +268,19 @@ const WikiInvestmentValuation = ({
               </label>
               <label>
                 Operating period
-                <input value={form.operatingPeriod} onChange={event => setValue('operatingPeriod', event.target.value)} placeholder="FY2026 trailing twelve months" required disabled={busy} />
+                <input className="noeis-form-control" value={form.operatingPeriod} onChange={event => setValue('operatingPeriod', event.target.value)} placeholder="FY2026 trailing twelve months" required disabled={busy} />
               </label>
               <label>
                 Operating base ({form.unitScale})
-                <input type="number" min="0.0001" step="any" value={form.operatingBase} onChange={event => setValue('operatingBase', event.target.value)} required disabled={busy} />
+                <input className="noeis-form-control" type="number" min="0.0001" step="any" value={form.operatingBase} onChange={event => setValue('operatingBase', event.target.value)} required disabled={busy} />
               </label>
               <label>
                 Terminal multiples
-                <input value={form.terminalMultiples} onChange={event => setValue('terminalMultiples', event.target.value)} placeholder="15, 20, 25, 30" required disabled={busy} />
+                <input className="noeis-form-control" value={form.terminalMultiples} onChange={event => setValue('terminalMultiples', event.target.value)} placeholder="15, 20, 25, 30" required disabled={busy} />
               </label>
               <label>
                 Operating evidence
-                <select value={form.operatingSourceRefId} onChange={event => setValue('operatingSourceRefId', event.target.value)} required disabled={busy}>
+                <select className="noeis-form-control" value={form.operatingSourceRefId} onChange={event => setValue('operatingSourceRefId', event.target.value)} required disabled={busy}>
                   <option value="">Choose an attached source</option>
                   {operatingSources.map(source => (
                     <option value={sourceId(source)} key={sourceId(source)}>{source.title || source.url || 'Attached source'}</option>
@@ -289,15 +289,15 @@ const WikiInvestmentValuation = ({
               </label>
               <label className="wiki-valuation__wide">
                 Operating-base derivation
-                <textarea value={form.operatingDerivation} onChange={event => setValue('operatingDerivation', event.target.value)} rows={2} placeholder="Explain the reported inputs and normalization." required disabled={busy} />
+                <textarea className="noeis-form-control" value={form.operatingDerivation} onChange={event => setValue('operatingDerivation', event.target.value)} rows={2} placeholder="Explain the reported inputs and normalization." required disabled={busy} />
               </label>
               <label>
                 Market source title
-                <input value={form.marketSourceTitle} onChange={event => setValue('marketSourceTitle', event.target.value)} placeholder="Exchange closing-price page" disabled={busy} />
+                <input className="noeis-form-control" value={form.marketSourceTitle} onChange={event => setValue('marketSourceTitle', event.target.value)} placeholder="Exchange closing-price page" disabled={busy} />
               </label>
               <label>
                 Market source URL
-                <input type="url" value={form.marketSourceUrl} onChange={event => setValue('marketSourceUrl', event.target.value)} placeholder="https://…" required disabled={busy} />
+                <input className="noeis-form-control" type="url" value={form.marketSourceUrl} onChange={event => setValue('marketSourceUrl', event.target.value)} placeholder="https://…" required disabled={busy} />
               </label>
             </div>
             <div className="wiki-valuation__hurdle">

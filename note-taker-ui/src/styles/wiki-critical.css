@@ -589,22 +589,23 @@
   margin: 0 0 1em;
 }
 .wiki-read__paragraph--recent {
+  position: relative;
+  isolation: isolate;
   border-radius: 7px;
-  animation: wikiParagraphRecentHalo 2s ease-out;
+}
+.wiki-read__paragraph--recent::before {
+  content: '';
+  position: absolute;
+  inset: -3px -6px;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, transparent);
+  pointer-events: none;
+  animation: wikiParagraphRecentHalo 280ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 @keyframes wikiParagraphRecentHalo {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--primary-color)) 42%, transparent);
-    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 10%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 10px transparent;
-    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 5%, transparent);
-  }
-  100% {
-    box-shadow: none;
-    background: transparent;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 .wiki-read__body li {
   margin: 0.28em 0;
@@ -666,8 +667,19 @@
   gap: 12px;
 }
 .wiki-read__infobox-row.is-updated {
+  position: relative;
+  isolation: isolate;
   border-radius: 6px;
-  animation: wikiInfoboxRowFlash 900ms ease-out;
+}
+.wiki-read__infobox-row.is-updated::before {
+  content: '';
+  position: absolute;
+  inset: -3px -5px;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 14%, transparent);
+  pointer-events: none;
+  animation: wikiInfoboxRowFlash 260ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 .wiki-read__infobox dt {
   color: color-mix(in srgb, var(--text-muted) 88%, transparent);
@@ -1367,17 +1379,13 @@
   }
 }
 @keyframes wikiInfoboxRowFlash {
-  0% {
-    background: color-mix(in srgb, var(--accent-primary, var(--primary-color)) 14%, transparent);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-primary, var(--primary-color)) 28%, transparent);
-  }
-  100% {
-    background: transparent;
-    box-shadow: 0 0 0 8px transparent;
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wiki-read__infobox-row.is-updated {
+  .wiki-read__paragraph--recent::before,
+  .wiki-read__infobox-row.is-updated::before {
     animation: none !important;
+    opacity: 0;
   }
 }

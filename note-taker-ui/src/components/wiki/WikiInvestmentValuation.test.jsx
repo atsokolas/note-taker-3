@@ -70,7 +70,12 @@ test('submits explicit market and operating inputs without changing the owner hu
       <WikiInvestmentValuation page={page} pageId="page-cost" onPageUpdate={onPageUpdate} />
     </SystemStatusProvider>
   );
+  const disclosure = screen.getByText('Add dated market inputs');
+  expect(disclosure.closest('details')).not.toHaveAttribute('open');
+  fireEvent.click(disclosure);
   expect(screen.getByRole('option', { name: 'Revenue' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Price as of')).toHaveClass('noeis-form-control');
+  expect(screen.getByLabelText('Calculation scale')).toHaveClass('noeis-form-control');
 
   fireEvent.change(screen.getByLabelText('Price as of'), { target: { value: '2026-07-24' } });
   fireEvent.change(screen.getByLabelText('Share price'), { target: { value: '950' } });
@@ -119,4 +124,16 @@ test('hides an incomplete public valuation', () => {
     <WikiInvestmentValuation valuation={{ status: 'awaiting_inputs' }} readOnly />
   );
   expect(container).toBeEmptyDOMElement();
+});
+
+test('keeps incomplete private expectations compact until inputs are requested', () => {
+  render(
+    <SystemStatusProvider value={controls}>
+      <WikiInvestmentValuation page={page} pageId="page-cost" />
+    </SystemStatusProvider>
+  );
+
+  expect(screen.getByText('Awaiting dated market inputs')).toBeInTheDocument();
+  const disclosure = screen.getByText('Add dated market inputs');
+  expect(disclosure.closest('details')).not.toHaveAttribute('open');
 });
