@@ -2502,6 +2502,138 @@ const buildWikiRouter = ({
     }
   };
 
+  const acquireSecPrimaryPackForDossier = async ({
+    page,
+    userId,
+    now = new Date()
+  } = {}) => {
+    if (!page || !isCompanyDossier(page)) {
+      return {
+        filings: [],
+        events: [],
+        sourcesAdded: 0,
+        stop: null,
+        skipped: true
+      };
+    }
+    const priorProfile = page.investmentDossier?.toObject
+      ? page.investmentDossier.toObject()
+      : page.investmentDossier || {};
+    const priorState = priorProfile.acquisition?.secPrimaryPack || {};
+    if (priorState.status === 'checked') {
+      return {
+        filings: [],
+        events: [],
+        sourcesAdded: 0,
+        stop: null,
+        skipped: true
+      };
+    }
+    const beforeSourceIds = new Set((page.sourceRefs || []).map(source => (
+      serializeId(source?.metadata?.sourceEventId || source?.objectId)
+    )).filter(Boolean));
+    let result;
+    let stop = null;
+    try {
+      result = await withTransientRetries({
+        attempts: 3,
+        delaysMs: [750, 2000],
+        operation: () => checkEdgarWatchForPage({
+          WikiSourceEvent,
+          page,
+          limit: 8,
+          selectionMode: 'company_dossier_bootstrap'
+        })
+      });
+      const bootstrapEvents = (result.events || []).map((event) => {
+        const raw = event?.toObject ? event.toObject() : event;
+        return {
+          ...raw,
+          metadata: {
+            ...(raw?.metadata || {}),
+            sourceEventId: serializeId(raw?._id),
+            evidenceArchetype: 'filing',
+            evidenceState: 'attached_at_creation',
+            bootstrapDisposition: 'attached_for_first_build'
+          }
+        };
+      });
+      await attachSourceEventsToPageRefs({
+        page,
+        events: bootstrapEvents,
+        limit: 8
+      });
+      await Promise.all((result.events || []).map(async (event) => {
+        const raw = event?.toObject ? event.toObject() : event;
+        const metadata = {
+          ...(raw?.metadata || {}),
+          sourceEventId: serializeId(raw?._id),
+          evidenceArchetype: 'filing',
+          evidenceState: 'attached_at_creation',
+          bootstrapDisposition: 'attached_for_first_build'
+        };
+        if (typeof event?.save === 'function') {
+          event.status = 'ignored';
+          event.processedAt = now;
+          event.errorMessage = '';
+          event.metadata = metadata;
+          event.markModified?.('metadata');
+          await event.save();
+          return;
+        }
+        if (WikiSourceEvent?.findOneAndUpdate && raw?._id) {
+          await WikiSourceEvent.findOneAndUpdate(
+            { _id: raw._id, userId },
+            {
+              $set: {
+                status: 'ignored',
+                processedAt: now,
+                errorMessage: '',
+                metadata
+              }
+            }
+          );
+        }
+      }));
+    } catch (error) {
+      result = { filings: [], events: [] };
+      stop = {
+        code: 'SEC_PRIMARY_PACK_UNAVAILABLE',
+        evidenceArchetype: 'filing',
+        message: 'The broader SEC filing pack could not be loaded after automatic retries. The saved filing evidence is unchanged.'
+      };
+    }
+    const filingSourceRefs = (page.sourceRefs || []).filter(source => (
+      source?.provider === 'sec-edgar'
+      && source?.metadata?.evidenceArchetype === 'filing'
+    ));
+    const sourcesAdded = filingSourceRefs.filter(source => {
+      const id = serializeId(source?.metadata?.sourceEventId || source?.objectId);
+      return id && !beforeSourceIds.has(id);
+    }).length;
+    page.investmentDossier = {
+      ...priorProfile,
+      acquisition: {
+        ...(priorProfile.acquisition || {}),
+        secPrimaryPack: {
+          status: stop ? 'unavailable' : 'checked',
+          lastAttemptedAt: now,
+          selectedFilingCount: result.filings?.length || 0,
+          attachedFilingCount: filingSourceRefs.length,
+          stop
+        }
+      }
+    };
+    page.markModified?.('investmentDossier');
+    return {
+      filings: result.filings || [],
+      events: result.events || [],
+      sourcesAdded,
+      stop,
+      skipped: false
+    };
+  };
+
   const acquireCompanyFactsForDossier = async ({ page, now = new Date() } = {}) => {
     if (!page || !isCompanyDossier(page)) {
       return { sourceAdded: false, sourceRef: null, stop: null, skipped: true };
@@ -3401,71 +3533,15 @@ const buildWikiRouter = ({
         await page.save();
       }
 
-      let watchResult = { filings: [], events: [] };
-      let watchError = '';
-      try {
-        watchResult = await withTransientRetries({
-          attempts: 3,
-          delaysMs: [750, 2000],
-          operation: () => checkEdgarWatchForPage({
-            WikiSourceEvent,
-            page,
-            limit: 8,
-            selectionMode: 'company_dossier_bootstrap'
-          })
-        });
-        const bootstrapEvents = (watchResult.events || []).map((event) => {
-          const raw = event?.toObject ? event.toObject() : event;
-          return {
-            ...raw,
-            metadata: {
-              ...(raw?.metadata || {}),
-              sourceEventId: serializeId(raw?._id),
-              evidenceArchetype: 'filing',
-              evidenceState: 'attached_at_creation',
-              bootstrapDisposition: 'attached_for_first_build'
-            }
-          };
-        });
-        await attachSourceEventsToPageRefs({
-          page,
-          events: bootstrapEvents,
-          limit: 8
-        });
-        await Promise.all((watchResult.events || []).map(async (event) => {
-          const raw = event?.toObject ? event.toObject() : event;
-          const metadata = {
-            ...(raw?.metadata || {}),
-            evidenceArchetype: 'filing',
-            evidenceState: 'attached_at_creation',
-            bootstrapDisposition: 'attached_for_first_build'
-          };
-          if (typeof event?.save === 'function') {
-            event.status = 'ignored';
-            event.processedAt = new Date();
-            event.errorMessage = '';
-            event.metadata = metadata;
-            event.markModified?.('metadata');
-            await event.save();
-            return;
-          }
-          if (WikiSourceEvent?.findOneAndUpdate && raw?._id) {
-            await WikiSourceEvent.findOneAndUpdate(
-              { _id: raw._id, userId: req.user.id },
-              {
-                $set: {
-                  status: 'ignored',
-                  processedAt: new Date(),
-                  errorMessage: '',
-                  metadata
-                }
-              }
-            );
-          }
-        }));
-      } catch (error) {
-        watchError = String(error?.message || 'SEC filing check failed.');
-      }
+      const secPrimaryPackAcquisition = await acquireSecPrimaryPackForDossier({
+        page,
+        userId: req.user.id
+      });
+      const watchResult = {
+        filings: secPrimaryPackAcquisition.filings,
+        events: secPrimaryPackAcquisition.events
+      };
+      const watchError = secPrimaryPackAcquisition.stop?.message || '';
       const companyFactsAcquisition = await acquireCompanyFactsForDossier({ page });
       const officialProductAcquisition = await acquireOfficialProductSourcesForDossier({ page });
       const competitorPrimaryAcquisition = await acquireCompetitorPrimaryForDossier({
@@ -3473,7 +3549,8 @@ const buildWikiRouter = ({
         userId: req.user.id
       });
       if (
-        !companyFactsAcquisition.skipped
+        !secPrimaryPackAcquisition.skipped
+        || !companyFactsAcquisition.skipped
         || !officialProductAcquisition.skipped
         || !competitorPrimaryAcquisition.skipped
       ) await page.save();
@@ -5843,6 +5920,23 @@ const buildWikiRouter = ({
       openWikiDraftStream(res);
 
       if (isCompanyDossier(page)) {
+        const secPrimaryPackAcquisition = await acquireSecPrimaryPackForDossier({
+          page,
+          userId: req.user.id
+        });
+        if (!secPrimaryPackAcquisition.skipped) {
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-draft', {
+            stage: secPrimaryPackAcquisition.stop
+              ? 'sec_primary_pack_unavailable'
+              : 'sec_primary_pack_checked',
+            summary: secPrimaryPackAcquisition.stop?.message
+              || (secPrimaryPackAcquisition.sourcesAdded
+                ? `Attached ${secPrimaryPackAcquisition.sourcesAdded} additional SEC filing source${secPrimaryPackAcquisition.sourcesAdded === 1 ? '' : 's'}.`
+                : 'The saved SEC filing pack is already current.'),
+            sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          });
+        }
         const companyFactsAcquisition = await acquireCompanyFactsForDossier({ page });
         if (!companyFactsAcquisition.skipped) {
           page = await savePageWithVersionRetry(page, req.user.id);
