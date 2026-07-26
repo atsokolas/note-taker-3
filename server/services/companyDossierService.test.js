@@ -20,6 +20,8 @@ const profile = buildInvestmentDossierProfile({
   ...input,
   companyName: 'NVIDIA CORP',
   cik: '1045810',
+  sic: '3674',
+  sicDescription: 'Semiconductors & Related Devices',
   now: new Date('2026-07-23T00:00:00.000Z')
 });
 assert.strictEqual(profile.valuation.status, 'awaiting_inputs');
@@ -27,6 +29,8 @@ assert.strictEqual(profile.clocks.filingAcceptedAt, null);
 assert.strictEqual(profile.clocks.domainEvidenceAcceptedAt, null);
 assert.strictEqual(profile.startingJudgment, input.startingJudgment);
 assert.strictEqual(profile.version, 2);
+assert.strictEqual(profile.company.sic, '3674');
+assert.strictEqual(profile.company.sicDescription, 'Semiconductors & Related Devices');
 assert.strictEqual(profile.researchPlan.status, 'research_incomplete');
 assert(profile.researchPlan.requiredModuleIds.includes('customer_value_unit'));
 assert.strictEqual(companyDossierInputsMatch(profile, input), true);

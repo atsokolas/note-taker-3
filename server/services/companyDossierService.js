@@ -54,11 +54,27 @@ const buildCompanyDossierBody = ({ companyName, ticker, startingJudgment, requir
   ]
 });
 
-const buildInvestmentDossierProfile = ({ companyName, cik, ticker, startingJudgment, requiredReturn, horizonYears, now = new Date() }) => (
+const buildInvestmentDossierProfile = ({
+  companyName,
+  cik,
+  ticker,
+  sic = '',
+  sicDescription = '',
+  startingJudgment,
+  requiredReturn,
+  horizonYears,
+  now = new Date()
+}) => (
   upgradeInvestmentDossierProfile({
     profile: {
       version: 2,
-      company: { name: clean(companyName, 240), ticker, cik: clean(cik, 20) },
+      company: {
+        name: clean(companyName, 240),
+        ticker,
+        cik: clean(cik, 20),
+        sic: clean(sic, 20),
+        sicDescription: clean(sicDescription, 240)
+      },
       startingJudgment,
       hurdle: { annualReturn: requiredReturn, horizonYears },
       valuation: {
