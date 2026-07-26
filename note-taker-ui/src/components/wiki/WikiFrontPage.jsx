@@ -33,7 +33,7 @@ import '../../styles/wiki-front-page.css';
 
 // AT-394 — the wiki front page. Opening Noeis lands here: a newspaper-shaped
 // reading surface. Alive the way a newspaper on the doorstep is alive — new
-// today, and it arrives (one ~1.2s entrance, then stillness). The maintenance
+// today, and it arrives (one brief entrance, then stillness). The maintenance
 // workspace (map, review queues, drop-source, telemetry) lives behind one
 // hairline link; it is no longer the front door.
 
@@ -41,6 +41,7 @@ const INDEX_PAGE_LIMIT = 80;
 const LEAD_EXCERPT_BUDGET = 320;
 const EXPLORE_LIMIT = 10;
 const GROWN_LIMIT = 3;
+const WATCHING_PREVIEW_LIMIT = 5;
 const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
 const WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
@@ -390,6 +391,17 @@ const WikiFrontPage = () => {
     }
   };
 
+  const renderWatcher = (watch) => (
+    <li key={watch.id}>
+      <div>
+        <strong>{watch.label}</strong>
+        <span>{watch.page.title} · {watch.detail}</span>
+        {watch.errorMessage ? <em>{watch.errorMessage}</em> : null}
+      </div>
+      <button type="button" disabled={watchingBusy} onClick={() => handleDisarmWatcher(watch)}>Disarm</button>
+    </li>
+  );
+
   if (loading) {
     return (
       <WikiFrontPageShell aria-busy="true">
@@ -429,10 +441,10 @@ const WikiFrontPage = () => {
     return (
       <WikiFrontPageShell>
         <header className="wiki-front-page__top">
-          <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
-            Morning paper · {mastheadDate()}
-          </p>
-          <div className="wiki-front-page__intro wfp-anim wfp-anim--2">
+          <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
+            <p className="wiki-index__eyebrow wiki-front-page__masthead">
+              Morning paper · {mastheadDate()}
+            </p>
             {workspaceNav}
           </div>
         </header>
@@ -458,173 +470,207 @@ const WikiFrontPage = () => {
   return (
     <WikiFrontPageShell>
       <header className="wiki-front-page__top">
-        <p className="wiki-index__eyebrow wiki-front-page__masthead wfp-anim wfp-anim--1">
-          Morning paper · {mastheadDate()}
-        </p>
-        <div className="wiki-front-page__intro wfp-anim wfp-anim--2">
-          {leadSentence ? (
-            <p className="wiki-front-page__lead">
-              <WriteIn text={leadSentence} />
-            </p>
-          ) : null}
-          {briefingNextAction ? (
-            <div className="wiki-front-page__next-action">
-              <span className="wiki-front-page__next-action-kicker">Return path</span>
-              <Link className="wiki-front-page__next-action-link" to={briefingNextAction.href}>
-                {briefingNextAction.label} →
-              </Link>
-              {briefingNextAction.reason ? (
-                <p className="wiki-front-page__next-action-reason">{briefingNextAction.reason}</p>
+        <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
+          <p className="wiki-index__eyebrow wiki-front-page__masthead">
+            Morning paper · {mastheadDate()}
+          </p>
+          {workspaceNav}
+        </div>
+        <div className={`wiki-front-page__intro wfp-anim wfp-anim--2${claimCheckIn || checkInMessage || briefing?.checkInStreak ? ' wiki-front-page__intro--split' : ''}`}>
+          <div className="wiki-front-page__briefing-copy">
+            {leadSentence ? (
+              <p className="wiki-front-page__lead">
+                <WriteIn text={leadSentence} />
+              </p>
+            ) : null}
+            {briefingNextAction ? (
+              <div className="wiki-front-page__next-action">
+                <span className="wiki-front-page__next-action-kicker">Return path</span>
+                <Link className="wiki-front-page__next-action-link" to={briefingNextAction.href}>
+                  {briefingNextAction.label} →
+                </Link>
+                {briefingNextAction.reason ? (
+                  <p className="wiki-front-page__next-action-reason">{briefingNextAction.reason}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {briefing?.lead ? (
+              <section className="wiki-front-page__watcher-contract" aria-label="Watcher lead analysis">
+                <span>{briefing.lead.watcherLabel || 'Watcher'} → {briefing.lead.page?.title || 'Affected page'} → {briefing.lead.maintenanceStatus || 'queued'}</span>
+                {briefing.lead.claimImpacts?.length ? (
+                  <ul>
+                    {briefing.lead.claimImpacts.map(impact => (
+                      <li key={impact.claimId}>
+                        <code>{impact.claimId}</code>
+                        <span>{impact.beforeSupport || 'untracked'} → {impact.afterSupport || 'untracked'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p>{briefing.lead.impactSummary || 'not yet analyzed — queued'}</p>}
+              </section>
+            ) : null}
+            {primaryReturnLoopNote ? (
+              <p className="wiki-front-page__evidence-strip">
+                <span>Evidence surfaced</span>
+                <Link to={primaryReturnLoopNote.href}>{primaryReturnLoopNote.label}</Link>
+                <em>{primaryReturnLoopNote.detail}</em>
+              </p>
+            ) : null}
+          </div>
+          {claimCheckIn || checkInMessage || briefing?.checkInStreak ? (
+            <div className="wiki-front-page__judgment-panel">
+              {claimCheckIn ? (
+                <section className="wiki-front-page__check-in" aria-labelledby="morning-claim-check-in">
+                  <span className="wiki-front-page__next-action-kicker">Claim check-in</span>
+                  <h2 id="morning-claim-check-in">{claimCheckIn.text}</h2>
+                  <p>{claimCheckIn.pageTitle}{claimCheckIn.changedSinceLastCheck ? ' · evidence changed since your last review' : ''}</p>
+                  {showRevisionDraft ? (
+                    <div className="wiki-front-page__check-in-revision">
+                      <textarea
+                        aria-label="Revised claim"
+                        value={revisionDraft}
+                        onChange={(event) => setRevisionDraft(event.target.value)}
+                        rows={3}
+                      />
+                      <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
+                      <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="wiki-front-page__check-in-actions">
+                      <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
+                      <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
+                      <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
+                      <Link to={claimCheckIn.href}>Open claim</Link>
+                    </div>
+                  )}
+                </section>
               ) : null}
+              {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
+              {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
             </div>
           ) : null}
-          {briefing?.lead ? (
-            <section className="wiki-front-page__watcher-contract" aria-label="Watcher lead analysis">
-              <span>{briefing.lead.watcherLabel || 'Watcher'} → {briefing.lead.page?.title || 'Affected page'} → {briefing.lead.maintenanceStatus || 'queued'}</span>
-              {briefing.lead.claimImpacts?.length ? (
-                <ul>
-                  {briefing.lead.claimImpacts.map(impact => (
-                    <li key={impact.claimId}>
-                      <code>{impact.claimId}</code>
-                      <span>{impact.beforeSupport || 'untracked'} → {impact.afterSupport || 'untracked'}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <p>{briefing.lead.impactSummary || 'not yet analyzed — queued'}</p>}
-            </section>
-          ) : null}
-          {primaryReturnLoopNote ? (
-            <p className="wiki-front-page__evidence-strip">
-              <span>Evidence surfaced</span>
-              <Link to={primaryReturnLoopNote.href}>{primaryReturnLoopNote.label}</Link>
-              <em>{primaryReturnLoopNote.detail}</em>
-            </p>
-          ) : null}
-          {claimCheckIn ? (
-            <section className="wiki-front-page__check-in" aria-labelledby="morning-claim-check-in">
-              <span className="wiki-front-page__next-action-kicker">Claim check-in</span>
-              <h2 id="morning-claim-check-in">{claimCheckIn.text}</h2>
-              <p>{claimCheckIn.pageTitle}{claimCheckIn.changedSinceLastCheck ? ' · evidence changed since your last review' : ''}</p>
-              {showRevisionDraft ? (
-                <div className="wiki-front-page__check-in-revision">
-                  <textarea
-                    aria-label="Revised claim"
-                    value={revisionDraft}
-                    onChange={(event) => setRevisionDraft(event.target.value)}
-                    rows={3}
-                  />
-                  <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
-                  <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
-                </div>
-              ) : (
-                <div className="wiki-front-page__check-in-actions">
-                  <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
-                  <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
-                  <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
-                  <Link to={claimCheckIn.href}>Open claim</Link>
-                </div>
-              )}
-            </section>
-          ) : null}
-          {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
-          {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
-          {workspaceNav}
         </div>
       </header>
 
-      <div className="wiki-front-page__columns">
-        {todaysPage ? (
-          <section className="wiki-front-page__story wfp-anim wfp-anim--3" aria-labelledby="wfp-story-title">
-            <p className="wiki-index__eyebrow">Today&rsquo;s page</p>
-            <h1 id="wfp-story-title">
-              <Link to={wikiPagePath(pageId(todaysPage))}>{displayWikiPageTitle(todaysPage, 'Untitled page')}</Link>
-            </h1>
-            {leadExcerpt ? <p className="wiki-front-page__excerpt">{leadExcerpt}</p> : null}
-            <Link className="wiki-front-page__continue" to={wikiPagePath(pageId(todaysPage))}>
-              Continue reading →
-            </Link>
-          </section>
-        ) : (
-          <h1 className="sr-only">Morning paper</h1>
-        )}
+      <div className="wiki-front-page__workspace">
+        <div className="wiki-front-page__primary wfp-anim wfp-anim--3">
+          <div className="wiki-front-page__columns">
+            {todaysPage ? (
+              <section className="wiki-front-page__story" aria-labelledby="wfp-story-title">
+                <p className="wiki-index__eyebrow">Continue</p>
+                <h1 id="wfp-story-title">
+                  <Link to={wikiPagePath(pageId(todaysPage))}>{displayWikiPageTitle(todaysPage, 'Untitled page')}</Link>
+                </h1>
+                {growthNote(todaysPage) ? (
+                  <p className="wiki-front-page__story-meta">{growthNote(todaysPage)}</p>
+                ) : null}
+                {leadExcerpt ? <p className="wiki-front-page__excerpt">{leadExcerpt}</p> : null}
+                <Link className="wiki-front-page__continue" to={wikiPagePath(pageId(todaysPage))}>
+                  Continue reading →
+                </Link>
+              </section>
+            ) : (
+              <h1 className="sr-only">Morning paper</h1>
+            )}
 
-        {recentlyGrown.length ? (
-          <aside className="wiki-front-page__grown wfp-anim wfp-anim--4" aria-labelledby="wfp-grown-title">
-            <h2 id="wfp-grown-title" className="wiki-index__eyebrow">Recently grown</h2>
-            <ul>
-              {recentlyGrown.map((page) => (
-                <li key={pageId(page)}>
-                  <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                  {growthNote(page)
-                    ? <span className="wiki-front-page__growth-note">{growthNote(page)}</span>
-                    : null}
-                </li>
-              ))}
-            </ul>
-          </aside>
-        ) : null}
-      </div>
-
-      <section className="wiki-front-page__watching wfp-anim wfp-anim--5" aria-labelledby="wfp-watching-title">
-        <div className="wiki-front-page__watching-header">
-          <div>
-            <p className="wiki-index__eyebrow">Peripheral vision</p>
-            <h2 id="wfp-watching-title">Watching</h2>
-          </div>
-          <span>{watching.length} armed</span>
-        </div>
-        {watching.length ? (
-          <ul>
-            {watching.map(watch => (
-              <li key={watch.id}>
-                <div>
-                  <strong>{watch.label}</strong>
-                  <span>{watch.page.title} · {watch.detail}</span>
-                  {watch.errorMessage ? <em>{watch.errorMessage}</em> : null}
+            {recentlyGrown.length ? (
+              <aside className="wiki-front-page__grown" aria-labelledby="wfp-grown-title">
+                <div className="wiki-front-page__section-heading">
+                  <h2 id="wfp-grown-title">Recently grown</h2>
+                  <span>{recentlyGrown.length}</span>
                 </div>
-                <button type="button" disabled={watchingBusy} onClick={() => handleDisarmWatcher(watch)}>Disarm</button>
-              </li>
-            ))}
-          </ul>
-        ) : <p className="wiki-front-page__watching-empty">No watchers armed yet.</p>}
-        <form className="wiki-front-page__reading-watch" onSubmit={handleArmReading}>
-          <label>
-            Page
-            <select aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
-              <option value="">Choose a page</option>
-              {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
-            </select>
-          </label>
-          <label>
-            RSS or Atom URL
-            <input type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
-          </label>
-          <button type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
-        </form>
-      </section>
+                <ul>
+                  {recentlyGrown.map((page, index) => (
+                    <li key={pageId(page)}>
+                      <span className="wiki-front-page__row-index" aria-hidden="true">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <div>
+                        <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                        {growthNote(page)
+                          ? <span className="wiki-front-page__growth-note">{growthNote(page)}</span>
+                          : null}
+                      </div>
+                      <span className="wiki-front-page__row-arrow" aria-hidden="true">→</span>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            ) : null}
+          </div>
 
-      {explorePages.length ? (
-        <section className="wiki-front-page__explore wfp-anim wfp-anim--5" aria-labelledby="wfp-explore-title">
-          <h2 id="wfp-explore-title" className="wiki-index__eyebrow">Explore</h2>
-          <p className="wiki-front-page__index">
-            {explorePages.map((page, i) => (
-              <React.Fragment key={pageId(page)}>
-                {i > 0 ? <span aria-hidden="true" className="wiki-front-page__dot"> · </span> : null}
-                <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-              </React.Fragment>
-            ))}
-          </p>
-        </section>
-      ) : null}
+          {explorePages.length ? (
+            <section className="wiki-front-page__explore" aria-labelledby="wfp-explore-title">
+              <h2 id="wfp-explore-title" className="wiki-index__eyebrow">Explore</h2>
+              <p className="wiki-front-page__index">
+                {explorePages.map((page, i) => (
+                  <React.Fragment key={pageId(page)}>
+                    {i > 0 ? <span aria-hidden="true" className="wiki-front-page__dot"> · </span> : null}
+                    <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                  </React.Fragment>
+                ))}
+              </p>
+            </section>
+          ) : null}
 
-      <section className="wiki-front-page__composer wfp-anim wfp-anim--6" aria-label="Ask or build a wiki page">
-        <WikiBuildPageComposer compact className="wiki-front-page__builder" />
-      </section>
+          <div className="wiki-front-page__creation-tools">
+            <section className="wiki-front-page__composer" aria-label="Ask or build a wiki page">
+              <WikiBuildPageComposer compact className="wiki-front-page__builder" />
+            </section>
 
-      <section className="wiki-front-page__repo-create wfp-anim wfp-anim--7" aria-label="Create a repo wiki from GitHub">
-        <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
-      </section>
-      <WikiCompanyDossierComposer className="wiki-front-page__company-builder wfp-anim wfp-anim--7" />
+            <section className="wiki-front-page__repo-create" aria-label="Create a repo wiki from GitHub">
+              <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
+            </section>
+            <WikiCompanyDossierComposer className="wiki-front-page__company-builder" />
+          </div>
+        </div>
+
+        <aside className="wiki-front-page__activity-rail wfp-anim wfp-anim--4" aria-label="Wiki activity">
+          <section className="wiki-front-page__watching" aria-labelledby="wfp-watching-title">
+            <div className="wiki-front-page__watching-header">
+              <div>
+                <p className="wiki-index__eyebrow">Peripheral vision</p>
+                <h2 id="wfp-watching-title">Watching</h2>
+              </div>
+              <span>{watching.length} armed</span>
+            </div>
+            {watching.length ? (
+              <>
+                <ul>
+                  {watching.slice(0, WATCHING_PREVIEW_LIMIT).map(renderWatcher)}
+                </ul>
+                {watching.length > WATCHING_PREVIEW_LIMIT ? (
+                  <details className="wiki-front-page__watching-more">
+                    <summary>
+                      {watching.length - WATCHING_PREVIEW_LIMIT} more watcher{watching.length - WATCHING_PREVIEW_LIMIT === 1 ? '' : 's'}
+                    </summary>
+                    <ul>
+                      {watching.slice(WATCHING_PREVIEW_LIMIT).map(renderWatcher)}
+                    </ul>
+                  </details>
+                ) : null}
+              </>
+            ) : <p className="wiki-front-page__watching-empty">No watchers armed yet.</p>}
+            <details className="wiki-front-page__watching-add">
+              <summary>Add reading feed</summary>
+              <form className="wiki-front-page__reading-watch" onSubmit={handleArmReading}>
+                <label>
+                  Page
+                  <select aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
+                    <option value="">Choose a page</option>
+                    {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
+                  </select>
+                </label>
+                <label>
+                  RSS or Atom URL
+                  <input type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
+                </label>
+                <button type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
+              </form>
+            </details>
+          </section>
+        </aside>
+      </div>
 
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
     </WikiFrontPageShell>
