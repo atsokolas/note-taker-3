@@ -394,12 +394,38 @@ const serializePublicProofEntry = ({ slot = {}, page = {}, serializePage, compac
   };
 };
 
+const buildPublicProofRegistryState = ({
+  entries = [],
+  expectedCount = DEFAULT_PUBLIC_PROOF_SLOTS.length
+} = {}) => {
+  const safeEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
+  const provenEntries = safeEntries.filter(entry => entry.proofGrade?.grade === PUBLIC_PROOF_GRADES.PROVEN);
+  const campaignEntries = safeEntries.filter(entry => (
+    entry.proofGrade?.grade === PUBLIC_PROOF_GRADES.PROVEN
+    || entry.proofGrade?.grade === PUBLIC_PROOF_GRADES.CANDIDATE
+  ));
+  const homepageProof = provenEntries[0] || campaignEntries[0] || null;
+  return {
+    homepageCta: homepageProof ? {
+      href: homepageProof.publicUrl,
+      title: homepageProof.title
+    } : null,
+    expectedCount,
+    resolvedCount: safeEntries.length,
+    provenCount: provenEntries.length,
+    registryState: provenEntries.length > 0 ? 'resolved' : 'unresolved',
+    complete: provenEntries.length > 0,
+    slotCoverageComplete: safeEntries.length === expectedCount
+  };
+};
+
 module.exports = {
   DEFAULT_PUBLIC_PROOF_SLOTS,
   PUBLIC_PROOF_PRIVACY_STATEMENT,
   PUBLIC_PROOF_GRADES,
   buildPublicMaintenanceProof,
   buildPublicProofGrade,
+  buildPublicProofRegistryState,
   compactRegistryPage,
   selectPublicProofPages,
   serializePublicProofEntry,

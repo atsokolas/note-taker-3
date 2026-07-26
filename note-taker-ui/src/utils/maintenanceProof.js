@@ -137,6 +137,15 @@ export const normalizePublicProofRegistry = (payload = {}) => {
 
   return {
     items,
+    registryState: cleanText(payload.registryState) === 'resolved'
+      || payload.complete === true
+      || items.some(item => item.proofGrade?.grade === 'proven')
+      ? 'resolved'
+      : 'unresolved',
+    provenCount: Number.isFinite(Number(payload.provenCount))
+      ? Number(payload.provenCount)
+      : items.filter(item => item.proofGrade?.grade === 'proven').length,
+    slotCoverageComplete: payload.slotCoverageComplete === true,
     homepageCta: homepageCta?.href ? homepageCta : (items[0]?.href ? {
       href: items[0].href,
       title: items[0].title

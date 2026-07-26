@@ -165,6 +165,7 @@ describe('PublicProofGallery', () => {
       </MemoryRouter>
     );
 
+    expect(document.querySelector('.public-proof-gallery')).toHaveAttribute('data-proof-registry-state', 'loading');
     expect(screen.getByRole('status')).toHaveTextContent('Resolving accepted proof');
     expect(await screen.findByRole('heading', { name: 'Watch trusted knowledge survive a changing source.' })).toBeInTheDocument();
     expect(getPublicProofRegistry).toHaveBeenCalledTimes(1);
@@ -194,6 +195,7 @@ describe('PublicProofGallery', () => {
     expect(screen.queryByText(/^Proven$/i)).not.toBeInTheDocument();
     expect(screen.getByText(PUBLIC_PROOF_PRIVACY_STATEMENT)).toBeInTheDocument();
     expect(screen.getAllByText(/Maintained by the owner's agent/i)).toHaveLength(1);
+    expect(document.querySelector('.public-proof-gallery')).toHaveAttribute('data-proof-registry-state', 'unresolved');
   });
 
   it('opts the long-form public route into document scrolling and cleans up', () => {
@@ -260,6 +262,7 @@ describe('PublicProofGallery', () => {
     render(<MemoryRouter initialEntries={['/proof']}><PublicProofGallery /></MemoryRouter>);
 
     expect(await screen.findByRole('region', { name: 'Flagship proof' })).toBeInTheDocument();
+    expect(document.querySelector('.public-proof-gallery')).toHaveAttribute('data-proof-registry-state', 'resolved');
     expect(screen.getByRole('heading', { name: 'One accepted maintenance loop.' })).toBeInTheDocument();
     expect(screen.getAllByText('Proven').length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Inspect the maintenance proof' })).toHaveAttribute(
@@ -361,6 +364,7 @@ describe('PublicProofGallery', () => {
     );
 
     expect(await screen.findByText(/proof registry is temporarily unavailable/i)).toBeInTheDocument();
+    expect(document.querySelector('.public-proof-gallery')).toHaveAttribute('data-proof-registry-state', 'error');
   });
 
   it('emits CollectionPage JSON-LD with maintenance dates and citations', async () => {

@@ -168,13 +168,17 @@ const run = async () => {
     assert.strictEqual(response.status, 200);
     assert.strictEqual(payload.complete, true);
     assert.strictEqual(payload.expectedCount, 8);
+    assert.strictEqual(payload.resolvedCount, 8);
+    assert.strictEqual(payload.provenCount, 2);
+    assert.strictEqual(payload.registryState, 'resolved');
+    assert.strictEqual(payload.slotCoverageComplete, true);
     assert.strictEqual(payload.items.length, 8);
     assert.ok(observedPublicProofQuery['createdFrom.label'].$not.test('research-ledger:2026-07:thesis-001'));
     assert.ok(observedPublicProofQuery['createdFrom.label'].$not.test('weekend-readings:2026-07-07:2026-07-20'));
     assert.ok(!JSON.stringify(payload).includes('PRIVATE-LEDGER-PROOF-SENTINEL'));
     assert.ok(!JSON.stringify(payload).includes('PRIVATE-WEEKEND-PROOF-SENTINEL'));
     assert.strictEqual(payload.items[0].slot, 'alphabet');
-    assert.strictEqual(payload.homepageCta.href, '/share/wiki/alphabet');
+    assert.strictEqual(payload.homepageCta.href, '/share/wiki/nvidia');
     assert.strictEqual(payload.items[6].maintenanceProof.currentThrough.label, 'Commit 54154fb');
     assert.strictEqual(payload.items[0].proofGrade.grade, 'acceptance_in_progress');
     assert.deepStrictEqual(payload.items[0].proofGrade.criteria.requiredClocks, {

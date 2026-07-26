@@ -4,6 +4,7 @@ const {
   PUBLIC_PROOF_PRIVACY_STATEMENT,
   buildPublicMaintenanceProof,
   buildPublicProofGrade,
+  buildPublicProofRegistryState,
   selectPublicProofPages,
   serializePublicProofEntry
 } = require('./publicProofService');
@@ -25,6 +26,25 @@ const sharedPage = (overrides = {}) => ({
   externalWatches: {},
   ...overrides
 });
+
+(() => {
+  const registry = buildPublicProofRegistryState({
+    expectedCount: 8,
+    entries: [{
+      title: 'NVIDIA dossier',
+      publicUrl: '/share/wiki/nvidia',
+      proofGrade: { grade: 'proven' }
+    }]
+  });
+  assert.strictEqual(registry.complete, true);
+  assert.strictEqual(registry.registryState, 'resolved');
+  assert.strictEqual(registry.slotCoverageComplete, false);
+  assert.strictEqual(registry.provenCount, 1);
+  assert.deepStrictEqual(registry.homepageCta, {
+    href: '/share/wiki/nvidia',
+    title: 'NVIDIA dossier'
+  });
+})();
 
 (() => {
   const acceptedShape = sharedPage({
