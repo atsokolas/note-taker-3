@@ -195,6 +195,30 @@ const load = (harness, overrides = {}) => loadConceptDecisionLessonEvidence({
     () => request(buildHarness().models, { buildLessons: async () => [] }),
     error => error instanceof ConceptDecisionLessonAdoptionError && error.code === 'lesson_unavailable'
   );
+  await assert.rejects(
+    () => request(buildHarness().models, {
+      buildLessons: async () => [{
+        ...canonicalLesson(),
+        page: { ...canonicalLesson().page, id: '64f600000000000000000099' }
+      }]
+    }),
+    error => error instanceof ConceptDecisionLessonAdoptionError && error.code === 'lesson_unavailable'
+  );
+  await assert.rejects(
+    () => request(buildHarness().models, {
+      buildLessons: async () => [{ ...canonicalLesson(), relevanceBasis: null }]
+    }),
+    error => error instanceof ConceptDecisionLessonAdoptionError && error.code === 'lesson_unavailable'
+  );
+  await assert.rejects(
+    () => request(buildHarness().models, {
+      buildLessons: async () => [{
+        ...canonicalLesson(),
+        relevanceBasis: { type: 'explicit_wiki_investigation', pageId: '64f600000000000000000099' }
+      }]
+    }),
+    error => error instanceof ConceptDecisionLessonAdoptionError && error.code === 'lesson_unavailable'
+  );
 
   const orphanAdoption = buildHarness();
   await request(orphanAdoption.models);

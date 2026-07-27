@@ -279,6 +279,8 @@ const adoptDecisionLessonEvidence = async ({
       const matching = list(lessons).filter(value => (
         clean(value?.id, 180) === safe.lessonId
         && clean(value?.decision?.id, 180) === safe.decisionId
+        && id(value?.page?.id) === safe.sourcePageId
+        && id(value?.relevanceBasis?.pageId) === safe.sourcePageId
       ));
       if (matching.length !== 1) {
         throw new ConceptDecisionLessonAdoptionError(
