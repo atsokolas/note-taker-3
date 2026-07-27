@@ -12,11 +12,10 @@ const formatDate = value => {
   }).format(date);
 };
 
-const hasSafeInternalHref = ref => (
-  typeof ref?.href === 'string'
-  && ref.href.startsWith('/')
-  && !ref.href.startsWith('//')
-);
+const hasSafeInternalHref = ref => {
+  const href = typeof ref === 'string' ? ref : ref?.href;
+  return typeof href === 'string' && href.startsWith('/') && !href.startsWith('//');
+};
 
 const destinationLabel = type => {
   if (type === 'wiki_claim') return 'Claim';
@@ -182,6 +181,15 @@ const LibrarySourceTrace = ({
     : envelope.type === 'highlight'
       ? 'Open highlight'
       : 'Open source';
+  const openHref = hasSafeInternalHref(envelope.href)
+    ? envelope.href
+    : envelope.type === 'note' && envelope.id
+      ? `/think?tab=notebook&entryId=${encodeURIComponent(envelope.id)}`
+      : envelope.type === 'highlight' && envelope.id && envelope.parentId
+        ? `/library?articleId=${encodeURIComponent(envelope.parentId)}&highlightId=${encodeURIComponent(envelope.id)}`
+        : envelope.id
+          ? `/library?articleId=${encodeURIComponent(envelope.id)}`
+          : '';
 
   const handleOpen = () => {
     if (typeof onOpenSource !== 'function') return;
@@ -282,16 +290,16 @@ const LibrarySourceTrace = ({
         )}
       </div>
 
-      {isPreview && typeof onOpenSource === 'function' ? (
+      {isPreview && hasSafeInternalHref(openHref) ? (
         <div className="library-source-trace__actions">
-          <button
-            type="button"
+          <a
+            href={openHref}
             className="library-source-trace__open"
             data-testid="library-source-trace-open"
             onClick={handleOpen}
           >
             {openLabel}
-          </button>
+          </a>
           {envelope.sourceUrl ? (
             <a
               className="library-source-trace__external"

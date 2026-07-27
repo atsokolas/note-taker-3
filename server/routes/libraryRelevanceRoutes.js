@@ -38,6 +38,10 @@ const buildLibraryRelevanceRouter = ({
     if (!['articles', 'mixed'].includes(sourceScope)) {
       return res.status(400).json({ error: 'sourceScope must be articles or mixed.' });
     }
+    const showSuppressed = String(req.query.showSuppressed || '0').trim();
+    if (!['0', '1'].includes(showSuppressed)) {
+      return res.status(400).json({ error: 'showSuppressed must be 0 or 1.' });
+    }
     const cursor = String(req.query.cursor || '').trim();
     if (cursor && sourceScope !== 'mixed') {
       return res.status(400).json({ error: 'cursor requires sourceScope=mixed.' });
@@ -57,7 +61,8 @@ const buildLibraryRelevanceRouter = ({
           models,
           view,
           limit,
-          cursor
+          cursor,
+          includeSuppressed: showSuppressed === '1'
         })
         : await buildLibraryRelevancePage({
           userId: req.user.id,

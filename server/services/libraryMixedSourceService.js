@@ -222,6 +222,7 @@ const buildMixedLibraryRelevancePage = async ({
   view = 'recent',
   limit = 40,
   cursor = '',
+  includeSuppressed = false,
   movementBuilder = buildKnowledgeMovements
 } = {}) => {
   if (!VIEW_NAMES.includes(view)) throw new Error(`Unsupported Library relevance view: ${view}`);
@@ -250,7 +251,7 @@ const buildMixedLibraryRelevancePage = async ({
     };
   }
 
-  const visibleQuery = {
+  const visibleQuery = includeSuppressed ? { userId } : {
     userId,
     hiddenFromHome: { $ne: true },
     debugOnly: { $ne: true },
@@ -273,10 +274,10 @@ const buildMixedLibraryRelevancePage = async ({
 
   const articles = (Array.isArray(articleRows) ? articleRows : [])
     .map(plain)
-    .filter(value => ownedBy(value, userId) && visible(value));
+    .filter(value => ownedBy(value, userId) && (includeSuppressed || visible(value)));
   const notes = (Array.isArray(noteRows) ? noteRows : [])
     .map(plain)
-    .filter(value => ownedBy(value, userId) && visible(value));
+    .filter(value => ownedBy(value, userId) && (includeSuppressed || visible(value)));
   const rows = [
     ...articles.map(articleRow),
     ...articles.flatMap(article => (

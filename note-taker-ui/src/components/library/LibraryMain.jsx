@@ -282,6 +282,7 @@ const LibraryMain = ({
             unfiledCount={unfiledCount}
             onSelectScope={onSelectScope}
             coverageStatus={relevanceState.coverage?.status || null}
+            showSuppressed={suppressedVisible}
           />
         </aside>
 

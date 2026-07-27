@@ -67,6 +67,7 @@ export const getLibraryRelevance = async ({
   view = 'recent',
   limit = 40,
   sourceScope = 'mixed',
+  showSuppressed = false,
   cursor = '',
   force = false
 } = {}) => {
@@ -89,6 +90,7 @@ export const getLibraryRelevance = async ({
     limit: String(parsedLimit),
     sourceScope
   });
+  if (showSuppressed) params.set('showSuppressed', '1');
   if (safeCursor) params.set('cursor', safeCursor);
   const path = `/api/library/relevance?${params.toString()}`;
   const authHeaders = getAuthHeaders();

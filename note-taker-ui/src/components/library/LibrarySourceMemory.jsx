@@ -92,7 +92,8 @@ const LibrarySourceMemory = ({
   scope = 'all',
   unfiledCount = 0,
   onSelectScope = null,
-  coverageStatus = null
+  coverageStatus = null,
+  showSuppressed = false
 }) => {
   const view = VIEW_OPTIONS.some(option => option.id === controlledView)
     ? controlledView
@@ -123,6 +124,7 @@ const LibrarySourceMemory = ({
       view,
       limit: PAGE_LIMIT,
       sourceScope: 'mixed',
+      ...(showSuppressed ? { showSuppressed: true } : {}),
       force: true
     })
       .then(payload => {
@@ -153,7 +155,7 @@ const LibrarySourceMemory = ({
           hasMore: false
         });
       });
-  }, [view]);
+  }, [showSuppressed, view]);
 
   const loadMore = useCallback(() => {
     if (loadingMoreRef.current) return;
@@ -169,6 +171,7 @@ const LibrarySourceMemory = ({
       view,
       limit: PAGE_LIMIT,
       sourceScope: 'mixed',
+      ...(showSuppressed ? { showSuppressed: true } : {}),
       cursor
     })
       .then(payload => {
@@ -204,7 +207,7 @@ const LibrarySourceMemory = ({
           loadingMoreRef.current = false;
         }
       });
-  }, [view]);
+  }, [showSuppressed, view]);
 
   const current = useMemo(
     () => VIEW_OPTIONS.find(option => option.id === view) || VIEW_OPTIONS[0],
