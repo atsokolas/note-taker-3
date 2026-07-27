@@ -22,6 +22,7 @@ import useTags from '../hooks/useTags';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
+import { CONCEPT_ACTIONS } from '../components/think/concepts/idea-workbench/conceptActionDispatch';
 import { formatEditorialEvidenceHtml } from '../components/think/concepts/formatEditorialEvidenceHtml';
 import VirtualList from '../components/virtual/VirtualList';
 import { createConnection, getConnectionsForScope } from '../api/connections';
@@ -795,6 +796,12 @@ const ThinkMode = () => {
       return handoffsModel.handleCreateScopedHandoff(payload);
     }
   });
+
+  const runInvestigationWorkbenchAction = useCallback((intent) => {
+    if (intent !== 'find_contrary_evidence') return;
+    setConceptEditorialSection('assistant');
+    ideaWorkbenchModel.actions.dispatchConceptAction(CONCEPT_ACTIONS.FIND_TENSION);
+  }, [ideaWorkbenchModel.actions]);
 
   const handleIntegrateConceptCard = useCallback((cardInput, dropEvent = null, editorOverride = null) => {
     const streamCard = cardInput && typeof cardInput === 'object' ? cardInput : null;
@@ -4146,6 +4153,8 @@ const ThinkMode = () => {
               wikiPageId={requestedWikiPageId}
               revisionId={requestedRevisionId}
               claimId={requestedClaimId}
+              onRunWorkbenchAction={runInvestigationWorkbenchAction}
+              workbenchBusy={ideaWorkbenchModel.agentBusy}
               onClose={closeInvestigation}
             />
           ) : null}

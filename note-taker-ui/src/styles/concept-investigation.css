@@ -42,6 +42,17 @@ body.noeis-editorial .concept-investigation__state ul { margin: 10px 0 0; paddin
 body.noeis-editorial .concept-investigation__facts { flex-wrap: wrap; font-size: .76rem; color: var(--text-muted); }
 body.noeis-editorial .concept-investigation__status.is-error { color: var(--error, #a54731); }
 body.noeis-editorial .concept-investigation__actions button:disabled { opacity: .55; }
+body.noeis-editorial .concept-investigation__action {
+  display: grid;
+  flex: 1 1 0;
+  gap: 6px;
+  min-width: 0;
+}
+body.noeis-editorial .concept-investigation__action span {
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.35;
+}
 @media (max-width: 720px) {
   body.noeis-editorial .concept-investigation__header,
   body.noeis-editorial .concept-investigation__candidate,

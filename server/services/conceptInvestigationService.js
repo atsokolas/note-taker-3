@@ -612,15 +612,16 @@ const buildConceptInvestigation = async ({
         label: 'Compare historical cases',
         href: conceptRef(concept).href,
         intent: 'compare_historical_cases',
-        enabled: true
+        enabled: false,
+        unavailableReason: 'Historical-case comparison is not available in this investigation yet.'
       },
       traceCitationsBackward: {
         label: 'Trace citations backward',
         href: conceptRef(concept).href,
         intent: 'trace_citations_backward',
-        enabled: evidence.support.length > 0 || evidence.tension.length > 0,
+        enabled: false,
         unavailableReason: evidence.support.length > 0 || evidence.tension.length > 0
-          ? ''
+          ? 'Citation-chain tracing is not available in this investigation yet.'
           : 'No verified evidence is available to trace.'
       },
       draftWikiRevision: {

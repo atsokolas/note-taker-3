@@ -27,6 +27,7 @@ import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/u
 const mockThoughtPartnerPanel = jest.fn();
 const mockQuestionEditor = jest.fn();
 const mockSetSearchParams = jest.fn();
+const mockDispatchConceptAction = jest.fn();
 const useSearchParamsMock = jest.spyOn(ReactRouterDom, 'useSearchParams');
 
 jest.mock('../hooks/useConcepts', () => jest.fn());
@@ -227,6 +228,7 @@ jest.mock('../components/think/concepts/ConceptInvestigationPanel', () => (props
     data-claim-id={props.claimId}
   >
     Investigation context
+    <button type="button" onClick={() => props.onRunWorkbenchAction?.('find_contrary_evidence')}>Run contrary evidence</button>
     <button type="button" onClick={props.onClose}>Close mocked investigation</button>
   </div>
 ));
@@ -238,7 +240,8 @@ jest.mock('../components/think/concepts/ConceptEvidenceStreamView', () => ({
 }));
 jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchMain', () => () => <div>Idea Workbench</div>);
 jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchAgentRail', () => () => <div>Idea Agent Rail</div>);
-jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', () => jest.fn(() => ({
+jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', () => jest.fn());
+const buildMockIdeaWorkbenchModel = () => ({
   state: {
     header: { label: 'Idea', title: 'Template Concept', prompt: "What's the core insight here?", stage: 'Seed' },
     workspaceDraft: '',
@@ -256,6 +259,7 @@ jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', (
   hypothesisVersion: { label: 'v1', summary: 'Initial' },
   importableCounts: { highlights: 0, notes: 0, snippets: 0, concepts: 0 },
   actions: {
+    dispatchConceptAction: mockDispatchConceptAction,
     setHeaderField: jest.fn(),
     setWorkspaceDraft: jest.fn(),
     setWorkspaceDraftType: jest.fn(),
@@ -270,7 +274,7 @@ jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', (
     runQuickAction: jest.fn(),
     sendAgentMessage: jest.fn()
   }
-})));
+});
 jest.mock('../components/virtual/VirtualList', () => ({
   __esModule: true,
   default: ({ items, renderItem }) => <div>{(items || []).map((item, index) => renderItem(item, index))}</div>
@@ -333,7 +337,9 @@ const defaultHandoffsModel = {
 
 describe('ThinkMode template integration', () => {
   beforeEach(() => {
+    mockDispatchConceptAction.mockReset();
     jest.clearAllMocks();
+    useIdeaWorkbenchModel.mockReturnValue(buildMockIdeaWorkbenchModel());
     mockThoughtPartnerPanel.mockClear();
     mockQuestionEditor.mockClear();
     mockSetSearchParams.mockReset();
@@ -424,6 +430,9 @@ describe('ThinkMode template integration', () => {
     expect(panel).toHaveAttribute('data-claim-id', 'claim-1');
     expect(useConcept).toHaveBeenCalledWith('concept-1', expect.objectContaining({ enabled: true }));
     expect(useIdeaWorkbenchModel).toHaveBeenCalledWith(expect.objectContaining({ conceptId: 'concept-1' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run contrary evidence' }));
+    expect(mockDispatchConceptAction).toHaveBeenCalledWith('find-tension');
 
     fireEvent.click(screen.getByRole('button', { name: 'Close mocked investigation' }));
     const [nextParams, options] = mockSetSearchParams.mock.calls.at(-1);

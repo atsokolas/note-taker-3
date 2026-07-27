@@ -38,6 +38,8 @@ const ConceptInvestigationPanel = ({
   wikiPageId,
   revisionId = '',
   claimId = '',
+  onRunWorkbenchAction,
+  workbenchBusy = false,
   onClose
 }) => {
   const [requestVersion, setRequestVersion] = useState(0);
@@ -89,6 +91,17 @@ const ConceptInvestigationPanel = ({
     + (investigation?.proposals?.agentSuggestions?.length || 0)
     + (candidate ? 1 : 0)
   );
+  const investigationActions = [
+    investigation?.actions?.findContraryEvidence,
+    investigation?.actions?.compareHistoricalCases,
+    investigation?.actions?.traceCitationsBackward,
+    investigation?.actions?.draftWikiRevision
+  ].filter(Boolean);
+
+  const runInvestigationAction = action => {
+    if (action?.intent !== 'find_contrary_evidence' || action?.enabled === false || workbenchBusy) return;
+    onRunWorkbenchAction?.(action.intent);
+  };
 
   return (
     <section className="concept-investigation" aria-labelledby="concept-investigation-title">
@@ -207,17 +220,26 @@ const ConceptInvestigationPanel = ({
             </div>
           ) : null}
           <footer className="concept-investigation__actions">
-            {safeInternalHref(investigation.actions?.findContraryEvidence?.href) ? (
-              <Link to={investigation.actions.findContraryEvidence.href}>
-                {investigation.actions.findContraryEvidence.label}
-              </Link>
-            ) : null}
-            <button type="button" disabled title={investigation.actions?.draftWikiRevision?.unavailableReason || ''}>
-              {investigation.actions?.draftWikiRevision?.label || 'Draft a Wiki revision'}
-            </button>
-            {investigation.actions?.draftWikiRevision?.unavailableReason ? (
-              <span>{investigation.actions.draftWikiRevision.unavailableReason}</span>
-            ) : null}
+            {investigationActions.map(action => {
+              const executable = action.intent === 'find_contrary_evidence' && action.enabled !== false;
+              const disabled = !executable || workbenchBusy;
+              const reason = executable
+                ? (workbenchBusy ? 'The Concept workbench is already running an action.' : '')
+                : (action.unavailableReason || 'This capability is not available in this investigation yet.');
+              return (
+                <div key={action.intent} className="concept-investigation__action">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    title={reason}
+                    onClick={() => runInvestigationAction(action)}
+                  >
+                    {action.label}
+                  </button>
+                  {reason ? <span>{reason}</span> : null}
+                </div>
+              );
+            })}
           </footer>
         </div>
       ) : null}

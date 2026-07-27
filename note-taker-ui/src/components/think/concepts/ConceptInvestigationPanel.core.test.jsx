@@ -22,7 +22,13 @@ const investigation = {
   unknowns: [{ text: 'Utilization maturity.' }],
   whatWouldChangeMyMind: [{ text: 'Two flat quarters.' }],
   currentWiki: { acceptanceState: 'unverified' },
-  proposals: { workbenchChanges: [], agentSuggestions: [], candidateWikiRevision: { title: 'Candidate revision', summary: 'Not accepted.', ref: { href: '/wiki/workspace?page=1' } } }
+  proposals: { workbenchChanges: [], agentSuggestions: [], candidateWikiRevision: { title: 'Candidate revision', summary: 'Not accepted.', ref: { href: '/wiki/workspace?page=1' } } },
+  actions: {
+    findContraryEvidence: { label: 'Find contrary evidence', intent: 'find_contrary_evidence', enabled: true },
+    compareHistoricalCases: { label: 'Compare historical cases', intent: 'compare_historical_cases', enabled: false, unavailableReason: 'Historical-case comparison is not available in this investigation yet.' },
+    traceCitationsBackward: { label: 'Trace citations backward', intent: 'trace_citations_backward', enabled: false, unavailableReason: 'Citation-chain tracing is not available in this investigation yet.' },
+    draftWikiRevision: { label: 'Draft a Wiki revision', intent: 'draft_wiki_revision', enabled: false, unavailableReason: 'Claim-level candidate drafting lands in Stage 4.' }
+  }
 };
 
 describe('ConceptInvestigationPanel core', () => {
@@ -54,5 +60,29 @@ describe('ConceptInvestigationPanel core', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(getConceptInvestigation).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('What drives inference cost?')).toBeInTheDocument();
+  });
+
+  it('runs only the exact supported workbench action and explains unavailable capabilities', async () => {
+    const onRunWorkbenchAction = jest.fn();
+    render(
+      <MemoryRouter>
+        <ConceptInvestigationPanel
+          {...context}
+          onRunWorkbenchAction={onRunWorkbenchAction}
+          onClose={() => {}}
+        />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('What drives inference cost?');
+    fireEvent.click(screen.getByRole('button', { name: 'Find contrary evidence' }));
+    expect(onRunWorkbenchAction).toHaveBeenCalledWith('find_contrary_evidence');
+
+    expect(screen.getByRole('button', { name: 'Compare historical cases' })).toBeDisabled();
+    expect(screen.getByText(/Historical-case comparison is not available/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trace citations backward' })).toBeDisabled();
+    expect(screen.getByText(/Citation-chain tracing is not available/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Draft a Wiki revision' })).toBeDisabled();
+    expect(onRunWorkbenchAction).toHaveBeenCalledTimes(1);
   });
 });

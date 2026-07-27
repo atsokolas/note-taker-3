@@ -144,13 +144,15 @@ const run = async () => {
   assert.strictEqual(first.actions.draftWikiRevision.enabled, false);
   assert.strictEqual(first.actions.compareHistoricalCases.label, 'Compare historical cases');
   assert.strictEqual(first.actions.compareHistoricalCases.intent, 'compare_historical_cases');
-  assert.strictEqual(first.actions.compareHistoricalCases.enabled, true);
+  assert.strictEqual(first.actions.compareHistoricalCases.enabled, false);
+  assert.match(first.actions.compareHistoricalCases.unavailableReason, /not available/i);
   assert.match(
     first.actions.compareHistoricalCases.href,
     new RegExp(`conceptId=${fixture.ids.concept}(?:&|$)`)
   );
   assert.strictEqual(first.actions.traceCitationsBackward.intent, 'trace_citations_backward');
-  assert.strictEqual(first.actions.traceCitationsBackward.enabled, true);
+  assert.strictEqual(first.actions.traceCitationsBackward.enabled, false);
+  assert.match(first.actions.traceCitationsBackward.unavailableReason, /not available/i);
   assert.match(
     first.actions.traceCitationsBackward.href,
     new RegExp(`conceptId=${fixture.ids.concept}(?:&|$)`)
