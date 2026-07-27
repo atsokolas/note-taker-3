@@ -87,4 +87,22 @@ describe('ArticleReader', () => {
     expect(container.querySelector('.article-reader-content h1')).toBeNull();
     expect(container.querySelector('.article-reader-content h2')).not.toBeNull();
   });
+
+  it('places source provenance outside the selectable article content', () => {
+    const { container } = render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Investor letter',
+          content: '<p>Cash flow discipline matters.</p>'
+        }}
+        highlights={[]}
+        sourceTrace={<section data-testid="source-trace">Source provenance</section>}
+      />
+    );
+
+    expect(screen.getByTestId('source-trace')).toBeInTheDocument();
+    expect(container.querySelector('.article-reader-content [data-testid="source-trace"]')).toBeNull();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
 });

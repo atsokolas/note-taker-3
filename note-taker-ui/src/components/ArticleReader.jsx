@@ -41,7 +41,8 @@ const ArticleReader = forwardRef(({
   onOpenConcept,
   onOpenNotebook,
   onOpenQuestion,
-  onDumpToWorkingMemory
+  onDumpToWorkingMemory,
+  sourceTrace = null
 }, ref) => {
   const contentRef = useRef(null);
   const readerRootRef = useRef(null);
@@ -187,6 +188,7 @@ const ArticleReader = forwardRef(({
           )}
         </div>
       </div>
+      {sourceTrace}
       {isHighlightOnlyImport ? (
         <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
           <section className="article-highlight-edition" aria-label="Saved highlights">

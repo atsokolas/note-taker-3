@@ -1,0 +1,139 @@
+body.noeis-editorial .library-composition {
+  --library-memory-accent: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 74%, var(--vellum-ink));
+  display: grid;
+  grid-template-columns: minmax(168px, 220px) minmax(0, 1.35fr) minmax(220px, .9fr);
+  gap: 28px 32px;
+  align-items: start;
+  min-width: 0;
+  width: 100%;
+}
+
+body.noeis-editorial .library-composition__index,
+body.noeis-editorial .library-composition__preview {
+  position: sticky;
+  top: 12px;
+  min-width: 0;
+}
+
+body.noeis-editorial .library-composition__preview {
+  max-height: calc(100vh - 148px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body.noeis-editorial .library-composition__list,
+body.noeis-editorial .library-source-list__block,
+body.noeis-editorial .library-source-index,
+body.noeis-editorial .library-source-trace__heading {
+  display: grid;
+  min-width: 0;
+}
+
+body.noeis-editorial .library-source-index { gap: 22px; }
+body.noeis-editorial .library-source-index__group { display: grid; gap: 6px; }
+
+body.noeis-editorial .library-source-index__label,
+body.noeis-editorial .library-source-trace__section-label {
+  margin: 0 0 4px;
+  font-family: var(--noeis-ui-font);
+  font-size: .61rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
+}
+
+body.noeis-editorial .library-source-index__nav,
+body.noeis-editorial .library-source-memory__views--stack {
+  display: grid;
+  gap: 2px;
+}
+
+body.noeis-editorial .library-source-index__nav button,
+body.noeis-editorial .library-source-memory__views--stack button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px 6px 0;
+  border: 0;
+  border-right: 2px solid transparent;
+  background: transparent;
+  text-align: left;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  cursor: pointer;
+}
+
+body.noeis-editorial .library-source-index__nav button:is(:hover, :focus-visible, .is-active),
+body.noeis-editorial .library-source-memory__views--stack button:is(:hover, :focus-visible, .is-active) {
+  border-right-color: var(--library-memory-accent);
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .library-source-index__footer {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--vellum-line);
+  font-size: .72rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
+}
+
+body.noeis-editorial .library-composition .library-source-row.is-selected {
+  border-left: 2px solid var(--library-memory-accent);
+  background: color-mix(in srgb, var(--library-memory-accent) 10%, transparent);
+}
+
+body.noeis-editorial .library-source-trace--preview {
+  margin: 0;
+  padding-top: 4px;
+  border: 0;
+}
+
+body.noeis-editorial .library-source-trace__title {
+  margin: 0;
+  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-size: clamp(1.2rem, 1.7vw, 1.45rem);
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .library-source-trace__quote {
+  margin: 0;
+  padding: 4px 0 4px 14px;
+  border-left: 3px solid var(--library-memory-accent);
+  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-style: italic;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .library-composition__inline-preview { display: none; }
+
+@media (max-width: 1100px) {
+  body.noeis-editorial .library-composition {
+    grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+    gap: 24px;
+  }
+  body.noeis-editorial .library-composition__preview { display: none; }
+  body.noeis-editorial .library-composition__inline-preview { display: block; }
+}
+
+@media (max-width: 720px) {
+  body.noeis-editorial .library-composition,
+  body.noeis-editorial .library-composition.is-compact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  body.noeis-editorial .library-composition__index {
+    position: static;
+    order: 1;
+  }
+  body.noeis-editorial .library-composition__list { order: 2; }
+  body.noeis-editorial .library-composition__inline-preview { margin-bottom: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .library-composition * { scroll-behavior: auto !important; }
+}
