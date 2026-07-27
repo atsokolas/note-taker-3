@@ -12,6 +12,7 @@ const DEFAULT_TEXT_MODEL_FALLBACKS = [
 const DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS = [
   'google/gemini-2.5-flash'
 ];
+const OPENROUTER_FREE_FALLBACK_MODEL = 'openrouter/free';
 
 const DEFAULT_ROUTE_PROFILES = Object.freeze({
   partner_chat: [
@@ -195,9 +196,13 @@ const getConfig = () => {
   const model = useOpenRouter
     ? (process.env.OPENROUTER_TEXT_MODEL || DEFAULT_OPENROUTER_TEXT_MODEL)
     : (process.env.HF_TEXT_MODEL || DEFAULT_TEXT_MODEL);
+  const configuredOpenRouterFallbacks = parseModelFallbacks(
+    process.env.OPENROUTER_TEXT_MODEL_FALLBACKS || DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS.join(','),
+    model
+  );
   const textModelFallbacks = useOpenRouter
     ? parseModelFallbacks(
-      process.env.OPENROUTER_TEXT_MODEL_FALLBACKS || DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS.join(','),
+      [...configuredOpenRouterFallbacks, OPENROUTER_FREE_FALLBACK_MODEL].join(','),
       model
     )
     : parseModelFallbacks(
