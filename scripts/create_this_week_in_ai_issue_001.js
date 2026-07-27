@@ -4,6 +4,10 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const { Article, Connection, WikiPage, WikiRevision, NoeisReceipt } = require('../server/models');
 const { createWeekendReadingsDraft, buildWeekendReadingsDraft } = require('../server/services/weekendReadingsService');
+const {
+  buildResearchEditionLibraryNote,
+  ensureResearchEditionLibraryItems
+} = require('../server/services/researchEditionLibraryService');
 
 const APPLY = process.argv.includes('--apply') || process.env.APPLY === '1';
 const REPLACE_DRAFT = process.argv.includes('--replace-draft') || process.env.REPLACE_DRAFT === '1';
@@ -104,46 +108,13 @@ const safeSummary = draft => ({
   artifactType: draft.page.sourceRefs[0]?.metadata?.weekendReadings?.artifactType || ''
 });
 
-const buildLibraryNote = item => [
-  'Saved as a primary source for This Week in AI.',
-  '',
-  `Finding: ${item.whyItMatters}`,
-  '',
-  `How it works: ${item.technicalApproach}`,
-  '',
-  `Evidence: ${item.evidenceAssessment}`,
-  '',
-  `Why it matters: ${item.consequence}`,
-  '',
-  `Limitations: ${item.boundary}`,
-  '',
-  `Primary source: ${item.url}`
-].join('\n');
-
 const ensureIssueLibraryItems = async ({ ArticleModel = Article, userId, items = ISSUE_INPUT.items } = {}) => {
-  if (!ArticleModel || !userId) throw new Error('ArticleModel and userId are required.');
-  return Promise.all(items.map(async (item) => {
-    let article = await ArticleModel.findOne({ userId, url: item.url });
-    if (!article) {
-      article = await ArticleModel.create({
-        userId,
-        url: item.url,
-        title: item.title,
-        content: buildLibraryNote(item),
-        publicationDate: String(item.publishedAt || '').slice(0, 10),
-        siteName: 'arXiv',
-        importMeta: {
-          provider: 'this_week_in_ai',
-          sourceType: 'paper',
-          sourceLabel: 'This Week in AI — Issue 001',
-          sourceUrl: item.url,
-          externalId: String(item.url).split('/').pop(),
-          importedAt: new Date()
-        }
-      });
-    }
-    return { ...item, libraryArticleId: String(article._id || article.id || '') };
-  }));
+  return ensureResearchEditionLibraryItems({
+    Article: ArticleModel,
+    userId,
+    items,
+    publicationTitle: 'This Week in AI — Issue 001'
+  });
 };
 
 const main = async () => {
@@ -196,4 +167,9 @@ if (require.main === module) {
   });
 }
 
-module.exports = { ISSUE_INPUT, buildLibraryNote, ensureIssueLibraryItems, safeSummary };
+module.exports = {
+  ISSUE_INPUT,
+  buildLibraryNote: item => buildResearchEditionLibraryNote(item, { publicationTitle: 'This Week in AI — Issue 001' }),
+  ensureIssueLibraryItems,
+  safeSummary
+};

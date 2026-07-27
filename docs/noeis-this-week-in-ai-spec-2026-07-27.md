@@ -142,3 +142,17 @@ Issue 001 is ready for Athan's review only when:
 - focused service tests and the frontend build pass.
 
 Issue 001 is not public merely because these checks pass. Publication remains a separate explicit human action.
+
+## 8. Weekly operation
+
+The recurring research agent runs once each Sunday after the evidence window closes.
+
+1. Search free primary sources for papers submitted during the Monday-through-Sunday window.
+2. Select two to five papers only when they pass the consequence and evidence gates. If fewer than two qualify, create no issue and report why.
+3. Produce a dated JSON manifest containing the wiki overview, highlights, paper mechanisms, evidence assessments, limitations, cross-paper connections, and watch list.
+4. Run `node scripts/create_this_week_in_ai_edition.js --manifest <path>` as a dry-run.
+5. If validation passes, run the same command with `--apply`.
+6. Confirm that the papers exist in Library, the private Wiki draft exists once, the source ledger uses `article` identities, and bidirectional graph edges were written.
+7. Report the private review URL. Never request review, approve, publish, distribute, or replace an existing draft automatically.
+
+The recurring run may use only free public primary sources. It must not use FMP, paid transcripts, or inferred publication metadata.
