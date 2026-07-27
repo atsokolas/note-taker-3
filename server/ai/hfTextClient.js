@@ -132,6 +132,11 @@ const mergeCandidateRoutes = (...lists) => {
   return ordered;
 };
 
+const isFallbackModelStatus = (status = 0) => {
+  const numericStatus = Number(status || 0);
+  return [400, 402, 404, 408, 429].includes(numericStatus) || numericStatus >= 500;
+};
+
 const parseJsonRouteProfiles = (value = '', defaultProvider = '') => {
   if (!value) return {};
   try {
@@ -673,7 +678,7 @@ const chatComplete = async ({
       lastError = error;
       const status = Number(error?.status || 0);
       const shouldTryNextModel = candidateRoute !== candidateRoutes.at(-1)
-        && (status === 400 || status === 404 || status === 408 || status === 429 || status >= 500);
+        && isFallbackModelStatus(status);
       if (shouldTryNextModel) continue;
       throw error;
     }
@@ -898,6 +903,7 @@ module.exports = {
   __testables: {
     parseRouteEntry,
     parseRouteList,
+    isFallbackModelStatus,
     mergeCandidateRoutes,
     getConfiguredRouteProfiles,
     extractDeltaContent

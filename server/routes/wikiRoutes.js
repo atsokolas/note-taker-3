@@ -6335,7 +6335,8 @@ const buildWikiRouter = ({
               claimCount: event.claimCount,
               failureCount: event.failureCount,
               model: event.model,
-              provider: event.provider
+              provider: event.provider,
+              errorCode: event.errorCode
             }
           }))
           .catch(error => console.error('[dossier-build-stage] failed:', error));
@@ -6534,17 +6535,30 @@ const buildWikiRouter = ({
       res.end();
     } catch (error) {
       console.error('Error streaming wiki maintenance:', error);
+      const modelBudgetUnavailable = Number(error?.status || error?.statusCode || 0) === 402;
+      const interruptionMessage = modelBudgetUnavailable
+        ? 'The configured research-model budget is unavailable. Add OpenRouter credits or lower the model budget, then Resume.'
+        : 'The build was interrupted partway. Resume it to continue from saved SEC evidence.';
+      const interruptionCode = modelBudgetUnavailable
+        ? 'WIKI_MODEL_BUDGET_UNAVAILABLE'
+        : 'WIKI_DRAFT_STREAM_FAILED';
       await recordDossierBuildStage({
         run: dossierBuildRun,
         stage: 'failed',
-        summary: 'The dossier build stopped before completion.',
-        details: { errorCode: String(error.code || 'WIKI_DRAFT_STREAM_FAILED') }
+        summary: modelBudgetUnavailable
+          ? 'The configured research-model budget was unavailable.'
+          : 'The dossier build stopped before completion.',
+        details: { errorCode: interruptionCode }
       }).catch(() => null);
       await finishDossierBuildRun({
         run: dossierBuildRun,
         status: 'failed',
-        summary: 'The dossier build was interrupted and can be resumed.',
-        errorMessage: error.message || 'The build stopped before completion.'
+        summary: modelBudgetUnavailable
+          ? 'The research-model budget was unavailable; saved evidence was preserved.'
+          : 'The dossier build was interrupted and can be resumed.',
+        errorMessage: modelBudgetUnavailable
+          ? interruptionMessage
+          : error.message || 'The build stopped before completion.'
       }).catch(() => null);
       if (buildLease?.acquired && page) {
         await releaseRepoBuildLease({
@@ -6566,8 +6580,8 @@ const buildWikiRouter = ({
         page.aiState = {
           ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
           draftStatus: 'error',
-          lastError: 'The build was interrupted partway. Resume it to continue from saved SEC evidence.',
-          errorCode: 'WIKI_DRAFT_STREAM_FAILED'
+          lastError: interruptionMessage,
+          errorCode: interruptionCode
         };
         try {
           await savePageWithVersionRetry(page, req.user.id);
@@ -6576,9 +6590,8 @@ const buildWikiRouter = ({
         }
       }
       writeSse(res, 'error', {
-        error: 'The build was interrupted partway. Noeis will resume from saved evidence.',
-        message: String(error.message || ''),
-        code: 'WIKI_DRAFT_STREAM_FAILED',
+        error: interruptionMessage,
+        code: interruptionCode,
         retryable: true
       });
       res.end();
