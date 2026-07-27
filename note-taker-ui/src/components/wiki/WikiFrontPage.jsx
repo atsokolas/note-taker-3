@@ -461,6 +461,11 @@ const WikiFrontPage = () => {
             {workspaceNav}
           </div>
         </header>
+        {showDecisions ? (
+          <div id="wiki-front-decisions" className="wiki-front-page__decisions wfp-anim wfp-anim--2">
+            <DecisionsIndex embedded initialFilter="upcoming_review" />
+          </div>
+        ) : null}
         <section className="wiki-front-page__empty wfp-anim wfp-anim--3" aria-labelledby="wfp-empty-title">
           <h1 id="wfp-empty-title">Nothing here yet — let&rsquo;s start your wiki.</h1>
           <p>

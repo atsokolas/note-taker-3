@@ -73,4 +73,22 @@ describe('WikiFrontPage Decisions return surface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hide decisions' }));
     expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
   });
+
+  it('mounts the Decisions index when the Wiki corpus is empty', async () => {
+    localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
+    listWikiPages.mockResolvedValue([]);
+    getDailyLoop.mockResolvedValue({ briefing: { counts: {}, totalPages: 0 } });
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByRole('heading', {
+      level: 1,
+      name: /Nothing here yet/
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Decisions' }));
+
+    expect(screen.getByRole('region', { name: 'Decisions index fixture' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide decisions' }))
+      .toHaveAttribute('aria-expanded', 'true');
+  });
 });
