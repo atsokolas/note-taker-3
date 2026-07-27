@@ -21,12 +21,12 @@ const FAST_SOURCE_LIMIT = 8;
 const MAX_SOURCE_TEXT = 1800;
 const DEFAULT_PROMPT_SOURCE_TEXT_LIMIT = 1300;
 const FAST_PROMPT_SOURCE_TEXT_LIMIT = 800;
-const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 30000;
+const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 6000;
 const SEC_FILING_EVIDENCE_TEXT_LIMIT = 36000;
 const DEFAULT_DRAFT_MAX_TOKENS = 2600;
 const DEFAULT_REBUILD_MAX_TOKENS = 3600;
-const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 8000;
-const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 10000;
+const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 3200;
+const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 3200;
 const MAX_ARTICLE_BLOCK_TEXT = 2400;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
@@ -3419,8 +3419,11 @@ const maintainWikiPage = async ({
     });
     if (typeof page.markModified === 'function') page.markModified('investmentDossier');
   }
+  const explicitSourceTextLimit = Number.isFinite(Number(sourceTextLimit)) && Number(sourceTextLimit) > 0;
   const effectiveSourceTextLimit = investmentDossier
-    ? Math.max(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
+    ? (explicitSourceTextLimit
+        ? Math.min(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
+        : INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
     : requestedSourceTextLimit;
   const draftTemperature = repoMaintenance ? 0.08 : 0.2;
   const rebuildTemperature = repoMaintenance ? 0.12 : 0.28;
@@ -3547,9 +3550,15 @@ const maintainWikiPage = async ({
       modelInfo = { model: 'local-maintainer', provider: '' };
       result = null;
       await emitProgress({
-        stage: 'model_fallback',
-        summary: 'Maintenance model failed; falling back to deterministic synthesis.'
+        stage: investmentDossier ? 'model_unavailable' : 'model_fallback',
+        summary: investmentDossier
+          ? 'The research model was unavailable before drafting; preserving the saved evidence for Resume.'
+          : 'Maintenance model failed; falling back to deterministic synthesis.',
+        errorCode: Number(error?.status || 0) === 402
+          ? 'MODEL_BUDGET_UNAVAILABLE'
+          : 'MODEL_REQUEST_FAILED'
       });
+      if (investmentDossier) throw error;
     }
   }
 

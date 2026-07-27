@@ -29,7 +29,12 @@ const run = () => {
     delete process.env.HF_AGENT_MODEL_ROUTES_JSON;
 
     const client = loadClient();
-    const { parseRouteEntry, parseRouteList, mergeCandidateRoutes } = client.__testables;
+    const {
+      isFallbackModelStatus,
+      parseRouteEntry,
+      parseRouteList,
+      mergeCandidateRoutes
+    } = client.__testables;
 
     assert.deepStrictEqual(
       parseRouteEntry('openai/gpt-oss-120b:cerebras', 'groq'),
@@ -63,6 +68,12 @@ const run = () => {
       ],
       'Candidate merging should de-duplicate model/provider pairs while keeping provider fallbacks.'
     );
+    assert.strictEqual(
+      isFallbackModelStatus(402),
+      true,
+      'An unaffordable model reservation should fall through to the next configured model.'
+    );
+    assert.strictEqual(isFallbackModelStatus(401), false);
 
     const config = client.getConfig();
     assert.strictEqual(
