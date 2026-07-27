@@ -100,6 +100,24 @@ const citedQuestions = evaluateInvestmentDossierQuality({
 assert.strictEqual(citedQuestions.ok, true, citedQuestions.failures.join('\n'));
 assert.strictEqual(citedQuestions.metrics.unresolvedDecisionQuestions, 2);
 
+const inventedNumber = evaluateInvestmentDossierQuality({
+  page: { investmentDossier: profile },
+  body,
+  claims: claims.map((claim, index) => (
+    index === 0
+      ? {
+          ...claim,
+          section: 'Implied Expectations',
+          text: 'The company has $999 billion of unsupported recurring revenue.'
+        }
+      : claim
+  )),
+  sourceRefs,
+  words: 2600
+});
+assert.strictEqual(inventedNumber.ok, false);
+assert.match(inventedNumber.failures.join(' '), /numeric claims not grounded/i);
+
 const thinProfile = upgradeInvestmentDossierProfile({
   profile: { company: { name: 'Generic Company', ticker: 'GEN' } },
   candidates: [{ title: 'Generic 10-K', provider: 'sec-edgar', text: 'Generic filing.' }]
