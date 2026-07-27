@@ -91,6 +91,7 @@ const {
   NotebookEntry,
   NotebookFolder,
   TagMeta,
+  ConceptDecisionLessonEvidence,
   ConceptNote,
   Question,
   Board,
@@ -581,6 +582,8 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
+const { buildConceptInvestigationRouter } = require('./routes/conceptInvestigationRoutes');
+const { buildConceptContinuityRouter } = require('./routes/conceptContinuityRoutes');
 const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
@@ -591,6 +594,8 @@ const notionTransformForAgent = require('./services/import/notionTransform');
 const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildDailyLoopRouter } = require('./routes/dailyLoopRoutes');
+const { buildKnowledgeMovementRouter } = require('./routes/knowledgeMovementRoutes');
+const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -5312,6 +5317,33 @@ app.use(buildDailyLoopRouter({
   Connection
 }));
 
+app.use(buildKnowledgeMovementRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  TagMeta,
+  NoeisReceipt,
+  Article,
+  NotebookEntry,
+  Question,
+  Connection,
+  ReferenceEdge
+}));
+
+app.use(buildLibraryRelevanceRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  NoeisReceipt,
+  Connection,
+  ReferenceEdge
+}));
+
 app.use(buildWikiRouter({
   authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
@@ -6523,6 +6555,25 @@ app.use(buildConceptMetaRouter({
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
+}));
+
+app.use(buildConceptInvestigationRouter({
+  authenticateToken,
+  ConceptDecisionLessonEvidence,
+  TagMeta,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt,
+  Article,
+  NotebookEntry,
+  Question
+}));
+
+app.use(buildConceptContinuityRouter({
+  authenticateToken,
+  TagMeta,
+  WikiPage,
+  WikiRevision
 }));
 
 app.use(buildSharedConceptRouter({
