@@ -1049,15 +1049,20 @@ const isQualityImprovement = ({ current = {}, retry = {} } = {}) => {
   return Number(retryMetrics.supportedLike || 0) > Number(currentMetrics.supportedLike || 0);
 };
 
-const sourceRefFromCandidate = (candidate) => {
+const sourceRefFromCandidate = (candidate, { investmentDossier = false } = {}) => {
   const isGitHubConfig = isGitHubRepoCandidate(candidate)
     && /\b(?:package\.json|\.github\/workflows\/[^/]+\.ya?ml)\b/i.test(String(candidate.metadata?.path || candidate.title || ''));
+  const snippetLimit = isGitHubConfig
+    ? 4000
+    : investmentDossier
+      ? INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT
+      : 1000;
   return {
     type: candidate.type,
     objectId: candidate.objectId || null,
     parentObjectId: candidate.parentObjectId || null,
     title: truncate(candidate.title, 240),
-    snippet: truncate(candidate.text, isGitHubConfig ? 4000 : 1000),
+    snippet: truncate(candidate.text, snippetLimit),
     url: truncateRaw(candidate.url, 1000),
     citationLabel: `[${candidate.index}]`,
     addedBy: 'ai',
@@ -3281,10 +3286,14 @@ const inferMaintainedPageType = ({ page, candidates = [] } = {}) => {
 };
 
 const materializeMaintenanceResult = async ({ page, normalized, candidates, previousClaims, now, userId, models }) => {
+  const investmentDossier = getWikiPageStructureForPage({
+    page,
+    candidates
+  }).profile === 'investment_dossier';
   const sourceRefs = normalized.sourceIndexesUsed
     .map(index => candidates.find(source => source.index === index))
     .filter(Boolean)
-    .map(sourceRefFromCandidate);
+    .map(candidate => sourceRefFromCandidate(candidate, { investmentDossier }));
   const mergedSourceRefs = mergeMandatoryGitHubRepoSourceRefs({
     page,
     candidates,
@@ -3320,10 +3329,6 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     previousClaims,
     now
   });
-  const investmentDossier = getWikiPageStructureForPage({
-    page,
-    candidates: mergedSourceRefs
-  }).profile === 'investment_dossier';
   const compiledInvestmentDossier = investmentDossier
     ? compileInvestmentDossierResearchPlan({
         profile: page.investmentDossier || {},

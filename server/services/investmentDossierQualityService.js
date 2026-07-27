@@ -20,6 +20,53 @@ const sectionHeadings = (body = {}) => (
     .map(node => clean((node.content || []).map(item => item?.text || '').join('')).toLowerCase())
 );
 
+const normalizeNumberToken = (value = '') => (
+  clean(value)
+    .toLowerCase()
+    .replace(/,/g, '')
+    .replace(/\s+/g, '')
+    .replace(/billion/g, 'bn')
+    .replace(/million/g, 'mn')
+);
+
+const numericTokens = (value = '') => (
+  unique(
+    String(value || '')
+      .match(/(?:[$€£]\s*)?\d[\d,.]*(?:\s*(?:%|x|bn|mn|billion|million))?/gi)
+      || []
+  )
+    .map(normalizeNumberToken)
+    .filter(token => {
+      const bare = Number(token.replace(/[$€£%a-z]/gi, ''));
+      return !(Number.isInteger(bare) && bare >= 1900 && bare <= 2100);
+    })
+);
+
+const sourceTextForClaim = ({ claim = {}, sourceRefs = [] } = {}) => {
+  const ids = new Set([
+    ...(claim?.sourceRefIds || []),
+    ...(claim?.citationIds || [])
+  ].map(String));
+  return (Array.isArray(sourceRefs) ? sourceRefs : [])
+    .filter(source => ids.has(String(source?._id || source?.id || source?.sourceRefId || '')))
+    .map(source => [source?.snippet, source?.quote, source?.text].filter(Boolean).join(' '))
+    .join(' ');
+};
+
+const numericGroundingFailure = ({ claim = {}, sourceRefs = [] } = {}) => {
+  const tokens = numericTokens(claim?.text);
+  if (!tokens.length) return false;
+  const sourceText = normalizeNumberToken(sourceTextForClaim({ claim, sourceRefs }));
+  if (!sourceText) return true;
+  const matched = tokens.filter(token => sourceText.includes(token));
+  const calculated = /calculation|calculated|yielding|implies|equals|divided by|multiplied by/i.test(clean(claim?.text));
+  if (calculated) {
+    return matched.length < Math.min(2, tokens.length)
+      || matched.length / tokens.length < 0.35;
+  }
+  return matched.length / tokens.length < 0.75;
+};
+
 const includesHeading = (headings, patterns) => patterns.some(pattern => (
   headings.some(heading => pattern.test(heading))
 ));
@@ -48,6 +95,10 @@ const evaluateInvestmentDossierQuality = ({
     (claim?.citationIds || []).length
     || (claim?.sourceRefIds || []).length
     || (claim?.citationIndexes || []).length
+  ));
+  const ungroundedNumericClaims = claimList.filter(claim => (
+    ['supported', 'partial', 'conflicted'].includes(clean(claim?.support).toLowerCase())
+    && numericGroundingFailure({ claim, sourceRefs: sourceList })
   ));
   const observedEvidenceArchetypes = unique([
     ...(plan.evidenceArchetypes || []),
@@ -110,6 +161,13 @@ const evaluateInvestmentDossierQuality = ({
       .join(' | ');
     failures.push(`Investment dossier has decision claims without citations: ${uncitedClaims.length}${samples ? ` (${samples})` : ''}.`);
   }
+  if (ungroundedNumericClaims.length) {
+    const samples = ungroundedNumericClaims
+      .slice(0, 4)
+      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)}`)
+      .join(' | ');
+    failures.push(`Investment dossier has numeric claims not grounded in cited source text: ${ungroundedNumericClaims.length}${samples ? ` (${samples})` : ''}.`);
+  }
   if (missingEvidenceArchetypes.length) {
     failures.push(`Investment dossier is missing evidence archetypes: ${missingEvidenceArchetypes.join(', ')}.`);
   }
@@ -155,7 +213,8 @@ const evaluateInvestmentDossierQuality = ({
       reproducibleInsightCount: reproducibleInsights.length,
       unsupportedDecisionClaims: blockingUnsupportedClaims.length,
       unresolvedDecisionQuestions: exploratoryUnsupportedClaims.length,
-      uncitedDecisionClaims: uncitedClaims.length
+      uncitedDecisionClaims: uncitedClaims.length,
+      ungroundedNumericClaims: ungroundedNumericClaims.length
     }
   };
 };
