@@ -592,7 +592,9 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(chat).toHaveBeenCalledTimes(1);
     expect(chat.mock.calls[0][0]).toMatchObject({
       route: 'artifact_draft',
-      maxTokens: 5000,
+      maxTokens: 8000,
+      reasoningEffort: '',
+      reasoning: { effort: 'none' },
       responseFormat: { type: 'json_object' }
     });
     expect(chat.mock.calls[0][0].messages[1].content).toContain('Customer concentration remained material');

@@ -25,8 +25,8 @@ const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 6000;
 const SEC_FILING_EVIDENCE_TEXT_LIMIT = 36000;
 const DEFAULT_DRAFT_MAX_TOKENS = 2600;
 const DEFAULT_REBUILD_MAX_TOKENS = 3600;
-const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 5000;
-const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 5000;
+const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 8000;
+const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 8000;
 const MAX_ARTICLE_BLOCK_TEXT = 2400;
 const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
@@ -3482,7 +3482,8 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: draftMaxTokens,
         temperature: draftTemperature,
-        reasoningEffort: draftReasoningEffort,
+        reasoningEffort: investmentDossier ? '' : draftReasoningEffort,
+        reasoning: investmentDossier ? { effort: 'none' } : null,
         responseFormat: { type: 'json_object' },
         messages: [
           {
@@ -3597,7 +3598,8 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
-        reasoningEffort: 'medium',
+        reasoningEffort: investmentDossier ? '' : 'medium',
+        reasoning: investmentDossier ? { effort: 'none' } : null,
         responseFormat: { type: 'json_object' },
         messages: [
           {

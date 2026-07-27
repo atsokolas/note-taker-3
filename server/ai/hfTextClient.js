@@ -12,7 +12,10 @@ const DEFAULT_TEXT_MODEL_FALLBACKS = [
 const DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS = [
   'google/gemini-2.5-flash'
 ];
-const OPENROUTER_FREE_FALLBACK_MODEL = 'openrouter/free';
+const OPENROUTER_FREE_FALLBACK_MODELS = [
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'openrouter/free'
+];
 
 const DEFAULT_ROUTE_PROFILES = Object.freeze({
   partner_chat: [
@@ -202,7 +205,7 @@ const getConfig = () => {
   );
   const textModelFallbacks = useOpenRouter
     ? parseModelFallbacks(
-      [...configuredOpenRouterFallbacks, OPENROUTER_FREE_FALLBACK_MODEL].join(','),
+      [...configuredOpenRouterFallbacks, ...OPENROUTER_FREE_FALLBACK_MODELS].join(','),
       model
     )
     : parseModelFallbacks(
@@ -559,6 +562,7 @@ const chatComplete = async ({
   route = '',
   modelRoutes = [],
   responseFormat = null,
+  reasoning = null,
   tools = null,
   toolChoice = null
 } = {}) => {
@@ -650,7 +654,11 @@ const chatComplete = async ({
           messages: safeMessages,
           temperature,
           max_tokens: maxTokens,
-          ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+          ...(reasoning && typeof reasoning === 'object'
+            ? { reasoning }
+            : reasoningEffort
+              ? { reasoning_effort: reasoningEffort }
+              : {}),
           ...(responseFormat ? { response_format: responseFormat } : {}),
           ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {})
