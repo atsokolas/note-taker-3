@@ -10,6 +10,7 @@ const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 const { fetchFilingDocument } = require('./edgarWatcherService');
 const {
   BUSINESS_MODEL_ADAPTERS,
+  compileInvestmentDossierResearchPlan,
   upgradeInvestmentDossierProfile
 } = require('./investmentDossierProfileService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
@@ -816,10 +817,13 @@ Investment dossier rules:
 - Required analytical modules: ${(plan.requiredModuleIds || []).join(', ') || 'research plan is not classified yet'}.
 - Missing evidence archetypes: ${(plan.missingEvidenceArchetypes || []).join(', ') || 'none identified'}.
 - Missing analytical modules: ${(plan.missingModuleIds || []).join(', ') || 'none identified'}.
-- Write for analytical density, not a word target. Every paragraph must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.
+- Produce at least 1,800 words and at least 20 distinct claim-level analytical paragraphs or bullets. These are minimum decision-dossier gates, not permission to add filler.
+- Every paragraph or bullet must establish a mechanism, calculation, counterargument, falsifier, or next evidence test.
+- Cover every required analytical module explicitly. For the "${modelLabel}" adapter, name the company-specific operating evidence behind each adapter module rather than substituting generic industry language.
 - Tie every paragraph containing reported facts to citationIndexes. Use "supported" when the cited filing directly establishes the material facts, "partial" only when the paragraph mixes filing facts with interpretation, and "unsupported" only for an explicitly labeled owner judgment or unresolved question.
 - Include at least four directly filing-supported paragraphs when the supplied filings contain substantive business or financial evidence. Do not downgrade directly reported facts merely because only two primary filings are attached.
 - Make valuation an implied-expectations problem. State the price or market-value snapshot date, distinguish reported figures from calculations, and show what operating outcome must be true for a reasonable return.
+- Include at least one reproducible, numeric calculation in Implied Expectations and at least one in System and Unit Economics. State the inputs, arithmetic or ratio, period, and source citations in the same paragraph so another analyst can reproduce it.
 - Never turn one quarter into a forecast. If annualizing a quarter, label it as a sensitivity boundary and compare it with the last full fiscal year.
 - Explain what the customer buys, why it chooses the company, the scarce control point, and how that control point becomes cash. Use the selected adapter's economics rather than generic technology language.
 - Treat capital commitments, customer concentration, regulation, and ecosystem financing as mechanisms that can strengthen or weaken the moat, not as a generic risk list.
@@ -3256,6 +3260,20 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     previousClaims,
     now
   });
+  const investmentDossier = getWikiPageStructureForPage({
+    page,
+    candidates: mergedSourceRefs
+  }).profile === 'investment_dossier';
+  const compiledInvestmentDossier = investmentDossier
+    ? compileInvestmentDossierResearchPlan({
+        profile: page.investmentDossier || {},
+        page,
+        candidates,
+        claims,
+        sourceRefs: mergedSourceRefs,
+        now
+      })
+    : page.investmentDossier;
   const linkedBody = await applyKnownWikiLinks({
     page,
     body,
@@ -3271,7 +3289,11 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     citations,
     claims,
     quality: evaluateWikiArticleQuality({
-      page: { ...page, title: normalized.title || page.title },
+      page: {
+        ...page,
+        title: normalized.title || page.title,
+        investmentDossier: compiledInvestmentDossier
+      },
       body: linkedBody,
       claims,
       sourceRefs: mergedSourceRefs,
@@ -3728,6 +3750,17 @@ const maintainWikiPage = async ({
     previousClaims,
     now
   });
+  if (investmentDossier) {
+    page.investmentDossier = compileInvestmentDossierResearchPlan({
+      profile: page.investmentDossier || {},
+      page,
+      candidates,
+      claims: page.claims,
+      sourceRefs: persistedSourceRefs,
+      now
+    });
+    if (typeof page.markModified === 'function') page.markModified('investmentDossier');
+  }
   await emitProgress({
     stage: 'claims_built',
     summary: `${page.claims.length} claim${page.claims.length === 1 ? '' : 's'} extracted into the evidence ledger.`,
