@@ -12,6 +12,7 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiRepoCreateComposer from './WikiRepoCreateComposer';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
+import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
@@ -163,6 +164,7 @@ const WikiFrontPage = () => {
   const [readingFeedUrl, setReadingFeedUrl] = useState('');
   const [readingPageId, setReadingPageId] = useState('');
   const [watchingBusy, setWatchingBusy] = useState(false);
+  const [hasMovements, setHasMovements] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -476,9 +478,10 @@ const WikiFrontPage = () => {
           </p>
           {workspaceNav}
         </div>
+        <WikiMovementReturnSurface onPresenceChange={setHasMovements} />
         <div className={`wiki-front-page__intro wfp-anim wfp-anim--2${claimCheckIn || checkInMessage || briefing?.checkInStreak ? ' wiki-front-page__intro--split' : ''}`}>
           <div className="wiki-front-page__briefing-copy">
-            {leadSentence ? (
+            {leadSentence && (!hasMovements || briefing?.lead) ? (
               <p className="wiki-front-page__lead">
                 <WriteIn text={leadSentence} />
               </p>
