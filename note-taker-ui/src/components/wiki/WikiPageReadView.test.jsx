@@ -209,6 +209,94 @@ describe('WikiPageReadView', () => {
     window.sessionStorage.clear();
   });
 
+  it('focuses the exact opaque claim requested by the workspace URL', async () => {
+    const scrollIntoView = jest.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/wiki/workspace',
+      search: '?page=wiki-1&claimId=claim-1',
+      hash: '',
+      state: null,
+      key: 'claim-focus-test'
+    });
+    render(
+      <MemoryRouter>
+        <SystemStatusProvider value={buildSystemStatusControls()}>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+        </SystemStatusProvider>
+      </MemoryRouter>
+    );
+
+    const claim = await screen.findByText('Memory compounds with review.');
+    expect(claim).toHaveAttribute('data-claim-id', 'claim-1');
+    await waitFor(() => {
+      expect(claim).toHaveClass('wiki-claim-citation--targeted');
+      expect(claim).toHaveFocus();
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+  });
+
+  it('does not normalize a malformed claim identity into an existing claim', async () => {
+    const scrollIntoView = jest.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/wiki/workspace',
+      search: '?page=wiki-1&claimId=%20claim-1%20',
+      hash: '',
+      state: null,
+      key: 'claim-focus-invalid-test'
+    });
+    render(
+      <MemoryRouter>
+        <SystemStatusProvider value={buildSystemStatusControls()}>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+        </SystemStatusProvider>
+      </MemoryRouter>
+    );
+
+    const claim = await screen.findByText('Memory compounds with review.');
+    expect(claim).not.toHaveClass('wiki-claim-citation--targeted');
+    expect(claim).not.toHaveFocus();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('moves focus when the exact claim changes on the same page', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      body: {
+        ...page.body,
+        content: [
+          ...page.body.content,
+          {
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Weak claim.',
+              marks: [{ type: 'claim', attrs: { claimId: 'claim-2', support: 'unsupported', citationIndexes: [] } }]
+            }]
+          }
+        ]
+      }
+    });
+    let routeSearch = '?page=wiki-1&claimId=claim-1';
+    jest.spyOn(router, 'useLocation').mockImplementation(() => ({
+      pathname: '/wiki/workspace', search: routeSearch, hash: '', state: null, key: routeSearch
+    }));
+    const view = (
+      <MemoryRouter>
+        <SystemStatusProvider value={buildSystemStatusControls()}>
+          <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} workspaceMode />
+        </SystemStatusProvider>
+      </MemoryRouter>
+    );
+    const { rerender } = render(view);
+    expect(await screen.findByText('Memory compounds with review.')).toHaveFocus();
+
+    routeSearch = '?page=wiki-1&claimId=claim-2';
+    rerender(view);
+    await waitFor(() => expect(screen.getByText('Weak claim.')).toHaveFocus());
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();

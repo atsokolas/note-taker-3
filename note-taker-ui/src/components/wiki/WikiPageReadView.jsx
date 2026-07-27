@@ -76,6 +76,7 @@ import WikiInvestmentValuation from './WikiInvestmentValuation';
 import WikiFirstHeadReview from './WikiFirstHeadReview';
 import WikiInvestmentMaintenanceComparison from './WikiInvestmentMaintenanceComparison';
 import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
+import '../../styles/wiki-claim-focus.css';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -453,6 +454,17 @@ const cleanSourceText = (value = '') => String(value || '')
   .replace(/&#39;/gi, "'")
   .replace(/\s+/g, ' ')
   .trim();
+
+const normalizeFocusedClaimId = value => {
+  const rawClaimId = String(value || '');
+  const claimId = rawClaimId.trim();
+  const hasControlCharacter = Array.from(claimId).some(character => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+  if (!claimId || rawClaimId !== claimId || claimId.length > 240 || hasControlCharacter) return '';
+  return claimId;
+};
 
 const conciseText = (value = '', limit = 180) => {
   const text = cleanSourceText(value);
@@ -1110,6 +1122,10 @@ const WikiPageReadView = ({
     const value = new URLSearchParams(traceSearch || '').get('tab');
     return value === 'talk' ? 'talk' : 'article';
   }, [traceSearch]);
+  const focusedClaimId = useMemo(
+    () => normalizeFocusedClaimId(new URLSearchParams(traceSearch || '').get('claimId')),
+    [traceSearch]
+  );
   const promotionWitness = useMemo(
     () => promotionWitnessFromSearch(traceSearch),
     [traceSearch]
@@ -1181,9 +1197,24 @@ const WikiPageReadView = ({
   const autoRebuildPageRef = useRef('');
   const lastRefreshNonceRef = useRef(0);
   const articleRef = useRef(null);
+  const focusedClaimNodeRef = useRef(null);
   const recentParagraphTimersRef = useRef(new Map());
   const pageTransitionTimerRef = useRef(null);
   const reducedMotionRef = useRef(reducedMotion);
+
+  const focusRequestedClaimNode = useCallback(node => {
+    if (!node) return;
+    const currentTarget = focusedClaimNodeRef.current;
+    if (currentTarget?.claimId === focusedClaimId && currentTarget.node?.isConnected) return;
+    focusedClaimNodeRef.current = { claimId: focusedClaimId, node };
+    let collapsedSection = node.closest?.('details:not([open])');
+    while (collapsedSection) {
+      collapsedSection.open = true;
+      collapsedSection = collapsedSection.parentElement?.closest?.('details:not([open])');
+    }
+    node.focus({ preventScroll: true });
+    node.scrollIntoView?.({ block: 'center', behavior: reducedMotion ? 'auto' : 'smooth' });
+  }, [focusedClaimId, reducedMotion]);
 
   useEffect(() => {
     reducedMotionRef.current = reducedMotion;
@@ -2659,9 +2690,18 @@ const WikiPageReadView = ({
                     collapseSections={repoCollapseSections}
                     recentAnchorIds={recentParagraphAnchors}
                     wikiLinkPages={wikiLinkPages}
+                    focusedClaimId={focusedClaimId}
+                    focusedClaimRef={focusRequestedClaimNode}
                   />
                 ) : (
-                  renderTiptapDoc(displayBody, { tocItems, recentAnchorIds: recentParagraphAnchors, wikiLinkPages, claimLedgerById })
+                  renderTiptapDoc(displayBody, {
+                    tocItems,
+                    recentAnchorIds: recentParagraphAnchors,
+                    wikiLinkPages,
+                    claimLedgerById,
+                    focusedClaimId,
+                    focusedClaimRef: focusRequestedClaimNode
+                  })
                 )}
               </section>
                 {showMarginalia ? (
