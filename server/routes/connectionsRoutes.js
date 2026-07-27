@@ -1,4 +1,5 @@
 const express = require('express');
+const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 
 const INVERSE_CONNECTION_RELATION_TYPES = {
   related: 'referenced_by',
@@ -18,6 +19,7 @@ const buildConnectionsRouter = ({
   mongoose,
   authenticateToken,
   Connection,
+  NoeisReceipt,
   NotebookEntry,
   Article,
   TagMeta,
@@ -39,12 +41,72 @@ const buildConnectionsRouter = ({
   addToCandidateSet
 }) => {
   const router = express.Router();
+  const requireHumanOwner = (req, res, next) => {
+    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
+      return res.status(403).json({ error: 'Only the human owner can create a knowledge connection.' });
+    }
+    return next();
+  };
   const buildExactConnectionScopeQuery = (scope = {}) => ({
     scopeType: scope?.scopeType || '',
     scopeId: scope?.scopeId || ''
   });
+  const resolveLean = async query => await (query?.lean ? query.lean() : query);
+  const receiptInputForConnection = ({
+    userId, forwardId, reciprocalId, fromType, fromId, toType, toId,
+    relationType, reciprocalRelationType, scope, fromItem, toItem
+  }) => ({
+    id: `connection_created:v1:${forwardId}`,
+    kind: 'connection_created',
+    source: 'connections',
+    sourceLabel: 'Knowledge connection',
+    status: 'completed',
+    title: 'Created a knowledge connection',
+    summary: `Connected ${fromType} to ${toType} as ${relationType}.`,
+    touched: [
+      { type: fromType, id: fromId, title: fromItem.title || fromItem.name || fromType },
+      { type: toType, id: toId, title: toItem.title || toItem.name || toType }
+    ],
+    provenance: {
+      version: 1,
+      actorType: 'user',
+      forwardConnectionId: forwardId,
+      reciprocalConnectionId: reciprocalId,
+      fromType,
+      fromId,
+      toType,
+      toId,
+      relationType,
+      reciprocalRelationType,
+      scopeType: scope.scopeType || '',
+      scopeId: scope.scopeId || ''
+    },
+    completedAt: new Date(),
+    userId
+  });
+  const connectionReceiptMatches = ({ receipt, expected }) => {
+    if (!receipt) return false;
+    const raw = receipt.toObject ? receipt.toObject() : receipt;
+    const provenance = raw.provenance || {};
+    const touched = Array.isArray(raw.touched) ? raw.touched : [];
+    const expectedTouched = expected.touched.map(item => `${item.type}:${item.id}`).sort();
+    const actualTouched = touched.map(item => `${item.type}:${item.id}`).sort();
+    return String(raw.userId || '') === String(expected.userId || '')
+      && String(raw.receiptId || raw.id || '') === expected.id
+      && raw.kind === expected.kind
+      && raw.source === expected.source
+      && raw.status === expected.status
+      && !Number.isNaN(new Date(raw.completedAt).getTime())
+      && Number(provenance.version) === 1
+      && provenance.actorType === 'user'
+      && [
+        'forwardConnectionId', 'reciprocalConnectionId', 'fromType', 'fromId', 'toType', 'toId',
+        'relationType', 'reciprocalRelationType', 'scopeType', 'scopeId'
+      ].every(key => String(provenance[key] || '') === String(expected.provenance[key] || ''))
+      && JSON.stringify(actualTouched) === JSON.stringify(expectedTouched);
+  };
 
-  router.post('/api/connections', authenticateToken, async (req, res) => {
+  router.post('/api/connections', authenticateToken, requireHumanOwner, async (req, res) => {
     try {
       const userId = req.user.id;
       const {
@@ -129,6 +191,48 @@ const buildConnectionsRouter = ({
             reciprocalConnection = await Connection.findOne(reciprocalQuery).lean();
           }
         }
+        if (!reciprocalConnection) {
+          return res.status(500).json({ error: 'Failed to create the reciprocal connection.' });
+        }
+        const forwardId = String(existing._id || '');
+        const reciprocalId = String(reciprocalConnection._id || '');
+        const expectedReceipt = receiptInputForConnection({
+          userId, forwardId, reciprocalId,
+          fromType: safeFromType, fromId: safeFromId,
+          toType: safeToType, toId: safeToId,
+          relationType: safeRelationType, reciprocalRelationType,
+          scope, fromItem, toItem
+        });
+        const storedReceipt = NoeisReceipt?.findOne
+          ? await resolveLean(NoeisReceipt.findOne({ userId, receiptId: expectedReceipt.id }))
+          : null;
+        if (storedReceipt && !connectionReceiptMatches({ receipt: storedReceipt, expected: expectedReceipt })) {
+          if (reciprocalCreated) {
+            await Promise.resolve(Connection.deleteOne?.({ _id: reciprocalId, userId })).catch(() => null);
+          }
+          return res.status(409).json({ error: 'Connection receipt integrity check failed.' });
+        }
+        if (!storedReceipt) {
+          let repairedReceipt = null;
+          try {
+            repairedReceipt = await persistNoeisReceipt({
+              NoeisReceipt,
+              userId,
+              receipt: expectedReceipt
+            });
+          } catch (receiptError) {
+            if (reciprocalCreated) {
+              await Promise.resolve(Connection.deleteOne?.({ _id: reciprocalId, userId })).catch(() => null);
+            }
+            throw receiptError;
+          }
+          if (!repairedReceipt) {
+            if (reciprocalCreated) {
+              await Promise.resolve(Connection.deleteOne?.({ _id: reciprocalId, userId })).catch(() => null);
+            }
+            return res.status(503).json({ error: 'Connection receipt persistence is unavailable.' });
+          }
+        }
         return res.status(200).json({
           ...existing,
           fromItem,
@@ -137,11 +241,12 @@ const buildConnectionsRouter = ({
           reciprocalConnection,
           trace: {
             bidirectional: Boolean(reciprocalConnection),
-            forwardId: String(existing._id || ''),
-            reciprocalId: String(reciprocalConnection?._id || ''),
+            forwardId,
+            reciprocalId,
             reciprocalCreated,
             relationType: safeRelationType,
-            reciprocalRelationType
+            reciprocalRelationType,
+            receiptId: expectedReceipt.id
           }
         });
       }
@@ -174,8 +279,71 @@ const buildConnectionsRouter = ({
         reciprocalConnection = reciprocal.toObject ? reciprocal.toObject() : reciprocal;
         reciprocalCreated = true;
       } catch (reciprocalError) {
-        if (reciprocalError?.code !== 11000) throw reciprocalError;
+        if (reciprocalError?.code !== 11000) {
+          await Promise.resolve(Connection.deleteOne?.({ _id: createdObject._id, userId })).catch(() => null);
+          throw reciprocalError;
+        }
         reciprocalConnection = await Connection.findOne(reciprocalQuery).lean();
+      }
+
+      if (!reciprocalConnection) {
+        await Promise.resolve(Connection.deleteOne?.({ _id: createdObject._id, userId })).catch(() => null);
+        return res.status(500).json({ error: 'Failed to create the reciprocal connection.' });
+      }
+      const forwardId = String(createdObject._id || '');
+      const reciprocalId = String(reciprocalConnection._id || '');
+      const receiptId = `connection_created:v1:${forwardId}`;
+      let receipt = null;
+      try {
+        receipt = await persistNoeisReceipt({
+          NoeisReceipt,
+          userId,
+          receipt: {
+          id: receiptId,
+          kind: 'connection_created',
+          source: 'connections',
+          sourceLabel: 'Knowledge connection',
+          status: 'completed',
+          title: 'Created a knowledge connection',
+          summary: `Connected ${safeFromType} to ${safeToType} as ${safeRelationType}.`,
+          touched: [
+            { type: safeFromType, id: safeFromId, title: fromItem.title || fromItem.name || safeFromType },
+            { type: safeToType, id: safeToId, title: toItem.title || toItem.name || safeToType }
+          ],
+          provenance: {
+            version: 1,
+            actorType: 'user',
+            forwardConnectionId: forwardId,
+            reciprocalConnectionId: reciprocalId,
+            fromType: safeFromType,
+            fromId: safeFromId,
+            toType: safeToType,
+            toId: safeToId,
+            relationType: safeRelationType,
+            reciprocalRelationType,
+            scopeType: scope.scopeType || '',
+            scopeId: scope.scopeId || ''
+          },
+            completedAt: new Date()
+          }
+        });
+      } catch (receiptError) {
+        await Promise.all([
+          Promise.resolve(Connection.deleteOne?.({ _id: createdObject._id, userId })).catch(() => null),
+          reciprocalCreated
+            ? Promise.resolve(Connection.deleteOne?.({ _id: reciprocalConnection._id, userId })).catch(() => null)
+            : null
+        ]);
+        throw receiptError;
+      }
+      if (!receipt) {
+        await Promise.all([
+          Promise.resolve(Connection.deleteOne?.({ _id: createdObject._id, userId })).catch(() => null),
+          reciprocalCreated
+            ? Promise.resolve(Connection.deleteOne?.({ _id: reciprocalConnection._id, userId })).catch(() => null)
+            : null
+        ]);
+        return res.status(503).json({ error: 'Connection receipt persistence is unavailable.' });
       }
 
       res.status(201).json({
@@ -185,11 +353,12 @@ const buildConnectionsRouter = ({
         reciprocalConnection,
         trace: {
           bidirectional: Boolean(reciprocalConnection),
-          forwardId: String(createdObject._id || ''),
-          reciprocalId: String(reciprocalConnection?._id || ''),
+          forwardId,
+          reciprocalId,
           reciprocalCreated,
           relationType: safeRelationType,
-          reciprocalRelationType
+          reciprocalRelationType,
+          receiptId
         }
       });
     } catch (error) {
