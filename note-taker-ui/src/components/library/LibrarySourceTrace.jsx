@@ -191,8 +191,9 @@ const LibrarySourceTrace = ({
           ? `/library?articleId=${encodeURIComponent(envelope.id)}`
           : '';
 
-  const handleOpen = () => {
+  const handleOpen = (event) => {
     if (typeof onOpenSource !== 'function') return;
+    event.preventDefault();
     onOpenSource({
       type: envelope.type,
       id: envelope.id,
