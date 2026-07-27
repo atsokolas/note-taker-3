@@ -6,6 +6,7 @@ const {
   PUBLICATION_CONFIRMATION,
   REVIEW_CONFIRMATION,
   approveWeekendReadingsRevision,
+  loadWorkflowContext,
   loadPublishedWeekendReadingsArtifact,
   publishWeekendReadingsRevision,
   requestWeekendReadingsReview
@@ -99,6 +100,23 @@ test('workflow refuses pruned revision snapshots', async () => {
     pageId: 'page-private-1',
     confirmation: REVIEW_CONFIRMATION
   }), /snapshot is unavailable/);
+});
+
+test('workflow restores a legacy revision edition key from its verified owning page', async () => {
+  const legacySnapshot = weekendReadingsLeakFixture();
+  delete legacySnapshot.createdFrom;
+  const models = buildModels([], {
+    WikiRevision: {
+      findOne: () => ({ _id: 'revision-legacy-key', pageId: 'page-private-1', after: legacySnapshot })
+    }
+  });
+  const context = await loadWorkflowContext({
+    ...models,
+    userId: 'athan-user',
+    pageId: 'page-private-1'
+  });
+  assert.equal(context.candidate.editionKey, weekendReadingsLeakFixture().createdFrom.label);
+  assert.equal(context.candidate.revisionId, 'revision-legacy-key');
 });
 
 test('public loader returns only a shared published page with matching approval receipts', async () => {

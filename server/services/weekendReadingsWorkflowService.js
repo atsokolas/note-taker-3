@@ -16,6 +16,7 @@ const { isResearchEditionPage } = require('./researchEditionProfile');
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 const idOf = value => clean(value?._id || value?.id || value, 160);
 const plain = value => value?.toObject ? value.toObject({ virtuals: false }) : value;
+const editionKeyFromPage = page => clean(page?.createdFrom?.label, 240);
 
 const resolveQuery = async query => {
   if (!query) return null;
@@ -66,8 +67,18 @@ const loadWorkflowContext = async ({ WikiPage, WikiRevision, NoeisReceipt, userI
   if (!WikiPage || !WikiRevision || !NoeisReceipt || !userId || !pageId) throw new Error('Wiki models, userId, and pageId are required.');
   const page = await findOwnedWeekendReadingsPage({ WikiPage, userId, pageId });
   const revision = await findCurrentRevision({ WikiRevision, userId, pageId: idOf(page) });
+  const revisionSnapshot = plain(revision.after);
+  const snapshot = editionKeyFromPage(page) && !revisionSnapshot?.createdFrom?.label
+    ? {
+        ...revisionSnapshot,
+        createdFrom: {
+          ...(revisionSnapshot?.createdFrom || {}),
+          label: editionKeyFromPage(page)
+        }
+      }
+    : revisionSnapshot;
   const candidate = buildApprovalCandidate({
-    snapshot: plain(revision.after),
+    snapshot,
     revisionId: idOf(revision),
     editionKey: page.createdFrom.label
   });
