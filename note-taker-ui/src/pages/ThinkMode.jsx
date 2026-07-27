@@ -14,6 +14,7 @@ import {
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import ConceptsIndexView from '../components/think/concepts/ConceptsIndexView';
+import ConceptInvestigationPanel from '../components/think/concepts/ConceptInvestigationPanel';
 import HighlightCard from '../components/blocks/HighlightCard';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
 import useHighlights from '../hooks/useHighlights';
@@ -346,10 +347,21 @@ const ThinkPanelFallback = () => (
   </div>
 );
 
+const INVESTIGATION_QUERY_KEYS = ['investigation', 'conceptId', 'wikiPageId', 'revisionId', 'claimId'];
+const clearInvestigationContext = params => {
+  INVESTIGATION_QUERY_KEYS.forEach(key => params.delete(key));
+  return params;
+};
+
 const ThinkMode = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
+  const requestedInvestigation = searchParams.get('investigation') === '1';
+  const requestedConceptId = searchParams.get('conceptId') || '';
+  const requestedWikiPageId = searchParams.get('wikiPageId') || '';
+  const requestedRevisionId = searchParams.get('revisionId') || '';
+  const requestedClaimId = searchParams.get('claimId') || '';
   const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'threads', 'handoffs', 'paths', 'insights'], []);
   const resolveActiveView = useCallback((params) => {
     const rawView = params.get('tab') || '';
@@ -618,18 +630,49 @@ const ThinkMode = () => {
   const headerActionsMenuRef = useRef(null);
 
   const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts({ enabled: conceptsListEnabled });
-  const selectedName = queryConcept;
+  const queryConceptName = queryConcept;
   // Seed useConcept with the row from the already-loaded concepts list so the
   // manuscript renders its title immediately on click instead of showing a
   // full skeleton for the duration of the network round-trip.
+  const conceptLookupKey = requestedInvestigation && requestedConceptId
+    ? requestedConceptId
+    : queryConceptName;
   const cachedConceptForName = useMemo(
-    () => (selectedName ? (concepts || []).find((c) => c?.name === selectedName) || null : null),
-    [concepts, selectedName]
+    () => (conceptLookupKey
+      ? (concepts || []).find((candidate) => (
+          requestedInvestigation && requestedConceptId
+            ? String(candidate?._id || '') === String(requestedConceptId)
+            : candidate?.name === queryConceptName
+        )) || null
+      : null),
+    [conceptLookupKey, concepts, queryConceptName, requestedConceptId, requestedInvestigation]
   );
-  const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(selectedName, {
-    enabled: activeView === 'concepts' && Boolean(selectedName),
+  const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(conceptLookupKey, {
+    enabled: activeView === 'concepts' && Boolean(conceptLookupKey),
     initial: cachedConceptForName
   });
+  const investigationConceptMismatch = Boolean(
+    requestedInvestigation
+    && requestedConceptId
+    && concept?._id
+    && String(requestedConceptId) !== String(concept._id)
+  );
+  const investigationIdentityReady = Boolean(
+    requestedInvestigation
+    && requestedConceptId
+    && concept?._id
+    && !investigationConceptMismatch
+  );
+  const selectedName = requestedInvestigation
+    ? (investigationIdentityReady ? String(concept?.name || '').trim() : '')
+    : queryConceptName;
+  const closeInvestigation = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    clearInvestigationContext(params);
+    if (selectedName) params.set('concept', selectedName);
+    else params.delete('concept');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, selectedName, setSearchParams]);
   const { related, error: relatedError } = useConceptRelated(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName),
     limit: 20,
@@ -713,6 +756,7 @@ const ThinkMode = () => {
   }, [searchParams, setSearchParams]);
   const ideaWorkbenchModel = useIdeaWorkbenchModel({
     concept,
+    conceptId: requestedInvestigation ? requestedConceptId : '',
     related,
     questions: conceptQuestions,
     onCreateNotebookDraft: ({
@@ -2780,7 +2824,7 @@ const ThinkMode = () => {
 
   const homeEditorialLeftPanel = thinkShelfRail;
 
-  const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName);
+  const isConceptWorkbenchView = activeView === 'concepts' && (Boolean(selectedName) || requestedInvestigation);
   const isQuestionEditorialView = activeView === 'questions';
 
   useEffect(() => {
@@ -2823,7 +2867,7 @@ const ThinkMode = () => {
     />
   );
 
-  const hasExplicitConceptSelection = activeView === 'concepts' && Boolean(selectedName);
+  const hasExplicitConceptSelection = activeView === 'concepts' && (Boolean(selectedName) || requestedInvestigation);
   const thoughtPartnerContext = useMemo(() => resolveThoughtPartnerContext({
     activeView,
     concept,
@@ -4095,10 +4139,28 @@ const ThinkMode = () => {
             </p>
           ) : null}
           {renderThinkPostureStrip('think-posture-strip--concept')}
+          {requestedInvestigation ? (
+            <ConceptInvestigationPanel
+              conceptId={requestedConceptId}
+              loadedConceptId={concept?._id || ''}
+              wikiPageId={requestedWikiPageId}
+              revisionId={requestedRevisionId}
+              claimId={requestedClaimId}
+              onClose={closeInvestigation}
+            />
+          ) : null}
           {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
           {conceptError && <p className="status-message error-message">{conceptError}</p>}
           {relatedError && <p className="status-message error-message">{relatedError}</p>}
-          {conceptLoading && !concept ? (
+          {investigationConceptMismatch ? (
+            <SurfaceCard className="think-concepts-empty-state">
+              <SectionHeader
+                title="Concept identity mismatch"
+                subtitle="This movement points to a different exact Concept than the one selected by name. No investigation or workbench content was opened."
+              />
+              <QuietButton onClick={closeInvestigation}>Open the Concept normally</QuietButton>
+            </SurfaceCard>
+          ) : conceptLoading && !concept ? (
             <div className="think-concept-loading concept-editorial-loading" aria-hidden="true">
               <div className="concept-editorial-loading__head">
                 <span className="concept-editorial-loading__eyebrow">Active reasoning draft</span>

@@ -163,22 +163,51 @@ export const ConceptPartnerRail = ({
       }));
   }, [model.state.agent.comments, model.state.cards]);
   const workingConcepts = useMemo(
-    () => concepts
-      .filter((item) => clean(item?.name) && clean(item.name) !== clean(selectedConceptName))
-      .slice(0, 8),
+    () => {
+      const selectedName = clean(selectedConceptName);
+      const seen = new Set();
+      return concepts
+        .filter((item) => {
+          const name = clean(item?.name);
+          if (!name || name === selectedName || seen.has(name)) return false;
+          seen.add(name);
+          return true;
+        })
+        .slice(0, 8);
+    },
     [concepts, selectedConceptName]
   );
   const conceptChoices = useMemo(
-    () => [concept, ...workingConcepts]
-      .filter(Boolean)
-      .map((item) => ({
-        id: clean(item?.name),
-        name: clean(item?.name),
-        count: Number.isFinite(item?.count) ? item.count : null,
-        isCurrent: clean(item?.name) === clean(selectedConceptName)
-      }))
-      .filter((item) => item.name),
-    [concept, selectedConceptName, workingConcepts]
+    () => {
+      const selectedName = clean(selectedConceptName);
+      const matchingCurrent = [concept, ...concepts]
+        .find((item) => clean(item?.name) === selectedName);
+      const candidates = [
+        selectedName ? { ...matchingCurrent, name: selectedName } : null,
+        concept,
+        ...workingConcepts
+      ].filter(Boolean);
+      const seen = new Set();
+      return candidates
+        .map((item) => {
+          const name = clean(item?.name);
+          const countedItem = Number.isFinite(item?.count)
+            ? item
+            : concepts.find((candidate) => clean(candidate?.name) === name && Number.isFinite(candidate?.count));
+          return {
+            id: name,
+            name,
+            count: Number.isFinite(countedItem?.count) ? countedItem.count : null,
+            isCurrent: name === selectedName
+          };
+        })
+        .filter((item) => {
+          if (!item.name || seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+    },
+    [concept, concepts, selectedConceptName, workingConcepts]
   );
 
   const sectionMap = {
