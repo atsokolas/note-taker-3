@@ -11,6 +11,7 @@ const {
   persistLifecycleReceipt,
   serializePublishedArtifact
 } = require('./weekendReadingsApprovalService');
+const { isResearchEditionPage } = require('./researchEditionProfile');
 
 const clean = (value = '', limit = 4000) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 const idOf = value => clean(value?._id || value?.id || value, 160);
@@ -42,7 +43,7 @@ const findCurrentRevision = async ({ WikiRevision, userId, pageId } = {}) => {
 
 const findOwnedWeekendReadingsPage = async ({ WikiPage, userId, pageId } = {}) => {
   const page = await resolveQuery(WikiPage.findOne({ _id: pageId, userId, status: { $ne: 'archived' } }));
-  if (!page || !clean(page?.createdFrom?.label, 240).startsWith('weekend-readings:')) throw new Error('Weekend Readings page not found.');
+  if (!page || !isResearchEditionPage(page)) throw new Error('Research edition page not found.');
   return page;
 };
 

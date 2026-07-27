@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { buildWeekendReadingsBody, canonicalizeReadingUrl, normalizeWeekendReadingItems } = require('./weekendReadingsService');
 const { persistNoeisReceipt: defaultPersistNoeisReceipt } = require('./noeisReceiptService');
+const { isResearchEditionKey, profileFromEditionKey } = require('./researchEditionProfile');
 
 const REVIEW_CONFIRMATION = 'request_weekend_readings_review';
 const APPROVAL_CONFIRMATION = 'approve_weekend_readings_revision';
@@ -26,15 +27,15 @@ const editionKeyFromSnapshot = (snapshot = {}) => clean(snapshot?.createdFrom?.l
 
 const editionWindow = (editionKey = '') => {
   const parts = clean(editionKey, 240).split(':');
-  if (parts[0] !== 'weekend-readings' || parts.length < 3) throw new Error('Weekend Readings edition key is invalid.');
+  if (!isResearchEditionKey(editionKey) || parts.length < 3) throw new Error('Research edition key is invalid.');
   return { windowStart: parts[parts.length - 2], windowEnd: parts[parts.length - 1] };
 };
 
 const assertEditionSnapshot = (snapshot = {}, editionKey = '') => {
   const snapshotKey = editionKeyFromSnapshot(snapshot);
   const expectedKey = clean(editionKey, 240) || snapshotKey;
-  if (!snapshotKey.startsWith('weekend-readings:') || snapshotKey !== expectedKey) {
-    throw new Error('The revision is not the requested Weekend Readings edition.');
+  if (!isResearchEditionKey(snapshotKey) || snapshotKey !== expectedKey) {
+    throw new Error('The revision is not the requested research edition.');
   }
   return expectedKey;
 };
@@ -47,7 +48,7 @@ const nodeText = (node = {}) => {
 
 const extractEditorialNote = (body = {}) => {
   const nodes = Array.isArray(body?.content) ? body.content : [];
-  const start = nodes.findIndex(node => node.type === 'heading' && /^editorial note$/i.test(nodeText(node)));
+  const start = nodes.findIndex(node => node.type === 'heading' && /^(editorial note|what changed)$/i.test(nodeText(node)));
   if (start < 0) return '';
   const paragraphs = [];
   for (let index = start + 1; index < nodes.length; index += 1) {
@@ -77,7 +78,12 @@ const publicItemFromSource = (source = {}) => {
     sourceDateLabel: clean(metadata.sourceDateLabel, 80)
       || (publishedAt ? isoDate(publishedAt, 'publishedAt').slice(0, 10) : 'Not recorded'),
     publicRelationship: clean(metadata.publicRelationship, 500) || 'Unassigned',
-    boundary: clean(metadata.boundary, 800)
+    boundary: clean(metadata.boundary, 800),
+    evidenceLayer: clean(metadata.evidenceLayer, 80),
+    evidenceAssessment: clean(metadata.evidenceAssessment, 1200),
+    consequence: clean(metadata.consequence, 1200),
+    priorBelief: clean(metadata.priorBelief, 800),
+    updatedBelief: clean(metadata.updatedBelief, 800)
   };
 };
 
@@ -123,9 +129,14 @@ const buildApprovalCandidate = ({ snapshot, revisionId, editionKey = '' } = {}) 
   const resolvedRevisionId = idOf(revisionId);
   if (!snapshot || !resolvedRevisionId) throw new Error('An exact Wiki revision snapshot is required.');
   const resolvedEditionKey = assertEditionSnapshot(snapshot, editionKey);
+  const profile = profileFromEditionKey(resolvedEditionKey);
   const editorialNote = extractEditorialNote(snapshot.body);
   if (!editorialNote) throw new Error('The approved revision must contain an editorial note.');
-  const items = normalizeWeekendReadingItems((Array.isArray(snapshot.sourceRefs) ? snapshot.sourceRefs : []).map(publicItemFromSource));
+  const sourceRefs = Array.isArray(snapshot.sourceRefs) ? snapshot.sourceRefs : [];
+  const items = normalizeWeekendReadingItems(sourceRefs.map(publicItemFromSource), { publicationProfile: profile.key });
+  const editionFields = profile.key === 'this_week_in_ai'
+    ? clonePlain(sourceRefs[0]?.metadata?.weekendReadings?.edition || {})
+    : {};
   const title = clean(snapshot.title, 240);
   const authorLabel = extractAuthorLabel(snapshot.body);
   const window = editionWindow(resolvedEditionKey);
@@ -135,14 +146,17 @@ const buildApprovalCandidate = ({ snapshot, revisionId, editionKey = '' } = {}) 
     windowStart: window.windowStart,
     windowEnd: window.windowEnd,
     editorialNote,
-    items
+    items,
+    publicationProfile: profile.key,
+    ...editionFields
   });
   const publicBody = {
     ...body,
     content: Array.isArray(body.content) ? body.content.slice(1) : []
   };
   const publicArtifact = {
-    artifactType: 'weekend_readings',
+    artifactType: profile.artifactType,
+    publicationProfile: profile.key,
     editionKey: resolvedEditionKey,
     revisionId: resolvedRevisionId,
     title,
@@ -159,7 +173,12 @@ const buildApprovalCandidate = ({ snapshot, revisionId, editionKey = '' } = {}) 
       readingRole: item.readingRole,
       sourceQuality: item.sourceQuality,
       publicRelationship: item.publicRelationship,
-      boundary: item.boundary
+      boundary: item.boundary,
+      evidenceLayer: item.evidenceLayer || '',
+      evidenceAssessment: item.evidenceAssessment || '',
+      consequence: item.consequence || '',
+      priorBelief: item.priorBelief || '',
+      updatedBelief: item.updatedBelief || ''
     }))
   };
   return { ...publicArtifact, digest: artifactDigest(publicArtifact) };
@@ -169,7 +188,7 @@ const receiptBase = ({ id, kind, status, title, summary, editionKey, pageId, rev
   id,
   kind,
   source: 'noeis',
-  sourceLabel: 'Weekend Readings',
+  sourceLabel: profileFromEditionKey(editionKey).sourceLabel,
   status,
   title,
   summary,
@@ -209,7 +228,7 @@ const buildApprovalReceipt = ({ candidate, reviewReceipt, pageId, actorUserId, c
     throw new Error('Approval requires a review request for the same exact revision.');
   }
   if (idOf(reviewReceipt?.provenance?.pageId) !== idOf(pageId) || clean(reviewReceipt?.provenance?.editionKey, 240) !== candidate.editionKey) {
-    throw new Error('Approval cannot cross Weekend Readings pages or editions.');
+    throw new Error('Approval cannot cross research edition pages or editions.');
   }
   const receipt = receiptBase({
     id: `${candidate.editionKey}:approval:${candidate.revisionId}`,
@@ -237,7 +256,7 @@ const buildPublicationReceipt = ({ approvalReceipt, currentRevisionId, pageId, a
     throw new Error('Publication requires an approved revision receipt.');
   }
   const approvedRevisionId = idOf(approvalReceipt?.provenance?.revisionId);
-  if (idOf(approvalReceipt?.provenance?.pageId) !== idOf(pageId)) throw new Error('Publication cannot cross Weekend Readings pages.');
+  if (idOf(approvalReceipt?.provenance?.pageId) !== idOf(pageId)) throw new Error('Publication cannot cross research edition pages.');
   if (!approvedRevisionId || approvedRevisionId !== idOf(currentRevisionId)) {
     throw new Error('Draft changed after approval; reapproval is required before publication.');
   }
@@ -318,7 +337,8 @@ const serializePublishedArtifact = ({ approvalReceipt, publicationReceipt, slug 
   if (idOf(publicationReceipt?.provenance?.revisionId) !== idOf(artifact.revisionId)) return null;
   if (!storedPublicArtifactUrlsAreSafe(artifact)) return null;
   return {
-    artifactType: 'weekend_readings',
+    artifactType: artifact.artifactType || profileFromEditionKey(artifact.editionKey).artifactType,
+    publicationProfile: artifact.publicationProfile || profileFromEditionKey(artifact.editionKey).key,
     title: artifact.title,
     slug: clean(slug, 160),
     authorLabel: artifact.authorLabel,

@@ -11,6 +11,12 @@ describe('WikiWeekendReadingsPublication', () => {
     expect(onRequestReview).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the active research-edition label without changing the review boundary', () => {
+    render(<WikiWeekendReadingsPublication editionLabel="This Week in AI" onRequestReview={() => {}} />);
+    expect(screen.getByText('This Week in AI publication')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Private draft — not public');
+  });
+
   it('keeps approval and publication as separate actions', () => {
     const onApprove = jest.fn();
     const { rerender } = render(

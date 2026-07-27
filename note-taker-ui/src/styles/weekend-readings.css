@@ -1,30 +1,41 @@
 .wiki-weekend-publication {
-  align-items: flex-end;
-  background: color-mix(in srgb, var(--surface, #fff) 92%, var(--ink, #1c1b18) 8%);
-  border: 1px solid color-mix(in srgb, var(--ink, #1c1b18) 15%, transparent);
-  border-radius: 18px;
+  align-items: center;
+  border-block: 1px solid color-mix(in srgb, var(--ink, #1c1b18) 12%, transparent);
   display: flex;
-  gap: 24px;
+  gap: 18px;
   justify-content: space-between;
-  margin-block: 24px;
-  padding: 20px;
+  margin-block: 14px 4px;
+  padding: 10px 0;
 }
 
 .wiki-weekend-publication__copy {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   min-width: 0;
 }
 
 .wiki-weekend-publication__eyebrow {
-  font-size: 0.72rem;
+  color: var(--muted, #66625b);
+  font-size: 0.67rem;
   font-weight: 650;
-  letter-spacing: 0.09em;
-  margin: 0 0 6px;
+  letter-spacing: 0.08em;
+  margin: 0;
   text-transform: uppercase;
 }
 
 .wiki-weekend-publication h2 {
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  margin: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .wiki-weekend-publication__status,
@@ -35,12 +46,13 @@
 }
 
 .wiki-weekend-publication__status {
-  font-weight: 650;
+  color: var(--ink, #1c1b18);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .wiki-weekend-publication__note {
-  color: var(--muted, #66625b);
-  max-width: 64ch;
+  display: none;
 }
 
 .wiki-weekend-publication__error {
@@ -62,15 +74,15 @@
   display: inline-flex;
   font: inherit;
   justify-content: center;
-  min-height: 44px;
-  padding: 10px 16px;
+  min-height: 36px;
+  padding: 7px 12px;
   text-align: center;
 }
 
 .wiki-weekend-publication__actions button {
-  background: var(--ink, #1c1b18);
-  border: 1px solid var(--ink, #1c1b18);
-  color: var(--surface, #fff);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink, #1c1b18) 22%, transparent);
+  color: var(--ink, #1c1b18);
   cursor: pointer;
 }
 
@@ -92,20 +104,18 @@
 
 @media (max-width: 720px) {
   .wiki-weekend-publication {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
   }
 
   .wiki-weekend-publication__actions {
-    flex-direction: column;
-    width: 100%;
+    margin-left: auto;
   }
 
   .wiki-weekend-publication__actions button,
   .wiki-weekend-publication__actions a {
-    width: 100%;
+    min-height: 36px;
   }
 }
 

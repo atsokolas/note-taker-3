@@ -2075,4 +2075,26 @@ describe('WikiPageReadView', () => {
     await waitFor(() => expect(requestWeekendReadingsReview).toHaveBeenCalledWith('weekend-page-1'));
     expect(await screen.findByText('Review requested — still private')).toBeInTheDocument();
   });
+
+  it('uses the same revision-bound controls for This Week in AI', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      _id: 'this-week-in-ai-1',
+      title: 'This Week in AI — 2026-07-26 — Issue 001',
+      pageType: 'log',
+      status: 'draft',
+      visibility: 'private',
+      createdFrom: { type: 'sources', label: 'this-week-in-ai:user-1:2026-07-20:2026-07-26' }
+    });
+    renderReadView({ pageId: 'this-week-in-ai-1' });
+    await flushDeferredWikiReadWork();
+    expect(await screen.findByText('This Week in AI publication')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Review the exact revision' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Share this wiki page' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Repository dossier')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Track GitHub repo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Wiki maintenance receipt' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Page status')).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-read--research-edition')).toBeInTheDocument();
+  });
 });

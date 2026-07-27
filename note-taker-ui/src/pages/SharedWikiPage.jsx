@@ -278,7 +278,8 @@ const SharedWikiPage = () => {
 
   const tocItems = useMemo(() => extractTocItems(page?.body), [page?.body]);
   const intro = useMemo(() => firstParagraphText(page?.body), [page?.body]);
-  const weekendReadingsMode = page?.artifactType === 'weekend_readings';
+  const thisWeekInAIMode = page?.artifactType === 'this_week_in_ai';
+  const weekendReadingsMode = page?.artifactType === 'weekend_readings' || thisWeekInAIMode;
   const repoDossierMode = Boolean(page && isPublicRepoWikiPage(page));
   const companyDossierMode = Boolean(page && !repoDossierMode && isPublicCompanyDossierPage(page));
   const companyBriefSplit = useMemo(
@@ -479,7 +480,7 @@ const SharedWikiPage = () => {
         <article className="shared-wiki-page__article" onClick={handleCitationClick}>
           <header className="shared-wiki-page__hero">
             <p className="shared-wiki-page__eyebrow">
-              {weekendReadingsMode ? 'Weekend Readings' : (repoDossierMode ? 'Shared repository dossier' : 'Shared wiki')}
+              {weekendReadingsMode ? (thisWeekInAIMode ? 'This Week in AI' : 'Weekend Readings') : (repoDossierMode ? 'Shared repository dossier' : 'Shared wiki')}
             </p>
             <h1>{displayTitle}</h1>
             {companyBriefSplit?.brief ? (

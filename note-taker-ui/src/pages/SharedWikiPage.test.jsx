@@ -326,6 +326,53 @@ describe('SharedWikiPage', () => {
     expect(schema.datePublished).toBe('2026-07-19T12:10:00.000Z');
   });
 
+  it('renders This Week in AI through the immutable research-edition reader', async () => {
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        artifactType: 'this_week_in_ai',
+        title: 'This Week in AI — 2026-07-26 — Issue 001',
+        slug: 'this-week-in-ai-2026-07-26-issue-001',
+        authorLabel: 'Athan Tsokolas',
+        visibility: 'shared',
+        status: 'published',
+        publication: {
+          approvedRevisionId: 'revision-ai-1',
+          publishedAt: '2026-07-27T12:00:00.000Z'
+        },
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'This week’s judgment' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Controlled utilization is becoming an independent frontier.' }] },
+            {
+              type: 'heading',
+              attrs: { level: 3 },
+              content: [{
+                type: 'text',
+                text: 'The Regression Tax',
+                marks: [{ type: 'link', attrs: { href: 'https://arxiv.org/abs/2607.22520' } }]
+              }]
+            }
+          ]
+        },
+        sourceRefs: [{
+          title: 'The Regression Tax',
+          url: 'https://arxiv.org/abs/2607.22520',
+          snippet: 'Skills can break tasks the baseline solved.',
+          readingRole: 'counterevidence'
+        }]
+      }
+    });
+
+    render(<SharedWikiPage />);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'This Week in AI — 2026-07-26 — Issue 001' })).toBeInTheDocument();
+    expect(screen.getByText('This Week in AI')).toBeInTheDocument();
+    expect(screen.getByText('Athan Tsokolas — researched and maintained with Noeis')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Adopt shared wiki')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Make this mine' })).not.toBeInTheDocument();
+  });
+
   it('adopts shared pages for signed-in readers and opens the private copy', async () => {
     localStorage.setItem('token', 'test-token');
     getPublicWikiPage.mockResolvedValue({
