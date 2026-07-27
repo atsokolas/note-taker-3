@@ -54,6 +54,70 @@ describe('ConceptInvestigationPanel core', () => {
     expect(getConceptInvestigation).not.toHaveBeenCalled();
   });
 
+  it('survives transient loaded Concept identity churn without discarding a valid response', async () => {
+    let resolveInvestigation;
+    getConceptInvestigation.mockImplementationOnce(() => new Promise(resolve => {
+      resolveInvestigation = resolve;
+    }));
+    const { rerender } = render(
+      <MemoryRouter>
+        <ConceptInvestigationPanel {...context} onClose={() => {}} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(getConceptInvestigation).toHaveBeenCalledTimes(1));
+    rerender(
+      <MemoryRouter>
+        <ConceptInvestigationPanel {...context} loadedConceptId="" onClose={() => {}} />
+      </MemoryRouter>
+    );
+    resolveInvestigation({ investigation });
+
+    expect(await screen.findByText('What drives inference cost?')).toBeInTheDocument();
+    expect(screen.queryByText('Loading the exact Concept identity…')).not.toBeInTheDocument();
+    expect(getConceptInvestigation).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an honest identity wait before the exact Concept has loaded', async () => {
+    render(
+      <MemoryRouter>
+        <ConceptInvestigationPanel {...context} loadedConceptId="" onClose={() => {}} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Loading the exact Concept identity…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(getConceptInvestigation).not.toHaveBeenCalled();
+  });
+
+  it('ignores an in-flight response after the loaded Concept changes to a mismatch', async () => {
+    let resolveInvestigation;
+    getConceptInvestigation.mockImplementationOnce(() => new Promise(resolve => {
+      resolveInvestigation = resolve;
+    }));
+    const { rerender } = render(
+      <MemoryRouter>
+        <ConceptInvestigationPanel {...context} onClose={() => {}} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(getConceptInvestigation).toHaveBeenCalledTimes(1));
+    rerender(
+      <MemoryRouter>
+        <ConceptInvestigationPanel
+          {...context}
+          loadedConceptId="64f100000000000000000099"
+          onClose={() => {}}
+        />
+      </MemoryRouter>
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('does not match');
+
+    resolveInvestigation({ investigation });
+    await waitFor(() => expect(screen.queryByText('What drives inference cost?')).not.toBeInTheDocument());
+    expect(screen.getByRole('alert')).toHaveTextContent('does not match');
+  });
+
   it('retries the same exact context after a recoverable failure', async () => {
     getConceptInvestigation.mockRejectedValueOnce({ response: { data: { error: 'Revision unavailable.' } } }).mockResolvedValueOnce({ investigation });
     render(<MemoryRouter><ConceptInvestigationPanel {...context} onClose={() => {}} /></MemoryRouter>);

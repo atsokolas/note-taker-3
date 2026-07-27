@@ -43,10 +43,24 @@ const ConceptInvestigationPanel = ({
   onClose
 }) => {
   const [requestVersion, setRequestVersion] = useState(0);
+  const [verifiedConceptId, setVerifiedConceptId] = useState('');
   const [state, setState] = useState({ loading: true, error: '', investigation: null });
   const identityMismatch = Boolean(
     conceptId && loadedConceptId && String(conceptId) !== String(loadedConceptId)
   );
+  const identityReady = Boolean(
+    conceptId && String(verifiedConceptId) === String(conceptId)
+  );
+
+  useEffect(() => {
+    if (!conceptId || identityMismatch) {
+      setVerifiedConceptId('');
+      return;
+    }
+    if (loadedConceptId && String(loadedConceptId) === String(conceptId)) {
+      setVerifiedConceptId(String(conceptId));
+    }
+  }, [conceptId, identityMismatch, loadedConceptId]);
 
   useEffect(() => {
     let active = true;
@@ -58,7 +72,10 @@ const ConceptInvestigationPanel = ({
       setState({ loading: false, error: 'The selected Concept does not match this investigation link.', investigation: null });
       return () => { active = false; };
     }
-    if (!loadedConceptId) return () => { active = false; };
+    if (!identityReady) {
+      setState({ loading: false, error: '', investigation: null });
+      return () => { active = false; };
+    }
 
     setState(previous => ({ ...previous, loading: true, error: '' }));
     getConceptInvestigation({ conceptId, wikiPageId, revisionId, claimId })
@@ -80,7 +97,7 @@ const ConceptInvestigationPanel = ({
         });
       });
     return () => { active = false; };
-  }, [claimId, conceptId, identityMismatch, loadedConceptId, requestVersion, revisionId, wikiPageId]);
+  }, [claimId, conceptId, identityMismatch, identityReady, requestVersion, revisionId, wikiPageId]);
 
   const investigation = state.investigation;
   const candidate = investigation?.proposals?.candidateWikiRevision;
@@ -114,7 +131,10 @@ const ConceptInvestigationPanel = ({
         <button type="button" onClick={onClose}>Close context</button>
       </header>
 
-      {state.loading ? <p className="concept-investigation__status">Tracing the exact revision and source record…</p> : null}
+      {!identityMismatch && conceptId && wikiPageId && !identityReady ? (
+        <p className="concept-investigation__status">Loading the exact Concept identity…</p>
+      ) : null}
+      {identityReady && state.loading ? <p className="concept-investigation__status">Tracing the exact revision and source record…</p> : null}
       {!state.loading && state.error ? (
         <div className="concept-investigation__status is-error" role="alert">
           <p>{state.error}</p>
