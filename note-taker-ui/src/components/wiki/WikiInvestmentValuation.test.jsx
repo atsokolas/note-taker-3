@@ -105,6 +105,73 @@ test('submits explicit market and operating inputs without changing the owner hu
   }));
 });
 
+test('prefills the explicit expectations form from an acquired public market snapshot', () => {
+  const pageWithMarketSnapshot = {
+    ...page,
+    sourceRefs: [
+      ...page.sourceRefs,
+      {
+        _id: 'market-1',
+        title: 'COST dated market-price snapshot',
+        url: 'https://www.nasdaq.com/market-activity/stocks/cost',
+        metadata: {
+          evidenceArchetype: 'market_snapshot',
+          marketSnapshot: true,
+          ticker: 'COST',
+          price: 963.42,
+          asOf: '2026-07-24'
+        }
+      }
+    ]
+  };
+  render(
+    <SystemStatusProvider value={controls}>
+      <WikiInvestmentValuation page={pageWithMarketSnapshot} pageId="page-cost" />
+    </SystemStatusProvider>
+  );
+  expect(screen.getByLabelText('Price as of')).toHaveValue('2026-07-24');
+  expect(screen.getByLabelText('Share price')).toHaveValue(963.42);
+  expect(screen.getByLabelText('Market source title')).toHaveValue('COST dated market-price snapshot');
+  expect(screen.getByLabelText('Market source URL')).toHaveValue(
+    'https://www.nasdaq.com/market-activity/stocks/cost'
+  );
+  expect(screen.getByLabelText('Operating evidence')).toHaveValue('filing-1');
+});
+
+test('fills blank market inputs when acquisition finishes after the page opens', () => {
+  const { rerender } = render(
+    <SystemStatusProvider value={controls}>
+      <WikiInvestmentValuation page={page} pageId="page-cost" />
+    </SystemStatusProvider>
+  );
+  expect(screen.getByLabelText('Share price')).toHaveValue(null);
+  rerender(
+    <SystemStatusProvider value={controls}>
+      <WikiInvestmentValuation
+        page={{
+          ...page,
+          sourceRefs: [
+            ...page.sourceRefs,
+            {
+              _id: 'market-late',
+              title: 'COST dated market-price snapshot',
+              url: 'https://www.nasdaq.com/market-activity/stocks/cost',
+              metadata: {
+                marketSnapshot: true,
+                price: 963.42,
+                asOf: '2026-07-24'
+              }
+            }
+          ]
+        }}
+        pageId="page-cost"
+      />
+    </SystemStatusProvider>
+  );
+  expect(screen.getByLabelText('Price as of')).toHaveValue('2026-07-24');
+  expect(screen.getByLabelText('Share price')).toHaveValue(963.42);
+});
+
 test('renders a public-safe expectations table without edit controls', () => {
   render(<WikiInvestmentValuation valuation={valuation} readOnly />);
   expect(screen.getByRole('heading', { name: 'Implied expectations' })).toBeInTheDocument();

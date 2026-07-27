@@ -50,6 +50,10 @@ const {
 const {
   acquireIndependentDomainSource: defaultAcquireIndependentDomainSource
 } = require('../services/investmentDossierIndependentSourceService');
+const {
+  MAX_QUOTE_AGE_DAYS,
+  acquireMarketSnapshotSource: defaultAcquireMarketSnapshotSource
+} = require('../services/investmentDossierMarketSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
@@ -1617,6 +1621,7 @@ const buildWikiRouter = ({
   acquireOfficialProductSources = defaultAcquireOfficialProductSources,
   acquireCompetitorPrimarySource = defaultAcquireCompetitorPrimarySource,
   acquireIndependentDomainSource = defaultAcquireIndependentDomainSource,
+  acquireMarketSnapshotSource = defaultAcquireMarketSnapshotSource,
   inspectCompanyDossierFiler = defaultInspectCompanyDossierFiler,
   resolveEdgarCompanyIdentifier = defaultResolveEdgarCompanyIdentifier,
   armTranscriptWatchForPage = defaultArmTranscriptWatchForPage,
@@ -2775,6 +2780,77 @@ const buildWikiRouter = ({
     };
   };
 
+  const acquireMarketSnapshotForDossier = async ({
+    page,
+    now = new Date()
+  } = {}) => {
+    if (!page || !isCompanyDossier(page)) {
+      return { sourceAdded: false, sourceRef: null, stop: null, skipped: true };
+    }
+    const existingSource = (page.sourceRefs || []).find((source) => {
+      const asOf = source?.metadata?.asOf
+        ? new Date(`${String(source.metadata.asOf).slice(0, 10)}T00:00:00.000Z`)
+        : null;
+      const ageDays = asOf && !Number.isNaN(asOf.getTime())
+        ? Math.floor((new Date(now).getTime() - asOf.getTime()) / (24 * 60 * 60 * 1000))
+        : null;
+      return source?.metadata?.marketSnapshot === true
+        && Number(source?.metadata?.price) > 0
+        && ageDays >= 0
+        && ageDays <= MAX_QUOTE_AGE_DAYS;
+    });
+    if (existingSource) {
+      return { sourceAdded: false, sourceRef: existingSource, stop: null, skipped: true };
+    }
+    const priorProfile = page.investmentDossier?.toObject
+      ? page.investmentDossier.toObject()
+      : page.investmentDossier || {};
+    const ticker = priorProfile.company?.ticker || page.externalWatches?.edgar?.ticker || '';
+    let acquisition;
+    try {
+      acquisition = await withTransientRetries({
+        attempts: 3,
+        delaysMs: [750, 2000],
+        operation: () => acquireMarketSnapshotSource({ ticker, now })
+      });
+    } catch (error) {
+      acquisition = {
+        sourceRef: null,
+        stop: {
+          code: 'MARKET_SNAPSHOT_UNAVAILABLE',
+          evidenceArchetype: 'market_snapshot',
+          message: 'A dated public market price could not be loaded after automatic retries. Noeis left the expectations clock incomplete.'
+        },
+        diagnostic: String(error?.message || '')
+      };
+    }
+    if (acquisition.sourceRef) {
+      page.sourceRefs = [...(page.sourceRefs || []), acquisition.sourceRef].slice(0, 80);
+      page.markModified?.('sourceRefs');
+    }
+    page.investmentDossier = {
+      ...priorProfile,
+      acquisition: {
+        ...(priorProfile.acquisition || {}),
+        marketSnapshot: {
+          status: acquisition.sourceRef ? 'attached' : 'unavailable',
+          lastAttemptedAt: now,
+          sourceUrl: acquisition.sourceRef?.url || '',
+          asOf: acquisition.sourceRef?.metadata?.asOf || null,
+          price: acquisition.sourceRef?.metadata?.price || null,
+          stop: acquisition.stop || null
+        }
+      }
+    };
+    page.markModified?.('investmentDossier');
+    return {
+      sourceAdded: Boolean(acquisition.sourceRef),
+      sourceRef: acquisition.sourceRef || null,
+      stop: acquisition.stop || null,
+      skipped: false
+    };
+  };
+
   const acquireOfficialProductSourcesForDossier = async ({ page, now = new Date() } = {}) => {
     if (!page || !isCompanyDossier(page)) {
       return { sourcesAdded: 0, sourceRefs: [], stop: null, skipped: true };
@@ -3630,12 +3706,14 @@ const buildWikiRouter = ({
         userId: req.user.id
       });
       const independentDomainAcquisition = await acquireIndependentDomainForDossier({ page });
+      const marketSnapshotAcquisition = await acquireMarketSnapshotForDossier({ page });
       if (
         !secPrimaryPackAcquisition.skipped
         || !companyFactsAcquisition.skipped
         || !officialProductAcquisition.skipped
         || !competitorPrimaryAcquisition.skipped
         || !independentDomainAcquisition.skipped
+        || !marketSnapshotAcquisition.skipped
       ) await page.save();
       const filingSourceCount = (page.sourceRefs || []).filter(source => (
         source?.provider === 'sec-edgar'
@@ -3645,7 +3723,8 @@ const buildWikiRouter = ({
         companyFactsAcquisition.stop,
         officialProductAcquisition.stop,
         competitorPrimaryAcquisition.stop,
-        independentDomainAcquisition.stop
+        independentDomainAcquisition.stop,
+        marketSnapshotAcquisition.stop
       ].filter(Boolean);
       const receiptInput = {
         id: `company-dossier:${serializeId(page._id)}`,
@@ -3658,7 +3737,7 @@ const buildWikiRouter = ({
           ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
           : acquisitionStops.length
             ? `The private dossier and filing watch were saved. ${acquisitionStops.map(stop => stop.message).join(' ')}`
-            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, a named-competitor filing, and a verified independent benchmark were saved.',
+            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, a named-competitor filing, a verified independent benchmark, and a dated public market price were saved.',
         metrics: {
           ticker: company.ticker,
           cik: company.cik,
@@ -3672,6 +3751,7 @@ const buildWikiRouter = ({
           officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
           competitorPrimaryAttached: Boolean(competitorPrimaryAcquisition.sourceRef),
           independentDomainAttached: Boolean(independentDomainAcquisition.sourceRef),
+          marketSnapshotAttached: Boolean(marketSnapshotAcquisition.sourceRef),
           acquisitionStops: acquisitionStops.map(stop => stop.code)
         },
         provenance: {
@@ -3721,6 +3801,7 @@ const buildWikiRouter = ({
           officialProductSourcesAttached: officialProductAcquisition.sourcesAdded,
           competitorPrimaryAttached: Boolean(competitorPrimaryAcquisition.sourceRef),
           independentDomainAttached: Boolean(independentDomainAcquisition.sourceRef),
+          marketSnapshotAttached: Boolean(marketSnapshotAcquisition.sourceRef),
           acquisitionStops,
           watchError
         },
@@ -6075,6 +6156,19 @@ const buildWikiRouter = ({
             summary: independentDomainAcquisition.sourceRef
               ? 'Attached a verified government or regulator benchmark for this SEC industry.'
               : independentDomainAcquisition.stop?.message,
+            sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
+          });
+        }
+        const marketSnapshotAcquisition = await acquireMarketSnapshotForDossier({ page });
+        if (!marketSnapshotAcquisition.skipped) {
+          page = await savePageWithVersionRetry(page, req.user.id);
+          writeSse(res, 'wiki-draft', {
+            stage: marketSnapshotAcquisition.sourceRef
+              ? 'market_snapshot_attached'
+              : 'market_snapshot_unavailable',
+            summary: marketSnapshotAcquisition.sourceRef
+              ? 'Attached a dated public market price with source provenance.'
+              : marketSnapshotAcquisition.stop?.message,
             sourceCount: Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0
           });
         }

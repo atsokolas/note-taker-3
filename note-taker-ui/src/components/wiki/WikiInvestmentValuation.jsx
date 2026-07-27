@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { refreshInvestmentValuation } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { Button } from '../ui';
@@ -38,14 +38,27 @@ const metricLabel = value => clean(value)
 
 const sourceId = source => clean(source?._id || source?.id);
 
+const latestMarketSource = sourceRefs => (sourceRefs || [])
+  .filter(source => (
+    source?.metadata?.marketSnapshot === true
+    && Number(source?.metadata?.price) > 0
+    && source?.metadata?.asOf
+  ))
+  .sort((left, right) => (
+    clean(right.metadata.asOf).localeCompare(clean(left.metadata.asOf))
+  ))[0];
+
 const initialForm = (page = {}, valuation = {}) => {
   const hurdle = page?.investmentDossier?.hurdle || valuation?.hurdle || {};
+  const marketSource = latestMarketSource(page?.sourceRefs);
   const defaultSource = (page?.sourceRefs || []).find(source => (
     sourceId(source) && source?.metadata?.marketSnapshot !== true
   ));
   return {
-    asOf: valuation?.asOf ? String(valuation.asOf).slice(0, 10) : '',
-    price: valuation?.price ?? '',
+    asOf: valuation?.asOf
+      ? String(valuation.asOf).slice(0, 10)
+      : clean(marketSource?.metadata?.asOf).slice(0, 10),
+    price: valuation?.price ?? marketSource?.metadata?.price ?? '',
     dilutedShares: valuation?.dilutedShares ?? '',
     netCashOrDebt: valuation?.netCashOrDebt ?? '0',
     unitScale: valuation?.unitScale || 'millions',
@@ -55,8 +68,8 @@ const initialForm = (page = {}, valuation = {}) => {
     operatingDerivation: valuation?.operatingBase?.derivation || '',
     operatingSourceRefId: valuation?.operatingBase?.sourceRefIds?.[0] || sourceId(defaultSource),
     terminalMultiples: (valuation?.hurdle?.terminalMultiples || [15, 20, 25, 30]).join(', '),
-    marketSourceTitle: '',
-    marketSourceUrl: '',
+    marketSourceTitle: marketSource?.title || '',
+    marketSourceUrl: marketSource?.url || '',
     annualReturn: hurdle.annualReturn,
     horizonYears: hurdle.horizonYears
   };
@@ -150,12 +163,27 @@ const WikiInvestmentValuation = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
+  const acquiredMarketSource = useMemo(
+    () => latestMarketSource(page?.sourceRefs),
+    [page?.sourceRefs]
+  );
   const operatingSources = useMemo(
     () => (page?.sourceRefs || []).filter(source => (
       sourceId(source) && source?.metadata?.marketSnapshot !== true
     )),
     [page?.sourceRefs]
   );
+
+  useEffect(() => {
+    if (!acquiredMarketSource) return;
+    setForm(current => ({
+      ...current,
+      asOf: current.asOf || clean(acquiredMarketSource.metadata.asOf).slice(0, 10),
+      price: current.price || acquiredMarketSource.metadata.price,
+      marketSourceTitle: current.marketSourceTitle || acquiredMarketSource.title || '',
+      marketSourceUrl: current.marketSourceUrl || acquiredMarketSource.url || ''
+    }));
+  }, [acquiredMarketSource]);
 
   if (readOnly && !complete) return null;
 
