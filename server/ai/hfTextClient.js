@@ -12,10 +12,13 @@ const DEFAULT_TEXT_MODEL_FALLBACKS = [
 const DEFAULT_OPENROUTER_TEXT_MODEL_FALLBACKS = [
   'google/gemini-2.5-flash'
 ];
-const OPENROUTER_FREE_FALLBACK_MODELS = [
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'openrouter/free'
-];
+const OPENROUTER_FREE_FALLBACK_MODELS = ['openrouter/free'];
+const OPENROUTER_NO_REASONING_ARTIFACT_ROUTES = Object.freeze([
+  { model: 'nvidia/nemotron-3-super-120b-a12b:free', provider: '' },
+  { model: 'google/gemma-4-31b-it:free', provider: '' },
+  { model: 'google/gemma-4-26b-a4b-it:free', provider: '' },
+  { model: 'nvidia/nemotron-nano-9b-v2:free', provider: '' }
+]);
 
 const DEFAULT_ROUTE_PROFILES = Object.freeze({
   partner_chat: [
@@ -232,6 +235,9 @@ const getConfig = () => {
     upstream,
     referer: process.env.OPENROUTER_HTTP_REFERER || process.env.APP_URL || process.env.PUBLIC_APP_URL || 'https://www.noeis.io',
     appTitle: process.env.OPENROUTER_APP_TITLE || 'Noeis',
+    noReasoningArtifactRoutes: useOpenRouter
+      ? OPENROUTER_NO_REASONING_ARTIFACT_ROUTES.map(route => ({ ...route }))
+      : [],
     routeProfiles: getConfiguredRouteProfiles(provider, { upstream, primaryModel: model, fallbacks: textModelFallbacks })
   };
 };
@@ -770,6 +776,7 @@ const chatCompleteStream = async ({
   route = '',
   modelRoutes = [],
   responseFormat = null,
+  reasoning = null,
   tools = null,
   toolChoice = null,
   onDelta = null,
@@ -863,7 +870,11 @@ const chatCompleteStream = async ({
           messages: safeMessages,
           temperature,
           max_tokens: maxTokens,
-          ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+          ...(reasoning && typeof reasoning === 'object'
+            ? { reasoning }
+            : reasoningEffort
+              ? { reasoning_effort: reasoningEffort }
+              : {}),
           ...(responseFormat ? { response_format: responseFormat } : {}),
           ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {})

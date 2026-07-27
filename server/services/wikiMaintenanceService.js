@@ -1,4 +1,9 @@
-const { chatComplete, chatCompleteStream, isTextGenerationConfigured } = require('../ai/hfTextClient');
+const {
+  chatComplete,
+  chatCompleteStream,
+  getConfig: getTextGenerationConfig,
+  isTextGenerationConfigured
+} = require('../ai/hfTextClient');
 const {
   alignArticleToPageStructure,
   getWikiPageStructure,
@@ -3433,6 +3438,9 @@ const maintainWikiPage = async ({
   const rebuildMaxTokens = investmentDossier
     ? INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS
     : DEFAULT_REBUILD_MAX_TOKENS;
+  const dossierModelRoutes = investmentDossier
+    ? (getTextGenerationConfig().noReasoningArtifactRoutes || [])
+    : [];
   const knownWikiPages = await collectKnownWikiPages({
     page,
     userId,
@@ -3484,6 +3492,7 @@ const maintainWikiPage = async ({
         temperature: draftTemperature,
         reasoningEffort: investmentDossier ? '' : draftReasoningEffort,
         reasoning: investmentDossier ? { effort: 'none' } : null,
+        modelRoutes: dossierModelRoutes,
         responseFormat: { type: 'json_object' },
         messages: [
           {
@@ -3600,6 +3609,7 @@ const maintainWikiPage = async ({
         temperature: rebuildTemperature,
         reasoningEffort: investmentDossier ? '' : 'medium',
         reasoning: investmentDossier ? { effort: 'none' } : null,
+        modelRoutes: dossierModelRoutes,
         responseFormat: { type: 'json_object' },
         messages: [
           {
