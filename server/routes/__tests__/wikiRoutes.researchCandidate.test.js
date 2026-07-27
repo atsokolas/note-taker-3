@@ -141,6 +141,7 @@ const run = async () => {
     sourceVersion: { provider: 'sec-edgar', trustedHeadHash: trustedHash }
   }]);
   const receipts = [];
+  let candidateQualityPass = true;
   const NoeisReceipt = {
     findOneAndUpdate: async (_query, update) => {
       const stored = clone(update.$set);
@@ -160,9 +161,9 @@ const run = async () => {
     WikiRevision,
     NoeisReceipt,
     evaluateWikiArticleQuality: () => ({
-      ok: true,
-      status: 'pass',
-      failures: [],
+      ok: candidateQualityPass,
+      status: candidateQualityPass ? 'pass' : 'needs_rebuild',
+      failures: candidateQualityPass ? [] : ['Numeric claim is not grounded in cited source text.'],
       metrics: { investmentDossier: { completedModuleCount: 9 } }
     })
   }));
@@ -193,6 +194,12 @@ const run = async () => {
     assert.equal(stale.response.status, 409);
     assert.equal(stale.body.code, 'WIKI_RESEARCH_CANDIDATE_STALE');
     WikiPage.records[0].judgment.currentJudgment = 'FAST can compound.';
+
+    candidateQualityPass = false;
+    const qualityStale = await request(`/api/wiki/pages/${pageId}/research-candidate/accept`, { method: 'POST' });
+    assert.equal(qualityStale.response.status, 409);
+    assert.equal(qualityStale.body.code, 'WIKI_RESEARCH_CANDIDATE_QUALITY_STALE');
+    candidateQualityPass = true;
 
     const accepted = await request(`/api/wiki/pages/${pageId}/research-candidate/accept`, { method: 'POST' });
     assert.equal(accepted.response.status, 200, JSON.stringify(accepted.body));
