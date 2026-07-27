@@ -72,6 +72,34 @@ const passing = evaluateInvestmentDossierQuality({
 assert.strictEqual(passing.ok, true, passing.failures.join('\n'));
 assert.strictEqual(passing.status, 'decision_ready');
 
+const citedQuestions = evaluateInvestmentDossierQuality({
+  page: { investmentDossier: profile },
+  body,
+  claims: [
+    ...claims.slice(0, 22),
+    {
+      claimId: 'question',
+      section: 'Thesis-Changing Questions',
+      text: 'Would renewal resilience persist through a downturn?',
+      support: 'unsupported',
+      sourceRefIds: ['filing'],
+      citationIds: ['question-citation']
+    },
+    {
+      claimId: 'falsifier',
+      section: 'What Would Change the Thesis',
+      text: 'A sustained renewal decline would invalidate the thesis.',
+      support: 'unsupported',
+      sourceRefIds: ['filing'],
+      citationIds: ['falsifier-citation']
+    }
+  ],
+  sourceRefs,
+  words: 2600
+});
+assert.strictEqual(citedQuestions.ok, true, citedQuestions.failures.join('\n'));
+assert.strictEqual(citedQuestions.metrics.unresolvedDecisionQuestions, 2);
+
 const thinProfile = upgradeInvestmentDossierProfile({
   profile: { company: { name: 'Generic Company', ticker: 'GEN' } },
   candidates: [{ title: 'Generic 10-K', provider: 'sec-edgar', text: 'Generic filing.' }]

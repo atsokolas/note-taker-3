@@ -135,7 +135,7 @@ const MODULE_CLAIM_RULES = Object.freeze({
   },
   falsifiers: {
     sections: [/what would change the thesis/i],
-    keywords: /falsif|would change|break|decline|erosion|fail|monitor|threshold/i
+    keywords: /falsif|would (?:change|shift|validate|prove|invalidate)|evidence that|sustained|prolonged|break|decline|erosion|fail|monitor|threshold/i
   },
   next_evidence_clock: {
     sections: [/next evidence and maintenance test/i],

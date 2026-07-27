@@ -38,6 +38,12 @@ const evaluateInvestmentDossierQuality = ({
   const claimList = Array.isArray(claims) ? claims : [];
   const sourceList = Array.isArray(sourceRefs) ? sourceRefs : [];
   const unsupportedClaims = claimList.filter(claim => clean(claim?.support).toLowerCase() === 'unsupported');
+  const exploratoryUnsupportedClaims = unsupportedClaims.filter(claim => (
+    /thesis-changing questions|what would change the thesis/i.test(clean(claim?.section))
+  ));
+  const blockingUnsupportedClaims = unsupportedClaims.filter(claim => (
+    !exploratoryUnsupportedClaims.includes(claim)
+  ));
   const uncitedClaims = claimList.filter(claim => !(
     (claim?.citationIds || []).length
     || (claim?.sourceRefIds || []).length
@@ -90,11 +96,19 @@ const evaluateInvestmentDossierQuality = ({
   if (claimList.length < DECISION_DOSSIER_MIN_CLAIMS) {
     failures.push(`Investment dossier has too few claim-level analytical units: ${claimList.length}, expected at least ${DECISION_DOSSIER_MIN_CLAIMS}.`);
   }
-  if (unsupportedClaims.length) {
-    failures.push(`Investment dossier has unsupported decision claims: ${unsupportedClaims.length}.`);
+  if (blockingUnsupportedClaims.length) {
+    const samples = blockingUnsupportedClaims
+      .slice(0, 3)
+      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)}`)
+      .join(' | ');
+    failures.push(`Investment dossier has unsupported decision claims: ${blockingUnsupportedClaims.length}${samples ? ` (${samples})` : ''}.`);
   }
   if (uncitedClaims.length) {
-    failures.push(`Investment dossier has decision claims without citations: ${uncitedClaims.length}.`);
+    const samples = uncitedClaims
+      .slice(0, 3)
+      .map(claim => `${clean(claim?.section) || 'Unsectioned'}: ${clean(claim?.text).slice(0, 100)}`)
+      .join(' | ');
+    failures.push(`Investment dossier has decision claims without citations: ${uncitedClaims.length}${samples ? ` (${samples})` : ''}.`);
   }
   if (missingEvidenceArchetypes.length) {
     failures.push(`Investment dossier is missing evidence archetypes: ${missingEvidenceArchetypes.join(', ')}.`);
@@ -139,7 +153,8 @@ const evaluateInvestmentDossierQuality = ({
       observedEvidenceArchetypes,
       missingEvidenceArchetypes,
       reproducibleInsightCount: reproducibleInsights.length,
-      unsupportedDecisionClaims: unsupportedClaims.length,
+      unsupportedDecisionClaims: blockingUnsupportedClaims.length,
+      unresolvedDecisionQuestions: exploratoryUnsupportedClaims.length,
       uncitedDecisionClaims: uncitedClaims.length
     }
   };
