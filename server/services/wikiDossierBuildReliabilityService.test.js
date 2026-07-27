@@ -59,8 +59,28 @@ class FakeRun {
   }
 
   static async updateOne(query, update) {
-    const row = FakeRun.records.find(item => item._id === query._id && item.status === query.status);
-    if (row) Object.assign(row, update.$set || {});
+    const row = FakeRun.records.find(item => (
+      item._id === query._id
+      && item.status === query.status
+      && (query.leaseKey === undefined || item.leaseKey === query.leaseKey)
+      && (!query.updatedAt?.$lte || new Date(item.updatedAt) <= new Date(query.updatedAt.$lte))
+    ));
+    if (!row) return { matchedCount: 0, modifiedCount: 0 };
+    Object.entries(update.$set || {}).forEach(([key, value]) => {
+      if (!key.includes('.')) {
+        row[key] = value;
+        return;
+      }
+      const segments = key.split('.');
+      let target = row;
+      segments.slice(0, -1).forEach((segment) => {
+        target[segment] = target[segment] || {};
+        target = target[segment];
+      });
+      target[segments.at(-1)] = value;
+    });
+    Object.keys(update.$unset || {}).forEach(key => delete row[key]);
+    return { matchedCount: 1, modifiedCount: 1 };
   }
 }
 
@@ -118,6 +138,7 @@ const run = async () => {
   assert.equal(leaderClaim.acquired, true);
   assert.equal(followerClaim.acquired, false);
   assert.equal(followerClaim.run._id, leaderClaim.run._id);
+
   let polls = 0;
   const followed = await waitForDossierBuildRun({
     WikiMaintenanceRun: {
@@ -135,6 +156,21 @@ const run = async () => {
     timeoutMs: 1000
   });
   assert.equal(followed.status, 'needs_review');
+
+  const leaderRecord = FakeRun.records.find(row => row._id === leaderClaim.run._id);
+  leaderRecord.updatedAt = '2026-07-26T12:01:01Z';
+  leaderRecord.metadata.lastHeartbeatAt = '2026-07-26T12:01:01Z';
+  const takeoverClaim = await createDossierBuildRun({
+    WikiMaintenanceRun: FakeRun,
+    page,
+    userId: 'user-1',
+    resume: true,
+    now: new Date('2026-07-26T12:02:00Z')
+  });
+  assert.equal(takeoverClaim.acquired, true);
+  assert.notEqual(takeoverClaim.run._id, leaderClaim.run._id);
+  assert.equal(leaderRecord.status, 'failed');
+  assert.equal(leaderRecord.leaseKey, undefined);
 
   let attempts = 0;
   const value = await withTransientRetries({

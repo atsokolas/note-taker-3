@@ -1,5 +1,6 @@
 const BUILD_KIND = 'company_dossier_build';
 const MAX_STAGE_RECEIPTS = 80;
+const STALE_ACTIVE_BUILD_MS = 45 * 1000;
 
 const plain = value => (
   value?.toObject ? value.toObject({ virtuals: false }) : { ...(value || {}) }
@@ -55,6 +56,47 @@ const createDossierBuildRun = async ({
       ? existingQuery.sort({ createdAt: -1 })
       : existingQuery);
     if (!existing) throw error;
+    const heartbeatAt = new Date(
+      existing.metadata?.lastHeartbeatAt
+      || existing.updatedAt
+      || existing.startedAt
+      || 0
+    );
+    const staleCutoff = new Date(now.getTime() - STALE_ACTIVE_BUILD_MS);
+    if (Number.isFinite(heartbeatAt.getTime())
+      && heartbeatAt <= staleCutoff
+      && typeof WikiMaintenanceRun.updateOne === 'function') {
+      const claimed = await WikiMaintenanceRun.updateOne(
+        {
+          _id: existing._id,
+          status: 'running',
+          leaseKey,
+          updatedAt: { $lte: staleCutoff }
+        },
+        {
+          $set: {
+            status: 'failed',
+            summary: 'The company dossier build was interrupted and can be resumed.',
+            errorMessage: 'The prior worker stopped sending heartbeats.',
+            completedAt: now,
+            'metadata.interrupted': true,
+            'metadata.interruptedAt': now,
+            'metadata.lastHeartbeatAt': now
+          },
+          $unset: { leaseKey: 1 }
+        }
+      );
+      const changed = Number(claimed?.modifiedCount ?? claimed?.nModified ?? claimed?.matchedCount ?? claimed?.n ?? 0) > 0;
+      if (changed) {
+        return createDossierBuildRun({
+          WikiMaintenanceRun,
+          page,
+          userId,
+          resume: true,
+          now: new Date(now.getTime() + 1)
+        });
+      }
+    }
     return { run: existing, acquired: false };
   }
 };
@@ -235,6 +277,7 @@ const withTransientRetries = async ({
 
 module.exports = {
   BUILD_KIND,
+  STALE_ACTIVE_BUILD_MS,
   createDossierBuildRun,
   finishDossierBuildRun,
   isTransientDossierError,
