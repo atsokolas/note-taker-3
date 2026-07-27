@@ -100,7 +100,7 @@ const run = () => {
     assert.strictEqual(openRouterConfig.routerBaseUrl, 'https://openrouter.ai/api/v1');
     assert.deepStrictEqual(
       openRouterConfig.textModelFallbacks,
-      ['google/gemini-2.5-flash']
+      ['google/gemini-2.5-flash', 'openrouter/free']
     );
     assert.deepStrictEqual(
       openRouterConfig.routeProfiles.partner_chat.slice(0, 2),
