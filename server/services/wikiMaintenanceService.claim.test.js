@@ -2766,13 +2766,13 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
           title: 'Investment Process',
           article: {
             summary: {
-              text: 'Investment process matters because rules preserve judgment when markets make patience emotionally expensive.',
+              text: `Investment process matters because rules preserve judgment when markets make patience emotionally expensive. ${'A durable checklist separates evidence, valuation, and falsifiers before capital is committed. '.repeat(5)}`,
               citationIndexes: [1]
             },
             sections: [{
               heading: 'Core Idea',
               paragraphs: [{
-                text: 'A useful process narrows attention to business quality, valuation discipline, and the conditions that would prove the thesis wrong.',
+                text: `A useful process narrows attention to business quality, valuation discipline, and the conditions that would prove the thesis wrong. ${'The investor records the evidence, counterargument, and next review trigger. '.repeat(5)}`,
                 citationIndexes: [1]
               }],
               bullets: []
@@ -2799,10 +2799,73 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(chat).toHaveBeenCalledTimes(2);
+    expect(chat.mock.calls[1][0].messages[1].content).toContain('The page should explain investing process.');
     expect(page.plainText).toContain('Investment process matters');
     expect(page.plainText).not.toContain('should explain');
     expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
     expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
+  });
+
+  it('preserves the stronger first draft when an automatic rebuild regresses', async () => {
+    const page = {
+      _id: 'page-main',
+      title: 'Durable Investment Process',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+    const progressEvents = [];
+    const strongText = `${'Evidence-backed process rules preserve judgment under pressure. '.repeat(18)}Final durable conclusion. The page should explain unresolved tradeoffs.`;
+    const chat = jest.fn()
+      .mockResolvedValueOnce({
+        model: 'test-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: page.title,
+          article: {
+            summary: { text: strongText, citationIndexes: [1], support: 'supported' },
+            sections: []
+          },
+          maintenance: { summary: 'Drafted substantive page.', changelog: [], health: {} },
+          sourceIndexesUsed: [1]
+        })
+      })
+      .mockResolvedValueOnce({
+        model: 'test-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: page.title,
+          article: {
+            summary: { text: 'This page still needs source-backed development.', citationIndexes: [] },
+            sections: []
+          },
+          maintenance: { summary: 'Regressed to scaffold.', changelog: [], health: {} },
+          sourceIndexesUsed: []
+        })
+      });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      onProgress: event => progressEvents.push(event),
+      models: {
+        Article: fakeFindModel([{ _id: 'article-1', title: 'Process evidence', content: strongText }]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(page.plainText).toContain('Final durable conclusion.');
+    expect(page.aiState.quality.rebuildRejected).toBe(true);
+    expect(progressEvents.some(event => event.stage === 'quality_rebuild_preserved')).toBe(true);
   });
 
   it('defers the quality rebuild in fast onboarding profile', async () => {

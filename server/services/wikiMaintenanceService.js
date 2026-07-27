@@ -934,6 +934,7 @@ const buildRebuildPrompt = ({
   wikiSchemaContent = '',
   knownWikiPages = [],
   failures = [],
+  draftArticle = null,
   sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
 }) => (
   `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages, sourceTextLimit })}
@@ -941,7 +942,10 @@ const buildRebuildPrompt = ({
 Your previous draft failed the wiki quality gate:
 ${failures.map(failure => `- ${failure}`).join('\n') || '- The draft was too thin or scaffold-like.'}
 
-Rewrite again from scratch. Produce a real article, not a patch. Make defensible claims, compare evidence, and include concrete tensions.`
+Here is the actual failed draft. Preserve its source-backed substance and repair the listed failures; do not replace a substantive draft with a shorter scaffold:
+${draftArticle ? truncateRaw(JSON.stringify(draftArticle), 30000) : 'No recoverable draft body was available.'}
+
+Return the complete repaired article. Make defensible claims, compare evidence, and include concrete tensions.`
 );
 
 const extractJson = (value = '') => {
@@ -992,6 +996,37 @@ const shouldInlineQualityRebuild = ({ quality = {}, plainText = '', fastProfile 
   if (!fastProfile) return true;
   const wordCount = cleanWikiText(plainText).split(/\s+/).filter(Boolean).length;
   return wordCount < 30;
+};
+
+const isQualityImprovement = ({ current = {}, retry = {} } = {}) => {
+  if (retry?.ok && !current?.ok) return true;
+  if (current?.ok && !retry?.ok) return false;
+  const currentMetrics = current?.metrics || {};
+  const retryMetrics = retry?.metrics || {};
+  const currentWords = Number(currentMetrics.words || 0);
+  const retryWords = Number(retryMetrics.words || 0);
+  if (currentWords > 0 && retryWords < currentWords * 0.6) return false;
+  const scaffoldFailureCount = quality => (
+    (Array.isArray(quality?.failures) ? quality.failures : [])
+      .filter(failure => /scaffold|placeholder/i.test(String(failure || '')))
+      .length
+  );
+  const currentScaffolds = scaffoldFailureCount(current);
+  const retryScaffolds = scaffoldFailureCount(retry);
+  if (retryScaffolds !== currentScaffolds) return retryScaffolds < currentScaffolds;
+  const currentScore = Number(current?.score || 0);
+  const retryScore = Number(retry?.score || 0);
+  if (retryScore !== currentScore) return retryScore > currentScore;
+  const currentFailures = Array.isArray(current?.failures) ? current.failures.length : Number.MAX_SAFE_INTEGER;
+  const retryFailures = Array.isArray(retry?.failures) ? retry.failures.length : Number.MAX_SAFE_INTEGER;
+  if (retryFailures !== currentFailures) return retryFailures < currentFailures;
+  if (Number(retryMetrics.words || 0) !== Number(currentMetrics.words || 0)) {
+    return Number(retryMetrics.words || 0) > Number(currentMetrics.words || 0);
+  }
+  if (Number(retryMetrics.cited || 0) !== Number(currentMetrics.cited || 0)) {
+    return Number(retryMetrics.cited || 0) > Number(currentMetrics.cited || 0);
+  }
+  return Number(retryMetrics.supportedLike || 0) > Number(currentMetrics.supportedLike || 0);
 };
 
 const sourceRefFromCandidate = (candidate) => {
@@ -3625,6 +3660,7 @@ const maintainWikiPage = async ({
               wikiSchemaContent,
               knownWikiPages,
               failures: materialized.quality.failures,
+              draftArticle: finalNormalized.article,
               sourceTextLimit: effectiveSourceTextLimit
             })
           }
@@ -3675,23 +3711,39 @@ const maintainWikiPage = async ({
             models
           });
         }
-        finalNormalized = finalRetryNormalized;
-        materialized = {
-          ...retryMaterialized,
-          quality: {
-            ...retryMaterialized.quality,
-            fallbackApplied: retryFallbackApplied,
-            rebuiltAutomatically: true,
-            previousFailures: materialized.quality.failures
-          }
-        };
-        rebuiltAutomatically = true;
-        await emitProgress({
-          stage: 'quality_rebuilt',
-          summary: 'Automatic rebuild completed.',
-          model: modelInfo.model,
-          provider: modelInfo.provider
-        });
+        if (isQualityImprovement({ current: materialized.quality, retry: retryMaterialized.quality })) {
+          const previousFailures = materialized.quality.failures;
+          finalNormalized = finalRetryNormalized;
+          materialized = {
+            ...retryMaterialized,
+            quality: {
+              ...retryMaterialized.quality,
+              fallbackApplied: retryFallbackApplied,
+              rebuiltAutomatically: true,
+              previousFailures
+            }
+          };
+          rebuiltAutomatically = true;
+          await emitProgress({
+            stage: 'quality_rebuilt',
+            summary: 'Automatic rebuild completed.',
+            model: modelInfo.model,
+            provider: modelInfo.provider
+          });
+        } else {
+          materialized.quality = {
+            ...materialized.quality,
+            rebuildAttempted: true,
+            rebuildRejected: true,
+            retryFailures: retryMaterialized.quality?.failures || []
+          };
+          await emitProgress({
+            stage: 'quality_rebuild_preserved',
+            summary: 'The retry scored worse; preserving the stronger first draft.',
+            model: modelInfo.model,
+            provider: modelInfo.provider
+          });
+        }
       }
     } catch (_error) {
       materialized.quality = {
