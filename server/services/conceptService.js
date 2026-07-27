@@ -1,5 +1,7 @@
 const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, mongoose }) => {
   const normalizeName = (name) => String(name || '').trim();
+  const escapeRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || ''));
   const summarizeConceptFreshness = (workbench = null) => {
     const meta = workbench?.meta && typeof workbench.meta === 'object' ? workbench.meta : {};
     const changeDrafts = Array.isArray(workbench?.changeDrafts) ? workbench.changeDrafts : [];
@@ -86,9 +88,18 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
   };
 
   const getConceptMeta = async (userId, name) => {
-    const cleanName = normalizeName(name);
+    let cleanName = normalizeName(name);
     const userObjectId = new mongoose.Types.ObjectId(userId);
-    const meta = await TagMeta.findOne({ name: new RegExp(`^${cleanName}$`, 'i'), userId: userObjectId });
+    let meta = null;
+    if (isObjectId(cleanName)) {
+      meta = await TagMeta.findOne({ _id: cleanName, userId: userObjectId });
+    } else {
+      meta = await TagMeta.findOne({
+        name: new RegExp(`^${escapeRegExp(cleanName)}$`, 'i'),
+        userId: userObjectId
+      });
+    }
+    cleanName = normalizeName(meta?.name || cleanName);
     const pinnedHighlightIds = meta?.pinnedHighlightIds || [];
     const pinnedNoteIds = meta?.pinnedNoteIds || [];
     const pinnedArticleIds = meta?.pinnedArticleIds || [];
