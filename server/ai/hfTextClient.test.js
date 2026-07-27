@@ -102,9 +102,16 @@ const run = () => {
       openRouterConfig.textModelFallbacks,
       [
         'google/gemini-2.5-flash',
-        'nvidia/nemotron-3-super-120b-a12b:free',
         'openrouter/free'
       ]
+    );
+    assert.deepStrictEqual(
+      openRouterConfig.noReasoningArtifactRoutes.slice(0, 2),
+      [
+        { model: 'nvidia/nemotron-3-super-120b-a12b:free', provider: '' },
+        { model: 'google/gemma-4-31b-it:free', provider: '' }
+      ],
+      'Structured dossier routes should preserve OpenRouter :free model variants as model IDs.'
     );
     assert.deepStrictEqual(
       openRouterConfig.routeProfiles.partner_chat.slice(0, 2),
