@@ -6379,6 +6379,7 @@ const buildWikiRouter = ({
           sourceTextLimit: maintenanceOptions.sourceTextLimit,
           skipQualityRebuild: maintenanceOptions.skipQualityRebuild,
           streamDraft: maintenanceOptions.streamDraft || isCompanyDossier(page),
+          resumeFromBestCandidate: Boolean(dossierBuildRun),
           onProgress: recordProgress
         }
       });
