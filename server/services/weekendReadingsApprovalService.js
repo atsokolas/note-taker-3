@@ -48,7 +48,7 @@ const nodeText = (node = {}) => {
 
 const extractEditorialNote = (body = {}) => {
   const nodes = Array.isArray(body?.content) ? body.content : [];
-  const start = nodes.findIndex(node => node.type === 'heading' && /^(editorial note|what changed)$/i.test(nodeText(node)));
+  const start = nodes.findIndex(node => node.type === 'heading' && /^(editorial note|what changed|in brief)$/i.test(nodeText(node)));
   if (start < 0) return '';
   const paragraphs = [];
   for (let index = start + 1; index < nodes.length; index += 1) {
@@ -80,10 +80,9 @@ const publicItemFromSource = (source = {}) => {
     publicRelationship: clean(metadata.publicRelationship, 500) || 'Unassigned',
     boundary: clean(metadata.boundary, 800),
     evidenceLayer: clean(metadata.evidenceLayer, 80),
+    technicalApproach: clean(metadata.technicalApproach, 1200),
     evidenceAssessment: clean(metadata.evidenceAssessment, 1200),
-    consequence: clean(metadata.consequence, 1200),
-    priorBelief: clean(metadata.priorBelief, 800),
-    updatedBelief: clean(metadata.updatedBelief, 800)
+    consequence: clean(metadata.consequence, 1200)
   };
 };
 
@@ -175,10 +174,9 @@ const buildApprovalCandidate = ({ snapshot, revisionId, editionKey = '' } = {}) 
       publicRelationship: item.publicRelationship,
       boundary: item.boundary,
       evidenceLayer: item.evidenceLayer || '',
+      technicalApproach: item.technicalApproach || '',
       evidenceAssessment: item.evidenceAssessment || '',
-      consequence: item.consequence || '',
-      priorBelief: item.priorBelief || '',
-      updatedBelief: item.updatedBelief || ''
+      consequence: item.consequence || ''
     }))
   };
   return { ...publicArtifact, digest: artifactDigest(publicArtifact) };

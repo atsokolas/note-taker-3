@@ -991,6 +991,44 @@ const run = async () => {
       && record.relationType === 'supported_by'
     )));
 
+    const libraryArticleId = new mongoose.Types.ObjectId().toString();
+    const libraryWiki = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Library paper wiki',
+        pageType: 'source',
+        sourceScope: 'selected_sources',
+        createdFrom: {
+          type: 'article',
+          objectId: libraryArticleId,
+          text: 'A Library paper becomes an ordinary source-backed Wiki page.',
+          label: 'Library paper'
+        },
+        initialSourceRef: {
+          type: 'article',
+          objectId: libraryArticleId,
+          title: 'Library paper',
+          snippet: 'A Library paper becomes an ordinary source-backed Wiki page.',
+          url: 'https://example.com/library-paper'
+        }
+      })
+    });
+    assert.strictEqual(libraryWiki.res.status, 201, libraryWiki.text);
+    assert.strictEqual(libraryWiki.body.pageType, 'source');
+    assert.strictEqual(libraryWiki.body.visibility, 'private');
+    assert.strictEqual(libraryWiki.body.createdFrom.type, 'article');
+    assert.strictEqual(libraryWiki.body.sourceRefs.length, 1);
+    assert.strictEqual(libraryWiki.body.sourceRefs[0].type, 'article');
+    assert.ok(!libraryWiki.body.investmentDossier);
+    assert.ok(!libraryWiki.body.judgment);
+    assert.ok(Connection.records.some(record => (
+      record.fromType === 'article'
+      && String(record.fromId) === libraryArticleId
+      && record.toType === 'wiki_page'
+      && String(record.toId) === String(libraryWiki.body._id)
+      && record.relationType === 'supports'
+    )));
+
     const transcriptWatch = await request(url, `/api/wiki/pages/${created.body._id}/transcript-watch`, {
       method: 'POST',
       body: JSON.stringify({ ticker: 'msft' })

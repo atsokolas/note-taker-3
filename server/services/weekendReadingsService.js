@@ -197,14 +197,18 @@ const normalizeWeekendReadingItem = (item = {}, index = 0, options = {}) => {
     intakeProvenance: normalizeIntakeProvenance(item.intakeProvenance),
     requiresHumanAcceptance: item.requiresHumanAcceptance !== false
   };
+  const libraryArticleId = clean(item.libraryArticleId, 120);
+  if (libraryArticleId) normalized.libraryArticleId = libraryArticleId;
   if (profile.key === 'this_week_in_ai') {
     normalized.evidenceLayer = clean(item.evidenceLayer, 80).toLowerCase();
+    normalized.technicalApproach = clean(item.technicalApproach, 1200);
     normalized.evidenceAssessment = clean(item.evidenceAssessment, 1200);
     normalized.consequence = clean(item.consequence, 1200);
-    normalized.priorBelief = clean(item.priorBelief, 800);
-    normalized.updatedBelief = clean(item.updatedBelief, 800);
     if (!AI_EVIDENCE_LAYERS.has(normalized.evidenceLayer)) {
       throw new Error(`This Week in AI item ${index + 1} has an invalid evidenceLayer.`);
+    }
+    if (!normalized.technicalApproach) {
+      throw new Error(`This Week in AI item ${index + 1} needs a technicalApproach.`);
     }
     if (!normalized.evidenceAssessment) {
       throw new Error(`This Week in AI item ${index + 1} needs an evidenceAssessment.`);
@@ -256,7 +260,7 @@ const roleLabel = (value = '') => ({
 const evidenceLayerLabel = (value = '') => ({
   models_methods: 'Models and methods',
   infrastructure_systems: 'Infrastructure and systems',
-  evaluation_counterevidence: 'Evaluation and counterevidence'
+  evaluation_counterevidence: 'Evaluation and measurement'
 }[value] || value);
 
 const listParagraphs = (values = []) => (Array.isArray(values) ? values : [])
@@ -269,11 +273,8 @@ const buildThisWeekInAIBody = ({
   windowStart,
   windowEnd,
   editorialNote = '',
-  governingQuestion = '',
-  weeklyThesis = '',
-  crossLayerSynthesis = '',
-  strongestCounterargument = '',
-  maintainedObjectUpdates = [],
+  weeklyHighlights = [],
+  connectingThread = '',
   watchNext = [],
   items = []
 } = {}) => {
@@ -286,13 +287,11 @@ const buildThisWeekInAIBody = ({
       ...layerItems.flatMap((item, index) => [
         heading(3, `${items.indexOf(item) + 1}. ${item.title}`, [{ type: 'link', attrs: { href: item.canonicalUrl, target: '_blank', rel: 'noopener noreferrer' } }]),
         paragraph([textNode(`${item.sourceLabel} · ${item.sourceDateLabel}`)]),
-        paragraph([textNode(`What it claims: ${item.whyItMatters}`)]),
-        paragraph([textNode(`Evidence assessment: ${item.evidenceAssessment}`)]),
-        paragraph([textNode(`Consequence: ${item.consequence}`)]),
-        ...(item.priorBelief ? [paragraph([textNode(`Prior belief: ${item.priorBelief}`)])] : []),
-        ...(item.updatedBelief ? [paragraph([textNode(`Updated belief: ${item.updatedBelief}`)])] : []),
-        paragraph([textNode(`Boundary: ${item.boundary}`)]),
-        paragraph([textNode(`Source quality: ${item.sourceQuality.replace(/_/g, ' ')} · Role: ${roleLabel(item.readingRole)}`)])
+        paragraph([textNode(`Finding: ${item.whyItMatters}`)]),
+        paragraph([textNode(`How it works: ${item.technicalApproach}`)]),
+        paragraph([textNode(`Evidence: ${item.evidenceAssessment}`)]),
+        paragraph([textNode(`Why it matters: ${item.consequence}`)]),
+        paragraph([textNode(`Limitations: ${item.boundary}`)])
       ])
     ];
   });
@@ -301,19 +300,13 @@ const buildThisWeekInAIBody = ({
     content: [
       paragraph([textNode(`${authorLabel} — researched and maintained with Noeis`)]),
       paragraph([textNode(`Evidence window: ${dateKey(windowStart, 'windowStart')} through ${dateKey(windowEnd, 'windowEnd')}`)]),
-      heading(2, 'Governing question'),
-      paragraph([textNode(clean(governingQuestion, 1200))]),
-      heading(2, 'This week’s judgment'),
-      paragraph([textNode(clean(weeklyThesis, 2400))]),
-      heading(2, 'What changed'),
+      heading(2, 'In brief'),
       paragraph([textNode(clean(editorialNote, 2400))]),
+      heading(2, 'At a glance'),
+      ...listParagraphs(weeklyHighlights),
       ...evidenceSections,
-      heading(2, 'Cross-layer consequence'),
-      paragraph([textNode(clean(crossLayerSynthesis, 2400))]),
-      heading(2, 'Strongest counterargument'),
-      paragraph([textNode(clean(strongestCounterargument, 1600))]),
-      heading(2, 'Maintained-object updates'),
-      ...listParagraphs(maintainedObjectUpdates),
+      heading(2, 'Connections across the week'),
+      paragraph([textNode(clean(connectingThread, 2400))]),
       heading(2, 'What to watch next'),
       ...listParagraphs(watchNext)
     ]
@@ -372,11 +365,8 @@ const buildWeekendReadingsDraft = ({
   activeThesisPageId = '',
   allowHttp = false,
   publicationProfile = 'weekend_readings',
-  governingQuestion = '',
-  weeklyThesis = '',
-  crossLayerSynthesis = '',
-  strongestCounterargument = '',
-  maintainedObjectUpdates = [],
+  weeklyHighlights = [],
+  connectingThread = '',
   watchNext = []
 } = {}) => {
   const profile = resolveResearchEditionProfile(publicationProfile);
@@ -387,18 +377,13 @@ const buildWeekendReadingsDraft = ({
   if (!normalizedEditorialNote) throw new Error(`${profile.titleLabel} requires an editorialNote.`);
   const normalizedItems = normalizeWeekendReadingItems(items, { allowHttp, publicationProfile: profile.key });
   const editionFields = profile.key === 'this_week_in_ai' ? {
-    governingQuestion: clean(governingQuestion, 1200),
-    weeklyThesis: clean(weeklyThesis, 2400),
-    crossLayerSynthesis: clean(crossLayerSynthesis, 2400),
-    strongestCounterargument: clean(strongestCounterargument, 1600),
-    maintainedObjectUpdates: (Array.isArray(maintainedObjectUpdates) ? maintainedObjectUpdates : []).map(value => clean(value, 1200)).filter(Boolean).slice(0, 8),
+    weeklyHighlights: (Array.isArray(weeklyHighlights) ? weeklyHighlights : []).map(value => clean(value, 1200)).filter(Boolean).slice(0, 5),
+    connectingThread: clean(connectingThread, 2400),
     watchNext: (Array.isArray(watchNext) ? watchNext : []).map(value => clean(value, 1200)).filter(Boolean).slice(0, 8)
   } : {};
   if (profile.key === 'this_week_in_ai') {
-    for (const field of ['governingQuestion', 'weeklyThesis', 'crossLayerSynthesis', 'strongestCounterargument']) {
-      if (!editionFields[field]) throw new Error(`This Week in AI requires ${field}.`);
-    }
-    if (!editionFields.maintainedObjectUpdates.length) throw new Error('This Week in AI requires at least one maintainedObjectUpdate.');
+    if (editionFields.weeklyHighlights.length < 2) throw new Error('This Week in AI requires at least two weeklyHighlights.');
+    if (!editionFields.connectingThread) throw new Error('This Week in AI requires connectingThread.');
     if (!editionFields.watchNext.length) throw new Error('This Week in AI requires at least one watchNext item.');
   }
   const editionSuffix = Number.isInteger(Number(editionNumber)) && Number(editionNumber) > 0
@@ -437,7 +422,8 @@ const buildWeekendReadingsDraft = ({
       body,
       plainText: body.content.flatMap(node => node.content || []).map(node => node.text || '').filter(Boolean).join('\n'),
       sourceRefs: normalizedItems.map(item => ({
-        type: 'external',
+        type: item.libraryArticleId ? 'article' : 'external',
+        objectId: item.libraryArticleId || null,
         title: item.title,
         snippet: item.whyItMatters,
         url: item.canonicalUrl,
@@ -466,10 +452,9 @@ const buildWeekendReadingsDraft = ({
             activeThesisPageId: clean(activeThesisPageId, 120),
             ...(profile.key === 'this_week_in_ai' ? {
               evidenceLayer: item.evidenceLayer,
+              technicalApproach: item.technicalApproach,
               evidenceAssessment: item.evidenceAssessment,
               consequence: item.consequence,
-              priorBelief: item.priorBelief,
-              updatedBelief: item.updatedBelief,
               edition: editionFields
             } : {})
           }
@@ -489,6 +474,7 @@ const createWeekendReadingsDraft = async ({
   WikiPage,
   WikiRevision,
   NoeisReceipt,
+  Connection,
   userId,
   buildUniqueSlug,
   createWikiRevision = defaultCreateWikiRevision,
@@ -498,10 +484,21 @@ const createWeekendReadingsDraft = async ({
   if (!WikiPage || !userId) throw new Error('WikiPage and userId are required.');
   const draft = buildWeekendReadingsDraft({ ...input, ownerId: userId });
   const profile = resolveResearchEditionProfile(input.publicationProfile);
-  const existingPage = typeof WikiPage.findOne === 'function'
-    ? await resolveQuery(WikiPage.findOne({ userId, 'createdFrom.label': draft.editionKey, status: { $ne: 'archived' } }))
+  const existingQuery = typeof WikiPage.findOne === 'function'
+    ? WikiPage.findOne({ userId, 'createdFrom.label': draft.editionKey, status: { $ne: 'archived' } })
     : null;
-  if (existingPage) return { created: false, page: existingPage, revision: null, receipt: null, draft };
+  const existingPage = input.replaceExistingDraft && typeof existingQuery?.exec === 'function'
+    ? await existingQuery.exec()
+    : await resolveQuery(existingQuery);
+  if (existingPage && !input.replaceExistingDraft) {
+    return { created: false, updated: false, page: existingPage, revision: null, receipt: null, draft };
+  }
+  if (existingPage && (
+    String(existingPage.status || '') !== 'draft'
+    || String(existingPage.visibility || '') !== 'private'
+  )) {
+    throw new Error('Only an existing private draft research edition can be replaced.');
+  }
   if (!NoeisReceipt?.find || !NoeisReceipt?.findOneAndUpdate) {
     throw new Error('Weekend Readings receipt history and persistence are required before draft creation.');
   }
@@ -513,23 +510,41 @@ const createWeekendReadingsDraft = async ({
     throw new Error(`Weekend Readings source already appeared in a prior published edition: ${repeated.canonicalUrl}`);
   }
 
-  const slug = typeof buildUniqueSlug === 'function'
-    ? await buildUniqueSlug(userId, draft.title)
-    : draft.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120);
-  const pageInput = { ...draft.page, userId, slug };
-  const page = typeof WikiPage.create === 'function'
-    ? await WikiPage.create(pageInput)
-    : await new WikiPage(pageInput).save();
+  const before = existingPage
+    ? (typeof existingPage.toObject === 'function'
+      ? existingPage.toObject({ virtuals: false })
+      : { ...existingPage })
+    : null;
+  let page;
+  if (existingPage) {
+    Object.assign(existingPage, draft.page);
+    page = typeof existingPage.save === 'function'
+      ? await existingPage.save()
+      : existingPage;
+  } else {
+    const slug = typeof buildUniqueSlug === 'function'
+      ? await buildUniqueSlug(userId, draft.title)
+      : draft.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 120);
+    const pageInput = { ...draft.page, userId, slug };
+    page = typeof WikiPage.create === 'function'
+      ? await WikiPage.create(pageInput)
+      : await new WikiPage(pageInput).save();
+  }
   const revision = WikiRevision
     ? await createWikiRevision({
         WikiRevision,
         userId,
         page,
-        reason: 'created',
+        ...(before ? { before } : {}),
+        reason: before ? 'user_edit' : 'created',
         actorType: 'user',
-        summary: `Created private ${draft.title} draft.`
+        summary: `${before ? 'Rebuilt' : 'Created'} private ${draft.title} draft.`
       })
     : null;
+  if (Connection) {
+    const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
+    await syncWikiPageGraphConnections({ Connection, userId, page });
+  }
   const pageId = clean(page?._id || page?.id, 120);
   const revisionId = clean(revision?._id || revision?.id, 120);
   const activeThesisPageId = clean(input.activeThesisPageId, 120);
@@ -580,11 +595,11 @@ const createWeekendReadingsDraft = async ({
               publicRelationship: item.publicRelationship,
               boundary: item.boundary,
               affectedClaimIds: item.affectedClaimIds,
+              libraryArticleId: item.libraryArticleId || '',
               evidenceLayer: item.evidenceLayer || '',
+              technicalApproach: item.technicalApproach || '',
               evidenceAssessment: item.evidenceAssessment || '',
               consequence: item.consequence || '',
-              priorBelief: item.priorBelief || '',
-              updatedBelief: item.updatedBelief || '',
               intakeProvenance: item.intakeProvenance,
               requiresHumanAcceptance: true
             }))
@@ -593,7 +608,7 @@ const createWeekendReadingsDraft = async ({
         }
       })
     : null;
-  return { created: true, page, revision, receipt, draft };
+  return { created: !before, updated: Boolean(before), page, revision, receipt, draft };
 };
 
 module.exports = {

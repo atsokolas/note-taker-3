@@ -2119,6 +2119,42 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByRole('region', { name: 'Developer quickstart' })).not.toBeInTheDocument();
   });
 
+  it('keeps a Library-created wiki on the ordinary source-backed reader', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      _id: 'library-wiki-1',
+      title: 'A saved technical paper',
+      pageType: 'source',
+      status: 'draft',
+      visibility: 'private',
+      createdFrom: {
+        type: 'article',
+        objectId: 'article-123',
+        label: 'A saved technical paper'
+      },
+      sourceRefs: [{
+        _id: 'source-article-1',
+        type: 'article',
+        objectId: 'article-123',
+        title: 'A saved technical paper',
+        url: 'https://example.com/paper'
+      }],
+      investmentDossier: null,
+      judgment: null
+    });
+
+    renderReadView({ pageId: 'library-wiki-1' });
+    await flushDeferredWikiReadWork();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'A saved technical paper' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Share this wiki page' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Wiki maintenance receipt' })).toBeInTheDocument();
+    expect(screen.getByText('A saved technical paper', { selector: '.wiki-read__reference-title' })).toBeInTheDocument();
+    expect(screen.queryByText('This Week in AI publication')).not.toBeInTheDocument();
+    expect(screen.queryByText('Decision record')).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-read--research-edition')).not.toBeInTheDocument();
+  });
+
   it('uses revision-bound Weekend Readings controls and suppresses generic sharing', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
