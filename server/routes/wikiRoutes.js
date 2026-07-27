@@ -3897,6 +3897,21 @@ const buildWikiRouter = ({
           error: 'The trusted page changed after this candidate was generated. Rebuild the candidate before accepting it.'
         });
       }
+      if (decision === 'accept') {
+        const currentQuality = evaluateWikiArticleQuality({
+          page: revision.after,
+          body: revision.after.body,
+          claims: revision.after.claims || [],
+          sourceRefs: revision.after.sourceRefs || []
+        });
+        if (!currentQuality?.ok) {
+          return res.status(409).json({
+            code: 'WIKI_RESEARCH_CANDIDATE_QUALITY_STALE',
+            error: 'This candidate no longer satisfies the current decision-grade dossier contract. Rebuild it before accepting.',
+            failures: Array.isArray(currentQuality?.failures) ? currentQuality.failures : []
+          });
+        }
+      }
       const now = new Date();
       if (decision === 'accept') {
         restorePageSnapshot(page, revision.after);
