@@ -14,6 +14,7 @@ import WikiRepoCreateComposer from './WikiRepoCreateComposer';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
+import DecisionsIndex from './decisions/DecisionsIndex';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
@@ -165,6 +166,7 @@ const WikiFrontPage = () => {
   const [readingPageId, setReadingPageId] = useState('');
   const [watchingBusy, setWatchingBusy] = useState(false);
   const [hasMovements, setHasMovements] = useState(false);
+  const [showDecisions, setShowDecisions] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -310,6 +312,15 @@ const WikiFrontPage = () => {
       <Link to="/wiki/workspace?view=graph">
         Review{reviewCount ? ` (${reviewCount})` : ''}
       </Link>
+      <button
+        type="button"
+        className="wiki-front-page__decisions-toggle"
+        aria-expanded={showDecisions}
+        aria-controls="wiki-front-decisions"
+        onClick={() => setShowDecisions(current => !current)}
+      >
+        {showDecisions ? 'Hide decisions' : 'Decisions'}
+      </button>
     </nav>
   );
 
@@ -479,6 +490,11 @@ const WikiFrontPage = () => {
           {workspaceNav}
         </div>
         <WikiMovementReturnSurface onPresenceChange={setHasMovements} />
+        {showDecisions ? (
+          <div id="wiki-front-decisions" className="wiki-front-page__decisions wfp-anim wfp-anim--2">
+            <DecisionsIndex embedded initialFilter="upcoming_review" />
+          </div>
+        ) : null}
         <div className={`wiki-front-page__intro wfp-anim wfp-anim--2${claimCheckIn || checkInMessage || briefing?.checkInStreak ? ' wiki-front-page__intro--split' : ''}`}>
           <div className="wiki-front-page__briefing-copy">
             {leadSentence && (!hasMovements || briefing?.lead) ? (
