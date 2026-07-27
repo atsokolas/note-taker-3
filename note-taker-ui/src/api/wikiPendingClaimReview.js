@@ -4,12 +4,32 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 const HASH_PATTERN = /^[a-f\d]{64}$/i;
 const DISPOSITIONS = ['accept', 'reject', 'defer', 'preserve'];
+const KNOWLEDGE_REF_TYPES = new Set([
+  'article', 'highlight', 'note', 'question', 'concept', 'wiki_page',
+  'wiki_claim', 'wiki_revision', 'decision', 'external'
+]);
 
 const plain = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' ? value.trim() : '';
 const validIso = value => typeof value === 'string'
   && Boolean(value.trim())
   && !Number.isNaN(new Date(value).getTime());
+const safeHref = value => {
+  const href = text(value);
+  if (href.startsWith('/') && !href.startsWith('//')) return true;
+  try {
+    const parsed = new URL(href);
+    return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password;
+  } catch (_error) {
+    return false;
+  }
+};
+const validKnowledgeRef = ref => plain(ref)
+  && KNOWLEDGE_REF_TYPES.has(text(ref.type))
+  && OBJECT_ID_PATTERN.test(text(ref.id))
+  && (ref.parentId === undefined || ref.parentId === null || OBJECT_ID_PATTERN.test(text(ref.parentId)))
+  && Boolean(text(ref.title))
+  && safeHref(ref.href);
 
 /** Owner-scoped exact investment-dossier claim candidate for review. */
 export const getPendingWikiClaimReview = async (wikiPageId) => {
@@ -58,14 +78,19 @@ export const getPendingWikiClaimReview = async (wikiPageId) => {
     && typeof review.diff.boundedExplanation === 'string';
   const evidenceValid = plain(review?.evidenceDelta)
     && ['added', 'removed', 'supporting', 'contradicting']
-      .every(key => Array.isArray(review.evidenceDelta[key]));
+      .every(key => Array.isArray(review.evidenceDelta[key])
+        && review.evidenceDelta[key].every(validKnowledgeRef));
   const affectedValid = plain(review?.affected)
     && Array.isArray(review.affected.pages)
     && Array.isArray(review.affected.concepts)
-    && review.affected.pages.some(ref => text(ref?.id).toLowerCase() === safeWikiPageId)
-    && review.affected.concepts.some(ref => (
-      text(ref?.id).toLowerCase() === text(identity?.conceptId).toLowerCase()
-    ));
+    && review.affected.pages.length === 1
+    && review.affected.concepts.length === 1
+    && validKnowledgeRef(review.affected.pages[0])
+    && validKnowledgeRef(review.affected.concepts[0])
+    && text(review.affected.pages[0].type) === 'wiki_page'
+    && text(review.affected.pages[0].id).toLowerCase() === safeWikiPageId
+    && text(review.affected.concepts[0].type) === 'concept'
+    && text(review.affected.concepts[0].id).toLowerCase() === text(identity?.conceptId).toLowerCase();
   const state = text(data.state).toLowerCase();
   const stateValid = ['pending', 'deferred'].includes(state)
     && review?.state === state
@@ -76,11 +101,18 @@ export const getPendingWikiClaimReview = async (wikiPageId) => {
   const receiptValid = state === 'pending'
     ? review?.receipt == null && review?.deferredUntil == null
     : plain(review?.receipt)
-      && Boolean(text(review.receipt.id))
+      && text(review.receipt.id) === `wiki-claim-disposition:v1:${text(identity?.revisionId).toLowerCase()}:defer`
       && review.receipt.kind === 'wiki_claim_disposition'
       && review.receipt.status === 'completed'
       && validIso(review.receipt.completedAt)
-      && validIso(review.deferredUntil);
+      && validIso(review.deferredUntil)
+      && plain(review.receipt.provenance)
+      && review.receipt.provenance.version === 1
+      && text(review.receipt.provenance.action) === 'defer'
+      && text(review.receipt.provenance.pageId).toLowerCase() === safeWikiPageId
+      && text(review.receipt.provenance.conceptId).toLowerCase() === text(identity?.conceptId).toLowerCase()
+      && text(review.receipt.provenance.revisionId).toLowerCase() === text(identity?.revisionId).toLowerCase()
+      && text(review.receipt.provenance.claimId) === text(identity?.claimId);
 
   if (!identityValid
     || !plain(review)

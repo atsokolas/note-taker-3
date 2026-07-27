@@ -156,12 +156,24 @@ const buildClaimRevisionReview = ({
 
   const state = clean(revision?.claimReview?.state, 40) || 'pending';
   const rawReceipt = revision?.claimReview?.receipt;
+  const rawReceiptProvenance = rawReceipt?.provenance && typeof rawReceipt.provenance === 'object'
+    && !Array.isArray(rawReceipt.provenance)
+    ? rawReceipt.provenance
+    : null;
   const receipt = rawReceipt && typeof rawReceipt === 'object'
     ? {
         id: id(rawReceipt.id || rawReceipt._id),
         kind: clean(rawReceipt.kind, 80),
         status: clean(rawReceipt.status, 40),
-        completedAt: rawReceipt.completedAt || null
+        completedAt: rawReceipt.completedAt || null,
+        provenance: rawReceiptProvenance ? {
+          version: Number(rawReceiptProvenance.version),
+          action: clean(rawReceiptProvenance.action, 40),
+          pageId: id(rawReceiptProvenance.pageId),
+          conceptId: id(rawReceiptProvenance.conceptId),
+          revisionId: id(rawReceiptProvenance.revisionId),
+          claimId: clean(rawReceiptProvenance.claimId, 240)
+        } : null
       }
     : null;
   const canAct = ['pending', 'deferred'].includes(state);

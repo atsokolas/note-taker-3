@@ -115,6 +115,15 @@ const run = () => {
           kind: 'claim-disposition',
           status: 'complete',
           completedAt: '2026-08-04T12:00:00.000Z',
+          provenance: {
+            version: 1,
+            action: 'defer',
+            pageId: fixture.currentWiki.page._id,
+            conceptId: fixture.concept._id,
+            revisionId: fixture.candidateRevision._id,
+            claimId: currentClaim.claimId,
+            privateNote: 'must-not-leak'
+          },
           userId: 'must-not-leak',
           payload: { private: true },
           secret: 'must-not-leak'
@@ -129,7 +138,15 @@ const run = () => {
     id: 'receipt-1',
     kind: 'claim-disposition',
     status: 'complete',
-    completedAt: '2026-08-04T12:00:00.000Z'
+    completedAt: '2026-08-04T12:00:00.000Z',
+    provenance: {
+      version: 1,
+      action: 'defer',
+      pageId: fixture.currentWiki.page._id,
+      conceptId: fixture.concept._id,
+      revisionId: fixture.candidateRevision._id,
+      claimId: currentClaim.claimId
+    }
   });
   assert.doesNotMatch(JSON.stringify(receiptReview), /must-not-leak|private/);
 

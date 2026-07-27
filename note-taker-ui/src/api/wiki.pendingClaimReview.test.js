@@ -40,10 +40,35 @@ const reviewEnvelope = (state = 'pending') => {
         changedFields: ['text'],
         boundedExplanation: 'Changed text; 1 evidence reference added and 0 removed.'
       },
-      evidenceDelta: { added: [{}], removed: [], supporting: [{}], contradicting: [] },
+      evidenceDelta: {
+        added: [{
+          type: 'article',
+          id: '64f200000000000000000010',
+          title: 'Owned source',
+          href: '/library?articleId=64f200000000000000000010'
+        }],
+        removed: [],
+        supporting: [{
+          type: 'external',
+          id: '64f200000000000000000011',
+          title: 'Public filing',
+          href: 'https://www.sec.gov/example'
+        }],
+        contradicting: []
+      },
       affected: {
-        pages: [{ type: 'wiki_page', id: PAGE_ID }],
-        concepts: [{ type: 'concept', id: CONCEPT_ID }]
+        pages: [{
+          type: 'wiki_page',
+          id: PAGE_ID,
+          title: 'Company dossier',
+          href: `/wiki/workspace?page=${PAGE_ID}`
+        }],
+        concepts: [{
+          type: 'concept',
+          id: CONCEPT_ID,
+          title: 'Company thesis',
+          href: `/think?tab=concepts&conceptId=${CONCEPT_ID}`
+        }]
       },
       unresolved: [],
       allowedDispositions: ['accept', 'reject', 'defer', 'preserve'],
@@ -54,7 +79,15 @@ const reviewEnvelope = (state = 'pending') => {
         id: `wiki-claim-disposition:v1:${REVISION_ID}:defer`,
         kind: 'wiki_claim_disposition',
         status: 'completed',
-        completedAt: GENERATED_AT
+        completedAt: GENERATED_AT,
+        provenance: {
+          version: 1,
+          action: 'defer',
+          pageId: PAGE_ID,
+          conceptId: CONCEPT_ID,
+          revisionId: REVISION_ID,
+          claimId: CLAIM_ID
+        }
       } : null
     }
   };
@@ -101,10 +134,25 @@ describe('getPendingWikiClaimReview', () => {
     ['nonactionable pending review', (() => { const value = reviewEnvelope(); value.claimReview.canAct = false; return value; })()],
     ['invalid dispositions', (() => { const value = reviewEnvelope(); value.claimReview.allowedDispositions = ['accept']; return value; })()],
     ['incomplete evidence delta', (() => { const value = reviewEnvelope(); delete value.claimReview.evidenceDelta.contradicting; return value; })()],
+    ['thin evidence ref', (() => { const value = reviewEnvelope(); value.claimReview.evidenceDelta.added = [{}]; return value; })()],
+    ['unsafe evidence href', (() => { const value = reviewEnvelope(); value.claimReview.evidenceDelta.added[0].href = 'javascript:alert(1)'; return value; })()],
+    ['credentialed evidence href', (() => { const value = reviewEnvelope(); value.claimReview.evidenceDelta.added[0].href = 'https://user:secret@example.com/private'; return value; })()],
+    ['foreign evidence identity', (() => { const value = reviewEnvelope(); value.claimReview.evidenceDelta.added[0].id = 'not-an-object-id'; return value; })()],
+    ['affected page without type', (() => { const value = reviewEnvelope(); delete value.claimReview.affected.pages[0].type; return value; })()],
+    ['duplicate affected page', (() => { const value = reviewEnvelope(); value.claimReview.affected.pages.push({ ...value.claimReview.affected.pages[0] }); return value; })()],
+    ['extra foreign concept', (() => { const value = reviewEnvelope(); value.claimReview.affected.concepts.push({ ...value.claimReview.affected.concepts[0], id: '64f200000000000000000099' }); return value; })()],
     ['cross-concept affected refs', (() => { const value = reviewEnvelope(); value.claimReview.affected.concepts[0].id = '64f200000000000000000099'; return value; })()],
     ['invalid candidate hash', (() => { const value = reviewEnvelope(); value.claimReview.candidateHash = 'hash'; return value; })()],
     ['pending with a receipt', (() => { const value = reviewEnvelope(); value.claimReview.receipt = { id: 'forged' }; return value; })()],
-    ['deferred without receipt', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt = null; return value; })()]
+    ['deferred without receipt', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt = null; return value; })()],
+    ['deferred receipt for another revision', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.id = 'wiki-claim-disposition:v1:64f200000000000000000099:defer'; return value; })()],
+    ['deferred receipt for another action', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.id = `wiki-claim-disposition:v1:${REVISION_ID}:accept`; return value; })()],
+    ['deferred receipt without provenance', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.provenance = null; return value; })()],
+    ['deferred receipt with wrong page', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.provenance.pageId = '64f200000000000000000099'; return value; })()],
+    ['deferred receipt with wrong concept', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.provenance.conceptId = '64f200000000000000000099'; return value; })()],
+    ['deferred receipt with wrong revision', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.provenance.revisionId = '64f200000000000000000099'; return value; })()],
+    ['deferred receipt with wrong claim', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.provenance.claimId = 'claim-2'; return value; })()],
+    ['deferred receipt with wrong action', (() => { const value = reviewEnvelope('deferred'); value.claimReview.receipt.provenance.action = 'accept'; return value; })()]
   ])('fails closed on %s', async (_label, data) => {
     api.get.mockResolvedValue({ data });
     await expect(getPendingWikiClaimReview(PAGE_ID)).rejects.toThrow();
