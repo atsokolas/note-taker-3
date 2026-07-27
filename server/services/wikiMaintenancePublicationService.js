@@ -112,8 +112,31 @@ const runWikiMaintenanceCandidate = async ({
   const trustedVersionAvailable = typeof hasTrustedVersion === 'boolean'
     ? hasTrustedVersion
     : !isFreshCompanyDossier;
+  const resolvedMaintainArgs = { ...maintainArgs };
+  const shouldResumeBestCandidate = Boolean(resolvedMaintainArgs.resumeFromBestCandidate);
+  delete resolvedMaintainArgs.resumeFromBestCandidate;
+  if (shouldResumeBestCandidate
+    && !resolvedMaintainArgs.recoveryDraftText
+    && typeof WikiRevision?.findOne === 'function') {
+    const priorQuery = WikiRevision.findOne({
+      userId,
+      pageId: page._id,
+      reason: 'agent_candidate',
+      promotionStatus: 'rejected',
+      'quality.ok': false,
+      'after.plainText': { $exists: true, $ne: '' }
+    });
+    const sortedQuery = priorQuery?.sort
+      ? priorQuery.sort({ 'quality.score': -1, createdAt: -1 })
+      : priorQuery;
+    const priorCandidate = await (sortedQuery?.lean ? sortedQuery.lean() : sortedQuery);
+    if (priorCandidate?.after?.plainText) {
+      resolvedMaintainArgs.recoveryDraftText = priorCandidate.after.plainText;
+      resolvedMaintainArgs.recoveryDraftQuality = priorCandidate.quality || {};
+    }
+  }
   const maintainedPage = await maintainWikiPageFn({
-    ...maintainArgs,
+    ...resolvedMaintainArgs,
     page,
     userId
   });

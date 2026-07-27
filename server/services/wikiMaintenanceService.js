@@ -842,6 +842,8 @@ const buildPrompt = ({
   page,
   candidates,
   manualNotes = '',
+  recoveryDraftText = '',
+  recoveryDraftQuality = null,
   wikiSchemaContent = '',
   knownWikiPages = [],
   sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
@@ -882,6 +884,13 @@ ${repoPage ? `Repo dossier section goals, not mandated headings: ${structure.sec
 Existing text: ${truncate(page.plainText || toPlainText(page.body), 2400)}
 Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '', 1200)}
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
+${recoveryDraftText ? `
+Highest-scoring prior rejected candidate to continue from:
+${truncateRaw(recoveryDraftText, 30000)}
+Prior candidate gate failures:
+${(Array.isArray(recoveryDraftQuality?.failures) ? recoveryDraftQuality.failures : []).map(failure => `- ${failure}`).join('\n') || '- Candidate still required quality repair.'}
+Preserve its supported analysis and repair these failures. Do not restart from the original scaffold.
+` : ''}
 
 Candidate library sources:
 ${sourceBlock || 'No library sources were found.'}
@@ -931,13 +940,24 @@ const buildRebuildPrompt = ({
   page,
   candidates,
   manualNotes = '',
+  recoveryDraftText = '',
+  recoveryDraftQuality = null,
   wikiSchemaContent = '',
   knownWikiPages = [],
   failures = [],
   draftArticle = null,
   sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
 }) => (
-  `${buildPrompt({ page, candidates, manualNotes, wikiSchemaContent, knownWikiPages, sourceTextLimit })}
+  `${buildPrompt({
+    page,
+    candidates,
+    manualNotes,
+    recoveryDraftText,
+    recoveryDraftQuality,
+    wikiSchemaContent,
+    knownWikiPages,
+    sourceTextLimit
+  })}
 
 Your previous draft failed the wiki quality gate:
 ${failures.map(failure => `- ${failure}`).join('\n') || '- The draft was too thin or scaffold-like.'}
@@ -3386,6 +3406,8 @@ const maintainWikiPage = async ({
   sourceLimit = null,
   sourceTextLimit = null,
   preferredSourceObjectId = '',
+  recoveryDraftText = '',
+  recoveryDraftQuality = null,
   skipQualityRebuild = false,
   streamDraft = false,
   onProgress = null
@@ -3540,6 +3562,8 @@ const maintainWikiPage = async ({
               page,
               candidates,
               manualNotes,
+              recoveryDraftText,
+              recoveryDraftQuality,
               wikiSchemaContent,
               knownWikiPages,
               sourceTextLimit: effectiveSourceTextLimit
@@ -3657,6 +3681,8 @@ const maintainWikiPage = async ({
               page,
               candidates,
               manualNotes,
+              recoveryDraftText,
+              recoveryDraftQuality,
               wikiSchemaContent,
               knownWikiPages,
               failures: materialized.quality.failures,

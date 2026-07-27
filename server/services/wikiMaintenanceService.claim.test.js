@@ -570,6 +570,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       userId: 'user-1',
       chat,
       isConfigured: () => true,
+      recoveryDraftText: 'Prior candidate preserved a source-backed customer concentration analysis.',
+      recoveryDraftQuality: { failures: ['One claim still lacked a citation.'] },
       skipQualityRebuild: true,
       models: {
         Article: fakeFindModel([]),
@@ -598,6 +600,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       responseFormat: { type: 'json_object' }
     });
     expect(chat.mock.calls[0][0].messages[1].content).toContain('Customer concentration remained material');
+    expect(chat.mock.calls[0][0].messages[1].content).toContain('Prior candidate preserved a source-backed customer concentration analysis.');
     expect(page.sourceScope).toBe('selected_sources');
   });
 
