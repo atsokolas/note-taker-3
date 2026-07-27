@@ -458,6 +458,39 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(candidates.map(candidate => candidate.index)).toEqual([1, 2]);
   });
 
+  it('states the actual decision-dossier gates in the generation prompt', () => {
+    const prompt = buildPrompt({
+      page: {
+        title: 'Deere & Company investment dossier',
+        pageType: 'entity',
+        externalWatches: {
+          edgar: { ticker: 'DE', companyName: 'Deere & Company' }
+        },
+        investmentDossier: {
+          version: 2,
+          businessModel: { primary: 'industrial' },
+          researchPlan: {
+            requiredModuleIds: ['reverse_expectations', 'price_volume_mix'],
+            missingModuleIds: ['reverse_expectations', 'price_volume_mix']
+          }
+        }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        provider: 'sec-edgar',
+        title: 'Deere 2025 10-K',
+        text: 'Industrial equipment revenue, price, volume, operating cash flow, and dealer evidence.'
+      }]
+    });
+
+    expect(prompt).toContain('at least 1,800 words');
+    expect(prompt).toContain('at least 20 distinct claim-level analytical paragraphs or bullets');
+    expect(prompt).toContain('at least one reproducible, numeric calculation in Implied Expectations');
+    expect(prompt).toContain('at least one in System and Unit Economics');
+    expect(prompt).toContain('price_volume_mix');
+  });
+
   it('fills a missing investment-dossier maintenance test from the filing clock', () => {
     const article = fillInvestmentDossierMaintenanceTest({
       page: {
