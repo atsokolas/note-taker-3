@@ -91,7 +91,10 @@ const labelFor = (value = '') => String(value || '')
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
-const isWeekendReadingsPage = page => String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+const researchEditionLabel = page => String(page?.createdFrom?.label || '').startsWith('this-week-in-ai:')
+  ? 'This Week in AI'
+  : 'Weekend Readings';
+const isResearchEditionPage = page => /^(?:weekend-readings|this-week-in-ai):/.test(String(page?.createdFrom?.label || ''));
 const isGeneratedCompanyDossierPage = (page = {}) => (
   /^company-dossier:/i.test(String(page?.createdFrom?.label || ''))
   || Boolean(page?.investmentDossier?.version && page?.investmentDossier?.company?.ticker)
@@ -1260,7 +1263,7 @@ const WikiPageReadView = ({
 
   useEffect(() => {
     let cancelled = false;
-    if (!isWeekendReadingsPage(page)) {
+    if (!isResearchEditionPage(page)) {
       setWeekendPublicationState({ code: 'loading', label: 'Loading publication state…' });
       setWeekendPublicationError('');
       setWeekendPublicUrl('');
@@ -1296,17 +1299,18 @@ const WikiPageReadView = ({
       }
       if (payload.receipt) systemStatus.setLatestReceipt(payload.receipt);
     } catch (requestError) {
-      const message = requestError?.message || 'Weekend Readings publication action failed.';
+      const editionLabel = researchEditionLabel(page);
+      const message = requestError?.message || `${editionLabel} publication action failed.`;
       setWeekendPublicationError(message);
       systemStatus.setRecoverableFailure({
-        stage: 'Weekend Readings publication',
+        stage: `${editionLabel} publication`,
         message,
         retryable: false
       });
     } finally {
       setWeekendPublicationBusy(false);
     }
-  }, [pageId, systemStatus]);
+  }, [page, pageId, systemStatus]);
 
   useEffect(() => {
     if (!refreshNonce || lastRefreshNonceRef.current === refreshNonce) return undefined;
@@ -2176,7 +2180,7 @@ const WikiPageReadView = ({
   const readPageType = String(page.pageType || 'topic').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
   const bodyTransitionClass = pageTransitionState !== 'idle' ? ' wiki-read__body--transitioning' : '';
   const publicShareUrl = buildPublicWikiShareUrl(page);
-  const weekendReadingsPage = isWeekendReadingsPage(page);
+  const weekendReadingsPage = isResearchEditionPage(page);
   const investmentDossierPage = Boolean(page?.investmentDossier?.version);
   const livingThesisPage = Boolean(page?.judgment?.kind) && !investmentDossierPage;
   const isSharedPublicly = String(page.visibility || 'private') === 'shared';
@@ -2260,7 +2264,7 @@ const WikiPageReadView = ({
   const repoComparisonPendingShare = repoComparisonAvailable && !publicShareReady;
   return (
     <main
-      className={`wiki-page wiki-read wiki-read--type-${readPageType}`}
+      className={`wiki-page wiki-read wiki-read--type-${readPageType}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}`}
       data-state={pageTransitionState}
       data-page-transition-state={pageTransitionState}
     >
@@ -2318,7 +2322,7 @@ const WikiPageReadView = ({
           ) : null}
         </section>
       ) : null}
-      {(!loading && page) ? (
+      {(!loading && page && !weekendReadingsPage) ? (
         <section
           className={`wiki-read__maintenance-receipt is-${maintenanceDisplayState}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
           aria-label="Wiki maintenance receipt"
@@ -2474,6 +2478,7 @@ const WikiPageReadView = ({
             <WikiReadTitle title={displayWikiPageTitle(page)} />
             {weekendReadingsPage ? (
               <WikiWeekendReadingsPublication
+                editionLabel={researchEditionLabel(page)}
                 approvalState={weekendPublicationState}
                 busy={weekendPublicationBusy}
                 error={weekendPublicationError}
@@ -2503,7 +2508,7 @@ const WikiPageReadView = ({
                 {starterPackAttributionLine(page.adoptedFrom)}
               </p>
             ) : null}
-            {companyDossier ? (
+            {weekendReadingsPage ? null : companyDossier ? (
               <details className="wiki-read__page-status">
                 <summary className="wiki-read__page-status-summary">
                   <span className="wiki-read__page-status-label">Page status</span>

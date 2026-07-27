@@ -61,8 +61,8 @@ const {
   HUMAN_ONLY_WIKI_LABEL_PATTERN,
   RESEARCH_LEDGER_LABEL_PATTERN,
   isHumanOnlyWikiArtifact,
-  isResearchOperatingLedgerPage,
-  isWeekendReadingsPage
+  isResearchEditionPage,
+  isResearchOperatingLedgerPage
 } = require('../services/wikiProtectedArtifactService');
 const { loadPublishedWeekendReadingsArtifact } = require('../services/weekendReadingsWorkflowService');
 const { buildLivingThesisBody } = require('../services/wikiPageStructureService');
@@ -4994,8 +4994,8 @@ const buildWikiRouter = ({
       }
       const page = pageQuery?.lean ? await pageQuery.lean() : await pageQuery;
       if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
-      const weekendReadingsPage = String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
-      const publicPage = weekendReadingsPage
+      const researchEditionPage = isResearchEditionPage(page);
+      const publicPage = researchEditionPage
         ? await loadPublishedWeekendReadingsArtifact({ NoeisReceipt, page, ownerUserId: page.userId })
         : serializePublicWikiPage(page);
       if (!publicPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
@@ -5470,7 +5470,7 @@ const buildWikiRouter = ({
 
       const page = await findOwnedPage(req);
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
-      const weekendReadingsPage = String(page?.createdFrom?.label || '').startsWith('weekend-readings:');
+      const weekendReadingsPage = isResearchEditionPage(page);
       const researchLedgerPage = isResearchOperatingLedgerPage(page);
       if (weekendReadingsPage && enumChecks[2]?.value === 'shared') {
         return res.status(409).json({

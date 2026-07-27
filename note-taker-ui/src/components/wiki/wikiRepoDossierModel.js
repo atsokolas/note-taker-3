@@ -45,6 +45,8 @@ export const githubWatchState = (watch = {}) => {
 };
 
 export const isRepoDossierPage = (page = {}) => {
+  const createdFromLabel = normalizeText(page?.createdFrom?.label);
+  if (/^(?:weekend-readings|this-week-in-ai):/.test(createdFromLabel)) return false;
   const type = String(page?.pageType || '').toLowerCase();
   const watch = githubWatchState(page?.externalWatches?.githubRepo);
   if (watch.owner || watch.repo) return true;

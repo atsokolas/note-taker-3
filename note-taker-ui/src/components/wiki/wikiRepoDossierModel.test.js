@@ -5,12 +5,24 @@ import {
   displayWikiPageTitle,
   formatGitHubRepoWatchReceipt,
   githubWatchState,
+  isRepoDossierPage,
   repoDossierGitHubLabel,
   repoNameFromPage,
   repoSectionIdForHeading
 } from './wikiRepoDossierModel';
 
 describe('wikiRepoDossierModel', () => {
+  it('never classifies curated research editions as repo dossiers', () => {
+    expect(isRepoDossierPage({
+      pageType: 'log',
+      createdFrom: { label: 'weekend-readings:user-1:2026-07-06:2026-07-19' }
+    })).toBe(false);
+    expect(isRepoDossierPage({
+      pageType: 'log',
+      createdFrom: { label: 'this-week-in-ai:user-1:2026-07-20:2026-07-26' }
+    })).toBe(false);
+  });
+
   it('preserves owner/repo casing in watch state and receipts', () => {
     const watch = {
       owner: 'atsokolas',

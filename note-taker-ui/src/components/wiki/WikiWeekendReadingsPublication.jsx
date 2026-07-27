@@ -22,6 +22,7 @@ const actionForState = (state = {}) => {
 };
 
 const WikiWeekendReadingsPublication = ({
+  editionLabel = 'Weekend Readings',
   approvalState = { code: 'private_draft', label: 'Private draft — not public' },
   busy = false,
   error = '',
@@ -36,7 +37,7 @@ const WikiWeekendReadingsPublication = ({
   return (
     <section className="wiki-weekend-publication" aria-labelledby="weekend-publication-title">
       <div className="wiki-weekend-publication__copy">
-        <p className="wiki-weekend-publication__eyebrow">Weekend Readings publication</p>
+        <p className="wiki-weekend-publication__eyebrow">{editionLabel} publication</p>
         <h2 id="weekend-publication-title">Review the exact revision</h2>
         <p className="wiki-weekend-publication__status" role="status">{approvalState.label}</p>
         <p className="wiki-weekend-publication__note">
