@@ -16,6 +16,7 @@ import { clearCached, fetchWithCache } from '../utils/cache';
 
 const CONCEPTS_CACHE_KEY = 'concepts.list';
 const CONCEPTS_CACHE_TTL_MS = 30_000;
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
 export const clearConceptsCache = () => clearCached(CONCEPTS_CACHE_KEY);
 
@@ -30,6 +31,52 @@ export const getConcepts = async ({ force = false } = {}) => fetchWithCache(
 
 export const getConcept = async (name) => {
   const res = await api.get(`/api/concepts/${encodeURIComponent(name)}`, getAuthHeaders());
+  return res.data;
+};
+
+export const getConceptInvestigation = async ({
+  conceptId,
+  wikiPageId,
+  revisionId = '',
+  claimId = ''
+}) => {
+  const rawConceptId = String(conceptId || '').trim();
+  const safeWikiPageId = String(wikiPageId || '').trim();
+  const safeRevisionId = String(revisionId || '').trim();
+  if (!OBJECT_ID_PATTERN.test(rawConceptId)) {
+    throw new Error('Concept id must be a valid object id.');
+  }
+  if (!OBJECT_ID_PATTERN.test(safeWikiPageId)) {
+    throw new Error('Wiki page id must be a valid object id.');
+  }
+  if (safeRevisionId && !OBJECT_ID_PATTERN.test(safeRevisionId)) {
+    throw new Error('Revision id must be a valid object id.');
+  }
+  const safeConceptId = encodeURIComponent(rawConceptId);
+  const params = new URLSearchParams({ wikiPageId: safeWikiPageId });
+  const claimProvided = claimId !== undefined && claimId !== null && claimId !== '';
+  if (claimProvided && typeof claimId !== 'string') {
+    throw new Error('Claim id must be a string.');
+  }
+  const safeClaimId = String(claimId || '').trim();
+  if (claimProvided && (!safeClaimId || safeClaimId.length > 240)) {
+    throw new Error('Claim id must contain 1 to 240 characters.');
+  }
+  if (safeRevisionId) params.set('revisionId', safeRevisionId);
+  if (safeClaimId) params.set('claimId', safeClaimId);
+  const res = await api.get(
+    `/api/concepts/${safeConceptId}/investigation?${params.toString()}`,
+    getAuthHeaders()
+  );
+  if (
+    !res.data
+    || !res.data.investigation
+    || typeof res.data.investigation !== 'object'
+    || typeof res.data.generatedAt !== 'string'
+    || !res.data.generatedAt.trim()
+  ) {
+    throw new Error('Concept investigation response is malformed.');
+  }
   return res.data;
 };
 
