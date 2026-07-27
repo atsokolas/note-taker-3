@@ -2,18 +2,35 @@ const crypto = require('crypto');
 
 const clonePlain = (value) => JSON.parse(JSON.stringify(value ?? null));
 
+const canonicalize = (value) => {
+  const plain = clonePlain(value);
+  if (Array.isArray(plain)) return plain.map(canonicalize);
+  if (!plain || typeof plain !== 'object') return plain;
+  return Object.keys(plain).sort().reduce((result, key) => {
+    result[key] = canonicalize(plain[key]);
+    return result;
+  }, {});
+};
+
+const contentProjection = (snapshot = {}) => ({
+  title: snapshot?.title || '',
+  body: snapshot?.body || null,
+  plainText: snapshot?.plainText || '',
+  sourceRefs: snapshot?.sourceRefs || [],
+  claims: snapshot?.claims || [],
+  citations: snapshot?.citations || [],
+  judgment: snapshot?.judgment || null,
+  investmentDossier: snapshot?.investmentDossier || null
+});
+
 const snapshotContentHash = (snapshot = {}) => crypto
   .createHash('sha256')
-  .update(JSON.stringify({
-    title: snapshot?.title || '',
-    body: snapshot?.body || null,
-    plainText: snapshot?.plainText || '',
-    sourceRefs: snapshot?.sourceRefs || [],
-    claims: snapshot?.claims || [],
-    citations: snapshot?.citations || [],
-    judgment: snapshot?.judgment || null,
-    investmentDossier: snapshot?.investmentDossier || null
-  }))
+  .update(JSON.stringify(contentProjection(snapshot)))
+  .digest('hex');
+
+const snapshotCanonicalContentHash = (snapshot = {}) => crypto
+  .createHash('sha256')
+  .update(JSON.stringify(canonicalize(contentProjection(snapshot))))
   .digest('hex');
 
 const snapshotPage = (page) => {
@@ -89,6 +106,7 @@ const createWikiRevision = async ({
   promotionStatus = 'promoted',
   sourceVersion = null,
   quality = null,
+  claimReview = null,
   summary = '',
   pruneRevisionHistory,
   session = null
@@ -108,6 +126,7 @@ const createWikiRevision = async ({
     promotionStatus,
     sourceVersion,
     quality,
+    claimReview,
     summary
   });
   await revision.save(session ? { session } : undefined);
@@ -126,6 +145,7 @@ const createWikiRevision = async ({
 module.exports = {
   createWikiRevision,
   restorePageSnapshot,
+  snapshotCanonicalContentHash,
   snapshotContentHash,
   snapshotPage
 };
