@@ -163,6 +163,7 @@ const run = async () => {
   let officialProductFailuresRemaining = 1;
   let competitorPrimaryCalls = 0;
   let independentDomainCalls = 0;
+  let marketSnapshotCalls = 0;
   app.use(buildWikiRouter({
     authenticateToken: (req, _res, next) => {
       req.user = { id: ownerId };
@@ -331,6 +332,41 @@ const run = async () => {
         }
       };
     },
+    acquireMarketSnapshotSource: async ({ ticker }) => {
+      marketSnapshotCalls += 1;
+      assert.equal(ticker, company.ticker);
+      if (marketSnapshotCalls === 1) {
+        return {
+          sourceRef: {
+            type: 'external',
+            title: `${ticker} dated market-price snapshot`,
+            snippet: `${ticker} closed at $104.25 on 2026-07-23.`,
+            url: 'https://www.nasdaq.com/market-activity/stocks/amd',
+            provider: 'nasdaq-public-quote',
+            metadata: {
+              evidenceArchetype: 'market_snapshot',
+              sourceClass: 'public_market_operator_quote',
+              acquisitionMethod: 'nasdaq_public_quote',
+              marketSnapshot: true,
+              ticker,
+              price: 104.25,
+              currency: 'USD',
+              asOf: '2026-07-23',
+              validation: { status: 'accepted' }
+            }
+          },
+          stop: null
+        };
+      }
+      return {
+        sourceRef: null,
+        stop: {
+          code: 'MARKET_SNAPSHOT_UNAVAILABLE',
+          evidenceArchetype: 'market_snapshot',
+          message: 'A dated public market price was not available for this ticker. Noeis left the expectations clock incomplete.'
+        }
+      };
+    },
     maintainWikiPage: async () => {
       maintainCalls += 1;
       throw new Error('The evidence preflight should prevent model drafting.');
@@ -419,16 +455,20 @@ const run = async () => {
     );
     assert.equal(WikiPage.records.at(-1).sourceRefs[4].provider, 'gao-technology-assessment');
     assert.equal(WikiPage.records.at(-1).sourceRefs[4].metadata.evidenceArchetype, 'independent_domain');
+    assert.equal(WikiPage.records.at(-1).sourceRefs[5].provider, 'nasdaq-public-quote');
+    assert.equal(WikiPage.records.at(-1).sourceRefs[5].metadata.evidenceArchetype, 'market_snapshot');
     assert.equal(recreated.body.receipt.metrics.filingsAttached, 1);
-    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 5);
+    assert.equal(recreated.body.receipt.metrics.totalSourcesAttached, 6);
     assert.equal(recreated.body.receipt.metrics.operatingBenchmarkAttached, true);
     assert.equal(recreated.body.receipt.metrics.officialProductSourcesAttached, 1);
     assert.equal(recreated.body.receipt.metrics.competitorPrimaryAttached, true);
     assert.equal(recreated.body.receipt.metrics.independentDomainAttached, true);
+    assert.equal(recreated.body.receipt.metrics.marketSnapshotAttached, true);
     assert.equal(companyFactsCalls, 1);
     assert.equal(officialProductCalls, 2);
     assert.equal(competitorPrimaryCalls, 1);
     assert.equal(independentDomainCalls, 1);
+    assert.equal(marketSnapshotCalls, 1);
     assert.equal(
       FakeWikiSourceEvent.records.filter(
         event => event.metadata?.evidenceArchetype === 'competitor_primary'
@@ -443,6 +483,7 @@ const run = async () => {
         !['sec-companyfacts', 'official-company-site'].includes(sourceRef.provider)
         && sourceRef.metadata?.evidenceArchetype !== 'competitor_primary'
         && sourceRef.metadata?.evidenceArchetype !== 'independent_domain'
+        && sourceRef.metadata?.evidenceArchetype !== 'market_snapshot'
       ));
     delete WikiPage.records.at(-1).investmentDossier.acquisition;
     WikiPage.records.at(-1).aiState.lastCandidateSummary = 'Stale candidate quality from an older run.';
@@ -462,6 +503,7 @@ const run = async () => {
     assert.match(streamBody, /official_product_evidence_attached/);
     assert.match(streamBody, /competitor_primary_evidence_attached/);
     assert.match(streamBody, /independent_domain_evidence_attached/);
+    assert.match(streamBody, /market_snapshot_unavailable/);
     assert.doesNotMatch(streamBody, /a primary source from a named competitor/);
     assert.doesNotMatch(streamBody, /independent regulator/);
     assert.match(streamBody, /dated market price/);
@@ -470,6 +512,7 @@ const run = async () => {
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
     assert.equal(independentDomainCalls, 2);
+    assert.equal(marketSnapshotCalls, 2);
     assert.equal(watchCalls, 2);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(
@@ -519,6 +562,7 @@ const run = async () => {
     assert.equal(officialProductCalls, 3);
     assert.equal(competitorPrimaryCalls, 2);
     assert.equal(independentDomainCalls, 2);
+    assert.equal(marketSnapshotCalls, 3);
     assert.equal(watchCalls, 2);
     assert.equal(
       WikiPage.records.at(-1).sourceRefs.filter(sourceRef => sourceRef.provider === 'sec-companyfacts').length,
