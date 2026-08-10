@@ -301,6 +301,12 @@ const LibrarySourceTrace = ({
           >
             {openLabel}
           </a>
+          <a
+            href={`${openHref}${openHref.includes('?') ? '&' : '?'}pull=1`}
+            className="library-source-trace__reference"
+          >
+            Reference…
+          </a>
           {envelope.sourceUrl ? (
             <a
               className="library-source-trace__external"

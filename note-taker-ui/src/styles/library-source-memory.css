@@ -249,6 +249,26 @@ body.noeis-editorial .library-composition__inline-preview { display: none; }
 }
 
 @media (max-width: 720px) {
+  body.noeis-editorial .three-pane--library .three-pane__main-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  body.noeis-editorial .three-pane--library .library-main-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    padding-top: 0;
+  }
+  body.noeis-editorial .three-pane--library .library-main-actions .ui-quiet-button {
+    min-width: 0;
+    min-height: 40px;
+    padding: 7px 8px;
+    font-size: .66rem;
+    line-height: 1.25;
+    white-space: normal;
+  }
   body.noeis-editorial .library-composition,
   body.noeis-editorial .library-composition.is-compact {
     grid-template-columns: minmax(0, 1fr);

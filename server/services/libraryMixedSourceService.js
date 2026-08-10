@@ -2,6 +2,12 @@ const { buildKnowledgeMovements } = require('./knowledgeMovementService');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 
 const MIXED_SOURCE_SCAN_LIMIT = 1000;
+// The default Library landing page must stay responsive for large imported
+// corpora. Recent is an explicitly bounded editorial scan, so it does not need
+// to hydrate a thousand source documents before showing the first page. The
+// connection-oriented views retain the wider scan because their classification
+// depends on finding durable uses across the corpus.
+const MIXED_SOURCE_RECENT_SCAN_LIMIT = 80;
 const SOURCE_TYPES = Object.freeze(['article', 'highlight', 'note']);
 const VIEW_NAMES = Object.freeze(['recent', 'active', 'needs_review', 'unconnected']);
 const TYPE_RANK = Object.freeze({ article: 0, highlight: 1, note: 2 });
@@ -227,6 +233,9 @@ const buildMixedLibraryRelevancePage = async ({
 } = {}) => {
   if (!VIEW_NAMES.includes(view)) throw new Error(`Unsupported Library relevance view: ${view}`);
   const decodedCursor = decodeCursor(cursor, view);
+  const sourceScanLimit = view === 'recent'
+    ? MIXED_SOURCE_RECENT_SCAN_LIMIT
+    : MIXED_SOURCE_SCAN_LIMIT;
   const {
     Article,
     NotebookEntry,
@@ -261,12 +270,12 @@ const buildMixedLibraryRelevancePage = async ({
     awaitQuery(Article.find(visibleQuery), {
       select: '_id userId title url author publicationDate siteName importMeta highlights hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
-      limit: MIXED_SOURCE_SCAN_LIMIT
+      limit: sourceScanLimit
     }),
     awaitQuery(NotebookEntry.find(visibleQuery), {
       select: '_id userId title content type importMeta hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
-      limit: MIXED_SOURCE_SCAN_LIMIT
+      limit: sourceScanLimit
     }),
     Article.countDocuments ? Article.countDocuments(visibleQuery) : null,
     NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null
@@ -365,7 +374,7 @@ const buildMixedLibraryRelevancePage = async ({
         limit: MIXED_SOURCE_SCAN_LIMIT + 1
       })
       : [],
-    typeof movementBuilder === 'function'
+    view !== 'recent' && typeof movementBuilder === 'function'
       ? movementBuilder({ userId, models, since: null, limit: 50 })
       : []
   ]);
@@ -520,17 +529,19 @@ const buildMixedLibraryRelevancePage = async ({
     ? encodeCursor({ view, tuple: rowTuple(pageRowsSelected[pageRowsSelected.length - 1]) })
     : null;
 
-  const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= MIXED_SOURCE_SCAN_LIMIT;
-  const notesComplete = Number.isFinite(noteTotal) && noteTotal <= MIXED_SOURCE_SCAN_LIMIT;
+  const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit;
+  const notesComplete = Number.isFinite(noteTotal) && noteTotal <= sourceScanLimit;
   const completeScan = articlesComplete && notesComplete;
-  const limitations = ['material_movements_limited_to_50'];
+  const limitations = view === 'recent'
+    ? ['material_movements_deferred_for_recent_view']
+    : ['material_movements_limited_to_50'];
   if (!Number.isFinite(articleTotal)) limitations.push('article_total_unavailable');
   if (!Number.isFinite(noteTotal)) limitations.push('note_total_unavailable');
-  if (Number.isFinite(articleTotal) && articleTotal > MIXED_SOURCE_SCAN_LIMIT) {
-    limitations.push('article_scan_limited_to_1000');
+  if (Number.isFinite(articleTotal) && articleTotal > sourceScanLimit) {
+    limitations.push(`article_scan_limited_to_${sourceScanLimit}`);
   }
-  if (Number.isFinite(noteTotal) && noteTotal > MIXED_SOURCE_SCAN_LIMIT) {
-    limitations.push('note_scan_limited_to_1000');
+  if (Number.isFinite(noteTotal) && noteTotal > sourceScanLimit) {
+    limitations.push(`note_scan_limited_to_${sourceScanLimit}`);
   }
   if ((conceptRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) limitations.push('concept_scan_limited_to_1000');
   if ((pageRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) limitations.push('wiki_page_scan_limited_to_1000');
@@ -566,6 +577,7 @@ const buildMixedLibraryRelevancePage = async ({
 
 module.exports = {
   MIXED_SOURCE_SCAN_LIMIT,
+  MIXED_SOURCE_RECENT_SCAN_LIMIT,
   SOURCE_TYPES,
   VIEW_NAMES,
   buildMixedLibraryRelevancePage,

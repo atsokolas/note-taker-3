@@ -1,7 +1,8 @@
 const assert = require('assert');
 const {
   buildMixedLibraryRelevancePage,
-  decodeCursor
+  decodeCursor,
+  MIXED_SOURCE_RECENT_SCAN_LIMIT
 } = require('./libraryMixedSourceService');
 
 const USER_ID = '64f100000000000000000001';
@@ -155,6 +156,7 @@ const movementBuilder = async () => [{
 }];
 
 const run = async () => {
+  assert.strictEqual(MIXED_SOURCE_RECENT_SCAN_LIMIT, 80);
   const firstPage = await buildMixedLibraryRelevancePage({
     userId: USER_ID,
     models,
@@ -266,7 +268,7 @@ const run = async () => {
   assert.strictEqual(firstPage.counts.active.exact, false);
   assert.deepStrictEqual(firstPage.coverage.sourceTypes, ['article', 'highlight', 'note']);
   assert.deepStrictEqual(firstPage.coverage.scanned, { articles: 2, highlights: 1, notes: 1 });
-  assert.ok(firstPage.coverage.limitations.includes('material_movements_limited_to_50'));
+  assert.ok(firstPage.coverage.limitations.includes('material_movements_deferred_for_recent_view'));
 
   assert.throws(() => decodeCursor('not-a-cursor', 'recent'), /cursor is invalid/i);
   assert.throws(() => decodeCursor(firstPage.nextCursor, 'active'), /cursor is invalid/i);

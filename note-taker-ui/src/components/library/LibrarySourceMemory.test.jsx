@@ -90,8 +90,7 @@ describe('LibrarySourceMemory', () => {
     await waitFor(() => expect(getLibraryRelevance).toHaveBeenCalledWith({
       view: 'recent',
       limit: 40,
-      sourceScope: 'mixed',
-      force: true
+      sourceScope: 'mixed'
     }));
   });
 
@@ -133,8 +132,7 @@ describe('LibrarySourceMemory', () => {
     await waitFor(() => expect(getLibraryRelevance).toHaveBeenLastCalledWith({
       view: 'unconnected',
       limit: 40,
-      sourceScope: 'mixed',
-      force: true
+      sourceScope: 'mixed'
     }));
     expect(await screen.findByText('Every visible source is connected.')).toBeInTheDocument();
   });

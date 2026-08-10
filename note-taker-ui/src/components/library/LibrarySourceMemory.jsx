@@ -124,8 +124,7 @@ const LibrarySourceMemory = ({
       view,
       limit: PAGE_LIMIT,
       sourceScope: 'mixed',
-      ...(showSuppressed ? { showSuppressed: true } : {}),
-      force: true
+      ...(showSuppressed ? { showSuppressed: true } : {})
     })
       .then(payload => {
         if (requestSeqRef.current !== requestId) return;
@@ -399,7 +398,7 @@ const LibrarySourceMemory = ({
 
           <footer className="library-source-index__footer" aria-live="polite">
             {state.loading ? (
-              <span>Tracing…</span>
+              <span>Connecting the newest sources…</span>
             ) : state.error ? (
               <span className="is-error">{state.error}</span>
             ) : (
@@ -447,7 +446,7 @@ const LibrarySourceMemory = ({
         hidden={isIndex && !renderRows}
       >
         {state.loading && renderRows ? (
-          <p className="library-source-memory__status">Tracing source provenance…</p>
+          <p className="library-source-memory__status">Connecting the newest sources to their provenance…</p>
         ) : null}
         {!state.loading && state.error && renderRows && !isIndex ? (
           <p className="library-source-memory__status is-error">{state.error}</p>

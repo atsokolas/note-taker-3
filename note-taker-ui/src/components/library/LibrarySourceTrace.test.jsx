@@ -196,6 +196,10 @@ describe('LibrarySourceTrace', () => {
       .toHaveAttribute('href', '/think?tab=concepts&concept=Bottleneck%20Economics');
     const openAction = screen.getByTestId('library-source-trace-open');
     expect(openAction).toHaveAttribute('href', '/library?articleId=article-1&highlightId=highlight-1');
+    expect(screen.getByRole('link', { name: 'Reference…' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=highlight-1&pull=1'
+    );
     expect(fireEvent.click(openAction)).toBe(false);
     expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({
       type: 'highlight',

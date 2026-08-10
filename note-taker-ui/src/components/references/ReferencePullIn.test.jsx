@@ -93,7 +93,10 @@ describe('ReferencePullIn', () => {
     await waitFor(() => {
       expect(screen.getByText('Margin of safety')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/library?highlightId=h-1');
+    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=h-1'
+    );
     fireEvent.click(screen.getByText('Margin of safety'));
 
     await waitFor(() => {
@@ -118,7 +121,75 @@ describe('ReferencePullIn', () => {
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('1 out · 1 in');
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Used by');
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Margin of safety');
-    expect(screen.getAllByRole('link', { name: /Margin of safety/ })[0]).toHaveAttribute('href', '/library?highlightId=h-1');
+    expect(screen.getAllByRole('link', { name: /Margin of safety/ })[0]).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=h-1'
+    );
+  });
+
+  it('references a Library source into selected Think or Wiki work with the durable direction reversed', async () => {
+    searchConnectableItems.mockResolvedValueOnce([
+      {
+        itemType: 'concept',
+        itemId: 'concept-1',
+        title: 'Inference economics',
+        snippet: 'A maintained working concept.'
+      }
+    ]);
+    render(
+      <ReferencePullIn
+        targetType="highlight"
+        targetId="h-1"
+        targetTitle="Margin of safety"
+        mode="reference-source"
+      />
+    );
+
+    expect(screen.getByText('Reference…')).toBeInTheDocument();
+    expect(screen.getByText('Use this source in an existing Think or Wiki object.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'inference' }
+    });
+
+    await waitFor(() => {
+      expect(searchConnectableItems).toHaveBeenCalledWith({
+        q: 'inference',
+        excludeType: 'highlight',
+        excludeId: 'h-1',
+        itemTypes: ['concept', 'question', 'wiki_page', 'notebook'],
+        limit: 6
+      });
+    });
+    fireEvent.click(await screen.findByText('Inference economics'));
+
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith({
+        fromType: 'concept',
+        fromId: 'concept-1',
+        toType: 'highlight',
+        toId: 'h-1',
+        relationType: 'related'
+      });
+    });
+    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Used by');
+    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Inference economics');
+  });
+
+  it('fails closed when a highlight result has no owned parent article identity', async () => {
+    searchConnectableItems.mockResolvedValueOnce([
+      {
+        itemType: 'highlight',
+        itemId: 'orphan-highlight',
+        title: 'Orphan highlight',
+        snippet: 'Missing its parent identity.'
+      }
+    ]);
+    render(<ReferencePullIn targetType="concept" targetId="concept-1" />);
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'orphan' }
+    });
+    await screen.findByText('Orphan highlight');
+    expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument();
   });
 
   it('shows an existing graph trace when the reference was already linked', async () => {

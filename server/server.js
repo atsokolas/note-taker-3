@@ -4003,7 +4003,10 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: highlight.articleTitle || 'Highlight',
       snippet: buildQueueSnippet(highlight.text, highlight.note),
-      openPath: highlight.articleId ? `/library?articleId=${highlight.articleId}` : '/library?scope=highlights',
+      articleId: highlight.articleId ? String(highlight.articleId) : '',
+      openPath: highlight.articleId
+        ? `/library?articleId=${highlight.articleId}&highlightId=${safeItemId}`
+        : '',
       exists: true
     };
   }
@@ -4046,7 +4049,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: concept.name || 'Concept',
       snippet: buildQueueSnippet(concept.description, concept.name),
-      openPath: concept.name ? `/think?tab=concepts&concept=${encodeURIComponent(concept.name)}` : '/think?tab=concepts',
+      openPath: `/think?tab=concepts&conceptId=${concept._id}`,
       exists: true
     };
   }
@@ -4070,7 +4073,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: page.title || 'Wiki page',
       snippet: buildQueueSnippet(page.plainText, page.pageType),
-      openPath: `/wiki/${page._id}`,
+      openPath: `/wiki/workspace?page=${page._id}`,
       exists: true
     };
   }
@@ -4088,7 +4091,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: claim.section || 'Wiki claim',
       snippet: buildQueueSnippet(claim.text, page.title),
-      openPath: `/wiki/${page._id}`,
+      openPath: `/wiki/workspace?page=${page._id}&claimId=${encodeURIComponent(claimId)}`,
       exists: true
     };
   }
