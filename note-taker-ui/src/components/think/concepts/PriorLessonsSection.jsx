@@ -93,7 +93,7 @@ const destinationHref = (concept) => {
   const conceptId = String(concept?._id || concept?.id || '').trim();
   const conceptName = String(concept?.name || concept?.title || '').trim();
   if (!conceptId || !conceptName) return '';
-  const params = new URLSearchParams({ tab: 'concepts', concept: conceptName });
+  const params = new URLSearchParams({ tab: 'concepts', concept: conceptName, conceptId });
   const wikiPageId = String(concept?.continuityAnchor?.objectId || '').trim();
   if (wikiPageId && String(concept?.continuityAnchor?.objectType || '') === 'wiki_page') {
     params.set('investigation', '1');

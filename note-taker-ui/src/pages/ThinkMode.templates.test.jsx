@@ -488,6 +488,41 @@ describe('ThinkMode template integration', () => {
     }));
   });
 
+  it('keeps an exact Concept id authoritative for ordinary Concept navigation', async () => {
+    const exactConceptId = '64f100000000000000000020';
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams({
+        tab: 'concepts',
+        concept: 'Stale display name',
+        conceptId: exactConceptId
+      }),
+      mockSetSearchParams
+    ]);
+    useConcept.mockReturnValue({
+      concept: {
+        _id: exactConceptId,
+        name: 'Canonical Concept',
+        description: '',
+        pinnedHighlightIds: [],
+        pinnedArticleIds: [],
+        pinnedNoteIds: []
+      },
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+
+    render(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(useConcept).toHaveBeenCalledWith(exactConceptId, expect.objectContaining({ enabled: true }));
+    expect(useIdeaWorkbenchModel).toHaveBeenCalledWith(expect.objectContaining({
+      conceptId: exactConceptId,
+      concept: expect.objectContaining({ _id: exactConceptId })
+    }));
+    expect(screen.queryByTestId('concept-investigation-panel')).not.toBeInTheDocument();
+  });
+
   it('fails closed when the loaded Concept does not match the investigation identity', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=concepts&concept=Wrong Concept&conceptId=target-id&investigation=1&wikiPageId=wiki-1'),

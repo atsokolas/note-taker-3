@@ -635,18 +635,18 @@ const ThinkMode = () => {
   // Seed useConcept with the row from the already-loaded concepts list so the
   // manuscript renders its title immediately on click instead of showing a
   // full skeleton for the duration of the network round-trip.
-  const conceptLookupKey = requestedInvestigation && requestedConceptId
+  const conceptLookupKey = requestedConceptId
     ? requestedConceptId
     : queryConceptName;
   const cachedConceptForName = useMemo(
     () => (conceptLookupKey
       ? (concepts || []).find((candidate) => (
-          requestedInvestigation && requestedConceptId
+          requestedConceptId
             ? String(candidate?._id || '') === String(requestedConceptId)
             : candidate?.name === queryConceptName
         )) || null
       : null),
-    [conceptLookupKey, concepts, queryConceptName, requestedConceptId, requestedInvestigation]
+    [conceptLookupKey, concepts, queryConceptName, requestedConceptId]
   );
   const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(conceptLookupKey, {
     enabled: activeView === 'concepts' && Boolean(conceptLookupKey),
@@ -757,7 +757,7 @@ const ThinkMode = () => {
   }, [searchParams, setSearchParams]);
   const ideaWorkbenchModel = useIdeaWorkbenchModel({
     concept,
-    conceptId: requestedInvestigation ? requestedConceptId : '',
+    conceptId: requestedConceptId || concept?._id || '',
     related,
     questions: conceptQuestions,
     onCreateNotebookDraft: ({
