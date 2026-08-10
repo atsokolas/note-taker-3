@@ -461,6 +461,7 @@ const WikiFrontPage = () => {
             {workspaceNav}
           </div>
         </header>
+        <WikiMovementReturnSurface onPresenceChange={setHasMovements} />
         {showDecisions ? (
           <div id="wiki-front-decisions" className="wiki-front-page__decisions wfp-anim wfp-anim--2">
             <DecisionsIndex embedded initialFilter="upcoming_review" />

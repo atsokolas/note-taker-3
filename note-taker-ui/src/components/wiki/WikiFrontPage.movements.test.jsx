@@ -20,7 +20,7 @@ jest.mock('./WikiRepoCreateComposer', () => () => null);
 jest.mock('./WikiCompanyDossierComposer', () => () => null);
 jest.mock('./WikiFrontPageGraphMotif', () => () => null);
 jest.mock('./ThisWeekInAIComposer', () => () => null, { virtual: true });
-jest.mock('./decisions/DecisionsIndex', () => () => null, { virtual: true });
+jest.mock('./decisions/DecisionsIndex', () => () => null);
 jest.mock('./WikiMovementReturnSurface', () => ({ onPresenceChange }) => (
   <section aria-label="What changed return surface">
     <button type="button" onClick={() => onPresenceChange(true)}>Movement present</button>
@@ -67,5 +67,15 @@ describe('WikiFrontPage movement return surface', () => {
 
     expect(screen.queryByText(/generic fallback briefing/i)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Inference economics' })).toBeInTheDocument();
+  });
+
+  it('keeps the movement return surface visible for an empty Wiki corpus', async () => {
+    localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
+    listWikiPages.mockResolvedValueOnce([]);
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: /Nothing here yet/i })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What changed return surface' })).toBeInTheDocument();
   });
 });
