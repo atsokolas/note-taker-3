@@ -262,7 +262,6 @@ const ConceptInvestigationPanel = ({
             priorLessons={investigation.priorLessons}
             evidence={investigation.evidence}
             wikiPageId={wikiPageId}
-            onAdopted={() => setRequestVersion(value => value + 1)}
           />
           <footer className="concept-investigation__actions">
             {investigationActions.map(action => {
