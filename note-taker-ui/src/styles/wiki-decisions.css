@@ -1,0 +1,272 @@
+/* Stage 5 — Decisions index + focused decision/outcome forms.
+   Calm editorial surface; no new product mode chrome. */
+
+.wiki-decisions,
+.wiki-decision-form,
+.wiki-decision-review {
+  display: grid;
+  gap: 18px;
+}
+
+.wiki-decisions--embedded {
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.wiki-decisions__heading h2,
+.wiki-decision-form h3,
+.wiki-decision-review h3,
+.wiki-decisions__row h3,
+.wiki-decisions__row h4 {
+  font-family: var(--font-serif, Georgia, 'Times New Roman', serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 4px 0 0;
+}
+
+.wiki-decisions__lede,
+.wiki-decision-form > header p,
+.wiki-decision-review > header p {
+  color: var(--text-secondary, #5c574f);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  max-width: 62ch;
+}
+
+.wiki-decisions__eyebrow {
+  color: var(--text-muted, #8c867c);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.wiki-decisions__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wiki-decisions__filters button,
+.wiki-decision-form button,
+.wiki-decision-review button,
+.wiki-decision-outcome button,
+.wiki-decisions__more {
+  appearance: none;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 48%, transparent);
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 8px 12px;
+}
+
+.wiki-decisions__filters button.is-active,
+.wiki-decision-form button[type='submit'],
+.wiki-decision-outcome button[type='submit'] {
+  background: color-mix(in srgb, var(--vellum-warm, #c4a574) 18%, transparent);
+  border-color: color-mix(in srgb, var(--vellum-warm, #c4a574) 55%, transparent);
+}
+
+.wiki-decisions__list {
+  display: grid;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-decisions__row {
+  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  display: grid;
+  gap: 10px;
+  padding: 16px 0 4px;
+}
+
+.wiki-decisions__row > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.wiki-decisions__continuity {
+  color: var(--text-muted, #8c867c);
+  flex: 0 1 220px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.wiki-decisions__row.is-incomplete {
+  border-left: 2px solid color-mix(in srgb, var(--vellum-warm, #c4a574) 70%, transparent);
+  padding-left: 14px;
+}
+
+.wiki-decisions__rationale,
+.wiki-decisions__expected,
+.wiki-decisions__meta,
+.wiki-decisions__outcome,
+.wiki-decisions__links,
+.wiki-decisions__quiet,
+.wiki-decisions__incomplete {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.wiki-decisions__quiet,
+.wiki-decisions__incomplete,
+.wiki-decisions__meta {
+  color: var(--text-muted, #8c867c);
+}
+
+.wiki-decisions__links ul,
+.wiki-decision-review ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wiki-decisions__links li,
+.wiki-decision-review li {
+  margin: 4px 0;
+}
+
+.wiki-decisions__error,
+.wiki-decision-form__error,
+.wiki-decision-form__blocker,
+.wiki-decision-form__receipt {
+  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 40%, transparent);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.wiki-decision-form__blocker,
+.wiki-decision-form__error {
+  background: color-mix(in srgb, #b44 8%, transparent);
+}
+
+.wiki-decision-form__receipt {
+  background: color-mix(in srgb, var(--vellum-warm, #c4a574) 10%, transparent);
+}
+
+.wiki-decision-form__fields,
+.wiki-decision-outcome {
+  display: grid;
+  gap: 14px;
+}
+
+.wiki-decision-form label,
+.wiki-decision-outcome label,
+.wiki-decision-form fieldset,
+.wiki-decision-outcome fieldset {
+  display: grid;
+  gap: 6px;
+  font-size: 0.86rem;
+}
+
+.wiki-decision-form fieldset,
+.wiki-decision-outcome fieldset {
+  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+  border-radius: 10px;
+  margin: 0;
+  padding: 12px;
+}
+
+.wiki-decision-form__row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.wiki-decision-form input,
+.wiki-decision-form select,
+.wiki-decision-form textarea,
+.wiki-decision-outcome input,
+.wiki-decision-outcome select,
+.wiki-decision-outcome textarea {
+  background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 52%, transparent);
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.wiki-decision-form__check {
+  align-items: flex-start;
+  display: flex !important;
+  gap: 10px;
+  grid-template-columns: none;
+}
+
+.wiki-decision-form__check input {
+  margin-top: 3px;
+  width: auto;
+}
+
+.wiki-decision-review__transitions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .wiki-decisions__row > header {
+    flex-direction: column;
+  }
+
+  .wiki-decisions__continuity {
+    flex-basis: auto;
+    text-align: left;
+  }
+
+  .wiki-decision-form__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wiki-decisions__filters button,
+  .wiki-decision-form button,
+  .wiki-decision-review button,
+  .wiki-decision-outcome button,
+  .wiki-decisions__more {
+    transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms ease;
+  }
+
+  .wiki-decisions__filters button:hover,
+  .wiki-decision-form button:hover,
+  .wiki-decision-review button:hover,
+  .wiki-decision-outcome button:hover,
+  .wiki-decisions__more:hover {
+    transform: translate3d(1px, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-decisions__filters button,
+  .wiki-decision-form button,
+  .wiki-decision-review button,
+  .wiki-decision-outcome button,
+  .wiki-decisions__more {
+    transition: none;
+  }
+
+  .wiki-decisions__filters button:hover,
+  .wiki-decision-form button:hover,
+  .wiki-decision-review button:hover,
+  .wiki-decision-outcome button:hover,
+  .wiki-decisions__more:hover {
+    transform: none;
+  }
+}

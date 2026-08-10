@@ -57,6 +57,9 @@ jest.mock('../../api/dailyLoop', () => ({
   recordWikiPageVisit: jest.fn()
 }));
 
+jest.mock('./decisions/DecisionCreateForm', () => () => null);
+jest.mock('./decisions/DecisionReviewPanel', () => () => null);
+
 jest.mock('../../utils/wikiAnalytics', () => ({
   trackWikiQaPromoted: jest.fn(),
   trackWikiReadModePageView: jest.fn()
@@ -207,6 +210,16 @@ describe('WikiPageReadView', () => {
     window.matchMedia = jest.fn().mockReturnValue({ matches: false });
     window.localStorage.clear();
     window.sessionStorage.clear();
+  });
+
+  it('mounts the accepted-revision decision and outcome workspace on a private Wiki page', async () => {
+    renderReadView();
+
+    const label = await screen.findByText('Decisions & outcomes');
+    const workspace = label.closest('details');
+    expect(workspace).toHaveAttribute('id', 'wiki-stage5-decisions');
+    expect(within(workspace).getByText('Accepted-revision grounded')).toBeInTheDocument();
+    expect(within(workspace).getByText('Outcomes never inferred')).toBeInTheDocument();
   });
 
   it('focuses the exact opaque claim requested by the workspace URL', async () => {

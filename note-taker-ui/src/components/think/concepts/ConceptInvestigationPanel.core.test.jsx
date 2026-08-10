@@ -5,6 +5,12 @@ import ConceptInvestigationPanel from './ConceptInvestigationPanel';
 import { getConceptInvestigation } from '../../../api/concepts';
 
 jest.mock('../../../api/concepts', () => ({ getConceptInvestigation: jest.fn() }));
+jest.mock('./ClaimRevisionReview', () => ({ review }) => (
+  <div data-testid="claim-revision-review">{review?.state || 'pending'}</div>
+));
+jest.mock('./PriorLessonsSection', () => ({ priorLessons }) => (
+  <div data-testid="prior-lessons">{priorLessons?.status || 'none'}</div>
+));
 
 const context = {
   conceptId: '64f100000000000000000020',
@@ -22,6 +28,8 @@ const investigation = {
   unknowns: [{ text: 'Utilization maturity.' }],
   whatWouldChangeMyMind: [{ text: 'Two flat quarters.' }],
   currentWiki: { acceptanceState: 'unverified' },
+  claimReview: { state: 'pending', identity: { ...context } },
+  priorLessons: { status: 'available', items: [{ id: 'lesson-1' }] },
   proposals: { workbenchChanges: [], agentSuggestions: [], candidateWikiRevision: { title: 'Candidate revision', summary: 'Not accepted.', ref: { href: '/wiki/workspace?page=1' } } },
   actions: {
     findContraryEvidence: { label: 'Find contrary evidence', intent: 'find_contrary_evidence', enabled: true },
@@ -46,6 +54,8 @@ describe('ConceptInvestigationPanel core', () => {
     expect(screen.getByRole('link', { name: 'Measured support' })).toHaveAttribute('href', '/library?articleId=a1');
     expect(screen.getByText('Proposed, not accepted')).toBeInTheDocument();
     expect(screen.getByText(/Nothing here changes your accepted knowledge/)).toBeInTheDocument();
+    expect(screen.getByTestId('claim-revision-review')).toHaveTextContent('pending');
+    expect(screen.getByTestId('prior-lessons')).toHaveTextContent('available');
   });
 
   it('fails closed on a loaded Concept identity mismatch', async () => {

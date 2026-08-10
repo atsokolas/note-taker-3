@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getConceptInvestigation } from '../../../api/concepts';
+import ClaimRevisionReview from './ClaimRevisionReview';
+import PriorLessonsSection from './PriorLessonsSection';
 import '../../../styles/concept-investigation.css';
+import '../../../styles/concept-consequence.css';
 
 const safeInternalHref = value => (
   typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
@@ -118,6 +121,16 @@ const ConceptInvestigationPanel = ({
   const runInvestigationAction = action => {
     if (action?.intent !== 'find_contrary_evidence' || action?.enabled === false || workbenchBusy) return;
     onRunWorkbenchAction?.(action.intent);
+  };
+
+  const handleClaimReviewChange = nextReview => {
+    if (!nextReview) return;
+    setState(previous => ({
+      ...previous,
+      investigation: previous.investigation
+        ? { ...previous.investigation, claimReview: nextReview }
+        : previous.investigation
+    }));
   };
 
   return (
@@ -239,6 +252,18 @@ const ConceptInvestigationPanel = ({
               {candidate.ref ? <InvestigationLink reference={candidate.ref}>Review candidate in Wiki</InvestigationLink> : null}
             </div>
           ) : null}
+          {investigation.claimReview ? (
+            <ClaimRevisionReview
+              review={investigation.claimReview}
+              onReviewChange={handleClaimReviewChange}
+            />
+          ) : null}
+          <PriorLessonsSection
+            priorLessons={investigation.priorLessons}
+            evidence={investigation.evidence}
+            wikiPageId={wikiPageId}
+            onAdopted={() => setRequestVersion(value => value + 1)}
+          />
           <footer className="concept-investigation__actions">
             {investigationActions.map(action => {
               const executable = action.intent === 'find_contrary_evidence' && action.enabled !== false;

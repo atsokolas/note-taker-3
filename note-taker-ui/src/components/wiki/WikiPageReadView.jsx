@@ -77,6 +77,8 @@ import WikiFirstHeadReview from './WikiFirstHeadReview';
 import WikiInvestmentMaintenanceComparison from './WikiInvestmentMaintenanceComparison';
 import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
 import '../../styles/wiki-claim-focus.css';
+import DecisionCreateForm from './decisions/DecisionCreateForm';
+import DecisionReviewPanel from './decisions/DecisionReviewPanel';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -1122,6 +1124,10 @@ const WikiPageReadView = ({
     const value = new URLSearchParams(traceSearch || '').get('tab');
     return value === 'talk' ? 'talk' : 'article';
   }, [traceSearch]);
+  const focusedDecisionId = useMemo(
+    () => String(new URLSearchParams(traceSearch || '').get('decisionId') || '').trim(),
+    [traceSearch]
+  );
   const focusedClaimId = useMemo(
     () => normalizeFocusedClaimId(new URLSearchParams(traceSearch || '').get('claimId')),
     [traceSearch]
@@ -2530,6 +2536,45 @@ const WikiPageReadView = ({
                 }}
               />
             ) : null}
+            <details
+              className="wiki-read__page-status wiki-read__stage5-decisions"
+              open={Boolean(focusedDecisionId)}
+              id={focusedDecisionId ? `decision-${focusedDecisionId}` : 'wiki-stage5-decisions'}
+            >
+              <summary className="wiki-read__page-status-summary">
+                <span className="wiki-read__page-status-label">Decisions &amp; outcomes</span>
+                <span className="wiki-read__page-status-facts">
+                  <span>Accepted-revision grounded</span>
+                  <span>Outcomes never inferred</span>
+                </span>
+                <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
+              </summary>
+              <div className="wiki-read__page-status-panel">
+                <DecisionReviewPanel
+                  pageId={pageId}
+                  decisionId={focusedDecisionId}
+                  page={page}
+                  onPageRefresh={async () => {
+                    const refreshed = await getWikiPage(pageId);
+                    if (refreshed) {
+                      latestPageRef.current = refreshed;
+                      setPage(refreshed);
+                    }
+                  }}
+                />
+                <DecisionCreateForm
+                  page={page}
+                  pageId={pageId}
+                  onCreated={async () => {
+                    const refreshed = await getWikiPage(pageId);
+                    if (refreshed) {
+                      latestPageRef.current = refreshed;
+                      setPage(refreshed);
+                    }
+                  }}
+                />
+              </div>
+            </details>
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}

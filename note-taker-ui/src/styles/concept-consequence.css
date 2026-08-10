@@ -1,0 +1,673 @@
+body.noeis-editorial .concept-prior-lessons {
+  min-width: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .concept-prior-lessons__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+body.noeis-editorial .concept-prior-lessons__header h3 {
+  margin: 4px 0 6px;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+body.noeis-editorial .concept-prior-lessons__header p {
+  margin: 0;
+  color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
+  line-height: 1.5;
+}
+
+body.noeis-editorial .concept-prior-lessons__eyebrow {
+  color: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 78%, var(--vellum-ink));
+  font-family: var(--noeis-ui-font);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .concept-prior-lessons__list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.noeis-editorial .concept-prior-lessons__item {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .concept-prior-lessons__item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+body.noeis-editorial .concept-prior-lessons__item-header h4 {
+  margin: 4px 0 0;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-size: 1.02rem;
+  font-weight: 500;
+}
+
+body.noeis-editorial .concept-prior-lessons__accepted-role {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid var(--vellum-line);
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  text-transform: capitalize;
+}
+
+body.noeis-editorial .concept-prior-lessons__lesson,
+body.noeis-editorial .concept-prior-lessons__confirm p,
+body.noeis-editorial .concept-prior-lessons__chooser > p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+body.noeis-editorial .concept-prior-lessons__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.76rem;
+}
+
+body.noeis-editorial .concept-prior-lessons__observed,
+body.noeis-editorial .concept-prior-lessons__chooser,
+body.noeis-editorial .concept-prior-lessons__confirm {
+  display: grid;
+  gap: 10px;
+}
+
+body.noeis-editorial .concept-prior-lessons__evidence {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  font-size: 0.88rem;
+}
+
+body.noeis-editorial .concept-prior-lessons__acceptance,
+body.noeis-editorial .concept-prior-lessons__confirm-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+body.noeis-editorial .concept-prior-lessons__acceptance > div,
+body.noeis-editorial .concept-prior-lessons__confirm-facts > div {
+  display: grid;
+  gap: 2px;
+}
+
+body.noeis-editorial .concept-prior-lessons__acceptance dt,
+body.noeis-editorial .concept-prior-lessons__confirm-facts dt {
+  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .concept-prior-lessons__acceptance dd,
+body.noeis-editorial .concept-prior-lessons__confirm-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .concept-prior-lessons__field,
+body.noeis-editorial .concept-prior-lessons__roles {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+body.noeis-editorial .concept-prior-lessons__field > span,
+body.noeis-editorial .concept-prior-lessons__roles legend {
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .concept-prior-lessons__field select {
+  min-height: 40px;
+  max-width: 28rem;
+  padding: 8px 10px;
+  border: 1px solid var(--vellum-line);
+  background: transparent;
+  color: var(--vellum-ink);
+  font: inherit;
+}
+
+body.noeis-editorial .concept-prior-lessons__roles [role="radiogroup"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+body.noeis-editorial .concept-prior-lessons__role {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  cursor: pointer;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.88rem;
+}
+
+body.noeis-editorial .concept-prior-lessons__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.noeis-editorial .concept-prior-lessons__status {
+  margin: 0;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  font-size: 0.88rem;
+}
+
+body.noeis-editorial .concept-prior-lessons__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-danger, #8d3d32);
+}
+
+body.noeis-editorial .concept-prior-lessons__error p {
+  margin: 0;
+}
+
+body.noeis-editorial .concept-investigation button:focus-visible,
+body.noeis-editorial .concept-prior-lessons select:focus-visible,
+body.noeis-editorial .concept-prior-lessons input[type="radio"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 70%, var(--vellum-ink));
+  outline-offset: 2px;
+}
+
+body.noeis-editorial .wiki-investment-claim-review {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+body.noeis-editorial .wiki-investment-claim-review.is-loading,
+body.noeis-editorial .wiki-investment-claim-review.is-error {
+  padding: 18px 0;
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 42%, var(--vellum-line));
+}
+
+body.noeis-editorial .wiki-investment-claim-review.is-loading p,
+body.noeis-editorial .wiki-investment-claim-review.is-error p,
+body.noeis-editorial .wiki-investment-claim-review__hint {
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .wiki-investment-claim-review.is-error button {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 48%, var(--vellum-line));
+  background: color-mix(in srgb, var(--vellum-paper) 92%, var(--wiki-warm-accent, #9a6b2f));
+  color: var(--vellum-ink);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+body.noeis-editorial .claim-revision-review {
+  min-width: 0;
+  padding: 24px 0;
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 42%, var(--vellum-line));
+}
+
+body.noeis-editorial .claim-revision-review__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+body.noeis-editorial .claim-revision-review__header h3,
+body.noeis-editorial .claim-revision-review h4,
+body.noeis-editorial .claim-revision-review h5 {
+  margin: 0;
+  color: var(--vellum-ink);
+}
+
+body.noeis-editorial .claim-revision-review__header h3 {
+  margin-top: 4px;
+  font-family: var(--noeis-display-font, var(--noeis-serif));
+  font-size: clamp(1.18rem, 1.8vw, 1.48rem);
+  font-weight: 500;
+}
+
+body.noeis-editorial .claim-revision-review__header p,
+body.noeis-editorial .claim-revision-review__claim > p,
+body.noeis-editorial .claim-revision-review__diff-copy,
+body.noeis-editorial .claim-revision-review__explanation,
+body.noeis-editorial .claim-revision-review__unavailable {
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .claim-revision-review__header p {
+  margin: 5px 0 0;
+  color: color-mix(in srgb, var(--vellum-ink) 60%, transparent);
+  line-height: 1.5;
+}
+
+body.noeis-editorial .claim-revision-review__eyebrow,
+body.noeis-editorial .claim-revision-review__label {
+  color: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 78%, var(--vellum-ink));
+  font-family: var(--noeis-ui-font);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .claim-revision-review__state {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  text-transform: capitalize;
+}
+
+body.noeis-editorial .claim-revision-review__claims {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--vellum-line);
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .claim-revision-review__claim {
+  min-width: 0;
+  padding: 18px 20px 18px 0;
+}
+
+body.noeis-editorial .claim-revision-review__claim.is-proposed {
+  padding-right: 0;
+  padding-left: 20px;
+  border-left: 1px solid var(--vellum-line);
+  background: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 4%, transparent);
+}
+
+body.noeis-editorial .claim-revision-review__claim > p {
+  min-width: 0;
+  margin: 10px 0 14px;
+  font-family: var(--noeis-serif);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+body.noeis-editorial .claim-revision-review__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+}
+
+body.noeis-editorial .claim-revision-review__details div {
+  min-width: 0;
+}
+
+body.noeis-editorial .claim-revision-review__details dt {
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
+}
+
+body.noeis-editorial .claim-revision-review__details dd {
+  overflow-wrap: anywhere;
+  margin: 2px 0 0;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+}
+
+body.noeis-editorial .claim-revision-review__diff,
+body.noeis-editorial .claim-revision-review__evidence,
+body.noeis-editorial .claim-revision-review__unresolved,
+body.noeis-editorial .claim-revision-review__references {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .claim-revision-review__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.noeis-editorial .claim-revision-review h4 {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .claim-revision-review__section-heading ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.noeis-editorial .claim-revision-review__section-heading li {
+  padding: 3px 7px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 999px;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.65rem;
+}
+
+body.noeis-editorial .claim-revision-review__diff-copy {
+  margin: 14px 0 8px;
+  font-family: var(--noeis-serif);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+body.noeis-editorial .claim-revision-review__diff-copy del {
+  padding: 1px 2px;
+  background: color-mix(in srgb, var(--color-danger, #8d3d32) 12%, transparent);
+  color: color-mix(in srgb, var(--color-danger, #8d3d32) 86%, var(--vellum-ink));
+  text-decoration-thickness: 1px;
+}
+
+body.noeis-editorial .claim-revision-review__diff-copy ins {
+  padding: 1px 2px;
+  background: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 14%, transparent);
+  color: var(--vellum-ink);
+  text-decoration: none;
+}
+
+body.noeis-editorial .claim-revision-review__explanation,
+body.noeis-editorial .claim-revision-review__quiet,
+body.noeis-editorial .claim-revision-review__unavailable {
+  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .claim-revision-review__explanation,
+body.noeis-editorial .claim-revision-review__quiet {
+  margin: 0;
+}
+
+body.noeis-editorial .claim-revision-review__evidence > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+
+body.noeis-editorial .claim-revision-review__evidence-group {
+  min-width: 0;
+}
+
+body.noeis-editorial .claim-revision-review__evidence-group header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+body.noeis-editorial .claim-revision-review__evidence-group h5 {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .claim-revision-review__evidence-group header > span {
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+}
+
+body.noeis-editorial .claim-revision-review__evidence-group ul,
+body.noeis-editorial .claim-revision-review__unresolved ul,
+body.noeis-editorial .claim-revision-review__references ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+body.noeis-editorial .claim-revision-review__evidence-group li,
+body.noeis-editorial .claim-revision-review__unresolved li,
+body.noeis-editorial .claim-revision-review__references li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .claim-revision-review__unavailable {
+  margin: 14px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 32%, transparent);
+}
+
+body.noeis-editorial .claim-revision-review__disposition,
+body.noeis-editorial .claim-revision-review__receipt {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .claim-revision-review__disposition > p,
+body.noeis-editorial .claim-revision-review__confirm > p {
+  margin: 8px 0 0;
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+body.noeis-editorial .claim-revision-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+body.noeis-editorial .claim-revision-review__actions button,
+body.noeis-editorial .claim-revision-review__write-error button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--vellum-ink) 18%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+
+body.noeis-editorial .claim-revision-review__actions button:hover:not(:disabled),
+body.noeis-editorial .claim-revision-review__write-error button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 48%, var(--vellum-line));
+  background: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 8%, transparent);
+}
+
+body.noeis-editorial .claim-revision-review__actions button:disabled,
+body.noeis-editorial .claim-revision-review__write-error button:disabled,
+body.noeis-editorial .claim-revision-review__confirm input:disabled,
+body.noeis-editorial .claim-revision-review__confirm textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+body.noeis-editorial .claim-revision-review__confirm {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+body.noeis-editorial .claim-revision-review__defer,
+body.noeis-editorial .claim-revision-review__note {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+}
+
+body.noeis-editorial .claim-revision-review__defer input,
+body.noeis-editorial .claim-revision-review__note textarea {
+  width: 100%;
+  max-width: 28rem;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--vellum-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vellum-ink);
+  font: inherit;
+}
+
+body.noeis-editorial .claim-revision-review__write-status,
+body.noeis-editorial .claim-revision-review__write-error {
+  margin-top: 12px;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .claim-revision-review__write-status {
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+}
+
+body.noeis-editorial .claim-revision-review__write-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-danger, #8d3d32);
+}
+
+body.noeis-editorial .claim-revision-review__write-error p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+body.noeis-editorial .claim-revision-review__receipt dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+  margin: 12px 0 0;
+}
+
+body.noeis-editorial .claim-revision-review__receipt dt {
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .claim-revision-review__receipt dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .claim-revision-review__actions button,
+  body.noeis-editorial .claim-revision-review__write-error button {
+    transition: none;
+  }
+}
+
+@media (max-width: 720px) {
+  body.noeis-editorial .concept-investigation__header,
+  body.noeis-editorial .concept-investigation__candidate,
+  body.noeis-editorial .concept-investigation__status.is-error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.noeis-editorial .concept-investigation__framing,
+  body.noeis-editorial .concept-investigation__evidence,
+  body.noeis-editorial .concept-investigation__judgment-grid,
+  body.noeis-editorial .concept-investigation__state,
+  body.noeis-editorial .claim-revision-review__claims,
+  body.noeis-editorial .claim-revision-review__evidence > div,
+  body.noeis-editorial .claim-revision-review__receipt dl {
+    grid-template-columns: 1fr;
+  }
+
+  body.noeis-editorial .concept-prior-lessons__header,
+  body.noeis-editorial .concept-prior-lessons__item-header,
+  body.noeis-editorial .concept-prior-lessons__error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.noeis-editorial .concept-prior-lessons__field select {
+    max-width: none;
+    width: 100%;
+  }
+
+  body.noeis-editorial .claim-revision-review__header,
+  body.noeis-editorial .claim-revision-review__section-heading,
+  body.noeis-editorial .claim-revision-review__write-error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.noeis-editorial .claim-revision-review__claim,
+  body.noeis-editorial .claim-revision-review__claim.is-proposed {
+    padding: 16px 0;
+  }
+
+  body.noeis-editorial .claim-revision-review__claim.is-proposed {
+    border-top: 1px solid var(--vellum-line);
+    border-left: 0;
+  }
+}
