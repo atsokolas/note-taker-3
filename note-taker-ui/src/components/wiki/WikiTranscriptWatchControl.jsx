@@ -55,7 +55,10 @@ export const formatTranscriptWatchReceipt = (watch = {}) => {
   return `Transcript watcher armed for ${label} · last checked ${checked}${suffix}`;
 };
 
-const isProviderKeyError = (message = '') => /provider (?:key|configuration)|financial modeling prep/i.test(String(message || ''));
+const isProviderKeyError = (message = '') => (
+  /provider (?:key|configuration)|financial modeling prep|\bfmp(?:_api_key)?\b/i
+    .test(String(message || ''))
+);
 
 const WikiTranscriptWatchControl = ({ pageId, page, onPageUpdate }) => {
   const meta = useMemo(() => pageMeta(page), [page]);

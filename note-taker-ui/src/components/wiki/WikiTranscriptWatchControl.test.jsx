@@ -107,7 +107,7 @@ describe('WikiTranscriptWatchControl', () => {
     fireEvent.change(screen.getByLabelText('Ticker'), { target: { value: 'AAPL' } });
     fireEvent.click(screen.getByRole('button', { name: 'Track transcripts' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Provider API key missing on server/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Earnings transcripts are not connected yet.');
   });
 
   it('shows armed receipt when watch is already active', () => {
@@ -134,6 +134,6 @@ describe('WikiTranscriptWatchControl', () => {
       />
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('FMP transcript request failed with HTTP 429.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Earnings transcripts are not connected yet.');
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
@@ -21,6 +21,7 @@ jest.mock('./WikiCompanyDossierComposer', () => () => null);
 jest.mock('./WikiFrontPageGraphMotif', () => () => null);
 jest.mock('./ThisWeekInAIComposer', () => () => null, { virtual: true });
 jest.mock('./WikiMovementReturnSurface', () => () => null);
+jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
 jest.mock('./decisions/DecisionsIndex', () => () => (
   <section aria-label="Decisions index fixture">Decisions index fixture</section>
 ));
@@ -63,15 +64,18 @@ describe('WikiFrontPage Decisions return surface', () => {
     expect(screen.getByRole('link', { name: 'Review (2)' }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
 
-    const toggle = screen.getByRole('button', { name: 'Decisions' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    const toggle = screen.getByText('Review and system activity').closest('summary');
+    expect(toggle).not.toBeNull();
+    expect(toggle.closest('details')).not.toHaveAttribute('open');
     fireEvent.click(toggle);
 
-    expect(screen.getByRole('region', { name: 'Decisions index fixture' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Hide decisions' })).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByRole('region', { name: 'Decisions index fixture' })).toBeInTheDocument();
+    expect(toggle.closest('details')).toHaveAttribute('open');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide decisions' }));
-    expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
+    });
   });
 
   it('mounts the Decisions index when the Wiki corpus is empty', async () => {
@@ -85,10 +89,11 @@ describe('WikiFrontPage Decisions return surface', () => {
       level: 1,
       name: /Nothing here yet/
     })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Decisions' }));
+    const toggle = screen.getByText('Review and system activity').closest('summary');
+    expect(toggle).not.toBeNull();
+    fireEvent.click(toggle);
 
-    expect(screen.getByRole('region', { name: 'Decisions index fixture' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Hide decisions' }))
-      .toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByRole('region', { name: 'Decisions index fixture' })).toBeInTheDocument();
+    expect(toggle.closest('details')).toHaveAttribute('open');
   });
 });
