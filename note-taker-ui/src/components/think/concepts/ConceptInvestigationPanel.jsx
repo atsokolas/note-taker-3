@@ -47,6 +47,7 @@ const ConceptInvestigationPanel = ({
 }) => {
   const [requestVersion, setRequestVersion] = useState(0);
   const [verifiedConceptId, setVerifiedConceptId] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [state, setState] = useState({ loading: true, error: '', investigation: null });
   const identityMismatch = Boolean(
     conceptId && loadedConceptId && String(conceptId) !== String(loadedConceptId)
@@ -64,6 +65,10 @@ const ConceptInvestigationPanel = ({
       setVerifiedConceptId(String(conceptId));
     }
   }, [conceptId, identityMismatch, loadedConceptId]);
+
+  useEffect(() => {
+    setDetailsOpen(false);
+  }, [claimId, conceptId, revisionId, wikiPageId]);
 
   useEffect(() => {
     let active = true;
@@ -179,6 +184,16 @@ const ConceptInvestigationPanel = ({
             ) : null}
           </div>
 
+          <details
+            className="concept-investigation__details"
+            open={detailsOpen}
+            onToggle={event => setDetailsOpen(event.currentTarget.open)}
+          >
+            <summary>
+              <span>Evidence, tensions, and proposals</span>
+              <span>{proposalCount} {proposalCount === 1 ? 'proposal' : 'proposals'} separate</span>
+            </summary>
+            <div className="concept-investigation__details-body">
           <div className="concept-investigation__evidence">
             <EvidenceColumn title="Support" items={investigation.evidence?.support} empty="No current support is attached." />
             <EvidenceColumn title="Tension" items={investigation.evidence?.tension} empty="No current tension is attached." />
@@ -285,6 +300,8 @@ const ConceptInvestigationPanel = ({
               );
             })}
           </footer>
+            </div>
+          </details>
         </div>
       ) : null}
     </section>

@@ -35,12 +35,19 @@ const CalmIndexView = ({
   onSelectThread,
   actions = null,
   homeCommand = null,
+  commandPlacement = 'after',
   homeLinks = null,
   primaryMove = null,
   maintenanceNote = '',
+  shelfLimit = null,
   motionStatusTestIdPrefix = 'think-calm-status'
 }) => {
   const hasThreads = (motion.inMotion?.length || 0) + (motion.shelf?.length || 0) > 0;
+  const shelf = Array.isArray(motion.shelf) ? motion.shelf : [];
+  const visibleShelf = Number.isInteger(shelfLimit) && shelfLimit > 0
+    ? shelf.slice(0, shelfLimit)
+    : shelf;
+  const hiddenShelfCount = Math.max(0, shelf.length - visibleShelf.length);
 
   return (
     <div className="think-calm-index tix" data-testid="think-calm-index">
@@ -61,6 +68,12 @@ const CalmIndexView = ({
         </div>
       ) : (
         <>
+          {homeCommand && commandPlacement === 'lead' ? (
+            <div className="think-calm-index__command think-calm-index__command--lead tix-anim tix-anim--2">
+              {homeCommand}
+            </div>
+          ) : null}
+
           {primaryMove ? (
             <section className="think-calm-index__primary-move tix-anim tix-anim--2" aria-label="Primary next move">
               <div>
@@ -119,11 +132,11 @@ const CalmIndexView = ({
                 </section>
               ) : null}
 
-              {motion.shelf?.length > 0 ? (
+              {shelf.length > 0 ? (
                 <section className="tix-shelf tix-anim tix-anim--3" aria-label="On the shelf">
                   <h2 className="tix-eyebrow">On the shelf</h2>
                   <p className="tix-shelf__index">
-                    {motion.shelf.map((thread, index) => (
+                    {visibleShelf.map((thread, index) => (
                       <React.Fragment key={thread.key}>
                         {index > 0 ? <span aria-hidden="true" className="tix-shelf__dot"> · </span> : null}
                         <ThreadAction
@@ -136,6 +149,11 @@ const CalmIndexView = ({
                       </React.Fragment>
                     ))}
                   </p>
+                  {hiddenShelfCount > 0 ? (
+                    <p className="tix-shelf__remainder">
+                      {hiddenShelfCount} more in the shelf index
+                    </p>
+                  ) : null}
                 </section>
               ) : null}
             </div>
@@ -147,7 +165,7 @@ const CalmIndexView = ({
             </SurfaceCard>
           )}
 
-          {homeCommand ? (
+          {homeCommand && commandPlacement !== 'lead' ? (
             <div className="think-calm-index__command tix-anim tix-anim--4">
               {homeCommand}
             </div>

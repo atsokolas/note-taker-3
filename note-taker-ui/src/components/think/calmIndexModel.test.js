@@ -7,6 +7,7 @@ import {
   filterShelfRailSections,
   getWikiOpenQuestionHref,
   getThreadMotionStateTag,
+  isGenericMaintenanceQuestion,
   isWikiOpenQuestion,
   isSuppressedFromReturnView
 } from './calmIndexModel';
@@ -181,5 +182,29 @@ describe('calmIndexModel return surfaces', () => {
     expect(isWikiOpenQuestion(question)).toBe(true);
     expect(getWikiOpenQuestionHref(question)).toBe('/wiki/workspace?page=page-1#open-questions');
     expect(describeQuestionMotionNote(question)).toBe('from Margin of Safety');
+  });
+
+  it('keeps generated rebuild prompts out of ranked return surfaces without deleting them from search', () => {
+    const maintenance = {
+      _id: 'wiki-open-question:page-1:0',
+      text: 'The page needs a rebuild that turns the freshest material into claims: what does Margin of Safety explain?',
+      sourceType: 'wiki_open_question',
+      sourcePageTitle: 'Margin of Safety',
+      href: '/wiki/workspace?page=page-1#open-questions',
+      status: 'open'
+    };
+    const personal = {
+      _id: 'question-personal',
+      text: 'What evidence would change my position sizing?',
+      status: 'open'
+    };
+
+    expect(isGenericMaintenanceQuestion(maintenance)).toBe(true);
+    const motion = buildHomeIndexMotion({ questions: [maintenance, personal] });
+    expect([...motion.inMotion, ...motion.shelf].map(item => item.id)).toEqual(['question-personal']);
+    expect(filterShelfRailSections({ questions: [maintenance, personal] }).questions)
+      .toEqual([personal]);
+    expect(filterShelfRailSections({ questions: [maintenance], searchQuery: 'freshest material' }).questions)
+      .toEqual([maintenance]);
   });
 });

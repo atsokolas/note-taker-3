@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ConceptInvestigationPanel from './ConceptInvestigationPanel';
 import { getConceptInvestigation } from '../../../api/concepts';
@@ -56,6 +56,25 @@ describe('ConceptInvestigationPanel core', () => {
     expect(screen.getByText(/Nothing here changes your accepted knowledge/)).toBeInTheDocument();
     expect(screen.getByTestId('claim-revision-review')).toHaveTextContent('pending');
     expect(screen.getByTestId('prior-lessons')).toHaveTextContent('available');
+  });
+
+  it('keeps investigation details open across parent rerenders', async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <ConceptInvestigationPanel {...context} workbenchBusy={false} onClose={() => {}} />
+      </MemoryRouter>
+    );
+    await screen.findByText('What drives inference cost?');
+    const disclosure = screen.getByText('Evidence, tensions, and proposals').closest('details');
+    fireEvent.click(within(disclosure).getByText('Evidence, tensions, and proposals'));
+    expect(disclosure).toHaveAttribute('open');
+
+    rerender(
+      <MemoryRouter>
+        <ConceptInvestigationPanel {...context} workbenchBusy onClose={() => {}} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Evidence, tensions, and proposals').closest('details')).toHaveAttribute('open');
   });
 
   it('fails closed on a loaded Concept identity mismatch', async () => {

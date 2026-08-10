@@ -742,6 +742,49 @@ export const ConceptEvidenceStreamRail = ({
     await handleSend();
   };
 
+  if (isFreshConcept) {
+    return (
+      <div className="concept-editorial-evidence concept-editorial-evidence--fresh">
+        <div className="concept-editorial-evidence__header">
+          <h3>{AGENT_DISPLAY_NAME}</h3>
+          <p>Write the thought in your own words. Context stays optional until you ask for it.</p>
+        </div>
+        <AgentTicker
+          className="concept-editorial-evidence__ticker"
+          label="Thought partner computation trace"
+          lines={tickerLines}
+          state={model.agentBusy ? 'working' : 'idle'}
+        />
+        {referencePullInSlot}
+        <details className="concept-editorial-evidence__fresh-tools">
+          <summary>Ask or retrieve context</summary>
+          <div className="concept-editorial-evidence__fresh-tools-body">
+            <div className="concept-editorial-evidence__starter-actions">
+              <button type="button" onClick={() => onOpenTemplatePicker?.()}>
+                Starter scaffold
+              </button>
+              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.PULL_RELATED_SOURCES)}>
+                Remembered sources
+              </button>
+              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.FIND_TENSION)}>
+                Find tension
+              </button>
+            </div>
+            <div className="concept-editorial-evidence__composer">
+              <textarea
+                value={partnerInput}
+                onChange={(event) => setPartnerInput(event.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                placeholder="Ask for what this thought needs next."
+              />
+              <button type="button" onClick={handleSend} disabled={!clean(partnerInput) || model.agentBusy}>↗</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    );
+  }
+
   return (
     <div className="concept-editorial-evidence">
       <div className="concept-editorial-evidence__header">
