@@ -10113,10 +10113,26 @@ body.noeis-editorial a:hover {
   }
 }
 
-@media (max-width: 480px) {
-  body.noeis-editorial .topbar__primary-link:not(.is-active) {
-    display: none;
+@media (max-width: 640px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 8px 0;
   }
+
+  body.noeis-editorial .topbar__left,
+  body.noeis-editorial .topbar__right {
+    width: 100%;
+  }
+
+  body.noeis-editorial .topbar__right {
+    justify-content: space-between;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 112px;
+  }
+
 }
 
 /* ============================================================
