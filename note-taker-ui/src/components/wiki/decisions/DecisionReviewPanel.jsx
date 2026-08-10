@@ -459,26 +459,74 @@ const DecisionReviewPanel = ({
               </span>
             </header>
 
-            {item?.decision?.rationale ? (
-              <p className="wiki-decisions__rationale">
-                <strong>Original rationale</strong>
-                {' '}
-                {item.decision.rationale}
-              </p>
-            ) : null}
-            {item?.decision?.expectedOutcome ? (
-              <p className="wiki-decisions__expected">
-                <strong>Expected outcome</strong>
-                {' '}
-                {item.decision.expectedOutcome}
-              </p>
-            ) : null}
-            <p className="wiki-decisions__meta">
-              Review {formatDate(item?.decision?.reviewAt) || 'not scheduled'}
-              {item?.continuity?.acceptedRevisionId
-                ? ` · Accepted revision ${item.continuity.acceptedRevisionId}`
-                : ' · Accepted revision not verified'}
-            </p>
+            <div className="wiki-decision-review__chronology" aria-label="Decision consequence chronology">
+              <section className="wiki-decision-review__basis" aria-labelledby={`decision-basis-${item.identity?.decisionId}`}>
+                <p className="wiki-decisions__eyebrow">01 · Decision as made</p>
+                <h5 id={`decision-basis-${item.identity?.decisionId}`}>Immutable basis</h5>
+                {item?.decision?.rationale ? (
+                  <p className="wiki-decisions__rationale">
+                    <strong>Original rationale</strong>
+                    {' '}
+                    {item.decision.rationale}
+                  </p>
+                ) : null}
+                {item?.decision?.expectedOutcome ? (
+                  <p className="wiki-decisions__expected">
+                    <strong>Expected outcome</strong>
+                    {' '}
+                    {item.decision.expectedOutcome}
+                  </p>
+                ) : null}
+                <p className="wiki-decisions__meta">
+                  {formatDate(item?.decision?.decidedAt || item?.decision?.createdAt)
+                    ? `Decision recorded ${formatDate(item?.decision?.decidedAt || item?.decision?.createdAt)}`
+                    : 'Decision time unavailable'}
+                  {item?.continuity?.acceptedRevisionId
+                    ? ` · Accepted revision ${item.continuity.acceptedRevisionId}`
+                    : ' · Accepted revision not verified'}
+                </p>
+              </section>
+
+              <section className="wiki-decision-review__review-clock" aria-labelledby={`decision-review-${item.identity?.decisionId}`}>
+                <p className="wiki-decisions__eyebrow">02 · Review clock</p>
+                <h5 id={`decision-review-${item.identity?.decisionId}`}>Return when evidence can settle it</h5>
+                <p className="wiki-decisions__meta">
+                  Review {formatDate(item?.decision?.reviewAt) || 'not scheduled'}
+                  {item?.decision?.outcomeDueAt
+                    ? ` · Outcome due ${formatDate(item.decision.outcomeDueAt)}`
+                    : ''}
+                </p>
+              </section>
+
+              <section className="wiki-decision-review__observed-layer" aria-labelledby={`decision-observed-${item.identity?.decisionId}`}>
+                <p className="wiki-decisions__eyebrow">03 · What happened later</p>
+                <h5 id={`decision-observed-${item.identity?.decisionId}`}>Observed outcome</h5>
+                {status === 'reviewed' || item?.outcome?.state === 'observed' ? (
+                  <div className="wiki-decisions__outcome">
+                    <p>
+                      <strong>Observed result</strong>
+                      {' '}
+                      {item.outcome?.result || 'unknown'}
+                      {item.outcome?.observedAt ? ` · ${formatDate(item.outcome.observedAt)}` : ''}
+                    </p>
+                    {item.outcome?.reviewedAt ? (
+                      <p className="wiki-decisions__meta">Reviewed {formatDate(item.outcome.reviewedAt)}</p>
+                    ) : null}
+                    {item.outcome?.calibrationNote ? <p>{item.outcome.calibrationNote}</p> : null}
+                    {item.outcome?.lesson ? (
+                      <p>
+                        <strong>Lesson</strong>
+                        {' '}
+                        {item.outcome.lesson}
+                      </p>
+                    ) : null}
+                    {item.outcome?.receiptId ? <p className="wiki-decisions__receipt-line">Outcome receipt: {item.outcome.receiptId}</p> : null}
+                  </div>
+                ) : (
+                  <p className="wiki-decisions__quiet">Noeis has not inferred an outcome.</p>
+                )}
+              </section>
+            </div>
 
             {pageHref ? (
               <p>
@@ -549,29 +597,6 @@ const DecisionReviewPanel = ({
               />
             ) : null}
 
-            {status === 'reviewed' || item?.outcome?.state === 'observed' ? (
-              <div className="wiki-decisions__outcome">
-                <p>
-                  <strong>Observed result</strong>
-                  {' '}
-                  {item.outcome?.result || 'unknown'}
-                  {item.outcome?.observedAt ? ` · ${formatDate(item.outcome.observedAt)}` : ''}
-                </p>
-                {item.outcome?.calibrationNote ? <p>{item.outcome.calibrationNote}</p> : null}
-                {item.outcome?.lesson ? (
-                  <p>
-                    <strong>Lesson</strong>
-                    {' '}
-                    {item.outcome.lesson}
-                  </p>
-                ) : null}
-                {item.outcome?.receiptId ? <p>Outcome receipt: {item.outcome.receiptId}</p> : null}
-              </div>
-            ) : (
-              status !== 'reviewed' ? (
-                <p className="wiki-decisions__quiet">Noeis has not inferred an outcome.</p>
-              ) : null
-            )}
           </article>
         );
       })}

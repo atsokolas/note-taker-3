@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DecisionReviewPanel from './DecisionReviewPanel';
 import {
@@ -84,6 +84,11 @@ describe('DecisionReviewPanel', () => {
     );
 
     expect(await screen.findByText(/Original rationale stays visible/i)).toBeInTheDocument();
+    const chronology = screen.getByLabelText('Decision consequence chronology');
+    expect(within(chronology).getByText('01 · Decision as made')).toBeInTheDocument();
+    expect(within(chronology).getByText('02 · Review clock')).toBeInTheDocument();
+    expect(within(chronology).getByText('03 · What happened later')).toBeInTheDocument();
+    expect(within(chronology).getByText(/Decision recorded Jul 20, 2026/i)).toBeInTheDocument();
     expect(screen.getByText(/Noeis has not inferred an outcome/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Mark taken/i }));
     await waitFor(() => expect(transitionWikiDecision).toHaveBeenCalledWith(
@@ -150,6 +155,7 @@ describe('DecisionReviewPanel', () => {
       evidenceSourceRefIds: ['64f500000000000000000020']
     }));
     expect(await screen.findByText(/Observed result/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Decision consequence chronology')).toHaveTextContent('What happened later');
     expect(screen.getByText(/Keep the bar high/i)).toBeInTheDocument();
     expect(screen.getByText(/outcome-receipt/i)).toBeInTheDocument();
   });

@@ -90,6 +90,11 @@ describe('ClaimRevisionReview', () => {
     renderReview();
 
     expect(screen.getByText('Candidate · not applied')).toBeInTheDocument();
+    const arc = screen.getByRole('list', { name: 'Claim review sequence' });
+    expect(within(arc).getByText('Accepted judgment')).toBeInTheDocument();
+    expect(within(arc).getByText('Candidate evidence')).toBeInTheDocument();
+    expect(within(arc).getByText('Human disposition')).toBeInTheDocument();
+    expect(within(arc).getByText('Read-only review')).toBeInTheDocument();
     expect(screen.getByText('Current accepted claim')).toBeInTheDocument();
     expect(screen.getByText('Proposed claim · not applied')).toBeInTheDocument();
     expect(screen.getByText('Enterprise demand')).toBeInTheDocument();
@@ -198,6 +203,8 @@ describe('ClaimRevisionReview', () => {
       expect(screen.queryByText('Candidate · not applied')).not.toBeInTheDocument();
       expect(screen.getByText('wiki-claim-disposition:v1:r1:accept')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Accept revision' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Continue to the Wiki judgment layer' }))
+        .toHaveAttribute('href', '/wiki/workspace?page=p1#wiki-stage5-decisions');
     });
   });
 

@@ -178,24 +178,33 @@ const PriorLessonRow = ({
       </section>
 
       {accepted ? (
-        <dl className="concept-prior-lessons__acceptance">
-          <div>
-            <dt>Accepted role</dt>
-            <dd>{roleLabel(lesson.acceptedRole) || 'Recorded'}</dd>
-          </div>
-          {lesson.adoptionId ? (
+        <footer className="concept-prior-lessons__provenance" aria-label="Accepted lesson provenance">
+          <p>
+            <strong>Decision</strong>
+            <span aria-hidden="true"> → </span>
+            <strong>Observed outcome</strong>
+            <span aria-hidden="true"> → </span>
+            <strong>{roleLabel(lesson.acceptedRole) || 'Recorded'} evidence</strong>
+          </p>
+          <dl className="concept-prior-lessons__acceptance">
             <div>
-              <dt>Adoption</dt>
-              <dd>{lesson.adoptionId}</dd>
+              <dt>Accepted role</dt>
+              <dd>{roleLabel(lesson.acceptedRole) || 'Recorded'}</dd>
             </div>
-          ) : null}
-          {receiptId ? (
-            <div>
-              <dt>Receipt</dt>
-              <dd>{receiptId}</dd>
-            </div>
-          ) : null}
-        </dl>
+            {lesson.adoptionId ? (
+              <div>
+                <dt>Adoption</dt>
+                <dd>{lesson.adoptionId}</dd>
+              </div>
+            ) : null}
+            {receiptId ? (
+              <div>
+                <dt>Receipt</dt>
+                <dd>{receiptId}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </footer>
       ) : null}
 
       {!accepted && !active ? (

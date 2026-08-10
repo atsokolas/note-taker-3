@@ -10,6 +10,7 @@ import {
   getWikiPage,
   getWikiPageMarkdown,
   getWikiRepoComparison,
+  listWikiRevisions,
   listWikiPages,
   maintainWikiPage,
   promoteWikiDiscussion,
@@ -19,6 +20,7 @@ import {
   streamMaintainWikiPage,
   updateWikiPage
 } from '../../api/wiki';
+import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
@@ -26,8 +28,11 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
-import { buildQualityState } from './wikiQuality';
 import AgentTicker from '../agent/AgentTicker';
+import AgentContextShell from '../agent/AgentContextShell';
+import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
+import ReferencePullIn from '../references/ReferencePullIn';
+import RightDrawer from '../../layout/RightDrawer';
 import {
   countWikiClaims,
   countWikiPageWords,
@@ -79,6 +84,7 @@ import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
 import '../../styles/wiki-claim-focus.css';
 import DecisionCreateForm from './decisions/DecisionCreateForm';
 import DecisionReviewPanel from './decisions/DecisionReviewPanel';
+import { selectableAcceptedRevisions } from './decisions/acceptedRevisionIdentity';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -87,6 +93,7 @@ const WikiChangesSinceLastVisit = lazy(() => import('./WikiChangesSinceLastVisit
 const WikiDiscussions = lazy(() => import('./WikiDiscussions'));
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
+const WIKI_READ_RAIL_OPEN_MIGRATION_KEY = 'noeis.wiki.read.rail_open_v2';
 
 const labelFor = (value = '') => String(value || '')
   .replace(/_/g, ' ')
@@ -94,6 +101,9 @@ const labelFor = (value = '') => String(value || '')
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
+const safeInternalHref = value => (
+  typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
+);
 const researchEditionLabel = page => String(page?.createdFrom?.label || '').startsWith('this-week-in-ai:')
   ? 'This Week in AI'
   : 'Weekend Readings';
@@ -980,6 +990,28 @@ const WikiConnectionTraces = ({ pageId }) => {
   );
 };
 
+const WikiReferenceComposer = ({ pageId, pageTitle }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      className="wiki-read__rail-details wiki-read__rail-details--references"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>Reference…</summary>
+      {open ? (
+        <div className="wiki-read__rail-details-panel">
+          <ReferencePullIn
+            targetType="wiki_page"
+            targetId={pageId}
+            targetTitle={pageTitle}
+          />
+        </div>
+      ) : null}
+    </details>
+  );
+};
+
 const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJumpBack }) => {
   if (!sources.length) return null;
   const firstCitationByIndex = citations.reduce((map, citation) => {
@@ -1166,27 +1198,34 @@ const WikiPageReadView = ({
   const [rawWikiLinkPages, setRawWikiLinkPages] = useState([]);
   const [repoComparison, setRepoComparison] = useState(null);
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
+  const [continuationBasis, setContinuationBasis] = useState(null);
+  const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
   const reducedMotion = useReducedMotion();
   const [showMarginalia, setShowMarginalia] = useState(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
     return window.matchMedia('(min-width: 1280px)').matches;
   });
+  const [agentContextOpen, setAgentContextOpen] = useState(true);
 
   useEffect(() => {
     setActiveTab(requestedReadTab);
   }, [requestedReadTab]);
-  // AT-22 (Bucket 2): rail is collapsible-by-default. Persisted across pages
-  // so once a reader opens context they keep it open until they hide it again.
+  // The living article opens with context available on desktop. A reader's
+  // explicit collapse remains respected; mobile agent context is a separate
+  // drawer so the article remains the primary plane.
   // Wikipedia / Tolkien Gateway reading shape — body owns the canvas.
   const [railCollapsed, setRailCollapsed] = useState(() => {
     if (shouldOpenTrace) return false;
     try {
+      if (window.localStorage?.getItem(WIKI_READ_RAIL_OPEN_MIGRATION_KEY) !== 'true') {
+        window.localStorage?.setItem(WIKI_READ_RAIL_OPEN_MIGRATION_KEY, 'true');
+        window.localStorage?.setItem('noeis.wiki.read.rail_collapsed', '0');
+        return false;
+      }
       const raw = window.localStorage?.getItem('noeis.wiki.read.rail_collapsed');
-      // Default: collapsed. Anything explicitly set to '0' or 'false' opens it.
-      if (raw === '0' || raw === 'false') return false;
-      return true;
+      return raw === '1' || raw === 'true';
     } catch (_e) {
-      return true;
+      return false;
     }
   });
   useEffect(() => {
@@ -1200,7 +1239,6 @@ const WikiPageReadView = ({
   const previewTimerRef = useRef(null);
   const previewDismissTimerRef = useRef(null);
   const latestPageRef = useRef(null);
-  const autoRebuildPageRef = useRef('');
   const lastRefreshNonceRef = useRef(0);
   const articleRef = useRef(null);
   const focusedClaimNodeRef = useRef(null);
@@ -1390,6 +1428,43 @@ const WikiPageReadView = ({
       });
     return () => { cancelled = true; };
   }, [page, pageId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setContinuationBasis(null);
+    setContinuationState({ busy: false, error: '' });
+    if (!page) return undefined;
+    listWikiRevisions(pageId)
+      .then((revisions) => {
+        if (cancelled) return;
+        const [acceptedBasis] = selectableAcceptedRevisions(revisions);
+        setContinuationBasis(acceptedBasis || null);
+      })
+      .catch(() => {
+        if (!cancelled) setContinuationBasis(null);
+      });
+    return () => { cancelled = true; };
+  }, [page, pageId]);
+
+  const handleContinueInThink = useCallback(async () => {
+    if (!continuationBasis || continuationState.busy) return;
+    setContinuationState({ busy: true, error: '' });
+    try {
+      const result = await startKnowledgeMovementInvestigation({
+        wikiPageId: pageId,
+        revisionId: continuationBasis.revisionId,
+        claimId: continuationBasis.claimId || ''
+      });
+      const href = result?.concept?.href;
+      if (!safeInternalHref(href)) throw new Error('Unsafe Think continuation route.');
+      navigate(href);
+    } catch (_error) {
+      setContinuationState({
+        busy: false,
+        error: 'Could not open the exact Think context. This page was not changed.'
+      });
+    }
+  }, [continuationBasis, continuationState.busy, navigate, pageId]);
 
   useEffect(() => {
     if (!page) {
@@ -2085,10 +2160,6 @@ const WikiPageReadView = ({
     () => (nonCriticalReady ? claimHealthCounts(page?.claims) : { supported: 0, partial: 0, unsupported: 0, conflicted: 0 }),
     [nonCriticalReady, page?.claims]
   );
-  const qualityState = useMemo(
-    () => (nonCriticalReady ? buildQualityState({ page, counts: healthCounts }) : null),
-    [healthCounts, nonCriticalReady, page]
-  );
   const infoboxRows = buildInfoboxRows({
     page,
     sourceCount: countPageSources(page),
@@ -2184,16 +2255,6 @@ const WikiPageReadView = ({
     };
   }, [liveUpdate, pageId, tocItems]);
 
-  useEffect(() => {
-    const qualityStatus = String(page?.aiState?.quality?.status || page?.quality?.status || '').toLowerCase();
-    const pageKey = `${pageId}:${page?.updatedAt || page?.aiState?.quality?.checkedAt || ''}`;
-    if (workspaceMode || !page || !qualityState || maintaining || autoRebuildPageRef.current === pageKey) return;
-    if (!['needs_rebuild', 'fail', 'failed'].includes(qualityStatus)) return;
-    if (page?.aiState?.quality?.rebuiltAutomatically && qualityStatus !== 'needs_rebuild') return;
-    autoRebuildPageRef.current = pageKey;
-    handleMaintain();
-  }, [handleMaintain, maintaining, page, pageId, qualityState, workspaceMode]);
-
   if (loading && !page) return <main className="wiki-page"><p className="wiki-index__status">Loading Wiki page...</p></main>;
   if (!page) {
     return (
@@ -2207,7 +2268,7 @@ const WikiPageReadView = ({
           </p>
           <div className="wiki-read__missing-actions">
             <Link to="/wiki/workspace?view=list">Open wiki list</Link>
-            <Link to="/wiki/workspace?view=graph">Open knowledge map</Link>
+            <Link to="/think?tab=home">Begin in Think</Link>
             <Link to="/wiki">Build a page</Link>
           </div>
         </section>
@@ -2244,6 +2305,17 @@ const WikiPageReadView = ({
           ? 'failed'
           : 'idle');
   const compactMaintenanceReceipt = !maintenanceActive && !maintenanceReceipt && !evidenceIncomplete;
+  const maintenanceDisclosureLabel = maintenanceActive
+    ? 'Checking sources and claims'
+    : maintenanceDisplayState === 'research'
+      ? 'More evidence needed'
+      : maintenanceDisplayState === 'failed'
+        ? 'Retry available'
+        : maintenanceReceipt?.status === 'review'
+          ? 'Review available'
+          : maintenanceReceipt?.status === 'settled'
+            ? 'Last check settled'
+            : 'Available on request';
   const shareCard = weekendReadingsPage ? null : (
     <section
       className={`wiki-read__share-card ${publicShareReady ? 'is-shared' : 'is-private'}${shareBlocked ? ' is-blocked' : ''}`}
@@ -2360,12 +2432,21 @@ const WikiPageReadView = ({
         </section>
       ) : null}
       {(!loading && page && !weekendReadingsPage) ? (
-        <section
-          className={`wiki-read__maintenance-receipt is-${maintenanceDisplayState}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
-          aria-label="Wiki maintenance receipt"
-          data-maintenance-state={maintenanceDisplayState}
+        <details
+          className="wiki-read__maintenance-disclosure wiki-read__page-status"
+          open={maintenanceActive || evidenceIncomplete || persistedMaintenanceFailure}
         >
-          <div className="wiki-read__maintenance-copy">
+          <summary className="wiki-read__page-status-summary">
+            <span className="wiki-read__page-status-label">Page maintenance</span>
+            <span className="wiki-read__page-status-facts"><span>{maintenanceDisclosureLabel}</span></span>
+            <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
+          </summary>
+          <section
+            className={`wiki-read__maintenance-receipt is-${maintenanceDisplayState}${compactMaintenanceReceipt ? ' is-compact' : ''}`}
+            aria-label="Wiki maintenance receipt"
+            data-maintenance-state={maintenanceDisplayState}
+          >
+            <div className="wiki-read__maintenance-copy">
             <p className="wiki-read__promotion-kicker">Agent-owned page</p>
             <h2>
               {maintenanceActive
@@ -2431,8 +2512,9 @@ const WikiPageReadView = ({
                 Discard draft
               </Button>
             ) : null}
-          </div>
-        </section>
+            </div>
+          </section>
+        </details>
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
         <aside className="wiki-read__toc">
@@ -2463,8 +2545,8 @@ const WikiPageReadView = ({
             <nav aria-label="Page sections">
               <h2>{repoDossierMode ? 'All sections' : 'Contents'}</h2>
               <ol>
-                {tocItems.map(item => (
-                  <li key={item.id} className={`wiki-read__toc-item wiki-read__toc-item--level-${item.level}`}>
+                {tocItems.map((item, index) => (
+                  <li key={`${item.id}-${item.blockIndex ?? index}`} className={`wiki-read__toc-item wiki-read__toc-item--level-${item.level}`}>
                     <a
                       className={displayedActiveTocId === item.id ? 'is-active' : ''}
                       href={`#${item.id}`}
@@ -2536,6 +2618,23 @@ const WikiPageReadView = ({
                 }}
               />
             ) : null}
+            <nav className="wiki-read__continuation-actions" aria-label="Continue this page">
+              {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Inspect sources</a> : null}
+              {investmentDossierPage ? <a href="#wiki-dossier-review">Review research</a> : null}
+              {continuationBasis ? (
+                <button
+                  type="button"
+                  disabled={continuationState.busy}
+                  onClick={handleContinueInThink}
+                >
+                  {continuationState.busy ? 'Opening Think…' : 'Continue in Think'}
+                </button>
+              ) : null}
+              {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Update page</button> : null}
+            </nav>
+            {continuationState.error ? (
+              <p className="wiki-read__continuation-error" role="status">{continuationState.error}</p>
+            ) : null}
             <details
               className="wiki-read__page-status wiki-read__stage5-decisions"
               open={Boolean(focusedDecisionId)}
@@ -2562,17 +2661,20 @@ const WikiPageReadView = ({
                     }
                   }}
                 />
-                <DecisionCreateForm
-                  page={page}
-                  pageId={pageId}
-                  onCreated={async () => {
-                    const refreshed = await getWikiPage(pageId);
-                    if (refreshed) {
-                      latestPageRef.current = refreshed;
-                      setPage(refreshed);
-                    }
-                  }}
-                />
+                <details className="wiki-read__decision-create">
+                  <summary>Record a decision from an accepted revision</summary>
+                  <DecisionCreateForm
+                    page={page}
+                    pageId={pageId}
+                    onCreated={async () => {
+                      const refreshed = await getWikiPage(pageId);
+                      if (refreshed) {
+                        latestPageRef.current = refreshed;
+                        setPage(refreshed);
+                      }
+                    }}
+                  />
+                </details>
               </div>
             </details>
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
@@ -2697,31 +2799,6 @@ const WikiPageReadView = ({
               role="tabpanel"
               aria-labelledby="wiki-read-tab-article"
             >
-              {investmentDossierPage ? (
-                <>
-                  <WikiFirstHeadReview
-                    page={page}
-                    pageId={pageId}
-                    onPageUpdate={(nextPage) => {
-                      if (!nextPage) return;
-                      latestPageRef.current = nextPage;
-                      setPage(nextPage);
-                    }}
-                  />
-                  <WikiInvestmentValuation
-                    page={page}
-                    pageId={pageId}
-                    onPageUpdate={(nextPage) => {
-                      if (!nextPage) return;
-                      latestPageRef.current = nextPage;
-                      setPage(nextPage);
-                    }}
-                  />
-                  <WikiInvestmentMaintenanceComparison
-                    comparison={page?.investmentDossier?.lastMaintenanceComparison}
-                  />
-                </>
-              ) : null}
               <section className="wiki-read__article-panel">
               <section
                 className={`wiki-read__body${bodyTransitionClass}`}
@@ -2759,6 +2836,40 @@ const WikiPageReadView = ({
                   />
                 ) : null}
               </section>
+              {investmentDossierPage ? (
+                <details id="wiki-dossier-review" className="wiki-read__dossier-review wiki-read__page-status">
+                  <summary className="wiki-read__page-status-summary">
+                    <span className="wiki-read__page-status-label">Research and valuation review</span>
+                    <span className="wiki-read__page-status-facts">
+                      <span>Separate from accepted research</span>
+                    </span>
+                    <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
+                  </summary>
+                  <div className="wiki-read__dossier-review-panel">
+                    <WikiFirstHeadReview
+                      page={page}
+                      pageId={pageId}
+                      onPageUpdate={(nextPage) => {
+                        if (!nextPage) return;
+                        latestPageRef.current = nextPage;
+                        setPage(nextPage);
+                      }}
+                    />
+                    <WikiInvestmentValuation
+                      page={page}
+                      pageId={pageId}
+                      onPageUpdate={(nextPage) => {
+                        if (!nextPage) return;
+                        latestPageRef.current = nextPage;
+                        setPage(nextPage);
+                      }}
+                    />
+                    <WikiInvestmentMaintenanceComparison
+                      comparison={page?.investmentDossier?.lastMaintenanceComparison}
+                    />
+                  </div>
+                </details>
+              ) : null}
               <WikiReadReferences
                 sources={page.sourceRefs || []}
                 citations={footnoteCitations}
@@ -2855,6 +2966,41 @@ const WikiPageReadView = ({
                   <span aria-hidden="true">›</span>
                   <span className="wiki-read__rail-toggle-label">Hide</span>
                 </button>
+                <RightDrawer title={AGENT_DISPLAY_NAME} open={agentContextOpen} onToggle={setAgentContextOpen}>
+                  <AgentContextShell
+                    surface="wiki"
+                    title={AGENT_DISPLAY_NAME}
+                    orientation={`Reading ${displayWikiPageTitle(page, 'this page')} as accepted knowledge.`}
+                    showPresence={false}
+                  >
+                    <ThoughtPartnerPanel
+                      className="wiki-read__partner"
+                      variant="stream"
+                      contextType="wiki"
+                      contextId={pageId}
+                      contextTitle={displayWikiPageTitle(page, 'Wiki page')}
+                      contextMetadata={{
+                        summary: firstParagraphText(page?.tiptapJson || emptyDoc) || '',
+                        nextActions: ['Continue in Think', 'Challenge a claim', 'Inspect provenance']
+                      }}
+                      title={AGENT_DISPLAY_NAME}
+                      subtitle="Page context"
+                      placeholder="Ask to continue, challenge, or inspect this page."
+                      promptTemplates={[
+                        'Challenge the strongest claim on this page.',
+                        'What evidence should I inspect next?',
+                        'Help me continue this page in Think.'
+                      ]}
+                      showQuickPrompts={false}
+                      emptyStateText="Ask when you want to investigate. Accepted knowledge stays unchanged until you explicitly review a proposal."
+                      submitLabel="↗"
+                    />
+                    <WikiReferenceComposer
+                      pageId={pageId}
+                      pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+                    />
+                  </AgentContextShell>
+                </RightDrawer>
                 <section className="wiki-read__infobox wiki-read__infobox--structured">
                   <h2>{labelFor(page.pageType || 'topic')}</h2>
                   <dl>
@@ -2863,42 +3009,47 @@ const WikiPageReadView = ({
                     ))}
                   </dl>
                 </section>
-                {showUtilityRail && !bodyHasWikiLinks ? (
-                  <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
-                ) : null}
-                <WikiConnectionTraces pageId={pageId} />
-                {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
-                  <h2>Claim health</h2>
-                  <ul>
-                    <li>{healthCounts.supported} supported</li>
-                    <li>{healthCounts.partial} partial</li>
-                    <li>{healthCounts.unsupported} unsupported</li>
-                    <li>{healthCounts.conflicted} conflicted</li>
-                  </ul>
-                </section> : null}
-                {retiredClaims.length || restoreClaimStatus ? (
-                  <section className="wiki-read__infobox wiki-read__retired-claims">
-                    <h2>Retired claims</h2>
-                    {retiredClaims.length ? <ul>
-                      {retiredClaims.map(claim => (
-                        <li key={claim.claimId}>
-                          <span>{claim.text}</span>
-                          <small>
-                            Retired {claim.retiredAt ? new Date(claim.retiredAt).toLocaleDateString() : 'previously'}
-                          </small>
-                          <button
-                            type="button"
-                            disabled={restoringClaimId === claim.claimId}
-                            onClick={() => handleRestoreClaim(claim.claimId)}
-                          >
-                            {restoringClaimId === claim.claimId ? 'Restoring…' : 'Restore claim'}
-                          </button>
-                        </li>
-                      ))}
-                    </ul> : null}
-                    {restoreClaimStatus ? <p role="status">{restoreClaimStatus}</p> : null}
-                  </section>
-                ) : null}
+                <details className="wiki-read__rail-details">
+                  <summary>Page details</summary>
+                  <div className="wiki-read__rail-details-panel">
+                    {showUtilityRail && !bodyHasWikiLinks ? (
+                      <WikiAutolinkSuggestions pageId={pageId} pageTitle={page.title} />
+                    ) : null}
+                    <WikiConnectionTraces pageId={pageId} />
+                    {showUtilityRail ? <section className="wiki-read__infobox wiki-read__claim-health">
+                      <h2>Claim health</h2>
+                      <ul>
+                        <li>{healthCounts.supported} supported</li>
+                        <li>{healthCounts.partial} partial</li>
+                        <li>{healthCounts.unsupported} unsupported</li>
+                        <li>{healthCounts.conflicted} conflicted</li>
+                      </ul>
+                    </section> : null}
+                    {retiredClaims.length || restoreClaimStatus ? (
+                      <section className="wiki-read__infobox wiki-read__retired-claims">
+                        <h2>Retired claims</h2>
+                        {retiredClaims.length ? <ul>
+                          {retiredClaims.map(claim => (
+                            <li key={claim.claimId}>
+                              <span>{claim.text}</span>
+                              <small>
+                                Retired {claim.retiredAt ? new Date(claim.retiredAt).toLocaleDateString() : 'previously'}
+                              </small>
+                              <button
+                                type="button"
+                                disabled={restoringClaimId === claim.claimId}
+                                onClick={() => handleRestoreClaim(claim.claimId)}
+                              >
+                                {restoringClaimId === claim.claimId ? 'Restoring…' : 'Restore claim'}
+                              </button>
+                            </li>
+                          ))}
+                        </ul> : null}
+                        {restoreClaimStatus ? <p role="status">{restoreClaimStatus}</p> : null}
+                      </section>
+                    ) : null}
+                  </div>
+                </details>
                 {showUtilityRail && (page.sourceRefs || []).length ? (
                   <section className="wiki-read__infobox wiki-read__source-list">
                     <h2>Sources</h2>

@@ -169,6 +169,15 @@ const proposedLabelFor = (review) => {
   return 'Proposed claim · not applied';
 };
 
+const dispositionStepCopy = (review) => {
+  const state = String(review?.state || 'pending').toLowerCase();
+  if (state === 'accepted') return 'Accepted and applied by you';
+  if (state === 'preserved') return 'Current judgment preserved by you';
+  if (state === 'rejected') return 'Candidate rejected by you';
+  if (state === 'deferred') return 'Candidate deferred by you';
+  return review?.canAct ? 'Waiting for your disposition' : 'Read-only review';
+};
+
 const tomorrowDateInputValue = () => {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + 1);
@@ -503,6 +512,24 @@ const ClaimRevisionReview = ({ review: reviewProp, onReviewChange = null }) => {
         <span className="claim-revision-review__state">{review.state || 'pending'}</span>
       </header>
 
+      <ol className="claim-revision-review__arc" aria-label="Claim review sequence">
+        <li>
+          <span>01</span>
+          <strong>Accepted judgment</strong>
+          <small>The Wiki claim that remains in force.</small>
+        </li>
+        <li>
+          <span>02</span>
+          <strong>Candidate evidence</strong>
+          <small>Compared here, never silently applied.</small>
+        </li>
+        <li>
+          <span>03</span>
+          <strong>Human disposition</strong>
+          <small>{dispositionStepCopy(review)}</small>
+        </li>
+      </ol>
+
       <div className="claim-revision-review__claims">
         <ClaimState label="Current accepted claim" claim={review.current} />
         <ClaimState label={proposedLabelFor(review)} claim={review.proposed} proposed />
@@ -568,6 +595,15 @@ const ClaimRevisionReview = ({ review: reviewProp, onReviewChange = null }) => {
           state={review.state}
         />
       ) : null}
+
+      {['accepted', 'preserved'].includes(String(review.state || '').toLowerCase())
+        && review.identity?.wikiPageId ? (
+          <p className="claim-revision-review__continue">
+            <Link to={`/wiki/workspace?page=${encodeURIComponent(review.identity.wikiPageId)}#wiki-stage5-decisions`}>
+              Continue to the Wiki judgment layer
+            </Link>
+          </p>
+        ) : null}
     </section>
   );
 };

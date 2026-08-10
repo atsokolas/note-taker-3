@@ -104,6 +104,8 @@ describe('PriorLessonsSection', () => {
     expect(within(acceptedRow).getByText('concept_decision_lesson_fixture')).toBeInTheDocument();
     expect(within(acceptedRow).getAllByText('Support').length).toBeGreaterThanOrEqual(1);
     expect(within(acceptedRow).getByText('Accepted role')).toBeInTheDocument();
+    expect(within(acceptedRow).getByLabelText('Accepted lesson provenance'))
+      .toHaveTextContent('Decision → Observed outcome → Support evidence');
   });
 
   it('does not preselect a role and requires confirmation before submit', async () => {

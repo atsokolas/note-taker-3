@@ -62,6 +62,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.86rem;
+  min-height: 44px;
   padding: 8px 12px;
 }
 
@@ -118,6 +119,62 @@
   font-size: 0.92rem;
   line-height: 1.5;
   margin: 0;
+}
+
+.wiki-decision-review__chronology {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(160px, 0.7fr) minmax(0, 1fr);
+  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+}
+
+.wiki-decision-review__chronology > section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.wiki-decision-review__chronology > section:first-child {
+  padding-left: 0;
+}
+
+.wiki-decision-review__chronology > section + section {
+  border-left: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+}
+
+.wiki-decision-review__chronology h5 {
+  margin: 0;
+  color: inherit;
+  font-family: var(--font-serif, Georgia, 'Times New Roman', serif);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.wiki-decision-review__observed-layer {
+  border-top: 2px solid transparent;
+}
+
+.wiki-decision-review__observed-layer:has(.wiki-decisions__outcome) {
+  border-top-color: color-mix(in srgb, var(--vellum-warm, #c4a574) 64%, transparent);
+}
+
+.wiki-decisions__outcome {
+  display: grid;
+  gap: 8px;
+}
+
+.wiki-decisions__outcome p,
+.wiki-decisions__receipt-line {
+  margin: 0;
+}
+
+.wiki-decisions__receipt-line {
+  color: var(--text-muted, #8c867c);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
 }
 
 .wiki-decisions__quiet,
@@ -220,6 +277,23 @@
   gap: 8px;
 }
 
+.wiki-read__decision-create {
+  margin-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+}
+
+.wiki-read__decision-create > summary {
+  min-height: 44px;
+  padding: 14px 0;
+  cursor: pointer;
+  color: var(--text-secondary, #5c574f);
+  font-size: 0.86rem;
+}
+
+.wiki-read__decision-create[open] > summary {
+  color: inherit;
+}
+
 @media (max-width: 720px) {
   .wiki-decisions__row > header {
     flex-direction: column;
@@ -232,6 +306,32 @@
 
   .wiki-decision-form__row {
     grid-template-columns: 1fr;
+  }
+
+  .wiki-decision-review__chronology {
+    grid-template-columns: 1fr;
+  }
+
+  .wiki-decision-review__chronology > section,
+  .wiki-decision-review__chronology > section:first-child {
+    padding: 14px 0;
+  }
+
+  .wiki-decision-review__chronology > section + section {
+    border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 1320px) and (min-width: 721px) {
+  .wiki-decision-review__chronology {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wiki-decision-review__observed-layer {
+    grid-column: 1 / -1;
+    border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+    border-left: 0 !important;
   }
 }
 

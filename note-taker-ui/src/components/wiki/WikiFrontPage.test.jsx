@@ -27,6 +27,26 @@ jest.mock('./WikiCompanyDossierComposer', () => ({ className = '' }) => (
   <section className={className}>Company dossier composer</section>
 ));
 
+jest.mock('./WikiRepoCreateComposer', () => ({ className = '' }) => (
+  <section className={className}>Repository wiki composer</section>
+));
+
+jest.mock('./decisions/DecisionsIndex', () => () => (
+  <section aria-label="Decisions index" />
+));
+
+jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Thought partner' }) => (
+  <section aria-label={`${title} panel`}>Thought partner</section>
+));
+
+jest.mock('./WikiMovementReturnSurface', () => {
+  const MockReact = require('react');
+  return ({ onPresenceChange }) => {
+    MockReact.useEffect(() => onPresenceChange?.(false), [onPresenceChange]);
+    return <section aria-label="What changed return surface" />;
+  };
+});
+
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`
 }));
@@ -97,9 +117,9 @@ describe('WikiFrontPage (AT-394)', () => {
 
     expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
     expect(document.querySelector('.wiki-front-page__graph-motif')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/checking overnight edits and drift signals/i);
+    expect(screen.getByRole('status')).toHaveTextContent(/opening your living knowledge/i);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Morning paper');
+    expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Your Wiki');
   });
 
   it('renders the newspaper front page: masthead, lead sentence, today’s page, recently grown, explore, hairline', async () => {
@@ -119,7 +139,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(document.body.textContent.match(/While you were away I rebuilt Opportunity Cost/g)).toHaveLength(1);
 
     // Masthead with date eyebrow.
-    expect(screen.getByText(/Morning paper ·/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your Wiki ·/i)).toBeInTheDocument();
 
     // Today's page = the briefing's most recently updated page, as the single h1.
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
@@ -132,7 +152,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText(/strips a question down to its most basic/i)).toBeInTheDocument();
 
     // Recently grown excludes the lead story and carries growth notes.
-    const grown = screen.getByRole('complementary', { name: /recently grown/i });
+    const grown = screen.getByRole('complementary', { name: /recently changed|more living pages/i });
     expect(grown).toHaveTextContent('Opportunity Cost');
     expect(grown).not.toHaveTextContent('First Principles Thinking');
     expect(grown).toHaveTextContent(/claim/);
@@ -143,6 +163,9 @@ describe('WikiFrontPage (AT-394)', () => {
       .toHaveAttribute('href', '/wiki/workspace?page=wiki-margin-of-safety');
 
     // Workspace destinations are legible secondary nav near the top.
+    const operations = document.querySelector('.wiki-front-page__operations');
+    expect(operations).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Review and system activity'));
     const workspaceNav = screen.getByRole('navigation', { name: 'Wiki workspace' });
     expect(workspaceNav).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review \(4\)/i }))
@@ -169,6 +192,7 @@ describe('WikiFrontPage (AT-394)', () => {
     const heading = await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' });
     expect(heading).toHaveTextContent('First Principles Thinking');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent(/current change signals could not be refreshed/i);
   });
 
   it('opens the onboarding arc when the corpus is empty and onboarding is incomplete', async () => {
@@ -474,11 +498,14 @@ describe('WikiFrontPage (AT-394)', () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
     expect(await screen.findByText(/NVDA filed a 10-Q/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 claims touched · 1 contradicted/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/2 claims touched · 1 contradicted/i)).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Open Nvidia dossier →' }))
       .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
+    fireEvent.click(screen.getByText('Review and system activity'));
     expect(screen.getByText('c1')).toBeInTheDocument();
     expect(screen.getByText('partial → conflicted')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Claim impact summary' })).toHaveTextContent('1 conflicted');
+    expect(screen.getByText('Inspect 1 claim-level changes')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Integration retains pricing power.' })).toBeInTheDocument();
     expect(screen.getByText('EDGAR · NVDA')).toBeInTheDocument();
 

@@ -122,45 +122,56 @@ const DecisionRow = ({ item }) => {
           {continuityLabel(item?.continuity)}
         </span>
       </header>
-      {item?.decision?.rationale ? (
-        <p className="wiki-decisions__rationale">
-          <strong>Original rationale</strong>
-          {' '}
-          {item.decision.rationale}
-        </p>
-      ) : null}
-      {item?.decision?.expectedOutcome ? (
-        <p className="wiki-decisions__expected">
-          <strong>Expected outcome</strong>
-          {' '}
-          {item.decision.expectedOutcome}
-        </p>
-      ) : null}
-      <p className="wiki-decisions__meta">
-        Review {formatDate(item?.decision?.reviewAt)}
-        {item?.continuity?.acceptedRevisionId
-          ? ` · Accepted revision ${item.continuity.acceptedRevisionId}`
-          : ' · Accepted revision not verified'}
-      </p>
-      {item?.outcome?.state === 'observed' ? (
-        <div className="wiki-decisions__outcome">
-          <p>
-            <strong>Observed</strong>
-            {' '}
-            {item.outcome?.result || 'unknown'}
-            {item.outcome?.observedAt ? ` · ${formatDate(item.outcome.observedAt)}` : ''}
+      <div className="wiki-decisions__arc" aria-label="Decision consequence chronology">
+        <section>
+          <p className="wiki-decisions__eyebrow">Decision as made</p>
+          {item?.decision?.rationale ? (
+            <p className="wiki-decisions__rationale">
+              <strong>Original rationale</strong>
+              {' '}
+              {item.decision.rationale}
+            </p>
+          ) : null}
+          {item?.decision?.expectedOutcome ? (
+            <p className="wiki-decisions__expected">
+              <strong>Expected outcome</strong>
+              {' '}
+              {item.decision.expectedOutcome}
+            </p>
+          ) : null}
+          <p className="wiki-decisions__meta">
+            {item?.continuity?.acceptedRevisionId
+              ? `Accepted revision ${item.continuity.acceptedRevisionId}`
+              : 'Accepted revision not verified'}
           </p>
-          {item.outcome?.lesson ? <p>{item.outcome.lesson}</p> : null}
-        </div>
-      ) : item?.outcome?.state === 'review_incomplete' ? (
-        <p className="wiki-decisions__incomplete" role="status">
-          Outcome review is incomplete. Noeis does not treat it as observed.
-        </p>
-      ) : (
-        <p className="wiki-decisions__quiet">
-          Noeis has not inferred an outcome.
-        </p>
-      )}
+        </section>
+        <section>
+          <p className="wiki-decisions__eyebrow">Review clock</p>
+          <p className="wiki-decisions__meta">Review {formatDate(item?.decision?.reviewAt)}</p>
+        </section>
+        <section className={item?.outcome?.state === 'observed' ? 'is-observed' : ''}>
+          <p className="wiki-decisions__eyebrow">What happened later</p>
+          {item?.outcome?.state === 'observed' ? (
+            <div className="wiki-decisions__outcome">
+              <p>
+                <strong>Observed</strong>
+                {' '}
+                {item.outcome?.result || 'unknown'}
+                {item.outcome?.observedAt ? ` · ${formatDate(item.outcome.observedAt)}` : ''}
+              </p>
+              {item.outcome?.lesson ? <p>{item.outcome.lesson}</p> : null}
+            </div>
+          ) : item?.outcome?.state === 'review_incomplete' ? (
+            <p className="wiki-decisions__incomplete" role="status">
+              Outcome review is incomplete. Noeis does not treat it as observed.
+            </p>
+          ) : (
+            <p className="wiki-decisions__quiet">
+              Noeis has not inferred an outcome.
+            </p>
+          )}
+        </section>
+      </div>
       <DecisionLinks item={item} />
     </article>
   );

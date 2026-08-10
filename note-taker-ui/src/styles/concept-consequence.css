@@ -50,6 +50,10 @@ body.noeis-editorial .concept-prior-lessons__item {
   border-top: 1px solid var(--vellum-line);
 }
 
+body.noeis-editorial .concept-prior-lessons__item:not(.is-accepted) {
+  border-top-color: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 44%, var(--vellum-line));
+}
+
 body.noeis-editorial .concept-prior-lessons__item-header {
   display: flex;
   align-items: flex-start;
@@ -115,6 +119,26 @@ body.noeis-editorial .concept-prior-lessons__confirm-facts {
   margin: 0;
 }
 
+body.noeis-editorial .concept-prior-lessons__provenance {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--vellum-line) 72%, transparent);
+}
+
+body.noeis-editorial .concept-prior-lessons__provenance > p {
+  margin: 0;
+  color: color-mix(in srgb, var(--vellum-ink) 56%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+body.noeis-editorial .concept-prior-lessons__provenance > p strong {
+  color: color-mix(in srgb, var(--vellum-ink) 76%, transparent);
+  font-weight: 600;
+}
+
 body.noeis-editorial .concept-prior-lessons__acceptance > div,
 body.noeis-editorial .concept-prior-lessons__confirm-facts > div {
   display: grid;
@@ -157,7 +181,7 @@ body.noeis-editorial .concept-prior-lessons__roles legend {
 }
 
 body.noeis-editorial .concept-prior-lessons__field select {
-  min-height: 40px;
+  min-height: 44px;
   max-width: 28rem;
   padding: 8px 10px;
   border: 1px solid var(--vellum-line);
@@ -176,7 +200,7 @@ body.noeis-editorial .concept-prior-lessons__role {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 44px;
   cursor: pointer;
   font-family: var(--noeis-ui-font);
   font-size: 0.88rem;
@@ -186,6 +210,11 @@ body.noeis-editorial .concept-prior-lessons__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+body.noeis-editorial .concept-prior-lessons__actions button,
+body.noeis-editorial .concept-prior-lessons__error button {
+  min-height: 44px;
 }
 
 body.noeis-editorial .concept-prior-lessons__status {
@@ -308,6 +337,45 @@ body.noeis-editorial .claim-revision-review__state {
   font-family: var(--noeis-ui-font);
   font-size: 0.68rem;
   text-transform: capitalize;
+}
+
+body.noeis-editorial .claim-revision-review__arc {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0 0 18px;
+  padding: 0;
+  border-top: 1px solid var(--vellum-line);
+  border-bottom: 1px solid var(--vellum-line);
+  list-style: none;
+}
+
+body.noeis-editorial .claim-revision-review__arc li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 16px;
+}
+
+body.noeis-editorial .claim-revision-review__arc li + li {
+  border-left: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .claim-revision-review__arc span,
+body.noeis-editorial .claim-revision-review__arc small {
+  color: color-mix(in srgb, var(--vellum-ink) 52%, transparent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+body.noeis-editorial .claim-revision-review__arc strong {
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 body.noeis-editorial .claim-revision-review__claims {
@@ -512,7 +580,7 @@ body.noeis-editorial .claim-revision-review__actions {
 
 body.noeis-editorial .claim-revision-review__actions button,
 body.noeis-editorial .claim-revision-review__write-error button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px solid color-mix(in srgb, var(--vellum-ink) 18%, transparent);
   border-radius: 999px;
@@ -566,6 +634,22 @@ body.noeis-editorial .claim-revision-review__note textarea {
   background: transparent;
   color: var(--vellum-ink);
   font: inherit;
+}
+
+body.noeis-editorial .claim-revision-review__defer input {
+  min-height: 44px;
+}
+
+body.noeis-editorial .claim-revision-review__continue {
+  margin: 18px 0 0;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+}
+
+body.noeis-editorial .claim-revision-review__continue a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 body.noeis-editorial .claim-revision-review__write-status,
@@ -624,6 +708,12 @@ body.noeis-editorial .claim-revision-review__receipt dd {
   }
 }
 
+@media (max-width: 1320px) {
+  body.noeis-editorial .claim-revision-review__evidence > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
   body.noeis-editorial .concept-investigation__header,
   body.noeis-editorial .concept-investigation__candidate,
@@ -637,9 +727,15 @@ body.noeis-editorial .claim-revision-review__receipt dd {
   body.noeis-editorial .concept-investigation__judgment-grid,
   body.noeis-editorial .concept-investigation__state,
   body.noeis-editorial .claim-revision-review__claims,
+  body.noeis-editorial .claim-revision-review__arc,
   body.noeis-editorial .claim-revision-review__evidence > div,
   body.noeis-editorial .claim-revision-review__receipt dl {
     grid-template-columns: 1fr;
+  }
+
+  body.noeis-editorial .claim-revision-review__arc li + li {
+    border-top: 1px solid var(--vellum-line);
+    border-left: 0;
   }
 
   body.noeis-editorial .concept-prior-lessons__header,

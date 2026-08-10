@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
@@ -21,6 +21,9 @@ jest.mock('./WikiCompanyDossierComposer', () => () => null);
 jest.mock('./WikiFrontPageGraphMotif', () => () => null);
 jest.mock('./ThisWeekInAIComposer', () => () => null, { virtual: true });
 jest.mock('./decisions/DecisionsIndex', () => () => null);
+jest.mock('../agent/AgentContextShell', () => ({ children }) => <>{children}</>);
+jest.mock('../agent/ThoughtPartnerPanel', () => () => null);
+jest.mock('../../layout/RightDrawer', () => ({ children }) => <>{children}</>);
 jest.mock('./WikiMovementReturnSurface', () => ({ onPresenceChange }) => (
   <section aria-label="What changed return surface">
     <button type="button" onClick={() => onPresenceChange(true)}>Movement present</button>
@@ -65,8 +68,9 @@ describe('WikiFrontPage movement return surface', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Movement present' }));
 
-    expect(screen.queryByText(/generic fallback briefing/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/generic fallback briefing/i)).not.toBeInTheDocument());
     expect(screen.getByRole('heading', { level: 1, name: 'Inference economics' })).toBeInTheDocument();
+    expect(screen.getByText('Review and system activity').closest('details')).toHaveAttribute('open');
   });
 
   it('keeps the movement return surface visible for an empty Wiki corpus', async () => {

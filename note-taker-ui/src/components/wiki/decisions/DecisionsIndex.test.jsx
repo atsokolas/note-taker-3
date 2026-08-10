@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DecisionsIndex from './DecisionsIndex';
 import { getDecisions } from '../../../api/decisions';
@@ -76,6 +76,10 @@ describe('DecisionsIndex', () => {
     expect(screen.getByText(/Incomplete continuity/i)).toBeInTheDocument();
     expect(screen.getByText(/accepted_revision_integrity/i)).toBeInTheDocument();
     expect(screen.getByText(/Noeis has not inferred an outcome/i)).toBeInTheDocument();
+    const chronology = screen.getByLabelText('Decision consequence chronology');
+    expect(within(chronology).getByText('Decision as made')).toBeInTheDocument();
+    expect(within(chronology).getByText('Review clock')).toBeInTheDocument();
+    expect(within(chronology).getByText('What happened later')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Inference economics' }))
       .toHaveAttribute('href', '/wiki/workspace?page=page-1');
     expect(screen.getByRole('link', { name: 'Claim one' }))

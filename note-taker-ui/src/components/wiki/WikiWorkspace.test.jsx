@@ -428,14 +428,14 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
 
-  it('keeps mobile read view visible with the tab switcher', async () => {
+  it('keeps the mobile read view visible without the legacy pane switcher', async () => {
     mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
     await settleWorkspaceEffects();
 
     const workspace = document.querySelector('.wiki-workspace');
     expect(workspace).toHaveClass('is-mobile-wiki');
-    expect(screen.getByRole('tab', { name: 'Wiki' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: 'Wiki' })).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
@@ -601,36 +601,18 @@ describe('WikiWorkspace', () => {
     expect(Boolean(composer.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
   });
 
-  it('keeps the chat pane addressable from the workspace URL on narrow layouts', async () => {
+  it('keeps a selected mobile article in the reading pane and removes the legacy agent duplicate', async () => {
     mockViewportWidth(390);
     renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
     await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
-    expect(document.querySelector('.wiki-workspace__chat-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
-    expect(document.querySelector('.wiki-workspace__right-pane')).toHaveClass('wiki-workspace__pane--inactive');
-    expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByLabelText('Wiki workspace message')).toBeInTheDocument();
-  });
-
-  it('keeps the wiki pane and chat pane mutually exclusive on mobile tab changes', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=chat');
-    await settleWorkspaceEffects();
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Wiki' }));
 
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
     expect(document.querySelector('.wiki-workspace__chat-pane')).toHaveClass('wiki-workspace__pane--inactive');
     expect(document.querySelector('.wiki-workspace__right-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=wiki', { replace: true });
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
-    expect(document.querySelector('.wiki-workspace__chat-pane')).not.toHaveClass('wiki-workspace__pane--inactive');
-    expect(document.querySelector('.wiki-workspace__right-pane')).toHaveClass('wiki-workspace__pane--inactive');
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
+    expect(screen.queryByRole('tab', { name: 'Chat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Thought partner quick prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open Thought partner' })).not.toBeInTheDocument();
+    expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
 
   it('keeps a compact agent prompt available while the mobile wiki pane is active', async () => {
@@ -652,61 +634,6 @@ describe('WikiWorkspace', () => {
     expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
     await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build Research maps'));
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?view=graph&pane=chat', { replace: true });
-  });
-
-  it('lets the compact wiki prompt start a build from the active wiki pane', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
-    await settleWorkspaceEffects();
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-wiki');
-    expect(screen.getByRole('form', { name: 'Thought partner quick prompt' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Build' }));
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
-    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/build '));
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
-  });
-
-  it('lets the compact wiki prompt start a page-scoped ask from the active wiki pane', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
-    await settleWorkspaceEffects();
-
-    const quickPrompt = screen.getByRole('form', { name: 'Thought partner quick prompt' });
-    const askButton = within(quickPrompt).getByRole('button', { name: 'Ask' });
-
-    expect(askButton).toBeEnabled();
-    fireEvent.click(askButton);
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
-    await waitFor(() => expect(screen.getByLabelText('Wiki workspace message')).toHaveValue('/ask @wiki:wiki-1 '));
-    expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });
-  });
-
-  it('sends typed compact wiki asks instead of only opening a second composer', async () => {
-    mockViewportWidth(390);
-    renderWorkspace('/wiki/workspace?page=wiki-1&pane=wiki');
-    await settleWorkspaceEffects();
-
-    const quickPrompt = screen.getByRole('form', { name: 'Thought partner quick prompt' });
-    fireEvent.change(within(quickPrompt).getByLabelText('Thought partner quick message'), {
-      target: { value: 'How does this connect to Opportunity Cost?' }
-    });
-    fireEvent.click(within(quickPrompt).getByRole('button', { name: 'Ask' }));
-
-    expect(document.querySelector('.wiki-workspace')).toHaveClass('is-mobile-chat');
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'How does this connect to Opportunity Cost?',
-        context: expect.objectContaining({
-          pageId: 'wiki-1',
-          metadata: expect.objectContaining({ surface: 'wiki_workspace' })
-        })
-      }),
-      expect.any(Object)
-    ));
   });
 
   it('opens the reference picker from the transient workspace pull URL', async () => {
