@@ -30,6 +30,7 @@ import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import AgentContextShell from '../components/agent/AgentContextShell';
 import AgentSkillDock from '../components/agent/AgentSkillDock';
 import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
 import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
@@ -106,6 +107,7 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [sourceContextOpen, setSourceContextOpen] = useState(Boolean(requestedHighlightId));
   const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
   const [sourceDetailState, setSourceDetailState] = useState({
     source: null,
@@ -231,6 +233,7 @@ const Library = () => {
   useEffect(() => {
     if (!requestedHighlightId || !selectedArticleId) return;
     setActiveHighlightId(requestedHighlightId);
+    setSourceContextOpen(true);
     window.setTimeout(() => {
       readerRef.current?.scrollToHighlight(requestedHighlightId);
     }, 0);
@@ -375,6 +378,7 @@ const Library = () => {
     }
     if (highlightId) {
       params.set('highlightId', highlightId);
+      setSourceContextOpen(true);
     } else {
       params.delete('highlightId');
     }
@@ -520,9 +524,8 @@ const Library = () => {
 
   useEffect(() => {
     if (!shouldOpenReferencePullIn) return;
-    if (selectedArticleId) {
-      handleToggleRight(true);
-    }
+    handleToggleRight(true);
+    if (!selectedArticleId) return;
     const params = new URLSearchParams(searchParams);
     params.delete('pull');
     setSearchParams(params, { replace: true });
@@ -1019,6 +1022,7 @@ const Library = () => {
         subtitle="Highlights, pull-in, provenance, and article moves."
         className="library-reading-rail__secondary"
         testId="library-reading-secondary-rail"
+        defaultOpen={sourceContextOpen || Boolean(activeHighlightId)}
       >
         <AgentSkillDock
           surface="article"
@@ -1037,6 +1041,7 @@ const Library = () => {
           targetType="article"
           targetId={selectedArticleId}
           targetTitle={selectedArticle?.title || 'Source'}
+          mode="reference-source"
           className="library-context-stack__reference-pull-in"
         />
         <LibraryContext
@@ -1126,6 +1131,21 @@ const Library = () => {
       </section>
     </div>
   );
+  const contextualRightPanel = (
+    <AgentContextShell
+      surface="library"
+      title={AGENT_DISPLAY_NAME}
+      orientation={isReadingView
+        ? `Reading ${selectedArticle?.title || 'the selected source'} with provenance intact.`
+        : `Browsing ${scope === 'folder' && selectedFolderName ? selectedFolderName : scope} source memory.`}
+      loading={Boolean(articleLoading || articlesLoading)}
+      loadingMessage="Retrieving Library context…"
+      error={isReadingView ? articleError : articlesError}
+      showPresence={false}
+    >
+      {rightPanel}
+    </AgentContextShell>
+  );
 
   return (
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
@@ -1133,7 +1153,7 @@ const Library = () => {
         className={`three-pane--editorial three-pane--library ${isReadingView ? 'three-pane--library-reading' : 'three-pane--library-browse'}`}
         left={leftPanel}
         main={mainPanel}
-        right={rightPanel}
+        right={contextualRightPanel}
         rightTitle={AGENT_DISPLAY_NAME}
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}

@@ -1483,6 +1483,7 @@ describe('ThinkMode template integration', () => {
     fireEvent.click(await screen.findByTestId('think-concepts-empty-create-button'));
 
     expect(screen.getByTestId('think-concept-composer-input')).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: 'Run partner scan after create' })).not.toBeChecked();
   });
 
   describe('ThreePaneLayout fallback routes', () => {

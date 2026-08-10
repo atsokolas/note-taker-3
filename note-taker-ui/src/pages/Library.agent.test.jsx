@@ -72,9 +72,14 @@ jest.mock('../components/library/LibraryMain', () => ({
         </label>
       ) : null}
       {!selectedArticleId ? (
-        <button type="button" onClick={() => onSelectArticle('article-1')}>
-          Open article
-        </button>
+        <>
+          <button type="button" onClick={() => onSelectArticle('article-1')}>
+            Open article
+          </button>
+          <button type="button" onClick={() => onSelectArticle('article-1', { highlightId: 'highlight-1' })}>
+            Open highlighted source
+          </button>
+        </>
       ) : null}
     </div>
   )
@@ -268,4 +273,15 @@ describe('Library agent rail', () => {
     expect(screen.getByText('Reading article shell')).toBeInTheDocument();
     expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
   });
+
+  it('opens source context when navigation targets an exact highlight', async () => {
+    renderLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open highlighted source' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('library-reading-secondary-rail')).toHaveAttribute('open');
+    });
+  });
+
 });

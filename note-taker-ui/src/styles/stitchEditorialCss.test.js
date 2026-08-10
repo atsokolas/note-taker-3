@@ -100,6 +100,14 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('.topbar__menu-popover--portal');
   });
 
+  it('puts the active Think move before the corpus shelf on single-column layouts', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toMatch(/@media \(max-width: 1120px\)[\s\S]*?think-home-editorial-shell__main \{[\s\S]*?order: 1;/);
+    expect(css).toMatch(/@media \(max-width: 1120px\)[\s\S]*?think-home-editorial-shell__left \{[\s\S]*?order: 2;/);
+    expect(css).toMatch(/@media \(max-width: 1120px\)[\s\S]*?think-home-editorial-shell__right \{[\s\S]*?order: 3;/);
+  });
+
   it('maps vellum aliases to canonical text role tokens', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
