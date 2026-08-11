@@ -38,6 +38,8 @@ const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
 const QUALITY_MIN_WORDS = 450;
 const QUALITY_MIN_WORDS_WITH_MANY_SOURCES = 650;
+const ORDINARY_WIKI_FREE_MODEL = String(process.env.ORDINARY_WIKI_FREE_MODEL || '').trim()
+  || 'nvidia/nemotron-3.5-lightning:free';
 const SCAFFOLD_PATTERNS = [
   { label: 'instructional scaffold', pattern: /\bshould explain\b/i },
   { label: 'source-backed development placeholder', pattern: /\bstill needs source-backed development\b/i },
@@ -64,12 +66,22 @@ const ORDINARY_MECHANISM_PATTERNS = [
   /\b(?:first|second|then|next|finally)\b[^.]{0,180}\b(?:causes?|changes?|produces?|allows?|prevents?|reinforces?)\b/i
 ];
 const ORDINARY_EXAMPLE_PATTERNS = [
-  /\b(?:for example|for instance|consider|worked example|case study|in practice|a common case|one case)\b/i,
+  /\b(?:for example|for instance|examples? (?:include|of)|consider|worked example|case study|in practice|a common case|one case)\b/i,
   /\b(?:imagine|suppose|when a|when an)\b[^.]{20,220}\b(?:then|because|so|can|will)\b/i
 ];
 const ORDINARY_BOUNDARY_PATTERNS = [
   /\b(?:however|but|although|by contrast|limit(?:ation)?s?|boundary|exception|misconception|does not|cannot|uncertain|counterevidence|tension|trade[- ]?off)\b/i
 ];
+const selectBoundedOrdinaryModelRoutes = (routes = []) => {
+  const valid = (Array.isArray(routes) ? routes : []).filter(route => route?.model);
+  if (valid.length <= 1) return valid;
+  const primary = valid[0];
+  const configuredFreeFallback = valid.slice(1).find(route => /(?:\/free|:free)$/i.test(asString(route.model)));
+  const freeFallback = configuredFreeFallback
+    ? { ...configuredFreeFallback, model: ORDINARY_WIKI_FREE_MODEL }
+    : null;
+  return [primary, freeFallback || valid[1]].filter(Boolean);
+};
 const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'npm distribution claim', pattern: /\b(?:published|packaged|distributed)\s+(?:as|to|on)\s+(?:an?\s+)?npm\b|\bnpm package metadata confirms\b/i },
   { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
@@ -1046,10 +1058,11 @@ Ordinary reference Wiki rules:
 - The opening summary must answer "What is this?" precisely in its first sentence. Define important terms and notation before extending the idea into applications or analogies.
 - Explain the causal or technical mechanism step by step. For mathematical, scientific, legal, or technical topics, include a concrete worked example, boundary case, or observable test when the supplied evidence supports one.
 - For social, historical, practical, or human topics, replace the worked calculation with a concrete situation, behavior, case, or sequence that makes the mechanism observable.
-- With five or more sources, produce 5-8 subject-specific sections and at least 8 evidence-bearing paragraphs. The article must cover a precise definition and scope, a causal process or organizing structure, a concrete case, meaningful limits or disagreement, and practical implications only when the evidence supports them.
+- With five or more sources, let the subject determine the shape: usually 3-7 subject-specific sections and at least 6 evidence-bearing paragraphs. The article must cover a precise definition and scope, a causal process or organizing structure, a concrete case, meaningful limits or disagreement, and practical implications only when the evidence supports them.
 - Distinguish a formal equivalence from an analogy. Never call two mechanisms "mathematically identical," "the same," or "proven" unless a cited source directly establishes that relationship.
 - Prefer specific claims over broad scene-setting. Remove paragraphs that merely say analysts, studies, or firms "often" do something without naming the mechanism and attaching evidence.
 - Never name a person, institution, study, statistic, or doctrine that is absent from the supplied evidence. Never write "research shows" or "empirical evidence" unless the cited source itself reports that evidence.
+- Do not invent the hidden reason behind a reported relationship. If a source says a practice supports an outcome but does not explain why, preserve that limit instead of supplying a plausible causal story.
 - Build the generally useful definition and mechanism before explaining why the subject recurs in this user's Library. Personal connections should deepen the article, not replace the subject.
 - Use a source as authority only when it directly addresses the subject or the specific claim. Adjacent sources may support a labeled analogy or application, but cannot carry the definition.
 - Treat repeated highlights from one article as one evidence family. Do not manufacture authority by citing the same underlying source repeatedly or by spreading one source across many claims.
@@ -1194,7 +1207,7 @@ ${draftArticle ? truncateRaw(JSON.stringify(draftArticle), 30000) : 'No recovera
 ${getWikiPageStructureForPage({ page, candidates }).flexibleSections ? `
 Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - Return the complete article, not an outline, abstract, or abbreviated rewrite.
-- Budget at least ${candidates.length >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS} words across ${candidates.length >= 5 ? '5-8 subject-specific sections and 8-14' : '4-7'} evidence-bearing paragraphs plus a concise opening summary.
+- Budget depth in proportion to the supplied evidence. With five or more sources, use 3-7 subject-specific sections and 6-12 evidence-bearing paragraphs plus a concise opening summary; do not pad a narrow evidence set to imitate an investment dossier.
 - Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
 - Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic.
 - Explain at least one causal process or organizing structure and one meaningful limit, exception, disagreement, or misconception.
@@ -1207,25 +1220,31 @@ Return the complete repaired article. Make defensible claims, compare evidence, 
 const extractJson = (value = '') => {
   const text = asString(value);
   if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch (_error) {
+  const parseLooseJson = (candidate = '') => {
+    try {
+      return JSON.parse(candidate);
+    } catch (_error) {
+      // Repair only the mechanical trailing-comma defect commonly returned
+      // by free JSON-capable routes. Never guess missing content or structure.
+      try {
+        return JSON.parse(String(candidate).replace(/,\s*([}\]])/g, '$1'));
+      } catch (__error) {
+        return null;
+      }
+    }
+  };
+  const parsed = parseLooseJson(text);
+  if (parsed) return parsed;
+  {
     const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
     if (fenced?.[1]) {
-      try {
-        return JSON.parse(fenced[1]);
-      } catch (__error) {
-        // Continue to loose object extraction below.
-      }
+      const fencedParsed = parseLooseJson(fenced[1]);
+      if (fencedParsed) return fencedParsed;
     }
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
     if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(text.slice(start, end + 1));
-      } catch (__error) {
-        return null;
-      }
+      return parseLooseJson(text.slice(start, end + 1));
     }
   }
   return null;
@@ -1575,6 +1594,22 @@ const normalizeCitationIndexes = (value = []) => (
     : []
 );
 
+const inlineCitationIndexes = (value = '') => {
+  const indexes = [];
+  String(value || '').replace(/\[([1-9]\d{0,2}(?:\s*,\s*[1-9]\d{0,2})*)\]/g, (_match, group) => {
+    group.split(',').forEach(index => indexes.push(Number(index.trim())));
+    return _match;
+  });
+  return normalizeCitationIndexes(indexes);
+};
+
+const stripInlineCitationIndexes = (value = '') => (
+  String(value || '')
+    .replace(/\s*\[([1-9]\d{0,2}(?:\s*,\s*[1-9]\d{0,2})*)\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+);
+
 const citationSuffix = (indexes = []) => {
   const clean = normalizeCitationIndexes(indexes);
   return clean.length ? ` [${clean.join(', ')}]` : '';
@@ -1582,12 +1617,22 @@ const citationSuffix = (indexes = []) => {
 
 const normalizeArticleTextBlock = (value = {}) => {
   if (typeof value === 'string') {
-    return { text: truncate(value, MAX_ARTICLE_BLOCK_TEXT), citationIndexes: [], contradictionIndexes: [], support: null };
+    const citationIndexes = inlineCitationIndexes(value);
+    return {
+      text: truncate(stripInlineCitationIndexes(value), MAX_ARTICLE_BLOCK_TEXT),
+      citationIndexes,
+      contradictionIndexes: [],
+      support: citationIndexes.length ? inferClaimSupport(citationIndexes) : null
+    };
   }
   if (!value || typeof value !== 'object') return null;
-  const text = truncate(value.text || value.body || value.summary || '', MAX_ARTICLE_BLOCK_TEXT);
+  const rawText = value.text || value.body || value.summary || '';
+  const explicitCitationIndexes = normalizeCitationIndexes(value.citationIndexes || value.sourceIndexes || value.sources);
+  const citationIndexes = explicitCitationIndexes.length
+    ? explicitCitationIndexes
+    : inlineCitationIndexes(rawText);
+  const text = truncate(stripInlineCitationIndexes(rawText), MAX_ARTICLE_BLOCK_TEXT);
   if (!text) return null;
-  const citationIndexes = normalizeCitationIndexes(value.citationIndexes || value.sourceIndexes || value.sources);
   const contradictionIndexes = normalizeCitationIndexes(
     value.contradictionIndexes ||
     value.contradictedByIndexes ||
@@ -3305,12 +3350,34 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
         health: raw.health
       };
   const repoPage = isGitHubRepoPage({ page, candidates });
-  const normalizedArticle = normalizeArticle({
-    rawArticle: raw.article || {
+  const rawArticleSource = raw.article && typeof raw.article === 'object'
+    ? {
+        ...raw.article,
+        // Smaller structured-output models commonly close `article` after
+        // the summary and emit sections beside it. Preserve the substantive
+        // response instead of replacing it with the generic fallback.
+        sections: Array.isArray(raw.article.sections) && raw.article.sections.length
+          ? raw.article.sections
+          : raw.sections,
+        preservedUserContent: raw.article.preservedUserContent || raw.preservedUserContent,
+        summary: typeof raw.article.summary === 'string' && (
+          raw.article.citationIndexes || raw.article.sourceIndexes || raw.article.support
+        )
+          ? {
+              text: raw.article.summary,
+              citationIndexes: raw.article.citationIndexes || raw.article.sourceIndexes,
+              contradictionIndexes: raw.article.contradictionIndexes,
+              support: raw.article.support
+            }
+          : raw.article.summary
+      }
+    : {
       summary: raw.summary,
       sections: raw.sections,
       preservedUserContent: raw.preservedUserContent
-    },
+    };
+  const normalizedArticle = normalizeArticle({
+    rawArticle: rawArticleSource,
     page,
     manualNotes,
     candidates
@@ -3372,6 +3439,12 @@ const evaluateWikiArticleQuality = ({
   const titlePattern = escapeRegex(page?.title || '');
   const words = countWords(titlePattern ? plainText.replace(new RegExp(`^${titlePattern}\\s*`, 'i'), '') : plainText);
   const sourceCount = Array.isArray(sourceRefs) ? sourceRefs.length : 0;
+  const ordinaryEvidenceWordCount = (Array.isArray(sourceRefs) ? sourceRefs : [])
+    .reduce((total, source) => total + countWords([
+      source?.snippet,
+      source?.quote,
+      source?.text
+    ].filter(Boolean).join(' ')), 0);
   const evidenceBudgetSourceCount = Number.isFinite(Number(availableSourceCount))
     ? Math.max(sourceCount, Number(availableSourceCount))
     : sourceCount;
@@ -3461,11 +3534,12 @@ const evaluateWikiArticleQuality = ({
       boundary: ORDINARY_BOUNDARY_PATTERNS.some(pattern => pattern.test(plainText))
     };
     if (evidenceBudgetSourceCount >= 5) {
-      if (ordinaryHeadingCount < 5) {
-        failures.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 5 for ${evidenceBudgetSourceCount} available sources.`);
+      const minimumEvidenceBlocks = Math.max(6, Math.min(8, Math.ceil(evidenceBudgetSourceCount * 1.15)));
+      if (ordinaryHeadingCount < 3) {
+        failures.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 3 subject-shaped sections for ${evidenceBudgetSourceCount} available sources.`);
       }
-      if (ordinaryEvidenceBlockCount < 8) {
-        failures.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least 8 for ${evidenceBudgetSourceCount} available sources.`);
+      if (ordinaryEvidenceBlockCount < minimumEvidenceBlocks) {
+        failures.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least ${minimumEvidenceBlocks} for ${evidenceBudgetSourceCount} available sources.`);
       }
       if (!ordinaryCoverageSignals.mechanism) {
         failures.push('Ordinary reference article does not explain a causal process or organizing mechanism.');
@@ -3506,7 +3580,12 @@ const evaluateWikiArticleQuality = ({
   const wordGateSourceCount = isFlexibleReferencePage ? evidenceBudgetSourceCount : sourceCount;
   const minWords = isRepoQualityPage
     ? GITHUB_REPO_MIN_WORDS
-    : (wordGateSourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
+    : (wordGateSourceCount >= 5 && isFlexibleReferencePage
+        ? Math.min(
+            QUALITY_MIN_WORDS_WITH_MANY_SOURCES,
+            Math.max(QUALITY_MIN_WORDS, Math.round(ordinaryEvidenceWordCount * 1.25))
+          )
+        : (wordGateSourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS));
   if (wordGateSourceCount >= 3 && words < minWords) {
     failures.push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
   }
@@ -3844,11 +3923,11 @@ const maintainWikiPage = async ({
         ? Math.min(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
         : INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
     : requestedSourceTextLimit;
-  const draftTemperature = repoMaintenance ? 0.08 : 0.2;
-  const rebuildTemperature = repoMaintenance ? 0.12 : 0.28;
   const ordinaryFlexibleMaintenance = !investmentDossier
     && !repoMaintenance
     && getWikiPageStructureForPage({ page, candidates }).flexibleSections;
+  const draftTemperature = repoMaintenance ? 0.08 : (ordinaryFlexibleMaintenance ? 0.1 : 0.2);
+  const rebuildTemperature = repoMaintenance ? 0.12 : (ordinaryFlexibleMaintenance ? 0.12 : 0.28);
   const draftMaxTokens = investmentDossier
     ? INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS
     : (ordinaryFlexibleMaintenance ? ORDINARY_WIKI_MAX_TOKENS : DEFAULT_DRAFT_MAX_TOKENS);
@@ -3861,7 +3940,11 @@ const maintainWikiPage = async ({
     : [];
   const boundedOrdinaryRoutes = (route = 'artifact_draft') => (
     ordinaryFlexibleMaintenance
-      ? (textGenerationConfig.routeProfiles?.[route] || []).slice(0, 2)
+      // Keep the latency cap, but never achieve it by cutting off the
+      // configured free route. A paid primary can fail immediately on account
+      // budget; the second slot must retain a usable fallback instead of a
+      // second paid model with the same failure mode.
+      ? selectBoundedOrdinaryModelRoutes(textGenerationConfig.routeProfiles?.[route] || [])
       : []
   );
   const knownWikiPages = await collectKnownWikiPages({
@@ -3913,10 +3996,10 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: draftMaxTokens,
         temperature: draftTemperature,
-        reasoningEffort: investmentDossier ? '' : (ordinaryFlexibleMaintenance ? 'low' : draftReasoningEffort),
-        reasoning: investmentDossier ? { effort: 'none' } : null,
+        reasoningEffort: investmentDossier || ordinaryFlexibleMaintenance ? '' : draftReasoningEffort,
+        reasoning: investmentDossier || ordinaryFlexibleMaintenance ? { effort: 'none' } : null,
         modelRoutes: investmentDossier ? dossierModelRoutes : boundedOrdinaryRoutes('artifact_draft'),
-        responseFormat: { type: 'json_object' },
+        responseFormat: ordinaryFlexibleMaintenance ? null : { type: 'json_object' },
         messages: [
           {
             role: 'system',
@@ -4045,12 +4128,12 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
-        reasoningEffort: investmentDossier ? '' : (ordinaryFlexibleMaintenance ? 'low' : 'medium'),
-        reasoning: investmentDossier ? { effort: 'none' } : null,
+        reasoningEffort: investmentDossier || ordinaryFlexibleMaintenance ? '' : 'medium',
+        reasoning: investmentDossier || ordinaryFlexibleMaintenance ? { effort: 'none' } : null,
         modelRoutes: investmentDossier
           ? dossierModelRoutes
           : boundedOrdinaryRoutes('artifact_draft'),
-        responseFormat: { type: 'json_object' },
+        responseFormat: ordinaryFlexibleMaintenance ? null : { type: 'json_object' },
         messages: [
           {
             role: 'system',
@@ -4423,6 +4506,9 @@ module.exports = {
     materializeMaintenanceResult,
     formatKnownWikiPages,
     buildPrompt,
+    selectBoundedOrdinaryModelRoutes,
+    normalizeModelResult,
+    normalizeArticleTextBlock,
     buildRebuildPrompt,
     evaluateWikiArticleQuality,
     inferMaintainedPageType,

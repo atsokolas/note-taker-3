@@ -9,16 +9,20 @@ const {
   attachClaimCitationIds,
   buildSectionMaintenancePlan,
   buildPrompt,
+  selectBoundedOrdinaryModelRoutes,
   collectClaimsFromDoc,
   deriveClaimsFromDoc,
   docFromArticle,
   evaluateWikiArticleQuality,
+  extractJson,
   fallbackMaintenance,
   fillInvestmentDossierMaintenanceTest,
   findGitHubRepoDeveloperDossierFailures,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   isGitHubRepoPage,
+  normalizeArticleTextBlock,
+  normalizeModelResult,
   normalizeSourceIndexesUsed,
   remapRepoArticleCitationIndexes,
   formatKnownWikiPages,
@@ -116,6 +120,63 @@ const repoCoreImplementationSources = () => [
 }));
 
 describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
+  it('retains the configured free model inside the ordinary Wiki two-route budget', () => {
+    expect(selectBoundedOrdinaryModelRoutes([
+      { model: 'openai/gpt-4o-mini' },
+      { model: 'google/gemini-2.5-flash' },
+      { model: 'openrouter/free' }
+    ])).toEqual([
+      { model: 'openai/gpt-4o-mini' },
+      { model: 'nvidia/nemotron-3.5-lightning:free' }
+    ]);
+
+    expect(selectBoundedOrdinaryModelRoutes([
+      { model: 'model-a' },
+      { model: 'model-b' },
+      { model: 'model-c' }
+    ])).toEqual([
+      { model: 'model-a' },
+      { model: 'model-b' }
+    ]);
+  });
+
+  it('preserves general Wiki sections emitted beside article and recovers inline citations', () => {
+    const normalized = normalizeModelResult({
+      raw: {
+        title: 'Parenting',
+        article: {
+          summary: 'Parenting is responsive care. [1]',
+          citationIndexes: [1],
+          support: 'supported'
+        },
+        sections: [{
+          heading: 'Responsive relationships',
+          paragraphs: ['When a child signals, a caregiver responds and the exchange continues. [2]'],
+          bullets: []
+        }],
+        sourceIndexesUsed: [1, 2]
+      },
+      page: { title: 'Parenting', pageType: 'topic' },
+      candidates: [
+        { index: 1, title: 'Source one' },
+        { index: 2, title: 'Source two' }
+      ]
+    });
+
+    expect(normalized.article.summary).toMatchObject({
+      text: 'Parenting is responsive care.',
+      citationIndexes: [1]
+    });
+    expect(normalized.article.sections[0].paragraphs[0]).toMatchObject({
+      text: 'When a child signals, a caregiver responds and the exchange continues.',
+      citationIndexes: [2]
+    });
+    expect(normalizeArticleTextBlock('A bounded claim. [1, 3]').citationIndexes).toEqual([1, 3]);
+    expect(extractJson('{"title":"Parenting","sections":[{"heading":"Care",}],}')).toMatchObject({
+      title: 'Parenting',
+      sections: [{ heading: 'Care' }]
+    });
+  });
   it('remaps repo citation indexes after retained refs reorder the final reference list', () => {
     const article = {
       summary: { text: 'The watcher owns repository refresh.', citationIndexes: [9] },
@@ -292,7 +353,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
           text: 'Parenting is sustained care for a child across development.',
           citationIndexes: [1]
         },
-        sections: Array.from({ length: 5 }, (_item, index) => ({
+        sections: Array.from({ length: 4 }, (_item, index) => ({
           heading: `Parenting dimension ${index + 1}`,
           paragraphs: [{
             text: 'Caregivers make choices in changing family contexts.',
@@ -3303,14 +3364,18 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(chat).toHaveBeenCalledTimes(2);
     expect(chat.mock.calls[0][0].maxTokens).toBe(4200);
-    expect(chat.mock.calls[0][0].reasoningEffort).toBe('low');
+    expect(chat.mock.calls[0][0].reasoningEffort).toBe('');
+    expect(chat.mock.calls[0][0].reasoning).toEqual({ effort: 'none' });
+    expect(chat.mock.calls[0][0].responseFormat).toBeNull();
     expect(chat.mock.calls[0][0].modelRoutes.length).toBeLessThanOrEqual(2);
     expect(chat.mock.calls[1][0].route).toBe('artifact_draft');
     expect(chat.mock.calls[1][0].maxTokens).toBe(4200);
-    expect(chat.mock.calls[1][0].reasoningEffort).toBe('low');
+    expect(chat.mock.calls[1][0].reasoningEffort).toBe('');
+    expect(chat.mock.calls[1][0].reasoning).toEqual({ effort: 'none' });
+    expect(chat.mock.calls[1][0].responseFormat).toBeNull();
     expect(chat.mock.calls[1][0].modelRoutes.length).toBeLessThanOrEqual(2);
     expect(chat.mock.calls[1][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 1)');
-    expect(chat.mock.calls[1][0].messages[1].content).toContain('5-8 subject-specific sections and 8-14');
+    expect(chat.mock.calls[1][0].messages[1].content).toContain('3-7 subject-specific sections and 6-12');
     expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
     expect(page.aiState.quality.rebuildAttempts).toBe(1);
     expect(page.aiState.quality.metrics.words).toBeGreaterThanOrEqual(650);
