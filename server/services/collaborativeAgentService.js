@@ -959,6 +959,7 @@ const PAGE_ANSWER_STOPWORDS = new Set([
 
 const WIKI_WORKSPACE_RETRIEVAL_RE = /\b(across|all|another|broader|compare|cross[-\s]?wiki|elsewhere|find|library|other|related|retrieve|search|sources?|workspace)\b/i;
 const WIKI_SOURCE_ATTRIBUTION_RE = /\b(back(?:s|ed)?|citation|cite|cited|evidence|source|support(?:s|ed|ing)?)\b/i;
+const WIKI_SOURCE_CRITIQUE_RE = /\b(critique|audit|unsupported|not supported|weak support|source quality|missing evidence|evidence (?:is )?missing)\b/i;
 const WIKI_EXACT_SENTENCE_RE = /\b(exact|verbatim|quote|sentence|wording|word-for-word)\b/i;
 const WIKI_SECTION_HEADING_RE = /\b(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\b/gi;
 const WIKI_SECTION_HEADING_START_RE = /^(overview|core idea|how it works|evidence|converging evidence|diverging evidence|implications|tensions|open questions|references)\s+/i;
@@ -1038,6 +1039,56 @@ const scoreClaimForMessage = ({ claimText = '', message = '' } = {}) => {
   return queryTokens.reduce((score, token) => score + (claim.includes(token) ? 1 : 0), 0);
 };
 
+const wikiSourceTopicCoverage = ({ source = {}, pageTitle = '' } = {}) => {
+  const titleTokens = tokenize(pageTitle).filter(token => !PAGE_ANSWER_STOPWORDS.has(token));
+  if (!titleTokens.length) return 0;
+  const sourceText = [source?.title, source?.snippet].map(toSafeString).join(' ').toLowerCase();
+  const matched = titleTokens.filter(token => sourceText.includes(token));
+  return matched.length / titleTokens.length;
+};
+
+const buildWikiSourceCritiqueReply = ({ message = '', contextItem = null } = {}) => {
+  if (contextItem?.type !== 'wiki_page' || !WIKI_SOURCE_CRITIQUE_RE.test(message)) return '';
+  const claimSourceMap = Array.isArray(contextItem.claimSourceMap) ? contextItem.claimSourceMap : [];
+  const sources = Array.isArray(contextItem.sources) ? contextItem.sources : [];
+  if (!claimSourceMap.length) {
+    return 'This page has no claim-source map, so its material claims cannot be audited safely yet.';
+  }
+  const topicalSources = sources.filter(source => wikiSourceTopicCoverage({
+    source,
+    pageTitle: contextItem.title
+  }) >= 0.8);
+  const uncited = claimSourceMap.find(entry => !(Array.isArray(entry?.refs) && entry.refs.length));
+  const offTopic = claimSourceMap.find(entry => (
+    Array.isArray(entry?.refs)
+      && entry.refs.length > 0
+      && !entry.refs.some(source => wikiSourceTopicCoverage({
+        source,
+        pageTitle: contextItem.title
+      }) >= 0.8)
+  ));
+  const formalEquivalence = claimSourceMap.find(entry => (
+    /\b(?:mathematically identical|formally identical|exactly equivalent|the same mechanism)\b/i.test(
+      toSafeString(entry?.claim)
+    )
+  ));
+  const observations = [];
+  if (!topicalSources.length) {
+    observations.push(`None of the attached source titles or snippets directly addresses “${toSafeString(contextItem.title)}”.`);
+  }
+  if (offTopic) {
+    const sourceTitle = toSafeString(offTopic.refs?.[0]?.title) || 'the attached source';
+    observations.push(`The claim “${truncate(offTopic.claim || '', 170)}” is mapped to “${truncate(sourceTitle, 100)}”, but that mapping alone does not establish the claim.`);
+  } else if (uncited) {
+    observations.push(`The claim “${truncate(uncited.claim || '', 170)}” has no attached source.`);
+  }
+  if (formalEquivalence) {
+    observations.push(`The formal-equivalence claim “${truncate(formalEquivalence.claim || '', 150)}” needs a source that explicitly proves the equivalence or it should be removed.`);
+  }
+  observations.push(`What is missing is direct evidence that explains ${toSafeString(contextItem.title)} and separately supports each material analogy or application.`);
+  return observations.slice(0, 4).join(' ');
+};
+
 const buildWikiClaimSourceReply = ({ message = '', contextItem = null } = {}) => {
   if (contextItem?.type !== 'wiki_page') return '';
   if (!WIKI_SOURCE_ATTRIBUTION_RE.test(message)) return '';
@@ -1084,6 +1135,8 @@ const withWikiPageCitations = (reply = '', contextItem = null) => {
 };
 
 const buildWikiPageGroundedReply = ({ message = '', contextItem = null, contextSignals = {} } = {}) => {
+  const critiqueReply = buildWikiSourceCritiqueReply({ message, contextItem });
+  if (critiqueReply) return critiqueReply;
   const sourceReply = buildWikiClaimSourceReply({ message, contextItem });
   if (sourceReply) return sourceReply;
   const wantsOneSentence = /\b(one|1)\s+sentence\b/i.test(message);

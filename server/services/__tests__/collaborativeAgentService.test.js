@@ -603,6 +603,34 @@ const run = async () => {
   });
   assert.match(uncitedClaimReply, /no attached source/i);
 
+  const compoundCritiqueReply = buildReply({
+    message: 'Critique this page. Which claims are not supported by the cited sources, and what direct evidence is missing?',
+    context: { type: 'wiki', id: '69fd2e7d212cd5a5f57db144', title: 'Compound Interest' },
+    contextItem: {
+      type: 'wiki_page',
+      title: 'Compound Interest',
+      fullText: 'Increasing returns are mathematically identical to the compound-interest equation.',
+      sources: [{
+        index: 1,
+        title: 'All Revenue is Not Created Equal',
+        snippet: 'Investors compare marginal profitability and revenue quality.'
+      }],
+      claimSourceMap: [{
+        claim: 'Increasing returns are mathematically identical to the compound-interest equation.',
+        refs: [{
+          index: 1,
+          title: 'All Revenue is Not Created Equal',
+          snippet: 'Investors compare marginal profitability and revenue quality.'
+        }]
+      }]
+    },
+    relatedItems: []
+  });
+  assert.match(compoundCritiqueReply, /None of the attached source titles or snippets directly addresses.*Compound Interest/i);
+  assert.match(compoundCritiqueReply, /mapping alone does not establish the claim/i);
+  assert.match(compoundCritiqueReply, /formal-equivalence claim/i);
+  assert.ok(!/That claim is backed by/i.test(compoundCritiqueReply), 'Critique requests must not confuse an attached citation with substantive support.');
+
   assert.strictEqual(
     shouldSearchWorkspaceForWikiPage({ message: 'What does this page say about Mr. Market?' }),
     false,
