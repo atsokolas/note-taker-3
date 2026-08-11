@@ -14,6 +14,11 @@ const SNIPPET_RADIUS = 70;
 const MAX_SUGGESTIONS = 8;
 const MIN_TITLE_LEN = 4;
 const MAX_TITLE_ALIASES = 8;
+const AUTOLINK_CANDIDATE_PROJECTION = {
+  title: 1,
+  slug: 1,
+  pageType: 1
+};
 const GENERIC_ALIASES = new Set([
   'overview',
   'concept',
@@ -32,10 +37,10 @@ const GENERIC_ALIASES = new Set([
 
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const safeFind = async (Model, query = {}, limit = 600) => {
+const safeFind = async (Model, query = {}, limit = 600, projection = null) => {
   if (!Model?.find) return [];
   try {
-    const cursor = Model.find(query);
+    const cursor = Model.find(query, projection || undefined);
     const sorted = cursor.sort?.({ updatedAt: -1, createdAt: -1 }) || cursor;
     const limited = sorted.limit?.(limit) || sorted;
     const lean = limited.lean?.() || limited;
@@ -43,7 +48,7 @@ const safeFind = async (Model, query = {}, limit = 600) => {
     return Array.isArray(result) ? result : [];
   } catch (_err) {
     try {
-      const result = await Model.find(query);
+      const result = await Model.find(query, projection || undefined);
       return Array.isArray(result) ? result : [];
     } catch (__err) {
       return [];
@@ -176,7 +181,8 @@ const findAutolinkSuggestions = async ({ targetPage, userId, models = {}, limit 
       status: { $ne: 'archived' },
       _id: { $ne: targetId }
     },
-    Math.max(1, Math.min(Number(limit) || 600, 600))
+    Math.max(1, Math.min(Number(limit) || 600, 600)),
+    AUTOLINK_CANDIDATE_PROJECTION
   );
 
   const hits = [];
@@ -215,6 +221,7 @@ module.exports = {
     SNIPPET_RADIUS,
     MAX_SUGGESTIONS,
     MIN_TITLE_LEN,
-    MAX_TITLE_ALIASES
+    MAX_TITLE_ALIASES,
+    AUTOLINK_CANDIDATE_PROJECTION
   }
 };

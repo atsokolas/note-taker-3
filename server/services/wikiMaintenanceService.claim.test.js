@@ -3416,6 +3416,15 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.plainText).toContain('Care and development developmental lens 6');
     expect(page.pageType).toBe('topic');
     expect(page.sourceScope).toBe('selected_sources');
+    expect(page.aiState.sourceScopeAtDraft).toBe('selected_sources');
+    expect(page.aiState.sourceRefIdsAtDraft).toEqual([
+      'article-1',
+      'article-2',
+      'article-3',
+      'article-4',
+      'article-5',
+      'article-6'
+    ]);
   });
 
   it('preserves the stronger first draft when an automatic rebuild regresses', async () => {

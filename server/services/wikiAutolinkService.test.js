@@ -3,14 +3,17 @@ const { findAutolinkSuggestions, __testables } = require('./wikiAutolinkService'
 
 const { buildTitleMatcher, scanTextForCandidate, titleAliases, truncate } = __testables;
 
-const fakeModel = (records) => ({
-  find: () => ({
+const fakeModel = (records, onFind = null) => ({
+  find: (query, projection) => {
+    onFind?.(query, projection);
+    return ({
     sort: () => ({
       limit: () => ({
         lean: () => Promise.resolve(records)
       })
     })
-  })
+    });
+  }
 });
 
 const run = async () => {
@@ -60,6 +63,16 @@ const run = async () => {
     models: { WikiPage: fakeModel([{ _id: 'a', title: 'Compounding interest' }]) }
   });
   assert.deepStrictEqual(noText, { suggestions: [], scanned: 0 });
+
+  const projectionCalls = [];
+  await findAutolinkSuggestions({
+    targetPage: { _id: 'target', plainText: 'Compounding interest matters.' },
+    userId: 'u1',
+    models: {
+      WikiPage: fakeModel([], (_query, projection) => projectionCalls.push(projection))
+    }
+  });
+  assert.deepStrictEqual(projectionCalls[0], __testables.AUTOLINK_CANDIDATE_PROJECTION);
 
   const targetPage = {
     _id: 'target',
