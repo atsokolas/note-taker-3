@@ -1993,7 +1993,11 @@ describe('WikiPageReadView', () => {
     const systemStatusControls = buildSystemStatusControls();
     const rejection = new Error('The wiki candidate did not pass the quality bar.');
     rejection.code = 'WIKI_CANDIDATE_REJECTED';
-    rejection.page = { ...page, sourceRefs: page.sourceRefs.slice(0, 1) };
+    rejection.page = {
+      ...page,
+      title: 'Returned trusted payload should not remount the reader',
+      sourceRefs: page.sourceRefs.slice(0, 1)
+    };
     rejection.qualityFailures = [
       'No cited source directly addresses the page subject "Compound Interest"; add or import a source that explains the topic before rebuilding.'
     ];
@@ -2008,6 +2012,8 @@ describe('WikiPageReadView', () => {
     await waitFor(() => expect(receipt).toHaveAttribute('data-maintenance-state', 'research'));
     expect(receipt).toHaveTextContent('The existing article is unchanged');
     expect(receipt).toHaveTextContent(/directly addresses.*Compound Interest/i);
+    expect(screen.queryByRole('heading', { name: 'Returned trusted payload should not remount the reader' }))
+      .not.toBeInTheDocument();
     expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Wiki rebuild needs better evidence',

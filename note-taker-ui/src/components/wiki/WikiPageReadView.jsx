@@ -1569,7 +1569,10 @@ const WikiPageReadView = ({
         : maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
       const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
       const freshestPage = maintainError?.page || latestPageRef.current || page;
-      if (maintainError?.page) {
+      // A quality rejection returns the last trusted page for context. Replacing
+      // the current page with that byte-equivalent payload can remount the routed
+      // reader and erase the rejection receipt before the user can read it.
+      if (maintainError?.page && !qualityRejected) {
         latestPageRef.current = maintainError.page;
         setPage(maintainError.page);
       }
