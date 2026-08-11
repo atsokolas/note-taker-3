@@ -281,6 +281,62 @@ const tokenize = (value = '') => (
     .filter(token => token.length > 2)
 );
 
+const ORDINARY_QUERY_STOP_WORDS = new Set([
+  'about', 'against', 'among', 'around', 'because', 'between', 'from', 'into',
+  'over', 'that', 'their', 'these', 'this', 'through', 'under', 'what', 'when',
+  'where', 'which', 'while', 'with', 'without'
+]);
+
+const topicTokens = (value = '') => Array.from(new Set(
+  tokenize(value).filter(token => !ORDINARY_QUERY_STOP_WORDS.has(token))
+));
+
+const escapeTopicRegex = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const exactTopicPattern = (value = '') => {
+  const words = topicTokens(value);
+  if (!words.length) return null;
+  return new RegExp(words.map(escapeTopicRegex).join('(?:\\s+|[-–—]\\s*)'), 'i');
+};
+
+const maintenanceQueryText = (page = {}) => {
+  const generated = isLikelyGeneratedPage(page);
+  const userSourceText = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    .filter(source => source?.addedBy === 'user')
+    .map(source => `${source.title || ''} ${source.snippet || source.quote || ''}`)
+    .join(' ');
+  return [
+    page.title,
+    page.createdFrom?.text,
+    page.createdFrom?.label,
+    generated ? '' : page.plainText || toPlainText(page.body),
+    userSourceText
+  ].filter(Boolean).join(' ');
+};
+
+const sourceTopicCoverage = (source = {}, title = '') => {
+  const tokens = topicTokens(title);
+  if (!tokens.length) return 0;
+  const haystack = cleanWikiText([
+    source.title,
+    source.text,
+    source.snippet,
+    source.quote,
+    ...(Array.isArray(source.tags) ? source.tags : [])
+  ].filter(Boolean).join(' ')).toLowerCase();
+  if (!haystack) return 0;
+  const matched = tokens.filter((token) => {
+    if (haystack.includes(token)) return true;
+    const stem = token.replace(/(?:ing|ment|tion|s)$/i, '');
+    return stem.length >= 5 && haystack.includes(stem);
+  });
+  return Number((matched.length / tokens.length).toFixed(2));
+};
+
+const sourceFamilyKey = (source = {}) => asString(
+  source.parentObjectId || source.objectId || source.url || source.title
+).toLowerCase();
+
 const scoreSource = (source, queryTokens = []) => {
   const haystack = `${source.title} ${source.text} ${(source.tags || []).join(' ')}`.toLowerCase();
   const unique = new Set(queryTokens);
@@ -369,14 +425,71 @@ const ARTICLE_SOURCE_PROJECTION = '-pdfs -importMeta -annotations -highlights.an
 const FAST_LIBRARY_LIMITS = { article: 40, notebook: 20, concept: 20, question: 20 };
 const STANDARD_LIBRARY_LIMITS = { article: 150, notebook: 150, concept: 120, question: 120 };
 
-const collectLibrarySources = async ({ userId, models = {}, fastProfile = false } = {}) => {
+const mergeModelRows = (...groups) => {
+  const seen = new Set();
+  return groups.flat().filter((row) => {
+    const id = sourceObjectId(row);
+    const key = id || `${asString(row?.title || row?.name)}:${asString(row?.url)}`;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const collectLibrarySources = async ({ userId, models = {}, fastProfile = false, page = null } = {}) => {
   const limits = fastProfile ? FAST_LIBRARY_LIMITS : STANDARD_LIBRARY_LIMITS;
-  const [articles, notebooks, concepts, questions] = await Promise.all([
+  const topicPattern = exactTopicPattern(page?.title || '');
+  const targetedLimit = fastProfile ? 24 : 80;
+  const [recentArticles, recentNotebooks, recentConcepts, recentQuestions] = await Promise.all([
     runFind(models.Article, { userId }, limits.article, ARTICLE_SOURCE_PROJECTION),
     runFind(models.NotebookEntry, { userId }, limits.notebook),
     runFind(models.TagMeta, { userId }, limits.concept),
     runFind(models.Question, { userId }, limits.question)
   ]);
+  const [targetedArticles, targetedNotebooks, targetedConcepts, targetedQuestions] = topicPattern
+    ? await Promise.all([
+        runFind(models.Article, {
+          userId,
+          $or: [
+            { title: topicPattern },
+            { content: topicPattern },
+            { 'highlights.text': topicPattern },
+            { 'highlights.note': topicPattern },
+            { 'highlights.tags': topicPattern }
+          ]
+        }, targetedLimit, ARTICLE_SOURCE_PROJECTION),
+        runFind(models.NotebookEntry, {
+          userId,
+          $or: [
+            { title: topicPattern },
+            { content: topicPattern },
+            { 'blocks.text': topicPattern },
+            { tags: topicPattern }
+          ]
+        }, targetedLimit),
+        runFind(models.TagMeta, {
+          userId,
+          $or: [
+            { name: topicPattern },
+            { title: topicPattern },
+            { description: topicPattern }
+          ]
+        }, targetedLimit),
+        runFind(models.Question, {
+          userId,
+          $or: [
+            { text: topicPattern },
+            { 'blocks.text': topicPattern },
+            { linkedTagName: topicPattern },
+            { conceptName: topicPattern }
+          ]
+        }, targetedLimit)
+      ])
+    : [[], [], [], []];
+  const articles = mergeModelRows(targetedArticles, recentArticles);
+  const notebooks = mergeModelRows(targetedNotebooks, recentNotebooks);
+  const concepts = mergeModelRows(targetedConcepts, recentConcepts);
+  const questions = mergeModelRows(targetedQuestions, recentQuestions);
 
   const sources = [];
 
@@ -462,13 +575,7 @@ const collectLibrarySources = async ({ userId, models = {}, fastProfile = false 
 };
 
 const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT }) => {
-  const queryText = [
-    page.title,
-    page.plainText,
-    page.createdFrom?.text,
-    page.createdFrom?.label,
-    (page.sourceRefs || []).map(source => `${source.title} ${source.snippet}`).join(' ')
-  ].filter(Boolean).join(' ');
+  const queryText = maintenanceQueryText(page);
   const queryTokens = tokenize(queryText);
   const scoredSources = sources
     .map((source, index) => ({
@@ -485,7 +592,9 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
   const relevantSources = scoredSources
     .filter(source => source.score >= MIN_SOURCE_RELEVANCE_SCORE);
   const minCandidateCount = Math.min(MIN_SPARSE_PAGE_CANDIDATES, limit);
-  const shouldBackfill = sources.length >= minCandidateCount
+  const ordinaryStructure = getWikiPageStructureForPage({ page, candidates: [] });
+  const shouldBackfill = (!ordinaryStructure.flexibleSections || !isLikelyGeneratedPage(page))
+    && sources.length >= minCandidateCount
     && relevantSources.length > 0
     && relevantSources.length < minCandidateCount;
   const selected = !shouldBackfill
@@ -497,10 +606,20 @@ const selectCandidateSources = ({ page, sources, limit = DEFAULT_SOURCE_LIMIT })
           .sort(sortSources)
           .slice(0, Math.max(0, minCandidateCount - relevantSources.length))
       ];
-  return selected
-    .sort(sortSources)
-    .slice(0, limit)
-    .map((source, index) => ({ ...source, index: index + 1 }));
+  const sorted = selected.sort(sortSources);
+  const familyCounts = new Map();
+  const diverse = sorted.filter((source) => {
+    const family = sourceFamilyKey(source);
+    const count = familyCounts.get(family) || 0;
+    if (count >= 3) return false;
+    familyCounts.set(family, count + 1);
+    return true;
+  });
+  return diverse.slice(0, limit).map((source, index) => ({
+    ...source,
+    topicCoverage: sourceTopicCoverage(source, page?.title),
+    index: index + 1
+  }));
 };
 
 const collectKnownWikiPages = async ({ page, userId, models = {}, limit = 40 } = {}) => {
@@ -875,6 +994,8 @@ Ordinary reference Wiki rules:
 - Explain the causal or technical mechanism step by step. For mathematical, scientific, legal, or technical topics, include a concrete worked example, boundary case, or observable test when the supplied evidence supports one.
 - Distinguish a formal equivalence from an analogy. Never call two mechanisms "mathematically identical," "the same," or "proven" unless a cited source directly establishes that relationship.
 - Prefer specific claims over broad scene-setting. Remove paragraphs that merely say analysts, studies, or firms "often" do something without naming the mechanism and attaching evidence.
+- Build the generally useful definition and mechanism before explaining why the subject recurs in this user's Library. Personal connections should deepen the article, not replace the subject.
+- Use a source as authority only when it directly addresses the subject or the specific claim. Adjacent sources may support a labeled analogy or application, but cannot carry the definition.
 - Treat repeated highlights from one article as one evidence family. Do not manufacture authority by citing the same underlying source repeatedly or by spreading one source across many claims.
 - Put citationIndexes at the end of the paragraph they support. Do not attach a citation after every phrase or make one citation appear to support several unrelated assertions.
 - When the library cannot support a definition, example, or important boundary, state the exact gap in Open Questions or maintenance instead of filling the article with plausible general knowledge.
@@ -3202,6 +3323,8 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     repoSourceEvidenceType(sourceRefs[index - 1] || {}) !== 'policy'
   )).length;
   let repoClaimsPerUsedSource = null;
+  let topicallyGroundedSourceCount = null;
+  let evidenceFamilyCount = null;
   const failures = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
@@ -3227,6 +3350,35 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       .reduce((count, pattern) => count + (pattern.test(plainText) ? 1 : 0), 0);
     if (fillerCount >= 2) {
       failures.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
+    }
+    const titleTopicTokens = topicTokens(page?.title || '');
+    topicallyGroundedSourceCount = sourceRefs.filter(source => (
+      sourceTopicCoverage(source, page?.title) >= 0.8
+    )).length;
+    evidenceFamilyCount = new Set(sourceRefs.map(sourceFamilyKey).filter(Boolean)).size;
+    if (!sourceCount && !skipDurableCitationCheck) {
+      failures.push('Ordinary reference article has no cited Library sources; add or import material that directly explains the subject before rebuilding.');
+    }
+    if (sourceCount && titleTopicTokens.length >= 2 && topicallyGroundedSourceCount === 0) {
+      failures.push(`No cited source directly addresses the page subject "${asString(page?.title)}"; add or import a source that explains the topic before rebuilding.`);
+    }
+    if (sourceCount >= 4 && evidenceFamilyCount < 2) {
+      failures.push('Ordinary reference article draws all evidence from one source family; add an independent source or narrow the article to what that source alone establishes.');
+    }
+    const firstArticleClaim = docClaims[0] || null;
+    if (sourceCount && firstArticleClaim && !(firstArticleClaim.citationIndexes || []).length) {
+      failures.push('Ordinary reference article opens with an uncited definition or synthesis.');
+    }
+    const equivalencePattern = /\b(?:mathematically identical|formally identical|exactly equivalent|the same mechanism)\b/i;
+    if (
+      equivalencePattern.test(plainText)
+      && !sourceRefs.some(source => equivalencePattern.test([
+        source.snippet,
+        source.quote,
+        source.text
+      ].filter(Boolean).join(' ')))
+    ) {
+      failures.push('Ordinary reference article asserts a formal equivalence that the cited source text does not establish.');
     }
   }
   const minWords = isRepoQualityPage
@@ -3330,6 +3482,8 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       usedSubstantiveSourceCount,
       claimsPerUsedSource: repoClaimsPerUsedSource,
       danglingCitationCount: danglingCitationIndexes.length,
+      topicallyGroundedSourceCount,
+      evidenceFamilyCount,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
         ? { investmentDossier: investmentDossierQuality.metrics }
@@ -3509,7 +3663,7 @@ const maintainWikiPage = async ({
   }).profile === 'investment_dossier';
   const allSources = asString(page?.sourceScope).toLowerCase() === 'selected_sources' || investmentDossierAtStart
     ? []
-    : await collectLibrarySources({ userId, models, fastProfile });
+    : await collectLibrarySources({ userId, models, fastProfile, page });
   const selectionPage = investmentDossierAtStart
     ? {
         ...(typeof page?.toObject === 'function' ? page.toObject() : page),

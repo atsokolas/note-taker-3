@@ -319,9 +319,30 @@ export const archiveWikiPage = async (id) => {
 
 export const deleteWikiPage = archiveWikiPage;
 
+const wikiMaintenanceError = (requestError) => {
+  const payload = requestError?.response?.data || {};
+  const qualityFailures = Array.isArray(payload?.quality?.failures)
+    ? payload.quality.failures.filter(Boolean)
+    : [];
+  const message = payload.error
+    || requestError?.message
+    || 'The Wiki rebuild was interrupted. The existing article is unchanged.';
+  const error = new Error(message);
+  error.code = payload.code || requestError?.code || '';
+  error.page = payload.page || null;
+  error.quality = payload.quality || null;
+  error.qualityFailures = qualityFailures;
+  error.retryable = error.code !== 'WIKI_CANDIDATE_REJECTED';
+  return error;
+};
+
 export const maintainWikiPage = async (id, options = {}) => {
-  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft`, options, getAuthHeaders());
-  return res.data;
+  try {
+    const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft`, options, getAuthHeaders());
+    return res.data;
+  } catch (error) {
+    throw wikiMaintenanceError(error);
+  }
 };
 
 export const draftWikiPage = maintainWikiPage;

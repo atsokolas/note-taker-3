@@ -1,4 +1,9 @@
-const { __testables, maintainWikiPage, selectCandidateSources } = require('./wikiMaintenanceService');
+const {
+  __testables,
+  collectLibrarySources,
+  maintainWikiPage,
+  selectCandidateSources
+} = require('./wikiMaintenanceService');
 
 const {
   attachClaimCitationIds,
@@ -289,6 +294,168 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       skipDurableCitationCheck: true
     });
     expect(fillerQuality.failures.join(' ')).toMatch(/generic scene-setting/i);
+  });
+
+  it('does not let an AI-generated article contaminate its next source search', () => {
+    const candidates = selectCandidateSources({
+      page: {
+        title: 'Compound Interest',
+        pageType: 'concept',
+        plainText: 'Network effects, revenue quality, and platform pricing create increasing returns.',
+        aiState: { lastDraftedAt: new Date('2026-08-01T00:00:00.000Z') },
+        sourceRefs: [{
+          title: 'Platform strategy',
+          snippet: 'Revenue quality and network effects shape platform valuation.',
+          addedBy: 'ai'
+        }]
+      },
+      sources: [{
+        type: 'article',
+        objectId: 'compound-source',
+        title: 'Compound interest and effective annual rates',
+        text: 'Compound interest applies a periodic rate to principal plus accumulated interest.'
+      }, {
+        type: 'article',
+        objectId: 'platform-source',
+        title: 'Platform strategy',
+        text: 'Network effects, revenue quality, and pricing shape marketplace returns.'
+      }],
+      limit: 6
+    });
+
+    expect(candidates.map(candidate => candidate.objectId)).toEqual(['compound-source']);
+    expect(candidates[0].topicCoverage).toBe(1);
+  });
+
+  it('searches beyond the recent-library cap for an older exact-topic source', async () => {
+    const cursorFor = records => ({
+      sort() { return this; },
+      limit() { return this; },
+      lean: async () => records
+    });
+    const oldTopicalArticle = {
+      _id: 'old-compound-source',
+      title: 'Compound Interest: periodic and effective rates',
+      content: 'Compound interest credits interest on principal plus accumulated interest.',
+      highlights: []
+    };
+    const Article = {
+      find: jest.fn(query => cursorFor(query.$or ? [oldTopicalArticle] : [{
+        _id: 'recent-unrelated',
+        title: 'Recent platform strategy',
+        content: 'Marketplaces and network effects.',
+        highlights: []
+      }]))
+    };
+
+    const sources = await collectLibrarySources({
+      userId: 'user-1',
+      page: { title: 'Compound Interest' },
+      models: {
+        Article,
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([])
+      }
+    });
+
+    expect(Article.find).toHaveBeenCalledTimes(2);
+    expect(Article.find.mock.calls.some(([query]) => Array.isArray(query.$or))).toBe(true);
+    expect(sources.map(source => source.objectId)).toEqual([
+      'old-compound-source',
+      'recent-unrelated'
+    ]);
+  });
+
+  it('rejects an ordinary article whose citations do not directly address its subject', () => {
+    const body = docFromArticle({
+      title: 'Compound Interest',
+      article: {
+        summary: {
+          text: 'Compound interest applies a periodic rate to principal and accumulated interest.',
+          citationIndexes: [1],
+          support: 'supported'
+        },
+        sections: [{
+          heading: 'Compounding frequency',
+          paragraphs: [{
+            text: 'More frequent crediting changes the effective annual rate.',
+            citationIndexes: [1],
+            support: 'supported'
+          }],
+          bullets: []
+        }]
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Compound Interest', pageType: 'concept' },
+      body,
+      sourceRefs: [{
+        title: 'Platform strategy',
+        snippet: 'Revenue quality and network effects shape marketplace returns.'
+      }],
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.failures.join(' ')).toMatch(/No cited source directly addresses.*Compound Interest/i);
+    expect(quality.metrics.topicallyGroundedSourceCount).toBe(0);
+  });
+
+  it('accepts topical source grounding and rejects unsupported formal equivalence language', () => {
+    const article = {
+      summary: {
+        text: 'Compound interest applies a periodic rate to principal and accumulated interest.',
+        citationIndexes: [1],
+        support: 'supported'
+      },
+      sections: [{
+        heading: 'Compounding frequency',
+        paragraphs: [{
+          text: 'A network effect is mathematically identical to compound interest.',
+          citationIndexes: [1],
+          support: 'partial'
+        }],
+        bullets: []
+      }]
+    };
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Compound Interest', pageType: 'concept' },
+      body: docFromArticle({ title: 'Compound Interest', article }),
+      sourceRefs: [{
+        title: 'Compound interest and effective annual rates',
+        snippet: 'Compound interest applies each periodic rate to principal plus accumulated interest.'
+      }],
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.metrics.topicallyGroundedSourceCount).toBe(1);
+    expect(quality.failures.join(' ')).toMatch(/formal equivalence/i);
+  });
+
+  it('applies the same topical-source contract to an unrelated ordinary subject', () => {
+    const candidates = selectCandidateSources({
+      page: {
+        title: 'Opportunity Cost',
+        pageType: 'concept',
+        plainText: 'Platform scale and marketplace liquidity create competitive advantage.',
+        aiState: { lastDraftedAt: new Date('2026-08-01T00:00:00.000Z') }
+      },
+      sources: [{
+        type: 'article',
+        objectId: 'opportunity-cost-source',
+        title: 'Opportunity cost and foregone alternatives',
+        text: 'Opportunity cost is the value of the best alternative forgone when a choice is made.'
+      }, {
+        type: 'article',
+        objectId: 'platform-source',
+        title: 'Marketplace liquidity',
+        text: 'Platform scale and liquidity can create competitive advantage.'
+      }],
+      limit: 6
+    });
+
+    expect(candidates.map(candidate => candidate.objectId)).toEqual(['opportunity-cost-source']);
+    expect(candidates[0].topicCoverage).toBe(1);
   });
 
   it('turns SEC-watched pages into investment-decision dossiers', () => {

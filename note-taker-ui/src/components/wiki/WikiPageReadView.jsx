@@ -1560,7 +1560,13 @@ const WikiPageReadView = ({
         pageTitle: maintained?.title
       }));
     } catch (maintainError) {
-      const message = maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
+      const qualityRejected = maintainError?.code === 'WIKI_CANDIDATE_REJECTED';
+      const qualityFailures = Array.isArray(maintainError?.qualityFailures)
+        ? maintainError.qualityFailures.filter(Boolean)
+        : [];
+      const message = qualityRejected
+        ? `The existing article is unchanged. ${qualityFailures[0] || 'The candidate did not meet the reference-page quality standard.'}`
+        : maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
       const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
       const freshestPage = maintainError?.page || latestPageRef.current || page;
       if (maintainError?.page) {
@@ -1568,7 +1574,13 @@ const WikiPageReadView = ({
         setPage(maintainError.page);
       }
       setError(message);
-      setMaintenanceTraceLines(evidenceIncomplete
+      setMaintenanceTraceLines(qualityRejected
+        ? [
+          `checked ${countPageSources(freshestPage)} source${countPageSources(freshestPage) === 1 ? '' : 's'}`,
+          'candidate stopped before replacing the trusted article',
+          ...qualityFailures.slice(0, 2)
+        ]
+        : evidenceIncomplete
         ? [
           `checked ${countPageSources(freshestPage)} source${countPageSources(freshestPage) === 1 ? '' : 's'}`,
           'research stopped before drafting',
@@ -1579,13 +1591,20 @@ const WikiPageReadView = ({
           'waiting for retry'
         ]);
       setMaintenanceReceipt({
-        status: evidenceIncomplete ? 'research' : 'failed',
-        issueCount: 0,
+        status: qualityRejected || evidenceIncomplete ? 'research' : 'failed',
+        issueCount: qualityFailures.length,
         sourceCount: countPageSources(freshestPage),
         claimCount: countPageClaims(freshestPage),
         summary: message
       });
-      if (evidenceIncomplete) {
+      if (qualityRejected) {
+        systemStatus.setLatestReceipt({
+          title: 'Wiki rebuild needs better evidence',
+          summary: message,
+          status: 'needs_review',
+          href: `/wiki/workspace?page=${encodeURIComponent(pageId)}#wiki-read-references-title`
+        });
+      } else if (evidenceIncomplete) {
         systemStatus.setLatestReceipt({
           title: 'Dossier research is incomplete',
           summary: message,
@@ -2971,12 +2990,16 @@ const WikiPageReadView = ({
                             ? 'Checking this page against your corpus'
                             : maintenanceReceipt?.status === 'settled'
                               ? 'Page maintenance settled'
+                              : maintenanceReceipt?.status === 'research'
+                                ? 'Stronger evidence needed'
                               : maintenanceDisplayState === 'failed'
                                 ? 'Maintenance needs a retry'
                                 : 'Available when you want it'}
                         </h2>
                         <p>
-                          {maintenanceReceipt
+                          {maintenanceReceipt?.status === 'research'
+                            ? maintenanceReceipt.summary
+                            : maintenanceReceipt
                             ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
                             : 'Check sources and claims without interrupting the article.'}
                         </p>
@@ -2994,7 +3017,7 @@ const WikiPageReadView = ({
                         surface={page?.title || 'Wiki page'}
                       />
                       <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
-                        {maintenanceActive ? 'Running...' : 'Run again'}
+                        {maintenanceActive ? 'Running...' : maintenanceReceipt?.status === 'research' ? 'Check again' : 'Run again'}
                       </Button>
                     </section>
                     {shareCard}

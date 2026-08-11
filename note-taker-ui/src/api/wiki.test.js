@@ -4,6 +4,7 @@ import {
   approveWeekendReadingsRevision,
   createRepoWikiFromGitHub,
   getWeekendReadingsStatus,
+  maintainWikiPage,
   publishWeekendReadingsRevision,
   requestWeekendReadingsReview,
   restoreInitialWikiJudgment,
@@ -37,6 +38,34 @@ describe('wiki judgment api', () => {
     expect(api.post.mock.calls[0][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot');
     expect(api.post.mock.calls[1][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot/restore');
     expect(getAuthHeaders).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ordinary Wiki maintenance api', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('preserves the structured quality rejection instead of showing an Axios status message', async () => {
+    api.post.mockRejectedValueOnce({
+      message: 'Request failed with status code 422',
+      response: {
+        data: {
+          error: 'The wiki candidate did not pass the quality bar. The last trusted version is unchanged.',
+          code: 'WIKI_CANDIDATE_REJECTED',
+          page: { _id: 'page-1', title: 'Compound Interest' },
+          quality: {
+            failures: ['No cited source directly addresses the page subject "Compound Interest"; add or import a source that explains the topic before rebuilding.']
+          }
+        }
+      }
+    });
+
+    await expect(maintainWikiPage('page-1')).rejects.toMatchObject({
+      message: 'The wiki candidate did not pass the quality bar. The last trusted version is unchanged.',
+      code: 'WIKI_CANDIDATE_REJECTED',
+      retryable: false,
+      page: { _id: 'page-1' },
+      qualityFailures: [expect.stringMatching(/directly addresses.*Compound Interest/i)]
+    });
   });
 });
 
