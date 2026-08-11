@@ -1973,17 +1973,20 @@ body.noeis-editorial .think-home-editorial__reference-search input:focus {
 
 body.noeis-editorial .think-home-editorial__reference-results {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--vellum-line);
 }
 
 body.noeis-editorial .think-home-editorial__reference-result {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 3px 14px;
   min-width: 0;
-  padding: 10px 11px;
-  border: 1px solid color-mix(in srgb, var(--vellum-line) 88%, transparent);
-  background: color-mix(in srgb, var(--vellum-page) 82%, transparent);
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--vellum-line);
+  background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -1991,8 +1994,7 @@ body.noeis-editorial .think-home-editorial__reference-result {
 
 body.noeis-editorial .think-home-editorial__reference-result:hover,
 body.noeis-editorial .think-home-editorial__reference-result:focus-visible {
-  border-color: color-mix(in srgb, var(--vellum-cyan) 55%, var(--vellum-line));
-  background: color-mix(in srgb, var(--vellum-cyan) 8%, var(--vellum-page));
+  background: color-mix(in srgb, var(--vellum-warm) 7%, transparent);
   outline: none;
 }
 
@@ -2008,8 +2010,8 @@ body.noeis-editorial .think-home-editorial__reference-result span {
 body.noeis-editorial .think-home-editorial__reference-result strong {
   overflow: hidden;
   color: var(--vellum-ink);
-  font-family: var(--noeis-ui-font);
-  font-size: 0.84rem;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2022,6 +2024,7 @@ body.noeis-editorial .think-home-editorial__reference-result small {
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  grid-column: 2;
 }
 
 body.noeis-editorial .think-home-editorial__reference-strip {
@@ -10547,12 +10550,11 @@ body.noeis-editorial .think-calm-index__primary-move,
   gap: 18px;
   align-items: center;
   margin: 24px 0 28px;
-  padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 30%, var(--nt-divider));
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 8%, transparent), transparent 68%),
-    color-mix(in srgb, var(--surface) 92%, transparent);
+  padding: 20px 0;
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 36%, var(--nt-divider));
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-radius: 0;
+  background: transparent;
 }
 
 body.noeis-editorial .think-calm-index__primary-eyebrow,
@@ -10588,8 +10590,8 @@ body.noeis-editorial .think-calm-index__primary-action,
   min-height: 38px;
   padding: 8px 13px;
   border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 48%, var(--nt-divider));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 10%, var(--surface));
+  border-radius: 0;
+  background: transparent;
   color: var(--text-primary);
   font-size: 0.74rem;
   font-weight: 800;
@@ -10598,6 +10600,28 @@ body.noeis-editorial .think-calm-index__primary-action,
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+body.noeis-editorial .think-home-agent-tools {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-home-agent-tools > summary {
+  color: var(--vellum-muted);
+  font-family: var(--noeis-ui-font);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+body.noeis-editorial .think-home-agent-tools__body {
+  display: grid;
+  gap: 18px;
+  padding-top: 16px;
 }
 
 body.noeis-editorial .think-calm-index__primary-action:hover,

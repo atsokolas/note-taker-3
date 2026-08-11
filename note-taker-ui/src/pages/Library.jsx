@@ -827,6 +827,29 @@ const Library = () => {
     </div>
   );
 
+  const sourceIndexFolders = (
+    <div className="library-source-index-folders" data-testid="library-source-index-folders">
+      {foldersLoading ? <p className="muted small">Loading folders…</p> : null}
+      {foldersError ? <p className="status-message error-message">{foldersError}</p> : null}
+      {!foldersLoading && !foldersError ? (
+        <FolderTree
+          folders={folders}
+          counts={folderCounts}
+          selectedFolderId={folderId}
+          onSelectFolder={handleSelectFolder}
+        />
+      ) : null}
+      <Link className="library-source-index-folders__saved" to="/views">Saved views</Link>
+      {!tagsLoading && visibleTags.length > 0 ? (
+        <div className="library-source-index-folders__tags">
+          {visibleTags.slice(0, 6).map(tag => (
+            <TagChip key={tag.tag} to={`/tags/${encodeURIComponent(tag.tag)}`}>{tag.tag}</TagChip>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+
   const isReadingView = Boolean(selectedArticleId);
   const articleContextMetadata = useMemo(() => (
     buildArticleAmbientContext({
@@ -924,7 +947,7 @@ const Library = () => {
     storedOpen: rightOpen,
     userOverride: contextOverride
   });
-  const effectiveLeftOpen = isReadingView ? false : getContextPanelOpen({
+  const effectiveLeftOpen = isReadingView || scope === 'all' ? false : getContextPanelOpen({
     hasSelection: Boolean(selectedArticleId),
     storedOpen: leftOpen,
     userOverride: cabinetOverride
@@ -978,6 +1001,7 @@ const Library = () => {
       onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       allArticles={allArticles}
       unfiledCount={unfiledCount}
+      shelfNavigation={sourceIndexFolders}
       onReviewFiling={handleReviewFiling}
       filingLaunching={filingLaunching}
       filingReceipt={filingReceipt}
@@ -1151,7 +1175,7 @@ const Library = () => {
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
       <ThreePaneLayout
         className={`three-pane--editorial three-pane--library ${isReadingView ? 'three-pane--library-reading' : 'three-pane--library-browse'}`}
-        left={leftPanel}
+        left={scope === 'all' && !isReadingView ? null : leftPanel}
         main={mainPanel}
         right={contextualRightPanel}
         rightTitle={AGENT_DISPLAY_NAME}
@@ -1176,9 +1200,11 @@ const Library = () => {
             >
               {organizeLaunching ? 'Starting…' : 'Clean up structure'}
             </QuietButton>
-            <QuietButton className="list-button" onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
-              Cabinet
-            </QuietButton>
+            {scope !== 'all' ? (
+              <QuietButton className="list-button" onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
+                Folders
+              </QuietButton>
+            ) : null}
             <QuietButton className="list-button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
               {AGENT_DISPLAY_NAME}
             </QuietButton>

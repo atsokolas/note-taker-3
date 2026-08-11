@@ -4342,58 +4342,62 @@ const ThinkMode = () => {
         emptyStateText="Use the stream to sort the notebook, concepts, and open questions before diving deeper."
         submitLabel="↗"
       />
-      <AgentArtifactDraftsPanel
-        draftsModel={sharedArtifactDraftsModel}
-        title="Draft staging"
-        subtitle="Recent agent outputs that are ready to land somewhere in Think."
-        emptyText="No staged drafts yet."
-        accent="output"
-        className="editorial-side-rail__section editorial-side-rail__drafts think-draft-staging-panel"
-        compact
-        maxPending={3}
-        showPromoted={false}
-        onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
-        onOpenThreadFromDraft={handleOpenThreadFromDraft}
-        onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
-        onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
-        contextType="think"
-        contextId="think-home"
-        contextTitle="Think home"
-      />
-      <UpkeepCyclesPanel
-        upkeepCyclesModel={upkeepCyclesModel}
-        className="editorial-side-rail__section"
-        onOpenThread={handleOpenThread}
-        onOpenHandoff={handleOpenHandoff}
-      />
-      <AgentSkillDock
-        surface="workspace"
-        contextType="think"
-        category="output"
-        contextId="think-home"
-        targetContextType="think"
-        targetContextId="think-home"
-        contextTitle="Think home"
-        title="Output studio"
-        subtitle="Package the workspace into briefs, synthesis docs, and presentation-ready outlines."
-        className="editorial-side-rail__section agent-skill-dock--output"
-        maxVisible={4}
-        onInvoke={queueThoughtPartnerPrompt}
-      />
-      <AgentSkillDock
-        surface="workspace"
-        contextType="think"
-        category="maintain"
-        contextId="think-home"
-        targetContextType="think"
-        targetContextId="think-home"
-        contextTitle="Think home"
-        title="Workspace maintenance"
-        subtitle="Scan the workspace for gaps, duplicates, stale framing, contradictions, missing links, concept health, and hygiene drift."
-        className="editorial-side-rail__section agent-skill-dock--maintenance"
-        maxVisible={10}
-        onInvoke={queueThoughtPartnerPrompt}
-      />
+      <details className="think-home-agent-tools editorial-side-rail__section">
+        <summary>Staged work and agent tools</summary>
+        <div className="think-home-agent-tools__body">
+          <AgentArtifactDraftsPanel
+            draftsModel={sharedArtifactDraftsModel}
+            title="Draft staging"
+            subtitle="Recent agent outputs ready to land in Think."
+            emptyText="No staged drafts yet."
+            accent="output"
+            className="editorial-side-rail__drafts think-draft-staging-panel"
+            compact
+            maxPending={3}
+            showPromoted={false}
+            onInvokeWorkflowSkill={queueThoughtPartnerPrompt}
+            onOpenThreadFromDraft={handleOpenThreadFromDraft}
+            onCreateHandoffFromDraft={handleCreateHandoffFromDraft}
+            onQueueFollowUpLoop={handleQueueFollowUpLoopFromDraft}
+            contextType="think"
+            contextId="think-home"
+            contextTitle="Think home"
+          />
+          <UpkeepCyclesPanel
+            upkeepCyclesModel={upkeepCyclesModel}
+            onOpenThread={handleOpenThread}
+            onOpenHandoff={handleOpenHandoff}
+          />
+          <AgentSkillDock
+            surface="workspace"
+            contextType="think"
+            category="output"
+            contextId="think-home"
+            targetContextType="think"
+            targetContextId="think-home"
+            contextTitle="Think home"
+            title="Output studio"
+            subtitle="Package this workspace into a useful artifact."
+            className="agent-skill-dock--output"
+            maxVisible={4}
+            onInvoke={queueThoughtPartnerPrompt}
+          />
+          <AgentSkillDock
+            surface="workspace"
+            contextType="think"
+            category="maintain"
+            contextId="think-home"
+            targetContextType="think"
+            targetContextId="think-home"
+            contextTitle="Think home"
+            title="Workspace maintenance"
+            subtitle="Review gaps, duplicates, contradictions, and stale framing."
+            className="agent-skill-dock--maintenance"
+            maxVisible={10}
+            onInvoke={queueThoughtPartnerPrompt}
+          />
+        </div>
+      </details>
 
       {homeArticlesError && (
         <p className="status-message error-message">{homeArticlesError}</p>

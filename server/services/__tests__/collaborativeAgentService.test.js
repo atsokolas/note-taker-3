@@ -10,6 +10,7 @@ const {
   buildOrientationReply,
   loadGraphRelatedItems,
   buildPartnerChatMessages,
+  groundOrdinalWorkspaceReferences,
   buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
   pruneRelatedItemsForContext,
@@ -813,6 +814,32 @@ const run = async () => {
   assert.ok(
     hfMessages.some((entry) => entry.role === 'system' && entry.content.includes('grounded thought partner')),
     'HF partner messages should include a grounding system instruction.'
+  );
+  assert.ok(
+    hfMessages.some((entry) => entry.role === 'system' && /name its exact provided title/i.test(entry.content)),
+    'The thought partner should be instructed to recommend workspace items by exact title.'
+  );
+  const hfGrounding = hfMessages.find((entry) => entry.role === 'user' && /Open questions:/i.test(entry.content));
+  assert.ok(hfGrounding, 'HF partner messages should include the open-question grounding block.');
+  assert.match(
+    hfGrounding.content,
+    /What kind of evidence would show whether this belongs in investing or only in AI systems\?/i,
+    'The grounding block should expose the actual question title.'
+  );
+  assert.ok(
+    !/Question 1/i.test(hfGrounding.content),
+    'The grounding block should not replace an available question title with an ordinal.'
+  );
+  assert.strictEqual(
+    groundOrdinalWorkspaceReferences(
+      'Question 3 is the sharpest; revisit Question 1 after Action 2.',
+      {
+        openQuestions: ['Loss aversion and first principles', 'Identity attachment at work', 'Liquidity and algorithmic markets'],
+        nextActions: ['Read the a16Z note', 'Compare the market structures']
+      }
+    ),
+    '“Liquidity and algorithmic markets” is the sharpest; revisit “Loss aversion and first principles” after “Compare the market structures”.',
+    'Any residual ordinal language from a model response should be rebound to exact workspace titles.'
   );
   assert.ok(
     hfMessages.some((entry) => entry.role === 'user' && entry.content.includes('Retrieved internal material')),

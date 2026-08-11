@@ -1,11 +1,15 @@
 body.noeis-editorial .library-composition {
   --library-memory-accent: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 74%, var(--vellum-ink));
   display: grid;
-  grid-template-columns: minmax(168px, 220px) minmax(0, 1.35fr) minmax(220px, .9fr);
+  grid-template-columns: minmax(188px, 228px) minmax(0, 1fr);
   gap: 28px 32px;
   align-items: start;
   min-width: 0;
   width: 100%;
+}
+
+body.noeis-editorial .library-composition.has-selection {
+  grid-template-columns: minmax(180px, 220px) minmax(360px, 1.3fr) minmax(230px, .8fr);
 }
 
 body.noeis-editorial .library-composition__index,
@@ -48,6 +52,36 @@ body.noeis-editorial .library-source-memory__views--stack {
   gap: 2px;
 }
 
+body.noeis-editorial .library-source-index__folders .folder-tree {
+  display: grid;
+  gap: 2px;
+}
+
+body.noeis-editorial .library-source-index__folders :is(button, a) {
+  min-height: 32px;
+  font-family: var(--noeis-ui-font);
+  font-size: .75rem;
+}
+
+body.noeis-editorial .library-source-index-folders__saved {
+  display: inline-block;
+  margin-top: 8px;
+  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
+  text-decoration: none;
+}
+
+body.noeis-editorial .library-source-index-folders__saved:is(:hover, :focus-visible) {
+  color: var(--library-memory-accent);
+  text-decoration: underline;
+}
+
+body.noeis-editorial .library-source-index-folders__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 body.noeis-editorial .library-source-index__nav button,
 body.noeis-editorial .library-source-memory__views--stack button {
   display: flex;
@@ -83,6 +117,33 @@ body.noeis-editorial .library-source-index__footer {
 body.noeis-editorial .library-composition .library-source-row.is-selected {
   border-left: 2px solid var(--library-memory-accent);
   background: color-mix(in srgb, var(--library-memory-accent) 10%, transparent);
+}
+
+body.noeis-editorial .library-composition .library-article-row {
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  column-gap: 20px;
+  padding-block: 18px;
+}
+
+body.noeis-editorial .library-composition .library-article-row-title {
+  font-size: clamp(1.12rem, 1.35vw, 1.38rem) !important;
+  font-weight: 560 !important;
+  line-height: 1.18 !important;
+  text-wrap: pretty;
+}
+
+body.noeis-editorial .library-composition .library-article-row-date {
+  padding-top: 3px;
+  font-size: .62rem;
+  letter-spacing: .1em;
+}
+
+body.noeis-editorial .library-composition .library-article-row-kicker,
+body.noeis-editorial .library-composition .library-article-row-meta {
+  gap: 7px 12px;
+  font-size: .66rem;
+  letter-spacing: .09em;
+  line-height: 1.35;
 }
 
 body.noeis-editorial .library-composition .library-article-row-relevance {

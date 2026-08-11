@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createBackendRecovery, shouldRecoverBackend } from './apiRecovery';
 
 const resolveBaseUrl = () => {
   const explicit = String(process.env.REACT_APP_API_BASE_URL || '').trim();
@@ -73,6 +74,13 @@ const api = axios.create({
   baseURL: BASE_URL,
 });
 
+const recoverBackend = createBackendRecovery({
+  probe: () => axios.get(`${BASE_URL}/health`, {
+    timeout: 5000,
+    headers: { Accept: 'application/json' }
+  })
+});
+
 api.interceptors.request.use((config) => {
   if (isPublicAuthRequest(config)) return config;
   const token = localStorage.getItem('token');
@@ -99,7 +107,7 @@ api.interceptors.response.use(
   // If the response is successful, just return it
   (response) => response,
   // If the response has an error...
-  (error) => {
+  async (error) => {
     if (isPublicAuthRequest(error.config)) {
       return Promise.reject(error);
     }
@@ -109,6 +117,17 @@ api.interceptors.response.use(
       const reason = authError === 'AUTH_EXPIRED' ? 'expired' : 'unauthorized';
       console.log("Authentication error detected. Redirecting to login.");
       redirectToLogin(reason);
+    }
+    if (shouldRecoverBackend(error)) {
+      try {
+        await recoverBackend();
+        return api.request({
+          ...error.config,
+          __noeisWakeRetry: true
+        });
+      } catch (_recoveryError) {
+        // Preserve the original request error so the surface can report it honestly.
+      }
     }
     // For all other errors, just pass them along
     return Promise.reject(error);

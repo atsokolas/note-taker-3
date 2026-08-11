@@ -48,6 +48,7 @@ const LibraryMain = ({
   onDumpHighlight,
   allArticles = [],
   unfiledCount = 0,
+  shelfNavigation = null,
   onReviewFiling,
   filingLaunching = false,
   filingReceipt = null,
@@ -264,7 +265,7 @@ const LibraryMain = ({
     );
     return (
       <div
-        className={`library-main-browse library-composition${compactComposition ? ' is-compact' : ''}`}
+        className={`library-main-browse library-composition${compactComposition ? ' is-compact' : ''}${selectedSourceKey ? ' has-selection' : ''}`}
         data-testid="library-composition"
         data-composition-layout={compactComposition ? 'compact' : 'rail'}
       >
@@ -281,6 +282,7 @@ const LibraryMain = ({
             scope={scope}
             unfiledCount={unfiledCount}
             onSelectScope={onSelectScope}
+            shelfNavigation={shelfNavigation}
             coverageStatus={relevanceState.coverage?.status || null}
             showSuppressed={suppressedVisible}
           />
@@ -351,7 +353,7 @@ const LibraryMain = ({
           )}
         </div>
 
-        {!compactComposition ? (
+        {!compactComposition && selectedSourceKey ? (
           <aside className="library-composition__preview" aria-label="Selected source">
             {sourceTrace}
           </aside>

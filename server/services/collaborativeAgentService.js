@@ -1327,6 +1327,7 @@ const buildPartnerSystemPrompt = ({ intent = '', contextItem = null } = {}) => {
     'Use only the workspace context, retrieved internal material, and conversation history provided to you.',
     'Do not invent sources, titles, quotes, or facts that are not present in the provided material.',
     'If the evidence is thin, say that directly and suggest the sharpest next move.',
+    'When recommending a workspace item, name its exact provided title. Never refer to available items only as Question 1, Question 2, Item 1, or similar ordinals.',
     'Keep the tone concise, specific, and editorial rather than generic assistant chatter.',
     'Prefer 2 to 4 sentences unless the user explicitly asks for a longer artifact.',
     contextLabel ? `Stay anchored to ${contextLabel}.` : '',
@@ -1370,19 +1371,32 @@ const buildPartnerGroundingBlock = ({
         : 'Retrieved internal material:',
     ...(relatedItems.length ? formatPartnerMaterialLines(relatedItems) : contextItem?.type === 'wiki_page' ? [] : formatPartnerMaterialLines(relatedItems)),
     'Open questions:',
-    ...formatPartnerMaterialLines(openQuestions.map((text, index) => ({
+    ...formatPartnerMaterialLines(openQuestions.map((text) => ({
       type: 'question',
-      title: `Question ${index + 1}`,
-      snippet: text
+      title: text,
+      snippet: 'Open question'
     }))),
     'Next actions in the workspace:',
-    ...formatPartnerMaterialLines(nextActions.map((text, index) => ({
+    ...formatPartnerMaterialLines(nextActions.map((text) => ({
       type: 'action',
-      title: `Action ${index + 1}`,
-      snippet: text
+      title: text,
+      snippet: 'Available next action'
     }))),
     `Current user request: ${message}`
   ].filter(Boolean).join('\n');
+};
+
+const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}) => {
+  const metadata = normalizeAmbientContextMetadata(metadataSource);
+  const replaceOrdinal = (text, label, titles) => text.replace(
+    new RegExp(`\\b${label}\\s+(\\d+)\\b`, 'gi'),
+    (match, ordinal) => {
+      const title = titles[Number(ordinal) - 1];
+      return title ? `“${title}”` : match;
+    }
+  );
+  const withQuestionTitles = replaceOrdinal(toSafeString(reply), 'Question', metadata.openQuestions);
+  return replaceOrdinal(withQuestionTitles, 'Action', metadata.nextActions);
 };
 
 const buildPartnerChatMessages = ({
@@ -2685,6 +2699,7 @@ const generateCollaborativeReply = async ({
       });
     }
   }
+  finalReply = groundOrdinalWorkspaceReferences(finalReply, context?.metadata);
   const planner = buildAgentPlanner({
     taskType: context?.metadata?.taskType || 'custom',
     skillInvocation,
@@ -2764,6 +2779,7 @@ module.exports = {
     buildOrientationReply,
     loadGraphRelatedItems,
     buildPartnerChatMessages,
+    groundOrdinalWorkspaceReferences,
     buildOutputArtifactReply,
     buildWikiClaimSourceReply,
     prepareRelatedItemsForReply,

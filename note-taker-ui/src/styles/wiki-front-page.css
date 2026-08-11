@@ -434,23 +434,84 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   padding-top: 18px;
   border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
 }
-.wiki-front-page__index {
-  margin: 10px 0 0;
-  max-width: 70ch;
+.wiki-front-page__library-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.wiki-front-page__library-head > div { display: grid; gap: 4px; }
+.wiki-front-page__library-head p {
+  margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.02rem;
-  line-height: 1.9;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  color: var(--text-primary);
+}
+.wiki-front-page__library-head > span {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: .7rem;
+  letter-spacing: .12em;
+  color: var(--text-muted);
+}
+.wiki-front-page__library-search { display: block; margin-top: 16px; }
+.wiki-front-page__library-boundary {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: .76rem;
+}
+.wiki-front-page__library-search input {
+  width: min(100%, 520px);
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 78%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 88%, white);
+  color: var(--text-primary);
+  font: 0.86rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+.wiki-front-page__index {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.wiki-front-page__index li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 62%, transparent);
+}
+.wiki-front-page__index li > span,
+.wiki-front-page__index li > small {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: .62rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 .wiki-front-page__index a {
   color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.02rem;
+  line-height: 1.35;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-link, var(--accent-primary)) 45%, transparent);
 }
 .wiki-front-page__index a:hover {
   color: var(--text-link, var(--accent-primary));
-  border-bottom-color: var(--text-link, var(--accent-primary));
+  text-decoration: underline;
 }
-.wiki-front-page__dot { color: var(--text-muted); }
+.wiki-front-page__library-empty { color: var(--text-muted); }
+
+@media (max-width: 760px) {
+  .wiki-front-page__index { grid-template-columns: minmax(0, 1fr); }
+  .wiki-front-page__index li { grid-template-columns: 24px minmax(0, 1fr); }
+  .wiki-front-page__index li > small { grid-column: 2; }
+}
 
 /* Quiet composer — present, breathing, never shouting. */
 .wiki-front-page__composer {

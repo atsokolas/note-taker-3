@@ -206,6 +206,21 @@ describe('LibrarySourceMemory', () => {
       .toHaveTextContent('0');
   });
 
+  it('keeps folder navigation inside the single source index rail', async () => {
+    render(
+      <LibrarySourceMemory
+        view="recent"
+        onViewChange={() => {}}
+        renderRows={false}
+        shelfNavigation={<button type="button">Research papers</button>}
+      />
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Folders' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Research papers' })).toBeInTheDocument();
+    expect(screen.getAllByTestId('library-source-index')).toHaveLength(1);
+  });
+
   it('appends mixed cursor pages once and ignores repeated clicks while loading', async () => {
     let resolveMore;
     getLibraryRelevance
