@@ -45,12 +45,14 @@ jest.mock('../components/library/LibraryMain', () => ({
     onReviewFiling,
     onToggleSuppressed,
     suppressedVisible,
-    unfiledCount
+    unfiledCount,
+    shelfNavigation
   }) => (
     <div>
       {selectedArticleId ? 'Reading article shell' : 'Browse library shell'}
       {!selectedArticleId ? (
         <>
+          <div data-testid="library-source-shelf">{shelfNavigation}</div>
           <div data-testid="library-reading-room-lead">
             Reading room lead · {unfiledCount} unfiled
             {suppressedVisible ? ' · showing review imports' : ''}
@@ -242,15 +244,15 @@ describe('Library agent rail', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/think?tab=threads&threadId=thread-filing-1');
   });
 
-  it('keeps low-signal tag shortcuts out of the Cabinet saved-view shelf', () => {
+  it('keeps useful folders and filtered tag shortcuts in the single source shelf', () => {
     useTags.mockReturnValueOnce({
       tags: [{ tag: 'valuation' }, { tag: 'Blah' }, { tag: 'TEST' }],
       loading: false
     });
 
     renderLibrary();
-    fireEvent.click(screen.getByRole('button', { name: 'Cabinet' }));
 
+    expect(screen.getByTestId('library-source-shelf')).toBeInTheDocument();
     expect(screen.getByText('valuation')).toBeInTheDocument();
     expect(screen.queryByText('Blah')).not.toBeInTheDocument();
     expect(screen.queryByText('TEST')).not.toBeInTheDocument();

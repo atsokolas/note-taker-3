@@ -133,7 +133,7 @@ describe('WikiFrontPage (AT-394)', () => {
     // duplicated as hidden DOM text and never renders as a partial word stream.
     const leadText = await screen.findByText(/While you were away I rebuilt Opportunity Cost/i);
     expect(listWikiPages).toHaveBeenCalledTimes(1);
-    expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, includeLowQuality: 1 });
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1 });
     expect(leadText.closest('.wiki-front-page__lead-text')).toHaveTextContent(/\.$/);
     expect(leadText.closest('.wiki-front-page__lead-text')).not.toHaveAttribute('aria-label');
     expect(document.body.textContent.match(/While you were away I rebuilt Opportunity Cost/g)).toHaveLength(1);
@@ -161,6 +161,13 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText('Explore')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Margin of Safety' })[0])
       .toHaveAttribute('href', '/wiki/workspace?page=wiki-margin-of-safety');
+    const allPagesLibrary = screen.getByText('Explore').closest('section');
+    expect(within(allPagesLibrary).getByText('All Wiki pages')).toBeInTheDocument();
+    fireEvent.change(within(allPagesLibrary).getByRole('searchbox', { name: 'Search all Wiki pages' }), {
+      target: { value: 'Margin' }
+    });
+    expect(within(allPagesLibrary).getByRole('link', { name: 'Margin of Safety' })).toBeInTheDocument();
+    expect(within(allPagesLibrary).queryByRole('link', { name: 'Opportunity Cost' })).not.toBeInTheDocument();
 
     // Workspace destinations are legible secondary nav near the top.
     const operations = document.querySelector('.wiki-front-page__operations');
@@ -291,7 +298,7 @@ describe('WikiFrontPage (AT-394)', () => {
       .toBeInTheDocument();
     expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledTimes(1);
-    expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, includeLowQuality: 1 });
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1 });
     expect(getDailyLoop).toHaveBeenCalledTimes(1);
   });
 
@@ -457,6 +464,34 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(explore.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
     expect(within(explore).getByText('Margin of Safety')).toBeInTheDocument();
     expect(within(explore).getByText('Opportunity Cost')).toBeInTheDocument();
+  });
+
+  it('keeps every distinct returned repo Wiki reachable in the all-pages library', async () => {
+    const repoPages = ['alpha-repo', 'beta-repo', 'gamma-repo'].map((repo, index) => ({
+      _id: `repo-${index}`,
+      title: `atsokolas/${repo} Repo Wiki`,
+      pageType: 'repo',
+      summary: `Repository dossier for ${repo}.`,
+      sourceRefs: [{ _id: `repo-source-${index}` }],
+      claims: [{ _id: `repo-claim-${index}` }],
+      externalWatches: {
+        githubRepo: { owner: 'atsokolas', repo, status: 'active' }
+      }
+    }));
+    listWikiPages.mockResolvedValueOnce([...repoPages, ...pages]);
+    getDailyLoop.mockResolvedValueOnce({ briefing });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    const explore = (await screen.findByText('Explore')).closest('section');
+    repoPages.forEach((page, index) => {
+      expect(within(explore).getByRole('link', { name: `${['alpha-repo', 'beta-repo', 'gamma-repo'][index]} — repo wiki` }))
+        .toHaveAttribute('href', `/wiki/workspace?page=${page._id}`);
+    });
   });
 
   it('leads with a watcher event, renders exact claim impact, and completes a check-in', async () => {

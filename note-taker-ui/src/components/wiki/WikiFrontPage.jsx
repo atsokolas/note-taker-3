@@ -29,8 +29,7 @@ import {
 import {
   dedupePagesByRepoKey,
   filterPagesForTodaysPage,
-  isEligibleForTodaysPage,
-  prepareExplorePages
+  isEligibleForTodaysPage
 } from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import '../../styles/wiki-critical.css';
@@ -42,9 +41,8 @@ import '../../styles/wiki-front-page.css';
 // workspace (map, review queues, drop-source, telemetry) lives behind one
 // hairline link; it is no longer the front door.
 
-const INDEX_PAGE_LIMIT = 80;
+const INDEX_PAGE_LIMIT = 500;
 const LEAD_EXCERPT_BUDGET = 320;
-const EXPLORE_LIMIT = 10;
 const GROWN_LIMIT = 3;
 const WATCHING_PREVIEW_LIMIT = 5;
 const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
@@ -191,6 +189,7 @@ const WikiFrontPage = () => {
   }, [hasMovements]);
   const [availabilityNotice, setAvailabilityNotice] = useState('');
   const [contextOpen, setContextOpen] = useState(true);
+  const [wikiSearch, setWikiSearch] = useState('');
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -330,9 +329,14 @@ const WikiFrontPage = () => {
   const secondaryPagesChanged = recentlyUpdated
     .some(page => String(pageId(page)) !== String(pageId(todaysPage)));
 
-  const explorePages = useMemo(() => (
-    prepareExplorePages(weighted, { limit: EXPLORE_LIMIT })
-  ), [weighted]);
+  const explorePages = useMemo(() => {
+    const query = wikiSearch.trim().toLowerCase();
+    if (!query) return weighted;
+    return weighted.filter(page => (
+      displayWikiPageTitle(page, 'Untitled page').toLowerCase().includes(query)
+      || String(page?.summary || page?.description || '').toLowerCase().includes(query)
+    ));
+  }, [weighted, wikiSearch]);
 
   const reviewCount = briefing?.counts?.driftingPages
     ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
@@ -718,19 +722,42 @@ const WikiFrontPage = () => {
             ) : null}
           </div>
 
-          {explorePages.length ? (
-            <section className="wiki-front-page__explore" aria-labelledby="wfp-explore-title">
-              <h2 id="wfp-explore-title" className="wiki-index__eyebrow">Explore</h2>
-              <p className="wiki-front-page__index">
-                {explorePages.map((page, i) => (
-                  <React.Fragment key={pageId(page)}>
-                    {i > 0 ? <span aria-hidden="true" className="wiki-front-page__dot"> · </span> : null}
-                    <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                  </React.Fragment>
-                ))}
+          <section className="wiki-front-page__explore" aria-labelledby="wfp-explore-title">
+            <div className="wiki-front-page__library-head">
+              <div>
+                <h2 id="wfp-explore-title" className="wiki-index__eyebrow">Explore</h2>
+                <p>All Wiki pages</p>
+              </div>
+              <span>{curatedPages.length}</span>
+            </div>
+            {pages.length >= INDEX_PAGE_LIMIT ? (
+              <p className="wiki-front-page__library-boundary">
+                Showing the first {INDEX_PAGE_LIMIT} pages. Use All pages for the complete workspace index.
               </p>
-            </section>
-          ) : null}
+            ) : null}
+            <label className="wiki-front-page__library-search">
+              <span className="sr-only">Search all Wiki pages</span>
+              <input
+                type="search"
+                value={wikiSearch}
+                onChange={event => setWikiSearch(event.target.value)}
+                placeholder="Search Wiki pages…"
+              />
+            </label>
+            {explorePages.length ? (
+              <ol className="wiki-front-page__index">
+                {explorePages.map((page, index) => (
+                  <li key={pageId(page)}>
+                    <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                    <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                    <small>{page?.pageType === 'repo' ? 'Repository' : 'Wiki page'}</small>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="wiki-front-page__library-empty">No Wiki pages match “{wikiSearch}”.</p>
+            )}
+          </section>
 
           <div className="wiki-front-page__creation-tools">
             <section className="wiki-front-page__composer" aria-label="Ask or build a wiki page">

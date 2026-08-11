@@ -92,6 +92,7 @@ const LibrarySourceMemory = ({
   scope = 'all',
   unfiledCount = 0,
   onSelectScope = null,
+  shelfNavigation = null,
   coverageStatus = null,
   showSuppressed = false
 }) => {
@@ -395,6 +396,13 @@ const LibrarySourceMemory = ({
               })}
             </div>
           </div>
+
+          {shelfNavigation ? (
+            <div className="library-source-index__group library-source-index__group--folders">
+              <h3 className="library-source-index__label">Folders</h3>
+              <div className="library-source-index__folders">{shelfNavigation}</div>
+            </div>
+          ) : null}
 
           <footer className="library-source-index__footer" aria-live="polite">
             {state.loading ? (
