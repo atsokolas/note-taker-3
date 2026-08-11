@@ -1386,7 +1386,7 @@ const buildPartnerGroundingBlock = ({
   ].filter(Boolean).join('\n');
 };
 
-const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}) => {
+const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}, request = '') => {
   const metadata = normalizeAmbientContextMetadata(metadataSource);
   const replaceOrdinal = (text, label, titles) => text.replace(
     new RegExp(`\\b${label}\\s+(\\d+)\\b`, 'gi'),
@@ -1396,7 +1396,48 @@ const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}) => {
     }
   );
   const withQuestionTitles = replaceOrdinal(toSafeString(reply), 'Question', metadata.openQuestions);
-  return replaceOrdinal(withQuestionTitles, 'Action', metadata.nextActions);
+  const groundedReply = replaceOrdinal(withQuestionTitles, 'Action', metadata.nextActions);
+  const asksForRecommendation = /\b(resume|reopen|next|prioriti[sz]e|work on|pick back up|start)\b/i.test(
+    `${toSafeString(request)} ${groundedReply}`
+  );
+  if (!asksForRecommendation) return groundedReply;
+  const declinesRecommendation = /\b(?:not enough|insufficient|too little|no clear|cannot|can't|can’t|unable to)\b[\s\S]{0,120}\b(?:evidence|recommend|choose|prioriti[sz]e|resume|next)\b/i.test(groundedReply);
+  if (declinesRecommendation) return groundedReply;
+
+  const candidates = [
+    ...metadata.openQuestions.map(title => ({ title, kind: 'question' })),
+    ...metadata.nextActions.map(title => ({ title, kind: 'action' }))
+  ].filter(candidate => candidate.title);
+  if (!candidates.length) return groundedReply;
+  if (candidates.some(candidate => groundedReply.toLowerCase().includes(candidate.title.toLowerCase()))) {
+    return groundedReply;
+  }
+
+  const referenceTokens = value => [...new Set(
+    String(value || '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .map(token => token.trim())
+      .filter(token => token.length >= 3)
+      .filter(token => !SEARCH_STOPWORDS.has(token))
+  )];
+  const replyTokens = new Set(referenceTokens(groundedReply));
+  const ranked = candidates
+    .map(candidate => {
+      const titleTokens = referenceTokens(candidate.title);
+      const overlap = titleTokens.filter(token => replyTokens.has(token)).length;
+      return {
+        ...candidate,
+        overlap,
+        coverage: titleTokens.length ? overlap / titleTokens.length : 0
+      };
+    })
+    .sort((left, right) => right.overlap - left.overlap || right.coverage - left.coverage);
+  const best = ranked[0];
+  if (!best || best.overlap < 2 || best.coverage < 0.2) return groundedReply;
+
+  const lead = best.kind === 'question' ? 'Resume' : 'Start with';
+  return `${lead} “${best.title}”. ${groundedReply}`;
 };
 
 const buildPartnerChatMessages = ({
@@ -2699,7 +2740,11 @@ const generateCollaborativeReply = async ({
       });
     }
   }
-  finalReply = groundOrdinalWorkspaceReferences(finalReply, context?.metadata);
+  finalReply = groundOrdinalWorkspaceReferences(
+    finalReply,
+    context?.metadata,
+    conversationState.resolvedMessage || safeMessage
+  );
   const planner = buildAgentPlanner({
     taskType: context?.metadata?.taskType || 'custom',
     skillInvocation,

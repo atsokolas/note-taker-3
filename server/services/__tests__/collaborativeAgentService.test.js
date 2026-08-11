@@ -841,6 +841,39 @@ const run = async () => {
     '“Liquidity and algorithmic markets” is the sharpest; revisit “Loss aversion and first principles” after “Compare the market structures”.',
     'Any residual ordinal language from a model response should be rebound to exact workspace titles.'
   );
+  assert.strictEqual(
+    groundOrdinalWorkspaceReferences(
+      'Of your three open questions, the endowment effect one is the sharpest to pick back up — it is a specific, testable claim about liquid and algorithmic markets versus manual and human-centric markets.',
+      {
+        openQuestions: [
+          'Can the effect be entirely mitigated through first principles thinking or does the biological basis of loss aversion make it an inescapable constraint?',
+          'How does the endowment effect interact with identity attachment in professional environments?',
+          'To what extent does the endowment effect diminish in highly liquid, algorithmic-driven markets compared to manual, human-centric markets?'
+        ]
+      },
+      'What should I resume first, and why?'
+    ),
+    'Resume “To what extent does the endowment effect diminish in highly liquid, algorithmic-driven markets compared to manual, human-centric markets?”. Of your three open questions, the endowment effect one is the sharpest to pick back up — it is a specific, testable claim about liquid and algorithmic markets versus manual and human-centric markets.',
+    'Loose semantic references should gain the exact best-matching workspace title before they reach the user.'
+  );
+  assert.strictEqual(
+    groundOrdinalWorkspaceReferences(
+      'There is not enough evidence yet to choose a next item.',
+      { openQuestions: ['Which market structure creates the durable advantage?'] },
+      'What should I resume first?'
+    ),
+    'There is not enough evidence yet to choose a next item.',
+    'Weak token overlap should not invent a recommendation.'
+  );
+  assert.strictEqual(
+    groundOrdinalWorkspaceReferences(
+      'There is not enough evidence to recommend a next step; the market and capital picture remains unresolved.',
+      { nextActions: ['Compare market structure and capital allocation'] },
+      'What should I resume next?'
+    ),
+    'There is not enough evidence to recommend a next step; the market and capital picture remains unresolved.',
+    'An explicit evidence-based refusal should fail closed even when it shares tokens with a candidate title.'
+  );
   assert.ok(
     hfMessages.some((entry) => entry.role === 'user' && entry.content.includes('Retrieved internal material')),
     'HF partner messages should include the retrieved internal material block.'
