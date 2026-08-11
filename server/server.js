@@ -7309,6 +7309,7 @@ app.use(buildSystemRouter({
   authenticateToken,
   parseAiServiceUrl,
   joinUrl,
+  isDatabaseReady: () => mongoose.connection.readyState === 1,
   allowDebugFixtures: process.env.NODE_ENV !== 'production',
   IntegrationConnection,
   ImportSession,
