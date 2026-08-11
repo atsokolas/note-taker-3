@@ -291,6 +291,16 @@ const topicTokens = (value = '') => Array.from(new Set(
   tokenize(value).filter(token => !ORDINARY_QUERY_STOP_WORDS.has(token))
 ));
 
+// Descriptive subtitles help humans understand a Wiki page, but they should not
+// turn its evidence gate into an exact-title matcher. For example, a source
+// directly about "Investing" is topical for "Investing: Principles, Process,
+// and Decision Quality" even when it does not repeat every subtitle word.
+const primaryTopicTitle = (value = '') => (
+  asString(value)
+    .split(/\s*(?::|[\u2013\u2014])\s*/u, 1)[0]
+    .trim()
+);
+
 const escapeTopicRegex = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const exactTopicPattern = (value = '') => {
@@ -3360,15 +3370,16 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     if (fillerCount >= 2) {
       failures.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
     }
-    const titleTopicTokens = topicTokens(page?.title || '');
+    const topicalTitle = primaryTopicTitle(page?.title || '') || asString(page?.title);
+    const titleTopicTokens = topicTokens(topicalTitle);
     topicallyGroundedSourceCount = sourceRefs.filter(source => (
-      sourceTopicCoverage(source, page?.title) >= 0.8
+      sourceTopicCoverage(source, topicalTitle) >= 0.8
     )).length;
     evidenceFamilyCount = new Set(sourceRefs.map(sourceFamilyKey).filter(Boolean)).size;
     if (!sourceCount && !skipDurableCitationCheck) {
       failures.push('Ordinary reference article has no cited Library sources; add or import material that directly explains the subject before rebuilding.');
     }
-    if (sourceCount && titleTopicTokens.length >= 2 && topicallyGroundedSourceCount === 0) {
+    if (sourceCount && titleTopicTokens.length >= 1 && topicallyGroundedSourceCount === 0) {
       failures.push(`No cited source directly addresses the page subject "${asString(page?.title)}"; add or import a source that explains the topic before rebuilding.`);
     }
     if (sourceCount >= 4 && evidenceFamilyCount < 2) {

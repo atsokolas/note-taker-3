@@ -432,6 +432,51 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).toMatch(/formal equivalence/i);
   });
 
+  it('anchors topical evidence to the subject before a descriptive subtitle', () => {
+    const body = docFromArticle({
+      title: 'Investing: Principles, Process, and Decision Quality',
+      article: {
+        summary: {
+          text: 'Investing commits capital today in pursuit of uncertain future value.',
+          citationIndexes: [1],
+          support: 'supported'
+        },
+        sections: [{
+          heading: 'Value creation and expected return',
+          paragraphs: [{
+            text: 'Expected return depends on cash generation, price paid, and the range of possible outcomes.',
+            citationIndexes: [1],
+            support: 'supported'
+          }],
+          bullets: []
+        }]
+      }
+    });
+    const topical = evaluateWikiArticleQuality({
+      page: { title: 'Investing: Principles, Process, and Decision Quality', pageType: 'concept' },
+      body,
+      sourceRefs: [{
+        title: 'Investing and expected returns',
+        snippet: 'Investing involves committing capital now for uncertain future cash flows.'
+      }],
+      skipDurableCitationCheck: true
+    });
+    const unrelated = evaluateWikiArticleQuality({
+      page: { title: 'Investing: Principles, Process, and Decision Quality', pageType: 'concept' },
+      body,
+      sourceRefs: [{
+        title: 'Decision quality in product teams',
+        snippet: 'A product process improves decisions through clearer ownership.'
+      }],
+      skipDurableCitationCheck: true
+    });
+
+    expect(topical.metrics.topicallyGroundedSourceCount).toBe(1);
+    expect(topical.failures.join(' ')).not.toMatch(/No cited source directly addresses/i);
+    expect(unrelated.metrics.topicallyGroundedSourceCount).toBe(0);
+    expect(unrelated.failures.join(' ')).toMatch(/No cited source directly addresses/i);
+  });
+
   it('applies the same topical-source contract to an unrelated ordinary subject', () => {
     const candidates = selectCandidateSources({
       page: {
