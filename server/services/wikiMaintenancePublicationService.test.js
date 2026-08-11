@@ -107,7 +107,33 @@ const run = async () => {
   assert.strictEqual(rejectedFreshDossier.promoted, false);
   assert.strictEqual(rejectedFreshDossier.page.aiState.draftStatus, 'error');
   assert.strictEqual(rejectedFreshDossier.page.aiState.errorCode, 'WIKI_CANDIDATE_REJECTED');
-  assert.match(rejectedFreshDossier.page.aiState.lastError, /did not reach the evidence bar/i);
+  assert.match(rejectedFreshDossier.page.aiState.lastError, /This dossier did not reach the evidence bar/i);
+
+  const freshReferencePage = trustedPage();
+  freshReferencePage._id = 'reference-page-1';
+  freshReferencePage.pageType = 'topic';
+  freshReferencePage.plainText = '';
+  freshReferencePage.body = { type: 'doc', content: [] };
+  freshReferencePage.sourceRefs = [];
+  freshReferencePage.claims = [];
+  freshReferencePage.aiState = { draftStatus: 'idle', quality: {} };
+  const ReferenceRevision = createRevisionModel();
+  const rejectedFreshReference = await runWikiMaintenanceCandidate({
+    page: freshReferencePage,
+    userId: 'user-1',
+    WikiRevision: ReferenceRevision,
+    hasTrustedVersion: false,
+    maintainWikiPageFn: async ({ page }) => {
+      page.aiState = {
+        draftStatus: 'ready',
+        quality: { ok: false, status: 'fail', failures: ['Article is too thin.'] }
+      };
+      return page;
+    }
+  });
+  assert.strictEqual(rejectedFreshReference.promoted, false);
+  assert.match(rejectedFreshReference.page.aiState.lastError, /This Wiki article did not reach the evidence bar/i);
+  assert.doesNotMatch(rejectedFreshReference.page.aiState.lastError, /dossier/i);
 
   let recoveredDraftText = '';
   const resumedDossierPage = trustedPage();

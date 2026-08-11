@@ -23,6 +23,16 @@ const candidateFailureSummary = (quality = {}) => {
     : 'The candidate did not pass the wiki quality contract.';
 };
 
+const maintenanceArtifactLabel = (page = {}) => {
+  const createdFromLabel = String(page?.createdFrom?.label || '').toLowerCase();
+  const isDossier = page?.pageType === 'repo'
+    || Boolean(page?.investmentDossier)
+    || Boolean(page?.externalWatches?.edgar)
+    || createdFromLabel.includes('company-dossier')
+    || createdFromLabel.includes('investment dossier');
+  return isDossier ? 'dossier' : 'Wiki article';
+};
+
 const destructiveClaimLoss = ({ before = {}, candidate = {} } = {}) => {
   const beforeCount = Array.isArray(before.claims) ? before.claims.length : 0;
   const afterCount = Array.isArray(candidate.claims) ? candidate.claims.length : 0;
@@ -280,7 +290,7 @@ const runWikiMaintenanceCandidate = async ({
   candidatePage.aiState = {
     ...priorAiState,
     draftStatus: trustedVersionAvailable ? 'ready' : 'error',
-    lastError: trustedVersionAvailable ? '' : `This dossier did not reach the evidence bar — ${candidateFailureSummary(quality)}`,
+    lastError: trustedVersionAvailable ? '' : `This ${maintenanceArtifactLabel(candidatePage)} did not reach the evidence bar — ${candidateFailureSummary(quality)}`,
     errorCode: trustedVersionAvailable ? '' : 'WIKI_CANDIDATE_REJECTED',
     candidateStatus: 'rejected',
     lastCandidateAt: now,

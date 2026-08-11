@@ -3078,6 +3078,98 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
   });
 
+  it('makes one bounded critique repair when an ordinary Wiki remains too thin after its first rebuild', async () => {
+    const page = {
+      _id: 'page-investing',
+      title: 'Investing',
+      pageType: 'topic',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [],
+      claims: [],
+      aiState: {}
+    };
+    const sources = Array.from({ length: 6 }, (_, index) => ({
+      _id: `article-${index + 1}`,
+      title: `Investing evidence ${index + 1}`,
+      content: `Investing evidence ${index + 1} explains a distinct decision mechanism, boundary, example, and risk.`,
+      url: `https://example${index + 1}.com/investing`
+    }));
+    const makeArticle = ({ repeats, label }) => ({
+      summary: {
+        text: `Investing allocates capital under uncertainty by comparing expected outcomes, price, risk, and opportunity cost. ${'Evidence must connect a decision rule to an observable consequence. '.repeat(Math.max(1, Math.floor(repeats / 8)))}`,
+        citationIndexes: [1, 2],
+        support: 'supported'
+      },
+      sections: Array.from({ length: 6 }, (_, index) => ({
+        heading: `${label} mechanism ${index + 1}`,
+        paragraphs: [{
+          text: `${'A durable investing process separates business evidence, valuation assumptions, uncertainty, and the conditions that would falsify the decision. '.repeat(repeats)}`,
+          citationIndexes: [index + 1],
+          support: 'supported'
+        }],
+        bullets: []
+      }))
+    });
+    const chat = jest.fn()
+      .mockResolvedValueOnce({
+        model: 'draft-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: page.title,
+          article: makeArticle({ repeats: 3, label: 'Initial' }),
+          maintenance: { summary: 'Initial thin draft.', changelog: [], health: {} },
+          sourceIndexesUsed: [1, 2, 3, 4, 5, 6]
+        })
+      })
+      .mockResolvedValueOnce({
+        model: 'draft-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: page.title,
+          article: makeArticle({ repeats: 4, label: 'First repair' }),
+          maintenance: { summary: 'First repair remained thin.', changelog: [], health: {} },
+          sourceIndexesUsed: [1, 2, 3, 4, 5, 6]
+        })
+      })
+      .mockResolvedValueOnce({
+        model: 'critique-model',
+        provider: 'test-provider',
+        text: JSON.stringify({
+          title: page.title,
+          article: makeArticle({ repeats: 7, label: 'Decision' }),
+          maintenance: { summary: 'Final repair met the evidence bar.', changelog: [], health: {} },
+          sourceIndexesUsed: [1, 2, 3, 4, 5, 6]
+        })
+      });
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      models: {
+        Article: fakeFindModel(sources),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(chat).toHaveBeenCalledTimes(3);
+    expect(chat.mock.calls[1][0].route).toBe('artifact_draft');
+    expect(chat.mock.calls[2][0].route).toBe('critique');
+    expect(chat.mock.calls[2][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 2)');
+    expect(chat.mock.calls[2][0].messages[1].content).toContain('Budget at least 650 words');
+    expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
+    expect(page.aiState.quality.rebuildAttempts).toBe(2);
+    expect(page.aiState.quality.metrics.words).toBeGreaterThanOrEqual(650);
+    expect(page.aiState.quality.failures.join(' ')).not.toMatch(/too thin/i);
+    expect(page.plainText).toContain('Decision mechanism 6');
+  });
+
   it('preserves the stronger first draft when an automatic rebuild regresses', async () => {
     const page = {
       _id: 'page-main',
