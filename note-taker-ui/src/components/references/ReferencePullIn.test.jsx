@@ -175,6 +175,27 @@ describe('ReferencePullIn', () => {
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Inference economics');
   });
 
+  it('uses the server-provided exact Concept identity instead of its display name', async () => {
+    searchConnectableItems.mockResolvedValueOnce([
+      {
+        itemType: 'concept',
+        itemId: '64f000000000000000000001',
+        title: 'Renamed concept',
+        openPath: '/think?tab=concepts&conceptId=64f000000000000000000001'
+      }
+    ]);
+
+    render(<ReferencePullIn targetType="highlight" targetId="h-1" mode="reference-source" />);
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'renamed' }
+    });
+
+    expect(await screen.findByRole('link', { name: 'Open' })).toHaveAttribute(
+      'href',
+      '/think?tab=concepts&conceptId=64f000000000000000000001'
+    );
+  });
+
   it('fails closed when a highlight result has no owned parent article identity', async () => {
     searchConnectableItems.mockResolvedValueOnce([
       {
@@ -192,8 +213,13 @@ describe('ReferencePullIn', () => {
     expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument();
   });
 
-  it('shows an existing graph trace when the reference was already linked', async () => {
-    createConnection.mockRejectedValueOnce({ response: { status: 409 } });
+  it('fails closed when a 409 reports receipt-integrity failure', async () => {
+    createConnection.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { error: 'Connection receipt integrity check failed.' }
+      }
+    });
     render(
       <ReferencePullIn
         targetType="concept"
@@ -211,12 +237,10 @@ describe('ReferencePullIn', () => {
     });
     fireEvent.click(screen.getByText('Margin of safety'));
 
-    await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('Reference already linked. Bidirectional trace is live.');
-    });
-    expect(screen.getByLabelText('Graph trace receipt')).toHaveTextContent('Existing reciprocal edge confirmed');
-    expect(screen.getByLabelText('Pulled references')).toHaveTextContent('Highlight · Margin of safety');
-    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('1 out · 1 in');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Connection receipt integrity check failed.');
+    expect(screen.queryByLabelText('Graph trace receipt')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Pulled references')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('No references yet.');
   });
 
   it('acknowledges the graph save immediately while a pull is in flight', async () => {

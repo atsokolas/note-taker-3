@@ -471,37 +471,11 @@ const ReferencePullIn = ({
       onLinked?.(created);
       onPulled?.({ item: nextItem, connection: created, status: 'saved' });
     } catch (err) {
-      const status = err.response?.status;
-      if (status === 409) {
-        const row = isSourceReference
-          ? incomingConnectionRowForItem(item, key, selectedRelationType || 'related')
-          : connectionRowForItem(item, key, selectedRelationType || 'related');
-        const reciprocalRow = isSourceReference
-          ? connectionRowForItem(item, `${key}:reciprocal`, 'referenced_by')
-          : incomingConnectionRowForItem(item, `${key}:reciprocal`, 'referenced_by');
-        setConnectionState((current) => (
-          isSourceReference
-            ? upsertOutgoingConnection(upsertIncomingConnection(current, row), reciprocalRow)
-            : upsertIncomingConnection(upsertOutgoingConnection(current, row), reciprocalRow)
-        ));
-        setLinkedItems((current) => [
-          item,
-          ...current.filter((existing) => `${existing.itemType}:${existing.itemId}` !== key)
-        ].slice(0, 5));
-        setLinkReceipt({
-          key,
-          status: 'existing',
-          itemType: item.itemType,
-          title: item.title || formatTypeLabel(item.itemType),
-          message: 'Reference already linked. Bidirectional trace is live.'
-        });
-        setQuery('');
-        setResults([]);
-        onPulled?.({ item, connection: null, status: 'existing' });
-      } else {
-        setLinkReceipt(null);
-        setError(err.response?.data?.error || 'Failed to pull this reference in.');
-      }
+      // A verified idempotent replay returns 200 with its persisted reciprocal
+      // edge and receipt. A 409 can also mean receipt corruption, so never
+      // synthesize a successful graph state from status code alone.
+      setLinkReceipt(null);
+      setError(err.response?.data?.error || 'Failed to pull this reference in.');
     } finally {
       setSavingId('');
     }
@@ -575,7 +549,7 @@ const ReferencePullIn = ({
         </Button>
       </div>
       {loading && <p className="muted small">Searching corpus...</p>}
-      {error && <p className="status-message error-message">{error}</p>}
+      {error && <p className="status-message error-message" role="alert">{error}</p>}
       {linkReceipt && (
         <>
           <div
