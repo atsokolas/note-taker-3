@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
-import WikiBuildPageComposer from './WikiBuildPageComposer';
+import WikiBuildPageComposer, { wikiBuildTopicFromPrompt } from './WikiBuildPageComposer';
 import { createRepoWikiFromGitHub, createWikiPage, streamMaintainWikiPage } from '../../api/wiki';
 import { parseGitHubRepoInput } from '../../utils/githubRepoInput';
 import { SystemStatusProvider } from '../../system/SystemStatusContext';
@@ -55,6 +55,14 @@ describe('WikiBuildPageComposer', () => {
     delete process.env.REACT_APP_WIKI_WORKSPACE_V1;
   });
 
+  it('extracts a bounded page title from a natural-language build brief', () => {
+    expect(wikiBuildTopicFromPrompt(
+      'Build a reference wiki page titled “Investing: Principles, Process, and Decision Quality.” Explain valuation and risk.'
+    )).toBe('Investing: Principles, Process, and Decision Quality');
+    expect(wikiBuildTopicFromPrompt('Build me a wiki about investing.')).toBe('investing');
+    expect(wikiBuildTopicFromPrompt('Portfolio Concentration')).toBe('Portfolio Concentration');
+  });
+
   it('creates an overview page and opens the workspace page for agent drafting', async () => {
     const onBuilt = jest.fn();
     renderComposer({ onBuilt }, { systemStatusControls });
@@ -84,6 +92,19 @@ describe('WikiBuildPageComposer', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Wiki page to build')).toHaveValue('');
     });
+  });
+
+  it('keeps the full natural-language request as the build brief without turning it into the title', async () => {
+    const request = 'Build a reference wiki page titled “Investing: Principles, Process, and Decision Quality.” Explain valuation, risk, and compounding.';
+    renderComposer({}, { systemStatusControls });
+
+    fireEvent.change(screen.getByLabelText('Wiki page to build'), { target: { value: request } });
+    fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Investing: Principles, Process, and Decision Quality',
+      createdFrom: expect.objectContaining({ text: request })
+    })));
   });
 
   it('creates an empty living-thesis preset without starting an agent draft', async () => {
