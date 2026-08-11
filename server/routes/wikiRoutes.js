@@ -3141,10 +3141,10 @@ const buildWikiRouter = ({
       maintenanceProfile,
       sourceLimit: positiveNumberOption(body.sourceLimit),
       sourceTextLimit: positiveNumberOption(body.sourceTextLimit),
-      inlineAutolinkLimit: positiveNumberOption(body.inlineAutolinkLimit) || (fastProfile ? 150 : 600),
+      inlineAutolinkLimit: positiveNumberOption(body.inlineAutolinkLimit) || (fastProfile ? 40 : 80),
       skipQualityRebuild: body.skipQualityRebuild === true || (fastProfile && body.skipQualityRebuild !== false),
       streamDraft: body.streamDraft === true || (fastProfile && body.streamDraft !== false),
-      deferInboundAutolinks: body.deferInboundAutolinks === true || (fastProfile && body.deferInboundAutolinks !== false)
+      deferInboundAutolinks: body.deferInboundAutolinks !== false
     };
   };
 
@@ -5981,23 +5981,10 @@ const buildWikiRouter = ({
       // repository-grounded developer manuals; scanning the entire personal
       // wiki for concept links can hold their publication lease for minutes.
       const repoWikiPage = isGitHubRepoWikiPage(page);
-      if (!repoWikiPage) await applyAutolinksForPage(page, req.user.id);
+      if (!repoWikiPage) await applyAutolinksForPage(page, req.user.id, { limit: 80 });
 
       await page.save();
       await syncPageGraph(page, req.user.id);
-      // Repo dossiers remain connected through their source/citation graph;
-      // they do not need a corpus-wide inbound concept-link scan.
-      if (!repoWikiPage) {
-        // The page and its direct graph are already durable. Scanning and
-        // rewriting up to 600 older Wiki pages can take minutes on a large
-        // personal corpus, so settle inbound mentions after returning the
-        // readable page rather than holding the build response open.
-        scheduleInboundAutolinks({
-          targetPage: page,
-          userId: req.user.id,
-          sourcePageId: page._id
-        });
-      }
       await createWikiRevision({
         WikiRevision,
         userId: req.user.id,
@@ -6028,6 +6015,15 @@ const buildWikiRouter = ({
         claimCount: Array.isArray(page.claims) ? page.claims.length : 0
       });
       res.status(200).json(serializeWikiPage(page));
+      // The durable page and direct graph are already in the response.
+      // Settle corpus-wide inbound mentions only after the user can read it.
+      if (!repoWikiPage) {
+        scheduleInboundAutolinks({
+          targetPage: page,
+          userId: req.user.id,
+          sourcePageId: page._id
+        });
+      }
     } catch (error) {
       console.error('Error maintaining wiki page:', error);
       if (buildLease?.acquired && page) {
@@ -6475,6 +6471,7 @@ const buildWikiRouter = ({
       }
 
       const repoWikiPage = isGitHubRepoWikiPage(page);
+      const shouldScheduleInboundAutolinks = !repoWikiPage && maintenanceOptions.deferInboundAutolinks;
       // Repo dossiers prioritize a bounded publication transaction over a
       // corpus-wide concept-link sweep. Their repository citations still sync.
       if (!repoWikiPage) {
@@ -6500,8 +6497,7 @@ const buildWikiRouter = ({
           stage: 'graph_synced',
           summary: 'Repository source and citation connections synced.'
         });
-      } else if (maintenanceOptions.deferInboundAutolinks) {
-        scheduleInboundAutolinks({ targetPage: page, userId: req.user.id, sourcePageId: page._id });
+      } else if (shouldScheduleInboundAutolinks) {
         writeSse(res, 'wiki-draft', {
           stage: 'inbound_links_deferred',
           summary: 'Backlinks will settle in the background while you start reading.'
@@ -6557,6 +6553,9 @@ const buildWikiRouter = ({
       });
       writeSse(res, 'done', { ok: true, pageId: serializeId(page._id) });
       res.end();
+      if (shouldScheduleInboundAutolinks) {
+        scheduleInboundAutolinks({ targetPage: page, userId: req.user.id, sourcePageId: page._id });
+      }
     } catch (error) {
       console.error('Error streaming wiki maintenance:', error);
       const modelBudgetUnavailable = Number(error?.status || error?.statusCode || 0) === 402;
