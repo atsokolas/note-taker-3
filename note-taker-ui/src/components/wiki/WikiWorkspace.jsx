@@ -41,7 +41,7 @@ import {
   getLastVisitState,
   recordVisit
 } from './wikiVisitTracker';
-import { countWikiPageWords, countWikiSources } from './wikiPageMetrics';
+import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -108,6 +108,11 @@ const TERMINAL_WIKI_BUILD_CODES = new Set([
   'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE',
   'WIKI_MAINTENANCE_AWAITING_ACCEPTANCE'
 ]);
+const TERMINAL_WIKI_CANDIDATE_STATUSES = new Set([
+  'rejected',
+  'first_head_rejected',
+  'maintenance_rejected'
+]);
 
 const wikiBuildFailure = (message, code = 'WIKI_BUILD_NOT_PERSISTED', retryable = true) => {
   const error = new Error(message);
@@ -119,7 +124,10 @@ const wikiBuildFailure = (message, code = 'WIKI_BUILD_NOT_PERSISTED', retryable 
 export const assessPersistedWikiBuild = (page = {}, expectedPageId = '') => {
   const pageId = clean(page?._id || page?.id);
   const expectedId = clean(expectedPageId);
-  const wordCount = countWikiPageWords(page);
+  const wordCount = Math.max(
+    countWikiWords(collectWikiText(page?.body)),
+    countWikiWords(page?.plainText)
+  );
   const sourceCount = countWikiSources(page);
   const candidateStatus = clean(page?.aiState?.candidateStatus).toLowerCase();
   const errorCode = clean(page?.aiState?.errorCode);
@@ -127,7 +135,7 @@ export const assessPersistedWikiBuild = (page = {}, expectedPageId = '') => {
   if (!pageId || (expectedId && pageId !== expectedId)) {
     return { ok: false, wordCount, sourceCount, reason: 'Noeis could not verify the persisted Wiki page identity.' };
   }
-  if (TERMINAL_WIKI_BUILD_CODES.has(errorCode) || candidateStatus === 'rejected' || quality?.ok === false || quality?.status === 'fail') {
+  if (TERMINAL_WIKI_BUILD_CODES.has(errorCode) || TERMINAL_WIKI_CANDIDATE_STATUSES.has(candidateStatus) || quality?.ok === false || quality?.status === 'fail') {
     return {
       ok: false,
       retryable: false,

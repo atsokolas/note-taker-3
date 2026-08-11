@@ -1157,6 +1157,51 @@ describe('WikiWorkspace', () => {
     }));
   });
 
+  it('does not count a sourced summary as a persisted Wiki article', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-new',
+      title: 'Investing',
+      summary: 'A summary exists, but the article body was never persisted.',
+      sourceRefs: [{ _id: 'source-1' }]
+    });
+
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Investing' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/without a persisted article and evidence \(0 words, 1 source/i)).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
+  });
+
+  it('does not report a previously rejected candidate as a successful build', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-new',
+      title: 'Investing',
+      plainText: 'The previously trusted article remains readable.',
+      sourceRefs: [{ _id: 'source-1' }],
+      aiState: {
+        candidateStatus: 'maintenance_rejected',
+        lastCandidateSummary: 'The replacement candidate was rejected.'
+      }
+    });
+
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Investing' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/replacement candidate was rejected/i)).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
+  });
+
   it('auto-drafts pages opened from the home build composer and refreshes the reader', async () => {
     renderWorkspace('/wiki/workspace?page=wiki-new&build=1');
     await settleWorkspaceEffects();
