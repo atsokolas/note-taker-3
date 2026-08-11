@@ -3541,6 +3541,67 @@ body.noeis-editorial .concept-editorial-shell__stream {
   overflow-x: hidden;
 }
 
+body.noeis-editorial .concept-editorial-shell__stream > .right-drawer {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+}
+
+body.noeis-editorial .concept-editorial-shell__stream > .right-drawer > .right-drawer__panel {
+  width: 100%;
+  padding-left: 0;
+  border-left: 0;
+  background: transparent !important;
+}
+
+body.noeis-editorial .concept-editorial-shell__stream > .right-drawer > .right-drawer__edge-toggle,
+body.noeis-editorial .concept-editorial-shell__stream > .right-drawer > .right-drawer__panel > .three-pane__right-header {
+  display: none;
+}
+
+body.noeis-editorial .concept-editorial-evidence__fresh-tools {
+  border-top: 1px solid var(--vellum-line);
+  border-bottom: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .concept-editorial-evidence__fresh-tools > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .concept-editorial-evidence__fresh-tools > summary::-webkit-details-marker {
+  display: none;
+}
+
+body.noeis-editorial .concept-editorial-evidence__fresh-tools > summary::after {
+  content: 'Open';
+  font-size: 0.62rem;
+}
+
+body.noeis-editorial .concept-editorial-evidence__fresh-tools[open] > summary::after {
+  content: 'Close';
+}
+
+body.noeis-editorial .concept-editorial-evidence__fresh-tools-body {
+  display: grid;
+  gap: 18px;
+  padding: 4px 0 18px;
+}
+
+body.noeis-editorial .think-calm-index__command--lead {
+  margin: 22px 0 30px;
+}
+
 /* Letter-spaced uppercase eyebrows balloon in width; force wrap so they fit
    inside the 336px column instead of clipping under overflow: hidden. */
 body.noeis-editorial .concept-editorial-evidence__header p,
@@ -6822,6 +6883,28 @@ body.noeis-editorial .question-editorial-shell .agent-thought-partner__thread {
     position: static;
   }
 
+  /* On a single-column Think return surface, the consequential move leads.
+     The corpus shelf and thought-partner context remain available, but they no
+     longer make a phone user traverse inventory before reaching the active
+     thread. */
+  body.noeis-editorial .think-home-editorial-shell__main {
+    order: 1;
+    max-height: none;
+    overflow: visible;
+  }
+
+  body.noeis-editorial .think-home-editorial-shell__left {
+    order: 2;
+    max-height: none;
+    overflow: visible;
+  }
+
+  body.noeis-editorial .think-home-editorial-shell__right {
+    order: 3;
+    max-height: none;
+    overflow: visible;
+  }
+
   body.noeis-editorial .notebook-editorial-shell-page {
     width: min(100vw - 32px, 100%);
     padding: 32px 0 40px;
@@ -9928,6 +10011,189 @@ body.noeis-editorial a:hover {
   color: var(--vellum-ink);
 }
 
+/* Shared contextual agent frame. The rail stays editorial and subordinate to
+   the reading/working plane; surface components still own every action. */
+body.noeis-editorial .agent-context-shell {
+  min-width: 0;
+}
+
+body.noeis-editorial .agent-context-shell__orientation {
+  margin: 0 0 18px;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+}
+
+body.noeis-editorial .think-home-editorial-shell__right > .right-drawer,
+body.noeis-editorial .concept-index-editorial-shell__right > .right-drawer {
+  height: 100%;
+}
+
+body.noeis-editorial .think-home-editorial-shell__right > .right-drawer > .right-drawer__panel,
+body.noeis-editorial .concept-index-editorial-shell__right > .right-drawer > .right-drawer__panel {
+  padding-left: 0;
+  border-left: 0;
+  background: transparent !important;
+}
+
+body.noeis-editorial .wiki-read__rail-content > .right-drawer {
+  display: block;
+  grid-column: auto;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+}
+
+body.noeis-editorial .wiki-read__rail-content > .right-drawer > .right-drawer__edge-toggle,
+body.noeis-editorial .wiki-read__rail-content > .right-drawer > .right-drawer__panel > .three-pane__right-header {
+  display: none;
+}
+
+body.noeis-editorial .wiki-read__rail-content > .right-drawer > .right-drawer__panel {
+  width: 100%;
+  padding-left: 0;
+  border-left: 0;
+  background: transparent !important;
+}
+
+body.noeis-editorial .wiki-read__maintenance-disclosure {
+  width: min(100%, 1180px);
+  margin: 0 auto 24px;
+}
+
+body.noeis-editorial .wiki-read__maintenance-disclosure > .wiki-read__maintenance-receipt {
+  margin: 0;
+  border-top: 0;
+}
+
+body.noeis-editorial .wiki-read__continuation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 18px 0 4px;
+  font-family: var(--noeis-ui-font);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-read__continuation-actions a,
+body.noeis-editorial .wiki-read__continuation-actions button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-accent) 42%, transparent);
+  background: transparent;
+  color: var(--vellum-ink);
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+body.noeis-editorial .wiki-read__dossier-review {
+  margin: 26px 0;
+}
+
+body.noeis-editorial .wiki-read__dossier-review-panel,
+body.noeis-editorial .wiki-read__rail-details-panel {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+}
+
+body.noeis-editorial .wiki-read__rail-details {
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 60%, transparent);
+}
+
+body.noeis-editorial .wiki-read__rail-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-read__rail-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+body.noeis-editorial .wiki-read__rail-details > summary::after {
+  content: 'Open';
+  font-size: 0.64rem;
+}
+
+body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
+  content: 'Close';
+}
+
+/* Wiki already owns the outer context rail. Give that rail enough room for
+   useful agent orientation while the article remains the dominant column. */
+@container wikiread (min-width: 981px) and (max-width: 1200px) {
+  body.noeis-editorial .wiki-workspace .wiki-read__layout:not(.wiki-read__layout--rail-collapsed) {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
+    gap: 20px;
+  }
+}
+
+body.noeis-editorial .right-drawer__mobile-trigger {
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 1px solid color-mix(in srgb, var(--vellum-accent) 42%, var(--vellum-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vellum-panel) 90%, transparent);
+  color: var(--vellum-ink);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--vellum-ink) 16%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(112%);
+  backdrop-filter: blur(16px) saturate(112%);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .right-drawer__mobile-sheet {
+  border-top: 1px solid var(--vellum-line);
+  border-radius: 22px 22px 0 0;
+  color: var(--vellum-ink);
+  box-shadow: 0 -20px 60px color-mix(in srgb, var(--vellum-ink) 22%, transparent);
+}
+
+body.noeis-editorial .right-drawer__mobile-sheet .three-pane__right-body {
+  overflow: visible;
+}
+
+body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .right-drawer__mobile-trigger,
+  body.noeis-editorial .right-drawer__mobile-sheet,
+  body.noeis-editorial .right-drawer__mobile-backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 @media (max-width: 1240px) {
   body.noeis-editorial .topbar__content {
     grid-template-columns: minmax(0, 1fr);
@@ -9955,6 +10221,16 @@ body.noeis-editorial a:hover {
   body.noeis-editorial .three-pane__left,
   body.noeis-editorial .right-drawer {
     display: none;
+  }
+
+  body.noeis-editorial .right-drawer--mobile {
+    display: block;
+    width: max-content;
+    min-width: 0;
+  }
+
+  body.noeis-editorial .right-drawer--mobile.is-open {
+    width: 0;
   }
 
   body.noeis-editorial .three-pane__main {
@@ -10113,10 +10389,26 @@ body.noeis-editorial a:hover {
   }
 }
 
-@media (max-width: 480px) {
-  body.noeis-editorial .topbar__primary-link:not(.is-active) {
-    display: none;
+@media (max-width: 640px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 8px 0;
   }
+
+  body.noeis-editorial .topbar__left,
+  body.noeis-editorial .topbar__right {
+    width: 100%;
+  }
+
+  body.noeis-editorial .topbar__right {
+    justify-content: space-between;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 112px;
+  }
+
 }
 
 /* ============================================================
@@ -10412,6 +10704,14 @@ body.noeis-editorial .tix-thread__tag,
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1rem;
   line-height: 1.9;
+}
+.tix-shelf__remainder {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .tix-shelf__link {
   padding: 0;

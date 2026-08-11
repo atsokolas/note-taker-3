@@ -93,7 +93,19 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;/);
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button:not\(\.topbar__utility-button--essential\)[\s\S]*?display: none !important;/);
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 76px;/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.topbar__right[\s\S]*?justify-content: space-between;/);
+    expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 112px;/);
+    expect(css).not.toContain('.topbar__primary-link:not(.is-active)');
     expect(css).toContain('.topbar__menu-popover--portal');
+  });
+
+  it('puts the active Think move before the corpus shelf on single-column layouts', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    expect(css).toMatch(/@media \(max-width: 1120px\)[\s\S]*?think-home-editorial-shell__main \{[\s\S]*?order: 1;/);
+    expect(css).toMatch(/@media \(max-width: 1120px\)[\s\S]*?think-home-editorial-shell__left \{[\s\S]*?order: 2;/);
+    expect(css).toMatch(/@media \(max-width: 1120px\)[\s\S]*?think-home-editorial-shell__right \{[\s\S]*?order: 3;/);
   });
 
   it('maps vellum aliases to canonical text role tokens', () => {

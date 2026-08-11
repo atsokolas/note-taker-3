@@ -49,9 +49,21 @@ const page = {
 
 const result = applyResearch({ page, now: new Date('2026-07-24T23:47:58.000Z') });
 const validation = strictValidate(result.candidate);
+const workbook = result.candidate.sourceRefs.find(
+  row => row?.metadata?.evidenceKey === 'costco-analysis-workbook'
+);
 
 assert.strictEqual(validation.ok, true, validation.failures.join('\n'));
 assert.strictEqual(result.addedSourceCount, SOURCES.length);
+assert(workbook, 'Expected a reproducible analyst workbook source.');
+assert.strictEqual(workbook.metadata.evidenceRole, 'analyst_workbook');
+assert.strictEqual(workbook.metadata.analystGenerated, true);
+assert.strictEqual(workbook.url, '');
+assert(workbook.snippet.includes('not external company evidence'));
+assert(workbook.snippet.includes('Reproducible outputs'));
+assert(result.candidate.claims
+  .filter(row => /\d/.test(row.text))
+  .every(row => row.sourceRefIds.map(String).includes(String(workbook._id))));
 assert(result.addedClaimCount >= 30);
 assert.strictEqual(result.candidate.investmentDossier.version, 2);
 assert.strictEqual(result.candidate.investmentDossier.businessModel.primary, 'membership_retail');

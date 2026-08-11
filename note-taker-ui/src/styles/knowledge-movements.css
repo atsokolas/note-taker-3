@@ -1,0 +1,360 @@
+/* Consequential movement return surface — Imagen hierarchy translated into
+   the real Wiki paper. One earned movement leads; supporting movement rows
+   remain typographic rather than becoming a dashboard grid. */
+.knowledge-movements {
+  display: grid;
+  gap: 18px;
+  margin-top: clamp(26px, 4vw, 52px);
+  padding: clamp(22px, 3.2vw, 38px) 0;
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 58%, var(--nt-divider));
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 78%, transparent);
+}
+
+.knowledge-movements__heading {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+.knowledge-movements__heading p,
+.knowledge-movements__heading h2 {
+  margin: 0;
+}
+
+.knowledge-movements__heading h2 {
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.65rem, 3vw, 2.7rem);
+  font-weight: 580;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.knowledge-movements__quiet,
+.knowledge-movements__error p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--text-secondary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.62;
+}
+
+.knowledge-movements__error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+}
+
+.knowledge-movements__error button {
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--nt-divider) 80%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: 650 0.82rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.knowledge-movements__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.knowledge-movements__list > li {
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 66%, transparent);
+}
+
+.knowledge-movements__list > li:first-child {
+  border-top: 0;
+}
+
+.knowledge-movement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.3fr);
+  gap: 8px clamp(26px, 4vw, 56px);
+  padding: 20px 0;
+}
+
+.knowledge-movement--dominant {
+  position: relative;
+  padding: clamp(22px, 3vw, 34px) clamp(20px, 3vw, 34px);
+  margin: 2px 0 12px;
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 48%, var(--nt-divider));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 9%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface-primary, var(--vellum-bg)) 88%, transparent);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--text-primary) 7%, transparent);
+}
+
+.knowledge-movement--dominant::before {
+  content: '✣';
+  position: absolute;
+  right: 22px;
+  top: 17px;
+  color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 72%, var(--text-muted));
+  font-size: 0.82rem;
+}
+
+.knowledge-movement__register,
+.knowledge-movement__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.knowledge-movement__register {
+  grid-column: 1 / -1;
+}
+
+.knowledge-movement__register span + span::before,
+.knowledge-movement__counts span + span::before {
+  content: '·';
+  margin-right: 14px;
+  color: var(--wiki-warm-accent, #b1862e);
+}
+
+.knowledge-movement h3 {
+  grid-column: 1;
+  margin: 6px 0 0;
+  max-width: 29ch;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+  font-weight: 620;
+  letter-spacing: -0.018em;
+  line-height: 1.16;
+  text-wrap: pretty;
+}
+
+.knowledge-movement h3 a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.knowledge-movement h3 a:hover,
+.knowledge-movement h3 a:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 68%, transparent);
+  text-underline-offset: 0.18em;
+}
+
+.knowledge-movement__why {
+  grid-column: 1;
+  margin: 4px 0 0;
+  max-width: 68ch;
+  color: var(--text-secondary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.03rem;
+  line-height: 1.62;
+  text-wrap: pretty;
+}
+
+.knowledge-movement__reviewed-outcome {
+  grid-column: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  gap: 18px clamp(22px, 3vw, 40px);
+  margin-top: 16px;
+  padding: 20px 0 4px;
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 44%, var(--nt-divider));
+}
+
+.knowledge-movement__outcome-question,
+.knowledge-movement__reviewed-outcome span {
+  margin: 0;
+  color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 76%, var(--text-primary));
+  font: 700 0.66rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.knowledge-movement__outcome-question {
+  grid-column: 1 / -1;
+}
+
+.knowledge-movement__outcome-result,
+.knowledge-movement__outcome-calibration,
+.knowledge-movement__outcome-lesson {
+  min-width: 0;
+}
+
+.knowledge-movement__outcome-result strong {
+  display: block;
+  margin-top: 5px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+  font-weight: 520;
+  line-height: 1.05;
+  text-transform: capitalize;
+}
+
+.knowledge-movement__reviewed-outcome div > p {
+  margin: 7px 0 0;
+  color: var(--text-secondary);
+  font: 1rem/1.55 Georgia, "Times New Roman", serif;
+  text-wrap: pretty;
+}
+
+.knowledge-movement__outcome-lesson {
+  grid-column: 1 / -1;
+  padding: 17px 0 0 clamp(16px, 2vw, 24px);
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 58%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 68%, transparent);
+}
+
+.knowledge-movement__outcome-lesson p {
+  max-width: 62ch;
+  color: var(--text-primary) !important;
+  font-size: clamp(1.08rem, 1.7vw, 1.28rem) !important;
+}
+
+.knowledge-movement__counts {
+  grid-column: 1;
+  margin-top: 10px;
+  text-transform: none;
+  letter-spacing: 0.035em;
+}
+
+.knowledge-movement__footer {
+  grid-column: 2;
+  grid-row: 2 / span 3;
+  align-self: end;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding-left: 20px;
+  border-left: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
+}
+
+.knowledge-movement__action {
+  color: var(--text-primary);
+  font: 700 0.84rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  text-decoration: none;
+}
+
+.knowledge-movement__action:hover,
+.knowledge-movement__action:focus-visible {
+  color: var(--text-link, var(--accent-primary));
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.knowledge-movement__facts summary {
+  width: fit-content;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 650 0.72rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.knowledge-movement__facts ul {
+  display: grid;
+  gap: 5px;
+  margin: 9px 0 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font: 0.69rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.knowledge-movement__ref-group {
+  margin-top: 11px;
+}
+
+.knowledge-movement__ref-group p {
+  margin: 0 0 4px;
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--text-primary));
+  font: 700 0.63rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.knowledge-movement__ref-group a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 46%, transparent);
+  text-underline-offset: 0.18em;
+}
+
+.knowledge-movement__ref-group a:hover {
+  color: var(--text-primary);
+  text-decoration-color: var(--wiki-warm-accent, #b1862e);
+}
+
+.knowledge-movements a:focus-visible,
+.knowledge-movements button:focus-visible,
+.knowledge-movement__facts summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 74%, var(--text-primary));
+  outline-offset: 4px;
+}
+
+@media (max-width: 760px) {
+  .knowledge-movements {
+    margin-top: 28px;
+    padding: 24px 0;
+  }
+
+  .knowledge-movements__heading h2 {
+    font-size: clamp(1.65rem, 8vw, 2.15rem);
+  }
+
+  .knowledge-movement,
+  .knowledge-movement--dominant {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 22px 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .knowledge-movement--dominant {
+    margin: 0;
+    border-width: 1px 0 0;
+  }
+
+  .knowledge-movement h3,
+  .knowledge-movement__why,
+  .knowledge-movement__counts,
+  .knowledge-movement__footer {
+    grid-column: 1;
+  }
+
+  .knowledge-movement__why {
+    font-size: 1.0625rem;
+  }
+
+  .knowledge-movement__reviewed-outcome {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .knowledge-movement__outcome-question,
+  .knowledge-movement__outcome-lesson {
+    grid-column: 1;
+  }
+
+  .knowledge-movement__footer {
+    grid-row: auto;
+    margin-top: 10px;
+    padding: 16px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--nt-divider) 62%, transparent);
+    border-left: 0;
+  }
+
+  .knowledge-movement__action,
+  .knowledge-movements__error button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

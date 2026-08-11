@@ -38,6 +38,13 @@ const MATERIAL_LIBRARY_LIMIT = 24;
 const TAG_ROTATION = ['theme', 'claim', 'mechanism', 'counterpoint', 'example'];
 
 const clean = (value) => String(value || '').trim();
+export const resolveIdeaWorkbenchConceptKey = ({ conceptId = '', concept = null } = {}) => (
+  clean(conceptId || concept?._id || concept?.name)
+);
+export const isIdeaWorkbenchConceptIdentityReady = ({ conceptId = '', concept = null } = {}) => {
+  const explicitConceptId = clean(conceptId);
+  return !explicitConceptId || (Boolean(concept?._id) && clean(concept._id) === explicitConceptId);
+};
 const createId = (prefix = 'id') => (
   `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
@@ -1141,28 +1148,31 @@ const buildAgentPromptForAction = ({ action, state }) => {
 
 export const useIdeaWorkbenchModel = ({
   concept,
+  conceptId = '',
   related,
   questions,
   onCreateNotebookDraft,
   onCreateConceptHandoff
 }) => {
-  const conceptKey = clean(concept?._id || concept?.name);
-  const storageKey = conceptKey ? `${STORAGE_PREFIX}:${conceptKey}` : '';
+  const conceptKey = resolveIdeaWorkbenchConceptKey({ conceptId, concept });
+  const conceptIdentityReady = isIdeaWorkbenchConceptIdentityReady({ conceptId, concept });
+  const seedConcept = conceptIdentityReady ? concept : null;
+  const storageKey = conceptKey && conceptIdentityReady ? `${STORAGE_PREFIX}:${conceptKey}` : '';
   const fireTourSignal = useTourSignal();
   const {
     material,
     loading: materialLoading,
     error: materialError
-  } = useConceptMaterial(conceptKey, { enabled: Boolean(conceptKey) });
+  } = useConceptMaterial(conceptKey, { enabled: Boolean(conceptKey) && conceptIdentityReady });
 
   const materialLibrary = useMemo(
-    () => buildMaterialLibrary({ concept, material, related, questions }),
-    [concept, material, questions, related]
+    () => buildMaterialLibrary({ concept: seedConcept, material, related, questions }),
+    [material, questions, related, seedConcept]
   );
   const seedSignature = useMemo(() => JSON.stringify({
     conceptId: conceptKey,
-    conceptName: concept?.name || '',
-    description: concept?.description || '',
+    conceptName: seedConcept?.name || '',
+    description: seedConcept?.description || '',
     materialSignature: materialLibrary
       .slice(0, MATERIAL_LIBRARY_LIMIT)
       .map((card) => [
@@ -1181,9 +1191,9 @@ export const useIdeaWorkbenchModel = ({
         clean(item?.updatedAt || item?.createdAt)
       ].join('::'))
       .join('|')
-  }), [concept?.description, concept?.name, conceptKey, materialLibrary, questions]);
+  }), [conceptKey, materialLibrary, questions, seedConcept?.description, seedConcept?.name]);
   const latestSeedStateRef = useRef(buildSeedState({
-    concept,
+    concept: seedConcept,
     material,
     related,
     questions
@@ -1203,12 +1213,12 @@ export const useIdeaWorkbenchModel = ({
 
   useEffect(() => {
     latestSeedStateRef.current = buildSeedState({
-      concept,
+      concept: seedConcept,
       material,
       related,
       questions
     });
-  }, [concept, material, questions, related, seedSignature]);
+  }, [material, questions, related, seedConcept, seedSignature]);
 
   useEffect(() => {
     latestStateRef.current = state;

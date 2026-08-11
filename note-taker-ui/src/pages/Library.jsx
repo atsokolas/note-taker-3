@@ -30,18 +30,29 @@ import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import AgentContextShell from '../components/agent/AgentContextShell';
 import AgentSkillDock from '../components/agent/AgentSkillDock';
 import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
 import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
 import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftSuppression';
+import { getLibrarySourceDetail } from '../api/libraryRelevance';
+import { sourceRowKey } from '../components/library/librarySourceIdentity';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
 const LEFT_STORAGE_KEY = 'workspace-left-open:/library';
 const CABINET_OVERRIDE_KEY = 'library.cabinet.override:/library';
+const SOURCE_TYPES = new Set(['article', 'highlight', 'note']);
 
 // Folder contract: GET `/folders` -> [{ _id, name, createdAt, updatedAt }].
 // Articles reference folders via `article.folder` (populated Folder) or null for unfiled.
+
+const clearBrowseSelectionParams = (params) => {
+  params.delete('sourceType');
+  params.delete('sourceId');
+  params.delete('parentId');
+  return params;
+};
 
 const Library = () => {
   const navigate = useNavigate();
@@ -55,6 +66,22 @@ const Library = () => {
   const showSuppressedItems = searchParams.get('showSuppressed') === '1';
   const highlightQuery = searchParams.get('hq') || '';
   const highlightView = searchParams.get('highlightView') || 'concept';
+  const sourceView = ['recent', 'active', 'needs_review', 'unconnected']
+    .includes(searchParams.get('sourceView'))
+    ? searchParams.get('sourceView')
+    : 'recent';
+  const browseSourceType = SOURCE_TYPES.has(searchParams.get('sourceType'))
+    ? searchParams.get('sourceType')
+    : '';
+  const browseSourceId = String(searchParams.get('sourceId') || '').trim();
+  const browseParentId = String(searchParams.get('parentId') || '').trim();
+  const selectedSourceKey = browseSourceType && browseSourceId
+    ? sourceRowKey({
+      type: browseSourceType,
+      id: browseSourceId,
+      parentId: browseParentId
+    })
+    : '';
   const [selectedArticleId, setSelectedArticleId] = useState('');
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [articleToMove, setArticleToMove] = useState(null);
@@ -80,7 +107,13 @@ const Library = () => {
     localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [sourceContextOpen, setSourceContextOpen] = useState(Boolean(requestedHighlightId));
   const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
+  const [sourceDetailState, setSourceDetailState] = useState({
+    source: null,
+    loading: false,
+    error: ''
+  });
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
@@ -142,6 +175,39 @@ const Library = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const detailArticleId = selectedArticleId
+      || (browseSourceType === 'article' ? browseSourceId : '')
+      || (browseSourceType === 'highlight' ? browseParentId : '');
+    setSourceDetailState({
+      source: null,
+      loading: Boolean(detailArticleId),
+      error: ''
+    });
+    if (!detailArticleId) return () => {
+      cancelled = true;
+    };
+
+    getLibrarySourceDetail(detailArticleId)
+      .then(source => {
+        if (cancelled) return;
+        setSourceDetailState({ source, loading: false, error: '' });
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setSourceDetailState({
+          source: null,
+          loading: false,
+          error: error?.response?.data?.error || 'Could not load source context.'
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [browseParentId, browseSourceId, browseSourceType, selectedArticleId]);
+
+  useEffect(() => {
+    let cancelled = false;
     setArticleGraphConnections({ outgoing: [], incoming: [] });
     if (!selectedArticleId) return () => {
       cancelled = true;
@@ -167,6 +233,7 @@ const Library = () => {
   useEffect(() => {
     if (!requestedHighlightId || !selectedArticleId) return;
     setActiveHighlightId(requestedHighlightId);
+    setSourceContextOpen(true);
     window.setTimeout(() => {
       readerRef.current?.scrollToHighlight(requestedHighlightId);
     }, 0);
@@ -191,6 +258,7 @@ const Library = () => {
     params.delete('folderId');
     params.delete('articleId');
     params.delete('highlightId');
+    clearBrowseSelectionParams(params);
     if (nextScope !== 'highlights') {
       params.delete('hq');
       params.delete('highlightView');
@@ -251,6 +319,7 @@ const Library = () => {
     }
     params.delete('articleId');
     params.delete('highlightId');
+    clearBrowseSelectionParams(params);
     setSearchParams(params);
   }, [scope, searchParams, setSearchParams, showSuppressedItems]);
 
@@ -269,8 +338,22 @@ const Library = () => {
     }
     params.delete('articleId');
     params.delete('highlightId');
+    clearBrowseSelectionParams(params);
     setSearchParams(params);
   }, [scope, searchParams, setSearchParams]);
+
+  const handleSourceViewChange = useCallback((nextView) => {
+    const params = new URLSearchParams(searchParams);
+    if (nextView === 'recent') {
+      params.delete('sourceView');
+    } else {
+      params.set('sourceView', nextView);
+    }
+    params.delete('articleId');
+    params.delete('highlightId');
+    clearBrowseSelectionParams(params);
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
 
   const handleSelectFolder = useCallback((id) => {
     const params = new URLSearchParams(searchParams);
@@ -278,21 +361,64 @@ const Library = () => {
     params.set('folderId', id);
     params.delete('articleId');
     params.delete('highlightId');
+    clearBrowseSelectionParams(params);
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
-  const handleSelectArticle = useCallback((id) => {
-    setSelectedArticleId(id);
-    localStorage.setItem('library.lastArticleId', id);
+  const handleSelectArticle = useCallback((id, options = {}) => {
+    const nextId = String(id || '').trim();
+    const highlightId = String(options?.highlightId || '').trim();
+    setSelectedArticleId(nextId);
+    if (nextId) localStorage.setItem('library.lastArticleId', nextId);
     const params = new URLSearchParams(searchParams);
-    if (id) {
-      params.set('articleId', id);
+    if (nextId) {
+      params.set('articleId', nextId);
     } else {
       params.delete('articleId');
     }
+    if (highlightId) {
+      params.set('highlightId', highlightId);
+      setSourceContextOpen(true);
+    } else {
+      params.delete('highlightId');
+    }
+    clearBrowseSelectionParams(params);
+    setSearchParams(params, { replace: false });
+  }, [searchParams, setSearchParams]);
+
+  const handleSelectSource = useCallback((source) => {
+    const type = String(source?.type || 'article').trim();
+    const id = String(source?.id || '').trim();
+    const parentId = String(source?.parentId || '').trim();
+    if (!SOURCE_TYPES.has(type) || !id) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('scope', 'all');
+    params.set('sourceType', type);
+    params.set('sourceId', id);
+    if (type === 'highlight' && parentId) {
+      params.set('parentId', parentId);
+    } else {
+      params.delete('parentId');
+    }
+    params.delete('articleId');
     params.delete('highlightId');
     setSearchParams(params, { replace: false });
   }, [searchParams, setSearchParams]);
+
+  const handleOpenSource = useCallback((source) => {
+    const type = String(source?.type || 'article').trim();
+    const id = String(source?.id || '').trim();
+    const parentId = String(source?.parentId || '').trim();
+    if (type === 'note' && id) {
+      navigate(`/think?tab=notebook&entryId=${encodeURIComponent(id)}`);
+      return;
+    }
+    if (type === 'highlight' && id && parentId) {
+      handleSelectArticle(parentId, { highlightId: id });
+      return;
+    }
+    if (id) handleSelectArticle(id);
+  }, [handleSelectArticle, navigate]);
 
   const handleSelectHighlightView = useCallback((view) => {
     const params = new URLSearchParams(searchParams);
@@ -398,9 +524,8 @@ const Library = () => {
 
   useEffect(() => {
     if (!shouldOpenReferencePullIn) return;
-    if (selectedArticleId) {
-      handleToggleRight(true);
-    }
+    handleToggleRight(true);
+    if (!selectedArticleId) return;
     const params = new URLSearchParams(searchParams);
     params.delete('pull');
     setSearchParams(params, { replace: true });
@@ -716,7 +841,10 @@ const Library = () => {
     [tags]
   );
   const articleHighlightCount = Array.isArray(articleHighlights) ? articleHighlights.length : 0;
-  const articleReferenceCount = Array.isArray(references) ? references.length : 0;
+  const articleReferenceCount = (
+    (Array.isArray(references?.notebookBlocks) ? references.notebookBlocks.length : 0)
+    + (Array.isArray(references?.collections) ? references.collections.length : 0)
+  );
   const libraryAgentTickerLines = useMemo(() => {
     if (isReadingView) {
       return [
@@ -828,6 +956,9 @@ const Library = () => {
       selectedFolderName={selectedFolderName}
       readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
+      onSelectSource={handleSelectSource}
+      onOpenSource={handleOpenSource}
+      onSelectScope={handleSelectScope}
       onMoveArticle={openMoveModal}
       onHighlightOptimistic={addHighlightOptimistic}
       onHighlightReplace={replaceHighlight}
@@ -855,6 +986,12 @@ const Library = () => {
       rawCorpusTotal={rawCorpusTotal}
       suppressedCount={suppressedCount}
       latestReceipt={systemStatusSnapshot.latestReceipt}
+      sourceView={sourceView}
+      onSourceViewChange={handleSourceViewChange}
+      selectedSourceKey={selectedSourceKey}
+      sourceDetail={sourceDetailState.source}
+      sourceDetailLoading={sourceDetailState.loading}
+      sourceDetailError={sourceDetailState.error}
     />
   );
 
@@ -885,6 +1022,7 @@ const Library = () => {
         subtitle="Highlights, pull-in, provenance, and article moves."
         className="library-reading-rail__secondary"
         testId="library-reading-secondary-rail"
+        defaultOpen={sourceContextOpen || Boolean(activeHighlightId)}
       >
         <AgentSkillDock
           surface="article"
@@ -903,6 +1041,7 @@ const Library = () => {
           targetType="article"
           targetId={selectedArticleId}
           targetTitle={selectedArticle?.title || 'Source'}
+          mode="reference-source"
           className="library-context-stack__reference-pull-in"
         />
         <LibraryContext
@@ -992,6 +1131,21 @@ const Library = () => {
       </section>
     </div>
   );
+  const contextualRightPanel = (
+    <AgentContextShell
+      surface="library"
+      title={AGENT_DISPLAY_NAME}
+      orientation={isReadingView
+        ? `Reading ${selectedArticle?.title || 'the selected source'} with provenance intact.`
+        : `Browsing ${scope === 'folder' && selectedFolderName ? selectedFolderName : scope} source memory.`}
+      loading={Boolean(articleLoading || articlesLoading)}
+      loadingMessage="Retrieving Library context…"
+      error={isReadingView ? articleError : articlesError}
+      showPresence={false}
+    >
+      {rightPanel}
+    </AgentContextShell>
+  );
 
   return (
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
@@ -999,14 +1153,20 @@ const Library = () => {
         className={`three-pane--editorial three-pane--library ${isReadingView ? 'three-pane--library-reading' : 'three-pane--library-browse'}`}
         left={leftPanel}
         main={mainPanel}
-        right={rightPanel}
+        right={contextualRightPanel}
         rightTitle={AGENT_DISPLAY_NAME}
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
         leftOpen={effectiveLeftOpen}
         onToggleLeft={handleToggleLeft}
         rightToggleLabel={AGENT_DISPLAY_NAME}
-        mainHeader={isReadingView ? null : <PageTitle title="Library" subtitle="Reading room for your saved work." />}
+        mainHeader={isReadingView ? null : (
+          <PageTitle
+            title="Library"
+            subtitle="Everything you have encountered. Nothing lost, nothing flattened."
+            eyebrow="MNHMH · MEMORY"
+          />
+        )}
         mainActions={isReadingView ? null : (
           <div className="library-main-actions">
             <QuietButton

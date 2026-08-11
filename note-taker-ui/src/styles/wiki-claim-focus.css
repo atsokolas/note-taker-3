@@ -1,0 +1,10 @@
+body.noeis-editorial .wiki-claim-citation--targeted {
+  border-radius: 3px;
+  outline: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 72%, transparent);
+  outline-offset: 4px;
+  background: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .wiki-claim-citation--targeted { scroll-behavior: auto; }
+}

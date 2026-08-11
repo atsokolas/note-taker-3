@@ -196,8 +196,7 @@ const LibraryContext = ({
                             targetType="highlight"
                             targetId={highlight._id}
                             targetTitle={summarizeHighlight(highlight)}
-                            scopeType="article"
-                            scopeId={selectedArticleId}
+                            mode="reference-source"
                             className="library-context-feed-item__reference-pull-in"
                           />
                         )}

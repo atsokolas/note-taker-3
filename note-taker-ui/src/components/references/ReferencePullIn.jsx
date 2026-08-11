@@ -26,6 +26,7 @@ const RELATION_LABELS = {
   wikiLink: 'Wiki link',
   shared_source: 'Shared source'
 };
+const EMPTY_SEARCH_TYPES = [];
 
 const normalizeRelationOptions = (options = []) => (
   Array.isArray(options)
@@ -50,21 +51,34 @@ const formatSnippet = (item) => {
   return value.length > 140 ? `${value.slice(0, 137)}...` : value;
 };
 
+const safeInternalPath = (value = '') => {
+  const path = String(value || '').trim();
+  return path.startsWith('/') && !path.startsWith('//') ? path : '';
+};
+
 const canonicalOpenPath = ({ item = {}, itemType = '', itemId = '' } = {}) => {
-  const explicitPath = String(item?.openPath || item?.path || '').trim();
+  const id = String(itemId || '').trim();
+  if (!id) return '';
+  if (itemType === 'highlight') {
+    const articleId = String(item?.articleId || item?.metadata?.articleId || '').trim();
+    return articleId
+      ? `/library?articleId=${encodeURIComponent(articleId)}&highlightId=${encodeURIComponent(id)}`
+      : '';
+  }
   if (itemType === 'wiki_page') {
-    const id = String(itemId || '').trim();
     if (id) return `/wiki/workspace?page=${encodeURIComponent(id)}`;
   }
   if (itemType === 'wiki_claim') {
-    const pageId = String(itemId || '').split(':')[0] || '';
-    if (pageId) return `/wiki/workspace?page=${encodeURIComponent(pageId)}`;
+    const [pageId, ...claimParts] = id.split(':');
+    const claimId = claimParts.join(':');
+    if (pageId && claimId) {
+      return `/wiki/workspace?page=${encodeURIComponent(pageId)}&claimId=${encodeURIComponent(claimId)}`;
+    }
+    return '';
   }
+  const explicitPath = safeInternalPath(item?.openPath || item?.path || '');
   if (explicitPath) return explicitPath;
-  const id = String(itemId || '').trim();
-  if (!id) return '';
   if (itemType === 'article') return `/library?articleId=${encodeURIComponent(id)}`;
-  if (itemType === 'highlight') return `/library?highlightId=${encodeURIComponent(id)}`;
   if (itemType === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(id)}`;
   if (itemType === 'notebook') return `/think?tab=notebook&entryId=${encodeURIComponent(id)}`;
   if (itemType === 'concept') {
@@ -212,7 +226,9 @@ const ReferencePullIn = ({
   ensureTarget,
   connectionPayloadForItem,
   relationOptions = [],
-  defaultRelationType = 'related'
+  defaultRelationType = 'related',
+  mode = 'pull-in',
+  searchItemTypes = EMPTY_SEARCH_TYPES
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -250,6 +266,17 @@ const ReferencePullIn = ({
   const canLink = hasTarget || typeof ensureTarget === 'function';
   const related = useMemo(() => normalizeRelatedItems(relatedItems), [relatedItems]);
   const normalizedRelationOptions = useMemo(() => normalizeRelationOptions(relationOptions), [relationOptions]);
+  const isSourceReference = mode === 'reference-source';
+  const allowedSearchTypes = useMemo(
+    () => (
+      Array.isArray(searchItemTypes) && searchItemTypes.length > 0
+        ? searchItemTypes
+        : isSourceReference
+          ? ['concept', 'question', 'wiki_page', 'notebook']
+          : []
+    ),
+    [isSourceReference, searchItemTypes]
+  );
   const [selectedRelationType, setSelectedRelationType] = useState(defaultRelationType || 'related');
   const trimmedQuery = query.trim();
   const scopePayload = useMemo(
@@ -326,6 +353,7 @@ const ReferencePullIn = ({
           q: trimmedQuery,
           excludeType: activeTarget?.targetType || targetType,
           excludeId: activeTarget?.targetId || targetId,
+          ...(allowedSearchTypes.length > 0 ? { itemTypes: allowedSearchTypes } : {}),
           ...scopePayload,
           limit: 6
         });
@@ -341,7 +369,7 @@ const ReferencePullIn = ({
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [activeTarget?.targetId, activeTarget?.targetType, canLink, scopePayload, targetId, targetType, trimmedQuery]);
+  }, [activeTarget?.targetId, activeTarget?.targetType, allowedSearchTypes, canLink, scopePayload, targetId, targetType, trimmedQuery]);
 
   const resolveActiveTarget = async () => {
     if (activeTarget?.targetType && activeTarget?.targetId) return activeTarget;
@@ -382,32 +410,48 @@ const ReferencePullIn = ({
         scopeId: linkTarget.scopeId,
         scopePayload: linkScopePayload,
         relationType: selectedRelationType
-      }) || {
+      }) || (isSourceReference ? {
+        fromType: item.itemType,
+        fromId: item.itemId,
+        toType: linkTarget.targetType,
+        toId: linkTarget.targetId,
+        relationType: selectedRelationType || 'related'
+      } : {
         fromType: linkTarget.targetType,
         fromId: linkTarget.targetId,
         toType: item.itemType,
         toId: item.itemId,
         relationType: selectedRelationType || 'related',
         ...linkScopePayload
-      };
+      });
       const created = await createConnection(payload);
       const nextItem = {
         ...item,
         articleId: item.articleId || item.metadata?.articleId || '',
         connectionId: created?._id || key
       };
-      const row = connectionRowForItem(item, created?._id || key, created?.relationType || selectedRelationType || 'related');
+      const row = isSourceReference
+        ? incomingConnectionRowForItem(item, created?._id || key, created?.relationType || selectedRelationType || 'related')
+        : connectionRowForItem(item, created?._id || key, created?.relationType || selectedRelationType || 'related');
       const reciprocalRow = created?.trace?.bidirectional || created?.reciprocalConnection
-        ? incomingConnectionRowForItem(
-          item,
-          created?.reciprocalConnection?._id || created?.trace?.reciprocalId || `${key}:reciprocal`,
-          created?.trace?.reciprocalRelationType || created?.reciprocalConnection?.relationType || 'referenced_by'
-        )
+        ? (isSourceReference
+          ? connectionRowForItem(
+            item,
+            created?.reciprocalConnection?._id || created?.trace?.reciprocalId || `${key}:reciprocal`,
+            created?.trace?.reciprocalRelationType || created?.reciprocalConnection?.relationType || 'referenced_by'
+          )
+          : incomingConnectionRowForItem(
+            item,
+            created?.reciprocalConnection?._id || created?.trace?.reciprocalId || `${key}:reciprocal`,
+            created?.trace?.reciprocalRelationType || created?.reciprocalConnection?.relationType || 'referenced_by'
+          ))
         : null;
       setConnectionState((current) => (
         reciprocalRow
-          ? upsertIncomingConnection(upsertOutgoingConnection(current, row), reciprocalRow)
-          : upsertOutgoingConnection(current, row)
+          ? (isSourceReference
+            ? upsertOutgoingConnection(upsertIncomingConnection(current, row), reciprocalRow)
+            : upsertIncomingConnection(upsertOutgoingConnection(current, row), reciprocalRow))
+          : (isSourceReference ? upsertIncomingConnection(current, row) : upsertOutgoingConnection(current, row))
       ));
       setLinkedItems((current) => [
         nextItem,
@@ -427,29 +471,11 @@ const ReferencePullIn = ({
       onLinked?.(created);
       onPulled?.({ item: nextItem, connection: created, status: 'saved' });
     } catch (err) {
-      const status = err.response?.status;
-      if (status === 409) {
-        const row = connectionRowForItem(item, key);
-        const reciprocalRow = incomingConnectionRowForItem(item, `${key}:reciprocal`);
-        setConnectionState((current) => upsertIncomingConnection(upsertOutgoingConnection(current, row), reciprocalRow));
-        setLinkedItems((current) => [
-          item,
-          ...current.filter((existing) => `${existing.itemType}:${existing.itemId}` !== key)
-        ].slice(0, 5));
-        setLinkReceipt({
-          key,
-          status: 'existing',
-          itemType: item.itemType,
-          title: item.title || formatTypeLabel(item.itemType),
-          message: 'Reference already linked. Bidirectional trace is live.'
-        });
-        setQuery('');
-        setResults([]);
-        onPulled?.({ item, connection: null, status: 'existing' });
-      } else {
-        setLinkReceipt(null);
-        setError(err.response?.data?.error || 'Failed to pull this reference in.');
-      }
+      // A verified idempotent replay returns 200 with its persisted reciprocal
+      // edge and receipt. A 409 can also mean receipt corruption, so never
+      // synthesize a successful graph state from status code alone.
+      setLinkReceipt(null);
+      setError(err.response?.data?.error || 'Failed to pull this reference in.');
     } finally {
       setSavingId('');
     }
@@ -479,8 +505,12 @@ const ReferencePullIn = ({
   return (
     <section className={`reference-pull-in ${className}`.trim()} aria-label="Reference pull-in">
       <SectionHeader
-        title="Reference"
-        subtitle={canLink ? 'Pull Library, Think, and Wiki material into this surface.' : 'Open an item to pull sources into it.'}
+        title="Reference…"
+        subtitle={canLink
+          ? (isSourceReference
+            ? 'Use this source in an existing Think or Wiki object.'
+            : 'Pull Library, Think, and Wiki material into this surface.')
+          : 'Open an item to reference durable knowledge.'}
       />
       {targetTitle && (
         <p className="reference-pull-in__target muted small">
@@ -519,7 +549,7 @@ const ReferencePullIn = ({
         </Button>
       </div>
       {loading && <p className="muted small">Searching corpus...</p>}
-      {error && <p className="status-message error-message">{error}</p>}
+      {error && <p className="status-message error-message" role="alert">{error}</p>}
       {linkReceipt && (
         <>
           <div

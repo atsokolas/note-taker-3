@@ -71,4 +71,29 @@ describe('CalmIndexView', () => {
     fireEvent.click(threadLink);
     expect(onSelectThread).not.toHaveBeenCalled();
   });
+
+  it('keeps the home shelf bounded while reporting the hidden remainder', () => {
+    const shelf = Array.from({ length: 5 }, (_, index) => ({
+      key: `question:q-${index}`,
+      type: 'question',
+      id: `q-${index}`,
+      title: `Shelf question ${index + 1}`,
+      raw: {}
+    }));
+
+    render(
+      <MemoryRouter>
+        <CalmIndexView
+          orientation="The desk is ready."
+          motion={{ inMotion: [], shelf }}
+          shelfLimit={2}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Shelf question 1')).toBeInTheDocument();
+    expect(screen.getByText('Shelf question 2')).toBeInTheDocument();
+    expect(screen.queryByText('Shelf question 3')).not.toBeInTheDocument();
+    expect(screen.getByText('3 more in the shelf index')).toBeInTheDocument();
+  });
 });

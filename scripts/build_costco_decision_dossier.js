@@ -121,6 +121,33 @@ const derived = Object.freeze((() => {
   };
 })());
 
+const ANALYSIS_WORKBOOK_KEY = 'costco-analysis-workbook';
+const ANALYSIS_WORKBOOK_SNIPPET = String(`
+  Noeis analyst workbook, not external company evidence. Primary inputs transcribed from the cited Costco filings and official releases:
+  price $935.03; 443,478,804 shares; cash and investments $19.996 billion; debt $5.684 billion; short-term borrowings $96 million;
+  fiscal 2025 net sales $269.912 billion, membership fees $5.323 billion, operating income $10.383 billion, operating cash flow $13.335 billion,
+  capital expenditure $5.498 billion, merchandise costs $239.886 billion, inventories $18.116 billion and $18.647 billion, accounts payable $19.783 billion,
+  81.0 million paid members, 38.7 million Executive members, 73.6% Executive sales share, 914 warehouses, and 134.7 million operating square feet;
+  first 36 weeks fiscal 2026 operating income $7.884 billion, operating cash flow $11.133 billion, capex $4.228 billion, inventory $19.418 billion,
+  accounts payable $22.363 billion, 82.9 million paid members, 928 warehouses, 13% membership-fee growth, 35% attributable to the fee increase,
+  $1.240 billion inventory cash use, $2.498 billion payable cash source, and a fiscal 2026 capex plan near $6.5 billion;
+  fiscal 2025 repurchases 943,000 shares at $957.66 and first-36-week fiscal 2026 repurchases 638,000 shares at $945.46;
+  fewer than 4,000 active SKUs, an approximately 147,000-square-foot average warehouse, 94% one-year employee retention, an average U.S. hourly rate near $32,
+  92.2% U.S./Canada renewal, 89.7% worldwide renewal, 11.12% gross margin, 9.25% SG&A, $3.007 billion Executive rewards,
+  86% of net sales and 84% of operating income from the U.S. and Canada, and 26% of U.S. sales from California.
+  Reproducible outputs: equity value $415 billion; net cash $14.2 billion; mechanical trailing free cash flow $8.81 billion; current price-to-FCF 47.1 times;
+  current FCF yield 2.1%; fiscal 2025 FCF $7.84 billion; five-year 10% return target equity value $668 billion;
+  terminal cases 25, 30, 35, and 40 times require respectively 24.9%, 20.4%, 16.7%, and 13.6% annual FCF growth,
+  with terminal FCF of $22.3 billion at 30 times, $19.1 billion at 35 times, and $16.7 billion at 40 times;
+  fee income equals 51.3% of operating income and $65.72 per paid member; underlying membership growth share is 65.0%;
+  Executive members are 47.8% of paid members and imply a 3.0-times Executive-to-non-Executive spend ratio;
+  inventory turns are 13.1, inventory days 28.0, payable days 30.1, fiscal 2025 supplier funding $1.67 billion,
+  May 2026 supplier funding $2.94 billion, and the increase $1.28 billion; sales per warehouse are $295.3 million;
+  ten basis points on $269.9 billion of sales equal about $270 million or 2.6% of operating income.
+  Analyst-defined decision parameters, not observed facts: $3,250 Executive reward break-even; 90% renewal falsifier; a 100-item matched-basket audit;
+  terminal multiples of 25, 30, 35, and 40 times; and the September 24 fiscal-year review clock.
+`).replace(/\s+/g, ' ').trim();
+
 const SOURCES = Object.freeze([
   {
     key: 'fy2025-10k',
@@ -193,6 +220,16 @@ const SOURCES = Object.freeze([
     url: 'https://www.nasdaq.com/market-activity/stocks/cost',
     archetype: 'market_snapshot',
     snippet: 'Dated market input: COST $935.03 at 23:47:58 UTC on July 24, 2026. This is an expectations input, not a company evidence clock.'
+  },
+  {
+    key: ANALYSIS_WORKBOOK_KEY,
+    provider: 'noeis-analysis',
+    title: 'Costco reproducible analysis workbook — July 24, 2026',
+    url: '',
+    archetype: 'analyst_calculation',
+    snippet: ANALYSIS_WORKBOOK_SNIPPET,
+    evidenceRole: 'analyst_workbook',
+    inputSourceKeys: ['fy2025-10k', 'q3-2026-10q', 'costco-june-2026-sales', 'cost-market-snapshot']
   }
 ]);
 
@@ -303,7 +340,7 @@ const buildSections = () => ([
         'cost-moat-convenience',
         'partial',
         ['fy2025-10k', 'costco-june-2026-sales', 'walmart-2026-annual'],
-        `Convenience is the most credible substitution vector. Costco’s warehouse experience, fuel stations and treasure hunt encourage physical frequency, while digitally enabled sales are growing above 20%. Sam’s Club can attack the friction with a large club base, digital tools and a membership model funded by $2.525 billion of membership and other income. Costco does not need to match every interface; it must keep the total member surplus high enough that checkout friction, bulk pack sizes and travel time do not outweigh savings and trust. The moat test is share of wallet and renewal among members exposed to faster competing formats, not app feature parity.`
+        `Convenience is the most credible substitution vector. Costco’s warehouse experience, fuel stations and treasure hunt encourage physical frequency, while digitally enabled adjusted comparable sales grew 21.1% through the June 2026 44-week period. Sam’s Club can attack the friction with a large club base, digital tools and a membership model funded by $2.525 billion of membership and other income. Costco does not need to match every interface; it must keep the total member surplus high enough that checkout friction, bulk pack sizes and travel time do not outweigh savings and trust. The moat test is share of wallet and renewal among members exposed to faster competing formats, not app feature parity.`
       )
     ]
   },
@@ -499,6 +536,9 @@ const ensureSources = ({ candidate, now }) => {
       metadata: {
         evidenceKey: row.key,
         evidenceArchetype: row.archetype,
+        evidenceRole: row.evidenceRole || 'external_evidence',
+        inputSourceKeys: row.inputSourceKeys || [],
+        analystGenerated: row.evidenceRole === 'analyst_workbook',
         reviewedAt: now,
         asOf: RESEARCH_AS_OF,
         researchRevision: true,
@@ -553,9 +593,12 @@ const applyResearch = ({ page, now = new Date() }) => {
   );
   const allClaims = [lead, ...sections.flatMap(section => section.claims)];
   const claims = allClaims.map((row) => {
-    const evidence = row.sources.map(key => map.get(key));
+    const evidenceKeys = /\d/.test(row.text)
+      ? [...row.sources, ANALYSIS_WORKBOOK_KEY]
+      : row.sources;
+    const evidence = evidenceKeys.map(key => map.get(key));
     if (evidence.some(item => !item?.source || !item?.citation)) {
-      throw new Error(`Missing evidence for ${row.id}: ${row.sources.join(', ')}`);
+      throw new Error(`Missing evidence for ${row.id}: ${evidenceKeys.join(', ')}`);
     }
     const section = row === lead
       ? 'Investor brief'
@@ -590,16 +633,22 @@ const applyResearch = ({ page, now = new Date() }) => {
   });
   const body = [];
   const leadEvidence = lead.sources.map(key => map.get(key));
+  const leadRenderedEvidence = /\d/.test(lead.text)
+    ? [...leadEvidence, map.get(ANALYSIS_WORKBOOK_KEY)]
+    : leadEvidence;
   body.push(paragraphNode({
     text: lead.text,
     claimId: lead.id,
     support: lead.support,
-    citationIndexes: leadEvidence.map(item => item.index)
+    citationIndexes: leadRenderedEvidence.map(item => item.index)
   }));
   sections.forEach((section) => {
     body.push(headingNode(section.heading));
     section.claims.forEach((row) => {
-      const evidence = row.sources.map(key => map.get(key));
+      const evidenceKeys = /\d/.test(row.text)
+        ? [...row.sources, ANALYSIS_WORKBOOK_KEY]
+        : row.sources;
+      const evidence = evidenceKeys.map(key => map.get(key));
       body.push(paragraphNode({
         text: row.text,
         claimId: row.id,

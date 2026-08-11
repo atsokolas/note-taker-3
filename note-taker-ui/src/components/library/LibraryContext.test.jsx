@@ -10,6 +10,7 @@ jest.mock('../references/ReferencePullIn', () => (props) => (
     data-target-title={props.targetTitle}
     data-scope-type={props.scopeType}
     data-scope-id={props.scopeId}
+    data-mode={props.mode}
   />
 ));
 
@@ -34,7 +35,7 @@ const baseProps = {
 };
 
 describe('LibraryContext', () => {
-  it('makes the active highlight a graph pull-in target scoped to its article', () => {
+  it('makes the active highlight a source that can be referenced into durable work', () => {
     render(
       <LibraryContext
         {...baseProps}
@@ -59,8 +60,9 @@ describe('LibraryContext', () => {
     const pullIn = screen.getByTestId('reference-pull-in');
     expect(pullIn).toHaveAttribute('data-target-type', 'highlight');
     expect(pullIn).toHaveAttribute('data-target-id', 'highlight-1');
-    expect(pullIn).toHaveAttribute('data-scope-type', 'article');
-    expect(pullIn).toHaveAttribute('data-scope-id', 'article-1');
+    expect(pullIn).toHaveAttribute('data-mode', 'reference-source');
+    expect(pullIn).not.toHaveAttribute('data-scope-type');
+    expect(pullIn).not.toHaveAttribute('data-scope-id');
     expect(pullIn).toHaveAttribute('data-target-title', 'Temperament and concentration are recurring source atoms.');
   });
 

@@ -62,6 +62,21 @@ export const isWikiOpenQuestion = (question = {}) => (
   String(question?.sourceType || '').toLowerCase() === 'wiki_open_question'
 );
 
+const GENERIC_WIKI_REBUILD_PROMPT = /^the page needs a rebuild that turns the freshest material into claims:/i;
+
+// Maintenance prompts remain available in the full Questions index and on the
+// source Wiki page. They are not ranked as personal return work: repeating the
+// same generated template across many pages buries the user's actual questions.
+export const isGenericMaintenanceQuestion = (question = {}) => (
+  isWikiOpenQuestion(question)
+  && GENERIC_WIKI_REBUILD_PROMPT.test(String(question?.text || '').trim())
+);
+
+export const filterQuestionsForReturn = (questions = []) => (
+  filterReturnViewItems(Array.isArray(questions) ? questions : [])
+    .filter(question => !isGenericMaintenanceQuestion(question))
+);
+
 export const getWikiOpenQuestionHref = (question = {}) => (
   isWikiOpenQuestion(question) && question?.href ? String(question.href) : ''
 );
@@ -381,7 +396,7 @@ export const buildHomeIndexMotion = ({
   const threads = applyReturnQueueToThreads(
     rankHomeThreads([
       ...concepts.map(toConceptThread),
-      ...questions
+      ...filterQuestionsForReturn(questions)
         .filter((item) => String(item?.status || '').toLowerCase() !== 'answered')
         .map(toQuestionThread),
       ...notebookEntries.map(toNotebookThread),
@@ -561,7 +576,9 @@ export const filterShelfRailSections = ({
   const maybeSuppress = (items) => (query ? items : filterReturnViewItems(items));
   return {
     concepts: maybeSuppress(concepts.filter((item) => matches(item.name))),
-    questions: maybeSuppress(questions.filter((item) => matches(item.text))),
+    questions: query
+      ? questions.filter((item) => matches(item.text))
+      : filterQuestionsForReturn(questions),
     notebookEntries: maybeSuppress(notebookEntries.filter((item) => matches(item.title || 'Untitled')))
   };
 };

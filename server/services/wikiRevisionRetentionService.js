@@ -32,11 +32,41 @@ const collectPageRetentionReferences = (page = {}) => {
   if (page?.judgment?.initialRevisionId) {
     revisionIds.add(cleanId(page.judgment.initialRevisionId));
   }
+  const decisions = Array.isArray(page?.judgment?.decisions)
+    ? page.judgment.decisions
+    : [];
+  decisions.forEach((decision) => {
+    if (decision?.acceptedRevisionId) revisionIds.add(cleanId(decision.acceptedRevisionId));
+    if (decision?.recordedRevisionId) revisionIds.add(cleanId(decision.recordedRevisionId));
+    if (decision?.outcome?.revisionId) revisionIds.add(cleanId(decision.outcome.revisionId));
+  });
 
   return {
     revisionIds: [...revisionIds].filter(Boolean),
     sourceEventIds: [...sourceEventIds].filter(Boolean),
     publishedHeadSha: String(page?.externalWatches?.githubRepo?.publishedHeadSha || '').trim()
+  };
+};
+
+const collectReceiptRetentionReferences = (receipts = []) => {
+  const revisionIds = new Set();
+  const sourceEventIds = new Set();
+  (Array.isArray(receipts) ? receipts : []).forEach((receipt) => {
+    if (String(receipt?.status || '') !== 'completed') return;
+    const provenance = receipt?.provenance || {};
+    if (provenance.revisionId) revisionIds.add(cleanId(provenance.revisionId));
+    (Array.isArray(provenance.revisionIds) ? provenance.revisionIds : [])
+      .forEach(value => revisionIds.add(cleanId(value)));
+    (Array.isArray(provenance.acceptedClocks) ? provenance.acceptedClocks : [])
+      .forEach((clock) => {
+        if (clock?.revisionId) revisionIds.add(cleanId(clock.revisionId));
+        if (clock?.sourceEventId) sourceEventIds.add(cleanId(clock.sourceEventId));
+      });
+    if (provenance.sourceEventId) sourceEventIds.add(cleanId(provenance.sourceEventId));
+  });
+  return {
+    revisionIds: [...revisionIds].filter(Boolean),
+    sourceEventIds: [...sourceEventIds].filter(Boolean)
   };
 };
 
@@ -71,9 +101,17 @@ const buildWikiRevisionRetentionPlan = ({
     }
   });
 
-  ['candidate', 'rejected'].forEach((status) => {
+  ['candidate', 'rejected', 'deferred', 'preserved'].forEach((status) => {
     const revision = ordered.find((item) => item.promotionStatus === status);
     if (revision) keep(revision, `latest_${status}`);
+  });
+
+  ordered.forEach((revision) => {
+    const reviewState = String(revision?.claimReview?.state || '').trim();
+    const reviewEvents = Array.isArray(revision?.claimReview?.events) ? revision.claimReview.events : [];
+    if (revision?.claimReview?.version && (['deferred', 'accepted', 'rejected', 'preserved'].includes(reviewState) || reviewEvents.length)) {
+      keep(revision, 'human_claim_review');
+    }
   });
 
   ordered.forEach((revision) => {
@@ -122,6 +160,20 @@ const pruneWikiRevisionHistory = async ({
 
   const references = collectPageRetentionReferences(page);
   const allProtectedIds = new Set([...protectedRevisionIds, ...references.revisionIds].map(cleanId));
+  const Receipt = WikiRevision.db?.models?.NoeisReceipt;
+  let receiptReferences = { revisionIds: [], sourceEventIds: [] };
+  if (Receipt?.find) {
+    let receiptQuery = Receipt.find({
+      userId,
+      status: 'completed',
+      kind: { $in: ['public_proof_accepted', 'repo_wiki_claim_cohort_accepted', 'wiki_claim_disposition'] },
+      'provenance.pageId': cleanId(pageId)
+    });
+    if (receiptQuery?.select) receiptQuery = receiptQuery.select('kind status provenance');
+    const receiptRows = receiptQuery?.lean ? await receiptQuery.lean() : await receiptQuery;
+    receiptReferences = collectReceiptRetentionReferences(receiptRows);
+    receiptReferences.revisionIds.forEach(value => allProtectedIds.add(cleanId(value)));
+  }
   const Baseline = WikiRevision.db?.models?.WikiRepoBaseline;
   if (Baseline) {
     const baseline = await Baseline.findOne({ pageId }).select('revisionId').lean();
@@ -129,13 +181,13 @@ const pruneWikiRevisionHistory = async ({
   }
 
   const revisions = await WikiRevision.find({ userId, pageId })
-    .select('_id createdAt promotionStatus sourceEventId sourceVersion snapshotPrunedAt')
+    .select('_id createdAt promotionStatus sourceEventId sourceVersion snapshotPrunedAt claimReview')
     .sort({ createdAt: -1 })
     .lean();
   const plan = buildWikiRevisionRetentionPlan({
     revisions,
     protectedRevisionIds: [...allProtectedIds],
-    acceptedSourceEventIds: references.sourceEventIds,
+    acceptedSourceEventIds: [...references.sourceEventIds, ...receiptReferences.sourceEventIds],
     publishedHeadSha: references.publishedHeadSha,
     recentLimit
   });
@@ -154,5 +206,6 @@ const pruneWikiRevisionHistory = async ({
 module.exports = {
   buildWikiRevisionRetentionPlan,
   collectPageRetentionReferences,
+  collectReceiptRetentionReferences,
   pruneWikiRevisionHistory
 };

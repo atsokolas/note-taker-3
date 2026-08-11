@@ -14,13 +14,17 @@ import {
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
 import ConceptsIndexView from '../components/think/concepts/ConceptsIndexView';
+import ConceptInvestigationPanel from '../components/think/concepts/ConceptInvestigationPanel';
 import HighlightCard from '../components/blocks/HighlightCard';
 import ThreePaneLayout from '../layout/ThreePaneLayout';
+import RightDrawer from '../layout/RightDrawer';
+import AgentContextShell from '../components/agent/AgentContextShell';
 import useHighlights from '../hooks/useHighlights';
 import useTags from '../hooks/useTags';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
+import { CONCEPT_ACTIONS } from '../components/think/concepts/idea-workbench/conceptActionDispatch';
 import { formatEditorialEvidenceHtml } from '../components/think/concepts/formatEditorialEvidenceHtml';
 import VirtualList from '../components/virtual/VirtualList';
 import { createConnection, getConnectionsForScope } from '../api/connections';
@@ -78,6 +82,7 @@ import {
   composeCruftSuppressionNotice,
   countSuppressedInCollection,
   describeThreadMotionNote,
+  filterQuestionsForReturn,
   getWikiOpenQuestionHref
 } from '../components/think/calmIndexModel';
 
@@ -108,7 +113,7 @@ const ProtocolRouteView = lazy(() => import('../components/think/protocol/Protoc
 const PathsRouteView = lazy(() => import('../components/think/paths/PathsRouteView'));
 
 const THINK_RIGHT_STORAGE_KEY = 'workspace-right-open:/think';
-const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v2';
+const THINK_RIGHT_MIGRATION_KEY = 'workspace-right-open:/think:migrated-v3';
 const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 const THINK_INDEX_GROUPS_STORAGE_KEY = 'think.index.groups.collapsed';
 const HOME_COMMAND_REFERENCES_STORAGE_KEY = 'noeis.homeCommand.pendingReferences';
@@ -346,10 +351,21 @@ const ThinkPanelFallback = () => (
   </div>
 );
 
+const INVESTIGATION_QUERY_KEYS = ['investigation', 'conceptId', 'wikiPageId', 'revisionId', 'claimId'];
+const clearInvestigationContext = params => {
+  INVESTIGATION_QUERY_KEYS.forEach(key => params.delete(key));
+  return params;
+};
+
 const ThinkMode = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryConcept = searchParams.get('concept') || '';
+  const requestedInvestigation = searchParams.get('investigation') === '1';
+  const requestedConceptId = searchParams.get('conceptId') || '';
+  const requestedWikiPageId = searchParams.get('wikiPageId') || '';
+  const requestedRevisionId = searchParams.get('revisionId') || '';
+  const requestedClaimId = searchParams.get('claimId') || '';
   const allowedViews = useMemo(() => ['home', 'notebook', 'concepts', 'questions', 'threads', 'handoffs', 'paths', 'insights'], []);
   const resolveActiveView = useCallback((params) => {
     const rawView = params.get('tab') || '';
@@ -467,15 +483,15 @@ const ThinkMode = () => {
     try {
       const migrated = localStorage.getItem(THINK_RIGHT_MIGRATION_KEY) === 'true';
       if (!migrated) {
-        localStorage.setItem(THINK_RIGHT_STORAGE_KEY, 'false');
+        localStorage.setItem(THINK_RIGHT_STORAGE_KEY, 'true');
         localStorage.setItem(THINK_RIGHT_MIGRATION_KEY, 'true');
-        return false;
+        return true;
       }
       const stored = localStorage.getItem(THINK_RIGHT_STORAGE_KEY);
-      if (stored === null) return false;
+      if (stored === null) return true;
       return stored === 'true';
     } catch (error) {
-      return false;
+      return true;
     }
   });
 
@@ -600,7 +616,7 @@ const ThinkMode = () => {
   const [conceptComposerAnchor, setConceptComposerAnchor] = useState('header');
   const [conceptComposerDraft, setConceptComposerDraft] = useState('');
   const [conceptComposerDescriptionDraft, setConceptComposerDescriptionDraft] = useState('');
-  const [conceptComposerAutoScout, setConceptComposerAutoScout] = useState(true);
+  const [conceptComposerAutoScout, setConceptComposerAutoScout] = useState(false);
   const [conceptComposerSaving, setConceptComposerSaving] = useState(false);
   const [conceptComposerScouting, setConceptComposerScouting] = useState(false);
   const [conceptComposerStatus, setConceptComposerStatus] = useState(CONCEPT_COMPOSER_DEFAULT_STATE);
@@ -618,18 +634,49 @@ const ThinkMode = () => {
   const headerActionsMenuRef = useRef(null);
 
   const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts({ enabled: conceptsListEnabled });
-  const selectedName = queryConcept;
+  const queryConceptName = queryConcept;
   // Seed useConcept with the row from the already-loaded concepts list so the
   // manuscript renders its title immediately on click instead of showing a
   // full skeleton for the duration of the network round-trip.
+  const conceptLookupKey = requestedConceptId
+    ? requestedConceptId
+    : queryConceptName;
   const cachedConceptForName = useMemo(
-    () => (selectedName ? (concepts || []).find((c) => c?.name === selectedName) || null : null),
-    [concepts, selectedName]
+    () => (conceptLookupKey
+      ? (concepts || []).find((candidate) => (
+          requestedConceptId
+            ? String(candidate?._id || '') === String(requestedConceptId)
+            : candidate?.name === queryConceptName
+        )) || null
+      : null),
+    [conceptLookupKey, concepts, queryConceptName, requestedConceptId]
   );
-  const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(selectedName, {
-    enabled: activeView === 'concepts' && Boolean(selectedName),
+  const { concept, loading: conceptLoading, error: conceptLoadError, refresh, setConcept } = useConcept(conceptLookupKey, {
+    enabled: activeView === 'concepts' && Boolean(conceptLookupKey),
     initial: cachedConceptForName
   });
+  const investigationConceptMismatch = Boolean(
+    requestedInvestigation
+    && requestedConceptId
+    && concept?._id
+    && String(requestedConceptId) !== String(concept._id)
+  );
+  const investigationIdentityReady = Boolean(
+    requestedInvestigation
+    && requestedConceptId
+    && concept?._id
+    && !investigationConceptMismatch
+  );
+  const selectedName = requestedInvestigation
+    ? (investigationIdentityReady ? String(concept?.name || '').trim() : '')
+    : queryConceptName;
+  const closeInvestigation = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    clearInvestigationContext(params);
+    if (selectedName) params.set('concept', selectedName);
+    else params.delete('concept');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, selectedName, setSearchParams]);
   const { related, error: relatedError } = useConceptRelated(selectedName, {
     enabled: activeView === 'concepts' && Boolean(selectedName),
     limit: 20,
@@ -713,6 +760,7 @@ const ThinkMode = () => {
   }, [searchParams, setSearchParams]);
   const ideaWorkbenchModel = useIdeaWorkbenchModel({
     concept,
+    conceptId: requestedConceptId || concept?._id || '',
     related,
     questions: conceptQuestions,
     onCreateNotebookDraft: ({
@@ -751,6 +799,12 @@ const ThinkMode = () => {
       return handoffsModel.handleCreateScopedHandoff(payload);
     }
   });
+
+  const runInvestigationWorkbenchAction = useCallback((intent) => {
+    if (intent !== 'find_contrary_evidence') return;
+    setConceptEditorialSection('assistant');
+    ideaWorkbenchModel.actions.dispatchConceptAction(CONCEPT_ACTIONS.FIND_TENSION);
+  }, [ideaWorkbenchModel.actions]);
 
   const handleIntegrateConceptCard = useCallback((cardInput, dropEvent = null, editorOverride = null) => {
     const streamCard = cardInput && typeof cardInput === 'object' ? cardInput : null;
@@ -1470,7 +1524,7 @@ const ThinkMode = () => {
     setConceptComposerAnchor(anchor);
     setConceptComposerDraft(normalizeConceptName(seed));
     setConceptComposerDescriptionDraft('');
-    setConceptComposerAutoScout(true);
+    setConceptComposerAutoScout(false);
     setConceptComposerScouting(false);
     setConceptComposerStatus(CONCEPT_COMPOSER_DEFAULT_STATE);
     setConceptComposerOpen(true);
@@ -1482,7 +1536,7 @@ const ThinkMode = () => {
     setConceptComposerScouting(false);
     setConceptComposerDraft('');
     setConceptComposerDescriptionDraft('');
-    setConceptComposerAutoScout(true);
+    setConceptComposerAutoScout(false);
   }, []);
 
   const openTemplatePicker = useCallback(() => {
@@ -2765,7 +2819,9 @@ const ThinkMode = () => {
   const homeWorkingSet = useMemo(() => ({
     notebooks: notebookEntries.slice(0, THINK_HOME_LIMIT),
     concepts: concepts.slice(0, THINK_HOME_LIMIT),
-    questions: allQuestions.filter(item => item.status !== 'answered').slice(0, THINK_HOME_LIMIT)
+    questions: filterQuestionsForReturn(allQuestions)
+      .filter(item => item.status !== 'answered')
+      .slice(0, THINK_HOME_LIMIT)
   }), [allQuestions, concepts, notebookEntries]);
   const conceptsWithHighlights = useMemo(
     () => concepts.filter((item) => Number(item?.count || 0) > 0).slice(0, THINK_HOME_LIMIT),
@@ -2780,7 +2836,7 @@ const ThinkMode = () => {
 
   const homeEditorialLeftPanel = thinkShelfRail;
 
-  const isConceptWorkbenchView = activeView === 'concepts' && Boolean(selectedName);
+  const isConceptWorkbenchView = activeView === 'concepts' && (Boolean(selectedName) || requestedInvestigation);
   const isQuestionEditorialView = activeView === 'questions';
 
   useEffect(() => {
@@ -2823,7 +2879,7 @@ const ThinkMode = () => {
     />
   );
 
-  const hasExplicitConceptSelection = activeView === 'concepts' && Boolean(selectedName);
+  const hasExplicitConceptSelection = activeView === 'concepts' && (Boolean(selectedName) || requestedInvestigation);
   const thoughtPartnerContext = useMemo(() => resolveThoughtPartnerContext({
     activeView,
     concept,
@@ -3538,9 +3594,11 @@ const ThinkMode = () => {
       }}
       motionStatusTestIdPrefix="think-home-status"
       maintenanceNote={homeCruftNotice}
+      shelfLimit={12}
       homeCommand={(
         <ThinkHomeUniversalCommand onUniversalCommand={handleHomeUniversalCommand} />
       )}
+      commandPlacement="lead"
       actions={(
         <>
           <QuietButton onClick={openTemplatePicker}>Use template</QuietButton>
@@ -4095,10 +4153,30 @@ const ThinkMode = () => {
             </p>
           ) : null}
           {renderThinkPostureStrip('think-posture-strip--concept')}
+          {requestedInvestigation ? (
+            <ConceptInvestigationPanel
+              conceptId={requestedConceptId}
+              loadedConceptId={concept?._id || ''}
+              wikiPageId={requestedWikiPageId}
+              revisionId={requestedRevisionId}
+              claimId={requestedClaimId}
+              onRunWorkbenchAction={runInvestigationWorkbenchAction}
+              workbenchBusy={ideaWorkbenchModel.agentBusy}
+              onClose={closeInvestigation}
+            />
+          ) : null}
           {conceptLoadError && <p className="status-message error-message">{conceptLoadError}</p>}
           {conceptError && <p className="status-message error-message">{conceptError}</p>}
           {relatedError && <p className="status-message error-message">{relatedError}</p>}
-          {conceptLoading && !concept ? (
+          {investigationConceptMismatch ? (
+            <SurfaceCard className="think-concepts-empty-state">
+              <SectionHeader
+                title="Concept identity mismatch"
+                subtitle="This movement points to a different exact Concept than the one selected by name. No investigation or workbench content was opened."
+              />
+              <QuietButton onClick={closeInvestigation}>Open the Concept normally</QuietButton>
+            </SurfaceCard>
+          ) : conceptLoading && !concept ? (
             <div className="think-concept-loading concept-editorial-loading" aria-hidden="true">
               <div className="concept-editorial-loading__head">
                 <span className="concept-editorial-loading__eyebrow">Active reasoning draft</span>
@@ -4158,15 +4236,28 @@ const ThinkMode = () => {
           )}
         </main>
         <aside className="concept-editorial-shell__stream">
-          <ConceptEvidenceStreamRail
-            concept={concept}
-            model={ideaWorkbenchModel}
-            personalAgents={handoffsModel.sortedPersonalAgents}
-            onIntegrateCard={handleIntegrateConceptCard}
-            activeSection={conceptEditorialSection}
-            onOpenTemplatePicker={openTemplatePicker}
-            referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
-          />
+          <RightDrawer title={AGENT_DISPLAY_NAME} open={rightOpen} onToggle={handleToggleRight}>
+            <AgentContextShell
+              surface="think"
+              title={AGENT_DISPLAY_NAME}
+              orientation={requestedInvestigation
+                ? 'Exact Wiki context is attached to this working thought.'
+                : concept?.name
+                  ? `Working with ${concept.name}.`
+                  : 'Write first. Ask for context only when it helps.'}
+              showPresence={false}
+            >
+              <ConceptEvidenceStreamRail
+                concept={concept}
+                model={ideaWorkbenchModel}
+                personalAgents={handoffsModel.sortedPersonalAgents}
+                onIntegrateCard={handleIntegrateConceptCard}
+                activeSection={conceptEditorialSection}
+                onOpenTemplatePicker={openTemplatePicker}
+                referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
+              />
+            </AgentContextShell>
+          </RightDrawer>
         </aside>
       </div>
       <ConceptShareModal
@@ -4320,7 +4411,18 @@ const ThinkMode = () => {
           {mainPanel}
         </main>
         <aside className="think-home-editorial-shell__right">
-          {homeEditorialRightPanel}
+          <RightDrawer title={AGENT_DISPLAY_NAME} open={rightOpen} onToggle={handleToggleRight}>
+            <AgentContextShell
+              surface="think"
+              title={AGENT_DISPLAY_NAME}
+              orientation={homeIndexOrientation || 'Choose what deserves attention next.'}
+              loading={Boolean(conceptsLoading || notebookLoadingList || allQuestionsLoading)}
+              loadingMessage="Retrieving working context…"
+              showPresence={false}
+            >
+              {homeEditorialRightPanel}
+            </AgentContextShell>
+          </RightDrawer>
         </aside>
       </div>
     </div>
@@ -4410,7 +4512,18 @@ const ThinkMode = () => {
           </div>
         </main>
         <aside className="concept-index-editorial-shell__right">
-          {conceptIndexEditorialRightPanel}
+          <RightDrawer title={AGENT_DISPLAY_NAME} open={rightOpen} onToggle={handleToggleRight}>
+            <AgentContextShell
+              surface="think"
+              title={AGENT_DISPLAY_NAME}
+              orientation={conceptIndexOrientation || 'Choose a Concept to deepen.'}
+              loading={conceptsLoading}
+              loadingMessage="Retrieving Concept context…"
+              showPresence={false}
+            >
+              {conceptIndexEditorialRightPanel}
+            </AgentContextShell>
+          </RightDrawer>
         </aside>
       </div>
     </div>
@@ -4506,7 +4619,18 @@ const ThinkMode = () => {
           }`}
           left={leftPanel}
           main={mainPanel}
-          right={rightPanel}
+          right={(
+            <AgentContextShell
+              surface="think"
+              title={AGENT_DISPLAY_NAME}
+              orientation={thoughtPartnerContext?.contextTitle
+                ? `Working with ${thoughtPartnerContext.contextTitle}.`
+                : 'Working context remains tied to the active thought.'}
+              showPresence={false}
+            >
+              {rightPanel}
+            </AgentContextShell>
+          )}
           rightTitle="Context"
           rightOpen={rightOpen}
           onToggleRight={handleToggleRight}

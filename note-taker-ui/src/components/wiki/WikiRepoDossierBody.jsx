@@ -55,8 +55,11 @@ const WikiRepoDossierBody = ({
   expandAllSectionsByDefault = false,
   recentAnchorIds,
   wikiLinkPages,
-  disableInternalWikiLinks = false
+  disableInternalWikiLinks = false,
+  focusedClaimId = '',
+  focusedClaimRef
 }) => {
+  const renderOptions = { recentAnchorIds, wikiLinkPages, disableInternalWikiLinks, focusedClaimId, focusedClaimRef };
   const sections = useMemo(() => splitDocIntoSections(doc), [doc]);
   const [openSectionIds, setOpenSectionIds] = useState(() => new Set(
     sections
@@ -75,7 +78,7 @@ const WikiRepoDossierBody = ({
   if (!collapseSections) {
     return (
       <div className="wiki-read__repo-dossier-body">
-        {renderTiptapDoc(doc, { tocItems, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
+        {renderTiptapDoc(doc, { ...renderOptions, tocItems })}
       </div>
     );
   }
@@ -90,7 +93,7 @@ const WikiRepoDossierBody = ({
         if (!section.title) {
           return (
             <div key={section.id} className="wiki-read__repo-dossier-section is-open">
-              {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
+              {renderTiptapDoc(sectionDoc, { ...renderOptions, tocItems: sectionToc })}
             </div>
           );
         }
@@ -120,7 +123,7 @@ const WikiRepoDossierBody = ({
               </span>
             </summary>
             <div className="wiki-read__repo-dossier-section-body">
-              {renderTiptapDoc(sectionDoc, { tocItems: sectionToc, recentAnchorIds, wikiLinkPages, disableInternalWikiLinks })}
+              {renderTiptapDoc(sectionDoc, { ...renderOptions, tocItems: sectionToc })}
             </div>
           </details>
         );

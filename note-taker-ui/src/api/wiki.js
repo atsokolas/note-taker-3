@@ -1,6 +1,9 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { parseGitHubRepoInput } from '../utils/githubRepoInput';
+import { getPendingWikiClaimReview } from './wikiPendingClaimReview';
+
+export { getPendingWikiClaimReview };
 
 const WIKI_PAGES_PATH = '/api/wiki/pages';
 
@@ -851,6 +854,7 @@ const wikiApi = {
   createCompanyDossier,
   refreshInvestmentValuation,
   getWikiFirstHeadCandidate,
+  getPendingWikiClaimReview,
   reviewWikiFirstHeadCandidate,
   getWikiPage,
   getPublicWikiPage,

@@ -177,6 +177,7 @@ const articleSchema = new mongoose.Schema({
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
 articleSchema.index({ userId: 1, createdAt: -1 });
+articleSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 articleSchema.index({ userId: 1, updatedAt: -1 });
 articleSchema.index({ userId: 1, folder: 1, createdAt: -1 });
 articleSchema.index({ userId: 1, 'highlights._id': 1 });
@@ -273,6 +274,7 @@ notebookEntrySchema.index(
   }
 );
 notebookEntrySchema.index({ userId: 1, updatedAt: -1 });
+notebookEntrySchema.index({ userId: 1, createdAt: -1, _id: -1 });
 notebookEntrySchema.index({ userId: 1, type: 1, updatedAt: -1 });
 notebookEntrySchema.index({ userId: 1, tags: 1, updatedAt: -1 });
 notebookEntrySchema.index({ userId: 1, linkedHighlightIds: 1 });
@@ -401,7 +403,14 @@ const judgmentDecisionOutcomeSchema = new mongoose.Schema({
   result: { type: String, enum: ['positive', 'negative', 'mixed', 'unknown'], default: 'unknown' },
   processScore: { type: Number, min: 0, max: 1, default: null },
   calibrationNote: { type: String, default: '', trim: true },
-  lesson: { type: String, default: '', trim: true }
+  lesson: { type: String, default: '', trim: true },
+  evidenceSourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  reviewedAt: { type: Date, default: null },
+  reviewedBy: { type: String, enum: ['user'], default: null },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  receiptId: { type: String, default: '', trim: true },
+  decisionSnapshotHash: { type: String, default: '', trim: true },
+  recordHash: { type: String, default: '', trim: true }
 }, { _id: false });
 
 const judgmentDecisionSchema = new mongoose.Schema({
@@ -417,6 +426,15 @@ const judgmentDecisionSchema = new mongoose.Schema({
   status: { type: String, enum: ['planned', 'taken', 'cancelled', 'reviewed'], default: 'planned' },
   relatedClaimIds: { type: [String], default: [] },
   sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  acceptedRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  acceptedRevisionDisposition: { type: String, enum: ['accepted', 'preserved'], default: null },
+  recordedRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  acceptedAt: { type: Date, default: null },
+  acceptedBy: { type: String, enum: ['user'], default: null },
+  basisPageHash: { type: String, default: '', trim: true },
+  immutableSnapshotHash: { type: String, default: '', trim: true },
+  receiptId: { type: String, default: '', trim: true },
+  outcomeDueAt: { type: Date, default: null },
   outcome: { type: judgmentDecisionOutcomeSchema, default: () => ({}) },
   createdAt: { type: Date, default: Date.now },
   createdBy: { type: String, enum: ['user', 'ai_proposed'], default: 'user' }
@@ -600,6 +618,8 @@ const wikiAiStateSchema = new mongoose.Schema({
       'evidence_only',
       'awaiting_first_head_acceptance',
       'awaiting_maintenance_acceptance',
+      'awaiting_claim_acceptance',
+      'unbounded_candidate',
       'accepted',
       'first_head_rejected',
       'maintenance_rejected'
@@ -793,6 +813,7 @@ const wikiPageSchema = new mongoose.Schema({
 wikiPageSchema.index({ userId: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
+wikiPageSchema.index({ userId: 1, 'sourceRefs.objectId': 1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
 wikiPageSchema.index(
   { userId: 1, activeCompanyDossierKey: 1 },
@@ -867,6 +888,36 @@ wikiProposalSchema.index({ userId: 1, proposalType: 1, confidence: -1 });
 
 const WikiProposal = mongoose.model('WikiProposal', wikiProposalSchema);
 
+const wikiClaimReviewEventSchema = new mongoose.Schema({
+  action: { type: String, enum: ['accept', 'reject', 'defer', 'preserve'], required: true },
+  at: { type: Date, default: Date.now },
+  note: { type: String, default: '', trim: true },
+  deferredUntil: { type: Date, default: null },
+  receiptId: { type: String, required: true, trim: true }
+}, { _id: false });
+
+const wikiClaimReviewSchema = new mongoose.Schema({
+  version: { type: Number, default: 1 },
+  scope: { type: String, enum: ['claim'], default: 'claim' },
+  targetClaimId: { type: String, required: true, trim: true },
+  conceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', default: null },
+  state: {
+    type: String,
+    enum: ['pending', 'deferred', 'accepted', 'rejected', 'preserved'],
+    default: 'pending'
+  },
+  basePageHash: { type: String, default: '', trim: true },
+  baseClaimHash: { type: String, default: '', trim: true },
+  proposedClaimHash: { type: String, default: '', trim: true },
+  proposedClaim: { type: mongoose.Schema.Types.Mixed, default: null },
+  bodyPatch: { type: mongoose.Schema.Types.Mixed, default: null },
+  affected: { type: mongoose.Schema.Types.Mixed, default: null },
+  events: { type: [wikiClaimReviewEventSchema], default: [] },
+  reviewedAt: { type: Date, default: null },
+  deferredUntil: { type: Date, default: null },
+  receipt: { type: mongoose.Schema.Types.Mixed, default: null }
+}, { _id: false });
+
 const wikiRevisionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
@@ -874,7 +925,8 @@ const wikiRevisionSchema = new mongoose.Schema({
   actorType: { type: String, enum: ['user', 'agent', 'system'], default: 'user' },
   sourceEventId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiSourceEvent', default: null },
   maintenanceRunId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiMaintenanceRun', default: null },
-  promotionStatus: { type: String, enum: ['candidate', 'promoted', 'rejected'], default: 'promoted' },
+  promotionStatus: { type: String, enum: ['candidate', 'promoted', 'rejected', 'deferred', 'preserved'], default: 'promoted' },
+  claimReview: { type: wikiClaimReviewSchema, default: null },
   sourceVersion: { type: mongoose.Schema.Types.Mixed, default: null },
   quality: { type: mongoose.Schema.Types.Mixed, default: null },
   before: { type: mongoose.Schema.Types.Mixed, default: null },
@@ -930,6 +982,7 @@ const wikiSourceEventSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 wikiSourceEventSchema.index({ userId: 1, status: 1, createdAt: -1 });
+wikiSourceEventSchema.index({ userId: 1, status: 1, 'metadata.ingestReviewedAt': -1 });
 wikiSourceEventSchema.index({ userId: 1, sourceType: 1, sourceObjectId: 1, eventType: 1 });
 
 const WikiSourceEvent = mongoose.model('WikiSourceEvent', wikiSourceEventSchema);
@@ -1119,6 +1172,26 @@ const conceptWorkspaceSchema = new mongoose.Schema({
   updatedAt: { type: String, default: () => new Date().toISOString() }
 }, { _id: false });
 
+const conceptContinuityAnchorSchema = new mongoose.Schema({
+  kind: {
+    type: String,
+    enum: ['wiki_investigation'],
+    default: undefined
+  },
+  objectType: {
+    type: String,
+    enum: ['wiki_page'],
+    default: undefined
+  },
+  objectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WikiPage',
+    default: undefined
+  },
+  linkedAt: { type: Date, default: undefined },
+  linkedBy: { type: String, enum: ['user'], default: undefined }
+}, { _id: false });
+
 // Tag metadata (concept pages)
 const tagMetaSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -1135,6 +1208,7 @@ const tagMetaSchema = new mongoose.Schema({
   ideaWorkbenchEvents: { type: [mongoose.Schema.Types.Mixed], default: [] },
   workspaceTemplateId: { type: String, default: '', trim: true },
   workspaceTemplateName: { type: String, default: '', trim: true },
+  continuityAnchor: { type: conceptContinuityAnchorSchema, default: undefined },
   isPublic: { type: Boolean, default: false },
   slug: {
     type: String,
@@ -1156,8 +1230,67 @@ tagMetaSchema.index({ slug: 1 }, { unique: true, sparse: true });
 tagMetaSchema.index({ userId: 1, pinnedHighlightIds: 1 });
 tagMetaSchema.index({ userId: 1, pinnedArticleIds: 1 });
 tagMetaSchema.index({ userId: 1, pinnedNoteIds: 1 });
+tagMetaSchema.index(
+  {
+    userId: 1,
+    'continuityAnchor.kind': 1,
+    'continuityAnchor.objectType': 1,
+    'continuityAnchor.objectId': 1
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      'continuityAnchor.kind': 'wiki_investigation',
+      'continuityAnchor.objectType': 'wiki_page',
+      'continuityAnchor.objectId': { $type: 'objectId' }
+    }
+  }
+);
 
 const TagMeta = mongoose.model('TagMeta', tagMetaSchema);
+
+const conceptDecisionLessonEvidenceSchema = new mongoose.Schema({
+  adoptionId: { type: String, required: true, trim: true },
+  targetConceptId: { type: mongoose.Schema.Types.ObjectId, ref: 'TagMeta', required: true },
+  sourcePageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true },
+  decisionId: { type: String, required: true, trim: true },
+  lessonId: { type: String, required: true, trim: true },
+  role: { type: String, enum: ['support', 'tension', 'context'], required: true },
+  lessonSnapshot: { type: String, required: true, trim: true },
+  result: { type: String, enum: ['positive', 'negative', 'mixed'], required: true },
+  processScore: { type: Number, default: null, min: 0, max: 1 },
+  calibrationNoteSnapshot: { type: String, required: true, trim: true },
+  observedAt: { type: Date, required: true },
+  observedEvidenceRefs: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  decisionSourceRefs: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  relatedClaimRefs: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  acceptedRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  recordedRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  outcomeRevisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  decisionReceiptId: { type: String, required: true, trim: true },
+  outcomeReceiptId: { type: String, required: true, trim: true },
+  receiptId: { type: String, required: true, trim: true },
+  requestId: { type: String, required: true, trim: true },
+  decisionSnapshotHash: { type: String, required: true, trim: true },
+  outcomeRecordHash: { type: String, required: true, trim: true },
+  payloadHash: { type: String, required: true, trim: true },
+  acceptedAt: { type: Date, required: true },
+  acceptedBy: { type: String, enum: ['user'], required: true },
+  version: { type: Number, default: 1 },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+conceptDecisionLessonEvidenceSchema.index({ userId: 1, adoptionId: 1 }, { unique: true });
+conceptDecisionLessonEvidenceSchema.index(
+  { userId: 1, targetConceptId: 1, sourcePageId: 1, decisionId: 1 },
+  { unique: true }
+);
+conceptDecisionLessonEvidenceSchema.index({ userId: 1, targetConceptId: 1, acceptedAt: -1 });
+
+const ConceptDecisionLessonEvidence = mongoose.model(
+  'ConceptDecisionLessonEvidence',
+  conceptDecisionLessonEvidenceSchema
+);
 
 // Concept notes (per-tag notes)
 const conceptNoteSchema = new mongoose.Schema({
@@ -1365,6 +1498,8 @@ connectionSchema.index(
 );
 connectionSchema.index({ userId: 1, scopeType: 1, scopeId: 1, fromType: 1, fromId: 1, createdAt: -1 });
 connectionSchema.index({ userId: 1, scopeType: 1, scopeId: 1, toType: 1, toId: 1, createdAt: -1 });
+connectionSchema.index({ userId: 1, fromType: 1, fromId: 1, createdAt: -1 });
+connectionSchema.index({ userId: 1, toType: 1, toId: 1, createdAt: -1 });
 
 const Connection = mongoose.model('Connection', connectionSchema);
 
@@ -2015,6 +2150,7 @@ const referenceEdgeSchema = new mongoose.Schema({
 referenceEdgeSchema.index({ targetType: 1, targetId: 1, targetTagName: 1 });
 referenceEdgeSchema.index({ userId: 1, targetType: 1, targetId: 1 });
 referenceEdgeSchema.index({ userId: 1, targetType: 1, targetTagName: 1 });
+referenceEdgeSchema.index({ userId: 1, sourceType: 1, sourceId: 1 });
 
 const ReferenceEdge = mongoose.model('ReferenceEdge', referenceEdgeSchema);
 
@@ -2194,6 +2330,7 @@ const noeisReceiptSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 noeisReceiptSchema.index({ userId: 1, completedAt: -1 });
+noeisReceiptSchema.index({ userId: 1, kind: 1, status: 1, completedAt: -1 });
 noeisReceiptSchema.index({ userId: 1, receiptId: 1 }, { unique: true });
 
 const NoeisReceipt = mongoose.model('NoeisReceipt', noeisReceiptSchema);
@@ -2318,6 +2455,7 @@ module.exports = {
   WikiSharedCollection,
   ConnectorActionLog,
   TagMeta,
+  ConceptDecisionLessonEvidence,
   ConceptNote,
   Question,
   Board,

@@ -163,22 +163,51 @@ export const ConceptPartnerRail = ({
       }));
   }, [model.state.agent.comments, model.state.cards]);
   const workingConcepts = useMemo(
-    () => concepts
-      .filter((item) => clean(item?.name) && clean(item.name) !== clean(selectedConceptName))
-      .slice(0, 8),
+    () => {
+      const selectedName = clean(selectedConceptName);
+      const seen = new Set();
+      return concepts
+        .filter((item) => {
+          const name = clean(item?.name);
+          if (!name || name === selectedName || seen.has(name)) return false;
+          seen.add(name);
+          return true;
+        })
+        .slice(0, 8);
+    },
     [concepts, selectedConceptName]
   );
   const conceptChoices = useMemo(
-    () => [concept, ...workingConcepts]
-      .filter(Boolean)
-      .map((item) => ({
-        id: clean(item?.name),
-        name: clean(item?.name),
-        count: Number.isFinite(item?.count) ? item.count : null,
-        isCurrent: clean(item?.name) === clean(selectedConceptName)
-      }))
-      .filter((item) => item.name),
-    [concept, selectedConceptName, workingConcepts]
+    () => {
+      const selectedName = clean(selectedConceptName);
+      const matchingCurrent = [concept, ...concepts]
+        .find((item) => clean(item?.name) === selectedName);
+      const candidates = [
+        selectedName ? { ...matchingCurrent, name: selectedName } : null,
+        concept,
+        ...workingConcepts
+      ].filter(Boolean);
+      const seen = new Set();
+      return candidates
+        .map((item) => {
+          const name = clean(item?.name);
+          const countedItem = Number.isFinite(item?.count)
+            ? item
+            : concepts.find((candidate) => clean(candidate?.name) === name && Number.isFinite(candidate?.count));
+          return {
+            id: name,
+            name,
+            count: Number.isFinite(countedItem?.count) ? countedItem.count : null,
+            isCurrent: name === selectedName
+          };
+        })
+        .filter((item) => {
+          if (!item.name || seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+    },
+    [concept, concepts, selectedConceptName, workingConcepts]
   );
 
   const sectionMap = {
@@ -712,6 +741,49 @@ export const ConceptEvidenceStreamRail = ({
     event.preventDefault();
     await handleSend();
   };
+
+  if (isFreshConcept) {
+    return (
+      <div className="concept-editorial-evidence concept-editorial-evidence--fresh">
+        <div className="concept-editorial-evidence__header">
+          <h3>{AGENT_DISPLAY_NAME}</h3>
+          <p>Write the thought in your own words. Context stays optional until you ask for it.</p>
+        </div>
+        <AgentTicker
+          className="concept-editorial-evidence__ticker"
+          label="Thought partner computation trace"
+          lines={tickerLines}
+          state={model.agentBusy ? 'working' : 'idle'}
+        />
+        {referencePullInSlot}
+        <details className="concept-editorial-evidence__fresh-tools">
+          <summary>Ask or retrieve context</summary>
+          <div className="concept-editorial-evidence__fresh-tools-body">
+            <div className="concept-editorial-evidence__starter-actions">
+              <button type="button" onClick={() => onOpenTemplatePicker?.()}>
+                Starter scaffold
+              </button>
+              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.PULL_RELATED_SOURCES)}>
+                Remembered sources
+              </button>
+              <button type="button" disabled={model.agentBusy} onClick={() => model.actions.dispatchConceptAction(CONCEPT_ACTIONS.FIND_TENSION)}>
+                Find tension
+              </button>
+            </div>
+            <div className="concept-editorial-evidence__composer">
+              <textarea
+                value={partnerInput}
+                onChange={(event) => setPartnerInput(event.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                placeholder="Ask for what this thought needs next."
+              />
+              <button type="button" onClick={handleSend} disabled={!clean(partnerInput) || model.agentBusy}>↗</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    );
+  }
 
   return (
     <div className="concept-editorial-evidence">

@@ -75,6 +75,19 @@ const run = async () => {
       return { toObject: () => created };
     }
   };
+  const receipts = [];
+  const NoeisReceipt = {
+    findOne: (query) => new Query(receipts.find(row => (
+      row.userId === query.userId && row.receiptId === query.receiptId
+    )) || null),
+    findOneAndUpdate: async (query, update) => {
+      const stored = { _id: `receipt-${receipts.length + 1}`, ...update.$set };
+      const index = receipts.findIndex(row => row.receiptId === query.receiptId);
+      if (index >= 0) receipts[index] = stored;
+      else receipts.push(stored);
+      return stored;
+    }
+  };
 
   const app = express();
   app.use(express.json());
@@ -88,6 +101,7 @@ const run = async () => {
       next();
     },
     Connection,
+    NoeisReceipt,
     NotebookEntry: { find: () => new Query([]) },
     Article: { find: () => new Query([]), aggregate: async () => [] },
     TagMeta: { find: () => new Query([]) },
@@ -132,6 +146,10 @@ const run = async () => {
       })
     });
     assert.strictEqual(created.res.status, 201, created.text);
+    assert.match(created.body.trace.receiptId, /^connection_created:v1:/);
+    assert.strictEqual(receipts.length, 1);
+    assert.strictEqual(receipts[0].kind, 'connection_created');
+    assert.strictEqual(receipts[0].provenance.actorType, 'user');
     assert.strictEqual(created.body.scopeType || '', '', 'unscoped create should return an unscoped forward edge');
     assert.ok(
       records.some(row => (

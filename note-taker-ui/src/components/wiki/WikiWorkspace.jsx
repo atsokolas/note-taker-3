@@ -2904,7 +2904,12 @@ const WikiWorkspace = () => {
   const view = selectedPageId ? 'page' : explicitView || 'graph';
   const isListWorkspace = !selectedPageId && view === 'list';
   const agentPaneCollapsed = Boolean(selectedPageId && pageMode === 'read' && mobilePane !== 'chat');
-  const activeMobilePane = mobilePane === 'chat' ? 'chat' : 'wiki';
+  // Selected pages own their contextual agent through WikiPageReadView's
+  // responsive drawer. Keep the legacy split-pane chat available for the
+  // broader workspace, but never stack it above a living article on mobile.
+  const activeMobilePane = isMobileLayout && selectedPageId
+    ? 'wiki'
+    : mobilePane === 'chat' ? 'chat' : 'wiki';
 
   useEffect(() => {
     const syncMobileLayout = () => setIsMobileLayout(getWorkspaceWidth() < WIKI_MOBILE_BREAKPOINT);
@@ -3362,7 +3367,7 @@ const WikiWorkspace = () => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="wiki-workspace__mobile-tabs" role="tablist" aria-label="Workspace panes">
+      {!selectedPageId ? <div className="wiki-workspace__mobile-tabs" role="tablist" aria-label="Workspace panes">
         <Link
           to={viewPathFor({ page: selectedPageId, view, mode: pageMode, pane: 'chat' })}
           role="tab"
@@ -3387,8 +3392,8 @@ const WikiWorkspace = () => {
         >
           Wiki
         </Link>
-      </div>
-      {agentPaneCollapsed ? (
+      </div> : null}
+      {agentPaneCollapsed && !isMobileLayout ? (
         <button
           type="button"
           className="wiki-workspace__agent-peek"
@@ -3450,7 +3455,7 @@ const WikiWorkspace = () => {
             </Button>
           </section>
         ) : null}
-        <form className="wiki-workspace__mobile-agent" onSubmit={submitQuickAgentDraft} aria-label={`${AGENT_DISPLAY_NAME} quick prompt`}>
+        {!selectedPageId ? <form className="wiki-workspace__mobile-agent" onSubmit={submitQuickAgentDraft} aria-label={`${AGENT_DISPLAY_NAME} quick prompt`}>
           <span className="wiki-workspace__mobile-agent-label">
             <strong>{AGENT_DISPLAY_NAME}</strong>
             <span>Ready</span>
@@ -3468,7 +3473,7 @@ const WikiWorkspace = () => {
           <Button type="button" variant="secondary" onClick={handleWorkspaceBuild}>
             Build
           </Button>
-        </form>
+        </form> : null}
         {autoBuildNotice ? (
           <div className="wiki-workspace__build-notice" role="alert">
             {autoBuildNotice}

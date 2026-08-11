@@ -146,6 +146,41 @@ describe('Concept evidence shell surfaces', () => {
     expect(screen.queryByText('New inquiry')).not.toBeInTheDocument();
   });
 
+  it('keeps the selected Concept first and deduplicates a stale navigation payload', () => {
+    const model = buildModel();
+    const Harness = () => {
+      const [activeSection, setActiveSection] = React.useState('assistant');
+      return (
+        <ConceptPartnerRail
+          concept={{ _id: 'source-concept', name: 'Inference economics' }}
+          concepts={[
+            { _id: 'source-concept', name: 'Inference economics', count: 0 },
+            { _id: 'target-concept', name: 'Stage 3 target Concept', count: 1 },
+            { _id: 'source-duplicate', name: 'Inference economics', count: 0 }
+          ]}
+          selectedConceptName="Stage 3 target Concept"
+          model={model}
+          activeSection={activeSection}
+          onChangeSection={setActiveSection}
+          onOpenConcept={jest.fn()}
+          collapsed={false}
+          onToggleCollapse={jest.fn()}
+        />
+      );
+    };
+
+    render(<Harness />);
+    const workingConceptList = screen.getByText('Working concepts').nextElementSibling;
+    expect(workingConceptList).toHaveTextContent(/^Stage 3 target Concept · 1Inference economics · 0$/);
+    expect(workingConceptList.querySelectorAll('li')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: /Sources/ }));
+    const workingConceptSections = screen.getAllByText('Working concepts');
+    const secondaryConceptList = workingConceptSections[1].nextElementSibling;
+    expect(secondaryConceptList).toHaveTextContent(/^Inference economics$/);
+    expect(secondaryConceptList.querySelectorAll('li')).toHaveLength(1);
+  });
+
   it('keeps one primary prompt block and quick retrieval actions in the context margin', async () => {
     const model = buildModel();
 

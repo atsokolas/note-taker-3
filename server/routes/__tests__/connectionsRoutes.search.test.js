@@ -77,8 +77,9 @@ const matchesQuery = (row, query = {}) => Object.entries(query).every(([key, val
 
 const makeConnectionModel = () => {
   const records = [];
-  return {
+  const model = {
     records,
+    failCreateFromId: '',
     find: (query = {}) => new Query(records.filter(row => matchesQuery(row, query))),
     findOne: (query = {}) => new Query(records.find(row => matchesQuery(row, query)) || null),
     findOneAndDelete: async (query = {}) => {
@@ -90,7 +91,16 @@ const makeConnectionModel = () => {
         toObject: () => ({ ...record })
       };
     },
+    deleteOne: async (query = {}) => {
+      const index = records.findIndex(row => matchesQuery(row, query));
+      if (index === -1) return { deletedCount: 0 };
+      records.splice(index, 1);
+      return { deletedCount: 1 };
+    },
     create: async (payload = {}) => {
+      if (model.failCreateFromId && payload.fromId === model.failCreateFromId) {
+        throw new Error('simulated connection persistence failure');
+      }
       if (records.some(row => (
         row.userId === payload.userId
         && row.scopeType === (payload.scopeType || '')
@@ -118,12 +128,15 @@ const makeConnectionModel = () => {
       };
     }
   };
+  return model;
 };
 
 const run = async () => {
   const userId = new mongoose.Types.ObjectId().toString();
   const wikiId = new mongoose.Types.ObjectId().toString();
   const Connection = makeConnectionModel();
+  const receipts = [];
+  let receiptPersistenceMode = 'available';
   const app = express();
   app.use(express.json());
   app.use(buildConnectionsRouter({
@@ -133,6 +146,18 @@ const run = async () => {
       next();
     },
     Connection,
+    NoeisReceipt: {
+      findOne: (query) => new Query(receipts.find(row => (
+        row.userId === query.userId && row.receiptId === query.receiptId
+      )) || null),
+      findOneAndUpdate: async (_query, update) => {
+        if (receiptPersistenceMode === 'unavailable') return null;
+        if (receiptPersistenceMode === 'throw') throw new Error('simulated receipt persistence failure');
+        const stored = { _id: `receipt-${receipts.length + 1}`, ...update.$set };
+        receipts.push(stored);
+        return stored;
+      }
+    },
     NotebookEntry: emptyFindModel(),
     Article: {
       find: () => new Query([]),
@@ -216,6 +241,8 @@ const run = async () => {
     });
     assert.strictEqual(created.res.status, 201, created.text);
     assert.strictEqual(created.body.trace.bidirectional, true);
+    assert.match(created.body.trace.receiptId, /^connection_created:v1:/);
+    assert.strictEqual(receipts.length, 1);
     assert.strictEqual(created.body.trace.reciprocalRelationType, 'referenced_by');
     assert.strictEqual(Connection.records.length, 2);
     assert.ok(Connection.records.some(row => row.fromType === 'concept' && row.toType === 'highlight' && row.relationType === 'related'));
@@ -231,7 +258,34 @@ const run = async () => {
     assert.strictEqual(repeated.res.status, 200, repeated.text);
     assert.strictEqual(repeated.body.existing, true);
     assert.strictEqual(repeated.body.trace.bidirectional, true);
+    assert.strictEqual(receipts.length, 1);
     assert.strictEqual(Connection.records.length, 2);
+
+    receipts.splice(0, receipts.length);
+    const repairedReceipt = await postJson(url, '/api/connections', {
+      fromType: 'concept',
+      fromId: 'concept-1',
+      toType: 'highlight',
+      toId: 'highlight-1',
+      relationType: 'related'
+    });
+    assert.strictEqual(repairedReceipt.res.status, 200, repairedReceipt.text);
+    assert.strictEqual(receipts.length, 1, 'a valid existing pair must regain its missing durable receipt');
+    assert.strictEqual(repairedReceipt.body.trace.receiptId, created.body.trace.receiptId);
+
+    receipts[0].provenance = { ...receipts[0].provenance, toId: 'tampered-endpoint' };
+    const corruptReceiptReplay = await postJson(url, '/api/connections', {
+      fromType: 'concept',
+      fromId: 'concept-1',
+      toType: 'highlight',
+      toId: 'highlight-1',
+      relationType: 'related'
+    });
+    assert.strictEqual(corruptReceiptReplay.res.status, 409, corruptReceiptReplay.text);
+    receipts[0].provenance = {
+      ...receipts[0].provenance,
+      toId: 'highlight-1'
+    };
 
     const deletedForward = await deleteRequest(url, `/api/connections/${created.body._id}`);
     assert.strictEqual(deletedForward.res.status, 200, deletedForward.text);
@@ -274,6 +328,45 @@ const run = async () => {
     assert.strictEqual(contradiction.res.status, 201, contradiction.text);
     assert.strictEqual(contradiction.body.trace.reciprocalRelationType, 'contradicted_by');
     assert.ok(Connection.records.some(row => row.fromType === 'wiki_page' && row.toType === 'question' && row.relationType === 'contradicted_by'));
+
+    const beforeUnavailableReceipt = Connection.records.map(row => ({ ...row }));
+    receiptPersistenceMode = 'unavailable';
+    const unavailableReceipt = await postJson(url, '/api/connections', {
+      fromType: 'article',
+      fromId: 'article-receipt-failure',
+      toType: 'question',
+      toId: 'question-receipt-failure',
+      relationType: 'supports'
+    });
+    assert.strictEqual(unavailableReceipt.res.status, 503, unavailableReceipt.text);
+    assert.deepStrictEqual(
+      Connection.records,
+      beforeUnavailableReceipt,
+      'both new connection directions must roll back when their receipt cannot be persisted'
+    );
+
+    receiptPersistenceMode = 'throw';
+    const thrownReceipt = await postJson(url, '/api/connections', {
+      fromType: 'article',
+      fromId: 'article-receipt-throw',
+      toType: 'question',
+      toId: 'question-receipt-throw',
+      relationType: 'supports'
+    });
+    assert.strictEqual(thrownReceipt.res.status, 500, thrownReceipt.text);
+    assert.deepStrictEqual(Connection.records, beforeUnavailableReceipt);
+
+    receiptPersistenceMode = 'available';
+    Connection.failCreateFromId = 'question-reciprocal-throw';
+    const thrownReciprocal = await postJson(url, '/api/connections', {
+      fromType: 'article',
+      fromId: 'article-reciprocal-throw',
+      toType: 'question',
+      toId: 'question-reciprocal-throw',
+      relationType: 'supports'
+    });
+    assert.strictEqual(thrownReciprocal.res.status, 500, thrownReciprocal.text);
+    assert.deepStrictEqual(Connection.records, beforeUnavailableReceipt);
   } finally {
     await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())));
   }

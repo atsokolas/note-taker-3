@@ -22,10 +22,12 @@ import { listWorkingMemory } from '../api/workingMemory';
 import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
 import useAgentThreads from '../hooks/useAgentThreads';
 import useHandoffs from '../hooks/useHandoffs';
+import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
 
 const mockThoughtPartnerPanel = jest.fn();
 const mockQuestionEditor = jest.fn();
 const mockSetSearchParams = jest.fn();
+const mockDispatchConceptAction = jest.fn();
 const useSearchParamsMock = jest.spyOn(ReactRouterDom, 'useSearchParams');
 
 jest.mock('../hooks/useConcepts', () => jest.fn());
@@ -216,6 +218,20 @@ jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   }
 }));
 jest.mock('../components/think/concepts/ConceptNotebook', () => () => null);
+jest.mock('../components/think/concepts/ConceptInvestigationPanel', () => (props) => (
+  <div
+    data-testid="concept-investigation-panel"
+    data-concept-id={props.conceptId}
+    data-loaded-concept-id={props.loadedConceptId}
+    data-wiki-page-id={props.wikiPageId}
+    data-revision-id={props.revisionId}
+    data-claim-id={props.claimId}
+  >
+    Investigation context
+    <button type="button" onClick={() => props.onRunWorkbenchAction?.('find_contrary_evidence')}>Run contrary evidence</button>
+    <button type="button" onClick={props.onClose}>Close mocked investigation</button>
+  </div>
+));
 jest.mock('../components/think/concepts/ConceptEvidenceStreamView', () => ({
   __esModule: true,
   default: () => <div>Concept Evidence Stream</div>,
@@ -224,7 +240,8 @@ jest.mock('../components/think/concepts/ConceptEvidenceStreamView', () => ({
 }));
 jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchMain', () => () => <div>Idea Workbench</div>);
 jest.mock('../components/think/concepts/idea-workbench/IdeaWorkbenchAgentRail', () => () => <div>Idea Agent Rail</div>);
-jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', () => jest.fn(() => ({
+jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', () => jest.fn());
+const buildMockIdeaWorkbenchModel = () => ({
   state: {
     header: { label: 'Idea', title: 'Template Concept', prompt: "What's the core insight here?", stage: 'Seed' },
     workspaceDraft: '',
@@ -242,6 +259,7 @@ jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', (
   hypothesisVersion: { label: 'v1', summary: 'Initial' },
   importableCounts: { highlights: 0, notes: 0, snippets: 0, concepts: 0 },
   actions: {
+    dispatchConceptAction: mockDispatchConceptAction,
     setHeaderField: jest.fn(),
     setWorkspaceDraft: jest.fn(),
     setWorkspaceDraftType: jest.fn(),
@@ -256,7 +274,7 @@ jest.mock('../components/think/concepts/idea-workbench/useIdeaWorkbenchModel', (
     runQuickAction: jest.fn(),
     sendAgentMessage: jest.fn()
   }
-})));
+});
 jest.mock('../components/virtual/VirtualList', () => ({
   __esModule: true,
   default: ({ items, renderItem }) => <div>{(items || []).map((item, index) => renderItem(item, index))}</div>
@@ -319,7 +337,9 @@ const defaultHandoffsModel = {
 
 describe('ThinkMode template integration', () => {
   beforeEach(() => {
+    mockDispatchConceptAction.mockReset();
     jest.clearAllMocks();
+    useIdeaWorkbenchModel.mockReturnValue(buildMockIdeaWorkbenchModel());
     mockThoughtPartnerPanel.mockClear();
     mockQuestionEditor.mockClear();
     mockSetSearchParams.mockReset();
@@ -388,6 +408,134 @@ describe('ThinkMode template integration', () => {
 
     useAgentThreads.mockReturnValue(defaultThreadsModel);
     useHandoffs.mockReturnValue(defaultHandoffsModel);
+  });
+
+  it('mounts exact movement investigation context and clears it on close', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=concepts&concept=Stale Name&conceptId=concept-1&investigation=1&wikiPageId=wiki-1&revisionId=revision-1&claimId=claim-1'),
+      mockSetSearchParams
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    const panel = await screen.findByTestId('concept-investigation-panel');
+    expect(panel).toHaveAttribute('data-concept-id', 'concept-1');
+    expect(panel).toHaveAttribute('data-loaded-concept-id', 'concept-1');
+    expect(panel).toHaveAttribute('data-wiki-page-id', 'wiki-1');
+    expect(panel).toHaveAttribute('data-revision-id', 'revision-1');
+    expect(panel).toHaveAttribute('data-claim-id', 'claim-1');
+    expect(useConcept).toHaveBeenCalledWith('concept-1', expect.objectContaining({ enabled: true }));
+    expect(useIdeaWorkbenchModel).toHaveBeenCalledWith(expect.objectContaining({ conceptId: 'concept-1' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run contrary evidence' }));
+    expect(mockDispatchConceptAction).toHaveBeenCalledWith('find-tension');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close mocked investigation' }));
+    const [nextParams, options] = mockSetSearchParams.mock.calls.at(-1);
+    expect(nextParams.get('tab')).toBe('concepts');
+    expect(nextParams.get('concept')).toBe('Template Concept');
+    expect(nextParams.has('investigation')).toBe(false);
+    expect(nextParams.has('conceptId')).toBe(false);
+    expect(nextParams.has('wikiPageId')).toBe(false);
+    expect(nextParams.has('revisionId')).toBe(false);
+    expect(nextParams.has('claimId')).toBe(false);
+    expect(options).toEqual({ replace: true });
+  });
+
+  it('keeps the exact investigation Concept id authoritative over encoded display text', async () => {
+    const exactConceptId = '64f100000000000000000020';
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams({
+        tab: 'concepts',
+        concept: 'C++ 50% Δ',
+        conceptId: exactConceptId,
+        investigation: '1',
+        wikiPageId: 'wiki-1'
+      }),
+      mockSetSearchParams
+    ]);
+    useConcept.mockReturnValue({
+      concept: {
+        _id: exactConceptId,
+        name: 'Δ inference κόστος',
+        description: '',
+        pinnedHighlightIds: [],
+        pinnedArticleIds: [],
+        pinnedNoteIds: []
+      },
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+
+    render(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(await screen.findByTestId('concept-investigation-panel')).toBeInTheDocument();
+    expect(useConcept).toHaveBeenCalledWith(exactConceptId, expect.objectContaining({ enabled: true }));
+    expect(useConceptRelated).toHaveBeenCalledWith('Δ inference κόστος', expect.objectContaining({ enabled: true }));
+    expect(useQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      conceptName: 'Δ inference κόστος',
+      enabled: true
+    }));
+    expect(useIdeaWorkbenchModel).toHaveBeenCalledWith(expect.objectContaining({
+      conceptId: exactConceptId,
+      concept: expect.objectContaining({ _id: exactConceptId })
+    }));
+  });
+
+  it('keeps an exact Concept id authoritative for ordinary Concept navigation', async () => {
+    const exactConceptId = '64f100000000000000000020';
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams({
+        tab: 'concepts',
+        concept: 'Stale display name',
+        conceptId: exactConceptId
+      }),
+      mockSetSearchParams
+    ]);
+    useConcept.mockReturnValue({
+      concept: {
+        _id: exactConceptId,
+        name: 'Canonical Concept',
+        description: '',
+        pinnedHighlightIds: [],
+        pinnedArticleIds: [],
+        pinnedNoteIds: []
+      },
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+
+    render(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(useConcept).toHaveBeenCalledWith(exactConceptId, expect.objectContaining({ enabled: true }));
+    expect(useIdeaWorkbenchModel).toHaveBeenCalledWith(expect.objectContaining({
+      conceptId: exactConceptId,
+      concept: expect.objectContaining({ _id: exactConceptId })
+    }));
+    expect(screen.queryByTestId('concept-investigation-panel')).not.toBeInTheDocument();
+  });
+
+  it('fails closed when the loaded Concept does not match the investigation identity', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=concepts&concept=Wrong Concept&conceptId=target-id&investigation=1&wikiPageId=wiki-1'),
+      mockSetSearchParams
+    ]);
+
+    render(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(await screen.findByText('Concept identity mismatch')).toBeInTheDocument();
+    expect(screen.queryByText('Idea Workbench')).not.toBeInTheDocument();
+    expect(useIdeaWorkbenchModel).toHaveBeenCalledWith(expect.objectContaining({ conceptId: 'target-id' }));
+    expect(useConceptRelated).toHaveBeenCalledWith('', expect.objectContaining({ enabled: false }));
+    expect(useQuestions).toHaveBeenCalledWith(expect.objectContaining({ conceptName: '', enabled: false }));
   });
 
   it('defaults Think to the concept workspace and keeps advanced routes in the actions menu', async () => {
@@ -1335,6 +1483,7 @@ describe('ThinkMode template integration', () => {
     fireEvent.click(await screen.findByTestId('think-concepts-empty-create-button'));
 
     expect(screen.getByTestId('think-concept-composer-input')).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: 'Run partner scan after create' })).not.toBeChecked();
   });
 
   describe('ThreePaneLayout fallback routes', () => {

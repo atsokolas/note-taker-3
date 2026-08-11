@@ -93,7 +93,10 @@ describe('ReferencePullIn', () => {
     await waitFor(() => {
       expect(screen.getByText('Margin of safety')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/library?highlightId=h-1');
+    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=h-1'
+    );
     fireEvent.click(screen.getByText('Margin of safety'));
 
     await waitFor(() => {
@@ -118,11 +121,105 @@ describe('ReferencePullIn', () => {
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('1 out · 1 in');
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Used by');
     expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Margin of safety');
-    expect(screen.getAllByRole('link', { name: /Margin of safety/ })[0]).toHaveAttribute('href', '/library?highlightId=h-1');
+    expect(screen.getAllByRole('link', { name: /Margin of safety/ })[0]).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=h-1'
+    );
   });
 
-  it('shows an existing graph trace when the reference was already linked', async () => {
-    createConnection.mockRejectedValueOnce({ response: { status: 409 } });
+  it('references a Library source into selected Think or Wiki work with the durable direction reversed', async () => {
+    searchConnectableItems.mockResolvedValueOnce([
+      {
+        itemType: 'concept',
+        itemId: 'concept-1',
+        title: 'Inference economics',
+        snippet: 'A maintained working concept.'
+      }
+    ]);
+    render(
+      <ReferencePullIn
+        targetType="highlight"
+        targetId="h-1"
+        targetTitle="Margin of safety"
+        mode="reference-source"
+      />
+    );
+
+    expect(screen.getByText('Reference…')).toBeInTheDocument();
+    expect(screen.getByText('Use this source in an existing Think or Wiki object.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'inference' }
+    });
+
+    await waitFor(() => {
+      expect(searchConnectableItems).toHaveBeenCalledWith({
+        q: 'inference',
+        excludeType: 'highlight',
+        excludeId: 'h-1',
+        itemTypes: ['concept', 'question', 'wiki_page', 'notebook'],
+        limit: 6
+      });
+    });
+    fireEvent.click(await screen.findByText('Inference economics'));
+
+    await waitFor(() => {
+      expect(createConnection).toHaveBeenCalledWith({
+        fromType: 'concept',
+        fromId: 'concept-1',
+        toType: 'highlight',
+        toId: 'h-1',
+        relationType: 'related'
+      });
+    });
+    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Used by');
+    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('Inference economics');
+  });
+
+  it('uses the server-provided exact Concept identity instead of its display name', async () => {
+    searchConnectableItems.mockResolvedValueOnce([
+      {
+        itemType: 'concept',
+        itemId: '64f000000000000000000001',
+        title: 'Renamed concept',
+        openPath: '/think?tab=concepts&conceptId=64f000000000000000000001'
+      }
+    ]);
+
+    render(<ReferencePullIn targetType="highlight" targetId="h-1" mode="reference-source" />);
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'renamed' }
+    });
+
+    expect(await screen.findByRole('link', { name: 'Open' })).toHaveAttribute(
+      'href',
+      '/think?tab=concepts&conceptId=64f000000000000000000001'
+    );
+  });
+
+  it('fails closed when a highlight result has no owned parent article identity', async () => {
+    searchConnectableItems.mockResolvedValueOnce([
+      {
+        itemType: 'highlight',
+        itemId: 'orphan-highlight',
+        title: 'Orphan highlight',
+        snippet: 'Missing its parent identity.'
+      }
+    ]);
+    render(<ReferencePullIn targetType="concept" targetId="concept-1" />);
+    fireEvent.change(screen.getByLabelText('Search references to pull in'), {
+      target: { value: 'orphan' }
+    });
+    await screen.findByText('Orphan highlight');
+    expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument();
+  });
+
+  it('fails closed when a 409 reports receipt-integrity failure', async () => {
+    createConnection.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { error: 'Connection receipt integrity check failed.' }
+      }
+    });
     render(
       <ReferencePullIn
         targetType="concept"
@@ -140,12 +237,10 @@ describe('ReferencePullIn', () => {
     });
     fireEvent.click(screen.getByText('Margin of safety'));
 
-    await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('Reference already linked. Bidirectional trace is live.');
-    });
-    expect(screen.getByLabelText('Graph trace receipt')).toHaveTextContent('Existing reciprocal edge confirmed');
-    expect(screen.getByLabelText('Pulled references')).toHaveTextContent('Highlight · Margin of safety');
-    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('1 out · 1 in');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Connection receipt integrity check failed.');
+    expect(screen.queryByLabelText('Graph trace receipt')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Pulled references')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Referenced by')).toHaveTextContent('No references yet.');
   });
 
   it('acknowledges the graph save immediately while a pull is in flight', async () => {

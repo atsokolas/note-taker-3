@@ -91,6 +91,7 @@ const {
   NotebookEntry,
   NotebookFolder,
   TagMeta,
+  ConceptDecisionLessonEvidence,
   ConceptNote,
   Question,
   Board,
@@ -581,6 +582,10 @@ const { buildSearchRetrievalRouter } = require('./routes/searchRetrievalRoutes')
 const { buildSemanticSearchRouter } = require('./routes/semanticSearchRoutes');
 const { buildTagTemplateRouter } = require('./routes/tagTemplateRoutes');
 const { buildConceptMetaRouter } = require('./routes/conceptMetaRoutes');
+const { buildConceptInvestigationRouter } = require('./routes/conceptInvestigationRoutes');
+const { buildConceptContinuityRouter } = require('./routes/conceptContinuityRoutes');
+const { buildConceptDecisionLessonAdoptionRouter } = require('./routes/conceptDecisionLessonAdoptionRoutes');
+const { buildWikiClaimDispositionRouter } = require('./routes/wikiClaimDispositionRoutes');
 const { buildSharedConceptRouter } = require('./routes/sharedConceptRoutes');
 const { buildSharedQuestionRouter } = require('./routes/sharedQuestionRoutes');
 const { buildConceptMaterialRouter } = require('./routes/conceptMaterialRoutes');
@@ -591,6 +596,10 @@ const notionTransformForAgent = require('./services/import/notionTransform');
 const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildDailyLoopRouter } = require('./routes/dailyLoopRoutes');
+const { buildKnowledgeMovementRouter } = require('./routes/knowledgeMovementRoutes');
+const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
+const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
+const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -3994,7 +4003,10 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: highlight.articleTitle || 'Highlight',
       snippet: buildQueueSnippet(highlight.text, highlight.note),
-      openPath: highlight.articleId ? `/library?articleId=${highlight.articleId}` : '/library?scope=highlights',
+      articleId: highlight.articleId ? String(highlight.articleId) : '',
+      openPath: highlight.articleId
+        ? `/library?articleId=${highlight.articleId}&highlightId=${safeItemId}`
+        : '',
       exists: true
     };
   }
@@ -4037,7 +4049,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: concept.name || 'Concept',
       snippet: buildQueueSnippet(concept.description, concept.name),
-      openPath: concept.name ? `/think?tab=concepts&concept=${encodeURIComponent(concept.name)}` : '/think?tab=concepts',
+      openPath: `/think?tab=concepts&conceptId=${concept._id}`,
       exists: true
     };
   }
@@ -4061,7 +4073,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: page.title || 'Wiki page',
       snippet: buildQueueSnippet(page.plainText, page.pageType),
-      openPath: `/wiki/${page._id}`,
+      openPath: `/wiki/workspace?page=${page._id}`,
       exists: true
     };
   }
@@ -4079,7 +4091,7 @@ const resolveReturnQueueItem = async (userId, itemType, itemId) => {
     return {
       title: claim.section || 'Wiki claim',
       snippet: buildQueueSnippet(claim.text, page.title),
-      openPath: `/wiki/${page._id}`,
+      openPath: `/wiki/workspace?page=${page._id}&claimId=${encodeURIComponent(claimId)}`,
       exists: true
     };
   }
@@ -5312,6 +5324,55 @@ app.use(buildDailyLoopRouter({
   Connection
 }));
 
+app.use(buildKnowledgeMovementRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  TagMeta,
+  NoeisReceipt,
+  Article,
+  NotebookEntry,
+  Question,
+  Connection,
+  ReferenceEdge
+}));
+
+app.use(buildDecisionIndexRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  Article,
+  NotebookEntry,
+  Question,
+  TagMeta,
+  WikiRevision,
+  NoeisReceipt
+}));
+
+app.use(buildDecisionMutationRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt,
+  Article,
+  NotebookEntry,
+  Question,
+  TagMeta
+}));
+
+app.use(buildLibraryRelevanceRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  Article,
+  NotebookEntry,
+  TagMeta,
+  WikiPage,
+  WikiRevision,
+  WikiSourceEvent,
+  NoeisReceipt,
+  Connection,
+  ReferenceEdge
+}));
+
 app.use(buildWikiRouter({
   authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
@@ -5404,6 +5465,7 @@ app.use(buildConnectionsRouter({
   mongoose,
   authenticateToken,
   Connection,
+  NoeisReceipt,
   NotebookEntry,
   Article,
   TagMeta,
@@ -6523,6 +6585,49 @@ app.use(buildConceptMetaRouter({
   escapeRegExp,
   trackEvent,
   EVENT_NAMES
+}));
+
+app.use(buildConceptInvestigationRouter({
+  authenticateToken,
+  ConceptDecisionLessonEvidence,
+  TagMeta,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt,
+  Article,
+  NotebookEntry,
+  Question
+}));
+
+app.use(buildConceptContinuityRouter({
+  authenticateToken,
+  TagMeta,
+  WikiPage,
+  WikiRevision
+}));
+
+app.use(buildConceptDecisionLessonAdoptionRouter({
+  authenticateToken,
+  ConceptDecisionLessonEvidence,
+  TagMeta,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt,
+  Article,
+  NotebookEntry,
+  Question
+}));
+
+app.use(buildWikiClaimDispositionRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt,
+  TagMeta,
+  Article,
+  NotebookEntry,
+  Question,
+  WikiSourceEvent
 }));
 
 app.use(buildSharedConceptRouter({
