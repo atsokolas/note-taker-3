@@ -41,6 +41,7 @@ import {
   getLastVisitState,
   recordVisit
 } from './wikiVisitTracker';
+import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -101,6 +102,81 @@ const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(
 const BUILD_FAILURE_TEXT_RE = /^Failed to build a wiki page (?:for "[^"]+"|from .+)\.$/;
 const BUILD_RECOVERY_TEXT = 'First pass needed another try — rebuilding with stricter instructions.';
 const MONGO_ID_RE = /\b[a-f0-9]{24}\b/gi;
+const TERMINAL_WIKI_BUILD_CODES = new Set([
+  'WIKI_CANDIDATE_REJECTED',
+  'WIKI_DOSSIER_EVIDENCE_INCOMPLETE',
+  'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE',
+  'WIKI_MAINTENANCE_AWAITING_ACCEPTANCE'
+]);
+const TERMINAL_WIKI_CANDIDATE_STATUSES = new Set([
+  'rejected',
+  'first_head_rejected',
+  'maintenance_rejected'
+]);
+
+const wikiBuildFailure = (message, code = 'WIKI_BUILD_NOT_PERSISTED', retryable = true) => {
+  const error = new Error(message);
+  error.code = code;
+  error.retryable = retryable;
+  return error;
+};
+
+export const assessPersistedWikiBuild = (page = {}, expectedPageId = '') => {
+  const pageId = clean(page?._id || page?.id);
+  const expectedId = clean(expectedPageId);
+  const wordCount = Math.max(
+    countWikiWords(collectWikiText(page?.body)),
+    countWikiWords(page?.plainText)
+  );
+  const sourceCount = countWikiSources(page);
+  const candidateStatus = clean(page?.aiState?.candidateStatus).toLowerCase();
+  const errorCode = clean(page?.aiState?.errorCode);
+  const quality = page?.aiState?.lastCandidateQuality || page?.qualityReview || null;
+  if (!pageId || (expectedId && pageId !== expectedId)) {
+    return { ok: false, wordCount, sourceCount, reason: 'Noeis could not verify the persisted Wiki page identity.' };
+  }
+  if (TERMINAL_WIKI_BUILD_CODES.has(errorCode) || TERMINAL_WIKI_CANDIDATE_STATUSES.has(candidateStatus) || quality?.ok === false || quality?.status === 'fail') {
+    return {
+      ok: false,
+      retryable: false,
+      wordCount,
+      sourceCount,
+      reason: clean(page?.aiState?.lastCandidateSummary || page?.aiState?.lastError)
+        || 'The candidate did not meet the reference-page evidence standard.'
+    };
+  }
+  if (candidateStatus.includes('awaiting') || candidateStatus === 'pending_review') {
+    return {
+      ok: false,
+      retryable: false,
+      wordCount,
+      sourceCount,
+      reason: 'The research candidate still needs explicit owner review.'
+    };
+  }
+  if (wordCount <= 0 || sourceCount <= 0) {
+    return {
+      ok: false,
+      wordCount,
+      sourceCount,
+      reason: `The build finished without a persisted article and evidence (${wordCount} words, ${sourceCount} sources).`
+    };
+  }
+  return { ok: true, page, wordCount, sourceCount };
+};
+
+const verifyPersistedWikiBuild = async (pageId = '') => {
+  const page = await getWikiPage(pageId);
+  const assessment = assessPersistedWikiBuild(page, pageId);
+  if (!assessment.ok) {
+    throw wikiBuildFailure(
+      `${assessment.reason} The page remains a draft and was not recorded as a successful build.`,
+      'WIKI_BUILD_NOT_PERSISTED',
+      assessment.retryable !== false
+    );
+  }
+  return assessment;
+};
 
 const isStaleBuildFailureMessage = (message = {}) => (
   message.role === 'assistant'
@@ -1810,12 +1886,11 @@ const WikiWorkspaceChat = ({
     if (update) onLiveUpdate?.(update);
   }, [onLiveUpdate, selectedPageId]);
   const createMaintenanceStreamHandlers = useCallback((pageId, { onPage } = {}) => {
-    const state = { sawQualityRebuild: false, sawStreamPage: false };
+    const state = { sawQualityRebuild: false };
     return {
       state,
       handlers: {
         onPage: (streamPage, event = {}) => {
-          if (streamPage) state.sawStreamPage = true;
           onPage?.(streamPage, event);
         },
         onEvent: (event, payload = {}) => {
@@ -1833,6 +1908,35 @@ const WikiWorkspaceChat = ({
       }
     };
   }, [clearBuildFailureMessages, handleStreamEvent]);
+
+  const completeWikiBuild = useCallback(async (pageId, runStream) => {
+    await runStream();
+    return verifyPersistedWikiBuild(pageId);
+  }, []);
+
+  const reportWikiBuildFailure = useCallback((error = {}, pageId = '') => {
+    const message = clean(error.message)
+      || 'The Wiki build did not persist a source-backed article. The page remains a draft.';
+    append({ role: 'assistant', text: message });
+    if (error.retryable === false) {
+      systemStatus.setLatestReceipt({
+        title: 'Wiki build needs better evidence',
+        summary: message,
+        status: 'needs_review',
+        href: wikiWorkspacePageHref(pageId)
+      });
+      return;
+    }
+    systemStatus.setRecoverableFailure({
+      stage: 'Wiki build',
+      message,
+      retryable: true,
+      retry: () => {
+        if (pageId) setInput(`/draft @wiki:${pageId}`);
+        window.requestAnimationFrame?.(() => composerRef.current?.focus?.());
+      }
+    });
+  }, [append, systemStatus]);
 
   useEffect(() => {
     if (!selectedPageId) {
@@ -2205,7 +2309,9 @@ const WikiWorkspaceChat = ({
       });
       systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: 'Drafting from source' });
       try {
-        await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), title);
+        await completeWikiBuild(pageId, () => (
+          withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), title)
+        ));
         onNavigate({ page: pageId });
         onPageChanged?.(pageId);
         appendBuildSuccessMessage(`Built @wiki:${pageId} from ${source.title || 'the source'}.`, {
@@ -2216,31 +2322,16 @@ const WikiWorkspaceChat = ({
           label: source.title || title,
           recovered: state.sawQualityRebuild
         }));
-      } catch (_error) {
-        if (state.sawQualityRebuild || state.sawStreamPage) {
-          if (state.sawStreamPage) {
-            onNavigate({ page: pageId });
-            onPageChanged?.(pageId);
-            appendBuildSuccessMessage(`Built @wiki:${pageId} from ${source.title || 'the source'}.`, {
-              includeRecovery: state.sawQualityRebuild
-            });
-            systemStatus.setLatestReceipt(wikiBuildSystemReceipt({
-              pageId,
-              label: source.title || title,
-              recovered: true
-            }));
-          }
-        } else {
-          append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
-        }
+      } catch (error) {
+        reportWikiBuildFailure(error, pageId);
       }
-    } catch (_error) {
-      append({ role: 'assistant', text: `Failed to build a wiki page from ${source.title || 'the source'}.` });
+    } catch (error) {
+      reportWikiBuildFailure(error);
     } finally {
       systemStatus.setBackgroundWork(null);
       setBusy(false);
     }
-  }, [append, appendBuildSuccessMessage, busy, createMaintenanceStreamHandlers, onNavigate, onPageChanged, setBusy, systemStatus]);
+  }, [append, appendBuildSuccessMessage, busy, completeWikiBuild, createMaintenanceStreamHandlers, onNavigate, onPageChanged, reportWikiBuildFailure, setBusy, systemStatus]);
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
@@ -2301,7 +2392,9 @@ const WikiWorkspaceChat = ({
         });
         systemStatus.setBackgroundWork({ label: 'Building wiki page', stage: 'Drafting from sources' });
         try {
-          await withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), topic);
+          await completeWikiBuild(pageId, () => (
+            withMaintenanceTimeout(streamMaintainWikiPage(pageId, {}, handlers), topic)
+          ));
           onNavigate({ page: pageId });
           onPageChanged?.(pageId);
           appendBuildSuccessMessage(`Built @wiki:${pageId} for "${topic}".`, {
@@ -2312,26 +2405,11 @@ const WikiWorkspaceChat = ({
             label: topic,
             recovered: state.sawQualityRebuild
           }));
-        } catch (_streamError) {
-          if (state.sawQualityRebuild || state.sawStreamPage) {
-            if (state.sawStreamPage) {
-              onNavigate({ page: pageId });
-              onPageChanged?.(pageId);
-              appendBuildSuccessMessage(`Built @wiki:${pageId} for "${topic}".`, {
-                includeRecovery: state.sawQualityRebuild
-              });
-              systemStatus.setLatestReceipt(wikiBuildSystemReceipt({
-                pageId,
-                label: topic,
-                recovered: true
-              }));
-            }
-          } else {
-            append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
-          }
+        } catch (error) {
+          reportWikiBuildFailure(error, pageId);
         }
-      } catch (_error) {
-        append({ role: 'assistant', text: `Failed to build a wiki page for "${topic}".` });
+      } catch (error) {
+        reportWikiBuildFailure(error);
       } finally {
         systemStatus.setBackgroundWork(null);
         setBusy(false);
@@ -2348,34 +2426,26 @@ const WikiWorkspaceChat = ({
       setBusy(true);
       append({ role: 'assistant', text: `Drafting @wiki:${pageRef}. The right pane will update from the maintenance stream.` });
       try {
-        const { state, handlers } = createMaintenanceStreamHandlers(pageRef, {
+        const { handlers } = createMaintenanceStreamHandlers(pageRef, {
           onPage: (streamPage) => {
             onNavigate({ page: pageRef });
             onPageChanged?.(pageRef, streamPage);
           }
         });
         try {
-          await withMaintenanceTimeout(streamMaintainWikiPage(pageRef, {}, handlers), pageRef);
+          await completeWikiBuild(pageRef, () => (
+            withMaintenanceTimeout(streamMaintainWikiPage(pageRef, {}, handlers), pageRef)
+          ));
           clearBuildFailureMessages();
           onNavigate({ page: pageRef });
           onPageChanged?.(pageRef);
           append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
           systemStatus.setLatestReceipt(wikiDraftSystemReceipt(pageRef));
-        } catch (_streamError) {
-          clearBuildFailureMessages();
-          if (state.sawQualityRebuild || state.sawStreamPage) {
-            if (state.sawStreamPage) {
-              onNavigate({ page: pageRef });
-              onPageChanged?.(pageRef);
-              append({ role: 'assistant', text: `Finished drafting @wiki:${pageRef}.` });
-              systemStatus.setLatestReceipt(wikiDraftSystemReceipt(pageRef));
-            }
-          } else {
-            append({ role: 'assistant', text: `Draft failed for @wiki:${pageRef}.` });
-          }
+        } catch (error) {
+          reportWikiBuildFailure(error, pageRef);
         }
-      } catch (_error) {
-        append({ role: 'assistant', text: `Draft failed for @wiki:${pageRef}.` });
+      } catch (error) {
+        reportWikiBuildFailure(error, pageRef);
       } finally {
         systemStatus.setBackgroundWork(null);
         setBusy(false);
@@ -2970,7 +3040,7 @@ const WikiWorkspace = () => {
       onDone: (payload) => {
         autoBuildDone = payload;
       }
-    }), selectedPageId).then(() => {
+    }), selectedPageId).then(async () => {
       if (lastSelectedPageRef.current !== selectedPageId) return;
       if (autoBuildDone?.code === 'WIKI_FIRST_HEAD_AWAITING_ACCEPTANCE') {
         setAutoBuildNotice('The first research candidate is ready. Review and explicitly accept or reject it below.');
@@ -2981,6 +3051,7 @@ const WikiWorkspace = () => {
           href: `/wiki/workspace?page=${encodeURIComponent(selectedPageId)}`
         });
       } else {
+        await verifyPersistedWikiBuild(selectedPageId);
         systemStatus.setLatestReceipt(wikiBuildSystemReceipt({ pageId: selectedPageId }));
       }
     }).catch((error) => {
@@ -2988,19 +3059,28 @@ const WikiWorkspace = () => {
         const message = error?.message
           || 'The build was interrupted partway. Resume it to continue from saved SEC evidence.';
         setAutoBuildNotice(message);
-        systemStatus.setRecoverableFailure({
-          stage: 'Wiki build',
-          message,
-          retryable: true,
-          retry: () => {
-            setMobilePane('chat');
-            setChatDraft({
-              id: `auto-build-retry-${selectedPageId}-${Date.now()}`,
-              text: `/draft @wiki:${selectedPageId}`,
-              autoRun: true
-            });
-          }
-        });
+        if (error?.retryable === false) {
+          systemStatus.setLatestReceipt({
+            title: 'Wiki build needs better evidence',
+            summary: message,
+            status: 'needs_review',
+            href: `/wiki/workspace?page=${encodeURIComponent(selectedPageId)}`
+          });
+        } else {
+          systemStatus.setRecoverableFailure({
+            stage: 'Wiki build',
+            message,
+            retryable: true,
+            retry: () => {
+              setMobilePane('chat');
+              setChatDraft({
+                id: `auto-build-retry-${selectedPageId}-${Date.now()}`,
+                text: `/draft @wiki:${selectedPageId}`,
+                autoRun: true
+              });
+            }
+          });
+        }
       }
     }).finally(() => {
       activeAutoBuildPageIds.delete(selectedPageId);

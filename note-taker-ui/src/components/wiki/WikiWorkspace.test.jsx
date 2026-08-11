@@ -185,7 +185,13 @@ describe('WikiWorkspace', () => {
     });
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
     searchConnectableItems.mockResolvedValue([]);
-    getWikiPage.mockResolvedValue({ _id: 'wiki-1', title: 'Wiki page' });
+    getWikiPage.mockImplementation(async (pageId = 'wiki-1') => ({
+      _id: pageId,
+      title: 'Wiki page',
+      plainText: 'A persisted source-backed article explains the subject and its mechanism.',
+      sourceRefs: [{ _id: 'source-1', title: 'Direct source' }],
+      claims: [{ _id: 'claim-1', text: 'A supported claim.' }]
+    }));
     getWikiSchema.mockResolvedValue({
       content: '# Wiki Schema',
       snapshots: [{ id: 'snap-1', createdAt: '2026-05-01T12:00:00.000Z' }]
@@ -1046,6 +1052,65 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
   });
 
+  it('never converts a terminal quality rejection with an empty streamed page into build success', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
+      handlers.onPage?.({
+        _id: 'wiki-new',
+        title: 'Investing',
+        wordCount: 0,
+        sourceRefs: [],
+        aiState: {
+          candidateStatus: 'rejected',
+          errorCode: 'WIKI_CANDIDATE_REJECTED',
+          lastCandidateSummary: 'No cited source directly addresses Investing.'
+        }
+      }, { stage: 'quality_rejected' });
+      const error = new Error('This dossier did not reach the evidence bar — No cited source directly addresses Investing.');
+      error.code = 'WIKI_CANDIDATE_REJECTED';
+      error.retryable = false;
+      throw error;
+    });
+
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Investing' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/did not reach the evidence bar/i)).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Wiki build needs better evidence',
+      status: 'needs_review'
+    }));
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the stream completes but the persisted page has no article or evidence', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Investing', wordCount: 0, sourceRefs: [] });
+
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Investing' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/without a persisted article and evidence \(0 words, 0 sources\)/i)).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
+    expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'Wiki build',
+      retryable: true,
+      retry: expect.any(Function)
+    }));
+    expect(systemStatusControls.setLatestReceipt).not.toHaveBeenCalledWith(expect.objectContaining({
+      title: expect.stringMatching(/built/i)
+    }));
+  });
+
   it('reframes build failure chat lines after a quality-gate rebuild succeeds', async () => {
     createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Economic Moats' });
     streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
@@ -1068,14 +1133,15 @@ describe('WikiWorkspace', () => {
     expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();
   });
 
-  it('clears stale build failure lines when the maintenance stream recovers after quality rebuild', async () => {
+  it('does not convert an interrupted stream tail into success without a completion receipt', async () => {
+    const systemStatusControls = buildSystemStatusControls();
     createWikiPage.mockResolvedValueOnce({ _id: 'wiki-new', title: 'Economic Moats' });
     streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {
       handlers.onEvent?.('wiki-draft', { stage: 'quality_rebuild' });
       handlers.onPage?.({ _id: 'wiki-new', title: 'Economic Moats' }, { stage: 'complete' });
       throw new Error('stream tail error');
     });
-    renderWorkspace();
+    renderWorkspace(undefined, { systemStatusControls });
     await settleWorkspaceEffects();
 
     fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
@@ -1083,11 +1149,57 @@ describe('WikiWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
-    const recovery = await screen.findByText('First pass needed another try');
-    expect(screen.getByText('Rebuilding with stricter source and quality checks.')).toBeInTheDocument();
-    const built = await screen.findByText('Built @wiki:wiki-new for "Economic Moats".');
-    expect(recovery.compareDocumentPosition(built) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.queryByText(/Failed to build a wiki page for/i)).not.toBeInTheDocument();
+    expect(await screen.findByText('stream tail error')).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Economic Moats".')).not.toBeInTheDocument();
+    expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'Wiki build',
+      retryable: true
+    }));
+  });
+
+  it('does not count a sourced summary as a persisted Wiki article', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-new',
+      title: 'Investing',
+      summary: 'A summary exists, but the article body was never persisted.',
+      sourceRefs: [{ _id: 'source-1' }]
+    });
+
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Investing' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/without a persisted article and evidence \(0 words, 1 source/i)).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
+  });
+
+  it('does not report a previously rejected candidate as a successful build', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    getWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-new',
+      title: 'Investing',
+      plainText: 'The previously trusted article remains readable.',
+      sourceRefs: [{ _id: 'source-1' }],
+      aiState: {
+        candidateStatus: 'maintenance_rejected',
+        lastCandidateSummary: 'The replacement candidate was rejected.'
+      }
+    });
+
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Investing' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/replacement candidate was rejected/i)).toBeInTheDocument();
+    expect(screen.queryByText('Built @wiki:wiki-new for "Investing".')).not.toBeInTheDocument();
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
   });
 
   it('auto-drafts pages opened from the home build composer and refreshes the reader', async () => {

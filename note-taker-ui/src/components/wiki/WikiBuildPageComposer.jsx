@@ -11,6 +11,21 @@ import AgentTicker from '../agent/AgentTicker';
 import { repoWikiReceiptTitle, repoWikiSystemReceipt, displayWikiPageTitle } from './wikiRepoDossierModel';
 import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
 
+const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+const cleanTopic = (value = '') => clean(value).replace(/^["“']+|["”']+$/g, '').trim();
+
+export const wikiBuildTopicFromPrompt = (value = '') => {
+  const prompt = clean(value);
+  if (!prompt) return '';
+  const titled = prompt.match(/\btitled\s+["“']?(.+?)(?:[.!?]["”']?(?:\s|$)|$)/i);
+  if (titled?.[1]) return cleanTopic(titled[1]);
+  if (/^(?:please\s+)?(?:build|create|make|draft|write)\b/i.test(prompt)) {
+    const about = prompt.match(/\b(?:about|on)\s+(.+?)(?:[.!?](?:\s|$)|$)/i);
+    if (about?.[1]) return cleanTopic(about[1]);
+  }
+  return prompt;
+};
+
 const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
@@ -24,14 +39,15 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const topic = prompt.trim();
+    const buildBrief = prompt.trim();
     const livingThesis = creationMode === 'living_thesis';
+    const topic = livingThesis ? buildBrief : wikiBuildTopicFromPrompt(buildBrief);
     const question = governingQuestion.trim();
     if (!topic || busy || (livingThesis && !question)) return;
     setBusy(true);
     setStatus('');
     setError('');
-    const repo = livingThesis ? null : parseGitHubRepoInput(topic);
+    const repo = livingThesis ? null : parseGitHubRepoInput(buildBrief);
     setTickerLines(repo
       ? [
         `recognized repo · ${repo.fullName}`,
@@ -47,7 +63,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
         'creating overview scaffold'
     ]);
     try {
-      const repoResult = repo ? await createRepoWikiFromGitHub(topic) : null;
+      const repoResult = repo ? await createRepoWikiFromGitHub(buildBrief) : null;
       const page = repoResult?.page || await createWikiPage(livingThesis ? {
         ...buildWikiCreatePayload({ type: 'idea', title: topic, text: topic, pageType: 'overview' }),
         preset: 'living_thesis',
@@ -55,7 +71,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
       } : buildWikiCreatePayload({
           type: 'idea',
           title: topic,
-          text: topic,
+          text: buildBrief,
           pageType: 'overview'
         }));
       const pageId = page?._id || page?.id;
