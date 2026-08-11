@@ -1989,6 +1989,33 @@ describe('WikiPageReadView', () => {
     expect(systemStatusControls.setBackgroundWork).toHaveBeenLastCalledWith(null);
   });
 
+  it('explains a rejected ordinary Wiki candidate without presenting a blind retry', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    const rejection = new Error('The wiki candidate did not pass the quality bar.');
+    rejection.code = 'WIKI_CANDIDATE_REJECTED';
+    rejection.page = { ...page, sourceRefs: page.sourceRefs.slice(0, 1) };
+    rejection.qualityFailures = [
+      'No cited source directly addresses the page subject "Compound Interest"; add or import a source that explains the topic before rebuilding.'
+    ];
+    maintainWikiPage.mockRejectedValueOnce(rejection);
+
+    renderReadView({}, { systemStatusControls });
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+
+    const receipt = await screen.findByLabelText('Wiki maintenance receipt');
+    await waitFor(() => expect(receipt).toHaveAttribute('data-maintenance-state', 'research'));
+    expect(receipt).toHaveTextContent('The existing article is unchanged');
+    expect(receipt).toHaveTextContent(/directly addresses.*Compound Interest/i);
+    expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Wiki rebuild needs better evidence',
+      status: 'needs_review',
+      href: '/wiki/workspace?page=wiki-1#wiki-read-references-title'
+    }));
+  });
+
   it('does not expose dossier resume or discard actions on a generic entity page', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
