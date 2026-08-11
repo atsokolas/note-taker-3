@@ -190,6 +190,107 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Compounding Interest');
   });
 
+  it('requires ordinary Wiki maintenance to produce a precise reference article', () => {
+    const prompt = buildPrompt({
+      page: { title: 'Compound Interest', pageType: 'topic', body: {}, sourceRefs: [] },
+      candidates: [{
+        index: 1,
+        type: 'article',
+        title: 'Compounding basics',
+        text: 'A source-backed explanation of principal, rate, time, and compounding frequency.'
+      }]
+    });
+
+    expect(prompt).toContain('Ordinary reference Wiki rules');
+    expect(prompt).toContain('What is this?');
+    expect(prompt).toContain('concrete worked example');
+    expect(prompt).toContain('Distinguish a formal equivalence from an analogy');
+    expect(prompt).toContain('Treat repeated highlights from one article as one evidence family');
+    expect(prompt).toContain('Do not attach a citation after every phrase');
+    expect(prompt).toContain('Coverage goals, not mandated headings');
+    expect(prompt).toContain('subject-specific section heading');
+  });
+
+  it('retains purpose-built structure for question and workflow pages', () => {
+    const questionPrompt = buildPrompt({
+      page: { title: 'Why does compounding accelerate?', pageType: 'question', body: {}, sourceRefs: [] },
+      candidates: []
+    });
+    expect(questionPrompt).not.toContain('Ordinary reference Wiki rules');
+    expect(questionPrompt).toContain('Required section shape, in this order: Short Answer | Why It Matters');
+
+    const projectPrompt = buildPrompt({
+      page: { title: 'Noeis launch', pageType: 'project', body: {}, sourceRefs: [] },
+      candidates: []
+    });
+    expect(projectPrompt).not.toContain('Ordinary reference Wiki rules');
+    expect(projectPrompt).toContain('Required section shape, in this order: Purpose | Current State');
+  });
+
+  it('rejects a generic five-heading template for an ordinary reference page', () => {
+    const body = docFromArticle({
+      title: 'Compound Interest',
+      article: {
+        summary: { text: 'Compound interest is interest calculated on principal and previously accumulated interest.', citationIndexes: [] },
+        sections: ['Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions']
+          .map(heading => ({ heading, paragraphs: [{ text: `${heading} content.` }], bullets: [] }))
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Compound Interest', pageType: 'topic' },
+      body,
+      claims: [],
+      sourceRefs: [],
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.failures.join(' ')).toMatch(/subject-specific sections/i);
+  });
+
+  it('allows subject-specific overview headings while rejecting generic scene-setting', () => {
+    const subjectSpecificBody = docFromArticle({
+      title: 'Compound Interest',
+      article: {
+        summary: { text: 'Compound interest applies each period rate to principal plus accumulated interest.', citationIndexes: [] },
+        sections: [
+          { heading: 'Compounding frequency', paragraphs: [{ text: 'Frequency determines how often accrued interest enters the next period base.' }], bullets: [] },
+          { heading: 'Nominal and effective rates', paragraphs: [{ text: 'An effective annual rate makes frequencies comparable.' }], bullets: [] },
+          { heading: 'A worked annual example', paragraphs: [{ text: 'One hundred dollars at ten percent becomes one hundred ten dollars after one year.' }], bullets: [] },
+          { heading: 'When the analogy breaks', paragraphs: [{ text: 'Business reinvestment is not contractually equivalent to an interest-bearing account.' }], bullets: [] }
+        ]
+      }
+    });
+    const subjectSpecificQuality = evaluateWikiArticleQuality({
+      page: { title: 'Compound Interest', pageType: 'overview' },
+      body: subjectSpecificBody,
+      claims: [],
+      sourceRefs: [],
+      skipDurableCitationCheck: true
+    });
+    expect(subjectSpecificQuality.failures.join(' ')).not.toMatch(/subject-specific sections|generic scene-setting/i);
+
+    const fillerBody = docFromArticle({
+      title: 'Compound Interest',
+      article: {
+        summary: { text: 'Analysts often describe compound interest as a powerful concept.', citationIndexes: [] },
+        sections: [
+          { heading: 'Compounding frequency', paragraphs: [{ text: 'It serves as a powerful framework for understanding growth.' }], bullets: [] },
+          { heading: 'Nominal and effective rates', paragraphs: [{ text: 'It plays an important role in financial planning.' }], bullets: [] },
+          { heading: 'Worked example', paragraphs: [{ text: 'A precise example still belongs here.' }], bullets: [] },
+          { heading: 'Limits', paragraphs: [{ text: 'The analogy has limits.' }], bullets: [] }
+        ]
+      }
+    });
+    const fillerQuality = evaluateWikiArticleQuality({
+      page: { title: 'Compound Interest', pageType: 'overview' },
+      body: fillerBody,
+      claims: [],
+      sourceRefs: [],
+      skipDurableCitationCheck: true
+    });
+    expect(fillerQuality.failures.join(' ')).toMatch(/generic scene-setting/i);
+  });
+
   it('turns SEC-watched pages into investment-decision dossiers', () => {
     const prompt = buildPrompt({
       page: {
@@ -207,6 +308,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(prompt).toContain('Investment dossier rules');
+    expect(prompt).not.toContain('Ordinary reference Wiki rules');
     expect(prompt).toContain('Implied Expectations');
     expect(prompt).toContain('Product and Technical Moat');
     expect(prompt).toContain('Never turn one quarter into a forecast');
