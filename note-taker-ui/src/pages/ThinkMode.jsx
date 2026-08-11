@@ -456,6 +456,7 @@ const ThinkMode = () => {
   const [notebookFolders, setNotebookFolders] = useState([]);
   const [notebookActiveId, setNotebookActiveId] = useState('');
   const [notebookLoadingList, setNotebookLoadingList] = useState(false);
+  const [notebookListLoaded, setNotebookListLoaded] = useState(false);
   const [notebookFoldersLoading, setNotebookFoldersLoading] = useState(false);
   const [notebookLoadingEntry, setNotebookLoadingEntry] = useState(false);
   const [notebookSaving, setNotebookSaving] = useState(false);
@@ -633,7 +634,7 @@ const ThinkMode = () => {
   const headerNewMenuRef = useRef(null);
   const headerActionsMenuRef = useRef(null);
 
-  const { concepts, loading: conceptsLoading, error: conceptsError, refresh: refreshConcepts } = useConcepts({ enabled: conceptsListEnabled });
+  const { concepts, loading: conceptsLoading, loaded: conceptsLoaded = true, error: conceptsError, refresh: refreshConcepts } = useConcepts({ enabled: conceptsListEnabled });
   const queryConceptName = queryConcept;
   // Seed useConcept with the row from the already-loaded concepts list so the
   // manuscript renders its title immediately on click instead of showing a
@@ -845,7 +846,7 @@ const ThinkMode = () => {
     status: questionStatus,
     enabled: questionsListEnabled
   });
-  const { questions: allQuestions, loading: allQuestionsLoading, error: allQuestionsError, setQuestions: setAllQuestions } = questionQuery;
+  const { questions: allQuestions, loading: allQuestionsLoading, loaded: allQuestionsLoaded = true, error: allQuestionsError, setQuestions: setAllQuestions } = questionQuery;
   const filteredQuestions = useMemo(() => {
     if (!searchQuery) return allQuestions;
     return allQuestions.filter((question) => (question.text || '').toLowerCase().includes(searchQuery));
@@ -1236,6 +1237,7 @@ const ThinkMode = () => {
       setNotebookListError(err.response?.data?.error || 'Failed to load notebook.');
     } finally {
       setNotebookLoadingList(false);
+      setNotebookListLoaded(true);
     }
   }, [searchParams]);
 
@@ -2823,6 +2825,16 @@ const ThinkMode = () => {
       .filter(item => item.status !== 'answered')
       .slice(0, THINK_HOME_LIMIT)
   }), [allQuestions, concepts, notebookEntries]);
+  const homeContextError = conceptsError || notebookListError || allQuestionsError || '';
+  const homeContextReady = Boolean(
+    conceptsLoaded
+    && notebookListLoaded
+    && allQuestionsLoaded
+    && !conceptsLoading
+    && !notebookLoadingList
+    && !allQuestionsLoading
+    && !homeContextError
+  );
   const conceptsWithHighlights = useMemo(
     () => concepts.filter((item) => Number(item?.count || 0) > 0).slice(0, THINK_HOME_LIMIT),
     [concepts]
@@ -4329,6 +4341,7 @@ const ThinkMode = () => {
         contextId="think-home"
         contextTitle="Think home"
         contextMetadata={thoughtPartnerContextMetadata}
+        disabled={!homeContextReady}
         queuedPrompt={queuedThoughtPartnerPrompt}
         {...thoughtPartnerPostureProps}
         title={AGENT_DISPLAY_NAME}
@@ -4420,8 +4433,9 @@ const ThinkMode = () => {
               surface="think"
               title={AGENT_DISPLAY_NAME}
               orientation={homeIndexOrientation || 'Choose what deserves attention next.'}
-              loading={Boolean(conceptsLoading || notebookLoadingList || allQuestionsLoading)}
+              loading={!homeContextReady && !homeContextError}
               loadingMessage="Retrieving working context…"
+              error={homeContextError}
               showPresence={false}
             >
               {homeEditorialRightPanel}

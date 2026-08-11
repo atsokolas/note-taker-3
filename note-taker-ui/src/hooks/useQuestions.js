@@ -8,6 +8,7 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 const useQuestions = ({ status = 'open', tag = '', conceptName = '', enabled = true } = {}) => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
   const fetchQuestions = useCallback(async () => {
@@ -30,6 +31,7 @@ const useQuestions = ({ status = 'open', tag = '', conceptName = '', enabled = t
       setError(err.response?.data?.error || 'Failed to load questions.');
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   }, [conceptName, enabled, status, tag]);
 
@@ -37,7 +39,7 @@ const useQuestions = ({ status = 'open', tag = '', conceptName = '', enabled = t
     fetchQuestions();
   }, [fetchQuestions]);
 
-  return { questions, loading, error, refresh: fetchQuestions, setQuestions };
+  return { questions, loading, loaded, error, refresh: fetchQuestions, setQuestions };
 };
 
 export default useQuestions;

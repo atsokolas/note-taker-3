@@ -355,6 +355,7 @@ describe('ThinkMode template integration', () => {
         { _id: 'concept-1', name: 'Template Concept', count: 0, description: '' }
       ],
       loading: false,
+      loaded: true,
       error: '',
       refresh: refreshConceptsMock
     });
@@ -381,6 +382,7 @@ describe('ThinkMode template integration', () => {
     useQuestions.mockReturnValue({
       questions: [],
       loading: false,
+      loaded: true,
       error: '',
       setQuestions: jest.fn()
     });
@@ -1117,6 +1119,67 @@ describe('ThinkMode template integration', () => {
     expect(screen.getByRole('button', { name: 'Use template' })).toBeInTheDocument();
   });
 
+  it('keeps the home thought partner disabled until exact workspace context finishes loading', async () => {
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams('tab=home'),
+      mockSetSearchParams
+    ]);
+    getNotebookSummaries.mockResolvedValue([]);
+    useConcepts.mockReturnValue({
+      concepts: [],
+      loading: true,
+      loaded: false,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    useQuestions.mockReturnValue({
+      questions: [],
+      loading: true,
+      loaded: false,
+      error: '',
+      setQuestions: jest.fn()
+    });
+
+    const view = render(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockThoughtPartnerPanel).toHaveBeenLastCalledWith(expect.objectContaining({
+      contextId: 'think-home',
+      disabled: true
+    })));
+
+    useConcepts.mockReturnValue({
+      concepts: [{ _id: 'concept-ready', name: 'Ready concept', count: 1, description: '' }],
+      loading: false,
+      loaded: true,
+      error: '',
+      refresh: refreshConceptsMock
+    });
+    useQuestions.mockReturnValue({
+      questions: [{ _id: 'question-ready', text: 'Which exact question is ready?', status: 'open' }],
+      loading: false,
+      loaded: true,
+      error: '',
+      setQuestions: jest.fn()
+    });
+    view.rerender(
+      <MemoryRouter initialEntries={['/think?tab=home']}>
+        <ThinkMode />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockThoughtPartnerPanel).toHaveBeenLastCalledWith(expect.objectContaining({
+      contextId: 'think-home',
+      disabled: false,
+      contextMetadata: expect.objectContaining({
+        openQuestions: expect.arrayContaining(['Which exact question is ready?'])
+      })
+    })));
+  });
+
   it('keeps return queue and updated stream out of the calm home door', async () => {
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=home'),
@@ -1161,7 +1224,7 @@ describe('ThinkMode template integration', () => {
     expect(await screen.findByText('Home Concept')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Return queue' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('think-home-updated-stream')).not.toBeInTheDocument();
-    expect(screen.getByText('QUESTION · RETURNING')).toBeInTheDocument();
+    expect(await screen.findByText('QUESTION · RETURNING')).toBeInTheDocument();
   });
 
   it('ranks stale concepts first in home mixed-type motion stream', async () => {
