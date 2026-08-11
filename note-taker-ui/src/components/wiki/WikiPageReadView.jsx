@@ -2287,6 +2287,13 @@ const WikiPageReadView = ({
   const shareReceipt = formatShareReceipt({ page, blocked: shareBlocked });
   const shareReviewSummary = shareBlocked ? formatShareReviewSummary(page) : '';
   const companyDossier = isGeneratedCompanyDossierPage(page);
+  const standardWikiPage = !weekendReadingsPage
+    && !repoDossierMode
+    && !investmentDossierPage
+    && !livingThesisPage
+    && !companyDossier
+    && readPageType !== 'entity';
+  const specializedWorkflowPage = !standardWikiPage && !weekendReadingsPage;
   const edgarWatch = page?.externalWatches?.edgar || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
@@ -2373,7 +2380,7 @@ const WikiPageReadView = ({
   const repoComparisonPendingShare = repoComparisonAvailable && !publicShareReady;
   return (
     <main
-      className={`wiki-page wiki-read wiki-read--type-${readPageType}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}`}
+      className={`wiki-page wiki-read wiki-read--type-${readPageType}${standardWikiPage ? ' wiki-read--standard' : ''}${weekendReadingsPage ? ' wiki-read--research-edition' : ''}`}
       data-state={pageTransitionState}
       data-page-transition-state={pageTransitionState}
     >
@@ -2431,7 +2438,7 @@ const WikiPageReadView = ({
           ) : null}
         </section>
       ) : null}
-      {(!loading && page && !weekendReadingsPage) ? (
+      {(!loading && page && specializedWorkflowPage) ? (
         <details
           className="wiki-read__maintenance-disclosure wiki-read__page-status"
           open={maintenanceActive || evidenceIncomplete || persistedMaintenanceFailure}
@@ -2635,7 +2642,7 @@ const WikiPageReadView = ({
             {continuationState.error ? (
               <p className="wiki-read__continuation-error" role="status">{continuationState.error}</p>
             ) : null}
-            <details
+            {specializedWorkflowPage ? <details
               className="wiki-read__page-status wiki-read__stage5-decisions"
               open={Boolean(focusedDecisionId)}
               id={focusedDecisionId ? `decision-${focusedDecisionId}` : 'wiki-stage5-decisions'}
@@ -2676,7 +2683,7 @@ const WikiPageReadView = ({
                   />
                 </details>
               </div>
-            </details>
+            </details> : null}
             {hasSharedWikiProvenance(page.adoptedFrom) ? (
               <p className="wiki-read__adopted-attribution" role="note">
                 {adoptedAttributionLine(page.adoptedFrom)}
@@ -2686,7 +2693,7 @@ const WikiPageReadView = ({
                 {starterPackAttributionLine(page.adoptedFrom)}
               </p>
             ) : null}
-            {weekendReadingsPage ? null : companyDossier ? (
+            {weekendReadingsPage || standardWikiPage ? null : companyDossier ? (
               <details className="wiki-read__page-status">
                 <summary className="wiki-read__page-status-summary">
                   <span className="wiki-read__page-status-label">Page status</span>
@@ -2876,6 +2883,93 @@ const WikiPageReadView = ({
                 highlightedRef={highlightedRef}
                 onJumpBack={handleReferenceBacklink}
               />
+              {standardWikiPage ? (
+                <details className="wiki-read__article-tools">
+                  <summary>Page tools</summary>
+                  <div className="wiki-read__article-tools-panel">
+                    <section
+                      className={`wiki-read__article-tool wiki-read__maintenance-receipt is-${maintenanceDisplayState}`}
+                      aria-label="Wiki maintenance receipt"
+                      data-maintenance-state={maintenanceDisplayState}
+                    >
+                      <div>
+                        <p className="wiki-read__article-tool-label">Page maintenance</p>
+                        <h2>
+                          {maintenanceActive
+                            ? 'Checking this page against your corpus'
+                            : maintenanceReceipt?.status === 'settled'
+                              ? 'Page maintenance settled'
+                              : maintenanceDisplayState === 'failed'
+                                ? 'Maintenance needs a retry'
+                                : 'Available when you want it'}
+                        </h2>
+                        <p>
+                          {maintenanceReceipt
+                            ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
+                            : 'Check sources and claims without interrupting the article.'}
+                        </p>
+                      </div>
+                      <AgentTicker
+                        label="Wiki maintenance trace"
+                        className="wiki-read__maintenance-ticker"
+                        state={maintenanceActive ? 'working' : 'idle'}
+                        lines={maintenanceTraceLines.length
+                          ? maintenanceTraceLines
+                          : maintenanceActive
+                            ? ['drafting page body', 'updating infobox and claims']
+                            : ['maintenance idle', 'ready to review sources']}
+                        sharedMemory
+                        surface={page?.title || 'Wiki page'}
+                      />
+                      <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
+                        {maintenanceActive ? 'Running...' : 'Run again'}
+                      </Button>
+                    </section>
+                    {shareCard}
+                    <details
+                      className="wiki-read__page-status wiki-read__stage5-decisions"
+                      open={Boolean(focusedDecisionId)}
+                      id={focusedDecisionId ? `decision-${focusedDecisionId}` : 'wiki-stage5-decisions'}
+                    >
+                      <summary className="wiki-read__page-status-summary">
+                        <span className="wiki-read__page-status-label">Decisions &amp; outcomes</span>
+                        <span className="wiki-read__page-status-facts">
+                          <span>Optional workspace</span>
+                        </span>
+                        <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
+                      </summary>
+                      <div className="wiki-read__page-status-panel">
+                        <DecisionReviewPanel
+                          pageId={pageId}
+                          decisionId={focusedDecisionId}
+                          page={page}
+                          onPageRefresh={async () => {
+                            const refreshed = await getWikiPage(pageId);
+                            if (refreshed) {
+                              latestPageRef.current = refreshed;
+                              setPage(refreshed);
+                            }
+                          }}
+                        />
+                        <details className="wiki-read__decision-create">
+                          <summary>Record a decision from an accepted revision</summary>
+                          <DecisionCreateForm
+                            page={page}
+                            pageId={pageId}
+                            onCreated={async () => {
+                              const refreshed = await getWikiPage(pageId);
+                              if (refreshed) {
+                                latestPageRef.current = refreshed;
+                                setPage(refreshed);
+                              }
+                            }}
+                          />
+                        </details>
+                      </div>
+                    </details>
+                  </div>
+                </details>
+              ) : null}
               {investmentDossierPage && page?.judgment?.kind ? (
                 <details
                   id="wiki-investment-decision-record"

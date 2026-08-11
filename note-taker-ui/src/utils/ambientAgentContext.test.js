@@ -118,5 +118,8 @@ describe('ambientAgentContext', () => {
       expect.objectContaining({ type: 'question', id: 'question-1' })
     ]));
     expect(context.nextActions).toContain('Review active concepts');
+    expect(context.primaryText).toContain('Question: “What should compound next?”');
+    expect(context.primaryText).toContain('Concept: “Compounding knowledge”');
+    expect(context.primaryText).toContain('Notebook: “Morning notes”');
   });
 });

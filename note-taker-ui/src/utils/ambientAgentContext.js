@@ -350,29 +350,49 @@ export const buildHandoffAmbientContext = ({
 export const buildHomeAmbientContext = ({
   homeWorkingSet = {},
   recentTargets = []
-} = {}) => ({
-  summary: `Think home currently has ${(homeWorkingSet?.notebooks || []).length} recent notes, ${(homeWorkingSet?.concepts || []).length} concepts, and ${(homeWorkingSet?.questions || []).length} open questions in motion.`,
-  primaryText: '',
-  openQuestions: dedupeLines((Array.isArray(homeWorkingSet?.questions) ? homeWorkingSet.questions : []).slice(0, 4).map((item) => item?.text), 4),
-  nextActions: dedupeLines((Array.isArray(recentTargets) ? recentTargets : []).slice(0, 4).map((item) => item?.title), 4),
-  relatedItems: dedupeRelatedItems([
-    ...(Array.isArray(homeWorkingSet?.notebooks) ? homeWorkingSet.notebooks : []).slice(0, 2).map((item) => ({
-      type: 'notebook',
-      id: item?._id,
-      title: item?.title,
-      snippet: item?.content
-    })),
-    ...(Array.isArray(homeWorkingSet?.concepts) ? homeWorkingSet.concepts : []).slice(0, 2).map((item) => ({
-      type: 'concept',
-      id: item?._id,
-      title: item?.name,
-      snippet: item?.description
-    })),
-    ...(Array.isArray(homeWorkingSet?.questions) ? homeWorkingSet.questions : []).slice(0, 2).map((item) => ({
-      type: 'question',
-      id: item?._id,
-      title: item?.text,
-      snippet: item?.linkedTagName
-    }))
-  ], 8)
-});
+} = {}) => {
+  const notebooks = Array.isArray(homeWorkingSet?.notebooks) ? homeWorkingSet.notebooks : [];
+  const concepts = Array.isArray(homeWorkingSet?.concepts) ? homeWorkingSet.concepts : [];
+  const questions = Array.isArray(homeWorkingSet?.questions) ? homeWorkingSet.questions : [];
+  const evidenceLines = dedupeLines([
+    ...questions.slice(0, 6).map((item) => {
+      const source = truncateAmbientText(item?.linkedTagName || item?.sourceTitle || '', 90);
+      return `Question: “${truncateAmbientText(item?.text || '', 220)}”${source ? ` — grounded in ${source}` : ' — no linked source named'}`;
+    }),
+    ...concepts.slice(0, 4).map((item) => {
+      const highlights = Number(item?.count || item?.highlightCount || 0);
+      const newerSources = Number(item?.newerSourceCount || item?.freshness?.newerSourceCount || 0);
+      return `Concept: “${truncateAmbientText(item?.name || '', 120)}” — ${highlights} highlight${highlights === 1 ? '' : 's'}; ${newerSources} newer source${newerSources === 1 ? '' : 's'} waiting`;
+    }),
+    ...notebooks.slice(0, 4).map((item) => (
+      `Notebook: “${truncateAmbientText(item?.title || 'Untitled', 120)}” — ${truncateAmbientText(item?.content || 'no summary available', 180)}`
+    ))
+  ], 12);
+
+  return {
+    summary: `Think home currently has ${notebooks.length} recent notes, ${concepts.length} concepts, and ${questions.length} open questions in motion.`,
+    primaryText: evidenceLines.join('\n'),
+    openQuestions: dedupeLines(questions.slice(0, 4).map((item) => item?.text), 4),
+    nextActions: dedupeLines((Array.isArray(recentTargets) ? recentTargets : []).slice(0, 4).map((item) => item?.title), 4),
+    relatedItems: dedupeRelatedItems([
+      ...notebooks.slice(0, 2).map((item) => ({
+        type: 'notebook',
+        id: item?._id,
+        title: item?.title,
+        snippet: item?.content
+      })),
+      ...concepts.slice(0, 2).map((item) => ({
+        type: 'concept',
+        id: item?._id,
+        title: item?.name,
+        snippet: item?.description
+      })),
+      ...questions.slice(0, 2).map((item) => ({
+        type: 'question',
+        id: item?._id,
+        title: item?.text,
+        snippet: item?.linkedTagName
+      }))
+    ], 8)
+  };
+};

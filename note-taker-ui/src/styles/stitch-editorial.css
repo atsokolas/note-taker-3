@@ -10106,6 +10106,54 @@ body.noeis-editorial .wiki-read__dossier-review {
   margin: 26px 0;
 }
 
+body.noeis-editorial .wiki-read--standard .wiki-read__header {
+  gap: 8px;
+  padding-bottom: 14px;
+}
+
+body.noeis-editorial .wiki-read--standard .wiki-read__continuation-actions {
+  margin-top: 8px;
+}
+
+body.noeis-editorial .wiki-read__article-tools {
+  margin: 38px 0 18px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 60%, transparent);
+  font-family: var(--noeis-ui-font);
+}
+
+body.noeis-editorial .wiki-read__article-tools > summary {
+  padding: 14px 0;
+  color: var(--vellum-ink-soft);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-read__article-tools-panel {
+  display: grid;
+  gap: 18px;
+  padding: 0 0 22px;
+}
+
+body.noeis-editorial .wiki-read__article-tool {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.noeis-editorial .wiki-read__article-tool p {
+  margin: 0;
+}
+
+body.noeis-editorial .wiki-read__article-tool-label {
+  color: var(--vellum-ink);
+  font-weight: 700;
+}
+
 body.noeis-editorial .wiki-read__dossier-review-panel,
 body.noeis-editorial .wiki-read__rail-details-panel {
   display: grid;

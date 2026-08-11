@@ -231,14 +231,15 @@ describe('WikiPageReadView', () => {
     window.sessionStorage.clear();
   });
 
-  it('mounts the accepted-revision decision and outcome workspace on a private Wiki page', async () => {
+  it('keeps the accepted-revision decision workspace below an ordinary Wiki article', async () => {
     renderReadView();
 
     const label = await screen.findByText('Decisions & outcomes');
     const workspace = label.closest('details');
     expect(workspace).toHaveAttribute('id', 'wiki-stage5-decisions');
-    expect(within(workspace).getByText('Accepted-revision grounded')).toBeInTheDocument();
-    expect(within(workspace).getByText('Outcomes never inferred')).toBeInTheDocument();
+    expect(within(workspace).getByText('Optional workspace')).toBeInTheDocument();
+    expect(screen.getByText('Page tools').closest('details')).toContainElement(workspace);
+    expect(document.querySelector('.wiki-read--standard')).toBeInTheDocument();
     const createDisclosure = within(workspace).getByText('Record a decision from an accepted revision').closest('details');
     expect(createDisclosure).not.toHaveAttribute('open');
   });
