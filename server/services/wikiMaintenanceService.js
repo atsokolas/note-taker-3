@@ -4036,14 +4036,19 @@ const maintainWikiPage = async ({
         maxRepairAttempts: maxQualityRebuildAttempts
       });
       const rebuildRequest = {
-        route: ordinaryFlexibleMaintenance ? 'critique' : 'artifact_draft',
+        // The ordinary-page repair prompt is already the critic: it carries
+        // the exact failed draft and gate failures. Reusing artifact_draft
+        // keeps the repair on the responsive route that produced the first
+        // candidate, instead of moving recovery onto a slower route that can
+        // exhaust every provider before returning any article.
+        route: 'artifact_draft',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
         reasoningEffort: investmentDossier ? '' : 'medium',
         reasoning: investmentDossier ? { effort: 'none' } : null,
         modelRoutes: investmentDossier
           ? dossierModelRoutes
-          : boundedOrdinaryRoutes(ordinaryFlexibleMaintenance ? 'critique' : 'artifact_draft'),
+          : boundedOrdinaryRoutes('artifact_draft'),
         responseFormat: { type: 'json_object' },
         messages: [
           {

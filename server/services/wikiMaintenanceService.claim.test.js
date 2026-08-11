@@ -3227,7 +3227,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
   });
 
-  it('makes one bounded critique repair for a deep ordinary Wiki without imposing an investment shape', async () => {
+  it('makes one bounded evidence repair for a deep ordinary Wiki without imposing an investment shape', async () => {
     const page = {
       _id: 'page-parenting',
       title: 'Parenting',
@@ -3276,7 +3276,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         })
       })
       .mockResolvedValueOnce({
-        model: 'critique-model',
+        model: 'repair-model',
         provider: 'test-provider',
         text: JSON.stringify({
           title: page.title,
@@ -3303,7 +3303,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(chat).toHaveBeenCalledTimes(2);
     expect(chat.mock.calls[0][0].modelRoutes.length).toBeLessThanOrEqual(2);
-    expect(chat.mock.calls[1][0].route).toBe('critique');
+    expect(chat.mock.calls[1][0].route).toBe('artifact_draft');
     expect(chat.mock.calls[1][0].modelRoutes.length).toBeLessThanOrEqual(2);
     expect(chat.mock.calls[1][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 1)');
     expect(chat.mock.calls[1][0].messages[1].content).toContain('5-8 subject-specific sections and 8-14');
