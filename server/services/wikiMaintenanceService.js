@@ -3325,6 +3325,12 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     (claim.sourceRefIds || []).length ||
     (claim.citationIndexes || []).length
   )).length;
+  const uncitedSupported = claimList.filter(claim => (
+    ['supported', 'conflicted'].includes(normalizeClaimSupport(claim.support))
+    && !(claim.citationIds || []).length
+    && !(claim.sourceRefIds || []).length
+    && !(claim.citationIndexes || []).length
+  )).length;
   const docClaims = collectClaimsFromDoc(body || page?.body || '');
   const usedCitationIndexes = Array.from(new Set(
     docClaims.flatMap(claim => [
@@ -3388,6 +3394,12 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     const firstArticleClaim = docClaims[0] || null;
     if (sourceCount && firstArticleClaim && !(firstArticleClaim.citationIndexes || []).length) {
       failures.push('Ordinary reference article opens with an uncited definition or synthesis.');
+    }
+    if (danglingCitationIndexes.length) {
+      failures.push(`Ordinary reference article has dangling citation indexes: ${danglingCitationIndexes.slice(0, 8).join(', ')}.`);
+    }
+    if (uncitedSupported > 0) {
+      failures.push(`Ordinary reference article marks claims as supported without durable citations: ${uncitedSupported}.`);
     }
     const equivalencePattern = /\b(?:mathematically identical|formally identical|exactly equivalent|the same mechanism)\b/i;
     if (
@@ -3498,6 +3510,7 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       unsupported,
       partial,
       cited,
+      uncitedSupported,
       usedSourceCount: usedCitationIndexes.length,
       usedSubstantiveSourceCount,
       claimsPerUsedSource: repoClaimsPerUsedSource,
@@ -3538,13 +3551,17 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     candidates,
     sourceRefs: dedupeSourceRefs(sourceRefs)
   });
-  const article = isGitHubRepoPage({ page, candidates })
-    ? remapRepoArticleCitationIndexes({
-        article: normalized.article,
-        candidates,
-        sourceRefs: mergedSourceRefs
-      })
-    : normalized.article;
+  // Model citation indexes address the candidate list. The rendered reference
+  // list contains only retained, deduplicated sources, so every page type must
+  // translate candidate positions into final reference positions before the
+  // body and claim ledger are materialized. Repo pages already did this; doing
+  // it only there left ordinary Wiki pages with visible markers such as [17]
+  // against a ten-item reference list.
+  const article = remapRepoArticleCitationIndexes({
+    article: normalized.article,
+    candidates,
+    sourceRefs: mergedSourceRefs
+  });
   const body = docFromArticle({
     title: normalized.title || page.title,
     article
