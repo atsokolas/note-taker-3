@@ -30,6 +30,7 @@ const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 6000;
 const SEC_FILING_EVIDENCE_TEXT_LIMIT = 36000;
 const DEFAULT_DRAFT_MAX_TOKENS = 2600;
 const DEFAULT_REBUILD_MAX_TOKENS = 3600;
+const ORDINARY_WIKI_MAX_TOKENS = 4200;
 const INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS = 8000;
 const INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS = 8000;
 const MAX_ARTICLE_BLOCK_TEXT = 2400;
@@ -3845,19 +3846,19 @@ const maintainWikiPage = async ({
     : requestedSourceTextLimit;
   const draftTemperature = repoMaintenance ? 0.08 : 0.2;
   const rebuildTemperature = repoMaintenance ? 0.12 : 0.28;
+  const ordinaryFlexibleMaintenance = !investmentDossier
+    && !repoMaintenance
+    && getWikiPageStructureForPage({ page, candidates }).flexibleSections;
   const draftMaxTokens = investmentDossier
     ? INVESTMENT_DOSSIER_DRAFT_MAX_TOKENS
-    : DEFAULT_DRAFT_MAX_TOKENS;
+    : (ordinaryFlexibleMaintenance ? ORDINARY_WIKI_MAX_TOKENS : DEFAULT_DRAFT_MAX_TOKENS);
   const rebuildMaxTokens = investmentDossier
     ? INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS
-    : DEFAULT_REBUILD_MAX_TOKENS;
+    : (ordinaryFlexibleMaintenance ? ORDINARY_WIKI_MAX_TOKENS : DEFAULT_REBUILD_MAX_TOKENS);
   const textGenerationConfig = getTextGenerationConfig();
   const dossierModelRoutes = investmentDossier
     ? (textGenerationConfig.noReasoningArtifactRoutes || [])
     : [];
-  const ordinaryFlexibleMaintenance = !investmentDossier
-    && !repoMaintenance
-    && getWikiPageStructureForPage({ page, candidates }).flexibleSections;
   const boundedOrdinaryRoutes = (route = 'artifact_draft') => (
     ordinaryFlexibleMaintenance
       ? (textGenerationConfig.routeProfiles?.[route] || []).slice(0, 2)
@@ -3912,7 +3913,7 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: draftMaxTokens,
         temperature: draftTemperature,
-        reasoningEffort: investmentDossier ? '' : draftReasoningEffort,
+        reasoningEffort: investmentDossier ? '' : (ordinaryFlexibleMaintenance ? 'low' : draftReasoningEffort),
         reasoning: investmentDossier ? { effort: 'none' } : null,
         modelRoutes: investmentDossier ? dossierModelRoutes : boundedOrdinaryRoutes('artifact_draft'),
         responseFormat: { type: 'json_object' },
@@ -4044,7 +4045,7 @@ const maintainWikiPage = async ({
         route: 'artifact_draft',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
-        reasoningEffort: investmentDossier ? '' : 'medium',
+        reasoningEffort: investmentDossier ? '' : (ordinaryFlexibleMaintenance ? 'low' : 'medium'),
         reasoning: investmentDossier ? { effort: 'none' } : null,
         modelRoutes: investmentDossier
           ? dossierModelRoutes
