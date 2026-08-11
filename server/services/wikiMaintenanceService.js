@@ -364,6 +364,39 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
   }).filter(Boolean).slice(0, 4)
 );
 
+const normalizeOrdinarySentence = (value = '') => asString(value)
+  .toLowerCase()
+  .replace(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/g, ' ')
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+// A reference article should synthesize evidence once, then advance it. Long
+// sentences repeated across separate evidence blocks are a reliable signal
+// that the model padded a section by restating the opening rather than giving
+// the section a distinct job. Keep this deliberately conservative so recurring
+// technical terms and short definitions do not trigger it.
+const findOrdinaryRepeatedSentences = (claims = []) => {
+  const occurrences = new Map();
+  (Array.isArray(claims) ? claims : []).forEach((claim, blockIndex) => {
+    String(claim?.text || '')
+      .split(/(?<=[.!?])\s+/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean)
+      .forEach((sentence) => {
+        const normalized = normalizeOrdinarySentence(sentence);
+        if (normalized.length < 70 || normalized.split(/\s+/).length < 10) return;
+        const current = occurrences.get(normalized) || { sentence, blocks: new Set() };
+        current.blocks.add(blockIndex);
+        occurrences.set(normalized, current);
+      });
+  });
+  return Array.from(occurrences.values())
+    .filter(item => item.blocks.size >= 2)
+    .map(item => truncate(item.sentence, 220))
+    .slice(0, 4);
+};
+
 // Descriptive subtitles help humans understand a Wiki page, but they should not
 // turn its evidence gate into an exact-title matcher. For example, a source
 // directly about "Investing" is topical for "Investing: Principles, Process,
@@ -1124,6 +1157,8 @@ Ordinary reference Wiki rules:
 - Put citationIndexes at the end of the paragraph they support. Do not attach a citation after every phrase or make one citation appear to support several unrelated assertions.
 - When the library cannot support a definition, example, or important boundary, state the exact gap in Open Questions or maintenance instead of filling the article with plausible general knowledge.
 - Make each included section earn its place. A section may be concise, but it must add a definition, mechanism, evidence synthesis, limitation, implication, or genuinely unresolved question.
+- Give the opening and every section a different analytical job. State a definition or mechanism once; do not repeat a long sentence or rephrase the same paragraph in the summary and a later section.
+- Do not use generic headings such as "Definition and scope", "How it works", "Evidence", or "Open questions" when the evidence supports a subject-specific heading.
 ${formatOrdinaryEvidenceMap({ page, candidates })}`;
 };
 
@@ -1267,6 +1302,8 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic.
 - Explain at least one causal process or organizing structure and one meaningful limit, exception, disagreement, or misconception.
 - Give each relevant evidence family a distinct analytical job. Synthesize sources together instead of repeating titles or padding the article.
+- Remove repeated sentences and repeated explanations. The opening should orient once; every later section must advance the article with a distinct mechanism, case, boundary, implication, or unresolved tension.
+- Replace generic section labels with headings that name the actual subject matter covered there.
 - If a source does not directly support the subject, omit it rather than inventing a connection. Keep any resulting evidence gap explicit in Open Questions.
 ` : ''}
 Return the complete repaired article. Make defensible claims, compare evidence, and include concrete tensions.`
@@ -3541,6 +3578,8 @@ const evaluateWikiArticleQuality = ({
   let ordinaryEvidenceBlockCount = null;
   let ordinaryCoverageSignals = null;
   let ordinaryGroundingGaps = [];
+  let ordinaryRepeatedSentences = [];
+  let ordinaryGenericHeadingCount = null;
   const failures = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
@@ -3564,9 +3603,13 @@ const evaluateWikiArticleQuality = ({
       claims: docClaims,
       sourceRefs
     });
+    ordinaryRepeatedSentences = findOrdinaryRepeatedSentences(docClaims);
     const genericHeadingCount = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading)).length;
+    ordinaryGenericHeadingCount = genericHeadingCount;
     if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
       failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
+    } else if (genericHeadingCount > 0 && (evidenceBudgetSourceCount >= 5 || headings.length >= 4)) {
+      failures.push(`Ordinary reference article contains ${genericHeadingCount} generic section heading${genericHeadingCount === 1 ? '' : 's'}; give every substantial section a subject-specific analytical role.`);
     }
     const fillerCount = ORDINARY_REFERENCE_FILLER_PATTERNS
       .reduce((count, pattern) => count + (pattern.test(plainText) ? 1 : 0), 0);
@@ -3575,6 +3618,9 @@ const evaluateWikiArticleQuality = ({
     }
     if (ordinaryGroundingGaps.length) {
       failures.push(`Ordinary reference article introduces claims with no lexical anchor in their cited evidence: ${ordinaryGroundingGaps.map(gap => `"${gap}"`).join('; ')}`);
+    }
+    if (ordinaryRepeatedSentences.length) {
+      failures.push(`Ordinary reference article repeats substantive sentences across sections instead of advancing the synthesis: ${ordinaryRepeatedSentences.map(sentence => `"${sentence}"`).join('; ')}`);
     }
     const topicalTitle = primaryTopicTitle(page?.title || '') || asString(page?.title);
     const titleTopicTokens = topicTokens(topicalTitle);
@@ -3759,6 +3805,8 @@ const evaluateWikiArticleQuality = ({
       ordinaryEvidenceBlockCount,
       ordinaryCoverageSignals,
       ordinaryGroundingGapCount: ordinaryGroundingGaps.length,
+      ordinaryRepeatedSentenceCount: ordinaryRepeatedSentences.length,
+      ordinaryGenericHeadingCount,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
         ? { investmentDossier: investmentDossierQuality.metrics }
