@@ -3625,7 +3625,11 @@ const evaluateWikiArticleQuality = ({
     if (danglingCitationIndexes.length) {
       failures.push(`Ordinary reference article has dangling citation indexes: ${danglingCitationIndexes.slice(0, 8).join(', ')}.`);
     }
-    if (uncitedSupported > 0) {
+    // The first materialization happens before Mongoose assigns durable ids to
+    // newly retained sourceRefs. Enforce this at the persisted quality pass,
+    // but do not force a second model generation merely because ids do not yet
+    // exist in the pre-save object graph.
+    if (!skipDurableCitationCheck && uncitedSupported > 0) {
       failures.push(`Ordinary reference article marks claims as supported without durable citations: ${uncitedSupported}.`);
     }
     const equivalencePattern = /\b(?:mathematically identical|formally identical|exactly equivalent|the same mechanism)\b/i;

@@ -250,8 +250,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(remapped.summary.citationIndexes).toEqual([1]);
   });
 
-  it('rejects ordinary supported claims without durable evidence bindings', () => {
-    const quality = evaluateWikiArticleQuality({
+  it('defers ordinary durable-id enforcement until the persisted quality pass', () => {
+    const input = {
       page: { title: 'Investing', pageType: 'concept' },
       body: docFromArticle({
         title: 'Investing',
@@ -273,12 +273,18 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sourceRefs: [{
         title: 'Investing and expected returns',
         snippet: 'Investing commits capital today for uncertain future value.'
-      }],
+      }]
+    };
+    const quality = evaluateWikiArticleQuality(input);
+    const preSaveQuality = evaluateWikiArticleQuality({
+      ...input,
       skipDurableCitationCheck: true
     });
 
     expect(quality.metrics.uncitedSupported).toBe(1);
     expect(quality.failures.join(' ')).toMatch(/supported without durable citations/i);
+    expect(preSaveQuality.metrics.uncitedSupported).toBe(1);
+    expect(preSaveQuality.failures.join(' ')).not.toMatch(/supported without durable citations/i);
   });
 
   it('fails repo quality when a large attached corpus is barely used', () => {
