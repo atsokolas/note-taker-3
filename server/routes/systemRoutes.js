@@ -720,6 +720,7 @@ const buildSystemRouter = ({
   authenticateToken,
   parseAiServiceUrl,
   joinUrl,
+  isDatabaseReady = () => true,
   allowDebugFixtures = process.env.NODE_ENV !== 'production',
   IntegrationConnection,
   ImportSession,
@@ -842,6 +843,12 @@ const buildSystemRouter = ({
 
   router.get('/health', (req, res) => {
     console.log("Health check ping received.");
+    if (!isDatabaseReady()) {
+      return res.status(503).json({
+        status: 'starting',
+        message: 'Database connection is not ready.'
+      });
+    }
     res.status(200).json({ status: "ok", message: "Server is warm." });
   });
 
