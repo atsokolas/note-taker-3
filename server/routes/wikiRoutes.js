@@ -5988,7 +5988,15 @@ const buildWikiRouter = ({
       // Repo dossiers remain connected through their source/citation graph;
       // they do not need a corpus-wide inbound concept-link scan.
       if (!repoWikiPage) {
-        await autolinkPagesToTarget({ targetPage: page, userId: req.user.id });
+        // The page and its direct graph are already durable. Scanning and
+        // rewriting up to 600 older Wiki pages can take minutes on a large
+        // personal corpus, so settle inbound mentions after returning the
+        // readable page rather than holding the build response open.
+        scheduleInboundAutolinks({
+          targetPage: page,
+          userId: req.user.id,
+          sourcePageId: page._id
+        });
       }
       await createWikiRevision({
         WikiRevision,

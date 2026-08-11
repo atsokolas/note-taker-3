@@ -54,7 +54,11 @@ const GENERIC_REFERENCE_HEADINGS = new Set([
   'how it works',
   'evidence',
   'tensions',
-  'open questions'
+  'open questions',
+  'definition and scope',
+  'key mechanisms',
+  'examples and evidence',
+  'limits and competing views'
 ]);
 const ORDINARY_REFERENCE_FILLER_PATTERNS = [
   /\b(?:analysts|experts|researchers|companies|firms) often (?:say|use|view|consider|describe)\b/i,
@@ -310,10 +314,55 @@ const ORDINARY_QUERY_STOP_WORDS = new Set([
   'over', 'that', 'their', 'these', 'this', 'through', 'under', 'what', 'when',
   'where', 'which', 'while', 'with', 'without'
 ]);
+const ORDINARY_GROUNDING_STOP_WORDS = new Set([
+  ...ORDINARY_QUERY_STOP_WORDS,
+  'also', 'been', 'being', 'does', 'each', 'every', 'have', 'having', 'more',
+  'most', 'other', 'same', 'some', 'such', 'than', 'there', 'they', 'very',
+  'will', 'would', 'page', 'topic', 'source', 'sources', 'evidence'
+]);
 
 const topicTokens = (value = '') => Array.from(new Set(
   tokenize(value).filter(token => !ORDINARY_QUERY_STOP_WORDS.has(token))
 ));
+
+const groundingToken = (value = '') => String(value || '')
+  .replace(/(?:ing|edly|edly|ed|es|s)$/i, '')
+  .trim();
+
+const ordinaryGroundingTokens = (value = '') => Array.from(new Set(
+  tokenize(value)
+    .filter(token => !ORDINARY_GROUNDING_STOP_WORDS.has(token))
+    .map(groundingToken)
+    .filter(token => token.length >= 4)
+));
+
+const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
+  (Array.isArray(claims) ? claims : []).flatMap((claim) => {
+    if (normalizeClaimSupport(claim?.support) === 'unsupported') return [];
+    const indexes = normalizeCitationIndexes([
+      ...(claim?.citationIndexes || []),
+      ...(claim?.contradictionIndexes || [])
+    ]);
+    if (!indexes.length) return [];
+    const citedText = indexes.map(index => {
+      const source = sourceRefs[index - 1] || {};
+      return [source.title, source.snippet, source.quote, source.text].filter(Boolean).join(' ');
+    }).join(' ');
+    const evidenceTokens = new Set(ordinaryGroundingTokens(citedText));
+    if (!evidenceTokens.size) return [];
+    return String(claim?.text || '')
+      .split(/(?<=[.!?])\s+/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean)
+      .filter((sentence) => {
+        const tokens = ordinaryGroundingTokens(sentence);
+        if (tokens.length < 5) return false;
+        const matched = tokens.filter(token => evidenceTokens.has(token)).length;
+        return matched / tokens.length < 0.2;
+      })
+      .map(sentence => truncate(sentence, 220));
+  }).filter(Boolean).slice(0, 4)
+);
 
 // Descriptive subtitles help humans understand a Wiki page, but they should not
 // turn its evidence gate into an exact-title matcher. For example, a source
@@ -1058,11 +1107,13 @@ Ordinary reference Wiki rules:
 - The opening summary must answer "What is this?" precisely in its first sentence. Define important terms and notation before extending the idea into applications or analogies.
 - Explain the causal or technical mechanism step by step. For mathematical, scientific, legal, or technical topics, include a concrete worked example, boundary case, or observable test when the supplied evidence supports one.
 - For social, historical, practical, or human topics, replace the worked calculation with a concrete situation, behavior, case, or sequence that makes the mechanism observable.
+- Use only examples or sequences present in the supplied evidence. Do not invent a plausible family, quotation, action sequence, or downstream benefit merely to satisfy the example requirement; state the missing example as an evidence gap instead.
 - With five or more sources, let the subject determine the shape: usually 3-7 subject-specific sections and at least 6 evidence-bearing paragraphs. The article must cover a precise definition and scope, a causal process or organizing structure, a concrete case, meaningful limits or disagreement, and practical implications only when the evidence supports them.
 - Distinguish a formal equivalence from an analogy. Never call two mechanisms "mathematically identical," "the same," or "proven" unless a cited source directly establishes that relationship.
 - Prefer specific claims over broad scene-setting. Remove paragraphs that merely say analysts, studies, or firms "often" do something without naming the mechanism and attaching evidence.
 - Never name a person, institution, study, statistic, or doctrine that is absent from the supplied evidence. Never write "research shows" or "empirical evidence" unless the cited source itself reports that evidence.
 - Do not invent the hidden reason behind a reported relationship. If a source says a practice supports an outcome but does not explain why, preserve that limit instead of supplying a plausible causal story.
+- Separate source-reported effects from your own implication. A plausible implication must be labeled as interpretation and marked partial; it cannot be presented as a supported source fact.
 - Build the generally useful definition and mechanism before explaining why the subject recurs in this user's Library. Personal connections should deepen the article, not replace the subject.
 - Use a source as authority only when it directly addresses the subject or the specific claim. Adjacent sources may support a labeled analogy or application, but cannot carry the definition.
 - Treat repeated highlights from one article as one evidence family. Do not manufacture authority by citing the same underlying source repeatedly or by spreading one source across many claims.
@@ -3485,6 +3536,7 @@ const evaluateWikiArticleQuality = ({
   let ordinaryHeadingCount = null;
   let ordinaryEvidenceBlockCount = null;
   let ordinaryCoverageSignals = null;
+  let ordinaryGroundingGaps = [];
   const failures = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
@@ -3504,6 +3556,10 @@ const evaluateWikiArticleQuality = ({
       .map(heading => heading.toLowerCase().trim());
     ordinaryHeadingCount = headings.length;
     ordinaryEvidenceBlockCount = docClaims.length;
+    ordinaryGroundingGaps = findOrdinaryGroundingGaps({
+      claims: docClaims,
+      sourceRefs
+    });
     const genericHeadingCount = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading)).length;
     if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
       failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
@@ -3512,6 +3568,9 @@ const evaluateWikiArticleQuality = ({
       .reduce((count, pattern) => count + (pattern.test(plainText) ? 1 : 0), 0);
     if (fillerCount >= 2) {
       failures.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
+    }
+    if (ordinaryGroundingGaps.length) {
+      failures.push(`Ordinary reference article introduces claims with no lexical anchor in their cited evidence: ${ordinaryGroundingGaps.map(gap => `"${gap}"`).join('; ')}`);
     }
     const topicalTitle = primaryTopicTitle(page?.title || '') || asString(page?.title);
     const titleTopicTokens = topicTokens(topicalTitle);
@@ -3691,6 +3750,7 @@ const evaluateWikiArticleQuality = ({
       ordinaryHeadingCount,
       ordinaryEvidenceBlockCount,
       ordinaryCoverageSignals,
+      ordinaryGroundingGapCount: ordinaryGroundingGaps.length,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
         ? { investmentDossier: investmentDossierQuality.metrics }
@@ -4509,6 +4569,7 @@ module.exports = {
     selectBoundedOrdinaryModelRoutes,
     normalizeModelResult,
     normalizeArticleTextBlock,
+    findOrdinaryGroundingGaps,
     buildRebuildPrompt,
     evaluateWikiArticleQuality,
     inferMaintainedPageType,
