@@ -3302,8 +3302,12 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
 
     expect(chat).toHaveBeenCalledTimes(2);
+    expect(chat.mock.calls[0][0].maxTokens).toBe(4200);
+    expect(chat.mock.calls[0][0].reasoningEffort).toBe('low');
     expect(chat.mock.calls[0][0].modelRoutes.length).toBeLessThanOrEqual(2);
     expect(chat.mock.calls[1][0].route).toBe('artifact_draft');
+    expect(chat.mock.calls[1][0].maxTokens).toBe(4200);
+    expect(chat.mock.calls[1][0].reasoningEffort).toBe('low');
     expect(chat.mock.calls[1][0].modelRoutes.length).toBeLessThanOrEqual(2);
     expect(chat.mock.calls[1][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 1)');
     expect(chat.mock.calls[1][0].messages[1].content).toContain('5-8 subject-specific sections and 8-14');
