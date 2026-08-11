@@ -58,6 +58,17 @@ const ORDINARY_REFERENCE_FILLER_PATTERNS = [
   /\bserves as a powerful (?:tool|framework|concept)\b/i,
   /\bplays? (?:an important|a crucial|a vital) role\b/i
 ];
+const ORDINARY_MECHANISM_PATTERNS = [
+  /\b(?:because|therefore|which causes|which leads|results? in|drives?|depends? on|works? by|mechanism|process|feedback loop|sequence|stage)\b/i,
+  /\b(?:first|second|then|next|finally)\b[^.]{0,180}\b(?:causes?|changes?|produces?|allows?|prevents?|reinforces?)\b/i
+];
+const ORDINARY_EXAMPLE_PATTERNS = [
+  /\b(?:for example|for instance|consider|worked example|case study|in practice|a common case|one case)\b/i,
+  /\b(?:imagine|suppose|when a|when an)\b[^.]{20,220}\b(?:then|because|so|can|will)\b/i
+];
+const ORDINARY_BOUNDARY_PATTERNS = [
+  /\b(?:however|but|although|by contrast|limit(?:ation)?s?|boundary|exception|misconception|does not|cannot|uncertain|counterevidence|tension|trade[- ]?off)\b/i
+];
 const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'npm distribution claim', pattern: /\b(?:published|packaged|distributed)\s+(?:as|to|on)\s+(?:an?\s+)?npm\b|\bnpm package metadata confirms\b/i },
   { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
@@ -994,23 +1005,57 @@ Investment dossier rules:
 `;
 };
 
-const formatStandardWikiPromptBlock = ({ structure = {} } = {}) => {
+const formatOrdinaryEvidenceMap = ({ page = {}, candidates = [] } = {}) => {
+  const topic = primaryTopicTitle(page?.title || '') || asString(page?.title);
+  const direct = candidates
+    .filter(source => sourceTopicCoverage(source, topic) >= 0.8)
+    .map(source => source.index);
+  const adjacent = candidates
+    .filter(source => !direct.includes(source.index))
+    .map(source => source.index);
+  const familyJobs = Array.from(new Map(candidates.map(source => [
+    sourceFamilyKey(source),
+    {
+      family: sourceFamilyKey(source),
+      indexes: candidates
+        .filter(candidate => sourceFamilyKey(candidate) === sourceFamilyKey(source))
+        .map(candidate => candidate.index)
+    }
+  ])).values())
+    .filter(item => item.family)
+    .map((item, index) => `  ${index + 1}. Sources [${item.indexes.join(', ')}] are one evidence family; give that family one distinct job.`)
+    .join('\n');
+  return `
+Ordinary Wiki evidence map:
+- Page subject: "${topic}".
+- Direct subject sources: ${direct.length ? `[${direct.join(', ')}]` : 'none'}.
+- Adjacent or contextual sources: ${adjacent.length ? `[${adjacent.join(', ')}]` : 'none'}.
+- The opening definition and core mechanism must be supported by direct subject sources. Adjacent sources may illustrate a clearly labeled application, analogy, or tension; they cannot define the subject.
+${familyJobs || '  No distinct evidence families were detected.'}
+`;
+};
+
+const formatStandardWikiPromptBlock = ({ structure = {}, page = {}, candidates = [] } = {}) => {
   if (structure.profile === 'investment_dossier' || structure.type === 'repo' || !structure.flexibleSections) return '';
   return `
 Ordinary reference Wiki rules:
 - Write an encyclopedic reference article, not a mini investment memo, magazine essay, or five-section template filled with generic prose.
+- First infer the evidence-appropriate article shape: concept, mechanism, practice, history, system, person, or question. Let that shape determine the section sequence. Do not expose this classification as a heading or metadata label.
 - Use subject-specific section headings that make the page skimmable without reading like a form. The coverage goals below are a checklist, not mandated heading names; for example, prefer "Compounding frequency" or "Continuous compounding" over "How It Works" when the evidence supports that specificity.
 - The opening summary must answer "What is this?" precisely in its first sentence. Define important terms and notation before extending the idea into applications or analogies.
 - Explain the causal or technical mechanism step by step. For mathematical, scientific, legal, or technical topics, include a concrete worked example, boundary case, or observable test when the supplied evidence supports one.
+- For social, historical, practical, or human topics, replace the worked calculation with a concrete situation, behavior, case, or sequence that makes the mechanism observable.
+- With five or more sources, produce 5-8 subject-specific sections and at least 8 evidence-bearing paragraphs. The article must cover a precise definition and scope, a causal process or organizing structure, a concrete case, meaningful limits or disagreement, and practical implications only when the evidence supports them.
 - Distinguish a formal equivalence from an analogy. Never call two mechanisms "mathematically identical," "the same," or "proven" unless a cited source directly establishes that relationship.
 - Prefer specific claims over broad scene-setting. Remove paragraphs that merely say analysts, studies, or firms "often" do something without naming the mechanism and attaching evidence.
+- Never name a person, institution, study, statistic, or doctrine that is absent from the supplied evidence. Never write "research shows" or "empirical evidence" unless the cited source itself reports that evidence.
 - Build the generally useful definition and mechanism before explaining why the subject recurs in this user's Library. Personal connections should deepen the article, not replace the subject.
 - Use a source as authority only when it directly addresses the subject or the specific claim. Adjacent sources may support a labeled analogy or application, but cannot carry the definition.
 - Treat repeated highlights from one article as one evidence family. Do not manufacture authority by citing the same underlying source repeatedly or by spreading one source across many claims.
 - Put citationIndexes at the end of the paragraph they support. Do not attach a citation after every phrase or make one citation appear to support several unrelated assertions.
 - When the library cannot support a definition, example, or important boundary, state the exact gap in Open Questions or maintenance instead of filling the article with plausible general knowledge.
 - Make each included section earn its place. A section may be concise, but it must add a definition, mechanism, evidence synthesis, limitation, implication, or genuinely unresolved question.
-`;
+${formatOrdinaryEvidenceMap({ page, candidates })}`;
 };
 
 const buildPrompt = ({
@@ -1049,7 +1094,7 @@ Hard rules:
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 - Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
-${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}${formatStandardWikiPromptBlock({ structure })}
+${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}${formatStandardWikiPromptBlock({ structure, page, candidates })}
 
 Page:
 Title: ${page.title}
@@ -1148,8 +1193,10 @@ ${draftArticle ? truncateRaw(JSON.stringify(draftArticle), 30000) : 'No recovera
 ${getWikiPageStructureForPage({ page, candidates }).flexibleSections ? `
 Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - Return the complete article, not an outline, abstract, or abbreviated rewrite.
-- Budget at least ${candidates.length >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS} words across 6-9 evidence-bearing paragraphs plus a concise opening summary.
+- Budget at least ${candidates.length >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS} words across ${candidates.length >= 5 ? '5-8 subject-specific sections and 8-14' : '4-7'} evidence-bearing paragraphs plus a concise opening summary.
 - Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
+- Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic.
+- Explain at least one causal process or organizing structure and one meaningful limit, exception, disagreement, or misconception.
 - Give each relevant evidence family a distinct analytical job. Synthesize sources together instead of repeating titles or padding the article.
 - If a source does not directly support the subject, omit it rather than inventing a connection. Keep any resulting evidence gap explicit in Open Questions.
 ` : ''}
@@ -3311,11 +3358,22 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
 const countWords = (value = '') => asString(value).split(/\s+/).filter(Boolean).length;
 const escapeRegex = (value = '') => asString(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], now = new Date(), skipDurableCitationCheck = false } = {}) => {
+const evaluateWikiArticleQuality = ({
+  page,
+  body,
+  claims = [],
+  sourceRefs = [],
+  availableSourceCount = null,
+  now = new Date(),
+  skipDurableCitationCheck = false
+} = {}) => {
   const plainText = toPlainText(body || page?.body || '');
   const titlePattern = escapeRegex(page?.title || '');
   const words = countWords(titlePattern ? plainText.replace(new RegExp(`^${titlePattern}\\s*`, 'i'), '') : plainText);
   const sourceCount = Array.isArray(sourceRefs) ? sourceRefs.length : 0;
+  const evidenceBudgetSourceCount = Number.isFinite(Number(availableSourceCount))
+    ? Math.max(sourceCount, Number(availableSourceCount))
+    : sourceCount;
   const claimList = Array.isArray(claims) ? claims : [];
   const supportedLike = claimList.filter(claim => ['supported', 'partial', 'conflicted'].includes(normalizeClaimSupport(claim.support))).length;
   const unsupported = claimList.filter(claim => normalizeClaimSupport(claim.support) === 'unsupported').length;
@@ -3350,6 +3408,9 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   let repoClaimsPerUsedSource = null;
   let topicallyGroundedSourceCount = null;
   let evidenceFamilyCount = null;
+  let ordinaryHeadingCount = null;
+  let ordinaryEvidenceBlockCount = null;
+  let ordinaryCoverageSignals = null;
   const failures = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
@@ -3367,6 +3428,8 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
   if (isFlexibleReferencePage) {
     const headings = collectDocHeadings(body || page?.body || {})
       .map(heading => heading.toLowerCase().trim());
+    ordinaryHeadingCount = headings.length;
+    ordinaryEvidenceBlockCount = docClaims.length;
     const genericHeadingCount = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading)).length;
     if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
       failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
@@ -3391,6 +3454,32 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     if (sourceCount >= 4 && evidenceFamilyCount < 2) {
       failures.push('Ordinary reference article draws all evidence from one source family; add an independent source or narrow the article to what that source alone establishes.');
     }
+    ordinaryCoverageSignals = {
+      mechanism: ORDINARY_MECHANISM_PATTERNS.some(pattern => pattern.test(plainText)),
+      example: ORDINARY_EXAMPLE_PATTERNS.some(pattern => pattern.test(plainText)),
+      boundary: ORDINARY_BOUNDARY_PATTERNS.some(pattern => pattern.test(plainText))
+    };
+    if (evidenceBudgetSourceCount >= 5) {
+      if (ordinaryHeadingCount < 5) {
+        failures.push(`Ordinary reference article has too little subject structure: ${ordinaryHeadingCount} sections, expected at least 5 for ${evidenceBudgetSourceCount} available sources.`);
+      }
+      if (ordinaryEvidenceBlockCount < 8) {
+        failures.push(`Ordinary reference article has too few evidence-bearing blocks: ${ordinaryEvidenceBlockCount}, expected at least 8 for ${evidenceBudgetSourceCount} available sources.`);
+      }
+      if (!ordinaryCoverageSignals.mechanism) {
+        failures.push('Ordinary reference article does not explain a causal process or organizing mechanism.');
+      }
+      if (!ordinaryCoverageSignals.example) {
+        failures.push('Ordinary reference article lacks a concrete example, case, or observable situation.');
+      }
+      if (!ordinaryCoverageSignals.boundary) {
+        failures.push('Ordinary reference article lacks a meaningful limit, exception, disagreement, or boundary.');
+      }
+      const minimumUsedSources = Math.min(4, evidenceBudgetSourceCount);
+      if (usedCitationIndexes.length < minimumUsedSources) {
+        failures.push(`Ordinary reference article underuses its evidence: ${usedCitationIndexes.length}/${evidenceBudgetSourceCount} available sources cited, expected at least ${minimumUsedSources}.`);
+      }
+    }
     const firstArticleClaim = docClaims[0] || null;
     if (sourceCount && firstArticleClaim && !(firstArticleClaim.citationIndexes || []).length) {
       failures.push('Ordinary reference article opens with an uncited definition or synthesis.');
@@ -3413,11 +3502,12 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       failures.push('Ordinary reference article asserts a formal equivalence that the cited source text does not establish.');
     }
   }
+  const wordGateSourceCount = isFlexibleReferencePage ? evidenceBudgetSourceCount : sourceCount;
   const minWords = isRepoQualityPage
     ? GITHUB_REPO_MIN_WORDS
-    : (sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
-  if (sourceCount >= 3 && words < minWords) {
-    failures.push(`Article is too thin for ${sourceCount} sources: ${words} words, expected at least ${minWords}.`);
+    : (wordGateSourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);
+  if (wordGateSourceCount >= 3 && words < minWords) {
+    failures.push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
   }
   if (isRepoQualityPage && unsupported > 0) {
     failures.push(`GitHub repo article has unsupported claim ledger entries: ${unsupported}.`);
@@ -3505,6 +3595,7 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     metrics: {
       words,
       sourceCount,
+      availableSourceCount: evidenceBudgetSourceCount,
       claimCount: claimList.length,
       supportedLike,
       unsupported,
@@ -3517,6 +3608,9 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
       danglingCitationCount: danglingCitationIndexes.length,
       topicallyGroundedSourceCount,
       evidenceFamilyCount,
+      ordinaryHeadingCount,
+      ordinaryEvidenceBlockCount,
+      ordinaryCoverageSignals,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
         ? { investmentDossier: investmentDossierQuality.metrics }
@@ -3618,6 +3712,7 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
       body: linkedBody,
       claims,
       sourceRefs: mergedSourceRefs,
+      availableSourceCount: candidates.length,
       now,
       skipDurableCitationCheck: true
     })
@@ -3756,9 +3851,18 @@ const maintainWikiPage = async ({
   const rebuildMaxTokens = investmentDossier
     ? INVESTMENT_DOSSIER_REBUILD_MAX_TOKENS
     : DEFAULT_REBUILD_MAX_TOKENS;
+  const textGenerationConfig = getTextGenerationConfig();
   const dossierModelRoutes = investmentDossier
-    ? (getTextGenerationConfig().noReasoningArtifactRoutes || [])
+    ? (textGenerationConfig.noReasoningArtifactRoutes || [])
     : [];
+  const ordinaryFlexibleMaintenance = !investmentDossier
+    && !repoMaintenance
+    && getWikiPageStructureForPage({ page, candidates }).flexibleSections;
+  const boundedOrdinaryRoutes = (route = 'artifact_draft') => (
+    ordinaryFlexibleMaintenance
+      ? (textGenerationConfig.routeProfiles?.[route] || []).slice(0, 2)
+      : []
+  );
   const knownWikiPages = await collectKnownWikiPages({
     page,
     userId,
@@ -3810,7 +3914,7 @@ const maintainWikiPage = async ({
         temperature: draftTemperature,
         reasoningEffort: investmentDossier ? '' : draftReasoningEffort,
         reasoning: investmentDossier ? { effort: 'none' } : null,
-        modelRoutes: dossierModelRoutes,
+        modelRoutes: investmentDossier ? dossierModelRoutes : boundedOrdinaryRoutes('artifact_draft'),
         responseFormat: { type: 'json_object' },
         messages: [
           {
@@ -3850,8 +3954,11 @@ const maintainWikiPage = async ({
       }
       if (!completion) {
         completion = await withTransientRetries({
-          attempts: 3,
-          delaysMs: [1000, 3000],
+          // chatComplete already walks the configured provider/model routes.
+          // Repeating that whole fallback cycle multiplied an ordinary Wiki
+          // build into several minutes without adding a new recovery strategy.
+          attempts: ordinaryFlexibleMaintenance ? 1 : 3,
+          delaysMs: ordinaryFlexibleMaintenance ? [] : [1000, 3000],
           onAttempt: ({ attempt, total }) => (
             attempt > 1
               ? emitProgress({
@@ -3918,25 +4025,25 @@ const maintainWikiPage = async ({
 
   if (!materialized.quality.ok && candidates.length && isConfigured() && shouldRebuildInline) {
     const repoPage = isGitHubRepoPage({ page, candidates });
-    const maxQualityRebuildAttempts = investmentDossier || repoPage || candidates.length < 5 ? 1 : 2;
+    const maxQualityRebuildAttempts = 1;
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
       try {
       await emitProgress({
         stage: 'quality_rebuild',
-        summary: repairAttempt === 1
-          ? 'Initial draft missed quality gates; rebuilding with stricter instructions.'
-          : 'The first repair remained below the evidence bar; making one final bounded repair.',
+        summary: 'Initial draft missed quality gates; making one bounded evidence repair.',
         failures: materialized.quality.failures || [],
         repairAttempt,
         maxRepairAttempts: maxQualityRebuildAttempts
       });
       const rebuildRequest = {
-        route: repairAttempt === 1 ? 'artifact_draft' : 'critique',
+        route: ordinaryFlexibleMaintenance ? 'critique' : 'artifact_draft',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
         reasoningEffort: investmentDossier ? '' : 'medium',
         reasoning: investmentDossier ? { effort: 'none' } : null,
-        modelRoutes: dossierModelRoutes,
+        modelRoutes: investmentDossier
+          ? dossierModelRoutes
+          : boundedOrdinaryRoutes(ordinaryFlexibleMaintenance ? 'critique' : 'artifact_draft'),
         responseFormat: { type: 'json_object' },
         messages: [
           {
@@ -3962,8 +4069,8 @@ const maintainWikiPage = async ({
         ]
       };
       const completion = await withTransientRetries({
-        attempts: 3,
-        delaysMs: [1000, 3000],
+        attempts: ordinaryFlexibleMaintenance ? 1 : 3,
+        delaysMs: ordinaryFlexibleMaintenance ? [] : [1000, 3000],
         onAttempt: ({ attempt, total }) => (
           attempt > 1
             ? emitProgress({
@@ -4054,9 +4161,7 @@ const maintainWikiPage = async ({
         };
         await emitProgress({
           stage: 'quality_rebuild_failed',
-          summary: repairAttempt < maxQualityRebuildAttempts
-            ? 'Automatic rebuild failed; retrying once through the critique route.'
-            : 'Automatic rebuild failed; preserving the best available draft.',
+          summary: 'Automatic rebuild failed; preserving the best available draft for Resume.',
           repairAttempt
         });
       }
@@ -4149,6 +4254,7 @@ const maintainWikiPage = async ({
     body: page.body,
     claims: page.claims,
     sourceRefs: persistedSourceRefs,
+    availableSourceCount: candidates.length,
     now,
     skipDurableCitationCheck: isGitHubRepoPage({ page, candidates })
   });
@@ -4213,6 +4319,7 @@ const maintainWikiPage = async ({
       body: page.body,
       claims: page.claims,
       sourceRefs: fallbackSourceRefs,
+      availableSourceCount: candidates.length,
       now,
       skipDurableCitationCheck: true
     });
