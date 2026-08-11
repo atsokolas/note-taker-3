@@ -817,11 +817,11 @@ const ThinkHome = ({
 
       <form
         className="think-home-editorial__universal-command"
-        aria-label="Universal command"
+        aria-label="Create in Think"
         onSubmit={handleUniversalCommand}
       >
         <label className="think-home-editorial__command-label" htmlFor="think-home-universal-command">
-          Ask, think, or build
+          Create in Think
         </label>
         <div className="think-home-editorial__command-row">
           <input
@@ -829,7 +829,7 @@ const ThinkHome = ({
             id="think-home-universal-command"
             value={commandDraft}
             onChange={(event) => setCommandDraft(event.target.value)}
-            placeholder="Think, ask, or build..."
+            placeholder="Create a note, question, concept, or Wiki..."
             disabled={commandBusy}
           />
           <button type="submit" disabled={!commandDraft.trim() || commandBusy}>
@@ -837,7 +837,7 @@ const ThinkHome = ({
           </button>
         </div>
         <p className="think-home-editorial__command-hint" aria-live="polite">
-          {commandStatus || `${AGENT_DISPLAY_NAME} will send this to a note, concept, question, source search, or wiki build.`}
+          {commandStatus || `This creates work in your workspace. For advice about what to do next, ask ${AGENT_DISPLAY_NAME} in the right rail.`}
         </p>
       </form>
 

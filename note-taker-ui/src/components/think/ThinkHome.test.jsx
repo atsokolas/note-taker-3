@@ -44,7 +44,7 @@ describe('ThinkHome', () => {
     const onCreateNote = jest.fn();
     render(<ThinkHome {...baseProps} onCreateNote={onCreateNote} />);
 
-    expect(screen.getByRole('form', { name: 'Universal command' })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Create in Think' })).toBeInTheDocument();
 
     const newNote = screen.getByRole('button', { name: 'New note' });
     expect(newNote.className).toMatch(/ui-quiet-button--primary/);
@@ -60,7 +60,7 @@ describe('ThinkHome', () => {
     const onUniversalCommand = jest.fn().mockResolvedValue('Thought partner opened this as a question.');
     render(<ThinkHome {...baseProps} onUniversalCommand={onUniversalCommand} />);
 
-    const input = screen.getByPlaceholderText('Think, ask, or build...');
+    const input = screen.getByPlaceholderText('Create a note, question, concept, or Wiki...');
     const start = screen.getByRole('button', { name: 'Start' });
     expect(start).toBeDisabled();
 
@@ -97,7 +97,7 @@ describe('ThinkHome', () => {
     expect(screen.getByLabelText('Pulled Home references')).toHaveTextContent('Wiki · Investing thesis');
     expect(screen.getByLabelText('Pending provenance trace')).toHaveTextContent('1 pending provenance trace');
 
-    fireEvent.change(screen.getByPlaceholderText('Think, ask, or build...'), {
+    fireEvent.change(screen.getByPlaceholderText('Create a note, question, concept, or Wiki...'), {
       target: { value: 'Use this as the starting point' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -138,7 +138,7 @@ describe('ThinkHome', () => {
     expect(screen.getByLabelText('Pulled Home references')).toHaveTextContent('Highlight · Margin of safety quote');
     expect(screen.getByLabelText('Pending provenance trace')).toHaveTextContent('1 pending provenance trace');
 
-    fireEvent.change(screen.getByPlaceholderText('Think, ask, or build...'), {
+    fireEvent.change(screen.getByPlaceholderText('Create a note, question, concept, or Wiki...'), {
       target: { value: 'Use the quote to build a page' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -182,7 +182,7 @@ describe('ThinkHome', () => {
     expect(screen.getByTestId('think-home-first-run')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Drop a source' }));
-    expect(screen.getByPlaceholderText('Think, ask, or build...')).toHaveValue('/ingest ');
+    expect(screen.getByPlaceholderText('Create a note, question, concept, or Wiki...')).toHaveValue('/ingest ');
     expect(screen.getByText('Paste a source URL after /ingest, or use reference... to pull a Library item.')).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Start a thought' })[0]);
