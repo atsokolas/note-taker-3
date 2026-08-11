@@ -716,7 +716,11 @@ const collectKnownWikiPages = async ({ page, userId, models = {}, limit = 40 } =
       status: { $ne: 'archived' },
       _id: { $ne: pageId }
     },
-    limit
+    limit,
+    // The prompt only needs identity and a short editorial label. Loading
+    // every page body, claim, citation, and dossier made this 40-row lookup
+    // take tens of seconds on a mature personal Wiki.
+    { title: 1, pageType: 1, summary: 1, description: 1 }
   );
   return pages
     .map((knownPage) => ({
@@ -4521,10 +4525,10 @@ const maintainWikiPage = async ({
     errorCode: '',
     model: modelInfo.provider ? `${modelInfo.model}:${modelInfo.provider}` : modelInfo.model,
     provider: modelInfo.provider || '',
-    sourceScopeAtDraft: investmentDossier ? 'selected_sources' : 'entire_library',
-    sourceRefIdsAtDraft: investmentDossier
-      ? persistedSourceRefs.map(source => source.objectId).filter(Boolean)
-      : [],
+    sourceScopeAtDraft: page.sourceScope || (investmentDossier ? 'selected_sources' : 'entire_library'),
+    sourceRefIdsAtDraft: page.sourceScope === 'entire_library'
+      ? []
+      : persistedSourceRefs.map(source => source.objectId).filter(Boolean),
     maintenanceProfile: normalizedProfile,
     maintenanceSummary: finalNormalized.maintenance.summary,
     sectionMaintenance,
