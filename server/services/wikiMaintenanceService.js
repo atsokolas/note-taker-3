@@ -71,7 +71,13 @@ const ORDINARY_MECHANISM_PATTERNS = [
 ];
 const ORDINARY_EXAMPLE_PATTERNS = [
   /\b(?:for example|for instance|examples? (?:include|of)|consider|worked example|case study|in practice|a common case|one case)\b/i,
-  /\b(?:imagine|suppose|when a|when an)\b[^.]{20,220}\b(?:then|because|so|can|will)\b/i
+  /\b(?:imagine|suppose|when a|when an)\b[^.]{20,220}\b(?:then|because|so|can|will)\b/i,
+  // Historical and scientific articles often make a mechanism observable
+  // through a dated event or measured episode rather than the phrase "for
+  // example". Require a real date/quantity plus a concrete unit so scene-
+  // setting prose alone cannot satisfy the case gate.
+  /\b(?:18|19|20)\d{2}\b[^.]{0,180}\b(?:hours?|minutes?|days?|kilograms?|miles?|percent|people|samples?|missions?|patients?|cells?)\b/i,
+  /\b\d+(?:\.\d+)?\s+(?:hours?|minutes?|days?|years?|kilograms?|miles?|percent|patients?|samples?|orbits?)\b/i
 ];
 const ORDINARY_BOUNDARY_PATTERNS = [
   /\b(?:however|but|although|by contrast|limit(?:ation)?s?|boundary|exception|misconception|does not|cannot|uncertain|counterevidence|tension|trade[- ]?off)\b/i
@@ -1159,6 +1165,7 @@ Ordinary reference Wiki rules:
 - Make each included section earn its place. A section may be concise, but it must add a definition, mechanism, evidence synthesis, limitation, implication, or genuinely unresolved question.
 - Give the opening and every section a different analytical job. State a definition or mechanism once; do not repeat a long sentence or rephrase the same paragraph in the summary and a later section.
 - Do not use generic headings such as "Definition and scope", "How it works", "Evidence", or "Open questions" when the evidence supports a subject-specific heading.
+- Treat existing generated prose as evidence to salvage, not wording to preserve. If it repeats itself, retain the supported fact once and rewrite the surrounding structure from the sources.
 ${formatOrdinaryEvidenceMap({ page, candidates })}`;
 };
 
@@ -1297,6 +1304,7 @@ ${draftArticle ? truncateRaw(JSON.stringify(draftArticle), 30000) : 'No recovera
 ${getWikiPageStructureForPage({ page, candidates }).flexibleSections ? `
 Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - Return the complete article, not an outline, abstract, or abbreviated rewrite.
+- This attempt must directly clear every listed gate failure. Before returning, check the proposed article against each failure line above.
 - Budget depth in proportion to the supplied evidence. With five or more sources, use 3-7 subject-specific sections and 6-12 evidence-bearing paragraphs plus a concise opening summary; do not pad a narrow evidence set to imitate an investment dossier.
 - Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
 - Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic.
@@ -4230,12 +4238,17 @@ const maintainWikiPage = async ({
 
   if (!materialized.quality.ok && candidates.length && isConfigured() && shouldRebuildInline) {
     const repoPage = isGitHubRepoPage({ page, candidates });
-    const maxQualityRebuildAttempts = 1;
+    const maxQualityRebuildAttempts = ordinaryFlexibleMaintenance && candidates.length >= 5 ? 2 : 1;
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
+      if (repairAttempt > 1) {
+        const remainingFailures = (materialized.quality.failures || []).join(' ');
+        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin/i.test(remainingFailures);
+        if (!editorialRepairStillActionable) break;
+      }
       try {
       await emitProgress({
         stage: 'quality_rebuild',
-        summary: 'Initial draft missed quality gates; making one bounded evidence repair.',
+        summary: `The candidate missed quality gates; making bounded evidence repair ${repairAttempt}/${maxQualityRebuildAttempts}.`,
         failures: materialized.quality.failures || [],
         repairAttempt,
         maxRepairAttempts: maxQualityRebuildAttempts
