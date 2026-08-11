@@ -1115,7 +1115,8 @@ const buildRebuildPrompt = ({
   knownWikiPages = [],
   failures = [],
   draftArticle = null,
-  sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT
+  sourceTextLimit = DEFAULT_PROMPT_SOURCE_TEXT_LIMIT,
+  repairAttempt = 1
 }) => (
   `${buildPrompt({
     page,
@@ -1134,6 +1135,14 @@ ${failures.map(failure => `- ${failure}`).join('\n') || '- The draft was too thi
 Here is the actual failed draft. Preserve its source-backed substance and repair the listed failures; do not replace a substantive draft with a shorter scaffold:
 ${draftArticle ? truncateRaw(JSON.stringify(draftArticle), 30000) : 'No recoverable draft body was available.'}
 
+${getWikiPageStructureForPage({ page, candidates }).flexibleSections ? `
+Ordinary Wiki repair contract (attempt ${repairAttempt}):
+- Return the complete article, not an outline, abstract, or abbreviated rewrite.
+- Budget at least ${candidates.length >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS} words across 6-9 evidence-bearing paragraphs plus a concise opening summary.
+- Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
+- Give each relevant evidence family a distinct analytical job. Synthesize sources together instead of repeating titles or padding the article.
+- If a source does not directly support the subject, omit it rather than inventing a connection. Keep any resulting evidence gap explicit in Open Questions.
+` : ''}
 Return the complete repaired article. Make defensible claims, compare evidence, and include concrete tensions.`
 );
 
@@ -3880,14 +3889,21 @@ const maintainWikiPage = async ({
   });
 
   if (!materialized.quality.ok && candidates.length && isConfigured() && shouldRebuildInline) {
-    try {
+    const repoPage = isGitHubRepoPage({ page, candidates });
+    const maxQualityRebuildAttempts = investmentDossier || repoPage || candidates.length < 5 ? 1 : 2;
+    for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
+      try {
       await emitProgress({
         stage: 'quality_rebuild',
-        summary: 'Initial draft missed quality gates; rebuilding once with stricter instructions.',
-        failures: materialized.quality.failures || []
+        summary: repairAttempt === 1
+          ? 'Initial draft missed quality gates; rebuilding with stricter instructions.'
+          : 'The first repair remained below the evidence bar; making one final bounded repair.',
+        failures: materialized.quality.failures || [],
+        repairAttempt,
+        maxRepairAttempts: maxQualityRebuildAttempts
       });
       const rebuildRequest = {
-        route: 'artifact_draft',
+        route: repairAttempt === 1 ? 'artifact_draft' : 'critique',
         maxTokens: rebuildMaxTokens,
         temperature: rebuildTemperature,
         reasoningEffort: investmentDossier ? '' : 'medium',
@@ -3911,7 +3927,8 @@ const maintainWikiPage = async ({
               knownWikiPages,
               failures: materialized.quality.failures,
               draftArticle: finalNormalized.article,
-              sourceTextLimit: effectiveSourceTextLimit
+              sourceTextLimit: effectiveSourceTextLimit,
+              repairAttempt
             })
           }
         ]
@@ -3924,7 +3941,8 @@ const maintainWikiPage = async ({
             ? emitProgress({
                 stage: 'quality_rebuild_retry',
                 summary: `The evidence rebuild was interrupted; retrying automatically (${attempt}/${total}).`,
-                attempt
+                attempt,
+                repairAttempt
               })
             : null
         ),
@@ -3970,7 +3988,8 @@ const maintainWikiPage = async ({
               ...retryMaterialized.quality,
               fallbackApplied: retryFallbackApplied,
               rebuiltAutomatically: true,
-              previousFailures
+              previousFailures,
+              rebuildAttempts: repairAttempt
             }
           };
           rebuiltAutomatically = true;
@@ -3978,33 +3997,41 @@ const maintainWikiPage = async ({
             stage: 'quality_rebuilt',
             summary: 'Automatic rebuild completed.',
             model: modelInfo.model,
-            provider: modelInfo.provider
+            provider: modelInfo.provider,
+            repairAttempt
           });
         } else {
           materialized.quality = {
             ...materialized.quality,
             rebuildAttempted: true,
             rebuildRejected: true,
-            retryFailures: retryMaterialized.quality?.failures || []
+            retryFailures: retryMaterialized.quality?.failures || [],
+            rebuildAttempts: repairAttempt
           };
           await emitProgress({
             stage: 'quality_rebuild_preserved',
             summary: 'The retry scored worse; preserving the stronger first draft.',
             model: modelInfo.model,
-            provider: modelInfo.provider
+            provider: modelInfo.provider,
+            repairAttempt
           });
         }
       }
-    } catch (_error) {
-      materialized.quality = {
-        ...materialized.quality,
-        rebuildAttempted: true,
-        rebuildError: 'Automatic rebuild failed.'
-      };
-      await emitProgress({
-        stage: 'quality_rebuild_failed',
-        summary: 'Automatic rebuild failed; preserving the best available draft.'
-      });
+      } catch (_error) {
+        materialized.quality = {
+          ...materialized.quality,
+          rebuildAttempted: true,
+          rebuildError: 'Automatic rebuild failed.',
+          rebuildAttempts: repairAttempt
+        };
+        await emitProgress({
+          stage: 'quality_rebuild_failed',
+          summary: repairAttempt < maxQualityRebuildAttempts
+            ? 'Automatic rebuild failed; retrying once through the critique route.'
+            : 'Automatic rebuild failed; preserving the best available draft.',
+          repairAttempt
+        });
+      }
     }
   } else if (!materialized.quality.ok && candidates.length && isConfigured() && !shouldRebuildInline) {
     materialized.quality = {
@@ -4100,8 +4127,8 @@ const maintainWikiPage = async ({
   await emitProgress({
     stage: 'evidence_gate',
     summary: persistedQuality.ok
-      ? 'The dossier reached the evidence bar.'
-      : 'The dossier needs stronger evidence before it can become a trusted head.',
+      ? `The ${investmentDossier || repoMaintenance ? 'dossier' : 'Wiki article'} reached the evidence bar.`
+      : `The ${investmentDossier || repoMaintenance ? 'dossier' : 'Wiki article'} needs stronger evidence before it can become a trusted head.`,
     failureCount: Array.isArray(persistedQuality.failures) ? persistedQuality.failures.length : 0
   });
   if (!persistedQuality.ok && candidates.length && isGitHubRepoPage({ page, candidates })) {
