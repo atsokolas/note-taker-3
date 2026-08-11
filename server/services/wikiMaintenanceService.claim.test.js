@@ -18,6 +18,7 @@ const {
   fallbackMaintenance,
   fillInvestmentDossierMaintenanceTest,
   findGitHubRepoDeveloperDossierFailures,
+  findOrdinaryGroundingGaps,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   isGitHubRepoPage,
@@ -177,6 +178,23 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sections: [{ heading: 'Care' }]
     });
   });
+
+  it('rejects connective claims that have no lexical anchor in their cited source', () => {
+    const gaps = findOrdinaryGroundingGaps({
+      claims: [{
+        text: 'Cultural norms determine which parenting practices transfer across societies.',
+        citationIndexes: [1],
+        support: 'partial'
+      }],
+      sourceRefs: [{
+        title: 'Flexible family routines',
+        snippet: 'Routines should be regular and predictable without becoming rigid.'
+      }]
+    });
+    expect(gaps).toEqual([
+      'Cultural norms determine which parenting practices transfer across societies.'
+    ]);
+  });
   it('remaps repo citation indexes after retained refs reorder the final reference list', () => {
     const article = {
       summary: { text: 'The watcher owns repository refresh.', citationIndexes: [9] },
@@ -329,6 +347,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('evidence-appropriate article shape');
     expect(prompt).toContain('What is this?');
     expect(prompt).toContain('concrete worked example');
+    expect(prompt).toContain('Use only examples or sequences present in the supplied evidence');
+    expect(prompt).toContain('Separate source-reported effects from your own implication');
     expect(prompt).toContain('Distinguish a formal equivalence from an analogy');
     expect(prompt).toContain('Treat repeated highlights from one article as one evidence family');
     expect(prompt).toContain('Do not attach a citation after every phrase');
