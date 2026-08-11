@@ -144,6 +144,64 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(remapped.summary.citationIndexes).toEqual([2]);
   });
 
+  it('remaps ordinary Wiki citations into the retained reference list', () => {
+    const remapped = remapRepoArticleCitationIndexes({
+      article: {
+        summary: { text: 'Investing requires a disciplined process.', citationIndexes: [12, 23] },
+        sections: []
+      },
+      candidates: [{
+        index: 12,
+        type: 'article',
+        objectId: 'investing-source',
+        title: 'Investing and decision process'
+      }, {
+        index: 23,
+        type: 'article',
+        objectId: 'unused-source',
+        title: 'Unretained source'
+      }],
+      sourceRefs: [{
+        type: 'article',
+        objectId: 'investing-source',
+        title: 'Investing and decision process'
+      }]
+    });
+
+    expect(remapped.summary.citationIndexes).toEqual([1]);
+  });
+
+  it('rejects ordinary supported claims without durable evidence bindings', () => {
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Investing', pageType: 'concept' },
+      body: docFromArticle({
+        title: 'Investing',
+        article: {
+          summary: {
+            text: 'Investing commits capital today for uncertain future value.',
+            citationIndexes: [1],
+            support: 'supported'
+          },
+          sections: []
+        }
+      }),
+      claims: [{
+        text: 'Investing commits capital today for uncertain future value.',
+        support: 'supported',
+        citationIds: [],
+        sourceRefIds: []
+      }],
+      sourceRefs: [{
+        title: 'Investing and expected returns',
+        snippet: 'Investing commits capital today for uncertain future value.'
+      }],
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.metrics.uncitedSupported).toBe(1);
+    expect(quality.failures.join(' ')).toMatch(/supported without durable citations/i);
+  });
+
   it('fails repo quality when a large attached corpus is barely used', () => {
     const sourceRefs = Array.from({ length: 48 }, (_item, index) => ({
       type: 'external',
