@@ -1401,6 +1401,8 @@ const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}, reque
     `${toSafeString(request)} ${groundedReply}`
   );
   if (!asksForRecommendation) return groundedReply;
+  const declinesRecommendation = /\b(?:not enough|insufficient|too little|no clear|cannot|can't|can’t|unable to)\b[\s\S]{0,120}\b(?:evidence|recommend|choose|prioriti[sz]e|resume|next)\b/i.test(groundedReply);
+  if (declinesRecommendation) return groundedReply;
 
   const candidates = [
     ...metadata.openQuestions.map(title => ({ title, kind: 'question' })),

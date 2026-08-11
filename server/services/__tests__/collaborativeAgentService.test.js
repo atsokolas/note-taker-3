@@ -865,6 +865,15 @@ const run = async () => {
     'There is not enough evidence yet to choose a next item.',
     'Weak token overlap should not invent a recommendation.'
   );
+  assert.strictEqual(
+    groundOrdinalWorkspaceReferences(
+      'There is not enough evidence to recommend a next step; the market and capital picture remains unresolved.',
+      { nextActions: ['Compare market structure and capital allocation'] },
+      'What should I resume next?'
+    ),
+    'There is not enough evidence to recommend a next step; the market and capital picture remains unresolved.',
+    'An explicit evidence-based refusal should fail closed even when it shares tokens with a candidate title.'
+  );
   assert.ok(
     hfMessages.some((entry) => entry.role === 'user' && entry.content.includes('Retrieved internal material')),
     'HF partner messages should include the retrieved internal material block.'
