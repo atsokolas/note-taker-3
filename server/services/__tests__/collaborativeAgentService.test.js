@@ -8,6 +8,7 @@ const {
   buildOutputArtifactReply,
   inferReplyIntent,
   buildOrientationReply,
+  resolveContextItem,
   loadGraphRelatedItems,
   buildPartnerChatMessages,
   groundOrdinalWorkspaceReferences,
@@ -30,6 +31,51 @@ const makeFindModel = (resolver) => ({
 });
 
 const run = async () => {
+  const routedWikiPageId = '69fd2e7d212cd5a5f57db144';
+  const wikiFindOneQueries = [];
+  const WikiPage = {
+    findOne(query) {
+      wikiFindOneQueries.push(query);
+      return {
+        select() {
+          return {
+            lean: async () => ({
+              _id: routedWikiPageId,
+              title: 'Compound Interest',
+              plainText: 'Compound interest applies a periodic rate to principal plus accumulated interest.',
+              sourceRefs: [{
+                _id: 'source-1',
+                title: 'Compound interest and effective annual rates',
+                snippet: 'The effective annual rate depends on the periodic rate and number of compounding periods.'
+              }],
+              claims: [{
+                text: 'Compound interest credits interest on principal plus accumulated interest.',
+                sourceRefIds: ['source-1']
+              }],
+              citations: []
+            })
+          };
+        }
+      };
+    }
+  };
+  const routedWikiContext = await resolveContextItem({
+    userObjectId: 'user-1',
+    context: { type: 'wiki', id: routedWikiPageId, title: 'Compound Interest' },
+    Article: null,
+    NotebookEntry: null,
+    TagMeta: null,
+    WikiPage
+  });
+  assert.strictEqual(routedWikiContext.type, 'wiki_page', 'The routed Wiki context should hydrate as a Wiki page.');
+  assert.ok(routedWikiContext.fullText.includes('periodic rate'), 'The thought partner should receive the selected page body.');
+  assert.ok(routedWikiContext.sourceText.includes('effective annual rates'), 'The thought partner should receive attached source context.');
+  assert.deepStrictEqual(
+    wikiFindOneQueries[0],
+    { _id: routedWikiPageId, userId: 'user-1' },
+    'Wiki hydration should stay bound to the exact owned page identity.'
+  );
+
   const tokens = tokenize('Find the note about systems thinking and evidence loops in my notebook');
   assert.ok(tokens.includes('systems'), 'Expected systems token.');
   assert.ok(tokens.includes('thinking'), 'Expected thinking token.');

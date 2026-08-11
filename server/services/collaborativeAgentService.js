@@ -1886,7 +1886,10 @@ const resolveContextItem = async ({
   const ambientMetadata = normalizeAmbientContextMetadata(context.metadata);
   if (!contextType || !contextId) return null;
 
-  const pageId = toSafeString(context.pageId);
+  const pageId = toSafeString(
+    context.pageId
+      || (['wiki', 'wiki_page'].includes(contextType) ? contextId : '')
+  );
   if (WikiPage && pageId && mongoose.Types.ObjectId.isValid(pageId)) {
     const page = await WikiPage.findOne({ _id: pageId, userId: userObjectId })
       .select('_id title slug plainText body sourceRefs claims citations judgment updatedAt')
@@ -2822,6 +2825,7 @@ module.exports = {
     buildReply,
     inferReplyIntent,
     buildOrientationReply,
+    resolveContextItem,
     loadGraphRelatedItems,
     buildPartnerChatMessages,
     groundOrdinalWorkspaceReferences,
