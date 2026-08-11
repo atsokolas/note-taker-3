@@ -3178,7 +3178,9 @@ const buildWikiRouter = ({
           targetPage: targetSnapshot,
           userId,
           sourcePageId,
-          candidateLimit: 600,
+          // Background graph work shares the user's database with foreground
+          // reads and builds, so it must stay bounded too.
+          candidateLimit: 80,
           concurrency: 10
         });
       } catch (error) {

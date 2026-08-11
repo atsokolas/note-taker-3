@@ -3035,17 +3035,17 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).toMatch(/scaffold|too thin|weak/i);
   });
 
-  it('migrates broad legacy topic pages to overview during maintenance', () => {
+  it('preserves an explicit ordinary Wiki page type and only infers missing legacy types', () => {
     expect(inferMaintainedPageType({
       page: { pageType: 'topic', title: 'Investing - Concepts, Ideas, and Strategies' },
       candidates: Array.from({ length: 6 }, (_, index) => ({ index }))
-    })).toBe('overview');
+    })).toBe('topic');
     expect(inferMaintainedPageType({
-      page: { pageType: 'topic', title: 'Feedback Loops' },
+      page: { title: 'Feedback Loops' },
       candidates: []
     })).toBe('concept');
     expect(inferMaintainedPageType({
-      page: { pageType: 'topic', title: 'Imported memo', createdFrom: { type: 'article' } },
+      page: { title: 'Imported memo', createdFrom: { type: 'article' } },
       candidates: []
     })).toBe('source');
   });
@@ -3313,6 +3313,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       _id: 'page-parenting',
       title: 'Parenting',
       pageType: 'topic',
+      sourceScope: 'selected_sources',
       plainText: '',
       body: { type: 'doc', content: [] },
       sourceRefs: [],
@@ -3324,6 +3325,13 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       title: `Parenting evidence ${index + 1}`,
       content: `Parenting evidence ${index + 1} explains a distinct developmental mechanism, boundary, concrete situation, and family context.`,
       url: `https://example${index + 1}.com/parenting`
+    }));
+    page.sourceRefs = sources.map(source => ({
+      type: 'article',
+      objectId: source._id,
+      title: source.title,
+      snippet: source.content,
+      url: source.url
     }));
     const makeArticle = ({ repeats, label }) => ({
       summary: {
@@ -3406,6 +3414,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     });
     expect(page.aiState.quality.failures.join(' ')).not.toMatch(/too thin/i);
     expect(page.plainText).toContain('Care and development developmental lens 6');
+    expect(page.pageType).toBe('topic');
+    expect(page.sourceScope).toBe('selected_sources');
   });
 
   it('preserves the stronger first draft when an automatic rebuild regresses', async () => {
