@@ -12,6 +12,7 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 const useConcepts = ({ enabled = true } = {}) => {
   const [concepts, setConcepts] = useState(/** @type {Concept[]} */ ([]));
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
   const fetchConcepts = useCallback(async ({ force = false } = {}) => {
@@ -31,6 +32,7 @@ const useConcepts = ({ enabled = true } = {}) => {
       setError(err.response?.data?.error || 'Failed to load concepts.');
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   }, [enabled]);
 
@@ -40,7 +42,7 @@ const useConcepts = ({ enabled = true } = {}) => {
 
   const refresh = useCallback(() => fetchConcepts({ force: true }), [fetchConcepts]);
 
-  return { concepts, loading, error, refresh };
+  return { concepts, loading, loaded, error, refresh };
 };
 
 export default useConcepts;
