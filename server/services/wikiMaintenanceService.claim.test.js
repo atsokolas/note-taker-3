@@ -259,12 +259,13 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       candidates: [{
         index: 1,
         type: 'article',
-        title: 'Compounding basics',
+        title: 'Compound Interest basics',
         text: 'A source-backed explanation of principal, rate, time, and compounding frequency.'
       }]
     });
 
     expect(prompt).toContain('Ordinary reference Wiki rules');
+    expect(prompt).toContain('evidence-appropriate article shape');
     expect(prompt).toContain('What is this?');
     expect(prompt).toContain('concrete worked example');
     expect(prompt).toContain('Distinguish a formal equivalence from an analogy');
@@ -272,6 +273,51 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Do not attach a citation after every phrase');
     expect(prompt).toContain('Coverage goals, not mandated headings');
     expect(prompt).toContain('subject-specific section heading');
+    expect(prompt).toContain('Ordinary Wiki evidence map');
+    expect(prompt).toContain('Direct subject sources: [1]');
+    expect(prompt).toContain('Adjacent sources may illustrate');
+    expect(prompt).not.toContain('Implied Expectations');
+  });
+
+  it('requires depth, mechanism, a concrete case, boundaries, and broad evidence use across ordinary domains', () => {
+    const sourceRefs = Array.from({ length: 5 }, (_, index) => ({
+      title: `Parenting evidence ${index + 1}`,
+      snippet: 'Parenting practices shape child development through repeated caregiving interactions.',
+      url: `https://parenting-source-${index + 1}.example.org/guide`
+    }));
+    const body = docFromArticle({
+      title: 'Parenting',
+      article: {
+        summary: {
+          text: 'Parenting is sustained care for a child across development.',
+          citationIndexes: [1]
+        },
+        sections: Array.from({ length: 5 }, (_item, index) => ({
+          heading: `Parenting dimension ${index + 1}`,
+          paragraphs: [{
+            text: 'Caregivers make choices in changing family contexts.',
+            citationIndexes: [1]
+          }],
+          bullets: []
+        }))
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Parenting', pageType: 'overview' },
+      body,
+      claims: [],
+      sourceRefs: sourceRefs.slice(0, 2),
+      availableSourceCount: sourceRefs.length,
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.failures.join(' ')).toMatch(/too few evidence-bearing blocks/i);
+    expect(quality.failures.join(' ')).toMatch(/causal process or organizing mechanism/i);
+    expect(quality.failures.join(' ')).toMatch(/concrete example, case, or observable situation/i);
+    expect(quality.failures.join(' ')).toMatch(/limit, exception, disagreement, or boundary/i);
+    expect(quality.failures.join(' ')).toMatch(/underuses its evidence/i);
+    expect(quality.metrics.sourceCount).toBe(2);
+    expect(quality.metrics.availableSourceCount).toBe(5);
   });
 
   it('retains purpose-built structure for question and workflow pages', () => {
@@ -3181,10 +3227,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
   });
 
-  it('makes one bounded critique repair when an ordinary Wiki remains too thin after its first rebuild', async () => {
+  it('makes one bounded critique repair for a deep ordinary Wiki without imposing an investment shape', async () => {
     const page = {
-      _id: 'page-investing',
-      title: 'Investing',
+      _id: 'page-parenting',
+      title: 'Parenting',
       pageType: 'topic',
       plainText: '',
       body: { type: 'doc', content: [] },
@@ -3194,20 +3240,24 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     };
     const sources = Array.from({ length: 6 }, (_, index) => ({
       _id: `article-${index + 1}`,
-      title: `Investing evidence ${index + 1}`,
-      content: `Investing evidence ${index + 1} explains a distinct decision mechanism, boundary, example, and risk.`,
-      url: `https://example${index + 1}.com/investing`
+      title: `Parenting evidence ${index + 1}`,
+      content: `Parenting evidence ${index + 1} explains a distinct developmental mechanism, boundary, concrete situation, and family context.`,
+      url: `https://example${index + 1}.com/parenting`
     }));
     const makeArticle = ({ repeats, label }) => ({
       summary: {
-        text: `Investing allocates capital under uncertainty by comparing expected outcomes, price, risk, and opportunity cost. ${'Evidence must connect a decision rule to an observable consequence. '.repeat(Math.max(1, Math.floor(repeats / 8)))}`,
+        text: `Parenting is the sustained work of caring for a child while supporting development, safety, autonomy, and belonging. ${'Evidence must connect a caregiving practice to an observable developmental consequence. '.repeat(Math.max(1, Math.floor(repeats / 3)))}`,
         citationIndexes: [1, 2],
         support: 'supported'
       },
       sections: Array.from({ length: 6 }, (_, index) => ({
-        heading: `${label} mechanism ${index + 1}`,
+        heading: `${label} developmental lens ${index + 1}`,
         paragraphs: [{
-          text: `${'A durable investing process separates business evidence, valuation assumptions, uncertainty, and the conditions that would falsify the decision. '.repeat(repeats)}`,
+          text: `${'A child responds to repeated patterns because predictable care changes what the child expects, notices, and attempts next. '.repeat(repeats)}`,
+          citationIndexes: [index + 1],
+          support: 'supported'
+        }, {
+          text: `${index === 0 ? 'For example, when a routine breaks, a caregiver can name the change and restore a sequence the child recognizes. ' : ''}${index === 1 ? 'However, the same practice does not fit every age, temperament, family structure, or cultural setting. ' : ''}${'The concrete situation matters, so the caregiver observes behavior and adjusts rather than treating one rule as universal. '.repeat(repeats)}`,
           citationIndexes: [index + 1],
           support: 'supported'
         }],
@@ -3220,18 +3270,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         provider: 'test-provider',
         text: JSON.stringify({
           title: page.title,
-          article: makeArticle({ repeats: 3, label: 'Initial' }),
+          article: makeArticle({ repeats: 1, label: 'Initial' }),
           maintenance: { summary: 'Initial thin draft.', changelog: [], health: {} },
-          sourceIndexesUsed: [1, 2, 3, 4, 5, 6]
-        })
-      })
-      .mockResolvedValueOnce({
-        model: 'draft-model',
-        provider: 'test-provider',
-        text: JSON.stringify({
-          title: page.title,
-          article: makeArticle({ repeats: 4, label: 'First repair' }),
-          maintenance: { summary: 'First repair remained thin.', changelog: [], health: {} },
           sourceIndexesUsed: [1, 2, 3, 4, 5, 6]
         })
       })
@@ -3240,8 +3280,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
         provider: 'test-provider',
         text: JSON.stringify({
           title: page.title,
-          article: makeArticle({ repeats: 7, label: 'Decision' }),
-          maintenance: { summary: 'Final repair met the evidence bar.', changelog: [], health: {} },
+          article: makeArticle({ repeats: 6, label: 'Care and development' }),
+          maintenance: { summary: 'Bounded repair met the evidence bar.', changelog: [], health: {} },
           sourceIndexesUsed: [1, 2, 3, 4, 5, 6]
         })
       });
@@ -3261,16 +3301,22 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }
     });
 
-    expect(chat).toHaveBeenCalledTimes(3);
-    expect(chat.mock.calls[1][0].route).toBe('artifact_draft');
-    expect(chat.mock.calls[2][0].route).toBe('critique');
-    expect(chat.mock.calls[2][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 2)');
-    expect(chat.mock.calls[2][0].messages[1].content).toContain('Budget at least 650 words');
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(chat.mock.calls[0][0].modelRoutes.length).toBeLessThanOrEqual(2);
+    expect(chat.mock.calls[1][0].route).toBe('critique');
+    expect(chat.mock.calls[1][0].modelRoutes.length).toBeLessThanOrEqual(2);
+    expect(chat.mock.calls[1][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 1)');
+    expect(chat.mock.calls[1][0].messages[1].content).toContain('5-8 subject-specific sections and 8-14');
     expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
-    expect(page.aiState.quality.rebuildAttempts).toBe(2);
+    expect(page.aiState.quality.rebuildAttempts).toBe(1);
     expect(page.aiState.quality.metrics.words).toBeGreaterThanOrEqual(650);
+    expect(page.aiState.quality.metrics.ordinaryCoverageSignals).toEqual({
+      mechanism: true,
+      example: true,
+      boundary: true
+    });
     expect(page.aiState.quality.failures.join(' ')).not.toMatch(/too thin/i);
-    expect(page.plainText).toContain('Decision mechanism 6');
+    expect(page.plainText).toContain('Care and development developmental lens 6');
   });
 
   it('preserves the stronger first draft when an automatic rebuild regresses', async () => {
