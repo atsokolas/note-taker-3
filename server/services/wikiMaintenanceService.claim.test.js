@@ -360,6 +360,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Do not attach a citation after every phrase');
     expect(prompt).toContain('Coverage goals, not mandated headings');
     expect(prompt).toContain('subject-specific section heading');
+    expect(prompt).toContain('retain the supported fact once');
     expect(prompt).toContain('Ordinary Wiki evidence map');
     expect(prompt).toContain('Direct subject sources: [1]');
     expect(prompt).toContain('Adjacent sources may illustrate');
@@ -543,6 +544,35 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).not.toMatch(/repeats substantive sentences|generic section heading/i);
     expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(0);
     expect(quality.metrics.ordinaryGenericHeadingCount).toBe(0);
+  });
+
+  it('recognizes a dated measured historical episode as a concrete case', () => {
+    const sourceRefs = Array.from({ length: 5 }, (_, index) => ({
+      title: `Apollo 11 evidence ${index + 1}`,
+      snippet: `Apollo 11 mission evidence ${index + 1} covers landing operations, decisions, limits, and measured events.`
+    }));
+    const body = docFromArticle({
+      title: 'Apollo 11',
+      article: {
+        summary: { text: 'Apollo 11 was the first mission to land people on the Moon and return them safely.', citationIndexes: [1] },
+        sections: [
+          { heading: 'Landing sequence and crew roles', paragraphs: [{ text: 'The mission worked by separating the lunar module from the command module, landing, ascending, and rendezvousing in lunar orbit.', citationIndexes: [1, 2] }], bullets: [] },
+          { heading: 'The first surface expedition', paragraphs: [{ text: 'In 1969 the crew spent about 21.6 hours on the lunar surface and returned 20 kilograms of samples.', citationIndexes: [3] }], bullets: [] },
+          { heading: 'Guidance under overload', paragraphs: [{ text: 'Because priority scheduling protected landing tasks during computer alarms, Mission Control could advise the crew to continue.', citationIndexes: [2, 4] }], bullets: [] },
+          { heading: 'Limits of a first landing', paragraphs: [{ text: 'However, the short surface stay and narrow traverse constrained the scientific work possible on this first expedition.', citationIndexes: [3, 5] }], bullets: [] }
+        ]
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Apollo 11', pageType: 'topic' },
+      body,
+      claims: [],
+      sourceRefs,
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.metrics.ordinaryCoverageSignals.example).toBe(true);
+    expect(quality.failures.join(' ')).not.toMatch(/concrete example, case, or observable situation/i);
   });
 
   it('does not let an AI-generated article contaminate its next source search', () => {
@@ -3406,11 +3436,15 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       sections: Array.from({ length: 6 }, (_, index) => ({
         heading: `${label} developmental lens ${index + 1}`,
         paragraphs: [{
-          text: `${'A child responds to repeated patterns because predictable care changes what the child expects, notices, and attempts next. '.repeat(repeats)}`,
+          text: Array.from({ length: repeats }, (_, repeatIndex) => (
+            `Parenting evidence in developmental lens ${index + 1}, observation ${repeatIndex + 1}, shows a distinct developmental mechanism because predictable care changes what a child expects, notices, and attempts next.`
+          )).join(' '),
           citationIndexes: [index + 1],
           support: 'supported'
         }, {
-          text: `${index === 0 ? 'For example, when a routine breaks, a caregiver can name the change and restore a sequence the child recognizes. ' : ''}${index === 1 ? 'However, the same practice does not fit every age, temperament, family structure, or cultural setting. ' : ''}${'The concrete situation matters, so the caregiver observes behavior and adjusts rather than treating one rule as universal. '.repeat(repeats)}`,
+          text: `${index === 0 ? 'For example, when a routine breaks, a caregiver can name the change and restore a sequence the child recognizes. ' : ''}${index === 1 ? 'However, the same practice does not fit every age, temperament, family structure, or cultural setting. ' : ''}${Array.from({ length: repeats }, (_, repeatIndex) => (
+            `Parenting evidence in lens ${index + 1}, boundary ${repeatIndex + 1}, keeps a concrete situation inside its family context, so the caregiver adjusts rather than treating one rule as universal.`
+          )).join(' ')}`,
           citationIndexes: [index + 1],
           support: 'supported'
         }],
