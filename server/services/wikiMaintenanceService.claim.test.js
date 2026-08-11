@@ -606,6 +606,26 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(candidates[0].topicCoverage).toBe(1);
   });
 
+  it('does not feed prior generated ordinary prose back as the rebuild template', () => {
+    const prompt = buildPrompt({
+      page: {
+        title: 'Parenting',
+        pageType: 'topic',
+        plainText: 'Serve and return copied sentence. Serve and return copied sentence.',
+        aiState: { lastDraftedAt: new Date('2026-08-01T00:00:00.000Z') }
+      },
+      candidates: [{
+        index: 1,
+        type: 'external',
+        title: 'Parenting evidence',
+        text: 'Parenting evidence describes responsive care and its developmental boundaries.'
+      }]
+    });
+
+    expect(prompt).toContain('Prior generated article prose intentionally omitted');
+    expect(prompt).not.toContain('Serve and return copied sentence');
+  });
+
   it('searches beyond the recent-library cap for an older exact-topic source', async () => {
     const cursorFor = records => ({
       sort() { return this; },

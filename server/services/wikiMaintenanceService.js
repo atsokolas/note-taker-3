@@ -1189,6 +1189,13 @@ const buildPrompt = ({
     formatCandidateMetadataLine(source) +
     `Text: ${truncate(source.text, sourceTextLimit)}`
   )).join('\n\n');
+  const omitGeneratedOrdinaryProse = structure.flexibleSections
+    && isLikelyGeneratedPage(page)
+    && !repoPage
+    && structure.profile !== 'investment_dossier';
+  const existingTextForPrompt = omitGeneratedOrdinaryProse
+    ? 'Prior generated article prose intentionally omitted. Reconstruct from the source ledger and preserved user notes so earlier repetition or unsupported wording cannot become the template.'
+    : truncate(page.plainText || toPlainText(page.body), 2400);
 
   return `Maintain this Wiki page by directly rewriting it into a clean, durable Wiki article.
 
@@ -1216,7 +1223,7 @@ ${repoPage
     : structure.flexibleSections
       ? `Coverage goals, not mandated headings: ${structure.sections.join(' | ')}`
       : `Required section shape, in this order: ${structure.sections.join(' | ')}`}
-Existing text: ${truncate(page.plainText || toPlainText(page.body), 2400)}
+Existing text: ${existingTextForPrompt}
 Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '', 1200)}
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
 ${recoveryDraftText ? `
