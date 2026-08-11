@@ -487,6 +487,64 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(fillerQuality.failures.join(' ')).toMatch(/generic scene-setting/i);
   });
 
+  it('rejects repeated evidence-bearing prose and a generic section role on an ordinary Wiki', () => {
+    const repeated = 'Serve and return describes responsive exchanges in which a young child signals and a caregiver answers with attention, words, eye contact, or touch.';
+    const body = docFromArticle({
+      title: 'Parenting',
+      article: {
+        summary: { text: `${repeated} Repetition makes the central mechanism visible.`, citationIndexes: [1] },
+        sections: [
+          { heading: 'Definition and scope', paragraphs: [{ text: repeated, citationIndexes: [1] }], bullets: [] },
+          { heading: 'Discipline as teaching', paragraphs: [{ text: 'Discipline can teach behavior through calm limits and proportionate consequences.', citationIndexes: [2] }], bullets: [] },
+          { heading: 'Routines and predictability', paragraphs: [{ text: 'Predictable routines can support transitions while preserving flexibility for different households.', citationIndexes: [3] }], bullets: [] },
+          { heading: 'Where practices diverge', paragraphs: [{ text: 'However, no single technique fits every age, temperament, culture, or family structure.', citationIndexes: [4] }], bullets: [] }
+        ]
+      }
+    });
+    const sourceRefs = Array.from({ length: 5 }, (_, index) => ({
+      title: `Parenting evidence ${index + 1}`,
+      snippet: `Parenting evidence about responsive caregiving, discipline, routines, development, and family context ${index + 1}.`
+    }));
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Parenting', pageType: 'topic' },
+      body,
+      claims: [],
+      sourceRefs,
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.failures.join(' ')).toMatch(/repeats substantive sentences/i);
+    expect(quality.failures.join(' ')).toMatch(/generic section heading/i);
+    expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(1);
+    expect(quality.metrics.ordinaryGenericHeadingCount).toBe(1);
+  });
+
+  it('keeps distinct subject-shaped ordinary sections clear of the redundancy gate', () => {
+    const body = docFromArticle({
+      title: 'Parenting',
+      article: {
+        summary: { text: 'Parenting comprises caregiving practices that support development, safety, autonomy, and belonging.', citationIndexes: [] },
+        sections: [
+          { heading: 'Responsive exchanges in early development', paragraphs: [{ text: 'A caregiver can answer a child signal with attention, language, eye contact, or touch.' }], bullets: [] },
+          { heading: 'Discipline as behavioral teaching', paragraphs: [{ text: 'Clear limits and proportionate consequences teach expectations without treating punishment as the goal.' }], bullets: [] },
+          { heading: 'Routines without rigidity', paragraphs: [{ text: 'Regular household sequences can make transitions predictable while leaving room for choice and adaptation.' }], bullets: [] },
+          { heading: 'Limits of universal prescriptions', paragraphs: [{ text: 'However, age, temperament, culture, and family structure constrain any claim that one practice works everywhere.' }], bullets: [] }
+        ]
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Parenting', pageType: 'topic' },
+      body,
+      claims: [],
+      sourceRefs: [],
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.failures.join(' ')).not.toMatch(/repeats substantive sentences|generic section heading/i);
+    expect(quality.metrics.ordinaryRepeatedSentenceCount).toBe(0);
+    expect(quality.metrics.ordinaryGenericHeadingCount).toBe(0);
+  });
+
   it('does not let an AI-generated article contaminate its next source search', () => {
     const candidates = selectCandidateSources({
       page: {
