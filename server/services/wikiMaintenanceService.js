@@ -3761,8 +3761,10 @@ const evaluateWikiArticleQuality = ({
 
 const inferMaintainedPageType = ({ page, candidates = [] } = {}) => {
   if (isGitHubRepoPage({ page, candidates })) return 'repo';
-  const current = asString(page?.pageType || 'topic').toLowerCase();
-  if (current && current !== 'topic') return current;
+  const current = asString(page?.pageType).toLowerCase();
+  // Page type is user-owned architecture. Source count must not silently turn
+  // a topic into an overview or make an ordinary Wiki dossier-shaped.
+  if (current) return current;
   const createdType = asString(page?.createdFrom?.type).toLowerCase();
   const title = asString(page?.title).toLowerCase();
   if (['article', 'highlight', 'notebook', 'external', 'paste', 'sources'].includes(createdType)) return 'source';
@@ -3871,7 +3873,10 @@ const applyKnownWikiLinks = async ({ page, body, plainText, userId, models = {} 
       plainText
     },
     userId,
-    models: { WikiPage }
+    models: { WikiPage },
+    // A large personal Wiki must not turn article publication into a
+    // full-corpus scan just to add optional links.
+    limit: 80
   });
   return (result.suggestions || [])
     .filter(suggestion => asString(suggestion.pageId) && asString(suggestion.pageId) !== pageId)
@@ -4357,7 +4362,11 @@ const maintainWikiPage = async ({
 
   page.title = materialized.title || page.title;
   page.pageType = inferMaintainedPageType({ page, candidates });
-  page.sourceScope = investmentDossier ? 'selected_sources' : 'entire_library';
+  page.sourceScope = investmentDossier
+    ? 'selected_sources'
+    : (['entire_library', 'current_item', 'selected_sources'].includes(asString(page.sourceScope))
+        ? asString(page.sourceScope)
+        : 'entire_library');
   page.body = materialized.body;
   page.plainText = materialized.plainText;
   page.sourceRefs = materialized.sourceRefs;
@@ -4437,7 +4446,11 @@ const maintainWikiPage = async ({
     rebuiltAutomatically = true;
     page.title = materialized.title || page.title;
     page.pageType = inferMaintainedPageType({ page, candidates });
-    page.sourceScope = investmentDossier ? 'selected_sources' : 'entire_library';
+    page.sourceScope = investmentDossier
+      ? 'selected_sources'
+      : (['entire_library', 'current_item', 'selected_sources'].includes(asString(page.sourceScope))
+          ? asString(page.sourceScope)
+          : 'entire_library');
     page.body = materialized.body;
     page.plainText = materialized.plainText;
     page.sourceRefs = materialized.sourceRefs;
