@@ -7,12 +7,14 @@ const CONTRACTS = {
   concept: {
     label: 'Concept',
     intent: 'Explain a durable idea as a source-backed reference page.',
-    sections: ['Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions']
+    flexibleSections: true,
+    sections: ['Definition', 'Mechanism', 'Examples and applications', 'Limits and misconceptions', 'Open questions']
   },
   entity: {
     label: 'Entity',
     intent: 'Maintain a source-backed profile of an entity, its ideas, and relevance.',
-    sections: ['Profile', 'Core Ideas', 'Evidence', 'Tensions', 'Related Pages']
+    flexibleSections: true,
+    sections: ['Identity and scope', 'Key ideas and work', 'Evidence and influence', 'Limits and disputes', 'Related pages']
   },
   source: {
     label: 'Source',
@@ -32,7 +34,8 @@ const CONTRACTS = {
   overview: {
     label: 'Overview',
     intent: 'Combine multiple pages or sources into a higher-level overview.',
-    sections: ['Overview', 'Converging Evidence', 'Diverging Evidence', 'Implications', 'Open Questions']
+    flexibleSections: true,
+    sections: ['Definition and scope', 'Key mechanisms', 'Examples and evidence', 'Limits and competing views', 'Open questions']
   },
   project: {
     label: 'Project',
@@ -59,7 +62,8 @@ const CONTRACTS = {
   topic: {
     label: 'Topic',
     intent: 'Explain a durable topic as a source-backed reference page.',
-    sections: ['Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions']
+    flexibleSections: true,
+    sections: ['Definition', 'Mechanism', 'Examples and applications', 'Limits and misconceptions', 'Open questions']
   }
 };
 
@@ -178,6 +182,14 @@ const alignArticleToPageStructure = ({ article = {}, pageType = 'topic', structu
     };
   }
   const sections = Array.isArray(article.sections) ? article.sections : [];
+  if (contract.flexibleSections && sections.length) {
+    return {
+      ...article,
+      sections: sections
+        .filter(section => String(section?.heading || section?.title || '').trim())
+        .slice(0, 9)
+    };
+  }
   const sectionByHeading = new Map(sections.map(section => [normalizeHeading(section?.heading || section?.title), section]));
   const findSection = (heading) => sectionByHeading.get(normalizeHeading(heading))
     || (contract.profile === 'investment_dossier'

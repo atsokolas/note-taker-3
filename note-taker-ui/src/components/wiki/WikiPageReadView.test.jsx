@@ -521,7 +521,7 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Enterprise AI Memory' }).querySelector('em')).toHaveTextContent('Memory');
+    expect(screen.getByRole('heading', { name: 'Enterprise AI Memory' }).querySelector('em')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Wiki page title')).not.toBeInTheDocument();
     expect(screen.queryByTestId('wiki-editor-content')).not.toBeInTheDocument();
     expect(document.querySelector('[contenteditable="true"]')).not.toBeInTheDocument();
@@ -617,6 +617,7 @@ describe('WikiPageReadView', () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       pageType: 'entity',
+      createdFrom: { type: 'search', label: 'company-dossier:GOOGL' },
       aiState: {
         draftStatus: 'error',
         errorCode: 'WIKI_CANDIDATE_REJECTED',
@@ -827,7 +828,9 @@ describe('WikiPageReadView', () => {
 
     const { container } = renderReadView();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Costco Wholesale investment dossier' })).toBeInTheDocument();
+    const title = await screen.findByRole('heading', { level: 1, name: 'Costco Wholesale investment dossier' });
+    expect(title).toBeInTheDocument();
+    expect(title.querySelector('em')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Core idea' })).toBeInTheDocument();
     const header = container.querySelector('.wiki-read__header');
     const body = container.querySelector('.wiki-read__body');
@@ -843,7 +846,7 @@ describe('WikiPageReadView', () => {
     expect(within(decisionRecord).getByText('Can Costco compound owner value above the hurdle?')).toBeInTheDocument();
   });
 
-  it('leaves the ordinary Wiki header and title sequence unchanged', async () => {
+  it('renders an ordinary Wiki as a restrained reference article', async () => {
     const { container } = renderReadView();
 
     const title = await screen.findByRole('heading', { level: 1, name: 'Enterprise AI Memory' });
@@ -851,6 +854,33 @@ describe('WikiPageReadView', () => {
     expect(header).not.toHaveClass('wiki-read__header--living-thesis');
     expect(container.querySelector('.wiki-read__object-label')).not.toBeInTheDocument();
     expect(header.firstElementChild).toBe(title);
+    expect(title.querySelector('em')).not.toBeInTheDocument();
+    expect(container.querySelector('.wiki-read__standard-facts')).toHaveTextContent('Overview');
+    expect(container.querySelector('.wiki-read__standard-facts')).toHaveTextContent('source');
+    expect(container.querySelector('.wiki-read__toc')).toHaveTextContent('Contents');
+
+    const aboutHeading = await screen.findByRole('heading', { name: 'About this page' });
+    const factualContext = aboutHeading.closest('.wiki-read__infobox--primary');
+    const thoughtPartner = container.querySelector('.wiki-read__rail-content > .right-drawer');
+    expect(factualContext).toHaveTextContent('About this page');
+    expect(factualContext.compareDocumentPosition(thoughtPartner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('moves one accessible contents list below the title on mobile', async () => {
+    window.matchMedia = jest.fn().mockImplementation(query => ({
+      matches: query === '(max-width: 720px)',
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    }));
+
+    const { container } = renderReadView();
+    const title = await screen.findByRole('heading', { level: 1, name: 'Enterprise AI Memory' });
+    const contents = screen.getByRole('navigation', { name: 'Article contents' });
+    const articleBody = container.querySelector('.wiki-read__article-panel');
+
+    expect(screen.getAllByRole('link', { name: 'Core idea' })).toHaveLength(1);
+    expect(title.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(contents.compareDocumentPosition(articleBody) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('renders citation marginalia on wide readers without replacing references', async () => {
@@ -1975,6 +2005,8 @@ describe('WikiPageReadView', () => {
     renderReadView();
 
     expect(await screen.findByRole('heading', { name: 'Generic company note' })).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read--standard')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-read__standard-facts')).toHaveTextContent('Entity');
     expect(screen.queryByRole('button', { name: 'Resume build' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Run again' }));

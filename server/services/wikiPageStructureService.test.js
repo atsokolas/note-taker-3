@@ -19,10 +19,46 @@ const run = () => {
   const entity = getWikiPageStructure('person');
   assert.strictEqual(entity.type, 'entity');
   assert.strictEqual(entity.label, 'Entity');
+  ['entity', 'concept', 'overview', 'topic'].forEach((pageType) => {
+    assert.strictEqual(getWikiPageStructure(pageType).flexibleSections, true, `${pageType} should use subject-specific sections`);
+  });
+  ['source', 'question', 'comparison', 'project', 'log', 'repo'].forEach((pageType) => {
+    assert.strictEqual(Boolean(getWikiPageStructure(pageType).flexibleSections), false, `${pageType} should retain its workflow structure`);
+  });
 
   const overview = getWikiPageStructure('synthesis');
   assert.strictEqual(overview.type, 'overview');
   assert.strictEqual(overview.label, 'Overview');
+  assert.strictEqual(overview.flexibleSections, true);
+
+  const concept = getWikiPageStructure('concept');
+  assert.strictEqual(concept.flexibleSections, true);
+  const flexibleArticle = alignArticleToPageStructure({
+    pageType: 'concept',
+    article: {
+      sections: [
+        { heading: 'Compounding frequency', paragraphs: [], bullets: [] },
+        { heading: 'Continuous compounding', paragraphs: [], bullets: [] }
+      ]
+    }
+  });
+  assert.deepStrictEqual(
+    flexibleArticle.sections.map(section => section.heading),
+    ['Compounding frequency', 'Continuous compounding']
+  );
+  const flexibleOverviewArticle = alignArticleToPageStructure({
+    pageType: 'overview',
+    article: {
+      sections: [
+        { heading: 'Nominal and effective rates', paragraphs: [], bullets: [] },
+        { heading: 'When the compounding analogy breaks', paragraphs: [], bullets: [] }
+      ]
+    }
+  });
+  assert.deepStrictEqual(
+    flexibleOverviewArticle.sections.map(section => section.heading),
+    ['Nominal and effective rates', 'When the compounding analogy breaks']
+  );
 
   assert.strictEqual(isInvestmentDossierPage({
     page: { pageType: 'entity', externalWatches: { edgar: { ticker: 'NVDA' } } }

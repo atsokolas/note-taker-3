@@ -46,6 +46,18 @@ const SCAFFOLD_PATTERNS = [
   { label: 'unfinished article placeholder', pattern: /\bwaiting for source-backed evidence\b/i },
   { label: 'source dump framing', pattern: /\bcontributes evidence for this page\b/i }
 ];
+const GENERIC_REFERENCE_HEADINGS = new Set([
+  'core idea',
+  'how it works',
+  'evidence',
+  'tensions',
+  'open questions'
+]);
+const ORDINARY_REFERENCE_FILLER_PATTERNS = [
+  /\b(?:analysts|experts|researchers|companies|firms) often (?:say|use|view|consider|describe)\b/i,
+  /\bserves as a powerful (?:tool|framework|concept)\b/i,
+  /\bplays? (?:an important|a crucial|a vital) role\b/i
+];
 const GITHUB_REPO_UNSUPPORTED_PATTERNS = [
   { label: 'npm distribution claim', pattern: /\b(?:published|packaged|distributed)\s+(?:as|to|on)\s+(?:an?\s+)?npm\b|\bnpm package metadata confirms\b/i },
   { label: 'CI/test-suite claim', pattern: /\b(?:fully tested|comprehensive test suite|continuous[-\s]?integration|continuously integrated)\b/i },
@@ -155,6 +167,21 @@ const toPlainText = (node) => {
   const ownText = typeof node.text === 'string' ? node.text : '';
   const childText = Array.isArray(node.content) ? toPlainText(node.content) : '';
   return [ownText, childText].filter(Boolean).join(' ').trim();
+};
+
+const collectDocHeadings = (node, headings = []) => {
+  if (!node) return headings;
+  if (Array.isArray(node)) {
+    node.forEach(child => collectDocHeadings(child, headings));
+    return headings;
+  }
+  if (typeof node !== 'object') return headings;
+  if (node.type === 'heading') {
+    const heading = toPlainText(node);
+    if (heading) headings.push(heading);
+  }
+  if (Array.isArray(node.content)) collectDocHeadings(node.content, headings);
+  return headings;
 };
 
 const textNode = (text = '', { marks } = {}) => {
@@ -838,6 +865,23 @@ Investment dossier rules:
 `;
 };
 
+const formatStandardWikiPromptBlock = ({ structure = {} } = {}) => {
+  if (structure.profile === 'investment_dossier' || structure.type === 'repo' || !structure.flexibleSections) return '';
+  return `
+Ordinary reference Wiki rules:
+- Write an encyclopedic reference article, not a mini investment memo, magazine essay, or five-section template filled with generic prose.
+- Use subject-specific section headings that make the page skimmable without reading like a form. The coverage goals below are a checklist, not mandated heading names; for example, prefer "Compounding frequency" or "Continuous compounding" over "How It Works" when the evidence supports that specificity.
+- The opening summary must answer "What is this?" precisely in its first sentence. Define important terms and notation before extending the idea into applications or analogies.
+- Explain the causal or technical mechanism step by step. For mathematical, scientific, legal, or technical topics, include a concrete worked example, boundary case, or observable test when the supplied evidence supports one.
+- Distinguish a formal equivalence from an analogy. Never call two mechanisms "mathematically identical," "the same," or "proven" unless a cited source directly establishes that relationship.
+- Prefer specific claims over broad scene-setting. Remove paragraphs that merely say analysts, studies, or firms "often" do something without naming the mechanism and attaching evidence.
+- Treat repeated highlights from one article as one evidence family. Do not manufacture authority by citing the same underlying source repeatedly or by spreading one source across many claims.
+- Put citationIndexes at the end of the paragraph they support. Do not attach a citation after every phrase or make one citation appear to support several unrelated assertions.
+- When the library cannot support a definition, example, or important boundary, state the exact gap in Open Questions or maintenance instead of filling the article with plausible general knowledge.
+- Make each included section earn its place. A section may be concise, but it must add a definition, mechanism, evidence synthesis, limitation, implication, or genuinely unresolved question.
+`;
+};
+
 const buildPrompt = ({
   page,
   candidates,
@@ -874,13 +918,17 @@ Hard rules:
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
 - Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
-${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}
+${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}${formatStandardWikiPromptBlock({ structure })}
 
 Page:
 Title: ${page.title}
 Type: ${page.pageType || 'topic'}
 Page intent: ${structure.intent}
-${repoPage ? `Repo dossier section goals, not mandated headings: ${structure.sections.join(' | ')}` : `Required section shape, in this order: ${structure.sections.join(' | ')}`}
+${repoPage
+    ? `Repo dossier section goals, not mandated headings: ${structure.sections.join(' | ')}`
+    : structure.flexibleSections
+      ? `Coverage goals, not mandated headings: ${structure.sections.join(' | ')}`
+      : `Required section shape, in this order: ${structure.sections.join(' | ')}`}
 Existing text: ${truncate(page.plainText || toPlainText(page.body), 2400)}
 Creation seed: ${truncate(page.createdFrom?.text || page.createdFrom?.label || '', 1200)}
 Manual notes to preserve when useful: ${manualNotes || 'None detected.'}
@@ -905,7 +953,7 @@ Return strict JSON only:
     "summary": { "text": "one clean introductory paragraph", "citationIndexes": [1], "contradictionIndexes": [], "support": "supported|partial|unsupported|conflicted" },
     "sections": [
       {
-        "heading": "${structure.sections[0]}",
+        "heading": "${structure.flexibleSections ? 'subject-specific section heading' : structure.sections[0]}",
         "paragraphs": [
           { "text": "clean wiki paragraph", "citationIndexes": [1, 2], "contradictionIndexes": [], "support": "supported|partial|unsupported|conflicted" }
         ],
@@ -2756,7 +2804,7 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
     },
     sections: [
       {
-        heading: 'Core Idea',
+        heading: `What ${topic} means`,
         paragraphs: [
           {
             text: leadSources.length
@@ -2768,7 +2816,7 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
         bullets: []
       },
       {
-        heading: 'Evidence',
+        heading: 'What the current sources establish',
         paragraphs: top.length
           ? [{
               text: `The current evidence base is broad enough to suggest direction but not yet deep enough to settle the page. The most useful sources should be compared for agreement, contradiction, and specificity rather than copied into the article as summaries.`,
@@ -2778,7 +2826,7 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
         bullets: []
       },
       {
-        heading: 'Tensions',
+        heading: 'Limits of the current evidence',
         paragraphs: [
           {
             text: top.length
@@ -2791,7 +2839,7 @@ const fallbackMaintenance = ({ page, candidates, manualNotes = '' }) => {
         bullets: []
       },
       {
-        heading: 'Open Questions',
+        heading: 'Questions this page must resolve',
         paragraphs: [
           {
             text: newItems.length
@@ -3164,6 +3212,23 @@ const evaluateWikiArticleQuality = ({ page, body, claims = [], sourceRefs = [], 
     page,
     candidates: sourceRefs
   }).profile === 'investment_dossier';
+  const ordinaryStructure = getWikiPageStructureForPage({ page, candidates: sourceRefs });
+  const isFlexibleReferencePage = !isRepoQualityPage
+    && !isInvestmentQualityPage
+    && ordinaryStructure.flexibleSections;
+  if (isFlexibleReferencePage) {
+    const headings = collectDocHeadings(body || page?.body || {})
+      .map(heading => heading.toLowerCase().trim());
+    const genericHeadingCount = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading)).length;
+    if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
+      failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
+    }
+    const fillerCount = ORDINARY_REFERENCE_FILLER_PATTERNS
+      .reduce((count, pattern) => count + (pattern.test(plainText) ? 1 : 0), 0);
+    if (fillerCount >= 2) {
+      failures.push('Ordinary reference article relies on generic scene-setting instead of definitions, mechanisms, or evidence.');
+    }
+  }
   const minWords = isRepoQualityPage
     ? GITHUB_REPO_MIN_WORDS
     : (sourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS);

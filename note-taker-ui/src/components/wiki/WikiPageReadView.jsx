@@ -1070,7 +1070,14 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
   );
 };
 
-const WikiReadTitle = ({ title = '' }) => {
+const WikiReadTitle = ({ title = '', plain = false }) => {
+  if (plain) {
+    return (
+      <h1 className="wiki-read__title" data-view-transition-name="wiki-read-title">
+        {String(title || '').trim() || 'Untitled Wiki Page'}
+      </h1>
+    );
+  }
   const parts = splitTitleAccent(title);
   return (
     <h1 className="wiki-read__title" data-view-transition-name="wiki-read-title">
@@ -1206,6 +1213,11 @@ const WikiPageReadView = ({
     return window.matchMedia('(min-width: 1280px)').matches;
   });
   const [agentContextOpen, setAgentContextOpen] = useState(true);
+  const [mobileStandardReader, setMobileStandardReader] = useState(() => (
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 720px)').matches
+  ));
 
   useEffect(() => {
     setActiveTab(requestedReadTab);
@@ -1769,6 +1781,22 @@ const WikiPageReadView = ({
     return undefined;
   }, []);
 
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia('(max-width: 720px)');
+    const update = () => setMobileStandardReader(Boolean(query.matches));
+    update();
+    if (typeof query.addEventListener === 'function') {
+      query.addEventListener('change', update);
+      return () => query.removeEventListener('change', update);
+    }
+    if (typeof query.addListener === 'function') {
+      query.addListener(update);
+      return () => query.removeListener(update);
+    }
+    return undefined;
+  }, []);
+
   const handleReferenceBacklink = useCallback((citationId = '') => {
     scrollToElementId(citationId);
   }, []);
@@ -2291,9 +2319,13 @@ const WikiPageReadView = ({
     && !repoDossierMode
     && !investmentDossierPage
     && !livingThesisPage
-    && !companyDossier
-    && readPageType !== 'entity';
+    && !companyDossier;
   const specializedWorkflowPage = !standardWikiPage && !weekendReadingsPage;
+  const standardPageFacts = standardWikiPage ? [
+    labelFor(page.pageType || 'topic'),
+    `${countWikiPageWords(page).toLocaleString()} words`,
+    `${countPageSources(page).toLocaleString()} source${countPageSources(page) === 1 ? '' : 's'}`
+  ] : [];
   const edgarWatch = page?.externalWatches?.edgar || {};
   const edgarWatchStatus = String(edgarWatch.status || '').toLowerCase();
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
@@ -2524,7 +2556,7 @@ const WikiPageReadView = ({
         </details>
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
-        <aside className="wiki-read__toc">
+        {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`}>
           {repoDossierMode && repoSectionNav.length ? (
             <nav className="wiki-read__repo-dossier-toc" aria-label="Repository dossier contents">
               <h2>Dossier</h2>
@@ -2568,7 +2600,7 @@ const WikiPageReadView = ({
               </ol>
             </nav>
           ) : null}
-        </aside>
+        </aside> : null}
         <article
           ref={articleRef}
           className="wiki-read__article"
@@ -2601,7 +2633,12 @@ const WikiPageReadView = ({
                 In workspace mode the agent will surface quality problems
                 via chat notification (AT-26). */}
             {livingThesisPage ? <p className="wiki-read__object-label">Living thesis</p> : null}
-            <WikiReadTitle title={displayWikiPageTitle(page)} />
+            <WikiReadTitle title={displayWikiPageTitle(page)} plain={standardWikiPage} />
+            {standardWikiPage ? (
+              <p className="wiki-read__standard-facts" aria-label="Page facts">
+                {standardPageFacts.map(fact => <span key={fact}>{fact}</span>)}
+              </p>
+            ) : null}
             {weekendReadingsPage ? (
               <WikiWeekendReadingsPublication
                 editionLabel={researchEditionLabel(page)}
@@ -2625,7 +2662,7 @@ const WikiPageReadView = ({
                 }}
               />
             ) : null}
-            <nav className="wiki-read__continuation-actions" aria-label="Continue this page">
+            {!standardWikiPage ? <nav className="wiki-read__continuation-actions" aria-label="Continue this page">
               {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Inspect sources</a> : null}
               {investmentDossierPage ? <a href="#wiki-dossier-review">Review research</a> : null}
               {continuationBasis ? (
@@ -2638,7 +2675,7 @@ const WikiPageReadView = ({
                 </button>
               ) : null}
               {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Update page</button> : null}
-            </nav>
+            </nav> : null}
             {continuationState.error ? (
               <p className="wiki-read__continuation-error" role="status">{continuationState.error}</p>
             ) : null}
@@ -2798,8 +2835,43 @@ const WikiPageReadView = ({
                   {discussionCount ? <span>{discussionCount}</span> : null}
                 </button>
               </div> : null}
+              {standardWikiPage ? <nav className="wiki-read__continuation-actions wiki-read__continuation-actions--standard" aria-label="Continue this page">
+                {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Sources</a> : null}
+                {continuationBasis ? (
+                  <button
+                    type="button"
+                    disabled={continuationState.busy}
+                    onClick={handleContinueInThink}
+                  >
+                    {continuationState.busy ? 'Opening Think…' : 'Continue in Think'}
+                  </button>
+                ) : null}
+                {typeof onEdit === 'function' ? <button type="button" onClick={onEdit}>Edit article</button> : null}
+              </nav> : null}
             </div>
           </header>
+          {standardWikiPage && mobileStandardReader && tocItems.length ? (
+            <aside className="wiki-read__toc wiki-read__toc--mobile">
+              <nav aria-label="Article contents">
+                <h2>Contents</h2>
+                <ol>
+                  {tocItems.map((item, index) => (
+                    <li key={`${item.id}-mobile-${item.blockIndex ?? index}`} className={`wiki-read__toc-item wiki-read__toc-item--level-${item.level}`}>
+                      <a
+                        className={displayedActiveTocId === item.id ? 'is-active' : ''}
+                        href={`#${item.id}`}
+                        aria-current={displayedActiveTocId === item.id ? 'true' : undefined}
+                        onClick={(event) => handleTocClick(event, item.id)}
+                      >
+                        {recentTocIds.has(item.id) ? <span className="wiki-read__toc-update-dot" aria-label="Recently updated" /> : null}
+                        {item.title}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </nav>
+            </aside>
+          ) : null}
           {!showPageTalk || activeTab === 'article' ? (
             <section
               id="wiki-read-panel-article"
@@ -3060,6 +3132,15 @@ const WikiPageReadView = ({
                   <span aria-hidden="true">›</span>
                   <span className="wiki-read__rail-toggle-label">Hide</span>
                 </button>
+                {standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured wiki-read__infobox--primary">
+                  <h2>About this page</h2>
+                  <p className="wiki-read__infobox-type">{labelFor(page.pageType || 'topic')}</p>
+                  <dl>
+                    {infoboxRows.map(row => (
+                      <InfoboxRow key={row.label} row={row} pageId={pageId} />
+                    ))}
+                  </dl>
+                </section> : null}
                 <RightDrawer title={AGENT_DISPLAY_NAME} open={agentContextOpen} onToggle={setAgentContextOpen}>
                   <AgentContextShell
                     surface="wiki"
@@ -3095,14 +3176,14 @@ const WikiPageReadView = ({
                     />
                   </AgentContextShell>
                 </RightDrawer>
-                <section className="wiki-read__infobox wiki-read__infobox--structured">
+                {!standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured">
                   <h2>{labelFor(page.pageType || 'topic')}</h2>
                   <dl>
                     {infoboxRows.map(row => (
                       <InfoboxRow key={row.label} row={row} pageId={pageId} />
                     ))}
                   </dl>
-                </section>
+                </section> : null}
                 <details className="wiki-read__rail-details">
                   <summary>Page details</summary>
                   <div className="wiki-read__rail-details-panel">
