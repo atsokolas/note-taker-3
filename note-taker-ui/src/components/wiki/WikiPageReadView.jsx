@@ -2069,13 +2069,21 @@ const WikiPageReadView = ({
     [
       page ? { _id: page._id || page.id || page.pageId, title: page.title } : null,
       ...collectRelatedWikiPages(page),
-      ...rawWikiLinkPages.filter(candidate => (
-        typeof candidate?.wordCount !== 'number' || candidate.wordCount > 0
-      ))
+      ...rawWikiLinkPages.filter(candidate => {
+        const readableWords = typeof candidate?.bodyWordCount === 'number'
+          ? candidate.bodyWordCount
+          : candidate?.wordCount;
+        return typeof readableWords !== 'number' || readableWords > 0;
+      })
     ].filter(Boolean)
   ), [page, rawWikiLinkPages]);
   const validWikiLinkTargetIds = useMemo(() => rawWikiLinkPages
-    .filter(candidate => typeof candidate?.wordCount !== 'number' || candidate.wordCount > 0)
+    .filter(candidate => {
+      const readableWords = typeof candidate?.bodyWordCount === 'number'
+        ? candidate.bodyWordCount
+        : candidate?.wordCount;
+      return typeof readableWords !== 'number' || readableWords > 0;
+    })
     .map(candidate => candidate?._id || candidate?.id || candidate?.pageId)
     .filter(Boolean), [rawWikiLinkPages]);
   const tocItems = useMemo(() => {

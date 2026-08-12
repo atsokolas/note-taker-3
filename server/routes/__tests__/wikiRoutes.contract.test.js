@@ -2,7 +2,7 @@ const assert = require('assert');
 const express = require('express');
 const mongoose = require('mongoose');
 
-const { buildWikiRouter } = require('../wikiRoutes');
+const { buildWikiRouter, serializeWikiPage } = require('../wikiRoutes');
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -594,6 +594,14 @@ const waitForIngestRun = async (url, runId, predicate, attempts = 30) => {
 };
 
 const run = async () => {
+  const titleOnlyShell = serializeWikiPage({
+    title: 'Sparse attention',
+    plainText: 'Sparse attention',
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  });
+  assert.strictEqual(titleOnlyShell.wordCount, 2);
+  assert.strictEqual(titleOnlyShell.bodyWordCount, 0);
+
   const WikiPage = createFakeWikiPageModel();
   const WikiProposal = createFakeWikiProposalModel();
   const WikiRevision = createFakeWikiRevisionModel();
