@@ -57,6 +57,13 @@ const run = async () => {
   assert.match(truncate('a'.repeat(80), 30), /^a+…$/);
   assert.strictEqual(truncate('short'), 'short');
   assert.strictEqual(candidateHasReadableContent({ plainText: '', body: { type: 'doc', content: [] } }), false);
+  assert.strictEqual(candidateHasReadableContent({
+    plainText: 'Sparse attention',
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  }), false);
+  assert.strictEqual(candidateHasReadableContent({
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Readable article.' }] }] }
+  }), true);
   assert.strictEqual(candidateHasReadableContent({ plainText: 'Readable article.' }), true);
   assert.strictEqual(candidateHasReadableContent({ title: 'Legacy page' }), true);
 

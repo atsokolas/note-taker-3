@@ -67,11 +67,16 @@ const candidateHasReadableContent = (candidate = {}) => {
   const hasPlainTextField = Object.prototype.hasOwnProperty.call(candidate, 'plainText');
   const hasBodyField = Object.prototype.hasOwnProperty.call(candidate, 'body');
   const plainText = String(candidate.plainText || '').trim();
-  const bodyContent = Array.isArray(candidate?.body?.content) ? candidate.body.content : [];
-  if (plainText || bodyContent.length > 0) return true;
+  const bodyHasText = (node) => {
+    if (!node || typeof node !== 'object') return false;
+    if (node.type === 'text' && String(node.text || '').trim()) return true;
+    return Array.isArray(node.content) && node.content.some(bodyHasText);
+  };
+  if (hasBodyField) return bodyHasText(candidate.body);
+  if (plainText) return true;
   // Older pages may predate both denormalized fields. Keep them linkable until
   // they are hydrated, but fail closed for a known-empty page.
-  return !hasPlainTextField && !hasBodyField;
+  return !hasPlainTextField;
 };
 
 const buildTitleMatcher = (title) => {
