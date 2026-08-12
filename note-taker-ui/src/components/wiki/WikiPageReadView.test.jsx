@@ -2022,6 +2022,36 @@ describe('WikiPageReadView', () => {
     }));
   });
 
+  it('keeps an ordinary Wiki candidate rejection honest after reload while preserving the trusted article', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'Compound Interest',
+      aiState: {
+        ...page.aiState,
+        draftStatus: 'ready',
+        errorCode: '',
+        candidateStatus: 'rejected',
+        lastCandidateSummary: 'No cited source directly addresses compound interest.',
+        lastCandidateQuality: {
+          ok: false,
+          status: 'fail',
+          failures: ['No cited source directly addresses compound interest.']
+        }
+      }
+    });
+
+    renderReadView();
+
+    expect(await screen.findByRole('heading', { name: 'Compound Interest' })).toBeInTheDocument();
+    const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
+    expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
+    expect(within(receipt).getByRole('heading', { name: 'Stronger evidence needed' })).toBeInTheDocument();
+    expect(receipt).toHaveTextContent('The trusted article is unchanged');
+    expect(receipt).toHaveTextContent('No cited source directly addresses compound interest');
+    expect(within(receipt).getByRole('button', { name: 'Re-check after sources change' })).toBeInTheDocument();
+    expect(within(receipt).queryByRole('button', { name: 'Run again' })).not.toBeInTheDocument();
+  });
+
   it('does not expose dossier resume or discard actions on a generic entity page', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
