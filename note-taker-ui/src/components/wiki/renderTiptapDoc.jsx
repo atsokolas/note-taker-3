@@ -216,17 +216,24 @@ const renderTextNode = (node, key, options = {}) => {
   const wikiLinkMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'wikiLink')
     : null;
-  const wikiLinkedText = wikiLinkMark?.attrs?.pageId
+  const markedPageId = String(wikiLinkMark?.attrs?.pageId || '');
+  const validateMarkedPage = options.validateWikiLinkTargets === true && Array.isArray(options.wikiLinkPages);
+  const liveMarkedPage = validateMarkedPage
+    ? options.wikiLinkPages.find(candidate => String(pageLookupId(candidate)) === markedPageId)
+    : null;
+  const wikiLinkedText = markedPageId && (!validateMarkedPage || liveMarkedPage)
     ? renderWikiLinkTarget({
       label: text,
-      page: {
-        pageId: wikiLinkMark.attrs.pageId,
+      page: liveMarkedPage || {
+        pageId: markedPageId,
         title: wikiLinkMark.attrs.title || text
       },
       key: `${key}-wiki-link`,
       options
     })
-    : renderRawWikiSyntax(text, key, options);
+    : markedPageId
+      ? text
+      : renderRawWikiSyntax(text, key, options);
   const claimMark = Array.isArray(node.marks)
     ? node.marks.find(mark => mark?.type === 'claim')
     : null;

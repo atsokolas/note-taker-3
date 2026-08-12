@@ -1203,6 +1203,7 @@ const WikiPageReadView = ({
   const [nonCriticalReady, setNonCriticalReady] = useState(false);
   const [pageTransitionState, setPageTransitionState] = useState('idle');
   const [rawWikiLinkPages, setRawWikiLinkPages] = useState([]);
+  const [rawWikiLinkPagesLoaded, setRawWikiLinkPagesLoaded] = useState(false);
   const [repoComparison, setRepoComparison] = useState(null);
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
@@ -2050,10 +2051,16 @@ const WikiPageReadView = ({
     }
     listWikiPages({ limit: 500 })
       .then((nextPages) => {
-        if (!cancelled) setRawWikiLinkPages(Array.isArray(nextPages) ? nextPages : []);
+        if (!cancelled) {
+          setRawWikiLinkPages(Array.isArray(nextPages) ? nextPages : []);
+          setRawWikiLinkPagesLoaded(true);
+        }
       })
       .catch(() => {
-        if (!cancelled) setRawWikiLinkPages([]);
+        if (!cancelled) {
+          setRawWikiLinkPages([]);
+          setRawWikiLinkPagesLoaded(false);
+        }
       });
     return () => { cancelled = true; };
   }, [displayBody]);
@@ -2926,6 +2933,7 @@ const WikiPageReadView = ({
                     tocItems,
                     recentAnchorIds: recentParagraphAnchors,
                     wikiLinkPages,
+                    validateWikiLinkTargets: rawWikiLinkPagesLoaded,
                     claimLedgerById,
                     focusedClaimId,
                     focusedClaimRef: focusRequestedClaimNode
