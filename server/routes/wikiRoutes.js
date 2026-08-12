@@ -1513,7 +1513,7 @@ const normalizeSourceRef = (value = {}) => {
     objectId,
     parentObjectId,
     title: String(value.title || '').trim().slice(0, 240),
-    snippet: String(value.snippet || '').trim().slice(0, 1000),
+    snippet: String(value.snippet || '').trim().slice(0, 6000),
     url: String(value.url || '').trim().slice(0, 1000),
     citationLabel: String(value.citationLabel || '').trim().slice(0, 120),
     addedBy
@@ -3486,6 +3486,14 @@ const buildWikiRouter = ({
         body,
         plainText: extractPlainText(body),
         sourceRefs: initialSourceRefs.value,
+        ...(ordinaryEvidencePreflight ? {
+          aiState: {
+            build: {
+              creationPreflight: true,
+              directSourceCount: initialSourceRefs.value.length
+            }
+          }
+        } : {}),
         judgment: livingThesisPreset ? normalizeJudgment({
           input: {
             kind: 'thesis',

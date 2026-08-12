@@ -18,7 +18,9 @@ const sourceRefFromCandidate = (source = {}) => ({
   objectId: source.objectId || null,
   parentObjectId: source.parentObjectId || null,
   title: clean(source.title).slice(0, 240),
-  snippet: clean(source.text || source.snippet || source.quote).slice(0, 1000),
+  // Ordinary Wiki drafting needs the evidence, not merely a card preview.
+  // The route applies the same bounded limit before persistence.
+  snippet: clean(source.text || source.snippet || source.quote).slice(0, 6000),
   url: clean(source.url).slice(0, 1000),
   citationLabel: '',
   addedBy: 'ai'
@@ -71,7 +73,11 @@ const prepareOrdinaryWikiBuild = async ({
   }
 
   const seen = new Set();
-  const selected = [...directSources, ...candidates]
+  // Do not pad a narrow subject with merely adjacent Library material. That
+  // made the generator responsible for eight sources when only one actually
+  // addressed the title, which produced broad, uncited prose. A Wiki may be
+  // narrow when the account evidence is narrow.
+  const selected = directSources
     .filter((source) => {
       const key = sourceIdentity(source);
       if (!key || seen.has(key)) return false;

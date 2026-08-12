@@ -4245,11 +4245,12 @@ const maintainWikiPage = async ({
 
   if (!materialized.quality.ok && candidates.length && isConfigured() && shouldRebuildInline) {
     const repoPage = isGitHubRepoPage({ page, candidates });
-    const maxQualityRebuildAttempts = ordinaryFlexibleMaintenance && candidates.length >= 5 ? 2 : 1;
+    const preflightCreation = page.aiState?.build?.creationPreflight === true;
+    const maxQualityRebuildAttempts = ordinaryFlexibleMaintenance && preflightCreation ? 2 : 1;
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
       if (repairAttempt > 1) {
         const remainingFailures = (materialized.quality.failures || []).join(' ');
-        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin/i.test(remainingFailures);
+        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|causal process|meaningful limit/i.test(remainingFailures);
         if (!editorialRepairStillActionable) break;
       }
       try {
