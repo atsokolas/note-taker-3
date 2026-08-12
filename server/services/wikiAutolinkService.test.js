@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { findAutolinkSuggestions, __testables } = require('./wikiAutolinkService');
 
-const { buildTitleMatcher, scanTextForCandidate, titleAliases, truncate } = __testables;
+const { buildTitleMatcher, candidateHasReadableContent, scanTextForCandidate, titleAliases, truncate } = __testables;
 
 const fakeModel = (records, onFind = null) => ({
   find: (query, projection) => {
@@ -56,6 +56,9 @@ const run = async () => {
 
   assert.match(truncate('a'.repeat(80), 30), /^a+…$/);
   assert.strictEqual(truncate('short'), 'short');
+  assert.strictEqual(candidateHasReadableContent({ plainText: '', body: { type: 'doc', content: [] } }), false);
+  assert.strictEqual(candidateHasReadableContent({ plainText: 'Readable article.' }), true);
+  assert.strictEqual(candidateHasReadableContent({ title: 'Legacy page' }), true);
 
   const noText = await findAutolinkSuggestions({
     targetPage: { _id: 'target', plainText: '' },
@@ -86,7 +89,8 @@ const run = async () => {
       WikiPage: fakeModel([
         { _id: 'a', title: 'Compounding interest' },
         { _id: 'b', title: 'Karpathy' },
-        { _id: 'c', title: 'Unrelated topic' }
+        { _id: 'c', title: 'Unrelated topic' },
+        { _id: 'dead', title: 'Sparse attention', plainText: '', body: { type: 'doc', content: [] } }
       ])
     }
   });
@@ -94,7 +98,8 @@ const run = async () => {
   assert.strictEqual(ranked.suggestions[0].mentionCount, 2);
   assert.strictEqual(ranked.suggestions[1].mentionCount, 1);
   assert.strictEqual(ranked.suggestions[0].matchedAlias, 'Compounding interest');
-  assert.strictEqual(ranked.scanned, 3);
+  assert.strictEqual(ranked.scanned, 4);
+  assert.ok(!ranked.suggestions.some(suggestion => suggestion.pageId === 'dead'));
 
   const tied = await findAutolinkSuggestions({
     targetPage: { _id: 'target', plainText: 'Alpha concept and Beta concept are mentioned once each.' },
