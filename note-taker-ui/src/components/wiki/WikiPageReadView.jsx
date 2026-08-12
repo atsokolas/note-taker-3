@@ -2357,11 +2357,16 @@ const WikiPageReadView = ({
     page?.aiState?.draftStatus === 'error'
     || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
   );
+  const persistedCandidateRejection = !evidenceIncomplete
+    && page?.aiState?.candidateStatus === 'rejected'
+    && Boolean(page?.aiState?.lastCandidateSummary);
   const maintenanceDisplayState = maintenanceReceipt?.status
     || (maintenanceActive
       ? 'working'
       : evidenceIncomplete
         ? 'research'
+        : persistedCandidateRejection
+          ? 'research'
         : persistedMaintenanceFailure
           ? 'failed'
           : 'idle');
@@ -2978,7 +2983,7 @@ const WikiPageReadView = ({
                 onJumpBack={handleReferenceBacklink}
               />
               {standardWikiPage ? (
-                <details className="wiki-read__article-tools">
+                <details className="wiki-read__article-tools" open={persistedCandidateRejection || undefined}>
                   <summary>Page tools</summary>
                   <div className="wiki-read__article-tools-panel">
                     <section
@@ -2993,7 +2998,7 @@ const WikiPageReadView = ({
                             ? 'Checking this page against your corpus'
                             : maintenanceReceipt?.status === 'settled'
                               ? 'Page maintenance settled'
-                              : maintenanceReceipt?.status === 'research'
+                              : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
                                 ? 'Stronger evidence needed'
                               : maintenanceDisplayState === 'failed'
                                 ? 'Maintenance needs a retry'
@@ -3002,6 +3007,8 @@ const WikiPageReadView = ({
                         <p>
                           {maintenanceReceipt?.status === 'research'
                             ? maintenanceReceipt.summary
+                            : persistedCandidateRejection
+                              ? `The trusted article is unchanged. ${page.aiState.lastCandidateSummary}`
                             : maintenanceReceipt
                             ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
                             : 'Check sources and claims without interrupting the article.'}
@@ -3020,7 +3027,11 @@ const WikiPageReadView = ({
                         surface={page?.title || 'Wiki page'}
                       />
                       <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
-                        {maintenanceActive ? 'Running...' : maintenanceReceipt?.status === 'research' ? 'Check again' : 'Run again'}
+                        {maintenanceActive
+                          ? 'Running...'
+                          : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
+                            ? 'Re-check after sources change'
+                            : 'Run again'}
                       </Button>
                     </section>
                     {shareCard}
