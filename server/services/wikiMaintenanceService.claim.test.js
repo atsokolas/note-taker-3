@@ -444,6 +444,29 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(quality.failures.join(' ')).toMatch(/subject-specific sections/i);
   });
 
+  it('rejects generic headings even when a narrow ordinary Wiki has one source', () => {
+    const body = docFromArticle({
+      title: 'Sparse attention',
+      article: {
+        summary: { text: 'Sparse attention selects a subset of tokens before attention computation.', citationIndexes: [1] },
+        sections: [
+          { heading: 'How it works', paragraphs: [{ text: 'Token selection reduces the attention set.', citationIndexes: [1] }], bullets: [] },
+          { heading: 'Evidence and evaluation', paragraphs: [{ text: 'The source evaluates selection during long-context inference.', citationIndexes: [1] }], bullets: [] },
+          { heading: 'Why it matters', paragraphs: [{ text: 'The source reports a bounded inference result.', citationIndexes: [1] }], bullets: [] }
+        ]
+      }
+    });
+    const quality = evaluateWikiArticleQuality({
+      page: { title: 'Sparse attention', pageType: 'overview' },
+      body,
+      claims: [],
+      sourceRefs: [{ title: 'Sparse attention evidence', snippet: 'Sparse attention selects tokens during long-context inference.' }],
+      skipDurableCitationCheck: true
+    });
+
+    expect(quality.failures.join(' ')).toMatch(/3 generic section headings/i);
+  });
+
   it('allows subject-specific overview headings while rejecting generic scene-setting', () => {
     const subjectSpecificBody = docFromArticle({
       title: 'Compound Interest',
