@@ -291,7 +291,7 @@ describe('WikiBuildPageComposer', () => {
     fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
     expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('no direct evidence · Roman concrete');
     await waitFor(() => {
-      expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('closest Library material · Concrete markets');
+      expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('closest Library material · Concrete market');
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });

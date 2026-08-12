@@ -48,7 +48,16 @@ const prepareOrdinaryWikiBuild = async ({
     body: { type: 'doc', content: [] },
     plainText: ''
   };
-  const librarySources = await collectLibrarySources({ userId, models, page });
+  // Creation only needs enough evidence to decide whether a page can start.
+  // The fast profile still runs topic-targeted queries, while avoiding the
+  // broad 150-row-per-model maintenance scan that made this preflight feel
+  // like the build itself.
+  const librarySources = await collectLibrarySources({
+    userId,
+    models,
+    page,
+    fastProfile: true
+  });
   const candidates = selectCandidateSources({ page, sources: librarySources, limit: sourceLimit });
   const directSources = candidates.filter(source => Number(source.topicCoverage || 0) >= 0.8);
   if (!directSources.length) {
