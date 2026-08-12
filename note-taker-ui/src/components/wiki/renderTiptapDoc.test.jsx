@@ -107,6 +107,35 @@ describe('renderTiptapDoc', () => {
     expect(link).toHaveAttribute('data-wiki-title', 'Compounding interest');
   });
 
+  it('renders a stale embedded wikiLink as plain text when its target is absent from the live page catalog', () => {
+    render(
+      <MemoryRouter>
+        <div>
+          {renderTiptapDoc({
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Sparse attention',
+                marks: [{
+                  type: 'wikiLink',
+                  attrs: { pageId: 'wiki-empty', title: 'Sparse attention' }
+                }]
+              }]
+            }]
+          }, {
+            wikiLinkPages: [{ _id: 'wiki-live', title: 'LongCat Sparse Attention' }],
+            validateWikiLinkTargets: true
+          })}
+        </div>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Sparse attention')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sparse attention' })).not.toBeInTheDocument();
+  });
+
   it('renders raw bracket wikilinks with embedded citation markers as clean links', () => {
     render(
       <MemoryRouter>
