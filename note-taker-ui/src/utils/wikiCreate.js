@@ -46,7 +46,8 @@ export const buildWikiCreatePayload = ({
   objectIds = [],
   pageType = 'topic',
   sourceScope = 'entire_library',
-  source = null
+  source = null,
+  evidencePreflight = false
 } = {}) => {
   const resolvedText = String(text || '').trim();
   const resolvedTitle = titleFromText(title || label || resolvedText);
@@ -68,6 +69,8 @@ export const buildWikiCreatePayload = ({
     payload.initialSourceRef = buildWikiSourceRef(source);
     payload.sourceScope = 'selected_sources';
   }
+
+  if (evidencePreflight) payload.evidencePreflight = true;
 
   return payload;
 };

@@ -61,6 +61,9 @@ describe('WikiBuildPageComposer', () => {
     )).toBe('Investing: Principles, Process, and Decision Quality');
     expect(wikiBuildTopicFromPrompt('Build me a wiki about investing.')).toBe('investing');
     expect(wikiBuildTopicFromPrompt('Portfolio Concentration')).toBe('Portfolio Concentration');
+    expect(wikiBuildTopicFromPrompt(
+      'Identity attachment and decision-making: why people resist selling, quitting, or revising beliefs'
+    )).toBe('Identity attachment and decision-making');
   });
 
   it('creates an overview page and opens the workspace page for agent drafting', async () => {
@@ -75,7 +78,8 @@ describe('WikiBuildPageComposer', () => {
     await waitFor(() => {
       expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
         title: 'Portfolio Concentration',
-        pageType: 'overview'
+        pageType: 'overview',
+        evidencePreflight: true
       }));
     });
     expect(createRepoWikiFromGitHub).not.toHaveBeenCalled();
@@ -263,6 +267,32 @@ describe('WikiBuildPageComposer', () => {
       expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('waiting for a retry');
     });
     expect(streamMaintainWikiPage).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('declines before creating a dead Wiki when the Library has no direct subject evidence', async () => {
+    createWikiPage.mockRejectedValueOnce({
+      response: {
+        data: {
+          code: 'WIKI_BUILD_EVIDENCE_MISSING',
+          error: 'No direct Library source explains “Roman concrete.” Add or import a source about the subject before building the Wiki.',
+          suggestions: [{ title: 'Concrete markets' }]
+        }
+      }
+    });
+    renderComposer();
+
+    fireEvent.change(screen.getByLabelText('Wiki page to build'), {
+      target: { value: 'Roman concrete' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Build page' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No direct Library source explains');
+    fireEvent.click(screen.getByRole('button', { name: /expand .* trace history/i }));
+    expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('no direct evidence · Roman concrete');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Wiki build trace')).toHaveTextContent('closest Library material · Concrete markets');
+    });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

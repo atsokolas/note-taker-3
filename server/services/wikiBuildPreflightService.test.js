@@ -1,0 +1,69 @@
+const assert = require('assert');
+const { prepareOrdinaryWikiBuild } = require('./wikiBuildPreflightService');
+
+const findModel = (rows = []) => ({
+  find() {
+    return {
+      sort() { return this; },
+      limit() { return this; },
+      lean: async () => rows
+    };
+  }
+});
+
+const run = async () => {
+  const models = {
+    Article: findModel([{
+      _id: '507f1f77bcf86cd79943901',
+      title: 'Sparse attention for long-context models',
+      content: 'Sparse attention reduces the number of token interactions while preserving selected global and local connections.',
+      highlights: [],
+      tags: ['sparse attention']
+    }]),
+    NotebookEntry: findModel([]),
+    TagMeta: findModel([]),
+    Question: findModel([])
+  };
+
+  const ready = await prepareOrdinaryWikiBuild({
+    userId: 'user-1',
+    title: 'Sparse attention',
+    createdFrom: { type: 'idea', text: 'Explain sparse attention.' },
+    models
+  });
+  assert.equal(ready.eligible, true);
+  assert.equal(ready.directSourceCount, 1);
+  assert.equal(ready.sourceRefs.length, 1);
+  assert.equal(ready.sourceRefs[0].objectId, '507f1f77bcf86cd79943901');
+  assert.equal(ready.sourceRefs[0].addedBy, 'ai');
+
+  const missing = await prepareOrdinaryWikiBuild({
+    userId: 'user-1',
+    title: 'Roman concrete',
+    createdFrom: { type: 'idea', text: 'Explain Roman concrete.' },
+    models
+  });
+  assert.equal(missing.eligible, false);
+  assert.equal(missing.code, 'WIKI_BUILD_EVIDENCE_MISSING');
+  assert.match(missing.message, /No direct Library source explains/);
+  assert.equal(Array.isArray(missing.suggestions), true);
+
+  const scoped = await prepareOrdinaryWikiBuild({
+    userId: 'user-1',
+    title: 'Long-context models',
+    createdFrom: {
+      type: 'idea',
+      text: 'Long-context models: how sparse attention reduces token interactions.'
+    },
+    models
+  });
+  assert.equal(scoped.eligible, true);
+  assert.equal(scoped.sourceRefs[0].title, 'Sparse attention for long-context models');
+
+  console.log('wikiBuildPreflightService tests passed');
+};
+
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

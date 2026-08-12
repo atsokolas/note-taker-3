@@ -5,6 +5,7 @@ const {
   maintainWikiPage: defaultMaintainWikiPage,
   evaluateWikiArticleQuality: defaultEvaluateWikiArticleQuality
 } = require('../services/wikiMaintenanceService');
+const { prepareOrdinaryWikiBuild: defaultPrepareOrdinaryWikiBuild } = require('../services/wikiBuildPreflightService');
 const {
   buildSectionMaintenancePlan,
   deriveClaimsFromDoc
@@ -1611,6 +1612,7 @@ const buildWikiRouter = ({
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
   evaluateWikiArticleQuality = defaultEvaluateWikiArticleQuality,
+  prepareOrdinaryWikiBuild = defaultPrepareOrdinaryWikiBuild,
   lintWiki = defaultLintWiki,
   askWikiPage = defaultAskWikiPage,
   loadWikiAskCorpus = defaultLoadWikiAskCorpus,
@@ -3431,13 +3433,38 @@ const buildWikiRouter = ({
 
       const createdFrom = normalizeCreatedFrom(req.body?.createdFrom);
       if (rejectAgentReservedWeekendReadingsCreation(req, res, createdFrom)) return;
-      const initialSourceRefs = normalizeInitialSourceRefs({
+      let initialSourceRefs = normalizeInitialSourceRefs({
         initialSourceRef: req.body?.initialSourceRef,
         initialSourceRefs: req.body?.initialSourceRefs,
         createdFrom
       });
       if (initialSourceRefs?.error) return res.status(400).json({ error: initialSourceRefs.error });
       const title = normalizeTitle(req.body?.title || createdFrom.label);
+      const ordinaryEvidencePreflight = req.body?.evidencePreflight === true
+        && !livingThesisPreset
+        && createdFrom.type === 'idea'
+        && initialSourceRefs.value.length === 0;
+      if (ordinaryEvidencePreflight) {
+        const preflight = await prepareOrdinaryWikiBuild({
+          userId: req.user.id,
+          title,
+          createdFrom,
+          models: { Article, NotebookEntry, TagMeta, Question }
+        });
+        if (!preflight?.eligible) {
+          return res.status(422).json({
+            error: preflight?.message || `No direct Library source explains “${title}.”`,
+            code: preflight?.code || 'WIKI_BUILD_EVIDENCE_MISSING',
+            topic: preflight?.topic || title,
+            suggestions: Array.isArray(preflight?.suggestions) ? preflight.suggestions : []
+          });
+        }
+        initialSourceRefs = normalizeInitialSourceRefs({
+          initialSourceRefs: preflight.sourceRefs,
+          createdFrom
+        });
+        if (initialSourceRefs?.error) return res.status(400).json({ error: initialSourceRefs.error });
+      }
       const governingQuestion = String(req.body?.governingQuestion || '').replace(/\s+/g, ' ').trim();
       if (livingThesisPreset && !governingQuestion) {
         return res.status(400).json({ error: 'A governing question is required for a living thesis.' });
@@ -3454,7 +3481,7 @@ const buildWikiRouter = ({
         pageType: livingThesisPreset ? 'overview' : (pageType?.value || 'topic'),
         status: 'draft',
         visibility: 'private',
-        sourceScope: sourceScope?.value || 'entire_library',
+        sourceScope: ordinaryEvidencePreflight ? 'selected_sources' : (sourceScope?.value || 'entire_library'),
         createdFrom,
         body,
         plainText: extractPlainText(body),
