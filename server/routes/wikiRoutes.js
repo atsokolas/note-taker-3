@@ -831,6 +831,7 @@ const serializeWikiPage = (page) => {
     sourceCount: sourceIds.size,
     claimCount: claimIds.size,
     wordCount: countWords(plainText),
+    bodyWordCount: countWords(extractPlainText(raw.body || emptyDoc())),
     qualityReview,
     discussions: Array.isArray(raw.discussions) ? raw.discussions : [],
     aiState: {

@@ -1528,7 +1528,8 @@ describe('WikiPageReadView', () => {
     listWikiPages.mockResolvedValue([{
       _id: 'wiki-related',
       title: 'Compounding interest',
-      wordCount: 0
+      wordCount: 2,
+      bodyWordCount: 0
     }]);
 
     render(
