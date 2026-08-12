@@ -58,7 +58,9 @@ const GENERIC_REFERENCE_HEADINGS = new Set([
   'definition and scope',
   'key mechanisms',
   'examples and evidence',
-  'limits and competing views'
+  'limits and competing views',
+  'evidence and evaluation',
+  'why it matters'
 ]);
 const ORDINARY_REFERENCE_FILLER_PATTERNS = [
   /\b(?:analysts|experts|researchers|companies|firms) often (?:say|use|view|consider|describe)\b/i,
@@ -3623,7 +3625,7 @@ const evaluateWikiArticleQuality = ({
     ordinaryGenericHeadingCount = genericHeadingCount;
     if (headings.length >= 4 && genericHeadingCount >= Math.ceil(headings.length * 0.75)) {
       failures.push('Ordinary reference article uses generic template headings instead of subject-specific sections.');
-    } else if (genericHeadingCount > 0 && (evidenceBudgetSourceCount >= 5 || headings.length >= 4)) {
+    } else if (genericHeadingCount > 0) {
       failures.push(`Ordinary reference article contains ${genericHeadingCount} generic section heading${genericHeadingCount === 1 ? '' : 's'}; give every substantial section a subject-specific analytical role.`);
     }
     const fillerCount = ORDINARY_REFERENCE_FILLER_PATTERNS

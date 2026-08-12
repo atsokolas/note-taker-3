@@ -3182,7 +3182,7 @@ const WikiPageReadView = ({
                   <AgentContextShell
                     surface="wiki"
                     title={AGENT_DISPLAY_NAME}
-                    orientation={`Reading ${displayWikiPageTitle(page, 'this page')} as accepted knowledge.`}
+                    orientation={`Reading ${displayWikiPageTitle(page, 'this page')} in its current Wiki state.`}
                     showPresence={false}
                   >
                     <ThoughtPartnerPanel
@@ -3204,7 +3204,7 @@ const WikiPageReadView = ({
                         'Help me continue this page in Think.'
                       ]}
                       showQuickPrompts={false}
-                      emptyStateText="Ask when you want to investigate. Accepted knowledge stays unchanged until you explicitly review a proposal."
+                      emptyStateText="Ask when you want to investigate. Proposals stay separate until you explicitly review them."
                       submitLabel="↗"
                     />
                     <WikiReferenceComposer

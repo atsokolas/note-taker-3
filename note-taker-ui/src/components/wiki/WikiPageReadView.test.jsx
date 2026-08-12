@@ -1806,6 +1806,8 @@ describe('WikiPageReadView', () => {
 
     const presenceRail = await screen.findByRole('complementary', { name: 'Page context' });
     await flushDeferredWikiReadWork();
+    expect(screen.getByText(/in its current Wiki state\./)).toBeInTheDocument();
+    expect(screen.queryByText(/as accepted knowledge/)).not.toBeInTheDocument();
     const presenceToggle = within(presenceRail).queryByRole('button', { name: /show context/i });
     if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
     expect(screen.queryByRole('status', { name: 'Thought partner status' })).not.toBeInTheDocument();
