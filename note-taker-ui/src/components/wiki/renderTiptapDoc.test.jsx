@@ -126,7 +126,8 @@ describe('renderTiptapDoc', () => {
             }]
           }, {
             wikiLinkPages: [{ _id: 'wiki-live', title: 'LongCat Sparse Attention' }],
-            validateWikiLinkTargets: true
+            validateWikiLinkTargets: true,
+            validWikiLinkTargetIds: ['wiki-live']
           })}
         </div>
       </MemoryRouter>

@@ -217,11 +217,12 @@ const renderTextNode = (node, key, options = {}) => {
     ? node.marks.find(mark => mark?.type === 'wikiLink')
     : null;
   const markedPageId = String(wikiLinkMark?.attrs?.pageId || '');
-  const validateMarkedPage = options.validateWikiLinkTargets === true && Array.isArray(options.wikiLinkPages);
-  const liveMarkedPage = validateMarkedPage
+  const validateMarkedPage = options.validateWikiLinkTargets === true && Array.isArray(options.validWikiLinkTargetIds);
+  const markedPageIsLive = !validateMarkedPage || options.validWikiLinkTargetIds.some(id => String(id) === markedPageId);
+  const liveMarkedPage = Array.isArray(options.wikiLinkPages)
     ? options.wikiLinkPages.find(candidate => String(pageLookupId(candidate)) === markedPageId)
     : null;
-  const wikiLinkedText = markedPageId && (!validateMarkedPage || liveMarkedPage)
+  const wikiLinkedText = markedPageId && markedPageIsLive
     ? renderWikiLinkTarget({
       label: text,
       page: liveMarkedPage || {
