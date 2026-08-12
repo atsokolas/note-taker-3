@@ -17,7 +17,9 @@ const MAX_TITLE_ALIASES = 8;
 const AUTOLINK_CANDIDATE_PROJECTION = {
   title: 1,
   slug: 1,
-  pageType: 1
+  pageType: 1,
+  plainText: 1,
+  'body.content': 1
 };
 const GENERIC_ALIASES = new Set([
   'overview',
@@ -59,6 +61,17 @@ const safeFind = async (Model, query = {}, limit = 600, projection = null) => {
 const truncate = (value = '', limit = 200) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
+};
+
+const candidateHasReadableContent = (candidate = {}) => {
+  const hasPlainTextField = Object.prototype.hasOwnProperty.call(candidate, 'plainText');
+  const hasBodyField = Object.prototype.hasOwnProperty.call(candidate, 'body');
+  const plainText = String(candidate.plainText || '').trim();
+  const bodyContent = Array.isArray(candidate?.body?.content) ? candidate.body.content : [];
+  if (plainText || bodyContent.length > 0) return true;
+  // Older pages may predate both denormalized fields. Keep them linkable until
+  // they are hydrated, but fail closed for a known-empty page.
+  return !hasPlainTextField && !hasBodyField;
 };
 
 const buildTitleMatcher = (title) => {
@@ -187,6 +200,7 @@ const findAutolinkSuggestions = async ({ targetPage, userId, models = {}, limit 
 
   const hits = [];
   for (const candidate of candidates) {
+    if (!candidateHasReadableContent(candidate)) continue;
     const scan = scanTextForCandidate({ targetText, candidateTitle: candidate.title });
     if (!scan) continue;
     hits.push({
@@ -218,6 +232,7 @@ module.exports = {
     scanTextForCandidate,
     titleAliases,
     truncate,
+    candidateHasReadableContent,
     SNIPPET_RADIUS,
     MAX_SUGGESTIONS,
     MIN_TITLE_LEN,
