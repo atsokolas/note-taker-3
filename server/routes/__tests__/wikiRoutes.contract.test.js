@@ -1014,6 +1014,9 @@ const run = async () => {
     assert.strictEqual(readyPreflight.body.sourceScope, 'selected_sources');
     assert.strictEqual(readyPreflight.body.sourceRefs.length, 1);
     assert.strictEqual(readyPreflight.body.sourceRefs[0].title, 'Ready Evidence Topic source');
+    const readyPreflightRecord = WikiPage.records.find(record => String(record._id) === String(readyPreflight.body._id));
+    assert.strictEqual(readyPreflightRecord.aiState.build.creationPreflight, true);
+    assert.strictEqual(readyPreflightRecord.aiState.build.directSourceCount, 1);
     assert.deepStrictEqual(ordinaryPreflightCalls.slice(-2), [
       { title: 'Missing Evidence Topic', userId: 'user-1' },
       { title: 'Ready Evidence Topic', userId: 'user-1' }

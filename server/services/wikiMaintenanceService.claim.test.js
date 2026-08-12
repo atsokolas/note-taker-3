@@ -3607,6 +3607,77 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(progressEvents.some(event => event.stage === 'quality_rebuild_preserved')).toBe(true);
   });
 
+  it('gives a narrow ordinary Wiki a second bounded repair when grounding is still fixable', async () => {
+    const sourceSentences = [
+      'Sparse attention reduces token interactions while preserving selected global and local connections.',
+      'LongCat uses streaming-aware hierarchical cross-layer indexing to select tokens before sparse attention runs.',
+      'The mechanism reduces quadratic index scoring and scattered key-value memory access.',
+      'For example, the paper compares token selection and memory access during long-context inference.',
+      'However, the reported design is specific to the evaluated model and hardware conditions.'
+    ];
+    const sourceText = sourceSentences.join(' ');
+    const page = {
+      _id: 'page-sparse-attention',
+      title: 'Sparse attention',
+      pageType: 'overview',
+      sourceScope: 'selected_sources',
+      plainText: '',
+      body: { type: 'doc', content: [] },
+      sourceRefs: [{
+        _id: '507f1f77bcf86cd79943903',
+        type: 'article',
+        objectId: '507f1f77bcf86cd79943901',
+        title: 'Sparse attention for long-context models',
+        snippet: sourceText
+      }],
+      claims: [],
+      aiState: { build: { creationPreflight: true } }
+    };
+    const response = (text, sections = []) => ({
+      model: 'test-model',
+      provider: 'test-provider',
+      text: JSON.stringify({
+        title: page.title,
+        article: {
+          summary: { text, citationIndexes: [1], support: 'supported' },
+          sections
+        },
+        maintenance: { summary: 'Drafted ordinary reference page.', changelog: [], health: {} },
+        sourceIndexesUsed: [1]
+      })
+    });
+    const chat = jest.fn()
+      .mockResolvedValueOnce(response('This page should explain sparse attention.'))
+      .mockResolvedValueOnce(response('Additionally, systems improve every workload by ignoring most structure and predicting the future perfectly.'))
+      .mockResolvedValueOnce(response(sourceSentences[0], [
+        { heading: 'Token selection', paragraphs: [{ text: sourceSentences[1], citationIndexes: [1], support: 'supported' }] },
+        { heading: 'Index scoring and memory access', paragraphs: [{ text: sourceSentences[2], citationIndexes: [1], support: 'supported' }] },
+        { heading: 'Observable inference case', paragraphs: [{ text: sourceSentences[3], citationIndexes: [1], support: 'supported' }] },
+        { heading: 'Boundary of the evidence', paragraphs: [{ text: sourceSentences[4], citationIndexes: [1], support: 'supported' }] }
+      ]));
+
+    const { maintainWikiPage } = require('./wikiMaintenanceService');
+    await maintainWikiPage({
+      page,
+      userId: 'user-1',
+      chat,
+      isConfigured: () => true,
+      models: {
+        Article: fakeFindModel([]),
+        NotebookEntry: fakeFindModel([]),
+        TagMeta: fakeFindModel([]),
+        Question: fakeFindModel([]),
+        WikiPage: fakeFindModel([])
+      }
+    });
+
+    expect(chat).toHaveBeenCalledTimes(3);
+    expect(chat.mock.calls[2][0].messages[1].content).toContain('lexical anchor');
+    expect(page.aiState.quality.rebuildAttempts).toBe(2);
+    expect(page.aiState.quality.failures.join(' ')).not.toMatch(/lexical anchor/);
+    expect(page.plainText).toContain('preserving selected global and local connections');
+  });
+
   it('defers the quality rebuild in fast onboarding profile', async () => {
     const page = {
       _id: 'page-main',
