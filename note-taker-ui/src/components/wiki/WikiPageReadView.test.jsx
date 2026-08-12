@@ -1524,6 +1524,27 @@ describe('WikiPageReadView', () => {
     expect(screen.getByRole('button', { name: 'Backlink to sources 2, 3' })).toHaveTextContent('[2,3]');
   });
 
+  it('renders an embedded link to a zero-word Wiki target as plain text', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-related',
+      title: 'Compounding interest',
+      wordCount: 0
+    }]);
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await flushDeferredWikiReadWork();
+    await waitFor(() => {
+      expect(screen.getByText(/Compounding interest/)).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Compounding interest' })).not.toBeInTheDocument();
+    });
+  });
+
   it('strips raw wikilink markup from mentioned-in backlink snippets', async () => {
     getWikiBacklinks.mockResolvedValueOnce({
       backlinks: [{

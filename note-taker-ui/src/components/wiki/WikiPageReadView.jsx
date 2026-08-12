@@ -2045,8 +2045,9 @@ const WikiPageReadView = ({
   );
   useEffect(() => {
     let cancelled = false;
-    if (!hasRawWikiSyntax(displayBody)) {
+    if (!hasRawWikiSyntax(displayBody) && !hasInlineWikiLinks(displayBody)) {
       setRawWikiLinkPages([]);
+      setRawWikiLinkPagesLoaded(false);
       return undefined;
     }
     listWikiPages({ limit: 500 })
@@ -2068,9 +2069,15 @@ const WikiPageReadView = ({
     [
       page ? { _id: page._id || page.id || page.pageId, title: page.title } : null,
       ...collectRelatedWikiPages(page),
-      ...rawWikiLinkPages
+      ...rawWikiLinkPages.filter(candidate => (
+        typeof candidate?.wordCount !== 'number' || candidate.wordCount > 0
+      ))
     ].filter(Boolean)
   ), [page, rawWikiLinkPages]);
+  const validWikiLinkTargetIds = useMemo(() => rawWikiLinkPages
+    .filter(candidate => typeof candidate?.wordCount !== 'number' || candidate.wordCount > 0)
+    .map(candidate => candidate?._id || candidate?.id || candidate?.pageId)
+    .filter(Boolean), [rawWikiLinkPages]);
   const tocItems = useMemo(() => {
     const mappedBodyToc = repoDossierMode
       ? bodyTocItems.map(item => {
@@ -2934,6 +2941,7 @@ const WikiPageReadView = ({
                     recentAnchorIds: recentParagraphAnchors,
                     wikiLinkPages,
                     validateWikiLinkTargets: rawWikiLinkPagesLoaded,
+                    validWikiLinkTargetIds,
                     claimLedgerById,
                     focusedClaimId,
                     focusedClaimRef: focusRequestedClaimNode
