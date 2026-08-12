@@ -635,6 +635,7 @@ const run = async () => {
   const app = express();
   app.use(express.json());
   const proposalMaintainCalls = [];
+  const ordinaryPreflightCalls = [];
   const trackCalls = [];
   const transcriptWatchCalls = [];
   const githubRepoWatchCalls = [];
@@ -678,6 +679,30 @@ const run = async () => {
     },
     trackEvent: (event) => {
       trackCalls.push(event);
+    },
+    prepareOrdinaryWikiBuild: async ({ title, userId }) => {
+      ordinaryPreflightCalls.push({ title, userId });
+      if (title === 'Missing Evidence Topic') {
+        return {
+          eligible: false,
+          code: 'WIKI_BUILD_EVIDENCE_MISSING',
+          topic: title,
+          message: `No direct Library source explains “${title}.”`,
+          suggestions: [{ type: 'article', title: 'Adjacent source', topicCoverage: 0.5 }]
+        };
+      }
+      return {
+        eligible: true,
+        code: 'WIKI_BUILD_EVIDENCE_READY',
+        topic: title,
+        sourceRefs: [{
+          type: 'article',
+          objectId: new mongoose.Types.ObjectId().toString(),
+          title: `${title} source`,
+          snippet: `Direct evidence for ${title}.`,
+          addedBy: 'ai'
+        }]
+      };
     },
     armTranscriptWatchForPage: async ({
       WikiPage: WikiPageModel,
@@ -950,6 +975,49 @@ const run = async () => {
     });
     assert.strictEqual(unsupportedCreate.res.status, 400, unsupportedCreate.text);
     assert.match(unsupportedCreate.body.error, /Unsupported wiki page metadata fields: sourceRefs/);
+
+    const pageCountBeforeMissingPreflight = WikiPage.records.length;
+    const missingPreflight = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Missing Evidence Topic',
+        pageType: 'overview',
+        sourceScope: 'entire_library',
+        evidencePreflight: true,
+        createdFrom: {
+          type: 'idea',
+          text: 'Explain Missing Evidence Topic.',
+          label: 'Missing Evidence Topic'
+        }
+      })
+    });
+    assert.strictEqual(missingPreflight.res.status, 422, missingPreflight.text);
+    assert.strictEqual(missingPreflight.body.code, 'WIKI_BUILD_EVIDENCE_MISSING');
+    assert.strictEqual(missingPreflight.body.suggestions[0].title, 'Adjacent source');
+    assert.strictEqual(WikiPage.records.length, pageCountBeforeMissingPreflight, 'Evidence rejection must not leave an empty Wiki page.');
+
+    const readyPreflight = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Ready Evidence Topic',
+        pageType: 'overview',
+        sourceScope: 'entire_library',
+        evidencePreflight: true,
+        createdFrom: {
+          type: 'idea',
+          text: 'Explain Ready Evidence Topic.',
+          label: 'Ready Evidence Topic'
+        }
+      })
+    });
+    assert.strictEqual(readyPreflight.res.status, 201, readyPreflight.text);
+    assert.strictEqual(readyPreflight.body.sourceScope, 'selected_sources');
+    assert.strictEqual(readyPreflight.body.sourceRefs.length, 1);
+    assert.strictEqual(readyPreflight.body.sourceRefs[0].title, 'Ready Evidence Topic source');
+    assert.deepStrictEqual(ordinaryPreflightCalls.slice(-2), [
+      { title: 'Missing Evidence Topic', userId: 'user-1' },
+      { title: 'Ready Evidence Topic', userId: 'user-1' }
+    ]);
 
     const created = await request(url, '/api/wiki/pages', {
       method: 'POST',

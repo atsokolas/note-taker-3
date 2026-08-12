@@ -23,6 +23,8 @@ export const wikiBuildTopicFromPrompt = (value = '') => {
     const about = prompt.match(/\b(?:about|on)\s+(.+?)(?:[.!?](?:\s|$)|$)/i);
     if (about?.[1]) return cleanTopic(about[1]);
   }
+  const scoped = prompt.match(/^([^:]{3,80}):\s+(?:why|how|when|where|what|which|who)\b/i);
+  if (scoped?.[1]) return cleanTopic(scoped[1]);
   return prompt;
 };
 
@@ -72,7 +74,8 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
           type: 'idea',
           title: topic,
           text: buildBrief,
-          pageType: 'overview'
+          pageType: 'overview',
+          evidencePreflight: true
         }));
       const pageId = page?._id || page?.id;
       if (!pageId) throw new Error('Missing created page id');
@@ -108,11 +111,22 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
         ? repoReceiptTitle
         : `Opened the workspace. ${AGENT_DISPLAY_NAME} is drafting the page there.`);
     } catch (_error) {
+      const response = _error?.response?.data || {};
+      const evidenceMissing = response.code === 'WIKI_BUILD_EVIDENCE_MISSING';
+      const suggestions = Array.isArray(response.suggestions)
+        ? response.suggestions.map(item => clean(item?.title)).filter(Boolean).slice(0, 2)
+        : [];
       setTickerLines([
-        repo ? `repo wiki failed · ${repo.fullName}` : `build failed · ${topic}`,
-        'waiting for a retry'
+        repo ? `repo wiki failed · ${repo.fullName}` : evidenceMissing ? `no direct evidence · ${topic}` : `build failed · ${topic}`,
+        evidenceMissing
+          ? suggestions.length ? `closest Library material · ${suggestions.join(' · ')}` : 'add or import a direct source first'
+          : 'waiting for a retry'
       ]);
-      setError(repo ? 'Failed to build this repo wiki.' : 'Failed to build this wiki page.');
+      setError(repo
+        ? 'Failed to build this repo wiki.'
+        : evidenceMissing
+          ? response.error
+          : 'Failed to build this wiki page.');
     } finally {
       setBusy(false);
     }
