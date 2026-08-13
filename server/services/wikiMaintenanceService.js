@@ -56,12 +56,20 @@ const SCAFFOLD_PATTERNS = [
   { label: 'unfinished article placeholder', pattern: /\bwaiting for source-backed evidence\b/i },
   { label: 'source dump framing', pattern: /\bcontributes evidence for this page\b/i }
 ];
+// "Open questions" is deliberately absent from this list. It is not filler on
+// an ordinary Wiki: wikiOpenQuestionsService collects a page's questions only
+// from a section headed exactly that, and both the Concept question board and
+// the briefing read the result. Rejecting the heading as generic stripped those
+// surfaces of their input on every page that complied, and the model could not
+// satisfy the gate and the feature at once. A landmark other features navigate
+// by has to stay stable; every other section still earns a subject-specific
+// heading.
+const OPEN_QUESTIONS_LANDMARK_HEADING = 'open questions';
 const GENERIC_REFERENCE_HEADINGS = new Set([
   'core idea',
   'how it works',
   'evidence',
   'tensions',
-  'open questions',
   'definition and scope',
   'key mechanisms',
   'examples and evidence',
@@ -1206,7 +1214,8 @@ Ordinary reference Wiki rules:
 - When the library cannot support a definition, example, or important boundary, state the exact gap in Open Questions or maintenance instead of filling the article with plausible general knowledge.
 - Make each included section earn its place. A section may be concise, but it must add a definition, mechanism, evidence synthesis, limitation, implication, or genuinely unresolved question.
 - Give the opening and every section a different analytical job. State a definition or mechanism once; do not repeat a long sentence or rephrase the same paragraph in the summary and a later section.
-- Do not use generic headings such as "Definition and scope", "How it works", "Evidence", or "Open questions" when the evidence supports a subject-specific heading.
+- Never use a template heading such as "Definition and scope", "How it works", "Evidence", "Tensions", "Core idea", or "Why it matters". Name what the section actually covers. The coverage goals above are analytical jobs, not heading text; reusing one as a heading is a failure.
+- The single exception is "Open Questions". Use exactly that heading, once, for the section holding genuinely unresolved questions and evidence gaps, because other parts of the product read that section by name. Omit the section entirely rather than inventing questions to fill it.
 - Treat existing generated prose as evidence to salvage, not wording to preserve. If it repeats itself, retain the supported fact once and rewrite the surrounding structure from the sources.
 ${formatOrdinaryEvidenceMap({ page, candidates })}`;
 };
@@ -4352,8 +4361,16 @@ const maintainWikiPage = async ({
 
   if (!materialized.quality.ok && candidates.length && isConfigured() && shouldRebuildInline) {
     const repoPage = isGitHubRepoPage({ page, candidates });
-    const preflightCreation = page.aiState?.build?.creationPreflight === true;
-    const maxQualityRebuildAttempts = ordinaryFlexibleMaintenance && preflightCreation ? 2 : 1;
+    // A single repair pass reliably moves an ordinary article toward the gate
+    // without reaching it — trimming generic headings and adding depth, but
+    // still landing short of the length its own evidence supports. Creation
+    // already had a second pass; maintenance was left with one and therefore
+    // published rejected candidates it was one attempt away from fixing.
+    //
+    // This is not an unbounded retry loop. The break below stops as soon as the
+    // remaining failures are no longer editorially repairable, so a page that
+    // is failing for a reason more prose cannot fix still costs one attempt.
+    const maxQualityRebuildAttempts = ordinaryFlexibleMaintenance ? 2 : 1;
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
       if (repairAttempt > 1) {
         const remainingFailures = (materialized.quality.failures || []).join(' ');

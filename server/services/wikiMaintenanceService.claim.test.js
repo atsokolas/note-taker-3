@@ -3425,7 +3425,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.sourceRefs.map(source => source.title)).not.toContain('Flounder Mode');
   });
 
-  it('automatically rebuilds once when the first maintenance draft fails quality gates', async () => {
+  it('rebuilds a failed draft and keeps that repair when a later bounded attempt fails', async () => {
     const page = {
       _id: 'page-main',
       title: 'Investment Process',
@@ -3493,7 +3493,10 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }
     });
 
-    expect(chat).toHaveBeenCalledTimes(2);
+    // Ordinary maintenance gets two bounded repairs. The mock answers only the
+    // first, so the second attempt fails — and the improved first repair must
+    // survive that failure rather than the page falling back to the weak draft.
+    expect(chat).toHaveBeenCalledTimes(3);
     expect(chat.mock.calls[1][0].messages[1].content).toContain('The page should explain investing process.');
     expect(page.plainText).toContain('Investment process matters');
     expect(page.plainText).not.toContain('should explain');
@@ -3501,7 +3504,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(page.aiState.quality.previousFailures.join(' ')).toMatch(/scaffold/i);
   });
 
-  it('makes one bounded evidence repair for a deep ordinary Wiki without imposing an investment shape', async () => {
+  it('makes bounded evidence repairs for a deep ordinary Wiki without imposing an investment shape', async () => {
     const page = {
       _id: 'page-parenting',
       title: 'Parenting',
@@ -3587,7 +3590,8 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
       }
     });
 
-    expect(chat).toHaveBeenCalledTimes(2);
+    // Bounded means two repairs for an ordinary page, not one and not endless.
+    expect(chat).toHaveBeenCalledTimes(3);
     expect(chat.mock.calls[0][0].maxTokens).toBe(4200);
     expect(chat.mock.calls[0][0].reasoningEffort).toBe('');
     expect(chat.mock.calls[0][0].reasoning).toEqual({ effort: 'none' });
@@ -3602,7 +3606,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(chat.mock.calls[1][0].messages[1].content).toContain('Ordinary Wiki repair contract (attempt 1)');
     expect(chat.mock.calls[1][0].messages[1].content).toContain('3-7 subject-specific sections and 6-12');
     expect(page.aiState.quality.rebuiltAutomatically).toBe(true);
-    expect(page.aiState.quality.rebuildAttempts).toBe(1);
+    // The first repair clears the thinness that triggered it but leaves an
+    // editorially actionable gap, so the second bounded attempt runs. The mock
+    // supplies no third response, which also pins that a failed final attempt
+    // preserves the best article rather than discarding it.
+    expect(page.aiState.quality.rebuildAttempts).toBe(2);
     expect(page.aiState.quality.metrics.words).toBeGreaterThanOrEqual(650);
     expect(page.aiState.quality.metrics.ordinaryCoverageSignals).toEqual({
       mechanism: true,
