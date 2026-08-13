@@ -5482,7 +5482,6 @@ app.use(buildConnectionsRouter({
   Article,
   TagMeta,
   Question,
-  TagMeta,
   WikiPage,
   normalizeConnectionItemType,
   normalizeRelationType,

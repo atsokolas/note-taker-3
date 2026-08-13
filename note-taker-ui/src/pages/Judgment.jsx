@@ -1703,7 +1703,7 @@ const Judgment = () => {
             <span>Calibration memo</span>
             <p>{memo}</p>
           </section>
-          {selectedCase ? (
+          {selectedCase && !decisionIndexError ? (
             <nav className="judgment-partner__actions" aria-label="Case actions">
               <a href={railPrimaryAction.href}>{railPrimaryAction.label} →</a>
               {decisionHref ? <Link to={decisionHref}>Review original grounds →</Link> : null}

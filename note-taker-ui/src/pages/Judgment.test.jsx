@@ -164,6 +164,7 @@ describe('Judgment room', () => {
     expect(screen.getByText('Decision, outcome, and lesson continuity is unavailable. No absence has been inferred.')).toBeInTheDocument();
     expect(screen.queryByText(/judgments? remain connected/i)).not.toBeInTheDocument();
     expect(screen.queryByText('No accepted decision')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Case actions' })).not.toBeInTheDocument();
   });
 
   it('derives the next human action and exact current-source delta without inferring chronology', () => {

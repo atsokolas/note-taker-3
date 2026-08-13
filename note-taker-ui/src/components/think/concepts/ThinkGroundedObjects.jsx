@@ -252,7 +252,7 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
             const isBusy = busyId === objectKey;
             const siblings = entry.item
               ? attachedItems.filter((item) => (
-                  item.sectionId === entry.item.sectionId
+                  (item.sectionId || 'working') === (entry.item.sectionId || 'working')
                   && (item.parentId || '') === (entry.item.parentId || '')
                 ))
               : [];

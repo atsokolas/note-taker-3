@@ -206,7 +206,7 @@ test('does not duplicate the attach POST after reload and supports labelled reor
 
 test('reorders within the same section and parent instead of using the global list index', async () => {
   const attachedItems = [
-    { id: 'working-1', type: 'highlight', refId: 'highlight-1', sectionId: 'working', parentId: '', order: 0 },
+    { id: 'working-1', type: 'highlight', refId: 'highlight-1', parentId: '', order: 0 },
     { id: 'inbox-1', type: 'highlight', refId: 'highlight-2', sectionId: 'inbox', parentId: '', order: 0 },
     { id: 'working-2', type: 'highlight', refId: 'highlight-3', sectionId: 'working', parentId: '', order: 1 }
   ];
