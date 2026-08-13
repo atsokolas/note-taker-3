@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useWikiBuildProgress from './useWikiBuildProgress';
 import { ACTIVE_BUILD_EVENT, clearActiveBuild, readActiveBuild } from './activeBuild';
+import { WALKTHROUGH_EVENT, isWalkthroughRunning } from './walkthroughState';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 
 /**
@@ -16,13 +17,21 @@ import { wikiPagePath } from '../utils/wikiFeatureFlags';
 const OnboardingBuildBanner = () => {
   const navigate = useNavigate();
   const [active, setActive] = useState(() => readActiveBuild());
+  // The walkthrough reports build state itself. Two surfaces saying the same thing
+  // in the same corner is noise, so the banner stands down while it runs.
+  const [walkthroughRunning, setWalkthroughRunning] = useState(() => isWalkthroughRunning());
 
   useEffect(() => {
-    const sync = () => setActive(readActiveBuild());
+    const sync = () => {
+      setActive(readActiveBuild());
+      setWalkthroughRunning(isWalkthroughRunning());
+    };
     window.addEventListener(ACTIVE_BUILD_EVENT, sync);
+    window.addEventListener(WALKTHROUGH_EVENT, sync);
     window.addEventListener('storage', sync);
     return () => {
       window.removeEventListener(ACTIVE_BUILD_EVENT, sync);
+      window.removeEventListener(WALKTHROUGH_EVENT, sync);
       window.removeEventListener('storage', sync);
     };
   }, []);
@@ -44,7 +53,7 @@ const OnboardingBuildBanner = () => {
     navigate(wikiPagePath(pageId));
   }, [navigate, pageId]);
 
-  if (!pageId) return null;
+  if (!pageId || walkthroughRunning) return null;
 
   const title = active?.title ? `“${active.title}”` : 'your first page';
 

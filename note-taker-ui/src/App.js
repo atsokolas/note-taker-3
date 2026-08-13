@@ -22,6 +22,7 @@ import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
+import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
 import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
 import { useSystemStatus } from './system/useSystemStatus';
@@ -579,6 +580,9 @@ function App() {
         {/* Ambient progress for a build the user walked away from. Mounted at the
             shell so it follows them wherever onboarding sends them next. */}
         <OnboardingBuildBanner />
+        {/* Four short stops over the user's own product, running while their first
+            page builds. Ends on the Paper — home. */}
+        <OnboardingWalkthrough />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             {/* AT-394: opening Noeis lands in the Wiki — the product opens on

@@ -9309,3 +9309,115 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
     gap: 12px;
   }
 }
+
+/* Onboarding — the first-run walkthrough.
+   Sits beside the product it is describing; never covers it. */
+.onboarding-walkthrough {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2450;
+  width: min(360px, calc(100vw - 48px));
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-raised, var(--surface));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+}
+
+.onboarding-walkthrough__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.onboarding-walkthrough__count,
+.onboarding-walkthrough__eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.onboarding-walkthrough__title {
+  font-size: 1.02rem;
+  line-height: 1.32;
+}
+
+.onboarding-walkthrough__detail {
+  margin: 0;
+  font-size: 0.87rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.onboarding-walkthrough__slot {
+  margin-top: 2px;
+}
+
+.onboarding-walkthrough__build {
+  margin: 2px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.79rem;
+  color: var(--text-secondary);
+}
+
+.onboarding-walkthrough.is-failed .onboarding-walkthrough__build {
+  color: var(--text-primary);
+}
+
+.onboarding-walkthrough__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.onboarding-walkthrough__primary,
+.onboarding-walkthrough__secondary,
+.onboarding-walkthrough__skip {
+  font-size: 0.82rem;
+  padding: 8px 13px;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.onboarding-walkthrough__primary {
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--accent)) 38%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.onboarding-walkthrough__secondary {
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.onboarding-walkthrough__skip {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.onboarding-walkthrough__primary:hover,
+.onboarding-walkthrough__secondary:hover,
+.onboarding-walkthrough__skip:hover {
+  opacity: 0.82;
+}
+
+@media (max-width: 560px) {
+  .onboarding-walkthrough {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
