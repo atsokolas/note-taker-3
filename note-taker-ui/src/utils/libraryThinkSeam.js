@@ -21,11 +21,15 @@ export const findExistingHighlightForSelection = ({ highlights = [], text, ancho
       .filter(({ distance }) => Number.isFinite(distance))
       .sort((a, b) => a.distance - b.distance);
     if (anchored[0]?.distance <= 2) return anchored[0].highlight;
+    // A selected occurrence with a usable anchor must never fall back to a
+    // different anchored occurrence that merely has identical text.
+    if (anchored.length) return null;
   }
 
   // Text-only legacy highlights are safe to reuse only when the passage is
   // unique. Repeated identical sentences still require an anchor match.
-  return matches.length === 1 ? matches[0] : null;
+  const unanchored = matches.filter(highlight => !Number.isFinite(Number(highlight?.anchor?.startOffsetApprox)));
+  return unanchored.length === 1 ? unanchored[0] : null;
 };
 
 export const buildLibrarianSelectionPrompt = (highlight = {}) => {

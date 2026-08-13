@@ -885,6 +885,8 @@ describe('WikiPageReadView', () => {
     expect(screen.getAllByRole('link', { name: 'Core idea' })).toHaveLength(1);
     expect(title.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(contents.compareDocumentPosition(articleBody) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(await screen.findByText('Ask Thought partner')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Thought partner panel')).toBeInTheDocument();
   });
 
   it('renders citation marginalia on wide readers without replacing references', async () => {

@@ -45,4 +45,15 @@ describe('Library to Think seam', () => {
       text: 'Repeated sentence.'
     })).toBeNull();
   });
+
+  it('does not reuse a different anchored occurrence with identical text', () => {
+    expect(findExistingHighlightForSelection({
+      highlights: [{
+        _id: 'first-occurrence', text: 'Repeated sentence.',
+        anchor: { text: 'Repeated sentence.', startOffsetApprox: 10 }
+      }],
+      text: 'Repeated sentence.',
+      anchor: { startOffsetApprox: 210 }
+    })).toBeNull();
+  });
 });
