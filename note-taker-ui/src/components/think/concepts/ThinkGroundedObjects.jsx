@@ -181,7 +181,7 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
       }
       onInsert?.(toDraftCard(object, { workspaceAttached: true }));
       setMessage('Inserted at the cursor. Its way home stays attached.');
-      await Promise.all([refreshWorkspace(), refreshMaterial()]);
+      await Promise.allSettled([refreshWorkspace(), refreshMaterial()]);
     } catch (error) {
       setActionError(error.response?.data?.error || 'Could not place this object in the draft.');
     } finally {

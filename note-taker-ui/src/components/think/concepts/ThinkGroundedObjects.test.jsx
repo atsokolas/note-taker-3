@@ -70,6 +70,21 @@ test('persists an unattached highlight before placing it in the draft', async ()
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Inserted at the cursor'));
 });
 
+test('keeps a successful insertion successful when post-commit refreshes fail', async () => {
+  const onInsert = jest.fn();
+  const { refreshWorkspace, refreshMaterial } = setup();
+  refreshWorkspace.mockRejectedValue(new Error('workspace refresh failed'));
+  refreshMaterial.mockRejectedValue(new Error('material refresh failed'));
+  attachConceptWorkspaceBlock.mockResolvedValue({ workspace: { attachedItems: [{ id: 'block-1' }] } });
+  render(<ThinkGroundedObjects conceptId="concept-1" onInsert={onInsert} />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Insert at cursor' }));
+
+  await waitFor(() => expect(onInsert).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole('status')).toHaveTextContent('Inserted at the cursor');
+  expect(screen.queryByText('Could not place this object in the draft.')).not.toBeInTheDocument();
+});
+
 test('maps every retrievable object to an exact return path', () => {
   expect(objectPath({ type: 'article', refId: 'article-1' })).toBe('/library?articleId=article-1');
   expect(objectPath({ type: 'notebook', refId: 'note-1' })).toBe('/think?tab=notebook&entryId=note-1');
