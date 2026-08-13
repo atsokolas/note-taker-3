@@ -314,6 +314,16 @@
   font: 0.83rem "Newsreader", Georgia, serif;
 }
 
+.judgment-retrieval form label > div:focus-within {
+  border-bottom-color: var(--judgment-accent);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--judgment-accent) 58%, transparent);
+}
+
+.judgment-retrieval input:focus-visible {
+  outline: 2px solid var(--judgment-accent);
+  outline-offset: 3px;
+}
+
 .judgment-retrieval form button {
   width: 30px;
   height: 30px;

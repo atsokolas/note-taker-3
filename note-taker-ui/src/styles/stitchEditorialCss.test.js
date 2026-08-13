@@ -2,6 +2,14 @@ import fs from 'fs';
 import path from 'path';
 
 describe('stitch editorial CSS tokens', () => {
+  it('keeps the Judgment Library retrieval field visibly keyboard focused', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'judgment-room.css'), 'utf8');
+
+    expect(css).toContain('.judgment-retrieval input:focus-visible');
+    expect(css).toContain('outline: 2px solid var(--judgment-accent)');
+    expect(css).toContain('.judgment-retrieval form label > div:focus-within');
+  });
+
   it('defines the accent tokens used by interactive trace states in light and dark palettes', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';

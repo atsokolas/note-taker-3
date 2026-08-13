@@ -6,6 +6,7 @@ import Judgment, {
   buildJudgmentCases,
   decisionMatchesJudgmentView,
   evidenceDeltaFor,
+  loadJudgmentDecisionIndex,
   nextJudgmentAction,
   resolveJudgmentView
 } from './Judgment';
@@ -119,6 +120,37 @@ describe('Judgment room', () => {
     expect(buildJudgmentCases([], [decisionItem])).toEqual([
       expect.objectContaining({ pageId: PAGE_ID, title: 'Durable compounder' })
     ]);
+  });
+
+  it('loads every decision page before building the casebook', async () => {
+    getDecisions
+      .mockResolvedValueOnce({ items: [decisionItem], counts: {}, nextCursor: 'cursor-2' })
+      .mockResolvedValueOnce({
+        items: [{ ...decisionItem, id: `${PAGE_ID}:decision-2`, identity: { ...decisionItem.identity, decisionId: 'decision-2' } }],
+        counts: {},
+        nextCursor: null
+      });
+
+    const result = await loadJudgmentDecisionIndex();
+
+    expect(result.items).toHaveLength(2);
+    expect(getDecisions).toHaveBeenNthCalledWith(1, { filter: 'all', limit: 100, windowDays: 365 });
+    expect(getDecisions).toHaveBeenNthCalledWith(2, {
+      filter: 'all', limit: 100, windowDays: 365, cursor: 'cursor-2'
+    });
+  });
+
+  it('shows decision-index failure instead of inferring that no decisions exist', async () => {
+    getDecisions.mockRejectedValue(new Error('decision index unavailable'));
+    render(
+      <MemoryRouter initialEntries={['/judgment?view=dossiers']}>
+        <Judgment />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Decision history is temporarily unavailable');
+    expect(screen.queryByText('No accepted decision is attached to this case.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Next judgment action' })).not.toBeInTheDocument();
   });
 
   it('derives the next human action and exact current-source delta without inferring chronology', () => {

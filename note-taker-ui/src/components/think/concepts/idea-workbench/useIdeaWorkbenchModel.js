@@ -716,6 +716,12 @@ export const reconcileHydratedWorkbench = ({
   });
 };
 
+export const resolveCommittedWorkbenchState = ({ response, fallbackState, preferFallback = false }) => (
+  preferFallback || !response?.ideaWorkbench
+    ? fallbackState
+    : normalizeLoadedState(response.ideaWorkbench, fallbackState)
+);
+
 const pickNextTag = (tags = []) => {
   const current = Array.isArray(tags) ? tags : [];
   return TAG_ROTATION.find(tag => !current.includes(tag)) || current[0] || 'theme';
@@ -1247,11 +1253,13 @@ export const useIdeaWorkbenchModel = ({
     latestStateRef.current = state;
   }, [state]);
 
-  const commitServerWorkbench = useCallback((response, fallbackState, persistedState = null) => {
+  const commitServerWorkbench = useCallback((response, fallbackState, persistedState = null, options = {}) => {
     const nextFallbackState = fallbackState || latestStateRef.current;
-    const nextState = response?.ideaWorkbench
-      ? normalizeLoadedState(response.ideaWorkbench, nextFallbackState)
-      : nextFallbackState;
+    const nextState = resolveCommittedWorkbenchState({
+      response,
+      fallbackState: nextFallbackState,
+      preferFallback: options.preferFallback === true
+    });
     const serialized = JSON.stringify(persistedState || nextState);
     lastPersistedStateRef.current = serialized;
     latestStateRef.current = nextState;
@@ -1294,7 +1302,7 @@ export const useIdeaWorkbenchModel = ({
           stateAtHydrationStart,
           latestState: latestStateRef.current
         });
-        commitServerWorkbench(remote, reconciledState, remoteState);
+        commitServerWorkbench(remote, reconciledState, remoteState, { preferFallback: true });
         hydratedKeyRef.current = storageKey;
         setHydratedKey(storageKey);
       } catch (_error) {

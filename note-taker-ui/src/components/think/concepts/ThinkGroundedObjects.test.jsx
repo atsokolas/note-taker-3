@@ -203,3 +203,36 @@ test('does not duplicate the attach POST after reload and supports keyboard reor
     order: 0
   }));
 });
+
+test('reorders within the same section and parent instead of using the global list index', async () => {
+  const attachedItems = [
+    { id: 'working-1', type: 'highlight', refId: 'highlight-1', sectionId: 'working', parentId: '', order: 0 },
+    { id: 'inbox-1', type: 'highlight', refId: 'highlight-2', sectionId: 'inbox', parentId: '', order: 0 },
+    { id: 'working-2', type: 'highlight', refId: 'highlight-3', sectionId: 'working', parentId: '', order: 1 }
+  ];
+  useConceptMaterial.mockReturnValue({
+    material: {
+      pinnedHighlights: [
+        highlight,
+        { ...highlight, _id: 'highlight-2', articleTitle: 'Inbox source' },
+        { ...highlight, _id: 'highlight-3', articleTitle: 'Third source' }
+      ],
+      recentHighlights: [], linkedArticles: [], linkedNotes: []
+    },
+    loading: false,
+    error: '',
+    refresh: jest.fn().mockResolvedValue(undefined)
+  });
+  useConceptWorkspace.mockReturnValue({
+    workspace: { attachedItems }, loading: false, error: '', setWorkspace: jest.fn(), refresh: jest.fn()
+  });
+  updateConceptWorkspaceBlock.mockResolvedValue({ workspace: { attachedItems } });
+  render(<ThinkGroundedObjects conceptId="concept-1" />);
+
+  fireEvent.keyDown(screen.getByText('Third source').closest('li'), { key: 'ArrowUp', altKey: true });
+
+  await waitFor(() => expect(updateConceptWorkspaceBlock).toHaveBeenCalledWith('concept-1', 'working-2', {
+    sectionId: 'working',
+    order: 0
+  }));
+});

@@ -37,7 +37,11 @@ const app = express();
 app.use(express.json());
 app.use(buildConceptWorkspaceRouter({
   mongoose,
-  authenticateToken: (req, _res, next) => { req.user = { id: USER_ID }; next(); },
+  authenticateToken: (req, res, next) => {
+    if (req.headers.authorization !== 'Bearer qa') return res.status(401).json({ error: 'Unauthorized' });
+    req.user = { id: USER_ID };
+    return next();
+  },
   resolveConceptByParam,
   ensureWorkspace,
   toSafeObjectId: value => mongoose.Types.ObjectId.isValid(value) ? value : null,
@@ -57,16 +61,40 @@ app.use(buildConceptWorkspaceRouter({
 const server = app.listen(0, '127.0.0.1', async () => {
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const request = async (path, method, body) => {
+  const request = async (path, method, body, { authorized = true } = {}) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authorized) headers.Authorization = 'Bearer qa';
     const response = await fetch(`${baseUrl}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body)
     });
     return { response, body: await response.json() };
   };
 
   try {
+    const unauthorized = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'GET', undefined, { authorized: false });
+    assert.strictEqual(unauthorized.response.status, 401);
+
+    concept.workspace = ensureWorkspace({});
+    concept.workspace = applyPatchOp(concept.workspace, {
+      op: 'addItem',
+      payload: {
+        type: 'article',
+        refId: FOREIGN_ARTICLE_ID,
+        groupId: 'working',
+        stage: 'working',
+        inlineTitle: 'Foreign title must not escape',
+        inlineText: 'Foreign inline content must not escape'
+      }
+    });
+    const savesBeforeGet = concept.saveCount;
+    const sanitizedGet = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'GET');
+    assert.strictEqual(sanitizedGet.response.status, 200);
+    assert.strictEqual(sanitizedGet.body.workspace.items.length, 0);
+    assert.doesNotMatch(JSON.stringify(sanitizedGet.body), /Foreign (title|inline content)/);
+    assert.ok(concept.saveCount > savesBeforeGet, 'sanitized reload must persist removal of foreign references');
+
     const foreignWorkspace = ensureWorkspace({});
     foreignWorkspace.attachedItems = [{
       id: 'foreign-block',
@@ -98,6 +126,34 @@ const server = app.listen(0, '127.0.0.1', async () => {
     );
     assert.strictEqual(rejectedPatch.response.status, 404);
     assert.strictEqual(concept.workspace.items[0].refId, OWN_ARTICLE_ID, 'foreign block update must not mutate workspace');
+
+    concept.workspace = ensureWorkspace({});
+    const foreignPatchCases = [
+      { type: 'article', refId: FOREIGN_ARTICLE_ID },
+      { type: 'concept', refId: FOREIGN_ARTICLE_ID },
+      { type: 'wiki_page', refId: FOREIGN_ARTICLE_ID },
+      { type: 'wiki_claim', refId: `${FOREIGN_ARTICLE_ID}:claim-1` }
+    ];
+    for (const foreign of foreignPatchCases) {
+      const rejectedGenericPatch = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
+        op: 'addItem',
+        payload: {
+          ...foreign,
+          groupId: 'working',
+          stage: 'working',
+          inlineTitle: 'Untrusted title'
+        }
+      });
+      assert.strictEqual(rejectedGenericPatch.response.status, 404, `${foreign.type} must fail closed`);
+      assert.strictEqual(concept.workspace.items.length, 0, `${foreign.type} must not persist`);
+    }
+
+    const acceptedGenericPatch = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
+      op: 'addItem',
+      payload: { type: 'article', refId: OWN_ARTICLE_ID, groupId: 'working', stage: 'working' }
+    });
+    assert.strictEqual(acceptedGenericPatch.response.status, 200);
+    assert.strictEqual(concept.workspace.items[0].refId, OWN_ARTICLE_ID);
 
     concept.workspace = ensureWorkspace({});
     const attachPath = `/api/concepts/${CONCEPT_ID}/workspace/blocks/attach`;

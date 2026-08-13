@@ -762,6 +762,29 @@ export const resolveJudgmentView = (search = '') => {
   return JUDGMENT_VIEWS.find(option => option.id === id) || JUDGMENT_VIEWS[0];
 };
 
+export const loadJudgmentDecisionIndex = async () => {
+  let cursor = '';
+  let firstPage = null;
+  const items = [];
+  const seenCursors = new Set();
+  do {
+    const page = await getDecisions({
+      filter: 'all',
+      limit: 100,
+      windowDays: 365,
+      ...(cursor ? { cursor } : {})
+    });
+    if (!firstPage) firstPage = page;
+    items.push(...list(page?.items));
+    const nextCursor = clean(page?.nextCursor);
+    if (!nextCursor) break;
+    if (seenCursors.has(nextCursor)) throw new Error('Decision pagination repeated a cursor.');
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  } while (cursor);
+  return { ...(firstPage || {}), items, nextCursor: null };
+};
+
 export const decisionMatchesJudgmentView = (item, view) => {
   if (!item) return false;
   if (view === 'reviews') return ['overdue', 'upcoming'].includes(clean(item?.dueState));
@@ -1154,6 +1177,7 @@ const Judgment = () => {
   const [loading, setLoading] = useState(previewMode ? false : !initialPages.length);
   const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState('');
+  const [decisionIndexError, setDecisionIndexError] = useState('');
   const [previewPrompt, setPreviewPrompt] = useState('');
   const [previewExchange, setPreviewExchange] = useState({
     question: 'Which assumption created the timing error?',
@@ -1180,6 +1204,7 @@ const Judgment = () => {
       });
       setLoading(false);
       setError('');
+      setDecisionIndexError('');
       return undefined;
     }
     let cancelled = false;
@@ -1188,6 +1213,7 @@ const Judgment = () => {
     let failures = 0;
     if (!initialPages.length) setLoading(true);
     setError('');
+    setDecisionIndexError('');
     const finish = ({ source, failed = false, hasCases = false }) => {
       if (source === 'pages') pagesSettled = true;
       if (source === 'decisions') decisionsSettled = true;
@@ -1211,11 +1237,14 @@ const Judgment = () => {
         }
         finish({ source: 'pages' });
       }, () => finish({ source: 'pages', failed: true }));
-    getDecisions({ filter: 'all', limit: 100, windowDays: 365 })
+    loadJudgmentDecisionIndex()
       .then((value) => {
         if (!cancelled) setDecisionData(value);
         finish({ source: 'decisions', hasCases: Boolean(value?.items?.length) });
-      }, () => finish({ source: 'decisions', failed: true }));
+      }, () => {
+        if (!cancelled) setDecisionIndexError('Decision history is temporarily unavailable. No absence has been inferred.');
+        finish({ source: 'decisions', failed: true });
+      });
     return () => { cancelled = true; };
   }, [initialPages.length, previewMode]);
 
@@ -1303,7 +1332,9 @@ const Judgment = () => {
     })), [decisionData.items]);
   const nextAction = nextJudgmentAction(selectedDecision);
   const caseDecisionCount = selectedCase?.decisions.length || 0;
-  const viewLede = activeView.id === 'dossiers'
+  const viewLede = decisionIndexError
+    ? decisionIndexError
+    : activeView.id === 'dossiers'
     ? `${caseDecisionCount} recorded judgment${caseDecisionCount === 1 ? '' : 's'} connect this living case to decisions, outcomes, and retained lessons.`
     : activeView.id === 'decisions'
       ? clean(decision?.summary) || 'No accepted decision is attached to this case.'
@@ -1314,14 +1345,14 @@ const Judgment = () => {
           : clean(outcome?.lesson) || 'No human-confirmed lesson is available.';
   const showThesis = ['dossiers', 'reviews', 'lessons'].includes(activeView.id);
   const showFalsifiers = ['dossiers', 'reviews'].includes(activeView.id);
-  const showDecision = ['dossiers', 'decisions', 'reviews', 'outcomes'].includes(activeView.id);
-  const showOutcome = ['dossiers', 'outcomes', 'lessons'].includes(activeView.id);
+  const showDecision = !decisionIndexError && ['dossiers', 'decisions', 'reviews', 'outcomes'].includes(activeView.id);
+  const showOutcome = !decisionIndexError && ['dossiers', 'outcomes', 'lessons'].includes(activeView.id);
   const viewCounts = {
     dossiers: allCases.length,
-    decisions: allCases.reduce((count, item) => count + item.decisions.length, 0),
-    reviews: Number(decisionData.counts?.upcoming_review || 0),
-    outcomes: Number(decisionData.counts?.awaiting_outcome || 0),
-    lessons: Number(decisionData.counts?.reviewed || 0)
+    decisions: decisionIndexError ? '—' : allCases.reduce((count, item) => count + item.decisions.length, 0),
+    reviews: decisionIndexError ? '—' : Number(decisionData.counts?.upcoming_review || 0),
+    outcomes: decisionIndexError ? '—' : Number(decisionData.counts?.awaiting_outcome || 0),
+    lessons: decisionIndexError ? '—' : Number(decisionData.counts?.reviewed || 0)
   };
 
   const stateMemo = !selectedDecision
@@ -1362,7 +1393,7 @@ const Judgment = () => {
     try {
       const [nextPage, nextDecisions] = await Promise.all([
         getWikiPage(selectedCase.pageId),
-        getDecisions({ filter: 'all', limit: 100, windowDays: 365 })
+        loadJudgmentDecisionIndex()
       ]);
       setFullPage(nextPage);
       setDecisionData(nextDecisions);
@@ -1473,6 +1504,7 @@ const Judgment = () => {
         <main className="judgment-case" aria-busy={loading || pageLoading || undefined}>
           {loading ? <p className="judgment-case__loading" role="status">Opening your living casebook…</p> : null}
           {error ? <p className="judgment-case__error" role="alert">{error}</p> : null}
+          {decisionIndexError ? <p className="judgment-case__error" role="alert">{decisionIndexError}</p> : null}
           {!loading && !error && !selectedCase ? (
             <div className="judgment-case__empty">
               <p className="judgment-room__eyebrow">Judgment</p>
@@ -1498,7 +1530,7 @@ const Judgment = () => {
                 {previewMode ? <p className="judgment-case__preview-note">Fictional · local · unsaved</p> : null}
               </header>
 
-              <section className="judgment-case__timefold" aria-label="Judgment time comparison">
+              {!decisionIndexError ? <section className="judgment-case__timefold" aria-label="Judgment time comparison">
                 <div>
                   <span>At decision</span>
                   <p>{clean(decision?.rationale) || 'No accepted decision-time rationale is available.'}</p>
@@ -1512,9 +1544,9 @@ const Judgment = () => {
                     : currentJudgment || 'No later outcome or judgment has been accepted.'}</p>
                   {observed && outcome?.observedAt ? <small>{formatDate(outcome.observedAt)}</small> : null}
                 </div>
-              </section>
+              </section> : null}
 
-              <section className="judgment-workbench" id="judgment-workbench" aria-labelledby="judgment-workbench-title">
+              {!decisionIndexError ? <section className="judgment-workbench" id="judgment-workbench" aria-labelledby="judgment-workbench-title">
                 <header>
                   <div>
                     <p className="judgment-room__eyebrow">Next judgment action</p>
@@ -1536,7 +1568,7 @@ const Judgment = () => {
                   {workbenchRefreshing ? <p role="status">Refreshing the casebook…</p> : null}
                   {workbenchError ? <p className="judgment-case__error" role="alert">{workbenchError}</p> : null}
                 </div>
-              </section>
+              </section> : null}
 
               {previewMode ? (
                 <details className="judgment-case__source-ledger" id="source-record">

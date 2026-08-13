@@ -2,6 +2,7 @@ import { cleanSourceTextForDisplay } from './ideaWorkbenchText';
 import {
   isIdeaWorkbenchConceptIdentityReady,
   reconcileHydratedWorkbench,
+  resolveCommittedWorkbenchState,
   resolveLoadedWorkbenchTitle,
   resolveIdeaWorkbenchConceptKey
 } from './useIdeaWorkbenchModel';
@@ -91,6 +92,11 @@ describe('reconcileHydratedWorkbench', () => {
     expect(reconciled.header.title).toBe('Source provenance');
     expect(reconciled.hypothesis.html).toContain('Selected passage');
     expect(reconciled.cards).toEqual(expect.arrayContaining([remoteCard, inlineCard]));
+    expect(resolveCommittedWorkbenchState({
+      response: { ideaWorkbench: remote },
+      fallbackState: reconciled,
+      preferFallback: true
+    })).toBe(reconciled);
   });
 });
 

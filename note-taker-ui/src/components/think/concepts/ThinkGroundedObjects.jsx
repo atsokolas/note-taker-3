@@ -191,9 +191,13 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
 
   const moveObject = useCallback(async (entry, direction) => {
     if (!entry?.item || !safeConceptId || busyId) return;
-    const index = attachedItems.findIndex((item) => item.id === entry.item.id);
+    const siblings = attachedItems.filter(item => (
+      (item.sectionId || 'working') === (entry.item.sectionId || 'working')
+      && (item.parentId || '') === (entry.item.parentId || '')
+    ));
+    const index = siblings.findIndex((item) => item.id === entry.item.id);
     const nextIndex = index + direction;
-    if (index < 0 || nextIndex < 0 || nextIndex >= attachedItems.length) return;
+    if (index < 0 || nextIndex < 0 || nextIndex >= siblings.length) return;
     setBusyId(`${entry.object.type}:${entry.object.refId}`);
     setActionError('');
     setMessage('');
