@@ -242,7 +242,8 @@ const runWikiMaintenanceCandidate = async ({
       candidateStatus: 'promoted',
       lastCandidateAt: now,
       lastCandidateQuality: quality,
-      lastCandidateSummary: ''
+      lastCandidateSummary: '',
+      lastCandidateSourceRefIds: []
     };
     if (typeof candidatePage.markModified === 'function') candidatePage.markModified('aiState');
     return {
@@ -254,6 +255,16 @@ const runWikiMaintenanceCandidate = async ({
       rejectedRevision: null
     };
   }
+
+  const rejectedCandidateSourceRefIds = Array.from(new Set(
+    (Array.isArray(candidate.aiState?.sourceRefIdsAtDraft)
+      ? candidate.aiState.sourceRefIdsAtDraft
+      : Array.isArray(candidate.sourceRefs)
+        ? candidate.sourceRefs.map(source => source?.objectId || source?._id)
+        : [])
+      .map(value => String(value || '').trim())
+      .filter(Boolean)
+  ));
 
   const rejectedRevision = await recordRejectedCandidate({
     WikiRevision,
@@ -277,7 +288,8 @@ const runWikiMaintenanceCandidate = async ({
       candidateStatus: 'evidence_only',
       lastCandidateAt: now,
       lastCandidateQuality: quality,
-      lastCandidateSummary: 'Reviewed the new source and preserved the trusted claim ledger because the generated rewrite was destructive.'
+      lastCandidateSummary: 'Reviewed the new source and preserved the trusted claim ledger because the generated rewrite was destructive.',
+      lastCandidateSourceRefIds: rejectedCandidateSourceRefIds
     };
     if (typeof candidatePage.markModified === 'function') candidatePage.markModified('aiState');
     return {
@@ -304,7 +316,8 @@ const runWikiMaintenanceCandidate = async ({
     candidateStatus: 'rejected',
     lastCandidateAt: now,
     lastCandidateQuality: quality,
-    lastCandidateSummary: candidateFailureSummary(quality)
+    lastCandidateSummary: candidateFailureSummary(quality),
+    lastCandidateSourceRefIds: rejectedCandidateSourceRefIds
   };
   if (typeof candidatePage.markModified === 'function') {
     candidatePage.markModified('freshness');

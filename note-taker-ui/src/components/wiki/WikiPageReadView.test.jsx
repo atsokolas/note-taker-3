@@ -2040,7 +2040,7 @@ describe('WikiPageReadView', () => {
       .not.toBeInTheDocument();
     expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
     expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Wiki rebuild needs better evidence',
+      title: 'Wiki update was not applied',
       status: 'needs_review',
       href: '/wiki/workspace?page=wiki-1#wiki-read-references-title'
     }));
@@ -2056,6 +2056,8 @@ describe('WikiPageReadView', () => {
         errorCode: '',
         candidateStatus: 'rejected',
         lastCandidateSummary: 'No cited source directly addresses compound interest.',
+        sourceScopeAtDraft: 'selected_sources',
+        lastCandidateSourceRefIds: ['source-1', 'source-2'],
         lastCandidateQuality: {
           ok: false,
           status: 'fail',
@@ -2069,11 +2071,33 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Compound Interest' })).toBeInTheDocument();
     const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
     expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
-    expect(within(receipt).getByRole('heading', { name: 'Stronger evidence needed' })).toBeInTheDocument();
-    expect(receipt).toHaveTextContent('The trusted article is unchanged');
+    expect(within(receipt).getByRole('heading', { name: 'Latest proposed update was not applied' })).toBeInTheDocument();
+    expect(receipt).toHaveTextContent('You are reading the last trusted article');
     expect(receipt).toHaveTextContent('No cited source directly addresses compound interest');
-    expect(within(receipt).getByRole('button', { name: 'Re-check after sources change' })).toBeInTheDocument();
+    expect(within(receipt).getByRole('button', { name: 'Sources unchanged' })).toBeDisabled();
+    expect(receipt).toHaveTextContent('Attach or replace a source before trying another update');
     expect(within(receipt).queryByRole('button', { name: 'Run again' })).not.toBeInTheDocument();
+  });
+
+  it('allows a new ordinary Wiki update after the attached source identities change', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'Compound Interest',
+      aiState: {
+        ...page.aiState,
+        draftStatus: 'ready',
+        candidateStatus: 'rejected',
+        sourceScopeAtDraft: 'selected_sources',
+        lastCandidateSummary: 'The previous candidate was too thin.',
+        lastCandidateSourceRefIds: ['source-1']
+      }
+    });
+
+    renderReadView();
+
+    const receipt = await screen.findByRole('region', { name: 'Wiki maintenance receipt' });
+    expect(within(receipt).getByRole('button', { name: 'Try a new update' })).toBeEnabled();
+    expect(receipt).not.toHaveTextContent('Attach or replace a source before trying another update');
   });
 
   it('does not expose dossier resume or discard actions on a generic entity page', async () => {
