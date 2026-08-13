@@ -636,6 +636,7 @@ const wikiAiStateSchema = new mongoose.Schema({
   lastCandidateAt: { type: Date, default: null },
   lastCandidateQuality: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   lastCandidateSummary: { type: String, default: '', trim: true },
+  lastCandidateSourceRefIds: { type: [String], default: [] },
   health: {
     type: mongoose.Schema.Types.Mixed,
     default: () => ({

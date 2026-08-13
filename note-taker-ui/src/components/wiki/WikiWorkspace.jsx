@@ -2378,11 +2378,25 @@ const WikiWorkspaceChat = ({
           type: 'idea',
           title: topic,
           text: topic,
-          pageType: 'overview'
+          pageType: 'overview',
+          evidencePreflight: true
         }));
         const pageId = clean(page?._id || page?.id);
         if (!pageId) throw new Error('Created page did not include an id.');
         onNavigate({ page: pageId });
+        if (page?.reusedExisting) {
+          append({
+            role: 'assistant',
+            text: `Opened the existing @wiki:${pageId} for "${topic}" instead of creating a duplicate.`
+          });
+          systemStatus.setLatestReceipt({
+            title: 'Existing Wiki opened',
+            summary: `No duplicate was created for “${topic}.”`,
+            status: 'settled',
+            href: `/wiki/workspace?page=${encodeURIComponent(pageId)}`
+          });
+          return true;
+        }
         append({ role: 'assistant', text: `Created @wiki:${pageId} for "${topic}". Drafting it now.` });
         const { state, handlers } = createMaintenanceStreamHandlers(pageId, {
           onPage: (streamPage) => {

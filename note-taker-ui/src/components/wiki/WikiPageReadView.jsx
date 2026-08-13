@@ -101,6 +101,14 @@ const labelFor = (value = '') => String(value || '')
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);
+const sameIdentitySet = (left = [], right = []) => {
+  const normalizeSet = values => Array.from(new Set(
+    (Array.isArray(values) ? values : []).map(normalizeId).filter(Boolean)
+  )).sort();
+  const a = normalizeSet(left);
+  const b = normalizeSet(right);
+  return a.length > 0 && a.length === b.length && a.every((value, index) => value === b[index]);
+};
 const safeInternalHref = value => (
   typeof value === 'string' && value.startsWith('/') && !value.startsWith('//')
 );
@@ -1570,12 +1578,17 @@ const WikiPageReadView = ({
         : maintainError?.message || 'The build was interrupted partway. Resume it from saved evidence.';
       const evidenceIncomplete = maintainError?.code === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
       const freshestPage = maintainError?.page || latestPageRef.current || page;
-      // A quality rejection returns the last trusted page for context. Replacing
-      // the current page with that byte-equivalent payload can remount the routed
-      // reader and erase the rejection receipt before the user can read it.
-      if (maintainError?.page && !qualityRejected) {
+      // Keep the rendered trusted article stable while adopting only the
+      // rejection metadata needed to explain and safely gate another attempt.
+      if (maintainError?.page) {
         latestPageRef.current = maintainError.page;
-        setPage(maintainError.page);
+        setPage(current => qualityRejected
+          ? {
+              ...current,
+              aiState: maintainError.page.aiState || current?.aiState,
+              freshness: maintainError.page.freshness || current?.freshness
+            }
+          : maintainError.page);
       }
       setError(message);
       setMaintenanceTraceLines(qualityRejected
@@ -1603,7 +1616,7 @@ const WikiPageReadView = ({
       });
       if (qualityRejected) {
         systemStatus.setLatestReceipt({
-          title: 'Wiki rebuild needs better evidence',
+          title: 'Wiki update was not applied',
           summary: message,
           status: 'needs_review',
           href: `/wiki/workspace?page=${encodeURIComponent(pageId)}#wiki-read-references-title`
@@ -2382,6 +2395,16 @@ const WikiPageReadView = ({
   const persistedCandidateRejection = !evidenceIncomplete
     && page?.aiState?.candidateStatus === 'rejected'
     && Boolean(page?.aiState?.lastCandidateSummary);
+  const trustedArticleAvailable = countWikiPageWords(page) > 0;
+  const currentMaintenanceSourceRefIds = (Array.isArray(page?.sourceRefs) ? page.sourceRefs : [])
+    .map(source => source?.objectId || source?._id || source?.id)
+    .filter(Boolean);
+  const rejectedSourcesUnchanged = persistedCandidateRejection
+    && page?.aiState?.sourceScopeAtDraft !== 'entire_library'
+    && sameIdentitySet(
+      currentMaintenanceSourceRefIds,
+      page?.aiState?.lastCandidateSourceRefIds
+    );
   const maintenanceDisplayState = maintenanceReceipt?.status
     || (maintenanceActive
       ? 'working'
@@ -2396,7 +2419,7 @@ const WikiPageReadView = ({
   const maintenanceDisclosureLabel = maintenanceActive
     ? 'Checking sources and claims'
     : maintenanceDisplayState === 'research'
-      ? 'More evidence needed'
+      ? persistedCandidateRejection ? 'Update not applied' : 'More evidence needed'
       : maintenanceDisplayState === 'failed'
         ? 'Retry available'
         : maintenanceReceipt?.status === 'review'
@@ -3060,7 +3083,9 @@ const WikiPageReadView = ({
                             : maintenanceReceipt?.status === 'settled'
                               ? 'Page maintenance settled'
                               : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
-                                ? 'Stronger evidence needed'
+                                ? trustedArticleAvailable
+                                  ? 'Latest proposed update was not applied'
+                                  : 'No article was published'
                               : maintenanceDisplayState === 'failed'
                                 ? 'Maintenance needs a retry'
                                 : 'Available when you want it'}
@@ -3069,7 +3094,9 @@ const WikiPageReadView = ({
                           {maintenanceReceipt?.status === 'research'
                             ? maintenanceReceipt.summary
                             : persistedCandidateRejection
-                              ? `The trusted article is unchanged. ${page.aiState.lastCandidateSummary}`
+                              ? trustedArticleAvailable
+                                ? `You are reading the last trusted article. A newer proposed update was not applied because ${page.aiState.lastCandidateSummary}`
+                                : `The proposed draft was rejected before it could become a trusted article because ${page.aiState.lastCandidateSummary}`
                             : maintenanceReceipt
                             ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
                             : 'Check sources and claims without interrupting the article.'}
@@ -3087,13 +3114,25 @@ const WikiPageReadView = ({
                         sharedMemory
                         surface={page?.title || 'Wiki page'}
                       />
-                      <Button type="button" variant="secondary" onClick={handleMaintain} disabled={maintenanceActive}>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleMaintain}
+                        disabled={maintenanceActive || rejectedSourcesUnchanged}
+                      >
                         {maintenanceActive
                           ? 'Running...'
+                          : rejectedSourcesUnchanged
+                            ? 'Sources unchanged'
                           : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
-                            ? 'Re-check after sources change'
+                            ? 'Try a new update'
                             : 'Run again'}
                       </Button>
+                      {rejectedSourcesUnchanged ? (
+                        <p className="wiki-read__article-tool-note">
+                          Attach or replace a source before trying another update.
+                        </p>
+                      ) : null}
                     </section>
                     {shareCard}
                     <details

@@ -1203,17 +1203,21 @@ const buildPrompt = ({
 
 Hard rules:
 - The article body must read like a Wiki page, not a maintenance report and not a source dump.
-- Be opinionated. State what the evidence implies, which mechanisms matter, and where the tension is. Mark uncertainty in Open Questions instead of writing filler.
+${structure.flexibleSections && structure.profile !== 'investment_dossier'
+    ? '- Be source-faithful. State only definitions, relationships, mechanisms, examples, and limits that the supplied evidence directly establishes. Prefer a narrower article to a plausible bridge claim that the sources do not say.'
+    : '- Be opinionated. State what the evidence implies, which mechanisms matter, and where the tension is. Mark uncertainty in Open Questions instead of writing filler.'}
 - Do not include HTML tags, JSON, raw URLs, scraped metadata labels, source indexes as prose, support labels, or sentences like "X contributes evidence for this page."
 - Use source titles only as evidence behind the writing. The page should say the idea, not list the source title as the idea.
 - Do not write scaffold or placeholder phrases such as "should explain", "still needs source-backed development", "strongest current signals", or "Summary:" bullets.
 - Do not restate the page title as a body heading. The page chrome already renders the title; the article body should begin with the summary paragraph.
-- If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.
+${structure.flexibleSections && structure.profile !== 'investment_dossier'
+    ? '- Do not force a target length. Every substantive sentence must retain recognizable terms and relationships from its cited evidence; omit unsupported connective prose.'
+    : '- If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.'}
 - Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
 - When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
-- Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
+- Where it is natural, specific, and directly supported, mention existing related wiki pages by their exact titles in plain text so the article becomes navigable through autolinking. Never emit raw [[wiki link]] syntax, force links, list related pages as a directory, or invent a relationship merely because a page exists.
 ${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}${formatStandardWikiPromptBlock({ structure, page, candidates })}
 
 Page:
@@ -1316,7 +1320,7 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - This attempt must directly clear every listed gate failure. Before returning, check the proposed article against each failure line above.
 - Budget depth in proportion to the supplied evidence. With five or more sources, use 3-7 subject-specific sections and 6-12 evidence-bearing paragraphs plus a concise opening summary; do not pad a narrow evidence set to imitate an investment dossier.
 - Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
-- Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic.
+- Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic. Make that case unmistakable by introducing it with the literal transition "For example," and cite the evidence that supplies it.
 - Explain at least one causal process or organizing structure and one meaningful limit, exception, disagreement, or misconception.
 - Give each relevant evidence family a distinct analytical job. Synthesize sources together instead of repeating titles or padding the article.
 - Remove repeated sentences and repeated explanations. The opening should orient once; every later section must advance the article with a distinct mechanism, case, boundary, implication, or unresolved tension.
@@ -1449,6 +1453,32 @@ const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
   metadata: sourceRef.metadata || {},
   index
 });
+
+// Ordinary Wiki generation may hydrate a Library article beyond the short
+// snippet retained on the page's reference card. Quality review must evaluate
+// the resulting prose against that same private evidence window, or valid
+// claims drawn from later in the source are falsely rejected. Keep the richer
+// text ephemeral: this value is passed only to the quality evaluator and is
+// never assigned back to page.sourceRefs or a public envelope.
+const groundingSourceRefsForCandidates = ({ sourceRefs = [], candidates = [] } = {}) => (
+  (Array.isArray(sourceRefs) ? sourceRefs : []).map((sourceRef) => {
+    const sourceObjectId = asString(sourceRef?.objectId);
+    const sourceUrl = asString(sourceRef?.url);
+    const sourceTitle = asString(sourceRef?.title).toLowerCase();
+    const sourceType = asString(sourceRef?.type).toLowerCase();
+    const candidate = (Array.isArray(candidates) ? candidates : []).find((item) => {
+      const candidateObjectId = asString(item?.objectId);
+      if (sourceObjectId && candidateObjectId && sourceObjectId === candidateObjectId) return true;
+      const candidateUrl = asString(item?.url);
+      if (sourceUrl && candidateUrl && sourceUrl === candidateUrl) return true;
+      return sourceTitle
+        && sourceTitle === asString(item?.title).toLowerCase()
+        && (!sourceType || sourceType === asString(item?.type).toLowerCase());
+    });
+    if (!candidate?.text) return sourceRef;
+    return { ...sourceRef, text: candidate.text };
+  })
+);
 
 const isSecFilingCandidate = (source = {}) => {
   const provider = asString(source?.provider).toLowerCase();
@@ -3860,6 +3890,10 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     candidates,
     sourceRefs: dedupeSourceRefs(sourceRefs)
   });
+  const qualitySourceRefs = groundingSourceRefsForCandidates({
+    sourceRefs: mergedSourceRefs,
+    candidates
+  });
   // Model citation indexes address the candidate list. The rendered reference
   // list contains only retained, deduplicated sources, so every page type must
   // translate candidate positions into final reference positions before the
@@ -3926,7 +3960,7 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
       },
       body: linkedBody,
       claims,
-      sourceRefs: mergedSourceRefs,
+      sourceRefs: qualitySourceRefs,
       availableSourceCount: candidates.length,
       now,
       skipDurableCitationCheck: true
@@ -4281,7 +4315,9 @@ const maintainWikiPage = async ({
         messages: [
           {
             role: 'system',
-            content: `You are a strict, opinionated wiki editor. Your job is to rebuild weak wiki pages into real synthesis. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
+            content: ordinaryFlexibleMaintenance
+              ? `You are a strict, source-faithful reference editor. Repair only the listed quality failures using relationships and examples directly established by the supplied evidence. Do not invent connective claims to make the article sound more opinionated or complete. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
+              : `You are a strict, opinionated wiki editor. Your job is to rebuild weak wiki pages into real synthesis. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
           },
           {
             role: 'user',
@@ -4486,11 +4522,15 @@ const maintainWikiPage = async ({
     summary: `${page.claims.length} claim${page.claims.length === 1 ? '' : 's'} extracted into the evidence ledger.`,
     claimCount: page.claims.length
   });
+  const persistedGroundingSourceRefs = groundingSourceRefsForCandidates({
+    sourceRefs: persistedSourceRefs,
+    candidates
+  });
   let persistedQuality = evaluateWikiArticleQuality({
     page,
     body: page.body,
     claims: page.claims,
-    sourceRefs: persistedSourceRefs,
+    sourceRefs: persistedGroundingSourceRefs,
     availableSourceCount: candidates.length,
     now,
     skipDurableCitationCheck: isGitHubRepoPage({ page, candidates })
@@ -4662,6 +4702,7 @@ module.exports = {
     normalizeModelResult,
     normalizeArticleTextBlock,
     findOrdinaryGroundingGaps,
+    groundingSourceRefsForCandidates,
     buildRebuildPrompt,
     evaluateWikiArticleQuality,
     inferMaintainedPageType,

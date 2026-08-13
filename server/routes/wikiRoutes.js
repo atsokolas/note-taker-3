@@ -858,6 +858,9 @@ const serializeWikiPage = (page) => {
       lastCandidateAt: raw.aiState?.lastCandidateAt || null,
       lastCandidateQuality: raw.aiState?.lastCandidateQuality || {},
       lastCandidateSummary: raw.aiState?.lastCandidateSummary || '',
+      lastCandidateSourceRefIds: Array.isArray(raw.aiState?.lastCandidateSourceRefIds)
+        ? raw.aiState.lastCandidateSourceRefIds
+        : [],
       health: raw.aiState?.health || {
         newItems: [],
         unsupportedClaims: [],
@@ -3446,6 +3449,29 @@ const buildWikiRouter = ({
         && createdFrom.type === 'idea'
         && initialSourceRefs.value.length === 0;
       if (ordinaryEvidencePreflight) {
+        const exactTitlePages = await WikiPage.find({
+          userId: req.user.id,
+          status: { $ne: 'archived' },
+          title: new RegExp(`^${escapeRegExp(title)}$`, 'i')
+        }).sort({ updatedAt: -1 }).limit(20);
+        const rankedExactPages = (Array.isArray(exactTitlePages) ? exactTitlePages : [])
+          .map(page => ({ page, serialized: serializeWikiPage(page) }))
+          .sort((left, right) => (
+            Number(right.serialized.bodyWordCount > 0) - Number(left.serialized.bodyWordCount > 0)
+            || Number(right.serialized.aiState?.candidateStatus !== 'rejected')
+              - Number(left.serialized.aiState?.candidateStatus !== 'rejected')
+            || Number(right.serialized.qualityReview?.surfaceEligible !== false)
+              - Number(left.serialized.qualityReview?.surfaceEligible !== false)
+            || right.serialized.bodyWordCount - left.serialized.bodyWordCount
+            || right.serialized.sourceCount - left.serialized.sourceCount
+            || new Date(right.page.updatedAt || 0) - new Date(left.page.updatedAt || 0)
+          ));
+        if (rankedExactPages[0]) {
+          return res.status(200).json({
+            ...rankedExactPages[0].serialized,
+            reusedExisting: true
+          });
+        }
         const preflight = await prepareOrdinaryWikiBuild({
           userId: req.user.id,
           title,

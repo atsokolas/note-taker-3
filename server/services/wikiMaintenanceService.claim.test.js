@@ -9,6 +9,7 @@ const {
   attachClaimCitationIds,
   buildSectionMaintenancePlan,
   buildPrompt,
+  buildRebuildPrompt,
   selectBoundedOrdinaryModelRoutes,
   collectClaimsFromDoc,
   deriveClaimsFromDoc,
@@ -19,6 +20,7 @@ const {
   fillInvestmentDossierMaintenanceTest,
   findGitHubRepoDeveloperDossierFailures,
   findOrdinaryGroundingGaps,
+  groundingSourceRefsForCandidates,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   isGitHubRepoPage,
@@ -31,6 +33,34 @@ const {
   selectMaintenanceCandidates,
   toPlainText
 } = __testables;
+
+describe('ordinary Wiki grounding evidence parity', () => {
+  it('reviews claims against hydrated private source text without expanding stored snippets', () => {
+    const sourceRefs = [{
+      type: 'article',
+      objectId: 'article-1',
+      title: 'The Practice of Value Investing',
+      snippet: 'Li Lu spoke to students about the practice of value investing.'
+    }];
+    const candidates = [{
+      type: 'article',
+      objectId: 'article-1',
+      title: 'The Practice of Value Investing',
+      text: 'Li Lu spoke to students about the practice of value investing. Later, an early cable-company investment became a concrete case showing how he evaluated and held a position.'
+    }];
+    const claims = [{
+      text: 'For example, an early cable-company investment is a concrete case showing how Li Lu evaluated and held a position.',
+      citationIndexes: [1],
+      support: 'supported'
+    }];
+
+    expect(findOrdinaryGroundingGaps({ claims, sourceRefs })).toHaveLength(1);
+    const groundingRefs = groundingSourceRefsForCandidates({ sourceRefs, candidates });
+    expect(findOrdinaryGroundingGaps({ claims, sourceRefs: groundingRefs })).toHaveLength(0);
+    expect(sourceRefs[0]).not.toHaveProperty('text');
+    expect(sourceRefs[0].snippet).toBe('Li Lu spoke to students about the practice of value investing.');
+  });
+});
 
 const findClaimMarks = (doc) => {
   const marks = [];
@@ -364,7 +394,33 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Ordinary Wiki evidence map');
     expect(prompt).toContain('Direct subject sources: [1]');
     expect(prompt).toContain('Adjacent sources may illustrate');
+    expect(prompt).toContain('Be source-faithful');
+    expect(prompt).toContain('Do not force a target length');
+    expect(prompt).toContain('Never emit raw [[wiki link]] syntax');
+    expect(prompt).not.toContain('Be opinionated.');
+    expect(prompt).not.toContain('write at least 650 words');
     expect(prompt).not.toContain('Implied Expectations');
+  });
+
+  it('makes an evidence-backed example explicit during ordinary Wiki repair', () => {
+    const prompt = buildRebuildPrompt({
+      page: {
+        title: 'Value Investing',
+        pageType: 'standard',
+        sourceScope: 'selected_sources'
+      },
+      candidates: Array.from({ length: 5 }, (_, index) => ({
+        index: index + 1,
+        type: 'article',
+        title: `Value investing source ${index + 1}`,
+        text: 'Value investing joins contrarian judgment with calculation and fundamental analysis.'
+      })),
+      failures: ['Ordinary reference article lacks a concrete example, case, or observable situation.'],
+      draftArticle: { title: 'Value Investing', summary: 'A grounded draft.' }
+    });
+
+    expect(prompt).toContain('literal transition "For example,"');
+    expect(prompt).toContain('cite the evidence that supplies it');
   });
 
   it('requires depth, mechanism, a concrete case, boundaries, and broad evidence use across ordinary domains', () => {
