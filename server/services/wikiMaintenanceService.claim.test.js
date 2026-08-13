@@ -20,6 +20,7 @@ const {
   fillInvestmentDossierMaintenanceTest,
   findGitHubRepoDeveloperDossierFailures,
   findOrdinaryGroundingGaps,
+  groundingSourceRefsForCandidates,
   findUnsupportedGitHubRepoClaims,
   inferMaintainedPageType,
   isGitHubRepoPage,
@@ -32,6 +33,34 @@ const {
   selectMaintenanceCandidates,
   toPlainText
 } = __testables;
+
+describe('ordinary Wiki grounding evidence parity', () => {
+  it('reviews claims against hydrated private source text without expanding stored snippets', () => {
+    const sourceRefs = [{
+      type: 'article',
+      objectId: 'article-1',
+      title: 'The Practice of Value Investing',
+      snippet: 'Li Lu spoke to students about the practice of value investing.'
+    }];
+    const candidates = [{
+      type: 'article',
+      objectId: 'article-1',
+      title: 'The Practice of Value Investing',
+      text: 'Li Lu spoke to students about the practice of value investing. Later, an early cable-company investment became a concrete case showing how he evaluated and held a position.'
+    }];
+    const claims = [{
+      text: 'For example, an early cable-company investment is a concrete case showing how Li Lu evaluated and held a position.',
+      citationIndexes: [1],
+      support: 'supported'
+    }];
+
+    expect(findOrdinaryGroundingGaps({ claims, sourceRefs })).toHaveLength(1);
+    const groundingRefs = groundingSourceRefsForCandidates({ sourceRefs, candidates });
+    expect(findOrdinaryGroundingGaps({ claims, sourceRefs: groundingRefs })).toHaveLength(0);
+    expect(sourceRefs[0]).not.toHaveProperty('text');
+    expect(sourceRefs[0].snippet).toBe('Li Lu spoke to students about the practice of value investing.');
+  });
+});
 
 const findClaimMarks = (doc) => {
   const marks = [];

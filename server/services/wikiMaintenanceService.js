@@ -1454,6 +1454,32 @@ const candidateFromSourceRef = (sourceRef = {}, index = 1) => ({
   index
 });
 
+// Ordinary Wiki generation may hydrate a Library article beyond the short
+// snippet retained on the page's reference card. Quality review must evaluate
+// the resulting prose against that same private evidence window, or valid
+// claims drawn from later in the source are falsely rejected. Keep the richer
+// text ephemeral: this value is passed only to the quality evaluator and is
+// never assigned back to page.sourceRefs or a public envelope.
+const groundingSourceRefsForCandidates = ({ sourceRefs = [], candidates = [] } = {}) => (
+  (Array.isArray(sourceRefs) ? sourceRefs : []).map((sourceRef) => {
+    const sourceObjectId = asString(sourceRef?.objectId);
+    const sourceUrl = asString(sourceRef?.url);
+    const sourceTitle = asString(sourceRef?.title).toLowerCase();
+    const sourceType = asString(sourceRef?.type).toLowerCase();
+    const candidate = (Array.isArray(candidates) ? candidates : []).find((item) => {
+      const candidateObjectId = asString(item?.objectId);
+      if (sourceObjectId && candidateObjectId && sourceObjectId === candidateObjectId) return true;
+      const candidateUrl = asString(item?.url);
+      if (sourceUrl && candidateUrl && sourceUrl === candidateUrl) return true;
+      return sourceTitle
+        && sourceTitle === asString(item?.title).toLowerCase()
+        && (!sourceType || sourceType === asString(item?.type).toLowerCase());
+    });
+    if (!candidate?.text) return sourceRef;
+    return { ...sourceRef, text: candidate.text };
+  })
+);
+
 const isSecFilingCandidate = (source = {}) => {
   const provider = asString(source?.provider).toLowerCase();
   const metadataProvider = asString(source?.metadata?.source || source?.metadata?.provider).toLowerCase();
@@ -3864,6 +3890,10 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     candidates,
     sourceRefs: dedupeSourceRefs(sourceRefs)
   });
+  const qualitySourceRefs = groundingSourceRefsForCandidates({
+    sourceRefs: mergedSourceRefs,
+    candidates
+  });
   // Model citation indexes address the candidate list. The rendered reference
   // list contains only retained, deduplicated sources, so every page type must
   // translate candidate positions into final reference positions before the
@@ -3930,7 +3960,7 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
       },
       body: linkedBody,
       claims,
-      sourceRefs: mergedSourceRefs,
+      sourceRefs: qualitySourceRefs,
       availableSourceCount: candidates.length,
       now,
       skipDurableCitationCheck: true
@@ -4492,11 +4522,15 @@ const maintainWikiPage = async ({
     summary: `${page.claims.length} claim${page.claims.length === 1 ? '' : 's'} extracted into the evidence ledger.`,
     claimCount: page.claims.length
   });
+  const persistedGroundingSourceRefs = groundingSourceRefsForCandidates({
+    sourceRefs: persistedSourceRefs,
+    candidates
+  });
   let persistedQuality = evaluateWikiArticleQuality({
     page,
     body: page.body,
     claims: page.claims,
-    sourceRefs: persistedSourceRefs,
+    sourceRefs: persistedGroundingSourceRefs,
     availableSourceCount: candidates.length,
     now,
     skipDurableCitationCheck: isGitHubRepoPage({ page, candidates })
@@ -4668,6 +4702,7 @@ module.exports = {
     normalizeModelResult,
     normalizeArticleTextBlock,
     findOrdinaryGroundingGaps,
+    groundingSourceRefsForCandidates,
     buildRebuildPrompt,
     evaluateWikiArticleQuality,
     inferMaintainedPageType,
