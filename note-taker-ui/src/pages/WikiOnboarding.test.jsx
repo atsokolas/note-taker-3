@@ -117,7 +117,9 @@ describe('WikiOnboarding', () => {
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
     expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Background maintenance checks due wiki pages about every six hours/i);
     expect(screen.getByText('Scheduled page refresh is on.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Save from anywhere')).toHaveTextContent(/browser save/i);
+    // The extension ask is now a real card with detected state, rendered inline —
+    // it used to be a link to /connections#capture, which had nothing to land on.
+    expect(screen.getByLabelText('Browser capture setup')).toBeInTheDocument();
   });
 
   it('builds a first page from pasted text', async () => {
