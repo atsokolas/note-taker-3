@@ -9322,3 +9322,111 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
     width: auto;
   }
 }
+
+/* Public wikis you can fork. Editorial, matching the proof gallery around it. */
+.forkable-wikis {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 24px 8px;
+  display: grid;
+  gap: 24px;
+}
+
+.forkable-wikis__intro {
+  display: grid;
+  gap: 8px;
+  max-width: 640px;
+}
+
+.forkable-wikis__intro h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.forkable-wikis__intro p {
+  margin: 0;
+}
+
+.forkable-wikis__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.forkable-wikis__card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-raised, transparent);
+}
+
+.forkable-wikis__card-topline span {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.forkable-wikis__card h3 {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.forkable-wikis__card p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.forkable-wikis__pages {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.forkable-wikis__pages li::before {
+  content: '· ';
+  opacity: 0.6;
+}
+
+.forkable-wikis__pages li.is-more {
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.forkable-wikis__cta {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--accent)) 38%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, transparent);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.forkable-wikis__cta:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 18%, transparent);
+}
+
+.forkable-wikis__cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.forkable-wikis__error {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
