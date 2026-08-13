@@ -402,6 +402,13 @@ const buildLegacyContentRouter = ({
       if (!article) {
         return res.status(404).json({ error: "Article not found or you do not have permission to view it." });
       }
+      // Stamp the read. `lastOpenedAt` has existed on the schema since the
+      // beginning with nothing writing it, which left "have I read this?"
+      // answerable only for articles the user also highlighted. Fire-and-forget
+      // and without touching `updatedAt` — reading is not editing, and a failure
+      // here must never cost the reader their article.
+      Article.updateOne({ _id: id, userId }, { $set: { lastOpenedAt: new Date() } }, { timestamps: false })
+        .catch(error => console.error('Failed to stamp article lastOpenedAt:', error.message));
       res.status(200).json(article);
     } catch (error) {
       console.error("❌ Error fetching single article by ID:", error);
