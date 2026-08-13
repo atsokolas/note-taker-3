@@ -61,6 +61,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 const WikiProductIndex = lazy(() => import('./components/wiki/WikiProductIndex'));
 const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
+const Paper = lazy(() => import('./pages/Paper'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
@@ -597,9 +598,14 @@ function App() {
         <OnboardingWalkthrough />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
-            {/* AT-394: opening Noeis lands in the Wiki — the product opens on
-                what the agent has made for you, not on what it wants from you. */}
+            {/* The Paper (the Reading Loop) is built and reachable, but the
+                landing still points at the wiki. The Paper's lead depends on the
+                semantic index, which is not yet backfilled — until it is, a new
+                visitor would land on "nothing worth connecting this week". Flip
+                this to /paper once the index is populated and the lead is
+                reliably producing. */}
             <Route path="/" element={<Navigate to="/wiki" replace />} />
+            <Route path="/paper" element={<Paper />} />
             <Route path="/today" element={<TodayMode />} />
             <Route path="/library" element={<Library />} />
             <Route path="/think" element={<ThinkMode />} />

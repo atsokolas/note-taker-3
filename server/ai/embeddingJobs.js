@@ -7,7 +7,32 @@ const COLLECTIONS = {
   highlights: 'highlights',
   articles: 'articles',
   notebook: 'notebook_entries',
-  questions: 'questions'
+  questions: 'questions',
+  claims: 'wiki_claims'
+};
+
+/**
+ * Only claims the Reading Loop's collision mechanic could ever use are worth
+ * embedding — a claim with one source is not a conviction, a retired one is not
+ * held, and maintenance bookkeeping is not a position. Filtering here keeps the
+ * index at the ~280 claims that matter rather than the ~860 that exist.
+ *
+ * Deliberately duplicated from readingLoopService rather than imported: that
+ * module requires this one for COLLECTIONS, and a cycle is worse than four
+ * lines of repetition. Keep the two in step.
+ */
+const CLAIM_META_RE = /\b(the recurring pattern across|the page should|this page|the useful claim is narrower|topic label|source ledger|maintenance run)\b/i;
+
+const isEmbeddableWikiClaim = (claim = {}) => {
+  if (!claim || claim.checkInStatus === 'retired' || claim.retiredAt) return false;
+  const sources = Math.max(
+    Array.isArray(claim.sourceRefIds) ? claim.sourceRefIds.length : 0,
+    Array.isArray(claim.citationIds) ? claim.citationIds.length : 0
+  );
+  if (sources < 2) return false;
+  const text = String(claim.text || '').trim();
+  if (text.length < 40) return false;
+  return !CLAIM_META_RE.test(text);
 };
 
 const trimText = (value = '', max = 4000) => {
@@ -289,9 +314,33 @@ const enqueueQuestionEmbedding = (question) => {
   });
 };
 
+const enqueueWikiClaimEmbeddings = (page) => {
+  if (!page?._id) return;
+  (page.claims || []).forEach(claim => {
+    if (!isEmbeddableWikiClaim(claim)) return;
+    const objectId = `${String(page._id)}:${String(claim.claimId)}`;
+    enqueueEmbedding({
+      collection: COLLECTIONS.claims,
+      id: objectId,
+      text: trimText(`${page.title || ''}\n${claim.text || ''}`),
+      payload: {
+        type: 'wiki_claim',
+        objectId,
+        pageId: String(page._id),
+        claimId: String(claim.claimId),
+        title: page.title || '',
+        createdAt: claim.createdAt || page.createdAt || new Date().toISOString(),
+        userId: String(page.userId)
+      }
+    });
+  });
+};
+
 module.exports = {
   COLLECTIONS,
   drainEmbeddingJobQueue,
+  enqueueWikiClaimEmbeddings,
+  isEmbeddableWikiClaim,
   enqueueHighlightEmbedding,
   enqueueArticleEmbedding,
   enqueueNotebookEmbedding,

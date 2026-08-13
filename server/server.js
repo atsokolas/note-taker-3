@@ -132,6 +132,7 @@ const {
   MorningPaperDelivery,
   WikiPageVisit,
   EmbeddingJob,
+  ReadingLoopEdition,
   SharedConcept,
   SharedQuestion,
   WikiPage,
@@ -600,6 +601,7 @@ const { buildKnowledgeMovementRouter } = require('./routes/knowledgeMovementRout
 const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
 const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
 const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
+const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -5383,6 +5385,14 @@ app.use(buildLibraryRelevanceRouter({
   NoeisReceipt,
   Connection,
   ReferenceEdge
+app.use(buildReadingLoopRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  User,
+  Article,
+  NotebookEntry,
+  Question,
+  WikiPage,
+  ReadingLoopEdition
 }));
 
 app.use(buildWikiRouter({
