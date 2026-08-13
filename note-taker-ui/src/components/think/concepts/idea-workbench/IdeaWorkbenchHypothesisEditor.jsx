@@ -22,6 +22,8 @@ const IdeaWorkbenchHypothesisEditor = ({
   const onDropCardRef = useRef(onDropCard);
   const slashKeyDownRef = useRef(() => false);
   const slashSurfaceRef = useRef(null);
+  const editorShellRef = useRef(null);
+  const dropGuideRef = useRef(null);
   const parseDraggedCard = (event) => {
     const rawCard = event.dataTransfer?.getData('application/x-noeis-card-json');
     if (rawCard) {
@@ -61,7 +63,7 @@ const IdeaWorkbenchHypothesisEditor = ({
       ),
       handleDOMEvents: {
         dragover: (_view, event) => {
-          const hasCard = event.dataTransfer?.types?.includes('application/x-noeis-card-id');
+          const hasCard = Array.from(event.dataTransfer?.types || []).includes('application/x-noeis-card-id');
           if (!hasCard) return false;
           event.preventDefault();
           event.dataTransfer.dropEffect = 'copy';
@@ -71,7 +73,9 @@ const IdeaWorkbenchHypothesisEditor = ({
           const cardPayload = parseDraggedCard(event);
           if (!cardPayload || !onDropCardRef.current) return false;
           event.preventDefault();
-          onDropCardRef.current(cardPayload, event);
+          event.stopPropagation();
+          if (editorShellRef.current) editorShellRef.current.setAttribute('data-drop-active', 'false');
+          onDropCardRef.current(cardPayload, event, editor);
           return true;
         }
       }
@@ -107,26 +111,54 @@ const IdeaWorkbenchHypothesisEditor = ({
   if (!editor) return null;
 
   const handleDragOver = (event) => {
-    const cardId = event.dataTransfer?.types?.includes('application/x-noeis-card-id');
+    const cardId = Array.from(event.dataTransfer?.types || []).includes('application/x-noeis-card-id');
     if (!cardId) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
+    const shell = event.currentTarget;
+    const guide = dropGuideRef.current || shell.querySelector('.idea-workbench-hypothesis__drop-guide');
+    shell.setAttribute('data-drop-active', 'true');
+    const position = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+    if (!guide || !shell || !position) return;
+    const caret = editor.view.coordsAtPos(position.pos);
+    const shellRect = shell.getBoundingClientRect();
+    const top = Math.max(0, Math.min(shellRect.height - 2, caret.top - shellRect.top));
+    guide.style.transform = `translate3d(0, ${top}px, 0)`;
+  };
+
+  const hideDropGuide = () => {
+    if (editorShellRef.current) editorShellRef.current.setAttribute('data-drop-active', 'false');
+  };
+
+  const handleDragLeave = (event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    hideDropGuide();
   };
 
   const handleDrop = (event) => {
     const cardPayload = parseDraggedCard(event);
     if (!cardPayload || !onDropCard) return;
     event.preventDefault();
+    hideDropGuide();
     onDropCard(cardPayload, event, editor);
+  };
+
+  const setEditorShellRef = (node) => {
+    editorShellRef.current = node;
+    setNodeRef(node);
   };
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setEditorShellRef}
       className={`idea-workbench-hypothesis__editor-shell ${isOver ? 'is-over' : ''} ${isReceivingDrop ? 'is-receiving' : ''}`.trim()}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      <div ref={dropGuideRef} className="idea-workbench-hypothesis__drop-guide" aria-hidden="true">
+        <span>Insert here</span>
+      </div>
       <EditorDraftShell
         editor={editor}
         surfaceRef={slashSurfaceRef}

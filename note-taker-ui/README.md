@@ -6,20 +6,25 @@ This README is product-oriented so marketing, product, and engineering are align
 
 ## What this product does
 
-Note Taker helps users capture source material, turn it into structured thinking, and revisit it over time.
+Noeis helps users ground what they learn, think with it, maintain durable synthesis, and improve consequential judgment over time.
 
 Primary UX promise:
 
-- Capture quickly
-- Think in context
-- Delegate selectively with agents
-- Keep data portable
+- Ground learning in Library
+- Think in a native notebook
+- Maintain durable, source-led Wikis
+- Track decisions, outcomes, and lessons in Judgment
 
-## Core screens to reference in marketing docs
+## Core rooms to reference in marketing docs
+
+- `Library` (`/library`): folders and sources on the left, editorial reading in the center, and the Librarian on the right.
+- `Think` (`/think`): a calm notebook where retrieved objects insert at the chosen prose position with provenance intact.
+- `Wiki` (`/wiki`): the return surface for article-first, Library-grounded synthesis and human-reviewed maintenance.
+- `Judgment` (`/judgment`): living cases that connect theses, decisions, reviews, outcomes, and retained lessons.
 
 ### Main screen: Think (`/think`)
 
-Think is the primary workspace after login.
+Think is the primary writing workspace. The post-login return route is Wiki (`/wiki`).
 
 Tabs and jobs:
 
@@ -63,7 +68,6 @@ The app supports optional agentic workflows with user control:
 
 ## Related product pages
 
-- `Library` (`/library`): source and highlight retrieval layer
 - `Data integrations` (`/data-integrations`): import and capture alternatives
 - `Map` (`/map`), `Review` (`/review`), `Return Queue` (`/return-queue`), `Today` (`/today`): reinforcement and recall loops
 - `How To Use` (`/how-to-use`): in-app onboarding narrative
@@ -75,4 +79,3 @@ In `note-taker-ui/`:
 - `npm start` - run dev server
 - `npm test` - run tests
 - `npm run build` - create production build
-

@@ -15,9 +15,8 @@ const SelectionMenu = React.forwardRef(({
   onTagInputChange,
   onHighlight,
   onAddConcept,
-  onAddDump,
-  onAddNotebook,
   onAddQuestion,
+  onAskLibrarian,
 }, ref) => {
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
@@ -81,17 +80,14 @@ const SelectionMenu = React.forwardRef(({
         <button type="button" className="selection-menu-button" onClick={onHighlight} disabled={saving}>
           {saving ? 'Saving...' : 'Highlight'}
         </button>
-        <button type="button" className="selection-menu-button is-muted" onClick={onAddNotebook} disabled={saving}>
-          Notebook
-        </button>
         <button type="button" className="selection-menu-button is-muted" onClick={onAddConcept} disabled={saving}>
-          Concept
+          Create concept
         </button>
         <button type="button" className="selection-menu-button is-muted" onClick={onAddQuestion} disabled={saving}>
-          Question
+          Create question
         </button>
-        <button type="button" className="selection-menu-button is-muted" onClick={onAddDump} disabled={saving}>
-          Dump
+        <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
+          Ask Librarian
         </button>
       </div>
       <div className="selection-menu-divider" />

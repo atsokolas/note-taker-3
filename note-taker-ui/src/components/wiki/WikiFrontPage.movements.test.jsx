@@ -69,7 +69,8 @@ describe('WikiFrontPage movement return surface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Movement present' }));
 
     await waitFor(() => expect(screen.queryByText(/generic fallback briefing/i)).not.toBeInTheDocument());
-    expect(screen.getByRole('heading', { level: 1, name: 'Inference economics' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Your living wikis' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Inference economics' })).toBeInTheDocument();
     expect(screen.getByText('Review and system activity').closest('details')).toHaveAttribute('open');
   });
 

@@ -7,6 +7,7 @@ import SelectionMenu from './reader/SelectionMenu';
 import MagneticReadingRail from './reader/MagneticReadingRail';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
+import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -39,9 +40,8 @@ const ArticleReader = forwardRef(({
   onHighlightReplace,
   onHighlightRemove,
   onOpenConcept,
-  onOpenNotebook,
   onOpenQuestion,
-  onDumpToWorkingMemory,
+  onAskLibrarian,
   sourceTrace = null
 }, ref) => {
   const contentRef = useRef(null);
@@ -96,6 +96,16 @@ const ArticleReader = forwardRef(({
     if (!article || !selectionState.text) return;
     const highlightText = selectionState.text;
     const highlightAnchor = selectionState.anchor;
+    const existingHighlight = findExistingHighlightForSelection({
+      highlights,
+      text: highlightText,
+      anchor: highlightAnchor
+    });
+    if (existingHighlight) {
+      clearSelection();
+      afterSave?.(existingHighlight);
+      return;
+    }
     const draftTags = parseTags(draftTagsInput);
     setSaveError('');
     setSaving(true);
@@ -164,10 +174,9 @@ const ArticleReader = forwardRef(({
           onColorChange={setDraftColor}
           onTagInputChange={setDraftTagsInput}
           onHighlight={handleCreateHighlight}
-          onAddNotebook={() => handleSaveAndOpen(onOpenNotebook, 'Add to Notebook is unavailable here.')}
           onAddConcept={() => handleSaveAndOpen(onOpenConcept, 'Add to Concept is unavailable here.')}
           onAddQuestion={() => handleSaveAndOpen(onOpenQuestion, 'Add to Question is unavailable here.')}
-          onAddDump={() => handleSaveAndOpen(onDumpToWorkingMemory, 'Dump is unavailable here.')}
+          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'Ask Librarian is unavailable here.')}
         />
       )}
       <div className="article-reader-header">

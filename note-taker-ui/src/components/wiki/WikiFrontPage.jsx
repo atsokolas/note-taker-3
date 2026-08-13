@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { listWikiPages } from '../../api/wiki';
 import {
@@ -11,14 +11,13 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import AgentContextShell from '../agent/AgentContextShell';
 import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
-import RightDrawer from '../../layout/RightDrawer';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiRepoCreateComposer from './WikiRepoCreateComposer';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
-import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
+import { countWikiClaims, countWikiSources } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import {
@@ -28,10 +27,10 @@ import {
 } from './wikiBriefingReturnLoopModel';
 import {
   dedupePagesByRepoKey,
-  filterPagesForTodaysPage,
-  isEligibleForTodaysPage
+  filterPagesForTodaysPage
 } from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { labelFor } from './wikiGraph';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -42,8 +41,6 @@ import '../../styles/wiki-front-page.css';
 // hairline link; it is no longer the front door.
 
 const INDEX_PAGE_LIMIT = 500;
-const LEAD_EXCERPT_BUDGET = 320;
-const GROWN_LIMIT = 3;
 const WATCHING_PREVIEW_LIMIT = 5;
 const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
@@ -63,17 +60,36 @@ const relativeTime = (iso) => {
   return formatSurfaceDate(iso, { includeYear: true });
 };
 
-// Growth note for the "Recently grown" column — instrument register, but only
-// from data we actually have (no fabricated deltas).
-const growthNote = (page = {}) => {
-  const parts = [];
-  const reviewed = relativeTime(page.lastReviewedAt);
-  if (reviewed) parts.push(`reviewed ${reviewed}`);
-  const claims = countWikiClaims(page);
-  if (claims > 0) parts.push(`${claims} claim${claims === 1 ? '' : 's'}`);
-  const sources = countWikiSources(page);
-  if (sources > 0) parts.push(`${sources} source${sources === 1 ? '' : 's'}`);
-  return parts.join(' · ');
+const isDeveloperWiki = (page = {}) => (
+  page.pageType === 'repo'
+  || Boolean(page.repoKey)
+  || Boolean(page.externalWatches?.githubRepo)
+);
+
+const pendingWikiReview = (page = {}) => {
+  const candidateStatus = String(page.aiState?.candidateStatus || '').trim();
+  const qualityStatus = String(page.qualityReview?.status || '').trim();
+  return candidateStatus.startsWith('awaiting_')
+    || qualityStatus === 'needs_review'
+    || page.qualityReview?.needsReview === true;
+};
+
+const wikiReviewState = (page = {}, changedByLibrary = false) => {
+  if (pendingWikiReview(page)) return { label: 'Review available', tone: 'review' };
+  if (changedByLibrary) return { label: 'New evidence', tone: 'evidence' };
+  return { label: 'No proposal', tone: 'quiet' };
+};
+
+const wikiReviewDate = (page = {}) => {
+  const reviewedAt = page.lastReviewedAt || page.qualityReview?.reviewedAt;
+  return reviewedAt ? relativeTime(reviewedAt) : 'Not reviewed';
+};
+
+const wikiGroundingLabel = (page = {}) => {
+  const count = countWikiSources(page);
+  if (!count) return 'No grounded sources';
+  const sourceKind = isDeveloperWiki(page) ? 'repository' : 'Library';
+  return `${count} ${sourceKind} source${count === 1 ? '' : 's'}`;
 };
 
 const claimImpactRegister = (impacts = []) => {
@@ -169,6 +185,7 @@ const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = 
 
 const WikiFrontPage = () => {
   const navigate = useNavigate();
+  const pageIndexRequestRef = useRef(null);
   const [pages, setPages] = useState([]);
   const [briefing, setBriefing] = useState(null);
   const [hasAnyWikiContent, setHasAnyWikiContent] = useState(null);
@@ -188,8 +205,8 @@ const WikiFrontPage = () => {
     if (hasMovements) setShowOperations(true);
   }, [hasMovements]);
   const [availabilityNotice, setAvailabilityNotice] = useState('');
-  const [contextOpen, setContextOpen] = useState(true);
   const [wikiSearch, setWikiSearch] = useState('');
+  const [wikiFilter, setWikiFilter] = useState('all');
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -201,6 +218,11 @@ const WikiFrontPage = () => {
   useEffect(() => {
     let cancelled = false;
     const cached = readFrontPageCache();
+    const snapshot = {
+      pages: cached?.pages || [],
+      briefing: cached?.briefing || null,
+      hasAnyWikiContent: cached?.hasAnyWikiContent ?? null
+    };
     if (cached) {
       setPages(cached.pages);
       setBriefing(cached.briefing);
@@ -211,69 +233,64 @@ const WikiFrontPage = () => {
     }
     setError('');
     setAvailabilityNotice('');
-    // The index renders titles, counts, and freshness — never article bodies.
-    // Asking for whole pages made this request large enough to fail on a real
-    // corpus, which surfaced as "Failed to load wiki pages" beside an empty
-    // "nothing here yet" state.
-    const pagesRequest = listWikiPages({
-      limit: INDEX_PAGE_LIMIT,
-      includeLowQuality: 1,
-      summary: 1
-    });
-    const briefingRequest = getDailyLoop();
-    // The page index is what the reader came for; the briefing is a change
-    // signal layered on top. Holding the whole surface until both settle meant
-    // a slow briefing kept "Opening your living knowledge…" on screen long
-    // after the pages had arrived. Render the pages as soon as they land and
-    // let the briefing fill in behind them.
-    pagesRequest
-      .then((value) => {
-        if (cancelled || !Array.isArray(value)) return;
-        setPages(value);
-        setHasAnyWikiContent(value.length > 0);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    Promise.allSettled([
-      pagesRequest,
-      briefingRequest
-    ]).then(([pagesResult, briefingResult]) => {
+    const persistSnapshot = () => writeFrontPageCache(snapshot);
+    const loadBriefing = () => {
       if (cancelled) return;
-      const nextPages = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
-        ? pagesResult.value
-        : cached?.pages || [];
-      const nextHasAnyWikiContent = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
-        ? pagesResult.value.length > 0
-        : cached?.hasAnyWikiContent ?? null;
-      const nextBriefing = briefingResult.status === 'fulfilled' && briefingResult.value?.briefing
-        ? briefingResult.value.briefing
-        : cached?.briefing || null;
-
-      if (pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)) {
-        setPages(nextPages);
-      } else if (!cached) {
-        setError('Failed to load wiki pages.');
-      }
-      if (pagesResult.status === 'rejected' && cached) {
-        setAvailabilityNotice('Showing your saved Wiki view because the latest page index could not be refreshed.');
-      } else if (briefingResult.status === 'rejected') {
-        setAvailabilityNotice('Your pages are available, but current change signals could not be refreshed.');
-      }
-      setHasAnyWikiContent(nextHasAnyWikiContent);
-      if (briefingResult.status === 'fulfilled' && briefingResult.value?.briefing) {
-        setBriefing(nextBriefing);
-      }
-      if (pagesResult.status === 'fulfilled' || briefingResult.status === 'fulfilled') {
-        writeFrontPageCache({
-          pages: nextPages,
-          briefing: nextBriefing,
-          hasAnyWikiContent: nextHasAnyWikiContent
+      getDailyLoop()
+        .then((result) => {
+          if (cancelled || !result?.briefing) return;
+          snapshot.briefing = result.briefing;
+          setBriefing(snapshot.briefing);
+          persistSnapshot();
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setAvailabilityNotice('Your pages are available, but current change signals could not be refreshed.');
         });
-      }
-      setLoading(false);
-    });
+    };
+    if (cached) loadBriefing();
+
+    // The accepted page index is the Wiki's durable reading surface. Render it
+    // as soon as it resolves; a slow Daily Loop briefing must never hold the
+    // user's own pages behind an unrelated loading state. Start that optional
+    // briefing only after the index settles so it cannot contend with the
+    // canonical first read during a cold database wake-up.
+    if (!pageIndexRequestRef.current) {
+      pageIndexRequestRef.current = listWikiPages({
+        limit: INDEX_PAGE_LIMIT,
+        includeLowQuality: 1,
+        // The index renders titles, counts, and freshness — never bodies.
+        // Requesting whole pages made this large enough to fail outright on a
+        // real corpus, which surfaced as "Failed to load wiki pages".
+        summary: 1
+      });
+    }
+    const pageIndexRequest = pageIndexRequestRef.current;
+    pageIndexRequest
+      .then((nextPages) => {
+        if (cancelled) return;
+        snapshot.pages = Array.isArray(nextPages) ? nextPages : [];
+        snapshot.hasAnyWikiContent = snapshot.pages.length > 0;
+        setPages(snapshot.pages);
+        setHasAnyWikiContent(snapshot.hasAnyWikiContent);
+        persistSnapshot();
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        if (cached) {
+          setAvailabilityNotice('Showing your saved Wiki view because the latest page index could not be refreshed.');
+        } else {
+          setError('Failed to load wiki pages.');
+        }
+        setLoading(false);
+      })
+      .finally(() => {
+        if (pageIndexRequestRef.current === pageIndexRequest) {
+          pageIndexRequestRef.current = null;
+        }
+        if (!cached) loadBriefing();
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -319,6 +336,11 @@ const WikiFrontPage = () => {
       : []
   ), [briefing, resolvePage]);
 
+  const sourceMaterialIds = useMemo(
+    () => new Set(sourceMaterialPages.map(page => String(pageId(page)))),
+    [sourceMaterialPages]
+  );
+
   const weighted = useMemo(() => (
     [...curatedPages].sort((a, b) => pageWeight(b) - pageWeight(a)
       || String(a.title || '').localeCompare(String(b.title || '')))
@@ -339,29 +361,47 @@ const WikiFrontPage = () => {
     return candidates[0] || null;
   }, [sourceMaterialPages, recentlyUpdated, weighted, briefing, resolvePage]);
 
-  const secondaryPages = useMemo(() => {
-    const leadId = String(pageId(todaysPage));
-    const fromBriefing = recentlyUpdated.filter(page => String(pageId(page)) !== leadId);
-    if (fromBriefing.length >= GROWN_LIMIT) return fromBriefing.slice(0, GROWN_LIMIT);
-    const fallback = dedupePagesByRepoKey([...curatedPages])
-      .filter(page => String(pageId(page)) !== leadId)
-      .filter(page => isEligibleForTodaysPage(page, briefing))
-      .sort((a, b) => pageWeight(b) - pageWeight(a)
-        || String(a.title || '').localeCompare(String(b.title || '')))
-      .filter(page => !fromBriefing.some(existing => pageId(existing) === pageId(page)));
-    return dedupePagesByRepoKey([...fromBriefing, ...fallback]).slice(0, GROWN_LIMIT);
-  }, [recentlyUpdated, curatedPages, todaysPage, briefing]);
-  const secondaryPagesChanged = recentlyUpdated
-    .some(page => String(pageId(page)) !== String(pageId(todaysPage)));
+  const pageKinds = useMemo(() => {
+    const counts = new Map();
+    curatedPages.forEach((page) => {
+      if (isDeveloperWiki(page)) return;
+      const kind = String(page.pageType || 'topic').trim() || 'topic';
+      counts.set(kind, (counts.get(kind) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || labelFor(a[0]).localeCompare(labelFor(b[0])));
+  }, [curatedPages]);
 
   const explorePages = useMemo(() => {
     const query = wikiSearch.trim().toLowerCase();
-    if (!query) return weighted;
-    return weighted.filter(page => (
+    let visible = weighted;
+    if (wikiFilter === 'topics') visible = visible.filter(page => !isDeveloperWiki(page));
+    if (wikiFilter === 'developer') visible = visible.filter(isDeveloperWiki);
+    if (wikiFilter === 'review') visible = visible.filter(page => (
+      pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
+    ));
+    if (wikiFilter === 'recent') visible = [...visible]
+      .filter(page => page.updatedAt)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    if (wikiFilter.startsWith('kind:')) {
+      const kind = wikiFilter.slice(5);
+      visible = visible.filter(page => String(page.pageType || 'topic') === kind);
+    }
+    if (!query) return visible;
+    return visible.filter(page => (
       displayWikiPageTitle(page, 'Untitled page').toLowerCase().includes(query)
       || String(page?.summary || page?.description || '').toLowerCase().includes(query)
     ));
-  }, [weighted, wikiSearch]);
+  }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds]);
+
+  const exactReviewCount = useMemo(() => curatedPages.filter(page => (
+    pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
+  )).length, [curatedPages, sourceMaterialIds]);
+
+  const developerWikiCount = useMemo(
+    () => curatedPages.filter(isDeveloperWiki).length,
+    [curatedPages]
+  );
 
   const reviewCount = briefing?.counts?.driftingPages
     ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
@@ -384,7 +424,6 @@ const WikiFrontPage = () => {
         .filter(Boolean)
         .join('. ')
       : briefing?.summary || 'Read what you know, or begin a new thought.');
-  const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
   const briefingNextAction = useMemo(
     () => briefing?.lead?.page?.id ? {
       label: `Open ${briefing.lead.page.title || 'watched page'}`,
@@ -671,131 +710,168 @@ const WikiFrontPage = () => {
 
   return (
     <WikiFrontPageShell>
-      <header className="wiki-front-page__top">
-        <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
-          <p className="wiki-index__eyebrow wiki-front-page__masthead">
-            Your Wiki · {mastheadDate()}
-          </p>
-        </div>
-        <div className="wiki-front-page__intro wfp-anim wfp-anim--2">
-          <div className="wiki-front-page__briefing-copy">
+      <div className="wiki-living-shell">
+        <aside className="wiki-living-nav wfp-anim wfp-anim--1" aria-label="Wiki views">
+          <div className="wiki-living-nav__head">
+            <span>Wiki</span>
+            <strong>{curatedPages.length}</strong>
+          </div>
+          <nav>
+            {[
+              ['all', 'All wikis', curatedPages.length],
+              ['topics', 'Topics', curatedPages.length - developerWikiCount],
+              ['developer', 'Developer wikis', developerWikiCount],
+              ['review', 'Needs review', exactReviewCount],
+              ['recent', 'Recently updated', recentlyUpdated.length]
+            ].map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                className={wikiFilter === value ? 'is-active' : ''}
+                aria-pressed={wikiFilter === value}
+                onClick={() => setWikiFilter(value)}
+              >
+                <span>{label}</span>
+                <small>{count}</small>
+              </button>
+            ))}
+          </nav>
+          {pageKinds.length ? (
+            <section className="wiki-living-nav__kinds" aria-labelledby="wiki-living-kinds">
+              <h2 id="wiki-living-kinds">Kinds</h2>
+              {pageKinds.map(([kind, count]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  className={wikiFilter === `kind:${kind}` ? 'is-active' : ''}
+                  aria-pressed={wikiFilter === `kind:${kind}`}
+                  onClick={() => setWikiFilter(`kind:${kind}`)}
+                >
+                  <span>{labelFor(kind)}</span>
+                  <small>{count}</small>
+                </button>
+              ))}
+            </section>
+          ) : null}
+          <div className="wiki-living-nav__workspace-links">
+            <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
+            <Link to="/wiki/workspace?view=list">Full workspace</Link>
+          </div>
+        </aside>
+
+        <section className="wiki-living-index wfp-anim wfp-anim--2" aria-labelledby="wiki-living-title">
+          <header className="wiki-living-index__header">
+            <p className="wiki-index__eyebrow">Your Wiki · {mastheadDate()}</p>
+            <h1 id="wiki-living-title">Your living wikis</h1>
+            <p>Maintained with your agent, grounded in your Library.</p>
             {leadSentence ? (
-              <p className="wiki-front-page__lead">
+              <p className="wiki-living-index__briefing" aria-label="Current Wiki briefing">
                 <WriteIn text={leadSentence} />
               </p>
             ) : null}
-            {briefingNextAction ? (
-              <div className="wiki-front-page__next-action">
-                <span className="wiki-front-page__next-action-kicker">Return path</span>
-                <Link className="wiki-front-page__next-action-link" to={briefingNextAction.href}>
-                  {briefingNextAction.label} →
-                </Link>
-                {briefingNextAction.reason ? (
-                  <p className="wiki-front-page__next-action-reason">{briefingNextAction.reason}</p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        {availabilityNotice ? <p className="wiki-front-page__availability" role="status">{availabilityNotice}</p> : null}
-      </header>
+            {availabilityNotice ? <p className="wiki-front-page__availability" role="status">{availabilityNotice}</p> : null}
+          </header>
 
-      <div className="wiki-front-page__workspace">
-        <div className="wiki-front-page__primary wfp-anim wfp-anim--3">
-          <div className="wiki-front-page__columns">
-            {todaysPage ? (
-              <section className="wiki-front-page__story" aria-labelledby="wfp-story-title">
-                <p className="wiki-index__eyebrow">Continue</p>
-                <h1 id="wfp-story-title">
-                  <Link to={wikiPagePath(pageId(todaysPage))}>{displayWikiPageTitle(todaysPage, 'Untitled page')}</Link>
-                </h1>
-                {growthNote(todaysPage) ? (
-                  <p className="wiki-front-page__story-meta">{growthNote(todaysPage)}</p>
-                ) : null}
-                {leadExcerpt ? <p className="wiki-front-page__excerpt">{leadExcerpt}</p> : null}
-                <Link className="wiki-front-page__continue" to={wikiPagePath(pageId(todaysPage))}>
-                  Continue reading →
-                </Link>
-              </section>
-            ) : (
-              <h1 className="sr-only">Morning paper</h1>
-            )}
+          <label className="wiki-living-index__search">
+            <span className="sr-only">Search your wikis</span>
+            <input
+              type="search"
+              value={wikiSearch}
+              onChange={event => setWikiSearch(event.target.value)}
+              placeholder="Search your wikis…"
+            />
+          </label>
 
-            {secondaryPages.length ? (
-              <aside className="wiki-front-page__grown" aria-labelledby="wfp-grown-title">
-                <div className="wiki-front-page__section-heading">
-                  <h2 id="wfp-grown-title">{secondaryPagesChanged ? 'Recently changed' : 'More living pages'}</h2>
-                  <span>{secondaryPages.length}</span>
-                </div>
-                <ul>
-                  {secondaryPages.map((page, index) => (
-                    <li key={pageId(page)}>
-                      <span className="wiki-front-page__row-index" aria-hidden="true">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                      <div>
-                        <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                        {growthNote(page)
-                          ? <span className="wiki-front-page__growth-note">{growthNote(page)}</span>
-                          : null}
-                      </div>
-                      <span className="wiki-front-page__row-arrow" aria-hidden="true">→</span>
-                    </li>
-                  ))}
-                </ul>
-              </aside>
-            ) : null}
-          </div>
+          {pages.length >= INDEX_PAGE_LIMIT ? (
+            <p className="wiki-front-page__library-boundary">
+              Showing the first {INDEX_PAGE_LIMIT} pages. Open the full workspace for the complete index.
+            </p>
+          ) : null}
 
-          <section className="wiki-front-page__explore" aria-labelledby="wfp-explore-title">
-            <div className="wiki-front-page__library-head">
-              <div>
-                <h2 id="wfp-explore-title" className="wiki-index__eyebrow">Explore</h2>
-                <p>All Wiki pages</p>
-              </div>
-              <span>{curatedPages.length}</span>
+          <div className="wiki-living-table" role="table" aria-label="Living Wiki pages">
+            <div className="wiki-living-table__head" role="row">
+              <span role="columnheader">Wiki</span>
+              <span role="columnheader">Grounded in</span>
+              <span role="columnheader">Last review</span>
+              <span role="columnheader">Maintenance state</span>
             </div>
-            {pages.length >= INDEX_PAGE_LIMIT ? (
-              <p className="wiki-front-page__library-boundary">
-                Showing the first {INDEX_PAGE_LIMIT} pages. Use All pages for the complete workspace index.
-              </p>
-            ) : null}
-            <label className="wiki-front-page__library-search">
-              <span className="sr-only">Search all Wiki pages</span>
-              <input
-                type="search"
-                value={wikiSearch}
-                onChange={event => setWikiSearch(event.target.value)}
-                placeholder="Search Wiki pages…"
-              />
-            </label>
-            {explorePages.length ? (
-              <ol className="wiki-front-page__index">
-                {explorePages.map((page, index) => (
+            {explorePages.length ? explorePages.map((page) => {
+              const id = String(pageId(page));
+              const changedByLibrary = sourceMaterialIds.has(id);
+              const reviewState = wikiReviewState(page, changedByLibrary);
+              return (
+                <div
+                  key={id}
+                  className={`wiki-living-row${changedByLibrary ? ' is-library-changed' : ''}`}
+                  role="row"
+                >
+                  <div className="wiki-living-row__title" role="cell">
+                    <span aria-hidden="true" />
+                    <div>
+                      <Link to={wikiPagePath(id)}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                      <small>{isDeveloperWiki(page) ? 'Developer wiki' : labelFor(page.pageType || 'topic')}</small>
+                    </div>
+                  </div>
+                  <span role="cell">{wikiGroundingLabel(page)}</span>
+                  <span role="cell">{wikiReviewDate(page)}</span>
+                  <span className={`wiki-living-row__state is-${reviewState.tone}`} role="cell">
+                    <i aria-hidden="true" />
+                    {reviewState.label}
+                  </span>
+                  <Link className="wiki-living-row__open" to={wikiPagePath(id)} aria-label={`Open ${displayWikiPageTitle(page, 'Wiki page')}`}>→</Link>
+                </div>
+              );
+            }) : (
+              <p className="wiki-living-table__empty">No Wiki pages match this view.</p>
+            )}
+          </div>
+
+          {sourceMaterialPages.length ? (
+            <section className="wiki-living-changes" aria-labelledby="wiki-living-changes-title">
+              <div>
+                <p className="wiki-index__eyebrow">Library signal</p>
+                <h2 id="wiki-living-changes-title">Changed by your Library</h2>
+              </div>
+              <ol>
+                {sourceMaterialPages.map((page) => (
                   <li key={pageId(page)}>
-                    <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                     <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                    <small>{page?.pageType === 'repo' ? 'Repository' : 'Wiki page'}</small>
+                    <span>New grounded material is available.</span>
+                    <Link to={wikiPagePath(pageId(page))}>Review evidence →</Link>
                   </li>
                 ))}
               </ol>
-            ) : (
-              <p className="wiki-front-page__library-empty">No Wiki pages match “{wikiSearch}”.</p>
-            )}
-          </section>
-
-          <div className="wiki-front-page__creation-tools">
-            <section className="wiki-front-page__composer" aria-label="Ask or build a wiki page">
-              <WikiBuildPageComposer compact className="wiki-front-page__builder" />
             </section>
-          </div>
-        </div>
+          ) : null}
+        </section>
 
-        <div className="wiki-front-page__activity-rail wfp-anim wfp-anim--4" role="complementary" aria-label="Wiki activity">
-          <RightDrawer title={AGENT_DISPLAY_NAME} open={contextOpen} onToggle={setContextOpen}>
+        <aside className="wiki-living-curator wfp-anim wfp-anim--3" aria-label="Wiki Curator">
+          <header>
+            <p className="wiki-index__eyebrow">Persistent agent</p>
+            <h2>Curator</h2>
+            <p>Build or update a wiki, or connect a developer wiki.</p>
+          </header>
+          <section className="wiki-living-curator__builder" aria-labelledby="wiki-curator-build">
+            <h3 id="wiki-curator-build">Build or update a wiki</h3>
+            <WikiBuildPageComposer compact className="wiki-front-page__builder" />
+          </section>
+          <section className="wiki-living-curator__repo" aria-labelledby="wiki-curator-repo">
+            <h3 id="wiki-curator-repo">Developer wiki</h3>
+            <p>Connect a public GitHub repository to create a maintained developer reference.</p>
+            <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
+          </section>
+          {briefingNextAction ? (
+            <div className="wiki-living-curator__return">
+              <span>Return path</span>
+              <Link to={briefingNextAction.href}>{briefingNextAction.label} →</Link>
+              {briefingNextAction.reason ? <p>{briefingNextAction.reason}</p> : null}
+            </div>
+          ) : null}
+          <details className="wiki-living-curator__conversation">
+            <summary>Ask the Curator</summary>
             <AgentContextShell
               surface="wiki"
-              title={AGENT_DISPLAY_NAME}
+              title="Curator"
               orientation={todaysPage
                 ? `Continue from ${displayWikiPageTitle(todaysPage, 'your living knowledge')}.`
                 : 'Read what you know or begin a new thought.'}
@@ -816,21 +892,21 @@ const WikiFrontPage = () => {
                     : 'No living page is selected yet.',
                   nextActions: curatedPages.slice(0, 3).map((page) => displayWikiPageTitle(page, '')).filter(Boolean)
                 }}
-                title={AGENT_DISPLAY_NAME}
-                subtitle="Quiet continuation context"
-                placeholder="Ask what to read, continue, or challenge."
+                title="Curator"
+                subtitle={`${AGENT_DISPLAY_NAME} · grounded in your Library`}
+                placeholder="Ask what to build, revisit, or challenge."
                 promptTemplates={[
-                  'What should I continue reading?',
-                  'Which page has unresolved tension?',
-                  'Help me begin a new thought.'
+                  'What changed in my Library?',
+                  'Which wiki needs review?',
+                  'Build a wiki from this topic.'
                 ]}
                 showQuickPrompts={false}
-                emptyStateText="Ask when you want help choosing a page or starting a thought. Nothing changes until you act."
+                emptyStateText="Ask when you want help building or revisiting durable knowledge. Material changes still wait for your review."
                 submitLabel="↗"
               />
             </AgentContextShell>
-          </RightDrawer>
-        </div>
+          </details>
+        </aside>
       </div>
 
       {operationalWorkspace}

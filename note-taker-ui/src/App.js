@@ -50,6 +50,7 @@ const Export = lazy(() => import('./pages/Export'));
 const TodayMode = lazy(() => import('./pages/TodayMode'));
 const Library = lazy(() => import('./pages/Library'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
+const Judgment = lazy(() => import('./pages/Judgment'));
 const MapView = lazy(() => import('./pages/MapView'));
 const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
@@ -92,6 +93,16 @@ const PublicWikiComparison = lazy(() => import('./pages/PublicWikiComparison'));
 
 const RouteLoadingFallback = () => {
   const isWikiRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/wiki');
+  const isJudgmentRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/judgment');
+  if (isJudgmentRoute) {
+    return (
+      <div className="page-loading page-loading--wiki" role="status" aria-live="polite">
+        <span>Judgment</span>
+        <strong>Preparing the living casebook</strong>
+        <i aria-hidden="true" />
+      </div>
+    );
+  }
   if (isWikiRoute) {
     return (
       <div className="page-loading page-loading--wiki" role="status" aria-live="polite">
@@ -524,6 +535,7 @@ function App() {
         if (e.key.toLowerCase() === 'l') window.location.href = '/library';
         if (e.key.toLowerCase() === 't') window.location.href = '/think?tab=home';
         if (e.key.toLowerCase() === 'w') window.location.href = '/wiki/workspace?view=graph';
+        if (e.key.toLowerCase() === 'j') window.location.href = '/judgment';
         if (e.key.toLowerCase() === 'r') window.location.href = '/review';
         if (e.key.toLowerCase() === 's') window.location.href = '/settings';
       }
@@ -570,6 +582,7 @@ function App() {
             <Route path="/today" element={<TodayMode />} />
             <Route path="/library" element={<Library />} />
             <Route path="/think" element={<ThinkMode />} />
+            <Route path="/judgment" element={<Judgment />} />
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />

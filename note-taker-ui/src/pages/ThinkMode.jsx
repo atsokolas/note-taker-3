@@ -9,7 +9,8 @@ import ReferencePullIn from '../components/references/ReferencePullIn';
 import {
   updateConcept,
   updateConceptPins,
-  suggestConceptWorkspaceFromLibrary
+  suggestConceptWorkspaceFromLibrary,
+  attachConceptWorkspaceBlock
 } from '../api/concepts';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
@@ -26,6 +27,8 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import useIdeaWorkbenchModel from '../components/think/concepts/idea-workbench/useIdeaWorkbenchModel';
 import { CONCEPT_ACTIONS } from '../components/think/concepts/idea-workbench/conceptActionDispatch';
 import { formatEditorialEvidenceHtml } from '../components/think/concepts/formatEditorialEvidenceHtml';
+import ThinkGroundedObjects from '../components/think/concepts/ThinkGroundedObjects';
+import '../styles/think-room.css';
 import VirtualList from '../components/virtual/VirtualList';
 import { createConnection, getConnectionsForScope } from '../api/connections';
 import { createWikiPage, listWikiActivity, listWikiPages } from '../api/wiki';
@@ -163,7 +166,10 @@ const pulledReferenceRelatedItem = (item = {}) => ({
   type: cleanText(item.itemType || item.type),
   id: cleanText(item.itemId || item.id),
   title: cleanText(item.title || item.label || item.url || item.snippet),
-  snippet: cleanText(item.snippet || item.description || item.url)
+  snippet: cleanText(item.snippet || item.description || item.text || item.url),
+  articleId: cleanText(item.articleId || item.metadata?.articleId),
+  openPath: cleanText(item.openPath || item.path),
+  metadata: item.metadata && typeof item.metadata === 'object' ? item.metadata : {}
 });
 const normalizeNotebookFolderId = (value = '') => String(value || '').trim();
 const THINK_SUB_NAV_ITEMS = [
@@ -670,7 +676,7 @@ const ThinkMode = () => {
   );
   const selectedName = requestedInvestigation
     ? (investigationIdentityReady ? String(concept?.name || '').trim() : '')
-    : queryConceptName;
+    : (queryConceptName || (requestedConceptId ? String(concept?.name || '').trim() : ''));
   const closeInvestigation = useCallback(() => {
     const params = new URLSearchParams(searchParams);
     clearInvestigationContext(params);
@@ -807,7 +813,7 @@ const ThinkMode = () => {
     ideaWorkbenchModel.actions.dispatchConceptAction(CONCEPT_ACTIONS.FIND_TENSION);
   }, [ideaWorkbenchModel.actions]);
 
-  const handleIntegrateConceptCard = useCallback((cardInput, dropEvent = null, editorOverride = null) => {
+  const handleIntegrateConceptCard = useCallback(async (cardInput, dropEvent = null, editorOverride = null) => {
     const streamCard = cardInput && typeof cardInput === 'object' ? cardInput : null;
     const safeId = cleanText(streamCard?.id || cardInput);
     if (!safeId && !streamCard) return;
@@ -816,6 +822,22 @@ const ThinkMode = () => {
       : null;
     const card = existingCard || streamCard;
     if (!card) return;
+    const activeConceptId = cleanText(concept?._id || requestedConceptId);
+    if (card.workspaceRef && !card.workspaceAttached) {
+      if (!activeConceptId) return;
+      try {
+        await attachConceptWorkspaceBlock(activeConceptId, {
+          ...card.workspaceRef,
+          sectionId: 'working',
+          stage: 'working'
+        });
+        window.dispatchEvent(new CustomEvent('noeis:concept-workspace-attached', {
+          detail: { conceptId: activeConceptId, type: card.workspaceRef.type, refId: card.workspaceRef.refId }
+        }));
+      } catch (error) {
+        return;
+      }
+    }
     if (!existingCard && streamCard) {
       ideaWorkbenchModel.actions.addSuggestedCard(streamCard, streamCard.zone || 'workspace');
     }
@@ -832,15 +854,32 @@ const ThinkMode = () => {
       return;
     }
     setConceptReceivingDrop(Boolean(dropEvent));
-    window.requestAnimationFrame(() => {
+    await new Promise(resolve => window.requestAnimationFrame(resolve));
+    {
       const coords = dropEvent
         ? editor.view.posAtCoords({ left: dropEvent.clientX, top: dropEvent.clientY })
         : null;
       const targetPos = coords?.pos ?? editor.state.selection.from;
+      const existingBlocks = dropEvent
+        ? new Set(editor.view.dom.querySelectorAll('blockquote'))
+        : null;
       editor.chain().focus().insertContentAt(targetPos, html).run();
       setConceptReceivingDrop(false);
-    });
-  }, [conceptEditorialEditor, ideaWorkbenchModel]);
+      if (dropEvent && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        window.requestAnimationFrame(() => {
+          const insertedBlock = [...editor.view.dom.querySelectorAll('blockquote')]
+            .find(node => !existingBlocks.has(node));
+          insertedBlock?.animate([
+            { opacity: 0.24, transform: 'translate3d(0, 7px, 0)', filter: 'blur(1.5px)' },
+            { opacity: 1, transform: 'translate3d(0, 0, 0)', filter: 'blur(0)' }
+          ], {
+            duration: 220,
+            easing: 'cubic-bezier(0.23, 1, 0.32, 1)'
+          });
+        });
+      }
+    }
+  }, [concept?._id, conceptEditorialEditor, ideaWorkbenchModel, requestedConceptId]);
 
   const questionQuery = useQuestions({
     status: questionStatus,
@@ -4267,6 +4306,14 @@ const ThinkMode = () => {
                 activeSection={conceptEditorialSection}
                 onOpenTemplatePicker={openTemplatePicker}
                 referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
+                groundedObjectsSlot={(
+                  <ThinkGroundedObjects
+                    conceptId={concept?._id || requestedConceptId}
+                    candidates={pulledThinkReferences}
+                    onInsert={handleIntegrateConceptCard}
+                    variant="rail"
+                  />
+                )}
               />
             </AgentContextShell>
           </RightDrawer>

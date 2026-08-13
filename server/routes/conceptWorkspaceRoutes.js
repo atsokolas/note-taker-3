@@ -1,4 +1,5 @@
 const express = require('express');
+const { buildConceptWorkspaceAuthorizationService } = require('../services/conceptWorkspaceAuthorizationService');
 
 const buildConceptWorkspaceRouter = ({
   mongoose,
@@ -9,6 +10,9 @@ const buildConceptWorkspaceRouter = ({
   findHighlightById,
   Article,
   NotebookEntry,
+  Question,
+  TagMeta,
+  WikiPage,
   validateWorkspacePayload,
   applyPatchOp,
   executeWorkspaceActionsWithPolicy,
@@ -17,11 +21,15 @@ const buildConceptWorkspaceRouter = ({
   markTourSignal
 }) => {
   const router = express.Router();
+  const workspaceAuthorization = buildConceptWorkspaceAuthorizationService({
+    mongoose, Article, NotebookEntry, Question, TagMeta, WikiPage, ensureWorkspace
+  });
 
   const loadWorkspaceConcept = async (userId, conceptId) => {
     const concept = await resolveConceptByParam(userId, conceptId, { createIfMissing: false });
     if (!concept) return null;
     const workspace = ensureWorkspace(concept);
+    if (concept.workspace?.updatedAt) workspace.updatedAt = concept.workspace.updatedAt;
     const previous = JSON.stringify(concept.workspace || null);
     const normalized = JSON.stringify(workspace);
     if (previous !== normalized) {
@@ -32,7 +40,15 @@ const buildConceptWorkspaceRouter = ({
     return { concept, workspace };
   };
 
-  const WORKSPACE_ATTACHABLE_TYPES = new Set(['highlight', 'article', 'note']);
+  const WORKSPACE_ATTACHABLE_TYPES = new Set([
+    'highlight',
+    'article',
+    'note',
+    'question',
+    'concept',
+    'wiki_page',
+    'wiki_claim'
+  ]);
 
   const normalizeWorkspaceAttachType = (value) => {
     const type = String(value || '').trim().toLowerCase();
@@ -50,27 +66,52 @@ const buildConceptWorkspaceRouter = ({
     return { next: [...list, safeId], changed: true };
   };
 
-  const resolveWorkspaceAttachSource = async (userId, type, refId) => {
-    const safeType = normalizeWorkspaceAttachType(type);
-    const safeRefId = String(refId || '').trim();
-    if (!safeType || !safeRefId) return null;
+  const resolveWorkspaceAttachSource = workspaceAuthorization.resolveSource;
 
-    if (safeType === 'highlight') {
-      const highlight = await findHighlightById(userId, safeRefId);
-      if (!highlight) return null;
-      return { type: safeType, refId: String(highlight._id) };
+  const authorizeWorkspaceItems = async (userId, items) => {
+    return workspaceAuthorization.authorizeItems(userId, items, { rejectInvalid: true });
+  };
+
+  const loadAuthorizedWorkspaceConcept = async (userId, conceptId) => {
+    const loaded = await loadWorkspaceConcept(userId, conceptId);
+    if (!loaded) return null;
+    return workspaceAuthorization.sanitizeConceptWorkspace(loaded.concept, userId);
+  };
+
+  const authorizeWorkspacePatch = async (userId, workspace, operation) => {
+    const op = String(operation?.op || '').trim();
+    const payload = operation?.payload && typeof operation.payload === 'object'
+      ? operation.payload
+      : {};
+    if (op === 'addItem') {
+      const source = await resolveWorkspaceAttachSource(userId, payload.type, payload.refId);
+      return source
+        ? { ...operation, payload: { ...payload, ...source } }
+        : null;
     }
-
-    if (!mongoose.Types.ObjectId.isValid(safeRefId)) return null;
-    if (safeType === 'article') {
-      const article = await Article.findOne({ _id: safeRefId, userId }).select('_id').lean();
-      if (!article) return null;
-      return { type: safeType, refId: String(article._id) };
+    if (op === 'updateItem') {
+      const itemId = String(payload.itemId || payload.id || '').trim();
+      const current = (workspace?.items || []).find(item => item.id === itemId);
+      if (!current) return null;
+      const requestedPatch = payload.patch && typeof payload.patch === 'object'
+        ? payload.patch
+        : payload;
+      const source = await resolveWorkspaceAttachSource(
+        userId,
+        requestedPatch.type !== undefined ? requestedPatch.type : current.type,
+        requestedPatch.refId !== undefined ? requestedPatch.refId : current.refId
+      );
+      return source
+        ? {
+            ...operation,
+            payload: {
+              itemId,
+              patch: { ...requestedPatch, ...source }
+            }
+          }
+        : null;
     }
-
-    const note = await NotebookEntry.findOne({ _id: safeRefId, userId }).select('_id').lean();
-    if (!note) return null;
-    return { type: safeType, refId: String(note._id) };
+    return operation;
   };
 
   const attachWorkspaceRefToConcept = (concept, type, refId) => {
@@ -105,7 +146,7 @@ const buildConceptWorkspaceRouter = ({
     try {
       const conceptId = String(req.params.conceptId || '').trim();
       console.log(`[WORKSPACE] GET concept=${conceptId} user=${req.user.id}`);
-      const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+      const loaded = await loadAuthorizedWorkspaceConcept(req.user.id, conceptId);
       if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
       res.status(200).json({
         conceptId: String(loaded.concept._id),
@@ -140,7 +181,21 @@ const buildConceptWorkspaceRouter = ({
         return res.status(400).json({ error: validationError.message || 'Invalid workspace payload.' });
       }
 
-      const workspace = ensureWorkspace({ workspace: rawWorkspace });
+      const rawItems = Array.isArray(rawWorkspace.attachedItems)
+        ? rawWorkspace.attachedItems
+        : (Array.isArray(rawWorkspace.items) ? rawWorkspace.items : []);
+      const authorizedItems = await authorizeWorkspaceItems(req.user.id, rawItems);
+      if (!authorizedItems) {
+        return res.status(404).json({ error: 'Workspace contains a source item not found for this user.' });
+      }
+
+      const workspace = ensureWorkspace({
+        workspace: {
+          ...rawWorkspace,
+          ...(Array.isArray(rawWorkspace.attachedItems) ? { attachedItems: authorizedItems } : {}),
+          ...(Array.isArray(rawWorkspace.items) ? { items: authorizedItems } : {})
+        }
+      });
       concept.workspace = workspace;
       concept.markModified('workspace');
       await concept.save();
@@ -161,7 +216,7 @@ const buildConceptWorkspaceRouter = ({
       const conceptId = String(req.params.conceptId || '').trim();
       const opName = String(req.body?.op || '').trim();
       console.log(`[WORKSPACE] PATCH concept=${conceptId} user=${req.user.id} op=${opName || 'unknown'}`);
-      const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+      const loaded = await loadAuthorizedWorkspaceConcept(req.user.id, conceptId);
       if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
 
       if (opName === 'deleteItem' || opName === 'deleteItems') {
@@ -188,7 +243,7 @@ const buildConceptWorkspaceRouter = ({
           });
         }
 
-        const refreshed = await loadWorkspaceConcept(req.user.id, String(loaded.concept._id));
+        const refreshed = await loadAuthorizedWorkspaceConcept(req.user.id, String(loaded.concept._id));
         if (!refreshed) {
           return res.status(404).json({ error: 'Concept not found after applying workspace patch.' });
         }
@@ -202,7 +257,11 @@ const buildConceptWorkspaceRouter = ({
 
       let workspace;
       try {
-        workspace = applyPatchOp(loaded.workspace, req.body || {});
+        const authorizedPatch = await authorizeWorkspacePatch(req.user.id, loaded.workspace, req.body || {});
+        if (!authorizedPatch) {
+          return res.status(404).json({ error: 'Source item not found for this user.' });
+        }
+        workspace = applyPatchOp(loaded.workspace, authorizedPatch);
       } catch (validationError) {
         return res.status(400).json({ error: validationError.message || 'Invalid workspace patch operation.' });
       }
@@ -226,7 +285,7 @@ const buildConceptWorkspaceRouter = ({
     try {
       const conceptId = String(req.params.conceptId || '').trim();
       console.log(`[WORKSPACE] POST section concept=${conceptId} user=${req.user.id}`);
-      const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+      const loaded = await loadAuthorizedWorkspaceConcept(req.user.id, conceptId);
       if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
 
       const title = String(req.body?.title || '').trim();
@@ -267,7 +326,7 @@ const buildConceptWorkspaceRouter = ({
       console.log(`[WORKSPACE] PATCH section concept=${conceptId} section=${sectionId} user=${req.user.id}`);
       if (!sectionId) return res.status(400).json({ error: 'sectionId is required.' });
 
-      const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+      const loaded = await loadAuthorizedWorkspaceConcept(req.user.id, conceptId);
       if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
 
       let workspace = loaded.workspace;
@@ -318,7 +377,7 @@ const buildConceptWorkspaceRouter = ({
     try {
       const conceptId = String(req.params.conceptId || '').trim();
       console.log(`[WORKSPACE] POST block attach concept=${conceptId} user=${req.user.id}`);
-      const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+      const loaded = await loadAuthorizedWorkspaceConcept(req.user.id, conceptId);
       if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
 
       const source = await resolveWorkspaceAttachSource(req.user.id, req.body?.type, req.body?.refId);
@@ -339,6 +398,20 @@ const buildConceptWorkspaceRouter = ({
       const parentId = req.body?.parentId !== undefined ? String(req.body.parentId || '').trim() : undefined;
       const order = req.body?.order;
       const existingIds = new Set((loaded.workspace.items || []).map(item => item.id));
+      const existingBlock = (loaded.workspace.items || []).find(item =>
+        item.type === source.type
+        && String(item.refId) === String(source.refId)
+        && item.groupId === groupId
+      );
+      if (existingBlock) {
+        return res.status(200).json({
+          conceptId: String(loaded.concept._id),
+          conceptName: loaded.concept.name,
+          block: existingBlock,
+          workspace: loaded.workspace,
+          reused: true
+        });
+      }
       const workspace = applyPatchOp(loaded.workspace, {
         op: 'addItem',
         payload: {
@@ -346,6 +419,8 @@ const buildConceptWorkspaceRouter = ({
           refId: source.refId,
           groupId,
           stage,
+          inlineTitle: source.inlineTitle,
+          inlineText: source.inlineText,
           ...(parentId !== undefined ? { parentId } : {}),
           ...(order !== undefined ? { order } : {})
         }
@@ -384,7 +459,7 @@ const buildConceptWorkspaceRouter = ({
       console.log(`[WORKSPACE] PATCH block concept=${conceptId} block=${blockId} user=${req.user.id}`);
       if (!blockId) return res.status(400).json({ error: 'blockId is required.' });
 
-      const loaded = await loadWorkspaceConcept(req.user.id, conceptId);
+      const loaded = await loadAuthorizedWorkspaceConcept(req.user.id, conceptId);
       if (!loaded) return res.status(404).json({ error: 'Concept not found.' });
 
       let workspace = loaded.workspace;
@@ -421,6 +496,22 @@ const buildConceptWorkspaceRouter = ({
       }
 
       if (hasUpdate) {
+        const currentBlock = (workspace.items || []).find(item => item.id === blockId);
+        if (!currentBlock) return res.status(404).json({ error: 'Block not found.' });
+        if (req.body?.type !== undefined || req.body?.refId !== undefined) {
+          const source = await resolveWorkspaceAttachSource(
+            req.user.id,
+            req.body?.type !== undefined ? req.body.type : currentBlock.type,
+            req.body?.refId !== undefined ? req.body.refId : currentBlock.refId
+          );
+          if (!source) {
+            return res.status(404).json({ error: 'Source item not found for this user.' });
+          }
+          req.body.type = source.type;
+          req.body.refId = source.refId;
+          req.body.inlineTitle = source.inlineTitle;
+          req.body.inlineText = source.inlineText;
+        }
         workspace = applyPatchOp(workspace, {
           op: 'updateItem',
           payload: {
@@ -429,7 +520,9 @@ const buildConceptWorkspaceRouter = ({
               ...(req.body?.stage !== undefined ? { stage: req.body.stage } : {}),
               ...(req.body?.status !== undefined ? { status: req.body.status } : {}),
               ...(req.body?.type !== undefined ? { type: req.body.type } : {}),
-              ...(req.body?.refId !== undefined ? { refId: req.body.refId } : {})
+              ...(req.body?.refId !== undefined ? { refId: req.body.refId } : {}),
+              ...(req.body?.inlineTitle !== undefined ? { inlineTitle: req.body.inlineTitle } : {}),
+              ...(req.body?.inlineText !== undefined ? { inlineText: req.body.inlineText } : {})
             }
           }
         });

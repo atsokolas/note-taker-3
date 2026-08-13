@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import IdeaWorkbenchHypothesisEditor from './idea-workbench/IdeaWorkbenchHypothesisEditor';
 import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { sanitizeAgentReplyText } from './idea-workbench/useIdeaWorkbenchModel';
@@ -429,54 +429,6 @@ const ConceptEvidenceStreamView = ({
     await model.actions.dispatchConceptAction(action);
   };
 
-  const [isCardDragging, setIsCardDragging] = useState(false);
-  const [isDropzoneHover, setIsDropzoneHover] = useState(false);
-  useEffect(() => {
-    const matchesEvidenceDrag = (event) => {
-      const types = event?.dataTransfer?.types;
-      if (!types) return false;
-      try {
-        return Array.from(types).includes('application/x-noeis-card-id');
-      } catch (_) {
-        return false;
-      }
-    };
-    const handleStart = (event) => {
-      if (matchesEvidenceDrag(event)) setIsCardDragging(true);
-    };
-    const handleEnd = () => {
-      setIsCardDragging(false);
-      setIsDropzoneHover(false);
-    };
-    document.addEventListener('dragstart', handleStart);
-    document.addEventListener('dragend', handleEnd);
-    document.addEventListener('drop', handleEnd);
-    return () => {
-      document.removeEventListener('dragstart', handleStart);
-      document.removeEventListener('dragend', handleEnd);
-      document.removeEventListener('drop', handleEnd);
-    };
-  }, []);
-  const handleDropzoneDragOver = useCallback((event) => {
-    if (!isCardDragging) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-    setIsDropzoneHover(true);
-  }, [isCardDragging]);
-  const handleDropzoneDragLeave = useCallback(() => {
-    setIsDropzoneHover(false);
-  }, []);
-  const handleDropzoneDrop = useCallback((event) => {
-    if (!isCardDragging) return;
-    event.preventDefault();
-    setIsDropzoneHover(false);
-    setIsCardDragging(false);
-    const cardId = event.dataTransfer.getData('application/x-noeis-card-id');
-    if (!cardId) return;
-    const card = model.state.cards.find((c) => String(c.id) === String(cardId));
-    if (card) onDropCard?.(card, null, null);
-  }, [isCardDragging, model.state.cards, onDropCard]);
-
   return (
     <div className={`concept-editorial-view ${isFreshConcept ? 'is-fresh' : ''}`.trim()}>
       {!isFreshConcept && (
@@ -565,24 +517,6 @@ const ConceptEvidenceStreamView = ({
           </aside>
         )}
 
-        {!isFreshConcept && (
-          <div
-            className={[
-              'concept-editorial-view__dropzone',
-              isCardDragging ? 'is-active' : '',
-              isDropzoneHover ? 'is-hovering' : ''
-            ].filter(Boolean).join(' ')}
-            data-testid="concept-evidence-dropzone"
-            onDragOver={handleDropzoneDragOver}
-            onDragEnter={handleDropzoneDragOver}
-            onDragLeave={handleDropzoneDragLeave}
-            onDrop={handleDropzoneDrop}
-            aria-live="polite"
-          >
-            <span aria-hidden="true">⊕</span>
-            <p>{isDropzoneHover ? 'Drop to integrate' : 'Drag evidence here to integrate'}</p>
-          </div>
-        )}
       </article>
     </div>
   );
@@ -595,7 +529,8 @@ export const ConceptEvidenceStreamRail = ({
   activeSection = 'assistant',
   onOpenTemplatePicker,
   personalAgents = [],
-  referencePullInSlot = null
+  referencePullInSlot = null,
+  groundedObjectsSlot = null
 }) => {
   const contradictionCards = model.state.cards.filter((card) => card.zone === 'contradictions');
   const supportCards = model.state.cards.filter((card) => card.zone === 'supports');
@@ -913,11 +848,12 @@ export const ConceptEvidenceStreamRail = ({
 
       <EditorialSideRailCollapsible
         title="Pulled material"
-        subtitle={`${pulledMaterialCards.length > 0 ? `${pulledMaterialCards.length} ready` : 'Waiting for the next agent move'}.`}
+        subtitle="Drag sources directly into the notebook."
         className="concept-editorial-evidence__collapsible"
         testId="concept-rail-pulled-material"
       >
-        <section className="concept-editorial-evidence__section concept-editorial-evidence__section--nested">
+        {groundedObjectsSlot}
+        {(pulledMaterialCards.length > 0 || !groundedObjectsSlot) && <section className="concept-editorial-evidence__section concept-editorial-evidence__section--nested">
           <p className="concept-editorial-evidence__section-copy">
             Articles, highlights, and source leads the partner surfaced for this concept.
           </p>
@@ -947,7 +883,7 @@ export const ConceptEvidenceStreamRail = ({
           ) : (
             <p className="concept-editorial-evidence__empty">Pulled sources and highlights will collect here after the next agent move.</p>
           )}
-        </section>
+        </section>}
       </EditorialSideRailCollapsible>
 
       {hasPreparedMoves && (

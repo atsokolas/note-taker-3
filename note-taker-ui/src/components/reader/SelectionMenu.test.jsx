@@ -11,9 +11,8 @@ const baseProps = {
   onTagInputChange: () => {},
   onHighlight: () => {},
   onAddConcept: () => {},
-  onAddDump: () => {},
-  onAddNotebook: () => {},
-  onAddQuestion: () => {}
+  onAddQuestion: () => {},
+  onAskLibrarian: () => {}
 };
 
 describe('SelectionMenu', () => {
@@ -39,7 +38,9 @@ describe('SelectionMenu', () => {
     expect(menu.style.top).toBe('192px');
     expect(menu.style.left).toBe('440px');
     expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Notebook' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create concept' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create question' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask Librarian' })).toBeInTheDocument();
   });
 
   it('drives --selection-menu-x toward the pointer when motion is allowed', () => {
@@ -89,7 +90,7 @@ describe('SelectionMenu', () => {
     const onAddConcept = jest.fn();
     render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onAddConcept={onAddConcept} />);
     fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Concept' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create concept' }));
     expect(onHighlight).toHaveBeenCalledTimes(1);
     expect(onAddConcept).toHaveBeenCalledTimes(1);
   });

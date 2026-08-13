@@ -26,7 +26,8 @@ const mockEditor = {
     }
   },
   view: {
-    coordsAtPos: jest.fn(() => ({ left: 0, right: 0, top: 0, bottom: 0 }))
+    coordsAtPos: jest.fn(() => ({ left: 0, right: 0, top: 24, bottom: 24 })),
+    posAtCoords: jest.fn(() => ({ pos: 2 }))
   },
   commands: {
     setContent: jest.fn(),
@@ -176,5 +177,33 @@ describe('IdeaWorkbenchHypothesisEditor', () => {
         content: [{ type: 'text', text: 'Why it matters: ' }]
       }
     ]);
+  });
+
+  it('shows a native insertion guide and drops once at the pointer position', () => {
+    const onDropCard = jest.fn();
+    const { container } = render(
+      <IdeaWorkbenchHypothesisEditor
+        value="<p>Draft</p>"
+        onChange={jest.fn()}
+        onDropCard={onDropCard}
+      />
+    );
+    const shell = container.querySelector('.idea-workbench-hypothesis__editor-shell');
+    const card = { id: 'source-1', title: 'Exact source' };
+    const dataTransfer = {
+      types: ['application/x-noeis-card-id', 'application/x-noeis-card-json'],
+      getData: (type) => type === 'application/x-noeis-card-json' ? JSON.stringify(card) : 'source-1',
+      setData: jest.fn(),
+      dropEffect: ''
+    };
+
+    fireEvent.dragOver(shell, { clientX: 30, clientY: 24, dataTransfer });
+    expect(mockEditor.view.posAtCoords).toHaveBeenCalledWith({ left: undefined, top: undefined });
+    expect(shell).toHaveAttribute('data-drop-active', 'true');
+
+    fireEvent.drop(shell, { clientX: 30, clientY: 24, dataTransfer });
+    expect(shell).toHaveAttribute('data-drop-active', 'false');
+    expect(onDropCard).toHaveBeenCalledTimes(1);
+    expect(onDropCard).toHaveBeenCalledWith(card, expect.anything(), mockEditor);
   });
 });
