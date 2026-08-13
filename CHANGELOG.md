@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0.1 — 2026-08-13
+
+### Changed
+
+- Real Judgment dossiers now open in the account-backed Board posture by default, with Case one click away for canonical editing.
+- Board evidence selection now retargets the persistent agent to the exact Library source identity.
+
+### Fixed
+
+- The Judgment board is no longer restricted to the artificial preview route.
+- Four board lanes remain visible at Safari-sidebar widths without colliding with the agent rail.
+
 ## 1.1.0.0 — 2026-08-13
 
 ### Added

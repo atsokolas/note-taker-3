@@ -834,10 +834,11 @@ export const buildJudgmentCases = (pages = [], decisions = []) => {
   });
 };
 
-const exactCaseHref = ({ view, pageId, decisionId = '', preview = false }) => {
+const exactCaseHref = ({ view, pageId, decisionId = '', preview = false, mode = '' }) => {
   const query = new URLSearchParams({ view, page: pageId });
   if (decisionId) query.set('decision', decisionId);
   if (preview) query.set('preview', 'artificial');
+  if (mode) query.set('mode', mode);
   return `/judgment?${query.toString()}`;
 };
 
@@ -1162,12 +1163,188 @@ const TraceNode = ({ label, href, state = '', detail = '' }) => (
   </li>
 );
 
+const StandardJudgmentBoard = ({
+  selectedCase,
+  selectedDecision,
+  page,
+  evidenceDelta,
+  acceptedRevisionId,
+  retainedLessons
+}) => {
+  const grounding = groundingFor(selectedDecision);
+  const evidence = [...grounding.sources.map(source => ({
+    id: clean(source?.sourceRefId || source?.id),
+    title: clean(source?.title) || 'Untitled Library source',
+    href: safeHref(source?.href),
+    state: 'Decision-time ground'
+  })), ...evidenceDelta.map(source => ({
+    id: clean(source?.id),
+    title: clean(source?.title) || 'Untitled current source',
+    href: safeHref(source?.href),
+    state: 'Current evidence · outside frozen grounds'
+  }))].filter((source, index, rows) => source.id && rows.findIndex(candidate => candidate.id === source.id) === index);
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState(evidence[0]?.id || '');
+
+  useEffect(() => {
+    if (!evidence.some(item => item.id === selectedEvidenceId)) {
+      setSelectedEvidenceId(evidence[0]?.id || '');
+    }
+  }, [evidence, selectedEvidenceId]);
+
+  const selectedEvidence = evidence.find(item => item.id === selectedEvidenceId) || evidence[0] || null;
+  const claims = grounding.claims;
+  const falsifiers = list(page?.judgment?.falsifiers);
+  const unknowns = list(page?.judgment?.unknowns);
+  const decision = selectedDecision?.decision || null;
+  const outcome = selectedDecision?.outcome || null;
+  const observed = clean(outcome?.state) === 'observed';
+  const caseHref = exactCaseHref({
+    view: 'dossiers',
+    pageId: selectedCase?.pageId || '',
+    decisionId: selectedDecision?.identity?.decisionId || '',
+    mode: 'case'
+  });
+
+  return (
+    <div className="judgment-board-shell judgment-board-shell--standard">
+      <header className="judgment-board__header">
+        <div>
+          <p className="judgment-room__eyebrow">Living board · account-backed</p>
+          <h1>{selectedCase?.title || 'Judgment'}</h1>
+          <p>Accepted knowledge, frozen decisions, and retained lessons in one view.</p>
+        </div>
+        <nav className="judgment-surface-toggle" aria-label="Judgment surface">
+          <Link to={caseHref}>Case</Link>
+          <span aria-current="page">Board</span>
+        </nav>
+      </header>
+
+      <div className="judgment-board__body">
+        <div className="judgment-board__viewport" aria-label={`${selectedCase?.title || 'Judgment'} board`}>
+          <div className="judgment-board__lanes">
+            <section className="judgment-board__lane judgment-board__lane--evidence" aria-labelledby="standard-board-evidence-title">
+              <header><span>01</span><h2 id="standard-board-evidence-title">Evidence</h2><small>Library ground</small></header>
+              <div className="judgment-board__stack">
+                {evidence.length ? evidence.map(source => (
+                  <button
+                    type="button"
+                    key={source.id}
+                    className={`judgment-board__slip${selectedEvidence?.id === source.id ? ' is-selected' : ''}`}
+                    onClick={() => setSelectedEvidenceId(source.id)}
+                  >
+                    <span>{source.state}</span>
+                    <strong>{source.title}</strong>
+                    <p>{source.href ? 'Open the exact source from the evidence margin.' : 'The exact source identity is retained, but no reader link is available.'}</p>
+                  </button>
+                )) : <p className="judgment-board__drop-note">No exact Library source identities are attached to this judgment yet.</p>}
+              </div>
+            </section>
+
+            <section className="judgment-board__lane" aria-labelledby="standard-board-claims-title">
+              <header><span>02</span><h2 id="standard-board-claims-title">What it suggests</h2><small>Accepted Wiki knowledge</small></header>
+              {claims.length ? claims.map(claim => (
+                <article className="judgment-board__card judgment-board__card--accepted" key={clean(claim?.id) || clean(claim?.title)}>
+                  <span>Accepted claim</span>
+                  <h3>{clean(claim?.title) || 'Untitled accepted claim'}</h3>
+                  <p>{acceptedRevisionId ? `Accepted revision · ${acceptedRevisionId}` : 'Accepted revision identity unavailable'}</p>
+                </article>
+              )) : <p className="judgment-board__drop-note">No accepted claim identities are attached. Noeis will not infer them.</p>}
+              <Link className="judgment-board__lane-action" to={`${caseHref}#current-thesis`}>Review the current thesis →</Link>
+            </section>
+
+            <section className="judgment-board__lane" aria-labelledby="standard-board-break-title">
+              <header><span>03</span><h2 id="standard-board-break-title">What could break it</h2><small>Disconfirming tests</small></header>
+              {falsifiers.map((item, index) => (
+                <article className="judgment-board__card judgment-board__card--signal" key={`${clean(item?.text || item)}-${index}`}>
+                  <span>Falsifier</span>
+                  <h3>{clean(item?.text || item) || 'Unspecified condition'}</h3>
+                </article>
+              ))}
+              {unknowns.map((item, index) => (
+                <article className="judgment-board__card" key={`${clean(item?.question || item)}-${index}`}>
+                  <span>Open question</span>
+                  <h3>{clean(item?.question || item) || 'Unspecified question'}</h3>
+                </article>
+              ))}
+              {!falsifiers.length && !unknowns.length ? <p className="judgment-board__drop-note">No accepted falsifiers or open questions are recorded.</p> : null}
+              <Link className="judgment-board__lane-action" to={`${caseHref}#falsifiers`}>Update the conditions →</Link>
+            </section>
+
+            <section className="judgment-board__lane" aria-labelledby="standard-board-decision-title">
+              <header><span>04</span><h2 id="standard-board-decision-title">Decision & lesson</h2><small>Frozen, then learned</small></header>
+              {decision ? (
+                <article className="judgment-board__card judgment-board__card--decision">
+                  <span>Frozen decision{decision.acceptedAt ? ` · ${formatDate(decision.acceptedAt)}` : ''}</span>
+                  <h3>{clean(decision.summary) || 'Decision summary unavailable'}</h3>
+                  <p>{clean(decision.rationale) || 'The original rationale is retained in the case record.'}</p>
+                </article>
+              ) : <p className="judgment-board__drop-note">No accepted decision is attached.</p>}
+              {decision?.expectedOutcome ? (
+                <article className="judgment-board__card">
+                  <span>Expected outcome</span>
+                  <h3>{decision.expectedOutcome}</h3>
+                </article>
+              ) : null}
+              {observed ? (
+                <article className="judgment-board__card judgment-board__card--lesson">
+                  <span>Human-confirmed lesson</span>
+                  <h3>{clean(outcome?.lesson) || 'No lesson was retained.'}</h3>
+                  {outcome?.summary ? <p>{outcome.summary}</p> : null}
+                </article>
+              ) : <p className="judgment-board__drop-note">No outcome or lesson has been inferred.</p>}
+              <Link className="judgment-board__lane-action" to={`${caseHref}#decision-record`}>Open the canonical record →</Link>
+            </section>
+          </div>
+        </div>
+
+        <aside className="judgment-board__partner judgment-board__partner--standard" aria-label="Judgment partner">
+          <header>
+            <p className="judgment-room__eyebrow">Persistent agent</p>
+            <h2>{selectedEvidence ? 'Selected evidence' : 'Judgment partner'}</h2>
+          </header>
+          {selectedEvidence ? (
+            <div className="judgment-board__selection">
+              <span>{selectedEvidence.state}</span>
+              <strong>{selectedEvidence.title}</strong>
+              {selectedEvidence.href ? <Link to={selectedEvidence.href}>Open exact source →</Link> : <p>Reader link unavailable.</p>}
+            </div>
+          ) : null}
+          <ThoughtPartnerPanel
+            contextType="wiki"
+            contextId={selectedCase?.pageId}
+            contextTitle={selectedCase?.title || 'Judgment'}
+            title="Retrieve for this judgment"
+            subtitle="Grounded in accepted knowledge"
+            placeholder="Find support, tension, or what changed…"
+            emptyStateText="Retrieve from your Library, challenge the thesis, or compare this decision with retained lessons."
+            promptTemplates={[
+              'Find counter-evidence to this judgment.',
+              'What changed since this decision was made?',
+              'Retrieve Library evidence for the weakest assumption.'
+            ]}
+            contextMetadata={{
+              pageId: selectedCase?.pageId || null,
+              decisionId: selectedDecision?.identity?.decisionId || null,
+              acceptedRevisionId: acceptedRevisionId || null,
+              selectedSourceRefId: selectedEvidence?.id || null,
+              retainedLessons
+            }}
+          />
+        </aside>
+      </div>
+    </div>
+  );
+};
+
 const Judgment = () => {
   const location = useLocation();
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const previewMode = params.get('preview') === 'artificial';
-  const surfaceMode = previewMode && params.get('mode') === 'board' ? 'board' : 'case';
   const activeView = resolveJudgmentView(location.search);
+  const requestedSurfaceMode = clean(params.get('mode')).toLowerCase();
+  const surfaceMode = previewMode
+    ? (requestedSurfaceMode === 'board' ? 'board' : 'case')
+    : (activeView.id === 'dossiers' && requestedSurfaceMode !== 'case' ? 'board' : 'case');
   const initialPages = useMemo(
     () => (previewMode ? [ARTIFICIAL_JUDGMENT_PAGE] : readWikiPageCache()),
     [previewMode]
@@ -1471,7 +1648,25 @@ const Judgment = () => {
 
   return (
     <section className="judgment-room noeis-editorial">
-      {surfaceMode === 'board' ? <ArtificialJudgmentBoard /> : (
+      {surfaceMode === 'board' && previewMode ? <ArtificialJudgmentBoard /> : surfaceMode === 'board' && !decisionIndexError ? (
+        loading ? <p className="judgment-case__loading" role="status">Opening the living board…</p> : selectedCase ? (
+          <StandardJudgmentBoard
+            selectedCase={selectedCase}
+            selectedDecision={selectedDecision}
+            page={page}
+            evidenceDelta={evidenceDelta}
+            acceptedRevisionId={acceptedRevisionId}
+            retainedLessons={retainedLessons}
+          />
+        ) : (
+          <div className="judgment-case__empty">
+            <p className="judgment-room__eyebrow">Judgment</p>
+            <h1>No living cases yet</h1>
+            <p>Accept a grounded Wiki claim before recording a consequential decision.</p>
+            <Link to="/wiki">Open Wiki</Link>
+          </div>
+        )
+      ) : (
       <div className="judgment-casebook-shell">
         <aside className="judgment-room__rail" aria-label="Judgment sections">
           <p className="judgment-room__rail-label">Casebook</p>
@@ -1525,12 +1720,18 @@ const Judgment = () => {
               <header className="judgment-case__heading">
                 <div className="judgment-case__heading-row">
                   <p className="judgment-room__eyebrow">{previewMode ? 'Artificial preview · ' : ''}Judgment · {activeView.label}</p>
-                  {previewMode ? (
-                    <nav className="judgment-surface-toggle" aria-label="Judgment surface">
-                      <span aria-current="page">Case</span>
-                      <Link to={artificialSurfaceHref('board')}>Board</Link>
-                    </nav>
-                  ) : null}
+                  <nav className="judgment-surface-toggle" aria-label="Judgment surface">
+                    <span aria-current="page">Case</span>
+                    <Link to={previewMode
+                      ? artificialSurfaceHref('board')
+                      : exactCaseHref({
+                        view: 'dossiers',
+                        pageId: selectedCase?.pageId || '',
+                        decisionId: selectedDecision?.identity?.decisionId || '',
+                        mode: 'board'
+                      })}
+                    >Board</Link>
+                  </nav>
                 </div>
                 <h1>{selectedCase.title}</h1>
                 <p className="judgment-case__lede">{viewLede}</p>
