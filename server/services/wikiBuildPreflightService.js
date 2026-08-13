@@ -5,6 +5,28 @@ const {
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
+const topicPhrasePattern = (value = '') => {
+  const words = clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 2);
+  if (!words.length) return null;
+  return new RegExp(words.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:\\s+|[-–—]\\s*)'), 'i');
+};
+
+const directlyAddressesTopic = (source = {}, topic = '') => {
+  const pattern = topicPhrasePattern(topic);
+  if (!pattern) return false;
+  return pattern.test([
+    source.title,
+    source.text,
+    source.snippet,
+    source.quote,
+    ...(Array.isArray(source.tags) ? source.tags : [])
+  ].filter(Boolean).join(' '));
+};
+
 const sourceIdentity = (source = {}) => [
   clean(source.type),
   clean(source.objectId),
@@ -61,7 +83,10 @@ const prepareOrdinaryWikiBuild = async ({
     fastProfile: true
   });
   const candidates = selectCandidateSources({ page, sources: librarySources, limit: sourceLimit });
-  const directSources = candidates.filter(source => Number(source.topicCoverage || 0) >= 0.8);
+  const directSources = candidates.filter(source => (
+    Number(source.topicCoverage || 0) >= 0.8
+    && directlyAddressesTopic(source, topic)
+  ));
   if (!directSources.length) {
     return {
       eligible: false,
@@ -97,6 +122,7 @@ const prepareOrdinaryWikiBuild = async ({
 };
 
 module.exports = {
+  directlyAddressesTopic,
   prepareOrdinaryWikiBuild,
   sourceRefFromCandidate
 };

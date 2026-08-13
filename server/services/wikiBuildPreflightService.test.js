@@ -25,6 +25,12 @@ const run = async () => {
       content: 'Attention affects serving latency, but this source only discusses dense model execution.',
       highlights: [],
       tags: ['attention']
+    }, {
+      _id: '507f1f77bcf86cd79943903',
+      title: 'Quantization damage is multiplicative',
+      content: 'Quantization contracts decision margins. Operational safety checks catch malformed model outputs, but the source does not discuss the investing concept.',
+      highlights: [],
+      tags: ['model safety']
     }]),
     NotebookEntry: findModel([]),
     TagMeta: findModel([]),
@@ -66,6 +72,15 @@ const run = async () => {
   });
   assert.equal(scoped.eligible, true);
   assert.equal(scoped.sourceRefs[0].title, 'Sparse attention for long-context models');
+
+  const lexicalFalsePositive = await prepareOrdinaryWikiBuild({
+    userId: 'user-1',
+    title: 'Margin of Safety',
+    createdFrom: { type: 'idea', text: 'Explain margin of safety.' },
+    models
+  });
+  assert.equal(lexicalFalsePositive.eligible, false);
+  assert.equal(lexicalFalsePositive.code, 'WIKI_BUILD_EVIDENCE_MISSING');
 
   console.log('wikiBuildPreflightService tests passed');
 };
