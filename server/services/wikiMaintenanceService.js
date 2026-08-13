@@ -20,6 +20,13 @@ const {
 } = require('./investmentDossierProfileService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
+const {
+  sourceFamilyKey,
+  evaluateOwnedSourceUtilization,
+  normalizeExclusions,
+  resolveExclusionFamilies,
+  isOwnedSource
+} = require('./wikiOwnedSourceUtilizationService');
 
 const DEFAULT_SOURCE_LIMIT = 24;
 const FAST_SOURCE_LIMIT = 8;
@@ -344,6 +351,16 @@ const ordinaryGroundingTokens = (value = '') => Array.from(new Set(
     .filter(token => token.length >= 4)
 ));
 
+// Real synthesis draws a relationship that no single source states in its own
+// words, so a pure lexical-overlap gate punishes the article for doing its job.
+// The repaired judge keeps rejecting free-floating abstraction — a sentence
+// with no recognizable anchor in its own cited evidence — while accepting a
+// sentence that visibly bridges two or more cited sources by carrying anchors
+// from each of them.
+const MIN_ORDINARY_GROUNDING_RATIO = 0.2;
+const MIN_SYNTHESIS_BRIDGE_SOURCES = 2;
+const MIN_SYNTHESIS_ANCHORS_TOTAL = 3;
+
 const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
   (Array.isArray(claims) ? claims : []).flatMap((claim) => {
     if (normalizeClaimSupport(claim?.support) === 'unsupported') return [];
@@ -352,11 +369,13 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
       ...(claim?.contradictionIndexes || [])
     ]);
     if (!indexes.length) return [];
-    const citedText = indexes.map(index => {
+    const perSourceTokens = indexes.map((index) => {
       const source = sourceRefs[index - 1] || {};
-      return [source.title, source.snippet, source.quote, source.text].filter(Boolean).join(' ');
-    }).join(' ');
-    const evidenceTokens = new Set(ordinaryGroundingTokens(citedText));
+      return new Set(ordinaryGroundingTokens(
+        [source.title, source.snippet, source.quote, source.text].filter(Boolean).join(' ')
+      ));
+    }).filter(tokens => tokens.size);
+    const evidenceTokens = new Set(perSourceTokens.flatMap(tokens => Array.from(tokens)));
     if (!evidenceTokens.size) return [];
     return String(claim?.text || '')
       .split(/(?<=[.!?])\s+/)
@@ -365,8 +384,24 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
       .filter((sentence) => {
         const tokens = ordinaryGroundingTokens(sentence);
         if (tokens.length < 5) return false;
-        const matched = tokens.filter(token => evidenceTokens.has(token)).length;
-        return matched / tokens.length < 0.2;
+        const anchors = tokens.filter(token => evidenceTokens.has(token));
+        if (anchors.length / tokens.length >= MIN_ORDINARY_GROUNDING_RATIO) return false;
+        // A sentence with almost no anchor is an unsupported abstraction no
+        // matter how many sources the paragraph cites.
+        if (anchors.length < MIN_SYNTHESIS_ANCHORS_TOTAL) return true;
+        if (perSourceTokens.length < MIN_SYNTHESIS_BRIDGE_SOURCES) return true;
+        // A term every cited source shares says nothing about which source the
+        // sentence drew on, so it cannot establish a bridge. Only an anchor
+        // distinctive to one source shows that source was actually used; a
+        // sentence restating one source while nodding at a shared word is
+        // still ungrounded drift, not synthesis.
+        const bridgedSources = perSourceTokens
+          .filter(sourceTokens => anchors.some(token => (
+            sourceTokens.has(token)
+            && perSourceTokens.some(other => !other.has(token))
+          )))
+          .length;
+        return bridgedSources < MIN_SYNTHESIS_BRIDGE_SOURCES;
       })
       .map(sentence => truncate(sentence, 220));
   }).filter(Boolean).slice(0, 4)
@@ -456,10 +491,6 @@ const sourceTopicCoverage = (source = {}, title = '') => {
   });
   return Number((matched.length / tokens.length).toFixed(2));
 };
-
-const sourceFamilyKey = (source = {}) => asString(
-  source.parentObjectId || source.objectId || source.url || source.title
-).toLowerCase();
 
 const scoreSource = (source, queryTokens = []) => {
   const haystack = `${source.title} ${source.text} ${(source.tags || []).join(' ')}`.toLowerCase();
@@ -1132,13 +1163,22 @@ const formatOrdinaryEvidenceMap = ({ page = {}, candidates = [] } = {}) => {
     .filter(item => item.family)
     .map((item, index) => `  ${index + 1}. Sources [${item.indexes.join(', ')}] are one evidence family; give that family one distinct job.`)
     .join('\n');
+  const ownedIndexes = candidates.filter(isOwnedSource).map(source => source.index);
   return `
 Ordinary Wiki evidence map:
 - Page subject: "${topic}".
 - Direct subject sources: ${direct.length ? `[${direct.join(', ')}]` : 'none'}.
 - Adjacent or contextual sources: ${adjacent.length ? `[${adjacent.join(', ')}]` : 'none'}.
+- Account-owned Library sources: ${ownedIndexes.length ? `[${ownedIndexes.join(', ')}]` : 'none'}.
 - The opening definition and core mechanism must be supported by direct subject sources. Adjacent sources may illustrate a clearly labeled application, analogy, or tension; they cannot define the subject.
 ${familyJobs || '  No distinct evidence families were detected.'}
+
+Owned-source utilization contract:
+- Every account-owned evidence family above must either shape a visible claim or be explicitly excluded. Listing a source in the reference ledger is not use.
+- Shaping a claim means the family supports it, challenges or complicates it, or supplies the context or example that makes it concrete. Cite that family in the paragraph's citationIndexes or contradictionIndexes.
+- When two owned families disagree, write the disagreement as a tension with both cited and support "conflicted". Do not average them into one agreeable sentence.
+- Do not force an owned source into the article. If a family is irrelevant to this subject, duplicates another family, or is too thin to carry a claim, list it in excludedSources with a specific reason. An unexplained omission is a failure; an explained one is not.
+- Public or general-authority sources may strengthen an account-grounded article, but they cannot stand in for the user's own material.
 `;
 };
 
@@ -1280,7 +1320,10 @@ Return strict JSON only:
       "relatedPages": [{ "text": "related topic or page" }]
     }
   },
-  "sourceIndexesUsed": [1, 2]
+  "sourceIndexesUsed": [1, 2],
+  "excludedSources": [
+    { "index": 4, "reason": "specific reason this owned source does not belong in the article" }
+  ]
 }`;
 };
 
@@ -1326,6 +1369,7 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - Remove repeated sentences and repeated explanations. The opening should orient once; every later section must advance the article with a distinct mechanism, case, boundary, implication, or unresolved tension.
 - Replace generic section labels with headings that name the actual subject matter covered there.
 - If a source does not directly support the subject, omit it rather than inventing a connection. Keep any resulting evidence gap explicit in Open Questions.
+- If the failures name unused owned Library evidence, repair it by having that material shape a real claim — supporting, complicating, or supplying a concrete case — or by listing it in excludedSources with a specific reason. Do not repair it by appending a citation to an unrelated sentence.
 ` : ''}
 Return the complete repaired article. Make defensible claims, compare evidence, and include concrete tensions.`
 );
@@ -3558,7 +3602,8 @@ const normalizeModelResult = ({ raw, page, candidates, manualNotes = '' }) => {
       article,
       changelog,
       candidates
-    })
+    }),
+    excludedSources: normalizeExclusions(raw.excludedSources || raw.excludedSourceIndexes || [])
   };
 };
 
@@ -3571,6 +3616,8 @@ const evaluateWikiArticleQuality = ({
   claims = [],
   sourceRefs = [],
   availableSourceCount = null,
+  excludedSources = [],
+  selectedSources = [],
   now = new Date(),
   skipDurableCitationCheck = false
 } = {}) => {
@@ -3627,6 +3674,7 @@ const evaluateWikiArticleQuality = ({
   let ordinaryGroundingGaps = [];
   let ordinaryRepeatedSentences = [];
   let ordinaryGenericHeadingCount = null;
+  let ownedSourceUtilization = null;
   const failures = [];
 
   SCAFFOLD_PATTERNS.forEach(({ label, pattern }) => {
@@ -3675,6 +3723,19 @@ const evaluateWikiArticleQuality = ({
       sourceTopicCoverage(source, topicalTitle) >= 0.8
     )).length;
     evidenceFamilyCount = new Set(sourceRefs.map(sourceFamilyKey).filter(Boolean)).size;
+    // Selecting the user's material is not the same as using it. Bind every
+    // owned source family to a visible claim, an explicit exclusion, or a
+    // failure — so a page can never look personalized on reference cards alone.
+    const utilization = evaluateOwnedSourceUtilization({
+      sourceRefs,
+      selectedSources,
+      topic: topicalTitle,
+      topicCoverage: sourceTopicCoverage,
+      usedCitationIndexes,
+      exclusions: excludedSources
+    });
+    ownedSourceUtilization = utilization.metrics;
+    utilization.failures.forEach(failure => failures.push(failure));
     if (!sourceCount && !skipDurableCitationCheck) {
       failures.push('Ordinary reference article has no cited Library sources; add or import material that directly explains the subject before rebuilding.');
     }
@@ -3854,6 +3915,7 @@ const evaluateWikiArticleQuality = ({
       ordinaryGroundingGapCount: ordinaryGroundingGaps.length,
       ordinaryRepeatedSentenceCount: ordinaryRepeatedSentences.length,
       ordinaryGenericHeadingCount,
+      ownedSourceUtilization,
       durableCitationCheckSkipped: Boolean(skipDurableCitationCheck),
       ...(investmentDossierQuality
         ? { investmentDossier: investmentDossierQuality.metrics }
@@ -3962,6 +4024,15 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
       claims,
       sourceRefs: qualitySourceRefs,
       availableSourceCount: candidates.length,
+      // Ordinary Wiki utilization is measured against what the account actually
+      // selected, not only against what survived onto the reference card.
+      selectedSources: investmentDossier || isGitHubRepoPage({ page, candidates })
+        ? []
+        : collectExistingSourceCandidates({ page }),
+      excludedSources: resolveExclusionFamilies({
+        exclusions: normalized.excludedSources || [],
+        sources: candidates
+      }),
       now,
       skipDurableCitationCheck: true
     })
@@ -4286,7 +4357,7 @@ const maintainWikiPage = async ({
     for (let repairAttempt = 1; repairAttempt <= maxQualityRebuildAttempts && !materialized.quality.ok; repairAttempt += 1) {
       if (repairAttempt > 1) {
         const remainingFailures = (materialized.quality.failures || []).join(' ');
-        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|causal process|meaningful limit/i.test(remainingFailures);
+        const editorialRepairStillActionable = /repeats substantive sentences|generic section heading|concrete example|too thin|lexical anchor|uncited|underuses its evidence|owned Library evidence|owned Library source|causal process|meaningful limit/i.test(remainingFailures);
         if (!editorialRepairStillActionable) break;
       }
       try {
@@ -4702,6 +4773,8 @@ module.exports = {
     normalizeModelResult,
     normalizeArticleTextBlock,
     findOrdinaryGroundingGaps,
+    sourceFamilyKey,
+    sourceTopicCoverage,
     groundingSourceRefsForCandidates,
     buildRebuildPrompt,
     evaluateWikiArticleQuality,
