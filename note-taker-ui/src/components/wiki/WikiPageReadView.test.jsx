@@ -6,6 +6,7 @@ import WikiPageReadView from './WikiPageReadView';
 import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import {
   approveWeekendReadingsRevision,
+  archiveWikiPage,
   askWikiPage,
   createWikiPage,
   getWikiAutolinkSuggestions,
@@ -2001,6 +2002,35 @@ describe('WikiPageReadView', () => {
       expect(receipt).toHaveTextContent('Used 3 of 4 selected Library source families.');
     });
     expect(receipt).toHaveTextContent('Parenting aside — One sentence with no mechanism to carry a claim.');
+  });
+
+  it('archives a page only after an explicit confirmation naming it', async () => {
+    archiveWikiPage.mockResolvedValueOnce({});
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByText('Page tools'));
+
+    const archiveTool = screen.getByRole('region', { name: 'Archive this Wiki page' });
+    // The first press asks rather than acts, and it names the page — so the
+    // wrong one of two same-titled duplicates cannot go quietly.
+    fireEvent.click(within(archiveTool).getByRole('button', { name: 'Archive page' }));
+    expect(archiveWikiPage).not.toHaveBeenCalled();
+    expect(archiveTool).toHaveTextContent('Archive “Enterprise AI Memory”?');
+
+    // Backing out leaves the page alone.
+    fireEvent.click(within(archiveTool).getByRole('button', { name: 'Keep it' }));
+    expect(archiveWikiPage).not.toHaveBeenCalled();
+
+    fireEvent.click(within(archiveTool).getByRole('button', { name: 'Archive page' }));
+    fireEvent.click(within(archiveTool).getByRole('button', { name: 'Yes, archive it' }));
+    await waitFor(() => expect(archiveWikiPage).toHaveBeenCalledWith('wiki-1'));
   });
 
   it('publishes a system receipt when page maintenance completes', async () => {
