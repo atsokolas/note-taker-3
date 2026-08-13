@@ -29,6 +29,7 @@ describe('Register', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('submits registration through the public auth path', async () => {
@@ -69,6 +70,61 @@ describe('Register', () => {
     expect(trackSignupStarted).toHaveBeenCalledTimes(1);
     expect(trackSignupSucceeded).toHaveBeenCalledWith({ username: 'alice' });
     expect(clearStoredTokens).toHaveBeenCalled();
+  });
+
+  it('signs the new account straight in instead of routing to the login form', async () => {
+    api.post.mockImplementation((path) => {
+      if (path === '/api/auth/register') {
+        return Promise.resolve({ data: { message: 'ok', loginMessage: 'Account created.' } });
+      }
+      return Promise.resolve({ data: { token: 'fresh-token', username: 'alice' } });
+    });
+    const onLoginSuccess = jest.fn();
+
+    render(
+      <MemoryRouter>
+        <Register chromeStoreLink="https://example.com" onLoginSuccess={onLoginSuccess} />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secret12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/api/auth/login',
+      { username: 'alice', password: 'secret12' },
+      { skipAuthHandling: true }
+    ));
+    await waitFor(() => expect(localStorage.getItem('token')).toBe('fresh-token'));
+    expect(onLoginSuccess).toHaveBeenCalledTimes(1);
+    // The old flow parked a notice for the login screen. There is no login screen now.
+    expect(sessionStorage.getItem('registration_notice')).toBeNull();
+  });
+
+  it('falls back to the login form when auto sign-in fails', async () => {
+    api.post.mockImplementation((path) => {
+      if (path === '/api/auth/register') {
+        return Promise.resolve({ data: { message: 'ok', loginMessage: 'Account created.' } });
+      }
+      return Promise.reject(new Error('login unavailable'));
+    });
+
+    render(
+      <MemoryRouter>
+        <Register chromeStoreLink="https://example.com" onLoginSuccess={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret12' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secret12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+
+    // The account exists; the user must still be able to get in.
+    await waitFor(() => expect(sessionStorage.getItem('registration_notice')).toBe('Account created.'));
+    expect(localStorage.getItem('token')).toBeNull();
   });
 
   it('blocks weak passwords before sending the request', async () => {

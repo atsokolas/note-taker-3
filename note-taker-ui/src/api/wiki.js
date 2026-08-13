@@ -361,6 +361,34 @@ export const maintainWikiPage = async (id, options = {}) => {
 
 export const draftWikiPage = maintainWikiPage;
 
+/**
+ * Start a page build and return as soon as the server has accepted it (202).
+ * The build continues server-side; poll getWikiPageBuildStatus for progress.
+ */
+export const startWikiPageBuild = async (id, options = {}) => {
+  const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft/async`, options, getAuthHeaders());
+  return res.data || {};
+};
+
+/**
+ * Read a detached build's state off the page itself.
+ * Returns one of: maintaining | ready | error | idle.
+ */
+export const getWikiPageBuildStatus = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
+  const page = res.data || {};
+  const aiState = page.aiState || {};
+  return {
+    pageId: safeId(id),
+    status: aiState.draftStatus || 'idle',
+    error: aiState.lastError || '',
+    errorCode: aiState.errorCode || '',
+    startedAt: aiState.draftStartedAt || null,
+    completedAt: aiState.draftCompletedAt || null,
+    page
+  };
+};
+
 const WIKI_STREAM_READ_TIMEOUT_MS = 45000;
 const RETRYABLE_WIKI_STREAM_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
@@ -916,6 +944,8 @@ const wikiApi = {
   deleteWikiPage,
   maintainWikiPage,
   draftWikiPage,
+  startWikiPageBuild,
+  getWikiPageBuildStatus,
   streamMaintainWikiPage,
   addWikiSource,
   removeWikiSource,

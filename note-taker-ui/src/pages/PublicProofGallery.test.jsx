@@ -2,11 +2,13 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import PublicProofGallery, { buildPublicProofGallerySchema } from './PublicProofGallery';
-import { getPublicProofRegistry } from '../api/wiki';
+import { getPublicProofRegistry, listWikiStarterPacks } from '../api/wiki';
 import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
 
 jest.mock('../api/wiki', () => ({
-  getPublicProofRegistry: jest.fn()
+  getPublicProofRegistry: jest.fn(),
+  listWikiStarterPacks: jest.fn(),
+  adoptWikiStarterPack: jest.fn()
 }));
 
 const proofItem = ({
@@ -156,6 +158,10 @@ describe('PublicProofGallery', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     getPublicProofRegistry.mockResolvedValue(registryPayload());
+    // The gallery now also offers forkable public wikis. Resolving empty keeps these
+    // assertions about proof objects. Set here, not in the module factory:
+    // restoreAllMocks above would wipe an implementation defined there.
+    listWikiStarterPacks.mockResolvedValue([]);
   });
 
   it('renders an honest candidate state without distributing the unaccepted Alphabet dossier', async () => {

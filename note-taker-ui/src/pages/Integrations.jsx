@@ -13,6 +13,7 @@ import useAgentEntitlements from '../hooks/integrations/useAgentEntitlements';
 import useAgentProtocolPolicy from '../hooks/integrations/useAgentProtocolPolicy';
 import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import DataIntegrations from './DataIntegrations';
+import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 
 const Integrations = () => {
   const [showAdvancedAgentSettings, setShowAdvancedAgentSettings] = useState(false);
@@ -82,6 +83,11 @@ const Integrations = () => {
           <p className="muted">
             Readwise browser OAuth is the primary path. Notion, Evernote, and file import stay on the same surface — API tokens live under Advanced.
           </p>
+        </Card>
+        {/* Capture is a source too — and until now the only way into the extension
+            was a link buried in the account menu. /connections#capture lands here. */}
+        <Card className="settings-card connections-section__capture">
+          <ExtensionCaptureCard heading="Capture" />
         </Card>
         <DataIntegrations embedded />
       </section>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { listWikiPages } from '../../api/wiki';
 import {
   armReadingWatch,
@@ -8,6 +8,7 @@ import {
   recordClaimCheckIn
 } from '../../api/dailyLoop';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import AgentContextShell from '../agent/AgentContextShell';
 import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
@@ -42,7 +43,6 @@ import '../../styles/wiki-front-page.css';
 
 const INDEX_PAGE_LIMIT = 500;
 const WATCHING_PREVIEW_LIMIT = 5;
-const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
 const WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
@@ -184,7 +184,6 @@ const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = 
 };
 
 const WikiFrontPage = () => {
-  const navigate = useNavigate();
   const pageIndexRequestRef = useRef(null);
   const [pages, setPages] = useState([]);
   const [briefing, setBriefing] = useState(null);
@@ -298,19 +297,20 @@ const WikiFrontPage = () => {
     () => dedupePagesByRepoKey(filterReturnViewItems(pages)),
     [pages]
   );
-  const onboardingComplete = (() => {
-    try {
-      return window.localStorage?.getItem(WIKI_ONBOARDING_COMPLETE_KEY) === 'true';
-    } catch (_error) {
-      return false;
-    }
-  })();
+  // First-run *routing* is owned by FirstRunGate at the app shell, so a new user
+  // meets onboarding wherever they land rather than only here. What stays is the
+  // part only this page can do: hold a placeholder instead of flashing an empty
+  // front page while the gate redirects, and record that a user who already has a
+  // wiki is past onboarding — which it knows from data it had to load anyway.
+  const onboardingComplete = isWikiOnboardingComplete();
   const shouldOpenOnboarding = !loading && !error && !onboardingComplete && hasAnyWikiContent === false;
 
   useEffect(() => {
-    if (!shouldOpenOnboarding) return;
-    navigate('/onboarding/wiki', { replace: true });
-  }, [navigate, shouldOpenOnboarding]);
+    if (loading || error) return;
+    if (hasAnyWikiContent !== true) return;
+    if (onboardingComplete) return;
+    markWikiOnboardingComplete();
+  }, [error, hasAnyWikiContent, loading, onboardingComplete]);
 
   const byId = useMemo(() => {
     const map = new Map();

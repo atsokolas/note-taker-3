@@ -33,7 +33,31 @@ const validateRegistration = ({ username, password, confirmPassword }) => {
   return '';
 };
 
-const Register = ({ chromeStoreLink }) => {
+/**
+ * Sign the freshly-created account in without a second form.
+ *
+ * /api/auth/register intentionally returns no token, so we chain a login call with
+ * the credentials the user just typed. Returns true only when a token was stored.
+ * Any failure falls back to the old behavior (send them to /login) rather than
+ * stranding a user whose account definitely exists.
+ */
+const autoLogin = async ({ username, password }) => {
+  const response = await api.post('/api/auth/login', { username, password }, { skipAuthHandling: true });
+  const token = response.data?.token;
+  if (!token) return false;
+  clearStoredTokens();
+  localStorage.setItem('token', token);
+  // Mirror the extension handoff Login.js performs, so the browser extension
+  // picks up the session without a separate sign-in.
+  if (window.chrome && window.chrome.storage && window.chrome.storage.local) {
+    window.chrome.storage.local.remove(['token', 'authToken', 'jwt'], () => {
+      window.chrome.storage.local.set({ token }, () => {});
+    });
+  }
+  return true;
+};
+
+const Register = ({ chromeStoreLink, onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -71,13 +95,38 @@ const Register = ({ chromeStoreLink }) => {
         password,
         marketingAttribution: readMarketingAttribution()
       }, { skipAuthHandling: true });
+      trackSignupSucceeded({ username: cleanUsername });
+
+      // Straight into the product. Onboarding starts work immediately after signup,
+      // so a second manual sign-in here is pure friction.
+      let signedIn = false;
+      try {
+        signedIn = await autoLogin({ username: cleanUsername, password });
+      } catch (_error) {
+        signedIn = false;
+      }
+
+      if (signedIn) {
+        if (typeof onLoginSuccess === 'function') onLoginSuccess();
+        let returnTo = '';
+        try {
+          returnTo = sessionStorage.getItem('auth_return_to') || '';
+          sessionStorage.removeItem('auth_return_to');
+        } catch (_error) {
+          // ignore storage failures
+        }
+        const safeReturnTo = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
+        navigate(safeReturnTo, { replace: true });
+        return;
+      }
+
+      // Auto sign-in failed but the account exists — fall back to the login form.
       try {
         sessionStorage.setItem('registration_notice', response.data?.loginMessage || 'Account created. You can log in now.');
         sessionStorage.setItem('registration_username', cleanUsername);
       } catch (_error) {
         // ignore storage failures
       }
-      trackSignupSucceeded({ username: cleanUsername });
       navigate('/login');
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';

@@ -20,6 +20,9 @@ import AppShell from './layout/AppShell';
 import TopBar from './layout/TopBar';
 import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
+import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
+import FirstRunGate from './onboarding/FirstRunGate';
+import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
 import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
 import { useSystemStatus } from './system/useSystemStatus';
@@ -259,7 +262,15 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
           <Route path="/settings/connected-agents/authorize" element={<AgentConnectAuthorize />} />
           <Route path="/a/run/:taskId" element={<AgentTaskRun />} />
-          <Route path="/register" element={<Register chromeStoreLink={chromeStoreLink} />} />
+          <Route
+            path="/register"
+            element={(
+              <Register
+                chromeStoreLink={chromeStoreLink}
+                onLoginSuccess={handleLoginSuccess}
+              />
+            )}
+          />
           <Route
             path="/login"
             element={(
@@ -574,6 +585,16 @@ function App() {
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
         <TourManager />
+        {/* A new user starts where the flow starts. Home is the Paper, but you do
+            not land on home before you have one — this gate runs wherever they
+            enter, not just on the wiki. */}
+        <FirstRunGate />
+        {/* Ambient progress for a build the user walked away from. Mounted at the
+            shell so it follows them wherever onboarding sends them next. */}
+        <OnboardingBuildBanner />
+        {/* Four short stops over the user's own product, running while their first
+            page builds. Ends on the Paper — home. */}
+        <OnboardingWalkthrough />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
             {/* AT-394: opening Noeis lands in the Wiki — the product opens on

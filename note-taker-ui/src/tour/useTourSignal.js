@@ -1,5 +1,5 @@
 import { useCallback, useContext } from 'react';
-import { TourContext } from './TourProvider';
+import TourContext from './TourContext';
 
 /**
  * useTourSignal — fire-and-forget hook for posting tour events from action sites.

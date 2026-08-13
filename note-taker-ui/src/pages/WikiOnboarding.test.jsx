@@ -7,7 +7,7 @@ import {
   createWikiPage,
   deleteWikiPage,
   listWikiStarterPacks,
-  streamMaintainWikiPage
+  startWikiPageBuild
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
 
@@ -16,7 +16,7 @@ jest.mock('../api/wiki', () => ({
   createWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   listWikiStarterPacks: jest.fn(),
-  streamMaintainWikiPage: jest.fn()
+  startWikiPageBuild: jest.fn()
 }));
 
 jest.mock('../api/imports', () => ({
@@ -51,11 +51,11 @@ describe('WikiOnboarding', () => {
     adoptWikiStarterPack.mockResolvedValue({
       pages: [{ _id: 'page-1', title: 'First Principles Thinking', claimCount: 2, sourceCount: 1 }]
     });
-    streamMaintainWikiPage.mockImplementation(async (_pageId, _options, handlers = {}) => {
-      handlers.onEvent?.('progress', { stage: 'maintaining' });
-      handlers.onEvent?.('progress', { stage: 'graph_synced' });
-      handlers.onPage?.({ _id: 'page-1', claimCount: 3, sourceCount: 2 });
-      return { _id: 'page-1', claimCount: 3, sourceCount: 2 };
+    startWikiPageBuild.mockResolvedValue({
+      pageId: 'page-1',
+      status: 'maintaining',
+      startedAt: '2026-08-13T00:00:00.000Z',
+      alreadyRunning: false
     });
     importPastedText.mockResolvedValue({
       article: {
@@ -117,12 +117,13 @@ describe('WikiOnboarding', () => {
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
     expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Background maintenance checks due wiki pages about every six hours/i);
     expect(screen.getByText('Scheduled page refresh is on.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Save from anywhere')).toHaveTextContent(/browser save/i);
+    // The extension ask is now a real card with detected state, rendered inline —
+    // it used to be a link to /connections#capture, which had nothing to land on.
+    expect(screen.getByLabelText('Browser capture setup')).toBeInTheDocument();
   });
 
   it('builds a first page from pasted text', async () => {
     createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Opportunity cost memo' });
-    streamMaintainWikiPage.mockResolvedValue({ _id: 'paste-page', claimCount: 1, sourceCount: 1 });
 
     render(<WikiOnboarding />);
 
@@ -140,7 +141,7 @@ describe('WikiOnboarding', () => {
       createdFrom: expect.objectContaining({ type: 'article', objectId: 'article-1' }),
       initialSourceRef: expect.objectContaining({ type: 'article', objectId: 'article-1' })
     })));
-    await waitFor(() => expect(streamMaintainWikiPage).toHaveBeenCalledWith(
+    await waitFor(() => expect(startWikiPageBuild).toHaveBeenCalledWith(
       'paste-page',
       expect.objectContaining({
         maintenanceProfile: 'fast',
@@ -150,15 +151,13 @@ describe('WikiOnboarding', () => {
         skipQualityRebuild: true,
         streamDraft: false,
         deferInboundAutolinks: true
-      }),
-      expect.any(Object)
+      })
     ));
     expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
   });
 
   it('strips a leading article when inferring a generated first-page title', async () => {
     createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Availability Heuristic' });
-    streamMaintainWikiPage.mockResolvedValue({ _id: 'paste-page', claimCount: 1, sourceCount: 1 });
 
     render(<WikiOnboarding />);
 
@@ -173,9 +172,8 @@ describe('WikiOnboarding', () => {
     })));
   });
 
-  it('keeps the build screen visibly alive while drafting work is still running', async () => {
+  it('hands the build off in the background instead of holding the user on a spinner', async () => {
     createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Spaced Repetition' });
-    streamMaintainWikiPage.mockImplementation(() => new Promise(() => {}));
 
     render(<WikiOnboarding />);
 
@@ -185,33 +183,19 @@ describe('WikiOnboarding', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/still shaping the draft/i);
-    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
+    // The user reaches the end of onboarding while the build is still running.
+    expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
+
+    // And the in-flight build is recorded so the ambient banner can pick it up.
+    const handoff = JSON.parse(sessionStorage.getItem('noeis.onboarding.activeBuild.v1'));
+    expect(handoff).toEqual(expect.objectContaining({
+      pageId: 'paste-page',
       title: 'Spaced Repetition'
-    })));
-  });
-
-  it('shows streamed draft fragments while the first page is being written', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Compounding' });
-    streamMaintainWikiPage.mockImplementation(async (_pageId, _options, handlers = {}) => {
-      handlers.onEvent?.('progress', { stage: 'model_streaming', delta: 'Compounding turns patient reinvestment into a widening advantage.' });
-      return new Promise(() => {});
-    });
-
-    render(<WikiOnboarding />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
-      target: { value: 'Compounding rewards reinvestment over time.' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
-
-    expect(await screen.findByLabelText('Live draft preview')).toHaveTextContent(/patient reinvestment/i);
+    }));
   });
 
   it('imports a pasted URL before creating the first wiki page', async () => {
     createWikiPage.mockResolvedValue({ _id: 'url-page', title: 'URL memo' });
-    streamMaintainWikiPage.mockResolvedValue({ _id: 'url-page', claimCount: 1, sourceCount: 1 });
 
     render(<WikiOnboarding />);
 
@@ -264,7 +248,9 @@ describe('WikiOnboarding', () => {
     expect(screen.getByRole('heading', { name: 'This wiki is now yours.' })).toBeInTheDocument();
     expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Your adopted copy joins your own maintenance loop/i);
     await waitFor(() => expect(listWikiStarterPacks).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: 'Go to my wiki' }));
+    // Onboarding now ends on the Paper — home — with the built page one click away.
+    expect(screen.getByRole('button', { name: 'Show me around' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to my page' }));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1', { replace: true });
   });
 });

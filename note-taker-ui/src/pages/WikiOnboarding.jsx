@@ -5,12 +5,15 @@ import {
   createWikiPage,
   deleteWikiPage,
   listWikiStarterPacks,
-  streamMaintainWikiPage
+  startWikiPageBuild
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
+import { setActiveBuild } from '../onboarding/activeBuild';
+import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
+import { startWalkthrough } from '../onboarding/walkthroughState';
 
-const COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 const FAST_BUILD_OPTIONS = {
   maintenanceProfile: 'fast',
   sourceLimit: 8,
@@ -26,16 +29,6 @@ const FAST_BUILD_OPTIONS = {
   deferInboundAutolinks: true
 };
 
-const stageCopy = {
-  maintaining: 'Reading the material and choosing the useful shape...',
-  drafted: 'Drafting the page in wiki form...',
-  saved: 'Saving the article and references...',
-  graph_synced: 'Connecting the page to the graph...',
-  model_streaming: 'The article is starting to write itself...',
-  quality_rebuild_deferred: 'Saving the first readable draft now; deeper polish will happen in the background.',
-  inbound_links_deferred: 'Backlinks will settle in the background while you start reading.',
-  complete: 'Ready. The page is alive in your wiki.'
-};
 
 const starterFallback = [
   {
@@ -88,9 +81,6 @@ const firstUrlFromText = (value = '') => {
   return match ? match[0] : '';
 };
 
-const metricLine = ({ pageCount = 0, claimCount = 0, linkCount = 0 } = {}) => (
-  `${pageCount} page${pageCount === 1 ? '' : 's'} · ${claimCount} claim${claimCount === 1 ? '' : 's'} · ${linkCount} link${linkCount === 1 ? '' : 's'}`
-);
 
 const ReturnLoopCard = ({ adopted = false } = {}) => (
   <section className="wiki-onboarding__return-loop" aria-label="Tomorrow's Morning Paper">
@@ -118,16 +108,12 @@ const WikiOnboarding = () => {
   const [packs, setPacks] = useState(starterFallback);
   const [selectedPackId, setSelectedPackId] = useState('mental-models');
   const [pasteText, setPasteText] = useState('');
-  const [lines, setLines] = useState([]);
-  const [draftPreview, setDraftPreview] = useState('');
-  const [metrics, setMetrics] = useState({ pageCount: adoptedPageId ? 1 : 0, claimCount: 0, linkCount: 0 });
   const [builtPageId, setBuiltPageId] = useState(adoptedPageId);
   const [adoptedStarterPages, setAdoptedStarterPages] = useState([]);
   const [adoptedPack, setAdoptedPack] = useState(null);
   const [mergeAvailable, setMergeAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [workingSeconds, setWorkingSeconds] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,50 +135,23 @@ const WikiOnboarding = () => {
     [packs, selectedPackId]
   );
 
-  useEffect(() => {
-    if (step !== 'build' || !busy) {
-      setWorkingSeconds(0);
-      return undefined;
-    }
-    const startedAt = Date.now();
-    setWorkingSeconds(0);
-    const timer = window.setInterval(() => {
-      setWorkingSeconds(Math.max(1, Math.round((Date.now() - startedAt) / 1000)));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [busy, step]);
+  const markComplete = markWikiOnboardingComplete;
 
-  const markComplete = () => {
-    localStorage.setItem(COMPLETE_KEY, 'true');
-  };
-
-  const runBuildNarration = async ({ pageId, openingLines = [] }) => {
-    const seenStages = new Set();
-    setStep('build');
-    setLines(openingLines);
-    setDraftPreview('');
-    setMetrics(prev => ({ ...prev, pageCount: Math.max(prev.pageCount, 1) }));
-    const page = await streamMaintainWikiPage(pageId, FAST_BUILD_OPTIONS, {
-      onEvent: (_event, payload = {}) => {
-        const stage = payload.stage || payload.status;
-        if (stage === 'model_streaming' && payload.delta) {
-          setDraftPreview(prev => `${prev} ${payload.delta}`.replace(/\s+/g, ' ').trim().slice(-900));
-        }
-        if (!stage || seenStages.has(stage)) return;
-        seenStages.add(stage);
-        setLines(prev => [...prev, stageCopy[stage] || payload.summary || `Agent stage: ${stage}`]);
-      },
-      onPage: (nextPage) => {
-        setMetrics({
-          pageCount: 1,
-          claimCount: Number(nextPage?.claimCount || nextPage?.claims?.length || 0),
-          linkCount: Number(nextPage?.sourceCount || nextPage?.sourceRefs?.length || 0)
-        });
-      }
+  /**
+   * Start the build and hand the user forward.
+   *
+   * A real maintenance pass takes far longer than a new user will sit and watch, so
+   * nothing here waits for it. The server accepts the build, the banner picks it up
+   * from anywhere in the app, and the user carries on.
+   */
+  const startBuild = async ({ pageId, title = '' }) => {
+    setBuiltPageId(pageId);
+    const accepted = await startWikiPageBuild(pageId, FAST_BUILD_OPTIONS);
+    setActiveBuild({
+      pageId,
+      title,
+      startedAt: accepted?.startedAt || null
     });
-    const finalPageId = page?._id || page?.id || pageId;
-    setBuiltPageId(finalPageId);
-    setLines(prev => (prev.some(line => /ready/i.test(line)) ? prev : [...prev, 'Ready. The page is alive in your wiki.']));
     markComplete();
     setStep('hook');
   };
@@ -201,11 +160,6 @@ const WikiOnboarding = () => {
     setBusy(true);
     setError('');
     try {
-      setStep('build');
-      setLines([
-        `Pulling in ${selectedPack.name}...`,
-        'Creating the starter pages and preserving their internal links...'
-      ]);
       const result = await adoptWikiStarterPack(selectedPack.id);
       const pages = Array.isArray(result.pages) ? result.pages : [];
       setAdoptedStarterPages(pages);
@@ -213,18 +167,12 @@ const WikiOnboarding = () => {
       setMergeAvailable(Boolean(result.mergeAvailable));
       const firstPage = pages[0] || {};
       setBuiltPageId(firstPage._id || firstPage.id || '');
-      setMetrics({
-        pageCount: pages.length || selectedPack.pageCount || 1,
-        claimCount: pages.reduce((sum, page) => sum + Number(page.claimCount || page.claims?.length || 0), 0),
-        linkCount: pages.reduce((sum, page) => sum + Number(page.sourceCount || page.sourceRefs?.length || 0), 0)
-      });
       if (firstPage?._id || firstPage?.id) {
-        await runBuildNarration({
+        // Refresh the first adopted page against this workspace in the background —
+        // that refresh is what makes the copy diverge from the original.
+        await startBuild({
           pageId: firstPage._id || firstPage.id,
-          openingLines: [
-            `Pulled in ${selectedPack.name}.`,
-            'Refreshing the first page so it belongs to this workspace...'
-          ]
+          title: firstPage.title || selectedPack.name
         });
       } else {
         markComplete();
@@ -272,12 +220,9 @@ const WikiOnboarding = () => {
           snippet: text.slice(0, 360)
         }
       });
-      await runBuildNarration({
+      await startBuild({
         pageId: page._id || page.id,
-        openingLines: [
-          'Reading what you dropped in...',
-          `Creating a first page called "${page.title || title}"...`
-        ]
+        title: page.title || title
       });
     } catch (err) {
       setError(err?.message || 'Could not build from that material.');
@@ -303,8 +248,6 @@ const WikiOnboarding = () => {
       setAdoptedPack(null);
       setMergeAvailable(false);
       setBuiltPageId('');
-      setMetrics({ pageCount: 0, claimCount: 0, linkCount: 0 });
-      setLines([]);
       setStep('feed');
     } catch (err) {
       setError(err?.message || 'Could not clear the sample pack.');
@@ -317,6 +260,13 @@ const WikiOnboarding = () => {
     markComplete();
     if (builtPageId) navigate(wikiPagePath(builtPageId), { replace: true });
     else navigate('/wiki', { replace: true });
+  };
+
+  // Hand off to the walkthrough, which runs over the live build and ends on the
+  // Paper — home. It drives its own navigation from here.
+  const showMeAround = () => {
+    markComplete();
+    startWalkthrough();
   };
 
   return (
@@ -389,29 +339,6 @@ const WikiOnboarding = () => {
         </section>
       ) : null}
 
-      {step === 'build' ? (
-        <section className="wiki-onboarding__panel wiki-onboarding__panel--build">
-          <p className="wiki-onboarding__eyebrow">Building your wiki</p>
-          <h1>The agent is making the first page useful.</h1>
-          <div className="wiki-onboarding__counter">{metricLine(metrics)}</div>
-          {busy ? (
-            <p className="wiki-onboarding__working-pulse" role="status">
-              Still shaping the draft · {workingSeconds}s elapsed
-            </p>
-          ) : null}
-          <ol className="wiki-onboarding__narration">
-            {lines.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}
-          </ol>
-          {draftPreview ? (
-            <div className="wiki-onboarding__draft-preview" aria-label="Live draft preview">
-              <span>Live draft</span>
-              <p>{draftPreview}</p>
-            </div>
-          ) : null}
-          <button type="button" onClick={goToWiki}>Skip to my wiki</button>
-        </section>
-      ) : null}
-
       {step === 'hook' ? (
         <section className="wiki-onboarding__panel wiki-onboarding__panel--hook">
           <p className="wiki-onboarding__eyebrow">{source === 'shared' ? 'Adopted wiki' : 'First page'}</p>
@@ -422,17 +349,19 @@ const WikiOnboarding = () => {
               : 'The agent built the foundation. Add your own material next so the graph starts connecting.'}
           </p>
           <div className="wiki-onboarding__hook-actions">
-            <button type="button" onClick={goToWiki}>Go to my wiki</button>
-            <Link to="/connections">Connect reading</Link>
-            <Link to="/wiki">Explore pages</Link>
+            {/* Onboarding ends on the Paper — the home a new user now has a reason
+                to open. Their page is one click away here and in the build banner,
+                which follows them there. */}
+            <button type="button" onClick={showMeAround}>Show me around</button>
+            <button type="button" className="wiki-onboarding__secondary-action" onClick={goToWiki}>
+              Go to my page
+            </button>
+            <Link to="/connections#capture">Connect reading</Link>
           </div>
-          <section className="wiki-onboarding__save-habit" aria-label="Save from anywhere">
-            <div>
-              <strong>Make saving frictionless next.</strong>
-              <p>Add the browser save flow so the next useful passage can land in Noeis without coming back to this setup screen.</p>
-            </div>
-            <Link to="/connections#capture">Set up browser save</Link>
-          </section>
+          {/* The ask, at the moment of felt need: the page they just made has one
+              source. Rendered inline rather than linked away — this used to point at
+              /connections#capture, which had no capture section to land on. */}
+          <ExtensionCaptureCard compact heading="Save from anywhere" />
           {adoptedStarterPages.some(page => page?.adoptedFrom?.sample) ? (
             <section className="wiki-onboarding__sample" aria-label="Starter pack controls">
               <div>
