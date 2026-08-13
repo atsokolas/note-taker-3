@@ -774,6 +774,9 @@ export const loadJudgmentDecisionIndex = async () => {
       windowDays: 365,
       ...(cursor ? { cursor } : {})
     });
+    if (page?.coverage?.truncated === true) {
+      throw new Error('Decision history coverage is truncated.');
+    }
     if (!firstPage) firstPage = page;
     items.push(...list(page?.items));
     const nextCursor = clean(page?.nextCursor);
@@ -1369,7 +1372,9 @@ const Judgment = () => {
     outcomes: 'Outcome recorder',
     lessons: 'Learning partner'
   }[activeView.id] || 'Judgment partner';
-  const memo = activeView.id === 'dossiers'
+  const memo = decisionIndexError
+    ? 'Decision history is unavailable. The agent will not infer a missing decision, outcome, or lesson.'
+    : activeView.id === 'dossiers'
     ? `${caseDecisionCount} judgment${caseDecisionCount === 1 ? '' : 's'} remain${caseDecisionCount === 1 ? 's' : ''} connected to this case without rewriting ${caseDecisionCount === 1 ? 'its' : 'their'} original grounds.`
     : activeView.id === 'decisions'
       ? clean(decision?.rationale) || stateMemo
@@ -1513,7 +1518,7 @@ const Judgment = () => {
               <Link to="/wiki">Open Wiki</Link>
             </div>
           ) : null}
-          {selectedCase ? (
+          {selectedCase && !decisionIndexError ? (
             <>
               <header className="judgment-case__heading">
                 <div className="judgment-case__heading-row">
@@ -1706,7 +1711,11 @@ const Judgment = () => {
               {firstSourceHref ? <Link to={firstSourceHref}>Return to Library evidence →</Link> : null}
             </nav>
           ) : null}
-          {previewMode ? (
+          {decisionIndexError ? (
+            <p className="judgment-case__unavailable" role="status">
+              Decision-grounded agent context will return when the history can be read.
+            </p>
+          ) : previewMode ? (
             <section className="judgment-partner__preview-agent" aria-label="Artificial judgment partner preview">
               <p className="judgment-room__eyebrow">Ask about this case</p>
               <div className="judgment-partner__preview-exchange" aria-live="polite">
@@ -1768,13 +1777,19 @@ const Judgment = () => {
             <p className="judgment-room__eyebrow">Judgment trace</p>
             <p>Evidence to learning, without rewriting history.</p>
           </header>
-          <ol>
-            <TraceNode label="Source" href={firstSourceHref} detail={grounding.sources[0]?.title || 'No exact source'} state={firstSourceHref ? 'verified' : 'missing'} />
-            <TraceNode label="Claim" href={firstClaimHref} detail={grounding.claims[0]?.title || 'No accepted claim'} state={firstClaimHref ? 'verified' : 'missing'} />
-            <TraceNode label="Decision" href={decisionHref} detail={decision?.summary || 'No accepted decision'} state={continuityComplete ? 'verified' : 'missing'} />
-            <TraceNode label="Outcome" href={observed ? decisionHref : ''} detail={observed ? clean(outcome?.result) || 'Observed' : 'Not inferred'} state={observed ? 'verified' : 'waiting'} />
-            <TraceNode label="Lesson" href={observed && outcome?.lesson ? decisionHref : ''} detail={outcome?.lesson ? 'Human-confirmed' : 'Not retained'} state={observed && outcome?.lesson ? 'verified' : 'waiting'} />
-          </ol>
+          {decisionIndexError ? (
+            <p className="judgment-case__unavailable" role="status">
+              Decision, outcome, and lesson continuity is unavailable. No absence has been inferred.
+            </p>
+          ) : (
+            <ol>
+              <TraceNode label="Source" href={firstSourceHref} detail={grounding.sources[0]?.title || 'No exact source'} state={firstSourceHref ? 'verified' : 'missing'} />
+              <TraceNode label="Claim" href={firstClaimHref} detail={grounding.claims[0]?.title || 'No accepted claim'} state={firstClaimHref ? 'verified' : 'missing'} />
+              <TraceNode label="Decision" href={decisionHref} detail={decision?.summary || 'No accepted decision'} state={continuityComplete ? 'verified' : 'missing'} />
+              <TraceNode label="Outcome" href={observed ? decisionHref : ''} detail={observed ? clean(outcome?.result) || 'Observed' : 'Not inferred'} state={observed ? 'verified' : 'waiting'} />
+              <TraceNode label="Lesson" href={observed && outcome?.lesson ? decisionHref : ''} detail={outcome?.lesson ? 'Human-confirmed' : 'Not retained'} state={observed && outcome?.lesson ? 'verified' : 'waiting'} />
+            </ol>
+          )}
           <p className="judgment-trace__note">Every consequential update remains human-confirmed and receipt-bound.</p>
         </aside>
       </div>

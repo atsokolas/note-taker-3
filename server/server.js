@@ -660,12 +660,23 @@ const {
   getWorkspaceTemplateById
 } = require('./services/workspaceTemplates');
 const { buildConceptService } = require('./services/conceptService');
+const { buildConceptWorkspaceAuthorizationService } = require('./services/conceptWorkspaceAuthorizationService');
+const conceptWorkspaceAuthorization = buildConceptWorkspaceAuthorizationService({
+  mongoose,
+  Article,
+  NotebookEntry,
+  Question,
+  TagMeta,
+  WikiPage,
+  ensureWorkspace
+});
 const { getConcepts, getConceptMeta, updateConceptMeta, getConceptRelated } = buildConceptService({
   Article,
   TagMeta,
   NotebookEntry,
   ReferenceEdge,
-  mongoose
+  mongoose,
+  workspaceAuthorization: conceptWorkspaceAuthorization
 });
 const { buildReflectionService } = require('./services/reflectionService');
 const { getReflections } = buildReflectionService({
@@ -1700,6 +1711,7 @@ const readBridgeProjectItem = async ({
   if (safeType === 'concept') {
     const row = await TagMeta.findOne({ _id: safeId, userId }).select('_id name description workspace workspaceTemplateName updatedAt createdAt');
     if (!row) throw Object.assign(new Error('Project concept not found.'), { status: 404 });
+    const authorizedWorkspace = (await conceptWorkspaceAuthorization.sanitizeConceptWorkspace(row, userId))?.workspace || {};
     return buildBridgeProjectResult({
       type: 'concept',
       id: row._id,
@@ -1710,7 +1722,7 @@ const readBridgeProjectItem = async ({
       metadata: {
         description: row.description || '',
         workspaceTemplateName: row.workspaceTemplateName || '',
-        workspace: row.workspace || {}
+        workspace: authorizedWorkspace
       }
     });
   }
@@ -5470,6 +5482,7 @@ app.use(buildConnectionsRouter({
   Article,
   TagMeta,
   Question,
+  TagMeta,
   WikiPage,
   normalizeConnectionItemType,
   normalizeRelationType,
@@ -7035,6 +7048,7 @@ app.use(buildConceptWorkspaceRouter({
   Article,
   NotebookEntry,
   Question,
+  TagMeta,
   WikiPage,
   validateWorkspacePayload,
   applyPatchOp,

@@ -171,7 +171,7 @@ test('renders a durable mixed object from workspace inline context after reload'
     .toHaveAttribute('href', '/think?tab=questions&questionId=question-1');
 });
 
-test('does not duplicate the attach POST after reload and supports keyboard reordering', async () => {
+test('does not duplicate the attach POST after reload and supports labelled reordering', async () => {
   const attachedItems = [
     { id: 'block-1', type: 'highlight', refId: 'highlight-1', sectionId: 'working', order: 0 },
     { id: 'block-2', type: 'highlight', refId: 'highlight-2', sectionId: 'working', order: 1 }
@@ -197,7 +197,7 @@ test('does not duplicate the attach POST after reload and supports keyboard reor
   expect(attachConceptWorkspaceBlock).not.toHaveBeenCalled();
   await waitFor(() => expect(screen.getAllByRole('button', { name: 'Insert at cursor' })[0]).toBeEnabled());
 
-  fireEvent.keyDown(screen.getAllByRole('listitem')[1], { key: 'ArrowUp', altKey: true });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Move Exact source up' })[1]);
   await waitFor(() => expect(updateConceptWorkspaceBlock).toHaveBeenCalledWith('concept-1', 'block-2', {
     sectionId: 'working',
     order: 0
@@ -229,7 +229,11 @@ test('reorders within the same section and parent instead of using the global li
   updateConceptWorkspaceBlock.mockResolvedValue({ workspace: { attachedItems } });
   render(<ThinkGroundedObjects conceptId="concept-1" />);
 
-  fireEvent.keyDown(screen.getByText('Third source').closest('li'), { key: 'ArrowUp', altKey: true });
+  expect(screen.getByRole('button', { name: 'Move Inbox source up' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Move Inbox source down' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Move Exact source up' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Move Third source down' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Move Third source up' }));
 
   await waitFor(() => expect(updateConceptWorkspaceBlock).toHaveBeenCalledWith('concept-1', 'working-2', {
     sectionId: 'working',

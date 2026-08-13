@@ -1,4 +1,4 @@
-const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, mongoose }) => {
+const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, mongoose, workspaceAuthorization = null }) => {
   const normalizeName = (name) => String(name || '').trim();
   const escapeRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || ''));
@@ -100,6 +100,9 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       });
     }
     cleanName = normalizeName(meta?.name || cleanName);
+    const authorizedWorkspace = meta && workspaceAuthorization
+      ? (await workspaceAuthorization.sanitizeConceptWorkspace(meta, userId))?.workspace || null
+      : meta?.workspace || null;
     const pinnedHighlightIds = meta?.pinnedHighlightIds || [];
     const pinnedNoteIds = meta?.pinnedNoteIds || [];
     const pinnedArticleIds = meta?.pinnedArticleIds || [];
@@ -156,7 +159,7 @@ const buildConceptService = ({ Article, TagMeta, NotebookEntry, ReferenceEdge, m
       isPublic: meta?.isPublic || false,
       slug: meta?.slug || '',
       conceptLayout: meta?.conceptLayout || null,
-      workspace: meta?.workspace || null,
+      workspace: authorizedWorkspace,
       freshness: resolveConceptFreshness(meta),
       pinnedHighlightIds,
       pinnedArticleIds,

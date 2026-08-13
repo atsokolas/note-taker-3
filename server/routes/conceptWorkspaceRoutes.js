@@ -1,4 +1,5 @@
 const express = require('express');
+const { buildConceptWorkspaceAuthorizationService } = require('../services/conceptWorkspaceAuthorizationService');
 
 const buildConceptWorkspaceRouter = ({
   mongoose,
@@ -10,6 +11,7 @@ const buildConceptWorkspaceRouter = ({
   Article,
   NotebookEntry,
   Question,
+  TagMeta,
   WikiPage,
   validateWorkspacePayload,
   applyPatchOp,
@@ -19,6 +21,9 @@ const buildConceptWorkspaceRouter = ({
   markTourSignal
 }) => {
   const router = express.Router();
+  const workspaceAuthorization = buildConceptWorkspaceAuthorizationService({
+    mongoose, Article, NotebookEntry, Question, TagMeta, WikiPage, ensureWorkspace
+  });
 
   const loadWorkspaceConcept = async (userId, conceptId) => {
     const concept = await resolveConceptByParam(userId, conceptId, { createIfMissing: false });
@@ -60,94 +65,16 @@ const buildConceptWorkspaceRouter = ({
     return { next: [...list, safeId], changed: true };
   };
 
-  const resolveWorkspaceAttachSource = async (userId, type, refId) => {
-    const safeType = normalizeWorkspaceAttachType(type);
-    const safeRefId = String(refId || '').trim();
-    if (!safeType || !safeRefId) return null;
-
-    if (safeType === 'highlight') {
-      const highlight = await findHighlightById(userId, safeRefId);
-      if (!highlight) return null;
-      return { type: safeType, refId: String(highlight._id) };
-    }
-
-    if (safeType === 'wiki_claim') {
-      const [pageId, ...claimIdParts] = safeRefId.split(':');
-      const claimId = claimIdParts.join(':').trim();
-      if (!mongoose.Types.ObjectId.isValid(pageId) || !claimId) return null;
-      const page = await WikiPage.findOne({ _id: pageId, userId, 'claims.claimId': claimId })
-        .select('_id claims.claimId')
-        .lean();
-      const exactClaim = (page?.claims || []).some(claim => String(claim?.claimId || '') === claimId);
-      if (!page || !exactClaim) return null;
-      return { type: safeType, refId: `${String(page._id)}:${claimId}` };
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(safeRefId)) return null;
-    if (safeType === 'article') {
-      const article = await Article.findOne({ _id: safeRefId, userId }).select('_id').lean();
-      if (!article) return null;
-      return { type: safeType, refId: String(article._id) };
-    }
-
-    if (safeType === 'note') {
-      const note = await NotebookEntry.findOne({ _id: safeRefId, userId }).select('_id').lean();
-      if (!note) return null;
-      return { type: safeType, refId: String(note._id) };
-    }
-
-    if (safeType === 'question') {
-      const question = await Question.findOne({ _id: safeRefId, userId }).select('_id').lean();
-      if (!question) return null;
-      return { type: safeType, refId: String(question._id) };
-    }
-
-    if (safeType === 'concept') {
-      const concept = await resolveConceptByParam(userId, safeRefId, { createIfMissing: false });
-      if (!concept || String(concept._id) !== safeRefId) return null;
-      return { type: safeType, refId: String(concept._id) };
-    }
-
-    if (safeType === 'wiki_page') {
-      const page = await WikiPage.findOne({ _id: safeRefId, userId }).select('_id').lean();
-      if (!page) return null;
-      return { type: safeType, refId: String(page._id) };
-    }
-
-    return null;
-  };
+  const resolveWorkspaceAttachSource = workspaceAuthorization.resolveSource;
 
   const authorizeWorkspaceItems = async (userId, items) => {
-    const authorized = [];
-    for (const item of (Array.isArray(items) ? items : [])) {
-      const source = await resolveWorkspaceAttachSource(userId, item?.type, item?.refId);
-      if (!source) return null;
-      authorized.push({ ...item, type: source.type, refId: source.refId });
-    }
-    return authorized;
+    return workspaceAuthorization.authorizeItems(userId, items, { rejectInvalid: true });
   };
 
   const loadAuthorizedWorkspaceConcept = async (userId, conceptId) => {
     const loaded = await loadWorkspaceConcept(userId, conceptId);
     if (!loaded) return null;
-    const items = Array.isArray(loaded.workspace.items) ? loaded.workspace.items : [];
-    const resolved = await Promise.all(items.map(async item => ({
-      item,
-      source: await resolveWorkspaceAttachSource(userId, item?.type, item?.refId)
-    })));
-    const authorizedItems = resolved
-      .filter(entry => entry.source)
-      .map(({ item, source }) => ({ ...item, type: source.type, refId: source.refId }));
-    if (authorizedItems.length !== items.length || JSON.stringify(authorizedItems) !== JSON.stringify(items)) {
-      const workspace = ensureWorkspace({
-        workspace: { ...loaded.workspace, attachedItems: authorizedItems, items: authorizedItems }
-      });
-      loaded.concept.workspace = workspace;
-      loaded.concept.markModified('workspace');
-      await loaded.concept.save();
-      return { ...loaded, workspace };
-    }
-    return loaded;
+    return workspaceAuthorization.sanitizeConceptWorkspace(loaded.concept, userId);
   };
 
   const authorizeWorkspacePatch = async (userId, workspace, operation) => {
@@ -158,7 +85,7 @@ const buildConceptWorkspaceRouter = ({
     if (op === 'addItem') {
       const source = await resolveWorkspaceAttachSource(userId, payload.type, payload.refId);
       return source
-        ? { ...operation, payload: { ...payload, type: source.type, refId: source.refId } }
+        ? { ...operation, payload: { ...payload, ...source } }
         : null;
     }
     if (op === 'updateItem' && (payload.patch?.type !== undefined || payload.patch?.refId !== undefined)) {
@@ -174,7 +101,7 @@ const buildConceptWorkspaceRouter = ({
             ...operation,
             payload: {
               ...payload,
-              patch: { ...payload.patch, type: source.type, refId: source.refId }
+              patch: { ...payload.patch, ...source }
             }
           }
         : null;
@@ -487,8 +414,8 @@ const buildConceptWorkspaceRouter = ({
           refId: source.refId,
           groupId,
           stage,
-          inlineTitle: req.body?.inlineTitle,
-          inlineText: req.body?.inlineText,
+          inlineTitle: source.inlineTitle,
+          inlineText: source.inlineText,
           ...(parentId !== undefined ? { parentId } : {}),
           ...(order !== undefined ? { order } : {})
         }
@@ -577,6 +504,8 @@ const buildConceptWorkspaceRouter = ({
           }
           req.body.type = source.type;
           req.body.refId = source.refId;
+          req.body.inlineTitle = source.inlineTitle;
+          req.body.inlineText = source.inlineText;
         }
         workspace = applyPatchOp(workspace, {
           op: 'updateItem',
@@ -586,7 +515,9 @@ const buildConceptWorkspaceRouter = ({
               ...(req.body?.stage !== undefined ? { stage: req.body.stage } : {}),
               ...(req.body?.status !== undefined ? { status: req.body.status } : {}),
               ...(req.body?.type !== undefined ? { type: req.body.type } : {}),
-              ...(req.body?.refId !== undefined ? { refId: req.body.refId } : {})
+              ...(req.body?.refId !== undefined ? { refId: req.body.refId } : {}),
+              ...(req.body?.inlineTitle !== undefined ? { inlineTitle: req.body.inlineTitle } : {}),
+              ...(req.body?.inlineText !== undefined ? { inlineText: req.body.inlineText } : {})
             }
           }
         });

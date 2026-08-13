@@ -30,7 +30,9 @@ const resolveConceptByParam = async (userId, id) => (
 );
 
 const ownedQuery = (filter) => new Query(
-  filter?._id === OWN_ARTICLE_ID && filter?.userId === USER_ID ? { _id: OWN_ARTICLE_ID } : null
+  filter?._id === OWN_ARTICLE_ID && filter?.userId === USER_ID
+    ? { _id: OWN_ARTICLE_ID, title: 'Canonical owned article' }
+    : null
 );
 
 const app = express();
@@ -49,6 +51,7 @@ app.use(buildConceptWorkspaceRouter({
   Article: { findOne: ownedQuery },
   NotebookEntry: { findOne: () => new Query(null) },
   Question: { findOne: () => new Query(null) },
+  TagMeta: { findOne: () => new Query(null) },
   WikiPage: { findOne: () => new Query(null) },
   validateWorkspacePayload,
   applyPatchOp,
@@ -150,17 +153,39 @@ const server = app.listen(0, '127.0.0.1', async () => {
 
     const acceptedGenericPatch = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
       op: 'addItem',
-      payload: { type: 'article', refId: OWN_ARTICLE_ID, groupId: 'working', stage: 'working' }
+      payload: {
+        type: 'article', refId: OWN_ARTICLE_ID, groupId: 'working', stage: 'working',
+        inlineTitle: 'Spoofed title', inlineText: 'FABRICATED QUOTE'
+      }
     });
     assert.strictEqual(acceptedGenericPatch.response.status, 200);
     assert.strictEqual(concept.workspace.items[0].refId, OWN_ARTICLE_ID);
+    assert.strictEqual(concept.workspace.items[0].inlineTitle, 'Canonical owned article');
+    assert.strictEqual(concept.workspace.items[0].inlineText, '');
+    assert.doesNotMatch(JSON.stringify(acceptedGenericPatch.body), /Spoofed title|FABRICATED QUOTE/);
+
+    const spoofedWorkspace = ensureWorkspace({ workspace: concept.workspace });
+    spoofedWorkspace.items[0].inlineTitle = 'PUT spoof';
+    spoofedWorkspace.items[0].inlineText = 'PUT fabricated quote';
+    spoofedWorkspace.attachedItems = spoofedWorkspace.items;
+    const canonicalPut = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PUT', { workspace: spoofedWorkspace });
+    assert.strictEqual(canonicalPut.response.status, 200);
+    assert.doesNotMatch(JSON.stringify(canonicalPut.body), /PUT spoof|PUT fabricated quote/);
+    concept.workspace.items[0].inlineTitle = 'Stored spoof';
+    concept.workspace.items[0].inlineText = 'Stored fabricated quote';
+    concept.workspace.attachedItems = concept.workspace.items;
+    const canonicalReload = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'GET');
+    assert.strictEqual(canonicalReload.response.status, 200);
+    assert.doesNotMatch(JSON.stringify(canonicalReload.body), /Stored spoof|Stored fabricated quote/);
 
     concept.workspace = ensureWorkspace({});
     const attachPath = `/api/concepts/${CONCEPT_ID}/workspace/blocks/attach`;
     const firstAttach = await request(attachPath, 'POST', {
-      type: 'article', refId: OWN_ARTICLE_ID, sectionId: 'working', stage: 'working'
+      type: 'article', refId: OWN_ARTICLE_ID, sectionId: 'working', stage: 'working',
+      inlineTitle: 'Attach spoof', inlineText: 'Attach fabricated quote'
     });
     assert.strictEqual(firstAttach.response.status, 201);
+    assert.doesNotMatch(JSON.stringify(firstAttach.body), /Attach spoof|Attach fabricated quote/);
     const secondAttach = await request(attachPath, 'POST', {
       type: 'article', refId: OWN_ARTICLE_ID, sectionId: 'working', stage: 'working'
     });

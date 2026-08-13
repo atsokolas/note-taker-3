@@ -140,6 +140,15 @@ describe('Judgment room', () => {
     });
   });
 
+  it('fails closed when the backend cannot scan the complete decision history', async () => {
+    getDecisions.mockResolvedValue({
+      items: [decisionItem], counts: {}, nextCursor: null,
+      coverage: { scannedPages: 250, pageLimit: 250, truncated: true }
+    });
+
+    await expect(loadJudgmentDecisionIndex()).rejects.toThrow('coverage is truncated');
+  });
+
   it('shows decision-index failure instead of inferring that no decisions exist', async () => {
     getDecisions.mockRejectedValue(new Error('decision index unavailable'));
     render(
@@ -151,6 +160,10 @@ describe('Judgment room', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Decision history is temporarily unavailable');
     expect(screen.queryByText('No accepted decision is attached to this case.')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Next judgment action' })).not.toBeInTheDocument();
+    expect(screen.getByText('Decision-grounded agent context will return when the history can be read.')).toBeInTheDocument();
+    expect(screen.getByText('Decision, outcome, and lesson continuity is unavailable. No absence has been inferred.')).toBeInTheDocument();
+    expect(screen.queryByText(/judgments? remain connected/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('No accepted decision')).not.toBeInTheDocument();
   });
 
   it('derives the next human action and exact current-source delta without inferring chronology', () => {

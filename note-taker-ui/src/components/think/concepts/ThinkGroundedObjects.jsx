@@ -216,17 +216,6 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
     }
   }, [attachedItems, busyId, refreshWorkspace, safeConceptId, setWorkspace]);
 
-  const handleObjectKeyDown = (event, entry) => {
-    if (!event.altKey) return;
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      moveObject(entry, -1);
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      moveObject(entry, 1);
-    }
-  };
-
   const handleObjectDragStart = (event, entry) => {
     const card = toDraftCard(entry?.object, { workspaceAttached: Boolean(entry?.item) });
     if (!card) return;
@@ -261,15 +250,19 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
             const objectKey = `${object.type}:${object.refId}`;
             const path = objectPath(object);
             const isBusy = busyId === objectKey;
-            const attachedIndex = entry.item ? attachedItems.findIndex((item) => item.id === entry.item.id) : -1;
+            const siblings = entry.item
+              ? attachedItems.filter((item) => (
+                  item.sectionId === entry.item.sectionId
+                  && (item.parentId || '') === (entry.item.parentId || '')
+                ))
+              : [];
+            const siblingIndex = entry.item ? siblings.findIndex((item) => item.id === entry.item.id) : -1;
             return (
               <li
                 key={objectKey}
                 className={`think-grounded-object is-${object.type.replace('_', '-')}`}
-                tabIndex={0}
                 draggable
                 onDragStart={(event) => handleObjectDragStart(event, entry)}
-                onKeyDown={(event) => handleObjectKeyDown(event, entry)}
               >
                 <div className="think-grounded-object__index" aria-hidden="true">
                   {String(index + 1).padStart(2, '0')}
@@ -289,13 +282,13 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
                       <button
                         type="button"
                         aria-label={`Move ${object.title} up`}
-                        disabled={isBusy || attachedIndex <= 0}
+                        disabled={isBusy || siblingIndex <= 0}
                         onClick={() => moveObject(entry, -1)}
                       >↑</button>
                       <button
                         type="button"
                         aria-label={`Move ${object.title} down`}
-                        disabled={isBusy || attachedIndex < 0 || attachedIndex >= attachedItems.length - 1}
+                        disabled={isBusy || siblingIndex < 0 || siblingIndex >= siblings.length - 1}
                         onClick={() => moveObject(entry, 1)}
                       >↓</button>
                     </span>
@@ -310,7 +303,7 @@ const ThinkGroundedObjects = ({ conceptId = '', candidates = [], onInsert, varia
       <p className={`think-grounded-objects__receipt ${error ? 'is-error' : ''}`} role="status" aria-live="polite">
         {error || message}
       </p>
-      <p className="think-grounded-objects__keyboard-note">Drag to a line · Alt + ↑ / ↓ reorders.</p>
+      <p className="think-grounded-objects__keyboard-note">Drag to a line · use the labelled arrows to reorder.</p>
     </section>
   );
 };
