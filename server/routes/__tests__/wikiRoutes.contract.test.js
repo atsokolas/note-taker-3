@@ -1855,6 +1855,55 @@ const run = async () => {
     assert.ok(maintained.body.aiState.changeLog.length >= 1);
     assert.ok(maintained.body.aiState.suggestions.length >= 1);
 
+    // Detached build: onboarding cannot hold a new user on a spinner, so the build
+    // must accept immediately and report progress on the page itself. Built on its
+    // own page — the page above has since become a repo wiki, which this path refuses.
+    const asyncPage = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Detached Build Page',
+        pageType: 'overview',
+        sourceScope: 'entire_library',
+        createdFrom: {
+          type: 'article',
+          objectId: new mongoose.Types.ObjectId().toString(),
+          text: 'Pasted during onboarding.',
+          label: 'Pasted source'
+        }
+      })
+    });
+    assert.strictEqual(asyncPage.res.status, 201, asyncPage.text);
+
+    const asyncBuild = await request(url, `/api/wiki/pages/${asyncPage.body._id}/ai/draft/async`, { method: 'POST' });
+    assert.strictEqual(asyncBuild.res.status, 202, asyncBuild.text);
+    assert.strictEqual(asyncBuild.body.status, 'maintaining');
+    assert.strictEqual(asyncBuild.body.alreadyRunning, false);
+    assert.ok(asyncBuild.body.startedAt, 'expected a build start timestamp');
+
+    // The status must be persisted before the 202 lands, otherwise a polling client
+    // reads "idle" for the whole build and gives up.
+    const immediatelyAfterAccept = await request(url, `/api/wiki/pages/${asyncPage.body._id}`);
+    assert.ok(
+      ['maintaining', 'ready'].includes(immediatelyAfterAccept.body?.aiState?.draftStatus),
+      `expected a persisted in-flight status, got ${immediatelyAfterAccept.body?.aiState?.draftStatus}`
+    );
+
+    let asyncStatus = '';
+    for (let attempt = 0; attempt < 80 && asyncStatus !== 'ready'; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(resolve => setTimeout(resolve, 50));
+      // eslint-disable-next-line no-await-in-loop
+      const polled = await request(url, `/api/wiki/pages/${asyncPage.body._id}`);
+      asyncStatus = polled.body?.aiState?.draftStatus || '';
+      if (asyncStatus === 'error') break;
+    }
+    assert.strictEqual(asyncStatus, 'ready', 'expected the detached build to reach ready');
+
+    // A repo wiki page must be refused rather than silently bypassing the build lease.
+    const refusedRepoBuild = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft/async`, { method: 'POST' });
+    assert.strictEqual(refusedRepoBuild.res.status, 409, refusedRepoBuild.text);
+    assert.strictEqual(refusedRepoBuild.body.code, 'ASYNC_BUILD_UNSUPPORTED_PAGE');
+
     const markdown = await request(url, `/api/wiki/pages/${created.body._id}/markdown`);
     assert.strictEqual(markdown.res.status, 200, markdown.text);
     assert.match(markdown.res.headers.get('content-type') || '', /text\/markdown/);

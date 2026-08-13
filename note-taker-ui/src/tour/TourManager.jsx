@@ -7,6 +7,7 @@ import {
   TOUR_STATUS
 } from './tourConfig';
 import { useTour } from './TourProvider';
+import { isWikiOnboardingPending } from '../onboarding/onboardingState';
 
 const parseRoute = (route) => {
   if (!route) return null;
@@ -35,7 +36,10 @@ const TOUR_AUTONAV_BLOCKED_PREFIXES = [
   '/wiki/workspace',
   '/connections',
   '/integrations',
-  '/share/'
+  '/share/',
+  // First-run onboarding drives its own navigation. Without this the tour yanks a
+  // brand-new user off /onboarding/wiki to its own first step mid-build.
+  '/onboarding'
 ];
 
 const shouldAutoNavigateForTour = ({ location, currentStep, explicitResume = false } = {}) => {
@@ -70,6 +74,9 @@ const TourManager = () => {
     if (state.status === TOUR_STATUS.COMPLETED) return;
     if (state.status !== TOUR_STATUS.NOT_STARTED) return;
     if (!state.isFirstTimeVisitor) return;
+    // Exactly one system may drive a new user. First-run onboarding owns them until
+    // it completes; the tour waits its turn rather than racing it.
+    if (isWikiOnboardingPending()) return;
     startTour().catch((error) => {
       console.error('Failed to auto-start tour:', error);
     });
