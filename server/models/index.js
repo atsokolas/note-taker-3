@@ -815,9 +815,14 @@ wikiPageSchema.index({ userId: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
 // Public surfaces query across owners, so every userId-prefixed index above is
-// unusable for them: the shared-page scan fell back to examining the whole
-// collection and sorting in memory. The logged-out landing page waited on that.
-wikiPageSchema.index({ visibility: 1, status: 1, updatedAt: -1 });
+// unusable for them and the shared-page scan sorted the whole collection in
+// memory. The logged-out landing page waits on that query.
+//
+// Equality first, then the sort key, and nothing in between. The public query
+// filters status with $ne, which is a range: putting it ahead of updatedAt left
+// the sort unable to use the index, so an earlier attempt at this index changed
+// the endpoint's measured time not at all. status stays a residual filter.
+wikiPageSchema.index({ visibility: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, 'sourceRefs.objectId': 1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
 wikiPageSchema.index(
