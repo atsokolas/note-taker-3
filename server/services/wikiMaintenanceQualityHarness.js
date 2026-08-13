@@ -756,6 +756,14 @@ const evaluateLiveModelFixture = async (fixture, { requireLive = false } = {}) =
     now: new Date('2026-05-09T12:00:00.000Z')
   });
 
+  // A live eval that silently grades deterministic fallback prose is worse than
+  // no eval: the page still looks finished, so a broken model request reads as
+  // a content problem. Name the real failure first.
+  const liveModel = String(page.aiState?.model || '');
+  if (!liveModel || liveModel === 'local-maintainer') {
+    failures.push(`Live maintenance never reached the model; it fell back to deterministic synthesis (model="${liveModel || 'none'}"). Fix the model request before grading article quality.`);
+  }
+
   const plainText = toPlainText(page.body);
   fixture.expectations.requiredHeadings.forEach((heading) => {
     if (!plainText.includes(heading)) failures.push(`Expected live output to include "${heading}".`);
