@@ -1203,17 +1203,21 @@ const buildPrompt = ({
 
 Hard rules:
 - The article body must read like a Wiki page, not a maintenance report and not a source dump.
-- Be opinionated. State what the evidence implies, which mechanisms matter, and where the tension is. Mark uncertainty in Open Questions instead of writing filler.
+${structure.flexibleSections && structure.profile !== 'investment_dossier'
+    ? '- Be source-faithful. State only definitions, relationships, mechanisms, examples, and limits that the supplied evidence directly establishes. Prefer a narrower article to a plausible bridge claim that the sources do not say.'
+    : '- Be opinionated. State what the evidence implies, which mechanisms matter, and where the tension is. Mark uncertainty in Open Questions instead of writing filler.'}
 - Do not include HTML tags, JSON, raw URLs, scraped metadata labels, source indexes as prose, support labels, or sentences like "X contributes evidence for this page."
 - Use source titles only as evidence behind the writing. The page should say the idea, not list the source title as the idea.
 - Do not write scaffold or placeholder phrases such as "should explain", "still needs source-backed development", "strongest current signals", or "Summary:" bullets.
 - Do not restate the page title as a body heading. The page chrome already renders the title; the article body should begin with the summary paragraph.
-- If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.
+${structure.flexibleSections && structure.profile !== 'investment_dossier'
+    ? '- Do not force a target length. Every substantive sentence must retain recognizable terms and relationships from its cited evidence; omit unsupported connective prose.'
+    : '- If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.'}
 - Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
 - When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
 - Put evidence gaps, new items, contradictions, stale sections, and changelog entries only in maintenance.
 - Preserve likely user-authored notes when they are not duplicate, contradicted, navigation text, or metadata.
-- Where it is natural and specific, mention existing related wiki pages by their exact titles so the article becomes navigable through inline wiki links. Do not force links, do not list related pages as a directory, and do not mention generic page titles that add no explanatory value.
+- Where it is natural, specific, and directly supported, mention existing related wiki pages by their exact titles in plain text so the article becomes navigable through autolinking. Never emit raw [[wiki link]] syntax, force links, list related pages as a directory, or invent a relationship merely because a page exists.
 ${formatGitHubRepoPromptBlock({ page, candidates })}${formatInvestmentDossierPromptBlock({ structure, page })}${formatStandardWikiPromptBlock({ structure, page, candidates })}
 
 Page:

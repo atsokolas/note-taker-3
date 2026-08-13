@@ -364,6 +364,11 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).toContain('Ordinary Wiki evidence map');
     expect(prompt).toContain('Direct subject sources: [1]');
     expect(prompt).toContain('Adjacent sources may illustrate');
+    expect(prompt).toContain('Be source-faithful');
+    expect(prompt).toContain('Do not force a target length');
+    expect(prompt).toContain('Never emit raw [[wiki link]] syntax');
+    expect(prompt).not.toContain('Be opinionated.');
+    expect(prompt).not.toContain('write at least 650 words');
     expect(prompt).not.toContain('Implied Expectations');
   });
 
