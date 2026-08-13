@@ -9189,9 +9189,10 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
 }
 
 .onboarding-build-banner__primary {
-  border: 1px solid transparent;
-  background: var(--accent, #007aff);
-  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--accent)) 38%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .onboarding-build-banner__secondary {
@@ -9272,16 +9273,18 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   flex-shrink: 0;
   padding: 9px 16px;
   border-radius: 9px;
-  background: var(--accent, #007aff);
-  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--accent-primary, var(--accent)) 38%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 10%, transparent);
+  color: var(--text-primary);
   font-size: 0.85rem;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
-  transition: opacity 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 
 .extension-capture-card__cta:hover {
-  opacity: 0.85;
+  background: color-mix(in srgb, var(--accent-primary, var(--accent)) 18%, transparent);
 }
 
 .extension-capture-card__badge {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { listWikiPages } from '../../api/wiki';
 import {
   armReadingWatch,
@@ -150,7 +150,6 @@ const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = 
 };
 
 const WikiFrontPage = () => {
-  const navigate = useNavigate();
   const [pages, setPages] = useState([]);
   const [briefing, setBriefing] = useState(null);
   const [hasAnyWikiContent, setHasAnyWikiContent] = useState(null);
@@ -223,17 +222,14 @@ const WikiFrontPage = () => {
     () => dedupePagesByRepoKey(filterReturnViewItems(pages)),
     [pages]
   );
+  // First-run *routing* is owned by FirstRunGate at the app shell, so a new user
+  // meets onboarding wherever they land rather than only here. What stays is the
+  // part only this page can do: hold a placeholder instead of flashing an empty
+  // front page while the gate redirects, and record that a user who already has a
+  // wiki is past onboarding — which it knows from data it had to load anyway.
   const onboardingComplete = isWikiOnboardingComplete();
   const shouldOpenOnboarding = !loading && !error && !onboardingComplete && hasAnyWikiContent === false;
 
-  useEffect(() => {
-    if (!shouldOpenOnboarding) return;
-    navigate('/onboarding/wiki', { replace: true });
-  }, [navigate, shouldOpenOnboarding]);
-
-  // A user who already has a wiki is past onboarding by definition. Recording that
-  // keeps a second browser (or cleared storage) from dropping them back into first-run,
-  // and lets the tour know onboarding is no longer pending.
   useEffect(() => {
     if (loading || error) return;
     if (hasAnyWikiContent !== true) return;

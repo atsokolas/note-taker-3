@@ -58,7 +58,6 @@ const TourManager = () => {
     currentStep,
     currentIndex,
     totalSteps,
-    startTour,
     resumeTour,
     pauseTour,
     skipTour,
@@ -69,18 +68,23 @@ const TourManager = () => {
   const autoAdvancedStepRef = useRef('');
   const explicitResumeRef = useRef(false);
 
+  // The tour no longer auto-starts.
+  //
+  // Auto-start only ever fired for NOT_STARTED first-time visitors — exactly the
+  // users who now get first-run onboarding instead. Leaving it on meant the tour
+  // grabbed them the moment onboarding finished and dragged them off the home page
+  // they had just chosen to open. Deferring it (rather than deleting it) only moved
+  // the collision later in the sequence.
+  //
+  // The tour stays fully reachable on demand: ?tour=resume, and any explicit entry
+  // point. It is scheduled to be replaced by the onboarding walkthrough, which runs
+  // over the user's own material while their first build is still going.
   useEffect(() => {
     if (state.loading) return;
-    if (state.status === TOUR_STATUS.COMPLETED) return;
-    if (state.status !== TOUR_STATUS.NOT_STARTED) return;
-    if (!state.isFirstTimeVisitor) return;
-    // Exactly one system may drive a new user. First-run onboarding owns them until
-    // it completes; the tour waits its turn rather than racing it.
-    if (isWikiOnboardingPending()) return;
-    startTour().catch((error) => {
-      console.error('Failed to auto-start tour:', error);
-    });
-  }, [startTour, state.isFirstTimeVisitor, state.loading, state.status]);
+    if (!isWikiOnboardingPending()) return;
+    // Nothing to do. Retained as an explicit statement that first-run belongs to
+    // onboarding, so a future change does not quietly restore a second driver.
+  }, [state.loading]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

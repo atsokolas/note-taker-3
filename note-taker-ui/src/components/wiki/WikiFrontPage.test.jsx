@@ -181,7 +181,9 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/onboarding/wiki', { replace: true }));
+    // Redirecting is FirstRunGate's job now (it fires wherever the user lands, not
+    // only here). This page's remaining duty is to not flash an empty front page
+    // while that happens.
     expect(await screen.findByText(/opening the first-page flow/i)).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
