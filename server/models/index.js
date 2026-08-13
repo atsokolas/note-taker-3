@@ -814,6 +814,10 @@ const wikiPageSchema = new mongoose.Schema({
 wikiPageSchema.index({ userId: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
+// Public surfaces query across owners, so every userId-prefixed index above is
+// unusable for them: the shared-page scan fell back to examining the whole
+// collection and sorting in memory. The logged-out landing page waited on that.
+wikiPageSchema.index({ visibility: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, 'sourceRefs.objectId': 1 });
 wikiPageSchema.index({ userId: 1, slug: 1 }, { unique: true });
 wikiPageSchema.index(

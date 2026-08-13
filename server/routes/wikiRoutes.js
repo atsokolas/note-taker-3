@@ -5127,12 +5127,22 @@ const buildWikiRouter = ({
         'createdFrom.label': { $not: HUMAN_ONLY_WIKI_LABEL_PATTERN }
       });
       if (pagesQuery?.select) {
-        pagesQuery = pagesQuery.select('_id slug title pageType status visibility createdFrom plainText sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
+        // This pass only decides which pages fill the proof slots, and slot
+        // matching never reads article text. Carrying plainText meant shipping
+        // the full body of every shared page — up to 250 articles — merely to
+        // choose a handful, which is what the logged-out landing page waited
+        // on. The chosen pages are rehydrated in full immediately below.
+        pagesQuery = pagesQuery.select('_id slug title pageType status visibility createdFrom sourceRefs.title sourceRefs.url claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
       }
       if (pagesQuery?.sort) pagesQuery = pagesQuery.sort({ updatedAt: -1 });
       if (pagesQuery?.limit) pagesQuery = pagesQuery.limit(250);
       const pages = pagesQuery?.lean ? await pagesQuery.lean() : await pagesQuery;
-      const registryCandidates = Array.isArray(pages) ? pages : [];
+      // Drop human-only artifacts before choosing rather than after. Both
+      // selection passes must see the same candidate list, or the final pass
+      // can land on a page the detail fetch never rehydrated and serialize it
+      // without its body.
+      const registryCandidates = (Array.isArray(pages) ? pages : [])
+        .filter(page => !isHumanOnlyWikiArtifact(page));
       const preliminarySelection = selectPublicProofPages({
         pages: registryCandidates,
         slots: DEFAULT_PUBLIC_PROOF_SLOTS
@@ -5170,7 +5180,9 @@ const buildWikiRouter = ({
       }
 
       const selected = selectPublicProofPages({
-        pages: (Array.isArray(proofPages) ? proofPages : []).filter(page => !isHumanOnlyWikiArtifact(page)),
+        // Already filtered above, so this pass sees exactly the candidates the
+        // preliminary pass did and lands on the same rehydrated pages.
+        pages: Array.isArray(proofPages) ? proofPages : [],
         slots: DEFAULT_PUBLIC_PROOF_SLOTS
       });
       const entries = selected
