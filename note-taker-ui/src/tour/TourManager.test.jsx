@@ -47,18 +47,18 @@ describe('TourManager', () => {
     });
   });
 
-  it('auto-starts for first-time visitors once onboarding is complete', () => {
+  it('never auto-starts for a first-time visitor — first run belongs to onboarding', () => {
     const harness = tourHarness(FIRST_TIME_TOUR_STATE);
     useTour.mockReturnValue(harness);
 
     render(<TourManager />);
-    expect(harness.startTour).toHaveBeenCalledTimes(1);
+    expect(harness.startTour).not.toHaveBeenCalled();
   });
 
-  it('defers auto-start while first-run onboarding is still pending', () => {
-    // Exactly one system may drive a new user. Onboarding owns them until it finishes,
-    // otherwise the tour yanks them off the build mid-flight.
-    window.localStorage.removeItem('noeis.wikiOnboardingComplete');
+  it('does not auto-start once onboarding completes either', () => {
+    // Deferring rather than removing only moved the collision later: the tour would
+    // grab the user the instant they finished onboarding and landed on home.
+    window.localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
     const harness = tourHarness(FIRST_TIME_TOUR_STATE);
     useTour.mockReturnValue(harness);
 

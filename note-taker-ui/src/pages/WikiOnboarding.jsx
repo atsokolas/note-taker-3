@@ -261,6 +261,14 @@ const WikiOnboarding = () => {
     else navigate('/wiki', { replace: true });
   };
 
+  // Home — whatever the app currently opens on. Deliberately '/' rather than a
+  // hard-coded surface: the landing route is mid-migration to the Paper, and
+  // onboarding should follow it rather than pin itself to one side of that move.
+  const goHome = () => {
+    markComplete();
+    navigate('/', { replace: true });
+  };
+
   return (
     <main className="wiki-onboarding" aria-live="polite">
       {step === 'show' ? (
@@ -341,9 +349,14 @@ const WikiOnboarding = () => {
               : 'The agent built the foundation. Add your own material next so the graph starts connecting.'}
           </p>
           <div className="wiki-onboarding__hook-actions">
-            <button type="button" onClick={goToWiki}>Go to my wiki</button>
-            <Link to="/connections">Connect reading</Link>
-            <Link to="/wiki">Explore pages</Link>
+            {/* Onboarding ends on the Paper — the home a new user now has a reason
+                to open. Their page is one click away here and in the build banner,
+                which follows them there. */}
+            <button type="button" onClick={goHome}>Start reading</button>
+            <button type="button" className="wiki-onboarding__secondary-action" onClick={goToWiki}>
+              Go to my page
+            </button>
+            <Link to="/connections#capture">Connect reading</Link>
           </div>
           {/* The ask, at the moment of felt need: the page they just made has one
               source. Rendered inline rather than linked away — this used to point at

@@ -248,7 +248,9 @@ describe('WikiOnboarding', () => {
     expect(screen.getByRole('heading', { name: 'This wiki is now yours.' })).toBeInTheDocument();
     expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Your adopted copy joins your own maintenance loop/i);
     await waitFor(() => expect(listWikiStarterPacks).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: 'Go to my wiki' }));
+    // Onboarding now ends on the Paper — home — with the built page one click away.
+    expect(screen.getByRole('button', { name: 'Start reading' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to my page' }));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1', { replace: true });
   });
 });

@@ -21,6 +21,7 @@ import TopBar from './layout/TopBar';
 import TourProvider from './tour/TourProvider';
 import TourManager from './tour/TourManager';
 import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
+import FirstRunGate from './onboarding/FirstRunGate';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
 import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
 import { useSystemStatus } from './system/useSystemStatus';
@@ -583,6 +584,10 @@ function App() {
         <KeyboardShortcutOverlay open={shortcutOverlayOpen} onClose={() => setShortcutOverlayOpen(false)} />
         <ProductFeedbackModal open={productFeedbackOpen} onClose={() => setProductFeedbackOpen(false)} />
         <TourManager />
+        {/* A new user starts where the flow starts. Home is the Paper, but you do
+            not land on home before you have one — this gate runs wherever they
+            enter, not just on the wiki. */}
+        <FirstRunGate />
         {/* Ambient progress for a build the user walked away from. Mounted at the
             shell so it follows them wherever onboarding sends them next. */}
         <OnboardingBuildBanner />
