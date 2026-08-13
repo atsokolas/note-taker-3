@@ -152,7 +152,7 @@ describe('Judgment room', () => {
   it('shows decision-index failure instead of inferring that no decisions exist', async () => {
     getDecisions.mockRejectedValue(new Error('decision index unavailable'));
     render(
-      <MemoryRouter initialEntries={['/judgment?view=dossiers']}>
+      <MemoryRouter initialEntries={['/judgment?view=dossiers&mode=case']}>
         <Judgment />
       </MemoryRouter>
     );
@@ -186,8 +186,11 @@ describe('Judgment room', () => {
   });
 
   it('renders the living case, exact grounds, calibration memo, and five-step trace', async () => {
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/judgment', search: `?view=dossiers&page=${PAGE_ID}&decision=decision-1&mode=case`, hash: '', state: null, key: 'case'
+    });
     render(
-      <MemoryRouter initialEntries={[`/judgment?view=dossiers&page=${PAGE_ID}&decision=decision-1`]}>
+      <MemoryRouter initialEntries={[`/judgment?view=dossiers&page=${PAGE_ID}&decision=decision-1&mode=case`]}>
         <Judgment />
       </MemoryRouter>
     );
@@ -212,6 +215,31 @@ describe('Judgment room', () => {
     expect(getDecisions).toHaveBeenCalledWith({ filter: 'all', limit: 100, windowDays: 365 });
   });
 
+  it('opens every real dossier in the account-backed board by default', async () => {
+    render(
+      <MemoryRouter initialEntries={[`/judgment?view=dossiers&page=${PAGE_ID}&decision=decision-1`]}>
+        <Judgment />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Durable compounder' })).toBeInTheDocument();
+    expect(screen.getByText('Living board · account-backed')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Evidence' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What it suggests' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What could break it' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Decision & lesson' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Owned source/i })).toBeInTheDocument();
+    expect(screen.getByText('Margins can expand')).toBeInTheDocument();
+    expect(screen.getByText('Retention weakens for two consecutive periods.')).toBeInTheDocument();
+    expect(screen.getByText('Build the position slowly')).toBeInTheDocument();
+    expect(screen.getByTestId('judgment-partner')).toHaveAttribute('data-context-id', PAGE_ID);
+    expect(screen.queryByText(/Synthetic/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Case' })).toHaveAttribute(
+      'href',
+      `/judgment?view=dossiers&page=${PAGE_ID}&decision=decision-1&mode=case`
+    );
+  });
+
   it('opens the canonical decision form for a case with no decision and fails closed without an accepted basis', async () => {
     const undecidedPage = {
       ...page,
@@ -224,9 +252,12 @@ describe('Judgment room', () => {
       counts: { upcoming_review: 0, awaiting_outcome: 0, reviewed: 0 },
       nextCursor: null
     });
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/judgment', search: `?view=dossiers&page=${PAGE_ID}&mode=case`, hash: '', state: null, key: 'undecided-case'
+    });
 
     render(
-      <MemoryRouter initialEntries={[`/judgment?page=${PAGE_ID}`]}>
+      <MemoryRouter initialEntries={[`/judgment?page=${PAGE_ID}&mode=case`]}>
         <Judgment />
       </MemoryRouter>
     );
@@ -243,9 +274,12 @@ describe('Judgment room', () => {
       ...page,
       judgment: updates.judgment
     }));
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/judgment', search: `?view=dossiers&page=${PAGE_ID}&decision=decision-1&mode=case`, hash: '', state: null, key: 'edit-case'
+    });
 
     render(
-      <MemoryRouter initialEntries={[`/judgment?view=dossiers&page=${PAGE_ID}&decision=decision-1`]}>
+      <MemoryRouter initialEntries={[`/judgment?view=dossiers&page=${PAGE_ID}&decision=decision-1&mode=case`]}>
         <Judgment />
       </MemoryRouter>
     );
