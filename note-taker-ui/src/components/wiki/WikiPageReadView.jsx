@@ -1186,6 +1186,8 @@ const WikiPageReadView = ({
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [maintaining, setMaintaining] = useState(false);
+  const [archiveConfirming, setArchiveConfirming] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const maintenanceActive = maintaining || streamBusy;
   const [maintenanceTraceLines, setMaintenanceTraceLines] = useState([]);
   const [maintenanceReceipt, setMaintenanceReceipt] = useState(null);
@@ -1663,6 +1665,38 @@ const WikiPageReadView = ({
       setError('The failed draft could not be discarded. Try again.');
     }
   }, [navigate, pageId]);
+
+  // Until now only a failed company dossier could be removed, so duplicates and
+  // empty scaffolds accumulated on every other page type with no way out. This
+  // archives rather than deletes: the backend keeps the document, flips it to
+  // archived, and records a revision, so a mistake is recoverable.
+  //
+  // Two steps on purpose. Removing a page the owner has been building is not an
+  // action to take on a single stray click, and the confirmation names the page
+  // so the wrong one of two same-titled duplicates cannot go quietly.
+  const handleArchivePage = useCallback(async () => {
+    if (!pageId) return;
+    if (!archiveConfirming) {
+      setArchiveConfirming(true);
+      return;
+    }
+    setArchiving(true);
+    setError('');
+    try {
+      await archiveWikiPage(pageId);
+      systemStatus.setLatestReceipt({
+        title: 'Wiki page archived',
+        summary: `“${page?.title || 'Untitled page'}” was archived. It is out of your Wiki but not destroyed.`,
+        status: 'settled',
+        href: '/wiki'
+      });
+      navigate('/wiki', { replace: true });
+    } catch (_error) {
+      setError('That page could not be archived. Try again.');
+      setArchiving(false);
+      setArchiveConfirming(false);
+    }
+  }, [archiveConfirming, navigate, page, pageId, systemStatus]);
 
   const handleShareSafely = useCallback(async () => {
     const currentPage = latestPageRef.current || page;
@@ -3256,6 +3290,46 @@ const WikiPageReadView = ({
                         </details>
                       </div>
                     </details>
+                    <section
+                      className="wiki-read__article-tool wiki-read__archive-tool"
+                      aria-label="Archive this Wiki page"
+                    >
+                      <div>
+                        <p className="wiki-read__article-tool-label">Remove this page</p>
+                        <h2>
+                          {archiveConfirming
+                            ? `Archive “${displayWikiPageTitle(page) || 'this page'}”?`
+                            : 'Archive this page'}
+                        </h2>
+                        <p>
+                          {archiveConfirming
+                            ? 'It leaves your Wiki, its links, and its graph. The page and its history are kept, not destroyed.'
+                            : 'Use this for a duplicate, an empty scaffold, or a page you no longer want maintained.'}
+                        </p>
+                      </div>
+                      <div className="wiki-read__archive-actions">
+                        <Button
+                          type="button"
+                          variant={archiveConfirming ? 'primary' : 'secondary'}
+                          onClick={handleArchivePage}
+                          disabled={archiving || maintenanceActive}
+                        >
+                          {archiving
+                            ? 'Archiving…'
+                            : archiveConfirming ? 'Yes, archive it' : 'Archive page'}
+                        </Button>
+                        {archiveConfirming ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setArchiveConfirming(false)}
+                            disabled={archiving}
+                          >
+                            Keep it
+                          </Button>
+                        ) : null}
+                      </div>
+                    </section>
                   </div>
                 </details>
               ) : null}
