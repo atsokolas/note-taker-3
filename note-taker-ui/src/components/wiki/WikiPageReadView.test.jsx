@@ -1956,6 +1956,49 @@ describe('WikiPageReadView', () => {
     expect(within(receipt).getByRole('button', { name: 'Run again' })).toBeInTheDocument();
   });
 
+  it('reports owned Library source utilization in the maintenance receipt, not the article', async () => {
+    const maintainedPage = {
+      ...page,
+      aiState: {
+        ...page.aiState,
+        quality: {
+          ok: true,
+          status: 'pass',
+          failures: [],
+          metrics: {
+            ownedSourceUtilization: {
+              ownedFamilyCount: 4,
+              utilizedOwnedFamilyCount: 3,
+              receiptSummary: 'Used 3 of 4 selected Library source families.',
+              excludedOwnedFamilies: [
+                { title: 'Parenting aside', reason: 'One sentence with no mechanism to carry a claim.' }
+              ]
+            }
+          }
+        }
+      }
+    };
+    maintainWikiPage.mockResolvedValueOnce(maintainedPage);
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByText('Page maintenance'));
+    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
+
+    const receipt = await screen.findByLabelText('Wiki maintenance receipt');
+    await waitFor(() => {
+      expect(receipt).toHaveTextContent('Used 3 of 4 selected Library source families.');
+    });
+    expect(receipt).toHaveTextContent('Parenting aside — One sentence with no mechanism to carry a claim.');
+  });
+
   it('publishes a system receipt when page maintenance completes', async () => {
     const systemStatusControls = buildSystemStatusControls();
     const rebuiltPage = {
