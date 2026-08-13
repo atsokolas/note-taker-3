@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { listWikiPages } from '../api/wiki';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from './onboardingState';
+import syncWikiOnboardingState from './onboardingSync';
 
 /**
  * useFirstRunGate — a new user starts where the flow starts.
@@ -55,9 +56,16 @@ const useFirstRunGate = ({ enabled = true } = {}) => {
 
     checkedRef.current = true;
 
-    listWikiPages({ limit: 1 })
+    // Ask the server whether this account has already onboarded before deciding
+    // anything: the local flag is per-browser, and a second device would otherwise
+    // walk a returning user through first-run again.
+    syncWikiOnboardingState()
+      .then((complete) => {
+        if (!mountedRef.current || complete) return null;
+        return listWikiPages({ limit: 1 });
+      })
       .then((pages) => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || pages === null) return;
         const hasContent = Array.isArray(pages) && pages.length > 0;
         if (hasContent) {
           // Already has a workspace: past onboarding by definition. Record it so

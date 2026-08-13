@@ -3,9 +3,17 @@ import * as router from 'react-router-dom';
 import useFirstRunGate from './useFirstRunGate';
 import { listWikiPages } from '../api/wiki';
 import { isWikiOnboardingComplete } from './onboardingState';
+import syncWikiOnboardingState from './onboardingSync';
 
 jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn()
+}));
+
+// The gate now asks the server whether this account already onboarded, so a second
+// device does not re-run first-run. Default: server says not complete.
+jest.mock('./onboardingSync', () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue(false)
 }));
 
 const navigate = jest.fn();
@@ -21,6 +29,7 @@ describe('useFirstRunGate', () => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+    syncWikiOnboardingState.mockResolvedValue(false);
     atPath('/paper');
   });
 
@@ -85,6 +94,16 @@ describe('useFirstRunGate', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/onboarding/wiki', { replace: true }));
     // One probe, not one per route change.
     expect(listWikiPages).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-run onboarding for an account that finished it on another device', async () => {
+    syncWikiOnboardingState.mockResolvedValue(true);
+
+    renderHook(() => useFirstRunGate());
+
+    await waitFor(() => expect(syncWikiOnboardingState).toHaveBeenCalled());
+    expect(listWikiPages).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('leaves the user alone when it cannot tell', async () => {

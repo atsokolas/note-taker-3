@@ -73,6 +73,55 @@ const buildUiTourRouter = ({
     }
   });
 
+  /**
+   * First-run onboarding state.
+   *
+   * Completion used to live only in the browser, so a user who finished onboarding
+   * and opened Noeis on a second device was walked through it again, and the funnel
+   * could not be measured at all. The client still keeps a local copy for
+   * synchronous render decisions; this is the record that outlives the browser.
+   */
+  router.get('/api/onboarding/state', authenticateToken, async (req, res) => {
+    try {
+      const userObjectId = new mongoose.Types.ObjectId(req.user.id);
+      const state = await TourState.findOne({ userId: userObjectId }).lean();
+      const onboarding = state?.onboarding || {};
+      res.status(200).json({
+        status: onboarding.status === 'complete' ? 'complete' : 'not_started',
+        complete: onboarding.status === 'complete',
+        completedAt: onboarding.completedAt || null
+      });
+    } catch (error) {
+      console.error('❌ Error fetching onboarding state:', error);
+      res.status(500).json({ error: 'Failed to fetch onboarding state.' });
+    }
+  });
+
+  router.post('/api/onboarding/complete', authenticateToken, async (req, res) => {
+    try {
+      const userObjectId = new mongoose.Types.ObjectId(req.user.id);
+      const existing = await TourState.findOne({ userId: userObjectId }).lean();
+      // Idempotent: keep the first completion timestamp rather than moving it every
+      // time a client replays the call.
+      const completedAt = existing?.onboarding?.status === 'complete' && existing?.onboarding?.completedAt
+        ? existing.onboarding.completedAt
+        : new Date();
+      const updated = await TourState.findOneAndUpdate(
+        { userId: userObjectId },
+        { $set: { 'onboarding.status': 'complete', 'onboarding.completedAt': completedAt } },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      ).lean();
+      res.status(200).json({
+        status: 'complete',
+        complete: true,
+        completedAt: updated?.onboarding?.completedAt || completedAt
+      });
+    } catch (error) {
+      console.error('❌ Error recording onboarding completion:', error);
+      res.status(500).json({ error: 'Failed to record onboarding completion.' });
+    }
+  });
+
   router.get('/api/tour/state', authenticateToken, async (req, res) => {
     try {
       const userObjectId = new mongoose.Types.ObjectId(req.user.id);
