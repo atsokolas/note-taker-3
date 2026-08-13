@@ -1030,6 +1030,20 @@ const run = async () => {
       { title: 'Ready Evidence Topic', userId: 'user-1' }
     ]);
 
+    const emptyDuplicate = new WikiPage({
+      userId: 'user-1',
+      title: 'Ready Evidence Topic',
+      slug: 'ready-evidence-topic-empty',
+      pageType: 'overview',
+      status: 'draft',
+      body: { type: 'doc', content: [{ type: 'paragraph' }] },
+      plainText: '',
+      sourceRefs: [{ title: 'Thin duplicate source' }],
+      aiState: { candidateStatus: 'rejected' },
+      updatedAt: new Date(Date.now() + 60_000)
+    });
+    await emptyDuplicate.save();
+
     const pageCountBeforeExactReuse = WikiPage.records.length;
     const reusedPreflight = await request(url, '/api/wiki/pages', {
       method: 'POST',
