@@ -1043,6 +1043,7 @@ describe('WikiWorkspace', () => {
       title: 'Portfolio Concentration',
       pageType: 'overview',
       sourceScope: 'entire_library',
+      evidencePreflight: true,
       createdFrom: expect.objectContaining({
         type: 'idea',
         text: 'Portfolio Concentration'
