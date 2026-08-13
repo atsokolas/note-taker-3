@@ -49,6 +49,9 @@ describe('OnboardingWalkthrough', () => {
       expect(screen.getByText(`${i + 1} of ${WALKTHROUGH_STOPS.length}`)).toBeInTheDocument();
       // eslint-disable-next-line no-await-in-loop
       await waitFor(() => expect(navigate).toHaveBeenCalledWith(WALKTHROUGH_STOPS[i].route));
+      // Every stop must route somewhere that exists; a named surface that ships on
+      // another branch put a real user on a blank page in production.
+      expect(WALKTHROUGH_STOPS[i].route).not.toBe('/paper');
       fireEvent.click(screen.getByRole('button', { name: i === WALKTHROUGH_STOPS.length - 1 ? 'Done' : 'Next' }));
     }
 
