@@ -300,6 +300,20 @@ const getReceiptDestination = ({ sourceKey, session, importStats, sourceLabel = 
     };
   }
 
+  if (sourceKey === 'notion' && importStats.importedNotes > 0) {
+    const count = importStats.importedNotes;
+    return {
+      heading: 'Import receipt',
+      body: `Notion sync brought in ${count} page${count === 1 ? '' : 's'}. Open Think to see what came in and turn it into a concept.`,
+      primaryLabel: importStats.entryId ? 'Open first imported page' : 'Open Think review',
+      primaryPath: importStats.entryId
+        ? `/think?tab=notebook&entryId=${encodeURIComponent(importStats.entryId)}`
+        : '/think?tab=notebook',
+      secondaryLabel: 'Open Think review',
+      secondaryPath: '/think?tab=notebook'
+    };
+  }
+
   if (sourceKey === 'readwise' && (importStats.importedArticles > 0 || importStats.importedHighlights > 0)) {
     return {
       heading: 'Import receipt',

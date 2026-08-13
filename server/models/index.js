@@ -1452,7 +1452,22 @@ const tourEventTimestampsSchema = new mongoose.Schema({
   semantic_search_used: { type: Date, default: null }
 }, { _id: false });
 
+// First-run onboarding state. Kept on the tour record because that is already the
+// per-user first-run document, uniquely indexed by userId — a second model would
+// mean a second write and a second thing to keep in step. Onboarding completion
+// used to live only in localStorage, so it re-triggered on a new browser and could
+// not be measured server-side.
+const onboardingStateSchema = new mongoose.Schema({
+  status: {
+    type: String,
+    enum: ['not_started', 'complete'],
+    default: 'not_started'
+  },
+  completedAt: { type: Date, default: null }
+}, { _id: false });
+
 const tourStateSchema = new mongoose.Schema({
+  onboarding: { type: onboardingStateSchema, default: () => ({}) },
   status: {
     type: String,
     enum: ['not_started', 'in_progress', 'paused', 'completed'],
