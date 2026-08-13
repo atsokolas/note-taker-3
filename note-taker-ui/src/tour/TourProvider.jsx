@@ -1,5 +1,4 @@
 import React, {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -15,7 +14,9 @@ import {
 } from './tourConfig';
 import tourReducer, { createInitialTourState, tourActionTypes } from './tourReducer';
 
-export const TourContext = createContext(null);
+import TourContext from './TourContext';
+
+export { TourContext };
 
 const safeParse = (value) => {
   try {

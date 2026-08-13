@@ -5,7 +5,9 @@ export const TOUR_STEPS = [
     id: 'install_extension',
     title: 'Install the browser extension',
     body: 'Use the extension to save and highlight from any article. Install it, pin it, then come back here.',
-    route: '/think?tab=home',
+    // Points at the capture card on Connections. This step used to route to Think
+    // home, where its target selector matched nothing at all.
+    route: '/connections#capture',
     targetSelector: '[data-tour-anchor="install-extension"]',
     placement: 'bottom',
     signalKey: 'extensionConnected',

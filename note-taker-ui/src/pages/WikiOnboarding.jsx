@@ -11,6 +11,7 @@ import { importPastedText, importPastedUrl } from '../api/imports';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
 import { setActiveBuild } from '../onboarding/activeBuild';
+import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 
 const FAST_BUILD_OPTIONS = {
   maintenanceProfile: 'fast',
@@ -344,13 +345,10 @@ const WikiOnboarding = () => {
             <Link to="/connections">Connect reading</Link>
             <Link to="/wiki">Explore pages</Link>
           </div>
-          <section className="wiki-onboarding__save-habit" aria-label="Save from anywhere">
-            <div>
-              <strong>Make saving frictionless next.</strong>
-              <p>Add the browser save flow so the next useful passage can land in Noeis without coming back to this setup screen.</p>
-            </div>
-            <Link to="/connections#capture">Set up browser save</Link>
-          </section>
+          {/* The ask, at the moment of felt need: the page they just made has one
+              source. Rendered inline rather than linked away — this used to point at
+              /connections#capture, which had no capture section to land on. */}
+          <ExtensionCaptureCard compact heading="Save from anywhere" />
           {adoptedStarterPages.some(page => page?.adoptedFrom?.sample) ? (
             <section className="wiki-onboarding__sample" aria-label="Starter pack controls">
               <div>

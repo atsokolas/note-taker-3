@@ -273,5 +273,70 @@
     }
   });
 
+  // --- Presence beacon -------------------------------------------------
+  //
+  // Lets the Noeis web app tell three states apart: extension not installed,
+  // installed but not signed in, and connected. Without this the app only learns
+  // the extension exists when someone opens its popup, so onboarding cannot say
+  // anything true about capture being set up.
+  //
+  // Deliberately scoped to Noeis hosts. Announcing on every site the user visits
+  // would broadcast a fingerprintable signal to third parties for no benefit.
+  const NOEIS_APP_HOSTS = [
+    'noeis.io',
+    'www.noeis.io',
+    'localhost',
+    '127.0.0.1'
+  ];
+
+  const isNoeisAppHost = () => NOEIS_APP_HOSTS.includes(window.location.hostname);
+
+  if (isNoeisAppHost()) {
+    const EXTENSION_VERSION = (chrome.runtime?.getManifest?.() || {}).version || '';
+
+    const announcePresence = async () => {
+      let signedIn = false;
+      try {
+        const { token } = await chrome.storage.local.get('token');
+        signedIn = Boolean(token);
+      } catch (_error) {
+        signedIn = false;
+      }
+      // A DOM marker covers apps that mount after the script runs; the message
+      // covers apps already listening. Both carry the same state.
+      document.documentElement.setAttribute('data-noeis-extension', EXTENSION_VERSION || 'installed');
+      document.documentElement.setAttribute('data-noeis-extension-auth', signedIn ? 'connected' : 'signed_out');
+      window.postMessage({
+        source: 'noeis-extension',
+        type: 'NOEIS_EXTENSION_PRESENCE',
+        version: EXTENSION_VERSION,
+        signedIn
+      }, window.location.origin);
+    };
+
+    // The app asks on mount; we answer. Covers SPA routes that render long after
+    // document_idle.
+    window.addEventListener('message', (event) => {
+      if (event.source !== window) return;
+      if (event.data?.source !== 'noeis-app') return;
+      if (event.data?.type !== 'NOEIS_EXTENSION_PING') return;
+      announcePresence();
+    });
+
+    // Signing in through the popup should flip the app to "connected" without a
+    // reload.
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && Object.prototype.hasOwnProperty.call(changes, 'token')) {
+          announcePresence();
+        }
+      });
+    } catch (_error) {
+      // Older runtimes without storage change events still get the ping path.
+    }
+
+    announcePresence();
+  }
+
   checkForExistingArticle();
 })();
