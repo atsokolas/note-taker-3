@@ -304,15 +304,50 @@ const requestHeadersFor = ({ token, upstream = 'huggingface', stream = false, re
   return headers;
 };
 
-const requestPayloadFor = ({ payload = {}, upstream = 'huggingface', provider = '', withProvider = false } = {}) => {
+const requestPayloadFor = ({
+  payload = {},
+  upstream = 'huggingface',
+  provider = '',
+  withProvider = false,
+  dropReasoning = false
+} = {}) => {
   const nextPayload = { ...payload };
   if (upstream !== 'huggingface') {
     delete nextPayload.reasoning_effort;
+  }
+  if (dropReasoning) {
+    delete nextPayload.reasoning;
   }
   if (withProvider && provider && upstream === 'huggingface') {
     nextPayload.provider = provider;
   }
   return nextPayload;
+};
+
+// `provider` and `reasoning` are routing and latency hints, not content. Some
+// upstreams reject one outright, and a rejected hint used to fail the whole
+// generation — which an ordinary Wiki build absorbs as deterministic fallback
+// prose that still looks like a finished article. Plan an attempt per hint we
+// are willing to drop so a rejection costs one retry, not the page.
+const planRequestAttempts = ({ provider = '', payload = {} } = {}) => {
+  const canDropReasoning = Object.prototype.hasOwnProperty.call(payload, 'reasoning');
+  const attempts = [];
+  [Boolean(provider), false].forEach((withProvider, providerIndex) => {
+    if (providerIndex === 1 && !provider) return;
+    [false, true].forEach((dropReasoning) => {
+      if (dropReasoning && !canDropReasoning) return;
+      attempts.push({ withProvider, dropReasoning });
+    });
+  });
+  return attempts;
+};
+
+const UNSUPPORTED_FIELD_PATTERN = /unknown field|extra inputs|not permitted|unsupported|wrong_api_format/;
+
+const rejectsField = ({ status = 0, detail = '', field = '' } = {}) => {
+  if (!(status >= 400 && status < 500)) return false;
+  const lower = String(detail || '').toLowerCase();
+  return lower.includes(field) && UNSUPPORTED_FIELD_PATTERN.test(lower);
 };
 
 const requestChatCompletions = async ({
@@ -333,19 +368,25 @@ const requestChatCompletions = async ({
     stream: false,
     ...payload
   };
-  const attempts = [
-    { withProvider: Boolean(provider) },
-    { withProvider: false }
-  ];
+  const attempts = planRequestAttempts({ provider, payload: basePayload });
+  let skipProviderField = false;
+  let skipReasoningField = false;
 
   for (let index = 0; index < attempts.length; index += 1) {
     const attempt = attempts[index];
-    if (!attempt.withProvider && index === 1 && !provider) break;
+    if (attempt.withProvider && skipProviderField) continue;
+    if (!attempt.dropReasoning && skipReasoningField) continue;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const requestPayload = requestPayloadFor({ payload: basePayload, upstream, provider, withProvider: attempt.withProvider });
+      const requestPayload = requestPayloadFor({
+        payload: basePayload,
+        upstream,
+        provider,
+        withProvider: attempt.withProvider,
+        dropReasoning: attempt.dropReasoning
+      });
       const response = await fetch(url, {
         method: 'POST',
         headers: requestHeadersFor({ token, upstream, referer, appTitle }),
@@ -361,13 +402,12 @@ const requestChatCompletions = async ({
           : typeof json?.error === 'string'
             ? json.error
             : rawText || `HF request failed with status ${response.status}`;
-        const lowerDetail = String(detail || '').toLowerCase();
-        const providerFieldUnsupported = attempt.withProvider
-          && response.status >= 400
-          && response.status < 500
-          && lowerDetail.includes('provider')
-          && (lowerDetail.includes('unknown field') || lowerDetail.includes('extra inputs') || lowerDetail.includes('not permitted'));
-        if (providerFieldUnsupported) {
+        if (attempt.withProvider && rejectsField({ status: response.status, detail, field: 'provider' })) {
+          skipProviderField = true;
+          continue;
+        }
+        if (!attempt.dropReasoning && rejectsField({ status: response.status, detail, field: 'reasoning' })) {
+          skipReasoningField = true;
           continue;
         }
         throw buildError({
@@ -439,19 +479,25 @@ const requestChatCompletionsStream = async ({
     stream: true,
     ...payload
   };
-  const attempts = [
-    { withProvider: Boolean(provider) },
-    { withProvider: false }
-  ];
+  const attempts = planRequestAttempts({ provider, payload: basePayload });
+  let skipProviderField = false;
+  let skipReasoningField = false;
 
   for (let index = 0; index < attempts.length; index += 1) {
     const attempt = attempts[index];
-    if (!attempt.withProvider && index === 1 && !provider) break;
+    if (attempt.withProvider && skipProviderField) continue;
+    if (!attempt.dropReasoning && skipReasoningField) continue;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const requestPayload = requestPayloadFor({ payload: basePayload, upstream, provider, withProvider: attempt.withProvider });
+      const requestPayload = requestPayloadFor({
+        payload: basePayload,
+        upstream,
+        provider,
+        withProvider: attempt.withProvider,
+        dropReasoning: attempt.dropReasoning
+      });
       const response = await fetch(url, {
         method: 'POST',
         headers: requestHeadersFor({ token, upstream, stream: true, referer, appTitle }),
@@ -467,13 +513,14 @@ const requestChatCompletionsStream = async ({
           : typeof json?.error === 'string'
             ? json.error
             : rawText || `HF request failed with status ${response.status}`;
-        const lowerDetail = String(detail || '').toLowerCase();
-        const providerFieldUnsupported = attempt.withProvider
-          && response.status >= 400
-          && response.status < 500
-          && lowerDetail.includes('provider')
-          && (lowerDetail.includes('unknown field') || lowerDetail.includes('extra inputs') || lowerDetail.includes('not permitted'));
-        if (providerFieldUnsupported) continue;
+        if (attempt.withProvider && rejectsField({ status: response.status, detail, field: 'provider' })) {
+          skipProviderField = true;
+          continue;
+        }
+        if (!attempt.dropReasoning && rejectsField({ status: response.status, detail, field: 'reasoning' })) {
+          skipReasoningField = true;
+          continue;
+        }
         throw buildError({
           status: response.status,
           detail,
