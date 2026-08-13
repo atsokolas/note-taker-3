@@ -186,6 +186,29 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.queryByText(/pages need review/i)).not.toBeInTheDocument();
   });
 
+  it('renders the pages without waiting for a slow briefing', async () => {
+    // The briefing issues many more queries than the page index. Holding the
+    // whole surface until both settled kept "Opening your living knowledge…"
+    // on screen long after the pages had already arrived.
+    let releaseBriefing = () => {};
+    getDailyLoop.mockReturnValueOnce(new Promise((resolve) => {
+      releaseBriefing = () => resolve({ briefing });
+    }));
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    // The pages are readable while the briefing is still outstanding.
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByText('Opening your living knowledge…')).not.toBeInTheDocument();
+
+    releaseBriefing();
+    await waitFor(() => expect(getDailyLoop).toHaveBeenCalledTimes(1));
+  });
+
   it('falls back to the strongest page when the briefing fails', async () => {
     getDailyLoop.mockRejectedValueOnce(new Error('down'));
 

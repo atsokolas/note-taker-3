@@ -211,9 +211,26 @@ const WikiFrontPage = () => {
     }
     setError('');
     setAvailabilityNotice('');
+    const pagesRequest = listWikiPages({ limit: INDEX_PAGE_LIMIT, includeLowQuality: 1 });
+    const briefingRequest = getDailyLoop();
+    // The page index is what the reader came for; the briefing is a change
+    // signal layered on top. Holding the whole surface until both settle meant
+    // a slow briefing kept "Opening your living knowledge…" on screen long
+    // after the pages had arrived. Render the pages as soon as they land and
+    // let the briefing fill in behind them.
+    pagesRequest
+      .then((value) => {
+        if (cancelled || !Array.isArray(value)) return;
+        setPages(value);
+        setHasAnyWikiContent(value.length > 0);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     Promise.allSettled([
-      listWikiPages({ limit: INDEX_PAGE_LIMIT, includeLowQuality: 1 }),
-      getDailyLoop()
+      pagesRequest,
+      briefingRequest
     ]).then(([pagesResult, briefingResult]) => {
       if (cancelled) return;
       const nextPages = pagesResult.status === 'fulfilled' && Array.isArray(pagesResult.value)
