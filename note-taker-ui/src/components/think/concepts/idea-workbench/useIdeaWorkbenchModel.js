@@ -1430,6 +1430,11 @@ export const useIdeaWorkbenchModel = ({
   );
 
   useEffect(() => {
+    // Do not let derived freshness bookkeeping participate in hydration.
+    // Activating the incoming key reruns this effect against the committed
+    // snapshot, so a proposal temporarily computed during the fetch cannot be
+    // lost or mistaken for an in-flight notebook edit.
+    if (hydratedKey !== storageKey || hydratedKeyRef.current !== storageKey) return;
     setState((previous) => {
       const nextMeta = {
         ...previous.meta,
@@ -1475,7 +1480,7 @@ export const useIdeaWorkbenchModel = ({
         changeDrafts: mergeConceptChangeDrafts(previous.changeDrafts, [refreshDraft])
       };
     });
-  }, [freshness.freshCards, freshness.isStale, freshness.signature, freshness.summary]);
+  }, [freshness.freshCards, freshness.isStale, freshness.signature, freshness.summary, hydratedKey, storageKey]);
 
   const appendWorkbenchEvents = useCallback(async (eventsInput) => {
     if (!conceptKey) return;
