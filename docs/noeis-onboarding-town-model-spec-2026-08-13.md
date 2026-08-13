@@ -1,7 +1,7 @@
 # Noeis onboarding — current state walkthrough + Town-model rebuild
 
 Date: 2026-08-13
-Status: spec (no code changes in this pass)
+Status: built — stages S1-S6 shipped and verified live (see Part 5)
 Scope: signup → first page → extension → imports → public-wiki fork
 
 ---
@@ -249,3 +249,62 @@ persisted state verified after reload — per the standing evidence rules in `AG
 - [Town Raises $55M Series A from a16z and Forerunner](https://finance.yahoo.com/sectors/technology/articles/town-raises-55m-series-a16z-134500847.html)
 - [How Town Became Silicon Valley's New Favorite AI Tool](https://inc-1-smart-business-story.beehiiv.com/p/how-town-became-silicon-valley-s-new-favorite-ai-tool)
 - [Fortune — a16z and Forerunner bet $55M on Town](https://fortune.com/2026/06/03/towns-ai-assistants-andreessen-horowitz-forerunner-55-million/)
+
+---
+
+## Part 5 — What shipped
+
+All six stages are built, verified against a live isolated stack with disposable
+accounts, and pushed. Branch note: the first four landed on
+`feat/onboarding-detached-build`; the last two landed on `feat/reading-loop`, which
+another agent cut from that branch and checked out in the shared working tree
+mid-effort. That branch contains all of this work.
+
+| Stage | Shipped | Defects closed |
+|---|---|---|
+| S1 | One auto-driver, auto sign-in on register, dead code deleted | D1, D2, D3, D8 |
+| S2 | Detached build (202 + polled `aiState.draftStatus`), ambient banner | — |
+| S3 | Extension card, real three-state detection, tour anchor and route | D4, D5, D6, D7 |
+| S4 | First-run walkthrough over the running build, ending on the Paper | — |
+| S5 | Fork CTA on `/proof`, forkable-wiki browse with page preview | D9, D10 |
+| S6 | Server-side onboarding state, Notion import receipt | D11 |
+
+### Decisions taken during the build, and why
+
+- **The tour was not deleted, then was neutered.** S1 deferred its auto-start until
+  onboarding finished; the live run showed that only moved the collision — the tour
+  grabbed the user the instant they reached home. It no longer auto-starts at all
+  and remains reachable via `?tour=resume`. The walkthrough (S4) is its replacement.
+- **The detached build fails closed.** Pages needing acceptance review or a repo
+  build lease get a 409 pointing at the synchronous route rather than quietly
+  skipping those gates.
+- **Home is the Paper.** Onboarding ends there, and the walkthrough's last stop
+  introduces it — which answers the objection behind keeping the landing on the
+  wiki, since a new user no longer meets an empty Paper cold.
+
+### Found while building, fixed
+
+- The detached build raced the source-event worker over the same page and rendered
+  the resulting Mongoose `VersionError` to the user verbatim. Now uses the route
+  module's existing `savePageWithVersionRetry`; the driver message stays in the log.
+- `useTourSignal` dragged the tour API layer (and axios) into every consumer via
+  `TourProvider`. `TourContext` extracted to its own module.
+- The first-run gate's effect re-runs on every route change, and sign-in bounces
+  through several routes fast; its cleanup was cancelling the in-flight check while
+  the "already checked" guard blocked the retry, so a new user silently never
+  reached onboarding. Cancellation now tracks unmount only.
+
+### Deferred, deliberately
+
+- **The permission dial on the first receipt.** Noeis maintaining your own wiki
+  pages is lower stakes than an agent acting in your inbox, and the decision is
+  better made against a real receipt than in the abstract during setup. Not built.
+- **Fork preview before signup** (an anonymous session-scoped workspace). The
+  forkable-wiki cards now show the exact page titles a fork would create, which
+  covers most of the value without the backend.
+
+### Known, not caused here
+
+`note-taker-ui/src/styles/wiki-critical.css` is 34,400 bytes against the 32,768
+budget its test asserts, and has been throughout. Byte-identical to before this
+work; untouched by it. It is the only failing suite.
