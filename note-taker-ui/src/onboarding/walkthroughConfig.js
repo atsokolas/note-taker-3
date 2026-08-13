@@ -44,11 +44,16 @@ export const WALKTHROUGH_STOPS = [
     detail: 'Concepts, open questions, and notes build on the sources underneath them.'
   },
   {
-    id: 'paper',
-    route: '/paper',
+    id: 'home',
+    // Deliberately '/' rather than a named surface. The landing route is mid-
+    // migration to the Paper, which ships on its own branch; routing this stop at
+    // /paper directly put a new user on a blank screen in production, because the
+    // route did not exist on main. '/' is whatever home currently resolves to, and
+    // follows the migration without this file needing to know about it.
+    route: '/',
     eyebrow: 'Home',
-    title: 'The Paper is home.',
-    detail: 'Each morning it shows what changed in your reading and what is worth returning to. It fills in as you feed it.'
+    title: 'This is home.',
+    detail: 'Come back here and Noeis shows what changed in your reading and what is worth returning to. It fills in as you feed it.'
   }
 ];
 
