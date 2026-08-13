@@ -80,7 +80,7 @@ describe('WikiProductIndex', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Wiki corpus trace')).toHaveTextContent('latest update · Investing');
     });
-    expect(listWikiPages).toHaveBeenCalledWith({ limit: 80 });
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, summary: 1 });
     expect(screen.getAllByRole('link', { name: /Investing/ })[0]).toHaveAttribute('href', '/wiki/workspace?page=wiki-investing');
     expect(screen.getByText('A source-backed synthesis of investing practice.')).toBeInTheDocument();
 

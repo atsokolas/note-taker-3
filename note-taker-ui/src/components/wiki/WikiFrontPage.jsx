@@ -256,7 +256,14 @@ const WikiFrontPage = () => {
     // briefing only after the index settles so it cannot contend with the
     // canonical first read during a cold database wake-up.
     if (!pageIndexRequestRef.current) {
-      pageIndexRequestRef.current = listWikiPages({ limit: INDEX_PAGE_LIMIT, includeLowQuality: 1 });
+      pageIndexRequestRef.current = listWikiPages({
+        limit: INDEX_PAGE_LIMIT,
+        includeLowQuality: 1,
+        // The index renders titles, counts, and freshness — never bodies.
+        // Requesting whole pages made this large enough to fail outright on a
+        // real corpus, which surfaced as "Failed to load wiki pages".
+        summary: 1
+      });
     }
     const pageIndexRequest = pageIndexRequestRef.current;
     pageIndexRequest

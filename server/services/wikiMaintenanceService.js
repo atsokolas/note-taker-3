@@ -9,7 +9,7 @@ const {
   getWikiPageStructure,
   getWikiPageStructureForPage
 } = require('./wikiPageStructureService');
-const { findAutolinkSuggestions } = require('./wikiAutolinkService');
+const { findAutolinkSuggestions, loadAutolinkCandidates } = require('./wikiAutolinkService');
 const { applyWikiAutolinkToDoc } = require('./wikiAutolinkApplyService');
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 const { fetchFilingDocument } = require('./edgarWatcherService');
@@ -28,6 +28,7 @@ const {
   isOwnedSource
 } = require('./wikiOwnedSourceUtilizationService');
 
+const AUTOLINK_CANDIDATE_LIMIT = 80;
 const DEFAULT_SOURCE_LIMIT = 24;
 const FAST_SOURCE_LIMIT = 8;
 const MAX_SOURCE_TEXT = 1800;
@@ -3947,7 +3948,7 @@ const inferMaintainedPageType = ({ page, candidates = [] } = {}) => {
   return 'concept';
 };
 
-const materializeMaintenanceResult = async ({ page, normalized, candidates, previousClaims, now, userId, models }) => {
+const materializeMaintenanceResult = async ({ page, normalized, candidates, previousClaims, now, userId, models, autolinkCandidates = null }) => {
   const investmentDossier = getWikiPageStructureForPage({
     page,
     candidates
@@ -4014,7 +4015,8 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     body,
     plainText,
     userId,
-    models
+    models,
+    autolinkCandidates
   });
   return {
     title: normalized.title || page.title,
@@ -4048,7 +4050,14 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
   };
 };
 
-const applyKnownWikiLinks = async ({ page, body, plainText, userId, models = {} } = {}) => {
+const applyKnownWikiLinks = async ({
+  page,
+  body,
+  plainText,
+  userId,
+  models = {},
+  autolinkCandidates = null
+} = {}) => {
   const WikiPage = modelForPage({ page, models });
   if (!WikiPage) return body;
   const pageId = asString(page?._id || page?.id);
@@ -4063,7 +4072,10 @@ const applyKnownWikiLinks = async ({ page, body, plainText, userId, models = {} 
     models: { WikiPage },
     // A large personal Wiki must not turn article publication into a
     // full-corpus scan just to add optional links.
-    limit: 80
+    limit: AUTOLINK_CANDIDATE_LIMIT,
+    // Reuse the candidate set this build already loaded. Matching still runs
+    // against the current attempt's prose; only the repeated fetch is skipped.
+    candidatePages: autolinkCandidates
   });
   return (result.suggestions || [])
     .filter(suggestion => asString(suggestion.pageId) && asString(suggestion.pageId) !== pageId)
@@ -4205,6 +4217,18 @@ const maintainWikiPage = async ({
     models,
     limit: fastProfile ? 16 : 40
   });
+  // Load the autolink candidate set once per build. Every materialize pass —
+  // the first draft and each quality repair — used to re-run this scan to get
+  // the same rows back, so a two-repair build paid for it three times and threw
+  // two away with the drafts they linked.
+  const autolinkCandidates = modelForPage({ page, models })
+    ? await loadAutolinkCandidates({
+        targetPage: { _id: asString(page?._id || page?.id), id: page?.id },
+        userId,
+        models: { WikiPage: modelForPage({ page, models }) },
+        limit: AUTOLINK_CANDIDATE_LIMIT
+      })
+    : null;
   const manualNotes = extractManualNotes(page);
   let modelInfo = { model: 'local-maintainer', provider: '' };
   let result = null;
@@ -4349,7 +4373,8 @@ const maintainWikiPage = async ({
     previousClaims,
     now,
     userId,
-    models
+    models,
+    autolinkCandidates
   });
 
   const shouldRebuildInline = shouldInlineQualityRebuild({
@@ -4454,7 +4479,8 @@ const maintainWikiPage = async ({
           previousClaims,
           now,
           userId,
-          models
+          models,
+          autolinkCandidates
         });
         let finalRetryNormalized = retryNormalized;
         let retryFallbackApplied = false;
@@ -4468,7 +4494,8 @@ const maintainWikiPage = async ({
             previousClaims,
             now,
             userId,
-            models
+            models,
+            autolinkCandidates
           });
         }
         if (isQualityImprovement({ current: materialized.quality, retry: retryMaterialized.quality })) {
@@ -4544,7 +4571,8 @@ const maintainWikiPage = async ({
       previousClaims,
       now,
       userId,
-      models
+      models,
+      autolinkCandidates
     });
     finalNormalized = repoFallbackNormalized;
     materialized = {
@@ -4639,7 +4667,8 @@ const maintainWikiPage = async ({
       previousClaims,
       now,
       userId,
-      models
+      models,
+      autolinkCandidates
     });
     finalNormalized = repoFallbackNormalized;
     materialized = {

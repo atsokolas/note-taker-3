@@ -187,21 +187,37 @@ const scanTextForCandidate = ({ targetText, candidateTitle }) => {
  * @param {object} params.models      mongoose models, must include WikiPage
  * @returns {Promise<{suggestions: Array, scanned: number}>}
  */
-const findAutolinkSuggestions = async ({ targetPage, userId, models = {}, limit = 600 } = {}) => {
-  const targetText = String(targetPage?.plainText || '').replace(/\s+/g, ' ');
-  if (!targetText) return { suggestions: [], scanned: 0 };
-
-  const targetId = String(targetPage._id || targetPage.id || '');
-  const candidates = await safeFind(
+// The candidate set depends only on the owner and the page being linked, never
+// on its prose. A maintenance build re-links after every repair attempt, so
+// fetching inside the matcher meant scanning the wiki two or three times per
+// build to answer an identical question. Callers that link repeatedly can load
+// the candidates once and hand them back.
+const loadAutolinkCandidates = async ({ targetPage, userId, models = {}, limit = 600 } = {}) => (
+  safeFind(
     models.WikiPage,
     {
       userId,
       status: { $ne: 'archived' },
-      _id: { $ne: targetId }
+      _id: { $ne: String(targetPage?._id || targetPage?.id || '') }
     },
     Math.max(1, Math.min(Number(limit) || 600, 600)),
     AUTOLINK_CANDIDATE_PROJECTION
-  );
+  )
+);
+
+const findAutolinkSuggestions = async ({
+  targetPage,
+  userId,
+  models = {},
+  limit = 600,
+  candidatePages = null
+} = {}) => {
+  const targetText = String(targetPage?.plainText || '').replace(/\s+/g, ' ');
+  if (!targetText) return { suggestions: [], scanned: 0 };
+
+  const candidates = Array.isArray(candidatePages)
+    ? candidatePages
+    : await loadAutolinkCandidates({ targetPage, userId, models, limit });
 
   const hits = [];
   for (const candidate of candidates) {
@@ -232,6 +248,7 @@ const findAutolinkSuggestions = async ({ targetPage, userId, models = {}, limit 
 
 module.exports = {
   findAutolinkSuggestions,
+  loadAutolinkCandidates,
   __testables: {
     buildTitleMatcher,
     scanTextForCandidate,
