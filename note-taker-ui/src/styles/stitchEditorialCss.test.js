@@ -2,6 +2,14 @@ import fs from 'fs';
 import path from 'path';
 
 describe('stitch editorial CSS tokens', () => {
+  it('keeps the Judgment Library retrieval field visibly keyboard focused', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'judgment-room.css'), 'utf8');
+
+    expect(css).toContain('.judgment-retrieval input:focus-visible');
+    expect(css).toContain('outline: 2px solid var(--judgment-accent)');
+    expect(css).toContain('.judgment-retrieval form label > div:focus-within');
+  });
+
   it('defines the accent tokens used by interactive trace states in light and dark palettes', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     const lightPalette = css.match(/body\.noeis-editorial \{[\s\S]*?\n\}/)?.[0] || '';
@@ -66,13 +74,14 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).not.toMatch(/^\s*--dropzone-[^:]+:\s*var\(--dropzone-/m);
   });
 
-  it('lets settings and connection pages scroll inside the editorial shell', () => {
+  it('lets long settings, connection, and judgment pages scroll inside the editorial shell', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     const documentScrollBlock = css.match(/body\.noeis-editorial \.settings-page,[\s\S]*?overflow-y: auto;\n\}/)?.[0] || '';
 
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.settings-page)');
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.integrations-page)');
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.data-integrations-page)');
+    expect(documentScrollBlock).toContain('.app-shell-new__body:has(.judgment-room)');
     expect(documentScrollBlock).toContain('height: auto;');
     expect(documentScrollBlock).toContain('overflow-y: auto;');
   });

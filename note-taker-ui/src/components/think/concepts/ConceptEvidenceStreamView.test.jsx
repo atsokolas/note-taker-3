@@ -294,7 +294,7 @@ describe('Concept evidence shell surfaces', () => {
     expect(screen.getByText('Article B')).toBeInTheDocument();
   });
 
-  it('lights the draft drop zone when an evidence card is being dragged', () => {
+  it('keeps the manuscript native without a separate evidence drop area', () => {
     const model = buildModel();
 
     render(
@@ -304,67 +304,7 @@ describe('Concept evidence shell surfaces', () => {
       />
     );
 
-    const dropzone = screen.getByTestId('concept-evidence-dropzone');
-    expect(dropzone.className).not.toMatch(/is-active/);
-    expect(dropzone.className).not.toMatch(/is-hovering/);
-
-    const types = ['application/x-noeis-card-id', 'text/plain'];
-    act(() => {
-      const dragstart = new Event('dragstart', { bubbles: true });
-      Object.defineProperty(dragstart, 'dataTransfer', {
-        value: { types, getData: () => 'support-1' }
-      });
-      document.dispatchEvent(dragstart);
-    });
-
-    expect(dropzone.className).toMatch(/is-active/);
-
-    fireEvent.dragOver(dropzone, {
-      dataTransfer: { types, getData: () => 'support-1' }
-    });
-    expect(dropzone.className).toMatch(/is-hovering/);
-    expect(screen.getByText('Drop to integrate')).toBeInTheDocument();
-
-    fireEvent.dragLeave(dropzone);
-    expect(dropzone.className).not.toMatch(/is-hovering/);
-
-    act(() => {
-      const dragend = new Event('dragend', { bubbles: true });
-      document.dispatchEvent(dragend);
-    });
-    expect(dropzone.className).not.toMatch(/is-active/);
-  });
-
-  it('integrates a dropped evidence card via onDropCard', () => {
-    const model = buildModel();
-    const onDropCard = jest.fn();
-
-    render(
-      <ConceptEvidenceStreamView
-        concept={{ _id: 'concept-1', name: 'Template Concept' }}
-        model={model}
-        onDropCard={onDropCard}
-      />
-    );
-
-    const dropzone = screen.getByTestId('concept-evidence-dropzone');
-    const types = ['application/x-noeis-card-id'];
-    act(() => {
-      const dragstart = new Event('dragstart', { bubbles: true });
-      Object.defineProperty(dragstart, 'dataTransfer', {
-        value: { types, getData: () => 'support-1' }
-      });
-      document.dispatchEvent(dragstart);
-    });
-
-    fireEvent.drop(dropzone, {
-      dataTransfer: { types, getData: () => 'support-1' }
-    });
-
-    expect(onDropCard).toHaveBeenCalledTimes(1);
-    const [card, position, editor] = onDropCard.mock.calls[0];
-    expect(card.id).toBe('support-1');
-    expect(position).toBeNull();
-    expect(editor).toBeNull();
+    expect(screen.queryByTestId('concept-evidence-dropzone')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Drag evidence here/i)).not.toBeInTheDocument();
   });
 });

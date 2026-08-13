@@ -17,6 +17,7 @@ import { clearCached, fetchWithCache } from '../utils/cache';
 const CONCEPTS_CACHE_KEY = 'concepts.list';
 const CONCEPTS_CACHE_TTL_MS = 30_000;
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+const ideaWorkbenchEventQueues = new Map();
 
 export const clearConceptsCache = () => clearCached(CONCEPTS_CACHE_KEY);
 
@@ -366,8 +367,21 @@ export const markConceptIdeaWorkbenchReviewed = async (conceptIdOrName) => {
 export const appendConceptIdeaWorkbenchEvents = async (conceptIdOrName, events) => {
   const safe = encodeURIComponent(String(conceptIdOrName || '').trim());
   const payload = Array.isArray(events) ? { events } : { event: events };
-  const res = await api.post(`/api/concepts/${safe}/idea-workbench/events`, payload, getAuthHeaders());
-  return res.data || { conceptId: '', conceptName: '', events: [] };
+  const previous = ideaWorkbenchEventQueues.get(safe) || Promise.resolve();
+  const request = previous
+    .catch(() => undefined)
+    .then(async () => {
+      const res = await api.post(`/api/concepts/${safe}/idea-workbench/events`, payload, getAuthHeaders());
+      return res.data || { conceptId: '', conceptName: '', events: [] };
+    });
+  ideaWorkbenchEventQueues.set(safe, request);
+  try {
+    return await request;
+  } finally {
+    if (ideaWorkbenchEventQueues.get(safe) === request) {
+      ideaWorkbenchEventQueues.delete(safe);
+    }
+  }
 };
 
 // Public concept share -------------------------------------------------------

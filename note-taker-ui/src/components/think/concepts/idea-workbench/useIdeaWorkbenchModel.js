@@ -649,6 +649,12 @@ const buildSeedState = ({ concept, material, related, questions }) => {
   };
 };
 
+export const resolveLoadedWorkbenchTitle = (loadedTitle, fallbackTitle) => {
+  const loaded = clean(loadedTitle);
+  const fallback = clean(fallbackTitle) || 'Untitled idea';
+  return !loaded || loaded === 'Untitled idea' ? fallback : loaded;
+};
+
 const normalizeLoadedState = (value, fallbackState) => {
   if (!value || typeof value !== 'object') return fallbackState;
   const cards = Array.isArray(value.cards) ? value.cards : fallbackState.cards;
@@ -660,7 +666,7 @@ const normalizeLoadedState = (value, fallbackState) => {
     version: STORAGE_VERSION,
     header: {
       label: 'Idea',
-      title: clean(value?.header?.title) || fallbackState.header.title,
+      title: resolveLoadedWorkbenchTitle(value?.header?.title, fallbackState.header.title),
       prompt: clean(value?.header?.prompt) || fallbackState.header.prompt,
       stage: clean(value?.header?.stage) || fallbackState.header.stage
     },
@@ -693,6 +699,40 @@ const normalizeLoadedState = (value, fallbackState) => {
     }
   };
 };
+
+export const reconcileHydratedWorkbench = ({
+  remoteState,
+  stateAtHydrationStart,
+  latestState
+} = {}) => {
+  if (!remoteState) return latestState || stateAtHydrationStart;
+  if (!latestState || !stateAtHydrationStart) return remoteState;
+  const substantiveSnapshot = (state) => JSON.stringify({
+    header: state?.header,
+    workspaceDraft: state?.workspaceDraft,
+    workspaceDraftType: state?.workspaceDraftType,
+    importedSourceKeys: state?.importedSourceKeys,
+    cards: state?.cards,
+    hypothesis: state?.hypothesis,
+    agent: state?.agent
+  });
+  // Freshness metadata and its automatically queued review draft may change
+  // while hydration is pending. Only actual notebook work should cause local
+  // state to win over a newer remote snapshot.
+  if (substantiveSnapshot(latestState) === substantiveSnapshot(stateAtHydrationStart)) return remoteState;
+  return mergeWorkbenchStates(latestState, remoteState, {
+    header: 'local',
+    cards: 'merge',
+    hypothesis: 'local',
+    agent: 'merge'
+  });
+};
+
+export const resolveCommittedWorkbenchState = ({ response, fallbackState, preferFallback = false }) => (
+  preferFallback || !response?.ideaWorkbench
+    ? fallbackState
+    : normalizeLoadedState(response.ideaWorkbench, fallbackState)
+);
 
 const pickNextTag = (tags = []) => {
   const current = Array.isArray(tags) ? tags : [];
@@ -1210,6 +1250,7 @@ export const useIdeaWorkbenchModel = ({
   const [conflictState, setConflictState] = useState(null);
   const lastPersistedStateRef = useRef('');
   const latestStateRef = useRef(latestSeedStateRef.current);
+  const hydratedKeyRef = useRef('');
 
   useEffect(() => {
     latestSeedStateRef.current = buildSeedState({
@@ -1224,13 +1265,16 @@ export const useIdeaWorkbenchModel = ({
     latestStateRef.current = state;
   }, [state]);
 
-  const commitServerWorkbench = useCallback((response, fallbackState) => {
+  const commitServerWorkbench = useCallback((response, fallbackState, persistedState = null, options = {}) => {
     const nextFallbackState = fallbackState || latestStateRef.current;
-    const nextState = response?.ideaWorkbench
-      ? normalizeLoadedState(response.ideaWorkbench, nextFallbackState)
-      : nextFallbackState;
-    const serialized = JSON.stringify(nextState);
+    const nextState = resolveCommittedWorkbenchState({
+      response,
+      fallbackState: nextFallbackState,
+      preferFallback: options.preferFallback === true
+    });
+    const serialized = JSON.stringify(persistedState || nextState);
     lastPersistedStateRef.current = serialized;
+    latestStateRef.current = nextState;
     setState(nextState);
     setSyncError('');
     setServerRevision(Number(response?.revision || 0));
@@ -1244,6 +1288,8 @@ export const useIdeaWorkbenchModel = ({
     if (!storageKey) return;
     const fallback = latestSeedStateRef.current;
     let cancelled = false;
+    hydratedKeyRef.current = '';
+    setHydratedKey('');
     setConflictState(null);
     const hydrate = async () => {
       let localState = fallback;
@@ -1256,19 +1302,36 @@ export const useIdeaWorkbenchModel = ({
         localState = fallback;
       }
 
+      if (cancelled) return;
+      // A concept switch must establish the incoming concept's local state
+      // before its remote snapshot arrives. Otherwise edits still visible from
+      // the outgoing concept can be reconciled into, and persisted under, the
+      // new concept key.
+      latestStateRef.current = localState;
+      setState(localState);
+      const stateAtHydrationStart = localState;
+
       try {
         const remote = await getConceptIdeaWorkbench(conceptKey);
         const remoteState = remote?.ideaWorkbench
           ? normalizeLoadedState(remote.ideaWorkbench, localState)
           : localState;
         if (cancelled) return;
-        commitServerWorkbench(remote, remoteState);
+        const reconciledState = reconcileHydratedWorkbench({
+          remoteState,
+          stateAtHydrationStart,
+          latestState: latestStateRef.current
+        });
+        commitServerWorkbench(remote, reconciledState, remoteState, { preferFallback: true });
+        hydratedKeyRef.current = storageKey;
         setHydratedKey(storageKey);
       } catch (_error) {
         if (cancelled) return;
+        latestStateRef.current = localState;
         setState(localState);
         setServerRevision(0);
         setEventLog([]);
+        hydratedKeyRef.current = storageKey;
         setHydratedKey(storageKey);
         lastPersistedStateRef.current = JSON.stringify(localState);
       }
@@ -1281,12 +1344,12 @@ export const useIdeaWorkbenchModel = ({
   }, [commitServerWorkbench, conceptKey, storageKey]);
 
   useEffect(() => {
-    if (!storageKey || hydratedKey !== storageKey) return;
+    if (!storageKey || hydratedKey !== storageKey || hydratedKeyRef.current !== storageKey) return;
     localStorage.setItem(storageKey, JSON.stringify(state));
   }, [hydratedKey, state, storageKey]);
 
   useEffect(() => {
-    if (!conceptKey || hydratedKey !== storageKey) return;
+    if (!conceptKey || hydratedKey !== storageKey || hydratedKeyRef.current !== storageKey) return;
     if (conflictState) return;
     const serialized = JSON.stringify(state);
     if (serialized === lastPersistedStateRef.current) return;
@@ -1367,6 +1430,11 @@ export const useIdeaWorkbenchModel = ({
   );
 
   useEffect(() => {
+    // Do not let derived freshness bookkeeping participate in hydration.
+    // Activating the incoming key reruns this effect against the committed
+    // snapshot, so a proposal temporarily computed during the fetch cannot be
+    // lost or mistaken for an in-flight notebook edit.
+    if (hydratedKey !== storageKey || hydratedKeyRef.current !== storageKey) return;
     setState((previous) => {
       const nextMeta = {
         ...previous.meta,
@@ -1412,7 +1480,7 @@ export const useIdeaWorkbenchModel = ({
         changeDrafts: mergeConceptChangeDrafts(previous.changeDrafts, [refreshDraft])
       };
     });
-  }, [freshness.freshCards, freshness.isStale, freshness.signature, freshness.summary]);
+  }, [freshness.freshCards, freshness.isStale, freshness.signature, freshness.summary, hydratedKey, storageKey]);
 
   const appendWorkbenchEvents = useCallback(async (eventsInput) => {
     if (!conceptKey) return;

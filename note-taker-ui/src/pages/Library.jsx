@@ -26,7 +26,6 @@ import { chatWithAgent } from '../api/agent';
 import { startLibraryFilingSuggestions } from '../api/library';
 import { useSystemStatusControls, useSystemStatusSnapshot } from '../system/SystemStatusContext';
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
-import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
@@ -37,12 +36,15 @@ import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
 import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftSuppression';
 import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
+import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
+import '../styles/library-room.css';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
 const LEFT_STORAGE_KEY = 'workspace-left-open:/library';
 const CABINET_OVERRIDE_KEY = 'library.cabinet.override:/library';
 const SOURCE_TYPES = new Set(['article', 'highlight', 'note']);
+const LIBRARY_AGENT_TITLE = 'Librarian';
 
 // Folder contract: GET `/folders` -> [{ _id, name, createdAt, updatedAt }].
 // Articles reference folders via `article.folder` (populated Folder) or null for unfiled.
@@ -118,6 +120,7 @@ const Library = () => {
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
   const [queuedPrompt, setQueuedPrompt] = useState(null);
+  const [librarianSelection, setLibrarianSelection] = useState(null);
   const readerRef = useRef(null);
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
@@ -505,7 +508,7 @@ const Library = () => {
   }, [activeHighlightId, removeHighlight, selectedArticleId]);
 
   const handleToggleRight = useCallback((nextOpen) => {
-    if (selectedArticleId && nextOpen && !contextOverride) {
+    if (selectedArticleId && !contextOverride) {
       setContextOverride(true);
       localStorage.setItem(CONTEXT_OVERRIDE_KEY, 'true');
     }
@@ -562,11 +565,16 @@ const Library = () => {
   }, []);
 
   const handleAddConcept = useCallback(async (highlight, conceptName) => {
-    await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
+    const response = await api.post(`/api/concepts/${encodeURIComponent(conceptName)}/add-highlight`, {
       highlightId: highlight._id
     }, getAuthHeaders());
     setConceptModal({ open: false, highlight: null });
-  }, []);
+    navigate(buildLibraryThinkHref({
+      type: 'concept',
+      id: response?.data?._id,
+      name: conceptName
+    }));
+  }, [navigate]);
 
   const handleAddQuestion = useCallback(async (highlight, conceptName, text) => {
     const created = await createQuestion({
@@ -582,12 +590,14 @@ const Library = () => {
       await api.post(`/api/questions/${created._id}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     }
     setQuestionModal({ open: false, highlight: null });
-  }, [createId]);
+    navigate(buildLibraryThinkHref({ type: 'question', id: created?._id }));
+  }, [createId, navigate]);
 
   const handleAttachQuestion = useCallback(async (highlight, questionId) => {
     await api.post(`/api/questions/${questionId}/add-highlight`, { highlightId: highlight._id }, getAuthHeaders());
     setQuestionModal({ open: false, highlight: null });
-  }, []);
+    navigate(buildLibraryThinkHref({ type: 'question', id: questionId }));
+  }, [navigate]);
 
   const handleSendToNotebook = useCallback(async (highlight, entryId) => {
     await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
@@ -678,17 +688,46 @@ const Library = () => {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
+  const retainHighlightInLibraryHistory = useCallback((highlight) => {
+    const highlightId = String(highlight?._id || '').trim();
+    if (!highlightId) return;
+    const params = new URLSearchParams(searchParams);
+    const articleId = String(selectedArticleId || highlight?.articleId || '').trim();
+    if (articleId) params.set('articleId', articleId);
+    params.set('highlightId', highlightId);
+    setSearchParams(params, { replace: true });
+    setActiveHighlightId(highlightId);
+    setSourceContextOpen(true);
+  }, [searchParams, selectedArticleId, setSearchParams]);
+
   const handleOpenConceptModal = useCallback((highlight) => {
+    retainHighlightInLibraryHistory(highlight);
     setConceptModal({ open: true, highlight });
-  }, []);
+  }, [retainHighlightInLibraryHistory]);
 
   const handleOpenNotebookModal = useCallback((highlight) => {
     setNotebookModal({ open: true, highlight });
   }, []);
 
   const handleOpenQuestionModal = useCallback((highlight) => {
+    retainHighlightInLibraryHistory(highlight);
     setQuestionModal({ open: true, highlight });
-  }, []);
+  }, [retainHighlightInLibraryHistory]);
+
+  const handleAskLibrarian = useCallback((highlight) => {
+    const prompt = buildLibrarianSelectionPrompt(highlight);
+    if (!prompt) return;
+    retainHighlightInLibraryHistory(highlight);
+    setLibrarianSelection(highlight);
+    handleToggleRight(true);
+    setQueuedPrompt({
+      id: `library-selection-${highlight._id}-${Date.now()}`,
+      mode: 'draft',
+      contextType: 'article',
+      contextId: selectedArticleId || highlight?.articleId || '',
+      prompt
+    });
+  }, [handleToggleRight, retainHighlightInLibraryHistory, selectedArticleId]);
 
   const buildFallbackDump = useCallback(() => {
     if (selectedArticle) {
@@ -856,9 +895,9 @@ const Library = () => {
       article: selectedArticle,
       highlights: articleHighlights,
       graphConnections: articleGraphConnections,
-      selectionText: ''
+      selectionText: librarianSelection?.text || ''
     })
-  ), [articleGraphConnections, articleHighlights, selectedArticle]);
+  ), [articleGraphConnections, articleHighlights, librarianSelection?.text, selectedArticle]);
   const topThemeTags = useMemo(
     () => (Array.isArray(tags) ? tags.slice(0, 3).map((tag) => String(tag?.tag || '')).filter(Boolean) : []),
     [tags]
@@ -904,12 +943,12 @@ const Library = () => {
       <AgentPresence
         className="library-agent-card__presence"
         status={articleLoading || articlesLoading ? 'working' : 'idle'}
-        title={AGENT_DISPLAY_NAME}
+        title={LIBRARY_AGENT_TITLE}
         subtitle={isReadingView ? 'Source context visible' : 'Library context visible'}
       />
       <AgentTicker
         className="library-agent-card__ticker"
-        label={`${AGENT_DISPLAY_NAME} library trace`}
+        label={`${LIBRARY_AGENT_TITLE} library trace`}
         state={articleLoading || articlesLoading ? 'working' : 'idle'}
         lines={libraryAgentTickerLines}
         sharedMemory
@@ -942,12 +981,14 @@ const Library = () => {
     }
   ]), [handleSelectScope, scope]);
 
-  const effectiveRightOpen = getContextPanelOpen({
-    hasSelection: Boolean(selectedArticleId),
-    storedOpen: rightOpen,
-    userOverride: contextOverride
-  });
-  const effectiveLeftOpen = isReadingView || scope === 'all' ? false : getContextPanelOpen({
+  const effectiveRightOpen = isReadingView && !contextOverride
+    ? true
+    : getContextPanelOpen({
+      hasSelection: Boolean(selectedArticleId),
+      storedOpen: rightOpen,
+      userOverride: contextOverride
+    });
+  const effectiveLeftOpen = isReadingView ? true : scope === 'all' ? false : getContextPanelOpen({
     hasSelection: Boolean(selectedArticleId),
     storedOpen: leftOpen,
     userOverride: cabinetOverride
@@ -987,9 +1028,8 @@ const Library = () => {
       onHighlightReplace={replaceHighlight}
       onHighlightRemove={removeHighlight}
       onOpenConcept={handleOpenConceptModal}
-      onOpenNotebook={handleOpenNotebookModal}
       onOpenQuestion={handleOpenQuestionModal}
-      onDumpToWorkingMemory={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
+      onAskLibrarian={handleAskLibrarian}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       articleQuery={articleQuery}
@@ -1024,23 +1064,33 @@ const Library = () => {
       <ThoughtPartnerPanel
         className="editorial-side-rail__partner library-reading-rail__partner"
         variant="stream"
-        title={AGENT_DISPLAY_NAME}
-        subtitle="Ask against the full article and your connected workspace."
+        title={LIBRARY_AGENT_TITLE}
+        subtitle="Ask against this source and everything your Library already knows."
         contextType="article"
         contextId={selectedArticleId}
         contextTitle={selectedArticle?.title || 'Article'}
         contextMetadata={articleContextMetadata}
         queuedPrompt={queuedPrompt}
-        placeholder="Ask about this article, connected notes, or what to do next."
+        placeholder="Ask about this source or find something related in your Library."
         promptTemplates={[
           'Summarize what matters most in this article.',
           'Challenge the strongest claim in this article.',
           'Find related concepts or notes for this article.'
         ]}
         showQuickPrompts={false}
-        emptyStateText="Ask directly, or open Source context for article moves and provenance."
+        emptyStateText="Ask directly, or select a passage to carry its exact source into the question."
         submitLabel="↗"
       />
+      {librarianSelection?.text ? (
+        <section className="library-librarian-selection" aria-label="Selected passage for Librarian">
+          <div>
+            <span>In the margin</span>
+            <button type="button" onClick={() => setLibrarianSelection(null)}>Clear</button>
+          </div>
+          <blockquote>{librarianSelection.text}</blockquote>
+          <p>Saved as a highlight. Its source travels with the question.</p>
+        </section>
+      ) : null}
       <EditorialSideRailCollapsible
         title="Source context"
         subtitle="Highlights, pull-in, provenance, and article moves."
@@ -1056,7 +1106,7 @@ const Library = () => {
           targetContextId={selectedArticleId}
           contextTitle={selectedArticle?.title || 'Article'}
           headline="Draft-first article moves"
-          title={AGENT_DISPLAY_NAME}
+          title={LIBRARY_AGENT_TITLE}
           subtitle="Turn the current article into a sharper summary, critique, question set, or concept lead."
           className="library-reading-rail__skills agent-skill-dock--inline"
           onInvoke={(nextPrompt) => setQueuedPrompt(nextPrompt)}
@@ -1158,7 +1208,7 @@ const Library = () => {
   const contextualRightPanel = (
     <AgentContextShell
       surface="library"
-      title={AGENT_DISPLAY_NAME}
+      title={LIBRARY_AGENT_TITLE}
       orientation={isReadingView
         ? `Reading ${selectedArticle?.title || 'the selected source'} with provenance intact.`
         : `Browsing ${scope === 'folder' && selectedFolderName ? selectedFolderName : scope} source memory.`}
@@ -1178,12 +1228,12 @@ const Library = () => {
         left={scope === 'all' && !isReadingView ? null : leftPanel}
         main={mainPanel}
         right={contextualRightPanel}
-        rightTitle={AGENT_DISPLAY_NAME}
+        rightTitle={LIBRARY_AGENT_TITLE}
         rightOpen={effectiveRightOpen}
         onToggleRight={handleToggleRight}
         leftOpen={effectiveLeftOpen}
         onToggleLeft={handleToggleLeft}
-        rightToggleLabel={AGENT_DISPLAY_NAME}
+        rightToggleLabel={LIBRARY_AGENT_TITLE}
         mainHeader={isReadingView ? null : (
           <PageTitle
             title="Library"
@@ -1206,7 +1256,7 @@ const Library = () => {
               </QuietButton>
             ) : null}
             <QuietButton className="list-button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
-              {AGENT_DISPLAY_NAME}
+              {LIBRARY_AGENT_TITLE}
             </QuietButton>
           </div>
         )}

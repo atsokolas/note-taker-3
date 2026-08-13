@@ -2,14 +2,15 @@
 
 ## Product overview (marketing + docs)
 
-Note Taker is a Think-first knowledge workspace for turning reading into reusable insight.
-The user journey is now intentionally page-based and should be described that way in external copy.
+Noeis is a four-room knowledge workspace for turning reading into durable understanding and better judgment.
+Library grounds what you know, Think is the native notebook, Wiki maintains durable synthesis, and Judgment compounds decisions, outcomes, and lessons.
 
 Core product flow:
 
 - Login or register (`/login`, `/register`) with optional Chrome extension setup
 - Capture material (manual notes, paste, markdown, Readwise CSV, or extension clipping)
-- Work from the Think main screen (`/think`) across Home, Notebook, Concepts, Questions, Handoffs, Paths, and Insights
+- Open on the Wiki return surface (`/wiki`), then move through Library (`/library`), Think (`/think`), Wiki, and Judgment (`/judgment`) without losing source context
+- Ask the persistent thought partner to retrieve owned material, then insert grounded objects directly into the Think notebook
 - Configure appearance, onboarding, integrations, and export controls in Settings (`/settings`)
 
 Agentic capabilities (optional, human-in-the-loop):
@@ -18,6 +19,8 @@ Agentic capabilities (optional, human-in-the-loop):
 - Concept suggestions and synthesis helpers sourced from the user's own library
 - Handoff queue shared between user, native agents, and personal BYO agents
 - Orchestration policy + external bridge tokens for advanced A2A/MCP-compatible runtimes
+
+Release design and acceptance details: [Noeis four-room implementation plan](docs/noeis-four-room-implementation-plan-2026-08-11.md).
 
 ## Ollama (local LLM)
 
@@ -196,9 +199,9 @@ Patch operations:
 
 ## Design system & layout rules
 
-The UI shell now uses a shared token-driven layer designed for Think-first navigation:
+The UI shell now uses a shared token-driven layer across the four primary rooms:
 
-- `Think` is the post-login landing route (`/think?tab=home`).
+- `Wiki` is the post-login return route (`/wiki`); Library, Think, Wiki, and Judgment remain persistent primary navigation.
 - Global chrome is composed from reusable primitives:
   - `AppShell` (`note-taker-ui/src/layout/AppShell.jsx`)
   - `LeftNav` (`note-taker-ui/src/layout/LeftNav.jsx`)
@@ -206,7 +209,7 @@ The UI shell now uses a shared token-driven layer designed for Think-first navig
   - `RightDrawer` (`note-taker-ui/src/layout/RightDrawer.jsx`)
   - `SurfaceCard`, `PillButton`, `Chip` (`note-taker-ui/src/components/ui.js`)
   - `SkeletonBlock` (`note-taker-ui/src/components/SkeletonBlock.jsx`)
-- Think Home + Concept workspace/materials follow a document-first visual hierarchy (not board/kanban).
+- Think remains a native document-first notebook. Judgment alone offers a board posture for moving through one case without turning the product into a generic dashboard.
 - Right column context/working-memory is user-collapsible and persists per route via localStorage keys.
 
 ### Where to tweak tokens

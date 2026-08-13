@@ -1,6 +1,9 @@
 import { cleanSourceTextForDisplay } from './ideaWorkbenchText';
 import {
   isIdeaWorkbenchConceptIdentityReady,
+  reconcileHydratedWorkbench,
+  resolveCommittedWorkbenchState,
+  resolveLoadedWorkbenchTitle,
   resolveIdeaWorkbenchConceptKey
 } from './useIdeaWorkbenchModel';
 
@@ -38,6 +41,87 @@ describe('resolveIdeaWorkbenchConceptKey', () => {
     expect(isIdeaWorkbenchConceptIdentityReady({
       concept: { _id: 'legacy-id', name: 'Legacy Concept' }
     })).toBe(true);
+  });
+});
+
+describe('reconcileHydratedWorkbench', () => {
+  const buildState = (title, html, cards = []) => ({
+    version: 1,
+    header: { label: 'Idea', title, prompt: 'Prompt', stage: 'Seed' },
+    workspaceDraft: '',
+    workspaceDraftType: 'Note',
+    importedSourceKeys: cards.map(card => card.sourceKey),
+    cards,
+    changeDrafts: [],
+    hypothesis: {
+      html,
+      versions: [{ id: `${title}-v1`, label: 'v1', html, createdAt: '2026-08-12T00:00:00.000Z' }]
+    },
+    meta: {},
+    agent: { comments: [], messages: [] }
+  });
+
+  it('keeps the server snapshot when the notebook was untouched during hydration', () => {
+    const initial = buildState('Seed title', '<p></p>');
+    const remote = buildState('Persisted title', '<p>Persisted notebook</p>');
+
+    expect(reconcileHydratedWorkbench({
+      remoteState: remote,
+      stateAtHydrationStart: initial,
+      latestState: initial
+    })).toBe(remote);
+  });
+
+  it('merges an inline source added while hydration is pending over the arriving snapshot', () => {
+    const initial = buildState('Source provenance', '<p></p>');
+    const remoteCard = { id: 'remote', sourceKey: 'article:1', title: 'Remote source', createdAt: '2026-08-11T00:00:00.000Z' };
+    const inlineCard = { id: 'inline', sourceKey: 'highlight:1', title: 'Selected passage', createdAt: '2026-08-12T00:00:00.000Z' };
+    const remote = buildState('Persisted title', '<p>Older persisted notebook</p>', [remoteCard]);
+    const edited = buildState(
+      'Source provenance',
+      '<blockquote data-source-key="highlight:1"><p>Selected passage</p></blockquote>',
+      [inlineCard]
+    );
+
+    const reconciled = reconcileHydratedWorkbench({
+      remoteState: remote,
+      stateAtHydrationStart: initial,
+      latestState: edited
+    });
+
+    expect(reconciled.header.title).toBe('Source provenance');
+    expect(reconciled.hypothesis.html).toContain('Selected passage');
+    expect(reconciled.cards).toEqual(expect.arrayContaining([remoteCard, inlineCard]));
+    expect(resolveCommittedWorkbenchState({
+      response: { ideaWorkbench: remote },
+      fallbackState: reconciled,
+      preferFallback: true
+    })).toBe(reconciled);
+  });
+
+  it('does not treat automatic freshness bookkeeping as a user edit', () => {
+    const initial = buildState('Local title', '<p>Older local notebook</p>');
+    const remote = buildState('Persisted title', '<p>Newer server notebook</p>');
+    const freshnessOnly = {
+      ...initial,
+      meta: { ...initial.meta, stale: true, staleReason: 'A newer source arrived.' },
+      changeDrafts: [{ id: 'auto-refresh', kind: 'refresh', status: 'pending' }]
+    };
+
+    expect(reconcileHydratedWorkbench({
+      remoteState: remote,
+      stateAtHydrationStart: initial,
+      latestState: freshnessOnly
+    })).toBe(remote);
+  });
+});
+
+describe('resolveLoadedWorkbenchTitle', () => {
+  it('lets the exact Concept identity replace only the untouched default title', () => {
+    expect(resolveLoadedWorkbenchTitle('Untitled idea', 'source-provenance')).toBe('source-provenance');
+    expect(resolveLoadedWorkbenchTitle('', 'source-provenance')).toBe('source-provenance');
+    expect(resolveLoadedWorkbenchTitle('A deliberate working title', 'source-provenance'))
+      .toBe('A deliberate working title');
   });
 });
 

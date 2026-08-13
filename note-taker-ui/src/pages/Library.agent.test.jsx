@@ -19,7 +19,7 @@ jest.mock('../hooks/useTags', () => jest.fn());
 
 jest.mock('../layout/ThreePaneLayout', () => ({
   __esModule: true,
-  default: ({ left, main, right, rightTitle, rightToggleLabel, mainHeader, mainActions, leftOpen }) => (
+  default: ({ left, main, right, rightTitle, rightToggleLabel, mainHeader, mainActions, leftOpen, rightOpen }) => (
     <div>
       {leftOpen ? <aside data-testid="library-left">{left}</aside> : null}
       <main data-testid="library-main">
@@ -27,7 +27,7 @@ jest.mock('../layout/ThreePaneLayout', () => ({
         {mainActions}
         {main}
       </main>
-      <aside data-testid="library-right" aria-label={rightTitle}>
+      <aside data-testid="library-right" aria-label={rightTitle} data-open={String(rightOpen)}>
         <button type="button">{rightToggleLabel}</button>
         {right}
       </aside>
@@ -199,21 +199,21 @@ describe('Library agent rail', () => {
     }));
   });
 
-  it('keeps the shared Thought partner visible in the default Library browse rail', () => {
+  it('keeps the Librarian visible in the default Library browse rail', () => {
     renderLibrary();
 
     const rightRail = screen.getByTestId('library-right');
-    expect(rightRail).toHaveAccessibleName('Thought partner');
+    expect(rightRail).toHaveAccessibleName('Librarian');
     expect(rightRail).toHaveTextContent('Library context visible');
     expect(rightRail).toHaveTextContent('themes: valuation, process');
-    expect(screen.getByLabelText('Thought partner library trace')).toBeInTheDocument();
+    expect(screen.getByLabelText('Librarian library trace')).toBeInTheDocument();
   });
 
-  it('labels the Library right rail as the shared agent surface', () => {
+  it('labels the Library right rail with its contextual posture', () => {
     renderLibrary();
 
-    expect(screen.getByTestId('library-right')).toHaveAccessibleName('Thought partner');
-    expect(screen.getAllByRole('button', { name: 'Thought partner' }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('library-right')).toHaveAccessibleName('Librarian');
+    expect(screen.getAllByRole('button', { name: 'Librarian' }).length).toBeGreaterThan(0);
   });
 
   it('keeps article search in the main list instead of duplicating it in the Cabinet rail', () => {
@@ -273,6 +273,8 @@ describe('Library agent rail', () => {
       expect(screen.getByTestId('thought-partner-panel')).toBeInTheDocument();
     });
     expect(screen.getByText('Reading article shell')).toBeInTheDocument();
+    expect(screen.getByTestId('library-left')).toBeInTheDocument();
+    expect(screen.getByTestId('library-right')).toHaveAttribute('data-open', 'true');
     expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
   });
 

@@ -284,7 +284,8 @@ jest.mock('../components/retrieval/SemanticRelatedPanel', () => () => null);
 jest.mock('../api/concepts', () => ({
   updateConcept: jest.fn(),
   updateConceptPins: jest.fn(),
-  suggestConceptWorkspaceFromLibrary: jest.fn()
+  suggestConceptWorkspaceFromLibrary: jest.fn(),
+  attachConceptWorkspaceBlock: jest.fn()
 }));
 
 jest.mock('../api/questions', () => ({
@@ -523,6 +524,37 @@ describe('ThinkMode template integration', () => {
       concept: expect.objectContaining({ _id: exactConceptId })
     }));
     expect(screen.queryByTestId('concept-investigation-panel')).not.toBeInTheDocument();
+  });
+
+  it('resolves an id-only Library handoff to the canonical Concept workspace', async () => {
+    const exactConceptId = '64f100000000000000000020';
+    useSearchParamsMock.mockReturnValue([
+      new URLSearchParams({ tab: 'concepts', conceptId: exactConceptId }),
+      mockSetSearchParams
+    ]);
+    useConcept.mockReturnValue({
+      concept: {
+        _id: exactConceptId,
+        name: 'Canonical Concept',
+        description: '',
+        pinnedHighlightIds: [],
+        pinnedArticleIds: [],
+        pinnedNoteIds: []
+      },
+      loading: false,
+      error: '',
+      refresh: jest.fn(),
+      setConcept: jest.fn()
+    });
+
+    render(<MemoryRouter><ThinkMode /></MemoryRouter>);
+
+    expect(useConcept).toHaveBeenCalledWith(exactConceptId, expect.objectContaining({ enabled: true }));
+    expect(useConceptRelated).toHaveBeenCalledWith('Canonical Concept', expect.objectContaining({ enabled: true }));
+    expect(useQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      conceptName: 'Canonical Concept',
+      enabled: true
+    }));
   });
 
   it('fails closed when the loaded Concept does not match the investigation identity', async () => {

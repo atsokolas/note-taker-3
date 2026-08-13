@@ -12,6 +12,7 @@ const emptyFind = () => ({ select: async () => [] });
 
 const buildService = concept => {
   const queries = [];
+  const workspaceAuthorizationCalls = [];
   const TagMeta = {
     find: () => ({ lean: async () => [concept] }),
     findOne: async query => {
@@ -28,8 +29,15 @@ const buildService = concept => {
       TagMeta,
       NotebookEntry: { find: emptyFind },
       ReferenceEdge: {},
-      mongoose: { Types: { ObjectId } }
-    })
+      mongoose: { Types: { ObjectId } },
+      workspaceAuthorization: {
+        sanitizeConceptWorkspace: async (row, userId) => {
+          workspaceAuthorizationCalls.push({ row, userId });
+          return { workspace: { version: 1, items: [], attachedItems: [] } };
+        }
+      }
+    }),
+    workspaceAuthorizationCalls
   };
 };
 
@@ -50,6 +58,9 @@ const buildService = concept => {
   assert.strictEqual(exact.description, concept.description);
   assert.strictEqual(byId.queries[0]._id, CONCEPT_ID);
   assert.ok(byId.queries[0].userId);
+  assert.strictEqual(byId.workspaceAuthorizationCalls.length, 1);
+  assert.strictEqual(byId.workspaceAuthorizationCalls[0].userId, USER_ID);
+  assert.deepStrictEqual(exact.workspace.items, []);
 
   const idShapedName = { ...concept, name: MISSING_CONCEPT_ID };
   const missing = buildService(idShapedName);

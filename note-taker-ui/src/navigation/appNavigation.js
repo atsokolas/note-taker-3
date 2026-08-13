@@ -13,6 +13,11 @@ export const getPrimaryNavItems = () => [
     label: 'Wiki',
     to: '/wiki',
     match: (location) => location.pathname.startsWith('/wiki')
+  },
+  {
+    label: 'Judgment',
+    to: '/judgment',
+    match: (location) => location.pathname.startsWith('/judgment')
   }
 ];
 
