@@ -2100,6 +2100,29 @@ describe('WikiPageReadView', () => {
     expect(receipt).not.toHaveTextContent('Attach or replace a source before trying another update');
   });
 
+  it('does not claim an empty rejected scaffold is a trusted article', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'Parenting',
+      body: { type: 'doc', content: [{ type: 'paragraph' }] },
+      plainText: '',
+      sourceRefs: page.sourceRefs,
+      aiState: {
+        ...page.aiState,
+        draftStatus: 'error',
+        candidateStatus: 'rejected',
+        lastCandidateSummary: 'The candidate was not grounded tightly enough.'
+      }
+    });
+
+    renderReadView();
+
+    const receipt = await screen.findByRole('region', { name: 'Wiki maintenance receipt' });
+    expect(within(receipt).getByRole('heading', { name: 'No article was published' })).toBeInTheDocument();
+    expect(receipt).toHaveTextContent('rejected before it could become a trusted article');
+    expect(receipt).not.toHaveTextContent('You are reading the last trusted article');
+  });
+
   it('does not expose dossier resume or discard actions on a generic entity page', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,

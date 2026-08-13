@@ -1030,6 +1030,26 @@ const run = async () => {
       { title: 'Ready Evidence Topic', userId: 'user-1' }
     ]);
 
+    const pageCountBeforeExactReuse = WikiPage.records.length;
+    const reusedPreflight = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'ready evidence topic',
+        pageType: 'overview',
+        evidencePreflight: true,
+        createdFrom: {
+          type: 'idea',
+          text: 'ready evidence topic',
+          label: 'ready evidence topic'
+        }
+      })
+    });
+    assert.strictEqual(reusedPreflight.res.status, 200, reusedPreflight.text);
+    assert.strictEqual(reusedPreflight.body.reusedExisting, true);
+    assert.strictEqual(String(reusedPreflight.body._id), String(readyPreflight.body._id));
+    assert.strictEqual(WikiPage.records.length, pageCountBeforeExactReuse, 'Exact-title build must not create a duplicate Wiki page.');
+    assert.strictEqual(ordinaryPreflightCalls.length, 2, 'Exact-title reuse must not rerun evidence preflight.');
+
     const created = await request(url, '/api/wiki/pages', {
       method: 'POST',
       body: JSON.stringify({

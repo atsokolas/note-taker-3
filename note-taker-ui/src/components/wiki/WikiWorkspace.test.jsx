@@ -1053,6 +1053,30 @@ describe('WikiWorkspace', () => {
     expect(await screen.findByText('Built @wiki:wiki-new for "Portfolio Concentration".')).toBeInTheDocument();
   });
 
+  it('opens an exact existing Wiki instead of creating or maintaining a duplicate', async () => {
+    const systemStatusControls = buildSystemStatusControls();
+    createWikiPage.mockResolvedValueOnce({
+      _id: 'wiki-existing',
+      title: 'Parenting',
+      reusedExisting: true
+    });
+    renderWorkspace(undefined, { systemStatusControls });
+    await settleWorkspaceEffects();
+
+    fireEvent.change(screen.getByLabelText('Wiki workspace message'), {
+      target: { value: '/build Parenting' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/Opened the existing @wiki:wiki-existing/)).toBeInTheDocument();
+    expect(streamMaintainWikiPage).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('page=wiki-existing'));
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Existing Wiki opened',
+      status: 'settled'
+    }));
+  });
+
   it('never converts a terminal quality rejection with an empty streamed page into build success', async () => {
     const systemStatusControls = buildSystemStatusControls();
     streamMaintainWikiPage.mockImplementationOnce(async (_pageId, _options, handlers = {}) => {

@@ -3449,6 +3449,17 @@ const buildWikiRouter = ({
         && createdFrom.type === 'idea'
         && initialSourceRefs.value.length === 0;
       if (ordinaryEvidencePreflight) {
+        const existingPage = await WikiPage.findOne({
+          userId: req.user.id,
+          status: { $ne: 'archived' },
+          title: new RegExp(`^${escapeRegExp(title)}$`, 'i')
+        });
+        if (existingPage) {
+          return res.status(200).json({
+            ...serializeWikiPage(existingPage),
+            reusedExisting: true
+          });
+        }
         const preflight = await prepareOrdinaryWikiBuild({
           userId: req.user.id,
           title,

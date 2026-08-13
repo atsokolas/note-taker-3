@@ -2395,6 +2395,7 @@ const WikiPageReadView = ({
   const persistedCandidateRejection = !evidenceIncomplete
     && page?.aiState?.candidateStatus === 'rejected'
     && Boolean(page?.aiState?.lastCandidateSummary);
+  const trustedArticleAvailable = countWikiPageWords(page) > 0;
   const currentMaintenanceSourceRefIds = (Array.isArray(page?.sourceRefs) ? page.sourceRefs : [])
     .map(source => source?.objectId || source?._id || source?.id)
     .filter(Boolean);
@@ -3045,7 +3046,9 @@ const WikiPageReadView = ({
                             : maintenanceReceipt?.status === 'settled'
                               ? 'Page maintenance settled'
                               : maintenanceReceipt?.status === 'research' || persistedCandidateRejection
-                                ? 'Latest proposed update was not applied'
+                                ? trustedArticleAvailable
+                                  ? 'Latest proposed update was not applied'
+                                  : 'No article was published'
                               : maintenanceDisplayState === 'failed'
                                 ? 'Maintenance needs a retry'
                                 : 'Available when you want it'}
@@ -3054,7 +3057,9 @@ const WikiPageReadView = ({
                           {maintenanceReceipt?.status === 'research'
                             ? maintenanceReceipt.summary
                             : persistedCandidateRejection
-                              ? `You are reading the last trusted article. A newer proposed update was not applied because ${page.aiState.lastCandidateSummary}`
+                              ? trustedArticleAvailable
+                                ? `You are reading the last trusted article. A newer proposed update was not applied because ${page.aiState.lastCandidateSummary}`
+                                : `The proposed draft was rejected before it could become a trusted article because ${page.aiState.lastCandidateSummary}`
                             : maintenanceReceipt
                             ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
                             : 'Check sources and claims without interrupting the article.'}
