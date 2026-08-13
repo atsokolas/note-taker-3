@@ -1,9 +1,40 @@
+const crypto = require('crypto');
+
 const DEFAULT_HOST = 'http://localhost:6333';
 
 const getConfig = () => ({
   host: process.env.QDRANT_HOST || DEFAULT_HOST,
   apiKey: process.env.QDRANT_API_KEY || ''
 });
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Qdrant accepts only an unsigned integer or a UUID as a point ID. Every caller
+ * here passes a Mongo ObjectId hex string, which Qdrant rejects with a 400 —
+ * silently, from the caller's perspective, because the embedding job queue
+ * swallows the failure and retries until it abandons the job.
+ *
+ * Hash anything that is not already a valid ID into a deterministic UUID. It
+ * must be deterministic so re-embedding an object overwrites its point instead
+ * of duplicating it. Nothing reads the point ID back — lookups go through
+ * `payload.objectId` — so the mapping does not need to be reversible.
+ */
+const toPointId = (value) => {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  const raw = String(value ?? '').trim();
+  if (/^\d+$/.test(raw)) return Number(raw);
+  if (UUID_RE.test(raw)) return raw.toLowerCase();
+  const hash = crypto.createHash('sha1').update(raw).digest('hex');
+  const variant = ((parseInt(hash.slice(16, 17), 16) & 0x3) | 0x8).toString(16);
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    `5${hash.slice(13, 16)}`,
+    `${variant}${hash.slice(17, 20)}`,
+    hash.slice(20, 32)
+  ].join('-');
+};
 
 const buildHeaders = () => {
   const { apiKey } = getConfig();
@@ -49,7 +80,7 @@ const upsertVector = async ({ collection, id, vector, payload }) => {
     method: 'PUT',
     headers: buildHeaders(),
     body: JSON.stringify({
-      points: [{ id, vector, payload }]
+      points: [{ id: toPointId(id), vector, payload }]
     })
   });
   if (!res.ok) {
@@ -81,5 +112,6 @@ const search = async ({ collection, vector, limit = 5, filter }) => {
 
 module.exports = {
   upsertVector,
-  search
+  search,
+  toPointId
 };
