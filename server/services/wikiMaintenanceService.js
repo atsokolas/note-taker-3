@@ -1320,7 +1320,7 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - This attempt must directly clear every listed gate failure. Before returning, check the proposed article against each failure line above.
 - Budget depth in proportion to the supplied evidence. With five or more sources, use 3-7 subject-specific sections and 6-12 evidence-bearing paragraphs plus a concise opening summary; do not pad a narrow evidence set to imitate an investment dossier.
 - Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
-- Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic.
+- Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic. Make that case unmistakable by introducing it with the literal transition "For example," and cite the evidence that supplies it.
 - Explain at least one causal process or organizing structure and one meaningful limit, exception, disagreement, or misconception.
 - Give each relevant evidence family a distinct analytical job. Synthesize sources together instead of repeating titles or padding the article.
 - Remove repeated sentences and repeated explanations. The opening should orient once; every later section must advance the article with a distinct mechanism, case, boundary, implication, or unresolved tension.
@@ -4285,7 +4285,9 @@ const maintainWikiPage = async ({
         messages: [
           {
             role: 'system',
-            content: `You are a strict, opinionated wiki editor. Your job is to rebuild weak wiki pages into real synthesis. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
+            content: ordinaryFlexibleMaintenance
+              ? `You are a strict, source-faithful reference editor. Repair only the listed quality failures using relationships and examples directly established by the supplied evidence. Do not invent connective claims to make the article sound more opinionated or complete. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
+              : `You are a strict, opinionated wiki editor. Your job is to rebuild weak wiki pages into real synthesis. Return JSON only.${formatWikiSchemaPromptBlock(wikiSchemaContent)}`
           },
           {
             role: 'user',

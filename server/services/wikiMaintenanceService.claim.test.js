@@ -9,6 +9,7 @@ const {
   attachClaimCitationIds,
   buildSectionMaintenancePlan,
   buildPrompt,
+  buildRebuildPrompt,
   selectBoundedOrdinaryModelRoutes,
   collectClaimsFromDoc,
   deriveClaimsFromDoc,
@@ -370,6 +371,27 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(prompt).not.toContain('Be opinionated.');
     expect(prompt).not.toContain('write at least 650 words');
     expect(prompt).not.toContain('Implied Expectations');
+  });
+
+  it('makes an evidence-backed example explicit during ordinary Wiki repair', () => {
+    const prompt = buildRebuildPrompt({
+      page: {
+        title: 'Value Investing',
+        pageType: 'standard',
+        sourceScope: 'selected_sources'
+      },
+      candidates: Array.from({ length: 5 }, (_, index) => ({
+        index: index + 1,
+        type: 'article',
+        title: `Value investing source ${index + 1}`,
+        text: 'Value investing joins contrarian judgment with calculation and fundamental analysis.'
+      })),
+      failures: ['Ordinary reference article lacks a concrete example, case, or observable situation.'],
+      draftArticle: { title: 'Value Investing', summary: 'A grounded draft.' }
+    });
+
+    expect(prompt).toContain('literal transition "For example,"');
+    expect(prompt).toContain('cite the evidence that supplies it');
   });
 
   it('requires depth, mechanism, a concrete case, boundaries, and broad evidence use across ordinary domains', () => {
