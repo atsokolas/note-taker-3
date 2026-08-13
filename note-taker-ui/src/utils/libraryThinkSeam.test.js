@@ -56,4 +56,12 @@ describe('Library to Think seam', () => {
       anchor: { startOffsetApprox: 210 }
     })).toBeNull();
   });
+
+  it('does not reuse an unanchored legacy highlight for an anchored selection', () => {
+    expect(findExistingHighlightForSelection({
+      highlights: [{ _id: 'legacy-occurrence', text: 'Repeated sentence.' }],
+      text: 'Repeated sentence.',
+      anchor: { startOffsetApprox: 210 }
+    })).toBeNull();
+  });
 });

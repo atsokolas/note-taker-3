@@ -1275,7 +1275,6 @@ export const useIdeaWorkbenchModel = ({
   useEffect(() => {
     if (!storageKey) return;
     const fallback = latestSeedStateRef.current;
-    const stateAtHydrationStart = latestStateRef.current;
     let cancelled = false;
     hydratedKeyRef.current = '';
     setHydratedKey('');
@@ -1290,6 +1289,15 @@ export const useIdeaWorkbenchModel = ({
       } catch (_error) {
         localState = fallback;
       }
+
+      if (cancelled) return;
+      // A concept switch must establish the incoming concept's local state
+      // before its remote snapshot arrives. Otherwise edits still visible from
+      // the outgoing concept can be reconciled into, and persisted under, the
+      // new concept key.
+      latestStateRef.current = localState;
+      setState(localState);
+      const stateAtHydrationStart = localState;
 
       try {
         const remote = await getConceptIdeaWorkbench(conceptKey);

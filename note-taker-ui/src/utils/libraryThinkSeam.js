@@ -22,8 +22,9 @@ export const findExistingHighlightForSelection = ({ highlights = [], text, ancho
       .sort((a, b) => a.distance - b.distance);
     if (anchored[0]?.distance <= 2) return anchored[0].highlight;
     // A selected occurrence with a usable anchor must never fall back to a
-    // different anchored occurrence that merely has identical text.
-    if (anchored.length) return null;
+    // different occurrence that merely has identical text. Legacy unanchored
+    // highlights cannot prove which repeated occurrence was selected either.
+    return null;
   }
 
   // Text-only legacy highlights are safe to reuse only when the passage is
