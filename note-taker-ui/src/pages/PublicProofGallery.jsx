@@ -10,6 +10,7 @@ import {
   normalizePublicProofRegistry
 } from '../utils/maintenanceProof';
 import '../styles/seo-article.css';
+import ForkableWikis from '../onboarding/ForkableWikis';
 import '../styles/maintenance-proof-stamp.css';
 
 export const buildPublicProofGallerySchema = (items = []) => ({
@@ -136,10 +137,15 @@ const PublicProofGallery = () => {
         ) : null}
       </dl>
       <div className="public-proof-gallery__card-actions">
-        {comparisonHref ? (
-          <Link className="public-proof-gallery__card-link" to={comparisonHref}>Inspect the maintenance proof</Link>
-        ) : null}
+        {/* Forking was reachable only from a share link somebody handed you. This is
+            the highest-intent surface Noeis has, so the fork lives here too.
+            ?adopt=1 completes the copy for a signed-in reader; a logged-out one
+            sees the wiki first and adopts from the page itself. */}
+        <Link className="public-proof-gallery__card-link" to={`${item.href}?adopt=1`}>Make this mine</Link>
         <Link className="public-proof-gallery__text-link" to={item.href}>Read maintained wiki</Link>
+        {comparisonHref ? (
+          <Link className="public-proof-gallery__text-link" to={comparisonHref}>Inspect the maintenance proof</Link>
+        ) : null}
       </div>
     </article>
     );
@@ -270,6 +276,10 @@ const PublicProofGallery = () => {
           {renderProofObject(repoCandidate, { candidate: true })}
         </section>
       ) : null}
+
+      {/* Forking has been reachable only from a share link. This gives the public
+          forkable wikis a face on the surface with the highest intent. */}
+      <ForkableWikis />
 
       <section className="public-proof-gallery__section public-proof-gallery__section--next" aria-label="Proof standard">
         <p className="public-proof-gallery__eyebrow">The bar</p>
