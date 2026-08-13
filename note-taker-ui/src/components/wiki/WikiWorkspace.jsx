@@ -2378,7 +2378,8 @@ const WikiWorkspaceChat = ({
           type: 'idea',
           title: topic,
           text: topic,
-          pageType: 'overview'
+          pageType: 'overview',
+          evidencePreflight: true
         }));
         const pageId = clean(page?._id || page?.id);
         if (!pageId) throw new Error('Created page did not include an id.');
