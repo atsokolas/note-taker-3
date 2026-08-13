@@ -177,6 +177,25 @@ const server = app.listen(0, '127.0.0.1', async () => {
     const canonicalReload = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'GET');
     assert.strictEqual(canonicalReload.response.status, 200);
     assert.doesNotMatch(JSON.stringify(canonicalReload.body), /Stored spoof|Stored fabricated quote/);
+    const savesAfterCanonicalReload = concept.saveCount;
+    const idempotentReload = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'GET');
+    assert.strictEqual(idempotentReload.response.status, 200);
+    assert.strictEqual(concept.saveCount, savesAfterCanonicalReload, 'canonical GET must not write');
+
+    const ownedBlockId = concept.workspace.items[0].id;
+    const rejectedDirectUpdate = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
+      op: 'updateItem',
+      payload: { itemId: ownedBlockId, type: 'wiki_page', refId: FOREIGN_ARTICLE_ID }
+    });
+    assert.strictEqual(rejectedDirectUpdate.response.status, 404);
+    assert.strictEqual(concept.workspace.items[0].refId, OWN_ARTICLE_ID);
+
+    const canonicalInlineUpdate = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
+      op: 'updateItem',
+      payload: { itemId: ownedBlockId, patch: { inlineTitle: 'Nested spoof', inlineText: 'FABRICATED QUOTE' } }
+    });
+    assert.strictEqual(canonicalInlineUpdate.response.status, 200);
+    assert.doesNotMatch(JSON.stringify(canonicalInlineUpdate.body), /Nested spoof|FABRICATED QUOTE/);
 
     concept.workspace = ensureWorkspace({});
     const attachPath = `/api/concepts/${CONCEPT_ID}/workspace/blocks/attach`;

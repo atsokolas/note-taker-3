@@ -1553,11 +1553,16 @@ const WikiPageReadView = ({
           ? 'candidate held for owner acceptance'
           : issueCount ? `${issueCount} issue${issueCount === 1 ? '' : 's'} surfaced` : 'page settled'
       ]);
+      const ownedSourceUtilization = maintained?.aiState?.quality?.metrics?.ownedSourceUtilization;
       setMaintenanceReceipt({
         status: issueCount || awaitingOwnerAcceptance ? 'review' : 'settled',
         issueCount,
         sourceCount: nextSourceCount,
-        claimCount: nextClaimCount
+        claimCount: nextClaimCount,
+        ownedSourceSummary: ownedSourceUtilization?.receiptSummary || '',
+        excludedOwnedSources: Array.isArray(ownedSourceUtilization?.excludedOwnedFamilies)
+          ? ownedSourceUtilization.excludedOwnedFamilies.filter(source => source?.title && source?.reason)
+          : []
       });
       systemStatus.setLatestReceipt(awaitingOwnerAcceptance ? {
         title: 'Research candidate needs review.',
@@ -1607,12 +1612,19 @@ const WikiPageReadView = ({
           `maintenance failed · @wiki:${pageId}`,
           'waiting for retry'
         ]);
+      const rejectedUtilization = maintainError?.page?.aiState?.quality?.metrics?.ownedSourceUtilization;
       setMaintenanceReceipt({
         status: qualityRejected || evidenceIncomplete ? 'research' : 'failed',
         issueCount: qualityFailures.length,
         sourceCount: countPageSources(freshestPage),
         claimCount: countPageClaims(freshestPage),
-        summary: message
+        summary: message,
+        // A rejected candidate is exactly when the owner most needs to see
+        // which of their own sources the draft failed to use.
+        ownedSourceSummary: rejectedUtilization?.receiptSummary || '',
+        excludedOwnedSources: Array.isArray(rejectedUtilization?.excludedOwnedFamilies)
+          ? rejectedUtilization.excludedOwnedFamilies.filter(source => source?.title && source?.reason)
+          : []
       });
       if (qualityRejected) {
         systemStatus.setLatestReceipt({
@@ -2577,15 +2589,31 @@ const WikiPageReadView = ({
                       : 'Ready for maintenance'}
             </h2>
             {maintenanceReceipt ? (
-              <p>
-                {maintenanceReceipt.status === 'research'
-                  ? maintenanceReceipt.summary
-                  : <>
-                    {maintenanceReceipt.sourceCount} source{maintenanceReceipt.sourceCount === 1 ? '' : 's'} ·{' '}
-                    {maintenanceReceipt.claimCount} claim{maintenanceReceipt.claimCount === 1 ? '' : 's'} ·{' '}
-                    {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
-                  </>}
-              </p>
+              <>
+                <p>
+                  {maintenanceReceipt.status === 'research'
+                    ? maintenanceReceipt.summary
+                    : <>
+                      {maintenanceReceipt.sourceCount} source{maintenanceReceipt.sourceCount === 1 ? '' : 's'} ·{' '}
+                      {maintenanceReceipt.claimCount} claim{maintenanceReceipt.claimCount === 1 ? '' : 's'} ·{' '}
+                      {maintenanceReceipt.issueCount} issue{maintenanceReceipt.issueCount === 1 ? '' : 's'}
+                    </>}
+                </p>
+                {/* Source-utilization diagnostics belong to the build receipt,
+                    never to the article's reading plane. */}
+                {maintenanceReceipt.ownedSourceSummary ? (
+                  <p className="wiki-read-maintenance-utilization">
+                    {maintenanceReceipt.ownedSourceSummary}
+                    {maintenanceReceipt.excludedOwnedSources?.length ? (
+                      <>
+                        {' '}Set aside: {maintenanceReceipt.excludedOwnedSources
+                          .map(source => `${source.title} — ${source.reason}`)
+                          .join('; ')}
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+              </>
             ) : (
               <p>
                 {maintenanceDisplayState === 'research'
@@ -3101,6 +3129,20 @@ const WikiPageReadView = ({
                             ? `${maintenanceReceipt.sourceCount} sources · ${maintenanceReceipt.claimCount} claims · ${maintenanceReceipt.issueCount} issues`
                             : 'Check sources and claims without interrupting the article.'}
                         </p>
+                        {/* Owned-source utilization is build diagnostics. It
+                            belongs in Page tools, never in the article. */}
+                        {maintenanceReceipt?.ownedSourceSummary ? (
+                          <p className="wiki-read__maintenance-utilization">
+                            {maintenanceReceipt.ownedSourceSummary}
+                            {maintenanceReceipt.excludedOwnedSources?.length ? (
+                              <>
+                                {' '}Set aside: {maintenanceReceipt.excludedOwnedSources
+                                  .map(source => `${source.title} — ${source.reason}`)
+                                  .join('; ')}
+                              </>
+                            ) : null}
+                          </p>
+                        ) : null}
                       </div>
                       <AgentTicker
                         label="Wiki maintenance trace"

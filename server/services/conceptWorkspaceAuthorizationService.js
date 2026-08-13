@@ -96,7 +96,8 @@ const buildConceptWorkspaceAuthorizationService = ({
     const workspace = ensureWorkspace({
       workspace: { ...original, attachedItems: authorizedItems, items: authorizedItems }
     });
-    const changed = JSON.stringify(concept.workspace || null) !== JSON.stringify(workspace);
+    if (original.updatedAt) workspace.updatedAt = original.updatedAt;
+    const changed = JSON.stringify(original) !== JSON.stringify(workspace);
     if (changed && persist) {
       concept.workspace = workspace;
       concept.markModified?.('workspace');

@@ -29,6 +29,7 @@ const buildConceptWorkspaceRouter = ({
     const concept = await resolveConceptByParam(userId, conceptId, { createIfMissing: false });
     if (!concept) return null;
     const workspace = ensureWorkspace(concept);
+    if (concept.workspace?.updatedAt) workspace.updatedAt = concept.workspace.updatedAt;
     const previous = JSON.stringify(concept.workspace || null);
     const normalized = JSON.stringify(workspace);
     if (previous !== normalized) {
@@ -88,20 +89,23 @@ const buildConceptWorkspaceRouter = ({
         ? { ...operation, payload: { ...payload, ...source } }
         : null;
     }
-    if (op === 'updateItem' && (payload.patch?.type !== undefined || payload.patch?.refId !== undefined)) {
+    if (op === 'updateItem') {
       const current = (workspace?.items || []).find(item => item.id === String(payload.itemId || '').trim());
       if (!current) return operation;
+      const requestedPatch = payload.patch && typeof payload.patch === 'object'
+        ? payload.patch
+        : payload;
       const source = await resolveWorkspaceAttachSource(
         userId,
-        payload.patch?.type !== undefined ? payload.patch.type : current.type,
-        payload.patch?.refId !== undefined ? payload.patch.refId : current.refId
+        requestedPatch.type !== undefined ? requestedPatch.type : current.type,
+        requestedPatch.refId !== undefined ? requestedPatch.refId : current.refId
       );
       return source
         ? {
             ...operation,
             payload: {
-              ...payload,
-              patch: { ...payload.patch, ...source }
+              itemId: String(payload.itemId || payload.id || '').trim(),
+              patch: { ...requestedPatch, ...source }
             }
           }
         : null;

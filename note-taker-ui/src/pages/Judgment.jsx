@@ -1395,6 +1395,7 @@ const Judgment = () => {
     if (previewMode || !selectedCase?.pageId) return;
     setWorkbenchRefreshing(true);
     setWorkbenchError('');
+    setDecisionIndexError('');
     try {
       const [nextPage, nextDecisions] = await Promise.all([
         getWikiPage(selectedCase.pageId),
@@ -1406,6 +1407,7 @@ const Judgment = () => {
         idOf(candidate) === selectedCase.pageId ? nextPage : candidate
       )));
     } catch (refreshError) {
+      setDecisionIndexError('Decision history is temporarily unavailable. No absence has been inferred.');
       setWorkbenchError(
         refreshError?.response?.data?.error
         || refreshError?.message
