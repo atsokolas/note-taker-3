@@ -57,6 +57,7 @@ const trustedPage = () => ({
 
 const run = async () => {
   const rejectedPage = trustedPage();
+  rejectedPage.sourceScope = 'selected_sources';
   const WikiRevision = createRevisionModel();
   const rejected = await runWikiMaintenanceCandidate({
     page: rejectedPage,
@@ -68,6 +69,7 @@ const run = async () => {
       page.sourceRefs = [{ title: 'thin source' }];
       page.aiState = {
         draftStatus: 'ready',
+        sourceRefIdsAtDraft: ['source-1', 'source-2'],
         quality: { ok: false, status: 'fail', failures: ['Missing core implementation evidence.'] }
       };
       return page;
@@ -81,6 +83,7 @@ const run = async () => {
   assert.strictEqual(rejected.page.aiState.quality.ok, true);
   assert.strictEqual(rejected.page.aiState.candidateStatus, 'rejected');
   assert.match(rejected.page.aiState.lastCandidateSummary, /Missing core implementation evidence/);
+  assert.deepStrictEqual(rejected.page.aiState.lastCandidateSourceRefIds, ['source-1', 'source-2']);
   assert.strictEqual(WikiRevision.records.length, 1);
   assert.strictEqual(WikiRevision.records[0].reason, 'agent_candidate');
   assert.strictEqual(WikiRevision.records[0].promotionStatus, 'rejected');
@@ -247,7 +250,8 @@ const run = async () => {
   passingPage.aiState = {
     ...passingPage.aiState,
     candidateStatus: 'rejected',
-    lastCandidateSummary: 'Old failed candidate.'
+    lastCandidateSummary: 'Old failed candidate.',
+    lastCandidateSourceRefIds: ['old-source']
   };
   const passing = await runWikiMaintenanceCandidate({
     page: passingPage,
@@ -265,6 +269,7 @@ const run = async () => {
   assert.strictEqual(passing.page.plainText, 'Better candidate.');
   assert.strictEqual(passing.page.aiState.candidateStatus, 'promoted');
   assert.strictEqual(passing.page.aiState.lastCandidateSummary, '');
+  assert.deepStrictEqual(passing.page.aiState.lastCandidateSourceRefIds, []);
   assert.strictEqual(passing.page.aiState.lastCandidateQuality.ok, true);
   assert.strictEqual(WikiRevision.records.length, 7);
 

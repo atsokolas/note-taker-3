@@ -858,6 +858,9 @@ const serializeWikiPage = (page) => {
       lastCandidateAt: raw.aiState?.lastCandidateAt || null,
       lastCandidateQuality: raw.aiState?.lastCandidateQuality || {},
       lastCandidateSummary: raw.aiState?.lastCandidateSummary || '',
+      lastCandidateSourceRefIds: Array.isArray(raw.aiState?.lastCandidateSourceRefIds)
+        ? raw.aiState.lastCandidateSourceRefIds
+        : [],
       health: raw.aiState?.health || {
         newItems: [],
         unsupportedClaims: [],
