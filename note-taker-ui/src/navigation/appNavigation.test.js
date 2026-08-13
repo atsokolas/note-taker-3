@@ -6,13 +6,22 @@ import {
 } from './appNavigation';
 
 describe('appNavigation', () => {
-  it('keeps the primary product navigation collapsed to Library, Think, and Wiki', () => {
+  it('keeps the primary product navigation collapsed to the four product rooms', () => {
     const primaryLabels = getPrimaryNavItems().map(item => item.label);
 
-    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki']);
+    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki', 'Judgment']);
     expect(primaryLabels).not.toContain('Notebook');
     expect(primaryLabels).not.toContain('Concepts');
     expect(primaryLabels).not.toContain('Questions');
+  });
+
+  it('marks Judgment active across its routed casebook', () => {
+    const judgment = getPrimaryNavItems().find(item => item.label === 'Judgment');
+
+    expect(judgment.to).toBe('/judgment');
+    expect(judgment.match({ pathname: '/judgment' })).toBe(true);
+    expect(judgment.match({ pathname: '/judgment/cases/example' })).toBe(true);
+    expect(judgment.match({ pathname: '/wiki' })).toBe(false);
   });
 
   it('keeps legacy Think postures addressable without reintroducing top-level surfaces', () => {

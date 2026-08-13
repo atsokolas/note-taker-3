@@ -34,9 +34,8 @@ const LibraryMain = ({
   onHighlightReplace,
   onHighlightRemove,
   onOpenConcept,
-  onOpenNotebook,
   onOpenQuestion,
-  onDumpToWorkingMemory,
+  onAskLibrarian,
   folderOptions,
   articleOptions,
   articleQuery,
@@ -237,9 +236,8 @@ const LibraryMain = ({
             onHighlightReplace={onHighlightReplace}
             onHighlightRemove={onHighlightRemove}
             onOpenConcept={onOpenConcept}
-            onOpenNotebook={onOpenNotebook}
             onOpenQuestion={onOpenQuestion}
-            onDumpToWorkingMemory={onDumpToWorkingMemory}
+            onAskLibrarian={onAskLibrarian}
             sourceTrace={(
               <LibrarySourceTrace
                 source={sourceDetail}

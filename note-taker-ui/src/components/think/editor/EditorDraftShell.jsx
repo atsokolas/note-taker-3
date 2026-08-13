@@ -41,8 +41,10 @@ const EditorDraftShell = ({
       const coords = editor.view.coordsAtPos(from);
       const mid = (coords.left + coords.right) / 2;
       const raw = mid - shellRect.left - shellRect.width / 2;
-      const limit = Math.min(140, shellRect.width * 0.38);
-      const clamped = Math.max(-limit, Math.min(limit, raw));
+      // The toolbar should acknowledge the caret, not chase it across the page.
+      // Keep the response deliberately small so it never escapes the notebook rail.
+      const limit = Math.min(10, shellRect.width * 0.02);
+      const clamped = Math.max(-limit, Math.min(limit, raw * 0.035));
       caretMagnet.setTarget(clamped);
     } catch (_err) {
       caretMagnet.setTarget(0);

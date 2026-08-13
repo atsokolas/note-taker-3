@@ -1,23 +1,32 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ArticleReader from './ArticleReader';
+import { createHighlight } from '../api/highlights';
+import useTextSelection from './reader/useTextSelection';
 
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn()
 }));
-jest.mock('./reader/SelectionMenu', () => () => <div data-testid="selection-menu" />);
+jest.mock('./reader/SelectionMenu', () => ({ onAddConcept }) => (
+  <button type="button" onClick={onAddConcept}>Create concept</button>
+));
 jest.mock('./reader/MagneticReadingRail', () => () => <div data-testid="magnetic-reading-rail" />);
-jest.mock('./reader/useTextSelection', () => () => ({
-  selectionState: {
-    isOpen: false,
-    text: '',
-    rect: null,
-    anchor: null
-  },
-  clearSelection: jest.fn()
-}));
+jest.mock('./reader/useTextSelection', () => jest.fn());
 jest.mock('../tour/useTourSignal', () => () => jest.fn());
 
 describe('ArticleReader', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useTextSelection.mockReturnValue({
+      selectionState: {
+        isOpen: false,
+        text: '',
+        rect: null,
+        anchor: null
+      },
+      clearSelection: jest.fn()
+    });
+  });
+
   it('shows saved highlights as the reading body when an imported source has no full text', () => {
     render(
       <ArticleReader
@@ -104,5 +113,41 @@ describe('ArticleReader', () => {
     expect(screen.getByTestId('source-trace')).toBeInTheDocument();
     expect(container.querySelector('.article-reader-content [data-testid="source-trace"]')).toBeNull();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+
+  it('reuses an exact saved highlight before opening a Concept', async () => {
+    const clearSelection = jest.fn();
+    const savedHighlight = {
+      _id: 'highlight-1',
+      text: 'Cash flow discipline matters.',
+      anchor: { text: 'Cash flow discipline matters.', startOffsetApprox: 0 }
+    };
+    useTextSelection.mockReturnValue({
+      selectionState: {
+        isOpen: true,
+        text: 'Cash flow discipline matters.',
+        rect: { top: 100, left: 100, width: 200 },
+        anchor: { text: 'Cash flow discipline matters.', startOffsetApprox: 0 }
+      },
+      clearSelection
+    });
+    const onOpenConcept = jest.fn();
+
+    render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Investor letter',
+          content: '<p>Cash flow discipline matters.</p>'
+        }}
+        highlights={[savedHighlight]}
+        onOpenConcept={onOpenConcept}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create concept' }));
+    await waitFor(() => expect(onOpenConcept).toHaveBeenCalledWith(savedHighlight));
+    expect(createHighlight).not.toHaveBeenCalled();
+    expect(clearSelection).toHaveBeenCalled();
   });
 });

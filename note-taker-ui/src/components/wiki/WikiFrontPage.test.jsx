@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
@@ -122,7 +122,40 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Your Wiki');
   });
 
-  it('renders the newspaper front page: masthead, lead sentence, today’s page, recently grown, explore, hairline', async () => {
+  it('opens accepted pages without waiting for a slow Daily Loop briefing', async () => {
+    getDailyLoop.mockReturnValueOnce(new Promise(() => {}));
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    expect(await screen.findByRole('table', { name: 'Living Wiki pages' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
+    expect(screen.queryByText(/opening your living knowledge/i)).not.toBeInTheDocument();
+  });
+
+  it('shares the cold page-index request across the development Strict Mode replay', async () => {
+    let resolvePages;
+    listWikiPages.mockReturnValueOnce(new Promise((resolve) => {
+      resolvePages = resolve;
+    }));
+
+    render(
+      <React.StrictMode>
+        <router.MemoryRouter>
+          <WikiFrontPage />
+        </router.MemoryRouter>
+      </React.StrictMode>
+    );
+
+    expect(listWikiPages).toHaveBeenCalledTimes(1);
+    await act(async () => resolvePages(pages));
+    expect(await screen.findByRole('table', { name: 'Living Wiki pages' })).toBeInTheDocument();
+  });
+
+  it('renders the living Wiki index with filters, grounded rows, and a persistent Curator', async () => {
     render(
       <router.MemoryRouter>
         <WikiFrontPage />
@@ -141,33 +174,24 @@ describe('WikiFrontPage (AT-394)', () => {
     // Masthead with date eyebrow.
     expect(screen.getByText(/Your Wiki ·/i)).toBeInTheDocument();
 
-    // Today's page = the briefing's most recently updated page, as the single h1.
+    // The product identity is the single h1; accepted pages remain durable rows.
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveTextContent('First Principles Thinking');
-    expect(screen.getByRole('link', { name: 'Continue reading →' }))
+    expect(heading).toHaveTextContent('Your living wikis');
+    expect(screen.getByRole('complementary', { name: 'Wiki Curator' })).toHaveTextContent('Curator');
+    expect(screen.getByRole('button', { name: /All wikis 3/i })).toHaveAttribute('aria-pressed', 'true');
+
+    const livingTable = screen.getByRole('table', { name: 'Living Wiki pages' });
+    expect(within(livingTable).getByRole('link', { name: 'First Principles Thinking' }))
       .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
-
-    // Lead excerpt comes from the full page object (clamped preview).
-    expect(screen.getByText(/strips a question down to its most basic/i)).toBeInTheDocument();
-
-    // Recently grown excludes the lead story and carries growth notes.
-    const grown = screen.getByRole('complementary', { name: /recently changed|more living pages/i });
-    expect(grown).toHaveTextContent('Opportunity Cost');
-    expect(grown).not.toHaveTextContent('First Principles Thinking');
-    expect(grown).toHaveTextContent(/claim/);
-
-    // Explore index links pages.
-    expect(screen.getByText('Explore')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Margin of Safety' })[0])
+    expect(within(livingTable).getByRole('link', { name: 'Margin of Safety' }))
       .toHaveAttribute('href', '/wiki/workspace?page=wiki-margin-of-safety');
-    const allPagesLibrary = screen.getByText('Explore').closest('section');
-    expect(within(allPagesLibrary).getByText('All Wiki pages')).toBeInTheDocument();
-    fireEvent.change(within(allPagesLibrary).getByRole('searchbox', { name: 'Search all Wiki pages' }), {
+    expect(within(livingTable).getByText('2 Library sources')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search your wikis' }), {
       target: { value: 'Margin' }
     });
-    expect(within(allPagesLibrary).getByRole('link', { name: 'Margin of Safety' })).toBeInTheDocument();
-    expect(within(allPagesLibrary).queryByRole('link', { name: 'Opportunity Cost' })).not.toBeInTheDocument();
+    expect(within(livingTable).getByRole('link', { name: 'Margin of Safety' })).toBeInTheDocument();
+    expect(within(livingTable).queryByRole('link', { name: 'Opportunity Cost' })).not.toBeInTheDocument();
 
     // Workspace destinations are legible secondary nav near the top.
     const operations = document.querySelector('.wiki-front-page__operations');
@@ -177,13 +201,46 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(workspaceNav).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review \(4\)/i }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');
-    expect(screen.getByRole('link', { name: 'Knowledge map' })).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'Wiki activity' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Knowledge map' }).length).toBeGreaterThan(0);
     expect(screen.getByText('Add reading feed')).toBeInTheDocument();
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
 
     // No review queue / counters dumped on the front door.
     expect(screen.queryByText(/pages need review/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps developer Wikis and review candidates filterable without presenting proposals as accepted knowledge', async () => {
+    const repoPage = {
+      _id: 'repo-wiki',
+      title: 'atsokolas/note-taker-3 Repo Wiki',
+      pageType: 'repo',
+      sourceRefs: [{ _id: 'repo-source' }],
+      externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+    };
+    const candidatePage = {
+      ...pages[0],
+      aiState: { candidateStatus: 'awaiting_maintenance_acceptance' }
+    };
+    listWikiPages.mockResolvedValueOnce([candidatePage, repoPage, pages[1]]);
+    getDailyLoop.mockResolvedValueOnce({ briefing: { ...briefing, recentlyUpdatedPages: [] } });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
+    expect(within(table).getByText('Review available')).toBeInTheDocument();
+    expect(within(table).queryByText(/accepted/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Developer wikis 1/i }));
+    expect(within(table).getByRole('link', { name: 'note-taker-3 — repo wiki' })).toBeInTheDocument();
+    expect(within(table).queryByRole('link', { name: 'First Principles Thinking' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Needs review 1/i }));
+    expect(within(table).getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
+    expect(within(table).queryByRole('link', { name: 'note-taker-3 — repo wiki' })).not.toBeInTheDocument();
   });
 
   it('falls back to the strongest page when the briefing fails', async () => {
@@ -195,9 +252,8 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    // Weighted fallback: most sources+claims wins the lead slot.
-    const heading = await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' });
-    expect(heading).toHaveTextContent('First Principles Thinking');
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Your living wikis' });
+    expect(screen.getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent(/current change signals could not be refreshed/i);
   });
@@ -272,7 +328,7 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your living wikis' }))
       .toBeInTheDocument();
     expect(screen.queryByText(/QA Build Order Verification/i)).not.toBeInTheDocument();
   });
@@ -294,7 +350,7 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+    expect(screen.getByRole('heading', { level: 1, name: 'Your living wikis' }))
       .toBeInTheDocument();
     expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledTimes(1);
@@ -388,7 +444,8 @@ describe('WikiFrontPage (AT-394)', () => {
 
     await screen.findByRole('link', { name: /review opportunity cost →/i });
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Opportunity Cost');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Your living wikis');
+    expect(screen.getByRole('heading', { level: 2, name: 'Changed by your Library' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /overnight briefing notes/i })).not.toBeInTheDocument();
     expect(screen.getByText('Evidence surfaced')).toBeInTheDocument();
     expect(screen.getByText('2 new sources — Tradeoff note, Capital allocation note')).toBeInTheDocument();
@@ -452,18 +509,17 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your living wikis' }))
       .toBeInTheDocument();
 
-    const explore = screen.getByText('Explore').closest('section');
-    const exploreLinks = within(explore).getAllByRole('link');
-    const repoTitles = exploreLinks.filter((link) => /repo wiki/i.test(link.textContent));
+    const livingTable = screen.getByRole('table', { name: 'Living Wiki pages' });
+    const repoTitles = within(livingTable).getAllByRole('link').filter((link) => /repo wiki/i.test(link.textContent));
 
     expect(repoTitles).toHaveLength(1);
-    expect(explore.textContent.match(/note-taker-3 — repo wiki/g)).toHaveLength(1);
-    expect(explore.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
-    expect(within(explore).getByText('Margin of Safety')).toBeInTheDocument();
-    expect(within(explore).getByText('Opportunity Cost')).toBeInTheDocument();
+    expect(livingTable.textContent.match(/note-taker-3 — repo wiki/g)).toHaveLength(1);
+    expect(livingTable.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
+    expect(within(livingTable).getByText('Margin of Safety')).toBeInTheDocument();
+    expect(within(livingTable).getByText('Opportunity Cost')).toBeInTheDocument();
   });
 
   it('keeps every distinct returned repo Wiki reachable in the all-pages library', async () => {
@@ -487,9 +543,9 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    const explore = (await screen.findByText('Explore')).closest('section');
+    const livingTable = await screen.findByRole('table', { name: 'Living Wiki pages' });
     repoPages.forEach((page, index) => {
-      expect(within(explore).getByRole('link', { name: `${['alpha-repo', 'beta-repo', 'gamma-repo'][index]} — repo wiki` }))
+      expect(within(livingTable).getByRole('link', { name: `${['alpha-repo', 'beta-repo', 'gamma-repo'][index]} — repo wiki` }))
         .toHaveAttribute('href', `/wiki/workspace?page=${page._id}`);
     });
   });

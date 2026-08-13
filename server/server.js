@@ -7034,6 +7034,8 @@ app.use(buildConceptWorkspaceRouter({
   findHighlightById,
   Article,
   NotebookEntry,
+  Question,
+  WikiPage,
   validateWorkspacePayload,
   applyPatchOp,
   executeWorkspaceActionsWithPolicy,

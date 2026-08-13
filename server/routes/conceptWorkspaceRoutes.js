@@ -9,6 +9,8 @@ const buildConceptWorkspaceRouter = ({
   findHighlightById,
   Article,
   NotebookEntry,
+  Question,
+  WikiPage,
   validateWorkspacePayload,
   applyPatchOp,
   executeWorkspaceActionsWithPolicy,
@@ -32,7 +34,15 @@ const buildConceptWorkspaceRouter = ({
     return { concept, workspace };
   };
 
-  const WORKSPACE_ATTACHABLE_TYPES = new Set(['highlight', 'article', 'note']);
+  const WORKSPACE_ATTACHABLE_TYPES = new Set([
+    'highlight',
+    'article',
+    'note',
+    'question',
+    'concept',
+    'wiki_page',
+    'wiki_claim'
+  ]);
 
   const normalizeWorkspaceAttachType = (value) => {
     const type = String(value || '').trim().toLowerCase();
@@ -61,6 +71,18 @@ const buildConceptWorkspaceRouter = ({
       return { type: safeType, refId: String(highlight._id) };
     }
 
+    if (safeType === 'wiki_claim') {
+      const [pageId, ...claimIdParts] = safeRefId.split(':');
+      const claimId = claimIdParts.join(':').trim();
+      if (!mongoose.Types.ObjectId.isValid(pageId) || !claimId) return null;
+      const page = await WikiPage.findOne({ _id: pageId, userId, 'claims.claimId': claimId })
+        .select('_id claims.claimId')
+        .lean();
+      const exactClaim = (page?.claims || []).some(claim => String(claim?.claimId || '') === claimId);
+      if (!page || !exactClaim) return null;
+      return { type: safeType, refId: `${String(page._id)}:${claimId}` };
+    }
+
     if (!mongoose.Types.ObjectId.isValid(safeRefId)) return null;
     if (safeType === 'article') {
       const article = await Article.findOne({ _id: safeRefId, userId }).select('_id').lean();
@@ -68,9 +90,31 @@ const buildConceptWorkspaceRouter = ({
       return { type: safeType, refId: String(article._id) };
     }
 
-    const note = await NotebookEntry.findOne({ _id: safeRefId, userId }).select('_id').lean();
-    if (!note) return null;
-    return { type: safeType, refId: String(note._id) };
+    if (safeType === 'note') {
+      const note = await NotebookEntry.findOne({ _id: safeRefId, userId }).select('_id').lean();
+      if (!note) return null;
+      return { type: safeType, refId: String(note._id) };
+    }
+
+    if (safeType === 'question') {
+      const question = await Question.findOne({ _id: safeRefId, userId }).select('_id').lean();
+      if (!question) return null;
+      return { type: safeType, refId: String(question._id) };
+    }
+
+    if (safeType === 'concept') {
+      const concept = await resolveConceptByParam(userId, safeRefId, { createIfMissing: false });
+      if (!concept || String(concept._id) !== safeRefId) return null;
+      return { type: safeType, refId: String(concept._id) };
+    }
+
+    if (safeType === 'wiki_page') {
+      const page = await WikiPage.findOne({ _id: safeRefId, userId }).select('_id').lean();
+      if (!page) return null;
+      return { type: safeType, refId: String(page._id) };
+    }
+
+    return null;
   };
 
   const attachWorkspaceRefToConcept = (concept, type, refId) => {
@@ -346,6 +390,8 @@ const buildConceptWorkspaceRouter = ({
           refId: source.refId,
           groupId,
           stage,
+          inlineTitle: req.body?.inlineTitle,
+          inlineText: req.body?.inlineText,
           ...(parentId !== undefined ? { parentId } : {}),
           ...(order !== undefined ? { order } : {})
         }

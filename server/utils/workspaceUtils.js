@@ -2,7 +2,15 @@ const crypto = require('crypto');
 
 const WORKSPACE_VERSION = 1;
 const DEFAULT_GROUP_TITLE = 'Workspace';
-const WORKSPACE_ITEM_TYPES = new Set(['highlight', 'article', 'note', 'question']);
+const WORKSPACE_ITEM_TYPES = new Set([
+  'highlight',
+  'article',
+  'note',
+  'question',
+  'concept',
+  'wiki_page',
+  'wiki_claim'
+]);
 const WORKSPACE_ITEM_STAGES = new Set(['inbox', 'working', 'draft', 'archive']);
 const LEGACY_STAGE_MAP = {
   claim: 'draft',

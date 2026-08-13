@@ -59,7 +59,8 @@ describe('WikiFrontPage Decisions return surface', () => {
   it('keeps Decisions inside the Wiki return loop and preserves the existing Review destination', async () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Inference economics' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your living wikis' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Inference economics' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review (2)' }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');

@@ -1122,7 +1122,7 @@ const conceptWorkspaceOutlineSectionSchema = new mongoose.Schema({
 
 const conceptWorkspaceAttachedItemSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
-  type: { type: String, enum: ['highlight', 'article', 'note', 'question'], required: true },
+  type: { type: String, enum: ['highlight', 'article', 'note', 'question', 'concept', 'wiki_page', 'wiki_claim'], required: true },
   refId: { type: String, required: true, trim: true },
   sectionId: { type: String, required: true, trim: true },
   groupId: { type: String, required: true, trim: true },
@@ -1144,7 +1144,7 @@ const conceptWorkspaceGroupSchema = new mongoose.Schema({
 
 const conceptWorkspaceItemSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
-  type: { type: String, enum: ['highlight', 'article', 'note', 'question'], required: true },
+  type: { type: String, enum: ['highlight', 'article', 'note', 'question', 'concept', 'wiki_page', 'wiki_claim'], required: true },
   refId: { type: String, required: true, trim: true },
   groupId: { type: String, required: true, trim: true },
   parentId: { type: String, default: '', trim: true },

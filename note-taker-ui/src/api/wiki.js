@@ -6,6 +6,7 @@ import { getPendingWikiClaimReview } from './wikiPendingClaimReview';
 export { getPendingWikiClaimReview };
 
 const WIKI_PAGES_PATH = '/api/wiki/pages';
+const wikiPageListRequests = new Map();
 
 const safeId = (id) => encodeURIComponent(String(id || '').trim());
 
@@ -19,11 +20,24 @@ const buildQueryString = (params = {}) => {
   return suffix ? `?${suffix}` : '';
 };
 
-export const listWikiPages = async (params = {}) => {
-  const res = await api.get(`${WIKI_PAGES_PATH}${buildQueryString(params)}`, getAuthHeaders());
-  if (Array.isArray(res.data)) return res.data;
-  if (Array.isArray(res.data?.pages)) return res.data.pages;
-  return [];
+export const listWikiPages = (params = {}) => {
+  const path = `${WIKI_PAGES_PATH}${buildQueryString(params)}`;
+  const activeRequest = wikiPageListRequests.get(path);
+  if (activeRequest) return activeRequest;
+
+  const request = api.get(path, getAuthHeaders()).then((res) => {
+    if (Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res.data?.pages)) return res.data.pages;
+    return [];
+  });
+  let sharedRequest;
+  sharedRequest = request.finally(() => {
+    if (wikiPageListRequests.get(path) === sharedRequest) {
+      wikiPageListRequests.delete(path);
+    }
+  });
+  wikiPageListRequests.set(path, sharedRequest);
+  return sharedRequest;
 };
 
 const apiUrl = (path = '') => {
