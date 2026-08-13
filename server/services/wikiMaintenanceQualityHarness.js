@@ -294,6 +294,7 @@ const liveFixtures = [
   {
     name: 'live_model_generates_clean_multi_section_wiki',
     title: 'Capital allocation',
+    existingNote: 'Existing note: reinvestment versus distribution, and how to tell which regime a business is in.',
     sourceArticles: [
       {
         title: 'Capital allocation and incremental returns',
@@ -320,6 +321,93 @@ const liveFixtures = [
       // The shipped gate is the standard. A live article that cannot clear it
       // is a real finding about the generator or the gate — not something the
       // eval should define away.
+      mustPassQualityGate: true,
+      minHeadings: 3,
+      forbidGenericHeadings: true,
+      forbiddenPatterns: [
+        /<\/?(?:p|div|span|br|section|article)\b/i,
+        /https?:\/\//i,
+        /contributes evidence for this page/i,
+        /this page has been rebuilt/i,
+        /source indexes?/i
+      ],
+      minClaims: 5,
+      minSourceRefs: 3
+    }
+  },
+  // A permanent regression corpus needs more than one domain. Capital
+  // allocation is business writing, which is the shape the generator is most
+  // practised at. Parenting is a human subject where the mechanism has to be
+  // made observable through behaviour rather than arithmetic, and the sources
+  // genuinely disagree. Investing is the account-grounded reference case.
+  {
+    name: 'live_model_generates_clean_parenting_wiki',
+    title: 'Parenting',
+    existingNote: 'Existing note: responsiveness and independence seem to pull against structure, and I want the tension stated rather than smoothed.',
+    sourceArticles: [
+      {
+        title: 'Responsive interaction and early development',
+        content: 'Parenting shapes early development most directly through responsive interaction: the caregiver notices a signal from the child, answers it, and the child learns that its own action produced a response. Researchers describe this as serve and return. The mechanism is not affection in general but contingency — the reliability of the answer, and its timing. A caregiver who answers most signals within a few seconds gives the child a predictable world to act on. Where the response is unpredictable, the child spends attention monitoring the caregiver rather than exploring, and exploration is where most early learning happens.'
+      },
+      {
+        title: 'Independence and letting a task finish',
+        content: 'Parenting for independence means allowing a child to complete a task at its own pace even when an adult could do it faster. The immediate cost is time and mess. The mechanism is that the child attributes the outcome to its own effort, which is what builds the willingness to attempt the next difficult thing. Stepping in to finish a task removes the difficulty and the attribution together. This does not mean withdrawing help. It means offering the smallest help that keeps the child working, rather than the help that ends the task.'
+      },
+      {
+        title: 'Supportive consequences and the limit that holds',
+        content: 'A supportive consequence keeps the relationship intact while the limit still holds. The distinction is between a consequence the child can predict and understand, and a punishment whose severity depends on the caregiver mood that day. Predictable consequences teach the boundary; unpredictable ones teach the child to read the adult. A limit that is enforced inconsistently is not a soft limit, it is a lottery, and it produces more testing rather than less because testing is how the child discovers which day this is.'
+      },
+      {
+        title: 'Autonomy-supportive parenting and its critics',
+        content: 'Autonomy-supportive parenting lets the child choose the pace and the order of a task, and avoids imposing external consequences where an internal reason can be offered instead. Its critics argue that young children lack the horizon to weigh internal reasons, and that a clearly imposed structure produces the limit faster and with less conflict. Both positions cite outcomes they care about: the autonomy-supportive case emphasises durable self-direction, the structured case emphasises reliable behaviour in the near term. The disagreement is genuine and is not resolved by the evidence either side presents.'
+      },
+      {
+        title: 'Routines, predictability, and household stress',
+        content: 'Predictable daily routines lower household stress and let a child anticipate what happens next. The effect runs through the same contingency mechanism as responsive interaction, at a longer timescale: a routine is a promise about the shape of the day. Households under strain lose routine first, which is one reason parenting advice that assumes stable conditions often fails in the households that most need it. Advice that assumes a caregiver has spare attention is advice for households that already have some.'
+      }
+    ],
+    expectations: {
+      mustPassQualityGate: true,
+      minHeadings: 3,
+      forbidGenericHeadings: true,
+      forbiddenPatterns: [
+        /<\/?(?:p|div|span|br|section|article)\b/i,
+        /https?:\/\//i,
+        /contributes evidence for this page/i,
+        /this page has been rebuilt/i,
+        /source indexes?/i
+      ],
+      minClaims: 5,
+      minSourceRefs: 3
+    }
+  },
+  {
+    name: 'live_model_generates_clean_investing_wiki',
+    title: 'Value investing',
+    existingNote: 'Existing note: margin of safety is about being wrong, not about the target return.',
+    sourceArticles: [
+      {
+        title: 'Value investing and the margin of safety',
+        content: 'Value investing buys a security below a conservatively estimated intrinsic value, and the gap between price and that estimate is the margin of safety. The margin is not a target return; it is protection against the estimate being wrong, which it frequently is. The mechanism is asymmetry: if the estimate is roughly right the investor earns the gap, and if it is wrong by a moderate amount the investor still avoids permanent loss. This is why the discipline concentrates on the range of plausible values rather than a single number.'
+      },
+      {
+        title: 'Why a cheap multiple is not a valuation',
+        content: 'A low price-to-earnings ratio screens for cheapness but does not establish that the underlying business earns its cost of capital. Screening metrics compress a business into one ratio and discard the question of whether current earnings are representative. A company at eight times trailing earnings at a cyclical peak is expensive; the same company at eighteen times depressed earnings may be cheap. The screen is a starting point for research, not a conclusion, and treating it as a conclusion is the most common way the label value is misapplied.'
+      },
+      {
+        title: 'Contrarian judgment and its costs',
+        content: 'Buying what others are selling is a consequence of the method, not the point of it. The investor is paid for being right when the consensus is wrong, not for disagreeing. Contrarian positioning has a real cost: the position usually looks wrong for a long time before it looks right, and the investor must distinguish between a thesis that is early and a thesis that is mistaken. The discipline for that distinction is specifying in advance what evidence would falsify the thesis, so that the passage of time alone does not become the argument for holding.'
+      },
+      {
+        title: 'Fundamental analysis and the circle of competence',
+        content: 'Fundamental analysis means understanding the business well enough to judge whether reported earnings reflect durable earning power. The boundary that makes this tractable is the circle of competence: the set of businesses whose economics an investor can actually assess. The circle is defined by honesty about the edge, not by breadth. Its practical use is negative — it tells the investor what to decline. An investor who cannot say why a business will still earn its returns in ten years is outside the circle regardless of how attractive the price looks.'
+      },
+      {
+        title: 'Where value discipline shades into speculation',
+        content: 'The boundary with speculation is not about holding period or asset class but about the source of the expected return. A position whose return depends on the business earning cash is an investment; a position whose return depends on another buyer paying more is a speculation, however carefully it is argued. The awkward case is a cheap asset with no path to cash returning to the owner: statistically inexpensive, but the return still requires someone else to revalue it. Practitioners disagree about whether such positions belong in the discipline at all.'
+      }
+    ],
+    expectations: {
       mustPassQualityGate: true,
       minHeadings: 3,
       forbidGenericHeadings: true,
@@ -758,9 +846,11 @@ const evaluateLiveModelFixture = async (fixture, { requireLive = false } = {}) =
   const page = new WikiPage({
     userId,
     title: fixture.title,
-    slug: 'live-moat-maintenance',
+    // Per fixture, or one subject's seed note leaks into another's page and
+    // the model is graded on evidence it was never given.
+    slug: `live-${String(fixture.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
     pageType: 'topic',
-    plainText: 'Existing note: moats are about reinvestment, but distribution can sometimes be wiser.',
+    plainText: fixture.existingNote || `Existing note: ${fixture.title} needs a durable reference article.`,
     sourceRefs: [],
     claims: [],
     citations: [],
