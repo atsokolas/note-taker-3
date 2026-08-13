@@ -131,6 +131,7 @@ const {
   MorningPaperDelivery,
   WikiPageVisit,
   EmbeddingJob,
+  ReadingLoopEdition,
   SharedConcept,
   SharedQuestion,
   WikiPage,
@@ -573,6 +574,7 @@ const notionTransformForAgent = require('./services/import/notionTransform');
 const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/integrationSecrets');
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildDailyLoopRouter } = require('./routes/dailyLoopRoutes');
+const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
@@ -5292,6 +5294,16 @@ app.use(buildDailyLoopRouter({
   ImportSession,
   NoeisReceipt,
   Connection
+}));
+
+app.use(buildReadingLoopRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  User,
+  Article,
+  NotebookEntry,
+  Question,
+  WikiPage,
+  ReadingLoopEdition
 }));
 
 app.use(buildWikiRouter({

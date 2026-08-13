@@ -1,5 +1,10 @@
 export const getPrimaryNavItems = () => [
   {
+    label: 'Paper',
+    to: '/paper',
+    match: (location) => location.pathname.startsWith('/paper')
+  },
+  {
     label: 'Library',
     to: '/library',
     match: (location) => location.pathname.startsWith('/library')

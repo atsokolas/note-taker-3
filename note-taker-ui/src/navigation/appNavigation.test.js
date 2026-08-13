@@ -6,10 +6,11 @@ import {
 } from './appNavigation';
 
 describe('appNavigation', () => {
-  it('keeps the primary product navigation collapsed to Library, Think, and Wiki', () => {
+  it('keeps the primary product navigation collapsed to Paper, Library, Think, and Wiki', () => {
     const primaryLabels = getPrimaryNavItems().map(item => item.label);
 
-    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki']);
+    // Paper leads: it is the landing surface, so it is also the way back to it.
+    expect(primaryLabels).toEqual(['Paper', 'Library', 'Think', 'Wiki']);
     expect(primaryLabels).not.toContain('Notebook');
     expect(primaryLabels).not.toContain('Concepts');
     expect(primaryLabels).not.toContain('Questions');
