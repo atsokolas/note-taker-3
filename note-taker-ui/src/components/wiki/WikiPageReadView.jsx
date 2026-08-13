@@ -2605,7 +2605,44 @@ const WikiPageReadView = ({
         </details>
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
-        {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`}>
+        {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc wiki-read__left-rail${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`} aria-label="Wiki navigation and agent">
+          {nonCriticalReady ? (
+            <RightDrawer title={AGENT_DISPLAY_NAME} open={agentContextOpen} onToggle={setAgentContextOpen}>
+              <AgentContextShell
+                surface="wiki"
+                title={AGENT_DISPLAY_NAME}
+                orientation={`Reading ${displayWikiPageTitle(page, 'this page')} in its current Wiki state.`}
+                showPresence={false}
+              >
+                <ThoughtPartnerPanel
+                  className="wiki-read__partner"
+                  variant="stream"
+                  contextType="wiki"
+                  contextId={pageId}
+                  contextTitle={displayWikiPageTitle(page, 'Wiki page')}
+                  contextMetadata={{
+                    summary: firstParagraphText(page?.tiptapJson || emptyDoc) || '',
+                    nextActions: ['Continue in Think', 'Challenge a claim', 'Inspect provenance']
+                  }}
+                  title={AGENT_DISPLAY_NAME}
+                  subtitle="Page context"
+                  placeholder="Ask to continue, challenge, or inspect this page."
+                  promptTemplates={[
+                    'Challenge the strongest claim on this page.',
+                    'What evidence should I inspect next?',
+                    'Help me continue this page in Think.'
+                  ]}
+                  showQuickPrompts={false}
+                  emptyStateText="Ask when you want to investigate. Proposals stay separate until you explicitly review them."
+                  submitLabel="↗"
+                />
+                <WikiReferenceComposer
+                  pageId={pageId}
+                  pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+                />
+              </AgentContextShell>
+            </RightDrawer>
+          ) : null}
           {repoDossierMode && repoSectionNav.length ? (
             <nav className="wiki-read__repo-dossier-toc" aria-label="Repository dossier contents">
               <h2>Dossier</h2>
@@ -3202,41 +3239,6 @@ const WikiPageReadView = ({
                     ))}
                   </dl>
                 </section> : null}
-                <RightDrawer title={AGENT_DISPLAY_NAME} open={agentContextOpen} onToggle={setAgentContextOpen}>
-                  <AgentContextShell
-                    surface="wiki"
-                    title={AGENT_DISPLAY_NAME}
-                    orientation={`Reading ${displayWikiPageTitle(page, 'this page')} in its current Wiki state.`}
-                    showPresence={false}
-                  >
-                    <ThoughtPartnerPanel
-                      className="wiki-read__partner"
-                      variant="stream"
-                      contextType="wiki"
-                      contextId={pageId}
-                      contextTitle={displayWikiPageTitle(page, 'Wiki page')}
-                      contextMetadata={{
-                        summary: firstParagraphText(page?.tiptapJson || emptyDoc) || '',
-                        nextActions: ['Continue in Think', 'Challenge a claim', 'Inspect provenance']
-                      }}
-                      title={AGENT_DISPLAY_NAME}
-                      subtitle="Page context"
-                      placeholder="Ask to continue, challenge, or inspect this page."
-                      promptTemplates={[
-                        'Challenge the strongest claim on this page.',
-                        'What evidence should I inspect next?',
-                        'Help me continue this page in Think.'
-                      ]}
-                      showQuickPrompts={false}
-                      emptyStateText="Ask when you want to investigate. Proposals stay separate until you explicitly review them."
-                      submitLabel="↗"
-                    />
-                    <WikiReferenceComposer
-                      pageId={pageId}
-                      pageTitle={displayWikiPageTitle(page, 'Wiki page')}
-                    />
-                  </AgentContextShell>
-                </RightDrawer>
                 {!standardWikiPage ? <section className="wiki-read__infobox wiki-read__infobox--structured">
                   <h2>{labelFor(page.pageType || 'topic')}</h2>
                   <dl>

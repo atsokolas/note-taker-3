@@ -420,7 +420,8 @@ body.noeis-editorial .settings-page,
 body.noeis-editorial .page-area:has(.settings-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.integrations-page),
-body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.data-integrations-page) {
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.data-integrations-page),
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.judgment-room) {
   height: auto;
   min-height: calc(100vh - 96px);
   overflow-x: hidden;
@@ -10029,7 +10030,7 @@ body.noeis-editorial .concept-index-editorial-shell__right > .right-drawer > .ri
   background: transparent !important;
 }
 
-body.noeis-editorial .wiki-read__rail-content > .right-drawer {
+body.noeis-editorial .wiki-read__left-rail > .right-drawer {
   display: block;
   grid-column: auto;
   width: 100%;
@@ -10040,12 +10041,12 @@ body.noeis-editorial .wiki-read__rail-content > .right-drawer {
   border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
 }
 
-body.noeis-editorial .wiki-read__rail-content > .right-drawer > .right-drawer__edge-toggle,
-body.noeis-editorial .wiki-read__rail-content > .right-drawer > .right-drawer__panel > .three-pane__right-header {
+body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__edge-toggle,
+body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__panel > .three-pane__right-header {
   display: none;
 }
 
-body.noeis-editorial .wiki-read__rail-content > .right-drawer > .right-drawer__panel {
+body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__panel {
   width: 100%;
   padding-left: 0;
   border-left: 0;
@@ -10287,8 +10288,8 @@ body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary dl > div 
   gap: 10px;
 }
 
-body.noeis-editorial .wiki-read--standard .wiki-read__rail-content > .right-drawer {
-  order: 2;
+body.noeis-editorial .wiki-read--standard .wiki-read__left-rail > .right-drawer {
+  order: -1;
 }
 
 body.noeis-editorial .wiki-read__article-tools {
@@ -10435,7 +10436,12 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
     min-width: 0;
   }
 
-  body.noeis-editorial .wiki-read--standard .wiki-read__toc--desktop {
+  body.noeis-editorial .wiki-read--standard .wiki-read__toc--desktop.wiki-read__left-rail {
+    display: grid;
+    order: 2;
+  }
+
+  body.noeis-editorial .wiki-read--standard .wiki-read__left-rail > nav {
     display: none;
   }
 
@@ -10449,7 +10455,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc--mobile {
   }
 
   body.noeis-editorial .wiki-read--standard .wiki-read__rail {
-    order: 2;
+    order: 3;
     width: 100%;
     min-width: 0;
   }

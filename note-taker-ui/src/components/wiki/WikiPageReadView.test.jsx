@@ -861,9 +861,13 @@ describe('WikiPageReadView', () => {
 
     const aboutHeading = await screen.findByRole('heading', { name: 'About this page' });
     const factualContext = aboutHeading.closest('.wiki-read__infobox--primary');
-    const thoughtPartner = container.querySelector('.wiki-read__rail-content > .right-drawer');
+    const leftRail = screen.getByRole('complementary', { name: 'Wiki navigation and agent' });
+    const thoughtPartner = leftRail.querySelector('.right-drawer');
+    const contents = within(leftRail).getByRole('navigation', { name: 'Page sections' });
     expect(factualContext).toHaveTextContent('About this page');
-    expect(factualContext.compareDocumentPosition(thoughtPartner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(thoughtPartner).toBeInTheDocument();
+    expect(thoughtPartner.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(factualContext).not.toContainElement(thoughtPartner);
   });
 
   it('moves one accessible contents list below the title on mobile', async () => {
@@ -998,9 +1002,7 @@ describe('WikiPageReadView', () => {
 
     await screen.findByRole('heading', { name: 'Enterprise AI Memory' });
     await flushDeferredWikiReadWork();
-    const rail = await screen.findByRole('complementary', { name: 'Page context' });
-    const showContextBtn = within(rail).queryByRole('button', { name: /show context/i });
-    if (showContextBtn) await act(async () => { fireEvent.click(showContextBtn); });
+    const rail = await screen.findByRole('complementary', { name: 'Wiki navigation and agent' });
 
     const referenceSummary = within(rail).getByText('Reference…');
     expect(within(rail).queryByLabelText('Reference pull-in')).not.toBeInTheDocument();
