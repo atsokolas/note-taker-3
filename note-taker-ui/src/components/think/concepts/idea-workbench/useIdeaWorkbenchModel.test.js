@@ -98,6 +98,22 @@ describe('reconcileHydratedWorkbench', () => {
       preferFallback: true
     })).toBe(reconciled);
   });
+
+  it('does not treat automatic freshness bookkeeping as a user edit', () => {
+    const initial = buildState('Local title', '<p>Older local notebook</p>');
+    const remote = buildState('Persisted title', '<p>Newer server notebook</p>');
+    const freshnessOnly = {
+      ...initial,
+      meta: { ...initial.meta, stale: true, staleReason: 'A newer source arrived.' },
+      changeDrafts: [{ id: 'auto-refresh', kind: 'refresh', status: 'pending' }]
+    };
+
+    expect(reconcileHydratedWorkbench({
+      remoteState: remote,
+      stateAtHydrationStart: initial,
+      latestState: freshnessOnly
+    })).toBe(remote);
+  });
 });
 
 describe('resolveLoadedWorkbenchTitle', () => {

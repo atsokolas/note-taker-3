@@ -707,7 +707,19 @@ export const reconcileHydratedWorkbench = ({
 } = {}) => {
   if (!remoteState) return latestState || stateAtHydrationStart;
   if (!latestState || !stateAtHydrationStart) return remoteState;
-  if (JSON.stringify(latestState) === JSON.stringify(stateAtHydrationStart)) return remoteState;
+  const substantiveSnapshot = (state) => JSON.stringify({
+    header: state?.header,
+    workspaceDraft: state?.workspaceDraft,
+    workspaceDraftType: state?.workspaceDraftType,
+    importedSourceKeys: state?.importedSourceKeys,
+    cards: state?.cards,
+    hypothesis: state?.hypothesis,
+    agent: state?.agent
+  });
+  // Freshness metadata and its automatically queued review draft may change
+  // while hydration is pending. Only actual notebook work should cause local
+  // state to win over a newer remote snapshot.
+  if (substantiveSnapshot(latestState) === substantiveSnapshot(stateAtHydrationStart)) return remoteState;
   return mergeWorkbenchStates(latestState, remoteState, {
     header: 'local',
     cards: 'merge',
