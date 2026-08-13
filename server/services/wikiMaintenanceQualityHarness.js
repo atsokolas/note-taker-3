@@ -10,7 +10,9 @@ const { WikiPage } = require('../models');
 const {
   deriveClaimsFromDoc,
   docFromArticle,
-  toPlainText
+  toPlainText,
+  collectDocHeadings,
+  GENERIC_REFERENCE_HEADINGS
 } = __testables;
 
 const fixtures = [
@@ -273,26 +275,54 @@ const fixtures = [
   }
 ];
 
+// This eval used to require the headings "Core Idea", "How It Works",
+// "Evidence", "Tensions", and "Open Questions". Ordinary Wiki pages moved to
+// subject-specific sections, and those five names are now precisely what
+// GENERIC_REFERENCE_HEADINGS rejects — so the fixture asserted the opposite of
+// the shipped contract and could not pass at any model quality.
+//
+// Assert the contract rather than a heading list: the article the live model
+// produces must clear the same quality gate a real build must clear. That
+// keeps the eval honest as the gate evolves, and stops a stale expectation
+// from reading like a model regression.
+//
+// The Library below is deliberately substantive. Three thin sentences cannot
+// support a source-faithful article of the required length, so the old fixture
+// could only have passed by padding — the exact behaviour the gate exists to
+// prevent.
 const liveFixtures = [
   {
     name: 'live_model_generates_clean_multi_section_wiki',
-    title: 'Live Moat Maintenance',
+    title: 'Capital allocation',
     sourceArticles: [
       {
-        title: 'Reinvestment and durable moats',
-        content: 'Durable moats can widen when a business reinvests cash at high incremental returns. The useful test is whether reinvestment improves future earning power rather than merely increasing size.'
+        title: 'Capital allocation and incremental returns',
+        content: 'Capital allocation is the decision about where a business sends each dollar it earns: back into the operating business, into acquisitions, into buybacks, into dividends, or onto the balance sheet. The mechanism that makes reinvestment valuable is the spread between the return on incremental invested capital and the cost of that capital. A business earning twenty percent on incremental capital that retains sixty percent of its earnings compounds intrinsic value at roughly twelve percent a year without any change in multiple. The same business retaining the same share of earnings at a six percent incremental return destroys value while still reporting growth, because reported growth measures size rather than earning power. The useful test is therefore whether a dollar retained becomes more than a dollar of value over a full cycle, not whether revenue rose.'
       },
       {
-        title: 'Distribution discipline counterpoint',
-        content: 'When reinvestment opportunities fade, returning cash can be better than forcing growth. A moat can erode if management reinvests below the cost of capital.'
+        title: 'When distribution beats reinvestment',
+        content: 'When reinvestment opportunities fade, returning cash is usually better than forcing growth. Management teams are measured on scale, so institutional pressure runs toward deploying capital even after the incremental return has fallen below the cost of capital. A moat can erode through exactly this route: a company with a strong core business spends its surplus entering adjacent markets where it has no advantage, and the blended return falls. Distribution is not an admission of failure. A mature business that pays out most of its earnings because it cannot reinvest at attractive rates may create more value per share than one that reinvests everything at mediocre rates.'
       },
       {
-        title: 'Evidence on capital allocation',
-        content: 'Capital allocation quality depends on comparing reinvestment returns, buybacks, dividends, and opportunity cost. The same company can move between reinvestment and distribution regimes over time.'
+        title: 'Allocation regimes change over time',
+        content: 'Capital allocation quality depends on comparing reinvestment returns, buybacks, dividends, and opportunity cost against each other rather than judging any one in isolation. The same company can move between reinvestment and distribution regimes over time, and the correct policy in one regime is the wrong policy in the next. A young business with a long runway should retain nearly everything; the same business two decades later, with its market saturated, should not. Judging a management team by the policy it follows today, without asking which regime the business is actually in, produces a verdict about the calendar rather than about skill.'
+      },
+      {
+        title: 'Buyback timing and price',
+        content: 'A buyback is not automatically a return of capital to shareholders; it is a purchase of the company by the continuing holders, and price decides whether it helps them. Repurchasing shares below a conservatively estimated intrinsic value transfers value from the selling holders to those who stay. Repurchasing above that value transfers it the other way. This is why buyback programs announced as a fixed annual sum and executed regardless of price are a weaker signal than opportunistic repurchase. In 2022 several companies that had repurchased heavily at peak valuations reported large per-share value destruction even though the buybacks reduced share count exactly as announced.'
+      },
+      {
+        title: 'Measuring allocation skill',
+        content: 'Separating allocation skill from operating skill is genuinely difficult, and practitioners disagree about how to do it. Return on invested capital measures the business as it stands, blending decades of past decisions with current operations, so a high headline figure can persist for years after allocation quality has deteriorated. Incremental return on invested capital isolates recent decisions but is noisy over short windows and sensitive to the accounting treatment of acquisitions. Some analysts insist on a full-cycle window of ten years or more; others argue that a decade of evidence arrives too late to act on. There is no settled measure, and a page on this subject should say so rather than presenting one ratio as the answer.'
       }
     ],
     expectations: {
-      requiredHeadings: ['Core Idea', 'How It Works', 'Evidence', 'Tensions', 'Open Questions'],
+      // The shipped gate is the standard. A live article that cannot clear it
+      // is a real finding about the generator or the gate — not something the
+      // eval should define away.
+      mustPassQualityGate: true,
+      minHeadings: 3,
+      forbidGenericHeadings: true,
       forbiddenPatterns: [
         /<\/?(?:p|div|span|br|section|article)\b/i,
         /https?:\/\//i,
@@ -301,7 +331,7 @@ const liveFixtures = [
         /source indexes?/i
       ],
       minClaims: 5,
-      minSourceRefs: 2
+      minSourceRefs: 3
     }
   }
 ];
@@ -756,10 +786,29 @@ const evaluateLiveModelFixture = async (fixture, { requireLive = false } = {}) =
     now: new Date('2026-05-09T12:00:00.000Z')
   });
 
+  // A live eval that silently grades deterministic fallback prose is worse than
+  // no eval: the page still looks finished, so a broken model request reads as
+  // a content problem. Name the real failure first.
+  const liveModel = String(page.aiState?.model || '');
+  if (!liveModel || liveModel === 'local-maintainer') {
+    failures.push(`Live maintenance never reached the model; it fell back to deterministic synthesis (model="${liveModel || 'none'}"). Fix the model request before grading article quality.`);
+  }
+
   const plainText = toPlainText(page.body);
-  fixture.expectations.requiredHeadings.forEach((heading) => {
-    if (!plainText.includes(heading)) failures.push(`Expected live output to include "${heading}".`);
-  });
+  const headings = collectDocHeadings(page.body || {}).map(heading => heading.trim());
+  if (fixture.expectations.minHeadings && headings.length < fixture.expectations.minHeadings) {
+    failures.push(`Expected at least ${fixture.expectations.minHeadings} subject-specific sections, got ${headings.length}: ${JSON.stringify(headings)}.`);
+  }
+  if (fixture.expectations.forbidGenericHeadings) {
+    const generic = headings.filter(heading => GENERIC_REFERENCE_HEADINGS.has(heading.toLowerCase()));
+    if (generic.length) {
+      failures.push(`Live output used generic template headings instead of subject-specific sections: ${generic.join(', ')}.`);
+    }
+  }
+  if (fixture.expectations.mustPassQualityGate && !page.aiState?.quality?.ok) {
+    const gateFailures = Array.isArray(page.aiState?.quality?.failures) ? page.aiState.quality.failures : [];
+    failures.push(`Live article did not clear the shipped quality gate: ${gateFailures.join(' | ') || 'no failure detail recorded'}`);
+  }
   fixture.expectations.forbiddenPatterns.forEach((pattern) => {
     if (pattern.test(plainText)) failures.push(`Live output matched forbidden pattern ${pattern}.`);
   });

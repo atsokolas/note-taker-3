@@ -4773,6 +4773,10 @@ module.exports = {
     normalizeModelResult,
     normalizeArticleTextBlock,
     findOrdinaryGroundingGaps,
+    // Exported so the live eval asserts against the same heading vocabulary the
+    // gate enforces, rather than a second list that can drift away from it.
+    GENERIC_REFERENCE_HEADINGS,
+    collectDocHeadings,
     sourceFamilyKey,
     sourceTopicCoverage,
     groundingSourceRefsForCandidates,
