@@ -3404,7 +3404,34 @@ const buildWikiRouter = ({
       const scanLimit = (qualityFilter || includeLowQuality)
         ? limit
         : Math.min(1000, Math.max(limit * 3, limit));
-      const pages = await WikiPage.find(query).sort({ updatedAt: -1 }).limit(scanLimit).lean();
+      // An index asked for up to 500 pages and, with no projection, received
+      // every complete document: the full article body, every source snippet
+      // (up to 6000 characters each, up to 80 per page), the claim and citation
+      // ledgers, and the whole change log. On a real corpus that response is
+      // large enough to fail outright, which is what left the Wiki index
+      // reporting "Failed to load wiki pages" on an account that has plenty.
+      //
+      // Summary mode keeps the same response shape and asks the database only
+      // for what a list actually renders. Counts still come from real ledger
+      // ids, and quality classification needs only title, plainText, and the
+      // source count. Callers that want whole pages simply do not pass it.
+      const summaryOnly = ['1', 'true', 'yes'].includes(String(req.query.summary || '').toLowerCase());
+      let pagesQuery = WikiPage.find(query).sort({ updatedAt: -1 }).limit(scanLimit);
+      if (summaryOnly && pagesQuery.select) {
+        pagesQuery = pagesQuery.select([
+          '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
+          'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
+          'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
+          'sourceRefs._id', 'claims.claimId', 'citations.sourceRefId', 'citations.claimId',
+          'aiState.draftStatus', 'aiState.candidateStatus', 'aiState.lastError', 'aiState.errorCode',
+          'aiState.quality.ok', 'aiState.quality.status', 'aiState.quality.checkedAt',
+          'aiState.lastDraftedAt', 'aiState.maintenanceSummary',
+          'aiState.changeLog.type', 'aiState.changeLog.text', 'aiState.changeLog.title',
+          'aiState.changeLog.createdAt',
+          'createdAt', 'updatedAt'
+        ].join(' '));
+      }
+      const pages = await pagesQuery.lean();
       const serialized = pages.map(serializeWikiPage).filter((page) => {
         const review = page.qualityReview || classifyWikiPageQuality(page);
         if (qualityFilter === 'ok') return review.status === 'ok';

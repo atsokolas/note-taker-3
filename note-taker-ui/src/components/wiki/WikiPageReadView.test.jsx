@@ -1513,7 +1513,7 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 500 }));
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, summary: 1 }));
 
     expect(await screen.findByRole('link', { name: 'Circle of Competence' }))
       .toHaveAttribute('href', '/wiki/wiki-circle');

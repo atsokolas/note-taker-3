@@ -55,7 +55,7 @@ const WikiProductIndex = () => {
     let cancelled = false;
     setLoading(true);
     setError('');
-    listWikiPages({ limit: INDEX_PAGE_LIMIT })
+    listWikiPages({ limit: INDEX_PAGE_LIMIT, summary: 1 })
       .then((items) => {
         if (!cancelled) setPages(Array.isArray(items) ? items : []);
       })

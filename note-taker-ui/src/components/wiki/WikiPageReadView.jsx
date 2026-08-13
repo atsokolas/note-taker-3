@@ -2075,7 +2075,7 @@ const WikiPageReadView = ({
       setRawWikiLinkPagesLoaded(false);
       return undefined;
     }
-    listWikiPages({ limit: 500 })
+    listWikiPages({ limit: 500, summary: 1 })
       .then((nextPages) => {
         if (!cancelled) {
           setRawWikiLinkPages(Array.isArray(nextPages) ? nextPages : []);

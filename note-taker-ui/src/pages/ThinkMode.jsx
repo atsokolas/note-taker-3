@@ -1402,7 +1402,7 @@ const ThinkMode = () => {
         const [queueResult, articleResult, wikiPagesResult, wikiActivityResult] = await Promise.allSettled([
           listReturnQueue({ filter: 'all' }),
           getArticles({ sort: 'recent', limit: THINK_HOME_LIMIT }),
-          listWikiPages({ limit: 500 }),
+          listWikiPages({ limit: 500, summary: 1 }),
           listWikiActivity({ limit: THINK_HOME_LIMIT })
         ]);
         if (cancelled) return;

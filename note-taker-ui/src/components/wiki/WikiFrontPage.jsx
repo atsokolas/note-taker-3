@@ -211,7 +211,15 @@ const WikiFrontPage = () => {
     }
     setError('');
     setAvailabilityNotice('');
-    const pagesRequest = listWikiPages({ limit: INDEX_PAGE_LIMIT, includeLowQuality: 1 });
+    // The index renders titles, counts, and freshness — never article bodies.
+    // Asking for whole pages made this request large enough to fail on a real
+    // corpus, which surfaced as "Failed to load wiki pages" beside an empty
+    // "nothing here yet" state.
+    const pagesRequest = listWikiPages({
+      limit: INDEX_PAGE_LIMIT,
+      includeLowQuality: 1,
+      summary: 1
+    });
     const briefingRequest = getDailyLoop();
     // The page index is what the reader came for; the briefing is a change
     // signal layered on top. Holding the whole surface until both settle meant

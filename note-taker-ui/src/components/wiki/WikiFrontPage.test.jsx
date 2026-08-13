@@ -133,7 +133,7 @@ describe('WikiFrontPage (AT-394)', () => {
     // duplicated as hidden DOM text and never renders as a partial word stream.
     const leadText = await screen.findByText(/While you were away I rebuilt Opportunity Cost/i);
     expect(listWikiPages).toHaveBeenCalledTimes(1);
-    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1 });
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1, summary: 1 });
     expect(leadText.closest('.wiki-front-page__lead-text')).toHaveTextContent(/\.$/);
     expect(leadText.closest('.wiki-front-page__lead-text')).not.toHaveAttribute('aria-label');
     expect(document.body.textContent.match(/While you were away I rebuilt Opportunity Cost/g)).toHaveLength(1);
@@ -321,7 +321,7 @@ describe('WikiFrontPage (AT-394)', () => {
       .toBeInTheDocument();
     expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledTimes(1);
-    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1 });
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1, summary: 1 });
     expect(getDailyLoop).toHaveBeenCalledTimes(1);
   });
 
