@@ -4,10 +4,10 @@
 
 ### Added
 
-- A coherent four-room Noeis shell spanning Library, Think, Wiki, and Judgment.
-- A living Judgment casebook with dossier, decision, review, outcome, lesson, and spatial board views.
-- Native in-notebook evidence insertion for Think, including grounded Library, Wiki, question, concept, and note objects.
-- Library-to-Think passage handoff with exact highlight identity and provenance.
+- Move through Library, Think, Wiki, and Judgment as one coherent product without losing context.
+- Work a living Judgment case through its dossier, decisions, reviews, outcomes, lessons, and spatial board.
+- Insert grounded Library, Wiki, question, concept, and note objects directly into the Think notebook.
+- Carry an exact highlighted passage from Library into Think with its provenance intact.
 
 ### Changed
 
