@@ -12,6 +12,7 @@ import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
 import { setActiveBuild } from '../onboarding/activeBuild';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
+import { startWalkthrough } from '../onboarding/walkthroughState';
 
 const FAST_BUILD_OPTIONS = {
   maintenanceProfile: 'fast',
@@ -261,12 +262,11 @@ const WikiOnboarding = () => {
     else navigate('/wiki', { replace: true });
   };
 
-  // Home — whatever the app currently opens on. Deliberately '/' rather than a
-  // hard-coded surface: the landing route is mid-migration to the Paper, and
-  // onboarding should follow it rather than pin itself to one side of that move.
-  const goHome = () => {
+  // Hand off to the walkthrough, which runs over the live build and ends on the
+  // Paper — home. It drives its own navigation from here.
+  const showMeAround = () => {
     markComplete();
-    navigate('/', { replace: true });
+    startWalkthrough();
   };
 
   return (
@@ -352,7 +352,7 @@ const WikiOnboarding = () => {
             {/* Onboarding ends on the Paper — the home a new user now has a reason
                 to open. Their page is one click away here and in the build banner,
                 which follows them there. */}
-            <button type="button" onClick={goHome}>Start reading</button>
+            <button type="button" onClick={showMeAround}>Show me around</button>
             <button type="button" className="wiki-onboarding__secondary-action" onClick={goToWiki}>
               Go to my page
             </button>

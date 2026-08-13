@@ -6245,7 +6245,7 @@ const buildWikiRouter = ({
               lastError: 'The draft did not pass the quality bar. The last trusted version is unchanged.',
               errorCode: 'WIKI_CANDIDATE_REJECTED'
             };
-            await built.save();
+            await savePageWithVersionRetry(built, userId);
             return;
           }
 
@@ -6257,7 +6257,7 @@ const buildWikiRouter = ({
             lastError: '',
             errorCode: ''
           };
-          await built.save();
+          built = await savePageWithVersionRetry(built, userId);
           await syncPageGraph(built, userId);
           await autolinkPagesToTarget({ targetPage: built, userId });
           await createWikiRevision({
@@ -6286,7 +6286,7 @@ const buildWikiRouter = ({
                 $set: {
                   'aiState.draftStatus': 'error',
                   'aiState.draftCompletedAt': new Date(),
-                  'aiState.lastError': error.message || 'Wiki build failed.',
+                  'aiState.lastError': 'the build did not finish. Nothing was lost — your page is unchanged.',
                   'aiState.errorCode': 'WIKI_ASYNC_BUILD_FAILED'
                 }
               }
