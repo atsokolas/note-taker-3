@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Page, Card, Button } from '../components/ui';
-import OnboardingChecklist from '../components/OnboardingChecklist';
 
 const HowToUse = () => {
   const navigate = useNavigate();
@@ -222,14 +221,6 @@ const HowToUse = () => {
               <p className="muted">No. Export is built in. Your brain stays yours.</p>
             </div>
           </div>
-        </Card>
-
-        <Card className="search-section">
-          <div className="search-section-header">
-            <span className="eyebrow">Your first five moves</span>
-            <span className="muted small">Short, clear, and you are rolling.</span>
-          </div>
-          <OnboardingChecklist />
         </Card>
 
         <Card className="search-section">

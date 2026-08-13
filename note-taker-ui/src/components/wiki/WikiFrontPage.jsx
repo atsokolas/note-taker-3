@@ -8,6 +8,7 @@ import {
   recordClaimCheckIn
 } from '../../api/dailyLoop';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import AgentContextShell from '../agent/AgentContextShell';
 import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
@@ -42,7 +43,6 @@ import '../../styles/wiki-front-page.css';
 
 const INDEX_PAGE_LIMIT = 500;
 const WATCHING_PREVIEW_LIMIT = 5;
-const WIKI_ONBOARDING_COMPLETE_KEY = 'noeis.wikiOnboardingComplete';
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
 const WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
@@ -298,19 +298,23 @@ const WikiFrontPage = () => {
     () => dedupePagesByRepoKey(filterReturnViewItems(pages)),
     [pages]
   );
-  const onboardingComplete = (() => {
-    try {
-      return window.localStorage?.getItem(WIKI_ONBOARDING_COMPLETE_KEY) === 'true';
-    } catch (_error) {
-      return false;
-    }
-  })();
+  const onboardingComplete = isWikiOnboardingComplete();
   const shouldOpenOnboarding = !loading && !error && !onboardingComplete && hasAnyWikiContent === false;
 
   useEffect(() => {
     if (!shouldOpenOnboarding) return;
     navigate('/onboarding/wiki', { replace: true });
   }, [navigate, shouldOpenOnboarding]);
+
+  // A user who already has a wiki is past onboarding by definition. Recording that
+  // keeps a second browser (or cleared storage) from dropping them back into first-run,
+  // and lets the tour know onboarding is no longer pending.
+  useEffect(() => {
+    if (loading || error) return;
+    if (hasAnyWikiContent !== true) return;
+    if (onboardingComplete) return;
+    markWikiOnboardingComplete();
+  }, [error, hasAnyWikiContent, loading, onboardingComplete]);
 
   const byId = useMemo(() => {
     const map = new Map();

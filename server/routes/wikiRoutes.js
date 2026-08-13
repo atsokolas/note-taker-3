@@ -6145,6 +6145,163 @@ const buildWikiRouter = ({
     }
   });
 
+  /**
+   * Kick off a page build and return immediately.
+   *
+   * First-run onboarding cannot hold a new user on a spinner for the length of a
+   * real maintenance pass, so the build runs detached and the client polls
+   * `aiState.draftStatus` on the page (idle | maintaining | ready | error).
+   *
+   * Deliberately narrower than POST /ai/draft: this path refuses any page whose
+   * publication needs acceptance review or a repository build lease, rather than
+   * silently bypassing those gates. Callers that need those flows use the
+   * synchronous route, which owns them.
+   */
+  router.post('/api/wiki/pages/:id/ai/draft/async', wikiAuth, async (req, res) => {
+    let page = null;
+    try {
+      page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+
+      // Refuse exactly the pages that need a repository build lease — that is the
+      // machinery this detached path does not implement. Note isGitHubRepoWikiPage
+      // alone is not the test: externalWatches.githubRepo defaults to an object, so
+      // it is truthy on ordinary pages. The head SHA is what makes a build a repo build.
+      const repoHeadSha = String(page?.externalWatches?.githubRepo?.lastHeadSha || '').trim();
+      if (isGitHubRepoWikiPage(page) && repoHeadSha) {
+        return res.status(409).json({
+          error: 'Repository wiki builds run through the synchronous maintenance route.',
+          code: 'ASYNC_BUILD_UNSUPPORTED_PAGE'
+        });
+      }
+      const needsAcceptance = /^company-dossier:/i.test(String(page?.createdFrom?.label || ''))
+        || Boolean(page?.investmentDossier?.version);
+      if (needsAcceptance) {
+        return res.status(409).json({
+          error: 'This page requires acceptance review and cannot be built detached.',
+          code: 'ASYNC_BUILD_REQUIRES_REVIEW'
+        });
+      }
+      if (page.aiState?.draftStatus === 'maintaining') {
+        // Already building. Report the in-flight build rather than starting a second.
+        return res.status(202).json({
+          pageId: serializeId(page._id),
+          status: 'maintaining',
+          startedAt: page.aiState?.draftStartedAt || null,
+          alreadyRunning: true
+        });
+      }
+
+      const startedAt = new Date();
+      page.aiState = {
+        ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+        draftStatus: 'maintaining',
+        draftRequestedAt: startedAt,
+        draftStartedAt: startedAt,
+        lastError: '',
+        errorCode: ''
+      };
+      // Persist "maintaining" BEFORE responding. The client polls this field, so a
+      // status that only lives in memory would read as idle for the whole build.
+      await page.save();
+
+      res.status(202).json({
+        pageId: serializeId(page._id),
+        status: 'maintaining',
+        startedAt,
+        alreadyRunning: false
+      });
+
+      const userId = req.user.id;
+      const pageId = page._id;
+      const requestForAnalytics = req;
+      const wikiSchemaContent = await loadWikiSchemaContent(userId);
+
+      setImmediate(async () => {
+        try {
+          const livePage = await WikiPage.findOne({ _id: pageId, userId });
+          if (!livePage) return;
+          const before = snapshotPage(livePage);
+          const publication = await runWikiMaintenanceCandidate({
+            page: livePage,
+            userId,
+            WikiRevision,
+            beforeSnapshot: before,
+            requireFirstHeadAcceptance: false,
+            requireOwnerAcceptance: false,
+            maintainWikiPageFn: maintainWikiPage,
+            maintainArgs: {
+              wikiSchemaContent,
+              models: { Article, NotebookEntry, TagMeta, Question, WikiSourceEvent }
+            }
+          });
+          let built = publication.page;
+
+          if (!publication.promoted) {
+            built.aiState = {
+              ...(built.aiState?.toObject ? built.aiState.toObject() : built.aiState || {}),
+              draftStatus: 'error',
+              draftCompletedAt: new Date(),
+              lastError: 'The draft did not pass the quality bar. The last trusted version is unchanged.',
+              errorCode: 'WIKI_CANDIDATE_REJECTED'
+            };
+            await built.save();
+            return;
+          }
+
+          await applyAutolinksForPage(built, userId);
+          built.aiState = {
+            ...(built.aiState?.toObject ? built.aiState.toObject() : built.aiState || {}),
+            draftStatus: 'ready',
+            draftCompletedAt: new Date(),
+            lastError: '',
+            errorCode: ''
+          };
+          await built.save();
+          await syncPageGraph(built, userId);
+          await autolinkPagesToTarget({ targetPage: built, userId });
+          await createWikiRevision({
+            WikiRevision,
+            userId,
+            page: built,
+            before,
+            reason: 'agent_maintenance',
+            actorType: 'agent',
+            summary: built.aiState?.maintenanceSummary || `Maintained "${built.title}".`
+          });
+          trackWikiEvent(requestForAnalytics, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
+            pageId: serializeId(built._id),
+            title: built.title,
+            pageType: built.pageType,
+            sourceCount: Array.isArray(built.sourceRefs) ? built.sourceRefs.length : 0,
+            claimCount: Array.isArray(built.claims) ? built.claims.length : 0
+          });
+        } catch (error) {
+          console.error('Error building wiki page asynchronously:', error);
+          // The client is polling; a build that dies silently would spin forever.
+          try {
+            await WikiPage.updateOne(
+              { _id: pageId, userId },
+              {
+                $set: {
+                  'aiState.draftStatus': 'error',
+                  'aiState.draftCompletedAt': new Date(),
+                  'aiState.lastError': error.message || 'Wiki build failed.',
+                  'aiState.errorCode': 'WIKI_ASYNC_BUILD_FAILED'
+                }
+              }
+            );
+          } catch (statusError) {
+            console.error('Failed to record async build failure:', statusError);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error starting async wiki page build:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to start wiki page build.' });
+    }
+  });
+
   router.post('/api/wiki/pages/:id/ai/draft/stream', wikiAuth, async (req, res) => {
     let page = null;
     let activeStreamKey = '';

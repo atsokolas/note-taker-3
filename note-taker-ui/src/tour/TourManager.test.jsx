@@ -8,9 +8,35 @@ jest.mock('./TourProvider', () => ({
 
 const { useTour } = require('./TourProvider');
 
+const FIRST_TIME_TOUR_STATE = {
+  loading: false,
+  open: false,
+  status: 'not_started',
+  isFirstTimeVisitor: true,
+  signals: {}
+};
+
+const tourHarness = (state, overrides = {}) => ({
+  state,
+  currentStep: null,
+  currentIndex: 0,
+  totalSteps: 5,
+  startTour: jest.fn().mockResolvedValue(undefined),
+  resumeTour: jest.fn(),
+  pauseTour: jest.fn(),
+  skipTour: jest.fn(),
+  nextStep: jest.fn(),
+  prevStep: jest.fn(),
+  refreshState: jest.fn(),
+  ...overrides
+});
+
 describe('TourManager', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Onboarding complete by default: these assertions are about tour behavior, not
+    // about the first-run handoff. The deferral case sets the flag explicitly.
+    window.localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     jest.spyOn(router, 'useLocation').mockReturnValue({
       pathname: '/search',
@@ -21,30 +47,42 @@ describe('TourManager', () => {
     });
   });
 
-  it('auto-starts for first-time visitors', () => {
-    const startTour = jest.fn().mockResolvedValue(undefined);
-    useTour.mockReturnValue({
-      state: {
-        loading: false,
-        open: false,
-        status: 'not_started',
-        isFirstTimeVisitor: true,
-        signals: {}
-      },
-      currentStep: null,
-      currentIndex: 0,
-      totalSteps: 5,
-      startTour,
-      resumeTour: jest.fn(),
-      pauseTour: jest.fn(),
-      skipTour: jest.fn(),
-      nextStep: jest.fn(),
-      prevStep: jest.fn(),
-      refreshState: jest.fn()
-    });
+  it('auto-starts for first-time visitors once onboarding is complete', () => {
+    const harness = tourHarness(FIRST_TIME_TOUR_STATE);
+    useTour.mockReturnValue(harness);
 
     render(<TourManager />);
-    expect(startTour).toHaveBeenCalledTimes(1);
+    expect(harness.startTour).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers auto-start while first-run onboarding is still pending', () => {
+    // Exactly one system may drive a new user. Onboarding owns them until it finishes,
+    // otherwise the tour yanks them off the build mid-flight.
+    window.localStorage.removeItem('noeis.wikiOnboardingComplete');
+    const harness = tourHarness(FIRST_TIME_TOUR_STATE);
+    useTour.mockReturnValue(harness);
+
+    render(<TourManager />);
+    expect(harness.startTour).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-navigate away from the onboarding route', () => {
+    const navigate = jest.fn();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/onboarding/wiki',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'onboarding-test'
+    });
+    useTour.mockReturnValue(tourHarness(
+      { ...FIRST_TIME_TOUR_STATE, open: true, status: 'in_progress' },
+      { currentStep: { id: 'install_extension', route: '/think?tab=home' } }
+    ));
+
+    render(<TourManager />);
+    expect(navigate).not.toHaveBeenCalledWith('/think?tab=home', expect.anything());
   });
 
   it('does not force first-time deep links back to Think home when the tour auto-opens', async () => {
