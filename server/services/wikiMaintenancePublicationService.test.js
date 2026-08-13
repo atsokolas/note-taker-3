@@ -244,6 +244,11 @@ const run = async () => {
   assert.strictEqual(WikiRevision.records.length, 7);
 
   const passingPage = trustedPage();
+  passingPage.aiState = {
+    ...passingPage.aiState,
+    candidateStatus: 'rejected',
+    lastCandidateSummary: 'Old failed candidate.'
+  };
   const passing = await runWikiMaintenanceCandidate({
     page: passingPage,
     userId: 'user-1',
@@ -251,13 +256,16 @@ const run = async () => {
     maintainWikiPageFn: async ({ page }) => {
       page.body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Better candidate.' }] }] };
       page.plainText = 'Better candidate.';
-      page.aiState = { draftStatus: 'ready', quality: { ok: true, status: 'pass' } };
+      page.aiState = { ...page.aiState, draftStatus: 'ready', quality: { ok: true, status: 'pass' } };
       return page;
     }
   });
 
   assert.strictEqual(passing.promoted, true);
   assert.strictEqual(passing.page.plainText, 'Better candidate.');
+  assert.strictEqual(passing.page.aiState.candidateStatus, 'promoted');
+  assert.strictEqual(passing.page.aiState.lastCandidateSummary, '');
+  assert.strictEqual(passing.page.aiState.lastCandidateQuality.ok, true);
   assert.strictEqual(WikiRevision.records.length, 7);
 
   console.log('wikiMaintenancePublicationService tests passed');

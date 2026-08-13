@@ -236,6 +236,15 @@ const runWikiMaintenanceCandidate = async ({
     };
   }
   if (!candidateFailedQuality(candidate)) {
+    const priorAiState = asPlain(candidatePage.aiState);
+    candidatePage.aiState = {
+      ...priorAiState,
+      candidateStatus: 'promoted',
+      lastCandidateAt: now,
+      lastCandidateQuality: quality,
+      lastCandidateSummary: ''
+    };
+    if (typeof candidatePage.markModified === 'function') candidatePage.markModified('aiState');
     return {
       page: candidatePage,
       before,
