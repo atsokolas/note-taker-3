@@ -90,8 +90,9 @@ const buildConceptWorkspaceRouter = ({
         : null;
     }
     if (op === 'updateItem') {
-      const current = (workspace?.items || []).find(item => item.id === String(payload.itemId || '').trim());
-      if (!current) return operation;
+      const itemId = String(payload.itemId || payload.id || '').trim();
+      const current = (workspace?.items || []).find(item => item.id === itemId);
+      if (!current) return null;
       const requestedPatch = payload.patch && typeof payload.patch === 'object'
         ? payload.patch
         : payload;
@@ -104,7 +105,7 @@ const buildConceptWorkspaceRouter = ({
         ? {
             ...operation,
             payload: {
-              itemId: String(payload.itemId || payload.id || '').trim(),
+              itemId,
               patch: { ...requestedPatch, ...source }
             }
           }

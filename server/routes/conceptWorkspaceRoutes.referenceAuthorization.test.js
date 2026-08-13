@@ -190,6 +190,13 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual(rejectedDirectUpdate.response.status, 404);
     assert.strictEqual(concept.workspace.items[0].refId, OWN_ARTICLE_ID);
 
+    const rejectedAliasUpdate = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
+      op: 'updateItem',
+      payload: { id: ownedBlockId, type: 'wiki_page', refId: FOREIGN_ARTICLE_ID, inlineTitle: 'Alias spoof' }
+    });
+    assert.strictEqual(rejectedAliasUpdate.response.status, 404);
+    assert.strictEqual(concept.workspace.items[0].refId, OWN_ARTICLE_ID);
+
     const canonicalInlineUpdate = await request(`/api/concepts/${CONCEPT_ID}/workspace`, 'PATCH', {
       op: 'updateItem',
       payload: { itemId: ownedBlockId, patch: { inlineTitle: 'Nested spoof', inlineText: 'FABRICATED QUOTE' } }
