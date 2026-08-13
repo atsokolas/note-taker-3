@@ -76,6 +76,32 @@ const inferConceptTitleFromText = (value = '') => {
   return titleCaseConcept(phrase) || 'My First Source';
 };
 
+/**
+ * The evidence gate refuses claims that have no lexical anchor in their sources —
+ * correctly, since that is the difference between synthesis and invention. But a
+ * single sentence gives it nothing to anchor to, so any article worth reading would
+ * have to invent, and every build from one is rejected after two rebuild attempts.
+ *
+ * Observed in production: a one-sentence paste spent ~20s and produced nothing, with
+ * mechanism, example and boundary coverage all false.
+ *
+ * A URL is always allowed: the fetched article supplies the body. Pasted prose needs
+ * enough substance to say something grounded.
+ */
+const MIN_PASTED_WORDS = 40;
+
+const wordCount = (value = '') => String(value || '').trim().split(/\s+/).filter(Boolean).length;
+
+export const describeThinSource = (value = '') => {
+  const text = String(value || '').trim();
+  if (!text) return 'Paste a link or a few paragraphs first.';
+  if (/^https?:\/\/\S+/i.test(text)) return '';
+  if (wordCount(text) < MIN_PASTED_WORDS) {
+    return 'That is too short to build from without inventing things I cannot source. Paste the link instead, or a few paragraphs.';
+  }
+  return '';
+};
+
 const firstUrlFromText = (value = '') => {
   const match = String(value || '').trim().match(/^https?:\/\/\S+/i);
   return match ? match[0] : '';
@@ -188,8 +214,11 @@ const WikiOnboarding = () => {
 
   const buildFromPaste = async () => {
     const text = pasteText.trim();
-    if (!text) {
-      setError('Paste a link or a few paragraphs first.');
+    // Refuse before spending the user's time, not after. A build from a source this
+    // thin takes ~20s and cannot pass the evidence gate.
+    const thin = describeThinSource(text);
+    if (thin) {
+      setError(thin);
       return;
     }
     setBusy(true);
@@ -327,11 +356,11 @@ const WikiOnboarding = () => {
             <Link to="/connections">Connect Readwise or Notion</Link>
           </div>
           <label className="wiki-onboarding__paste">
-            <span>Or paste a link or text</span>
+            <span>Or paste a link, or a few paragraphs</span>
             <textarea
               value={pasteText}
               onChange={event => setPasteText(event.target.value)}
-              placeholder="Drop in something you read this week..."
+              placeholder="Paste a link to something you read this week - or a few paragraphs of it..."
             />
           </label>
           <button type="button" onClick={buildFromPaste} disabled={busy}>Build from this</button>

@@ -6238,12 +6238,19 @@ const buildWikiRouter = ({
           let built = publication.page;
 
           if (!publication.promoted) {
+            // The publication service has already written why it refused, in its
+            // own words — which claims had no anchor in the evidence, what the
+            // rebuild attempts missed. Keep it. Overwriting it with a generic
+            // sentence threw away the only actionable thing the user could be told.
+            const priorAiState = built.aiState?.toObject ? built.aiState.toObject() : built.aiState || {};
             built.aiState = {
-              ...(built.aiState?.toObject ? built.aiState.toObject() : built.aiState || {}),
+              ...priorAiState,
               draftStatus: 'error',
               draftCompletedAt: new Date(),
-              lastError: 'The draft did not pass the quality bar. The last trusted version is unchanged.',
-              errorCode: 'WIKI_CANDIDATE_REJECTED'
+              lastError: priorAiState.lastError
+                || priorAiState.lastCandidateSummary
+                || 'The draft did not reach the evidence bar. The last trusted version is unchanged.',
+              errorCode: priorAiState.errorCode || 'WIKI_CANDIDATE_REJECTED'
             };
             await savePageWithVersionRetry(built, userId);
             return;

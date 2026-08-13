@@ -82,7 +82,7 @@ const OnboardingBuildBanner = () => {
             <span>
               {timedOut
                 ? 'It is taking longer than expected. Nothing is lost — open the page to check on it.'
-                : (error || 'The draft did not pass the quality bar.')}
+                : (error || 'It could not reach the evidence bar from that source.')}
             </span>
           </>
         ) : null}

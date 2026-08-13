@@ -79,7 +79,12 @@ const OnboardingWalkthrough = () => {
   const isLastStop = index === WALKTHROUGH_STOPS.length - 1;
 
   const buildLine = (() => {
-    if (isFailed) return `I hit a wall on your page — ${error || 'the draft did not pass the quality bar.'}`;
+    if (isFailed) {
+      // Say the real reason, then what to do with it. "Failed" on its own leaves a
+      // new user with a dead page and no idea it was the source that was too thin.
+      const reason = error || 'it could not reach the evidence bar from that source.';
+      return `I could not build that page — ${reason} Add a link or more material and I will try again.`;
+    }
     if (isReady) return `${build?.title || 'Your page'} is ready.`;
     return `Still building ${build?.title ? `“${build.title}”` : 'your first page'}…`;
   })();
