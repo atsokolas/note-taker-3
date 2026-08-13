@@ -92,7 +92,10 @@ describe('OnboardingWalkthrough', () => {
     startWalkthrough();
     renderWalkthrough();
 
-    expect(await screen.findByText(/I hit a wall on your page/)).toBeInTheDocument();
+    // The real reason, then what to do about it — not just "failed".
+    expect(await screen.findByText(/I could not build that page/)).toBeInTheDocument();
+    expect(screen.getByText(/the draft did not pass the quality bar/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add a link or more material/i)).toBeInTheDocument();
   });
 
   it('speaks about the user\'s own material once the build reports sources', async () => {

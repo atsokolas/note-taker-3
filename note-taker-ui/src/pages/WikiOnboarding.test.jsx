@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
-import WikiOnboarding from './WikiOnboarding';
+import WikiOnboarding, { describeThinSource } from './WikiOnboarding';
 import {
   adoptWikiStarterPack,
   createWikiPage,
@@ -128,15 +128,14 @@ describe('WikiOnboarding', () => {
     render(<WikiOnboarding />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
-      target: { value: 'Opportunity cost is the price of the best alternative not taken.' }
+    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
+      target: { value: 'Opportunity cost is the price of the best alternative not taken. Every allocation of capital or attention forecloses another one, so the true cost of any choice is the value of the option you gave up rather than the cash you handed over. Accountants record the cash; the decision maker has to price the road not travelled, which is why two projects with identical budgets can differ enormously in what they actually cost the firm.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
 
-    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith({
-      text: 'Opportunity cost is the price of the best alternative not taken.',
+    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Opportunity Cost'
-    }));
+    })));
     await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
       createdFrom: expect.objectContaining({ type: 'article', objectId: 'article-1' }),
       initialSourceRef: expect.objectContaining({ type: 'article', objectId: 'article-1' })
@@ -162,8 +161,8 @@ describe('WikiOnboarding', () => {
     render(<WikiOnboarding />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
-      target: { value: 'The availability heuristic is a shortcut where vivid examples crowd out base rates.' }
+    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
+      target: { value: 'The availability heuristic is a shortcut where vivid examples crowd out base rates. People judge how likely something is by how easily an instance comes to mind, so a recent plane crash makes flying feel dangerous while the far larger risk of the drive to the airport stays invisible. The bias is strongest where coverage is uneven, because memory is sampling the news rather than the world.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
 
@@ -178,8 +177,8 @@ describe('WikiOnboarding', () => {
     render(<WikiOnboarding />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
-      target: { value: 'Spaced repetition is a learning technique where reviews are timed.' }
+    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
+      target: { value: 'Spaced repetition is a learning technique where reviews are timed to land just as recall begins to fail. Each successful retrieval lengthens the next interval, so material that is nearly forgotten gets seen often and material that is solid gets out of the way. The schedule matters more than the total hours, which is why massed cramming feels productive and disappears within a week.' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
 
@@ -200,7 +199,7 @@ describe('WikiOnboarding', () => {
     render(<WikiOnboarding />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText('Drop in something you read this week...'), {
+    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
       target: { value: 'https://example.com/memo' }
     });
     fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
@@ -252,5 +251,28 @@ describe('WikiOnboarding', () => {
     expect(screen.getByRole('button', { name: 'Show me around' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Go to my page' }));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1', { replace: true });
+  });
+
+  it('refuses a source too thin to build from, before spending the user\'s time', async () => {
+    render(<WikiOnboarding />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
+      target: { value: 'Goodharts law says a measure that becomes a target stops being a good measure.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+
+    // This exact input reached production, burned ~20s, and was rejected by the
+    // evidence gate for claims with no anchor in their source.
+    expect(await screen.findByRole('alert')).toHaveTextContent(/too short to build from/i);
+    expect(importPastedText).not.toHaveBeenCalled();
+    expect(createWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('always allows a URL, however short', () => {
+    expect(describeThinSource('https://example.com/a-long-article')).toBe('');
+    expect(describeThinSource('short')).toMatch(/too short/i);
+    expect(describeThinSource('')).toMatch(/Paste a link/i);
+    expect(describeThinSource(new Array(45).fill('word').join(' '))).toBe('');
   });
 });
