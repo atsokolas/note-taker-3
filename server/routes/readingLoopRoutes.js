@@ -29,11 +29,12 @@ const buildReadingLoopRouter = ({
   Question,
   WikiPage,
   ReadingLoopEdition,
+  VectorItem,
   env = process.env
 } = {}) => {
   const router = express.Router();
   const auth = authenticateToken;
-  const models = { User, Article, NotebookEntry, Question, WikiPage, ReadingLoopEdition };
+  const models = { User, Article, NotebookEntry, Question, WikiPage, ReadingLoopEdition, VectorItem };
 
   // One generation per user at a time. A second request joins the first rather
   // than starting a duplicate run.
