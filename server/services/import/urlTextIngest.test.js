@@ -9,6 +9,19 @@ const {
 } = require('./urlTextIngest');
 
 const run = async () => {
+  // Zero-padded numeric references are what Wikipedia emits. The old decoder
+  // matched &#39; but not &#039;, so a new user's first page was titled
+  // "Goodhart&#039;s law - Wikipedia" on production.
+  assert.strictEqual(
+    extractTitle('<title>Goodhart&#039;s law - Wikipedia</title>'),
+    "Goodhart's law - Wikipedia"
+  );
+  assert.strictEqual(extractTitle('<title>Caf&#233; culture</title>'), 'Café culture');
+  assert.strictEqual(extractTitle('<title>&#x27;Hex&#x27; escapes</title>'), "'Hex' escapes");
+  assert.strictEqual(extractTitle('<title>Tom &amp; Jerry</title>'), 'Tom & Jerry');
+  // An escaped ampersand must not be decoded twice into a live entity.
+  assert.strictEqual(extractTitle('<title>&amp;#039; stays literal</title>'), '&#039; stays literal');
+
   const html = `
     <html>
       <head><title>Example &amp; Test</title><style>.x{}</style></head>

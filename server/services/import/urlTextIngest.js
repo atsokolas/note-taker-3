@@ -1,10 +1,32 @@
-const decodeHtmlEntities = (value = '') => String(value || '')
-  .replace(/&nbsp;/gi, ' ')
-  .replace(/&amp;/gi, '&')
-  .replace(/&lt;/gi, '<')
-  .replace(/&gt;/gi, '>')
-  .replace(/&quot;/gi, '"')
-  .replace(/&#39;/gi, "'");
+// Numeric references are decoded generically rather than by listing them. The
+// previous list matched &#39; but not &#039; — the zero-padded form Wikipedia
+// emits — so imported pages were titled "Goodhart&#039;s law - Wikipedia" on
+// production, and that title is the first thing a new user sees.
+const decodeNumericEntities = (value = '') => String(value || '')
+  .replace(/&#(\d+);/g, (_match, code) => {
+    const point = Number(code);
+    return Number.isFinite(point) && point > 0 && point <= 0x10ffff
+      ? String.fromCodePoint(point)
+      : _match;
+  })
+  .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => {
+    const point = parseInt(hex, 16);
+    return Number.isFinite(point) && point > 0 && point <= 0x10ffff
+      ? String.fromCodePoint(point)
+      : _match;
+  });
+
+const decodeHtmlEntities = (value = '') => decodeNumericEntities(
+  String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+)
+  // Ampersand last: decoding it first would turn "&amp;#039;" into a live entity.
+  .replace(/&amp;/gi, '&');
 
 const stripHtml = (html = '') => decodeHtmlEntities(
   String(html || '')
@@ -27,7 +49,9 @@ const extractTitle = (html = '', fallback = '') => {
     || String(html || '').match(/<meta\b[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
   if (ogTitle?.[1]) return decodeHtmlEntities(ogTitle[1]).trim();
   const title = String(html || '').match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
-  if (title?.[1]) return decodeHtmlEntities(stripHtml(title[1])).trim();
+  // stripHtml already decodes. Decoding again turned an escaped "&amp;#039;" into
+  // a live apostrophe, i.e. decoded content that the page had deliberately escaped.
+  if (title?.[1]) return stripHtml(title[1]).trim();
   return fallback;
 };
 

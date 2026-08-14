@@ -145,9 +145,11 @@ describe('WikiOnboarding', () => {
       expect.objectContaining({
         maintenanceProfile: 'fast',
         sourceLimit: 8,
-        sourceTextLimit: 800,
+        // Matches the window the evidence gate judges against — a first page must not
+        // be written from less source than it is marked against.
+        sourceTextLimit: 1800,
         inlineAutolinkLimit: 150,
-        skipQualityRebuild: true,
+        skipQualityRebuild: false,
         streamDraft: false,
         deferInboundAutolinks: true
       })

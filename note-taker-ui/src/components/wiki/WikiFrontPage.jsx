@@ -66,11 +66,22 @@ const relativeTime = (iso) => {
   return formatSurfaceDate(iso, { includeYear: true });
 };
 
-const isDeveloperWiki = (page = {}) => (
-  page.pageType === 'repo'
-  || Boolean(page.repoKey)
-  || Boolean(page.externalWatches?.githubRepo)
-);
+// externalWatches.githubRepo is a schema sub-document with defaults, so it exists
+// on every page and Boolean() of it is always true. Every ordinary wiki was being
+// labelled a developer wiki and counted as one — a Wikipedia article showed as
+// "DEVELOPER WIKI · 2 repository sources" on production. Ask for actual repository
+// identity instead of the container's presence.
+const isDeveloperWiki = (page = {}) => {
+  if (page.pageType === 'repo') return true;
+  if (page.repoKey) return true;
+  const watch = page.externalWatches?.githubRepo || {};
+  return Boolean(
+    String(watch.owner || '').trim()
+    || String(watch.repo || '').trim()
+    || String(watch.lastHeadSha || '').trim()
+    || String(watch.publishedHeadSha || '').trim()
+  );
+};
 
 const pendingWikiReview = (page = {}) => {
   const candidateStatus = String(page.aiState?.candidateStatus || '').trim();

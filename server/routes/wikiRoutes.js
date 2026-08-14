@@ -3156,7 +3156,18 @@ const buildWikiRouter = ({
 
   const isGitHubRepoWikiPage = (page = {}) => {
     const createdFrom = [page.createdFrom?.text, page.createdFrom?.label].join(' ');
-    return Boolean(page.externalWatches?.githubRepo)
+    // externalWatches.githubRepo is a defaulted sub-document present on every page,
+    // so testing its existence matched everything. That made every ordinary page
+    // look like a repo page — which, among other things, skipped the corpus-wide
+    // autolink pass that concept pages depend on. Require real repository identity.
+    const watch = page.externalWatches?.githubRepo || {};
+    const hasRepoIdentity = Boolean(
+      String(watch.owner || '').trim()
+      || String(watch.repo || '').trim()
+      || String(watch.lastHeadSha || '').trim()
+      || String(watch.publishedHeadSha || '').trim()
+    );
+    return hasRepoIdentity
       || /GitHub repo:|github\.com\/[^/\s]+\/[^/\s]+/i.test(createdFrom)
       || (Array.isArray(page.sourceRefs) && page.sourceRefs.some(source => (
         source.provider === 'github-repo'
