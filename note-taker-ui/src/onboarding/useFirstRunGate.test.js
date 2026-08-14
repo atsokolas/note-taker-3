@@ -50,6 +50,23 @@ describe('useFirstRunGate', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('counts pages the surface-quality filter would hide', async () => {
+    // A real account holding 57 wikis was sent back through first-run
+    // onboarding, because the default list hides low-quality pages and its few
+    // most recently updated ones were drafts. Onboarding then offered no exit
+    // except seeding starter packs. "Do you have a workspace" must not be
+    // answered by "do you have a page worth featuring".
+    listWikiPages.mockResolvedValue([{ _id: 'page-1' }]);
+
+    renderHook(() => useFirstRunGate());
+
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+    expect(listWikiPages).toHaveBeenCalledWith(
+      expect.objectContaining({ includeLowQuality: 1 })
+    );
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('costs a finished user nothing', () => {
     localStorage.setItem('noeis.wikiOnboardingComplete', 'true');
 
