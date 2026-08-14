@@ -63,9 +63,26 @@ const parseSseBlock = (block = '') => {
   }
 };
 
+// The evidence preflight declines a build with a specific, actionable reason —
+// which subject has no direct source, and what to add. Letting the raw request
+// error escape replaced that with "Request failed with status code 422", so a
+// correct refusal was indistinguishable from a server fault and told the owner
+// nothing about how to proceed. Carry the server's own explanation.
 export const createWikiPage = async (payload = {}) => {
-  const res = await api.post(WIKI_PAGES_PATH, payload, getAuthHeaders());
-  return res.data;
+  try {
+    const res = await api.post(WIKI_PAGES_PATH, payload, getAuthHeaders());
+    return res.data;
+  } catch (requestError) {
+    const body = requestError?.response?.data || {};
+    if (!body.error && !body.code) throw requestError;
+    const error = new Error(body.error || requestError?.message || 'The Wiki page could not be created.');
+    error.code = body.code || '';
+    error.suggestions = Array.isArray(body.suggestions) ? body.suggestions : [];
+    // An evidence refusal is a verdict, not a hiccup: retrying the same title
+    // against the same Library returns the same answer.
+    error.retryable = body.code !== 'WIKI_BUILD_EVIDENCE_MISSING';
+    throw error;
+  }
 };
 
 export const createCompanyDossier = async (payload = {}) => {
