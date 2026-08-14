@@ -9,6 +9,7 @@ import {
 } from '../../api/dailyLoop';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
+import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import AgentContextShell from '../agent/AgentContextShell';
 import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
@@ -44,6 +45,11 @@ import '../../styles/wiki-front-page.css';
 const INDEX_PAGE_LIMIT = 500;
 const WATCHING_PREVIEW_LIMIT = 5;
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
+// Namespaced per account: this snapshot holds page titles, briefing text, and the
+// has-any-content signal that decides whether first-run onboarding runs. Shared
+// across accounts on one browser, it showed one user's material to another and
+// skipped onboarding for genuinely new users.
+const frontPageCacheKey = () => scopedKey(WIKI_FRONT_PAGE_CACHE_KEY);
 const WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
 const pageId = (page) => (page && (page._id || page.id || page.pageId)) || '';
@@ -151,7 +157,10 @@ const WikiFrontPageShell = ({ children, ...mainProps }) => (
 
 const readFrontPageCache = () => {
   try {
-    const raw = window.localStorage?.getItem(WIKI_FRONT_PAGE_CACHE_KEY);
+    // A pre-scoping snapshot belongs to whichever account wrote it. Drop it rather
+    // than let it seed this one.
+    purgeUnscopedKeys([WIKI_FRONT_PAGE_CACHE_KEY]);
+    const raw = window.localStorage?.getItem(frontPageCacheKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const cachedAt = Number(parsed?.cachedAt);
@@ -171,7 +180,7 @@ const readFrontPageCache = () => {
 
 const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = null } = {}) => {
   try {
-    window.localStorage?.setItem(WIKI_FRONT_PAGE_CACHE_KEY, JSON.stringify({
+    window.localStorage?.setItem(frontPageCacheKey(), JSON.stringify({
       cachedAt: Date.now(),
       pages: Array.isArray(pages) ? pages : [],
       briefing: briefing || null,
