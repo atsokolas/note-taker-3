@@ -28,6 +28,8 @@ const {
 const { EVENT_NAMES, trackEvent } = require('./utils/analytics');
 const { EmbeddingError } = require('./ai/embed');
 const { enqueueBrainSummary, registerBrainSummaryHandler } = require('./ai/brainSummaryJobs');
+const { semanticSearch: atlasSemanticSearch } = require('./ai/semanticSearch');
+const { similarToVectorItem } = require('./ai/vectorStore');
 const {
   isAiEnabled,
   upsertEmbeddings,
@@ -5981,39 +5983,43 @@ const isAiTransientCapacityError = (error) => {
   );
 };
 
-const fetchSimilarEmbeddingsWithAvailability = async ({ userId, sourceId, types, limit, requestId }) => {
+const fetchSimilarEmbeddingsWithAvailability = async ({ userId, sourceId, types, limit }) => {
   if (!isAiEnabled()) {
     return { results: [], modelAvailable: false };
   }
+  // Atlas, not ai_service. The stored vector is reused directly, so a
+  // "more like this" lookup costs no embedding call.
+  const parsed = parseEmbeddingId(String(sourceId || ''));
+  const objectType = String(parsed.objectType || '');
+  const objectId = String(parsed.objectId || '');
+  if (!objectType || !objectId) return { results: [], modelAvailable: true };
   try {
-    const response = await aiSimilarTo({
-      userId: String(userId),
-      sourceId: String(sourceId),
-      types,
-      limit
-    }, { requestId });
+    const rows = await similarToVectorItem({
+      VectorItem,
+      userId,
+      objectType,
+      objectId,
+      subId: String(parsed.subId || ''),
+      limit,
+      objectTypes: Array.isArray(types) && types.length ? types : []
+    });
     return {
-      results: Array.isArray(response?.results) ? response.results : [],
+      results: rows.map(row => ({
+        id: row.objectId,
+        score: row.score,
+        metadata: {
+          objectType: row.objectType,
+          objectId: row.objectId,
+          subId: row.subId || '',
+          title: row.metadata?.title || '',
+          articleId: row.metadata?.articleId || ''
+        }
+      })),
       modelAvailable: true
     };
   } catch (error) {
-    if (isAiRouteMissingError(error)) {
-      console.warn('[AI-UPSTREAM] similar endpoint missing on ai_service; returning empty results', {
-        requestId,
-        sourceId: String(sourceId),
-        types: Array.isArray(types) ? types : []
-      });
-      return { results: [], modelAvailable: false };
-    }
-    if (isAiTransientCapacityError(error)) {
-      console.warn('[AI-UPSTREAM] similar endpoint transient upstream error; returning empty results', {
-        requestId,
-        sourceId: String(sourceId),
-        status: Number(error?.status) || 0
-      });
-      return { results: [], modelAvailable: false };
-    }
-    throw error;
+    console.warn('[SEARCH] similar lookup failed', { message: String(error.message || error).slice(0, 160) });
+    return { results: [], modelAvailable: false };
   }
 };
 
@@ -6439,30 +6445,45 @@ const handleSemanticSearch = async (req, res, query, rawTypes, rawLimit) => {
   const limit = Math.min(Number(rawLimit) || 12, 30);
   const types = normalizeSearchTypes(rawTypes);
   try {
-    const response = await aiSemanticSearch({
+    // Atlas, not ai_service. That service kept its vectors in a JSON file under
+    // /tmp, which Render wipes on every deploy and every idle spin-down, so the
+    // index emptied itself and the route reported "no results" rather than
+    // "no index". Embeddings still come from ai_service; storage does not.
+    const rows = await atlasSemanticSearch({
       userId: String(req.user.id),
       query: q,
-      types,
-      limit
-    }, { requestId: req.requestId });
-    const matches = Array.isArray(response?.results) ? response.results : [];
+      limit,
+      ...(Array.isArray(types) && types.length ? { types } : {})
+    });
+    const matches = rows.map(row => ({
+      id: row.objectId,
+      score: row.score,
+      metadata: {
+        objectType: row.type,
+        objectId: row.objectId,
+        subId: row.subId || '',
+        title: row.title,
+        articleId: row.articleId
+      }
+    }));
     const results = await hydrateSemanticResults({ matches, userId: req.user.id });
     await markTourSignal(req.user.id, 'semanticSearchUsed', 'semantic_search_used');
     res.status(200).json({ results });
   } catch (error) {
-    if (isAiRouteMissingError(error)) {
-      console.warn('[AI-UPSTREAM] search endpoint missing on ai_service; returning empty semantic search results', {
-        requestId: req.requestId,
-        query: q.slice(0, 80)
-      });
-      return res.status(200).json({ results: [] });
-    }
-    if (isAiTransientCapacityError(error)) {
-      console.warn('[AI-UPSTREAM] search endpoint transient upstream error; returning empty semantic search results', {
+    // An empty result set and a broken backend must not look identical to the
+    // caller — that equivalence is why two vector stores died unnoticed. Report
+    // the degradation instead of dressing it up as "you have nothing".
+    if (isAiRouteMissingError(error) || isAiTransientCapacityError(error)) {
+      console.warn('[SEARCH] embedding upstream unavailable; reporting degraded rather than empty', {
         requestId: req.requestId,
         status: Number(error?.status) || 0
       });
-      return res.status(200).json({ results: [] });
+      return res.status(503).json({
+        error: 'Search is temporarily unavailable — the service that reads your library is not responding. This is not zero results; it is unknown results.',
+        code: 'SEARCH_UNAVAILABLE',
+        degraded: true,
+        results: []
+      });
     }
     if (error.payload || error instanceof EmbeddingError) {
       return sendEmbeddingError(res, error);

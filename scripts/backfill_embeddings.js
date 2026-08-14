@@ -9,14 +9,16 @@
  * behaviour: one request at a time, a deliberate pause between them, and an
  * immediate stop when the upstream starts refusing.
  *
- * Safe to re-run. Point IDs are deterministic (`qdrantClient.toPointId`), so a
- * second pass overwrites rather than duplicates, and `--skip` resumes.
+ * Safe to re-run, and cheap to re-run: rows carry a content hash, so unchanged
+ * items skip the embedding call entirely. `--skip` resumes a partial pass.
  *
  * Usage:
  *   node scripts/backfill_embeddings.js --user <id> [options]
+ *   node scripts/backfill_embeddings.js --all-users [options]
  *
- *   --user <id>      required; the user whose corpus to index
- *   --types a,b      articles,highlights,notebook,questions,claims (default: all)
+ *   --user <id>      the user whose corpus to index (or --all-users)
+ *   --all-users      every user with content, smallest corpus first
+ *   --types a,b      articles,highlights,notebook,questions,claims,pages (default: all)
  *   --limit <n>      stop after n items (default: no limit)
  *   --skip <n>       skip the first n items of each type (for resuming)
  *   --delay <ms>     pause between requests (default: 1200)
@@ -25,10 +27,10 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { embedText } = require('../server/ai/embed');
-const { upsertVector } = require('../server/ai/qdrantClient');
-const { COLLECTIONS, isEmbeddableWikiClaim } = require('../server/ai/embeddingJobs');
+const { upsertVectorItem, isVectorItemCurrent } = require('../server/ai/vectorStore');
+const { isEmbeddableWikiClaim } = require('../server/ai/embeddingJobs');
 
-const ALL_TYPES = ['articles', 'highlights', 'notebook', 'questions', 'claims'];
+const ALL_TYPES = ['articles', 'highlights', 'notebook', 'questions', 'claims', 'pages'];
 const CONSECUTIVE_FAILURE_LIMIT = 5;
 
 const arg = (name, fallback = null) => {
@@ -52,17 +54,10 @@ const collect = async (models, userId, types) => {
         const text = strip(`${article.title || ''}\n${strip(article.content || '').slice(0, 800)}`);
         if (text.length >= 20) {
           items.push({
-            collection: COLLECTIONS.articles,
-            id: String(article._id),
+            objectType: 'article',
+            objectId: String(article._id),
             text,
-            payload: {
-              type: 'article',
-              objectId: String(article._id),
-              title: article.title || '',
-              tags: [],
-              createdAt: article.createdAt || new Date().toISOString(),
-              userId: String(userId)
-            }
+            metadata: { title: article.title || '', createdAt: article.createdAt || new Date().toISOString() }
           });
         }
       }
@@ -71,18 +66,15 @@ const collect = async (models, userId, types) => {
           const text = strip(highlight.text || '');
           if (text.length < 20) return;
           items.push({
-            collection: COLLECTIONS.highlights,
-            id: String(highlight._id),
+            objectType: 'highlight',
+            objectId: String(highlight._id),
             text,
-            payload: {
-              type: 'highlight',
-              objectId: String(highlight._id),
+            metadata: {
               title: highlight.text || '',
               articleTitle: article.title || '',
               articleId: String(article._id),
               tags: highlight.tags || [],
-              createdAt: highlight.createdAt || article.createdAt || new Date().toISOString(),
-              userId: String(userId)
+              createdAt: highlight.createdAt || article.createdAt || new Date().toISOString()
             }
           });
         });
@@ -99,16 +91,13 @@ const collect = async (models, userId, types) => {
       const text = strip(`${entry.title || ''}\n${body}`);
       if (text.length < 20) return;
       items.push({
-        collection: COLLECTIONS.notebook,
-        id: String(entry._id),
+        objectType: 'notebook_entry',
+        objectId: String(entry._id),
         text,
-        payload: {
-          type: 'notebook_entry',
-          objectId: String(entry._id),
+        metadata: {
           title: entry.title || '',
           tags: entry.tags || [],
-          createdAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
-          userId: String(userId)
+          createdAt: entry.updatedAt || entry.createdAt || new Date().toISOString()
         }
       });
     });
@@ -120,52 +109,144 @@ const collect = async (models, userId, types) => {
       const text = strip(question.text || '');
       if (text.length < 20) return;
       items.push({
-        collection: COLLECTIONS.questions,
-        id: String(question._id),
+        objectType: 'question',
+        objectId: String(question._id),
         text,
-        payload: {
-          type: 'question',
-          objectId: String(question._id),
+        metadata: {
           title: question.text || '',
           tags: [question.conceptName || question.linkedTagName].filter(Boolean),
-          createdAt: question.updatedAt || question.createdAt || new Date().toISOString(),
-          userId: String(userId)
+          createdAt: question.updatedAt || question.createdAt || new Date().toISOString()
         }
       });
     });
   }
 
-  if (types.includes('claims')) {
-    const pages = await WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title claims createdAt').lean();
+  if (types.includes('claims') || types.includes('pages')) {
+    const pages = await WikiPage.find({ userId, status: { $ne: 'archived' } })
+      .select('_id title claims plainText createdAt updatedAt').lean();
     pages.forEach(page => {
-      (page.claims || []).forEach(claim => {
-        if (!isEmbeddableWikiClaim(claim)) return;
-        const objectId = `${String(page._id)}:${String(claim.claimId)}`;
-        items.push({
-          collection: COLLECTIONS.claims,
-          id: objectId,
-          text: strip(`${page.title || ''}\n${claim.text || ''}`),
-          payload: {
-            type: 'wiki_claim',
+      if (types.includes('claims')) {
+        (page.claims || []).forEach(claim => {
+          if (!isEmbeddableWikiClaim(claim)) return;
+          const objectId = `${String(page._id)}:${String(claim.claimId)}`;
+          items.push({
+            objectType: 'wiki_claim',
             objectId,
-            pageId: String(page._id),
-            claimId: String(claim.claimId),
-            title: page.title || '',
-            createdAt: claim.createdAt || page.createdAt || new Date().toISOString(),
-            userId: String(userId)
-          }
+            text: strip(`${page.title || ''}\n${claim.text || ''}`),
+            metadata: {
+              pageId: String(page._id),
+              claimId: String(claim.claimId),
+              title: page.title || '',
+              createdAt: claim.createdAt || page.createdAt || new Date().toISOString()
+            }
+          });
         });
-      });
+      }
+      if (types.includes('pages')) {
+        // Long pages are chunked: a single vector over 3,000 words averages away
+        // the passage that actually answers the question, which is the point of
+        // asking. Each chunk carries a subId so retrieval can cite the passage.
+        const body = strip(page.plainText || '');
+        const full = strip(`${page.title || ''}\n${body}`);
+        if (full.length >= 40) {
+          const CHUNK = 6000;
+          if (full.length <= CHUNK) {
+            items.push({
+              objectType: 'wiki_page',
+              objectId: String(page._id),
+              text: full,
+              metadata: { title: page.title || '', createdAt: page.updatedAt || page.createdAt || new Date().toISOString() }
+            });
+          } else {
+            for (let start = 0, part = 0; start < body.length; start += CHUNK, part += 1) {
+              const chunk = strip(`${page.title || ''}\n${body.slice(start, start + CHUNK)}`);
+              if (chunk.length < 40) continue;
+              items.push({
+                objectType: 'wiki_page',
+                objectId: String(page._id),
+                subId: `p${part}`,
+                text: chunk,
+                metadata: { title: page.title || '', chunk: part, createdAt: page.updatedAt || page.createdAt || new Date().toISOString() }
+              });
+            }
+          }
+        }
+      }
     });
   }
 
   return items;
 };
 
+const runForUser = async ({ models, ownerId, types, limit, skip, delayMs, dryRun }) => {
+  const all = await collect(models, ownerId, types);
+  const byCollection = all.reduce((acc, item) => {
+    acc[item.objectType] = (acc[item.objectType] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(`found ${all.length} embeddable items:`);
+  Object.entries(byCollection).forEach(([collection, n]) => console.log(`  ${collection}: ${n}`));
+
+  const queue = all.slice(skip, limit ? skip + limit : undefined);
+  console.log(`\nprocessing ${queue.length} (skip=${skip}${limit ? `, limit=${limit}` : ''}), ${delayMs}ms between requests`);
+  if (dryRun) {
+    console.log('dry run — nothing called');
+    return { indexed: 0, unchanged: 0, failed: 0, total: all.length };
+  }
+
+  let done = 0;
+  let failed = 0;
+  let skippedUnchanged = 0;
+  let consecutiveFailures = 0;
+  for (let i = 0; i < queue.length; i += 1) {
+    const item = queue[i];
+    try {
+      const identity = {
+        VectorItem: models.VectorItem,
+        userId: item.userId || ownerId,
+        objectType: item.objectType,
+        objectId: item.objectId,
+        subId: item.subId || '',
+        text: item.text
+      };
+      if (await isVectorItemCurrent(identity)) {
+        skippedUnchanged += 1;
+        consecutiveFailures = 0;
+        continue;
+      }
+      const vector = await embedText(item.text);
+      await upsertVectorItem({ ...identity, vector, metadata: item.metadata });
+      done += 1;
+      consecutiveFailures = 0;
+    } catch (error) {
+      failed += 1;
+      consecutiveFailures += 1;
+      console.error(`  ✗ ${item.objectType}/${item.objectId}: ${String(error.message).slice(0, 120)}`);
+      // A rate-limited upstream will not recover inside this loop. Stopping
+      // early leaves a clean resume point instead of burning through the
+      // remaining items collecting identical 429s.
+      if (consecutiveFailures >= CONSECUTIVE_FAILURE_LIMIT) {
+        console.error(`\nstopped after ${CONSECUTIVE_FAILURE_LIMIT} consecutive failures.`);
+        console.error(`resume with: --skip ${skip + i - CONSECUTIVE_FAILURE_LIMIT + 1}`);
+        break;
+      }
+    }
+    if ((i + 1) % 25 === 0) console.log(`  ${i + 1}/${queue.length} (indexed ${done}, unchanged ${skippedUnchanged}, failed ${failed})`);
+    if (delayMs > 0) await sleep(delayMs);
+  }
+
+  console.log(`\nindexed ${done}, unchanged ${skippedUnchanged}, failed ${failed}, of ${queue.length}`);
+  if (done && failed === 0 && skip + queue.length < all.length) {
+    console.log(`more remain — resume with: --skip ${skip + queue.length}`);
+  }
+  return { indexed: done, unchanged: skippedUnchanged, failed, total: all.length };
+};
+
 (async () => {
-  const userId = arg('user');
-  if (!userId || userId === true) {
-    console.error('--user <id> is required.');
+  const singleUser = arg('user');
+  const allUsers = arg('all-users', false) === true;
+  if ((!singleUser || singleUser === true) && !allUsers) {
+    console.error('--user <id> or --all-users is required.');
     process.exit(1);
   }
   const types = String(arg('types', ALL_TYPES.join(','))).split(',').map(t => t.trim()).filter(Boolean);
@@ -182,52 +263,27 @@ const collect = async (models, userId, types) => {
   await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 20000 });
   const models = require('../server/models');
 
-  const all = await collect(models, new mongoose.Types.ObjectId(userId), types);
-  const byCollection = all.reduce((acc, item) => {
-    acc[item.collection] = (acc[item.collection] || 0) + 1;
-    return acc;
-  }, {});
-  console.log(`found ${all.length} embeddable items:`);
-  Object.entries(byCollection).forEach(([collection, n]) => console.log(`  ${collection}: ${n}`));
-
-  const queue = all.slice(skip, limit ? skip + limit : undefined);
-  console.log(`\nprocessing ${queue.length} (skip=${skip}${limit ? `, limit=${limit}` : ''}), ${delayMs}ms between requests`);
-  if (dryRun) {
-    console.log('dry run — nothing called');
-    await mongoose.disconnect();
-    return;
+  let owners = [];
+  if (allUsers) {
+    // Smallest corpus first: a cheap early pass surfaces a systemic problem
+    // before an hour has been spent on the largest account.
+    const counts = await models.Article.aggregate([{ $group: { _id: '$userId', n: { $sum: 1 } } }, { $sort: { n: 1 } }]);
+    owners = counts.map(row => row._id).filter(Boolean);
+    console.log(`--all-users: ${owners.length} users with content\n`);
+  } else {
+    owners = [new mongoose.Types.ObjectId(String(singleUser))];
   }
 
-  let done = 0;
-  let failed = 0;
-  let consecutiveFailures = 0;
-  for (let i = 0; i < queue.length; i += 1) {
-    const item = queue[i];
-    try {
-      const vector = await embedText(item.text);
-      await upsertVector({ collection: item.collection, id: item.id, vector, payload: item.payload });
-      done += 1;
-      consecutiveFailures = 0;
-    } catch (error) {
-      failed += 1;
-      consecutiveFailures += 1;
-      console.error(`  ✗ ${item.collection}/${item.id}: ${String(error.message).slice(0, 120)}`);
-      // A rate-limited upstream will not recover inside this loop. Stopping
-      // early leaves a clean resume point instead of burning through the
-      // remaining items collecting identical 429s.
-      if (consecutiveFailures >= CONSECUTIVE_FAILURE_LIMIT) {
-        console.error(`\nstopped after ${CONSECUTIVE_FAILURE_LIMIT} consecutive failures.`);
-        console.error(`resume with: --skip ${skip + i - CONSECUTIVE_FAILURE_LIMIT + 1}`);
-        break;
-      }
-    }
-    if ((i + 1) % 25 === 0) console.log(`  ${i + 1}/${queue.length} (indexed ${done}, failed ${failed})`);
-    if (delayMs > 0) await sleep(delayMs);
+  const totals = { indexed: 0, unchanged: 0, failed: 0 };
+  for (const ownerId of owners) {
+    if (owners.length > 1) console.log(`\n=== user ${ownerId} ===`);
+    const result = await runForUser({ models, ownerId, types, limit, skip, delayMs, dryRun });
+    totals.indexed += result.indexed;
+    totals.unchanged += result.unchanged;
+    totals.failed += result.failed;
   }
-
-  console.log(`\nindexed ${done}, failed ${failed}, of ${queue.length}`);
-  if (done && failed === 0 && skip + queue.length < all.length) {
-    console.log(`more remain — resume with: --skip ${skip + queue.length}`);
+  if (owners.length > 1) {
+    console.log(`\nALL USERS — indexed ${totals.indexed}, unchanged ${totals.unchanged}, failed ${totals.failed}`);
   }
   await mongoose.disconnect();
 })().catch(error => { console.error(error); process.exit(1); });

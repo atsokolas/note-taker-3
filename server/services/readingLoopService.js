@@ -1,7 +1,6 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { embedText } = require('../ai/embed');
-const { search } = require('../ai/qdrantClient');
-const { COLLECTIONS } = require('../ai/embeddingJobs');
+const { searchVectorItems, rawCosineToAtlasScore } = require('../ai/vectorStore');
 
 /**
  * readingLoopService — the Reading Loop.
@@ -48,6 +47,11 @@ const SUPPRESSION_MS = 60 * DAY_MS;
 // fires on real pairs — it exists to catch the same article saved twice, which
 // scores ~0.99. Re-measure these if the embedding model changes; they are
 // model-specific, not universal.
+//
+// These are RAW COSINE. Atlas reports `(1 + cosine) / 2`, so the band is
+// converted at the point of comparison rather than stored pre-converted —
+// storing the converted numbers would leave two conventions in the file and
+// no way to tell which one a given constant is in.
 const DEFAULT_SIMILARITY_MIN = 0.45;
 const DEFAULT_SIMILARITY_MAX = 0.90;
 
@@ -177,6 +181,18 @@ const similarityBand = (env = process.env) => ({
   min: Number(env.READING_LOOP_SIMILARITY_MIN || DEFAULT_SIMILARITY_MIN),
   max: Number(env.READING_LOOP_SIMILARITY_MAX || DEFAULT_SIMILARITY_MAX)
 });
+
+/**
+ * The band in the score space Atlas actually returns. Getting this wrong is
+ * silent in the worst direction: a raw-cosine floor of 0.45 admits nearly every
+ * pair in the corpus once scores are normalized, and the ceiling admits none of
+ * the good ones — so the loop would return either noise or nothing, with no
+ * error either way.
+ */
+const atlasSimilarityBand = (env = process.env) => {
+  const raw = similarityBand(env);
+  return { min: rawCosineToAtlasScore(raw.min), max: rawCosineToAtlasScore(raw.max) };
+};
 
 const pairKey = (recent = {}, dormant = {}) => [
   `${recent.type}:${recent.id}`,
@@ -371,8 +387,8 @@ const findDormantMatches = async ({
   deps = {}
 } = {}) => {
   const embed = deps.embedText || embedText;
-  const vectorSearch = deps.search || search;
-  const band = similarityBand(env);
+  const vectorSearch = deps.searchVectorItems || searchVectorItems;
+  const band = atlasSimilarityBand(env);
   const probe = clean(recentItem?.text, 3000);
   if (!probe) return [];
 
@@ -384,30 +400,32 @@ const findDormantMatches = async ({
   }
   if (!Array.isArray(vector) || !vector.length) return [];
 
-  const filter = { must: [{ key: 'userId', match: { value: String(userId) } }] };
-  const collections = [COLLECTIONS.articles, COLLECTIONS.highlights, COLLECTIONS.notebook];
-  const batches = await Promise.all(collections.map(async (collection) => {
-    try {
-      return await vectorSearch({ collection, vector, limit: limit * 2, filter });
-    } catch (_error) {
-      return [];
-    }
-  }));
+  let hits = [];
+  try {
+    hits = await vectorSearch({
+      VectorItem: models.VectorItem,
+      userId,
+      vector,
+      limit: limit * 3,
+      objectTypes: ['article', 'highlight', 'notebook_entry']
+    });
+  } catch (_error) {
+    return [];
+  }
 
   const seen = new Set();
-  const scored = batches
-    .flat()
-    .map(row => ({ score: Number(row?.score || 0), payload: row?.payload || {} }))
+  const scored = (hits || [])
+    .map(row => ({ score: Number(row?.score || 0), payload: row || {} }))
     .filter(row => row.score >= band.min && row.score <= band.max)
     .filter(row => {
-      const type = String(row.payload.type || '');
+      const type = String(row.payload.objectType || '');
       const objectId = String(row.payload.objectId || '');
       if (!type || !objectId) return false;
       // Never pair an item with itself. A highlight hit resolves to its parent
       // article at hydration, so a highlight belonging to the recent article is
       // the recent article and must be excluded here too.
       if (objectId === String(recentItem.id)) return false;
-      if (String(row.payload.articleId || '') === String(recentItem.id)) return false;
+      if (String(row.payload.metadata?.articleId || '') === String(recentItem.id)) return false;
       const key = `${type}:${objectId}`;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -423,7 +441,7 @@ const findDormantMatches = async ({
     const candidate = await hydrateCandidate({
       userId,
       models,
-      type: String(row.payload.type),
+      type: String(row.payload.objectType),
       objectId: String(row.payload.objectId),
       now
     });
@@ -792,21 +810,22 @@ const termOverlapRank = (recent, rows, textOf, minOverlap, limit) => {
     .map(entry => entry.row);
 };
 
-const rankClaimsForRecent = async ({ userId, recent, claims, probe, env = process.env, deps = {} } = {}) => {
-  const vectorSearch = deps.search || search;
-  const band = similarityBand(env);
+const rankClaimsForRecent = async ({ userId, models = {}, recent, claims, probe, env = process.env, deps = {} } = {}) => {
+  const vectorSearch = deps.searchVectorItems || searchVectorItems;
+  const band = atlasSimilarityBand(env);
   const byId = new Map(claims.map(claim => [claim.id, claim]));
   if (Array.isArray(probe) && probe.length) {
     try {
       const hits = await vectorSearch({
-        collection: COLLECTIONS.claims,
+        VectorItem: models.VectorItem,
+        userId,
         vector: probe,
         limit: 12,
-        filter: { must: [{ key: 'userId', match: { value: String(userId) } }] }
+        objectTypes: ['wiki_claim']
       });
       const ranked = (hits || [])
         .filter(hit => Number(hit?.score || 0) >= band.min && Number(hit.score) <= band.max)
-        .map(hit => byId.get(String(hit.payload?.objectId || '')))
+        .map(hit => byId.get(String(hit.objectId || '')))
         .filter(Boolean)
         .slice(0, 3);
       if (ranked.length) return ranked.map(claim => ({ claim }));
@@ -841,7 +860,7 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
     // collection is empty (nothing indexed yet, or the index is unreachable).
     // Word counting misses paraphrase entirely, which is most of what a real
     // contradiction looks like — it is a floor, not the intent.
-    const ranked = await rankClaimsForRecent({ userId, recent, claims, probe, env, deps });
+    const ranked = await rankClaimsForRecent({ userId, models, recent, claims, probe, env, deps });
 
     for (const { claim } of ranked) {
       if (passes >= MAX_RELATION_PASSES) break;

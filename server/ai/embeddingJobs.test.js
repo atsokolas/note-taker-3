@@ -121,7 +121,8 @@ const run = async () => {
       assert.strictEqual(text, 'Searchable source text');
       return [0.1, 0.2, 0.3];
     },
-    upsertVectorFn: async payload => {
+    isCurrentFn: async () => false,
+    writeVectorFn: async payload => {
       upserts.push(payload);
       return { ok: true };
     }
@@ -129,35 +130,92 @@ const run = async () => {
   assert.strictEqual(success.processed, 1);
   assert.strictEqual(success.failed, 0);
   assert.strictEqual(successModel.jobs[0].status, 'completed');
-  assert.strictEqual(upserts[0].collection, 'articles');
-  assert.strictEqual(upserts[0].id, 'article-2');
+  assert.strictEqual(upserts[0].text, 'Searchable source text');
+  assert.deepStrictEqual(upserts[0].vector, [0.1, 0.2, 0.3]);
+
+  // Unchanged content must not spend an embedding call — this is what makes a
+  // backfill re-run cheap instead of a full re-spend.
+  const unchangedModel = createEmbeddingJobModel([{
+    _id: 'unchanged-1',
+    collection: 'articles',
+    objectId: 'article-9',
+    text: 'Already indexed',
+    payload: { title: 'Same' },
+    status: 'queued',
+    nextRunAt: new Date('2026-06-21T00:00:00.000Z')
+  }]);
+  let embedCalls = 0;
+  const unchanged = await drainEmbeddingJobQueue({
+    model: unchangedModel,
+    at: new Date('2026-06-21T00:01:00.000Z'),
+    isCurrentFn: async () => true,
+    embedTextFn: async () => { embedCalls += 1; return [0.1]; },
+    writeVectorFn: async () => { throw new Error('must not write when unchanged'); }
+  });
+  assert.strictEqual(embedCalls, 0, 'an unchanged item costs no embedding call');
+  assert.strictEqual(unchanged.unchanged, 1);
+  assert.strictEqual(unchangedModel.jobs[0].status, 'completed');
+
+  // A 429 means the upstream is busy, not that the job is bad. Burning attempt
+  // budget on it is what abandoned 133 jobs in production.
+  const rateLimitedModel = createEmbeddingJobModel([1, 2, 3, 4, 5].map(n => ({
+    _id: `rl-${n}`,
+    collection: 'articles',
+    objectId: `article-rl-${n}`,
+    text: `text ${n}`,
+    payload: { title: `RL ${n}` },
+    status: 'queued',
+    attemptCount: 0,
+    nextRunAt: new Date('2026-06-21T00:00:00.000Z')
+  })));
+  const limited = await drainEmbeddingJobQueue({
+    model: rateLimitedModel,
+    at: new Date('2026-06-21T00:01:00.000Z'),
+    rateLimitBreakAfter: 2,
+    isCurrentFn: async () => false,
+    embedTextFn: async () => {
+      const error = new Error('AI service error 429: Too Many Requests');
+      error.status = 429;
+      throw error;
+    },
+    writeVectorFn: async () => { throw new Error('unreachable'); }
+  });
+  assert.strictEqual(limited.rateLimited, true, 'the drain reports that it broke on rate limiting');
+  assert.strictEqual(limited.failed, 0, 'a rate-limited job is not a failed job');
+  const touched = rateLimitedModel.jobs.filter(job => job.status === 'queued' && String(job.lastError || '').includes('rate limited'));
+  assert.strictEqual(touched.length, 2, 'it stops after the configured number of consecutive rate limits');
+  touched.forEach(job => {
+    assert.strictEqual(job.attemptCount, 0, 'attempt budget is returned, not spent');
+    assert.strictEqual(job.status, 'queued');
+  });
 
   const failureModel = createEmbeddingJobModel([{
     _id: 'failure-1',
     collection: 'articles',
     objectId: 'article-3',
-    text: 'Rate limited text',
+    text: 'Genuinely bad text',
     payload: {},
     status: 'queued',
     nextRunAt: new Date('2026-06-21T00:00:00.000Z')
   }]);
+  // A real defect — as distinct from a rate limit — still consumes an attempt
+  // and backs off.
   const failed = await drainEmbeddingJobQueue({
     model: failureModel,
     at: new Date('2026-06-21T00:01:00.000Z'),
+    isCurrentFn: async () => false,
     embedTextFn: async () => {
-      const error = new Error('429 Too Many Requests');
-      error.status = 429;
-      throw error;
+      throw new Error('Embedding requires non-empty text.');
     },
-    upsertVectorFn: async () => {
-      throw new Error('should not upsert');
+    writeVectorFn: async () => {
+      throw new Error('should not write');
     }
   });
   assert.strictEqual(failed.processed, 0);
   assert.strictEqual(failed.failed, 1);
   assert.strictEqual(failureModel.jobs[0].status, 'failed');
   assert.ok(new Date(failureModel.jobs[0].nextRunAt).getTime() > new Date('2026-06-21T00:01:00.000Z').getTime());
-  assert.match(failureModel.jobs[0].lastError, /429/);
+  assert.match(failureModel.jobs[0].lastError, /non-empty text/);
 
   const abandonedModel = createEmbeddingJobModel([{
     _id: 'abandoned-1',
