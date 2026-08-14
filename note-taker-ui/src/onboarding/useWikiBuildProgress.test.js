@@ -58,4 +58,52 @@ describe('useWikiBuildProgress', () => {
     expect(result.current.status).toBe('idle');
     expect(getWikiPageBuildStatus).not.toHaveBeenCalled();
   });
+
+  it('does not latch a ready this build has not reached', async () => {
+    // Observed on production: the page reports `ready` mid-flight, before
+    // publication decides whether to promote it, then lands on `error`. Latching
+    // the first ready told the user their page was done and stopped polling, so
+    // the banner announced a page that did not exist.
+    const startedAt = '2026-08-14T01:23:02.000Z';
+    getWikiPageBuildStatus
+      .mockResolvedValueOnce({ status: 'ready', error: '', errorCode: '', completedAt: null, page: null })
+      .mockResolvedValueOnce({
+        status: 'error',
+        error: 'Ordinary reference article introduces claims with no lexical anchor.',
+        errorCode: 'WIKI_CANDIDATE_REJECTED',
+        completedAt: '2026-08-14T01:23:50.000Z',
+        page: null
+      });
+
+    const { result } = renderHook(() => useWikiBuildProgress('page-1', { intervalMs: 1, startedAt }));
+
+    await waitFor(() => expect(result.current.isFailed).toBe(true));
+    expect(result.current.isReady).toBe(false);
+    expect(result.current.error).toMatch(/no lexical anchor/);
+  });
+
+  it('accepts a terminal status once the build reports finishing', async () => {
+    const startedAt = '2026-08-14T01:23:02.000Z';
+    getWikiPageBuildStatus.mockResolvedValue({
+      status: 'ready', error: '', errorCode: '', completedAt: '2026-08-14T01:23:40.000Z', page: {}
+    });
+
+    const { result } = renderHook(() => useWikiBuildProgress('page-1', { intervalMs: 1, startedAt }));
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+  });
+
+  it('ignores a terminal status left over from an earlier build of the same page', async () => {
+    getWikiPageBuildStatus
+      .mockResolvedValueOnce({ status: 'ready', error: '', errorCode: '', completedAt: '2026-08-14T01:00:00.000Z', page: {} })
+      .mockResolvedValue({ status: 'ready', error: '', errorCode: '', completedAt: '2026-08-14T01:24:00.000Z', page: {} });
+
+    const { result } = renderHook(() => useWikiBuildProgress('page-1', {
+      intervalMs: 1, startedAt: '2026-08-14T01:23:02.000Z'
+    }));
+
+    // The stale completion is older than this build's start, so it is not this
+    // build finishing.
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(getWikiPageBuildStatus.mock.calls.length).toBeGreaterThan(1);
+  });
 });

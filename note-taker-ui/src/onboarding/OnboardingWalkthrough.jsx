@@ -37,7 +37,10 @@ const OnboardingWalkthrough = () => {
   }, []);
 
   const pageId = build?.pageId || '';
-  const progress = useWikiBuildProgress(pageId, { enabled: Boolean(pageId) });
+  const progress = useWikiBuildProgress(pageId, {
+    enabled: Boolean(pageId),
+    startedAt: build?.startedAt || null
+  });
   const { isReady, isFailed, error, page } = progress;
 
   const index = state?.index ?? -1;

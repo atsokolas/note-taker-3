@@ -18,7 +18,27 @@ const MAX_POLLS = 240;
 
 const TERMINAL = new Set(['ready', 'error']);
 
-const useWikiBuildProgress = (pageId, { enabled = true, intervalMs = POLL_INTERVAL_MS } = {}) => {
+/**
+ * A status is only terminal for *this* build if the page also reports finishing at
+ * or after the moment this build started.
+ *
+ * The build passes through `ready` before publication decides whether to promote
+ * it. Latching the first `ready` told a user on production that their page was
+ * ready while it was in fact rejected moments later, and the poll had already
+ * stopped, so the banner never corrected itself. `startedAt` comes from the 202
+ * that accepted the build.
+ */
+const isTerminalForThisBuild = ({ status, completedAt }, startedAt) => {
+  if (!TERMINAL.has(status)) return false;
+  if (!startedAt) return true;
+  if (!completedAt) return false;
+  const finished = new Date(completedAt).getTime();
+  const began = new Date(startedAt).getTime();
+  if (!Number.isFinite(finished) || !Number.isFinite(began)) return true;
+  return finished >= began;
+};
+
+const useWikiBuildProgress = (pageId, { enabled = true, intervalMs = POLL_INTERVAL_MS, startedAt = null } = {}) => {
   const [state, setState] = useState({
     status: pageId ? 'maintaining' : 'idle',
     error: '',
@@ -44,14 +64,17 @@ const useWikiBuildProgress = (pageId, { enabled = true, intervalMs = POLL_INTERV
       try {
         const next = await getWikiPageBuildStatus(pageId);
         if (cancelledRef.current) return;
+        const settled = isTerminalForThisBuild(next, startedAt);
         setState({
-          status: next.status,
-          error: next.error,
-          errorCode: next.errorCode,
+          // Do not show a terminal status this build has not actually reached.
+          // A mid-flight `ready` is not this build finishing.
+          status: settled ? next.status : 'maintaining',
+          error: settled ? next.error : '',
+          errorCode: settled ? next.errorCode : '',
           page: next.page,
           timedOut: false
         });
-        if (TERMINAL.has(next.status)) return;
+        if (settled) return;
       } catch (_error) {
         // A dropped poll is not a failed build — the request may just have blipped.
         // Keep polling; the attempt counter still bounds how long we try.
@@ -70,7 +93,7 @@ const useWikiBuildProgress = (pageId, { enabled = true, intervalMs = POLL_INTERV
       cancelledRef.current = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [enabled, intervalMs, pageId]);
+  }, [enabled, intervalMs, pageId, startedAt]);
 
   const retry = useCallback(() => {
     pollCountRef.current = 0;
