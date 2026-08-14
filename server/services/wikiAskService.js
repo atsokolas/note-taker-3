@@ -257,11 +257,63 @@ const pageTitleMentionedInQuestion = (title = '', question = '') => {
   return normalizedQuestion.includes(normalizedTitle);
 };
 
+/**
+ * Semantic recall over wiki pages, blended with the token scorer.
+ *
+ * The token scorer is `haystack.includes(token)` — literal substring counting.
+ * It is genuinely better than embeddings for exact terms (a ticker, a person, a
+ * defined phrase) and useless for everything else: ask "what are the moats
+ * here?" and a page about *competitive advantage* scores zero.
+ *
+ * So this is a union, not a replacement. The two methods fail on different
+ * questions, which is exactly why both are kept. Semantic matches are folded in
+ * as a score boost on pages the token pass already knows about, so the caller's
+ * contract — an ordered array of the same page objects — never changes.
+ *
+ * Returns a Map of pageId → normalized semantic score in [0,1], or an empty Map
+ * on any failure. A degraded index makes retrieval worse, never broken.
+ */
+const semanticPageScores = async ({ userId, question, models = {}, deps = {}, limit = 20 } = {}) => {
+  const empty = new Map();
+  if (!userId || !asString(question).trim()) return empty;
+  try {
+    // eslint-disable-next-line global-require
+    const { embedText } = deps.embed || require('../ai/embed');
+    // eslint-disable-next-line global-require
+    const { searchVectorItems } = deps.vectorStore || require('../ai/vectorStore');
+    // Resolved here rather than threaded through every caller — three route
+    // files call this and none of them should need to know the index exists.
+    // eslint-disable-next-line global-require
+    const VectorItemModel = models.VectorItem || require('../models').VectorItem;
+    const vector = await embedText(asString(question).slice(0, 3000));
+    const rows = await searchVectorItems({
+      VectorItem: VectorItemModel,
+      userId,
+      vector,
+      limit,
+      objectTypes: ['wiki_page', 'wiki_claim']
+    });
+    const scores = new Map();
+    (rows || []).forEach((row) => {
+      // A claim hit points at its page; a chunk hit points at its page. Either
+      // way the unit the caller ranks is the page.
+      const pageId = String(row.metadata?.pageId || row.objectId || '').split(':')[0];
+      if (!pageId) return;
+      const score = Number(row.score || 0);
+      if (!scores.has(pageId) || scores.get(pageId) < score) scores.set(pageId, score);
+    });
+    return scores;
+  } catch (_error) {
+    return empty;
+  }
+};
+
 const rankWikiPageCandidates = ({
   page,
   relatedPages = [],
   question = '',
   selectedPageOnly = false,
+  semanticScores = new Map(),
   limit = MAX_WIKI_PAGE_CANDIDATES
 } = {}) => {
   const currentId = serializeObjectId(page);
@@ -269,14 +321,19 @@ const rankWikiPageCandidates = ({
     .filter(candidate => serializeObjectId(candidate) && serializeObjectId(candidate) !== currentId);
   if (selectedPageOnly) return pool.slice(0, Math.max(0, limit));
 
+  // Token scores are unbounded counts; semantic scores are Atlas-normalized to
+  // [0,1]. Scale the semantic side so a strong semantic match outranks a weak
+  // keyword coincidence without ever outranking an explicit title mention.
+  const SEMANTIC_WEIGHT = 40;
   const scored = pool.map((candidate) => {
     const title = truncate(candidate.title, 200) || 'Untitled page';
     const plainText = asString(candidate.plainText) || pageBodySentenceText(candidate);
     const titleMentioned = pageTitleMentionedInQuestion(title, question);
     const tokenScore = scoreTextForQuestion(`${title} ${plainText}`, question);
+    const semantic = Number(semanticScores.get(serializeObjectId(candidate)) || 0);
     return {
       candidate,
-      score: (titleMentioned ? 100 : 0) + tokenScore,
+      score: (titleMentioned ? 100 : 0) + tokenScore + Math.round(semantic * SEMANTIC_WEIGHT),
       title
     };
   });
@@ -1235,6 +1292,7 @@ const loadWikiAskCorpus = async ({
   question,
   userId,
   WikiPage,
+  VectorItem,
   WikiRevision,
   TagMeta,
   findWikiBacklinks,
@@ -1278,11 +1336,18 @@ const loadWikiAskCorpus = async ({
     const mentionedPages = (Array.isArray(mentionedPagesRaw) ? mentionedPagesRaw : []).filter(isWikiPageSurfaceEligible);
     allPages = mergeWikiPages(recentPages, mentionedPages);
   }
+  // Semantic recall runs alongside the keyword pass, never instead of it. A
+  // missing or degraded index yields an empty Map and retrieval falls back to
+  // exactly the behaviour that shipped before.
+  const semanticScores = selectedPageOnly
+    ? new Map()
+    : await semanticPageScores({ userId, question: trimmed, models: { VectorItem } });
   const relatedPages = rankWikiPageCandidates({
     page,
     relatedPages: allPages,
     question: trimmed,
     selectedPageOnly,
+    semanticScores,
     limit: candidateLimit
   });
 
@@ -1649,6 +1714,7 @@ module.exports = {
     pageTitleMentionedInQuestion,
     extractMentionedTitleCandidates,
     rankWikiPageCandidates,
+    semanticPageScores,
     pickExactPageSentence
   }
 };

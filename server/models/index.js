@@ -841,6 +841,25 @@ wikiPageSchema.pre('validate', function normalizeLegacyWikiPageType(next) {
   next();
 });
 
+/**
+ * Keep substantive claims in the semantic index. There are 50+ places that save
+ * a wiki page, so this lives on the schema rather than at the call sites — a
+ * post-save hook is the only single choke point that exists.
+ *
+ * Required lazily to avoid a load-order cycle (embeddingJobs requires this
+ * module for EmbeddingJob), fire-and-forget because indexing must never be able
+ * to fail a page save.
+ */
+wikiPageSchema.post('save', function enqueueClaimEmbeddings(doc) {
+  try {
+    // eslint-disable-next-line global-require
+    const { enqueueWikiClaimEmbeddings } = require('../ai/embeddingJobs');
+    enqueueWikiClaimEmbeddings(doc);
+  } catch (error) {
+    console.error('Failed to enqueue wiki claim embeddings:', error.message);
+  }
+});
+
 const WikiPage = mongoose.model('WikiPage', wikiPageSchema);
 
 const wikiProposalSignalSchema = new mongoose.Schema({
@@ -2420,6 +2439,95 @@ embeddingJobSchema.index({ status: 1, nextRunAt: 1, createdAt: 1 });
 const EmbeddingJob = mongoose.model('EmbeddingJob', embeddingJobSchema);
 
 /**
+ * VectorItem — the semantic index. One row per embeddable unit.
+ *
+ * Atlas `$vectorSearch` targets one field path and returns whole documents, so
+ * vectors cannot live on array subdocuments — and highlights and claims, which
+ * are ~4,400 of the embeddable units, are subdocuments. Hence a collection of
+ * its own, which also mirrors the point model of the Qdrant store it replaces.
+ *
+ * `embedding` is a BSON binary vector (subtype 9, float32), not an array: a
+ * 384-element array becomes 384 eight-byte doubles, and the cluster is an M0.
+ * The embedded text is deliberately *not* stored — the read path already loads
+ * the source document, and duplicating text on a 512MB cluster is the wrong
+ * trade. `contentHash` carries the "has this changed?" signal instead.
+ */
+const vectorItemSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  objectType: {
+    type: String,
+    required: true,
+    enum: ['article', 'highlight', 'notebook_entry', 'question', 'wiki_claim', 'wiki_page'],
+    trim: true
+  },
+  objectId: { type: String, required: true, trim: true },
+  subId: { type: String, default: '', trim: true },
+  embedding: { type: mongoose.Schema.Types.Buffer, required: true },
+  dimensions: { type: Number, default: 0 },
+  contentHash: { type: String, default: '', trim: true, index: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  updatedAt: { type: Date, default: Date.now }
+}, { timestamps: false, minimize: false });
+
+vectorItemSchema.index(
+  { userId: 1, objectType: 1, objectId: 1, subId: 1 },
+  { unique: true }
+);
+
+const VectorItem = mongoose.model('VectorItem', vectorItemSchema, 'vectoritems');
+
+/**
+ * ReadingLoopEdition — the Reading Loop's current edition, one row per user.
+ *
+ * Where the daily loop borrows the world's clock (watchers, filings), the
+ * Reading Loop borrows the corpus's: this week's reading paired against the
+ * dormant library, with the agent naming what the two things do to each other.
+ *
+ * Cards hold denormalized display copy plus IDs; the render path resolves the
+ * IDs so a renamed or deleted source never leaves a stale card on the page.
+ * `history` is the 60-day no-repeat ledger — a pair shown once does not come
+ * back. `suppressed` holds user rejections ("not a thing") and expires.
+ */
+const readingLoopMechanicSchema = new mongoose.Schema({
+  card: { type: mongoose.Schema.Types.Mixed, default: null },
+  status: { type: String, enum: ['idle', 'ready', 'empty', 'error'], default: 'idle' },
+  reason: { type: String, default: '', trim: true },
+  generatedAt: { type: Date, default: null },
+  model: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const readingLoopEditionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true, unique: true },
+  connection: { type: readingLoopMechanicSchema, default: () => ({}) },
+  collision: { type: readingLoopMechanicSchema, default: () => ({}) },
+  resolution: { type: readingLoopMechanicSchema, default: () => ({}) },
+  convergence: { type: readingLoopMechanicSchema, default: () => ({}) },
+  thread: { type: readingLoopMechanicSchema, default: () => ({}) },
+  suppressed: [{
+    _id: false,
+    kind: { type: String, default: '', trim: true },
+    key: { type: String, default: '', trim: true },
+    until: { type: Date, default: null }
+  }],
+  history: [{
+    _id: false,
+    kind: { type: String, default: '', trim: true },
+    key: { type: String, default: '', trim: true },
+    shownAt: { type: Date, default: Date.now }
+  }],
+  runCounts: [{
+    _id: false,
+    kind: { type: String, default: '', trim: true },
+    localDate: { type: String, default: '', trim: true },
+    count: { type: Number, min: 0, default: 0 }
+  }]
+}, { timestamps: true });
+
+readingLoopEditionSchema.index({ userId: 1, 'history.key': 1 });
+
+const ReadingLoopEdition = mongoose.model('ReadingLoopEdition', readingLoopEditionSchema);
+
+/**
  * SharedConcept — public read-only snapshot of a concept.
  *
  * Concepts live virtually (assembled from highlights + ConceptNote + workbench
@@ -2521,6 +2629,8 @@ module.exports = {
   MorningPaperDelivery,
   WikiPageVisit,
   EmbeddingJob,
+  VectorItem,
+  ReadingLoopEdition,
   SharedConcept,
   SharedQuestion,
   dropLegacyConnectionIndex
