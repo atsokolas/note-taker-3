@@ -150,6 +150,13 @@ const searchVectorItems = async ({
   numCandidatesMultiplier = 15,
   indexName = VECTOR_INDEX_NAME
 } = {}) => {
+  // Name the missing dependency. Passing an unwired model produced "Cannot read
+  // properties of undefined (reading 'aggregate')" from inside a catch block
+  // that turned it into an empty result — the Reading Loop router shipped
+  // without VectorItem in its bundle and reported a quiet week for it.
+  if (!VectorItem?.aggregate) {
+    throw new Error('vectorStore: search requires the VectorItem model; none was provided.');
+  }
   const owner = asObjectId(userId);
   if (!owner) throw new Error('vectorStore: search requires a valid userId.');
   if (!Array.isArray(vector) || !vector.length) return [];

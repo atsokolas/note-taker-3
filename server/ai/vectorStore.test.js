@@ -129,6 +129,16 @@ const captureAggregate = (rows = []) => {
     'a search without an owner is refused rather than run unscoped'
   );
 
+  // The Reading Loop shipped with VectorItem missing from its router bundle.
+  // The failure surfaced as "Cannot read properties of undefined (reading
+  // 'aggregate')" from inside a catch that turned it into a quiet empty week.
+  // Name the missing dependency instead.
+  await assert.rejects(
+    () => searchVectorItems({ userId: OWNER, vector: [0.1] }),
+    /requires the VectorItem model/,
+    'an unwired model is named, not left to fail cryptically deeper in'
+  );
+
   const noVector = await searchVectorItems({ VectorItem: capture.model, userId: OWNER, vector: [] });
   assert.deepStrictEqual(noVector, [], 'an empty vector yields no rows rather than an unfiltered scan');
 

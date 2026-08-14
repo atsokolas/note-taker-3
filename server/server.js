@@ -5396,7 +5396,8 @@ app.use(buildReadingLoopRouter({
   NotebookEntry,
   Question,
   WikiPage,
-  ReadingLoopEdition
+  ReadingLoopEdition,
+  VectorItem
 }));
 
 app.use(buildWikiRouter({
