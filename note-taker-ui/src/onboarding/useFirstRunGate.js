@@ -62,7 +62,13 @@ const useFirstRunGate = ({ enabled = true } = {}) => {
     syncWikiOnboardingState()
       .then((complete) => {
         if (!mountedRef.current || complete) return null;
-        return listWikiPages({ limit: 1 });
+        // "Do you have a workspace" is a different question from "do you have a
+        // page good enough to feature". The default list hides pages failing the
+        // surface-quality filter, so an established account whose few most
+        // recently updated pages happen to be drafts or thin scaffolds answered
+        // "no" and was walked back through first-run onboarding — which offers
+        // no way out except seeding starter packs. Ask whether anything exists.
+        return listWikiPages({ limit: 1, includeLowQuality: 1, summary: 1 });
       })
       .then((pages) => {
         if (!mountedRef.current || pages === null) return;
