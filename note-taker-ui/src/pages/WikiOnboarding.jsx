@@ -17,16 +17,10 @@ import { startWalkthrough } from '../onboarding/walkthroughState';
 const FAST_BUILD_OPTIONS = {
   maintenanceProfile: 'fast',
   sourceLimit: 8,
-  // Show the writer everything the evidence gate will judge it against.
-  //
-  // This was 800 while the gate anchors claims against up to 1800 characters per
-  // source (MAX_SOURCE_TEXT) and an ordinary build shows 1300. A first page was
-  // therefore written from a fraction of its source and then marked down for
-  // sentences that had no anchor in text the model was never shown — the model
-  // filled the gap from its own knowledge, which is exactly what the gate exists
-  // to catch. Observed on production: a 45,636-character Wikipedia article
-  // rendered down to 800 characters, and the resulting page rejected.
-  sourceTextLimit: 1800,
+  // No sourceTextLimit. The server now budgets source text by how many sources a
+  // page has, and a first page has exactly one — the article the user just pasted,
+  // which is the whole point of the page. Naming a number here could only ask for
+  // less than that budget, which is what starved the first build in the first place.
   inlineAutolinkLimit: 150,
   // The quality rebuild is what repairs a first draft that misses the bar. It was
   // skipped because the user was staring at a spinner; they are not any more —

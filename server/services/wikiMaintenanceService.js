@@ -31,7 +31,43 @@ const {
 const AUTOLINK_CANDIDATE_LIMIT = 80;
 const DEFAULT_SOURCE_LIMIT = 24;
 const FAST_SOURCE_LIMIT = 8;
+// Per-source floor. Every page keeps at least what it had before this budget
+// existed; pages with few sources get more, never less.
 const MAX_SOURCE_TEXT = 1800;
+// How much of a source we retain while collecting, before the budget decides how
+// much of it a given build may spend. Truncating to the floor at collection time
+// threw the rest away before anyone could choose to use it.
+const MAX_COLLECTED_SOURCE_TEXT = 12000;
+// A whole-build allowance, shared across sources. Eight sources keep roughly what
+// they have today; one source — the onboarding case, where that source *is* the
+// page — gets a window it can actually be written from.
+const SOURCE_TEXT_TOTAL_BUDGET = 24000;
+const MAX_SINGLE_SOURCE_TEXT = 12000;
+
+/**
+ * How much text each source may contribute to this build.
+ *
+ * Observed on production: a 45,636-character article was cut to 1,800 characters,
+ * the model wrote a full reference article from that 4%, and the evidence gate
+ * correctly rejected the sentences it had to invent to fill the gap. Raising the
+ * writer's window without raising the judge's would only have hidden that, so the
+ * same number feeds both.
+ */
+const perSourceTextBudget = (sourceCount = 1) => {
+  const count = Math.max(1, Number(sourceCount) || 1);
+  const share = Math.floor(SOURCE_TEXT_TOTAL_BUDGET / count);
+  return Math.min(MAX_SINGLE_SOURCE_TEXT, Math.max(MAX_SOURCE_TEXT, share));
+};
+
+const applySourceTextBudget = (candidates = []) => {
+  const list = Array.isArray(candidates) ? candidates : [];
+  const budget = perSourceTextBudget(list.length);
+  return list.map(candidate => (
+    candidate && typeof candidate.text === 'string' && candidate.text.length > budget
+      ? { ...candidate, text: truncate(candidate.text, budget) }
+      : candidate
+  ));
+};
 const DEFAULT_PROMPT_SOURCE_TEXT_LIMIT = 1300;
 const FAST_PROMPT_SOURCE_TEXT_LIMIT = 800;
 const INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT = 6000;
@@ -683,7 +719,7 @@ const collectLibrarySources = async ({ userId, models = {}, fastProfile = false,
       objectId: articleId,
       title,
       url: truncateRaw(article.url, 1000),
-      text: truncate([article.content, highlightText].filter(Boolean).join('\n'), MAX_SOURCE_TEXT),
+      text: truncate([article.content, highlightText].filter(Boolean).join('\n'), MAX_COLLECTED_SOURCE_TEXT),
       tags: Array.isArray(article.highlights) ? article.highlights.flatMap(h => h.tags || []) : [],
       createdAt: article.createdAt,
       updatedAt: article.updatedAt
@@ -713,7 +749,7 @@ const collectLibrarySources = async ({ userId, models = {}, fastProfile = false,
       type: 'notebook',
       objectId: sourceObjectId(entry),
       title: truncate(entry.title, 220) || 'Untitled notebook entry',
-      text: truncate([entry.content, blockText].filter(Boolean).join('\n'), MAX_SOURCE_TEXT),
+      text: truncate([entry.content, blockText].filter(Boolean).join('\n'), MAX_COLLECTED_SOURCE_TEXT),
       tags: Array.isArray(entry.tags) ? entry.tags : [],
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt
@@ -4197,6 +4233,12 @@ const maintainWikiPage = async ({
     summary: `${candidates.length} saved source${candidates.length === 1 ? '' : 's'} ready for analysis.`,
     sourceCount: candidates.length
   });
+  // Spend the build's source-text allowance now that the final source count is
+  // known. Everything downstream — the prompt and the evidence gate alike — reads
+  // candidate text from here, so the writer and its judge stay on the same window
+  // by construction.
+  candidates = applySourceTextBudget(candidates);
+  const budgetedSourceTextLimit = perSourceTextBudget(candidates.length);
   const repoMaintenance = isGitHubRepoPage({ page, candidates });
   const investmentDossier = getWikiPageStructureForPage({ page, candidates }).profile === 'investment_dossier';
   if (investmentDossier) {
@@ -4213,7 +4255,13 @@ const maintainWikiPage = async ({
     ? (explicitSourceTextLimit
         ? Math.min(requestedSourceTextLimit, INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
         : INVESTMENT_DOSSIER_PROMPT_SOURCE_TEXT_LIMIT)
-    : requestedSourceTextLimit;
+    // A caller asking for less than the budget still gets less — the fast profile
+    // is entitled to trade context for latency. A caller that says nothing gets the
+    // budget rather than the old flat default, which is what starved single-source
+    // pages.
+    : (explicitSourceTextLimit
+        ? Math.min(requestedSourceTextLimit, budgetedSourceTextLimit)
+        : budgetedSourceTextLimit);
   const ordinaryFlexibleMaintenance = !investmentDossier
     && !repoMaintenance
     && getWikiPageStructureForPage({ page, candidates }).flexibleSections;
@@ -4822,6 +4870,8 @@ module.exports = {
   selectCandidateSources,
   fallbackMaintenance,
   __testables: {
+    perSourceTextBudget,
+    applySourceTextBudget,
     extractJson,
     docFromArticle,
     collectClaimsFromDoc,
