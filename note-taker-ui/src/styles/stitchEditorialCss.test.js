@@ -2,6 +2,25 @@ import fs from 'fs';
 import path from 'path';
 
 describe('stitch editorial CSS tokens', () => {
+  // The shell is `height: 100vh; overflow-y: hidden` by default and grants
+  // scrolling per page through a `:has()` allowlist. A page missing from that
+  // list loses everything below the fold with no way to reach it — verified in
+  // production, where window.scrollBy(0, 600) moved zero pixels. Every
+  // full-height surface has to be listed, so assert the list rather than trust
+  // the next person to remember.
+  it('lets every full-height page scroll, including the Paper', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    const clamp = css.match(/body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body \{[\s\S]*?\n\}/)?.[0] || '';
+    expect(clamp).toContain('height: 100vh');
+    // Shorthand, so it clamps both axes.
+    expect(clamp).toContain('overflow: hidden');
+
+    ['.paper', '.judgment-room', '.settings-page', '.wiki-page'].forEach((page) => {
+      expect(css).toContain(`.app-shell-new__body:has(${page})`);
+    });
+  });
+
   it('keeps the Judgment Library retrieval field visibly keyboard focused', () => {
     const css = fs.readFileSync(path.join(__dirname, 'judgment-room.css'), 'utf8');
 

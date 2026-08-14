@@ -421,6 +421,12 @@ body.noeis-editorial .page-area:has(.settings-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.integrations-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.data-integrations-page),
+/* The Paper is a single editorial column of five stacked sections — the
+   longest-scrolling surface in the product. The shell clamps to 100vh with
+   overflow hidden and grants scrolling per page through this allowlist, so a
+   page missing from it loses everything below the fold with no way to reach
+   it. Adding a page here is not optional; it is part of adding a page. */
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.paper),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.judgment-room) {
   height: auto;
   min-height: calc(100vh - 96px);
