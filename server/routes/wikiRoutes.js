@@ -5206,7 +5206,19 @@ const buildWikiRouter = ({
       if (selectedIds.length > 0) {
         let detailQuery = WikiPage.find({ _id: { $in: selectedIds } });
         if (detailQuery?.select) {
-          detailQuery = detailQuery.select('_id slug title pageType status visibility body plainText sourceRefs citations claims externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.ok aiState.quality.status aiState.quality.failures aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog createdAt updatedAt');
+          // Measured: this query took 22.2s of a 24.4s request while fetching
+          // eight documents by _id. It was not the volume, it was the width —
+          // full bodies, every source snippet (up to 6000 characters each, up
+          // to 80 per page), whole claim and citation ledgers, and the entire
+          // change log, for pages the registry renders as a 420-character
+          // excerpt and eight source titles.
+          //
+          // The registry is compact, and its consumers are narrow:
+          // compactRegistryPage reads title, plainText, and sourceRefs
+          // title/url; buildPublicMaintenanceProof reads claim and source
+          // counts plus publicProof; buildPublicProofGrade reads freshness and
+          // publicProof. Ask for that and nothing else.
+          detailQuery = detailQuery.select('_id slug title pageType status visibility createdFrom plainText sourceRefs._id sourceRefs.type sourceRefs.title sourceRefs.url citations.sourceRefId citations.claimId claims.claimId externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.ok aiState.quality.status aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary createdAt updatedAt');
         }
         const detailedPages = detailQuery?.lean ? await detailQuery.lean() : await detailQuery;
         mark('detailQuery');
