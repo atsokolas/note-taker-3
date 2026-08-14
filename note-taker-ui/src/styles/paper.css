@@ -257,6 +257,14 @@ a.paper__end-title:focus-visible {
   padding-top: 4px;
 }
 
+/* A fault reads differently from a quiet week. "Nothing to connect" and "the
+   model never answered" produced an identical calm page until this existed. */
+.paper__degraded {
+  padding-left: 14px;
+  border-left: 2px solid var(--danger, #b42318);
+  color: var(--text-primary, #111827);
+}
+
 /* ---------- receipts ---------- */
 
 .paper__receipt {

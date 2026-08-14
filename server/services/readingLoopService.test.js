@@ -245,6 +245,66 @@ const configured = () => true;
   assert.strictEqual(threw, null, 'an upstream failure is silence, not an exception');
 
   /* ---------------------------------------------------------------- *
+   * Empty vs broken. These produced an identical calm page until the
+   * diagnostics existed — the same defect that let two vector stores die
+   * unnoticed in production.
+   * ---------------------------------------------------------------- */
+
+  const diagRun = async (chatImpl, configuredImpl = configured) => {
+    const diag = __testables.newRelationDiagnostics();
+    await runRelationPass({
+      recent: recentItem,
+      dormant: dormantItem,
+      deps: { chatComplete: chatImpl, isTextGenerationConfigured: configuredImpl },
+      diagnostics: diag
+    });
+    return diag;
+  };
+
+  const unconfiguredDiag = await diagRun(stubChat(goodProposal), () => false);
+  assert.strictEqual(unconfiguredDiag.unconfigured, true);
+  assert.strictEqual(unconfiguredDiag.attempted, 0, 'an unconfigured model is never attempted');
+  const unconfiguredOutcome = __testables.outcomeFromDiagnostics(unconfiguredDiag, 'Nothing worth connecting this week.');
+  assert.strictEqual(unconfiguredOutcome.status, 'error', 'no model configured is a fault, not an empty week');
+  assert.match(unconfiguredOutcome.reason, /not configured/);
+  assert.match(unconfiguredOutcome.reason, /it is unknown/);
+
+  const upstreamDiag = await diagRun(async () => { throw new Error('upstream timed out after 30000ms'); });
+  assert.strictEqual(upstreamDiag.upstreamErrors, 1);
+  assert.strictEqual(upstreamDiag.attempted, 1);
+  const upstreamOutcome = __testables.outcomeFromDiagnostics(upstreamDiag, 'Nothing worth connecting this week.');
+  assert.strictEqual(upstreamOutcome.status, 'error', 'a model that never answered is a fault, not an empty week');
+  assert.match(upstreamOutcome.reason, /did not answer/);
+  assert.match(upstreamOutcome.reason, /timed out/, 'the underlying error is carried through, not swallowed');
+
+  const declinedDiag = await diagRun(stubChat({ relation: null }));
+  assert.strictEqual(declinedDiag.declined, 1);
+  assert.strictEqual(declinedDiag.gated, 0, 'a model declining is a real answer, not a bad one');
+  const declinedOutcome = __testables.outcomeFromDiagnostics(declinedDiag, 'Nothing worth connecting this week.');
+  assert.strictEqual(declinedOutcome.status, 'empty', 'the model answering "no relation" is an honest empty');
+  assert.match(declinedOutcome.reason, /Examined 1 pair/, 'the reader is told how much was looked at');
+  assert.match(declinedOutcome.reason, /found no real relation/);
+
+  const gatedDiag = await diagRun(stubChat({ ...goodProposal, recentQuote: 'a quote that appears nowhere in the source' }));
+  assert.strictEqual(gatedDiag.gated, 1, 'a fabricated quote is the model answering badly, not declining');
+  assert.strictEqual(gatedDiag.declined, 0);
+  const gatedOutcome = __testables.outcomeFromDiagnostics(gatedDiag, 'Nothing worth connecting this week.');
+  assert.strictEqual(gatedOutcome.status, 'empty');
+  assert.match(gatedOutcome.reason, /did not survive the quality gates/);
+
+  // Nothing to examine at all keeps the plain reason — no numbers to report.
+  const untouched = __testables.outcomeFromDiagnostics(__testables.newRelationDiagnostics(), 'Nothing worth connecting this week.');
+  assert.strictEqual(untouched.status, 'empty');
+  assert.strictEqual(untouched.reason, 'Nothing worth connecting this week.');
+
+  // Mixed outcomes must not be reported as a fault: the model did answer.
+  const mixed = __testables.newRelationDiagnostics();
+  mixed.attempted = 3; mixed.declined = 2; mixed.upstreamErrors = 1;
+  const mixedOutcome = __testables.outcomeFromDiagnostics(mixed, 'Nothing worth connecting this week.');
+  assert.strictEqual(mixedOutcome.status, 'empty', 'partial upstream failure is still an answer overall');
+  assert.match(mixedOutcome.reason, /1 went unanswered/);
+
+  /* ---------------------------------------------------------------- *
    * Dormancy — dormant, not merely old.
    * ---------------------------------------------------------------- */
 
