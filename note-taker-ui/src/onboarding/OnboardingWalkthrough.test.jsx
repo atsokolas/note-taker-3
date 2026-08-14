@@ -89,7 +89,7 @@ describe('OnboardingWalkthrough', () => {
   });
 
   it('offers the finished page as soon as the build lands', async () => {
-    getWikiPageBuildStatus.mockResolvedValue({ status: 'ready', error: '', errorCode: '', page: { sourceRefs: [{}] } });
+    getWikiPageBuildStatus.mockResolvedValue({ status: 'ready', error: '', errorCode: '', completedAt: '2999-01-01T00:00:00.000Z', page: { sourceRefs: [{}] } });
     setActiveBuild({ pageId: 'page-1', title: 'Survivorship Bias' });
     startWalkthrough();
     renderWalkthrough();
@@ -104,6 +104,7 @@ describe('OnboardingWalkthrough', () => {
       status: 'error',
       error: 'the draft did not pass the quality bar.',
       errorCode: 'WIKI_CANDIDATE_REJECTED',
+      completedAt: '2999-01-01T00:00:00.000Z',
       page: null
     });
     setActiveBuild({ pageId: 'page-1', title: 'Survivorship Bias' });
@@ -118,7 +119,7 @@ describe('OnboardingWalkthrough', () => {
 
   it('speaks about the user\'s own material once the build reports sources', async () => {
     getWikiPageBuildStatus.mockResolvedValue({
-      status: 'ready', error: '', errorCode: '', page: { sourceRefs: [{}, {}] }
+      status: 'ready', error: '', errorCode: '', completedAt: '2999-01-01T00:00:00.000Z', page: { sourceRefs: [{}, {}] }
     });
     setActiveBuild({ pageId: 'page-1', title: 'Survivorship Bias' });
     startWalkthrough();

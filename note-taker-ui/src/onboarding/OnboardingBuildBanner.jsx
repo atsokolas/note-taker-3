@@ -38,7 +38,10 @@ const OnboardingBuildBanner = () => {
 
   const pageId = active?.pageId || '';
   const { isBuilding, isReady, isFailed, error, timedOut } = useWikiBuildProgress(pageId, {
-    enabled: Boolean(pageId)
+    enabled: Boolean(pageId),
+    // Without this the banner can latch a mid-flight "ready" and announce a page
+    // that publication went on to reject.
+    startedAt: active?.startedAt || null
   });
 
   const dismiss = useCallback(() => {

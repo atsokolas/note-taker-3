@@ -44,7 +44,7 @@ describe('OnboardingBuildBanner', () => {
   });
 
   it('announces a finished build and clears the handoff on the way in', async () => {
-    getWikiPageBuildStatus.mockResolvedValue({ status: 'ready', error: '', errorCode: '', page: {} });
+    getWikiPageBuildStatus.mockResolvedValue({ status: 'ready', error: '', errorCode: '', completedAt: '2999-01-01T00:00:00.000Z', page: {} });
     setActiveBuild({ pageId: 'page-9', title: 'Loss Aversion' });
 
     renderBanner();
@@ -59,6 +59,7 @@ describe('OnboardingBuildBanner', () => {
       status: 'error',
       error: 'The draft did not pass the quality bar.',
       errorCode: 'WIKI_CANDIDATE_REJECTED',
+      completedAt: '2999-01-01T00:00:00.000Z',
       page: null
     });
     setActiveBuild({ pageId: 'page-9', title: 'Loss Aversion' });
