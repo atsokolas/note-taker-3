@@ -287,3 +287,15 @@ Live result on the same `gpt-4o-mini` that produced four rounds of mush:
 Both are real relations, on the small model, with no model upgrade. The relation *label* also became more accurate as a side effect — the Graham × Vanderheiden pair is now correctly `fills_gap` rather than the earlier wrong `contradicts`, which suggests the label was previously suffering from the same free-form looseness.
 
 A stronger model on the `critique` route should improve the prose further, but is no longer required for the feature to be worth shipping.
+
+---
+
+## Store migration — 2026-08-13 (later still)
+
+The Reading Loop no longer reads from Qdrant. Qdrant was never provisioned in production and has been deleted from the codebase; the index is now MongoDB Atlas Vector Search (`vectoritems`). See `docs/noeis-atlas-vector-search-migration-2026-08-13.md`.
+
+**The band constants did not change, but the comparison did.** `DEFAULT_SIMILARITY_MIN`/`MAX` remain **raw cosine** (0.45 / 0.90) because that is the space they were measured in. Atlas reports `(1 + cosine) / 2`, so `atlasSimilarityBand()` converts at the point of comparison — 0.725 / 0.95 — rather than storing pre-converted numbers, which would leave two conventions in one file with no way to tell which a given constant is in.
+
+Confirmed against the live index: a query scoring **0.859 in Atlas space is 0.718 raw**, comfortably inside the band, and the top hits for *"what are the moats and competitive advantages"* are the **Economic Moats** page and its claims — a query with zero keyword overlap against that page's text.
+
+Collision and resolution now rank candidates by real similarity rather than term overlap; claims are indexed as `wiki_claim` rows and questions as `question` rows. The term-overlap path survives as a fallback for when the index is empty or unreachable, and should be deleted once the index has proven itself in production.
