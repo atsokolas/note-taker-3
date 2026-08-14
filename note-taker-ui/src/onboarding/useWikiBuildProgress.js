@@ -12,9 +12,13 @@ import { getWikiPageBuildStatus } from '../api/wiki';
  */
 
 const POLL_INTERVAL_MS = 2500;
-// A build that never reports terminal state must not poll forever. At the default
-// interval this gives a build ~10 minutes before we stop and tell the user plainly.
-const MAX_POLLS = 240;
+// A build that never reports terminal state must not poll forever.
+//
+// This was ~10 minutes, which is far longer than anyone will sit in front of a
+// spinner and longer than the server now takes to record a stalled build as failed
+// (4 minutes). Give the server's own verdict time to land, then stop: roughly five
+// minutes at the default interval.
+const MAX_POLLS = 120;
 
 const TERMINAL = new Set(['ready', 'error']);
 

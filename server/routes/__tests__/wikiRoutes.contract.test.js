@@ -122,6 +122,26 @@ const createFakeWikiPageModel = () => {
     return new WikiPage(clone(found));
   };
 
+  // The routes use updateOne for atomic status writes — recording a failed or
+  // stalled build without reloading the document. Supports dotted $set paths, which
+  // is how aiState fields are written.
+  WikiPage.updateOne = async (query = {}, updates = {}) => {
+    const found = records.find(record => matches(record, query));
+    if (!found) return { matchedCount: 0, modifiedCount: 0 };
+    const set = updates.$set || {};
+    Object.entries(set).forEach(([path, value]) => {
+      const segments = String(path).split('.');
+      const last = segments.pop();
+      const target = segments.reduce((node, segment) => {
+        if (!node[segment] || typeof node[segment] !== 'object') node[segment] = {};
+        return node[segment];
+      }, found);
+      target[last] = value;
+    });
+    found.updatedAt = new Date();
+    return { matchedCount: 1, modifiedCount: 1 };
+  };
+
   WikiPage.prototype.toObject = function toObject() {
     const copy = clone(this);
     copy.sourceRefs = (this.sourceRefs || []).map(source => {
@@ -833,6 +853,9 @@ const run = async () => {
       },
       changed: false
     }),
+    // A detached build that never settles must still be recorded as failed. Setting
+    // this makes the next maintain call hang the way a stalled upstream model does.
+    asyncBuildTimeoutMs: 150,
     maintainWikiPage: async ({
       page,
       userId,
@@ -843,6 +866,9 @@ const run = async () => {
       streamDraft,
       onProgress
     }) => {
+      if (global.__hangNextMaintain) {
+        await new Promise(() => {});
+      }
       proposalMaintainCalls.push({
         pageId: String(page._id),
         userId,
@@ -2049,6 +2075,37 @@ const run = async () => {
       if (asyncStatus === 'error') break;
     }
     assert.strictEqual(asyncStatus, 'ready', 'expected the detached build to reach ready');
+
+    // A build that hangs must still end. Before this, the page stayed 'maintaining'
+    // forever and the client sat on a spinner until its own give-up.
+    const hangPage = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Stalled Build Page',
+        pageType: 'overview',
+        sourceScope: 'entire_library',
+        createdFrom: { type: 'article', objectId: new mongoose.Types.ObjectId().toString(), label: 'Pasted source' }
+      })
+    });
+    assert.strictEqual(hangPage.res.status, 201, hangPage.text);
+
+    global.__hangNextMaintain = true;
+    const hangStarted = await request(url, `/api/wiki/pages/${hangPage.body._id}/ai/draft/async`, { method: 'POST' });
+    assert.strictEqual(hangStarted.res.status, 202, hangStarted.text);
+
+    let stalledStatus = '';
+    let stalledCode = '';
+    for (let attempt = 0; attempt < 40 && stalledStatus !== 'error'; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(resolve => setTimeout(resolve, 50));
+      // eslint-disable-next-line no-await-in-loop
+      const polled = await request(url, `/api/wiki/pages/${hangPage.body._id}`);
+      stalledStatus = polled.body?.aiState?.draftStatus || '';
+      stalledCode = polled.body?.aiState?.errorCode || '';
+    }
+    global.__hangNextMaintain = false;
+    assert.strictEqual(stalledStatus, 'error', 'a stalled build must be recorded as failed');
+    assert.strictEqual(stalledCode, 'WIKI_ASYNC_BUILD_TIMED_OUT');
 
     // A repo wiki page must be refused rather than silently bypassing the build lease.
     const refusedRepoBuild = await request(url, `/api/wiki/pages/${created.body._id}/ai/draft/async`, { method: 'POST' });
