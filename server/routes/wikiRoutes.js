@@ -5147,6 +5147,15 @@ const buildWikiRouter = ({
   });
 
   const handlePublicProofRegistry = async (_req, res) => {
+    // This endpoint answers in ~24s in production while an unrouted path
+    // answers in 0.16s and a static one in 0.15s, and it returns 23KB across 7
+    // items — so neither payload size nor scan volume explains it. Two attempts
+    // to fix it by reasoning about the query changed the measured time not at
+    // all. Record where the time actually goes instead of guessing a third
+    // time; the numbers are cheap and the endpoint is uncached.
+    const startedAt = Date.now();
+    const marks = {};
+    const mark = (name) => { marks[name] = Date.now() - startedAt; };
     try {
       let pagesQuery = WikiPage.find({
         visibility: 'shared',
@@ -5164,6 +5173,7 @@ const buildWikiRouter = ({
       if (pagesQuery?.sort) pagesQuery = pagesQuery.sort({ updatedAt: -1 });
       if (pagesQuery?.limit) pagesQuery = pagesQuery.limit(250);
       const pages = pagesQuery?.lean ? await pagesQuery.lean() : await pagesQuery;
+      mark('registryQuery');
       // Drop human-only artifacts before choosing rather than after. Both
       // selection passes must see the same candidate list, or the final pass
       // can land on a page the detail fetch never rehydrated and serialize it
@@ -5199,6 +5209,7 @@ const buildWikiRouter = ({
           detailQuery = detailQuery.select('_id slug title pageType status visibility body plainText sourceRefs citations claims externalWatches.githubRepo externalWatches.edgar externalWatches.transcripts freshness publicProof lastReviewedAt aiState.quality.ok aiState.quality.status aiState.quality.failures aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog createdAt updatedAt');
         }
         const detailedPages = detailQuery?.lean ? await detailQuery.lean() : await detailQuery;
+        mark('detailQuery');
         const detailsById = new Map((Array.isArray(detailedPages) ? detailedPages : [])
           .map(page => [String(page?._id || page?.id || ''), page]));
         proofPages = registryCandidates.map(page => (
@@ -5212,6 +5223,7 @@ const buildWikiRouter = ({
         pages: Array.isArray(proofPages) ? proofPages : [],
         slots: DEFAULT_PUBLIC_PROOF_SLOTS
       });
+      mark('selection');
       const entries = selected
         .map(({ slot, page }) => serializePublicProofEntry({
           slot,
@@ -5224,6 +5236,17 @@ const buildWikiRouter = ({
         entries,
         expectedCount: DEFAULT_PUBLIC_PROOF_SLOTS.length
       });
+      mark('serialize');
+      // Cumulative milliseconds from request start, so the gap between marks
+      // names the slow stage directly. scanned/detailed say whether the cost
+      // tracks document count at all.
+      console.log('[PROOF-TIMING]', JSON.stringify({
+        totalMs: Date.now() - startedAt,
+        ...marks,
+        scanned: registryCandidates.length,
+        detailed: selectedIds.length,
+        entries: entries.length
+      }));
       res.status(200).json({
         items: entries,
         privacyStatement: entries[0]?.maintenanceProof?.privacyStatement || '',
@@ -5232,7 +5255,10 @@ const buildWikiRouter = ({
         ...registryState
       });
     } catch (error) {
-      console.error('Error fetching public proof registry:', error);
+      console.error('Error fetching public proof registry:', error, JSON.stringify({
+        totalMs: Date.now() - startedAt,
+        ...marks
+      }));
       res.status(500).json({ error: 'Failed to fetch public proof registry.' });
     }
   };
