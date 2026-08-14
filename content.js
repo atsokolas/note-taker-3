@@ -35,6 +35,22 @@
     
     return ''; // Return empty if not found
   }
+  // An expired session was indistinguishable from "this page isn't saved": the
+  // request 401'd, the early return swallowed it, highlighting stayed off, and
+  // the dead token stayed in storage — so every page load repeated the same
+  // rejected request forever with no sign anything was wrong. Clearing the
+  // token once it is known dead makes the popup show the sign-in form instead
+  // of presenting itself as connected.
+  const clearExpiredSession = async (context = '') => {
+    try {
+      await chrome.storage.local.remove(["token", "noeisTourExtensionSignalToken"]);
+      console.warn(`[Noeis] Session expired${context ? ` while ${context}` : ''}. Sign in again from the extension popup.`);
+    } catch (_error) {
+      // Storage can be unavailable while a tab tears down; the next page load
+      // retries.
+    }
+  };
+
   const checkForExistingArticle = async () => {
     try {
         const { token } = await chrome.storage.local.get("token");
@@ -48,6 +64,10 @@
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        if (response.status === 401 || response.status === 403) {
+            await clearExpiredSession('checking whether this page is saved');
+            return;
+        }
         if (!response.ok) return;
         const article = await response.json();
 

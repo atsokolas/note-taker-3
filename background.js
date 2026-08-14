@@ -36,6 +36,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         // --- END MODIFIED FETCH REQUEST ---
 
+        // A save that fails because the session died should say so and drop the
+        // dead token, rather than surfacing a bare "Server Error: 401" and
+        // leaving the extension convinced it is still signed in.
+        if (response.status === 401 || response.status === 403) {
+            await chrome.storage.local.remove(["token", "noeisTourExtensionSignalToken"]);
+            throw new Error("Your Noeis session expired. Open the extension and sign in again.");
+        }
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || `Server Error: ${response.status}`);

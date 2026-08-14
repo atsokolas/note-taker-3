@@ -205,12 +205,29 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
 
+    // A stored token the server no longer accepts is worse than no token at
+    // all: the popup presents a signed-in view whose every action fails. Drop
+    // it and fall back to the sign-in form with an explanation.
+    const handleExpiredSession = async () => {
+        await chrome.storage.local.remove(["token", TOUR_EXTENSION_SIGNAL_TOKEN_KEY]);
+        loggedInView.style.display = 'none';
+        loggedOutView.style.display = 'block';
+        loginView.style.display = 'block';
+        registerView.style.display = 'none';
+        loginStatusMessage.textContent = "Your session expired. Please sign in again.";
+        loginStatusMessage.className = 'status error';
+    };
+
     // Fetches folders from the server using a token.
     const fetchFolders = async (token) => {
         try {
             const response = await fetch(`${BASE_URL}/api/folders`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (response.status === 401 || response.status === 403) {
+                await handleExpiredSession();
+                return;
+            }
             if (!response.ok) {
                  const errorData = await readJsonSafe(response);
                  throw new Error(errorData?.error || `Error ${response.status}`);
