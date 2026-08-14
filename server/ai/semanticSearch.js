@@ -1,57 +1,65 @@
 const { embedText } = require('./embed');
-const { search } = require('./qdrantClient');
-const { COLLECTIONS } = require('./embeddingJobs');
+const { searchVectorItems } = require('./vectorStore');
+const { VectorItem } = require('../models');
 
-const semanticSearch = async ({ query, limit = 12, userId }) => {
+/**
+ * Semantic search over the Atlas vector index.
+ *
+ * Previously this fanned out across four Qdrant collections and merged the
+ * results by score. One collection with an `objectType` filter does the same
+ * job in a single query, and — unlike the fan-out — respects `limit` honestly
+ * rather than taking the top five of each type regardless of relevance.
+ */
+
+const DEFAULT_TYPES = ['highlight', 'article', 'notebook_entry', 'question'];
+
+const toResult = (row = {}) => ({
+  type: row.objectType,
+  objectId: row.objectId,
+  subId: row.subId || '',
+  title: row.metadata?.title || '',
+  snippet: row.metadata?.articleTitle || row.metadata?.title || '',
+  articleId: row.metadata?.articleId || '',
+  score: row.score
+});
+
+const semanticSearch = async ({ query, limit = 12, userId, types = DEFAULT_TYPES, models = {} } = {}) => {
+  if (!userId) return [];
   const vector = await embedText(query);
-  const filter = userId ? {
-    must: [{ key: 'userId', match: { value: String(userId) } }]
-  } : undefined;
-  const collections = [
-    COLLECTIONS.highlights,
-    COLLECTIONS.articles,
-    COLLECTIONS.notebook,
-    COLLECTIONS.questions
-  ];
-  const results = await Promise.all(
-    collections.map(collection => search({ collection, vector, limit: 5, filter }))
-  );
-  const flattened = results.flat().map(item => ({
-    score: item.score,
-    payload: item.payload || {}
-  }));
-  return flattened
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(item => ({
-      type: item.payload.type,
-      objectId: item.payload.objectId,
-      title: item.payload.title || '',
-      snippet: item.payload.articleTitle || item.payload.title || '',
-      articleId: item.payload.articleId,
-      score: item.score
-    }));
+  const rows = await searchVectorItems({
+    VectorItem: models.VectorItem || VectorItem,
+    userId,
+    vector,
+    limit,
+    objectTypes: types
+  });
+  return rows.map(toResult);
 };
 
-const relatedHighlights = async ({ text, excludeId, limit = 5, userId }) => {
+const relatedHighlights = async ({ text, excludeId, limit = 5, userId, models = {} } = {}) => {
+  if (!userId) return [];
   const vector = await embedText(text);
-  const filter = userId ? {
-    must: [{ key: 'userId', match: { value: String(userId) } }]
-  } : undefined;
-  const results = await search({ collection: COLLECTIONS.highlights, vector, limit: limit + 1, filter });
-  return results
-    .filter(item => String(item?.payload?.objectId) !== String(excludeId))
+  const rows = await searchVectorItems({
+    VectorItem: models.VectorItem || VectorItem,
+    userId,
+    vector,
+    limit: limit + 1,
+    objectTypes: ['highlight']
+  });
+  return rows
+    .filter(row => String(row.objectId) !== String(excludeId))
     .slice(0, limit)
-    .map(item => ({
-      objectId: item.payload.objectId,
-      title: item.payload.title || '',
-      articleTitle: item.payload.articleTitle || '',
-      articleId: item.payload.articleId,
-      score: item.score
+    .map(row => ({
+      objectId: row.objectId,
+      title: row.metadata?.title || '',
+      articleTitle: row.metadata?.articleTitle || '',
+      articleId: row.metadata?.articleId || '',
+      score: row.score
     }));
 };
 
 module.exports = {
   semanticSearch,
-  relatedHighlights
+  relatedHighlights,
+  DEFAULT_TYPES
 };

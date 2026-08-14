@@ -373,11 +373,14 @@ const configured = () => true;
   const band = similarityBand({});
   assert.ok(band.min > 0 && band.max < 1 && band.min < band.max);
 
+  // Scores here are in ATLAS space — `(1 + cosine) / 2`. The raw-cosine band of
+  // 0.45–0.90 is 0.725–0.95 once normalized, and using raw numbers here would
+  // make the test pass while production silently returned nothing.
   const searchRows = [
-    { score: 0.99, payload: { type: 'article', objectId: 'dup', userId: 'u1' } },
-    { score: 0.75, payload: { type: 'article', objectId: 'good', userId: 'u1' } },
-    { score: 0.20, payload: { type: 'article', objectId: 'unrelated', userId: 'u1' } },
-    { score: 0.78, payload: { type: 'article', objectId: 'self', userId: 'u1' } }
+    { score: 0.99, objectType: 'article', objectId: 'dup', metadata: {} },
+    { score: 0.86, objectType: 'article', objectId: 'good', metadata: {} },
+    { score: 0.55, objectType: 'article', objectId: 'unrelated', metadata: {} },
+    { score: 0.88, objectType: 'article', objectId: 'self', metadata: {} }
   ];
   const matches = await findDormantMatches({
     userId: 'u1',
@@ -401,7 +404,7 @@ const configured = () => true;
     env: {},
     deps: {
       embedText: async () => [0.1, 0.2, 0.3],
-      search: async ({ collection }) => (collection === 'articles' ? searchRows : [])
+      searchVectorItems: async () => searchRows
     }
   });
   const matchedIds = matches.map(match => match.id);
@@ -415,7 +418,7 @@ const configured = () => true;
     models: {},
     recentItem: { type: 'article', id: 'x', text: longText },
     now: NOW,
-    deps: { embedText: async () => { throw new Error('embeddings down'); }, search: async () => [] }
+    deps: { embedText: async () => { throw new Error('embeddings down'); }, searchVectorItems: async () => [] }
   });
   assert.deepStrictEqual(embedFailure, [], 'an embedding outage degrades to no candidates');
 
@@ -442,9 +445,7 @@ const configured = () => true;
   };
   const connectionDeps = {
     embedText: async () => [0.1, 0.2],
-    search: async ({ collection }) => (collection === 'articles'
-      ? [{ score: 0.62, payload: { type: 'article', objectId: 'd1', userId: 'u1' } }]
-      : []),
+    searchVectorItems: async () => [{ score: 0.80, objectType: 'article', objectId: 'd1', metadata: {} }],
     isTextGenerationConfigured: configured,
     chatComplete: stubChat({
       relation: 'fills_gap',
