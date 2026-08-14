@@ -1,8 +1,5 @@
 import { fetchOnboardingState, markOnboardingCompleteOnServer } from '../api/onboarding';
-import {
-  WIKI_ONBOARDING_COMPLETE_KEY,
-  isWikiOnboardingComplete
-} from './onboardingState';
+import { isWikiOnboardingComplete, onboardingCompleteKey } from './onboardingState';
 
 /**
  * Reconcile the local completion flag with the server record.
@@ -19,7 +16,7 @@ const syncWikiOnboardingState = async () => {
     const remote = await fetchOnboardingState();
     if (remote?.complete) {
       try {
-        window.localStorage?.setItem(WIKI_ONBOARDING_COMPLETE_KEY, 'true');
+        window.localStorage?.setItem(onboardingCompleteKey(), 'true');
       } catch (_error) {
         // The server already decided this; the local copy is only an optimization.
       }
