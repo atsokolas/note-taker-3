@@ -177,6 +177,19 @@ const buildSemanticSearchRouter = ({
         }
       }));
       const results = await hydrateSemanticResults({ matches, userId: req.user.id });
+      // This route returns an empty set in production while the same call
+      // against the same account returns five scored rows from a shell. Every
+      // layer has been proven in isolation, so record which one drops the
+      // result rather than reason about it from outside: the account being
+      // searched, whether retrieval saw anything, and whether hydration kept
+      // it. Silent empty is the failure mode this system keeps repeating.
+      console.log('[SEMANTIC-SEARCH]', JSON.stringify({
+        userId: String(req.user.id),
+        query: q.slice(0, 60),
+        types: Array.isArray(types) && types.length ? types : 'default',
+        rows: Array.isArray(rows) ? rows.length : -1,
+        hydrated: Array.isArray(results) ? results.length : -1
+      }));
       await markTourSignal(req.user.id, 'semanticSearchUsed', 'semantic_search_used');
       res.status(200).json({ results });
     } catch (error) {
