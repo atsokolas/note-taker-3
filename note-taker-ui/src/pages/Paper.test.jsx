@@ -95,8 +95,10 @@ test('the lead names both ends, dates them, and quotes them', async () => {
   expect(screen.getByText(/said grading rubrics decay but could not say why/)).toBeInTheDocument();
   expect(screen.getAllByText(/^This week/).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/^From your library/).length).toBeGreaterThan(0);
-  // Both ends carry a date — an undated pairing is not a discovery.
-  expect(screen.getByText(/2d ago|Aug 11/)).toBeInTheDocument();
+  // Both ends carry a date — an undated pairing is not a discovery. Asserted
+  // structurally rather than on the rendered string, which is relative to now
+  // and would rot the day after it was written.
+  expect(document.querySelectorAll('.paper__end-date').length).toBeGreaterThanOrEqual(2);
 });
 
 test('the lead renders without any user action, and the four sections do not', async () => {

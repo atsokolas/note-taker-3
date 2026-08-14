@@ -5387,6 +5387,8 @@ app.use(buildLibraryRelevanceRouter({
   NoeisReceipt,
   Connection,
   ReferenceEdge
+}));
+
 app.use(buildReadingLoopRouter({
   authenticateToken: authenticateUserOrAgentToken,
   User,

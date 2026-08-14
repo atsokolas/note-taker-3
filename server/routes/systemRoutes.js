@@ -841,7 +841,7 @@ const buildSystemRouter = ({
     }
   });
 
-  router.get('/health', (req, res) => {
+  router.get('/health', async (req, res) => {
     console.log("Health check ping received.");
     if (!isDatabaseReady()) {
       return res.status(503).json({
@@ -849,7 +849,25 @@ const buildSystemRouter = ({
         message: 'Database connection is not ready.'
       });
     }
-    res.status(200).json({ status: "ok", message: "Server is warm." });
+    // The vector index reports itself here deliberately. Two semantic stores
+    // died silently in production — one writing to a Qdrant that was never
+    // provisioned, one to a JSON file under /tmp that Render wipes — and
+    // neither was noticed for months because nothing ever said how many items
+    // were indexed. An empty index must be visible from a curl.
+    let vectorIndex = null;
+    try {
+      // eslint-disable-next-line global-require
+      const { vectorIndexHealth } = require('../ai/vectorStore');
+      // eslint-disable-next-line global-require
+      const { VectorItem } = require('../models');
+      vectorIndex = await vectorIndexHealth({ VectorItem });
+      if (vectorIndex.status === 'ready' && vectorIndex.itemCount === 0) {
+        vectorIndex.warning = 'index is READY but empty — run scripts/backfill_embeddings.js';
+      }
+    } catch (error) {
+      vectorIndex = { status: 'error', error: String(error.message || error).slice(0, 200) };
+    }
+    res.status(200).json({ status: "ok", message: "Server is warm.", vectorIndex });
   });
 
   router.get('/', (req, res) => res.send('✅ Note Taker backend is running!'));
