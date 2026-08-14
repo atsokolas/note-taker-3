@@ -1589,6 +1589,11 @@ const proposalsAreStale = (proposals = [], maxAgeMs = 24 * 60 * 60 * 1000) => {
   return Date.now() - latest > maxAgeMs;
 };
 
+// How long a detached build may run before it is recorded as failed. Comfortably
+// past a normal build (10-20s observed) and well inside the client's patience, so
+// the page tells the truth before the user gives up on it.
+const DEFAULT_ASYNC_BUILD_TIMEOUT_MS = 4 * 60 * 1000;
+
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
@@ -1615,6 +1620,7 @@ const buildWikiRouter = ({
   updateNotionPageTitle = null,
   decryptSecret = null,
   maintainWikiPage = defaultMaintainWikiPage,
+  asyncBuildTimeoutMs = DEFAULT_ASYNC_BUILD_TIMEOUT_MS,
   evaluateWikiArticleQuality = defaultEvaluateWikiArticleQuality,
   prepareOrdinaryWikiBuild = defaultPrepareOrdinaryWikiBuild,
   lintWiki = defaultLintWiki,
@@ -6267,9 +6273,34 @@ const buildWikiRouter = ({
       const wikiSchemaContent = await loadWikiSchemaContent(userId);
 
       setImmediate(async () => {
+        // A build that hangs must still end. The failure path below only fires when
+        // the work *rejects*; when an upstream model call stalls instead, the page
+        // stayed 'maintaining' forever and the client sat on a spinner until its own
+        // ten-minute give-up. Observed on production: three builds stuck past five
+        // minutes with nothing recorded. Whichever finishes first — the build or this
+        // timer — writes the outcome, and the guard on draftStatus means a late
+        // finisher cannot be overwritten by a timeout that already fired, or the
+        // reverse.
+        const stallTimer = setTimeout(() => {
+          WikiPage.updateOne(
+            { _id: pageId, userId, 'aiState.draftStatus': 'maintaining' },
+            {
+              $set: {
+                'aiState.draftStatus': 'error',
+                'aiState.draftCompletedAt': new Date(),
+                'aiState.lastError': 'the build did not finish in time. Nothing was lost — your page is unchanged, and you can try again.',
+                'aiState.errorCode': 'WIKI_ASYNC_BUILD_TIMED_OUT'
+              }
+            }
+          ).catch(timeoutError => console.error('Failed to record async build timeout:', timeoutError));
+        }, asyncBuildTimeoutMs);
+
         try {
           const livePage = await WikiPage.findOne({ _id: pageId, userId });
-          if (!livePage) return;
+          if (!livePage) {
+            clearTimeout(stallTimer);
+            return;
+          }
           const before = snapshotPage(livePage);
           const publication = await runWikiMaintenanceCandidate({
             page: livePage,
@@ -6302,6 +6333,7 @@ const buildWikiRouter = ({
               errorCode: priorAiState.errorCode || 'WIKI_CANDIDATE_REJECTED'
             };
             await savePageWithVersionRetry(built, userId);
+            clearTimeout(stallTimer);
             return;
           }
 
@@ -6332,7 +6364,9 @@ const buildWikiRouter = ({
             sourceCount: Array.isArray(built.sourceRefs) ? built.sourceRefs.length : 0,
             claimCount: Array.isArray(built.claims) ? built.claims.length : 0
           });
+          clearTimeout(stallTimer);
         } catch (error) {
+          clearTimeout(stallTimer);
           console.error('Error building wiki page asynchronously:', error);
           // The client is polling; a build that dies silently would spin forever.
           try {
