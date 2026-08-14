@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { WALKTHROUGH_STOPS } from './walkthroughConfig';
 import {
   WALKTHROUGH_EVENT,
@@ -21,6 +21,7 @@ import { wikiPagePath } from '../utils/wikiFeatureFlags';
  */
 const OnboardingWalkthrough = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [state, setState] = useState(() => readWalkthrough());
   const [build, setBuild] = useState(() => readActiveBuild());
 
@@ -44,10 +45,18 @@ const OnboardingWalkthrough = () => {
 
   // Drive the route from the current stop, so the panel always sits over the thing
   // it is talking about.
+  //
+  // Only when we are not already there. This effect can re-run while the app is
+  // mid-redirect, and re-issuing the same navigation then fights the redirect: on
+  // production it held a finished user at a blank '/' that should have resolved to
+  // the wiki. Stops should point at real surfaces, and this makes a stop that does
+  // not still settle.
   useEffect(() => {
     if (!stop?.route) return;
+    const [routePath] = stop.route.split('?');
+    if (location.pathname === routePath) return;
     navigate(stop.route);
-  }, [navigate, stop?.route]);
+  }, [location.pathname, navigate, stop?.route]);
 
   const finish = useCallback(({ openPage }) => {
     endWalkthrough();
