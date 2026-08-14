@@ -5,12 +5,21 @@ const {
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
+// This is the exact-subject-phrase gate: a build is refused unless some Library
+// source carries the subject as a phrase. It dropped words of two characters or
+// fewer and then required the survivors to be adjacent, which made the phrase
+// unsatisfiable by its own source text — "Circle of Competence" compiled to
+// /circle\s+competence/ and could never match "circle of competence". Every
+// subject containing a short connector was unbuildable, and the refusal blamed
+// the Library for lacking a source it actually had.
+//
+// Keep every word. An exact-phrase test should test the exact phrase.
 const topicPhrasePattern = (value = '') => {
   const words = clean(value)
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, ' ')
     .split(/\s+/)
-    .filter(word => word.length > 2);
+    .filter(Boolean);
   if (!words.length) return null;
   return new RegExp(words.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?:\\s+|[-–—]\\s*)'), 'i');
 };

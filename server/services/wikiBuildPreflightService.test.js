@@ -82,6 +82,50 @@ const run = async () => {
   assert.equal(lexicalFalsePositive.eligible, false);
   assert.equal(lexicalFalsePositive.code, 'WIKI_BUILD_EVIDENCE_MISSING');
 
+  // A subject containing a short connector used to be unbuildable: the phrase
+  // gate dropped words of two characters or fewer and then required the
+  // survivors to be adjacent, so "Circle of Competence" searched for
+  // /circle\\s+competence/ and could never match "circle of competence". The
+  // refusal blamed the Library for a source it actually had.
+  const connectorSubject = await prepareOrdinaryWikiBuild({
+    userId: 'user-1',
+    title: 'Circle of Competence',
+    models: {
+      Article: findModel([{
+        _id: '507f1f77bcf86cd79943910',
+        title: 'Circle of Competence',
+        content: `The circle of competence is the set of businesses an investor can actually assess. ${'Staying inside the circle of competence is what makes a judgment defensible rather than lucky. '.repeat(20)}`,
+        highlights: [],
+        tags: ['circle of competence']
+      }]),
+      NotebookEntry: findModel([]),
+      TagMeta: findModel([]),
+      Question: findModel([])
+    }
+  });
+  assert.equal(connectorSubject.eligible, true, JSON.stringify(connectorSubject.message || ''));
+  assert.equal(connectorSubject.code, 'WIKI_BUILD_EVIDENCE_READY');
+
+  // The gate still refuses a subject the corpus does not carry.
+  const absentSubject = await prepareOrdinaryWikiBuild({
+    userId: 'user-1',
+    title: 'Circle of Competence',
+    models: {
+      Article: findModel([{
+        _id: '507f1f77bcf86cd79943911',
+        title: 'Unrelated reading',
+        content: 'This article discusses container orchestration and has nothing to do with the subject.',
+        highlights: [],
+        tags: []
+      }]),
+      NotebookEntry: findModel([]),
+      TagMeta: findModel([]),
+      Question: findModel([])
+    }
+  });
+  assert.equal(absentSubject.eligible, false);
+  assert.equal(absentSubject.code, 'WIKI_BUILD_EVIDENCE_MISSING');
+
   console.log('wikiBuildPreflightService tests passed');
 };
 
