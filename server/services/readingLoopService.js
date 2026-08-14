@@ -602,10 +602,36 @@ const applyRelationGates = ({ parsed, recent, dormant, allowedRelations = RELATI
   return { relation, relationLabel: RELATION_LABELS[relation], recentQuote, dormantQuote, lines };
 };
 
-const runRelationPass = async ({ recent, dormant, allowedRelations = RELATIONS, deps = {} } = {}) => {
+/**
+ * A tally of why pairs did not become cards.
+ *
+ * "Nothing worth connecting this week" and "the model never answered" produce
+ * an identical empty page, and for a while they did here: every failure path
+ * returned null and the surface reported calm silence either way. That is the
+ * same defect that let two vector stores die unnoticed — an empty result and a
+ * broken backend must never be indistinguishable.
+ *
+ * Callers pass one of these into the relation pass and read it afterwards to
+ * decide whether the emptiness is honest or a fault worth reporting.
+ */
+const newRelationDiagnostics = () => ({
+  attempted: 0,
+  declined: 0,
+  gated: 0,
+  upstreamErrors: 0,
+  unconfigured: false,
+  lastError: ''
+});
+
+const runRelationPass = async ({ recent, dormant, allowedRelations = RELATIONS, deps = {}, diagnostics = null } = {}) => {
+  const diag = diagnostics || newRelationDiagnostics();
   const chat = deps.chatComplete || chatComplete;
   const configured = deps.isTextGenerationConfigured || isTextGenerationConfigured;
-  if (!configured()) return null;
+  if (!configured()) {
+    diag.unconfigured = true;
+    return null;
+  }
+  diag.attempted += 1;
 
   let completion = null;
   try {
@@ -629,14 +655,58 @@ const runRelationPass = async ({ recent, dormant, allowedRelations = RELATIONS, 
         { role: 'user', content: buildRelationPrompt({ recent, dormant, allowedRelations }) }
       ]
     });
-  } catch (_error) {
+  } catch (error) {
+    // The upstream refused or timed out. This is a fault, not an answer.
+    diag.upstreamErrors += 1;
+    diag.lastError = String(error?.message || error).slice(0, 200);
     return null;
   }
 
   const raw = typeof completion === 'string' ? completion : completion?.text || '';
-  const gated = applyRelationGates({ parsed: safeJsonParse(raw), recent, dormant, allowedRelations });
-  if (!gated) return null;
+  const parsed = safeJsonParse(raw);
+  const gated = applyRelationGates({ parsed, recent, dormant, allowedRelations });
+  if (!gated) {
+    // The model declining ("relation": null) is a real answer and the design
+    // expects it. Failing a gate — an unverifiable quote, symmetric phrasing —
+    // is the model answering badly. Worth telling apart.
+    if (parsed && parsed.relation === null) diag.declined += 1;
+    else diag.gated += 1;
+    return null;
+  }
   return { ...gated, model: (typeof completion === 'object' && completion?.model) || 'hf' };
+};
+
+/**
+ * Turn the tally into an outcome. A run that never reached the model, or whose
+ * every attempt failed upstream, is `error` — the reader is told the results
+ * are unknown rather than zero. A run where the model answered and simply found
+ * nothing is `empty`, and says how much it looked at.
+ */
+const outcomeFromDiagnostics = (diag, emptyReason) => {
+  if (diag.unconfigured) {
+    return {
+      status: 'error',
+      reason: 'The model that reads your pairs is not configured, so nothing could be checked. This is not "nothing to connect" — it is unknown.'
+    };
+  }
+  if (diag.attempted > 0 && diag.upstreamErrors === diag.attempted) {
+    return {
+      status: 'error',
+      reason: `The model did not answer${diag.attempted > 1 ? ` on any of ${diag.attempted} attempts` : ''}. This is not "nothing to connect" — it is unknown.${diag.lastError ? ` (${diag.lastError})` : ''}`
+    };
+  }
+  if (diag.attempted > 0) {
+    const parts = [];
+    if (diag.declined) parts.push(`${diag.declined} found no real relation`);
+    if (diag.gated) parts.push(`${diag.gated} did not survive the quality gates`);
+    if (diag.upstreamErrors) parts.push(`${diag.upstreamErrors} went unanswered`);
+    const detail = parts.length ? ` — ${parts.join(', ')}` : '';
+    return {
+      status: 'empty',
+      reason: `${emptyReason} Examined ${diag.attempted} pair${diag.attempted === 1 ? '' : 's'}${detail}.`
+    };
+  }
+  return { status: 'empty', reason: emptyReason };
 };
 
 const cardFromRelation = ({ kind, recent, dormant, relation, now = new Date() }) => ({
@@ -723,6 +793,7 @@ const generateConnection = async ({ userId, models = {}, now = new Date(), env =
     return { status: 'empty', reason: 'Nothing read this week.' };
   }
 
+  const diag = newRelationDiagnostics();
   let passes = 0;
   for (const recent of recentSet) {
     if (passes >= MAX_RELATION_PASSES) break;
@@ -732,7 +803,7 @@ const generateConnection = async ({ userId, models = {}, now = new Date(), env =
       const key = pairKey(recent, dormant);
       if (edition && isRecentlyShown(edition, key, now)) continue;
       passes += 1;
-      const relation = await runRelationPass({ recent, dormant, deps });
+      const relation = await runRelationPass({ recent, dormant, deps, diagnostics: diag });
       if (relation) {
         return {
           status: 'ready',
@@ -743,7 +814,7 @@ const generateConnection = async ({ userId, models = {}, now = new Date(), env =
     }
   }
 
-  return { status: 'empty', reason: 'Nothing worth connecting this week.' };
+  return outcomeFromDiagnostics(diag, 'Nothing worth connecting this week.');
 };
 
 /**
@@ -845,6 +916,7 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
   if (!claims.length) return { status: 'empty', reason: 'No claims with two or more sources to challenge yet.' };
 
   const embed = deps.embedText || embedText;
+  const diag = newRelationDiagnostics();
   let passes = 0;
   for (const recent of recentSet) {
     if (passes >= MAX_RELATION_PASSES) break;
@@ -871,7 +943,8 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
         recent,
         dormant: claim,
         allowedRelations: ['contradicts', 'supersedes'],
-        deps
+        deps,
+        diagnostics: diag
       });
       if (relation) {
         const card = cardFromRelation({ kind: 'collision', recent, dormant: claim, relation, now });
@@ -888,7 +961,7 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
     }
   }
 
-  return { status: 'empty', reason: 'Nothing this week challenges a claim you hold.' };
+  return outcomeFromDiagnostics(diag, 'Nothing this week challenges a claim you hold.');
 };
 
 /**
@@ -922,6 +995,7 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
   if (!recentSet.length) return { status: 'empty', reason: 'Nothing read this week.' };
   if (!questions.length) return { status: 'empty', reason: 'No open questions older than four months.' };
 
+  const diag = newRelationDiagnostics();
   let passes = 0;
   for (const question of questions) {
     if (passes >= MAX_RELATION_PASSES) break;
@@ -936,7 +1010,8 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
         recent,
         dormant: question,
         allowedRelations: ['fills_gap', 'generalizes', 'contradicts'],
-        deps
+        deps,
+        diagnostics: diag
       });
       if (relation) {
         const card = cardFromRelation({ kind: 'resolution', recent, dormant: question, relation, now });
@@ -946,7 +1021,7 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
     }
   }
 
-  return { status: 'empty', reason: 'Nothing this week bears on an old question.' };
+  return outcomeFromDiagnostics(diag, 'Nothing this week bears on an old question.');
 };
 
 /**
@@ -978,10 +1053,11 @@ const generateConvergence = async ({ userId, models = {}, now = new Date(), env 
     .filter(row => row.recents.length >= CONVERGENCE_MIN_ITEMS)
     .sort((a, b) => b.recents.length - a.recents.length);
 
+  const diag = newRelationDiagnostics();
   for (const cluster of clusters) {
     const key = `convergence:${cluster.dormant.type}:${cluster.dormant.id}`;
     if (edition && isRecentlyShown(edition, key, now)) continue;
-    const relation = await runRelationPass({ recent: cluster.recents[0], dormant: cluster.dormant, deps });
+    const relation = await runRelationPass({ recent: cluster.recents[0], dormant: cluster.dormant, deps, diagnostics: diag });
     if (!relation) continue;
     const card = cardFromRelation({ kind: 'convergence', recent: cluster.recents[0], dormant: cluster.dormant, relation, now });
     card.pairKey = key;
@@ -995,7 +1071,7 @@ const generateConvergence = async ({ userId, models = {}, now = new Date(), env 
     return { status: 'ready', model: relation.model, card };
   }
 
-  return { status: 'empty', reason: 'Nothing converged this week.' };
+  return outcomeFromDiagnostics(diag, 'Nothing converged this week.');
 };
 
 /**
@@ -1017,7 +1093,12 @@ const buildThreadPrompt = (items = []) => [
 const generateThread = async ({ userId, models = {}, now = new Date(), env = process.env, deps = {}, edition = null } = {}) => {
   const chat = deps.chatComplete || chatComplete;
   const configured = deps.isTextGenerationConfigured || isTextGenerationConfigured;
-  if (!configured()) return { status: 'empty', reason: 'Text generation is not configured.' };
+  if (!configured()) {
+    return {
+      status: 'error',
+      reason: 'The model that names threads is not configured, so nothing could be checked. This is not "no thread" — it is unknown.'
+    };
+  }
 
   const recentSet = await collectRecentSet({ userId, models, now, windowMs: THREAD_WINDOW_MS, limit: RECENT_SET_LIMIT });
   if (recentSet.length < THREAD_MIN_ITEMS) {
@@ -1056,11 +1137,13 @@ const generateThread = async ({ userId, models = {}, now = new Date(), env = pro
     : [];
   const pageTitles = new Set((pages || []).map(page => normalizeForQuoteMatch(page.title || '')));
 
+  const diag = newRelationDiagnostics();
   for (const members of clusters) {
     const threadKey = `thread:${members.map(item => `${item.type}:${item.id}`).sort().join(',')}`;
     if (edition && (isRecentlyShown(edition, threadKey, now) || isSuppressed(edition, 'thread', threadKey, now))) continue;
 
     let completion = null;
+    diag.attempted += 1;
     try {
       completion = await chat({
         route: 'artifact_draft',
@@ -1073,13 +1156,15 @@ const generateThread = async ({ userId, models = {}, now = new Date(), env = pro
           { role: 'user', content: buildThreadPrompt(members) }
         ]
       });
-    } catch (_error) {
+    } catch (error) {
+      diag.upstreamErrors += 1;
+      diag.lastError = String(error?.message || error).slice(0, 200);
       continue;
     }
     const parsed = safeJsonParse(typeof completion === 'string' ? completion : completion?.text || '');
     const name = clean(parsed?.name, 60);
     const line = clean(parsed?.line, 240);
-    if (!name || !line) continue;
+    if (!name || !line) { diag.declined += 1; continue; }
     // A thread the wiki already covers is not unnamed.
     if (pageTitles.has(normalizeForQuoteMatch(name))) continue;
 
@@ -1103,7 +1188,7 @@ const generateThread = async ({ userId, models = {}, now = new Date(), env = pro
     };
   }
 
-  return { status: 'empty', reason: 'No unnamed thread right now.' };
+  return outcomeFromDiagnostics(diag, 'No unnamed thread right now.');
 };
 
 const GENERATORS = {
@@ -1248,6 +1333,8 @@ module.exports = {
   RELATION_LABELS,
   __testables: {
     applyRelationGates,
+    newRelationDiagnostics,
+    outcomeFromDiagnostics,
     assessCorpusAge,
     buildRelationPrompt,
     buildThreadPrompt,

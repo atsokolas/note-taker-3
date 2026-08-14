@@ -253,6 +253,65 @@ test('a thread names every source behind its count and can be rejected', async (
   expect(await screen.findByText('Dismissed. Not resurfacing for 60 days.')).toBeInTheDocument();
 });
 
+// "Nothing to connect" and "the model never answered" produced an identical
+// calm page. The reader has to be able to tell a quiet week from a fault.
+test('a broken model reads as a fault, not as a quiet week', async () => {
+  getReadingLoop.mockResolvedValue({
+    edition: baseEdition({
+      connection: {
+        ...idleMechanic('connection'),
+        status: 'error',
+        reason: 'The model did not answer on any of 6 attempts. This is not "nothing to connect" — it is unknown.',
+        generatedAt: '2026-08-14T12:00:00.000Z'
+      }
+    }),
+    connectionRefreshing: false
+  });
+  renderPaper();
+
+  expect(await screen.findByRole('heading', { name: /could not be read today/i })).toBeInTheDocument();
+  expect(screen.getByText(/did not answer on any of 6 attempts/)).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Nothing worth connecting this week.' })).not.toBeInTheDocument();
+  expect(document.querySelector('.paper__degraded')).toBeTruthy();
+});
+
+test('an honest empty week says how much it looked at, and is not styled as a fault', async () => {
+  getReadingLoop.mockResolvedValue({
+    edition: baseEdition({
+      connection: {
+        ...idleMechanic('connection'),
+        status: 'empty',
+        reason: 'Nothing worth connecting this week. Examined 6 pairs — 4 found no real relation, 2 did not survive the quality gates.',
+        generatedAt: '2026-08-14T12:00:00.000Z'
+      }
+    }),
+    connectionRefreshing: false
+  });
+  renderPaper();
+
+  expect(await screen.findByText(/Examined 6 pairs/)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Nothing worth connecting this week.' })).toBeInTheDocument();
+  expect(document.querySelector('.paper__degraded')).toBeNull();
+});
+
+test('a section that failed shows its reason rather than the invitation', async () => {
+  getReadingLoop.mockResolvedValue({
+    edition: baseEdition({
+      collision: {
+        ...idleMechanic('collision'),
+        status: 'error',
+        reason: 'The model that reads your pairs is not configured, so nothing could be checked.',
+        generatedAt: '2026-08-14T12:00:00.000Z'
+      }
+    }),
+    connectionRefreshing: false
+  });
+  renderPaper();
+
+  expect(await screen.findByText(/is not configured, so nothing could be checked/)).toBeInTheDocument();
+  expect(screen.queryByText('Check this week’s reading against the claims you hold.')).not.toBeInTheDocument();
+});
+
 test('hitting the daily cap is reported honestly rather than as a failure', async () => {
   getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
   const capError = new Error('cap');

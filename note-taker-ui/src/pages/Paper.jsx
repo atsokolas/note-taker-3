@@ -323,9 +323,13 @@ const Paper = () => {
         ) : (
           <>
             <h1 id="paper-lead-title" className="paper__lead-title">
-              {refreshingLead ? 'Reading your library…' : 'Nothing worth connecting this week.'}
+              {refreshingLead
+                ? 'Reading your library…'
+                : connection?.status === 'error'
+                  ? 'The paper could not be read today.'
+                  : 'Nothing worth connecting this week.'}
             </h1>
-            <p className="paper__relation-line">
+            <p className={`paper__relation-line${connection?.status === 'error' ? ' paper__degraded' : ''}`}>
               {refreshingLead
                 ? 'The agent is pairing this week’s reading against your older library. This takes a moment.'
                 : connection?.reason || 'Nothing in this week’s reading meets anything older closely enough to be worth your attention.'}
@@ -374,8 +378,8 @@ const Paper = () => {
                 </RelationCard>
               )
             ) : (
-              <p className="paper__section-empty">
-                {mechanic?.status === 'empty' ? mechanic.reason : invitation}
+              <p className={`paper__section-empty${mechanic?.status === 'error' ? ' paper__degraded' : ''}`}>
+                {mechanic?.status === 'empty' || mechanic?.status === 'error' ? mechanic.reason : invitation}
               </p>
             )}
 
