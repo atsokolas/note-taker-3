@@ -17,14 +17,26 @@ import { startWalkthrough } from '../onboarding/walkthroughState';
 const FAST_BUILD_OPTIONS = {
   maintenanceProfile: 'fast',
   sourceLimit: 8,
-  sourceTextLimit: 800,
+  // Show the writer everything the evidence gate will judge it against.
+  //
+  // This was 800 while the gate anchors claims against up to 1800 characters per
+  // source (MAX_SOURCE_TEXT) and an ordinary build shows 1300. A first page was
+  // therefore written from a fraction of its source and then marked down for
+  // sentences that had no anchor in text the model was never shown — the model
+  // filled the gap from its own knowledge, which is exactly what the gate exists
+  // to catch. Observed on production: a 45,636-character Wikipedia article
+  // rendered down to 800 characters, and the resulting page rejected.
+  sourceTextLimit: 1800,
   inlineAutolinkLimit: 150,
-  skipQualityRebuild: true,
+  // The quality rebuild is what repairs a first draft that misses the bar. It was
+  // skipped because the user was staring at a spinner; they are not any more —
+  // the build runs detached — so the seconds it costs buy a page instead of an
+  // apology.
+  skipQualityRebuild: false,
   // Render [hf-timing] logs (2026-06-21): the streamed draft took ~31s
   // (totalMs=30796) while the SAME groq+gpt-oss-120b call in blocking mode
   // finished in 2-5s. The HF router trickles tokens for this model, so
-  // streaming costs ~26s for zero functional gain — the elapsed ticker and
-  // narration already carry perceived progress. Use the fast blocking call.
+  // streaming costs ~26s for zero functional gain.
   streamDraft: false,
   deferInboundAutolinks: true
 };
