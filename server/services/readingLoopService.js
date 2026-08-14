@@ -384,8 +384,10 @@ const findDormantMatches = async ({
   now = new Date(),
   env = process.env,
   limit = CANDIDATES_PER_RECENT,
-  deps = {}
+  deps = {},
+  diagnostics = null
 } = {}) => {
+  const diag = diagnostics || newRelationDiagnostics();
   const embed = deps.embedText || embedText;
   const vectorSearch = deps.searchVectorItems || searchVectorItems;
   const band = atlasSimilarityBand(env);
@@ -395,12 +397,19 @@ const findDormantMatches = async ({
   let vector = null;
   try {
     vector = await embed(probe);
-  } catch (_error) {
+  } catch (error) {
+    diag.embedErrors += 1;
+    diag.retrievalError = String(error?.message || error).slice(0, 200);
     return [];
   }
-  if (!Array.isArray(vector) || !vector.length) return [];
+  if (!Array.isArray(vector) || !vector.length) {
+    diag.embedErrors += 1;
+    diag.retrievalError = 'The embedding service returned no vector.';
+    return [];
+  }
 
   let hits = [];
+  diag.retrievalCalls += 1;
   try {
     hits = await vectorSearch({
       VectorItem: models.VectorItem,
@@ -409,9 +418,12 @@ const findDormantMatches = async ({
       limit: limit * 3,
       objectTypes: ['article', 'highlight', 'notebook_entry']
     });
-  } catch (_error) {
+  } catch (error) {
+    diag.retrievalErrors += 1;
+    diag.retrievalError = String(error?.message || error).slice(0, 200);
     return [];
   }
+  diag.rawHits += (hits || []).length;
 
   const seen = new Set();
   const scored = (hits || [])
@@ -433,6 +445,7 @@ const findDormantMatches = async ({
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit * 2);
+  diag.inBandHits += scored.length;
 
   const hydrated = [];
   const resolved = new Set([`article:${recentItem.id}`]);
@@ -452,6 +465,7 @@ const findDormantMatches = async ({
     resolved.add(resolvedKey);
     hydrated.push({ ...candidate, score: row.score });
   }
+  diag.hydrated += hydrated.length;
   return hydrated;
 };
 
@@ -620,7 +634,20 @@ const newRelationDiagnostics = () => ({
   gated: 0,
   upstreamErrors: 0,
   unconfigured: false,
-  lastError: ''
+  lastError: '',
+  // Retrieval, tallied separately. The relation diagnostics answered "did the
+  // model fail?" and the answer in production was "the model was never asked" —
+  // which was true and useless, because the interesting failure was one layer
+  // below. A vector query returning zero rows and a vector query erroring and a
+  // vector query returning rows that all fall outside the band are three
+  // different problems that produced one sentence.
+  retrievalCalls: 0,
+  retrievalErrors: 0,
+  embedErrors: 0,
+  rawHits: 0,
+  inBandHits: 0,
+  hydrated: 0,
+  retrievalError: ''
 });
 
 const runRelationPass = async ({ recent, dormant, allowedRelations = RELATIONS, deps = {}, diagnostics = null } = {}) => {
@@ -683,6 +710,38 @@ const runRelationPass = async ({ recent, dormant, allowedRelations = RELATIONS, 
  * nothing is `empty`, and says how much it looked at.
  */
 const outcomeFromDiagnostics = (diag, emptyReason) => {
+  // Retrieval first: if nothing was found to compare, the model's silence says
+  // nothing about the corpus. These are reported before the model outcomes
+  // because "the model was never asked" is true but useless on its own.
+  if (diag.retrievalCalls > 0 && diag.retrievalErrors === diag.retrievalCalls) {
+    return {
+      status: 'error',
+      reason: `The search over your library failed${diag.retrievalCalls > 1 ? ` on all ${diag.retrievalCalls} attempts` : ''}. This is not "nothing to connect" — it is unknown.${diag.retrievalError ? ` (${diag.retrievalError})` : ''}`
+    };
+  }
+  if (diag.embedErrors > 0 && diag.retrievalCalls === 0) {
+    return {
+      status: 'error',
+      reason: `Your reading could not be turned into a query, so nothing could be searched. This is not "nothing to connect" — it is unknown.${diag.retrievalError ? ` (${diag.retrievalError})` : ''}`
+    };
+  }
+  // Searched successfully and the index gave back nothing at all. On a
+  // populated index that is a fault, not an answer — and it is exactly what
+  // production did while a laptop returned four good hits from the same data.
+  if (diag.retrievalCalls > 0 && diag.rawHits === 0 && diag.attempted === 0) {
+    return {
+      status: 'error',
+      reason: `The semantic index returned nothing for ${diag.retrievalCalls} quer${diag.retrievalCalls === 1 ? 'y' : 'ies'} over your library. If the index has content, this is a fault rather than a quiet week — check /health for its item count.`
+    };
+  }
+  // Hits came back, but every one fell outside the similarity band. That is a
+  // tuning answer, not a fault, and it should say so rather than hide.
+  if (diag.rawHits > 0 && diag.inBandHits === 0 && diag.attempted === 0) {
+    return {
+      status: 'empty',
+      reason: `${emptyReason} ${diag.rawHits} nearby item${diag.rawHits === 1 ? '' : 's'} were found, but none close enough to be worth pairing.`
+    };
+  }
   if (diag.unconfigured) {
     return {
       status: 'error',
@@ -797,7 +856,7 @@ const generateConnection = async ({ userId, models = {}, now = new Date(), env =
   let passes = 0;
   for (const recent of recentSet) {
     if (passes >= MAX_RELATION_PASSES) break;
-    const candidates = await findDormantMatches({ userId, models, recentItem: recent, now, env, deps });
+    const candidates = await findDormantMatches({ userId, models, recentItem: recent, now, env, deps, diagnostics: diag });
     for (const dormant of candidates) {
       if (passes >= MAX_RELATION_PASSES) break;
       const key = pairKey(recent, dormant);
@@ -1039,9 +1098,10 @@ const generateConvergence = async ({ userId, models = {}, now = new Date(), env 
     return { status: 'empty', reason: 'Too little read recently to converge on anything.' };
   }
 
+  const diag = newRelationDiagnostics();
   const byDormant = new Map();
   for (const recent of recentSet) {
-    const candidates = await findDormantMatches({ userId, models, recentItem: recent, now, env, deps, limit: 4 });
+    const candidates = await findDormantMatches({ userId, models, recentItem: recent, now, env, deps, limit: 4, diagnostics: diag });
     candidates.forEach(dormant => {
       const key = `${dormant.type}:${dormant.id}`;
       if (!byDormant.has(key)) byDormant.set(key, { dormant, recents: [] });
@@ -1053,7 +1113,6 @@ const generateConvergence = async ({ userId, models = {}, now = new Date(), env 
     .filter(row => row.recents.length >= CONVERGENCE_MIN_ITEMS)
     .sort((a, b) => b.recents.length - a.recents.length);
 
-  const diag = newRelationDiagnostics();
   for (const cluster of clusters) {
     const key = `convergence:${cluster.dormant.type}:${cluster.dormant.id}`;
     if (edition && isRecentlyShown(edition, key, now)) continue;

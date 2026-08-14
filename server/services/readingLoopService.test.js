@@ -261,6 +261,46 @@ const configured = () => true;
     return diag;
   };
 
+  // Retrieval failures come first: "the model was never asked" is true and
+  // useless. Production returned a calm empty page while the same data on a
+  // laptop returned four good hits, and none of the model diagnostics could
+  // say so because the model was never reached.
+  const searchFailed = __testables.newRelationDiagnostics();
+  searchFailed.retrievalCalls = 2; searchFailed.retrievalErrors = 2; searchFailed.retrievalError = 'connection reset';
+  const searchFailedOutcome = __testables.outcomeFromDiagnostics(searchFailed, 'Nothing worth connecting this week.');
+  assert.strictEqual(searchFailedOutcome.status, 'error', 'a failing search is a fault, not an empty week');
+  assert.match(searchFailedOutcome.reason, /search over your library failed/);
+  assert.match(searchFailedOutcome.reason, /connection reset/, 'the underlying error survives');
+
+  const embedFailed = __testables.newRelationDiagnostics();
+  embedFailed.embedErrors = 1; embedFailed.retrievalError = 'AI service timed out';
+  const embedFailedOutcome = __testables.outcomeFromDiagnostics(embedFailed, 'Nothing worth connecting this week.');
+  assert.strictEqual(embedFailedOutcome.status, 'error');
+  assert.match(embedFailedOutcome.reason, /could not be turned into a query/);
+
+  // Searched fine, index gave back nothing. On a populated index that is a
+  // fault — and it is exactly what production did.
+  const emptyIndex = __testables.newRelationDiagnostics();
+  emptyIndex.retrievalCalls = 2; emptyIndex.rawHits = 0;
+  const emptyIndexOutcome = __testables.outcomeFromDiagnostics(emptyIndex, 'Nothing worth connecting this week.');
+  assert.strictEqual(emptyIndexOutcome.status, 'error', 'an index returning nothing at all is reported, not hidden');
+  assert.match(emptyIndexOutcome.reason, /semantic index returned nothing/);
+  assert.match(emptyIndexOutcome.reason, /check \/health/);
+
+  // Hits came back but all outside the band. That is tuning, not a fault.
+  const outOfBand = __testables.newRelationDiagnostics();
+  outOfBand.retrievalCalls = 2; outOfBand.rawHits = 14; outOfBand.inBandHits = 0;
+  const outOfBandOutcome = __testables.outcomeFromDiagnostics(outOfBand, 'Nothing worth connecting this week.');
+  assert.strictEqual(outOfBandOutcome.status, 'empty', 'nothing close enough is an answer, not a fault');
+  assert.match(outOfBandOutcome.reason, /14 nearby items were found/);
+
+  // Retrieval succeeded and the model ran: model diagnostics take over.
+  const bothRan = __testables.newRelationDiagnostics();
+  bothRan.retrievalCalls = 2; bothRan.rawHits = 9; bothRan.inBandHits = 4; bothRan.attempted = 4; bothRan.declined = 4;
+  const bothRanOutcome = __testables.outcomeFromDiagnostics(bothRan, 'Nothing worth connecting this week.');
+  assert.strictEqual(bothRanOutcome.status, 'empty');
+  assert.match(bothRanOutcome.reason, /Examined 4 pairs/, 'a healthy run still reports how much it looked at');
+
   const unconfiguredDiag = await diagRun(stubChat(goodProposal), () => false);
   assert.strictEqual(unconfiguredDiag.unconfigured, true);
   assert.strictEqual(unconfiguredDiag.attempted, 0, 'an unconfigured model is never attempted');
