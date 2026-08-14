@@ -512,10 +512,20 @@ const primaryTopicTitle = (value = '') => (
 
 const escapeTopicRegex = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Targeted retrieval carried the same shape of bug as the build preflight: it
+// strips stop words and connectors, then demands the survivors sit next to each
+// other, so "Parenting through independence" searched for
+// /parenting\s+independence/ and matched nothing. That failed silently —
+// targeted queries came back empty and selection fell back to whatever was
+// recent, which produces a worse article rather than a visible error.
+//
+// Allow one dropped connector between significant words. Retrieval wants reach,
+// so this stays looser than the preflight's exact-phrase test.
 const exactTopicPattern = (value = '') => {
   const words = topicTokens(value);
   if (!words.length) return null;
-  return new RegExp(words.map(escapeTopicRegex).join('(?:\\s+|[-–—]\\s*)'), 'i');
+  const gap = '(?:\\s+|[-–—]\\s*)(?:[a-z]{1,6}(?:\\s+|[-–—]\\s*))?';
+  return new RegExp(words.map(escapeTopicRegex).join(gap), 'i');
 };
 
 const maintenanceQueryText = (page = {}) => {
