@@ -46,6 +46,21 @@ const MIN_SOURCE_RELEVANCE_SCORE = 2;
 const MIN_SPARSE_PAGE_CANDIDATES = 3;
 const QUALITY_MIN_WORDS = 450;
 const QUALITY_MIN_WORDS_WITH_MANY_SOURCES = 650;
+
+// The reviewer and the writer held different opinions about depth. The gate
+// derived a floor from the supplied evidence; the prompt only said "do not
+// force a target length" and asked for "at least 6 evidence-bearing
+// paragraphs", which the model satisfied at roughly eighty words each — landing
+// near 500 against a 650 floor. Articles were rejected for a standard nobody
+// had told them. Compute the floor once so both sides read the same number.
+const ordinaryArticleMinimumWords = ({ sourceCount = 0, evidenceWordCount = 0 } = {}) => (
+  Number(sourceCount) >= 5
+    ? Math.min(
+        QUALITY_MIN_WORDS_WITH_MANY_SOURCES,
+        Math.max(QUALITY_MIN_WORDS, Math.round(Number(evidenceWordCount) * 1.25))
+      )
+    : QUALITY_MIN_WORDS
+);
 const ORDINARY_WIKI_FREE_MODEL = String(process.env.ORDINARY_WIKI_FREE_MODEL || '').trim()
   || 'nvidia/nemotron-3.5-lightning:free';
 const SCAFFOLD_PATTERNS = [
@@ -1202,7 +1217,7 @@ Ordinary reference Wiki rules:
 - Explain the causal or technical mechanism step by step. For mathematical, scientific, legal, or technical topics, include a concrete worked example, boundary case, or observable test when the supplied evidence supports one.
 - For social, historical, practical, or human topics, replace the worked calculation with a concrete situation, behavior, case, or sequence that makes the mechanism observable.
 - Use only examples or sequences present in the supplied evidence. Do not invent a plausible family, quotation, action sequence, or downstream benefit merely to satisfy the example requirement; state the missing example as an evidence gap instead.
-- With five or more sources, let the subject determine the shape: usually 3-7 subject-specific sections and at least 6 evidence-bearing paragraphs. The article must cover a precise definition and scope, a causal process or organizing structure, a concrete case, meaningful limits or disagreement, and practical implications only when the evidence supports them.
+- With five or more sources, let the subject determine the shape: usually 3-7 subject-specific sections and at least 6 evidence-bearing paragraphs, most of which develop their point across several sentences rather than asserting it in one. A paragraph that reports a finding should also say by what mechanism it works, under what limit it holds, or what follows from it. The article must cover a precise definition and scope, a causal process or organizing structure, a concrete case, meaningful limits or disagreement, and practical implications only when the evidence supports them.
 - Distinguish a formal equivalence from an analogy. Never call two mechanisms "mathematically identical," "the same," or "proven" unless a cited source directly establishes that relationship.
 - Prefer specific claims over broad scene-setting. Remove paragraphs that merely say analysts, studies, or firms "often" do something without naming the mechanism and attaching evidence.
 - Never name a person, institution, study, statistic, or doctrine that is absent from the supplied evidence. Never write "research shows" or "empirical evidence" unless the cited source itself reports that evidence.
@@ -1241,6 +1256,16 @@ const buildPrompt = ({
     formatCandidateMetadataLine(source) +
     `Text: ${truncate(source.text, sourceTextLimit)}`
   )).join('\n\n');
+  // Derive the floor from the evidence the model is actually shown, so the
+  // number in the prompt is the number the reviewer will compute rather than an
+  // approximation of it.
+  const ordinaryMinimumWords = ordinaryArticleMinimumWords({
+    sourceCount: candidates.length,
+    evidenceWordCount: candidates.reduce(
+      (total, source) => total + countWords(truncate(source.text, sourceTextLimit)),
+      0
+    )
+  });
   const omitGeneratedOrdinaryProse = structure.flexibleSections
     && isLikelyGeneratedPage(page)
     && !repoPage
@@ -1261,7 +1286,8 @@ ${structure.flexibleSections && structure.profile !== 'investment_dossier'
 - Do not write scaffold or placeholder phrases such as "should explain", "still needs source-backed development", "strongest current signals", or "Summary:" bullets.
 - Do not restate the page title as a body heading. The page chrome already renders the title; the article body should begin with the summary paragraph.
 ${structure.flexibleSections && structure.profile !== 'investment_dossier'
-    ? '- Do not force a target length. Every substantive sentence must retain recognizable terms and relationships from its cited evidence; omit unsupported connective prose.'
+    ? `- This article is reviewed against a floor of ${ordinaryMinimumWords} words. That number follows from the evidence supplied, not from a house style: explaining a body of material takes more words than summarizing it. Reaching it by padding fails the repetition and filler checks; reach it by explaining.
+- Every substantive sentence must retain recognizable terms and relationships from its cited evidence; omit unsupported connective prose.`
     : '- If there are 5 or more candidate sources, write at least 650 words of synthesis across the required sections.'}
 - Keep lightweight citation indexes only at the end of factual paragraphs or bullets, e.g. [1] or [1, 3].
 - When a paragraph has both supporting and contradicting evidence, put supporting sources in citationIndexes and contradicting sources in contradictionIndexes. Set support to "conflicted".
@@ -1372,6 +1398,7 @@ Ordinary Wiki repair contract (attempt ${repairAttempt}):
 - Return the complete article, not an outline, abstract, or abbreviated rewrite.
 - This attempt must directly clear every listed gate failure. Before returning, check the proposed article against each failure line above.
 - Budget depth in proportion to the supplied evidence. With five or more sources, use 3-7 subject-specific sections and 6-12 evidence-bearing paragraphs plus a concise opening summary; do not pad a narrow evidence set to imitate an investment dossier.
+- If a failure above says the article is too thin, the repair is depth, not volume: take the paragraphs that assert a finding in one sentence and give them the mechanism, the limit, or the consequence the evidence already supports. Do not add sections, restate the summary, or reach the number with filler.
 - Use subject-specific headings. Most sections should contain at least two paragraphs that add a definition, mechanism, example, boundary, implication, or unresolved tension.
 - Include a concrete case, behavior, worked example, or observable situation appropriate to this subject; do not force a calculation onto a human or historical topic. Make that case unmistakable by introducing it with the literal transition "For example," and cite the evidence that supplies it.
 - Explain at least one causal process or organizing structure and one meaningful limit, exception, disagreement, or misconception.
@@ -3811,11 +3838,11 @@ const evaluateWikiArticleQuality = ({
   const wordGateSourceCount = isFlexibleReferencePage ? evidenceBudgetSourceCount : sourceCount;
   const minWords = isRepoQualityPage
     ? GITHUB_REPO_MIN_WORDS
-    : (wordGateSourceCount >= 5 && isFlexibleReferencePage
-        ? Math.min(
-            QUALITY_MIN_WORDS_WITH_MANY_SOURCES,
-            Math.max(QUALITY_MIN_WORDS, Math.round(ordinaryEvidenceWordCount * 1.25))
-          )
+    : (isFlexibleReferencePage
+        ? ordinaryArticleMinimumWords({
+            sourceCount: wordGateSourceCount,
+            evidenceWordCount: ordinaryEvidenceWordCount
+          })
         : (wordGateSourceCount >= 5 ? QUALITY_MIN_WORDS_WITH_MANY_SOURCES : QUALITY_MIN_WORDS));
   if (wordGateSourceCount >= 3 && words < minWords) {
     failures.push(`Article is too thin for ${wordGateSourceCount} available sources: ${words} words, expected at least ${minWords}.`);
@@ -4819,6 +4846,7 @@ module.exports = {
     normalizeModelResult,
     normalizeArticleTextBlock,
     findOrdinaryGroundingGaps,
+    ordinaryArticleMinimumWords,
     // Exported so the live eval asserts against the same heading vocabulary the
     // gate enforces, rather than a second list that can drift away from it.
     GENERIC_REFERENCE_HEADINGS,
