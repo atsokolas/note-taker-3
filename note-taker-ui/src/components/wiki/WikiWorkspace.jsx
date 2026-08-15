@@ -1770,7 +1770,7 @@ const WikiWorkspaceChat = ({
   useEffect(() => {
     if (!wikiPagesRequested) return undefined;
     let cancelled = false;
-    listWikiPages({ limit: 30 })
+    listWikiPages({ limit: 30, summary: 1 })
       .then((pages) => {
         if (!cancelled) setWikiPages(Array.isArray(pages) ? pages : []);
       })
@@ -3175,7 +3175,10 @@ const WikiWorkspace = () => {
       return undefined;
     }
     let cancelled = false;
-    listWikiPages({ limit: 1 })
+    // This asks one question — does this account have any page at all — and
+    // reads nothing but the length of the answer. Whole documents were being
+    // fetched to count them.
+    listWikiPages({ limit: 1, summary: 1 })
       .then((pages = []) => {
         if (cancelled) return;
         setShowFirstVisitOnboarding(!Array.isArray(pages) || pages.length === 0);
