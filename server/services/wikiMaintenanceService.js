@@ -421,13 +421,51 @@ const MIN_ORDINARY_GROUNDING_RATIO = 0.2;
 const MIN_SYNTHESIS_BRIDGE_SOURCES = 2;
 const MIN_SYNTHESIS_ANCHORS_TOTAL = 3;
 
-const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
-  (Array.isArray(claims) ? claims : []).flatMap((claim) => {
+const claimCitationIndexes = (claim = {}) => normalizeCitationIndexes([
+  ...(claim?.citationIndexes || []),
+  ...(claim?.contradictionIndexes || [])
+]);
+
+// Evidence a section has actually attributed, anywhere within it.
+//
+// The gate used to judge each sentence only against the sources that sentence
+// cited. Encyclopedic prose does not work that way: a section states its
+// definition with a citation, then develops it in the next sentence, and that
+// development is grounded by the paragraph around it rather than by repeating
+// the citation. Judged sentence-by-sentence, a faithful compression of a cited
+// definition reads as unanchored — which rejected accurate Graham-and-Dodd
+// synthesis while its own source sat one sentence above.
+//
+// The scope is the section, deliberately, not the page. A section that borrows
+// a mechanism from a different section's sources is exactly the fabricated
+// bridge this gate exists to catch, and page-wide scope would wave it through.
+const sectionEvidenceIndexes = (claims = []) => (
+  (Array.isArray(claims) ? claims : []).reduce((map, claim) => {
+    const indexes = claimCitationIndexes(claim);
+    if (!indexes.length) return map;
+    const key = asString(claim?.section);
+    const current = map.get(key) || new Set();
+    indexes.forEach(index => current.add(index));
+    map.set(key, current);
+    return map;
+  }, new Map())
+);
+
+const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => {
+  const claimList = Array.isArray(claims) ? claims : [];
+  const bySection = sectionEvidenceIndexes(claimList);
+  return claimList.flatMap((claim) => {
     if (normalizeClaimSupport(claim?.support) === 'unsupported') return [];
-    const indexes = normalizeCitationIndexes([
-      ...(claim?.citationIndexes || []),
-      ...(claim?.contradictionIndexes || [])
-    ]);
+    // A sentence still has to cite something of its own to be judged at all.
+    if (!claimCitationIndexes(claim).length) return [];
+    // The lead paragraph sits before any heading and its job is to summarise
+    // the whole article, so its evidence is the whole article's evidence.
+    // Scoping it to a section it does not belong to left every opening
+    // sentence reading as unanchored.
+    const section = asString(claim?.section);
+    const indexes = section
+      ? Array.from(bySection.get(section) || new Set())
+      : Array.from(new Set(Array.from(bySection.values()).flatMap(set => Array.from(set))));
     if (!indexes.length) return [];
     const perSourceTokens = indexes.map((index) => {
       const source = sourceRefs[index - 1] || {};
@@ -464,8 +502,8 @@ const findOrdinaryGroundingGaps = ({ claims = [], sourceRefs = [] } = {}) => (
         return bridgedSources < MIN_SYNTHESIS_BRIDGE_SOURCES;
       })
       .map(sentence => truncate(sentence, 220));
-  }).filter(Boolean).slice(0, 4)
-);
+  }).filter(Boolean).slice(0, 4);
+};
 
 const normalizeOrdinarySentence = (value = '') => asString(value)
   .toLowerCase()
