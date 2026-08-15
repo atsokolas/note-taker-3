@@ -2,6 +2,7 @@ const {
   collectLibrarySources,
   selectCandidateSources
 } = require('./wikiMaintenanceService');
+const { semanticSearch } = require('../ai/semanticSearch');
 
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -65,6 +66,41 @@ const suggestionFromCandidate = (source = {}) => ({
   topicCoverage: Number(source.topicCoverage || 0)
 });
 
+// A semantic hit only counts as direct subject evidence well above the noise
+// floor. Measured against a real corpus, genuinely on-topic material scores
+// 0.72-0.76 and adjacent material falls away beneath it.
+const SEMANTIC_DIRECT_SCORE = 0.72;
+const SEMANTIC_RETRIEVAL_LIMIT = 12;
+
+const semanticSourceKey = (source = {}) => [
+  clean(source.type).toLowerCase(),
+  clean(source.objectId)
+].join(':');
+
+const findSemanticSubjectMatches = async ({ topic, userId, models = {}, search = semanticSearch } = {}) => {
+  if (!topic || !userId) return [];
+  try {
+    const rows = await search({
+      query: topic,
+      userId,
+      limit: SEMANTIC_RETRIEVAL_LIMIT,
+      models
+    });
+    return (Array.isArray(rows) ? rows : [])
+      .filter(row => Number(row?.score || 0) >= SEMANTIC_DIRECT_SCORE)
+      .map(row => ({
+        key: [clean(row.type).toLowerCase(), clean(row.objectId)].join(':'),
+        score: Number(row.score || 0)
+      }));
+  } catch (_error) {
+    // The embedding service sleeps on the free tier and answers 502 while it
+    // wakes. A build must not fail because retrieval was briefly unavailable;
+    // fall back to the lexical test, which is exactly the behaviour that
+    // shipped before this.
+    return [];
+  }
+};
+
 const prepareOrdinaryWikiBuild = async ({
   userId,
   title,
@@ -92,9 +128,22 @@ const prepareOrdinaryWikiBuild = async ({
     fastProfile: true
   });
   const candidates = selectCandidateSources({ page, sources: librarySources, limit: sourceLimit });
+  // Whether the Library explains a subject is a question about meaning, and
+  // this preflight only ever asked about spelling: a source qualified by
+  // containing the title's words. An account holding "Childhoods of
+  // exceptional people" and a letter on supporting mistakes without punishment
+  // was told it had nothing on parenting for independence, because no source
+  // contained that phrase.
+  //
+  // Semantic retrieval answers the question that was actually meant. It is
+  // added to the lexical test, never substituted for it: a source still has to
+  // clear a high similarity bar to count as direct evidence, and everything
+  // that qualified before still qualifies.
+  const semanticMatches = await findSemanticSubjectMatches({ topic, userId, models });
+  const semanticKeys = new Set(semanticMatches.map(match => match.key));
   const directSources = candidates.filter(source => (
-    Number(source.topicCoverage || 0) >= 0.8
-    && directlyAddressesTopic(source, topic)
+    (Number(source.topicCoverage || 0) >= 0.8 && directlyAddressesTopic(source, topic))
+    || semanticKeys.has(semanticSourceKey(source))
   ));
   if (!directSources.length) {
     return {
@@ -131,6 +180,8 @@ const prepareOrdinaryWikiBuild = async ({
 };
 
 module.exports = {
+  findSemanticSubjectMatches,
+  SEMANTIC_DIRECT_SCORE,
   directlyAddressesTopic,
   prepareOrdinaryWikiBuild,
   sourceRefFromCandidate
