@@ -14,27 +14,53 @@ class EmbeddingError extends Error {
   }
 }
 
-const embedText = async (text) => {
+// The embedding service sleeps when idle and answers 502 or 504 for the
+// forty-odd seconds it takes to wake. That is a hosting property, not a
+// failure: every semantic feature went dark on the first request after any
+// quiet period, and the caller could not tell an asleep service from an empty
+// library. Wait the wake-up out instead of reporting nothing.
+const COLD_START_STATUSES = new Set([429, 502, 503, 504]);
+const DEFAULT_EMBED_RETRY_DELAYS_MS = [4000, 12000, 20000];
+
+const isColdStart = (error) => (
+  COLD_START_STATUSES.has(Number(error?.status)) || Number(error?.status) === 0 || !error?.status
+);
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const embedText = async (text, { retryDelaysMs = DEFAULT_EMBED_RETRY_DELAYS_MS } = {}) => {
   const trimmed = truncateText(String(text || '').trim());
   if (!trimmed) {
     throw new EmbeddingError('Embedding requires non-empty text.', 400);
   }
-  try {
-    const response = await embedViaAiService([trimmed], { requestId: 'server-embed-text' });
-    const vectors = Array.isArray(response?.vectors) ? response.vectors : [];
-    const [embedding] = vectors;
-    if (!Array.isArray(embedding)) {
-      throw new EmbeddingError('Embedding response missing vector.');
+  const delays = Array.isArray(retryDelaysMs) ? retryDelaysMs : [];
+  let lastError = null;
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      const response = await embedViaAiService([trimmed], { requestId: 'server-embed-text' });
+      const vectors = Array.isArray(response?.vectors) ? response.vectors : [];
+      const [embedding] = vectors;
+      if (!Array.isArray(embedding)) {
+        throw new EmbeddingError('Embedding response missing vector.');
+      }
+      if (attempt > 0) {
+        console.log('[EMBED] recovered after cold start', JSON.stringify({ attempt: attempt + 1 }));
+      }
+      return embedding;
+    } catch (error) {
+      lastError = error;
+      // A malformed request or a missing route will answer identically forever;
+      // only wait out the statuses a waking service actually returns.
+      if (!isColdStart(error) || attempt === delays.length) break;
+      await sleep(delays[attempt]);
     }
-    return embedding;
-  } catch (error) {
-    const status = error.status || 503;
-    const payload = error.payload || null;
-    throw new EmbeddingError(error.message || 'Embedding service unavailable.', status, payload);
   }
+  const status = lastError?.status || 503;
+  throw new EmbeddingError(lastError?.message || 'Embedding service unavailable.', status, lastError?.payload || null);
 };
 
 module.exports = {
   embedText,
-  EmbeddingError
+  EmbeddingError,
+  DEFAULT_EMBED_RETRY_DELAYS_MS
 };
