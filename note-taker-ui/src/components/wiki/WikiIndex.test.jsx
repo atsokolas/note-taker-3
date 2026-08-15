@@ -219,7 +219,9 @@ describe('WikiIndex graph', () => {
     expect(fetchGraphData).toHaveBeenCalledWith(expect.objectContaining({
       itemTypes: ['wiki_page', 'wiki_claim', 'concept', 'question', 'notebook', 'article', 'highlight']
     }));
-    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500 });
+    // summary mode is the point: the map renders titles, types and source
+    // names, and a full fetch of 500 pages is the 57-second path.
+    expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, summary: 1 });
     expect(screen.getByLabelText('Corpus shape')).toHaveTextContent('1 wiki · 2 working thoughts · 2 library atoms · 0 live edges');
     expect(screen.getByLabelText('Corpus shape')).toHaveTextContent('5 graph objects');
 

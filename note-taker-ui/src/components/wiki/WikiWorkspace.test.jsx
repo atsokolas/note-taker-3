@@ -374,7 +374,7 @@ describe('WikiWorkspace', () => {
 
   it('AT-250 — does not show first-visit onboarding when the workspace already has pages', async () => {
     renderWorkspace('/wiki/workspace?view=graph');
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 1 }));
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 1, summary: 1 }));
 
     expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
@@ -386,7 +386,7 @@ describe('WikiWorkspace', () => {
     renderWorkspace('/wiki/workspace?page=wiki-1');
     await settleWorkspaceEffects();
 
-    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 1 });
+    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 1, summary: 1 });
     expect(screen.queryByRole('heading', { name: /start the wiki with one page or one source/i })).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1');
   });
@@ -590,10 +590,10 @@ describe('WikiWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Investing' }));
     expect(await screen.findByTestId('wiki-read-view')).toHaveTextContent('Page wiki-1 workspace');
-    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 30 });
+    expect(listWikiPages).not.toHaveBeenCalledWith({ limit: 30, summary: 1 });
 
     fireEvent.focus(screen.getByLabelText('Wiki workspace message'));
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30 }));
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30, summary: 1 }));
   });
 
   it('keeps the chat composer visible above the message history', async () => {
@@ -658,7 +658,7 @@ describe('WikiWorkspace', () => {
 
     expect(document.querySelector('.wiki-workspace')).not.toHaveClass('is-mobile-chat');
     expect(await screen.findByLabelText('Search references to pull in')).toBeInTheDocument();
-    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30 }));
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 30, summary: 1 }));
     expect(getArticles).toHaveBeenCalledWith({ limit: 30, sort: 'recent' });
     expect(getAllHighlights).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenLastCalledWith('/wiki/workspace?page=wiki-1&pane=chat', { replace: true });

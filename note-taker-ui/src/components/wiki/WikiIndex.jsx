@@ -608,7 +608,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
   const loadGraph = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true);
     if (!quiet) setError('');
-    const pagesPromise = listWikiPages({ limit: GRAPH_PAGE_LIMIT });
+    const pagesPromise = listWikiPages({ limit: GRAPH_PAGE_LIMIT, summary: 1 });
     const mapGraphPromise = fetchGraphData({
       limit: 600,
       itemTypes: GRAPH_CORPUS_ITEM_TYPES,

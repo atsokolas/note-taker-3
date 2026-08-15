@@ -1594,6 +1594,40 @@ const proposalsAreStale = (proposals = [], maxAgeMs = 24 * 60 * 60 * 1000) => {
 // the page tells the truth before the user gives up on it.
 const DEFAULT_ASYNC_BUILD_TIMEOUT_MS = 4 * 60 * 1000;
 
+// What a list of Wiki pages is allowed to cost.
+//
+// Measured on a 68-page corpus, a full page document averages 90KB, and asking
+// for a hundred of them took 57 seconds to move 3.2MB. The same request in
+// summary mode took 6.2 seconds and 300KB — the surfaces render titles, types,
+// counts and a preview, and were paying for the entire ledger to do it.
+//
+// Two rules keep this honest as the list grows:
+//
+//   Identity, not content. A source's title, url, type and objectId are read by
+//   the knowledge map, which filters pages by typing a source's name; together
+//   they cost about 1KB per page. The snippet on that same array costs 6KB and
+//   nothing in a list renders it. Ids alone still give every `.length` count the
+//   surfaces ask for.
+//
+//   plainText, not body. The row preview falls back to plainText, so the
+//   ProseMirror document can stay behind.
+//
+// Adding a field here is adding it to every list request on every surface.
+const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
+  '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
+  'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
+  'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
+  'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
+  'sourceRefs.type', 'sourceRefs.objectId',
+  'claims.claimId', 'citations.sourceRefId', 'citations.claimId',
+  'aiState.draftStatus', 'aiState.candidateStatus', 'aiState.lastError', 'aiState.errorCode',
+  'aiState.quality.ok', 'aiState.quality.status', 'aiState.quality.checkedAt',
+  'aiState.lastDraftedAt', 'aiState.maintenanceSummary',
+  'aiState.changeLog.type', 'aiState.changeLog.text', 'aiState.changeLog.title',
+  'aiState.changeLog.createdAt',
+  'createdAt', 'updatedAt'
+]);
+
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
@@ -3421,32 +3455,13 @@ const buildWikiRouter = ({
       const scanLimit = (qualityFilter || includeLowQuality)
         ? limit
         : Math.min(1000, Math.max(limit * 3, limit));
-      // An index asked for up to 500 pages and, with no projection, received
-      // every complete document: the full article body, every source snippet
-      // (up to 6000 characters each, up to 80 per page), the claim and citation
-      // ledgers, and the whole change log. On a real corpus that response is
-      // large enough to fail outright, which is what left the Wiki index
-      // reporting "Failed to load wiki pages" on an account that has plenty.
-      //
       // Summary mode keeps the same response shape and asks the database only
-      // for what a list actually renders. Counts still come from real ledger
-      // ids, and quality classification needs only title, plainText, and the
-      // source count. Callers that want whole pages simply do not pass it.
+      // for what a list actually renders. See WIKI_PAGE_SUMMARY_FIELDS for what
+      // is in it and why. Callers that want whole pages simply do not pass it.
       const summaryOnly = ['1', 'true', 'yes'].includes(String(req.query.summary || '').toLowerCase());
       let pagesQuery = WikiPage.find(query).sort({ updatedAt: -1 }).limit(scanLimit);
       if (summaryOnly && pagesQuery.select) {
-        pagesQuery = pagesQuery.select([
-          '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
-          'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
-          'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
-          'sourceRefs._id', 'claims.claimId', 'citations.sourceRefId', 'citations.claimId',
-          'aiState.draftStatus', 'aiState.candidateStatus', 'aiState.lastError', 'aiState.errorCode',
-          'aiState.quality.ok', 'aiState.quality.status', 'aiState.quality.checkedAt',
-          'aiState.lastDraftedAt', 'aiState.maintenanceSummary',
-          'aiState.changeLog.type', 'aiState.changeLog.text', 'aiState.changeLog.title',
-          'aiState.changeLog.createdAt',
-          'createdAt', 'updatedAt'
-        ].join(' '));
+        pagesQuery = pagesQuery.select(WIKI_PAGE_SUMMARY_FIELDS.join(' '));
       }
       const pages = await pagesQuery.lean();
       const serialized = pages.map(serializeWikiPage).filter((page) => {
@@ -8105,5 +8120,6 @@ module.exports = {
   rejectAgentReservedWeekendReadingsCreation,
   serializePublicWikiPage,
   serializeWikiPage,
-  slugify
+  slugify,
+  WIKI_PAGE_SUMMARY_FIELDS
 };

@@ -48,7 +48,7 @@ const WikiEmergingProposals = () => {
     try {
       const [result, pageResult] = await Promise.all([
         listWikiProposals(),
-        listWikiPages()
+        listWikiPages({ summary: 1 })
       ]);
       setProposals(result.proposals || []);
       setPages(Array.isArray(pageResult) ? pageResult : []);

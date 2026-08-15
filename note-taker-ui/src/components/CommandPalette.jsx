@@ -282,7 +282,7 @@ const CommandPalette = ({ open, onClose }) => {
           getNotebookSummaries(),
           api.get('/api/collections', { headers }),
           api.get('/api/tags', { headers }),
-          listWikiPages({ limit: 12 })
+          listWikiPages({ limit: 12, summary: 1 })
         ]);
         setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
         setCollections(colRes.status === 'fulfilled' ? colRes.value?.data || [] : []);
@@ -308,7 +308,7 @@ const CommandPalette = ({ open, onClose }) => {
       try {
         const [searchResult, wikiResult] = await Promise.allSettled([
           searchKeyword({ q, scope: 'all' }),
-          listWikiPages({ q, limit: 8 })
+          listWikiPages({ q, limit: 8, summary: 1 })
         ]);
         const data = searchResult.status === 'fulfilled' ? searchResult.value : {};
         setArticles(Array.isArray(data?.articles) ? data.articles : []);

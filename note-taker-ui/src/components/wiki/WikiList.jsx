@@ -234,7 +234,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   const needsReviewFilter = searchParams.get('quality') === 'needs_review';
 
   const requestParams = useMemo(() => {
-    const params = {};
+    const params = { summary: 1 };
     if (query.trim()) params.q = query.trim();
     if (pageType !== 'all') params.pageType = pageType;
     if (visibility !== 'all') params.visibility = visibility;
