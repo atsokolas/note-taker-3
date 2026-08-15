@@ -74,6 +74,28 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Which build is actually serving traffic?
+//
+// Nothing could answer that. A fix would land, the dashboard would report a
+// successful deploy, production would keep behaving like the old code, and
+// there was no way to separate a stale instance from a fix that did not work —
+// so the next move was always a guess. Render already hands the commit to the
+// process; pass it through.
+//
+// Deliberately unauthenticated and free of secrets. A commit sha and a boot
+// time are the two facts needed to trust, or distrust, every other measurement
+// taken against this server.
+const SERVER_BOOTED_AT = new Date().toISOString();
+app.get('/api/version', (_req, res) => {
+  res.status(200).json({
+    commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'unknown',
+    branch: process.env.RENDER_GIT_BRANCH || '',
+    service: process.env.RENDER_SERVICE_NAME || '',
+    bootedAt: SERVER_BOOTED_AT,
+    uptimeSeconds: Math.round(process.uptime())
+  });
+});
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 }
