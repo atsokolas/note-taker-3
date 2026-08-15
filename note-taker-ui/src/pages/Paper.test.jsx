@@ -93,7 +93,7 @@ test('the lead names both ends, dates them, and quotes them', async () => {
   expect(screen.getByText('The judge model drifts toward its own priors.')).toBeInTheDocument();
   expect(screen.getByText('Rubrics decay, and we do not know the mechanism.')).toBeInTheDocument();
   expect(screen.getByText(/said grading rubrics decay but could not say why/)).toBeInTheDocument();
-  expect(screen.getAllByText(/^This week/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/^You read/).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/^From your library/).length).toBeGreaterThan(0);
   // Both ends carry a date — an undated pairing is not a discovery. Asserted
   // structurally rather than on the rendered string, which is relative to now
@@ -117,7 +117,7 @@ test('an empty week says so plainly instead of showing a card', async () => {
       connection: {
         ...idleMechanic('connection'),
         status: 'empty',
-        reason: 'Nothing worth connecting this week.',
+        reason: 'Nothing worth connecting yet.',
         generatedAt: '2026-08-13T00:00:00.000Z'
       }
     }),
@@ -125,7 +125,7 @@ test('an empty week says so plainly instead of showing a card', async () => {
   });
   renderPaper();
 
-  expect(await screen.findByRole('heading', { name: 'Nothing worth connecting this week.' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Nothing worth connecting yet.' })).toBeInTheDocument();
   expect(screen.queryByText('Anthropic eval harness paper')).not.toBeInTheDocument();
   expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
 });
@@ -271,7 +271,7 @@ test('a broken model reads as a fault, not as a quiet week', async () => {
 
   expect(await screen.findByRole('heading', { name: /could not be read today/i })).toBeInTheDocument();
   expect(screen.getByText(/did not answer on any of 6 attempts/)).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Nothing worth connecting this week.' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Nothing worth connecting yet.' })).not.toBeInTheDocument();
   expect(document.querySelector('.paper__degraded')).toBeTruthy();
 });
 
@@ -281,7 +281,7 @@ test('an honest empty week says how much it looked at, and is not styled as a fa
       connection: {
         ...idleMechanic('connection'),
         status: 'empty',
-        reason: 'Nothing worth connecting this week. Examined 6 pairs — 4 found no real relation, 2 did not survive the quality gates.',
+        reason: 'Nothing worth connecting yet. Examined 6 pairs — 4 found no real relation, 2 did not survive the quality gates.',
         generatedAt: '2026-08-14T12:00:00.000Z'
       }
     }),
@@ -290,7 +290,7 @@ test('an honest empty week says how much it looked at, and is not styled as a fa
   renderPaper();
 
   expect(await screen.findByText(/Examined 6 pairs/)).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Nothing worth connecting this week.' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Nothing worth connecting yet.' })).toBeInTheDocument();
   expect(document.querySelector('.paper__degraded')).toBeNull();
 });
 

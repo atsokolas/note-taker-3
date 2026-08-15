@@ -604,7 +604,7 @@ function App() {
                 visitor would land on "nothing worth connecting this week". Flip
                 this to /paper once the index is populated and the lead is
                 reliably producing. */}
-            <Route path="/" element={<Navigate to="/wiki" replace />} />
+            <Route path="/" element={<Navigate to="/paper" replace />} />
             <Route path="/paper" element={<Paper />} />
             <Route path="/today" element={<TodayMode />} />
             <Route path="/library" element={<Library />} />

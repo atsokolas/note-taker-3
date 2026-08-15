@@ -6,7 +6,7 @@ const { searchVectorItems, rawCosineToAtlasScore } = require('../ai/vectorStore'
  * readingLoopService — the Reading Loop.
  *
  * The daily loop borrows the world's clock (watchers, filings, releases).
- * This borrows the corpus's: what the user read this week, paired against the
+ * This borrows the corpus's: what the user has been reading, paired against the
  * part of their library they have forgotten, with the agent naming what the
  * two things do to each other.
  *
@@ -30,9 +30,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Windows are measured against *engagement*, not against when a row was
 // written. See `lastEngagementAt` — a corpus that arrived in one bulk import
 // has hundreds of rows created on the same day and nothing to learn from it.
-const RECENT_WINDOW_MS = 30 * DAY_MS;
-const THREAD_WINDOW_MS = 45 * DAY_MS;
-const DORMANT_MIN_AGE_MS = 120 * DAY_MS;
+// A year, not a week. The loop is fed by highlighting, and real reading is
+// lumpy: the founder corpus had 2 highlighted articles in 30 days and 67 in a
+// year. A 30-day window meant the loop was dealt a two-item hand and honestly
+// reported that it had nothing, which is true and useless. Widening to a year
+// gives 67 recent against 175 dormant.
+//
+// INVARIANT: DORMANT_MIN_AGE_MS >= RECENT_WINDOW_MS. If they overlap, an item
+// can be both "recent" and "dormant" and the loop starts pairing two things
+// read in the same month — which is not a forgotten-library discovery, it is
+// noise wearing the costume of one.
+const RECENT_WINDOW_MS = 365 * DAY_MS;
+const THREAD_WINDOW_MS = 120 * DAY_MS;
+const DORMANT_MIN_AGE_MS = 365 * DAY_MS;
 const NO_REPEAT_MS = 60 * DAY_MS;
 const SUPPRESSION_MS = 60 * DAY_MS;
 
@@ -98,7 +108,7 @@ const SYMMETRIC_LINE_RE = /^(both|they|these|the two|each)\b/i;
 const PLACEHOLDER_LINE_RE = /\b(do(es)? (x|y)|<[^>]{1,30}>|\[[^\]]{1,30}\]|lorem ipsum)\b/i;
 
 // A collision needs a conviction the user has actually been holding. A claim
-// written from this week's reading, challenged by that same reading, is
+// written from the same reading that then challenges it is
 // circular — observed live on 2026-07-27, where a claim generated from an
 // article was "superseded" by the article it came from.
 const CLAIM_MIN_AGE_MS = 30 * DAY_MS;
@@ -309,6 +319,8 @@ const collectRecentSet = async ({ userId, models = {}, now = new Date(), windowM
     });
   }
 
+  // Newest first, then capped: a year-wide window still leads with what was
+  // read most recently rather than sampling the whole year evenly.
   return items
     .filter(item => clean(item.text).length >= 40)
     .sort((a, b) => (b.at?.getTime() || 0) - (a.at?.getTime() || 0))
@@ -619,7 +631,7 @@ const applyRelationGates = ({ parsed, recent, dormant, allowedRelations = RELATI
 /**
  * A tally of why pairs did not become cards.
  *
- * "Nothing worth connecting this week" and "the model never answered" produce
+ * "Nothing worth connecting" and "the model never answered" produce
  * an identical empty page, and for a while they did here: every failure path
  * returned null and the surface reported calm silence either way. That is the
  * same defect that let two vector stores die unnoticed — an empty result and a
@@ -849,7 +861,7 @@ const recordMechanic = (edition, kind, { card = null, status, reason = '', model
 const generateConnection = async ({ userId, models = {}, now = new Date(), env = process.env, deps = {}, edition = null } = {}) => {
   const recentSet = await collectRecentSet({ userId, models, now });
   if (!recentSet.length) {
-    return { status: 'empty', reason: 'Nothing read this week.' };
+    return { status: 'empty', reason: 'Nothing read in the past year.' };
   }
 
   const diag = newRelationDiagnostics();
@@ -873,7 +885,7 @@ const generateConnection = async ({ userId, models = {}, now = new Date(), env =
     }
   }
 
-  return outcomeFromDiagnostics(diag, 'Nothing worth connecting this week.');
+  return outcomeFromDiagnostics(diag, 'Nothing worth connecting yet.');
 };
 
 /**
@@ -897,11 +909,12 @@ const collectClaimCandidates = async ({ userId, models = {}, now = new Date() } 
       if (sources < 2) return;
       const text = clean(claim.text, 800);
       if (text.length < 40) return;
-      // A claim the agent wrote this week, from this week's reading, is not a
+      // A claim the agent wrote from the same reading is not a
       // conviction the user has been holding — challenging it with its own
       // source is circular. Only claims that have stood for a while qualify.
       const writtenAt = asDate(claim.createdAt) || asDate(page.createdAt);
       if (!writtenAt || now.getTime() - writtenAt.getTime() < CLAIM_MIN_AGE_MS) return;
+
       // Maintenance bookkeeping that talks about the page rather than the
       // subject. These are artifacts of the wiki process, not positions.
       if (META_CLAIM_RE.test(text)) return;
@@ -914,6 +927,7 @@ const collectClaimCandidates = async ({ userId, models = {}, now = new Date() } 
         title: clean(page.title || 'Untitled wiki page', 200),
         text,
         at: asDate(claim.createdAt) || asDate(page.createdAt),
+        writtenAt,
         href: wikiClaimHref(idString(page), claim.claimId),
         sourceCount: sources
       });
@@ -971,7 +985,7 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
     collectRecentSet({ userId, models, now }),
     collectClaimCandidates({ userId, models, now })
   ]);
-  if (!recentSet.length) return { status: 'empty', reason: 'Nothing read this week.' };
+  if (!recentSet.length) return { status: 'empty', reason: 'Nothing read in the past year.' };
   if (!claims.length) return { status: 'empty', reason: 'No claims with two or more sources to challenge yet.' };
 
   const embed = deps.embedText || embedText;
@@ -995,6 +1009,11 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
 
     for (const { claim } of ranked) {
       if (passes >= MAX_RELATION_PASSES) break;
+      // The claim has to predate the reading that challenges it. With a
+      // year-wide recent window a claim can easily be newer than the article,
+      // and "this month's claim contradicts something you read in January" is
+      // the arrow pointing the wrong way.
+      if (claim.writtenAt && recent.at && claim.writtenAt.getTime() >= recent.at.getTime()) continue;
       const key = pairKey(recent, claim);
       if (edition && isRecentlyShown(edition, key, now)) continue;
       passes += 1;
@@ -1020,11 +1039,11 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
     }
   }
 
-  return outcomeFromDiagnostics(diag, 'Nothing this week challenges a claim you hold.');
+  return outcomeFromDiagnostics(diag, 'Nothing you have read challenges a claim you hold.');
 };
 
 /**
- * Resolution — a question the user asked months ago that this week's reading
+ * Resolution — a question the user asked long ago that later reading
  * bears on. The dormant side is the open-question set rather than the library.
  */
 const collectOpenQuestions = async ({ userId, models = {}, now = new Date() } = {}) => {
@@ -1051,7 +1070,7 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
     collectRecentSet({ userId, models, now }),
     collectOpenQuestions({ userId, models, now })
   ]);
-  if (!recentSet.length) return { status: 'empty', reason: 'Nothing read this week.' };
+  if (!recentSet.length) return { status: 'empty', reason: 'Nothing read in the past year.' };
   if (!questions.length) return { status: 'empty', reason: 'No open questions older than four months.' };
 
   const diag = newRelationDiagnostics();
@@ -1080,11 +1099,11 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
     }
   }
 
-  return outcomeFromDiagnostics(diag, 'Nothing this week bears on an old question.');
+  return outcomeFromDiagnostics(diag, 'Nothing you have read bears on an old question.');
 };
 
 /**
- * Convergence — the one-to-many case. Three or more of this week's items all
+ * Convergence — the one-to-many case. Three or more recent items all
  * landing on the same dormant item. Two is a pair, not a pattern, so the
  * minimum is real and enforced.
  */
@@ -1130,7 +1149,7 @@ const generateConvergence = async ({ userId, models = {}, now = new Date(), env 
     return { status: 'ready', model: relation.model, card };
   }
 
-  return outcomeFromDiagnostics(diag, 'Nothing converged this week.');
+  return outcomeFromDiagnostics(diag, 'Nothing has converged yet.');
 };
 
 /**
