@@ -661,7 +661,13 @@ const mergeModelRows = (...groups) => {
   });
 };
 
-const collectLibrarySources = async ({ userId, models = {}, fastProfile = false, page = null } = {}) => {
+// includeIds carries the results of semantic retrieval. The lexical scan finds
+// sources that share the subject's words; retrieval finds sources that share
+// its meaning, and those are frequently not the same rows. Without a way to
+// force them into the pool, a semantic hit can only re-rank material the
+// lexical scan already surfaced — which is no help at all when the point is
+// that it surfaced nothing.
+const collectLibrarySources = async ({ userId, models = {}, fastProfile = false, page = null, includeIds = {} } = {}) => {
   const limits = fastProfile ? FAST_LIBRARY_LIMITS : STANDARD_LIBRARY_LIMITS;
   const topicPattern = exactTopicPattern(page?.title || '');
   const targetedLimit = fastProfile ? 24 : 80;
@@ -711,10 +717,24 @@ const collectLibrarySources = async ({ userId, models = {}, fastProfile = false,
         }, targetedLimit)
       ])
     : [[], [], [], []];
-  const articles = mergeModelRows(targetedArticles, recentArticles);
-  const notebooks = mergeModelRows(targetedNotebooks, recentNotebooks);
-  const concepts = mergeModelRows(targetedConcepts, recentConcepts);
-  const questions = mergeModelRows(targetedQuestions, recentQuestions);
+  const idList = (key) => {
+    const rows = Array.isArray(includeIds?.[key]) ? includeIds[key] : [];
+    return rows.map(id => asString(id)).filter(Boolean).slice(0, 40);
+  };
+  const findByIds = async (Model, ids, projection = null) => (
+    ids.length ? runFind(Model, { userId, _id: { $in: ids } }, ids.length, projection) : []
+  );
+  const [namedArticles, namedNotebooks, namedConcepts, namedQuestions] = await Promise.all([
+    findByIds(models.Article, idList('article'), ARTICLE_SOURCE_PROJECTION),
+    findByIds(models.NotebookEntry, idList('notebook')),
+    findByIds(models.TagMeta, idList('concept')),
+    findByIds(models.Question, idList('question'))
+  ]);
+
+  const articles = mergeModelRows(namedArticles, targetedArticles, recentArticles);
+  const notebooks = mergeModelRows(namedNotebooks, targetedNotebooks, recentNotebooks);
+  const concepts = mergeModelRows(namedConcepts, targetedConcepts, recentConcepts);
+  const questions = mergeModelRows(namedQuestions, targetedQuestions, recentQuestions);
 
   const sources = [];
 

@@ -77,6 +77,29 @@ const semanticSourceKey = (source = {}) => [
   clean(source.objectId)
 ].join(':');
 
+// The vector index labels a notebook row notebook_entry; the Library collector
+// keys the same thing as notebook. Translate once, here, rather than letting
+// the mismatch quietly drop a whole source type.
+const SEMANTIC_TYPE_TO_LIBRARY = {
+  article: 'article',
+  highlight: 'article',
+  notebook_entry: 'notebook',
+  question: 'question',
+  concept: 'concept'
+};
+
+// A highlight's evidence lives on its parent article, so retrieval of a
+// highlight has to pull that article into the pool.
+const semanticIncludeIds = (matches = []) => matches.reduce((acc, match) => {
+  const key = SEMANTIC_TYPE_TO_LIBRARY[match.type] || '';
+  if (!key) return acc;
+  const id = clean(match.type === 'highlight' ? (match.articleId || match.objectId) : match.objectId);
+  if (!id) return acc;
+  acc[key] = acc[key] || [];
+  if (!acc[key].includes(id)) acc[key].push(id);
+  return acc;
+}, {});
+
 const findSemanticSubjectMatches = async ({ topic, userId, models = {}, search = semanticSearch } = {}) => {
   if (!topic || !userId) return [];
   try {
@@ -90,6 +113,9 @@ const findSemanticSubjectMatches = async ({ topic, userId, models = {}, search =
       .filter(row => Number(row?.score || 0) >= SEMANTIC_DIRECT_SCORE)
       .map(row => ({
         key: [clean(row.type).toLowerCase(), clean(row.objectId)].join(':'),
+        type: clean(row.type).toLowerCase(),
+        objectId: clean(row.objectId),
+        articleId: clean(row.articleId),
         score: Number(row.score || 0)
       }));
   } catch (_error) {
@@ -121,11 +147,13 @@ const prepareOrdinaryWikiBuild = async ({
   // The fast profile still runs topic-targeted queries, while avoiding the
   // broad 150-row-per-model maintenance scan that made this preflight feel
   // like the build itself.
+  const semanticMatches = await findSemanticSubjectMatches({ topic, userId, models });
   const librarySources = await collectLibrarySources({
     userId,
     models,
     page,
-    fastProfile: true
+    fastProfile: true,
+    includeIds: semanticIncludeIds(semanticMatches)
   });
   const candidates = selectCandidateSources({ page, sources: librarySources, limit: sourceLimit });
   // Whether the Library explains a subject is a question about meaning, and
@@ -139,11 +167,11 @@ const prepareOrdinaryWikiBuild = async ({
   // added to the lexical test, never substituted for it: a source still has to
   // clear a high similarity bar to count as direct evidence, and everything
   // that qualified before still qualifies.
-  const semanticMatches = await findSemanticSubjectMatches({ topic, userId, models });
-  const semanticKeys = new Set(semanticMatches.map(match => match.key));
+  const semanticIds = new Set(semanticMatches.flatMap(match => [match.objectId, match.articleId].filter(Boolean)));
   const directSources = candidates.filter(source => (
     (Number(source.topicCoverage || 0) >= 0.8 && directlyAddressesTopic(source, topic))
-    || semanticKeys.has(semanticSourceKey(source))
+    || semanticIds.has(clean(source.objectId))
+    || semanticIds.has(clean(source.parentObjectId))
   ));
   if (!directSources.length) {
     return {
@@ -180,6 +208,7 @@ const prepareOrdinaryWikiBuild = async ({
 };
 
 module.exports = {
+  __seedTest: { semanticIncludeIds, SEMANTIC_TYPE_TO_LIBRARY },
   findSemanticSubjectMatches,
   SEMANTIC_DIRECT_SCORE,
   directlyAddressesTopic,
