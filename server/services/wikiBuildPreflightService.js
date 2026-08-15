@@ -1,6 +1,7 @@
 const {
   collectLibrarySources,
-  selectCandidateSources
+  selectCandidateSources,
+  __testables: { sourceTopicCoverage }
 } = require('./wikiMaintenanceService');
 const { semanticSearch } = require('../ai/semanticSearch');
 
@@ -168,11 +169,34 @@ const prepareOrdinaryWikiBuild = async ({
   // clear a high similarity bar to count as direct evidence, and everything
   // that qualified before still qualifies.
   const semanticIds = new Set(semanticMatches.flatMap(match => [match.objectId, match.articleId].filter(Boolean)));
-  const directSources = candidates.filter(source => (
-    (Number(source.topicCoverage || 0) >= 0.8 && directlyAddressesTopic(source, topic))
-    || semanticIds.has(clean(source.objectId))
-    || semanticIds.has(clean(source.parentObjectId))
+  const semanticRank = new Map(semanticMatches.map(match => [match.objectId, match.score]));
+
+  // selectCandidateSources scores lexically and drops anything below its
+  // relevance floor, so a highlight that states the subject in its own words
+  // without repeating the title never reaches this point. The investing build
+  // starved on two sources for exactly that reason, while retrieval was
+  // returning Graham and Dodd on intrinsic value at 0.84.
+  //
+  // Draw semantic evidence from the whole Library pool rather than the lexical
+  // shortlist, and take both halves of a match: the highlight carries the
+  // sentence that earned the score, the article carries the context around it.
+  const semanticSources = librarySources
+    .filter(source => (
+      semanticIds.has(clean(source.objectId)) || semanticIds.has(clean(source.parentObjectId))
+    ))
+    .map(source => ({
+      ...source,
+      topicCoverage: sourceTopicCoverage(source, topic),
+      semanticScore: semanticRank.get(clean(source.objectId))
+        ?? semanticRank.get(clean(source.parentObjectId))
+        ?? 0
+    }))
+    .sort((left, right) => right.semanticScore - left.semanticScore);
+
+  const lexicalDirect = candidates.filter(source => (
+    Number(source.topicCoverage || 0) >= 0.8 && directlyAddressesTopic(source, topic)
   ));
+  const directSources = [...lexicalDirect, ...semanticSources];
   if (!directSources.length) {
     return {
       eligible: false,
