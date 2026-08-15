@@ -489,11 +489,41 @@ const runEmbeddingJobWorker = async () => {
   }
 };
 
+// The embedding service sleeps when idle, and the first request after that
+// pays a forty-second wake-up — which is how every semantic feature came to
+// look broken after any quiet period. This server is already awake whenever
+// anyone is using the product, so it is the natural thing to keep the
+// embedding service awake alongside it. One tiny embed on a timer costs
+// almost nothing and removes the cold start from the user's path rather than
+// leaving them to absorb it.
+//
+// It cannot help while this server is itself asleep; the retry in embedText
+// covers that case. The two together mean a wake-up is waited out rather than
+// reported as an empty library.
+let embeddingWarmTimer = null;
+const runEmbeddingWarmPing = async () => {
+  if (!isAiEnabled()) return;
+  try {
+    await embedText('noeis embedding keep-warm', { retryDelaysMs: [] });
+  } catch (_error) {
+    // A failed ping is not worth logging on a loop: the next real request
+    // reports honestly, and this only ever exists to avoid a cold start.
+  }
+};
+
+const startEmbeddingWarmPing = () => {
+  if (!isAiEnabled() || process.env.EMBEDDING_WARM_PING_DISABLED === 'true' || embeddingWarmTimer) return;
+  const intervalMs = Math.max(60000, Number(process.env.EMBEDDING_WARM_PING_INTERVAL_MS || 10 * 60 * 1000));
+  embeddingWarmTimer = setInterval(runEmbeddingWarmPing, intervalMs);
+  runEmbeddingWarmPing();
+};
+
 const startEmbeddingJobWorker = () => {
   if (!isAiEnabled() || process.env.EMBEDDING_JOB_WORKER_DISABLED === 'true' || embeddingJobWorkerTimer) return;
   const intervalMs = Math.max(15000, Number(process.env.EMBEDDING_JOB_WORKER_INTERVAL_MS || 60000));
   embeddingJobWorkerTimer = setInterval(runEmbeddingJobWorker, intervalMs);
   runEmbeddingJobWorker();
+  startEmbeddingWarmPing();
 };
 
 if (mongoose.connection.readyState === 1) {
