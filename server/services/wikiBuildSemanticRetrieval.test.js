@@ -57,3 +57,32 @@ if (require.main === module) {
 }
 
 module.exports = { run };
+
+// Appended: seeding the candidate pool is the half that was missing. Retrieval
+// that only re-ranks lexical results cannot rescue a subject the lexical scan
+// never surfaced — which is the entire failure being fixed.
+const { __seedTest } = require('./wikiBuildPreflightService');
+
+const seedRun = () => {
+  const { semanticIncludeIds } = __seedTest;
+  // A highlight's evidence lives on its parent article, so retrieving a
+  // highlight must pull that article into the pool.
+  assert.deepEqual(
+    semanticIncludeIds([{ type: 'highlight', objectId: 'h1', articleId: 'a1' }]),
+    { article: ['a1'] }
+  );
+  // The index says notebook_entry; the Library collector says notebook.
+  assert.deepEqual(
+    semanticIncludeIds([{ type: 'notebook_entry', objectId: 'n1' }]),
+    { notebook: ['n1'] }
+  );
+  assert.deepEqual(
+    semanticIncludeIds([{ type: 'article', objectId: 'a2' }, { type: 'article', objectId: 'a2' }]),
+    { article: ['a2'] },
+    'ids are de-duplicated'
+  );
+  assert.deepEqual(semanticIncludeIds([{ type: 'wiki_page', objectId: 'w1' }]), {},
+    'types the Library collector cannot fetch are ignored');
+  console.log('wikiBuildSemanticRetrieval seeding tests passed');
+};
+seedRun();
