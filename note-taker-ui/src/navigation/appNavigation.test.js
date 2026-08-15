@@ -6,10 +6,11 @@ import {
 } from './appNavigation';
 
 describe('appNavigation', () => {
-  it('keeps the primary product navigation collapsed to the four product rooms', () => {
+  it('keeps the primary product navigation collapsed to the product rooms, led by the Paper', () => {
     const primaryLabels = getPrimaryNavItems().map(item => item.label);
 
-    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki', 'Judgment']);
+    // The Paper is home, so it is also the way back to home.
+    expect(primaryLabels).toEqual(['Paper', 'Library', 'Think', 'Wiki', 'Judgment']);
     expect(primaryLabels).not.toContain('Notebook');
     expect(primaryLabels).not.toContain('Concepts');
     expect(primaryLabels).not.toContain('Questions');

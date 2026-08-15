@@ -267,14 +267,14 @@ const configured = () => true;
   // say so because the model was never reached.
   const searchFailed = __testables.newRelationDiagnostics();
   searchFailed.retrievalCalls = 2; searchFailed.retrievalErrors = 2; searchFailed.retrievalError = 'connection reset';
-  const searchFailedOutcome = __testables.outcomeFromDiagnostics(searchFailed, 'Nothing worth connecting this week.');
+  const searchFailedOutcome = __testables.outcomeFromDiagnostics(searchFailed, 'Nothing worth connecting yet.');
   assert.strictEqual(searchFailedOutcome.status, 'error', 'a failing search is a fault, not an empty week');
   assert.match(searchFailedOutcome.reason, /search over your library failed/);
   assert.match(searchFailedOutcome.reason, /connection reset/, 'the underlying error survives');
 
   const embedFailed = __testables.newRelationDiagnostics();
   embedFailed.embedErrors = 1; embedFailed.retrievalError = 'AI service timed out';
-  const embedFailedOutcome = __testables.outcomeFromDiagnostics(embedFailed, 'Nothing worth connecting this week.');
+  const embedFailedOutcome = __testables.outcomeFromDiagnostics(embedFailed, 'Nothing worth connecting yet.');
   assert.strictEqual(embedFailedOutcome.status, 'error');
   assert.match(embedFailedOutcome.reason, /could not be turned into a query/);
 
@@ -282,7 +282,7 @@ const configured = () => true;
   // fault — and it is exactly what production did.
   const emptyIndex = __testables.newRelationDiagnostics();
   emptyIndex.retrievalCalls = 2; emptyIndex.rawHits = 0;
-  const emptyIndexOutcome = __testables.outcomeFromDiagnostics(emptyIndex, 'Nothing worth connecting this week.');
+  const emptyIndexOutcome = __testables.outcomeFromDiagnostics(emptyIndex, 'Nothing worth connecting yet.');
   assert.strictEqual(emptyIndexOutcome.status, 'error', 'an index returning nothing at all is reported, not hidden');
   assert.match(emptyIndexOutcome.reason, /semantic index returned nothing/);
   assert.match(emptyIndexOutcome.reason, /check \/health/);
@@ -290,21 +290,21 @@ const configured = () => true;
   // Hits came back but all outside the band. That is tuning, not a fault.
   const outOfBand = __testables.newRelationDiagnostics();
   outOfBand.retrievalCalls = 2; outOfBand.rawHits = 14; outOfBand.inBandHits = 0;
-  const outOfBandOutcome = __testables.outcomeFromDiagnostics(outOfBand, 'Nothing worth connecting this week.');
+  const outOfBandOutcome = __testables.outcomeFromDiagnostics(outOfBand, 'Nothing worth connecting yet.');
   assert.strictEqual(outOfBandOutcome.status, 'empty', 'nothing close enough is an answer, not a fault');
   assert.match(outOfBandOutcome.reason, /14 nearby items were found/);
 
   // Retrieval succeeded and the model ran: model diagnostics take over.
   const bothRan = __testables.newRelationDiagnostics();
   bothRan.retrievalCalls = 2; bothRan.rawHits = 9; bothRan.inBandHits = 4; bothRan.attempted = 4; bothRan.declined = 4;
-  const bothRanOutcome = __testables.outcomeFromDiagnostics(bothRan, 'Nothing worth connecting this week.');
+  const bothRanOutcome = __testables.outcomeFromDiagnostics(bothRan, 'Nothing worth connecting yet.');
   assert.strictEqual(bothRanOutcome.status, 'empty');
   assert.match(bothRanOutcome.reason, /Examined 4 pairs/, 'a healthy run still reports how much it looked at');
 
   const unconfiguredDiag = await diagRun(stubChat(goodProposal), () => false);
   assert.strictEqual(unconfiguredDiag.unconfigured, true);
   assert.strictEqual(unconfiguredDiag.attempted, 0, 'an unconfigured model is never attempted');
-  const unconfiguredOutcome = __testables.outcomeFromDiagnostics(unconfiguredDiag, 'Nothing worth connecting this week.');
+  const unconfiguredOutcome = __testables.outcomeFromDiagnostics(unconfiguredDiag, 'Nothing worth connecting yet.');
   assert.strictEqual(unconfiguredOutcome.status, 'error', 'no model configured is a fault, not an empty week');
   assert.match(unconfiguredOutcome.reason, /not configured/);
   assert.match(unconfiguredOutcome.reason, /it is unknown/);
@@ -312,7 +312,7 @@ const configured = () => true;
   const upstreamDiag = await diagRun(async () => { throw new Error('upstream timed out after 30000ms'); });
   assert.strictEqual(upstreamDiag.upstreamErrors, 1);
   assert.strictEqual(upstreamDiag.attempted, 1);
-  const upstreamOutcome = __testables.outcomeFromDiagnostics(upstreamDiag, 'Nothing worth connecting this week.');
+  const upstreamOutcome = __testables.outcomeFromDiagnostics(upstreamDiag, 'Nothing worth connecting yet.');
   assert.strictEqual(upstreamOutcome.status, 'error', 'a model that never answered is a fault, not an empty week');
   assert.match(upstreamOutcome.reason, /did not answer/);
   assert.match(upstreamOutcome.reason, /timed out/, 'the underlying error is carried through, not swallowed');
@@ -320,7 +320,7 @@ const configured = () => true;
   const declinedDiag = await diagRun(stubChat({ relation: null }));
   assert.strictEqual(declinedDiag.declined, 1);
   assert.strictEqual(declinedDiag.gated, 0, 'a model declining is a real answer, not a bad one');
-  const declinedOutcome = __testables.outcomeFromDiagnostics(declinedDiag, 'Nothing worth connecting this week.');
+  const declinedOutcome = __testables.outcomeFromDiagnostics(declinedDiag, 'Nothing worth connecting yet.');
   assert.strictEqual(declinedOutcome.status, 'empty', 'the model answering "no relation" is an honest empty');
   assert.match(declinedOutcome.reason, /Examined 1 pair/, 'the reader is told how much was looked at');
   assert.match(declinedOutcome.reason, /found no real relation/);
@@ -328,19 +328,19 @@ const configured = () => true;
   const gatedDiag = await diagRun(stubChat({ ...goodProposal, recentQuote: 'a quote that appears nowhere in the source' }));
   assert.strictEqual(gatedDiag.gated, 1, 'a fabricated quote is the model answering badly, not declining');
   assert.strictEqual(gatedDiag.declined, 0);
-  const gatedOutcome = __testables.outcomeFromDiagnostics(gatedDiag, 'Nothing worth connecting this week.');
+  const gatedOutcome = __testables.outcomeFromDiagnostics(gatedDiag, 'Nothing worth connecting yet.');
   assert.strictEqual(gatedOutcome.status, 'empty');
   assert.match(gatedOutcome.reason, /did not survive the quality gates/);
 
   // Nothing to examine at all keeps the plain reason — no numbers to report.
-  const untouched = __testables.outcomeFromDiagnostics(__testables.newRelationDiagnostics(), 'Nothing worth connecting this week.');
+  const untouched = __testables.outcomeFromDiagnostics(__testables.newRelationDiagnostics(), 'Nothing worth connecting yet.');
   assert.strictEqual(untouched.status, 'empty');
-  assert.strictEqual(untouched.reason, 'Nothing worth connecting this week.');
+  assert.strictEqual(untouched.reason, 'Nothing worth connecting yet.');
 
   // Mixed outcomes must not be reported as a fault: the model did answer.
   const mixed = __testables.newRelationDiagnostics();
   mixed.attempted = 3; mixed.declined = 2; mixed.upstreamErrors = 1;
-  const mixedOutcome = __testables.outcomeFromDiagnostics(mixed, 'Nothing worth connecting this week.');
+  const mixedOutcome = __testables.outcomeFromDiagnostics(mixed, 'Nothing worth connecting yet.');
   assert.strictEqual(mixedOutcome.status, 'empty', 'partial upstream failure is still an answer overall');
   assert.match(mixedOutcome.reason, /1 went unanswered/);
 
@@ -348,7 +348,12 @@ const configured = () => true;
    * Dormancy — dormant, not merely old.
    * ---------------------------------------------------------------- */
 
-  assert.strictEqual(isDormant({ engagedAt: daysAgo(200), now: NOW }), true);
+  assert.strictEqual(isDormant({ engagedAt: daysAgo(500), now: NOW }), true);
+  assert.strictEqual(
+    isDormant({ engagedAt: daysAgo(200), now: NOW }),
+    false,
+    'inside the one-year recent window, so not yet forgotten'
+  );
   assert.strictEqual(
     isDormant({ engagedAt: daysAgo(3), now: NOW }),
     false,
@@ -359,8 +364,15 @@ const configured = () => true;
     false,
     'recent engagement is never dormant'
   );
+  // The windows must not overlap. If they did, an item could be both the
+  // recent side and the dormant side and the loop would pair two things read
+  // in the same month — noise wearing the costume of a discovery.
+  assert.ok(
+    DORMANT_MIN_AGE_MS >= RECENT_WINDOW_MS,
+    'dormant material must be older than the whole recent window'
+  );
   assert.strictEqual(isDormant({ engagedAt: null, now: NOW }), false);
-  assert.ok(DORMANT_MIN_AGE_MS === 120 * DAY_MS && RECENT_WINDOW_MS === 30 * DAY_MS);
+  assert.ok(DORMANT_MIN_AGE_MS === 365 * DAY_MS && RECENT_WINDOW_MS === 365 * DAY_MS);
 
   // The signal that matters: an imported archive stamps every row with the
   // import date, so row age is meaningless and highlight dates are the truth.
@@ -438,14 +450,14 @@ const configured = () => true;
   });
   const dormantHydrated = await hydrateCandidate({
     userId: 'u1',
-    models: hydrateModels({ _id: 'd9', title: 'Old piece', content: longText, createdAt: importedAt, highlights: [{ _id: 'dh9', text: longText, createdAt: daysAgo(300) }] }),
+    models: hydrateModels({ _id: 'd9', title: 'Old piece', content: longText, createdAt: importedAt, highlights: [{ _id: 'dh9', text: longText, createdAt: daysAgo(500) }] }),
     type: 'article',
     objectId: 'd9',
     now: NOW
   });
   assert.ok(dormantHydrated, 'an article imported recently but read long ago is dormant material');
   assert.strictEqual(dormantHydrated.type, 'article');
-  assert.strictEqual(dormantHydrated.at.toISOString(), daysAgo(300).toISOString());
+  assert.strictEqual(dormantHydrated.at.toISOString(), daysAgo(500).toISOString());
 
   const warmRejected = await hydrateCandidate({
     userId: 'u1',
@@ -458,7 +470,7 @@ const configured = () => true;
 
   const viaHighlight = await hydrateCandidate({
     userId: 'u1',
-    models: hydrateModels({ _id: 'd7', title: 'Reached through a highlight', content: longText, createdAt: importedAt, highlights: [{ _id: 'dh7', text: longText, createdAt: daysAgo(300) }] }),
+    models: hydrateModels({ _id: 'd7', title: 'Reached through a highlight', content: longText, createdAt: importedAt, highlights: [{ _id: 'dh7', text: longText, createdAt: daysAgo(500) }] }),
     type: 'highlight',
     objectId: 'dh7',
     now: NOW
@@ -492,7 +504,7 @@ const configured = () => true;
               _id: String(query._id),
               title: `Doc ${query._id}`,
               content: longText,
-              createdAt: daysAgo(300),
+              createdAt: daysAgo(500),
               lastOpenedAt: null
             })
           })
@@ -537,7 +549,7 @@ const configured = () => true;
             title: 'Measuring What Matters',
             content: dormantItem.text,
             createdAt: importedAt,
-            highlights: [{ _id: 'dh1', text: dormantItem.text, createdAt: daysAgo(300) }]
+            highlights: [{ _id: 'dh1', text: dormantItem.text, createdAt: daysAgo(500) }]
           })
         })
       })
@@ -580,7 +592,7 @@ const configured = () => true;
     deps: connectionDeps
   });
   assert.strictEqual(noReading.status, 'empty');
-  assert.match(noReading.reason, /Nothing read this week/);
+  assert.match(noReading.reason, /Nothing read in the past year/);
 
   /* ---------------------------------------------------------------- *
    * Claim candidates for collision — the two-source quality gate.
@@ -598,7 +610,7 @@ const configured = () => true;
               title: 'Retrieval',
               createdAt: daysAgo(300),
               claims: [
-                { claimId: 'c1', text: claimText, sourceRefIds: ['s1', 's2'], createdAt: daysAgo(250) },
+                { claimId: 'c1', text: claimText, sourceRefIds: ['s1', 's2'], createdAt: daysAgo(500) },
                 { claimId: 'c2', text: claimText, sourceRefIds: ['s1'], createdAt: daysAgo(250) },
                 { claimId: 'c3', text: claimText, sourceRefIds: ['s1', 's2'], checkInStatus: 'retired', createdAt: daysAgo(250) },
                 { claimId: 'c4', text: 'Too short', sourceRefIds: ['s1', 's2'], createdAt: daysAgo(250) },

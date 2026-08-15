@@ -15,7 +15,7 @@ import '../styles/paper.css';
 // The Paper — the Reading Loop's surface and the product's landing page.
 //
 // The daily loop borrows the world's clock; this borrows the corpus's. The
-// lead is a Connection: something read this week set against something read
+// lead is a Connection: something read recently set against something read
 // months ago and forgotten, with the agent saying what the two do to each
 // other. It is complete on its own — a reader who takes it in and closes the
 // tab got the value. Actions are available, never demanded.
@@ -27,17 +27,17 @@ const MECHANICS = [
   {
     kind: 'collision',
     label: 'Collision',
-    invitation: 'Check this week’s reading against the claims you hold.'
+    invitation: 'Check your recent reading against the claims you hold.'
   },
   {
     kind: 'resolution',
     label: 'Resolution',
-    invitation: 'See whether this week answered a question you left open.'
+    invitation: 'See whether something you read answered a question you left open.'
   },
   {
     kind: 'convergence',
     label: 'Convergence',
-    invitation: 'Find several things from this week landing on one older idea.'
+    invitation: 'Find several things you have read landing on one older idea.'
   },
   {
     kind: 'thread',
@@ -84,11 +84,11 @@ const RelationCard = ({ card, lead = false, children }) => {
   if (!card) return null;
   return (
     <article className={`paper__card${lead ? ' paper__card--lead' : ''}`}>
-      <SourceEnd kicker="This week" end={card.recent} />
+      <SourceEnd kicker="You read" end={card.recent} />
       <SourceEnd kicker="From your library" end={card.dormant} />
       {card.converging?.length ? (
         <div className="paper__converging">
-          <p className="paper__end-kicker">Also this week</p>
+          <p className="paper__end-kicker">Also landed here</p>
           <ul>
             {card.converging.slice(1).map(item => (
               <li key={`${item.type}:${item.id}`}>
@@ -327,12 +327,12 @@ const Paper = () => {
                 ? 'Reading your library…'
                 : connection?.status === 'error'
                   ? 'The paper could not be read today.'
-                  : 'Nothing worth connecting this week.'}
+                  : 'Nothing worth connecting yet.'}
             </h1>
             <p className={`paper__relation-line${connection?.status === 'error' ? ' paper__degraded' : ''}`}>
               {refreshingLead
-                ? 'The agent is pairing this week’s reading against your older library. This takes a moment.'
-                : connection?.reason || 'Nothing in this week’s reading meets anything older closely enough to be worth your attention.'}
+                ? 'The agent is pairing your recent reading against your older library. This takes a moment.'
+                : connection?.reason || 'Nothing you have read recently meets anything older closely enough to be worth your attention.'}
             </p>
             <div className="paper__lead-foot">
               {connection?.generatedAt ? <Receipt>last looked {sourceDate(connection.generatedAt)}</Receipt> : <span />}
