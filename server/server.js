@@ -157,6 +157,7 @@ const {
   WikiPageVisit,
   EmbeddingJob,
   ReadingLoopEdition,
+  VectorItem,
   SharedConcept,
   SharedQuestion,
   WikiPage,
