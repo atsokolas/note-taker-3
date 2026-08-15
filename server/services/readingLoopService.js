@@ -43,6 +43,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const RECENT_WINDOW_MS = 365 * DAY_MS;
 const THREAD_WINDOW_MS = 120 * DAY_MS;
 const DORMANT_MIN_AGE_MS = 365 * DAY_MS;
+// An open question ages on its own clock, deliberately not DORMANT_MIN_AGE_MS.
+// Reading goes quiet because it is finished; a question goes quiet because it is
+// unanswered, and that is the thing worth handing back. Two months is long
+// enough that the user has stopped actively turning it over, and short enough
+// that a question asked this spring can still be answered by this summer's
+// reading. Tying this to the reading window once already made resolution
+// structurally impossible — see collectOpenQuestions.
+const QUESTION_MIN_AGE_MS = 60 * DAY_MS;
+
+// Questions the product created, not questions the user asked. An empty
+// composer saves as "New question"; QA and MCP checks leave dated markers
+// behind. These outnumbered the real questions on the first corpus this ran
+// against, and every one of them is old enough to qualify on age alone — so
+// without this the oldest thing in the drawer is always junk, and Resolution
+// spends its one card explaining what "New question" has to do with this
+// week's reading. Same discipline as META_CLAIM_RE on the claims side.
+const PLACEHOLDER_QUESTION_RE = /^(new question|untitled|question|what|why|how|test)\s*\??$|\b(temp|test|retest|can be deleted|ignore this|placeholder)\b/i;
 const NO_REPEAT_MS = 60 * DAY_MS;
 const SUPPRESSION_MS = 60 * DAY_MS;
 
@@ -273,6 +290,16 @@ const collectRecentSet = async ({ userId, models = {}, now = new Date(), windowM
   const since = new Date(now.getTime() - windowMs);
   const items = [];
 
+  // Each source is read wider than the cap because the cap is applied against a
+  // date the database cannot sort on. An article's engagement date is the latest
+  // of its highlight dates and its lastOpenedAt, computed in memory; a plain
+  // .limit() therefore took an arbitrary slice and the newest-first sort below
+  // could only reorder whatever arrived. The symptom was a 120-day window and a
+  // 365-day window returning an identical 40 items — the wider window was never
+  // reaching further back, it was hitting the same cap on the same arbitrary
+  // rows. Over-fetching lets the accurate sort choose.
+  const scanLimit = limit * 3;
+
   if (models.Article?.find) {
     // Anything marked or opened inside the window. The article is the unit — an
     // article read across three sittings is one thing the user engaged with,
@@ -284,7 +311,8 @@ const collectRecentSet = async ({ userId, models = {}, now = new Date(), windowM
         { lastOpenedAt: { $gte: since } }
       ]
     })
-      .limit(limit)
+      .sort({ lastOpenedAt: -1 })
+      .limit(scanLimit)
       .select('_id title content createdAt lastOpenedAt highlights')
       .lean();
     (articles || []).forEach(article => {
@@ -303,7 +331,7 @@ const collectRecentSet = async ({ userId, models = {}, now = new Date(), windowM
   if (models.NotebookEntry?.find) {
     const entries = await models.NotebookEntry.find({ userId, updatedAt: { $gte: since } })
       .sort({ updatedAt: -1 })
-      .limit(limit)
+      .limit(scanLimit)
       .select('_id title content blocks createdAt updatedAt')
       .lean();
     (entries || []).forEach(entry => {
@@ -1048,7 +1076,18 @@ const generateCollision = async ({ userId, models = {}, now = new Date(), env = 
  */
 const collectOpenQuestions = async ({ userId, models = {}, now = new Date() } = {}) => {
   if (!models.Question?.find) return [];
-  const cutoff = new Date(now.getTime() - DORMANT_MIN_AGE_MS);
+  // A question has its own clock. This read DORMANT_MIN_AGE_MS, which is the
+  // age at which *reading* counts as forgotten; when that moved to a year to
+  // widen the Connection window, it silently took resolution with it and began
+  // demanding questions older than twelve months. On a corpus whose oldest open
+  // question was four months old, resolution went permanently empty while still
+  // reporting "no open questions older than four months" — the sentence the
+  // constant used to make true.
+  //
+  // Reading goes quiet because it is finished. A question goes quiet because it
+  // is unanswered, which is the thing worth returning to, and four months is
+  // long enough that the user is no longer actively turning it over.
+  const cutoff = new Date(now.getTime() - QUESTION_MIN_AGE_MS);
   const questions = await models.Question.find({ userId, status: 'open', createdAt: { $lte: cutoff } })
     .sort({ createdAt: 1 })
     .limit(60)
@@ -1062,7 +1101,8 @@ const collectOpenQuestions = async ({ userId, models = {}, now = new Date() } = 
       at: asDate(question.createdAt),
       href: questionHref(idString(question))
     }))
-    .filter(question => question.text.length >= 20);
+    .filter(question => question.text.length >= 20)
+    .filter(question => !PLACEHOLDER_QUESTION_RE.test(question.text.trim()));
 };
 
 const generateResolution = async ({ userId, models = {}, now = new Date(), env = process.env, deps = {}, edition = null } = {}) => {
@@ -1071,7 +1111,7 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
     collectOpenQuestions({ userId, models, now })
   ]);
   if (!recentSet.length) return { status: 'empty', reason: 'Nothing read in the past year.' };
-  if (!questions.length) return { status: 'empty', reason: 'No open questions older than four months.' };
+  if (!questions.length) return { status: 'empty', reason: 'No substantive open question has been sitting long enough.' };
 
   const diag = newRelationDiagnostics();
   let passes = 0;
@@ -1081,6 +1121,13 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
 
     for (const recent of ranked) {
       if (passes >= MAX_RELATION_PASSES) break;
+      // The reading has to come after the question. Both sides are drawn from
+      // windows that overlap — a year of reading against questions two months
+      // old — so nothing in the retrieval prevents pairing an April article
+      // with a June question and announcing that the article answers it. It
+      // does not; the question was asked afterwards, presumably already knowing
+      // what the article said. Same failure the claims path has, same guard.
+      if (question.at && recent.at && question.at.getTime() >= recent.at.getTime()) continue;
       const key = pairKey(recent, question);
       if (edition && isRecentlyShown(edition, key, now)) continue;
       passes += 1;
@@ -1108,11 +1155,13 @@ const generateResolution = async ({ userId, models = {}, now = new Date(), env =
  * minimum is real and enforced.
  */
 const generateConvergence = async ({ userId, models = {}, now = new Date(), env = process.env, deps = {}, edition = null } = {}) => {
-  // Convergence is a pattern, not an event, so it reads the wider window the
-  // thread mechanic uses. On a real reading cadence (~5 marked articles a
-  // month) the 30-day window rarely holds the three items this needs, and a
-  // mechanic that is structurally impossible is worse than one that is quiet.
-  const recentSet = await collectRecentSet({ userId, models, now, windowMs: THREAD_WINDOW_MS });
+  // Convergence is a pattern, not an event, so it reads the widest window there
+  // is. It used to borrow the thread mechanic's 120 days because that was wider
+  // than the 30-day reading window; once the reading window moved to a year,
+  // that borrowed constant quietly became the narrower of the two and this was
+  // reading less than Connection was. The rule is the intent, not the number:
+  // whatever the widest window is, a pattern gets it.
+  const recentSet = await collectRecentSet({ userId, models, now, windowMs: RECENT_WINDOW_MS });
   if (recentSet.length < CONVERGENCE_MIN_ITEMS) {
     return { status: 'empty', reason: 'Too little read recently to converge on anything.' };
   }

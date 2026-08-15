@@ -24,6 +24,9 @@ const {
   similarityBand,
   engagementText,
   lastEngagementAt,
+  collectOpenQuestions,
+  generateConvergence,
+  generateResolution,
   DORMANT_MIN_AGE_MS,
   RECENT_WINDOW_MS
 } = __testables;
@@ -757,3 +760,160 @@ assert.strictEqual(card.recent.quote, gated.recentQuote);
 assert.strictEqual(card.dormant.quote, gated.dormantQuote);
 assert.strictEqual(card.dormant.at, dormantItem.at.toISOString());
 assert.strictEqual(card.relationLabel, 'fills a gap in');
+
+/* ------------------------------------------------------------------ *
+ * Open questions age on their own clock.
+ *
+ * These three failures shipped together and none of them raised an error.
+ * Widening the reading window to a year silently dragged the question cutoff
+ * with it, because both read DORMANT_MIN_AGE_MS; Resolution then demanded
+ * questions older than twelve months and went permanently quiet while still
+ * printing the sentence the old constant had made true.
+ * ------------------------------------------------------------------ */
+
+const questionModels = (rows) => ({
+  Question: {
+    find: (query) => ({
+      sort: () => ({
+        limit: () => ({
+          lean: async () => rows.filter((row) => {
+            if (String(row.status) !== String(query.status)) return false;
+            const cutoff = query.createdAt?.$lte;
+            return !cutoff || row.createdAt <= cutoff;
+          })
+        })
+      })
+    })
+  }
+});
+
+const REAL_QUESTION = 'What is the relationship between risk and return?';
+
+(async () => {
+  const rows = [
+    { _id: 'q1', text: REAL_QUESTION, status: 'open', createdAt: daysAgo(71) },
+    { _id: 'q2', text: 'New question', status: 'open', createdAt: daysAgo(187) },
+    { _id: 'q3', text: 'What', status: 'open', createdAt: daysAgo(231) },
+    { _id: 'q4', text: 'TEMP MCP RETEST 2026-06-06 UPDATED: can be deleted. Is there anything here?', status: 'open', createdAt: daysAgo(69) },
+    { _id: 'q5', text: 'How should I weigh management quality against price?', status: 'open', createdAt: daysAgo(10) },
+    { _id: 'q6', text: 'Does survivorship bias explain the whole spread?', status: 'answered', createdAt: daysAgo(200) }
+  ];
+
+  const eligible = await collectOpenQuestions({ userId: 'u1', models: questionModels(rows), now: NOW });
+  const texts = eligible.map(question => question.title);
+
+  assert.deepStrictEqual(texts, [REAL_QUESTION], 'exactly one of these six is a real question that has been sitting');
+
+  // Each exclusion for its own reason, so a future change cannot pass this by
+  // accident with a filter that happens to drop everything.
+  assert.ok(!texts.includes('New question'), 'an untouched composer is not a question the user asked');
+  assert.ok(!texts.includes('What'), 'a one-word stub is not a question');
+  assert.ok(!texts.some(text => /TEMP/i.test(text)), 'QA and MCP leftovers are not questions');
+  assert.ok(
+    !texts.includes('How should I weigh management quality against price?'),
+    'ten days old is still being actively turned over'
+  );
+  assert.ok(!texts.some(text => /survivorship/i.test(text)), 'answered questions are closed');
+
+  // The regression itself: a question four months old must qualify. Tying this
+  // to the reading window is what broke it, so assert the independence rather
+  // than the number.
+  const fourMonths = await collectOpenQuestions({
+    userId: 'u1',
+    models: questionModels([{ _id: 'q7', text: 'Why do capital-intensive moats erode faster than brand moats?', status: 'open', createdAt: daysAgo(125) }]),
+    now: NOW
+  });
+  assert.strictEqual(fourMonths.length, 1, 'a four-month-old question qualifies — it must not inherit the one-year reading threshold');
+
+  // Real questions routinely open with the same words the placeholder filter
+  // looks for. Dropping them would trade one silent emptiness for another.
+  const interrogatives = await collectOpenQuestions({
+    userId: 'u1',
+    models: questionModels([
+      { _id: 'q8', text: 'What did the 2024 letters get right about inaction risk?', status: 'open', createdAt: daysAgo(90) },
+      { _id: 'q9', text: 'Why does surrender read as strategy rather than defeat?', status: 'open', createdAt: daysAgo(90) },
+      { _id: 'q10', text: 'How much of the return came from multiple expansion?', status: 'open', createdAt: daysAgo(90) }
+    ]),
+    now: NOW
+  });
+  assert.strictEqual(interrogatives.length, 3, 'What/Why/How openers are questions, not placeholders');
+
+  console.log('readingLoopService question-eligibility tests passed');
+})().catch((error) => { console.error(error); process.exit(1); });
+
+/* ------------------------------------------------------------------ *
+ * Resolution runs the arrow one way.
+ *
+ * "Something you read recently answers an old question" is a claim about
+ * order, and nothing in the retrieval enforces it: a year of reading is
+ * matched against questions two months old, so the windows overlap and the
+ * best-scoring pair is free to be an April article against a June question.
+ * That card is not a discovery — the question was asked afterwards, by someone
+ * who had already read the answer.
+ * ------------------------------------------------------------------ */
+
+(async () => {
+  const q = (rows) => ({
+    find: () => ({ sort: () => ({ limit: () => ({ lean: async () => rows }) }) })
+  });
+  // The ranking step pairs on shared terms, so the fixture has to actually be
+  // about the question — otherwise the test passes for the wrong reason.
+  const ANSWERING_TEXT = (
+    'Risk and return are not a straight line over long holding periods. '
+    + 'The return demanded for bearing risk compresses as the holding period '
+    + 'lengthens, and the relationship between risk and return inverts once '
+    + 'the investor can wait out a drawdown rather than sell into it.'
+  );
+  const article = (id, title, at) => ({
+    _id: id, title, content: `<p>${ANSWERING_TEXT}</p>`, createdAt: daysAgo(400),
+    highlights: [{ _id: `h-${id}`, text: ANSWERING_TEXT, createdAt: at }]
+  });
+  const rows = (articles) => ({
+    sort: () => rows(articles), limit: () => rows(articles),
+    select: () => rows(articles), lean: async () => articles
+  });
+
+  const QUESTION = 'What is the relationship between risk and return over long holding periods?';
+  const askedAt = daysAgo(90);
+
+  // The model is never reached in the backwards case, which is the point: the
+  // guard is cheaper than a model call and does not depend on the model's taste.
+  let relationCalls = 0;
+  const deps = {
+    isTextGenerationConfigured: () => true,
+    chatComplete: async () => { relationCalls += 1; return { text: '{}' }; }
+  };
+
+  const backwards = await generateResolution({
+    userId: 'u1',
+    models: {
+      Article: { find: () => rows([article('a-newer-question', 'Read before the question was asked', daysAgo(120))]) },
+      NotebookEntry: { find: () => rows([]) },
+      Question: q([{ _id: 'q1', text: QUESTION, status: 'open', createdAt: askedAt }])
+    },
+    now: NOW,
+    deps
+  });
+  assert.strictEqual(backwards.status, 'empty', 'reading that predates the question cannot answer it');
+  assert.strictEqual(relationCalls, 0, 'the ordering guard runs before the model call, not after');
+
+  // Same question, same everything, one date moved: reading that came after.
+  const forwards = await generateResolution({
+    userId: 'u1',
+    models: {
+      Article: { find: () => rows([article('a-after', 'Read after the question was asked', daysAgo(10))]) },
+      NotebookEntry: { find: () => rows([]) },
+      Question: q([{ _id: 'q1', text: QUESTION, status: 'open', createdAt: askedAt }])
+    },
+    now: NOW,
+    deps
+  });
+  assert.ok(relationCalls > 0, 'a correctly ordered pair is worth asking the model about');
+  assert.notStrictEqual(
+    forwards.reason,
+    backwards.reason,
+    'the two cases must not collapse into the same empty result — that is how the bug hid'
+  );
+
+  console.log('readingLoopService resolution-ordering tests passed');
+})().catch((error) => { console.error(error); process.exit(1); });
