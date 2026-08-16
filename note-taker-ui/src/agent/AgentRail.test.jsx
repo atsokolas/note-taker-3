@@ -115,9 +115,18 @@ describe('AgentRail', () => {
 
 describe('hasAgentRail', () => {
   it('is present in the rooms and the surfaces inside them', () => {
-    ['/library', '/think', '/wiki', '/judgment', '/judgment/abc', '/wiki/workspace'].forEach((path) => {
+    ['/library', '/think', '/wiki', '/judgment', '/judgment/abc'].forEach((path) => {
       expect(hasAgentRail(path)).toBe(true);
     });
+  });
+
+  it('steps back on the wiki workspace, which has a richer agent of its own', () => {
+    // The workspace chat drafts, builds, ingests and lints. None of that is
+    // the rail's, and two agents on one screen is the thing the rail exists to
+    // stop — so on this one surface the rail is the one that gives way.
+    expect(hasAgentRail('/wiki/workspace')).toBe(false);
+    expect(hasAgentRail('/wiki/workspace?view=list')).toBe(false);
+    expect(hasAgentRail('/wiki')).toBe(true);
   });
 
   it('is absent where the agent does not work', () => {

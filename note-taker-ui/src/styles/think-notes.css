@@ -216,6 +216,12 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
   font-weight: 400;
   line-height: 1.12;
   letter-spacing: -0.012em;
+  /* It is a textarea now: no scrollbar, no drag handle, and it wraps. */
+  width: 100%;
+  overflow: hidden;
+  resize: none;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .think-notes .ProseMirror {

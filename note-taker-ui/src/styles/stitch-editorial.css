@@ -421,23 +421,6 @@ body.noeis-editorial .page-area:has(.settings-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.settings-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.integrations-page),
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.data-integrations-page),
-/* The Paper is a single editorial column of five stacked sections — the
-   longest-scrolling surface in the product. The shell clamps to 100vh with
-   overflow hidden and grants scrolling per page through this allowlist, so a
-   page missing from it loses everything below the fold with no way to reach
-   it. Adding a page here is not optional; it is part of adding a page. */
-body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.paper),
-body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.judgment-room) {
-  height: auto;
-  min-height: calc(100vh - 96px);
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.wiki-page) {
-  overflow-x: hidden;
-  overflow-y: auto;
-}
 
 body.noeis-editorial.noeis-public-share .app-shell-new--stitch .app-shell-new__body:has(.shared-wiki-page) {
   height: auto;
@@ -546,11 +529,27 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__main {
   min-height: 100vh;
 }
 
+/* The shell scrolls. It used to clamp to 100vh with overflow hidden and hand
+   scrolling back to individual pages through a :has() allowlist, which meant
+   any surface not named in that list lost everything below the fold with no way
+   to reach it — Think and Library both did, silently, for as long as they have
+   existed in this shell.
+
+   Inverted: scrolling is the default and a surface opts out of it. Only the
+   wiki workspace does, because its panes scroll independently and a second
+   scrollbar on the shell would fight them. */
 body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
-  height: 100vh;
+  min-height: 100vh;
   max-width: 1500px;
   margin: 0 auto;
   padding: 112px 40px 40px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.noeis-editorial .app-shell-new--stitch .app-shell-new__body:has(.wiki-workspace) {
+  height: 100vh;
+  min-height: 0;
   overflow: hidden;
 }
 

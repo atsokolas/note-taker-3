@@ -300,3 +300,73 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
     transition: none;
   }
 }
+
+/* ---- Writing one down ----------------------------------------------------
+ *
+ * The index could only ever list judgments that already existed. Its empty
+ * state said a judgment starts the day you write down what you think, and then
+ * gave you nowhere to write it.
+ */
+.judgment__new {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 44px;
+  padding: 0 0 28px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.judgment__new label {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+/* body.noeis-editorial input paints every field with !important, so the answer
+   has to out-rank it rather than match it. */
+body.noeis-editorial .judgment .judgment__new input,
+.judgment .judgment__new input {
+  width: 100%;
+  padding: 6px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.32rem;
+  line-height: 1.3;
+}
+
+.judgment__new-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 22px;
+}
+
+.judgment__new button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.judgment__new button:disabled {
+  border-bottom-color: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  cursor: default;
+}
+
+.judgment__new [role='alert'] {
+  color: var(--danger, #b94a48);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}

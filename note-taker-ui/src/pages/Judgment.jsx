@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { askWikiPage, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { askWikiPage, createWikiPage, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 import WikiFrontPageGraphMotif from '../components/wiki/WikiFrontPageGraphMotif';
 import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
@@ -103,6 +103,34 @@ const JudgmentIndex = ({ items }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
+  const navigate = useNavigate();
+  const [draft, setDraft] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  /* The claim is the page. A judgment is a wiki page carrying a judgment
+     contract, so writing one down creates that page and puts the sentence in
+     it — then opens it, because the next thing you want is to say why. */
+  const submitClaim = useCallback(async (event) => {
+    event?.preventDefault?.();
+    const sentence = oneSentence(draft);
+    if (!sentence || creating) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      const page = await createWikiPage({ title: sentence, pageType: 'topic', skipBuild: true });
+      const id = page?._id || page?.id;
+      if (!id) throw new Error('The judgment was not created.');
+      await updateWikiPage(id, { judgment: { currentJudgment: sentence, kind: 'thesis' } });
+      setDraft('');
+      navigate(`/judgment/${id}`);
+    } catch (error) {
+      setCreateError(error?.message || 'The judgment could not be created.');
+    } finally {
+      setCreating(false);
+    }
+  }, [creating, draft, navigate]);
+
   // The index is a list of sentences, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
   useAgentRailSurface({ id: 'judgment-index', subject: 'Your judgments.' }, {});
@@ -110,6 +138,26 @@ const JudgmentIndex = ({ items }) => {
   return (
     <main className="judgment judgment--index" aria-labelledby="judgment-index-title">
       <h1 className="sr-only" id="judgment-index-title">All judgments</h1>
+      {/* A judgment starts by being written down. Before this the index could
+          only list what already existed, and the empty state told you a
+          judgment begins the day you write one without giving you anywhere to
+          write it. One line, and the sentence you type is the claim. */}
+      <form className={`judgment__new ${enter}`} onSubmit={submitClaim}>
+        <label htmlFor="judgment-new-claim">What do you think is true?</label>
+        <input
+          id="judgment-new-claim"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Write the claim as one sentence."
+          disabled={creating}
+        />
+        <div className="judgment__new-actions">
+          <button type="submit" disabled={creating || !draft.trim()}>
+            {creating ? 'Writing it down…' : 'Write it down'}
+          </button>
+          {createError ? <span role="alert">{createError}</span> : null}
+        </div>
+      </form>
       {items.length ? (
         <ul className={`judgment__index ${enter}`}>
           {items.map(item => (

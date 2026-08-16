@@ -347,12 +347,24 @@
 /* ---------- the reader ---------- */
 
 /* Opening a row replaces the shelf with the source. Same column, same measure. */
+/* Reading a source is a measure: 720px, centred. Browsing the shelf is not —
+   it is an index of two columns, and centring it at a reading measure left a
+   200px band of nothing down the left of the page while the list itself was
+   squeezed. The index takes the width it is given. */
 .library-reader {
   position: relative;
   z-index: 1;
   width: min(100%, 720px);
   margin: 0 auto;
   padding: clamp(24px, 4vh, 48px) 20px clamp(80px, 16vh, 160px);
+}
+
+.library-reader.is-shelf {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .library-reader__back {

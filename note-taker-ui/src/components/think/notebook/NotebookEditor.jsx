@@ -643,11 +643,24 @@ const NotebookEditor = ({
         <div className="think-notebook-title-block">
           <h1 className="sr-only">{titleDraft || entry?.title || 'Untitled notebook page'}</h1>
           <span className="think-notebook-title-kicker">Document title</span>
-          <input
-            type="text"
+          {/* A textarea, because a title is a sentence and an <input> cannot
+              wrap one: a long title ran off the end of the field and the rest
+              of it was simply not visible. It grows to its own content and
+              still behaves like a single-line field — Enter moves on to the
+              body rather than putting a newline in the title. */}
+          <textarea
+            rows={1}
             className="think-notebook-title-input"
             value={titleDraft}
             onChange={(event) => setTitleDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.preventDefault();
+            }}
+            ref={(node) => {
+              if (!node) return;
+              node.style.height = 'auto';
+              node.style.height = `${node.scrollHeight}px`;
+            }}
             placeholder="Title"
           />
           <p className="think-notebook-title-hint">

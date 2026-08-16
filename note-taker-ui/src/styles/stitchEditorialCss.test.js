@@ -8,16 +8,32 @@ describe('stitch editorial CSS tokens', () => {
   // production, where window.scrollBy(0, 600) moved zero pixels. Every
   // full-height surface has to be listed, so assert the list rather than trust
   // the next person to remember.
-  it('lets every full-height page scroll, including the Paper', () => {
+  it('scrolls the shell by default, so a new surface cannot lose its lower half', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
-    const clamp = css.match(/body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body \{[\s\S]*?\n\}/)?.[0] || '';
-    expect(clamp).toContain('height: 100vh');
-    // Shorthand, so it clamps both axes.
-    expect(clamp).toContain('overflow: hidden');
+    // This used to be an allowlist: the shell clamped to 100vh with overflow
+    // hidden and handed scrolling back page by page, so any surface nobody
+    // remembered to name lost everything below the fold. Think and Library
+    // both did. Scrolling is the default now and a surface opts out of it.
+    const base = css.match(/body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body \{[\s\S]*?\n\}/)?.[0] || '';
+    expect(base).toContain('min-height: 100vh');
+    expect(base).toContain('overflow-y: auto');
+    expect(base).not.toContain('overflow: hidden');
+    // Not min-height — a bare height would clamp it shut again.
+    expect(base).not.toMatch(/(^|[^-])\bheight: 100vh/m);
+  });
 
-    ['.paper', '.judgment-room', '.settings-page', '.wiki-page'].forEach((page) => {
-      expect(css).toContain(`.app-shell-new__body:has(${page})`);
+  it('lets only the wiki workspace opt out, because its panes scroll themselves', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+
+    const optOut = css.match(/\.app-shell-new__body:has\(\.wiki-workspace\) \{[\s\S]*?\n\}/)?.[0] || '';
+    expect(optOut).toContain('height: 100vh');
+    expect(optOut).toContain('overflow: hidden');
+
+    // Nothing else clamps: the old per-page grants are gone rather than
+    // sitting there looking load-bearing.
+    ['.paper', '.judgment-room', '.wiki-page'].forEach((page) => {
+      expect(css).not.toContain(`.app-shell-new__body:has(${page}) {`);
     });
   });
 
@@ -93,14 +109,13 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).not.toMatch(/^\s*--dropzone-[^:]+:\s*var\(--dropzone-/m);
   });
 
-  it('lets long settings, connection, and judgment pages scroll inside the editorial shell', () => {
+  it('keeps settings and connections scrolling on their own document height', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     const documentScrollBlock = css.match(/body\.noeis-editorial \.settings-page,[\s\S]*?overflow-y: auto;\n\}/)?.[0] || '';
 
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.settings-page)');
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.integrations-page)');
     expect(documentScrollBlock).toContain('.app-shell-new__body:has(.data-integrations-page)');
-    expect(documentScrollBlock).toContain('.app-shell-new__body:has(.judgment-room)');
     expect(documentScrollBlock).toContain('height: auto;');
     expect(documentScrollBlock).toContain('overflow-y: auto;');
   });

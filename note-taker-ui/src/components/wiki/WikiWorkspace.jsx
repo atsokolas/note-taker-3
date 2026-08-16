@@ -3000,11 +3000,11 @@ const WikiWorkspace = () => {
   const shouldOpenReferencePullIn = params.get('pull') === '1';
   const view = selectedPageId ? 'page' : explicitView || 'graph';
   const isListWorkspace = !selectedPageId && view === 'list';
-  // One agent to a screen. The rail is the agent everywhere in the product, so
-  // the workspace's own chat pane stays folded to its "Ask" word until someone
-  // asks for it — by the peek, by ?pane=chat, or by running a command. Editing
-  // a page is the exception: the composer is the surface the draft reports into.
-  const agentPaneCollapsed = mobilePane !== 'chat' && !(selectedPageId && pageMode === 'edit');
+  // The rail steps back on this surface, so the chat pane is the agent here and
+  // it is open by default again — folding it would leave the workspace with no
+  // agent at all. Reading a page still folds it, because there the page is the
+  // thing and its own contextual agent is a drawer inside the reader.
+  const agentPaneCollapsed = Boolean(selectedPageId && pageMode === 'read' && mobilePane !== 'chat');
   // Selected pages own their contextual agent through WikiPageReadView's
   // responsive drawer. Keep the legacy split-pane chat available for the
   // broader workspace, but never stack it above a living article on mobile.
