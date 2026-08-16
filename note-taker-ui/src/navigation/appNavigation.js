@@ -1,7 +1,15 @@
-// Four rooms. Library is what you read, Think is what you wrote, Wiki is home
-// (the morning paper), Judgment is what the reading was for. Paper stays a
-// route — it is a different sheet, not a fifth room.
+// Paper is the front door — the wordmark and / both land there — and it is now
+// named in the nav as well, so the way back to it does not depend on knowing
+// that the wordmark is a link.
+//
+// Then the four rooms: Library is what you read, Think is what you wrote, Wiki
+// is what the reading built, Judgment is what it was for.
 export const getPrimaryNavItems = () => [
+  {
+    label: 'Paper',
+    to: '/paper',
+    match: (location) => location.pathname === '/' || location.pathname.startsWith('/paper')
+  },
   {
     label: 'Library',
     to: '/library',

@@ -952,3 +952,71 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 .wiki-front-page .wiki-front-page__waiting a:focus-visible {
   color: var(--text-primary, var(--vellum-ink));
 }
+
+/* ---- The wiki, under the paper -------------------------------------------
+ *
+ * /wiki leads with the morning paper and then shows the wiki itself. Before
+ * this, a populated front page had no way into the pages at all — the only
+ * links to the map or the list lived in the empty state, so a wiki with
+ * anything in it was a newspaper with no wiki behind it.
+ */
+.wiki-front-page__pages {
+  margin-top: 40px;
+  padding-top: 26px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.wiki-front-page__pages-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 26px;
+  margin-bottom: 6px;
+}
+
+.wiki-front-page__pages-doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.wiki-front-page__pages-doors a {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.wiki-front-page__pages-doors a:hover,
+.wiki-front-page__pages-doors a:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+/* A list of names, one per rule — the same shape as the page list in the
+   workspace, at the measure the paper reads at. */
+.wiki-front-page__pages-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-front-page__pages-list li {
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 48%, transparent);
+}
+
+.wiki-front-page__pages-list a {
+  display: block;
+  padding: 13px 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.wiki-front-page__pages-list a:hover,
+.wiki-front-page__pages-list a:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}

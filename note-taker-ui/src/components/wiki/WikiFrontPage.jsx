@@ -308,6 +308,17 @@ const WikiFrontPage = () => {
       : briefing?.summary || ''
   );
   const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
+  /* Everything the paper did not already put in front of you. Today's page and
+     the recently-grown three are above this list; repeating them here made one
+     page appear three times on one screen. */
+  const restOfWiki = useMemo(() => {
+    const shown = new Set([
+      pageId(todaysPage),
+      ...recentlyGrown.map(pageId)
+    ].filter(Boolean));
+    return curatedPages.filter(page => !shown.has(pageId(page)));
+  }, [curatedPages, recentlyGrown, todaysPage]);
+
   const claimCheckIn = briefing?.claimCheckIn || null;
   /* The paper's rail is about the claim it is asking you about this morning. It
      is the same claim you will be looking at if you open it, so the agent is
@@ -582,6 +593,33 @@ const WikiFrontPage = () => {
           </Link>
         </p>
       ) : null}
+
+      {/* The paper is the top of this page, not the whole of it. Under it is
+          the wiki itself, so that clicking Wiki in the nav lands you in the
+          wiki rather than in a newspaper about it — before this, a populated
+          front page had no way into the pages at all.
+
+          A list of names at the paper's measure, not the workspace's faceted
+          index: that index is two panes wide and would be crushed to a single
+          word per line in a 580px column. Filtering and search stay where they
+          fit, one line away. No counters, for the same reason the rest of the
+          paper has none. */}
+      <section className={`wiki-front-page__pages ${step(5)}`} aria-label="Wiki pages">
+        <div className="wiki-front-page__pages-head">
+          <p className="wiki-front-page__kicker">The wiki</p>
+          <span className="wiki-front-page__pages-doors">
+            <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
+            <Link to="/wiki/workspace?view=list">Search and filter</Link>
+          </span>
+        </div>
+        <ol className="wiki-front-page__pages-list">
+          {restOfWiki.map(page => (
+            <li key={pageId(page)}>
+              <Link to={wikiReadPath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       {/* What is being watched is one sentence, not a rail. Arming and
           disarming are still here — behind the sentence, because they are

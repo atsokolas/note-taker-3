@@ -381,9 +381,13 @@ describe('WikiFrontPage (AT-394)', () => {
       .toBeInTheDocument();
 
     // Six copies of one repo wiki reach the paper as at most one, under its
-    // display title rather than the generated one.
+    // display title rather than the generated one. Counted in the wiki list,
+    // which is where a duplicate would actually surface — the whole column
+    // also carries a <select> of pages for the reading watcher, and counting
+    // that too would assert an accident rather than the dedupe.
     const column = document.querySelector('.wiki-front-page');
-    expect((column.textContent.match(/note-taker-3 — repo wiki/g) || []).length).toBeLessThanOrEqual(1);
+    const list = document.querySelector('.wiki-front-page__pages-list');
+    expect((list.textContent.match(/note-taker-3 — repo wiki/g) || []).length).toBeLessThanOrEqual(1);
     expect(column.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
   });
 
