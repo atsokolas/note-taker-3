@@ -4,7 +4,7 @@
 
 .library-page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(24px, 3.4vw, 52px);
   align-items: start;
 }
@@ -394,4 +394,254 @@
     transition: none;
     transform: none;
   }
+}
+
+/* ---- The column head, and the folded Librarian ---------------------------
+ *
+ * The three-pane room is gone: the shelf is a list of names, the reading is one
+ * column, and the Librarian — which does more than the rail does, so it keeps
+ * its panel — opens from a word instead of holding a pane open before anyone
+ * asks for it.
+ */
+.library-page-shell__column-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 26px;
+  padding-top: clamp(40px, 7vh, 84px);
+}
+
+.library-page-shell__doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+.library-page-shell__column-head button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.library-page-shell__column-head button:hover,
+.library-page-shell__column-head button:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+  outline: none;
+}
+
+.library-page-shell__column-head button:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+}
+
+/* Asked for, it arrives as a column of its own beside the reading — not as a
+   pane the layout has to reserve room for whether or not anyone wants it. */
+.library-page-shell__librarian {
+  grid-column: 1 / -1;
+  padding-top: 26px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.library-page-shell__librarian-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.library-page-shell__librarian-head button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .library-page-shell__column-head {
+    padding-top: 24px;
+  }
+}
+
+/* ---- LibraryMain, in the reading language --------------------------------
+ *
+ * The information design is LibraryMain's and stays LibraryMain's: the source
+ * shelf, the views, the folders, the filing flow, the tag shortcuts. What
+ * changes is the volume. Written as overrides rather than a rewrite for the
+ * same reason as the wiki workspace — none of the behaviour was the problem.
+ */
+
+/* "Articles" was a pale blue card. The blue is #60a5fa, hardcoded in
+   dashboard-refresh.css, which is the one cool colour left on this surface. */
+body.noeis-editorial .library-page-shell .library-section-head,
+.library-page-shell .library-section-head {
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+body.noeis-editorial .library-page-shell .library-section-head .ui-section-header__title,
+.library-page-shell .library-section-head .ui-section-header__title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Every label on this surface: quiet sans, sentence case, said once. */
+body.noeis-editorial .library-page-shell .ui-section-header__subtitle,
+body.noeis-editorial .library-page-shell .library-article-row-source,
+body.noeis-editorial .library-page-shell .library-article-row-tag,
+body.noeis-editorial .library-page-shell .library-article-row-meta,
+body.noeis-editorial .library-page-shell .library-article-row-date,
+body.noeis-editorial .library-page-shell .library-article-search > span,
+body.noeis-editorial .library-page-shell .library-cabinet-group-label,
+body.noeis-editorial .library-page-shell .library-cabinet-count,
+.library-page-shell .ui-section-header__subtitle,
+.library-page-shell .library-article-row-source,
+.library-page-shell .library-article-row-tag,
+.library-page-shell .library-article-row-meta,
+.library-page-shell .library-article-row-date,
+.library-page-shell .library-article-search > span,
+.library-page-shell .library-cabinet-group-label,
+.library-page-shell .library-cabinet-count {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.82rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Folder names were centred small-caps. They are names in a list. */
+body.noeis-editorial .library-page-shell .library-cabinet-nested .library-cabinet-item,
+.library-page-shell .library-cabinet-nested .library-cabinet-item,
+.library-page-shell .folder-row {
+  justify-content: flex-start;
+  text-align: left;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* You search on a line. */
+body.noeis-editorial .library-page-shell .library-article-search input,
+.library-page-shell .library-article-search input {
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.94rem;
+}
+
+/* Titles are the reading. */
+body.noeis-editorial .library-page-shell .library-article-row-title,
+.library-page-shell .library-article-row-title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-weight: 400;
+}
+
+/* The column starts where the reading starts, not a third of the way down. */
+.library-page-shell__column-head {
+  padding-top: clamp(24px, 4vh, 44px);
+}
+
+/* The Articles head carried a decorative page-icon and an inset accent bar
+   drawn from --accent, plus a hardcoded #1d4ed8 in its shadow. A heading does
+   not need a picture of a document next to the word "Articles". */
+body.noeis-editorial .library-page-shell .library-section-head.is-articles,
+.library-page-shell .library-section-head.is-articles {
+  border-color: color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  background: transparent;
+  box-shadow: none;
+}
+
+body.noeis-editorial .library-page-shell .library-section-head .ui-section-header__title::before,
+body.noeis-editorial .library-page-shell .library-section-head .ui-section-header__title::after,
+.library-page-shell .library-section-head .ui-section-header__title::before,
+.library-page-shell .library-section-head .ui-section-header__title::after {
+  content: none;
+}
+
+/* The shelf's group headings — Sources, Views, Folders — and the folder names
+   under them. Left-aligned names at reading size, like every other list. */
+body.noeis-editorial .library-page-shell .library-cabinet h3,
+body.noeis-editorial .library-page-shell .library-cabinet-section > span,
+body.noeis-editorial .library-page-shell .library-cabinet > span,
+.library-page-shell .library-cabinet h3,
+.library-page-shell .library-cabinet-section > span,
+.library-page-shell .library-cabinet > span {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+body.noeis-editorial .library-page-shell .library-cabinet button,
+body.noeis-editorial .library-page-shell .library-cabinet a,
+.library-page-shell .library-cabinet button,
+.library-page-shell .library-cabinet a {
+  justify-content: flex-start;
+  text-align: left;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The source index's own group headings and folder rows. */
+body.noeis-editorial .library-page-shell .library-source-index__label,
+.library-page-shell .library-source-index__label {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Folder names were centred small-caps under their heading. They are names. */
+body.noeis-editorial .library-page-shell .library-folder-button,
+.library-page-shell .library-folder-button {
+  justify-content: flex-start !important;
+  width: 100%;
+  padding: 5px 0 !important;
+  text-align: left !important;
+}
+
+body.noeis-editorial .library-page-shell .library-folder-name,
+.library-page-shell .library-folder-name {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.9rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
 }

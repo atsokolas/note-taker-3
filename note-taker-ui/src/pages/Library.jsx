@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { PageTitle, SectionHeader, TagChip, QuietButton } from '../components/ui';
+import { TagChip } from '../components/ui';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import FolderTree from '../components/library/FolderTree';
@@ -12,7 +12,6 @@ import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useTags from '../hooks/useTags';
 import { getContextPanelOpen } from '../utils/readingMode';
-import ThreePaneLayout from '../layout/ThreePaneLayout';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
@@ -37,8 +36,6 @@ import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftS
 import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
-import LibraryColumn from '../components/library/LibraryColumn';
-import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import { librarySubject } from '../components/library/libraryColumnModel';
 import { useAgentRailSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
@@ -49,8 +46,6 @@ import '../styles/reader-editorial.css';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
-const LEFT_STORAGE_KEY = 'workspace-left-open:/library';
-const CABINET_OVERRIDE_KEY = 'library.cabinet.override:/library';
 const SOURCE_TYPES = new Set(['article', 'highlight', 'note']);
 const LIBRARY_AGENT_TITLE = 'Librarian';
 
@@ -100,21 +95,18 @@ const Library = () => {
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
+  /* The Librarian is folded now: it opens from a word rather than holding a
+     pane open before anyone asks. Someone who opened it before still finds it
+     open — the stored preference is honoured — but the first visit is one
+     agent, which is the rail. */
   const [rightOpen, setRightOpen] = useState(() => {
+    if (requestedHighlightId) return true;
     const stored = localStorage.getItem(RIGHT_STORAGE_KEY);
-    if (stored === null) return true;
-    return stored === 'true';
-  });
-  const [leftOpen, setLeftOpen] = useState(() => {
-    const stored = localStorage.getItem(LEFT_STORAGE_KEY);
     if (stored === null) return false;
     return stored === 'true';
   });
   const [contextOverride, setContextOverride] = useState(() => (
     localStorage.getItem(CONTEXT_OVERRIDE_KEY) === 'true'
-  ));
-  const [cabinetOverride, setCabinetOverride] = useState(() => (
-    localStorage.getItem(CABINET_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
   const [sourceContextOpen, setSourceContextOpen] = useState(Boolean(requestedHighlightId));
@@ -431,12 +423,6 @@ const Library = () => {
     if (id) handleSelectArticle(id);
   }, [handleSelectArticle, navigate]);
 
-  const handleSelectHighlightView = useCallback((view) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('scope', 'highlights');
-    params.set('highlightView', view);
-    setSearchParams(params);
-  }, [searchParams, setSearchParams]);
 
   const openMoveModal = useCallback((article) => {
     setArticleToMove(article);
@@ -524,14 +510,6 @@ const Library = () => {
     localStorage.setItem(RIGHT_STORAGE_KEY, String(nextOpen));
   }, [contextOverride, selectedArticleId]);
 
-  const handleToggleLeft = useCallback((nextOpen) => {
-    if (selectedArticleId && nextOpen && !cabinetOverride) {
-      setCabinetOverride(true);
-      localStorage.setItem(CABINET_OVERRIDE_KEY, 'true');
-    }
-    setLeftOpen(nextOpen);
-    localStorage.setItem(LEFT_STORAGE_KEY, String(nextOpen));
-  }, [cabinetOverride, selectedArticleId]);
 
   useEffect(() => {
     if (!shouldOpenReferencePullIn) return;
@@ -637,7 +615,6 @@ const Library = () => {
   );
 
   const unfiledCount = folderCounts.unfiled || 0;
-  const allCount = useMemo(() => allArticles.length, [allArticles.length]);
   const corpusTotal = useMemo(() => {
     if (showSuppressedItems) return allArticles.length;
     return filterLibraryBrowseItems(allArticles).length;
@@ -798,81 +775,6 @@ const Library = () => {
     return folder ? folder.name : '';
   }, [folders, folderId, scope]);
 
-  const leftPanel = (
-    <div className="section-stack">
-      <SectionHeader title="Cabinet" subtitle="Your filing system." className="library-section-head is-articles" />
-      <div className="library-cabinet-actions">
-        <QuietButton
-          className={`list-button ${scope === 'all' ? 'is-active' : ''}`}
-          onClick={() => handleSelectScope('all')}
-        >
-          <span>All Articles</span>
-          {typeof allCount === 'number' && <span className="library-cabinet-count">{allCount}</span>}
-        </QuietButton>
-        <div className="library-cabinet-nested">
-          <QuietButton
-            className={`list-button ${scope === 'unfiled' ? 'is-active' : ''}`}
-            onClick={() => handleSelectScope('unfiled')}
-          >
-            <span>Unfiled</span>
-            {typeof unfiledCount === 'number' && <span className="library-cabinet-count">{unfiledCount}</span>}
-          </QuietButton>
-          {foldersLoading && <p className="muted small">Loading cabinet…</p>}
-          {foldersError && <p className="status-message error-message">{foldersError}</p>}
-          {!foldersLoading && !foldersError && (
-            <div className="library-folder-items">
-              <FolderTree
-                folders={folders}
-                counts={folderCounts}
-                selectedFolderId={folderId}
-                onSelectFolder={handleSelectFolder}
-              />
-            </div>
-          )}
-        </div>
-        <QuietButton
-          className={`list-button ${scope === 'highlights' ? 'is-active' : ''}`}
-          onClick={() => handleSelectScope('highlights')}
-          data-tour-anchor="library-highlights-scope"
-        >
-          <span>Highlights</span>
-        </QuietButton>
-        {scope === 'highlights' && (
-          <div className="library-highlight-scope">
-            <QuietButton
-              className={`list-button ${highlightView === 'concept' ? 'is-active' : ''}`}
-              onClick={() => handleSelectHighlightView('concept')}
-            >
-              By Concept
-            </QuietButton>
-            <QuietButton
-              className={`list-button ${highlightView === 'article' ? 'is-active' : ''}`}
-              onClick={() => handleSelectHighlightView('article')}
-            >
-              By Article
-            </QuietButton>
-            <QuietButton
-              className={`list-button ${highlightView === 'untagged' ? 'is-active' : ''}`}
-              onClick={() => handleSelectHighlightView('untagged')}
-            >
-              Untagged
-            </QuietButton>
-          </div>
-        )}
-      </div>
-      <div className="library-saved-views">
-        <SectionHeader title="Saved Views" subtitle="Optional shortcuts." />
-        <Link className="library-saved-view-link" to="/views">Open Saved Views</Link>
-        {!tagsLoading && visibleTags.length > 0 && (
-          <div className="library-saved-view-tags">
-            {visibleTags.slice(0, 6).map(tag => (
-              <TagChip key={tag.tag} to={`/tags/${encodeURIComponent(tag.tag)}`}>{tag.tag}</TagChip>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   const sourceIndexFolders = (
     <div className="library-source-index-folders" data-testid="library-source-index-folders">
@@ -996,11 +898,6 @@ const Library = () => {
       storedOpen: rightOpen,
       userOverride: contextOverride
     });
-  const effectiveLeftOpen = isReadingView ? true : scope === 'all' ? false : getContextPanelOpen({
-    hasSelection: Boolean(selectedArticleId),
-    storedOpen: leftOpen,
-    userOverride: cabinetOverride
-  });
 
   useEffect(() => {
     if (!effectiveRightOpen) return;
@@ -1019,7 +916,7 @@ const Library = () => {
      rather than in front of it. */
   const isShelfView = !isReadingView && scope === 'all';
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
-  const readingEntering = Boolean(selectedArticleId);
+  const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
   /* What the rail is looking at while the human is in here, and how it
      retrieves on this page's behalf. Reading a source narrows it to that
@@ -1062,19 +959,6 @@ const Library = () => {
     }
   );
 
-  const shelfNav = (
-    <LibraryShelfNav
-      folders={folders}
-      scope={scope}
-      folderId={folderId}
-      unfiledCount={unfiledCount}
-      onSelectScope={handleSelectScope}
-      onSelectFolder={handleSelectFolder}
-      onReviewFiling={handleReviewFiling}
-      filingLaunching={filingLaunching}
-      className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
-    />
-  );
 
   const mainPanel = (
     <LibraryMain
@@ -1294,15 +1178,14 @@ const Library = () => {
 
   return (
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
-      {/* The cabinet is a faint list of shelf names beside the reading — the
-          same shape as the note shelf in Think — not a filing system you open
-          before you can read.
+      {/* One column. LibraryMain already carries the source shelf — folders,
+          views, counts, tag shortcuts — so there is no second list of shelf
+          names beside it.
 
           The Librarian is not gone. It does more than the rail does — filing,
           structure, selection — so it keeps its panel; it is just no longer the
           third pane of a three-pane room. It opens from a word, and until it is
           asked for, the rail is the only agent on the screen. */}
-      {shelfNav}
       <div className="library-page-shell__column">
         <div className="library-page-shell__column-head">
           {isReadingView ? (
@@ -1321,39 +1204,27 @@ const Library = () => {
             </button>
           </span>
         </div>
-        {isReadingView ? (
-          <div className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''}`}>
-            {mainPanel}
-            {/* Your highlights on this source, and where they went. Not agent
-                work, so it stays with the reading — under the article, behind
-                one disclosure rather than a second rail. */}
-            <EditorialSideRailCollapsible
-              title="Marginalia"
-              subtitle="Your highlights on this source, and where they went."
-              className="library-reader__marginalia"
-              testId="library-reading-secondary-rail"
-            >
-              {contextualRightPanel}
-            </EditorialSideRailCollapsible>
-          </div>
-        ) : isShelfView ? (
-          <LibraryColumn
-            articles={articles}
-            allArticles={allArticles}
-            loading={articlesLoading}
-            error={articlesError}
-            query={articleQuery}
-            onQueryChange={handleArticleQueryChange}
-            onSelectArticle={handleSelectArticle}
-            entering={columnEntering}
-          />
-        ) : (
-          <div className="library-reader">{mainPanel}</div>
-        )}
+        {/* LibraryMain carries the reading-room lead, the source shelf and the
+            article search. The column is its shape, not its replacement — a
+            rewrite here would quietly drop the filing flow, the review action
+            and the tag shortcuts, which is the opposite of the point. */}
+        <div
+          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isShelfView ? 'is-shelf' : ''}`}
+          data-testid="library-main"
+        >
+          {mainPanel}
+        </div>
       </div>
-      {/* The Librarian, when it is asked for. */}
-      {effectiveRightOpen && !isReadingView ? (
-        <aside className="library-page-shell__librarian" aria-label={LIBRARY_AGENT_TITLE}>
+      {/* The Librarian, when it is asked for — the same fold whether you are
+          browsing the shelf or reading a source. Arriving on an exact highlight
+          opens it, because that link is a request to see that highlight. */}
+      {effectiveRightOpen ? (
+        <aside
+          className="library-page-shell__librarian"
+          aria-label={LIBRARY_AGENT_TITLE}
+          data-testid="library-right"
+          data-open="true"
+        >
           <div className="library-page-shell__librarian-head">
             <span>{LIBRARY_AGENT_TITLE}</span>
             <button type="button" onClick={() => handleToggleRight(false)}>Close</button>

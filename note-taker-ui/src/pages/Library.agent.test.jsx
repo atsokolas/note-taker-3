@@ -199,8 +199,15 @@ describe('Library agent rail', () => {
     }));
   });
 
-  it('keeps the Librarian visible in the default Library browse rail', () => {
+  it('folds the Librarian behind a word and opens it in full when asked', () => {
+    // One agent to a screen. The rail is the agent every room shares; the
+    // Librarian does more — filing, structure, selection — so it keeps its
+    // panel, it just no longer holds a third pane open to say so.
     renderLibrary();
+
+    expect(screen.queryByTestId('library-right')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Librarian' })[0]);
 
     const rightRail = screen.getByTestId('library-right');
     expect(rightRail).toHaveAccessibleName('Librarian');
@@ -209,10 +216,9 @@ describe('Library agent rail', () => {
     expect(screen.getByLabelText('Librarian library trace')).toBeInTheDocument();
   });
 
-  it('labels the Library right rail with its contextual posture', () => {
+  it('names the Librarian on the word that opens it', () => {
     renderLibrary();
 
-    expect(screen.getByTestId('library-right')).toHaveAccessibleName('Librarian');
     expect(screen.getAllByRole('button', { name: 'Librarian' }).length).toBeGreaterThan(0);
   });
 
@@ -273,8 +279,9 @@ describe('Library agent rail', () => {
       expect(screen.getByTestId('thought-partner-panel')).toBeInTheDocument();
     });
     expect(screen.getByText('Reading article shell')).toBeInTheDocument();
-    expect(screen.getByTestId('library-left')).toBeInTheDocument();
-    expect(screen.getByTestId('library-right')).toHaveAttribute('data-open', 'true');
+    // Reading is one column: the source, then its marginalia under it, closed
+    // until asked for. No left cabinet, no right rail beside the reading.
+    expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
     expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
   });
 
