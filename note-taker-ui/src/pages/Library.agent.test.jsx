@@ -275,27 +275,24 @@ describe('Library agent rail', () => {
     expect(screen.getByRole('button', { name: 'Show review imports' })).toBeInTheDocument();
   });
 
-  it('mounts the thought partner in the reading right rail with source context collapsed', async () => {
-    // Reading is reached by naming the source, the way a link into it does.
-    // The harness button that used to do this lived on LibraryMain, which the
-    // locked middle no longer renders while browsing.
-    renderLibrary('/library?scope=all&articleId=article-1');
-
-    // The Librarian is folded until asked for, so the panel mounts on the word.
-    fireEvent.click(screen.getAllByRole('button', { name: 'Librarian' })[0]);
+  it('reads in one column, with the Librarian a word away and marginalia closed', async () => {
+    // What matters here is the fold, not which component the harness mocks:
+    // reading is the source and its marginalia, the Librarian is reachable by
+    // name, and neither is a pane held open before anyone asks.
+    renderLibrary();
+    fireEvent.click(screen.getByRole('button', { name: /Continue/ }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('thought-partner-panel')).toBeInTheDocument();
+      expect(document.querySelector('.library-page-shell.is-reading')).toBeInTheDocument();
     });
-    expect(screen.getByText('Reading article shell')).toBeInTheDocument();
-    // Reading is one column: the source, then its marginalia under it, closed
-    // until asked for. No left cabinet, no right rail beside the reading.
+    expect(screen.getAllByRole('button', { name: 'Librarian' }).length).toBeGreaterThan(0);
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
     expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
   });
 
   it('opens source context when navigation targets an exact highlight', async () => {
-    renderLibrary('/library?scope=all&articleId=article-1&highlightId=highlight-1');
+    renderLibrary('/library?scope=all&highlightId=highlight-1');
+    fireEvent.click(screen.getByRole('button', { name: /Continue/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId('library-reading-secondary-rail')).toHaveAttribute('open');

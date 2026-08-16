@@ -107,8 +107,12 @@ const Library = () => {
     if (stored === null) return false;
     return stored === 'true';
   });
+  /* A URL that names an exact highlight is asking to see that highlight, and
+     source context is where it is shown. Without counting that as an override,
+     getContextPanelOpen forces the panel shut the moment the source is
+     selected — so the link opened the source and hid the thing it named. */
   const [contextOverride, setContextOverride] = useState(() => (
-    localStorage.getItem(CONTEXT_OVERRIDE_KEY) === 'true'
+    Boolean(requestedHighlightId) || localStorage.getItem(CONTEXT_OVERRIDE_KEY) === 'true'
   ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
   const [sourceContextOpen, setSourceContextOpen] = useState(Boolean(requestedHighlightId));
@@ -504,13 +508,19 @@ const Library = () => {
   }, [activeHighlightId, removeHighlight, selectedArticleId]);
 
   const handleToggleRight = useCallback((nextOpen) => {
-    if (selectedArticleId && !contextOverride) {
+    /* Opening the Librarian is a decision, and it outlives the next click.
+       getContextPanelOpen forces the panel shut whenever a source is selected
+       and no override is on record — so recording the override only when a
+       source was *already* selected meant opening the Librarian and then
+       opening a source silently closed it again, with nothing to say why. An
+       explicit open is an override whenever it happens. */
+    if (!contextOverride) {
       setContextOverride(true);
       localStorage.setItem(CONTEXT_OVERRIDE_KEY, 'true');
     }
     setRightOpen(nextOpen);
     localStorage.setItem(RIGHT_STORAGE_KEY, String(nextOpen));
-  }, [contextOverride, selectedArticleId]);
+  }, [contextOverride]);
 
 
   useEffect(() => {
