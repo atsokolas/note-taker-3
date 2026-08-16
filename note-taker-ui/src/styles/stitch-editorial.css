@@ -11145,3 +11145,96 @@ body.noeis-editorial .tix-thread__tag,
 @media (prefers-reduced-motion: reduce) {
   .tix-anim { animation: none; opacity: 1; transform: none; }
 }
+
+/* ---- The top bar, at widths narrower than a desktop ----------------------
+ *
+ * Measured on main before this: at 1024px the bar stood 191px tall in three
+ * rows — wordmark and nav, then search, then the controls — while the shell
+ * reserved 130px for it, so the page ran up behind the controls. At 390px the
+ * nav (74–358) and the controls (12–378) printed on top of each other.
+ *
+ * Connections and Settings are the widest things in the bar and were flagged
+ * essential, so every narrowing rule spared them. From 1240px down they fold
+ * into the More menu instead, which renders a second copy of them for exactly
+ * this case. CSS chooses which copy shows, so there is no viewport state to
+ * keep in sync.
+ */
+body.noeis-editorial .topbar__menu-item--narrow-only {
+  display: none;
+}
+
+@media (max-width: 1240px) {
+  /* Two rows: wordmark and nav beside the controls, search underneath.
+     Explicit placement, because auto-flow pushes the controls onto a third row
+     the moment the search field claims the full width. */
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 16px;
+    width: min(1680px, calc(100vw - 32px));
+    padding: 18px 0 14px;
+  }
+
+  body.noeis-editorial .topbar__left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  body.noeis-editorial .topbar__right {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  body.noeis-editorial .topbar__search-slot {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  body.noeis-editorial .topbar__utility-button {
+    display: none !important;
+  }
+
+  body.noeis-editorial .topbar__menu-item--narrow-only {
+    display: flex;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 130px;
+  }
+}
+
+@media (max-width: 760px) {
+  body.noeis-editorial .topbar__content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: calc(100vw - 24px);
+    padding: 10px 0 8px;
+  }
+
+  /* On a phone the search field goes too: there is no keyboard for ⌘K, and the
+     palette is still reachable from the icon. */
+  body.noeis-editorial .topbar__search-slot,
+  body.noeis-editorial .topbar__reference-button {
+    display: none !important;
+  }
+
+  body.noeis-editorial .topbar__brand-nav {
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    flex-wrap: nowrap;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  body.noeis-editorial .topbar__primary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
+    padding-top: 92px;
+  }
+}

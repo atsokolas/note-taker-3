@@ -10,9 +10,6 @@ import {
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
-import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
-import AgentContextShell from '../agent/AgentContextShell';
-import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiRepoCreateComposer from './WikiRepoCreateComposer';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
@@ -27,10 +24,7 @@ import {
   selectPrimaryReturnLoopNote,
   selectBriefingReturnLoopNotes
 } from './wikiBriefingReturnLoopModel';
-import {
-  dedupePagesByRepoKey,
-  filterPagesForTodaysPage
-} from './wikiRepoDedupeModel';
+import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
 import '../../styles/wiki-critical.css';
@@ -366,20 +360,11 @@ const WikiFrontPage = () => {
       || String(a.title || '').localeCompare(String(b.title || '')))
   ), [curatedPages]);
 
-  // Today's page: the agent's most recently enriched page; otherwise the
-  // strongest page in the corpus. Repo wikis only lead when they actually changed.
-  const todaysPage = useMemo(() => {
-    const watcherPage = briefing?.lead?.page?.id
-      ? resolvePage({ _id: briefing.lead.page.id, title: briefing.lead.page.title })
-      : null;
-    const candidates = [
-      ...(watcherPage ? [watcherPage] : []),
-      ...filterPagesForTodaysPage(sourceMaterialPages, briefing),
-      ...filterPagesForTodaysPage(recentlyUpdated, briefing),
-      ...filterPagesForTodaysPage(weighted, briefing)
-    ];
-    return candidates[0] || null;
-  }, [sourceMaterialPages, recentlyUpdated, weighted, briefing, resolvePage]);
+  /* Today's page — the agent's most recently enriched page, otherwise the
+     strongest in the corpus — was computed only to write the Curator's
+     orientation sentence. The Curator is gone and nothing reads it now, so it
+     goes with it rather than being left as a lead nobody leads with. Worth
+     bringing back the day this page carries a "Continue" line. */
 
   const pageKinds = useMemo(() => {
     const counts = new Map();
@@ -662,6 +647,7 @@ const WikiFrontPage = () => {
           <h2 className="wiki-index__eyebrow">Specialized builders</h2>
           <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
           <WikiCompanyDossierComposer className="wiki-front-page__company-builder" />
+
         </section>
       </div>
     </details>
@@ -863,70 +849,41 @@ const WikiFrontPage = () => {
               </ol>
             </section>
           ) : null}
+          {/* The return path came off the Curator with it. It is the one thing
+              in that pane that was neither a form nor a conversation — it is
+              where you were going next — so it stays, as a line. */}
+          {briefingNextAction ? (
+            <p className="wiki-front-page__return-path wfp-anim wfp-anim--4">
+              <Link to={briefingNextAction.href}>{briefingNextAction.label} →</Link>
+              {briefingNextAction.reason ? <span>{briefingNextAction.reason}</span> : null}
+            </p>
+          ) : null}
+
+          {/* The Curator was a second agent: a pane of its own, labelled
+              "Persistent agent", sitting beside the rail that is the agent
+              everywhere else in the product. Two of them on one screen is the
+              thing the rail exists to stop, and this one could not converse as
+              well as the rail can.
+
+              What it could do that the rail cannot is build: a page from a
+              topic, a developer wiki from a repository. Those are verbs, not
+              conversation, so they come into the column as verbs — behind one
+              disclosure, because making a page is not the face of the page
+              that lists what you already made. */}
+          <details className="wiki-front-page__making wfp-anim wfp-anim--4">
+            <summary>Build a wiki</summary>
+            <div className="wiki-front-page__creation-tools">
+              <section aria-label="Build or update a wiki">
+                <WikiBuildPageComposer compact className="wiki-front-page__builder" />
+              </section>
+              <section aria-label="Create a developer wiki from GitHub">
+                <p>Connect a public GitHub repository to create a maintained developer reference.</p>
+                <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
+              </section>
+            </div>
+          </details>
         </section>
 
-        <aside className="wiki-living-curator wfp-anim wfp-anim--3" aria-label="Wiki Curator">
-          <header>
-            <p className="wiki-index__eyebrow">Persistent agent</p>
-            <h2>Curator</h2>
-            <p>Build or update a wiki, or connect a developer wiki.</p>
-          </header>
-          <section className="wiki-living-curator__builder" aria-labelledby="wiki-curator-build">
-            <h3 id="wiki-curator-build">Build or update a wiki</h3>
-            <WikiBuildPageComposer compact className="wiki-front-page__builder" />
-          </section>
-          <section className="wiki-living-curator__repo" aria-labelledby="wiki-curator-repo">
-            <h3 id="wiki-curator-repo">Developer wiki</h3>
-            <p>Connect a public GitHub repository to create a maintained developer reference.</p>
-            <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
-          </section>
-          {briefingNextAction ? (
-            <div className="wiki-living-curator__return">
-              <span>Return path</span>
-              <Link to={briefingNextAction.href}>{briefingNextAction.label} →</Link>
-              {briefingNextAction.reason ? <p>{briefingNextAction.reason}</p> : null}
-            </div>
-          ) : null}
-          <details className="wiki-living-curator__conversation">
-            <summary>Ask the Curator</summary>
-            <AgentContextShell
-              surface="wiki"
-              title="Curator"
-              orientation={todaysPage
-                ? `Continue from ${displayWikiPageTitle(todaysPage, 'your living knowledge')}.`
-                : 'Read what you know or begin a new thought.'}
-              loading={loading}
-              loadingMessage="Retrieving Wiki context…"
-              error={error}
-              showPresence={false}
-            >
-              <ThoughtPartnerPanel
-                className="wiki-front-page__partner"
-                variant="stream"
-                contextType="wiki"
-                contextId="wiki-front"
-                contextTitle="Wiki"
-                contextMetadata={{
-                  summary: todaysPage
-                    ? `${displayWikiPageTitle(todaysPage, 'A living page')} is the current lead.`
-                    : 'No living page is selected yet.',
-                  nextActions: curatedPages.slice(0, 3).map((page) => displayWikiPageTitle(page, '')).filter(Boolean)
-                }}
-                title="Curator"
-                subtitle={`${AGENT_DISPLAY_NAME} · grounded in your Library`}
-                placeholder="Ask what to build, revisit, or challenge."
-                promptTemplates={[
-                  'What changed in my Library?',
-                  'Which wiki needs review?',
-                  'Build a wiki from this topic.'
-                ]}
-                showQuickPrompts={false}
-                emptyStateText="Ask when you want help building or revisiting durable knowledge. Material changes still wait for your review."
-                submitLabel="↗"
-              />
-            </AgentContextShell>
-          </details>
-        </aside>
       </div>
 
       {operationalWorkspace}

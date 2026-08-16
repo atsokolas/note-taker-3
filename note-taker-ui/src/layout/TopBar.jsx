@@ -90,7 +90,7 @@ const TopBar = ({
   const morePopoverRef = useRef(null);
   const accountMenuRef = useRef(null);
   const accountPopoverRef = useRef(null);
-  const showMoreMenu = secondaryNav.length > 0;
+  const showMoreMenu = secondaryNav.length > 0 || utilityNav.length > 0;
   const showAccountMenu = accountMenuItems.length > 0;
 
   const isNavItemActive = useMemo(() => (item) => {
@@ -151,12 +151,13 @@ const TopBar = ({
     };
   }, [moreOpen, accountOpen]);
 
-  const renderMenuItem = (item, onSelect) => {
+  const renderMenuItem = (item, onSelect, extraClass = '') => {
+    const itemClass = `topbar__menu-item ${extraClass}`.trim();
     if (item.href) {
       return (
         <a
           key={item.label}
-          className="topbar__menu-item"
+          className={itemClass}
           role="menuitem"
           href={item.href}
           target={item.external ? '_blank' : undefined}
@@ -172,7 +173,7 @@ const TopBar = ({
         <NavLink
           key={item.label}
           to={item.to}
-          className={`topbar__menu-item ${isNavItemActive(item) ? 'is-active' : ''}`}
+          className={`${itemClass} ${isNavItemActive(item) ? 'is-active' : ''}`}
           role="menuitem"
           onClick={onSelect}
         >
@@ -184,7 +185,7 @@ const TopBar = ({
       <button
         key={item.label}
         type="button"
-        className="topbar__menu-item"
+        className={itemClass}
         role="menuitem"
         onClick={() => {
           item.onClick?.();
@@ -360,6 +361,17 @@ const TopBar = ({
                 testId="topbar-more-menu"
               >
                 {secondaryNav.map((item) => renderMenuItem(item, () => setMoreOpen(false)))}
+                {/* Below 1240px the utility buttons are hidden — Connections
+                    and Settings are the widest things in the bar and were
+                    marked essential, so they survived every narrowing rule and
+                    pushed the wordmark and nav on top of each other. They stay
+                    reachable: they move in here. CSS decides which copy shows,
+                    so there is no viewport state to keep in sync. */}
+                {utilityNav.map((item) => renderMenuItem(
+                  item,
+                  () => setMoreOpen(false),
+                  'topbar__menu-item--narrow-only'
+                ))}
               </TopBarMenuPopover>
             </div>
           )}

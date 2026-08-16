@@ -1778,3 +1778,128 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
     transform: none;
   }
 }
+
+/* ---- The wiki index, in the reading language -----------------------------
+ *
+ * The Curator pane came off this page, which gave the table back the width it
+ * had been losing — the Maintenance column was cut in half by it. What is left
+ * is volume: this surface still labels itself in spaced uppercase mono the way
+ * the rest of the product did before it stopped.
+ */
+body.noeis-editorial .wiki-living-shell .wiki-index__eyebrow,
+body.noeis-editorial .wiki-living-nav__head,
+body.noeis-editorial .wiki-living-nav__kinds > span,
+body.noeis-editorial .wiki-living-table__head > *,
+body.noeis-editorial .wiki-living-row__kind,
+body.noeis-editorial .wiki-living-index__header > p,
+body.noeis-editorial .wiki-living-changes__head,
+body.noeis-editorial .wiki-living-changes__head *,
+body.noeis-editorial .wiki-living-nav__kinds *,
+body.noeis-editorial .wiki-living-shell [class*='__kicker'],
+body.noeis-editorial .wiki-front-page__operational,
+body.noeis-editorial .wiki-front-page__operational * {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* The chosen view is the one at full ink, not the one in a filled capsule. */
+body.noeis-editorial .wiki-living-nav a,
+body.noeis-editorial .wiki-living-nav button {
+  padding: 5px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .wiki-living-nav a.is-active,
+body.noeis-editorial .wiki-living-nav button.is-active,
+body.noeis-editorial .wiki-living-nav a[aria-current='page'] {
+  color: var(--text-primary, var(--vellum-ink));
+  background: transparent !important;
+}
+
+/* You search on a line. */
+body.noeis-editorial .wiki-living-index__search input,
+body.noeis-editorial .wiki-living-shell input[type='search'] {
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.94rem;
+}
+
+/* A wiki's name is the reading. The cell clipped it to one nowrap line with an
+   ellipsis — about 24 characters — while the column had room for the whole
+   title. The cell keeps its grid (the first column is the little page mark, not
+   a checkbox); it is the link inside it that stops clipping. */
+body.noeis-editorial .wiki-living-row__title {
+  align-items: start;
+}
+
+body.noeis-editorial .wiki-living-row__title a {
+  overflow: visible;
+  font-size: 1.02rem;
+  line-height: 1.32;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+body.noeis-editorial .wiki-living-row__title > span {
+  margin-top: 4px;
+}
+
+/* The kind of page — topic, overview — at 0.58rem in spaced caps was a stamp.
+   It is an aside. */
+body.noeis-editorial .wiki-living-row__title small {
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Building is a verb behind one disclosure, under the list of what exists. */
+body.noeis-editorial .wiki-front-page__making {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+body.noeis-editorial .wiki-front-page__making > summary {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+body.noeis-editorial .wiki-front-page__creation-tools {
+  display: grid;
+  gap: 26px;
+  margin-top: 18px;
+}
+
+body.noeis-editorial .wiki-front-page__return-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin: 26px 0 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+}
+
+body.noeis-editorial .wiki-front-page__return-path span {
+  color: var(--text-muted, var(--vellum-subtle));
+}

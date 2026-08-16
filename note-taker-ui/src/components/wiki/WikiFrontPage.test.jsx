@@ -155,7 +155,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(await screen.findByRole('table', { name: 'Living Wiki pages' })).toBeInTheDocument();
   });
 
-  it('renders the living Wiki index with filters, grounded rows, and a persistent Curator', async () => {
+  it('renders the living Wiki index with filters and grounded rows, and no second agent', async () => {
     render(
       <router.MemoryRouter>
         <WikiFrontPage />
@@ -178,7 +178,12 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveTextContent('Your living wikis');
-    expect(screen.getByRole('complementary', { name: 'Wiki Curator' })).toHaveTextContent('Curator');
+    // The Curator pane is gone: it was a second agent, labelled "Persistent
+    // agent", sitting beside the rail that is the agent in every other room.
+    // What it could do that the rail cannot — build a page, connect a repo —
+    // is in the column, behind one disclosure.
+    expect(screen.queryByRole('complementary', { name: 'Wiki Curator' })).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-front-page__making summary')).toHaveTextContent('Build a wiki');
     expect(screen.getByRole('button', { name: /All wikis 3/i })).toHaveAttribute('aria-pressed', 'true');
 
     const livingTable = screen.getByRole('table', { name: 'Living Wiki pages' });
