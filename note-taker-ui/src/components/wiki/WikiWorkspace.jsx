@@ -251,6 +251,15 @@ const COMMANDS = [
     hint: 'Open the wiki graph.'
   },
   {
+    // /map is a different graph from the wiki's: it spans notes, highlights and
+    // ideas across the corpus. It stopped being a room of its own, so its door
+    // is here, with the rest of the graph work.
+    verb: 'corpus-map',
+    template: '/corpus-map',
+    label: 'Corpus map',
+    hint: 'Open the graph across notes, highlights and ideas.'
+  },
+  {
     verb: 'activity',
     template: '/activity',
     label: 'Activity',
@@ -2335,6 +2344,10 @@ const WikiWorkspaceChat = ({
 
   const handleCommand = async (command) => {
     const pageRef = parseWikiRef(command.args) || selectedPageId;
+    if (command.verb === 'corpus-map') {
+      window.location.href = '/map';
+      return;
+    }
     if (command.verb === 'graph') {
       onNavigate({ view: 'graph' });
       append({ role: 'assistant', text: 'Opened the wiki graph on the right.' });
@@ -2987,7 +3000,11 @@ const WikiWorkspace = () => {
   const shouldOpenReferencePullIn = params.get('pull') === '1';
   const view = selectedPageId ? 'page' : explicitView || 'graph';
   const isListWorkspace = !selectedPageId && view === 'list';
-  const agentPaneCollapsed = Boolean(selectedPageId && pageMode === 'read' && mobilePane !== 'chat');
+  // One agent to a screen. The rail is the agent everywhere in the product, so
+  // the workspace's own chat pane stays folded to its "Ask" word until someone
+  // asks for it — by the peek, by ?pane=chat, or by running a command. Editing
+  // a page is the exception: the composer is the surface the draft reports into.
+  const agentPaneCollapsed = mobilePane !== 'chat' && !(selectedPageId && pageMode === 'edit');
   // Selected pages own their contextual agent through WikiPageReadView's
   // responsive drawer. Keep the legacy split-pane chat available for the
   // broader workspace, but never stack it above a living article on mobile.
@@ -3490,6 +3507,8 @@ const WikiWorkspace = () => {
           Wiki
         </Link>
       </div> : null}
+      {/* On a narrow screen the tab bar above already says Chat, so the peek
+          would be a second door to the same pane, a thumb apart. */}
       {agentPaneCollapsed && !isMobileLayout ? (
         <button
           type="button"
@@ -3497,8 +3516,10 @@ const WikiWorkspace = () => {
           onClick={() => showPane('chat', { persist: true })}
           aria-label={`Open ${AGENT_DISPLAY_NAME}`}
         >
-          <span aria-hidden="true">›</span>
-          Ask
+          {/* The rail's Ask retrieves; this opens the pane that drafts, builds,
+              ingests and lints. Two doors called Ask was one too many, so this
+              one is named after the room behind it. */}
+          {AGENT_DISPLAY_NAME}
         </button>
       ) : null}
       <aside

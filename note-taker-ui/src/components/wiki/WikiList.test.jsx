@@ -16,10 +16,6 @@ jest.mock('../../utils/wikiCreate', () => ({
   openWikiDraft: jest.fn()
 }));
 
-jest.mock('./WikiBriefing', () => function MockWikiBriefing() {
-  return <div data-testid="wiki-briefing" />;
-});
-
 jest.mock('./WikiEmergingProposals', () => function MockWikiEmergingProposals() {
   return <div data-testid="wiki-emerging-proposals" />;
 });

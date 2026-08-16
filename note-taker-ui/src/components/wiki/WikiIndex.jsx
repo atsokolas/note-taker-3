@@ -7,7 +7,6 @@ import { fetchGraphData } from '../../api/map';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiList from './WikiList';
-import WikiBriefing from './WikiBriefing';
 import {
   DRIFT_STATUSES,
   MODIFIED_WINDOWS,
@@ -784,7 +783,6 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       {!loading && isEmptyWiki ? (
         <>
           {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
-          <WikiBriefing />
           <WikiSparsePages
             pages={filteredPages}
             onOpenPage={handleOpenPage}
@@ -797,7 +795,6 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       ) : null}
       {loading || isEmptyWiki ? null : (
         <>
-      <WikiBriefing />
       <section className="wiki-index__header">
         <div className="wiki-index__title-block">
           <p className="wiki-index__eyebrow">Wiki</p>

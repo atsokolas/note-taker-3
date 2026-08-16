@@ -85,6 +85,7 @@ import '../../styles/wiki-claim-focus.css';
 import DecisionCreateForm from './decisions/DecisionCreateForm';
 import DecisionReviewPanel from './decisions/DecisionReviewPanel';
 import { selectableAcceptedRevisions } from './decisions/acceptedRevisionIdentity';
+import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigation';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -1841,7 +1842,7 @@ const WikiPageReadView = ({
     setPreview(null);
     const go = () => navigate(wikiPagePath(targetPageId));
     if (typeof document !== 'undefined' && typeof document.startViewTransition === 'function') {
-      document.startViewTransition(go);
+      swallowSkippedViewTransition(document.startViewTransition(go));
     } else {
       go();
     }
