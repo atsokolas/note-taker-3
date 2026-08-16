@@ -1,17 +1,17 @@
+// Four rooms. Library is what you read, Think is what you wrote, Wiki is home
+// (the morning paper), Judgment is what the reading was for. Paper stays a
+// route — it is a different sheet, not a fifth room.
 export const getPrimaryNavItems = () => [
-  {
-    label: 'Paper',
-    to: '/paper',
-    match: (location) => location.pathname.startsWith('/paper')
-  },
   {
     label: 'Library',
     to: '/library',
     match: (location) => location.pathname.startsWith('/library')
   },
   {
+    // Bare /think, because Think opens the note you were last in rather than
+    // an index of rooms.
     label: 'Think',
-    to: '/think?tab=home',
+    to: '/think',
     match: (location) => location.pathname.startsWith('/think')
   },
   {
@@ -45,27 +45,14 @@ export const getTopBarUtilityNavItems = () => [
   }
 ];
 
+/* Map, Today, Review and Return Queue are no longer rooms.
+   - Today was a launcher for surfaces that are now the nav itself.
+   - Map is graph work, and graph work lives in the wiki workspace.
+   - Review and Return Queue are both "things asking for your attention",
+     which is the morning paper's job — the paper now says what is waiting and
+     links through to the full view.
+   Their routes all still resolve; they are simply not advertised as places. */
 export const getSecondaryNavItems = () => [
-  {
-    label: 'Map',
-    to: '/map',
-    match: (location) => location.pathname.startsWith('/map')
-  },
-  {
-    label: 'Today',
-    to: '/today',
-    match: (location) => location.pathname.startsWith('/today')
-  },
-  {
-    label: 'Review',
-    to: '/review',
-    match: (location) => location.pathname.startsWith('/review')
-  },
-  {
-    label: 'Return Queue',
-    to: '/return-queue',
-    match: (location) => location.pathname.startsWith('/return-queue')
-  },
   {
     label: 'Growth',
     to: '/marketing-analytics',

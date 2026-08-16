@@ -1,0 +1,275 @@
+/* Think — the note, with the others faint beside it.
+   Same paper as the rest: vellum, Newsreader for the writing, quiet sans for
+   the apparatus. The shelf on the left is a list of titles, not a room. */
+
+.think-notes {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+  width: 100%;
+  padding: clamp(24px, 4vh, 48px) 0 clamp(80px, 16vh, 160px);
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.think-notes__return {
+  animation: wfp-materialize 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- the faint shelf ---------- */
+
+.think-notes__shelf {
+  position: sticky;
+  top: 88px;
+  min-width: 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.think-notes__shelf-eyebrow {
+  margin: 0 0 16px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.82rem;
+}
+
+.think-notes__shelf ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.think-notes__shelf button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: inherit;
+  font-size: 0.94rem;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.think-notes__shelf button:hover,
+.think-notes__shelf button:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* The note you are in is the only one at full weight. */
+.think-notes__shelf button.is-open {
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom: 1px solid currentColor;
+  width: fit-content;
+}
+
+/* ---------- the note ---------- */
+
+.think-notes__note {
+  min-width: 0;
+  max-width: 720px;
+}
+
+.think-notes__edited {
+  margin: 0 0 4px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.think-notes__door {
+  display: block;
+  margin-top: 28px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.think-notes__door:hover,
+.think-notes__door:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.think-notes__quiet {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.96rem;
+  line-height: 1.62;
+}
+
+@media (max-width: 900px) {
+  .think-notes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .think-notes__shelf {
+    position: static;
+  }
+
+  .think-notes__shelf ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
+
+  .think-notes__shelf button {
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .think-notes__return {
+    animation: wfp-fade-in 80ms linear;
+  }
+
+  .think-notes__shelf button {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The editor, without its furniture.
+
+   The note surface reuses the notebook editor so writing, slash commands and
+   block structure all still work. What it does not reuse is the workbench
+   around them — the "Document title" label, the reuse card, the formatting
+   toolbar and the block-type tray. Those belong to a builder; this is a page
+   you write on. They come back on the legacy Think workspace.
+   --------------------------------------------------------------------------- */
+
+/* Scoped through `body.noeis-editorial` on purpose: the editorial theme sets
+   `display: flex` on these same class names at that specificity, and a bare
+   `.think-notes .x` loses to it. */
+body.noeis-editorial .think-notes .think-notebook-title-kicker,
+body.noeis-editorial .think-notes .think-notebook-title-hint,
+body.noeis-editorial .think-notes .notebook-organize-panel,
+body.noeis-editorial .think-notes .think-notebook-editor-formatting,
+body.noeis-editorial .think-notes .think-editor-slash-hint,
+body.noeis-editorial .think-notes .think-editor-block-controls,
+body.noeis-editorial .think-notes .notebook-insert-group,
+body.noeis-editorial .think-notes .think-draft-block-tray,
+.think-notes .think-notebook-title-kicker,
+.think-notes .think-notebook-title-hint,
+.think-notes .notebook-organize-panel,
+.think-notes .think-notebook-editor-formatting,
+.think-notes .think-editor-slash-hint,
+.think-notes .think-editor-block-controls,
+.think-notes .notebook-insert-group,
+.think-notes .think-draft-block-tray {
+  display: none;
+}
+
+/* Saving stays. "Structure" and "More" are workbench controls. */
+body.noeis-editorial .think-notes .think-notebook-editor-actions-left,
+.think-notes .think-notebook-editor-actions-left {
+  display: none;
+}
+
+body.noeis-editorial .think-notes .think-notebook-editor-actions,
+.think-notes .think-notebook-editor-actions {
+  justify-content: flex-end;
+}
+
+/* "Structure" and "More" are workbench controls too; Save is not. */
+body.noeis-editorial .think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
+body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
+.think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
+.think-notes .think-notebook-editor-actions-overflow {
+  display: none;
+}
+
+.think-notes .think-notebook-editor,
+.think-notes .think-editor-draft-surface {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.think-notes .think-notebook-editor-actions {
+  margin-top: 18px;
+}
+
+/* The title is the note's headline, not a form field. */
+.think-notes .think-notebook-title-input,
+.think-notes .think-notebook-title-input:focus {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.012em;
+}
+
+.think-notes .ProseMirror {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+  line-height: 1.66;
+}
+
+/* The body is the page, not a box on it. */
+.think-notes .think-editor-draft-surface,
+.think-notes .think-editor-draft-surface > div {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Save is the one control the note needs. It reads as a word, like every other
+   action in this language, rather than as a filled button. */
+body.noeis-editorial .think-notes .think-notebook-editor-actions .ui-button,
+.think-notes .think-notebook-editor-actions .ui-button {
+  min-height: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.86rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+body.noeis-editorial .think-notes .think-notebook-editor-actions .ui-button:hover,
+.think-notes .think-notebook-editor-actions .ui-button:hover {
+  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+/* With Structure and More gone, Save was the only thing left in a row that
+   still spanned the column and pushed it to the far right. It belongs at the
+   foot of the note, beside the agent door. */
+body.noeis-editorial .think-notes .think-notebook-editor-actions,
+.think-notes .think-notebook-editor-actions {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
+.think-notes .think-notebook-editor-actions-right {
+  justify-content: flex-start;
+}

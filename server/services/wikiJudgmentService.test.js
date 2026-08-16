@@ -45,6 +45,76 @@ const run = () => {
   assert.strictEqual(claimUpdates[0].epistemicStatus, 'established_fact');
   assert.strictEqual(claimUpdates[0].materiality, 'critical');
   assert.throws(() => normalizeClaimUpdates([{ claimId: 'claim-1', epistemicStatus: 'certain' }]), JudgmentValidationError);
+
+  runReasonLists();
+};
+
+// Why and Against are lists, because the Judgment page reads one line at a time
+// and an agent line the human accepted has to land as its own line with its own
+// provenance.
+const runReasonLists = () => {
+  const base = () => ({
+    kind: 'thesis',
+    governingQuestion: 'Does demand outrun capacity?',
+    currentJudgment: 'Demand still outruns deliverable capacity.'
+  });
+
+  const reasoned = normalizeJudgment({
+    input: {
+      ...base(),
+      why: [
+        { text: 'AI demand keeps compounding faster than new supply.', sourceRefIds: ['507f1f77bcf86cd799439011'] },
+        { reasonId: 'why-lead-times', text: '  Lead times   constrain delivery. ' }
+      ],
+      against: [{ text: 'Hyperscalers design more in-house silicon.', acceptedFrom: 'event-1' }]
+    }
+  });
+  assert.strictEqual(reasoned.why.length, 2);
+  assert.match(reasoned.why[0].reasonId, /^why_/);
+  assert.strictEqual(reasoned.why[1].reasonId, 'why-lead-times');
+  assert.strictEqual(reasoned.why[1].text, 'Lead times constrain delivery.');
+  assert.deepStrictEqual(reasoned.why[0].sourceRefIds, ['507f1f77bcf86cd799439011']);
+  assert.strictEqual(reasoned.against[0].acceptedFrom, 'event-1');
+
+  // A judgment that has never had either field keeps them as empty lists, so the
+  // page can tell "nothing recorded" apart from "not supported".
+  const empty = normalizeJudgment({ input: base() });
+  assert.deepStrictEqual(empty.why, []);
+  assert.deepStrictEqual(empty.against, []);
+
+  // Accepting appends: the lines already recorded come back unchanged alongside
+  // the new one, in order.
+  const appended = normalizeJudgment({
+    input: {
+      ...base(),
+      against: [
+        { reasonId: 'against-1', text: 'Hyperscalers design more in-house silicon.' },
+        { text: 'A 13F filing was posted.', acceptedFrom: 'event-2' }
+      ]
+    },
+    existing: reasoned
+  });
+  assert.deepStrictEqual(
+    appended.against.map(line => line.text),
+    ['Hyperscalers design more in-house silicon.', 'A 13F filing was posted.']
+  );
+
+  // The older single counterargument is untouched by the new lists.
+  const legacy = normalizeJudgment({
+    input: { ...base(), strongestCounterargument: 'Pricing power may not survive the next cycle.' }
+  });
+  assert.strictEqual(legacy.strongestCounterargument, 'Pricing power may not survive the next cycle.');
+  assert.deepStrictEqual(legacy.against, []);
+
+  // A blank line is a mistake, not a record.
+  assert.throws(
+    () => normalizeJudgment({ input: { ...base(), why: [{ text: '   ' }] } }),
+    (error) => error instanceof JudgmentValidationError && /why line requires text/.test(error.message)
+  );
+  assert.throws(
+    () => normalizeJudgment({ input: { ...base(), against: 'not a list' } }),
+    (error) => error instanceof JudgmentValidationError && /against must be an array/.test(error.message)
+  );
 };
 
 if (require.main === module) {

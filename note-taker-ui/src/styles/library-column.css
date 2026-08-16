@@ -1,0 +1,397 @@
+/* The Library page: the cabinet, then the reading.
+   The shelf on the left is a faint list of names — the same shape as the note
+   shelf in Think — so the filing system is present without being the face. */
+
+.library-page-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
+  gap: clamp(24px, 3.4vw, 52px);
+  align-items: start;
+}
+
+.library-page-shell__column {
+  min-width: 0;
+}
+
+.library-shelf {
+  position: sticky;
+  top: 88px;
+  min-width: 0;
+  padding-top: clamp(40px, 7vh, 84px);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.library-shelf__eyebrow {
+  margin: 0 0 16px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.82rem;
+}
+
+.library-shelf ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-shelf button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: inherit;
+  font-size: 0.94rem;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.library-shelf button:hover,
+.library-shelf button:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* The shelf you are on is the only one at full weight. */
+.library-shelf button.is-open {
+  width: fit-content;
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom: 1px solid currentColor;
+}
+
+/* Filing is the cabinet's own work, so it sits at the foot of the cabinet. */
+.library-shelf__filing {
+  width: fit-content;
+  margin-top: 26px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.library-shelf__filing:hover,
+.library-shelf__filing:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.library-shelf__filing:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+@media (max-width: 900px) {
+  .library-page-shell {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .library-shelf {
+    position: static;
+    padding-top: 24px;
+  }
+
+  .library-shelf ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
+
+  .library-shelf button {
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-shelf button {
+    transition: none;
+  }
+}
+
+/* The Library column.
+   Same paper as Judgment and the morning paper: vellum, Newsreader for the
+   things you read, a quiet sans for the apparatus. One thing to continue, then
+   the shelf. No cards, no counts, no cabinet. */
+
+.library-column {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0;
+  align-content: start;
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: clamp(40px, 7vh, 84px) 20px clamp(96px, 20vh, 200px);
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.library-column__return {
+  animation: wfp-materialize 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.library-column__eyebrow,
+.library-column__kicker {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.library-column__eyebrow {
+  text-align: center;
+  margin-bottom: 34px;
+}
+
+/* ---------- continue ---------- */
+
+.library-column__continue {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  padding-bottom: 34px;
+}
+
+.library-column .library-column__continue h2 {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.7rem, 2.9vw, 2.3rem);
+  font-weight: 400;
+  line-height: 1.16;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.library-column__continue h2 button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.library-column__continue h2 button:hover,
+.library-column__continue h2 button:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.library-column__source {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  color: var(--text-secondary, var(--vellum-muted));
+}
+
+.library-column__dek {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.library-column__continue-link {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.library-column__continue-link:hover,
+.library-column__continue-link:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+/* ---------- find and save ---------- */
+
+.library-column__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 0 0 18px;
+}
+
+.library-column__find {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 260px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.82rem;
+}
+
+/* A ruled line, not a widget. The editorial theme paints every input with a
+   tinted panel using !important, so this has to answer in kind. */
+.library-column .library-column__find input,
+.library-column .library-column__find input:focus {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.library-column .library-column__find input:focus {
+  outline: none;
+  border-bottom-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+.library-column__saver {
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 0.86rem;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.library-column__saver:hover,
+.library-column__saver:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+/* ---------- the shelf ---------- */
+
+.library-column__shelf {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.library-column__shelf li {
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.library-column__shelf button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr) auto;
+  align-items: baseline;
+  gap: 20px;
+  width: 100%;
+  padding: 15px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.library-column__shelf button:hover,
+.library-column__shelf button:focus-visible {
+  transform: translate3d(3px, 0, 0);
+}
+
+.library-column__row-title {
+  min-width: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+  line-height: 1.35;
+}
+
+.library-column__shelf button:hover .library-column__row-title,
+.library-column__shelf button:focus-visible .library-column__row-title {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.library-column__row-source,
+.library-column__row-date {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.library-column__row-date {
+  white-space: nowrap;
+}
+
+.library-column__quiet {
+  margin: 26px 0 0;
+  max-width: 52ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.94rem;
+  line-height: 1.62;
+}
+
+.library-column__error {
+  margin: 20px 0 0;
+  color: var(--vellum-error, #a54731);
+  font-size: 0.86rem;
+}
+
+/* ---------- the reader ---------- */
+
+/* Opening a row replaces the shelf with the source. Same column, same measure. */
+.library-reader {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: clamp(24px, 4vh, 48px) 20px clamp(80px, 16vh, 160px);
+}
+
+.library-reader__back {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  border-bottom: 1px solid currentColor;
+  padding: 0;
+  cursor: pointer;
+}
+
+.library-reader__back:hover,
+.library-reader__back:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+@media (max-width: 640px) {
+  .library-column {
+    padding: 28px 20px 72px;
+  }
+
+  .library-column__shelf button {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-column__return {
+    animation: wfp-fade-in 80ms linear;
+  }
+
+  .library-column__shelf button {
+    transition: none;
+    transform: none;
+  }
+}

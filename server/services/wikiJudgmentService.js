@@ -56,6 +56,26 @@ const dateValue = (field, value, fallback = null) => {
 const stableId = (prefix, value) => clean(value, 120) || `${prefix}_${crypto.randomUUID()}`;
 const normalizeRefs = value => (Array.isArray(value) ? value.map(item => clean(item, 120)).filter(Boolean).slice(0, 100) : []);
 
+/* "Why" and "Against" are the two reason lists the human reads on the Judgment
+   page. A line an agent proposed and the human accepted keeps `acceptedFrom`
+   so the page can say where it came from without inventing a new record type. */
+const normalizeReasons = (field, items = []) => {
+  if (!Array.isArray(items)) throw new JudgmentValidationError(`judgment.${field} must be an array.`);
+  return items.slice(0, 100).map((raw) => {
+    const item = plain(raw);
+    const text = clean(item.text, 2000);
+    if (!text) throw new JudgmentValidationError(`Each ${field} line requires text.`);
+    return {
+      reasonId: stableId(field, item.reasonId),
+      text,
+      sourceRefIds: normalizeRefs(item.sourceRefIds),
+      sourceLabel: clean(item.sourceLabel, 200),
+      acceptedFrom: clean(item.acceptedFrom, 200),
+      createdAt: dateValue(`${field}.createdAt`, item.createdAt, new Date())
+    };
+  });
+};
+
 const normalizeAssumptions = (items = []) => {
   if (!Array.isArray(items)) throw new JudgmentValidationError('judgment.assumptions must be an array.');
   return items.slice(0, 100).map((raw) => {
@@ -192,6 +212,8 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user' } = {}) 
     initialRevisionId: prior.initialRevisionId || null,
     strongestCounterargument: clean(next.strongestCounterargument, 8000),
     causalModel: { summary: clean(causal.summary, 8000), nodes: [], edges: [] },
+    why: normalizeReasons('why', next.why || []),
+    against: normalizeReasons('against', next.against || []),
     assumptions: normalizeAssumptions(next.assumptions || []),
     unknowns: normalizeUnknowns(next.unknowns || []),
     falsifiers: normalizeFalsifiers(next.falsifiers || []),

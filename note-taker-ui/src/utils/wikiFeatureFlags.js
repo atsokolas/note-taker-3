@@ -35,6 +35,14 @@ export const wikiPagePath = (pageId, suffix = '') => {
   return `/wiki/${encodedPageId}${normalizeWikiPathSuffix(suffix)}`;
 };
 
+/* Reading a page. Distinct from wikiPagePath on purpose: the composers and QA
+   flows open the workspace because they want the agent and the queues, while a
+   reader following a headline wants the article. */
+export const wikiReadPath = (pageId, suffix = '') => {
+  const encodedPageId = encodeURIComponent(pageId || '');
+  return `/wiki/read/${encodedPageId}${normalizeWikiPathSuffix(suffix)}`;
+};
+
 export const wikiPageEditPath = (pageId) => {
   const encodedPageId = encodeURIComponent(pageId || '');
   if (isWikiWorkspaceV1Enabled()) return `/wiki/workspace?page=${encodedPageId}&mode=edit`;
