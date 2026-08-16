@@ -14,7 +14,7 @@ describe('publishing renderers', () => {
     const html = renderHomeFallback(publishingContent);
 
     expect(html).toContain('Source-grounded personal research wiki');
-    expect(html).toContain('Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.');
+    expect(html).toContain('Saved reading becomes a source-grounded wiki. The wiki becomes judgments you can be held to.');
     expect(html).toContain('href="/guides"');
     expect(html).toContain('href="/examples"');
     expect(html).toContain('href="/ai-second-brain"');

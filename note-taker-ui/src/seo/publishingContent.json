@@ -13,10 +13,10 @@
   },
   "home": {
     "eyebrow": "Source-grounded personal research wiki",
-    "railEyebrow": "Built for evidence-backed synthesis",
-    "railCopy": "A research workspace for people who save too much, think in fragments, and want reading to become pages, drafts, and decisions with sources attached.",
-    "headline": "Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.",
-    "lede": "Noeis keeps articles, highlights, wiki pages, working drafts, concepts, and question threads in one calm workspace so your thinking can compound without losing the evidence underneath it.",
+    "railEyebrow": "Agents retrieve. You accept.",
+    "railCopy": "A research workspace for people who read more than they can remember. Reading becomes pages with their sources attached, and pages become claims you have actually committed to.",
+    "headline": "Saved reading becomes a source-grounded wiki. The wiki becomes judgments you can be held to.",
+    "lede": "Noeis keeps your articles, highlights, pages, and notes in one place, and asks you to write down what you believe, what argues against it, and what would change your mind. An agent brings evidence overnight. Nothing is written until you accept it.",
     "primaryCta": {
       "label": "Get started",
       "href": "/register"
@@ -27,8 +27,8 @@
     },
     "proofPoints": [
       "Highlights stay attached to source and context.",
-      "Wiki pages gather evidence before they become manuscripts.",
-      "Questions stay visible until something actually resolves them."
+      "A claim carries its counterargument and what would change your mind.",
+      "The agent proposes. Nothing enters a page until you accept it."
     ],
     "guideLinks": [
       {
@@ -2417,8 +2417,7 @@
           ]
         }
       ]
-    }
-    ,
+    },
     {
       "slug": "import-reading-archive-into-noeis",
       "title": "Import Reading Archive into Noeis",

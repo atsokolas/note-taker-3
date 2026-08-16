@@ -28,6 +28,7 @@ import {
   reviewedDateForPublicPage
 } from '../utils/maintenanceProof';
 import '../styles/maintenance-proof-stamp.css';
+import '../styles/shared-page-column.css';
 
 const reviewedDateFor = (page = {}) => reviewedDateForPublicPage(page);
 
