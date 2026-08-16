@@ -37,7 +37,15 @@ import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftS
 import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
+import LibraryColumn from '../components/library/LibraryColumn';
+import LibraryShelfNav from '../components/library/LibraryShelfNav';
+import { librarySubject } from '../components/library/libraryColumnModel';
+import { useAgentRailSurface } from '../agent/AgentRailContext';
+import { takeFirstPaint } from '../motion/columnMotion';
+import { oneSentence } from './judgmentModel';
 import '../styles/library-room.css';
+import '../styles/library-column.css';
+import '../styles/reader-editorial.css';
 
 const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
 const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
@@ -1005,6 +1013,69 @@ const Library = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [effectiveRightOpen, handleToggleRight]);
 
+  /* The cabinet stopped being the face of the Library: the reading is what
+     greets you, and the shelves are a faint list beside it. Folder, unfiled and
+     highlight scopes still open the older cabinet views — behind the reading
+     rather than in front of it. */
+  const isShelfView = !isReadingView && scope === 'all';
+  const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
+  const readingEntering = Boolean(selectedArticleId);
+
+  /* What the rail is looking at while the human is in here, and how it
+     retrieves on this page's behalf. Reading a source narrows it to that
+     source. The Librarian panel is still here and still does more; this is the
+     one line of retrieval that every room in the product shares. */
+  useAgentRailSurface(
+    {
+      id: selectedArticleId ? `library:${selectedArticleId}` : 'library',
+      subject: librarySubject({
+        article: selectedArticleId ? selectedArticle : null,
+        count: allArticles.length
+      }),
+      empty: allArticles.length
+        ? 'Nothing to retrieve until you ask.'
+        : 'Nothing on the shelf to retrieve from yet.'
+    },
+    {
+      onAsk: async (question) => {
+        const result = await chatWithAgent({
+          message: question,
+          context: selectedArticleId
+            ? { type: 'article', id: selectedArticleId, title: selectedArticle?.title || 'Article' }
+            : { type: 'workspace', id: 'library', title: 'Library' }
+        });
+        const sentence = oneSentence(String(result?.reply || result?.message || result?.answer || ''));
+        if (!sentence) return null;
+        return {
+          id: `library-ask:${sentence.slice(0, 32)}`,
+          sentence,
+          body: sentence,
+          origin: selectedArticleId ? 'Asked of this source' : 'Asked of the library',
+          // There is no claim contract to write into here, so there is one
+          // decision to make: keep the line or let it go.
+          fields: ['keep']
+        };
+      },
+      // Accepting keeps the line where the human's loose material already goes.
+      // Dismissing leaves nothing behind, which is the point.
+      onAccept: (proposal) => handleDumpToWorkingMemory(proposal.body)
+    }
+  );
+
+  const shelfNav = (
+    <LibraryShelfNav
+      folders={folders}
+      scope={scope}
+      folderId={folderId}
+      unfiledCount={unfiledCount}
+      onSelectScope={handleSelectScope}
+      onSelectFolder={handleSelectFolder}
+      onReviewFiling={handleReviewFiling}
+      filingLaunching={filingLaunching}
+      className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
+    />
+  );
+
   const mainPanel = (
     <LibraryMain
       selectedArticleId={selectedArticleId}
@@ -1223,44 +1294,73 @@ const Library = () => {
 
   return (
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
-      <ThreePaneLayout
-        className={`three-pane--editorial three-pane--library ${isReadingView ? 'three-pane--library-reading' : 'three-pane--library-browse'}`}
-        left={scope === 'all' && !isReadingView ? null : leftPanel}
-        main={mainPanel}
-        right={contextualRightPanel}
-        rightTitle={LIBRARY_AGENT_TITLE}
-        rightOpen={effectiveRightOpen}
-        onToggleRight={handleToggleRight}
-        leftOpen={effectiveLeftOpen}
-        onToggleLeft={handleToggleLeft}
-        rightToggleLabel={LIBRARY_AGENT_TITLE}
-        mainHeader={isReadingView ? null : (
-          <PageTitle
-            title="Library"
-            subtitle="Everything you have encountered. Nothing lost, nothing flattened."
-            eyebrow="MNHMH · MEMORY"
-          />
-        )}
-        mainActions={isReadingView ? null : (
-          <div className="library-main-actions">
-            <QuietButton
-              className="list-button"
-              onClick={handleOrganizeLibrary}
-              disabled={organizeLaunching}
-            >
-              {organizeLaunching ? 'Starting…' : 'Clean up structure'}
-            </QuietButton>
-            {scope !== 'all' ? (
-              <QuietButton className="list-button" onClick={() => handleToggleLeft(!effectiveLeftOpen)}>
-                Folders
-              </QuietButton>
+      {/* The cabinet is a faint list of shelf names beside the reading — the
+          same shape as the note shelf in Think — not a filing system you open
+          before you can read.
+
+          The Librarian is not gone. It does more than the rail does — filing,
+          structure, selection — so it keeps its panel; it is just no longer the
+          third pane of a three-pane room. It opens from a word, and until it is
+          asked for, the rail is the only agent on the screen. */}
+      {shelfNav}
+      <div className="library-page-shell__column">
+        <div className="library-page-shell__column-head">
+          {isReadingView ? (
+            <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>
+              ← All sources
+            </button>
+          ) : <span />}
+          <span className="library-page-shell__doors">
+            {!isReadingView ? (
+              <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
+                {organizeLaunching ? 'Starting…' : 'Clean up structure'}
+              </button>
             ) : null}
-            <QuietButton className="list-button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
+            <button type="button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
               {LIBRARY_AGENT_TITLE}
-            </QuietButton>
+            </button>
+          </span>
+        </div>
+        {isReadingView ? (
+          <div className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''}`}>
+            {mainPanel}
+            {/* Your highlights on this source, and where they went. Not agent
+                work, so it stays with the reading — under the article, behind
+                one disclosure rather than a second rail. */}
+            <EditorialSideRailCollapsible
+              title="Marginalia"
+              subtitle="Your highlights on this source, and where they went."
+              className="library-reader__marginalia"
+              testId="library-reading-secondary-rail"
+            >
+              {contextualRightPanel}
+            </EditorialSideRailCollapsible>
           </div>
+        ) : isShelfView ? (
+          <LibraryColumn
+            articles={articles}
+            allArticles={allArticles}
+            loading={articlesLoading}
+            error={articlesError}
+            query={articleQuery}
+            onQueryChange={handleArticleQueryChange}
+            onSelectArticle={handleSelectArticle}
+            entering={columnEntering}
+          />
+        ) : (
+          <div className="library-reader">{mainPanel}</div>
         )}
-      />
+      </div>
+      {/* The Librarian, when it is asked for. */}
+      {effectiveRightOpen && !isReadingView ? (
+        <aside className="library-page-shell__librarian" aria-label={LIBRARY_AGENT_TITLE}>
+          <div className="library-page-shell__librarian-head">
+            <span>{LIBRARY_AGENT_TITLE}</span>
+            <button type="button" onClick={() => handleToggleRight(false)}>Close</button>
+          </div>
+          {contextualRightPanel}
+        </aside>
+      ) : null}
       <MoveToFolderModal
         open={moveModalOpen}
         folders={folders}
