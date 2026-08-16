@@ -1,0 +1,234 @@
+/* The agent rail.
+   Cream like the column, separated by one hairline. Not a card, not a panel,
+   not a chat log — the margin of the page, where the agent works. It never
+   animates on navigation, because it never arrives: it was already there. */
+
+.agent-rail {
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  width: 100%;
+  max-width: 280px;
+  padding: clamp(48px, 9vh, 104px) 0 40px 26px;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.agent-rail__eyebrow {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.agent-rail__subject {
+  margin: 0;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.84rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.agent-rail__lines {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+/* ---------- retrieved lines ---------- */
+
+.agent-rail__proposals {
+  display: grid;
+  gap: 18px;
+}
+
+.agent-rail__proposal {
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  max-height: 20rem;
+  opacity: 1;
+  transition:
+    max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.agent-rail__proposal.is-leaving {
+  max-height: 0;
+  opacity: 0;
+}
+
+.agent-rail__proposal-sentence {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.agent-rail__proposal-origin {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+/* Accept and Dismiss are words, not buttons. */
+.agent-rail__actions {
+  display: inline-flex;
+  gap: 18px;
+}
+
+.agent-rail__actions button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.agent-rail__actions button:hover,
+.agent-rail__actions button:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.agent-rail__actions button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.agent-rail__status,
+.agent-rail__quiet {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.agent-rail__error {
+  margin: 0;
+  color: var(--vellum-error, #a54731);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+/* ---------- the one input ---------- */
+
+.agent-rail__ask {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* One line on the page, not a field in a form. The editorial theme paints every
+   input with a tinted panel using !important (stitch-editorial.css), which here
+   would read as a widget dropped into the margin — so this has to answer in
+   kind to get back to a plain ruled line. */
+.agent-rail .agent-rail__ask input,
+.agent-rail .agent-rail__ask input:focus {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.agent-rail .agent-rail__ask input::placeholder {
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.agent-rail .agent-rail__ask input:focus {
+  outline: none;
+  border-bottom-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+.agent-rail__ask button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.agent-rail__ask button:hover,
+.agent-rail__ask button:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.agent-rail__ask button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.agent-rail__caption {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+/* ---------- the shell slot ---------- */
+
+.app-shell-new__body--railed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
+  gap: 0;
+  /* The column stretches so its hairline runs the height of the page. The rail
+     pins itself to the top with align-self, not by shrinking the row. */
+  align-items: stretch;
+}
+
+.app-shell-new__body--railed > .app-shell-new__column {
+  min-width: 0;
+  /* One hairline, the full height of the page — the rail box is short, and a
+     border on the rail itself would read as a floating segment. */
+  border-right: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+/* Narrow viewports: the rail folds under the column rather than squeezing it. */
+@media (max-width: 1080px) {
+  .app-shell-new__body--railed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell-new__body--railed > .app-shell-new__column {
+    border-right: 0;
+  }
+
+  .agent-rail {
+    position: static;
+    max-width: none;
+    padding: 24px 0 40px;
+    border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-rail__proposal {
+    transition: opacity 80ms linear;
+  }
+}

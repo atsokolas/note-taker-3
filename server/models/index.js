@@ -358,6 +358,21 @@ const wikiCitationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: true });
 
+/* The two human-labelled reason lists on a judgment: "Why" and "Against".
+   They are lists, not paragraphs, because the Judgment page reads one line at
+   a time and because an agent line accepted by the human has to land as its
+   own line with its own provenance. `strongestCounterargument` stays for the
+   dossier surfaces that already write it; the Judgment page reads it as the
+   first Against line when the list itself is empty. */
+const judgmentReasonSchema = new mongoose.Schema({
+  reasonId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  sourceLabel: { type: String, default: '', trim: true },
+  acceptedFrom: { type: String, default: '', trim: true },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 const judgmentAssumptionSchema = new mongoose.Schema({
   assumptionId: { type: String, required: true, trim: true },
   text: { type: String, required: true, trim: true },
@@ -440,6 +455,8 @@ const wikiJudgmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: () => ({ summary: '', nodes: [], edges: [] })
   },
+  why: { type: [judgmentReasonSchema], default: [] },
+  against: { type: [judgmentReasonSchema], default: [] },
   assumptions: { type: [judgmentAssumptionSchema], default: [] },
   unknowns: { type: [judgmentUnknownSchema], default: [] },
   falsifiers: { type: [judgmentFalsifierSchema], default: [] },

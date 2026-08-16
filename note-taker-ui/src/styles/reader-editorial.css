@@ -1,0 +1,76 @@
+/* The article reader, in the reading language.
+ *
+ * The cyan came from one place: --accent resolved to #36e4ff at :root. That is
+ * now fixed at the source, so this file only carries the reader's own shape:
+ * a title over a hairline instead of a card, and a progress hairline instead of
+ * a glass pill.
+ */
+
+/* The header was a card with a blue inset rule down its left edge. The title of
+   what you are reading does not need a container. */
+body.noeis-editorial .article-reader-header {
+  padding: 0 0 14px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.noeis-editorial .article-reader-title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: -0.012em;
+}
+
+body.noeis-editorial .article-reader-meta {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+/* The reading progress is a hairline that fills, not a glass pill on a
+   gradient. It reports where you are; it does not announce itself. */
+body.noeis-editorial .magnetic-reading-rail__track {
+  height: 1px;
+  border-radius: 0;
+  opacity: 1;
+  background: color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+body.noeis-editorial .magnetic-reading-rail__fill {
+  border-radius: 0;
+  background: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+body.noeis-editorial .magnetic-reading-rail__pill {
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+body.noeis-editorial .magnetic-reading-rail__btn {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+body.noeis-editorial .magnetic-reading-rail__hint {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}

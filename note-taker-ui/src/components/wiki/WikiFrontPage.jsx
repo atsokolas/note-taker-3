@@ -1,32 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listWikiPages } from '../../api/wiki';
+import { askWikiPage, listWikiPages } from '../../api/wiki';
 import {
   armReadingWatch,
   disarmWatcher,
   getDailyLoop,
   recordClaimCheckIn
 } from '../../api/dailyLoop';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { wikiReadPath } from '../../utils/wikiFeatureFlags';
+import { handOffSentence, takeFirstPaint } from '../../motion/columnMotion';
+import { useAgentRailSurface } from '../../agent/AgentRailContext';
+import { docText, oneSentence } from '../../pages/judgmentModel';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
 import WikiRepoCreateComposer from './WikiRepoCreateComposer';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
-import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import { countWikiClaims, countWikiSources, wikiPreviewForPage } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
-import { formatSurfaceDate } from '../../utils/dateDisplay';
-import {
-  normalizeBriefingNextAction,
-  selectPrimaryReturnLoopNote,
-  selectBriefingReturnLoopNotes
-} from './wikiBriefingReturnLoopModel';
+import { listDailyResurface, listReturnQueue } from '../../api/returnQueue';
 import {
   dedupePagesByRepoKey,
   filterPagesForTodaysPage,
-  isEligibleForTodaysPage,
-  prepareExplorePages
+  isEligibleForTodaysPage
 } from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import '../../styles/wiki-critical.css';
@@ -40,9 +36,7 @@ import '../../styles/wiki-front-page.css';
 
 const INDEX_PAGE_LIMIT = 80;
 const LEAD_EXCERPT_BUDGET = 320;
-const EXPLORE_LIMIT = 10;
 const GROWN_LIMIT = 3;
-const WATCHING_PREVIEW_LIMIT = 5;
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
 const WIKI_FRONT_PAGE_CACHE_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
@@ -54,24 +48,6 @@ const pageWeight = (page = {}) => (
   + (page.updatedAt ? 1 : 0)
   + (page.lastReviewedAt ? 1 : 0)
 );
-
-const relativeTime = (iso) => {
-  if (!iso) return '';
-  return formatSurfaceDate(iso, { includeYear: true });
-};
-
-// Growth note for the "Recently grown" column — instrument register, but only
-// from data we actually have (no fabricated deltas).
-const growthNote = (page = {}) => {
-  const parts = [];
-  const updated = relativeTime(page.updatedAt || page.lastReviewedAt);
-  if (updated) parts.push(`reviewed ${updated}`);
-  const claims = countWikiClaims(page);
-  if (claims > 0) parts.push(`${claims} claim${claims === 1 ? '' : 's'}`);
-  const sources = countWikiSources(page);
-  if (sources > 0) parts.push(`${sources} source${sources === 1 ? '' : 's'}`);
-  return parts.join(' · ');
-};
 
 const completeLeadSentence = (value = '', maxLength = 280) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -107,12 +83,9 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
 });
 
 const WikiFrontPageShell = ({ children, ...mainProps }) => (
-  <>
-    <WikiFrontPageGraphMotif />
-    <main className="wiki-page wiki-front-page" {...mainProps}>
-      {children}
-    </main>
-  </>
+  <main className="wiki-page wiki-front-page" {...mainProps}>
+    {children}
+  </main>
 );
 
 const readFrontPageCache = () => {
@@ -155,6 +128,11 @@ const WikiFrontPage = () => {
   const [hasAnyWikiContent, setHasAnyWikiContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const claimSentenceRef = useRef(null);
+  // The stagger is a first-paint cue. Coming back to the paper you already read
+  // this morning crossfades instead of reassembling itself.
+  const arriving = useMemo(() => takeFirstPaint('wiki-front-page'), []);
+  const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'wiki-front-page__return');
   const [checkInBusy, setCheckInBusy] = useState(false);
   const [checkInMessage, setCheckInMessage] = useState('');
   const [revisionDraft, setRevisionDraft] = useState('');
@@ -162,6 +140,23 @@ const WikiFrontPage = () => {
   const [readingFeedUrl, setReadingFeedUrl] = useState('');
   const [readingPageId, setReadingPageId] = useState('');
   const [watchingBusy, setWatchingBusy] = useState(false);
+  const [dueCount, setDueCount] = useState(0);
+  const [resurfaceCount, setResurfaceCount] = useState(0);
+
+  /* Review and the Return Queue used to be rooms you had to remember to visit.
+     What they hold is "things asking for your attention", which is what the
+     paper is for — so the paper says how much is waiting and links through to
+     the full view. A failure here is silent: the paper is still the paper. */
+  useEffect(() => {
+    let cancelled = false;
+    listReturnQueue({ filter: 'due' })
+      .then(items => { if (!cancelled) setDueCount(Array.isArray(items) ? items.length : 0); })
+      .catch(() => {});
+    listDailyResurface()
+      .then(items => { if (!cancelled) setResurfaceCount(Array.isArray(items) ? items.length : 0); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -293,10 +288,6 @@ const WikiFrontPage = () => {
     return dedupePagesByRepoKey([...fromBriefing, ...fallback]).slice(0, GROWN_LIMIT);
   }, [recentlyUpdated, curatedPages, todaysPage, briefing]);
 
-  const explorePages = useMemo(() => (
-    prepareExplorePages(weighted, { limit: EXPLORE_LIMIT })
-  ), [weighted]);
-
   const reviewCount = briefing?.counts?.driftingPages
     ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
 
@@ -317,23 +308,35 @@ const WikiFrontPage = () => {
       : briefing?.summary || ''
   );
   const leadExcerpt = todaysPage ? wikiPreviewForPage(todaysPage, LEAD_EXCERPT_BUDGET) : '';
-  const briefingNextAction = useMemo(
-    () => briefing?.lead?.page?.id ? {
-      label: `Open ${briefing.lead.page.title || 'watched page'}`,
-      href: briefing.lead.href || wikiPagePath(briefing.lead.page.id),
-      reason: `${briefing.lead.watcherLabel || 'Watcher'} · ${briefing.lead.maintenanceStatus || 'queued'}`
-    } : normalizeBriefingNextAction(briefing),
-    [briefing]
-  );
-  const returnLoopNotes = useMemo(
-    () => selectBriefingReturnLoopNotes(briefing),
-    [briefing]
-  );
-  const primaryReturnLoopNote = useMemo(
-    () => selectPrimaryReturnLoopNote(returnLoopNotes),
-    [returnLoopNotes]
-  );
   const claimCheckIn = briefing?.claimCheckIn || null;
+  /* The paper's rail is about the claim it is asking you about this morning. It
+     is the same claim you will be looking at if you open it, so the agent is
+     already pointed at the right page before you get there. */
+  useAgentRailSurface(
+    {
+      id: claimCheckIn ? `wiki-paper:${claimCheckIn.pageId}` : 'wiki-paper',
+      subject: claimCheckIn ? claimCheckIn.text : 'The morning paper.',
+      empty: claimCheckIn
+        ? 'Nothing to retrieve until you ask.'
+        : 'Nothing to retrieve here until a claim comes up for review.'
+    },
+    claimCheckIn ? {
+      onAsk: async (question) => {
+        const answered = await askWikiPage(claimCheckIn.pageId, question);
+        const discussions = Array.isArray(answered?.discussions) ? answered.discussions : [];
+        const sentence = oneSentence(docText(discussions[discussions.length - 1]?.answer));
+        if (!sentence) return null;
+        return {
+          id: `paper-ask:${discussions.length}:${sentence.slice(0, 24)}`,
+          sentence,
+          body: sentence,
+          origin: 'Asked of this claim',
+          // The paper does not write into the claim contract; opening it does.
+          fields: ['read']
+        };
+      }
+    } : {}
+  );
   const watching = Array.isArray(briefing?.watching) ? briefing.watching : [];
 
   const handleCheckIn = async (action, revisedText = '') => {
@@ -457,27 +460,27 @@ const WikiFrontPage = () => {
     return (
       <WikiFrontPageShell>
         <header className="wiki-front-page__top">
-          <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
+          <div className={`wiki-front-page__top-row ${step(1)}`}>
             <p className="wiki-index__eyebrow wiki-front-page__masthead">
               Morning paper · {mastheadDate()}
             </p>
             {workspaceNav}
           </div>
         </header>
-        <section className="wiki-front-page__empty wfp-anim wfp-anim--3" aria-labelledby="wfp-empty-title">
+        <section className={`wiki-front-page__empty ${step(3)}`} aria-labelledby="wfp-empty-title">
           <h1 id="wfp-empty-title">Nothing here yet — let&rsquo;s start your wiki.</h1>
           <p>
             Save something you&rsquo;re reading and {AGENT_DISPLAY_NAME} will turn it into your
             first page, or ask for a page on anything you&rsquo;re thinking about.
           </p>
         </section>
-        <section className="wiki-front-page__composer wfp-anim wfp-anim--4" aria-label="Build a wiki page">
+        <section className={`wiki-front-page__composer ${step(4)}`} aria-label="Build a wiki page">
           <WikiBuildPageComposer compact className="wiki-front-page__builder" />
         </section>
-        <section className="wiki-front-page__repo-create wfp-anim wfp-anim--5" aria-label="Create a repo wiki">
+        <section className={`wiki-front-page__repo-create ${step(5)}`} aria-label="Create a repo wiki">
           <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
         </section>
-        <WikiCompanyDossierComposer className="wiki-front-page__company-builder wfp-anim wfp-anim--6" />
+        <WikiCompanyDossierComposer className={`wiki-front-page__company-builder ${step(6)}`} />
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       </WikiFrontPageShell>
     );
@@ -485,209 +488,140 @@ const WikiFrontPage = () => {
 
   return (
     <WikiFrontPageShell>
-      <header className="wiki-front-page__top">
-        <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
-          <p className="wiki-index__eyebrow wiki-front-page__masthead">
-            Morning paper · {mastheadDate()}
-          </p>
-          {workspaceNav}
-        </div>
-        <div className={`wiki-front-page__intro wfp-anim wfp-anim--2${claimCheckIn || checkInMessage || briefing?.checkInStreak ? ' wiki-front-page__intro--split' : ''}`}>
-          <div className="wiki-front-page__briefing-copy">
-            {leadSentence ? (
-              <p className="wiki-front-page__lead">
-                <WriteIn text={leadSentence} />
-              </p>
-            ) : null}
-            {briefingNextAction ? (
-              <div className="wiki-front-page__next-action">
-                <span className="wiki-front-page__next-action-kicker">Return path</span>
-                <Link className="wiki-front-page__next-action-link" to={briefingNextAction.href}>
-                  {briefingNextAction.label} →
-                </Link>
-                {briefingNextAction.reason ? (
-                  <p className="wiki-front-page__next-action-reason">{briefingNextAction.reason}</p>
-                ) : null}
-              </div>
-            ) : null}
-            {briefing?.lead ? (
-              <section className="wiki-front-page__watcher-contract" aria-label="Watcher lead analysis">
-                <span>{briefing.lead.watcherLabel || 'Watcher'} → {briefing.lead.page?.title || 'Affected page'} → {briefing.lead.maintenanceStatus || 'queued'}</span>
-                {briefing.lead.claimImpacts?.length ? (
-                  <ul>
-                    {briefing.lead.claimImpacts.map(impact => (
-                      <li key={impact.claimId}>
-                        <code>{impact.claimId}</code>
-                        <span>{impact.beforeSupport || 'untracked'} → {impact.afterSupport || 'untracked'}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : <p>{briefing.lead.impactSummary || 'not yet analyzed — queued'}</p>}
-              </section>
-            ) : null}
-            {primaryReturnLoopNote ? (
-              <p className="wiki-front-page__evidence-strip">
-                <span>Evidence surfaced</span>
-                <Link to={primaryReturnLoopNote.href}>{primaryReturnLoopNote.label}</Link>
-                <em>{primaryReturnLoopNote.detail}</em>
-              </p>
-            ) : null}
-          </div>
-          {claimCheckIn || checkInMessage || briefing?.checkInStreak ? (
-            <div className="wiki-front-page__judgment-panel">
-              {claimCheckIn ? (
-                <section className="wiki-front-page__check-in" aria-labelledby="morning-claim-check-in">
-                  <span className="wiki-front-page__next-action-kicker">Claim check-in</span>
-                  <h2 id="morning-claim-check-in">{claimCheckIn.text}</h2>
-                  <p>{claimCheckIn.pageTitle}{claimCheckIn.changedSinceLastCheck ? ' · evidence changed since your last review' : ''}</p>
-                  {showRevisionDraft ? (
-                    <div className="wiki-front-page__check-in-revision">
-                      <textarea
-                        className="noeis-form-control"
-                        aria-label="Revised claim"
-                        value={revisionDraft}
-                        onChange={(event) => setRevisionDraft(event.target.value)}
-                        rows={3}
-                      />
-                      <button className="ui-button ui-button-primary" type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
-                      <button className="ui-button ui-button-tertiary" type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
-                    </div>
-                  ) : (
-                    <div className="wiki-front-page__check-in-actions">
-                      <button className="ui-button ui-button-tertiary wiki-front-page__judgment-action" type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
-                      <button className="ui-button ui-button-tertiary wiki-front-page__judgment-action" type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
-                      <button className="ui-button ui-button-tertiary wiki-front-page__judgment-action" type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
-                      <Link className="ui-button ui-button-tertiary wiki-front-page__judgment-action" to={claimCheckIn.href}>Open claim →</Link>
-                    </div>
-                  )}
-                </section>
-              ) : null}
-              {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
-              {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
+      <p className={`wiki-front-page__masthead ${step(1)}`}>
+        Morning paper · {mastheadDate()}
+      </p>
+
+      {/* The lead is the claim. It is the sentence the human is being asked
+          about this morning, and it is the same sentence on the other side of
+          "Open claim". */}
+      {claimCheckIn ? (
+        <section className={`wiki-front-page__lead-claim ${step(2)}`} aria-labelledby="morning-claim-check-in">
+          <h1 id="morning-claim-check-in" ref={claimSentenceRef}>{claimCheckIn.text}</h1>
+          {showRevisionDraft ? (
+            <div className="wiki-front-page__check-in-revision">
+              <textarea
+                className="noeis-form-control"
+                aria-label="Revised claim"
+                value={revisionDraft}
+                onChange={(event) => setRevisionDraft(event.target.value)}
+                rows={3}
+              />
+              <button className="ui-button ui-button-primary" type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
+              <button className="ui-button ui-button-tertiary" type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
             </div>
-          ) : null}
-        </div>
-      </header>
-
-      <div className="wiki-front-page__workspace">
-        <div className="wiki-front-page__primary wfp-anim wfp-anim--3">
-          <div className="wiki-front-page__columns">
-            {todaysPage ? (
-              <section className="wiki-front-page__story" aria-labelledby="wfp-story-title">
-                <p className="wiki-index__eyebrow">Continue</p>
-                <h1 id="wfp-story-title">
-                  <Link to={wikiPagePath(pageId(todaysPage))}>{displayWikiPageTitle(todaysPage, 'Untitled page')}</Link>
-                </h1>
-                {growthNote(todaysPage) ? (
-                  <p className="wiki-front-page__story-meta">{growthNote(todaysPage)}</p>
-                ) : null}
-                {leadExcerpt ? <p className="wiki-front-page__excerpt">{leadExcerpt}</p> : null}
-                <Link className="wiki-front-page__continue" to={wikiPagePath(pageId(todaysPage))}>
-                  Continue reading →
-                </Link>
-              </section>
-            ) : (
-              <h1 className="sr-only">Morning paper</h1>
-            )}
-
-            {recentlyGrown.length ? (
-              <aside className="wiki-front-page__grown" aria-labelledby="wfp-grown-title">
-                <div className="wiki-front-page__section-heading">
-                  <h2 id="wfp-grown-title">Recently grown</h2>
-                  <span>{recentlyGrown.length}</span>
-                </div>
-                <ul>
-                  {recentlyGrown.map((page, index) => (
-                    <li key={pageId(page)}>
-                      <span className="wiki-front-page__row-index" aria-hidden="true">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                      <div>
-                        <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                        {growthNote(page)
-                          ? <span className="wiki-front-page__growth-note">{growthNote(page)}</span>
-                          : null}
-                      </div>
-                      <span className="wiki-front-page__row-arrow" aria-hidden="true">→</span>
-                    </li>
-                  ))}
-                </ul>
-              </aside>
-            ) : null}
-          </div>
-
-          {explorePages.length ? (
-            <section className="wiki-front-page__explore" aria-labelledby="wfp-explore-title">
-              <h2 id="wfp-explore-title" className="wiki-index__eyebrow">Explore</h2>
-              <p className="wiki-front-page__index">
-                {explorePages.map((page, i) => (
-                  <React.Fragment key={pageId(page)}>
-                    {i > 0 ? <span aria-hidden="true" className="wiki-front-page__dot"> · </span> : null}
-                    <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                  </React.Fragment>
-                ))}
-              </p>
-            </section>
-          ) : null}
-
-          <div className="wiki-front-page__creation-tools">
-            <section className="wiki-front-page__composer" aria-label="Ask or build a wiki page">
-              <WikiBuildPageComposer compact className="wiki-front-page__builder" />
-            </section>
-
-            <section className="wiki-front-page__repo-create" aria-label="Create a repo wiki from GitHub">
-              <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
-            </section>
-            <WikiCompanyDossierComposer className="wiki-front-page__company-builder" />
-          </div>
-        </div>
-
-        <aside className="wiki-front-page__activity-rail wfp-anim wfp-anim--4" aria-label="Wiki activity">
-          <section className="wiki-front-page__watching" aria-labelledby="wfp-watching-title">
-            <div className="wiki-front-page__watching-header">
-              <div>
-                <p className="wiki-index__eyebrow">Peripheral vision</p>
-                <h2 id="wfp-watching-title">Watching</h2>
-              </div>
-              <span>{watching.length} armed</span>
+          ) : (
+            <div className="wiki-front-page__check-in-actions">
+              <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
+              <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
+              <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
+              {/* Opening the claim does not write a new headline on the next
+                  page — the sentence the human is already reading travels
+                  there and becomes the title. */}
+              <Link
+                to={`/judgment/${claimCheckIn.pageId}`}
+                onClick={() => handOffSentence(claimCheckIn.text, claimSentenceRef.current)}
+              >
+                Open claim
+              </Link>
             </div>
-            {watching.length ? (
-              <>
-                <ul>
-                  {watching.slice(0, WATCHING_PREVIEW_LIMIT).map(renderWatcher)}
-                </ul>
-                {watching.length > WATCHING_PREVIEW_LIMIT ? (
-                  <details className="wiki-front-page__watching-more">
-                    <summary>
-                      {watching.length - WATCHING_PREVIEW_LIMIT} more watcher{watching.length - WATCHING_PREVIEW_LIMIT === 1 ? '' : 's'}
-                    </summary>
-                    <ul>
-                      {watching.slice(WATCHING_PREVIEW_LIMIT).map(renderWatcher)}
-                    </ul>
-                  </details>
-                ) : null}
-              </>
-            ) : <p className="wiki-front-page__watching-empty">No watchers armed yet.</p>}
-            <details className="wiki-front-page__watching-add">
-              <summary>Add reading feed</summary>
-              <form className="wiki-front-page__reading-watch" onSubmit={handleArmReading}>
-                <label>
-                  Page
-                  <select className="noeis-form-control" aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
-                    <option value="">Choose a page</option>
-                    {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
-                  </select>
-                </label>
-                <label>
-                  RSS or Atom URL
-                  <input className="noeis-form-control" type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
-                </label>
-                <button className="ui-button ui-button-secondary" type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
-              </form>
-            </details>
+          )}
+        </section>
+      ) : leadSentence ? (
+        <p className={`wiki-front-page__lead ${step(2)}`}>
+          <WriteIn text={leadSentence} />
+        </p>
+      ) : (
+        <h1 className="sr-only">Morning paper</h1>
+      )}
+
+      {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
+
+      {todaysPage ? (
+        <section className={`wiki-front-page__story ${step(3)}`} aria-labelledby="wfp-story-title">
+          <p className="wiki-front-page__kicker">Continue</p>
+          <h2 id="wfp-story-title">
+            <Link to={wikiReadPath(pageId(todaysPage))}>{displayWikiPageTitle(todaysPage, 'Untitled page')}</Link>
+          </h2>
+          {leadExcerpt ? <p className="wiki-front-page__excerpt">{leadExcerpt}</p> : null}
+          <Link className="wiki-front-page__continue" to={wikiReadPath(pageId(todaysPage))}>
+            Continue reading →
+          </Link>
+        </section>
+      ) : null}
+
+      {recentlyGrown.length ? (
+        <section className={`wiki-front-page__grown ${step(4)}`} aria-labelledby="wfp-grown-title">
+          <p className="wiki-front-page__kicker" id="wfp-grown-title">Recently grown</p>
+          <ol>
+            {recentlyGrown.map(page => (
+              <li key={pageId(page)}>
+                <Link to={wikiReadPath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {dueCount ? (
+        <p className={`wiki-front-page__waiting ${step(5)}`}>
+          <Link to="/return-queue">
+            {dueCount} thing{dueCount === 1 ? '' : 's'} you set aside {dueCount === 1 ? 'is' : 'are'} due.
+          </Link>
+        </p>
+      ) : null}
+
+      {/* The other thing that was waiting in a room of its own. Resurfacing is
+          old highlights offered back to you; it belongs on the paper for the
+          same reason the return queue does. The room is still there — this is
+          the line that remembers it for you. */}
+      {resurfaceCount ? (
+        <p className={`wiki-front-page__waiting ${step(5)}`}>
+          <Link to="/review?tab=resurface">
+            {resurfaceCount} highlight{resurfaceCount === 1 ? '' : 's'} to see again.
+          </Link>
+        </p>
+      ) : null}
+
+      {/* What is being watched is one sentence, not a rail. Arming and
+          disarming are still here — behind the sentence, because they are
+          maintenance, and maintenance is not the face of the paper. */}
+      <details className={`wiki-front-page__watching ${step(5)}`}>
+        <summary>
+          {watching.length
+            ? `Watching ${watching.length} source${watching.length === 1 ? '' : 's'}.`
+            : 'Watching nothing yet.'}
+        </summary>
+        {watching.length ? <ul>{watching.map(renderWatcher)}</ul> : null}
+        <form className="wiki-front-page__reading-watch" onSubmit={handleArmReading}>
+          <label>
+            Page
+            <select className="noeis-form-control" aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
+              <option value="">Choose a page</option>
+              {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
+            </select>
+          </label>
+          <label>
+            RSS or Atom URL
+            <input className="noeis-form-control" type="url" aria-label="RSS or Atom URL" value={readingFeedUrl} onChange={(event) => setReadingFeedUrl(event.target.value)} placeholder="https://example.com/feed" required />
+          </label>
+          <button className="ui-button ui-button-secondary" type="submit" disabled={watchingBusy}>{watchingBusy ? 'Arming…' : 'Watch feed'}</button>
+        </form>
+      </details>
+
+      {/* Building a page is not the face either, but it must stay reachable. */}
+      <details className={`wiki-front-page__making ${step(5)}`}>
+        <summary>Make a page</summary>
+        <div className="wiki-front-page__creation-tools">
+          <section className="wiki-front-page__composer" aria-label="Ask or build a wiki page">
+            <WikiBuildPageComposer compact className="wiki-front-page__builder" />
           </section>
-        </aside>
-      </div>
+          <section className="wiki-front-page__repo-create" aria-label="Create a repo wiki from GitHub">
+            <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
+          </section>
+          <WikiCompanyDossierComposer className="wiki-front-page__company-builder" />
+        </div>
+      </details>
 
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
     </WikiFrontPageShell>

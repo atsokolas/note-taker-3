@@ -4,9 +4,16 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop, recordClaimCheckIn, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
+import { clearSentenceHandoff, peekSentenceHandoff } from '../../motion/columnMotion';
+import { listDailyResurface, listReturnQueue } from '../../api/returnQueue';
 
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn()
+}));
+
+jest.mock('../../api/returnQueue', () => ({
+  listReturnQueue: jest.fn(),
+  listDailyResurface: jest.fn()
 }));
 
 jest.mock('../../api/dailyLoop', () => ({
@@ -28,7 +35,8 @@ jest.mock('./WikiCompanyDossierComposer', () => ({ className = '' }) => (
 ));
 
 jest.mock('../../utils/wikiFeatureFlags', () => ({
-  wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`
+  wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`,
+  wikiReadPath: (pageId) => `/wiki/read/${pageId}`
 }));
 
 const pages = [
@@ -83,6 +91,8 @@ describe('WikiFrontPage (AT-394)', () => {
     recordClaimCheckIn.mockResolvedValue({ acknowledgment: 'reaffirmed · 1st time · held 12 days', streak: 1 });
     armReadingWatch.mockResolvedValue({});
     disarmWatcher.mockResolvedValue({});
+    listReturnQueue.mockResolvedValue([]);
+    listDailyResurface.mockResolvedValue([]);
   });
 
   it('names the loading work before the paper arrives', () => {
@@ -96,7 +106,7 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
-    expect(document.querySelector('.wiki-front-page__graph-motif')).toBeInTheDocument();
+    expect(document.querySelector('.wiki-front-page__graph-motif')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/checking overnight edits and drift signals/i);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Morning paper');
@@ -121,39 +131,67 @@ describe('WikiFrontPage (AT-394)', () => {
     // Masthead with date eyebrow.
     expect(screen.getByText(/Morning paper ·/i)).toBeInTheDocument();
 
-    // Today's page = the briefing's most recently updated page, as the single h1.
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveTextContent('First Principles Thinking');
+    // Today's page is what to continue, under the lead rather than over it.
+    const heading = screen.getByRole('heading', { level: 2, name: 'First Principles Thinking' });
+    expect(heading).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue reading →' }))
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
+      .toHaveAttribute('href', '/wiki/read/wiki-first-principles');
 
     // Lead excerpt comes from the full page object (clamped preview).
     expect(screen.getByText(/strips a question down to its most basic/i)).toBeInTheDocument();
 
-    // Recently grown excludes the lead story and carries growth notes.
-    const grown = screen.getByRole('complementary', { name: /recently grown/i });
+    // Recently grown is a short numbered list, and it excludes the lead story.
+    const grown = screen.getByRole('region', { name: /recently grown/i });
     expect(grown).toHaveTextContent('Opportunity Cost');
     expect(grown).not.toHaveTextContent('First Principles Thinking');
-    expect(grown).toHaveTextContent(/claim/);
+    expect(within(grown).getAllByRole('link')[0])
+      .toHaveAttribute('href', '/wiki/read/wiki-opportunity-cost');
 
-    // Explore index links pages.
-    expect(screen.getByText('Explore')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Margin of Safety' })[0])
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-margin-of-safety');
-
-    // Workspace destinations are legible secondary nav near the top.
-    const workspaceNav = screen.getByRole('navigation', { name: 'Wiki workspace' });
-    expect(workspaceNav).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /review \(4\)/i }))
-      .toHaveAttribute('href', '/wiki/workspace?view=graph');
-    expect(screen.getByRole('link', { name: 'Knowledge map' })).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'Wiki activity' })).toBeInTheDocument();
-    expect(screen.getByText('Add reading feed')).toBeInTheDocument();
+    // The operational face is gone: no Explore index, no workspace nav, no
+    // activity rail, no counters on the front door.
+    expect(screen.queryByText('Explore')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Wiki workspace' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Wiki activity' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /review \(4\)/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/pages need review/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
 
-    // No review queue / counters dumped on the front door.
-    expect(screen.queryByText(/pages need review/i)).not.toBeInTheDocument();
+    // Maintenance is still reachable, behind one line each.
+    expect(screen.getByText(/^Watching/)).toBeInTheDocument();
+    expect(screen.getByText('Make a page')).toBeInTheDocument();
+  });
+
+  it('says what you set aside is due, now that the Return Queue is not a room', async () => {
+    listReturnQueue.mockResolvedValueOnce([{ _id: 'rq1' }, { _id: 'rq2' }]);
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const due = await screen.findByRole('link', { name: '2 things you set aside are due.' });
+    expect(due).toHaveAttribute('href', '/return-queue');
+    expect(listReturnQueue).toHaveBeenCalledWith({ filter: 'due' });
+  });
+
+  it('says nothing about the queue when nothing is due', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    await screen.findByText(/Morning paper ·/i);
+    expect(screen.queryByText(/you set aside/)).not.toBeInTheDocument();
+  });
+
+  it('says how many highlights are waiting to be seen again, now that Resurface is not a room', async () => {
+    listDailyResurface.mockResolvedValueOnce([{ _id: 'h1' }, { _id: 'h2' }, { _id: 'h3' }]);
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const again = await screen.findByRole('link', { name: '3 highlights to see again.' });
+    expect(again).toHaveAttribute('href', '/review?tab=resurface');
+  });
+
+  it('says nothing about resurfacing when there is nothing to see again', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    await screen.findByText(/Morning paper ·/i);
+    expect(screen.queryByText(/to see again/)).not.toBeInTheDocument();
   });
 
   it('falls back to the strongest page when the briefing fails', async () => {
@@ -166,9 +204,8 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     // Weighted fallback: most sources+claims wins the lead slot.
-    const heading = await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' });
+    const heading = await screen.findByRole('heading', { level: 2, name: 'First Principles Thinking' });
     expect(heading).toHaveTextContent('First Principles Thinking');
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
   it('opens the onboarding arc when the corpus is empty and onboarding is incomplete', async () => {
@@ -243,7 +280,7 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'First Principles Thinking' }))
       .toBeInTheDocument();
     expect(screen.queryByText(/QA Build Order Verification/i)).not.toBeInTheDocument();
   });
@@ -265,72 +302,12 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+    expect(screen.getByRole('heading', { level: 2, name: 'First Principles Thinking' }))
       .toBeInTheDocument();
     expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledTimes(1);
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 80, includeLowQuality: 1 });
     expect(getDailyLoop).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows a failed-import next action in the briefing area', async () => {
-    getDailyLoop.mockResolvedValueOnce({ briefing: {
-      ...briefing,
-      summary: 'Readwise needs attention before the next sync.',
-      nextAction: {
-        type: 'review_import',
-        label: 'Review Readwise connection',
-        href: '/connections',
-        reason: 'Readwise needs a fresh authorization.'
-      }
-    } });
-
-    render(
-      <router.MemoryRouter>
-        <WikiFrontPage />
-      </router.MemoryRouter>
-    );
-
-    const nextAction = await screen.findByRole('link', { name: /review readwise connection →/i });
-    expect(nextAction).toHaveAttribute('href', '/connections');
-    expect(screen.getByText('Readwise needs a fresh authorization.')).toBeInTheDocument();
-  });
-
-  it('shows an answerable-question next action and question note', async () => {
-    getDailyLoop.mockResolvedValueOnce({ briefing: {
-      ...briefing,
-      summary: 'One open question now has fresh evidence.',
-      nextAction: {
-        type: 'answer_question',
-        label: 'Answer the question that now has evidence',
-        href: '/think?tab=questions&questionId=q1',
-        reason: 'Opportunity Cost gained 2 sources'
-      },
-      answerableQuestions: [{
-        questionId: 'q1',
-        text: 'How does opportunity cost show up in capital allocation?',
-        evidencePageTitle: 'Opportunity Cost',
-        evidenceCount: 2,
-        href: '/think?tab=questions&questionId=q1'
-      }]
-    } });
-
-    render(
-      <router.MemoryRouter>
-        <WikiFrontPage />
-      </router.MemoryRouter>
-    );
-
-    const nextAction = await screen.findByRole('link', {
-      name: /answer the question that now has evidence →/i
-    });
-    expect(nextAction).toHaveAttribute('href', '/think?tab=questions&questionId=q1');
-
-    expect(screen.queryByRole('region', { name: /overnight briefing notes/i })).not.toBeInTheDocument();
-    expect(screen.getByText('Evidence surfaced')).toBeInTheDocument();
-    expect(screen.getByText(/fresh evidence via opportunity cost \(2 sources\)/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /how does opportunity cost show up in capital allocation/i }))
-      .toHaveAttribute('href', '/think?tab=questions&questionId=q1');
   });
 
   it('uses pages that gained source material as the lead story and compact evidence line', async () => {
@@ -357,38 +334,15 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    await screen.findByRole('link', { name: /review opportunity cost →/i });
-
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Opportunity Cost');
-    expect(screen.queryByRole('region', { name: /overnight briefing notes/i })).not.toBeInTheDocument();
-    expect(screen.getByText('Evidence surfaced')).toBeInTheDocument();
-    expect(screen.getByText('2 new sources — Tradeoff note, Capital allocation note')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Opportunity Cost' })[0])
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-opportunity-cost');
+    // The page that gained sources becomes what to continue. The evidence
+    // strip and the return-path block are not on the column; their selection
+    // stays covered by wikiBriefingReturnLoopModel's own tests.
+    expect(await screen.findByRole('heading', { level: 2, name: 'Opportunity Cost' })).toBeInTheDocument();
+    expect(screen.queryByText('Evidence surfaced')).not.toBeInTheDocument();
+    expect(screen.queryByText('Return path')).not.toBeInTheDocument();
   });
 
-  it('does not render unsafe backend-provided next-action hrefs', async () => {
-    getDailyLoop.mockResolvedValueOnce({ briefing: {
-      ...briefing,
-      nextAction: {
-        type: 'review_page',
-        label: 'Open external target',
-        href: 'https://example.com/bad',
-        reason: 'This should not become a router link.'
-      }
-    } });
-
-    render(
-      <router.MemoryRouter>
-        <WikiFrontPage />
-      </router.MemoryRouter>
-    );
-
-    await screen.findByText(/While you were away/i);
-    expect(screen.queryByRole('link', { name: /open external target/i })).not.toBeInTheDocument();
-  });
-
-  it('dedupes duplicate repo wikis from Explore and keeps a non-repo Today\'s page', async () => {
+  it('dedupes duplicate repo wikis and keeps a non-repo Today\'s page', async () => {
     const duplicateRepos = Array.from({ length: 6 }, (_, index) => ({
       _id: `repo-dup-${index}`,
       title: 'Atsokolas/Note-Taker-3 Repo Wiki',
@@ -423,18 +377,14 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'First Principles Thinking' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'First Principles Thinking' }))
       .toBeInTheDocument();
 
-    const explore = screen.getByText('Explore').closest('section');
-    const exploreLinks = within(explore).getAllByRole('link');
-    const repoTitles = exploreLinks.filter((link) => /repo wiki/i.test(link.textContent));
-
-    expect(repoTitles).toHaveLength(1);
-    expect(explore.textContent.match(/note-taker-3 — repo wiki/g)).toHaveLength(1);
-    expect(explore.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
-    expect(within(explore).getByText('Margin of Safety')).toBeInTheDocument();
-    expect(within(explore).getByText('Opportunity Cost')).toBeInTheDocument();
+    // Six copies of one repo wiki reach the paper as at most one, under its
+    // display title rather than the generated one.
+    const column = document.querySelector('.wiki-front-page');
+    expect((column.textContent.match(/note-taker-3 — repo wiki/g) || []).length).toBeLessThanOrEqual(1);
+    expect(column.textContent.match(/Atsokolas\/Note-Taker-3 Repo Wiki/g)).toBeNull();
   });
 
   it('leads with a watcher event, renders exact claim impact, and completes a check-in', async () => {
@@ -475,21 +425,17 @@ describe('WikiFrontPage (AT-394)', () => {
 
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByText(/NVDA filed a 10-Q/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 claims touched · 1 contradicted/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open Nvidia dossier →' }))
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
-    expect(screen.getByText('c1')).toBeInTheDocument();
-    expect(screen.getByText('partial → conflicted')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Integration retains pricing power.' })).toBeInTheDocument();
-    const watchingRegion = screen.getByRole('region', { name: 'Watching' });
-    expect(within(watchingRegion).getByText('EDGAR')).toHaveClass('wiki-front-page__watching-type');
-    expect(within(watchingRegion).getByText('NVDA')).toBeInTheDocument();
+    // The claim is the lead. The watcher's own telemetry is not on the paper.
+    expect(await screen.findByRole('heading', { level: 1, name: 'Integration retains pricing power.' }))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/2 claims touched · 1 contradicted/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('partial → conflicted')).not.toBeInTheDocument();
 
+    // Disarming still exists, behind the one watching line.
+    fireEvent.click(screen.getByText(/^Watching 1 source\.$/));
     fireEvent.click(screen.getByRole('button', { name: 'Disarm' }));
     await waitFor(() => expect(disarmWatcher).toHaveBeenCalledTimes(1));
     expect(disarmWatcher).toHaveBeenCalledWith('wiki-first-principles', 'sec_edgar');
-    await waitFor(() => expect(within(watchingRegion).queryByText('NVDA')).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Still hold' }));
     await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({
@@ -499,7 +445,38 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByRole('status')).toHaveClass('wiki-front-page__check-in-register');
   });
 
-  it('keeps a dense Watching rail compact until the user expands it', async () => {
+  it('opens the claim in Judgment and hands the sentence over rather than restating it', async () => {
+    listWikiPages.mockResolvedValue(pages);
+    getDailyLoop.mockResolvedValue({ briefing: {
+      lead: null,
+      watcherLeads: [],
+      claimCheckIn: {
+        pageId: 'wiki-first-principles',
+        pageTitle: 'Nvidia dossier',
+        claimId: 'c1',
+        text: 'Integration retains pricing power.',
+        changedSinceLastCheck: true,
+        href: '/wiki/workspace?page=wiki-first-principles&claimId=c1'
+      },
+      watching: []
+    } });
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const open = await screen.findByRole('link', { name: 'Open claim' });
+    expect(open).toHaveAttribute('href', '/judgment/wiki-first-principles');
+
+    clearSentenceHandoff();
+    fireEvent.click(open);
+
+    // The same sentence travels, so Judgment can show it as the sentence the
+    // human was already reading instead of a new headline.
+    expect(peekSentenceHandoff()).toEqual(expect.objectContaining({
+      sentence: 'Integration retains pricing power.'
+    }));
+  });
+
+  it('keeps a dense watcher list behind one line', async () => {
     const watching = Array.from({ length: 7 }, (_, index) => ({
       id: `watch-${index + 1}`,
       type: 'reading',
@@ -512,13 +489,12 @@ describe('WikiFrontPage (AT-394)', () => {
 
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByText('7 armed')).toBeInTheDocument();
-    const summary = screen.getByText('2 more watchers');
-    const overflow = summary.closest('details');
-    expect(overflow).not.toHaveAttribute('open');
-    expect(within(overflow.previousElementSibling).getAllByRole('button', { name: 'Disarm' })).toHaveLength(5);
-    expect(within(overflow).getAllByRole('button', { name: 'Disarm' })).toHaveLength(2);
+    // Seven watchers are one sentence until asked for, then all seven.
+    const summary = await screen.findByText('Watching 7 sources.');
+    const watchingBlock = summary.closest('details');
+    expect(watchingBlock).not.toHaveAttribute('open');
+    expect(within(watchingBlock).getAllByRole('button', { name: 'Disarm' })).toHaveLength(7);
     fireEvent.click(summary);
-    await waitFor(() => expect(overflow).toHaveAttribute('open'));
+    await waitFor(() => expect(watchingBlock).toHaveAttribute('open'));
   });
 });

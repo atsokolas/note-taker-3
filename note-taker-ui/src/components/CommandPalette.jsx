@@ -257,7 +257,6 @@ const CommandPalette = ({ open, onClose }) => {
   });
 
   const pages = useMemo(() => ([
-    { label: 'Today', path: '/today' },
     { label: 'Library', path: '/library' },
     { label: 'Think', path: '/think' },
     { label: 'Review', path: '/review' },

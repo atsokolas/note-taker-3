@@ -78,7 +78,7 @@ export const isFirstInsightActive = (state) => {
 
 export const getFirstInsightOpenPath = (state) => {
   const normalized = normalizeState(state);
-  if (!normalized) return '/today';
+  if (!normalized) return '/wiki';
   if (normalized.conceptName) {
     return `/think?tab=concepts&concept=${encodeURIComponent(normalized.conceptName)}`;
   }
@@ -88,7 +88,7 @@ export const getFirstInsightOpenPath = (state) => {
   if (normalized.articleId) {
     return buildCanonicalArticlePath(normalized.articleId);
   }
-  return '/today';
+  return '/wiki';
 };
 
 export const getFirstInsightSummary = (state) => {

@@ -25,8 +25,12 @@ import FirstRunGate from './onboarding/FirstRunGate';
 import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
 import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
+import { namesAThinkObject } from './pages/thinkNotesModel';
 import { useSystemStatus } from './system/useSystemStatus';
 import { SystemStatusProvider } from './system/SystemStatusContext';
+import { AgentRailProvider } from './agent/AgentRailContext';
+import AgentRail from './agent/AgentRail';
+import { hasAgentRail } from './agent/agentRailRoutes';
 import './styles/theme.css';
 import './styles/tokens.css';
 import './styles/global.css';
@@ -35,9 +39,6 @@ import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/idea-workbench.css';
 import './styles/brand-energy.css';
-import './styles/calm-ui-global.css';
-import './styles/think-calm-d3a.css';
-import './styles/calm-ui-system.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
 
@@ -50,17 +51,18 @@ const CollectionDetail = lazy(() => import('./pages/CollectionDetail'));
 const Views = lazy(() => import('./pages/Views'));
 const ViewDetail = lazy(() => import('./pages/ViewDetail'));
 const Export = lazy(() => import('./pages/Export'));
-const TodayMode = lazy(() => import('./pages/TodayMode'));
 const Library = lazy(() => import('./pages/Library'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
+const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
 const MapView = lazy(() => import('./pages/MapView'));
 const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
-const WikiProductIndex = lazy(() => import('./components/wiki/WikiProductIndex'));
 const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
+const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
 const Paper = lazy(() => import('./pages/Paper'));
+const Judgment = lazy(() => import('./pages/Judgment'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
@@ -142,6 +144,14 @@ const bootstrapDevTokenFromLocation = () => {
   } catch (_error) {
     return false;
   }
+};
+
+/* Think has one face — the note — and a set of still-addressable postures
+   behind it. Which one renders is decided by whether the URL names an object,
+   so links from Library, Wiki and the palette keep landing where they point. */
+const ThinkSurface = () => {
+  const location = useLocation();
+  return namesAThinkObject(location.search) ? <ThinkMode /> : <ThinkNotes />;
 };
 
 const LegacyConceptRedirect = () => {
@@ -550,6 +560,7 @@ function App() {
   if (isLoading) return <RouteLoadingFallback />;
 
   const AppLayout = () => {
+    const shellLocation = useLocation();
     const topBarAccountMenuItems = [
       {
         label: 'Feedback',
@@ -594,17 +605,30 @@ function App() {
                 reliably producing. */}
             <Route path="/" element={<Navigate to="/wiki" replace />} />
             <Route path="/paper" element={<Paper />} />
-            <Route path="/today" element={<TodayMode />} />
+            {/* Today was a launcher for rooms that are now the nav itself. The
+                route resolves so existing links keep working; it lands on the
+                morning paper rather than on a menu. */}
+            <Route path="/today" element={<Navigate to="/wiki" replace />} />
             <Route path="/library" element={<Library />} />
-            <Route path="/think" element={<ThinkMode />} />
+            {/* Think opens the note you were last in. The legacy postures stay
+                addressable: a URL that names a concept, question, thread or
+                entry still opens that object in the older workspace. */}
+            <Route path="/think" element={<ThinkSurface />} />
             <Route path="/map" element={<MapView />} />
             <Route path="/return-queue" element={<ReturnQueue />} />
             <Route path="/review" element={<ReviewMode />} />
             {/* AT-394: /wiki is the newspaper front page; the maintenance
                 workspace stays one hairline away at /wiki/workspace. */}
+            {/* Judgment: the index is a list of claim sentences; opening one is
+                the claim itself. The wiki front door is unchanged — / still
+                lands on /wiki and the morning paper still lives there. */}
+            <Route path="/judgment" element={<Judgment />} />
+            <Route path="/judgment/:pageId" element={<Judgment />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
-            <Route path="/wiki/home" element={<WikiProductIndex />} />
             <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
+            {/* The reading. The operational workspace — chat pane, graph,
+                queues — stays where it was, at /wiki/workspace. */}
+            <Route path="/wiki/read/:id" element={<WikiArticle />} />
             <Route path="/wiki/workspace" element={<Wiki />} />
             <Route path="/wiki/activity/:runId" element={<WikiIngestRun />} />
             <Route path="/onboarding/wiki" element={<WikiOnboarding />} />
@@ -690,6 +714,9 @@ function App() {
     return (
       <AppShell
         brandEnergy={uiSettings.brandEnergy}
+        /* One instance, beside the routed column. Navigating swaps the column;
+           the rail keeps its place and only changes what it is about. */
+        rightRail={hasAgentRail(shellLocation.pathname) ? <AgentRail /> : null}
         topBar={(
           <TopBar
             brandEnergy={uiSettings.brandEnergy}
@@ -741,7 +768,9 @@ function App() {
 
     return (
       <TourProvider>
-        <AppLayout />
+        <AgentRailProvider>
+          <AppLayout />
+        </AgentRailProvider>
       </TourProvider>
     );
   };

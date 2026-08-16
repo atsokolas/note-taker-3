@@ -1,91 +1,33 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import Library from './Library';
+import AgentRail from '../agent/AgentRail';
+import { AgentRailProvider } from '../agent/AgentRailContext';
+import { resetFirstPaint } from '../motion/columnMotion';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
-import useTags from '../hooks/useTags';
 import { getConnectionsForItem } from '../api/connections';
-import { startLibraryFilingSuggestions } from '../api/library';
+import { chatWithAgent } from '../api/agent';
 
 const mockNavigate = jest.fn();
 
 jest.mock('../hooks/useFolders', () => jest.fn());
 jest.mock('../hooks/useLibraryArticles', () => jest.fn());
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
-jest.mock('../hooks/useTags', () => jest.fn());
-
-jest.mock('../layout/ThreePaneLayout', () => ({
-  __esModule: true,
-  default: ({ left, main, right, rightTitle, rightToggleLabel, mainHeader, mainActions, leftOpen }) => (
-    <div>
-      {leftOpen ? <aside data-testid="library-left">{left}</aside> : null}
-      <main data-testid="library-main">
-        {mainHeader}
-        {mainActions}
-        {main}
-      </main>
-      <aside data-testid="library-right" aria-label={rightTitle}>
-        <button type="button">{rightToggleLabel}</button>
-        {right}
-      </aside>
-    </div>
-  )
-}));
 
 jest.mock('../components/library/LibraryMain', () => ({
   __esModule: true,
-  default: ({
-    selectedArticleId,
-    articleQuery,
-    onArticleQueryChange,
-    onSelectArticle,
-    onReviewFiling,
-    onToggleSuppressed,
-    suppressedVisible,
-    unfiledCount
-  }) => (
-    <div>
-      {selectedArticleId ? 'Reading article shell' : 'Browse library shell'}
-      {!selectedArticleId ? (
-        <>
-          <div data-testid="library-reading-room-lead">
-            Reading room lead · {unfiledCount} unfiled
-            {suppressedVisible ? ' · showing review imports' : ''}
-          </div>
-          <button type="button" onClick={onReviewFiling}>Review filing suggestions</button>
-          <button type="button" onClick={onToggleSuppressed}>
-            {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
-          </button>
-        </>
-      ) : null}
-      {!selectedArticleId ? (
-        <label htmlFor="mock-library-article-search">
-          Search articles
-          <input
-            id="mock-library-article-search"
-            value={articleQuery || ''}
-            onChange={(event) => onArticleQueryChange?.(event.target.value)}
-          />
-        </label>
-      ) : null}
-      {!selectedArticleId ? (
-        <button type="button" onClick={() => onSelectArticle('article-1')}>
-          Open article
-        </button>
-      ) : null}
+  default: ({ selectedArticleId, selectedArticle }) => (
+    <div data-testid="library-main">
+      {selectedArticleId ? `Reading ${selectedArticle?.title || selectedArticleId}` : 'Cabinet shell'}
     </div>
   )
 }));
 jest.mock('../components/library/LibraryContext', () => ({
   __esModule: true,
   default: () => <div>Library context details</div>
-}));
-jest.mock('../components/library/FolderTree', () => ({
-  __esModule: true,
-  default: () => <div>Folder tree</div>
 }));
 jest.mock('../components/library/MoveToFolderModal', () => () => null);
 jest.mock('../components/library/LibraryConceptModal', () => () => null);
@@ -95,177 +37,195 @@ jest.mock('../components/references/ReferencePullIn', () => ({
   __esModule: true,
   default: ({ targetId }) => <div>Pull references for {targetId}</div>
 }));
-jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
-  __esModule: true,
-  default: () => <div data-testid="thought-partner-panel">Library thought partner</div>
-}));
-jest.mock('../components/agent/AgentSkillDock', () => ({
-  __esModule: true,
-  default: () => <div data-testid="agent-skill-dock">Article moves</div>
-}));
 
-jest.mock('../api/articles', () => ({
-  moveArticleToFolder: jest.fn()
-}));
-jest.mock('../api/questions', () => ({
-  createQuestion: jest.fn()
-}));
+jest.mock('../api/articles', () => ({ moveArticleToFolder: jest.fn() }));
+jest.mock('../api/questions', () => ({ createQuestion: jest.fn() }));
 jest.mock('../api/connections', () => ({
   getConnectionsForItem: jest.fn().mockResolvedValue({ outgoing: [], incoming: [] })
 }));
-jest.mock('../api/workingMemory', () => ({
-  createWorkingMemory: jest.fn()
-}));
-jest.mock('../api/highlights', () => ({
-  updateHighlight: jest.fn(),
-  deleteHighlight: jest.fn()
-}));
-jest.mock('../api/agent', () => ({
-  chatWithAgent: jest.fn()
-}));
-jest.mock('../api/library', () => ({
-  startLibraryFilingSuggestions: jest.fn()
-}));
-jest.mock('../hooks/useAuthHeaders', () => ({
-  getAuthHeaders: () => ({})
-}));
+jest.mock('../api/workingMemory', () => ({ createWorkingMemory: jest.fn() }));
+jest.mock('../api/highlights', () => ({ updateHighlight: jest.fn(), deleteHighlight: jest.fn() }));
+jest.mock('../api/agent', () => ({ chatWithAgent: jest.fn() }));
+jest.mock('../api/library', () => ({ startLibraryFilingSuggestions: jest.fn() }));
+jest.mock('../hooks/useAuthHeaders', () => ({ getAuthHeaders: () => ({}) }));
 jest.mock('../api', () => ({
   __esModule: true,
-  default: {
-    post: jest.fn(),
-    put: jest.fn(),
-    delete: jest.fn()
-  }
+  default: { post: jest.fn(), put: jest.fn(), delete: jest.fn() }
 }));
 
-const renderLibrary = (path = '/library?scope=all') => {
-  jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
+const articles = [
+  {
+    _id: 'article-1',
+    title: 'Inside OpenAI’s Model Spec',
+    source: 'SemiAnalysis',
+    summary: 'A technical read of OpenAI’s Model Spec and what it signals.',
+    highlights: [{ _id: 'h1' }, { _id: 'h2' }],
+    updatedAt: '2026-08-12T10:00:00.000Z'
+  },
+  {
+    _id: 'article-2',
+    title: 'Nvidia 10-K Fiscal Year 2024',
+    source: 'Nvidia',
+    updatedAt: '2026-05-22T10:00:00.000Z'
+  },
+  {
+    _id: 'article-3',
+    title: 'The Sovereign Individual',
+    author: 'James Dale Davidson',
+    updatedAt: '1997-11-01T10:00:00.000Z'
+  }
+];
+
+const renderLibrary = (search = '') => {
+  jest.spyOn(router, 'useLocation').mockReturnValue({
+    pathname: '/library', search, hash: '', state: null, key: 'test'
+  });
+  jest.spyOn(router, 'useSearchParams').mockImplementation(() => {
+    const params = new URLSearchParams(search);
+    return [params, setSearchParams];
+  });
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <AgentRailProvider>
       <Library />
-    </MemoryRouter>
+      <AgentRail />
+    </AgentRailProvider>
   );
 };
 
-describe('Library agent rail', () => {
-  beforeEach(() => {
-    jest.restoreAllMocks();
-    mockNavigate.mockReset();
-    localStorage.clear();
-    window.matchMedia = jest.fn().mockReturnValue({ matches: true });
-    getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
-    startLibraryFilingSuggestions.mockResolvedValue({
-      thread: { threadId: 'thread-filing-1' },
-      receipt: {
-        stage: 'ready',
-        summary: 'Staged 2 filing suggestions across 2 folders for review.'
-      }
+let setSearchParams;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.restoreAllMocks();
+  resetFirstPaint();
+  localStorage.clear();
+  setSearchParams = jest.fn();
+  mockNavigate.mockReset();
+  jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
+  useFolders.mockReturnValue({ folders: [], loading: false, error: '' });
+  useLibraryArticles.mockReturnValue({
+    articles,
+    allArticles: articles,
+    loading: false,
+    error: '',
+    setAllArticles: jest.fn()
+  });
+  useArticleDetail.mockReturnValue({
+    article: null,
+    highlights: [],
+    references: [],
+    loading: false,
+    error: '',
+    addHighlightOptimistic: jest.fn(),
+    replaceHighlight: jest.fn(),
+    removeHighlight: jest.fn()
+  });
+  getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
+});
+
+describe('the Library column', () => {
+  it('is one thing to continue and then the shelf', async () => {
+    renderLibrary();
+
+    // The source with highlights in it is the one worth continuing.
+    expect(await screen.findByText('Continue')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Inside OpenAI’s Model Spec');
+    expect(screen.getByText('SemiAnalysis')).toBeInTheDocument();
+    expect(screen.getByText(/A technical read of OpenAI’s Model Spec/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue →' })).toBeInTheDocument();
+
+    // Everything else is a hairline list: title, source, date.
+    const shelf = document.querySelector('.library-column__shelf');
+    expect(within(shelf).getByText('Nvidia 10-K Fiscal Year 2024')).toBeInTheDocument();
+    expect(within(shelf).getByText('James Dale Davidson')).toBeInTheDocument();
+    expect(within(shelf).queryByText('Inside OpenAI’s Model Spec')).not.toBeInTheDocument();
+  });
+
+  it('keeps finding and saving in the column, with the cabinet beside it', () => {
+    renderLibrary();
+
+    // The cabinet is present as a faint shelf list, not as the face.
+    const cabinet = screen.getByRole('navigation', { name: 'Shelves' });
+    expect(within(cabinet).getByRole('button', { name: 'All sources' })).toHaveClass('is-open');
+    expect(within(cabinet).getByRole('button', { name: /^Unfiled/ })).toBeInTheDocument();
+    expect(within(cabinet).getByRole('button', { name: 'Highlights' })).toBeInTheDocument();
+    expect(within(cabinet).getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
+
+    expect(screen.getByText('Find in library')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Install the saver' })).toHaveAttribute('href', expect.stringContaining('chromewebstore'));
+    expect(screen.queryByText('Cabinet')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reading room for your saved work.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Clean up structure')).not.toBeInTheDocument();
+    // The page still needs a heading; it just is not shouted over the reading.
+    expect(screen.getByRole('heading', { level: 1, name: 'Library' })).toHaveClass('sr-only');
+  });
+
+  it('mounts no second agent beside the shell rail', () => {
+    renderLibrary();
+
+    expect(screen.getAllByRole('complementary', { name: 'Agent' })).toHaveLength(1);
+    expect(screen.queryByTestId('thought-partner-panel')).not.toBeInTheDocument();
+  });
+
+  it('opens a source into the reader in the same column', () => {
+    renderLibrary();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue →' }));
+
+    expect(localStorage.getItem('library.lastArticleId')).toBe('article-1');
+    const withArticle = setSearchParams.mock.calls
+      .map(([params]) => params)
+      .filter(params => params?.get?.('articleId') === 'article-1');
+    expect(withArticle.length).toBeGreaterThan(0);
+  });
+});
+
+describe('returning to the Library', () => {
+  it('reopens the source you were reading instead of the shelf you walked past', async () => {
+    localStorage.setItem('library.lastArticleId', 'article-2');
+
+    renderLibrary();
+
+    await waitFor(() => expect(setSearchParams).toHaveBeenCalled());
+    const [params, options] = setSearchParams.mock.calls[0];
+    expect(params.get('articleId')).toBe('article-2');
+    expect(options).toEqual({ replace: true });
+  });
+
+  it('does not override an explicit request for something else', async () => {
+    localStorage.setItem('library.lastArticleId', 'article-2');
+
+    renderLibrary('?scope=folder&folderId=f1');
+
+    await waitFor(() => expect(useLibraryArticles).toHaveBeenCalled());
+    expect(setSearchParams).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Library rail', () => {
+  it('is about the shelf, and narrows to the source being read', async () => {
+    renderLibrary();
+
+    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    expect(await within(rail).findByText('3 sources on the shelf.')).toBeInTheDocument();
+  });
+
+  it('retrieves into the rail and keeps the line only when the human accepts', async () => {
+    chatWithAgent.mockResolvedValue({ reply: 'Two of these sources disagree about capacity. More follows.' });
+
+    renderLibrary();
+
+    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'what disagrees here' }
     });
-    useFolders.mockReturnValue({
-      folders: [],
-      loading: false,
-      error: ''
-    });
-    useLibraryArticles.mockReturnValue({
-      articles: [],
-      allArticles: [
-        { _id: 'article-1', title: 'Investor letter', source: 'Library' },
-        { _id: 'article-2', title: 'Unfiled note', source: 'Readwise', highlightCount: 2 }
-      ],
-      loading: false,
-      error: '',
-      setAllArticles: jest.fn()
-    });
-    useTags.mockReturnValue({
-      tags: [{ tag: 'valuation' }, { tag: 'process' }],
-      loading: false
-    });
-    useArticleDetail.mockImplementation((articleId) => ({
-      article: articleId ? { _id: articleId, title: 'Investor letter' } : null,
-      highlights: articleId ? [{ _id: 'highlight-1', text: 'Cash flow discipline.' }] : [],
-      references: articleId ? [{ _id: 'reference-1', title: 'Source note' }] : [],
-      loading: false,
-      error: '',
-      addHighlightOptimistic: jest.fn(),
-      replaceHighlight: jest.fn(),
-      removeHighlight: jest.fn()
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+
+    expect(await within(rail).findByText('Two of these sources disagree about capacity.')).toBeInTheDocument();
+    expect(chatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'what disagrees here',
+      context: expect.objectContaining({ type: 'workspace', id: 'library' })
     }));
-  });
-
-  it('keeps the shared Thought partner visible in the default Library browse rail', () => {
-    renderLibrary();
-
-    const rightRail = screen.getByTestId('library-right');
-    expect(rightRail).toHaveAccessibleName('Thought partner');
-    expect(rightRail).toHaveTextContent('Library context visible');
-    expect(rightRail).toHaveTextContent('themes: valuation, process');
-    expect(screen.getByLabelText('Thought partner library trace')).toBeInTheDocument();
-  });
-
-  it('labels the Library right rail as the shared agent surface', () => {
-    renderLibrary();
-
-    expect(screen.getByTestId('library-right')).toHaveAccessibleName('Thought partner');
-    expect(screen.getAllByRole('button', { name: 'Thought partner' }).length).toBeGreaterThan(0);
-  });
-
-  it('keeps article search in the main list instead of duplicating it in the Cabinet rail', () => {
-    renderLibrary();
-
-    const main = screen.getByTestId('library-main');
-
-    expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Search articles')).toBeInTheDocument();
-    expect(main).toContainElement(screen.getByLabelText('Search articles'));
-  });
-
-  it('defaults to reading-room browse with cabinet closed until opened', () => {
-    renderLibrary();
-
-    expect(screen.getByTestId('library-reading-room-lead')).toBeInTheDocument();
-    expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
-  });
-
-  it('starts the filing classification flow from the reading room lead action', async () => {
-    renderLibrary();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
-
-    await waitFor(() => {
-      expect(startLibraryFilingSuggestions).toHaveBeenCalledTimes(1);
-    });
-    expect(mockNavigate).toHaveBeenCalledWith('/think?tab=threads&threadId=thread-filing-1');
-  });
-
-  it('keeps low-signal tag shortcuts out of the Cabinet saved-view shelf', () => {
-    useTags.mockReturnValueOnce({
-      tags: [{ tag: 'valuation' }, { tag: 'Blah' }, { tag: 'TEST' }],
-      loading: false
-    });
-
-    renderLibrary();
-    fireEvent.click(screen.getByRole('button', { name: 'Cabinet' }));
-
-    expect(screen.getByText('valuation')).toBeInTheDocument();
-    expect(screen.queryByText('Blah')).not.toBeInTheDocument();
-    expect(screen.queryByText('TEST')).not.toBeInTheDocument();
-  });
-
-  it('exposes an explicit low-signal review action from the reading room lead', () => {
-    renderLibrary();
-
-    expect(screen.getByRole('button', { name: 'Show review imports' })).toBeInTheDocument();
-  });
-
-  it('mounts the thought partner in the reading right rail with source context collapsed', async () => {
-    renderLibrary();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open article' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('thought-partner-panel')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Reading article shell')).toBeInTheDocument();
-    expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
+    expect(within(rail).getByRole('button', { name: 'Accept' })).toBeInTheDocument();
   });
 });

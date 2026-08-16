@@ -23,6 +23,33 @@ assert.deepStrictEqual(thesis.judgment.causalModel, { summary: '', nodes: [], ed
 assert.strictEqual(thesis.claims[0].epistemicStatus, 'plausible_hypothesis');
 assert.strictEqual(thesis.claims[0].materiality, 'supporting');
 
+assert.deepStrictEqual(thesis.judgment.why, []);
+assert.deepStrictEqual(thesis.judgment.against, []);
+
+// The two human-labelled reason lists persist with their provenance.
+const reasoned = new WikiPage({
+  ...base(),
+  judgment: {
+    kind: 'thesis',
+    governingQuestion: 'What would change this QA thesis?',
+    why: [{ reasonId: 'why-1', text: 'Demand compounds faster than supply.' }],
+    against: [{ reasonId: 'against-1', text: 'In-house silicon is growing.', acceptedFrom: 'event-1' }]
+  }
+});
+assert.strictEqual(reasoned.validateSync(), undefined);
+assert.strictEqual(reasoned.judgment.why[0].text, 'Demand compounds faster than supply.');
+assert.strictEqual(reasoned.judgment.against[0].acceptedFrom, 'event-1');
+
+const untextedReason = new WikiPage({
+  ...base(),
+  judgment: {
+    kind: 'thesis',
+    governingQuestion: 'Question?',
+    why: [{ reasonId: 'why-1' }]
+  }
+});
+assert.ok(untextedReason.validateSync()?.errors?.['judgment.why.0.text']);
+
 const invalidConfidence = new WikiPage({
   ...base(),
   judgment: { kind: 'thesis', governingQuestion: 'Question?', confidence: 2 }
