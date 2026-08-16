@@ -114,8 +114,8 @@ describe('AgentRail', () => {
 });
 
 describe('hasAgentRail', () => {
-  it('is present in the four rooms and the surfaces inside them', () => {
-    ['/library', '/think', '/wiki', '/judgment', '/judgment/abc', '/wiki/workspace'].forEach((path) => {
+  it('is present in the rooms and the surfaces inside them', () => {
+    ['/think', '/wiki', '/judgment', '/judgment/abc', '/wiki/workspace'].forEach((path) => {
       expect(hasAgentRail(path)).toBe(true);
     });
   });
@@ -124,5 +124,12 @@ describe('hasAgentRail', () => {
     ['/settings', '/connections', '/paper', '/onboarding/wiki', '/wiki/activity/run-1', '/'].forEach((path) => {
       expect(hasAgentRail(path)).toBe(false);
     });
+  });
+
+  it('stays off Library while Library still carries the Librarian panel', () => {
+    // Two agents on one screen is the thing the rail exists to stop. Library's
+    // column replaces that panel; the rail arrives with it, not before it.
+    expect(hasAgentRail('/library')).toBe(false);
+    expect(hasAgentRail('/library?articleId=abc')).toBe(false);
   });
 });
