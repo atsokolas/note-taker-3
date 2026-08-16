@@ -268,18 +268,22 @@ const LibrarySourceMemory = ({
       ?.focus();
   };
 
+  /* Clicking a source opens it. This used to hand every click to
+     onSelectSource, which routes to the provenance panel rather than the
+     reader — so on the main Library page a click showed you a card about the
+     article, while the same click inside a folder opened the article itself.
+     Two behaviours for one gesture, decided by which route you came in on. */
   const handleOpenSource = (source) => {
-    if (onSelectSource) {
-      onSelectSource(source);
-      return;
-    }
-    if (source?.type === 'article') {
+    if (source?.type === 'article' && source?.id) {
       onSelectArticle?.(source.id);
       return;
     }
     if (source?.type === 'highlight' && source.parentId) {
       onSelectArticle?.(source.parentId);
+      return;
     }
+    // Notes and anything without a reader of its own still route out.
+    onSelectSource?.(source);
   };
 
   const allCount = formatCount(state.counts?.recent);

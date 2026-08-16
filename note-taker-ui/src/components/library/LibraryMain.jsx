@@ -270,7 +270,7 @@ const LibraryMain = ({
         <aside className="library-composition__index" aria-label="Source index">
           <LibrarySourceMemory
             onSelectArticle={onSelectArticle}
-            onSelectSource={handleSelectSource}
+            onSelectSource={handleOpenSource}
             view={sourceView}
             onViewChange={onSourceViewChange}
             allowedSourceIds={allowedSourceIds}

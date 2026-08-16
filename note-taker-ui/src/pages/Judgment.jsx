@@ -118,10 +118,15 @@ const JudgmentIndex = ({ items }) => {
     setCreating(true);
     setCreateError('');
     try {
-      const page = await createWikiPage({ title: sentence, pageType: 'topic', skipBuild: true });
+      const page = await createWikiPage({ title: sentence, pageType: 'topic' });
       const id = page?._id || page?.id;
       if (!id) throw new Error('The judgment was not created.');
-      await updateWikiPage(id, { judgment: { currentJudgment: sentence, kind: 'thesis' } });
+      /* currentJudgment alone. Sending `kind` as well made the server ask for a
+         governing question — a judgment page in its older shape is a question
+         being investigated — and refuse with a 400 when there was none. A claim
+         written here is not a question, and inventing one the human never wrote
+         would put words in the page. The claim is what makes this a judgment. */
+      await updateWikiPage(id, { judgment: { currentJudgment: sentence } });
       setDraft('');
       navigate(`/judgment/${id}`);
     } catch (error) {

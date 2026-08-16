@@ -9,6 +9,7 @@ import { askWikiPage, getWikiPage, listWikiPages, listWikiSourceEvents, updateWi
 
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
+  createWikiPage: jest.fn(),
   getWikiPage: jest.fn(),
   listWikiPages: jest.fn(),
   listWikiSourceEvents: jest.fn(),
@@ -298,5 +299,33 @@ describe('the agent rail', () => {
 
     await waitFor(() => expect(within(rail).queryByText('A line the human does not want.')).not.toBeInTheDocument());
     expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('writes a judgment down without asking the server for a governing question', async () => {
+    // The claim is what makes a page a judgment. Sending `kind` as well made
+    // the server require a governing question — judgment pages in their older
+    // shape are a question being investigated — and refuse the whole thing
+    // with a 400. This is the shipped bug that test did not exist to catch.
+    const { createWikiPage, updateWikiPage } = require('../api/wiki');
+    jest.spyOn(router, 'useParams').mockReturnValue({});
+    listWikiPages.mockResolvedValue([]);
+    createWikiPage.mockResolvedValue({ _id: 'wiki-new' });
+    updateWikiPage.mockResolvedValue({});
+
+    render(<Judgment />);
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText('What do you think is true?'), {
+      target: { value: 'Demand still outruns deliverable capacity.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Write it down' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    expect(createWikiPage).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Demand still outruns deliverable capacity.' })
+    );
+    const [, payload] = updateWikiPage.mock.calls[0];
+    expect(payload.judgment.currentJudgment).toBe('Demand still outruns deliverable capacity.');
+    expect(payload.judgment.kind).toBeUndefined();
   });
 });
