@@ -91,7 +91,13 @@ describe('stitch editorial CSS tokens', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;/);
-    expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button:not\(\.topbar__utility-button--essential\)[\s\S]*?display: none !important;/);
+    // Connections and Settings were flagged essential and so survived every
+    // narrowing — at 390px they took 347 of 366 available pixels and the
+    // wordmark printed on top of the nav. From 1240px down every utility
+    // button folds into the More menu, which renders a copy of them.
+    expect(css).toMatch(/@media \(max-width: 1240px\)[\s\S]*?body\.noeis-editorial \.topbar__utility-button \{[\s\S]*?display: none !important;/);
+    expect(css).toMatch(/@media \(max-width: 1240px\)[\s\S]*?body\.noeis-editorial \.topbar__menu-item--narrow-only \{[\s\S]*?display: flex;/);
+    expect(css).toMatch(/body\.noeis-editorial \.topbar__menu-item--narrow-only \{\s*display: none;/);
     expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 76px;/);
     expect(css).toContain('.topbar__menu-popover--portal');
   });

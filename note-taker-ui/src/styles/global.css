@@ -42,10 +42,6 @@ p {
   margin: 0 0 1em;
 }
 
-.muted {
-  color: var(--text-secondary);
-}
-
 a {
   color: var(--link);
   text-decoration: none;

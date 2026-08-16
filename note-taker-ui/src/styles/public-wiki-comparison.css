@@ -609,28 +609,6 @@
   overflow-wrap: anywhere;
 }
 
-.public-wiki-comparison__metric-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.public-wiki-comparison__metric {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--pwc-line);
-  background: rgba(255, 255, 255, 0.55);
-  font-size: 0.86rem;
-  color: var(--pwc-ink);
-}
-
-.public-wiki-comparison__metric strong {
-  font-variant-numeric: tabular-nums;
-}
-
 .public-wiki-comparison__zero-note {
   margin: 0;
   padding: 10px 12px;

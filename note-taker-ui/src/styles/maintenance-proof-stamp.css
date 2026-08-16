@@ -88,7 +88,4 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .public-proof-gallery__page-list a:hover {
-    text-decoration-thickness: 1px;
-  }
 }

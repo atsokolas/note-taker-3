@@ -18,12 +18,14 @@ describe('wiki critical CSS loading', () => {
     expect(appSource).toContain("import('./styles/think-home-polish.css')");
   });
 
-  it('loads critical wiki CSS from both wiki route entrypoints', () => {
+  it('loads critical wiki CSS from the wiki route entrypoints', () => {
+    // /wiki/home and its WikiProductIndex were removed: nothing in the app
+    // linked at that route, so it could only be reached by typing it.
     const wikiRoute = fs.readFileSync(path.join(srcRoot, 'pages', 'Wiki.jsx'), 'utf8');
-    const wikiProductIndex = fs.readFileSync(path.join(srcRoot, 'components', 'wiki', 'WikiProductIndex.jsx'), 'utf8');
+    const wikiFrontPage = fs.readFileSync(path.join(srcRoot, 'components', 'wiki', 'WikiFrontPage.jsx'), 'utf8');
 
     expect(wikiRoute).toContain("import '../styles/wiki-critical.css'");
-    expect(wikiProductIndex).toContain("import '../../styles/wiki-critical.css'");
+    expect(wikiFrontPage).toContain("import '../../styles/wiki-critical.css'");
   });
 
   it('does not collapse the wiki workspace before the mobile tab breakpoint', () => {

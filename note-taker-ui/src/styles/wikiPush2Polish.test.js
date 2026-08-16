@@ -38,7 +38,11 @@ describe('wiki push-2 polish CSS', () => {
     const css = readCss('wiki-front-page.css');
 
     expect(css).toContain('animation: wfp-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;');
-    expect(css).toContain('transform-origin: top left;');
+    // The paper is one column now, so the expanding watcher list that carried
+    // `transform-origin: top left` is gone. A return to the paper crossfades
+    // rather than re-staggering, which is the motion that replaced it.
+    expect(css).toContain('.wiki-front-page__return');
+    expect(css).toContain('animation: wfp-materialize 180ms cubic-bezier(0.16, 1, 0.3, 1);');
     expect(css).toContain('@media (hover: hover) and (pointer: fine)');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (prefers-reduced-transparency: reduce)');

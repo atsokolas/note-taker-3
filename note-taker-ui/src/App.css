@@ -170,13 +170,6 @@ html.noeis-public-share body #root {
   overflow: visible !important;
 }
 
-.app-container {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-  width: 100%; /* Ensure it takes full width, especially for auth pages */
-}
-
 /* ----------------------------------- */
 /* Sidebar (Left Panel) Styles */
 /* ----------------------------------- */
@@ -191,44 +184,12 @@ html.noeis-public-share body #root {
   flex-direction: column; /* Stack content vertically */
 }
 
-.sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 15px 25px 15px; /* Adjust padding to match h1 spacing */
-}
-
 .sidebar h2 { /* Targeting the h2 for "Note Taker" in the sidebar-header */
   font-size: 1.6em;
   font-weight: 700;
   margin: 0; /* Reset margin as it's part of header */
   color: var(--text-color);
 }
-
-.logout-button {
-    background-color: var(--danger-color);
-    color: white;
-    padding: 6px 12px;
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 0.85em;
-    font-weight: 600;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    box-shadow: var(--box-shadow-light);
-}
-
-.logout-button:hover {
-    background-color: var(--danger-color-light);
-    color: var(--danger-color);
-    border: 1px solid var(--danger-color);
-    transform: translateY(-1px);
-}
-.logout-button:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-
 
 .status-message {
   text-align: center;
@@ -237,23 +198,6 @@ html.noeis-public-share body #root {
 }
 
 /* Sidebar Navigation (for "Your Library" and "Highlights by Tag") */
-.sidebar-nav {
-  padding: 0 15px;
-  margin-bottom: 20px;
-}
-
-.sidebar-link {
-  display: block;
-  padding: 10px 0;
-  color: var(--text-color-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.sidebar-link:hover {
-  color: var(--primary-color);
-}
 
 .sidebar-link.active { /* Style for the active NavLink */
   color: var(--primary-color);
@@ -369,11 +313,6 @@ html.noeis-public-share body #root {
   flex-wrap: wrap;
 }
 
-.working-memory-title {
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
 .working-memory-toggle {
   border: 1px solid var(--border-color);
   background: var(--hover-color);
@@ -448,34 +387,6 @@ html.noeis-public-share body #root {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px var(--primary-color-light);
-}
-
-.working-memory-action-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.working-memory-action {
-  border: 1px solid var(--border-color);
-  background: var(--hover-color);
-  color: var(--text-color);
-  border-radius: 999px;
-  padding: 6px 11px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.working-memory-action.is-primary {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: #fff;
-}
-
-.working-memory-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .working-memory-list {
@@ -867,36 +778,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   color: #9b988f;
 }
 
-.feedback-list {
-  border-top: 1px solid var(--border-color);
-  padding-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.feedback-list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.feedback-list ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.feedback-list-item {
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 10px;
-  background: var(--hover-color);
-}
-
 .feedback-list-top {
   display: flex;
   justify-content: space-between;
@@ -919,63 +800,8 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   font-size: 0.9em;
 }
 
-.notebook-shell {
-  background: linear-gradient(135deg, #f7f9fb 0%, #ffffff 60%);
-  border: 1px solid var(--border-color-light);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.05);
-}
-
-.notebook-panel {
-  background: #f4f6f8;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.notebook-header-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
 .notebook-title {
   margin: 4px 0 0;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.pill-button {
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: #f1f2f6;
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--text-color);
-  transition: transform 0.1s ease, box-shadow 0.15s ease, background 0.2s ease;
-}
-
-.pill-button.primary {
-  background: var(--primary-color);
-  color: #fff;
-  border-color: var(--primary-color);
-}
-
-.pill-button.danger {
-  background: #ffecec;
-  color: var(--danger-color);
-  border-color: #f5c2c7;
-}
-
-.pill-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--box-shadow-light);
 }
 
 .folder-row {
@@ -1231,123 +1057,16 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 /* ----------------------------------- */
 /* Highlights by Tag View Styles */
 /* ----------------------------------- */
-.highlight-by-tag-list-container {
-  padding: 20px 15px; /* Consistent padding with sidebar */
-}
-
-.highlight-by-tag-list-container h1 {
-  font-size: 1.6em;
-  font-weight: 700;
-  margin: 0 0 25px 0;
-  color: var(--text-color);
-}
-
-.tag-group {
-  border-bottom: 1px solid var(--border-color);
-}
-.tag-group:last-of-type {
-  border-bottom: none;
-}
-
-.tag-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 12px 0; /* Align with sidebar nav links */
-  text-align: left;
-  background-color: transparent;
-  color: var(--text-color);
-  border: none;
-  cursor: pointer;
-  font-size: 1.05em;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
-}
-
-.tag-header:hover {
-  background-color: var(--hover-color);
-}
-
-.highlight-list.nested {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1), padding-top 0.3s ease-out;
-  padding-top: 0;
-  background-color: var(--hover-color);
-  border-top: 1px solid var(--border-color-light);
-}
-
-.highlight-list.nested.open {
-  max-height: 800px; /* Adjust as needed */
-  padding-top: 5px;
-}
-
-.highlight-list-item {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-color-light);
-  font-size: 0.95em;
-  color: var(--text-color);
-}
-
-.highlight-list-item:last-child {
-  border-bottom: none;
-}
-
-.highlight-list-item .highlight-text {
-  font-weight: 500;
-  margin-bottom: 5px;
-  line-height: 1.4;
-}
-
-.highlight-list-item .highlight-note {
-  font-size: 0.9em;
-  color: var(--text-color-secondary);
-  margin-bottom: 5px;
-  line-height: 1.3;
-}
-
-.highlight-list-item .highlight-article-link {
-  display: block;
-  font-size: 0.85em;
-  color: var(--primary-color);
-  text-decoration: none;
-  margin-top: 8px;
-}
-
-.highlight-list-item .highlight-article-link:hover {
-  text-decoration: underline;
-}
 
 /* ----------------------------------- */
 /* Content Viewer (Right Panel - Main App Content Area) Styles */
 /* ----------------------------------- */
-.content-viewer {
-  flex-grow: 1; /* Takes up remaining space */
-  background-color: var(--card-bg-color); /* White background for content area */
-  display: flex;
-  flex-direction: column; /* Stack children vertically */
-  overflow-y: auto; /* Enable scrolling for content if this is the only scrollable part */
-}
-
-.welcome-message {
-  text-align: center;
-  color: var(--text-color-secondary);
-  margin-top: 50px;
-  font-size: 1.2em;
-}
 
 /* ----------------------------------- */
 /* Article Viewer Specific Layout Styles */
 /* (This applies when an article is open and includes its sidebar) */
 /* ----------------------------------- */
 /* Article Viewer Main Page Layout (Flex container for article content + highlights sidebar) */
-.article-viewer-page {
-    flex-grow: 1; /* Takes up remaining space in app-container */
-    display: flex; /* Use flexbox to lay out main article content and sidebar */
-    background-color: var(--card-bg-color); /* White background for the whole viewer area */
-    overflow: hidden; /* Manage overflow of its children */
-}
 
 /* Main Article Content Container (holds management bar and scrollable content) */
 .article-viewer-main {
@@ -1578,14 +1297,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 }
 
 /* Styles for the SVG icon within the popup's save button */
-.highlight-popup-save-button .highlight-icon { 
-    width: 18px; 
-    height: 18px;
-    stroke: currentColor;
-    stroke-width: 2;
-    fill: none;
-    flex-shrink: 0;
-}
 
 .temp-highlight-selection {
     background: rgba(11, 116, 255, 0.28);
@@ -1913,10 +1624,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     margin-top: 10px;
 }
 
-.import-summary p {
-    margin: 4px 0;
-}
-
 .first-insight-card {
     border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-color-light));
     background: linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 92%, white 8%), var(--surface-elevated));
@@ -2016,43 +1723,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     }
 }
 
-.sidebar-footer-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.sidebar-help-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    color: var(--text-color-secondary);
-    text-decoration: none;
-    border-radius: 999px;
-    border: 1px solid var(--border-color-light);
-}
-
-.sidebar-help-link:hover {
-    color: var(--text-color);
-    border-color: var(--border-color);
-    background: var(--hover-color);
-}
-
-.sidebar-help-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary-color);
-    color: #fff;
-    font-weight: 700;
-    font-size: 0.85em;
-}
-
 .howto-list {
     margin: 0;
     padding-left: 20px;
@@ -2074,102 +1744,9 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     margin-top: 6px;
 }
 
-.howto-tour-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.95em;
-}
-
-
 /* ----------------------------------- */
 /* NEW: Article Highlights Sidebar Styles */
 /* ----------------------------------- */
-.article-highlights-sidebar {
-    width: 300px; /* Fixed width for the highlights sidebar */
-    flex-shrink: 0; /* Prevent it from shrinking */
-    background-color: var(--hover-color); /* Light background for the sidebar */
-    border-left: 1px solid var(--border-color); /* Separator from main content */
-    padding: 20px;
-    overflow-y: auto; /* Allow highlights sidebar to scroll independently */
-    display: flex;
-    flex-direction: column; /* Stack elements inside */
-}
-
-.article-highlights-sidebar h2 {
-    font-size: 1.2em;
-    font-weight: 700;
-    margin-top: 0;
-    margin-bottom: 20px;
-    color: var(--text-color);
-}
-
-.article-highlights-sidebar .highlights-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.article-highlights-sidebar .sidebar-highlight-item {
-    background-color: var(--card-bg-color); /* White background for each highlight card */
-    border: 1px solid var(--border-color-light);
-    border-radius: var(--border-radius);
-    padding: 12px;
-    margin-bottom: 10px;
-    box-shadow: var(--box-shadow-light);
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.article-highlights-sidebar .sidebar-highlight-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-}
-
-.article-highlights-sidebar .sidebar-highlight-text {
-    font-size: 0.95em;
-    font-weight: 500;
-    line-height: 1.4;
-    color: var(--text-color);
-    margin-bottom: 8px;
-    cursor: pointer; /* Indicate clickable */
-    transition: color 0.2s ease;
-}
-
-.article-highlights-sidebar .sidebar-highlight-text:hover {
-    color: var(--primary-color);
-}
-
-.article-highlights-sidebar .sidebar-highlight-note {
-    font-size: 0.85em;
-    color: var(--text-color-secondary);
-    line-height: 1.3;
-    margin-bottom: 8px;
-    font-style: italic; /* Emphasize notes */
-}
-
-.article-highlights-sidebar .sidebar-highlight-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 5px;
-}
-
-.article-highlights-sidebar .highlight-tag {
-    background-color: var(--primary-color-light, rgba(0, 122, 255, 0.1)); /* Light primary color background */
-    color: var(--primary-color); /* Primary color text */
-    font-size: 0.75em;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: 500;
-    white-space: nowrap; /* Keep tags on one line */
-}
-
-.article-highlights-sidebar .no-highlights-message {
-    font-size: 0.9em;
-    color: var(--text-color-secondary);
-    text-align: center;
-    padding-top: 20px;
-}
 
 /* ----------------------------------- */
 /* Highlight Editing UI in ArticleViewer (These were missing and are now added) */
@@ -2301,95 +1878,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     isolation: isolate;
 }
 
-.auth-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-6);
-    box-sizing: border-box;
-    position: relative;
-    z-index: 1;
-    width: min(100%, 560px);
-    border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
-    border-radius: var(--radius-2);
-    background: color-mix(in srgb, var(--card-bg-color) 96%, #ffffff);
-    box-shadow: var(--box-shadow-light);
-}
-
-.auth-container h2 {
-    color: var(--text-color);
-    margin-bottom: 30px;
-    font-size: 2em;
-    font-weight: 700;
-}
-
-.auth-form {
-    background-color: var(--card-bg-color);
-    padding: var(--space-6);
-    border-radius: var(--border-radius);
-    box-shadow: none;
-    width: 100%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    border: 1px solid var(--border-color); /* Add a subtle border */
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group label {
-    margin-bottom: 8px;
-    font-weight: 600; /* Slightly bolder labels */
-    color: var(--text-color);
-}
-
-.form-group input {
-    padding: 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    background-color: var(--card-bg-color);
-    color: var(--text-color);
-    font-size: 1em;
-    width: 100%;
-    box-sizing: border-box;
-    outline: none;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
-}
-
-.form-group input:focus {
-    border-color: var(--primary-color);
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03), 0 0 0 3px var(--primary-color-light);
-}
-
-.auth-button {
-    background-color: var(--primary-color);
-    color: white;
-    padding: 12px 20px;
-    border: none;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    font-size: 1.1em;
-    font-weight: 600; /* Match other buttons */
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    width: 100%;
-    box-sizing: border-box;
-    box-shadow: var(--box-shadow-light);
-}
-
-.auth-button:hover {
-    background-color: var(--primary-color-dark);
-    transform: translateY(-1px);
-}
-.auth-button:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-
 /* Status messages */
 .status-message.success-message {
     background-color: var(--primary-color-light); /* Use a lighter primary color for success */
@@ -2403,35 +1891,7 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     border: 1px solid var(--danger-color);
 }
 
-.auth-link {
-    margin-top: 20px;
-    color: var(--text-color-secondary);
-    font-size: 0.95em;
-}
-
-.auth-link a {
-    color: var(--primary-color);
-    text-decoration: none;
-    cursor: pointer;
-    font-weight: 500;
-}
-
-.auth-link a:hover {
-    text-decoration: underline;
-}
-
-.auth-logo {
-  max-width: 150px;
-  height: auto;
-  margin-bottom: 30px;
-}
-
-
 /* Styles for the main app container when authentication routes are active */
-.app-container .auth-pages-container {
-    width: 100%;
-    /* No flex-grow: 1 here because app-container already defines flex */
-}
 
 /* --- Recommendation Modal Styles --- */
 .modal-overlay {
@@ -2594,63 +2054,9 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   justify-content: space-between;
 }
 
-.sidebar-promo {
-  padding: 20px;
-  border-top: 1px solid var(--border-color);
-  background-color: var(--sidebar-bg-color);
-}
-
-.chrome-store-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 10px;
-  background-color: var(--hover-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  text-decoration: none;
-  color: var(--text-color);
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-}
-
-.chrome-store-button:hover {
-  background-color: var(--active-color);
-  border-color: var(--border-color-dark);
-}
-
-.chrome-store-button svg {
-  flex-shrink: 0;
-  stroke: var(--text-color-secondary);
-}
-
 /* --- Login/Register Page Link --- */
-.get-extension-link {
-  font-size: 0.9em;
-  text-align: center;
-  padding: 10px;
-  background-color: var(--primary-color-light);
-  border: 1px solid var(--primary-color);
-  color: var(--primary-color-dark);
-  border-radius: var(--border-radius);
-  max-width: 400px;
-  width: 100%;
-  box-sizing: border-box; /* Ensures padding doesn't break layout */
-  margin-bottom: 20px;
-}
 
 /* --- THIS IS THE UPDATED RULE --- */
-.get-extension-link a {
-  font-weight: 600;
-  color: var(--primary-color-dark);
-  text-decoration: underline; /* <-- EXPLICITLY ADDED UNDERLINE */
-  cursor: pointer;
-}
-
-.get-extension-link a:hover {
-  text-decoration: none; /* Optional: remove underline on hover */
-}
 
 /* ... (existing styles) ... */
 
@@ -3357,95 +2763,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   justify-content: center;
 }
 
-.think-section-home {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: clamp(22px, 4vw, 48px);
-}
-
-.think-section-home__hero {
-  max-width: 760px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.think-section-home__eyebrow {
-  color: var(--muted-text-color);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
-.think-section-home__hero h1 {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 3.75rem);
-  line-height: 1.02;
-  letter-spacing: 0;
-}
-
-.think-section-home__hero p {
-  max-width: 660px;
-  margin: 0;
-  color: var(--muted-text-color);
-  font-size: 1rem;
-  line-height: 1.65;
-}
-
-.think-section-home__actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-
-.think-section-home__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.think-section-home__card {
-  min-height: 146px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: left;
-  border: 1px solid rgba(129, 129, 120, 0.18);
-  border-radius: 8px;
-  background: var(--vellum-panel, var(--card-bg-color));
-  color: var(--vellum-ink, var(--text-color));
-  padding: 16px;
-  cursor: pointer;
-}
-
-.think-section-home__card:hover {
-  border-color: var(--vellum-ink-soft, var(--primary-color));
-  box-shadow: 0 14px 34px rgba(56, 50, 43, 0.08);
-}
-
-.think-section-home__card span {
-  color: var(--vellum-muted, var(--muted-text-color));
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.think-section-home__card strong {
-  font-size: 1rem;
-  line-height: 1.3;
-}
-
-.think-section-home__card p {
-  margin: 0;
-  color: var(--vellum-muted, var(--muted-text-color));
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
-
 @media (max-width: 1024px) {
   .notebook-wrapper {
     flex-direction: column;
@@ -3561,48 +2878,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 }
 
 /* Landing */
-.landing-shell {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 64px 24px 80px;
-  display: grid;
-  gap: 24px;
-}
-
-.landing-hero h1 {
-  font-size: clamp(2rem, 4vw, 3.2rem);
-  margin: 8px 0 12px;
-}
-
-.landing-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.75rem;
-  color: var(--text-color-secondary);
-}
-
-.landing-subhead {
-  font-size: 1.1rem;
-  color: var(--text-color-secondary);
-  max-width: 720px;
-}
-
-.landing-cta {
-  margin-top: 20px;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.landing-card {
-  padding: 24px;
-}
-
-.landing-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
 
 .landing-list,
 .landing-steps {
@@ -3614,40 +2889,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 
 .landing-footer {
   text-align: center;
-}
-
-.landing-card-guide p {
-  margin-bottom: 12px;
-  color: var(--text-color-secondary);
-}
-
-.landing-guide-links {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.landing-inline-link {
-  color: var(--primary-color);
-  font-weight: 600;
-}
-
-.landing-legal-links {
-  margin-top: 16px;
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.landing-legal-links a {
-  color: var(--text-color-secondary);
-  text-decoration: none;
-}
-
-.landing-legal-links a:hover {
-  color: var(--text-color);
-  text-decoration: underline;
 }
 
 .legal-shell {
@@ -3685,22 +2926,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
 .legal-links a:hover {
   color: var(--text-color);
   text-decoration: underline;
-}
-
-.library-filter-bar {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  padding: 16px 24px 0;
-}
-
-.library-tag-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px 24px 8px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 /* Product Tour */
@@ -3989,10 +3214,6 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
   border-radius: 14px;
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   background: rgba(255, 255, 255, 0.025);
-}
-
-.import-summary p {
-  margin: 0;
 }
 
 .import-summary p + p {
