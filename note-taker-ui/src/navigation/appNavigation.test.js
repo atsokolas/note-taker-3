@@ -6,20 +6,28 @@ import {
 } from './appNavigation';
 
 describe('appNavigation', () => {
-  it('collapses the primary product navigation to Library, Think, Wiki, and Judgment', () => {
+  it('opens the primary navigation with Paper, then the four rooms', () => {
     const primaryLabels = getPrimaryNavItems().map(item => item.label);
 
-    // Wiki is home. Judgment closes the row: what the reading was for.
-    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki', 'Judgment']);
+    // Paper is the front door, so it is named rather than left to whoever
+    // knows the wordmark is a link. Judgment closes the row: what the reading
+    // was for.
+    expect(primaryLabels).toEqual(['Paper', 'Library', 'Think', 'Wiki', 'Judgment']);
     expect(primaryLabels).not.toContain('Notebook');
     expect(primaryLabels).not.toContain('Concepts');
     expect(primaryLabels).not.toContain('Questions');
   });
 
-  it('keeps Paper reachable as a route without giving it a room in the nav', () => {
-    // Paper is a different sheet, not a fifth room. The route still exists;
-    // this only asserts that the nav does not advertise it.
-    expect(getPrimaryNavItems().map(item => item.label)).not.toContain('Paper');
+  it('marks Paper active on the root route as well as its own', () => {
+    const paper = getPrimaryNavItems().find(item => item.label === 'Paper');
+
+    expect(paper.to).toBe('/paper');
+    expect(paper.match({ pathname: '/' })).toBe(true);
+    expect(paper.match({ pathname: '/paper' })).toBe(true);
+    expect(paper.match({ pathname: '/wiki' })).toBe(false);
+  });
+
+  it('keeps Paper out of the overflow menu now that it has a room', () => {
     expect(getSecondaryNavItems().map(item => item.label)).not.toContain('Paper');
   });
 
