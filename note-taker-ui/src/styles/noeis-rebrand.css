@@ -299,25 +299,6 @@ h6,
   pointer-events: none;
 }
 
-.topbar__search {
-  width: 100%;
-  border-radius: 999px;
-  border: 1px solid rgba(123, 148, 225, 0.36);
-  background: rgba(20, 33, 75, 0.84);
-  color: var(--text-primary);
-  height: 38px;
-  padding: 0 14px 0 34px;
-}
-
-.topbar__search:focus {
-  border-color: rgba(55, 223, 255, 0.68);
-  box-shadow: 0 0 0 3px rgba(55, 223, 255, 0.18);
-}
-
-.topbar__search::placeholder {
-  color: rgba(155, 176, 230, 0.82);
-}
-
 .topbar__button,
 .ui-button,
 .ui-quiet-button,
@@ -361,21 +342,6 @@ button.notebook-button:hover,
 .ui-pill-button,
 .ui-quiet-button {
   color: #dce8ff;
-}
-
-.topbar__mode-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(111, 238, 255, 0.42);
-  background: rgba(26, 42, 98, 0.82);
-  color: #8af2ff;
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
 .three-pane {
@@ -727,13 +693,6 @@ select:focus {
   z-index: 1;
 }
 
-.auth-container {
-  border: 1px solid rgba(114, 139, 214, 0.34);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(15, 26, 62, 0.94), rgba(10, 18, 44, 0.92));
-  box-shadow: var(--shadow-subtle);
-}
-
 .three-pane__main::before,
 .right-drawer__panel::before,
 .ui-surface-card::before,
@@ -1071,18 +1030,6 @@ select:focus {
   padding: 10px 11px;
 }
 
-.think-home__material-card {
-  border-radius: 9px;
-  padding: 8px;
-  margin: 1px 0;
-  transition: background-color 180ms ease, transform 180ms ease;
-}
-
-.think-home__material-card:hover {
-  background: rgba(40, 59, 128, 0.36);
-  transform: translateY(-1px);
-}
-
 .notebook-toolbar {
   display: flex;
   align-items: center;
@@ -1161,15 +1108,6 @@ textarea:focus-visible,
 select:focus-visible {
   outline: 2px solid rgba(82, 229, 255, 0.8);
   outline-offset: 2px;
-}
-
-/* Deterministic shell overrides to prevent layout regressions from legacy style collisions */
-.app-shell-new--noeis {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  gap: 0;
-  min-height: 100vh;
-  padding: 0;
 }
 
 .app-shell-new--noeis .app-shell-new__nav {
@@ -1254,10 +1192,6 @@ select:focus-visible {
   white-space: nowrap;
 }
 
-.app-shell-new--noeis .topbar__mode-pill {
-  display: none;
-}
-
 .app-shell-new--noeis .right-drawer {
   min-width: 42px;
   display: flex;
@@ -1327,9 +1261,6 @@ select:focus-visible {
 }
 
 @media (max-width: 1120px) {
-  .app-shell-new--noeis {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
   .app-shell-new--noeis .app-shell-new__nav {
     position: relative;
