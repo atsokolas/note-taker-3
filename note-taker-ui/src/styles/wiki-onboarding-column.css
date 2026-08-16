@@ -1,0 +1,249 @@
+/* Onboarding, in the reading language.
+   The first thing a new person sees should be the paper they are about to get,
+   not a modal card on a gradient. Same flow and same words as before; the
+   card, the pill buttons, the uppercase mono labels and the drop shadow go.
+
+   Written as an override on top of think-home-polish.css rather than as a
+   rewrite: the flow is a first-run path that is expensive to exercise, and its
+   markup is already the right shape. */
+
+body.noeis-editorial .wiki-onboarding,
+.wiki-onboarding {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+body.noeis-editorial .wiki-onboarding__panel,
+.wiki-onboarding__panel {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 620px);
+  margin: 0 auto;
+  padding: clamp(40px, 8vh, 96px) 20px clamp(80px, 16vh, 160px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+/* One brief entrance, then stillness — the same arrival as every other page. */
+.wiki-onboarding__panel {
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  animation: wfp-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+body.noeis-editorial .wiki-onboarding__eyebrow,
+body.noeis-editorial .wiki-onboarding__counter,
+body.noeis-editorial .wiki-onboarding__pack span,
+body.noeis-editorial .wiki-onboarding__paste span,
+.wiki-onboarding__eyebrow,
+.wiki-onboarding__counter,
+.wiki-onboarding__pack span,
+.wiki-onboarding__paste span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .wiki-onboarding h1,
+.wiki-onboarding h1 {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.9rem, 3.4vw, 2.8rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.014em;
+  text-wrap: balance;
+}
+
+body.noeis-editorial .wiki-onboarding h2,
+.wiki-onboarding h2 {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+body.noeis-editorial .wiki-onboarding p,
+.wiki-onboarding p {
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.94rem;
+  line-height: 1.62;
+  text-wrap: pretty;
+}
+
+/* Actions are words, not pills. */
+body.noeis-editorial .wiki-onboarding button,
+.wiki-onboarding button {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .wiki-onboarding button:hover,
+body.noeis-editorial .wiki-onboarding button:focus-visible,
+.wiki-onboarding button:hover,
+.wiki-onboarding button:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+body.noeis-editorial .wiki-onboarding a,
+.wiki-onboarding a {
+  min-height: 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 0.92rem;
+  font-weight: 400;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+/* The starter packs are a list of names, not a grid of cards. */
+body.noeis-editorial .wiki-onboarding__packs,
+.wiki-onboarding__packs {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+/* The pack rows are full-width list items; `.wiki-onboarding button` sets
+   justify-self: start at a higher specificity, so this has to out-rank it. */
+body.noeis-editorial .wiki-onboarding .wiki-onboarding__pack,
+.wiki-onboarding .wiki-onboarding__pack {
+  display: grid;
+  gap: 4px;
+  justify-self: stretch;
+  width: 100%;
+  padding: 15px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+body.noeis-editorial .wiki-onboarding__pack strong,
+.wiki-onboarding__pack strong {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+  font-weight: 400;
+}
+
+/* The chosen pack is the only one at full weight. */
+body.noeis-editorial .wiki-onboarding__pack.is-selected strong,
+.wiki-onboarding__pack.is-selected strong {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+body.noeis-editorial .wiki-onboarding__pack p,
+.wiki-onboarding__pack p {
+  font-size: 0.88rem;
+}
+
+/* The sample page is a page, not a screenshot in a frame. */
+body.noeis-editorial .wiki-onboarding__example,
+body.noeis-editorial .wiki-onboarding__example-page,
+body.noeis-editorial .wiki-onboarding__sample,
+body.noeis-editorial .wiki-onboarding__return-loop,
+.wiki-onboarding__example,
+.wiki-onboarding__example-page,
+.wiki-onboarding__sample,
+.wiki-onboarding__return-loop {
+  padding: 22px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.noeis-editorial .wiki-onboarding__example-page,
+.wiki-onboarding__example-page {
+  display: grid;
+  gap: 18px;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+}
+
+body.noeis-editorial .wiki-onboarding__example-page p,
+.wiki-onboarding__example-page p {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+}
+
+body.noeis-editorial .wiki-onboarding__example > span,
+.wiki-onboarding__example > span {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.4rem;
+}
+
+body.noeis-editorial .wiki-onboarding__example small,
+.wiki-onboarding__example small {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The paste field is a ruled line, like every other input in this language. */
+body.noeis-editorial .wiki-onboarding__paste,
+.wiki-onboarding__paste {
+  display: grid;
+  gap: 10px;
+}
+
+body.noeis-editorial .wiki-onboarding__paste input,
+body.noeis-editorial .wiki-onboarding__paste textarea,
+.wiki-onboarding__paste input,
+.wiki-onboarding__paste textarea {
+  width: 100%;
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.94rem;
+}
+
+body.noeis-editorial .wiki-onboarding__feed-actions,
+body.noeis-editorial .wiki-onboarding__hook-actions,
+body.noeis-editorial .wiki-onboarding__sample-actions,
+.wiki-onboarding__feed-actions,
+.wiki-onboarding__hook-actions,
+.wiki-onboarding__sample-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 26px;
+}
+
+body.noeis-editorial .wiki-onboarding__error,
+.wiki-onboarding__error {
+  color: var(--vellum-error, #a54731);
+  font-size: 0.88rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-onboarding__panel {
+    transform: none;
+    animation: wfp-fade-in 80ms linear forwards;
+  }
+}

@@ -5,6 +5,7 @@ import { getPublicProofRegistry } from '../api/wiki';
 import { trackMarketingCta } from '../utils/marketingAnalytics';
 import { buildMarketingHref } from '../utils/marketingAttribution';
 import { normalizePublicProofRegistry } from '../utils/maintenanceProof';
+import '../styles/landing-scale.css';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const Landing = () => {
   const handleEnter = () => {
     markLandingSeen();
     if (hasToken) {
-      navigate('/today');
+      navigate('/wiki');
     } else {
       navigate('/login');
     }
@@ -63,17 +64,18 @@ const Landing = () => {
         <div className="landing-public__rail">
           <div className="landing-public__eyebrow">Source-grounded personal research wiki</div>
           <p>
-            A research workspace for people who save too much, think in fragments, and want reading
-            to become pages, drafts, and decisions with sources attached.
+            A research workspace for people who read more than they can remember. Reading becomes
+            pages with their sources attached, and pages become claims you have actually committed
+            to.
           </p>
         </div>
 
         <div className="landing-public__main">
-          <h1>Saved reading becomes a source-grounded wiki. The wiki becomes drafts, decisions, and reusable insight.</h1>
+          <h1>Saved reading becomes a source-grounded wiki. The wiki becomes judgments you can be held to.</h1>
           <p className="landing-public__lede">
-            Noeis keeps articles, highlights, wiki pages, working drafts, concepts, and question
-            threads in one calm workspace so your thinking can compound without losing the evidence
-            underneath it.
+            Noeis keeps your articles, highlights, pages, and notes in one place, and asks you to
+            write down what you believe, what argues against it, and what would change your mind.
+            An agent brings evidence overnight. Nothing is written until you accept it.
           </p>
           <div className="landing-public__actions">
             <Button
@@ -108,24 +110,24 @@ const Landing = () => {
           <div className="landing-public__eyebrow">What changes</div>
           <ul className="landing-public__mini-list">
             <li>Highlights stay attached to source and context.</li>
-            <li>Wiki pages gather evidence before they become manuscripts.</li>
-            <li>Questions stay visible until something actually resolves them.</li>
+            <li>A claim carries its counterargument and what would change your mind.</li>
+            <li>The agent proposes. Nothing enters a page until you accept it.</li>
           </ul>
         </aside>
       </section>
 
       <section className="landing-public__strip">
         <div>
-          <span>Capture</span>
-          <p>Save articles, highlights, and notes without losing provenance.</p>
+          <span>Read</span>
+          <p>Save articles, highlights, and notes without losing where they came from.</p>
         </div>
         <div>
-          <span>Shape</span>
-          <p>Turn fragments into notebook drafts and concept workbenches.</p>
+          <span>Build</span>
+          <p>Turn what you saved into wiki pages that carry their evidence.</p>
         </div>
         <div>
-          <span>Clarify</span>
-          <p>Keep open questions, related evidence, and contradictions in view.</p>
+          <span>Judge</span>
+          <p>Write the claim, what argues against it, and what would change your mind.</p>
         </div>
       </section>
 
@@ -136,19 +138,19 @@ const Landing = () => {
           <ul className="landing-public__detail-list">
             <li>You read a lot and want to find the right idea again fast.</li>
             <li>You highlight constantly, then lose what the highlight was for.</li>
-            <li>You want concepts and questions to evolve instead of reset every week.</li>
-            <li>You want AI support without giving up human judgment.</li>
+            <li>You change your mind and want to know, later, why you did.</li>
+            <li>You want an assistant that brings evidence, not one that writes your conclusions.</li>
           </ul>
         </div>
 
         <div className="landing-public__column">
           <div className="landing-public__section-kicker">Five-minute tour</div>
           <ol className="landing-public__detail-list landing-public__detail-list--ordered">
-            <li>Save an article into the library.</li>
-            <li>Highlight what matters and keep the text attached to source.</li>
-            <li>Pull useful fragments into notes, concepts, or questions.</li>
-            <li>Ask the partner to sort, challenge, or contextualize the evidence.</li>
-            <li>Come back later through the return queue instead of starting over.</li>
+            <li>Save an article into the Library.</li>
+            <li>Highlight what matters; the text stays attached to its source.</li>
+            <li>Build a wiki page from what you saved, with the sources on it.</li>
+            <li>Write a claim — why you believe it, what argues against it, what would change your mind.</li>
+            <li>Open Noeis tomorrow. The paper says what changed overnight and what is waiting.</li>
           </ol>
         </div>
       </section>
@@ -167,7 +169,7 @@ const Landing = () => {
         </div>
         <div>
           <div className="landing-public__section-kicker">Ownership</div>
-          <p>Export your data anytime. No lock-in. AI stays optional and reviewable.</p>
+          <p>Export your data anytime. No lock-in. The agent’s work is always shown before it lands.</p>
         </div>
         <div>
           <div className="landing-public__section-kicker">Enter</div>

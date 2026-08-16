@@ -1,0 +1,190 @@
+/* The pages other people see.
+   A shared wiki page, concept or question is the outward face of the same
+   reading — so it reads the way /wiki/read does: one column, vellum, Newsreader
+   for the writing, a quiet sans for the apparatus. The layout of the underlying
+   pages is unchanged; this narrows the measure and removes the chrome that the
+   in-app surfaces already dropped.
+
+   An override sheet rather than a rewrite: these are public routes with their
+   own tests and their own dossier variants, and the markup is already the right
+   shape. */
+
+.shared-wiki-page,
+.shared-concept-page,
+.shared-question-page {
+  background: var(--vellum-bg, var(--bg-primary));
+}
+
+/* think-home-polish.css is loaded deferred, so it lands after this sheet and
+   wins at equal specificity. Everything here is scoped one level deeper. */
+.shared-wiki-page .shared-wiki-page__topbar,
+.shared-wiki-page .shared-wiki-page__article {
+  width: min(700px, 100%);
+}
+
+.shared-wiki-page .shared-wiki-page__topbar {
+  padding-bottom: 40px;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.shared-wiki-page .shared-wiki-page__brand,
+.shared-wiki-page .shared-wiki-page__home {
+  border-bottom: 1px solid currentColor;
+}
+
+.shared-wiki-page .shared-wiki-page__hero {
+  max-width: none;
+  gap: 16px;
+  text-align: center;
+}
+
+.shared-wiki-page .shared-wiki-page__hero h1 {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.014em;
+  text-wrap: balance;
+}
+
+/* The dossier variants shouted at a larger size for a wider measure. */
+.shared-wiki-page.is-repo-dossier .shared-wiki-page__hero h1,
+.shared-wiki-page.is-company-dossier .shared-wiki-page__hero h1 {
+  max-width: none;
+  font-size: clamp(2.1rem, 4vw, 3.1rem);
+  line-height: 1.1;
+}
+
+.shared-wiki-page .shared-wiki-page__eyebrow,
+.shared-wiki-page .shared-wiki-page__metrics,
+.shared-wiki-page .shared-wiki-page__receipt,
+.shared-wiki-page .shared-wiki-page__privacy-note,
+.shared-wiki-page .shared-wiki-page__sources-note {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The brief is prose under a quiet label, not a bar with an accent rule. */
+.shared-wiki-page .shared-wiki-page__company-brief {
+  width: 100%;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.shared-wiki-page .shared-wiki-page__company-brief h2 {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.shared-wiki-page .shared-wiki-page__company-brief p {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+  line-height: 1.66;
+}
+
+.shared-wiki-page .shared-wiki-page__body {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.66;
+}
+
+/* The reader gets a drop cap, the same as the in-app article. */
+.shared-wiki-page .shared-wiki-page__body > p:first-of-type::first-letter {
+  float: left;
+  margin: 0.06em 0.08em 0 0;
+  font-size: 3.5em;
+  line-height: 0.82;
+  font-weight: 400;
+}
+
+/* Adopting is an invitation, not a billboard. */
+.shared-wiki-page .shared-wiki-page__adopt {
+  padding: 26px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.shared-wiki-page .shared-wiki-page__adopt-cta {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.shared-wiki-page .shared-wiki-page__adopt-cta:hover,
+.shared-wiki-page .shared-wiki-page__adopt-cta:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.shared-wiki-page .shared-wiki-page__sources {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 640px) {
+  .shared-wiki-page__body > p:first-of-type::first-letter {
+    font-size: 2.8em;
+  }
+}
+
+/* The maintenance stamp and the privacy note were both filled boxes shouting in
+   uppercase. They are true and they matter, so they stay — as sentences. */
+.shared-wiki-page .shared-wiki-page__maintenance-stamp,
+.shared-wiki-page .shared-wiki-page__privacy-note {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+}
+
+.shared-wiki-page .shared-wiki-page__maintenance-stamp *,
+.shared-wiki-page .shared-wiki-page__privacy-note * {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.shared-wiki-page .shared-wiki-page__intro,
+.shared-wiki-page .shared-wiki-page__state {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.shared-wiki-page .shared-wiki-page__toc {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+}
+
+.shared-wiki-page .shared-wiki-page__toc-sections a,
+.shared-wiki-page .shared-wiki-page__toc a {
+  color: var(--text-muted, var(--vellum-subtle));
+  text-decoration: none;
+}

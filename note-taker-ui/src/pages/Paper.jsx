@@ -10,6 +10,8 @@ import { recordClaimCheckIn } from '../api/dailyLoop';
 import { updateQuestion } from '../api/questions';
 import { createWikiPage } from '../api/wiki';
 import { formatSurfaceDate } from '../utils/dateDisplay';
+import { takeFirstPaint } from '../motion/columnMotion';
+import '../styles/wiki-front-page.css';
 import '../styles/paper.css';
 
 // The Paper — the Reading Loop's surface and the product's landing page.
@@ -140,6 +142,10 @@ const Paper = () => {
   const [busy, setBusy] = useState('');
   const [notes, setNotes] = useState({});
   const [refreshingLead, setRefreshingLead] = useState(false);
+  // The Paper arrives the way every other surface does: one brief entrance on
+  // first sight this session, a crossfade on the way back.
+  const arriving = useMemo(() => takeFirstPaint('paper'), []);
+  const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'paper__return');
 
   const load = useCallback(async () => {
     try {
@@ -281,14 +287,14 @@ const Paper = () => {
 
   return (
     <main className="paper">
-      <header className="paper__masthead">
+      <header className={`paper__masthead ${step(1)}`}>
         <p className="paper__masthead-title">Noeis · The Paper</p>
         <p className="paper__masthead-date">{masthead}</p>
       </header>
 
       {error ? <div className="paper__error" role="alert">{error}</div> : null}
 
-      <section className="paper__lead" aria-labelledby="paper-lead-title">
+      <section className={`paper__lead ${step(2)}`} aria-labelledby="paper-lead-title">
         {coldStart ? (
           <>
             <h1 id="paper-lead-title" className="paper__lead-title">The loop isn&rsquo;t running yet.</h1>

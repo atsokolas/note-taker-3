@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPublicConcept } from '../api/concepts';
+import '../styles/shared-page-column.css';
 
 /**
  * SharedConcept — public read-only view of a concept.

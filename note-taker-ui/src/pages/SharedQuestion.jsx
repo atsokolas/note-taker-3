@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getPublicQuestion } from '../api/questions';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
+import '../styles/shared-page-column.css';
 
 const formatDate = (value) => {
   if (!value) return '';

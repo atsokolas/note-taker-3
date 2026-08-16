@@ -13,6 +13,8 @@ import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
 import { setActiveBuild } from '../onboarding/activeBuild';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 import { startWalkthrough } from '../onboarding/walkthroughState';
+import '../styles/wiki-front-page.css';
+import '../styles/wiki-onboarding-column.css';
 
 const FAST_BUILD_OPTIONS = {
   maintenanceProfile: 'fast',
