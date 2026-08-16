@@ -70,7 +70,9 @@ describe('WikiFrontPage movement return surface', () => {
 
     await waitFor(() => expect(screen.queryByText(/generic fallback briefing/i)).not.toBeInTheDocument());
     expect(screen.getByRole('heading', { level: 1, name: 'Your living wikis' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Inference economics' })).toBeInTheDocument();
+    // The lead is named twice now: once by the Continue line above the index,
+    // once by the index itself, which is complete by definition.
+    expect(screen.getAllByRole('link', { name: 'Inference economics' }).length).toBeGreaterThan(0);
     expect(screen.getByText('Review and system activity').closest('details')).toHaveAttribute('open');
   });
 

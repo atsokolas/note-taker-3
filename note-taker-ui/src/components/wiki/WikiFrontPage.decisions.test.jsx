@@ -60,7 +60,9 @@ describe('WikiFrontPage Decisions return surface', () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Your living wikis' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Inference economics' })).toBeInTheDocument();
+    // The lead is named twice now: once by the Continue line above the index,
+    // once by the index itself, which is complete by definition.
+    expect(screen.getAllByRole('link', { name: 'Inference economics' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review (2)' }))
       .toHaveAttribute('href', '/wiki/workspace?view=graph');

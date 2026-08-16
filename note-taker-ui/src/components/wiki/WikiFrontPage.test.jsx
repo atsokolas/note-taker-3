@@ -132,7 +132,7 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     expect(await screen.findByRole('table', { name: 'Living Wiki pages' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
+    expect(within(document.querySelector('.wiki-living-table')).getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
     expect(screen.queryByText(/opening your living knowledge/i)).not.toBeInTheDocument();
   });
 
@@ -258,7 +258,7 @@ describe('WikiFrontPage (AT-394)', () => {
     );
 
     const heading = await screen.findByRole('heading', { level: 1, name: 'Your living wikis' });
-    expect(screen.getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
+    expect(within(document.querySelector('.wiki-living-table')).getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent(/current change signals could not be refreshed/i);
   });

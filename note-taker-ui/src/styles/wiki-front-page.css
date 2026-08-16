@@ -1796,8 +1796,9 @@ body.noeis-editorial .wiki-living-changes__head,
 body.noeis-editorial .wiki-living-changes__head *,
 body.noeis-editorial .wiki-living-nav__kinds *,
 body.noeis-editorial .wiki-living-shell [class*='__kicker'],
-body.noeis-editorial .wiki-front-page__operational,
-body.noeis-editorial .wiki-front-page__operational * {
+body.noeis-editorial .wiki-front-page__operations-summary strong,
+body.noeis-editorial .wiki-front-page__operations-summary small,
+body.noeis-editorial .wiki-front-page__operations-summary span[aria-hidden] {
   color: var(--text-muted, var(--vellum-subtle)) !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.8rem !important;
@@ -1902,4 +1903,86 @@ body.noeis-editorial .wiki-front-page__return-path {
 
 body.noeis-editorial .wiki-front-page__return-path span {
   color: var(--text-muted, var(--vellum-subtle));
+}
+
+/* The activity bar at the foot of the page: a summary you can open, said in
+   the same voice as everything above it rather than stamped in caps. */
+body.noeis-editorial .wiki-front-page__operations-summary {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Where you were, above the list of everything you have. */
+body.noeis-editorial .wiki-front-page__continue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  margin: 0 0 22px;
+}
+
+body.noeis-editorial .wiki-front-page__continue span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+body.noeis-editorial .wiki-front-page__continue a {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.24rem;
+  line-height: 1.25;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+}
+
+body.noeis-editorial .wiki-front-page__continue a:hover,
+body.noeis-editorial .wiki-front-page__continue a:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+/* Inside the builders and the activity panel: the same rules as everywhere
+   else. An action is a word; a label is a quiet sans in sentence case. */
+body.noeis-editorial .wiki-front-page__making .ui-button,
+body.noeis-editorial .wiki-front-page__operations-panel .ui-button {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .wiki-front-page__making .wiki-index__eyebrow,
+body.noeis-editorial .wiki-front-page__operations-panel .wiki-index__eyebrow,
+body.noeis-editorial .wiki-front-page__making label,
+body.noeis-editorial .wiki-front-page__operations-panel label {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .wiki-front-page__making input,
+body.noeis-editorial .wiki-front-page__making textarea,
+body.noeis-editorial .wiki-front-page__operations-panel input {
+  padding: 7px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.92rem;
 }

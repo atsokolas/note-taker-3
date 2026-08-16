@@ -24,7 +24,10 @@ import {
   selectPrimaryReturnLoopNote,
   selectBriefingReturnLoopNotes
 } from './wikiBriefingReturnLoopModel';
-import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
+import {
+  dedupePagesByRepoKey,
+  filterPagesForTodaysPage
+} from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
 import '../../styles/wiki-critical.css';
@@ -360,11 +363,22 @@ const WikiFrontPage = () => {
       || String(a.title || '').localeCompare(String(b.title || '')))
   ), [curatedPages]);
 
-  /* Today's page — the agent's most recently enriched page, otherwise the
-     strongest in the corpus — was computed only to write the Curator's
-     orientation sentence. The Curator is gone and nothing reads it now, so it
-     goes with it rather than being left as a lead nobody leads with. Worth
-     bringing back the day this page carries a "Continue" line. */
+  /* Today's page: the agent's most recently enriched page, otherwise the
+     strongest in the corpus. Repo wikis only lead when they actually changed.
+     This existed only to write the Curator's orientation sentence; now it leads
+     the page, which is what it was always the right answer to. */
+  const todaysPage = useMemo(() => {
+    const watcherPage = briefing?.lead?.page?.id
+      ? resolvePage({ _id: briefing.lead.page.id, title: briefing.lead.page.title })
+      : null;
+    const candidates = [
+      ...(watcherPage ? [watcherPage] : []),
+      ...filterPagesForTodaysPage(sourceMaterialPages, briefing),
+      ...filterPagesForTodaysPage(recentlyUpdated, briefing),
+      ...filterPagesForTodaysPage(weighted, briefing)
+    ];
+    return candidates[0] || null;
+  }, [sourceMaterialPages, recentlyUpdated, weighted, briefing, resolvePage]);
 
   const pageKinds = useMemo(() => {
     const counts = new Map();
@@ -507,7 +521,12 @@ const WikiFrontPage = () => {
     <li key={watch.id}>
       <div>
         <strong>{watch.label}</strong>
-        <span>{watch.page.title} · {watch.detail}</span>
+        {/* A watcher without a page took the whole front page down with a
+            TypeError — nothing renders, white screen. It is armed against
+            something even when that something is not a page yet. */}
+        <span>
+          {[watch.page?.title, watch.detail].filter(Boolean).join(' · ')}
+        </span>
         {watch.errorMessage ? <em>{watch.errorMessage}</em> : null}
       </div>
       <button type="button" disabled={watchingBusy} onClick={() => handleDisarmWatcher(watch)}>Disarm</button>
@@ -777,6 +796,19 @@ const WikiFrontPage = () => {
             ) : null}
             {availabilityNotice ? <p className="wiki-front-page__availability" role="status">{availabilityNotice}</p> : null}
           </header>
+
+          {/* Where you were. The lead page the agent worked on last, or the
+              strongest page in the corpus — one line above the list, because
+              the first useful thing this page can do is put you back where you
+              were rather than make you find it in a table. */}
+          {todaysPage ? (
+            <p className="wiki-front-page__continue">
+              <span>Continue</span>
+              <Link to={wikiPagePath(pageId(todaysPage))}>
+                {displayWikiPageTitle(todaysPage, 'Your living page')}
+              </Link>
+            </p>
+          ) : null}
 
           <label className="wiki-living-index__search">
             <span className="sr-only">Search your wikis</span>
