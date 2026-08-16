@@ -40,6 +40,7 @@ import { librarySubject } from '../components/library/libraryColumnModel';
 import { useAgentRailSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
+import LibraryColumn from '../components/library/LibraryColumn';
 import '../styles/library-room.css';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
@@ -1194,25 +1195,48 @@ const Library = () => {
             </button>
           ) : <span />}
           <span className="library-page-shell__doors">
+            {/* The reading-room lead used to carry filing and review inside
+                the column. The locked middle is the reading and the list, so
+                the two verbs move up here with the other doors rather than
+                being lost — still one click, just not in the way. */}
             {!isReadingView ? (
-              <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
-                {organizeLaunching ? 'Starting…' : 'Clean up structure'}
-              </button>
+              <>
+                <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
+                  {organizeLaunching ? 'Starting' : 'Clean up structure'}
+                </button>
+                <button type="button" onClick={handleReviewFiling} disabled={filingLaunching}>
+                  {filingLaunching ? 'Starting' : 'Review filing suggestions'}
+                </button>
+                <button type="button" onClick={handleToggleSuppressedItems}>
+                  {showSuppressedItems ? 'Hide review imports' : 'Show review imports'}
+                </button>
+              </>
             ) : null}
             <button type="button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
               {LIBRARY_AGENT_TITLE}
             </button>
           </span>
         </div>
-        {/* LibraryMain carries the reading-room lead, the source shelf and the
-            article search. The column is its shape, not its replacement — a
-            rewrite here would quietly drop the filing flow, the review action
-            and the tag shortcuts, which is the opposite of the point. */}
+        {/* The locked middle: the reading you were in, then the sources as a
+            list of title, source and date. LibraryMain still renders every
+            other scope — folders, unfiled, highlights — because those are its
+            own views and the lock does not redraw them. */}
         <div
           className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isShelfView ? 'is-shelf' : ''}`}
           data-testid="library-main"
         >
-          {mainPanel}
+          {isShelfView ? (
+            <LibraryColumn
+              articles={articles}
+              allArticles={allArticles}
+              loading={articlesLoading}
+              error={articlesError}
+              query={articleQuery}
+              onQueryChange={handleArticleQueryChange}
+              onSelectArticle={handleSelectArticle}
+              entering={columnEntering}
+            />
+          ) : mainPanel}
         </div>
       </div>
       {/* The Librarian, when it is asked for — the same fold whether you are
