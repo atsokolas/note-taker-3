@@ -198,7 +198,10 @@ describe('WikiIndex graph', () => {
     expect(graphSurface).toHaveAttribute('data-width');
     expect(graphSurface).toHaveAttribute('data-height');
     expect(screen.getByText('Knowledge map')).toBeInTheDocument();
-    expect(await screen.findByTestId('wiki-briefing')).toHaveTextContent('Two wiki pages changed today.');
+    // The morning-paper strip moved out of the workspace: /wiki says what
+    // changed overnight, and saying it twice made the map look like a second
+    // front page.
+    expect(screen.queryByTestId('wiki-briefing')).not.toBeInTheDocument();
     expect(screen.getByText('10 pages · 1 link')).toBeInTheDocument();
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('Brightest');
     expect(screen.getByLabelText('Wiki map signals')).toHaveTextContent('8 standalone pages');

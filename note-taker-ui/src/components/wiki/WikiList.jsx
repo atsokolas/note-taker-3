@@ -4,7 +4,6 @@ import { Button } from '../ui';
 import { createWikiPage, deleteWikiPage, listWikiPages } from '../../api/wiki';
 import { buildWikiCreatePayload, openWikiDraft } from '../../utils/wikiCreate';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
-import WikiBriefing from './WikiBriefing';
 import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
 import WikiFacetRail from './WikiFacetRail';
@@ -434,7 +433,6 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     <Container className={`wiki-page wiki-index${compact ? ' wiki-index--compact wiki-index--faceted' : ''}`}>
       {!compact ? (
         <>
-          <WikiBriefing />
           <WikiEmergingProposals />
           <WikiInbox />
           <section className="wiki-index__header">

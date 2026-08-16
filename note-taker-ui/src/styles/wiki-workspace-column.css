@@ -1,0 +1,1153 @@
+/* The wiki workspace, in the reading language.
+ *
+ * The workspace is the operational room: the map, the page list, the page
+ * editor, sources, activity, schema, and a command console that wears a chat
+ * costume. Its function is right; only its clothes were still from before.
+ *
+ * Written as an override on top of think-home-polish.css and wiki-critical.css
+ * rather than as a rewrite. The workspace is 3,500 lines with 83 tests against
+ * its behaviour, and none of that behaviour is what was wrong. Every selector
+ * here is scoped one level deeper than the rule it answers, so it wins on
+ * specificity whichever sheet lands last.
+ *
+ * The rules of the language, applied here as everywhere else: actions are
+ * words with a rule under them, not pills; sections are hairlines, not cards;
+ * labels are a quiet sans in sentence case, not uppercase mono; inputs are a
+ * ruled line, not a filled box.
+ */
+
+/* ---- The door back to the console -------------------------------------- */
+
+/* The chat pane folds to this. It used to be a floating pill with a chevron in
+   a coin; it is now the same kind of word as every other action. */
+.wiki-workspace .wiki-workspace__agent-peek {
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-workspace__agent-peek:hover,
+.wiki-workspace .wiki-workspace__agent-peek:focus-visible {
+  border-color: currentColor;
+  background: transparent;
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+/* ---- The narrow screen --------------------------------------------------- */
+
+/* Two tabs and a quick line to the agent. Same language, less of it. */
+.wiki-workspace .wiki-workspace__mobile-tabs a {
+  padding: 0 0 6px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-workspace__mobile-tabs a.is-active {
+  border-bottom-color: currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.wiki-workspace .wiki-workspace__mobile-tabs {
+  gap: 22px;
+  justify-content: flex-start;
+  padding: 0 0 14px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  background: transparent;
+}
+
+.wiki-workspace .wiki-workspace__mobile-agent {
+  gap: 10px 20px;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-workspace .wiki-workspace__mobile-agent-label,
+.wiki-workspace .wiki-workspace__mobile-agent-label strong,
+.wiki-workspace .wiki-workspace__mobile-agent-label span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-workspace__mobile-agent input {
+  padding: 7px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.92rem;
+}
+
+.wiki-workspace .wiki-workspace__mobile-agent .ui-button {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---- Every remaining boxed action in this room --------------------------- */
+
+/* The workspace leans on the shared <Button>, which the editorial sheet paints
+   as small uppercase caps. In here, as everywhere else in the reading
+   language, an action is a word. */
+.wiki-index .wiki-index-source-drop .ui-button,
+.wiki-index .wiki-graph__actions .ui-button,
+.wiki-index .wiki-index__header .ui-button,
+.wiki-workspace .wiki-workspace__qa-fixture .ui-button {
+  min-height: 0;
+  padding: 0;
+  border-bottom: 1px solid currentColor !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-index .wiki-index-source-drop .ui-button:hover,
+.wiki-index .wiki-graph__actions .ui-button:hover,
+.wiki-index .wiki-index__header .ui-button:hover,
+.wiki-index .wiki-index-source-drop .ui-button:focus-visible,
+.wiki-index .wiki-graph__actions .ui-button:focus-visible,
+.wiki-index .wiki-index__header .ui-button:focus-visible {
+  background: none !important;
+  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+/* ---- The map ------------------------------------------------------------ */
+
+.wiki-index .wiki-index__header {
+  align-items: baseline;
+  margin-bottom: 26px;
+}
+
+.wiki-index .wiki-index__title-block h1 {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.014em;
+}
+
+.wiki-index .wiki-index__title-block p {
+  max-width: 58ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+/* Eyebrows and section labels are quiet sans, said once, at reading size. */
+.wiki-index .wiki-index__eyebrow,
+.wiki-index .wiki-corpus-shape__summary span,
+.wiki-index .wiki-index-source-drop > div > span,
+.wiki-workspace .wiki-index__eyebrow {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Map · List · Export were three boxes. They are three words, and the one you
+   are looking at is the one at full ink. */
+.wiki-index .wiki-index__tabs a,
+.wiki-index .wiki-index__tabs button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.wiki-index .wiki-index__tabs a[aria-current='page'],
+.wiki-index .wiki-index__tabs button[aria-current='page'] {
+  border-bottom-color: currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.wiki-index .wiki-index__tabs a:hover,
+.wiki-index .wiki-index__tabs button:hover,
+.wiki-index .wiki-index__tabs a:focus-visible,
+.wiki-index .wiki-index__tabs button:focus-visible {
+  border-bottom-color: currentColor;
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+  outline: none;
+}
+
+.wiki-index .wiki-index__tabs {
+  gap: 22px;
+}
+
+/* Dropping a source is a line you type on, under a label. Not a panel. */
+.wiki-index .wiki-index-source-drop {
+  margin: 0 0 22px;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  gap: 10px 22px;
+}
+
+.wiki-index .wiki-index-source-drop p {
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.wiki-index .wiki-index-source-drop__modes {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 18px;
+}
+
+.wiki-index .wiki-index-source-drop__modes button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-index .wiki-index-source-drop__modes button[aria-pressed="true"] {
+  border-bottom-color: currentColor;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* ---- Inputs, everywhere in this room ------------------------------------ */
+
+.wiki-index .wiki-index-source-drop input,
+.wiki-index .wiki-index-source-drop textarea,
+.wiki-index .wiki-index__filters input,
+.wiki-index .wiki-index__filters select,
+.wiki-index .wiki-index__composer-row input {
+  min-height: 0;
+  padding: 7px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.92rem;
+}
+
+/* The filter row was a bordered tray. It is a row of quiet controls. */
+.wiki-index .wiki-index__filters {
+  margin: 0 0 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 10px 26px;
+}
+
+.wiki-index .wiki-index__filters select {
+  min-width: 120px;
+}
+
+.wiki-index .wiki-graph-index__stats,
+.wiki-index .wiki-index__filter-clear {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+/* ---- What the corpus is shaped like ------------------------------------- */
+
+.wiki-index .wiki-corpus-shape {
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.wiki-index .wiki-corpus-shape__summary strong {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.wiki-index .wiki-corpus-shape__metrics span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+/* ---- When the map has nothing to show yet -------------------------------- */
+
+/* An honest sentence about a sparse graph, not a callout box about one. */
+.wiki-index .wiki-graph-sparse-hint {
+  gap: 6px;
+  margin: 22px 0;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.wiki-index .wiki-graph-sparse-hint span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 400;
+}
+
+.wiki-index .wiki-graph-sparse-hint p {
+  max-width: 62ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.wiki-index .wiki-graph-sparse-hint__actions {
+  gap: 10px 26px;
+  margin-top: 12px;
+}
+
+.wiki-index .wiki-graph-sparse-hint__actions button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.wiki-index .wiki-graph-sparse-hint__actions button:hover,
+.wiki-index .wiki-graph-sparse-hint__actions button:focus-visible {
+  border-color: currentColor;
+  background: transparent;
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+  outline: none;
+}
+
+/* ---- The map itself ------------------------------------------------------ */
+
+/* The map is the one thing here that earns its width. It keeps it — it just
+   stops being a rounded panel floating on the page. */
+.wiki-index .wiki-graph {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-index .wiki-graph__actions button,
+.wiki-index .wiki-graph__inspector-actions button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-index .wiki-graph__legend,
+.wiki-index .wiki-graph__relations {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The legend and the node inspector float over the map. They are keys to what
+   you are looking at, so they stay legible — but as text on the page, not as
+   frosted cards sitting on top of it. */
+.wiki-index .wiki-graph__legend,
+.wiki-index .wiki-graph__inspector {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ---- Activity, sources, schema ------------------------------------------ */
+
+.wiki-index .wiki-activity-log,
+.wiki-workspace .wiki-activity-log,
+.wiki-workspace .wiki-workspace-sources,
+.wiki-workspace .wiki-workspace-schema {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-workspace .wiki-workspace-sources h1,
+.wiki-workspace .wiki-workspace-activity h1,
+.wiki-workspace .wiki-workspace-schema h1,
+.wiki-workspace .wiki-workspace-sources h2,
+.wiki-workspace .wiki-workspace-schema h2,
+.wiki-workspace .wiki-activity-log h2 {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  text-align: left;
+}
+
+/* The eyebrow names the room; the title is what is in it. They read down the
+   page, not across it. */
+.wiki-workspace .wiki-workspace-sources > header,
+.wiki-workspace .wiki-workspace-activity > header,
+.wiki-workspace .wiki-workspace-schema > header {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 0 0 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+/* Sources and the activity log are lists of things, separated by hairlines —
+   the same shape the Library and the page list already use. */
+.wiki-workspace .wiki-workspace-sources > input {
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.92rem;
+}
+
+.wiki-workspace .wiki-workspace-sources__list > li,
+.wiki-workspace .wiki-workspace-activity > ol > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 24px;
+  padding: 18px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The name of the source takes the row; its actions follow it on the same
+   line, the way a byline follows a headline. */
+.wiki-workspace .wiki-workspace-sources__list > li > a,
+.wiki-workspace .wiki-workspace-activity > ol > li > strong {
+  flex: 1 1 100%;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.wiki-workspace .wiki-workspace-sources__list > li > span,
+.wiki-workspace .wiki-workspace-activity > ol > li > p,
+.wiki-workspace .wiki-workspace-activity__actions {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+/* Two actions per source, side by side, as words. */
+.wiki-workspace .wiki-workspace-sources__list > li > button,
+.wiki-workspace .wiki-workspace-activity__actions a {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-decoration: none;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-workspace-sources__list > li > button:hover,
+.wiki-workspace .wiki-workspace-sources__list > li > button:focus-visible,
+.wiki-workspace .wiki-workspace-activity__actions a:hover,
+.wiki-workspace .wiki-workspace-activity__actions a:focus-visible {
+  background: transparent;
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+  outline: none;
+}
+
+.wiki-workspace .wiki-workspace-schema textarea {
+  padding: 12px 0 !important;
+  border: 0 !important;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.94rem;
+}
+
+.wiki-workspace .wiki-workspace-schema .ui-button,
+.wiki-workspace .wiki-workspace-schema button {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---- The page list -------------------------------------------------------
+ *
+ * The rows already read well; what was still shouting were the labels. A page
+ * being an overview, a draft, or carrying two sources is true and worth
+ * saying — at the volume of an aside, in the same sans as every other label in
+ * the product, in the case people actually write in.
+ *
+ * These rules stay scoped to the wiki: the row classes are shared with the
+ * Library's folder and highlight scopes, which are not what this session is
+ * touching.
+ */
+
+body.noeis-editorial .wiki-index .library-article-row-source,
+body.noeis-editorial .wiki-index .library-article-row-tag,
+body.noeis-editorial .wiki-index .library-article-row-meta,
+body.noeis-editorial .wiki-index .library-article-row-date,
+body.noeis-editorial .wiki-index .library-article-row-receipt,
+body.noeis-editorial .wiki-index .wiki-index__quality-badge,
+.wiki-index .library-article-row-source,
+.wiki-index .library-article-row-tag,
+.wiki-index .library-article-row-meta,
+.wiki-index .library-article-row-date,
+.wiki-index .library-article-row-receipt,
+.wiki-index .wiki-index__quality-badge {
+  /* stitch-editorial sets the page-type label in spaced uppercase caps with
+     !important, so the answer has to be in kind. */
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.82rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* A blocked page is the one label that has to carry a warning, so it keeps its
+   colour — as ink on the page, not as a filled chip. */
+body.noeis-editorial .wiki-index .wiki-index__quality-badge,
+.wiki-index .wiki-index__quality-badge {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+body.noeis-editorial .wiki-index .library-article-row-title,
+.wiki-index .library-article-row-title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-weight: 400;
+}
+
+/* ---- The facet rail beside the list -------------------------------------- */
+
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__section-toggle,
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__primary button,
+body.noeis-editorial .wiki-facet-rail .library-cabinet-count,
+.wiki-facet-rail .wiki-facet-rail__section-toggle,
+.wiki-facet-rail .wiki-facet-rail__primary button,
+.wiki-facet-rail .library-cabinet-count {
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__primary button.is-active,
+.wiki-facet-rail .wiki-facet-rail__primary button.is-active {
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  background: transparent !important;
+}
+
+body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__search input,
+.wiki-facet-rail .wiki-facet-rail__search input {
+  padding: 7px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+}
+
+/* "Pages / Browse your wiki." is a section head, not a stamped label. */
+body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
+.wiki-facet-rail .ui-section-header__subtitle {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.84rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* ---- A page, open in the workspace --------------------------------------
+ *
+ * The body of the page already reads the way it should — this is the chrome
+ * around it: the maintenance stamp, the status summary, the Article/Talk
+ * switch, and the tab that opens the context gutter.
+ */
+
+/* "Ready for maintenance" is a report on the page, so it sits above the page
+   as a line of text rather than as a stamp floating in its own frame. */
+.wiki-workspace .wiki-read__maintenance-receipt {
+  padding: 0 0 18px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-workspace .wiki-read__promotion-kicker,
+.wiki-workspace .wiki-read__page-status-label,
+.wiki-workspace .wiki-read__page-status-facts,
+.wiki-workspace .wiki-read__page-status-action {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.84rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.wiki-workspace .wiki-read__maintenance-receipt h2,
+.wiki-workspace .wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-copy h2 {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-read__maintenance-receipt .wiki-read__maintenance-actions > button,
+.wiki-workspace .wiki-read__maintenance-receipt.is-compact .wiki-read__maintenance-actions > button,
+.wiki-workspace .wiki-read__maintenance-receipt .wiki-read__maintenance-actions > .btn {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-read__page-status-action {
+  border-bottom: 1px solid currentColor;
+}
+
+/* Article and Talk are two words with a rule under the one you are reading. */
+.wiki-workspace .wiki-read__tabs button {
+  padding: 0 0 6px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+.wiki-workspace .wiki-read__tabs button.is-active {
+  border-bottom-color: currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.wiki-workspace .wiki-read__tabs {
+  gap: 22px;
+  border: 0;
+  background: transparent;
+}
+
+/* The context gutter opened from a rounded tab with its label turned on its
+   side. It is a word, read the way words are read. */
+.wiki-workspace .wiki-read__rail-toggle {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.wiki-workspace .wiki-read__rail-toggle--show {
+  writing-mode: horizontal-tb;
+  flex-direction: row;
+  padding: 0;
+  letter-spacing: 0;
+}
+
+.wiki-workspace .wiki-read__rail-toggle--show .wiki-read__rail-toggle-label {
+  font-size: 0.82rem;
+  text-transform: none;
+}
+
+/* The chevron pointed at the gutter the label was turned sideways to fit. With
+   the label upright it is a stray character. */
+.wiki-workspace .wiki-read__rail-toggle--show > span:not(.wiki-read__rail-toggle-label) {
+  display: none;
+}
+
+.wiki-workspace .wiki-read__rail-toggle:hover,
+.wiki-workspace .wiki-read__rail-toggle:focus-visible {
+  border-color: currentColor;
+  background: transparent;
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+  outline: none;
+}
+
+/* ---- A page, being written ----------------------------------------------
+ *
+ * Writing is the one thing here that is not reading, so the editor keeps its
+ * own affordances — the meta bar, the insert tools, the save state. What it
+ * gives up is the frame: a page you are writing is still a page.
+ */
+
+/* Editing was signalled by washing the pane in accent. The word "Editing page"
+   at the top says it, so the wash does not have to. */
+.wiki-workspace .wiki-workspace__page-shell--editing {
+  background: transparent;
+}
+
+.wiki-workspace .wiki-editor__topline {
+  gap: 10px 26px;
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.wiki-workspace .wiki-editor__mode-label {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-editor__topline .ui-button,
+.wiki-workspace .wiki-editor__inline-tools .ui-button {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-editor__topline .ui-button:hover,
+.wiki-workspace .wiki-editor__inline-tools .ui-button:hover,
+.wiki-workspace .wiki-editor__topline .ui-button:focus-visible,
+.wiki-workspace .wiki-editor__inline-tools .ui-button:focus-visible {
+  background: none !important;
+  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+/* The page you are writing was a panel with a warm border and a filled title
+   bar. It is the page. */
+.wiki-workspace .wiki-editor__main {
+  padding: 24px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-workspace .wiki-editor__title {
+  padding: 0 0 8px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  font-weight: 400;
+  letter-spacing: -0.014em;
+  line-height: 1.12;
+}
+
+.wiki-workspace .wiki-meta-bar label,
+.wiki-workspace .wiki-meta-bar span {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wiki-workspace .wiki-meta-bar select {
+  padding: 5px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.88rem;
+}
+
+/* ---- Pulling material in beside the page --------------------------------- */
+
+.wiki-workspace .reference-pull-in {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-workspace .reference-pull-in .ui-section-header__subtitle,
+.wiki-workspace .reference-pull-in .reference-pull-in__target,
+.wiki-workspace .reference-pull-in .muted,
+.wiki-workspace .reference-pull-in .small,
+.wiki-workspace .reference-pull-in .reference-pull-in__result-meta,
+.wiki-workspace .reference-pull-in [class*='__count'],
+.wiki-workspace .reference-pull-in .reference-pull-in__strip > span,
+.wiki-workspace .reference-pull-in > p,
+.wiki-workspace .reference-pull-in .reference-pull-in__backlinks-head span,
+.wiki-workspace .reference-pull-in .reference-pull-in__constellation-head span,
+.wiki-workspace .reference-pull-in > div > span {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.82rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* Pull is one action beside the field it acts on, not a bar under it. */
+.wiki-workspace .reference-pull-in__search {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+}
+
+.wiki-workspace .reference-pull-in__search input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-workspace .reference-pull-in input,
+.wiki-workspace .reference-pull-in textarea {
+  padding: 7px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.9rem;
+}
+
+.wiki-workspace .reference-pull-in button {
+  justify-self: start;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---- The console ---------------------------------------------------------
+ *
+ * The chat pane is where the wiki's verbs live — draft, build, ingest, lint —
+ * so it stays. It is folded shut until you ask for it, and when it opens it
+ * speaks the same language as the room it opens into.
+ */
+
+.wiki-workspace-chat .wiki-workspace-chat__title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Building a page is a word. So is sending. */
+.wiki-workspace-chat .wiki-workspace-chat__build-button,
+.wiki-workspace-chat .wiki-workspace-chat__send,
+.wiki-workspace-chat .wiki-workspace-chat__reference-pull-in,
+.wiki-workspace-chat .wiki-workspace-chat__reference-button,
+.wiki-workspace-chat .wiki-workspace-chat__composer-footer button[type='submit'] {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  /* Send is a .ui-button-primary, and the editorial sheet paints those with
+     !important, so the answer has to be in kind. */
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  transform: none;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__send.is-empty {
+  border-bottom-color: transparent;
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__build-button:hover,
+.wiki-workspace-chat .wiki-workspace-chat__send.is-ready:hover,
+.wiki-workspace-chat .wiki-workspace-chat__reference-pull-in:hover,
+.wiki-workspace-chat .wiki-workspace-chat__reference-button:hover,
+.wiki-workspace-chat .wiki-workspace-chat__build-button:focus-visible,
+.wiki-workspace-chat .wiki-workspace-chat__send.is-ready:focus-visible,
+.wiki-workspace-chat .wiki-workspace-chat__reference-pull-in:focus-visible,
+.wiki-workspace-chat .wiki-workspace-chat__reference-button:focus-visible {
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+  transform: none;
+  outline: none;
+}
+
+/* Cancelling a running answer is the one thing here that should read as a
+   stop, so it keeps its colour — as ink, not as a filled box. */
+.wiki-workspace-chat .wiki-workspace-chat__send.is-cancel {
+  background: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--danger, #b94a48) !important;
+}
+
+/* You type on a line. The agent's state is that line's colour, not a glowing
+   border that moves — which also means there is nothing to disable for people
+   who asked for less motion. */
+.wiki-workspace-chat .wiki-workspace-chat__composer-field {
+  border-radius: 0;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__composer-field::before {
+  content: none;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__composer-field > textarea {
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
+  font-size: 0.94rem;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__composer-field:focus-within > textarea,
+.wiki-workspace-chat .wiki-workspace-chat__composer[data-streaming='true'] .wiki-workspace-chat__composer-field > textarea {
+  border-bottom-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
+}
+
+/* The agent's status line is a sentence, not a card with a light on it. */
+.wiki-workspace-chat .wiki-workspace-chat__presence {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__hint,
+.wiki-workspace-chat .wiki-workspace-chat__shortcut,
+.wiki-workspace-chat .wiki-workspace-chat__ticker {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__hint kbd,
+.wiki-workspace-chat .wiki-workspace-chat__shortcut kbd {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__hint button {
+  font-weight: 400;
+}
+
+/* Answers are prose. */
+.wiki-workspace-chat .wiki-workspace-chat__message {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__markdown p {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* The command and reference palettes are lists of names. */
+.wiki-workspace-chat .wiki-workspace-chat__palette {
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-radius: 0;
+  background: var(--vellum-bg, var(--surface));
+  box-shadow: none;
+}
+
+.wiki-workspace-chat .wiki-workspace-chat__palette button {
+  border-radius: 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}

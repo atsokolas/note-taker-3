@@ -6,6 +6,7 @@ import WikiPageReadView from '../components/wiki/WikiPageReadView';
 import { trackWikiEditModeEntered } from '../utils/wikiAnalytics';
 import { isWikiReadModeV2Enabled, isWikiWorkspaceV1Enabled } from '../utils/wikiFeatureFlags';
 import '../styles/wiki-critical.css';
+import '../styles/wiki-workspace-column.css';
 
 const WikiWorkspace = lazy(() => import('../components/wiki/WikiWorkspace'));
 

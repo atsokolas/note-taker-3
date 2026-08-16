@@ -392,7 +392,7 @@ describe('WikiWorkspace', () => {
     const workspace = document.querySelector('.wiki-workspace');
     expect(workspace).toHaveClass('wiki-workspace--agent-collapsed');
     expect(workspace).not.toHaveClass('is-mobile-wiki');
-    expect(screen.getByRole('button', { name: 'Open Thought partner' })).toHaveTextContent('Ask');
+    expect(screen.getByRole('button', { name: 'Open Thought partner' })).toHaveTextContent('Thought partner');
     expect(await screen.findByTestId('wiki-read-view')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Thought partner' }));
