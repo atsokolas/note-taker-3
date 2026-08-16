@@ -60,6 +60,7 @@ const LibraryColumn = ({
           <span>Find in library</span>
           <input
             type="search"
+            aria-label="Search articles"
             value={query}
             placeholder="Search…"
             onChange={(event) => onQueryChange?.(event.target.value)}

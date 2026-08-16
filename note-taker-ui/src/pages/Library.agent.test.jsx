@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import Library from './Library';
@@ -235,8 +235,13 @@ describe('Library agent rail', () => {
   it('defaults to reading-room browse with cabinet closed until opened', () => {
     renderLibrary();
 
-    expect(screen.getByTestId('library-reading-room-lead')).toBeInTheDocument();
+    // The locked middle is the reading and the list. The reading-room lead,
+    // with its filing and review verbs, is not in it — those moved up to the
+    // column head, and the shelves moved to a rail of their own.
+    expect(screen.queryByTestId('library-reading-room-lead')).not.toBeInTheDocument();
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Shelves' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review filing suggestions' })).toBeInTheDocument();
   });
 
   it('starts the filing classification flow from the reading room lead action', async () => {
@@ -258,10 +263,10 @@ describe('Library agent rail', () => {
 
     renderLibrary();
 
-    expect(screen.getByTestId('library-source-shelf')).toBeInTheDocument();
-    expect(screen.getByText('valuation')).toBeInTheDocument();
-    expect(screen.queryByText('Blah')).not.toBeInTheDocument();
-    expect(screen.queryByText('TEST')).not.toBeInTheDocument();
+    // Folders live on the shelf rail now rather than inside the middle.
+    const shelves = screen.getByRole('navigation', { name: 'Shelves' });
+    expect(within(shelves).getByRole('button', { name: /All sources/ })).toBeInTheDocument();
+    expect(within(shelves).getByRole('button', { name: /Highlights/ })).toBeInTheDocument();
   });
 
   it('exposes an explicit low-signal review action from the reading room lead', () => {
@@ -271,9 +276,13 @@ describe('Library agent rail', () => {
   });
 
   it('mounts the thought partner in the reading right rail with source context collapsed', async () => {
-    renderLibrary();
+    // Reading is reached by naming the source, the way a link into it does.
+    // The harness button that used to do this lived on LibraryMain, which the
+    // locked middle no longer renders while browsing.
+    renderLibrary('/library?scope=all&articleId=article-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open article' }));
+    // The Librarian is folded until asked for, so the panel mounts on the word.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Librarian' })[0]);
 
     await waitFor(() => {
       expect(screen.getByTestId('thought-partner-panel')).toBeInTheDocument();
@@ -286,9 +295,7 @@ describe('Library agent rail', () => {
   });
 
   it('opens source context when navigation targets an exact highlight', async () => {
-    renderLibrary();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open highlighted source' }));
+    renderLibrary('/library?scope=all&articleId=article-1&highlightId=highlight-1');
 
     await waitFor(() => {
       expect(screen.getByTestId('library-reading-secondary-rail')).toHaveAttribute('open');

@@ -41,6 +41,7 @@ import { useAgentRailSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
 import LibraryColumn from '../components/library/LibraryColumn';
+import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import '../styles/library-room.css';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
@@ -1179,14 +1180,22 @@ const Library = () => {
 
   return (
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
-      {/* One column. LibraryMain already carries the source shelf — folders,
-          views, counts, tag shortcuts — so there is no second list of shelf
-          names beside it.
-
-          The Librarian is not gone. It does more than the rail does — filing,
-          structure, selection — so it keeps its panel; it is just no longer the
-          third pane of a three-pane room. It opens from a word, and until it is
-          asked for, the rail is the only agent on the screen. */}
+      {/* The shelves, down the left. The locked middle is the reading and the
+          list, so the filing system is not in it — but it still has to be
+          somewhere, and a list of names beside the reading is where it goes.
+          Highlights is a shelf like any other; choosing it puts you in your
+          highlights with the same folders alongside. */}
+      <LibraryShelfNav
+        folders={folders}
+        scope={scope}
+        folderId={folderId}
+        unfiledCount={unfiledCount}
+        onSelectScope={handleSelectScope}
+        onSelectFolder={handleSelectFolder}
+        onReviewFiling={handleReviewFiling}
+        filingLaunching={filingLaunching}
+        className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
+      />
       <div className="library-page-shell__column">
         <div className="library-page-shell__column-head">
           {isReadingView ? (

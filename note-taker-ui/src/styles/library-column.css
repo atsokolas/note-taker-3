@@ -4,7 +4,7 @@
 
 .library-page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 188px) minmax(0, 1fr);
   gap: clamp(24px, 3.4vw, 52px);
   align-items: start;
 }
