@@ -372,3 +372,64 @@ body.noeis-editorial .judgment .judgment__new input,
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.84rem;
 }
+
+/* The line you write into a section yourself. It is the quietest thing in the
+   field — a rule you type on — because the lines already written are what the
+   page is for, and this is only how another one gets there. */
+.judgment__write {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  margin: 14px 0 0;
+}
+
+.judgment__write input {
+  flex: 1 1 15rem;
+}
+
+body.noeis-editorial .judgment .judgment__write input,
+.judgment .judgment__write input {
+  padding: 4px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+body.noeis-editorial .judgment .judgment__write input::placeholder,
+.judgment .judgment__write input::placeholder {
+  color: var(--text-muted, var(--vellum-subtle));
+  opacity: 0.72;
+}
+
+.judgment__write button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.judgment__write button:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.5;
+}
+
+.judgment__write [role="alert"] {
+  flex: 1 0 100%;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}

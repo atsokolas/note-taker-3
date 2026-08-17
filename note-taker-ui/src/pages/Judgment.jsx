@@ -11,7 +11,8 @@ import {
   formatLedgerDate,
   oneSentence,
   projectJudgment,
-  selectOvernightLine
+  selectOvernightLine,
+  writeLineIntoJudgment
 } from './judgmentModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -52,16 +53,55 @@ const SourceLine = ({ sources = [] }) => {
   );
 };
 
-/** An empty section is absent. There is no such thing as an empty box here. */
-const Field = ({ label, lines = [], sources = [], children }) => {
-  if (!lines.length && !children) return null;
+/* The four sections are the page, so all four are on it.
+   An empty one is still not a box to fill in with something plausible — it is
+   the question that section asks, and one line to answer it. Before this, three
+   of the four only appeared once an agent had proposed something into them, so
+   a judgment you started yourself showed a claim and nothing under it. */
+const Field = ({ label, lines = [], sources = [], prompt = '', onWrite, children }) => {
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [writeError, setWriteError] = useState('');
   const id = `judgment-field-${label.replace(/\W+/g, '-').toLowerCase()}`;
+
+  const submit = async (event) => {
+    event?.preventDefault?.();
+    const line = draft.trim();
+    if (!line || saving) return;
+    setSaving(true);
+    setWriteError('');
+    try {
+      await onWrite(line);
+      setDraft('');
+    } catch (failure) {
+      setWriteError(failure?.response?.data?.error || 'That line could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="judgment__field" aria-labelledby={id}>
       <h2 id={id}>{label}</h2>
       {lines.map(line => <p key={line.id} className="judgment__line">{line.text}</p>)}
       <SourceLine sources={sources} />
       {children}
+      {onWrite ? (
+        <form className="judgment__write" onSubmit={submit}>
+          <label className="sr-only" htmlFor={`${id}-write`}>{prompt || `Add a line to ${label}`}</label>
+          <input
+            id={`${id}-write`}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={prompt}
+            disabled={saving}
+          />
+          <button type="submit" disabled={saving || !draft.trim()}>
+            {saving ? 'Writing…' : 'Write'}
+          </button>
+          {writeError ? <span role="alert">{writeError}</span> : null}
+        </form>
+      ) : null}
     </section>
   );
 };
@@ -223,10 +263,11 @@ const JudgmentDetail = ({ pageId }) => {
     if (flySentenceInto(claimRef.current, view.claim)) flownFor.current = view.claim;
   }, [view?.claim]);
 
-  const writeAccepted = useCallback(async (proposal, field) => {
-    const judgment = acceptProposalIntoJudgment(page, proposal, field);
-    // The line settles into the field first: the human already decided, so the
-    // page should not make them watch a spinner to see their own decision.
+  /* The line settles into the field first: the human already decided, so the
+     page should not make them watch a spinner to see their own decision. If the
+     save fails the page goes back to what it said before, because a line that
+     was not written down must not look written down. */
+  const commit = useCallback(async (judgment) => {
     setPage(current => ({ ...current, judgment }));
     try {
       const saved = await updateWikiPage(pageId, { judgment });
@@ -236,6 +277,17 @@ const JudgmentDetail = ({ pageId }) => {
       throw saveError;
     }
   }, [page, pageId]);
+
+  const writeAccepted = useCallback(
+    (proposal, field) => commit(acceptProposalIntoJudgment(page, proposal, field)),
+    [commit, page]
+  );
+
+  /* A line the human typed, into any of the four. The agent is not involved. */
+  const writeLine = useCallback(
+    (text, field) => commit(writeLineIntoJudgment(page, text, field)),
+    [commit, page]
+  );
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
@@ -336,20 +388,40 @@ const JudgmentDetail = ({ pageId }) => {
       ) : null}
 
       <div className={`judgment__fields ${step(4)}`}>
-        <Field label="Why" lines={view.why} sources={view.whySources} />
-        <Field label="Against" lines={view.against} sources={view.againstSources} />
-        <Field label="I&rsquo;d change my mind if" lines={view.changeMindIf} />
-        {view.whatIDid.length ? (
-          <section className="judgment__field" aria-labelledby="judgment-field-what-i-did">
-            <h2 id="judgment-field-what-i-did">What I did</h2>
-            {view.whatIDid.map(line => <p key={line.id} className="judgment__line">{line.text}</p>)}
+        <Field
+          label="Why"
+          lines={view.why}
+          sources={view.whySources}
+          prompt="Why do you believe it?"
+          onWrite={text => writeLine(text, 'why')}
+        />
+        <Field
+          label="Against"
+          lines={view.against}
+          sources={view.againstSources}
+          prompt="What argues against it?"
+          onWrite={text => writeLine(text, 'against')}
+        />
+        <Field
+          label="I&rsquo;d change my mind if"
+          lines={view.changeMindIf}
+          prompt="What would change your mind?"
+          onWrite={text => writeLine(text, 'changeMindIf')}
+        />
+        <Field
+          label="What I did"
+          lines={view.whatIDid}
+          prompt="What did you do about it?"
+          onWrite={text => writeLine(text, 'whatIDid')}
+        >
+          {view.whatIDid.length ? (
             <p className="judgment__ledger-note">
               {formatLedgerDate(view.whatIDid[view.whatIDid.length - 1].at)
                 ? `${formatLedgerDate(view.whatIDid[view.whatIDid.length - 1].at)} — this line doesn’t get edited, only added to.`
                 : 'This line doesn’t get edited, only added to.'}
             </p>
-          </section>
-        ) : null}
+          ) : null}
+        </Field>
 
         {/* The review is absent until the date. Then it arrives and asks one
             question; the answer is the human's, never the agents'. */}

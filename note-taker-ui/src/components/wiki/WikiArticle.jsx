@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { askWikiPage, getWikiPage, updateWikiPage } from '../../api/wiki';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { askWikiPage, createWikiPage, getWikiPage, updateWikiPage } from '../../api/wiki';
 import renderTiptapDoc from './renderTiptapDoc';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import { SUPPORT_STATES } from './extensions/Claim';
+import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { useAgentRailSurface } from '../../agent/AgentRailContext';
 import { takeFirstPaint } from '../../motion/columnMotion';
 import { docText, oneSentence } from '../../pages/judgmentModel';
@@ -53,6 +54,9 @@ const WikiArticle = () => {
   /* Which citation the reader opened. Evidence that cannot be reached is only
      asserted, and this page's whole claim is that it is grounded. */
   const [activeClaim, setActiveClaim] = useState(null);
+  const [carrying, setCarrying] = useState(false);
+  const [carryError, setCarryError] = useState('');
+  const navigate = useNavigate();
   const arriving = useMemo(() => takeFirstPaint(`wiki-article:${pageId}`), [pageId]);
 
   useEffect(() => {
@@ -119,6 +123,39 @@ const WikiArticle = () => {
       onAccept: acceptEdit
     }
   );
+
+  const activeClaimRecord = useMemo(
+    () => (page?.claims || []).find(claim => claim.claimId === activeClaim?.claimId) || null,
+    [page, activeClaim]
+  );
+  const activeSources = useMemo(() => sourcesForClaim(page, activeClaim), [page, activeClaim]);
+
+  /* A tension carried out of the article: the claim becomes a judgment, and the
+     sources on both sides of it arrive as the first lines of Why and Against.
+     Nothing is invented on the way — each line is what a source already said. */
+  const carryTension = useCallback(async () => {
+    if (carrying) return;
+    const seed = tensionSeed({
+      claim: activeClaimRecord,
+      sources: activeSources,
+      fallbackSentence: title
+    });
+    if (!seed) return;
+    setCarrying(true);
+    setCarryError('');
+    try {
+      const judgmentId = await carryTensionToJudgment(seed, {
+        createPage: createWikiPage,
+        updatePage: updateWikiPage
+      });
+      setActiveClaim(null);
+      navigate(`/judgment/${judgmentId}`);
+    } catch (failure) {
+      setCarryError(failure?.message || 'This could not be carried into a judgment.');
+    } finally {
+      setCarrying(false);
+    }
+  }, [activeClaimRecord, activeSources, carrying, navigate, title]);
 
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'wiki-article__return');
 
@@ -195,9 +232,12 @@ const WikiArticle = () => {
         <ClaimCitationPopover
           anchorRect={activeClaim.anchorRect}
           support={activeClaim.support}
-          claim={(page.claims || []).find(claim => claim.claimId === activeClaim.claimId) || null}
-          sources={sourcesForClaim(page, activeClaim)}
+          claim={activeClaimRecord}
+          sources={activeSources}
           onClose={() => setActiveClaim(null)}
+          onCarry={isTension(activeSources) ? carryTension : null}
+          carrying={carrying}
+          carryError={carryError}
         />
       ) : null}
     </main>

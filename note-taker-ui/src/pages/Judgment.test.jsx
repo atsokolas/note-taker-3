@@ -120,7 +120,13 @@ describe('Judgment claim', () => {
     expect(screen.getByText(/this line doesn’t get edited, only added to/)).toBeInTheDocument();
   });
 
-  it('leaves an empty field absent rather than showing an empty box', async () => {
+  /* This used to assert the opposite: an empty field was absent entirely.
+     That rule was right about the danger — nothing on this page may be filled
+     in with something plausible — and wrong about the remedy. A judgment
+     carried out of a tension arrives with two sides written and two sections
+     still to write, and hiding those two left a page that promises four things
+     showing one. The section is present; what is absent is any line in it. */
+  it('shows an empty field as the question it asks, and writes nothing into it', async () => {
     const bare = judgmentPage();
     bare.judgment.against = [];
     bare.judgment.decisions = [];
@@ -129,9 +135,11 @@ describe('Judgment claim', () => {
     renderDetail();
 
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.getByRole('heading', { level: 2, name: 'Why' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2, name: 'Against' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2, name: 'What I did' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Against' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'What I did' })).toBeInTheDocument();
+    expect(screen.getByLabelText('What argues against it?')).toHaveValue('');
+    expect(document.querySelectorAll('#judgment-field-against .judgment__line')).toHaveLength(0);
+    expect(screen.queryByText(/this line doesn’t get edited/)).not.toBeInTheDocument();
   });
 
   it('keeps the review off the page until the review date has passed', async () => {

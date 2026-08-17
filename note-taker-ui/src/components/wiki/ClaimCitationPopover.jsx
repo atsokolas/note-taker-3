@@ -82,7 +82,7 @@ const EvidenceList = ({ title, sources, role }) => {
   );
 };
 
-const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose }) => {
+const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, onCarry, carrying, carryError }) => {
   const popoverRef = useRef(null);
   const [position, setPosition] = useState(null);
   const confidence = formatConfidence(claim?.confidence);
@@ -210,6 +210,24 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose }) 
           No source attached. Add one from the panel to ground this claim.
         </p>
       )}
+      {/* Where the library disagrees with itself, the only useful next move is
+          to decide what you think. Without this the disagreement was a colour
+          on a number and a heading in the article, and nothing followed it. */}
+      {onCarry ? (
+        <div className="wiki-claim-popover__door">
+          <button
+            type="button"
+            className="wiki-claim-popover__carry"
+            onClick={onCarry}
+            disabled={Boolean(carrying)}
+          >
+            {carrying ? 'Carrying it over…' : 'Take this into a judgment →'}
+          </button>
+          {carryError ? (
+            <p className="wiki-claim-popover__carry-error" role="alert">{carryError}</p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };

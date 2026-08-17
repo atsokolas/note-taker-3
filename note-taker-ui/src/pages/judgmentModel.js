@@ -349,3 +349,49 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
     ]
   };
 };
+
+/* Writing a line by hand.
+   Three of the four fields could only be filled by accepting something an
+   agent brought back, so a judgment you started yourself could never carry a
+   falsifier or a ledger line — the page had four sections and two usable ones.
+   The same append rule holds: what is already written is carried over
+   untouched, and the new line goes last. */
+export const writeLineIntoJudgment = (page, text, field) => {
+  const judgment = page?.judgment || {};
+  const line = clean(text);
+  if (!line) return judgment;
+
+  if (field === 'why' || field === 'against') {
+    const current = field === 'why' ? whyLines(judgment) : againstLines(judgment);
+    return {
+      ...judgment,
+      [field]: [
+        ...current.map(existing => ({
+          reasonId: existing.id,
+          text: existing.text,
+          sourceRefIds: existing.sourceRefIds,
+          sourceLabel: existing.sourceLabel
+        })),
+        { text: line }
+      ]
+    };
+  }
+
+  if (field === 'changeMindIf') {
+    return { ...judgment, falsifiers: [...list(judgment.falsifiers), { text: line }] };
+  }
+
+  /* What I did is a ledger, so a line written here is dated the day it was
+     written and marked taken. It is a record of an action, not a plan. */
+  if (field === 'whatIDid') {
+    return {
+      ...judgment,
+      decisions: [
+        ...list(judgment.decisions),
+        { summary: line, decidedAt: new Date().toISOString(), status: 'taken' }
+      ]
+    };
+  }
+
+  return judgment;
+};

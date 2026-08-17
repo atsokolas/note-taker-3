@@ -234,3 +234,37 @@ body.noeis-editorial .wiki-claim-popover a {
   font-size: 0.86rem;
   text-decoration: none;
 }
+
+/* The door out of a disagreement. It sits under the two sides, because it only
+   makes sense once you have seen them both. */
+.wiki-claim-popover__door {
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.wiki-claim-popover__carry {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.wiki-claim-popover__carry:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.wiki-claim-popover__carry-error {
+  margin: 8px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+}
