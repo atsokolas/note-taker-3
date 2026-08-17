@@ -408,23 +408,14 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   opacity: 0.72;
 }
 
-.judgment__write button {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
+/* Whether the line is written down yet. Quiet, and it does not move the text:
+   the receipt for typing is that the typing is kept, not that something
+   flashes about it. */
+.judgment__write-state {
+  min-width: 3.4rem;
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-  cursor: pointer;
-}
-
-.judgment__write button:disabled {
-  border-bottom-color: transparent;
-  cursor: default;
-  opacity: 0.5;
+  font-size: 0.78rem;
 }
 
 .judgment__write [role="alert"] {
@@ -432,4 +423,19 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
+}
+
+/* The agent door says what it is doing, where the click happened. */
+.judgment__door-link:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.7;
+}
+
+.judgment__door-note {
+  margin: 8px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  line-height: 1.55;
 }

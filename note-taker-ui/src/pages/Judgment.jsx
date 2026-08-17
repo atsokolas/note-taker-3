@@ -11,8 +11,9 @@ import {
   formatLedgerDate,
   oneSentence,
   projectJudgment,
+  newLineId,
   selectOvernightLine,
-  writeLineIntoJudgment
+  upsertLineIntoJudgment
 } from './judgmentModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -63,59 +64,97 @@ const SourceLine = ({ sources = [] }) => {
 
 /* The four sections are the page, so all four are on it.
    An empty one is still not a box to fill in with something plausible — it is
-   the question that section asks, and one line to answer it. Before this, three
-   of the four only appeared once an agent had proposed something into them, so
-   a judgment you started yourself showed a claim and nothing under it. */
-const Field = ({ label, lines = [], sources = [], prompt = '', onWrite, children }) => {
+   the question that section asks, and one line to answer it.
+
+   The line writes itself down. There was a Write button, which meant a
+   sentence you had typed but not submitted was not saved anywhere — you could
+   fill in all four fields, look away, and have written nothing. Typing updates
+   the same line in place; Enter finishes it and starts another. */
+const AUTOSAVE_PAUSE_MS = 700;
+
+const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, children }) => {
   const [draft, setDraft] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [state, setState] = useState('idle');   // idle | saving | saved | error
   const [writeError, setWriteError] = useState('');
+  const lineIdRef = useRef('');
+  const timerRef = useRef(0);
   const id = `judgment-field-${label.replace(/\W+/g, '-').toLowerCase()}`;
 
-  const submit = async (event) => {
-    event?.preventDefault?.();
-    const line = draft.trim();
-    if (!line || saving) return;
-    setSaving(true);
+  const save = useCallback(async (text) => {
+    const line = text.trim();
+    if (!line || !onWrite) return;
+    if (!lineIdRef.current) lineIdRef.current = newLineId(field || 'line');
+    setState('saving');
     setWriteError('');
     try {
-      await onWrite(line);
-      setDraft('');
+      await onWrite(line, lineIdRef.current);
+      setState('saved');
+      return true;
     } catch (failure) {
-      /* The server's own reason first, then whatever the page worked out, and
-         only then a generic line — a save that failed for a knowable reason
-         should say the reason. */
+      setState('error');
       setWriteError(
         failure?.response?.data?.error
         || failure?.message
         || 'That line could not be saved.'
       );
-    } finally {
-      setSaving(false);
+      return false;
     }
+  }, [field, onWrite]);
+
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  const type = (value) => {
+    setDraft(value);
+    setState(value.trim() ? 'typing' : 'idle');
+    window.clearTimeout(timerRef.current);
+    if (value.trim()) timerRef.current = window.setTimeout(() => save(value), AUTOSAVE_PAUSE_MS);
   };
+
+  /* Enter finishes this line and starts the next one. Blur just makes sure
+     what is on screen is also written down. */
+  /* Enter finishes this line and starts the next one. So does leaving the
+     field — the sentence settles into the section as a line rather than
+     staying in the box you typed it in. The text is only cleared once it is
+     actually written down; a failed save keeps it on screen to be retried. */
+  const finish = async () => {
+    window.clearTimeout(timerRef.current);
+    if (!draft.trim()) return;
+    const written = await save(draft);
+    if (!written) return;
+    lineIdRef.current = '';
+    setDraft('');
+    setState('idle');
+  };
+
+  /* The line being written lives in the input, not twice on the page. */
+  const settled = lines.filter(line => line.id !== lineIdRef.current);
 
   return (
     <section className="judgment__field" aria-labelledby={id}>
       <h2 id={id}>{label}</h2>
-      {lines.map(line => <p key={line.id} className="judgment__line">{line.text}</p>)}
+      {settled.map(line => <p key={line.id} className="judgment__line">{line.text}</p>)}
       <SourceLine sources={sources} />
       {children}
       {onWrite ? (
-        <form className="judgment__write" onSubmit={submit}>
+        <div className="judgment__write">
           <label className="sr-only" htmlFor={`${id}-write`}>{prompt || `Add a line to ${label}`}</label>
           <input
             id={`${id}-write`}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => type(event.target.value)}
+            onBlur={finish}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              finish();
+            }}
             placeholder={prompt}
-            disabled={saving}
           />
-          <button type="submit" disabled={saving || !draft.trim()}>
-            {saving ? 'Writing…' : 'Write'}
-          </button>
+          <span className="judgment__write-state" aria-live="polite">
+            {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : ''}
+          </span>
           {writeError ? <span role="alert">{writeError}</span> : null}
-        </form>
+        </div>
       ) : null}
     </section>
   );
@@ -243,7 +282,7 @@ const JudgmentDetail = ({ pageId }) => {
   const [loading, setLoading] = useState(true);
   const claimRef = useRef(null);
   const flownFor = useRef('');
-  const { ask } = useAgentRail();
+  const { ask, busy: asking, error: askError } = useAgentRail();
 
   useEffect(() => {
     let cancelled = false;
@@ -307,9 +346,11 @@ const JudgmentDetail = ({ pageId }) => {
     [commit, page]
   );
 
-  /* A line the human typed, into any of the four. The agent is not involved. */
+  /* A line the human typed, into any of the four. The agent is not involved.
+     The id is the line's, so typing more of the same sentence rewrites it
+     rather than adding another. */
   const writeLine = useCallback(
-    (text, field) => commit(writeLineIntoJudgment(page, text, field)),
+    (text, field, lineId) => commit(upsertLineIntoJudgment(page, text, field, lineId)),
     [commit, page]
   );
 
@@ -417,26 +458,30 @@ const JudgmentDetail = ({ pageId }) => {
           lines={view.why}
           sources={view.whySources}
           prompt="Why do you believe it?"
-          onWrite={text => writeLine(text, 'why')}
+          field="why"
+          onWrite={(text, lineId) => writeLine(text, 'why', lineId)}
         />
         <Field
           label="Against"
           lines={view.against}
           sources={view.againstSources}
           prompt="What argues against it?"
-          onWrite={text => writeLine(text, 'against')}
+          field="against"
+          onWrite={(text, lineId) => writeLine(text, 'against', lineId)}
         />
         <Field
           label="I&rsquo;d change my mind if"
           lines={view.changeMindIf}
           prompt="What would change your mind?"
-          onWrite={text => writeLine(text, 'changeMindIf')}
+          field="changeMindIf"
+          onWrite={(text, lineId) => writeLine(text, 'changeMindIf', lineId)}
         />
         <Field
           label="What I did"
           lines={view.whatIDid}
           prompt="What did you do about it?"
-          onWrite={text => writeLine(text, 'whatIDid')}
+          field="whatIDid"
+          onWrite={(text, lineId) => writeLine(text, 'whatIDid', lineId)}
         >
           {view.whatIDid.length ? (
             <p className="judgment__ledger-note">
@@ -467,15 +512,24 @@ const JudgmentDetail = ({ pageId }) => {
       </div>
 
       {/* The only other agent door. The retrieve runs in the rail; the column
-          changes only if the human accepts what comes back. */}
+          changes only if the human accepts what comes back.
+          The door says so itself, because the answer arrives in the rail and a
+          button that looks unchanged after a click reads as a broken one. */}
       <div className={`judgment__door ${step(5)}`}>
         <button
           type="button"
           className="judgment__door-link"
+          disabled={asking}
           onClick={() => ask?.(COUNTER_QUESTION, { fields: ['against'], origin: 'Asked of this claim' })}
         >
-          Find something that argues against this
+          {asking ? 'Looking through your library…' : 'Find something that argues against this'}
         </button>
+        {asking ? (
+          <p className="judgment__door-note" role="status">Whatever comes back appears in the margin. Nothing is written until you accept it.</p>
+        ) : null}
+        {!asking && askError ? (
+          <p className="judgment__door-note judgment__door-note--error" role="alert">{askError}</p>
+        ) : null}
       </div>
 
       {error ? <p className="judgment__error" role="alert">{error}</p> : null}

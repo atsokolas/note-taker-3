@@ -56,7 +56,14 @@ export const AgentRailProvider = ({ children }) => {
 
   const ask = useCallback(async (question, options = {}) => {
     const run = handlers.current.onAsk;
-    if (!run || busy) return;
+    if (busy) return;
+    /* A surface with nothing registered used to swallow the click: no request,
+       no error, no sign anything had happened. Silence is the one answer an
+       agent door must never give. */
+    if (!run) {
+      setError('This page has nothing to ask against yet.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {

@@ -405,3 +405,81 @@ export const writeLineIntoJudgment = (page, text, field) => {
 
   return judgment;
 };
+
+/* A line the human is still typing.
+   Writing used to mean pressing a button, which meant a line only existed once
+   you had told the page you were finished with it — and a sentence you had
+   typed but not submitted was not anywhere. These write as you go: the same
+   line is updated in place while you are writing it, and only becomes another
+   line when you start one. */
+let lineCounter = 0;
+export const newLineId = (prefix) => {
+  lineCounter += 1;
+  const random = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${lineCounter}`;
+  return `${prefix}_${random}`;
+};
+
+const upsertById = (items, idKey, lineId, make, update) => {
+  const list_ = list(items);
+  const index = list_.findIndex(item => clean(item?.[idKey]) === lineId);
+  if (index < 0) return [...list_, make()];
+  return list_.map((item, at) => (at === index ? update(item) : item));
+};
+
+export const upsertLineIntoJudgment = (page, text, field, lineId) => {
+  const judgment = page?.judgment || {};
+  const line = clean(text);
+  if (!line || !lineId) return judgment;
+
+  if (field === 'why' || field === 'against') {
+    /* Read the projection first, so a page whose Why came from the older
+       dossier shape keeps those lines rather than losing them to this write. */
+    const current = (field === 'why' ? whyLines(judgment) : againstLines(judgment))
+      .map(existing => ({
+        reasonId: existing.id,
+        text: existing.text,
+        sourceRefIds: existing.sourceRefIds,
+        sourceLabel: existing.sourceLabel
+      }));
+    return {
+      ...judgment,
+      [field]: upsertById(
+        current,
+        'reasonId',
+        lineId,
+        () => ({ reasonId: lineId, text: line }),
+        item => ({ ...item, text: line })
+      )
+    };
+  }
+
+  if (field === 'changeMindIf') {
+    return {
+      ...judgment,
+      falsifiers: upsertById(
+        judgment.falsifiers,
+        'falsifierId',
+        lineId,
+        () => ({ falsifierId: lineId, text: line }),
+        item => ({ ...item, text: line })
+      )
+    };
+  }
+
+  if (field === 'whatIDid') {
+    return {
+      ...judgment,
+      decisions: upsertById(
+        judgment.decisions,
+        'decisionId',
+        lineId,
+        () => ({ decisionId: lineId, summary: line, decidedAt: new Date().toISOString(), status: 'taken' }),
+        item => ({ ...item, summary: line })
+      )
+    };
+  }
+
+  return judgment;
+};
