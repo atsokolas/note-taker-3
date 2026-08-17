@@ -1,6 +1,8 @@
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import WikiFrontPage from './components/wiki/WikiFrontPage';
+import NotFound from './pages/NotFound';
+import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
 import Login from './components/Login';
@@ -284,11 +286,27 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
               />
             )}
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<PublicFallback />} />
         </Routes>
       </Suspense>
     </div>
   );
+};
+
+/* Two different answers to two different questions.
+   A page of the product, reached without being signed in, sends you to sign in
+   and remembers where you were going. Anything else does not exist and says
+   so. Both used to be one redirect to the marketing home, which answered
+   neither: a link to your own wiki and a mistyped URL both landed on a sales
+   page, and nothing on it said why. */
+const PublicFallback = () => {
+  const location = useLocation();
+  const wantsApp = isAppRoute(location.pathname);
+  useEffect(() => {
+    if (wantsApp) rememberReturnPath(location);
+  }, [location, wantsApp]);
+  if (wantsApp) return <Navigate to="/login" replace />;
+  return <NotFound />;
 };
 
 function App() {
@@ -706,6 +724,9 @@ function App() {
             {/* Redirect authenticated users away from auth pages */}
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Navigate to="/" replace />} />
+            {/* Signed in, an unknown path rendered nothing at all — a top bar
+                over an empty column, which reads as the page having failed. */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </Page>
