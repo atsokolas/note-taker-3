@@ -13,7 +13,8 @@ jest.mock('../../api/dailyLoop', () => ({
   disarmWatcher: jest.fn()
 }));
 jest.mock('../../utils/wikiFeatureFlags', () => ({
-  wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`
+  wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
+  wikiReadPath: pageId => `/wiki/read/${pageId}`
 }));
 jest.mock('./WikiBuildPageComposer', () => () => null);
 jest.mock('./WikiRepoCreateComposer', () => () => null);

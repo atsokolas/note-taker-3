@@ -7,7 +7,11 @@ import {
   getDailyLoop,
   recordClaimCheckIn
 } from '../../api/dailyLoop';
-import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+/* Clicking a page's name means reading it. wikiPagePath goes to the maintenance
+   workspace — three panes, a metadata table, an open chat — which is the right
+   place to work on a page and the wrong place to land when you clicked its name
+   in a list. The reader carries a Workspace link for when you do want to work. */
+import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import WikiBuildPageComposer from './WikiBuildPageComposer';
@@ -804,7 +808,7 @@ const WikiFrontPage = () => {
           {todaysPage ? (
             <p className="wiki-front-page__continue">
               <span>Continue</span>
-              <Link to={wikiPagePath(pageId(todaysPage))}>
+              <Link to={wikiReadPath(pageId(todaysPage))}>
                 {displayWikiPageTitle(todaysPage, 'Your living page')}
               </Link>
             </p>
@@ -846,7 +850,7 @@ const WikiFrontPage = () => {
                   <div className="wiki-living-row__title" role="cell">
                     <span aria-hidden="true" />
                     <div>
-                      <Link to={wikiPagePath(id)}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                      <Link to={wikiReadPath(id)}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
                       <small>{isDeveloperWiki(page) ? 'Developer wiki' : labelFor(page.pageType || 'topic')}</small>
                     </div>
                   </div>
@@ -856,7 +860,7 @@ const WikiFrontPage = () => {
                     <i aria-hidden="true" />
                     {reviewState.label}
                   </span>
-                  <Link className="wiki-living-row__open" to={wikiPagePath(id)} aria-label={`Open ${displayWikiPageTitle(page, 'Wiki page')}`}>→</Link>
+                  <Link className="wiki-living-row__open" to={wikiReadPath(id)} aria-label={`Open ${displayWikiPageTitle(page, 'Wiki page')}`}>→</Link>
                 </div>
               );
             }) : (
@@ -873,7 +877,7 @@ const WikiFrontPage = () => {
               <ol>
                 {sourceMaterialPages.map((page) => (
                   <li key={pageId(page)}>
-                    <Link to={wikiPagePath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                    <Link to={wikiReadPath(pageId(page))}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
                     <span>New grounded material is available.</span>
                     <Link to={wikiPagePath(pageId(page))}>Review evidence →</Link>
                   </li>

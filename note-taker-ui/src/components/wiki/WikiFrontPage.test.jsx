@@ -48,7 +48,8 @@ jest.mock('./WikiMovementReturnSurface', () => {
 });
 
 jest.mock('../../utils/wikiFeatureFlags', () => ({
-  wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`
+  wikiPagePath: (pageId) => `/wiki/workspace?page=${pageId}`,
+  wikiReadPath: (pageId) => `/wiki/read/${pageId}`
 }));
 
 const pages = [
@@ -188,9 +189,9 @@ describe('WikiFrontPage (AT-394)', () => {
 
     const livingTable = screen.getByRole('table', { name: 'Living Wiki pages' });
     expect(within(livingTable).getByRole('link', { name: 'First Principles Thinking' }))
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
+      .toHaveAttribute('href', '/wiki/read/wiki-first-principles');
     expect(within(livingTable).getByRole('link', { name: 'Margin of Safety' }))
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-margin-of-safety');
+      .toHaveAttribute('href', '/wiki/read/wiki-margin-of-safety');
     expect(within(livingTable).getByText('2 Library sources')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search your wikis' }), {
       target: { value: 'Margin' }
@@ -432,7 +433,7 @@ describe('WikiFrontPage (AT-394)', () => {
       nextAction: {
         type: 'review_page',
         label: 'Review Opportunity Cost',
-        href: '/wiki/workspace?page=wiki-opportunity-cost',
+        href: '/wiki/read/wiki-opportunity-cost',
         reason: '2 new sources reached this page'
       },
       pagesWithNewSourceMaterial: [{
@@ -457,7 +458,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText('Evidence surfaced')).toBeInTheDocument();
     expect(screen.getByText('2 new sources — Tradeoff note, Capital allocation note')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Opportunity Cost' })[0])
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-opportunity-cost');
+      .toHaveAttribute('href', '/wiki/read/wiki-opportunity-cost');
   });
 
   it('does not render unsafe backend-provided next-action hrefs', async () => {
@@ -553,7 +554,7 @@ describe('WikiFrontPage (AT-394)', () => {
     const livingTable = await screen.findByRole('table', { name: 'Living Wiki pages' });
     repoPages.forEach((page, index) => {
       expect(within(livingTable).getByRole('link', { name: `${['alpha-repo', 'beta-repo', 'gamma-repo'][index]} — repo wiki` }))
-        .toHaveAttribute('href', `/wiki/workspace?page=${page._id}`);
+        .toHaveAttribute('href', `/wiki/read/${page._id}`);
     });
   });
 
@@ -565,7 +566,7 @@ describe('WikiFrontPage (AT-394)', () => {
         page: { id: 'wiki-first-principles', title: 'Nvidia dossier' },
         watcherLabel: 'EDGAR',
         maintenanceStatus: 'completed',
-        href: '/wiki/workspace?page=wiki-first-principles',
+        href: '/wiki/read/wiki-first-principles',
         impactSummary: '2 claims touched · 1 contradicted',
         claimImpacts: [{ claimId: 'c1', beforeSupport: 'partial', afterSupport: 'conflicted' }]
       },
@@ -598,7 +599,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(await screen.findByText(/NVDA filed a 10-Q/i)).toBeInTheDocument();
     expect(screen.getAllByText(/2 claims touched · 1 contradicted/i)).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Open Nvidia dossier →' }))
-      .toHaveAttribute('href', '/wiki/workspace?page=wiki-first-principles');
+      .toHaveAttribute('href', '/wiki/read/wiki-first-principles');
     fireEvent.click(screen.getByText('Review and system activity'));
     expect(screen.getByText('c1')).toBeInTheDocument();
     expect(screen.getByText('partial → conflicted')).toBeInTheDocument();

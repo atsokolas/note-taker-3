@@ -5,7 +5,7 @@ import renderTiptapDoc from './renderTiptapDoc';
 import { useAgentRailSurface } from '../../agent/AgentRailContext';
 import { takeFirstPaint } from '../../motion/columnMotion';
 import { docText, oneSentence } from '../../pages/judgmentModel';
-import { wikiPageEditPath } from '../../utils/wikiFeatureFlags';
+import { wikiPageEditPath, wikiPagePath } from '../../utils/wikiFeatureFlags';
 import '../../styles/wiki-article.css';
 
 // A wiki page, read as an article.
@@ -119,6 +119,11 @@ const WikiArticle = () => {
           {page.visibility === 'public' ? 'Public' : 'Private'}
           <span aria-hidden="true"> · </span>
           <Link to={wikiPageEditPath(page._id)}>Edit</Link>
+          <span aria-hidden="true"> · </span>
+          {/* The way in to everything the reader deliberately leaves out:
+              sources, claims, review state, discussions, and the agent that
+              drafts and lints. Reading is the default; maintaining is a click. */}
+          <Link to={wikiPagePath(page._id)}>Workspace</Link>
         </span>
       </div>
 
