@@ -279,3 +279,32 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
 .think-notes .think-notebook-editor-actions-right {
   justify-content: flex-start;
 }
+
+/* ---- Two things the lock is explicit about --------------------------------
+ *
+ * The note's edited-at sits under its title, not above it: the title is the
+ * first thing on the page, and when it was touched is a footnote to it.
+ */
+.think-notes .think-notebook-title-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.think-notes .think-notebook-title-kicker,
+.think-notes .think-notebook-title-hint,
+.think-notes .think-notebook-meta,
+.think-notes .think-note-meta {
+  order: 2;
+}
+
+.think-notes .think-notebook-title-input {
+  order: 1;
+}
+
+/* The shelf is separated from the reading by a rule, so the column has an edge
+   rather than floating in the margin. */
+.think-notes .think-notes__shelf,
+.think-notes .think-shelf {
+  border-right: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 52%, transparent);
+  padding-right: clamp(18px, 2vw, 32px);
+}

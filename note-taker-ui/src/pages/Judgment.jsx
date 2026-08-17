@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { askWikiPage, createWikiPage, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
-import WikiFrontPageGraphMotif from '../components/wiki/WikiFrontPageGraphMotif';
 import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
@@ -400,7 +399,9 @@ const Judgment = () => {
 
   return (
     <>
-      <WikiFrontPageGraphMotif />
+      {/* The lock draws nothing behind the claim. A constellation drifting
+          past a judgment is decoration on the one page in the product that
+          should carry none. */}
       {pageId
         ? <JudgmentDetail pageId={pageId} />
         : (

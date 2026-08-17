@@ -163,7 +163,9 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
 .judgment__line {
   margin: 0;
   color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  /* The lock sets the reasons in the reading face, not the apparatus face:
+     these are sentences the human wrote, not labels. */
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 0.9rem;
   line-height: 1.62;
   text-wrap: pretty;

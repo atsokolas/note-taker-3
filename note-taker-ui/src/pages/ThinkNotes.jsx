@@ -157,7 +157,8 @@ const ThinkNotes = () => {
   return (
     <div className="think-notes">
       <aside className={`think-notes__shelf ${step(1)}`} aria-label="Your notes">
-        <p className="think-notes__shelf-eyebrow">All notes</p>
+        {/* The lock points it back the way every other return does. */}
+        <p className="think-notes__shelf-eyebrow">← All notes</p>
         <ul>
           {shelf.map(item => (
             <li key={item.id}>
