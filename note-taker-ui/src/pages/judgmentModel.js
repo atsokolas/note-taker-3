@@ -39,13 +39,23 @@ export const oneSentence = (value, maxLength = 240) => {
   return `${clipped}…`;
 };
 
+/* A page is a judgment page when it holds a judgment — meaning any of the four
+   things this page renders. It used to ask only about the claim, the kind, the
+   falsifiers and the ledger, which left out Why and Against entirely. So a page
+   whose Why and Against were filled in through the wiki's own dossier panel —
+   stored as `assumptions` and `strongestCounterargument`, which the four fields
+   below read and render — was not counted, and never appeared on the index. You
+   could fill a judgment in and then not find it. This asks the same question
+   the page answers: is there anything under the claim? */
 export const isJudgmentPage = (page) => {
   const judgment = page?.judgment || {};
   return Boolean(
     clean(judgment.currentJudgment)
     || clean(judgment.kind)
-    || list(judgment.decisions).length
-    || list(judgment.falsifiers).length
+    || whyLines(judgment).length
+    || againstLines(judgment).length
+    || changeMindLines(judgment).length
+    || whatIDidLines(judgment).length
   );
 };
 

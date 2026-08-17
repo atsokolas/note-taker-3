@@ -63,3 +63,29 @@ describe('the four sections of a judgment', () => {
     expect(await screen.findByText('Two quarters of falling margin.')).toBeInTheDocument();
   });
 });
+
+/* A save that comes back without the line is the failure that leaves no trace:
+   the line settles into the field, the response replaces the page, and it is
+   gone with nothing to read. */
+describe('a line that does not land', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
+    getWikiPage.mockResolvedValue(page());
+    listWikiSourceEvents.mockResolvedValue([]);
+  });
+
+  it('says so, instead of quietly dropping it', async () => {
+    // 200, but the server kept nothing new.
+    updateWikiPage.mockResolvedValue(page());
+    render(<MemoryRouter><Judgment /></MemoryRouter>);
+    await screen.findByRole('heading', { name: 'Why' });
+
+    fireEvent.change(screen.getByLabelText('What would change your mind?'), {
+      target: { value: 'Two quarters of falling margin.' }
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Write' })[2]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/was not saved/);
+  });
+});

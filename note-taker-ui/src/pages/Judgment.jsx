@@ -30,6 +30,14 @@ import '../styles/judgment.css';
 // the column changes. This page only tells it what it is looking at.
 
 const COUNTER_QUESTION = 'What in my library argues against this claim? Answer in one sentence.';
+
+/* What a save has to come back holding. Read off the stored contract rather
+   than the projection, because this is checking what the server kept. */
+const JUDGMENT_LINE_FIELDS = ['why', 'against', 'falsifiers', 'decisions'];
+const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((counts, field) => ({
+  ...counts,
+  [field]: Array.isArray(judgment?.[field]) ? judgment[field].length : 0
+}), {});
 const SOURCE_EVENT_LIMIT = 40;
 
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
@@ -74,7 +82,14 @@ const Field = ({ label, lines = [], sources = [], prompt = '', onWrite, children
       await onWrite(line);
       setDraft('');
     } catch (failure) {
-      setWriteError(failure?.response?.data?.error || 'That line could not be saved.');
+      /* The server's own reason first, then whatever the page worked out, and
+         only then a generic line — a save that failed for a knowable reason
+         should say the reason. */
+      setWriteError(
+        failure?.response?.data?.error
+        || failure?.message
+        || 'That line could not be saved.'
+      );
     } finally {
       setSaving(false);
     }
@@ -271,6 +286,15 @@ const JudgmentDetail = ({ pageId }) => {
     setPage(current => ({ ...current, judgment }));
     try {
       const saved = await updateWikiPage(pageId, { judgment });
+      /* Trusting the response was a way to lose a line in silence. If what came
+         back does not carry what was just written — an older API, a field the
+         normalizer dropped — replacing the page with it made the line vanish
+         with no error and nothing to read. A line that was not saved has to say
+         so; the page keeps showing it until the human knows it did not land. */
+      const savedCounts = countJudgmentLines(saved?.judgment);
+      const sentCounts = countJudgmentLines(judgment);
+      const dropped = JUDGMENT_LINE_FIELDS.some(field => savedCounts[field] < sentCounts[field]);
+      if (dropped) throw new Error('That line was not saved. It is still only on this screen.');
       setPage(saved);
     } catch (saveError) {
       setPage(current => ({ ...current, judgment: page?.judgment }));
