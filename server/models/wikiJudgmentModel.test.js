@@ -62,4 +62,30 @@ const invalidClaim = new WikiPage({
 });
 assert.ok(invalidClaim.validateSync()?.errors?.['claims.0.epistemicStatus']);
 
+/* A judgment that is only a claim. This is the shape the Judgment page writes:
+   a sentence a person committed to, with reasons under it and no framed
+   question above it. It was unsaveable — sending a kind demanded a governing
+   question and came back 400, omitting the kind failed schema validation and
+   came back 500. Both error codes were the same missing shape. */
+const claimOnly = new WikiPage({
+  ...base(),
+  judgment: { currentJudgment: 'Demand still outruns deliverable capacity.' }
+});
+assert.equal(claimOnly.validateSync(), undefined);
+assert.equal(claimOnly.judgment.currentJudgment, 'Demand still outruns deliverable capacity.');
+assert.equal(claimOnly.judgment.kind, null);
+
+/* The older framed shape still validates, and still requires its question to
+   be supplied alongside the kind by the service. */
+const framed = new WikiPage({
+  ...base(),
+  judgment: { kind: 'decision', governingQuestion: 'Do we buy?' }
+});
+assert.equal(framed.validateSync(), undefined);
+assert.equal(framed.judgment.kind, 'decision');
+
+/* A kind outside the set is still refused. */
+const badKind = new WikiPage({ ...base(), judgment: { kind: 'vibes' } });
+assert.ok(badKind.validateSync()?.errors?.['judgment.kind']);
+
 console.log('wikiJudgmentModel tests passed');

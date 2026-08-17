@@ -456,8 +456,18 @@ const judgmentDecisionSchema = new mongoose.Schema({
 }, { _id: false });
 
 const wikiJudgmentSchema = new mongoose.Schema({
-  kind: { type: String, enum: ['thesis', 'decision', 'prediction'], required: true },
-  governingQuestion: { type: String, required: true, trim: true },
+  /* Not required. A judgment page is one that carries a judgment, and in the
+     reading language that is a claim with reasons — no framed question above
+     it. Requiring a kind made that shape unsaveable: sending one demanded a
+     governingQuestion and was refused with a 400, omitting it failed schema
+     validation and came back a 500. Kind and its governing question stay
+     supported together, for the older thesis/decision/prediction shape. */
+  kind: { type: String, enum: ['thesis', 'decision', 'prediction', null], default: null },
+  /* Also not required, for the same reason. The pairing that matters — a kind
+     must come with the question it frames — is enforced in the judgment
+     service, which is where a rule about two fields belongs. The schema only
+     needs to know the field exists. */
+  governingQuestion: { type: String, default: '', trim: true },
   currentJudgment: { type: String, default: '', trim: true },
   confidence: { type: Number, min: 0, max: 1, default: null },
   status: { type: String, enum: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'closed', 'archived'], default: 'framing' },

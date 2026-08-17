@@ -5763,7 +5763,10 @@ const buildWikiRouter = ({
       if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
       const existing = await findOwnedPage(req).lean();
       if (!existing) return res.status(404).json({ error: 'Wiki page not found.' });
-      if (!existing.judgment?.kind) return res.status(400).json({ error: 'This page does not have a judgment contract.' });
+      // A claim with reasons is a judgment contract too, kind or no kind.
+      if (!existing.judgment?.kind && !existing.judgment?.currentJudgment) {
+        return res.status(400).json({ error: 'This page does not have a judgment contract.' });
+      }
       if (existing.judgment?.initialRevisionId) {
         return res.status(409).json({ error: 'The initial judgment has already been saved.', initialRevisionId: serializeId(existing.judgment.initialRevisionId) });
       }
