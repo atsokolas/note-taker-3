@@ -15,20 +15,6 @@ const formatDate = (value) => {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const parseTags = (value) => {
-  const seen = new Set();
-  return String(value || '')
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag) => {
-      if (!tag) return false;
-      const normalized = tag.toLowerCase();
-      if (seen.has(normalized)) return false;
-      seen.add(normalized);
-      return true;
-    });
-};
-
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
 const ArticleReader = forwardRef(({
@@ -39,8 +25,6 @@ const ArticleReader = forwardRef(({
   onHighlightOptimistic,
   onHighlightReplace,
   onHighlightRemove,
-  onOpenConcept,
-  onOpenQuestion,
   onAskLibrarian,
   sourceTrace = null
 }, ref) => {
@@ -49,7 +33,6 @@ const ArticleReader = forwardRef(({
   const menuRef = useRef(null);
   const [saveError, setSaveError] = useState('');
   const [draftColor, setDraftColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
-  const [draftTagsInput, setDraftTagsInput] = useState('');
   const [saving, setSaving] = useState(false);
   const fireTourSignal = useTourSignal();
   const html = useMemo(
@@ -70,7 +53,6 @@ const ArticleReader = forwardRef(({
   useEffect(() => {
     if (!selectionState.isOpen) return;
     setDraftColor(DEFAULT_HIGHLIGHT_COLOR);
-    setDraftTagsInput('');
     setSaveError('');
   }, [selectionKey, selectionState.isOpen]);
 
@@ -106,14 +88,13 @@ const ArticleReader = forwardRef(({
       afterSave?.(existingHighlight);
       return;
     }
-    const draftTags = parseTags(draftTagsInput);
     setSaveError('');
     setSaving(true);
     const tempId = `temp-${Date.now()}`;
     const optimisticHighlight = {
       _id: tempId,
       text: highlightText,
-      tags: draftTags,
+      tags: [],
       color: draftColor,
       articleId: article._id,
       articleTitle: article.title,
@@ -126,7 +107,7 @@ const ArticleReader = forwardRef(({
       const created = await createHighlight({
         articleId: article._id,
         text: highlightText,
-        tags: draftTags,
+        tags: [],
         anchor: highlightAnchor,
         color: draftColor
       });
@@ -169,14 +150,10 @@ const ArticleReader = forwardRef(({
           ref={menuRef}
           rect={selectionState.rect}
           color={draftColor}
-          tagInput={draftTagsInput}
           saving={saving}
           onColorChange={setDraftColor}
-          onTagInputChange={setDraftTagsInput}
           onHighlight={handleCreateHighlight}
-          onAddConcept={() => handleSaveAndOpen(onOpenConcept, 'Add to Concept is unavailable here.')}
-          onAddQuestion={() => handleSaveAndOpen(onOpenQuestion, 'Add to Question is unavailable here.')}
-          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'Ask Librarian is unavailable here.')}
+          onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
         />
       )}
       <div className="article-reader-header">
@@ -197,7 +174,6 @@ const ArticleReader = forwardRef(({
           )}
         </div>
       </div>
-      {sourceTrace}
       {isHighlightOnlyImport ? (
         <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
           <section className="article-highlight-edition" aria-label="Saved highlights">
@@ -238,6 +214,12 @@ const ArticleReader = forwardRef(({
       ) : (
         <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
       )}
+      {/* The source record — who wrote it, when it was saved, where else it is
+          used — sat between the headline and the first paragraph, so every
+          article opened onto a panel instead of onto its text. It is the same
+          record; it is now at the end, where you read it after the piece
+          rather than instead of starting it. */}
+      {sourceTrace}
       <MagneticReadingRail rootRef={readerRootRef} contentRef={contentRef} />
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>

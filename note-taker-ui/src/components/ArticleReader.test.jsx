@@ -6,8 +6,8 @@ import useTextSelection from './reader/useTextSelection';
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn()
 }));
-jest.mock('./reader/SelectionMenu', () => ({ onAddConcept }) => (
-  <button type="button" onClick={onAddConcept}>Create concept</button>
+jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian }) => (
+  <button type="button" onClick={onAskLibrarian}>Ask about this</button>
 ));
 jest.mock('./reader/MagneticReadingRail', () => () => <div data-testid="magnetic-reading-rail" />);
 jest.mock('./reader/useTextSelection', () => jest.fn());
@@ -115,7 +115,9 @@ describe('ArticleReader', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('reuses an exact saved highlight before opening a Concept', async () => {
+  /* Asking about a sentence saves it first, so the answer has something to
+     point at. Asking about one you already kept must not keep it twice. */
+  it('reuses an exact saved highlight before opening the agent', async () => {
     const clearSelection = jest.fn();
     const savedHighlight = {
       _id: 'highlight-1',
@@ -131,7 +133,7 @@ describe('ArticleReader', () => {
       },
       clearSelection
     });
-    const onOpenConcept = jest.fn();
+    const onAskLibrarian = jest.fn();
 
     render(
       <ArticleReader
@@ -141,13 +143,36 @@ describe('ArticleReader', () => {
           content: '<p>Cash flow discipline matters.</p>'
         }}
         highlights={[savedHighlight]}
-        onOpenConcept={onOpenConcept}
+        onAskLibrarian={onAskLibrarian}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create concept' }));
-    await waitFor(() => expect(onOpenConcept).toHaveBeenCalledWith(savedHighlight));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask about this' }));
+    await waitFor(() => expect(onAskLibrarian).toHaveBeenCalledWith(savedHighlight));
     expect(createHighlight).not.toHaveBeenCalled();
     expect(clearSelection).toHaveBeenCalled();
+  });
+
+  /* Every article opened onto a panel: the source record -- who wrote it, when
+     it was saved, where else it is used -- sat between the headline and the
+     first paragraph. Same record, read after the piece instead of instead of
+     starting it. */
+  it('opens onto the article, with the source record after the text', () => {
+    render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Investor letter',
+          content: '<p>Cash flow discipline matters.</p>'
+        }}
+        highlights={[]}
+        sourceTrace={<div data-testid="source-record">Source record</div>}
+      />
+    );
+
+    const record = screen.getByTestId('source-record');
+    const content = document.querySelector('.article-reader-content');
+    expect(record).toBeInTheDocument();
+    expect(content.compareDocumentPosition(record) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

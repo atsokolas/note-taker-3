@@ -235,8 +235,6 @@ const LibraryMain = ({
             onHighlightOptimistic={onHighlightOptimistic}
             onHighlightReplace={onHighlightReplace}
             onHighlightRemove={onHighlightRemove}
-            onOpenConcept={onOpenConcept}
-            onOpenQuestion={onOpenQuestion}
             onAskLibrarian={onAskLibrarian}
             sourceTrace={(
               <LibrarySourceTrace

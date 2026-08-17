@@ -1,17 +1,14 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import SelectionMenu from './SelectionMenu';
+import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 
 const baseProps = {
   rect: { top: 200, left: 400, width: 80, height: 18 },
   color: '#ffe082',
-  tagInput: '',
   saving: false,
   onColorChange: () => {},
-  onTagInputChange: () => {},
   onHighlight: () => {},
-  onAddConcept: () => {},
-  onAddQuestion: () => {},
   onAskLibrarian: () => {}
 };
 
@@ -31,16 +28,19 @@ describe('SelectionMenu', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('positions itself above the selection rect and renders core actions', () => {
+  /* Two things you can do to a sentence: keep it, or ask about it. There were
+     four buttons and a tag field, which asked you to decide what kind of thing
+     the sentence was before you had finished reading the paragraph. */
+  it('positions itself above the selection and offers keeping it or asking about it', () => {
     render(<SelectionMenu {...baseProps} />);
     const menu = screen.getByRole('menu');
     // top = max(8, rect.top - 8) = 192; left = rect.left + width/2 = 440
     expect(menu.style.top).toBe('192px');
     expect(menu.style.left).toBe('440px');
     expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create concept' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create question' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ask Librarian' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask about this' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(2 + HIGHLIGHT_COLOR_OPTIONS.length);
+    expect(screen.queryByPlaceholderText(/Tags/i)).toBeNull();
   });
 
   it('drives --selection-menu-x toward the pointer when motion is allowed', () => {
@@ -87,11 +87,11 @@ describe('SelectionMenu', () => {
 
   it('invokes action callbacks on click', () => {
     const onHighlight = jest.fn();
-    const onAddConcept = jest.fn();
-    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onAddConcept={onAddConcept} />);
+    const onAskLibrarian = jest.fn();
+    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} onAskLibrarian={onAskLibrarian} />);
     fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create concept' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask about this' }));
     expect(onHighlight).toHaveBeenCalledTimes(1);
-    expect(onAddConcept).toHaveBeenCalledTimes(1);
+    expect(onAskLibrarian).toHaveBeenCalledTimes(1);
   });
 });

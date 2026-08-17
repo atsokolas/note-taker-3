@@ -9,13 +9,9 @@ const POINTER_INFLUENCE_RADIUS_PX = 280;
 const SelectionMenu = React.forwardRef(({
   rect,
   color,
-  tagInput,
   saving,
   onColorChange,
-  onTagInputChange,
   onHighlight,
-  onAddConcept,
-  onAddQuestion,
   onAskLibrarian,
 }, ref) => {
   const reducedMotion = usePrefersReducedMotion();
@@ -76,21 +72,23 @@ const SelectionMenu = React.forwardRef(({
       style={style}
       role="menu"
     >
+      {/* Two things you can do to a sentence you just selected: keep it, or ask
+          about it. There were four buttons and a tag field here, which is a
+          form standing on top of the paragraph you were reading — and three of
+          the four asked you to decide what kind of thing the sentence was
+          before you had finished reading it. Filing it as a concept or a
+          question is still a thing you can do to the highlight afterwards, in
+          the Library, once you know. */}
       <div className="selection-menu__actions">
         <button type="button" className="selection-menu-button" onClick={onHighlight} disabled={saving}>
           {saving ? 'Saving...' : 'Highlight'}
         </button>
-        <button type="button" className="selection-menu-button is-muted" onClick={onAddConcept} disabled={saving}>
-          Create concept
-        </button>
-        <button type="button" className="selection-menu-button is-muted" onClick={onAddQuestion} disabled={saving}>
-          Create question
-        </button>
         <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
-          Ask Librarian
+          Ask about this
         </button>
       </div>
       <div className="selection-menu-divider" />
+      {/* The colour is part of highlighting, not chrome around it. */}
       <div className="selection-menu__controls">
         <div className="selection-menu__swatches" aria-label="Highlight color">
           {HIGHLIGHT_COLOR_OPTIONS.map((option) => (
@@ -107,14 +105,6 @@ const SelectionMenu = React.forwardRef(({
             />
           ))}
         </div>
-        <input
-          type="text"
-          className="selection-menu__input"
-          value={tagInput}
-          onChange={(event) => onTagInputChange(event.target.value)}
-          placeholder="Tags, comma-separated"
-          disabled={saving}
-        />
       </div>
     </div>
   );
