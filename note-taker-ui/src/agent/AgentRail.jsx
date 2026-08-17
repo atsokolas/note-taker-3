@@ -9,11 +9,28 @@ import '../styles/agent-rail.css';
 
 const ASK_PLACEHOLDER = 'Bring evidence, counterevidence, or what moved overnight';
 
-/* One retrieved line. Accept resolves in place into the choice of field when
-   there is a choice to make — the human decides which of the two it is. */
+/* One retrieved line, in the state the product is actually about: the sentence,
+   where it came from, and what the human can do with it.
+ *
+ * Two things this carries that a bare proposal did not.
+ *
+ * Provenance. A retrieved sentence with no source is an assertion, and the
+ * whole contract here is that the agent retrieves rather than knows. The line
+ * under the sentence says where it was found; if nothing came back with a
+ * source, it says that too, because "unattributed" is information.
+ *
+ * And Another. Retrieval returns a list. Showing exactly one result as though
+ * it were the result quietly overclaims — so when the ask came back with more
+ * than one candidate, the human can see the next one instead of accepting the
+ * first thing offered. Accept always writes the candidate on screen.
+ */
 const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [index, setIndex] = useState(0);
+
+  const candidates = [proposal, ...(Array.isArray(proposal.alternatives) ? proposal.alternatives : [])];
+  const shown = candidates[index] || proposal;
   const fields = Array.isArray(proposal.fields) && proposal.fields.length ? proposal.fields : ['against'];
 
   const leave = (run) => {
@@ -21,9 +38,15 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
     window.setTimeout(run, 200);
   };
 
+  /* Accept writes what is on screen, not what arrived first. */
+  const acceptShown = (field) => onAccept({ ...proposal, ...shown, id: proposal.id }, field);
+
   return (
     <div className={`agent-rail__proposal${leaving ? ' is-leaving' : ''}`}>
-      <p className="agent-rail__proposal-sentence">{proposal.sentence}</p>
+      <p className="agent-rail__proposal-sentence">{shown.sentence}</p>
+      <p className="agent-rail__proposal-source">
+        {shown.source || 'No source came back with this.'}
+      </p>
       {proposal.origin ? <p className="agent-rail__proposal-origin">{proposal.origin}</p> : null}
       <span className="agent-rail__actions">
         {choosing || fields.length === 1 ? (
@@ -32,7 +55,7 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
               key={field}
               type="button"
               disabled={busy}
-              onClick={() => leave(() => onAccept(proposal, field))}
+              onClick={() => leave(() => acceptShown(field))}
             >
               {fields.length === 1 ? 'Accept' : field === 'why' ? 'Why' : 'Against'}
             </button>
@@ -40,8 +63,22 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
         ) : (
           <button type="button" disabled={busy} onClick={() => setChoosing(true)}>Accept</button>
         )}
+        {candidates.length > 1 ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => { setChoosing(false); setIndex((current) => (current + 1) % candidates.length); }}
+          >
+            Another
+          </button>
+        ) : null}
         <button type="button" disabled={busy} onClick={() => leave(() => onDismiss(proposal.id))}>Dismiss</button>
       </span>
+      {candidates.length > 1 ? (
+        <p className="agent-rail__proposal-count">
+          {index + 1} of {candidates.length} retrieved
+        </p>
+      ) : null}
     </div>
   );
 };

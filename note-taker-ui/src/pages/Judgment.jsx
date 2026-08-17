@@ -5,6 +5,7 @@ import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
+  answerProvenance,
   buildJudgmentIndex,
   docText,
   formatLedgerDate,
@@ -250,12 +251,25 @@ const JudgmentDetail = ({ pageId }) => {
       onAsk: async (question, options = {}) => {
         const answered = await askWikiPage(pageId, question);
         const discussions = Array.isArray(answered?.discussions) ? answered.discussions : [];
-        const sentence = oneSentence(docText(discussions[discussions.length - 1]?.answer));
+        const latest = discussions[discussions.length - 1];
+        const sentence = oneSentence(docText(latest?.answer));
         if (!sentence) return null;
+        /* Everything the ask came back with, not only the first line: the rail
+           offers the rest under Another rather than presenting one retrieved
+           sentence as though it were the answer. */
+        const alternatives = (Array.isArray(latest?.alternatives) ? latest.alternatives : [])
+          .map(item => ({
+            sentence: oneSentence(docText(item?.answer) || item?.text || ''),
+            source: answerProvenance(answered, item)
+          }))
+          .filter(item => item.sentence && item.sentence !== sentence)
+          .slice(0, 4);
         return {
           id: `ask:${discussions.length}:${sentence.slice(0, 24)}`,
           sentence,
           body: sentence,
+          source: answerProvenance(answered, latest),
+          alternatives,
           origin: options.origin || '',
           fields: options.fields || ['why', 'against']
         };

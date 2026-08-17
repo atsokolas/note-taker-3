@@ -81,6 +81,20 @@ const sourceLabel = (ref) => (
   || clean(ref?.title)
 );
 
+/** Where a retrieved answer came from, as one line: the citations the answer
+ *  carried, in the human's own naming for them. Returns '' when the answer
+ *  cited nothing, which the rail says out loud rather than hiding. */
+export const answerProvenance = (page, answer) => {
+  const byId = new Map(list(page?.sourceRefs).map(ref => [idOf(ref), ref]));
+  const labels = [];
+  list(answer?.citations).forEach((citation) => {
+    const ref = byId.get(idOf(citation?.sourceRefId ?? citation)) || citation;
+    const label = sourceLabel(ref);
+    if (label && !labels.includes(label)) labels.push(label);
+  });
+  return labels.slice(0, 3).join(' · ');
+};
+
 /** The sources named under Why — the publications, not a citation apparatus. */
 const resolveSources = (page, lines = []) => {
   const byId = new Map(list(page?.sourceRefs).map(ref => [idOf(ref), ref]));

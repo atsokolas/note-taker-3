@@ -76,6 +76,25 @@
   text-wrap: pretty;
 }
 
+/* Where the sentence was found. It sits directly under the sentence, because
+   the two are one claim: this, from there. When nothing came back with a
+   source it says so — an unattributed line is worth knowing about. */
+.agent-rail__proposal-source {
+  margin: 4px 0 0;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+/* How many came back, so accepting the first is a choice rather than the only
+   thing on offer. */
+.agent-rail__proposal-count {
+  margin: 6px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .agent-rail__proposal-origin {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));

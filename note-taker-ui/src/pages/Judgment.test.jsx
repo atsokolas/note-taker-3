@@ -226,6 +226,55 @@ describe('the agent rail', () => {
     }]
   });
 
+  const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+
+  it('names where a retrieved line came from, and says so when nothing did', async () => {
+    // A retrieved sentence with no source is an assertion. The whole contract
+    // is that the agent retrieves rather than knows, so provenance is part of
+    // the line — and its absence is worth saying out loud.
+    getWikiPage.mockResolvedValue(judgmentPage());
+    askWikiPage.mockResolvedValue({
+      sourceRefs: [{ _id: 'src-1', citationLabel: 'SemiAnalysis' }],
+      discussions: [{
+        answer: doc('Supply is catching up faster than the thesis assumes.'),
+        citations: [{ sourceRefId: 'src-1' }]
+      }]
+    });
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+
+    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    expect(await within(rail).findByText('SemiAnalysis')).toBeInTheDocument();
+  });
+
+  it('offers the rest of what came back instead of presenting the first as the answer', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    askWikiPage.mockResolvedValue({
+      sourceRefs: [{ _id: 'src-1', citationLabel: 'SemiAnalysis' }],
+      discussions: [{
+        answer: doc('Supply is catching up faster than the thesis assumes.'),
+        citations: [{ sourceRefId: 'src-1' }],
+        alternatives: [{ answer: doc('Lead times have not moved at all this quarter.') }]
+      }]
+    });
+    updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+
+    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
+    expect(within(rail).getByText('1 of 2 retrieved')).toBeInTheDocument();
+
+    fireEvent.click(within(rail).getByRole('button', { name: 'Another' }));
+
+    expect(within(rail).getByText('Lead times have not moved at all this quarter.')).toBeInTheDocument();
+    expect(within(rail).getByText('2 of 2 retrieved')).toBeInTheDocument();
+    // Nothing is written by looking at the next one.
+    expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
   it('is about the claim, and says so before anything is retrieved', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
 
