@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { askWikiPage, createWikiPage, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import {
+  askWikiPage,
+  createWikiPage,
+  downloadJudgmentPamphlet,
+  getWikiPage,
+  listWikiPages,
+  listWikiSourceEvents,
+  updateWikiPage
+} from '../api/wiki';
 import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
@@ -279,6 +287,8 @@ const JudgmentDetail = ({ pageId }) => {
   const claimRef = useRef(null);
   const flownFor = useRef('');
   const { ask, busy: asking, error: askError } = useAgentRail();
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -304,6 +314,30 @@ const JudgmentDetail = ({ pageId }) => {
   }, [pageId]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
+
+  /* A judgment lives behind a sign-in, which makes it hard to be held to. The
+     pamphlet is the same four sections on one sheet, for handing to someone
+     who is not going to make an account to read what you think. */
+  const printPamphlet = useCallback(async () => {
+    if (printing) return;
+    setPrinting(true);
+    setPrintError('');
+    try {
+      const blob = await downloadJudgmentPamphlet(pageId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${(view?.claim || 'judgment').slice(0, 60).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'judgment'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (failure) {
+      setPrintError(failure?.response?.data?.error || 'The pamphlet could not be built.');
+    } finally {
+      setPrinting(false);
+    }
+  }, [pageId, printing, view]);
 
   /* The claim arrived from somewhere — a wiki check-in, the index — as a
      sentence the human was already reading. It flies from where it was to
@@ -441,7 +475,13 @@ const JudgmentDetail = ({ pageId }) => {
         </div>
       ) : null}
 
-      <Link className={`judgment__back ${step(2)}`} to="/judgment">← All judgments</Link>
+      <div className={`judgment__meta ${step(2)}`}>
+        <Link className="judgment__back" to="/judgment">← All judgments</Link>
+        <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
+          {printing ? 'Setting it…' : 'Print this as one page'}
+        </button>
+      </div>
+      {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
       <h1 className="judgment__claim" id="judgment-claim" ref={claimRef}>{view.claim}</h1>
       {view.provenance ? (

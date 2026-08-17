@@ -439,3 +439,38 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   font-size: 0.82rem;
   line-height: 1.55;
 }
+
+/* The pamphlet door, beside the way back. Quiet: printing a claim is a thing
+   you do occasionally, not the point of the page. */
+.judgment__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.judgment__print {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.judgment__print:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.judgment__print-error {
+  margin: 8px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}

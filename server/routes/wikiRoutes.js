@@ -1,4 +1,6 @@
 const express = require('express');
+const PDFDocument = require('pdfkit');
+const { buildPamphletPdf } = require('../services/judgmentPamphlet');
 const mongoose = require('mongoose');
 const archiver = require('archiver');
 const {
@@ -5627,6 +5629,35 @@ const buildWikiRouter = ({
       res.send(renderWikiPageMarkdown(page));
     } catch (_error) {
       res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+  });
+
+  /* One claim, on one page, that you can hand to someone.
+     A judgment lives behind a login, which makes it hard to be held to. This
+     is the same four sections on a single sheet — nothing summarised, nothing
+     added, and an empty section absent, exactly as on the page. */
+  router.get('/api/wiki/pages/:id/pamphlet.pdf', wikiAuth, async (req, res) => {
+    let page;
+    try {
+      page = await findOwnedPage(req).lean();
+    } catch (_error) {
+      return res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+    if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+    const claim = String(page?.judgment?.currentJudgment || page?.judgment?.governingQuestion || '').trim();
+    if (!claim) {
+      return res.status(409).json({ error: 'There is no claim on this page to print.' });
+    }
+    try {
+      const pdf = await buildPamphletPdf({ PDFDocument, page });
+      const filename = `${sanitizeFilename(page.slug || page.title)}-judgment.pdf`;
+      res.status(200);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(pdf);
+    } catch (error) {
+      console.error('Error building judgment pamphlet:', error);
+      return res.status(500).json({ error: 'The pamphlet could not be built.' });
     }
   });
 

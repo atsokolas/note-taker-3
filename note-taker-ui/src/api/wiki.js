@@ -1008,3 +1008,14 @@ const wikiApi = {
 };
 
 export default wikiApi;
+
+/* One claim on one page, as a file. The endpoint is behind the sign-in, so
+   this is a request carrying the token rather than a link the browser follows
+   on its own — a bare href would come back as the login page saved as a PDF. */
+export const downloadJudgmentPamphlet = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/pamphlet.pdf`, {
+    ...getAuthHeaders(),
+    responseType: 'blob'
+  });
+  return res.data;
+};
