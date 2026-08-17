@@ -291,8 +291,15 @@ describe('Library agent rail', () => {
   });
 
   it('opens source context when navigation targets an exact highlight', async () => {
-    renderLibrary('/library?scope=all&highlightId=highlight-1');
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }));
+    /* setupTests mocks useSearchParams to empty for the whole suite, so a deep
+       link cannot be expressed through the URL here — it has to be handed in.
+       This is the contract: arriving with a highlight named opens the source
+       and the context that shows it, rather than opening the source and hiding
+       the thing the link pointed at. */
+    const params = new URLSearchParams('scope=all&articleId=article-1&highlightId=highlight-1');
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([params, jest.fn()]);
+
+    renderLibrary();
 
     await waitFor(() => {
       expect(screen.getByTestId('library-reading-secondary-rail')).toHaveAttribute('open');

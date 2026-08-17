@@ -164,10 +164,16 @@ const Library = () => {
     return { workspaceType: 'library', workspaceId: '' };
   }, [selectedArticleId]);
 
+  /* Changing shelf drops the source you were reading — except when the URL is
+     still naming one. A link into an exact source arrives with both a scope and
+     an articleId, and this effect ran after the scope settled and cleared the
+     selection the other effect had just made, so the link opened the Library
+     rather than the source it named. */
   useEffect(() => {
+    if (requestedArticleId) return;
     setSelectedArticleId('');
     setActiveHighlightId('');
-  }, [scope, folderId]);
+  }, [scope, folderId, requestedArticleId]);
 
   useEffect(() => {
     if (!requestedArticleId) return;
