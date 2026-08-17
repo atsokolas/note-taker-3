@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import WikiFrontPage from './components/wiki/WikiFrontPage';
 import { Analytics } from '@vercel/analytics/react';
 import Register from './components/Register';
 import Login from './components/Login';
@@ -59,7 +60,12 @@ const ReviewMode = lazy(() => import('./pages/ReviewMode'));
 const ReturnQueue = lazy(() => import('./pages/ReturnQueue'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
-const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
+/* Home is not code-split.
+   /wiki is where the wordmark, / and /paper all land, so this is needed on
+   every cold start — and splitting it meant the browser only asked for it
+   after main.js had downloaded and parsed. That is a second round trip in
+   series before anything can be drawn, with a full-screen splash held over it
+   the whole way. A chunk you always need is not a chunk. */
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
 const Judgment = lazy(() => import('./pages/Judgment'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
@@ -95,29 +101,17 @@ const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 const SharedWikiCollectionPage = lazy(() => import('./pages/SharedWikiCollectionPage'));
 const PublicWikiComparison = lazy(() => import('./pages/PublicWikiComparison'));
 
-const RouteLoadingFallback = () => {
-  const isWikiRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/wiki');
-  const isJudgmentRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/judgment');
-  if (isJudgmentRoute) {
-    return (
-      <div className="page-loading page-loading--wiki" role="status" aria-live="polite">
-        <span>Judgment</span>
-        <strong>Preparing the living casebook</strong>
-        <i aria-hidden="true" />
-      </div>
-    );
-  }
-  if (isWikiRoute) {
-    return (
-      <div className="page-loading page-loading--wiki" role="status" aria-live="polite">
-        <span>Wiki</span>
-        <strong>Preparing the wiki workspace</strong>
-        <i aria-hidden="true" />
-      </div>
-    );
-  }
-  return <div className="page-loading" role="status" aria-live="polite">Loading...</div>;
-};
+/* A route that is still arriving is not an event.
+   This used to be a full-viewport splash — an eyebrow, a headline in 3.4rem
+   serif, and a shimmering bar — announcing that the wiki workspace was being
+   prepared. Held for five seconds it read as the product's slowest moment
+   dressed as its grandest. Now nothing is drawn at all until the wait is long
+   enough to be worth admitting, and then it is one quiet line. */
+const RouteLoadingFallback = () => (
+  <div className="page-loading" role="status" aria-live="polite">
+    <span className="page-loading__word">Still coming…</span>
+  </div>
+);
 
 const scheduleDeferredStyleLoad = (callback) => {
   let frame = 0;

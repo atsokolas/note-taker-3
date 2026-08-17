@@ -333,7 +333,14 @@ a.paper__end-title:focus-visible {
    A rule under it says where the paper ends and the wiki begins. */
 .paper--compact {
   gap: 26px;
-  width: 100%;
+  /* The Paper's own measure, not the width of whatever it is sitting in.
+     `width: 100%` looked right and was not: this is a grid item on the wiki
+     front page, whose track is wider than the element that holds it, so 100%
+     resolved against the track and ran the paper out under the agent rail at
+     laptop widths. A column of text has a width of its own. */
+  width: min(100%, 760px);
+  min-width: 0;
+  justify-self: start;
   margin: 0 0 34px;
   padding: 0 0 30px;
   border-bottom: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
