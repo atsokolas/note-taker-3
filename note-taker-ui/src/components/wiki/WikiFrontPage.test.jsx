@@ -5,6 +5,11 @@ import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop, recordClaimCheckIn, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
 
+/* The Paper sits at the top of this page now. It is its own surface with its
+   own suite; here it stands in as a marker, so these tests stay about the
+   wiki and do not drag the reading-loop client in behind them. */
+jest.mock('../../pages/Paper', () => () => <div data-testid="paper-on-top" />);
+
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn()
 }));
@@ -641,5 +646,17 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(within(overflow).getAllByRole('button', { name: 'Disarm' })).toHaveLength(2);
     fireEvent.click(summary);
     await waitFor(() => expect(overflow).toHaveAttribute('open'));
+  });
+
+  /* One front page. Paper used to be a room of its own in the nav, so the wiki
+     opened onto its own morning briefing and the two competed for the same first
+     look. The paper is the top of this page now — above every state of it,
+     including the loading one, so the wiki is never a blank curtain. */
+  it('carries the paper at the top, before anything the wiki has to say', async () => {
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByTestId('paper-on-top')).toBeInTheDocument();
+    const main = document.querySelector('main.wiki-front-page');
+    expect(main.firstElementChild).toBe(screen.getByTestId('paper-on-top'));
   });
 });

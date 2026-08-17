@@ -5,6 +5,11 @@ import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop } from '../../api/dailyLoop';
 
+/* The Paper sits at the top of this page now. It is its own surface with its
+   own suite; here it stands in as a marker, so these tests stay about the
+   wiki and do not drag the reading-loop client in behind them. */
+jest.mock('../../pages/Paper', () => () => <div data-testid="paper-on-top" />);
+
 jest.mock('../../api/wiki', () => ({ listWikiPages: jest.fn() }));
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
