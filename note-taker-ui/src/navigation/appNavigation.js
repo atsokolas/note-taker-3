@@ -1,15 +1,12 @@
-// Paper is the front door — the wordmark and / both land there — and it is now
-// named in the nav as well, so the way back to it does not depend on knowing
-// that the wordmark is a link.
+// Four rooms: Library is what you read, Think is what you wrote, Wiki is what
+// the reading built, Judgment is what it was for.
 //
-// Then the four rooms: Library is what you read, Think is what you wrote, Wiki
-// is what the reading built, Judgment is what it was for.
+// Paper was a fifth, and it named the same place twice: the wiki opened onto
+// its own morning briefing while Paper held the reading loop, so two front
+// pages competed for the same first look and the nav pointed at both. The
+// Paper is now the top of the wiki, and Wiki is where the wordmark, / and
+// /paper all land.
 export const getPrimaryNavItems = () => [
-  {
-    label: 'Paper',
-    to: '/paper',
-    match: (location) => location.pathname === '/' || location.pathname.startsWith('/paper')
-  },
   {
     label: 'Library',
     to: '/library',
@@ -25,7 +22,11 @@ export const getPrimaryNavItems = () => [
   {
     label: 'Wiki',
     to: '/wiki',
-    match: (location) => location.pathname.startsWith('/wiki')
+    match: (location) => (
+      location.pathname === '/'
+      || location.pathname.startsWith('/wiki')
+      || location.pathname.startsWith('/paper')
+    )
   },
   {
     label: 'Judgment',

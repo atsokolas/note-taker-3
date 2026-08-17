@@ -340,3 +340,41 @@ test('the lead can be refreshed by the reader', async () => {
   await waitFor(() => expect(refreshReadingLoopConnection).toHaveBeenCalled());
   expect(await screen.findByText('A different recent piece')).toBeInTheDocument();
 });
+
+/* The Paper is the top of the wiki now rather than a room beside it. Same
+   layout at one size down: it stops being the page, and stops sending anyone
+   to a wiki they are already standing on. */
+describe('the paper at the top of the wiki', () => {
+  const renderCompact = () => render(<MemoryRouter><Paper compact /></MemoryRouter>);
+
+  it('renders inside the page it sits on rather than claiming to be the page', async () => {
+    getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+    renderCompact();
+
+    await screen.findByText('Anthropic eval harness paper');
+    const frame = document.querySelector('.paper--compact');
+    expect(frame).not.toBeNull();
+    expect(frame.tagName).toBe('SECTION');
+    expect(document.querySelector('main.paper')).toBeNull();
+    // The wiki's own headline is the h1; the lead is the first thing under it.
+    expect(document.querySelectorAll('.paper__lead-title')[0].tagName).toBe('H2');
+  });
+
+  it('keeps the masthead, the lead and all four sections — only the size changes', async () => {
+    getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+    renderCompact();
+
+    await screen.findByText('Anthropic eval harness paper');
+    expect(document.querySelector('.paper__masthead')).not.toBeNull();
+    expect(document.querySelector('.paper__lead')).not.toBeNull();
+    expect(screen.getAllByRole('button', { name: /^run$/i })).toHaveLength(4);
+  });
+
+  it('drops the footer link, because it pointed at the page it is now on', async () => {
+    getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+    renderCompact();
+
+    await screen.findByText('Anthropic eval harness paper');
+    expect(screen.queryByRole('link', { name: /Morning paper/ })).toBeNull();
+  });
+});

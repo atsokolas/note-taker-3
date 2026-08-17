@@ -30,14 +30,14 @@ describe('TopBar help menu', () => {
     expect(onSearchOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('links the brand to the Paper, which is home', () => {
+  it('links the brand to the wiki, which is home and carries the paper', () => {
     render(
       <MemoryRouter>
         <TopBar />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: 'Noeis home' })).toHaveAttribute('href', '/paper');
+    expect(screen.getByRole('link', { name: 'Noeis home' })).toHaveAttribute('href', '/wiki');
   });
 
   it('renders Connections and Settings as direct top-bar links', () => {

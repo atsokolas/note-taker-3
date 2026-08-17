@@ -6,25 +6,28 @@ import {
 } from './appNavigation';
 
 describe('appNavigation', () => {
-  it('opens the primary navigation with Paper, then the four rooms', () => {
+  it('names four rooms, and no longer names the paper as a fifth', () => {
     const primaryLabels = getPrimaryNavItems().map(item => item.label);
 
-    // Paper is the front door, so it is named rather than left to whoever
-    // knows the wordmark is a link. Judgment closes the row: what the reading
-    // was for.
-    expect(primaryLabels).toEqual(['Paper', 'Library', 'Think', 'Wiki', 'Judgment']);
+    /* Paper used to open this row. It named the same place twice: the wiki
+       opened onto its own morning briefing while Paper held the reading loop,
+       so two front pages competed for the same first look. The paper is the
+       top of the wiki now, and the nav names the four rooms. */
+    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki', 'Judgment']);
+    expect(primaryLabels).not.toContain('Paper');
     expect(primaryLabels).not.toContain('Notebook');
     expect(primaryLabels).not.toContain('Concepts');
     expect(primaryLabels).not.toContain('Questions');
   });
 
-  it('marks Paper active on the root route as well as its own', () => {
-    const paper = getPrimaryNavItems().find(item => item.label === 'Paper');
+  it('marks Wiki active on the root route and on the paper it absorbed', () => {
+    const wiki = getPrimaryNavItems().find(item => item.label === 'Wiki');
 
-    expect(paper.to).toBe('/paper');
-    expect(paper.match({ pathname: '/' })).toBe(true);
-    expect(paper.match({ pathname: '/paper' })).toBe(true);
-    expect(paper.match({ pathname: '/wiki' })).toBe(false);
+    expect(wiki.to).toBe('/wiki');
+    expect(wiki.match({ pathname: '/' })).toBe(true);
+    expect(wiki.match({ pathname: '/paper' })).toBe(true);
+    expect(wiki.match({ pathname: '/wiki' })).toBe(true);
+    expect(wiki.match({ pathname: '/library' })).toBe(false);
   });
 
   it('keeps Paper out of the overflow menu now that it has a room', () => {

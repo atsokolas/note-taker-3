@@ -324,3 +324,50 @@ a.paper__end-title:focus-visible {
     gap: 10px;
   }
 }
+
+/* ---------- the paper, at the top of the wiki ---------- */
+
+/* Same paper, one size down. It is the first thing on the wiki rather than a
+   page of its own, so it gives up the width and the standing of a front page
+   and keeps its layout: masthead, lead, the four sections that run when asked.
+   A rule under it says where the paper ends and the wiki begins. */
+.paper--compact {
+  gap: 26px;
+  width: 100%;
+  margin: 0 0 34px;
+  padding: 0 0 30px;
+  border-bottom: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
+}
+
+.paper--compact .paper__lead {
+  gap: 14px;
+}
+
+.paper--compact .paper__lead-title {
+  font-size: clamp(21px, 2.2vw, 27px);
+  line-height: 1.22;
+}
+
+.paper--compact .paper__card,
+.paper--compact .paper__card--lead {
+  gap: 14px;
+}
+
+.paper--compact .paper__end-title {
+  font-size: var(--text-md, 16px);
+}
+
+.paper--compact .paper__quote,
+.paper--compact .paper__card--lead .paper__relation-line {
+  font-size: var(--text-sm, 15px);
+}
+
+.paper--compact .paper__relation-line,
+.paper--compact .paper__section-empty {
+  font-size: var(--text-sm, 15px);
+}
+
+.paper--compact .paper__section {
+  gap: 10px;
+  padding-top: 16px;
+}

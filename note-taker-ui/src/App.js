@@ -61,7 +61,6 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 const WikiFrontPage = lazy(() => import('./components/wiki/WikiFrontPage'));
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
-const Paper = lazy(() => import('./pages/Paper'));
 const Judgment = lazy(() => import('./pages/Judgment'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
@@ -608,14 +607,11 @@ function App() {
         <OnboardingWalkthrough />
         <Suspense fallback={<RouteLoadingFallback />}>
           <Routes>
-            {/* The Paper (the Reading Loop) is built and reachable, but the
-                landing still points at the wiki. The Paper's lead depends on the
-                semantic index, which is not yet backfilled — until it is, a new
-                visitor would land on "nothing worth connecting this week". Flip
-                this to /paper once the index is populated and the lead is
-                reliably producing. */}
-            <Route path="/" element={<Navigate to="/paper" replace />} />
-            <Route path="/paper" element={<Paper />} />
+            {/* One front page. The Paper is the top of the wiki now, so every
+                way in — the wordmark, /, the old /paper — lands on the same
+                page rather than on two that say overlapping things. */}
+            <Route path="/" element={<Navigate to="/wiki" replace />} />
+            <Route path="/paper" element={<Navigate to="/wiki" replace />} />
             {/* Today was a launcher for rooms that are now the nav itself. The
                 route resolves so existing links keep working; it lands on the
                 morning paper rather than on a menu. */}
@@ -631,7 +627,7 @@ function App() {
             {/* AT-394: /wiki is the newspaper front page; the maintenance
                 workspace stays one hairline away at /wiki/workspace. */}
             {/* Judgment: the index is a list of claim sentences; opening one
-                is the claim itself. / lands on /paper. */}
+                is the claim itself. */}
             <Route path="/judgment" element={<Judgment />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
             <Route path="/wiki" element={<WikiFrontPage />} />

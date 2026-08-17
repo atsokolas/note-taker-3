@@ -134,7 +134,11 @@ const ThreadCard = ({ card, onName, onDismiss, busy }) => {
   );
 };
 
-const Paper = () => {
+/* The Paper is now the top of the wiki rather than a room of its own, so it
+   renders as a section inside that page instead of the page itself. Same
+   layout, same lead, one size down: it is what the reading turned up this
+   morning, and under it is everything the reading has built. */
+const Paper = ({ compact = false }) => {
   const navigate = useNavigate();
   const [edition, setEdition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -273,20 +277,28 @@ const Paper = () => {
   const connection = edition?.connection;
   const coldStart = edition?.coldStart;
 
+  const Frame = compact ? 'section' : 'main';
+  /* Inside the wiki the page's own headline is the h1; the paper's lead is the
+     first thing under it, not a second title for the same page. */
+  const LeadTitle = compact ? 'h2' : 'h1';
+  const frameProps = compact
+    ? { className: 'paper paper--compact', 'aria-label': 'The Paper' }
+    : { className: 'paper' };
+
   if (loading) {
     return (
-      <main className="paper" aria-busy="true">
+      <Frame {...frameProps} aria-busy="true">
         <header className="paper__masthead">
           <p className="paper__masthead-title">Noeis · The Paper</p>
           <p className="paper__masthead-date">{masthead}</p>
         </header>
         <p className="paper__loading" role="status">Reading your library back to you…</p>
-      </main>
+      </Frame>
     );
   }
 
   return (
-    <main className="paper">
+    <Frame {...frameProps}>
       <header className={`paper__masthead ${step(1)}`}>
         <p className="paper__masthead-title">Noeis · The Paper</p>
         <p className="paper__masthead-date">{masthead}</p>
@@ -297,7 +309,7 @@ const Paper = () => {
       <section className={`paper__lead ${step(2)}`} aria-labelledby="paper-lead-title">
         {coldStart ? (
           <>
-            <h1 id="paper-lead-title" className="paper__lead-title">The loop isn&rsquo;t running yet.</h1>
+            <LeadTitle id="paper-lead-title" className="paper__lead-title">The loop isn&rsquo;t running yet.</LeadTitle>
             <p className="paper__relation-line">{coldStart.reason}</p>
             {coldStart.readyAt ? (
               <Receipt>
@@ -311,9 +323,9 @@ const Paper = () => {
           </>
         ) : connection?.status === 'ready' && connection.card ? (
           <>
-            <h1 id="paper-lead-title" className="paper__lead-title">
+            <LeadTitle id="paper-lead-title" className="paper__lead-title">
               You read something close to this {sourceDate(connection.card.dormant?.at) || 'a while ago'}.
-            </h1>
+            </LeadTitle>
             <RelationCard card={connection.card} lead />
             <div className="paper__lead-foot">
               <Receipt>
@@ -328,13 +340,13 @@ const Paper = () => {
           </>
         ) : (
           <>
-            <h1 id="paper-lead-title" className="paper__lead-title">
+            <LeadTitle id="paper-lead-title" className="paper__lead-title">
               {refreshingLead
                 ? 'Reading your library…'
                 : connection?.status === 'error'
                   ? 'The paper could not be read today.'
                   : 'Nothing worth connecting yet.'}
-            </h1>
+            </LeadTitle>
             <p className={`paper__relation-line${connection?.status === 'error' ? ' paper__degraded' : ''}`}>
               {refreshingLead
                 ? 'The agent is pairing your recent reading against your older library. This takes a moment.'
@@ -400,10 +412,13 @@ const Paper = () => {
         );
       })}
 
-      <footer className="paper__foot">
-        <Link className="paper__foot-link" to="/wiki">Morning paper &amp; watchers →</Link>
-      </footer>
-    </main>
+      {/* Standing on the wiki already, so there is nowhere to send anyone. */}
+      {compact ? null : (
+        <footer className="paper__foot">
+          <Link className="paper__foot-link" to="/wiki">Morning paper &amp; watchers →</Link>
+        </footer>
+      )}
+    </Frame>
   );
 };
 

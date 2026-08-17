@@ -34,6 +34,7 @@ import {
 } from './wikiRepoDedupeModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
+import Paper from '../../pages/Paper';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -158,10 +159,18 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
 
+/* The Paper is the top of this page now, not a room beside it.
+   It was in the nav and at /paper, and the wiki opened onto its own morning
+   briefing, so the product had two front pages saying overlapping things and a
+   nav that named both. There is one: what the reading turned up this morning,
+   and under it everything the reading has built. It sits above every state of
+   this page — including the loading one, so the wiki is never a blank curtain
+   while it fetches. */
 const WikiFrontPageShell = ({ children, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
+      <Paper compact />
       {children}
     </main>
   </>
