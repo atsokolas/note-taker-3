@@ -7,7 +7,8 @@ import {
   createWikiPage,
   deleteWikiPage,
   listWikiStarterPacks,
-  startWikiPageBuild
+  startWikiPageBuild,
+  updateWikiPage
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
 
@@ -16,7 +17,8 @@ jest.mock('../api/wiki', () => ({
   createWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   listWikiStarterPacks: jest.fn(),
-  startWikiPageBuild: jest.fn()
+  startWikiPageBuild: jest.fn(),
+  updateWikiPage: jest.fn()
 }));
 
 jest.mock('../api/imports', () => ({
@@ -232,7 +234,7 @@ describe('WikiOnboarding', () => {
 
     await waitFor(() => expect(deleteWikiPage).toHaveBeenCalledWith('sample-1'));
     expect(deleteWikiPage).toHaveBeenCalledWith('sample-2');
-    expect(await screen.findByRole('heading', { name: 'Start with a foundation.' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Start with what you have already read.' })).toBeInTheDocument();
   });
 
   it('opens on the hook after a shared-wiki adoption handoff', async () => {
@@ -248,7 +250,7 @@ describe('WikiOnboarding', () => {
     await waitFor(() => expect(listWikiStarterPacks).toHaveBeenCalled());
     // Onboarding now ends on the Paper — home — with the built page one click away.
     expect(screen.getByRole('button', { name: 'Show me around' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Go to my page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Not yet — go to my page' }));
     expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1', { replace: true });
   });
 
@@ -273,5 +275,52 @@ describe('WikiOnboarding', () => {
     expect(describeThinSource('short')).toMatch(/too short/i);
     expect(describeThinSource('')).toMatch(/Paste a link/i);
     expect(describeThinSource(new Array(45).fill('word').join(' '))).toBe('');
+  });
+
+  /* Import leads. Connecting your own archive used to be a link under a
+     button, below four sample packs — so the first thing a new reader was
+     offered was somebody else's material, and their own years of reading were
+     an afterthought. */
+  it('offers your own archive before anyone else’s starter pack', async () => {
+    render(<WikiOnboarding />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
+
+    const archive = await screen.findByRole('link', { name: 'Connect your reading archive' });
+    expect(archive).toHaveAttribute('href', '/connections#sources');
+
+    const packs = document.querySelector('.wiki-onboarding__packs');
+    expect(archive.compareDocumentPosition(packs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  /* You leave with a claim. Onboarding used to end on a page existing, which
+     is the product describing itself rather than asking anything of you. */
+  it('ends by writing down one thing you believe, and opens it', async () => {
+    createWikiPage.mockResolvedValue({ _id: 'j1' });
+    updateWikiPage.mockResolvedValue({});
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([new URLSearchParams('adoptedPage=page-1'), jest.fn()]);
+
+    render(<WikiOnboarding />);
+    const input = await screen.findByLabelText(/Now write one thing you believe/);
+
+    fireEvent.change(input, { target: { value: 'A written process improves judgment.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Write it down' }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/judgment/j1'));
+    expect(createWikiPage).toHaveBeenCalledWith({
+      title: 'A written process improves judgment.',
+      pageType: 'topic'
+    });
+    expect(updateWikiPage).toHaveBeenCalledWith('j1', {
+      judgment: { currentJudgment: 'A written process improves judgment.' }
+    });
+  });
+
+  it('lets you leave without one, rather than trapping you behind it', async () => {
+    jest.spyOn(router, 'useSearchParams').mockReturnValue([new URLSearchParams('adoptedPage=page-1'), jest.fn()]);
+    render(<WikiOnboarding />);
+
+    await screen.findByLabelText(/Now write one thing you believe/);
+    expect(screen.getByRole('button', { name: 'Not yet — go to my page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Write it down' })).toBeDisabled();
   });
 });

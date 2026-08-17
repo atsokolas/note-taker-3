@@ -483,3 +483,20 @@ export const upsertLineIntoJudgment = (page, text, field, lineId) => {
 
   return judgment;
 };
+
+/* Writing a judgment down, wherever you are when you decide to.
+   A judgment is a wiki page carrying a judgment contract, which is two calls,
+   not one — and the second one is easy to get wrong. Sending `kind` as well
+   makes the server ask for a governing question and refuse with a 400 when
+   there is none; a claim you wrote is not a question, and inventing one you
+   never asked would put words on the page. This is the one place that knows
+   that, so every surface that starts a judgment starts the same one. */
+export const createJudgment = async (claim, { createPage, updatePage } = {}) => {
+  const sentence = oneSentence(claim);
+  if (!sentence) throw new Error('A judgment starts with a sentence.');
+  const page = await createPage({ title: sentence, pageType: 'topic' });
+  const id = idOf(page);
+  if (!id) throw new Error('The judgment was not created.');
+  await updatePage(id, { judgment: { currentJudgment: sentence } });
+  return id;
+};

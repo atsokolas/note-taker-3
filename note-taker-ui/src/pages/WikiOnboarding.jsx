@@ -5,9 +5,11 @@ import {
   createWikiPage,
   deleteWikiPage,
   listWikiStarterPacks,
-  startWikiPageBuild
+  startWikiPageBuild,
+  updateWikiPage
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
+import { createJudgment } from './judgmentModel';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
 import { setActiveBuild } from '../onboarding/activeBuild';
@@ -140,6 +142,9 @@ const WikiOnboarding = () => {
   const source = params.get('source') || '';
   const [step, setStep] = useState(adoptedPageId ? 'hook' : 'show');
   const [packs, setPacks] = useState(starterFallback);
+  const [claimDraft, setClaimDraft] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState('');
   const [selectedPackId, setSelectedPackId] = useState('mental-models');
   const [pasteText, setPasteText] = useState('');
   const [builtPageId, setBuiltPageId] = useState(adoptedPageId);
@@ -306,6 +311,28 @@ const WikiOnboarding = () => {
     startWalkthrough();
   };
 
+  /* The claim is the exit. Writing it finishes onboarding and opens the
+     judgment, because the next thing you want is to say why you believe it. */
+  const writeFirstClaim = async (event) => {
+    event?.preventDefault?.();
+    const sentence = claimDraft.trim();
+    if (!sentence || claiming) return;
+    setClaiming(true);
+    setClaimError('');
+    try {
+      const judgmentId = await createJudgment(sentence, {
+        createPage: createWikiPage,
+        updatePage: updateWikiPage
+      });
+      markComplete();
+      navigate(`/judgment/${judgmentId}`);
+    } catch (failure) {
+      setClaimError(failure?.message || 'That claim could not be written down.');
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   return (
     <main className="wiki-onboarding" aria-live="polite">
       {step === 'show' ? (
@@ -340,9 +367,39 @@ const WikiOnboarding = () => {
         <section className="wiki-onboarding__panel wiki-onboarding__panel--feed">
           <div>
             <p className="wiki-onboarding__eyebrow">Feed the wiki</p>
-            <h1>Start with a foundation.</h1>
-            <p>Choose a starter pack, connect your reading, or paste one thing you read this week.</p>
+            <h1>Start with what you have already read.</h1>
+            <p>
+              Noeis is built on your own archive. Connect it and the wiki has something
+              true to stand on from the first page.
+            </p>
           </div>
+
+          {/* Import leads.
+              It used to be a link under a button, below four sample packs — so
+              the first thing a new reader was offered was somebody else's
+              material, and their own years of reading were an afterthought.
+              A wiki built from a starter pack is a demo; a wiki built from your
+              archive is yours on the first page. */}
+          <div className="wiki-onboarding__archive">
+            <Link className="wiki-onboarding__archive-primary" to="/connections#sources">
+              Connect your reading archive
+            </Link>
+            <p>Readwise, Notion, Instapaper, Evernote — whatever you have been saving into.</p>
+          </div>
+
+          <label className="wiki-onboarding__paste">
+            <span>Or paste a link, or a few paragraphs</span>
+            <textarea
+              value={pasteText}
+              onChange={event => setPasteText(event.target.value)}
+              placeholder="Paste a link to something you read this week - or a few paragraphs of it..."
+            />
+          </label>
+          <button type="button" onClick={buildFromPaste} disabled={busy}>Build from this</button>
+
+          <p className="wiki-onboarding__packs-lead">
+            Nothing to connect yet? Start from a pack and replace it as your own reading arrives.
+          </p>
           <div className="wiki-onboarding__packs" role="list">
             {packs.map(pack => (
               <button
@@ -361,17 +418,7 @@ const WikiOnboarding = () => {
             <button type="button" onClick={adoptStarterPack} disabled={busy}>
               {busy ? 'Preparing...' : 'Add selected pack'}
             </button>
-            <Link to="/connections">Connect Readwise or Notion</Link>
           </div>
-          <label className="wiki-onboarding__paste">
-            <span>Or paste a link, or a few paragraphs</span>
-            <textarea
-              value={pasteText}
-              onChange={event => setPasteText(event.target.value)}
-              placeholder="Paste a link to something you read this week - or a few paragraphs of it..."
-            />
-          </label>
-          <button type="button" onClick={buildFromPaste} disabled={busy}>Build from this</button>
           {error ? <p className="wiki-onboarding__error" role="alert">{error}</p> : null}
         </section>
       ) : null}
@@ -380,20 +427,49 @@ const WikiOnboarding = () => {
         <section className="wiki-onboarding__panel wiki-onboarding__panel--hook">
           <p className="wiki-onboarding__eyebrow">{source === 'shared' ? 'Adopted wiki' : 'First page'}</p>
           <h1>{source === 'shared' ? 'This wiki is now yours.' : 'Your first page is ready.'}</h1>
+          {/* One ending, not two. This used to close on "add your own material
+              next so the graph starts connecting" — a page telling you about
+              itself — and then ask for a claim underneath, so the step had two
+              endings competing. The page being built is the setup; the claim
+              is the ending. */}
           <p>
             {source === 'shared'
-              ? 'The agent copied the safe pages into your workspace. Your version can now grow without exposing the original owner’s data.'
-              : 'The agent built the foundation. Add your own material next so the graph starts connecting.'}
+              ? 'The agent copied the safe pages into your workspace, and your version can grow without touching the original. One thing left.'
+              : 'The agent built it from what you brought in. One thing left.'}
           </p>
+          {/* You leave with a claim.
+              Onboarding used to end on a page existing — "your first page is
+              ready" — which is the product describing itself rather than
+              asking anything of you. The thing this product is for is
+              committing to something you can be held to, so the last thing it
+              does is hand you one. The page you just made is the evidence
+              under it. */}
+          <form className="wiki-onboarding__claim" onSubmit={writeFirstClaim}>
+            <label htmlFor="onboarding-first-claim">
+              <strong>Now write one thing you believe.</strong>
+              <span>One sentence you would defend. What you just brought in is the evidence under it.</span>
+            </label>
+            <input
+              id="onboarding-first-claim"
+              value={claimDraft}
+              onChange={event => setClaimDraft(event.target.value)}
+              placeholder="Write it as one sentence."
+              disabled={claiming}
+            />
+            <div className="wiki-onboarding__claim-actions">
+              <button type="submit" disabled={claiming || !claimDraft.trim()}>
+                {claiming ? 'Writing it down…' : 'Write it down'}
+              </button>
+              <button type="button" className="wiki-onboarding__secondary-action" onClick={goToWiki}>
+                Not yet — go to my page
+              </button>
+            </div>
+            {claimError ? <p className="wiki-onboarding__error" role="alert">{claimError}</p> : null}
+          </form>
+
           <div className="wiki-onboarding__hook-actions">
-            {/* Onboarding ends on the Paper — the home a new user now has a reason
-                to open. Their page is one click away here and in the build banner,
-                which follows them there. */}
             <button type="button" onClick={showMeAround}>Show me around</button>
-            <button type="button" className="wiki-onboarding__secondary-action" onClick={goToWiki}>
-              Go to my page
-            </button>
-            <Link to="/connections#capture">Connect reading</Link>
+            <Link to="/connections#capture">Connect more reading</Link>
           </div>
           {/* The ask, at the moment of felt need: the page they just made has one
               source. Rendered inline rather than linked away — this used to point at
