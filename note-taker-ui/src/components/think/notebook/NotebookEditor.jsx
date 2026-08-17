@@ -276,6 +276,10 @@ const NotebookEditor = ({
   onSynthesize,
   onDump,
   claimCandidates = EMPTY_CLAIM_CANDIDATES,
+  // When it was last touched, shown under the title rather than above it: the
+  // title is the first thing on the page and the timestamp is a footnote to it.
+  metaLine = null,
+  metaId = undefined,
   onInvokeAgentSkill = null,
   showInlineAgentDock = true,
   agentContextType = 'notebook',
@@ -663,6 +667,7 @@ const NotebookEditor = ({
             }}
             placeholder="Title"
           />
+          {metaLine ? <p className="think-notebook-title-meta" id={metaId}>{metaLine}</p> : null}
           <p className="think-notebook-title-hint">
             Start with a title, then shape the document with headings, lists, quotes, and inline emphasis.
           </p>

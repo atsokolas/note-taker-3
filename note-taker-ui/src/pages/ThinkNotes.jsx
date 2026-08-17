@@ -178,9 +178,10 @@ const ThinkNotes = () => {
       <main className="think-notes__note" aria-labelledby="think-note-title">
         {entry ? (
           <div className={step(2)}>
-            <p className="think-notes__edited" id="think-note-title">{editedLine(entry)}</p>
             <NotebookEditor
               entry={entry}
+              metaLine={editedLine(entry)}
+              metaId="think-note-title"
               saving={saving}
               error={error}
               onSave={saveEntry}

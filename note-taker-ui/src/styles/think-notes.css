@@ -280,25 +280,17 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
   justify-content: flex-start;
 }
 
-/* ---- Two things the lock is explicit about --------------------------------
+/* ---- From the lock -------------------------------------------------------
  *
- * The note's edited-at sits under its title, not above it: the title is the
- * first thing on the page, and when it was touched is a footnote to it.
+ * The edited-at sits under the title. It used to be a sibling rendered before
+ * the editor that owns the title, so no ordering rule could put it after —
+ * it had to move into the title block itself.
  */
-.think-notes .think-notebook-title-block {
-  display: flex;
-  flex-direction: column;
-}
-
-.think-notes .think-notebook-title-kicker,
-.think-notes .think-notebook-title-hint,
-.think-notes .think-notebook-meta,
-.think-notes .think-note-meta {
-  order: 2;
-}
-
-.think-notes .think-notebook-title-input {
-  order: 1;
+.think-notes .think-notebook-title-meta {
+  margin: 6px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
 }
 
 /* The shelf is separated from the reading by a rule, so the column has an edge
