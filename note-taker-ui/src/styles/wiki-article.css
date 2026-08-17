@@ -169,3 +169,68 @@
     animation: wfp-fade-in 80ms linear;
   }
 }
+
+/* ---- What a citation opens -----------------------------------------------
+ *
+ * The passage behind a claim, shown where the claim is. It arrives as a card
+ * with a status pill and boxed rows, because it was built for the maintenance
+ * workspace. In the reader it is a sheet of paper: hairlines, a quiet label,
+ * the source and its passage.
+ */
+body.noeis-editorial .wiki-article ~ .wiki-claim-popover,
+body.noeis-editorial .wiki-claim-popover {
+  border: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 70%, transparent);
+  border-radius: 0;
+  background: var(--vellum-bg, #fffcf7);
+  box-shadow: 0 18px 44px color-mix(in srgb, #000 10%, transparent);
+}
+
+body.noeis-editorial .wiki-claim-popover__support,
+body.noeis-editorial .wiki-claim-popover__count,
+body.noeis-editorial .wiki-claim-popover__group-label {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The sources are a list separated by rules, not stacked cards. */
+body.noeis-editorial .wiki-claim-popover__item {
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+body.noeis-editorial .wiki-claim-popover__item-title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  font-weight: 400;
+}
+
+/* The passage itself is the reason the reader clicked. */
+body.noeis-editorial .wiki-claim-popover__item-snippet {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+body.noeis-editorial .wiki-claim-popover__item-index {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+}
+
+body.noeis-editorial .wiki-claim-popover a {
+  border-bottom: 1px solid currentColor;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  text-decoration: none;
+}

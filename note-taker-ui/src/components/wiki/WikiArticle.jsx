@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { askWikiPage, getWikiPage, updateWikiPage } from '../../api/wiki';
 import renderTiptapDoc from './renderTiptapDoc';
+import ClaimCitationPopover from './ClaimCitationPopover';
+import { SUPPORT_STATES } from './extensions/Claim';
 import { useAgentRailSurface } from '../../agent/AgentRailContext';
 import { takeFirstPaint } from '../../motion/columnMotion';
 import { docText, oneSentence } from '../../pages/judgmentModel';
@@ -17,6 +19,29 @@ import '../../styles/wiki-article.css';
 
 const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
+const parseIndexAttribute = (value = '') => String(value || '')
+  .split(',')
+  .map(token => Number(token.trim()))
+  .filter(Number.isFinite);
+
+/* The sources behind one citation, in the order the page numbers them. The
+   ledger knows which sources a claim actually rests on; when it does not, the
+   marker's own indexes are the fallback, because a citation that cannot say
+   what it points at is the thing we are fixing. */
+const sourcesForClaim = (page, active) => {
+  const refs = Array.isArray(page?.sourceRefs) ? page.sourceRefs : [];
+  if (!active || !refs.length) return [];
+  const contradicting = new Set(active.contradictionIndexes || []);
+  const pick = (index, evidenceRole) => {
+    const source = refs[index - 1];
+    return source ? { ...source, citationIndex: index, evidenceRole } : null;
+  };
+  return [
+    ...(active.citationIndexes || []).filter(index => !contradicting.has(index)).map(index => pick(index, 'supports')),
+    ...(active.contradictionIndexes || []).map(index => pick(index, 'contradicts'))
+  ].filter(Boolean);
+};
+
 const WikiArticle = () => {
   const { id: routeId = '' } = useParams();
   const [searchParams] = useSearchParams();
@@ -25,6 +50,9 @@ const WikiArticle = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [settled, setSettled] = useState('');
+  /* Which citation the reader opened. Evidence that cannot be reached is only
+     asserted, and this page's whole claim is that it is grounded. */
+  const [activeClaim, setActiveClaim] = useState(null);
   const arriving = useMemo(() => takeFirstPaint(`wiki-article:${pageId}`), [pageId]);
 
   useEffect(() => {
@@ -134,7 +162,25 @@ const WikiArticle = () => {
         Maintained by the agent<span aria-hidden="true"> · </span>you accept edits
       </p>
 
-      <div className={`wiki-article__body ${step(4)}`}>
+      {/* A citation opens what it points at: the source, the passage, and the
+          way to the original. It used to be a button with an aria-label and no
+          handler — labelled "Backlink to source 1" and bound to nothing. */}
+      <div
+        className={`wiki-article__body ${step(4)}`}
+        onClick={(event) => {
+          const marker = event.target.closest?.('.wiki-claim-citation');
+          if (!marker) return;
+          event.preventDefault();
+          const support = marker.getAttribute('data-support') || 'supported';
+          setActiveClaim({
+            claimId: marker.getAttribute('data-claim-id') || '',
+            support: SUPPORT_STATES.has(support) ? support : 'supported',
+            citationIndexes: parseIndexAttribute(marker.getAttribute('data-citation-indexes')),
+            contradictionIndexes: parseIndexAttribute(marker.getAttribute('data-contradiction-indexes')),
+            anchorRect: marker.getBoundingClientRect()
+          });
+        }}
+      >
         {renderTiptapDoc(page.body)}
       </div>
 
@@ -144,6 +190,16 @@ const WikiArticle = () => {
       ) : null}
 
       {error ? <p className="wiki-article__error" role="alert">{error}</p> : null}
+
+      {activeClaim ? (
+        <ClaimCitationPopover
+          anchorRect={activeClaim.anchorRect}
+          support={activeClaim.support}
+          claim={(page.claims || []).find(claim => claim.claimId === activeClaim.claimId) || null}
+          sources={sourcesForClaim(page, activeClaim)}
+          onClose={() => setActiveClaim(null)}
+        />
+      ) : null}
     </main>
   );
 };
