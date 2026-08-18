@@ -27,17 +27,15 @@ import { useSystemStatusControls, useSystemStatusSnapshot } from '../system/Syst
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import AgentPresence from '../components/agent/AgentPresence';
 import AgentTicker from '../components/agent/AgentTicker';
-import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
 import AgentContextShell from '../components/agent/AgentContextShell';
 import AgentSkillDock from '../components/agent/AgentSkillDock';
 import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
-import { buildArticleAmbientContext } from '../utils/ambientAgentContext';
 import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftSuppression';
 import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
 import { librarySubject } from '../components/library/libraryColumnModel';
-import { useAgentRailSurface } from '../agent/AgentRailContext';
+import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
 import LibraryColumn from '../components/library/LibraryColumn';
@@ -125,7 +123,6 @@ const Library = () => {
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
-  const [queuedPrompt, setQueuedPrompt] = useState(null);
   const [librarianSelection, setLibrarianSelection] = useState(null);
   const readerRef = useRef(null);
   const systemStatus = useSystemStatusControls();
@@ -717,20 +714,20 @@ const Library = () => {
     setQuestionModal({ open: true, highlight });
   }, [retainHighlightInLibraryHistory]);
 
+  /* Asking about a passage goes to the rail — the one agent on this page.
+     It used to open a second panel below the article with its own textarea, so
+     selecting a sentence produced a fourth input on a screen that already had
+     three, while the rail sat beside it saying it had nothing to retrieve. The
+     rail already knows how to answer this: its onAsk carries the article as
+     context. */
+  const { ask: askRail } = useAgentRail();
+
   const handleAskLibrarian = useCallback((highlight) => {
     const prompt = buildLibrarianSelectionPrompt(highlight);
     if (!prompt) return;
     retainHighlightInLibraryHistory(highlight);
-    setLibrarianSelection(highlight);
-    handleToggleRight(true);
-    setQueuedPrompt({
-      id: `library-selection-${highlight._id}-${Date.now()}`,
-      mode: 'draft',
-      contextType: 'article',
-      contextId: selectedArticleId || highlight?.articleId || '',
-      prompt
-    });
-  }, [handleToggleRight, retainHighlightInLibraryHistory, selectedArticleId]);
+    askRail?.(prompt, { origin: 'Asked of this passage' });
+  }, [askRail, retainHighlightInLibraryHistory]);
 
   const buildFallbackDump = useCallback(() => {
     if (selectedArticle) {
@@ -818,14 +815,6 @@ const Library = () => {
   );
 
   const isReadingView = Boolean(selectedArticleId);
-  const articleContextMetadata = useMemo(() => (
-    buildArticleAmbientContext({
-      article: selectedArticle,
-      highlights: articleHighlights,
-      graphConnections: articleGraphConnections,
-      selectionText: librarianSelection?.text || ''
-    })
-  ), [articleGraphConnections, articleHighlights, librarianSelection?.text, selectedArticle]);
   const topThemeTags = useMemo(
     () => (Array.isArray(tags) ? tags.slice(0, 3).map((tag) => String(tag?.tag || '')).filter(Boolean) : []),
     [tags]
@@ -1034,26 +1023,11 @@ const Library = () => {
 
   const rightPanel = isReadingView ? (
     <div className="editorial-side-rail section-stack library-context-stack library-context-stack--reading">
-      <ThoughtPartnerPanel
-        className="editorial-side-rail__partner library-reading-rail__partner"
-        variant="stream"
-        title={LIBRARY_AGENT_TITLE}
-        subtitle="Ask against this source and everything your Library already knows."
-        contextType="article"
-        contextId={selectedArticleId}
-        contextTitle={selectedArticle?.title || 'Article'}
-        contextMetadata={articleContextMetadata}
-        queuedPrompt={queuedPrompt}
-        placeholder="Ask about this source or find something related in your Library."
-        promptTemplates={[
-          'Summarize what matters most in this article.',
-          'Challenge the strongest claim in this article.',
-          'Find related concepts or notes for this article.'
-        ]}
-        showQuickPrompts={false}
-        emptyStateText="Ask directly, or select a passage to carry its exact source into the question."
-        submitLabel="↗"
-      />
+      {/* The Librarian's chat surface is gone. One Ask on this page, and it
+          is the rail; a second one under the article meant two agents, one of
+          which you had to scroll to. What is left below is this source's own
+          material — its highlights and what references it — which is the
+          column's business, not an agent's. */}
       {librarianSelection?.text ? (
         <section className="library-librarian-selection" aria-label="Selected passage for Librarian">
           <div>
@@ -1082,7 +1056,10 @@ const Library = () => {
           title={LIBRARY_AGENT_TITLE}
           subtitle="Turn the current article into a sharper summary, critique, question set, or concept lead."
           className="library-reading-rail__skills agent-skill-dock--inline"
-          onInvoke={(nextPrompt) => setQueuedPrompt(nextPrompt)}
+          onInvoke={(nextPrompt) => askRail?.(
+            typeof nextPrompt === 'string' ? nextPrompt : (nextPrompt?.prompt || ''),
+            { origin: 'Asked of this source' }
+          )}
         />
         <ReferencePullIn
           targetType="article"
