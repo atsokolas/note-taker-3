@@ -354,7 +354,7 @@ const WikiOnboarding = () => {
               <small>[1] behavioral decision research · [2] saved investing notes</small>
             </div>
           </div>
-          <button type="button" onClick={() => setStep('feed')}>Start</button>
+          <button type="button" className="wiki-onboarding__primary-action" onClick={() => setStep('feed')}>Start</button>
         </section>
       ) : null}
 
@@ -407,7 +407,7 @@ const WikiOnboarding = () => {
               placeholder="Paste a link to something you read this week - or a few paragraphs of it..."
             />
           </label>
-          <button type="button" onClick={addToLibrary} disabled={busy}>Add to my library</button>
+          <button type="button" className="wiki-onboarding__primary-action" onClick={addToLibrary} disabled={busy}>Add to my library</button>
 
           <p className="wiki-onboarding__packs-lead">
             Nothing to connect yet? Start from a pack and replace it as your own reading arrives.
@@ -464,7 +464,7 @@ const WikiOnboarding = () => {
           ) : null}
 
           <div className="wiki-onboarding__hook-actions">
-            <button type="button" onClick={goToLibrary}>Go to my library</button>
+            <button type="button" className="wiki-onboarding__primary-action" onClick={goToLibrary}>Go to my library</button>
             <button type="button" className="wiki-onboarding__secondary-action" onClick={showMeAround}>
               Show me around first
             </button>
