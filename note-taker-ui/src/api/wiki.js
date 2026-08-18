@@ -1019,3 +1019,9 @@ export const downloadJudgmentPamphlet = async (id) => {
   });
   return res.data;
 };
+
+/* Every claim in the wiki that something in the library argues with. */
+export const listWikiContradictions = async ({ limit = 50 } = {}) => {
+  const res = await api.get(`/api/wiki/contradictions?limit=${encodeURIComponent(limit)}`, getAuthHeaders());
+  return Array.isArray(res.data?.contradictions) ? res.data.contradictions : [];
+};

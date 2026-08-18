@@ -443,6 +443,10 @@ const WikiFrontPage = () => {
       <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
       <Link to="/wiki/workspace?view=list">All pages</Link>
       <Link to="/wiki/workspace?view=list&quality=needs_review">Needs review</Link>
+      {/* Where the library disagrees with itself. A contradiction used to be a
+          colour inside one article, which meant you found it only if you were
+          already reading that page. */}
+      <Link to="/wiki/contradictions">Disagreements</Link>
       <Link to="/wiki/workspace?view=graph">
         Review{reviewCount ? ` (${reviewCount})` : ''}
       </Link>
@@ -793,6 +797,7 @@ const WikiFrontPage = () => {
           ) : null}
           <div className="wiki-living-nav__workspace-links">
             <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
+            <Link to="/wiki/contradictions">Disagreements</Link>
             <Link to="/wiki/workspace?view=list">Full workspace</Link>
           </div>
         </aside>

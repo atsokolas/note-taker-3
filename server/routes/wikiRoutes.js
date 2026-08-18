@@ -1,4 +1,5 @@
 const express = require('express');
+const { collectContradictions } = require('../services/wikiContradictionService');
 const PDFDocument = require('pdfkit');
 const { buildPamphletPdf } = require('../services/judgmentPamphlet');
 const mongoose = require('mongoose');
@@ -5623,6 +5624,27 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error adopting shared wiki collection:', error);
       res.status(500).json({ error: 'Failed to adopt shared wiki collection.' });
+    }
+  });
+
+  /* Contradiction as a view, not a tag.
+     Every claim in the wiki that something in the library argues with, with
+     both passages and both publications — so a disagreement can be read as a
+     disagreement instead of being inferred from a colour inside one article
+     you had to already be reading. */
+  router.get('/api/wiki/contradictions', wikiAuth, async (req, res) => {
+    try {
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 200));
+      const pages = await WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
+        .select('title slug updatedAt claims citations sourceRefs')
+        .sort({ updatedAt: -1 })
+        .limit(300)
+        .lean();
+      const contradictions = collectContradictions(pages).slice(0, limit);
+      return res.status(200).json({ contradictions });
+    } catch (error) {
+      console.error('Error collecting wiki contradictions:', error);
+      return res.status(500).json({ error: 'Could not read what disagrees.' });
     }
   });
 

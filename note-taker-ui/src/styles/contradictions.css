@@ -1,0 +1,158 @@
+/* Two passages set against each other. The page's whole job is to make the
+   disagreement legible, so the quotes get the reading serif and everything
+   else — who said it, where it came from, what to do about it — stays out of
+   the way in the UI face. */
+
+.contradictions {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 34px 0 96px;
+}
+
+.contradictions__back {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.contradictions__title {
+  margin: 22px 0 8px;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.14;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.contradictions__dek,
+.contradictions__quiet,
+.contradictions__error {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.contradiction {
+  margin: 40px 0 0;
+  padding: 30px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.contradiction__claim {
+  margin: 0 0 6px;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.42rem;
+  font-weight: 400;
+  line-height: 1.26;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.contradiction__where {
+  margin: 0 0 20px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.contradiction__where a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+/* Side by side where there is room; stacked where there is not, because two
+   columns of 20 characters is not a comparison. */
+.contradiction__sides {
+  display: grid;
+  gap: 26px;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 660px) {
+  .contradiction__sides {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contradiction__sides h3 {
+  margin: 0 0 10px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.contradiction__side {
+  margin: 0 0 16px;
+}
+
+.contradiction__quote {
+  margin: 0 0 6px;
+  padding-left: 14px;
+  border-left: 2px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent);
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.contradiction__side--contradicts .contradiction__quote {
+  border-left-color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 55%, transparent);
+}
+
+.contradiction__quote--absent {
+  border-left-style: dotted;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-style: italic;
+}
+
+.contradiction__source {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.contradiction__source a {
+  color: inherit;
+}
+
+.contradiction__door {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  margin: 14px 0 0;
+}
+
+.contradiction__door button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.contradiction__door button:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.contradiction__door [role="alert"] {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}

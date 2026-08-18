@@ -69,6 +69,7 @@ const Wiki = lazy(() => import('./pages/Wiki'));
    series before anything can be drawn, with a full-screen splash held over it
    the whole way. A chunk you always need is not a chunk. */
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
+const Contradictions = lazy(() => import('./pages/Contradictions'));
 const Judgment = lazy(() => import('./pages/Judgment'));
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
@@ -643,6 +644,9 @@ function App() {
             <Route path="/judgment" element={<Judgment />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
+            {/* Contradiction as a view, not a tag: where the library
+                disagrees with itself, both passages side by side. */}
+            <Route path="/wiki/contradictions" element={<Contradictions />} />
             <Route path="/wiki/list" element={<Navigate to="/wiki/workspace?view=list" replace />} />
             {/* The reading. The operational workspace — chat pane, graph,
                 queues — stays where it was, at /wiki/workspace. */}
