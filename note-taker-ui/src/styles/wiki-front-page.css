@@ -1042,6 +1042,37 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   text-transform: uppercase;
 }
 
+/* Same-title fold: the count sits under the title it belongs to, and the
+   copies behind it are set in from the row that speaks for them. */
+.wiki-living-row__same-title {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-muted) 45%, transparent);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.wiki-living-row__same-title:hover,
+.wiki-living-row__same-title:focus-visible {
+  color: var(--text-primary);
+  border-bottom-color: currentColor;
+}
+
+.wiki-living-row--same-title .wiki-living-row__title {
+  padding-left: 22px;
+}
+
+.wiki-living-row--same-title .wiki-living-row__title a {
+  color: var(--text-muted);
+}
+
 .wiki-living-row__state {
   display: inline-flex;
   gap: 8px;

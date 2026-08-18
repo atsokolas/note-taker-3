@@ -32,6 +32,7 @@ import {
   dedupePagesByRepoKey,
   filterPagesForTodaysPage
 } from './wikiRepoDedupeModel';
+import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
 import Paper from '../../pages/Paper';
@@ -330,6 +331,26 @@ const WikiFrontPage = () => {
     () => dedupePagesByRepoKey(filterReturnViewItems(pages)),
     [pages]
   );
+
+  /* Same title, one row — the rule the workspace list already uses, applied to
+     the index a person actually meets. The agent drafts a page more than once,
+     so this table was printing one wiki as three and counting it as three. The
+     copy that survives is the one the Library grounds; the rest sit behind a
+     count and open with a click. Nothing is deleted. */
+  const titleGroups = useMemo(() => groupWikiPagesByTitle(curatedPages), [curatedPages]);
+  const canonicalPages = useMemo(() => titleGroups.map(group => group.canonical), [titleGroups]);
+  const sameTitleById = useMemo(() => new Map(
+    titleGroups
+      .filter(group => group.others.length)
+      .map(group => [String(pageId(group.canonical)), group.others])
+  ), [titleGroups]);
+  const [openTitleIds, setOpenTitleIds] = useState(() => new Set());
+  const toggleSameTitle = (id) => setOpenTitleIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
   // First-run *routing* is owned by FirstRunGate at the app shell, so a new user
   // meets onboarding wherever they land rather than only here. What stays is the
   // part only this page can do: hold a placeholder instead of flashing an empty
@@ -375,9 +396,9 @@ const WikiFrontPage = () => {
   );
 
   const weighted = useMemo(() => (
-    [...curatedPages].sort((a, b) => pageWeight(b) - pageWeight(a)
+    [...canonicalPages].sort((a, b) => pageWeight(b) - pageWeight(a)
       || String(a.title || '').localeCompare(String(b.title || '')))
-  ), [curatedPages]);
+  ), [canonicalPages]);
 
   /* Today's page: the agent's most recently enriched page, otherwise the
      strongest in the corpus. Repo wikis only lead when they actually changed.
@@ -398,14 +419,14 @@ const WikiFrontPage = () => {
 
   const pageKinds = useMemo(() => {
     const counts = new Map();
-    curatedPages.forEach((page) => {
+    canonicalPages.forEach((page) => {
       if (isDeveloperWiki(page)) return;
       const kind = String(page.pageType || 'topic').trim() || 'topic';
       counts.set(kind, (counts.get(kind) || 0) + 1);
     });
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1] || labelFor(a[0]).localeCompare(labelFor(b[0])));
-  }, [curatedPages]);
+  }, [canonicalPages]);
 
   const explorePages = useMemo(() => {
     const query = wikiSearch.trim().toLowerCase();
@@ -429,13 +450,13 @@ const WikiFrontPage = () => {
     ));
   }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds]);
 
-  const exactReviewCount = useMemo(() => curatedPages.filter(page => (
+  const exactReviewCount = useMemo(() => canonicalPages.filter(page => (
     pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
-  )).length, [curatedPages, sourceMaterialIds]);
+  )).length, [canonicalPages, sourceMaterialIds]);
 
   const developerWikiCount = useMemo(
-    () => curatedPages.filter(isDeveloperWiki).length,
-    [curatedPages]
+    () => canonicalPages.filter(isDeveloperWiki).length,
+    [canonicalPages]
   );
 
   const reviewCount = briefing?.counts?.driftingPages
@@ -814,12 +835,12 @@ const WikiFrontPage = () => {
         <aside className="wiki-living-nav wfp-anim wfp-anim--1" aria-label="Wiki views">
           <div className="wiki-living-nav__head">
             <span>Wiki</span>
-            <strong>{curatedPages.length}</strong>
+            <strong>{canonicalPages.length}</strong>
           </div>
           <nav>
             {[
-              ['all', 'All wikis', curatedPages.length],
-              ['topics', 'Topics', curatedPages.length - developerWikiCount],
+              ['all', 'All wikis', canonicalPages.length],
+              ['topics', 'Topics', canonicalPages.length - developerWikiCount],
               ['developer', 'Developer wikis', developerWikiCount],
               ['review', 'Needs review', exactReviewCount],
               ['recent', 'Recently updated', recentlyUpdated.length]
@@ -909,32 +930,50 @@ const WikiFrontPage = () => {
               <span role="columnheader">Last review</span>
               <span role="columnheader">Maintenance state</span>
             </div>
-            {explorePages.length ? explorePages.map((page) => {
+            {explorePages.length ? explorePages.flatMap((page) => {
               const id = String(pageId(page));
-              const changedByLibrary = sourceMaterialIds.has(id);
-              const reviewState = wikiReviewState(page, changedByLibrary);
-              return (
-                <div
-                  key={id}
-                  className={`wiki-living-row${changedByLibrary ? ' is-library-changed' : ''}`}
-                  role="row"
-                >
-                  <div className="wiki-living-row__title" role="cell">
-                    <span aria-hidden="true" />
-                    <div>
-                      <Link to={wikiReadPath(id)}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
-                      <small>{isDeveloperWiki(page) ? 'Developer wiki' : labelFor(page.pageType || 'topic')}</small>
+              const sameTitle = sameTitleById.get(id) || [];
+              const open = openTitleIds.has(id);
+              const row = (item, folded = false) => {
+                const rowId = String(pageId(item));
+                const changedByLibrary = sourceMaterialIds.has(rowId);
+                const reviewState = wikiReviewState(item, changedByLibrary);
+                return (
+                  <div
+                    key={rowId}
+                    className={`wiki-living-row${changedByLibrary ? ' is-library-changed' : ''}${folded ? ' wiki-living-row--same-title' : ''}`}
+                    role="row"
+                  >
+                    <div className="wiki-living-row__title" role="cell">
+                      <span aria-hidden="true" />
+                      <div>
+                        <Link to={wikiReadPath(rowId)}>{displayWikiPageTitle(item, 'Untitled page')}</Link>
+                        <small>{isDeveloperWiki(item) ? 'Developer wiki' : labelFor(item.pageType || 'topic')}</small>
+                        {!folded && sameTitle.length ? (
+                          <button
+                            type="button"
+                            className="wiki-living-row__same-title"
+                            aria-expanded={open}
+                            onClick={() => toggleSameTitle(id)}
+                          >
+                            {sameTitleToggleLabel(sameTitle.length, open)}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
+                    <span role="cell">{wikiGroundingLabel(item)}</span>
+                    <span role="cell">{wikiReviewDate(item)}</span>
+                    <span className={`wiki-living-row__state is-${reviewState.tone}`} role="cell">
+                      <i aria-hidden="true" />
+                      {reviewState.label}
+                    </span>
+                    <Link className="wiki-living-row__open" to={wikiReadPath(rowId)} aria-label={`Open ${displayWikiPageTitle(item, 'Wiki page')}`}>→</Link>
                   </div>
-                  <span role="cell">{wikiGroundingLabel(page)}</span>
-                  <span role="cell">{wikiReviewDate(page)}</span>
-                  <span className={`wiki-living-row__state is-${reviewState.tone}`} role="cell">
-                    <i aria-hidden="true" />
-                    {reviewState.label}
-                  </span>
-                  <Link className="wiki-living-row__open" to={wikiReadPath(id)} aria-label={`Open ${displayWikiPageTitle(page, 'Wiki page')}`}>→</Link>
-                </div>
-              );
+                );
+              };
+              return open
+                ? [row(page), ...sameTitle.map(item => row(item, true))]
+                : [row(page)];
             }) : (
               <p className="wiki-living-table__empty">No Wiki pages match this view.</p>
             )}

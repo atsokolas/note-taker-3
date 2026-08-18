@@ -98,6 +98,57 @@ const briefing = {
   totalPages: 3
 };
 
+describe('WikiFrontPage same-title fold', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    getDailyLoop.mockResolvedValue({ briefing: { ...briefing, recentlyUpdatedPages: [] } });
+  });
+
+  const withDuplicates = () => listWikiPages.mockResolvedValueOnce([
+    {
+      _id: 'wiki-bare',
+      title: 'Opportunity Cost',
+      pageType: 'topic',
+      summary: 'A second draft that never got sources.',
+      sourceRefs: [],
+      claims: [],
+      updatedAt: '2026-06-20T12:00:00.000Z'
+    },
+    pages[1],
+    pages[2]
+  ]);
+
+  it('prints one row per title and says how many copies are behind it', async () => {
+    withDuplicates();
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
+    // The grounded copy is the one that reaches the index, not the newest.
+    expect(within(table).getAllByRole('link', { name: 'Opportunity Cost' })).toHaveLength(1);
+    expect(within(table).getByRole('link', { name: 'Opportunity Cost' }))
+      .toHaveAttribute('href', '/wiki/read/wiki-opportunity-cost');
+
+    const toggle = within(table).getByRole('button', { name: '1 more with this title' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+    // Nothing was deleted: the other copy opens from here.
+    expect(within(table).getAllByRole('link', { name: 'Opportunity Cost' })).toHaveLength(2);
+    expect(within(table).getByRole('button', { name: 'Hide the other 1' })).toBeInTheDocument();
+  });
+
+  it('counts the wikis it shows, not every copy of a title', async () => {
+    withDuplicates();
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    await screen.findByRole('table', { name: 'Living Wiki pages' });
+    const nav = document.querySelector('.wiki-living-nav');
+    expect(within(nav).getByText('All wikis').nextSibling).toHaveTextContent('2');
+  });
+});
+
 describe('WikiFrontPage (AT-394)', () => {
   let navigate;
 
