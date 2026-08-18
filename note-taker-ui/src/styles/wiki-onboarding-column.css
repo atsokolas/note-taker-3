@@ -387,6 +387,8 @@ body.noeis-editorial .wiki-onboarding__arrival,
   color: var(--text-primary, var(--vellum-ink));
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 1.06rem;
+}
+
 /* Each archive is its own door. Set as a row of names rather than a list, because
    a reader scans for the one they use rather than reading all three. */
 .wiki-onboarding__archive-lead {
