@@ -372,6 +372,67 @@ describe('DataIntegrations first insight workflow', () => {
     expect(window.location.hash).toBe('#notion');
   });
 
+  it('imports the whole archive the moment Readwise finishes connecting', async () => {
+    // Connecting used to end with "Run preview or sync to make the material
+    // retrievable" — a receipt for the wrong event. The user finished the flow with
+    // an empty library and a chore on a settings page. Connecting is the request.
+    window.history.pushState({}, '', '/connections?source=readwise&readwise=connected');
+    listImportConnections.mockImplementation(async ({ provider } = {}) => (
+      provider === 'readwise'
+        ? [{
+          id: 'rw-1',
+          provider: 'readwise',
+          mode: 'mcp_remote',
+          accountLabel: 'reader@example.com',
+          status: 'connected',
+          health: 'healthy',
+          lastSyncAt: null
+        }]
+        : []
+    ));
+    syncReadwiseConnection.mockResolvedValue({ importedArticles: 12, importedHighlights: 340 });
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(syncReadwiseConnection).toHaveBeenCalledTimes(1));
+    // The entire archive, not a recent slice: nothing has ever been imported here.
+    expect(syncReadwiseConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ connectionId: 'rw-1', fullSync: true })
+    );
+    // And the receipt reports what landed rather than assigning homework.
+    expect(await screen.findByText(/12 articles and 340 highlights are in your library/i)).toBeInTheDocument();
+  });
+
+  it('does not silently re-pull an archive the user already has', async () => {
+    window.history.pushState({}, '', '/connections?source=readwise&readwise=connected');
+    listImportConnections.mockImplementation(async ({ provider } = {}) => (
+      provider === 'readwise'
+        ? [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'reader@example.com',
+          status: 'connected',
+          health: 'healthy',
+          // Already imported once. Reconnecting is not a request to start over.
+          lastSyncAt: '2026-08-01T00:00:00.000Z'
+        }]
+        : []
+    ));
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('import-source-card-readwise')).toHaveAttribute('aria-pressed', 'true'));
+    expect(syncReadwiseConnection).not.toHaveBeenCalled();
+  });
+
   it('turns a Readwise OAuth failure into a visible retry receipt and cleans callback params', async () => {
     window.history.pushState({}, '', '/connections?source=readwise&readwise=error');
 
@@ -812,7 +873,10 @@ describe('DataIntegrations first insight workflow', () => {
     openSpy.mockRestore();
   });
 
-  it('shows MCP browser access as agent retrieval and keeps direct sync paused until token setup', async () => {
+  it('treats a browser-approved Readwise connection as able to import', async () => {
+    // This used to assert the opposite: browser approval was labelled agent-only and
+    // both import controls were disabled, so the path the product recommends was the
+    // one path that could not fill a library. The server reads its access token now.
     listImportConnections.mockImplementation(async ({ provider } = {}) => (
       provider === 'readwise'
         ? [{
@@ -834,19 +898,12 @@ describe('DataIntegrations first insight workflow', () => {
     );
 
     const receipt = await screen.findByTestId('readwise-sync-receipt');
-    await waitFor(() => {
-      expect(within(receipt).getByText('Agent access connected')).toBeInTheDocument();
-    });
-    expect(receipt).toHaveTextContent(/Direct Library refresh still needs the advanced API-token connection or a Readwise CSV upload/i);
-    const returnLoopCard = screen.getByTestId('connections-return-loop');
-    expect(within(returnLoopCard).getByText('Agent access connected')).toBeInTheDocument();
-    expect(within(returnLoopCard).getByText(/Direct Library refresh still needs the advanced token sync or a CSV import/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload Readwise CSV' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Add API token' })).toHaveAttribute('href', 'https://readwise.io/access_token');
+    expect(receipt).not.toHaveTextContent(/still needs the advanced API-token connection/i);
+
     fireEvent.click(screen.getByText(/Advanced: direct sync with API token/i));
-    expect(screen.getByText(/Browser access is connected/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sync from Readwise' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Preview scope' })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Sync from Readwise' })).toBeEnabled();
+    });
   });
 
   it('renders source-aware activation guidance for a Readwise import', async () => {

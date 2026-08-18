@@ -108,10 +108,33 @@ const buildConnectionStore = () => {
     toObject: connection.toObject
   };
 
+  // What browser approval actually stores: an OAuth access token and no API token.
+  const oauthConnection = {
+    ...mcpConnection,
+    _id: 'rw-oauth-1',
+    accountLabel: 'reader@example.com',
+    encryptedApiToken: '',
+    encryptedAccessToken: encryptSecret('readwise-oauth-access-token'),
+    status: 'connected',
+    health: 'healthy',
+    lastSyncAt: null,
+    async save() {
+      return this;
+    },
+    toObject: connection.toObject
+  };
+
   return {
     connection,
     mcpConnection,
+    oauthConnection,
     async findOne(query = {}) {
+      if (String(query?._id || '') === oauthConnection._id) {
+        return String(query?.userId || '') === oauthConnection.userId
+          && String(query?.provider || '') === oauthConnection.provider
+          ? oauthConnection
+          : null;
+      }
       if (String(query?.mode || '') === 'mcp_remote' || String(query?._id || '') === mcpConnection._id) {
         return String(query?.userId || '') === mcpConnection.userId
           && String(query?.provider || '') === mcpConnection.provider
@@ -163,8 +186,10 @@ const run = async () => {
   const Article = createArticleModel();
   const structureProposals = [];
 
-  axios.get = async (url) => {
+  const exportAuthHeaders = [];
+  axios.get = async (url, config = {}) => {
     if (String(url) === 'https://readwise.io/api/v2/export/') {
+      exportAuthHeaders.push(String(config?.headers?.Authorization || ''));
       return {
         data: {
           results: [{
@@ -299,14 +324,16 @@ const run = async () => {
       })
     });
     const mcpSyncPayload = await mcpSyncResponse.json();
-    assert.strictEqual(mcpSyncResponse.status, 409, `MCP-only Readwise connections should not start direct sync. body=${JSON.stringify(mcpSyncPayload)}`);
-    assert.match(mcpSyncPayload.error, /agent retrieval/i);
+    // Still refused — but now because this fixture carries no credential at all,
+    // not because it was approved in a browser. The case below is the one that changed.
+    assert.strictEqual(mcpSyncResponse.status, 409, `A Readwise connection with no credential cannot sync. body=${JSON.stringify(mcpSyncPayload)}`);
+    assert.match(mcpSyncPayload.error, /did not return anything Noeis can read with/i);
     assert.strictEqual(importSessions.session.status, 'failed', 'MCP-only sync attempts should make the import session terminal.');
     assert.strictEqual(importSessions.session.progress.stage, 'readwise_sync_unavailable');
     assert.strictEqual(importSessions.session.progress.percent, 100);
     assert.strictEqual(importSessions.session.receipt.status, 'failed');
     assert.strictEqual(importSessions.session.receipt.error.stage, 'readwise_sync_unavailable');
-    assert.match(importSessions.session.receipt.summary, /agent retrieval/i);
+    assert.match(importSessions.session.receipt.summary, /did not return anything Noeis can read with/i);
 
     importSessions.session.status = 'draft';
     importSessions.session.progress = {
@@ -354,6 +381,46 @@ const run = async () => {
       importSessions.session.agentSuggestions[0].structureProposalId,
       'structure-1',
       'The import cleanup suggestion should point at the staged structure proposal.'
+    );
+
+    // Browser approval is the path the product recommends. It returns an access
+    // token rather than a personal API token, and import used to reject it — so the
+    // recommended way to connect was the one way that could not fill a library.
+    importSessions.session.status = 'draft';
+    importSessions.session.progress = { stage: 'draft', percent: 0, indexingState: 'not_started' };
+    importSessions.session.receipt = undefined;
+    exportAuthHeaders.length = 0;
+
+    const oauthSyncResponse = await fetch(`${url}/api/import/readwise/sync`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        connectionId: 'rw-oauth-1',
+        importSessionId: 'session-readwise',
+        fullSync: true
+      })
+    });
+    const oauthSyncPayload = await oauthSyncResponse.json();
+    assert.strictEqual(
+      oauthSyncResponse.status,
+      200,
+      `A browser-approved Readwise connection must import. body=${JSON.stringify(oauthSyncPayload)}`
+    );
+    // Counts are zero here only because the API-token sync above already imported
+    // this same fixture and the importer dedupes. What matters is that the request
+    // reached Readwise at all, which it previously never did.
+    assert.ok(
+      exportAuthHeaders.length > 0,
+      'The OAuth connection should actually call the Readwise export endpoint.'
+    );
+    assert.ok(!oauthSyncPayload.error, `The OAuth import should not error. body=${JSON.stringify(oauthSyncPayload)}`);
+    // An OAuth access token is a bearer; a personal token is "Token x". Sending the
+    // wrong scheme is how this would silently 401 against the real API.
+    assert.ok(
+      exportAuthHeaders.some((header) => header.startsWith('Bearer ')),
+      `The OAuth credential must be sent as a bearer. saw=${JSON.stringify(exportAuthHeaders)}`
     );
   } finally {
     axios.get = originalAxiosGet;
