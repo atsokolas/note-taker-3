@@ -75,7 +75,14 @@ const ArticleReader = forwardRef(({
   }
 
   const persistHighlight = async (afterSave) => {
-    if (!article || !selectionState.text) return;
+    /* This used to return in silence. Pressing Highlight then did nothing at
+       all: the menu stayed open, no request was made, and the console stayed
+       empty — which is indistinguishable from a dead button. Whatever the
+       cause, the reader should be told rather than left guessing. */
+    if (!article || !selectionState.text) {
+      setSaveError('That selection was lost before it could be saved. Select the sentence again.');
+      return;
+    }
     const highlightText = selectionState.text;
     const highlightAnchor = selectionState.anchor;
     const existingHighlight = findExistingHighlightForSelection({

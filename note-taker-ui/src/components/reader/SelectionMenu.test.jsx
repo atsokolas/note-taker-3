@@ -43,11 +43,21 @@ describe('SelectionMenu', () => {
     reader.remove();
   });
 
-  it('anchors above the selection it was given', () => {
+  it('anchors clear of the selection it was given, not on top of it', () => {
     render(<SelectionMenu {...baseProps} rect={{ top: 537, left: 748, width: 630, height: 20 }} />);
     const menu = document.querySelector('.selection-menu');
-    expect(menu.style.top).toBe('529px');
+    expect(menu.style.top).toBe('519px');
     expect(menu.style.left).toBe('1063px');
+    expect(menu.className).not.toContain('selection-menu--below');
+  });
+
+  /* Pinned above a selection near the top of the window, the menu used to be
+     clamped to top: 8 and land on the words it was about. */
+  it('flips below the selection when there is no room above it', () => {
+    render(<SelectionMenu {...baseProps} rect={{ top: 20, left: 748, width: 630, height: 20 }} />);
+    const menu = document.querySelector('.selection-menu');
+    expect(menu.className).toContain('selection-menu--below');
+    expect(menu.style.top).toBe('58px');
   });
 
   it('returns null when rect is missing', () => {
@@ -62,7 +72,7 @@ describe('SelectionMenu', () => {
     render(<SelectionMenu {...baseProps} />);
     const menu = screen.getByRole('menu');
     // top = max(8, rect.top - 8) = 192; left = rect.left + width/2 = 440
-    expect(menu.style.top).toBe('192px');
+    expect(menu.style.top).toBe('182px');
     expect(menu.style.left).toBe('440px');
     expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ask about this' })).toBeInTheDocument();

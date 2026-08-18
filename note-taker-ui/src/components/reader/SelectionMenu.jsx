@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 
+/* Clear of the line, not sitting on it. Eight pixels put the menu's bottom
+   edge into the sentence above the one you had selected. */
+const SELECTION_GAP_PX = 18;
 const MAX_DRIFT_PX = 14;
 const POINTER_INFLUENCE_RADIUS_PX = 280;
 
@@ -20,6 +23,10 @@ const SelectionMenu = React.forwardRef(({
   const motionOk = !reducedMotion && finePointer && Boolean(rect);
   const magnet = useCssMagneticLerp('--selection-menu-x', 0.22);
   const innerRef = useRef(null);
+  /* Above the selection when there is room for it, below when there is not.
+     A menu pinned above a selection near the top of the window gets clamped
+     to top: 8 and lands on the words instead of near them. */
+  const [placeBelow, setPlaceBelow] = useState(false);
 
   const setRefs = useCallback((node) => {
     innerRef.current = node;
@@ -34,6 +41,12 @@ const SelectionMenu = React.forwardRef(({
   useEffect(() => {
     magnet.reset(0);
   }, [rect?.top, rect?.left, rect?.width, magnet]);
+
+  useLayoutEffect(() => {
+    if (!rect) return;
+    const height = innerRef.current?.offsetHeight || 0;
+    setPlaceBelow(rect.top - SELECTION_GAP_PX - height < 12);
+  }, [rect?.top, rect?.height, rect]);
 
   useEffect(() => {
     if (!motionOk) {
@@ -73,14 +86,16 @@ const SelectionMenu = React.forwardRef(({
      through a portal. That also keeps it right if any ancestor later picks up
      a transform or a filter, which breaks fixed positioning the same way. */
   const style = {
-    top: Math.max(8, rect.top - 8),
+    top: placeBelow
+      ? rect.top + (rect.height || 0) + SELECTION_GAP_PX
+      : rect.top - SELECTION_GAP_PX,
     left: rect.left + rect.width / 2
   };
 
   return createPortal((
     <div
       ref={setRefs}
-      className={`selection-menu selection-menu--expanded${motionOk ? ' is-magnetic' : ''}`}
+      className={`selection-menu selection-menu--expanded${placeBelow ? ' selection-menu--below' : ''}${motionOk ? ' is-magnetic' : ''}`}
       style={style}
       role="menu"
     >
