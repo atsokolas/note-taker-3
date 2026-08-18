@@ -1038,9 +1038,11 @@ const Library = () => {
           <p>Saved as a highlight. Its source travels with the question.</p>
         </section>
       ) : null}
+      {/* The subtitle was a list of the nouns inside the box — "Highlights,
+          pull-in, provenance, and article moves" — which is a table of
+          contents for something you are about to open anyway. */}
       <EditorialSideRailCollapsible
         title="Source context"
-        subtitle="Highlights, pull-in, provenance, and article moves."
         className="library-reading-rail__secondary"
         testId="library-reading-secondary-rail"
         defaultOpen={sourceContextOpen || Boolean(activeHighlightId)}
@@ -1156,12 +1158,14 @@ const Library = () => {
     </div>
   );
   const contextualRightPanel = (
+    /* No orientation line. It read "Reading Consider the opposite with
+       provenance intact." directly under a heading that already said
+       Librarian, above a fold that already said Source context: three labels
+       naming the room, and then the room. The title of the thing you are
+       reading is at the top of the thing you are reading. */
     <AgentContextShell
       surface="library"
       title={LIBRARY_AGENT_TITLE}
-      orientation={isReadingView
-        ? `Reading ${selectedArticle?.title || 'the selected source'} with provenance intact.`
-        : `Browsing ${scope === 'folder' && selectedFolderName ? selectedFolderName : scope} source memory.`}
       loading={Boolean(articleLoading || articlesLoading)}
       loadingMessage="Retrieving Library context…"
       error={isReadingView ? articleError : articlesError}
