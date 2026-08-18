@@ -2,42 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   adoptWikiStarterPack,
-  createWikiPage,
   deleteWikiPage,
-  listWikiStarterPacks,
-  startWikiPageBuild,
-  updateWikiPage
+  listWikiStarterPacks
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
-import { createJudgment } from './judgmentModel';
-import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
-import { setActiveBuild } from '../onboarding/activeBuild';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 import { startWalkthrough } from '../onboarding/walkthroughState';
 import '../styles/wiki-front-page.css';
 import '../styles/wiki-onboarding-column.css';
 
-const FAST_BUILD_OPTIONS = {
-  maintenanceProfile: 'fast',
-  sourceLimit: 8,
-  // No sourceTextLimit. The server now budgets source text by how many sources a
-  // page has, and a first page has exactly one — the article the user just pasted,
-  // which is the whole point of the page. Naming a number here could only ask for
-  // less than that budget, which is what starved the first build in the first place.
-  inlineAutolinkLimit: 150,
-  // The quality rebuild is what repairs a first draft that misses the bar. It was
-  // skipped because the user was staring at a spinner; they are not any more —
-  // the build runs detached — so the seconds it costs buy a page instead of an
-  // apology.
-  skipQualityRebuild: false,
-  // Render [hf-timing] logs (2026-06-21): the streamed draft took ~31s
-  // (totalMs=30796) while the SAME groq+gpt-oss-120b call in blocking mode
-  // finished in 2-5s. The HF router trickles tokens for this model, so
-  // streaming costs ~26s for zero functional gain.
-  streamDraft: false,
-  deferInboundAutolinks: true
-};
 
 
 const starterFallback = [
@@ -129,7 +103,7 @@ const ReturnLoopCard = ({ adopted = false } = {}) => (
     </div>
     <ul>
       <li>Scheduled page refresh is on.</li>
-      <li>{adopted ? 'Your adopted copy joins your own maintenance loop.' : 'Your first page joins the maintenance loop.'}</li>
+      <li>{adopted ? 'Your adopted copy joins your own maintenance loop.' : 'Pages you build join the maintenance loop.'}</li>
       <li>Readwise or Notion adds fresh material when connected.</li>
     </ul>
   </section>
@@ -142,12 +116,9 @@ const WikiOnboarding = () => {
   const source = params.get('source') || '';
   const [step, setStep] = useState(adoptedPageId ? 'hook' : 'show');
   const [packs, setPacks] = useState(starterFallback);
-  const [claimDraft, setClaimDraft] = useState('');
-  const [claiming, setClaiming] = useState(false);
-  const [claimError, setClaimError] = useState('');
   const [selectedPackId, setSelectedPackId] = useState('mental-models');
   const [pasteText, setPasteText] = useState('');
-  const [builtPageId, setBuiltPageId] = useState(adoptedPageId);
+  const [importedSource, setImportedSource] = useState(null);
   const [adoptedStarterPages, setAdoptedStarterPages] = useState([]);
   const [adoptedPack, setAdoptedPack] = useState(null);
   const [mergeAvailable, setMergeAvailable] = useState(false);
@@ -177,23 +148,18 @@ const WikiOnboarding = () => {
   const markComplete = markWikiOnboardingComplete;
 
   /**
-   * Start the build and hand the user forward.
+   * First run does not build a wiki page.
    *
-   * A real maintenance pass takes far longer than a new user will sit and watch, so
-   * nothing here waits for it. The server accepts the build, the banner picks it up
-   * from anywhere in the app, and the user carries on.
+   * A wiki page is synthesis over accumulated reading. One pasted link is not
+   * accumulated reading, so the evidence gate refuses it — correctly, and roughly
+   * half the time in production. Building here meant a ~20 second wait, a headline
+   * claiming a page existed before it did, and a coin-flip chance that a new user's
+   * first outcome was a failure.
+   *
+   * The source itself is real the moment it is imported. That is what first run
+   * delivers, and the wiki is something the user builds later, deliberately, when
+   * they have material worth building from.
    */
-  const startBuild = async ({ pageId, title = '' }) => {
-    setBuiltPageId(pageId);
-    const accepted = await startWikiPageBuild(pageId, FAST_BUILD_OPTIONS);
-    setActiveBuild({
-      pageId,
-      title,
-      startedAt: accepted?.startedAt || null
-    });
-    markComplete();
-    setStep('hook');
-  };
 
   const adoptStarterPack = async () => {
     setBusy(true);
@@ -204,19 +170,11 @@ const WikiOnboarding = () => {
       setAdoptedStarterPages(pages);
       setAdoptedPack(result.pack || selectedPack);
       setMergeAvailable(Boolean(result.mergeAvailable));
-      const firstPage = pages[0] || {};
-      setBuiltPageId(firstPage._id || firstPage.id || '');
-      if (firstPage?._id || firstPage?.id) {
-        // Refresh the first adopted page against this workspace in the background —
-        // that refresh is what makes the copy diverge from the original.
-        await startBuild({
-          pageId: firstPage._id || firstPage.id,
-          title: firstPage.title || selectedPack.name
-        });
-      } else {
-        markComplete();
-        setStep('hook');
-      }
+      // Adopted pages arrive already written; there is nothing to build. The copy
+      // starts diverging from the original the first time the user's own material
+      // reaches it, not from a refresh run during onboarding.
+      markComplete();
+      setStep('hook');
     } catch (err) {
       setError(err?.message || 'Could not add that starter pack.');
       setStep('feed');
@@ -225,7 +183,7 @@ const WikiOnboarding = () => {
     }
   };
 
-  const buildFromPaste = async () => {
+  const addToLibrary = async () => {
     const text = pasteText.trim();
     // Refuse before spending the user's time, not after. A build from a source this
     // thin takes ~20s and cannot pass the evidence gate.
@@ -243,31 +201,14 @@ const WikiOnboarding = () => {
         ? await importPastedUrl({ url: droppedUrl })
         : await importPastedText({ text, title: suggestedTitle });
       const article = imported?.article || {};
-      const title = article.title || suggestedTitle;
-      const page = await createWikiPage({
-        title,
-        pageType: 'overview',
-        sourceScope: 'selected_sources',
-        createdFrom: {
-          type: 'article',
-          objectId: article._id || article.id || '',
-          text: droppedUrl || text,
-          label: article.title || 'Pasted source'
-        },
-        initialSourceRef: {
-          type: 'article',
-          objectId: article._id || article.id || '',
-          title: article.title || 'Pasted source',
-          url: article.url || droppedUrl || '',
-          snippet: text.slice(0, 360)
-        }
+      setImportedSource({
+        title: article.title || suggestedTitle,
+        url: article.url || droppedUrl || ''
       });
-      await startBuild({
-        pageId: page._id || page.id,
-        title: page.title || title
-      });
+      markComplete();
+      setStep('hook');
     } catch (err) {
-      setError(err?.message || 'Could not build from that material.');
+      setError(err?.message || 'Could not read that. Try the link, or paste the text itself.');
       setStep('feed');
     } finally {
       setBusy(false);
@@ -289,7 +230,6 @@ const WikiOnboarding = () => {
       setAdoptedStarterPages([]);
       setAdoptedPack(null);
       setMergeAvailable(false);
-      setBuiltPageId('');
       setStep('feed');
     } catch (err) {
       setError(err?.message || 'Could not clear the sample pack.');
@@ -298,39 +238,21 @@ const WikiOnboarding = () => {
     }
   };
 
-  const goToWiki = () => {
+  // Every path out of onboarding lands in the Library, on the material that just
+  // arrived. It is the one place that is truthfully populated at the end of first
+  // run, and it is where the next thing the user does begins.
+  // A copied wiki arrives with pages; an imported source does not. The ending has to
+  // say which of those actually happened.
+  const arrivedWithPages = source === 'shared' || adoptedStarterPages.length > 0;
+
+  const goToLibrary = () => {
     markComplete();
-    if (builtPageId) navigate(wikiPagePath(builtPageId), { replace: true });
-    else navigate('/wiki', { replace: true });
+    navigate('/library', { replace: true });
   };
 
-  // Hand off to the walkthrough, which runs over the live build and ends on the
-  // Paper — home. It drives its own navigation from here.
   const showMeAround = () => {
     markComplete();
     startWalkthrough();
-  };
-
-  /* The claim is the exit. Writing it finishes onboarding and opens the
-     judgment, because the next thing you want is to say why you believe it. */
-  const writeFirstClaim = async (event) => {
-    event?.preventDefault?.();
-    const sentence = claimDraft.trim();
-    if (!sentence || claiming) return;
-    setClaiming(true);
-    setClaimError('');
-    try {
-      const judgmentId = await createJudgment(sentence, {
-        createPage: createWikiPage,
-        updatePage: updateWikiPage
-      });
-      markComplete();
-      navigate(`/judgment/${judgmentId}`);
-    } catch (failure) {
-      setClaimError(failure?.message || 'That claim could not be written down.');
-    } finally {
-      setClaiming(false);
-    }
   };
 
   return (
@@ -369,8 +291,8 @@ const WikiOnboarding = () => {
             <p className="wiki-onboarding__eyebrow">Feed the wiki</p>
             <h1>Start with what you have already read.</h1>
             <p>
-              Noeis is built on your own archive. Connect it and the wiki has something
-              true to stand on from the first page.
+              Noeis is built on your own archive. Connect it and everything you have
+              been saving becomes material you can work from.
             </p>
           </div>
 
@@ -395,7 +317,7 @@ const WikiOnboarding = () => {
               placeholder="Paste a link to something you read this week - or a few paragraphs of it..."
             />
           </label>
-          <button type="button" onClick={buildFromPaste} disabled={busy}>Build from this</button>
+          <button type="button" onClick={addToLibrary} disabled={busy}>Add to my library</button>
 
           <p className="wiki-onboarding__packs-lead">
             Nothing to connect yet? Start from a pack and replace it as your own reading arrives.
@@ -425,56 +347,37 @@ const WikiOnboarding = () => {
 
       {step === 'hook' ? (
         <section className="wiki-onboarding__panel wiki-onboarding__panel--hook">
-          <p className="wiki-onboarding__eyebrow">{source === 'shared' ? 'Adopted wiki' : 'First page'}</p>
-          <h1>{source === 'shared' ? 'This wiki is now yours.' : 'Your first page is ready.'}</h1>
-          {/* One ending, not two. This used to close on "add your own material
-              next so the graph starts connecting" — a page telling you about
-              itself — and then ask for a claim underneath, so the step had two
-              endings competing. The page being built is the setup; the claim
-              is the ending. */}
+          <p className="wiki-onboarding__eyebrow">{arrivedWithPages ? 'Adopted wiki' : 'In your library'}</p>
+          {/* No page was built, so nothing here claims one was.
+              This used to read "Your first page is ready" while a build was still
+              running — false when shown, and still false two minutes later. What is
+              true at this moment is that the material arrived. */}
+          <h1>
+            {arrivedWithPages
+              ? 'This wiki is now yours.'
+              : 'That is in your library now.'}
+          </h1>
           <p>
-            {source === 'shared'
-              ? 'The agent copied the safe pages into your workspace, and your version can grow without touching the original. One thing left.'
-              : 'The agent built it from what you brought in. One thing left.'}
+            {arrivedWithPages
+              ? 'The pages were copied into your workspace. Your copy grows as you feed it, and the original owner keeps theirs.'
+              : 'Kept whole, with its source attached. Add a few more and the wiki has something real to be built from — when you decide to build it.'}
           </p>
-          {/* You leave with a claim.
-              Onboarding used to end on a page existing — "your first page is
-              ready" — which is the product describing itself rather than
-              asking anything of you. The thing this product is for is
-              committing to something you can be held to, so the last thing it
-              does is hand you one. The page you just made is the evidence
-              under it. */}
-          <form className="wiki-onboarding__claim" onSubmit={writeFirstClaim}>
-            <label htmlFor="onboarding-first-claim">
-              <strong>Now write one thing you believe.</strong>
-              <span>One sentence you would defend. What you just brought in is the evidence under it.</span>
-            </label>
-            <input
-              id="onboarding-first-claim"
-              value={claimDraft}
-              onChange={event => setClaimDraft(event.target.value)}
-              placeholder="Write it as one sentence."
-              disabled={claiming}
-            />
-            <div className="wiki-onboarding__claim-actions">
-              <button type="submit" disabled={claiming || !claimDraft.trim()}>
-                {claiming ? 'Writing it down…' : 'Write it down'}
-              </button>
-              <button type="button" className="wiki-onboarding__secondary-action" onClick={goToWiki}>
-                Not yet — go to my page
-              </button>
-            </div>
-            {claimError ? <p className="wiki-onboarding__error" role="alert">{claimError}</p> : null}
-          </form>
+          {importedSource?.title ? (
+            <p className="wiki-onboarding__arrival">{importedSource.title}</p>
+          ) : null}
 
           <div className="wiki-onboarding__hook-actions">
-            <button type="button" onClick={showMeAround}>Show me around</button>
-            <Link to="/connections#capture">Connect more reading</Link>
+            <button type="button" onClick={goToLibrary}>Go to my library</button>
+            <button type="button" className="wiki-onboarding__secondary-action" onClick={showMeAround}>
+              Show me around first
+            </button>
+            {/* Only when there is something to look at. A copied wiki has pages;
+                a first imported source does not. */}
+            {arrivedWithPages ? <Link to="/wiki">See the copied pages</Link> : null}
           </div>
-          {/* The ask, at the moment of felt need: the page they just made has one
-              source. Rendered inline rather than linked away — this used to point at
-              /connections#capture, which had no capture section to land on. */}
+
           <ExtensionCaptureCard compact heading="Save from anywhere" />
+
           {adoptedStarterPages.some(page => page?.adoptedFrom?.sample) ? (
             <section className="wiki-onboarding__sample" aria-label="Starter pack controls">
               <div>

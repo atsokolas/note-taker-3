@@ -7,18 +7,18 @@ import {
   createWikiPage,
   deleteWikiPage,
   listWikiStarterPacks,
-  startWikiPageBuild,
-  updateWikiPage
+  startWikiPageBuild
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
 
+// createWikiPage and startWikiPageBuild are mocked so the tests can assert they are
+// never called: first run imports a source and stops.
 jest.mock('../api/wiki', () => ({
   adoptWikiStarterPack: jest.fn(),
   createWikiPage: jest.fn(),
   deleteWikiPage: jest.fn(),
   listWikiStarterPacks: jest.fn(),
-  startWikiPageBuild: jest.fn(),
-  updateWikiPage: jest.fn()
+  startWikiPageBuild: jest.fn()
 }));
 
 jest.mock('../api/imports', () => ({
@@ -103,113 +103,64 @@ describe('WikiOnboarding', () => {
     expect(longPackCard).not.toHaveTextContent('BEHAVIORAL ECONOMICS & DECISION-MAKING');
   });
 
-  it('moves from show to starter-pack build narration and hook', async () => {
+  it('adopts a starter pack without building anything', async () => {
     render(<WikiOnboarding />);
-
-    expect(screen.getByLabelText('Example wiki page preview')).toHaveTextContent('Core idea');
-    expect(screen.getByLabelText('Example wiki page preview')).toHaveTextContent('Evidence');
-    expect(screen.getByLabelText('Example wiki page preview')).toHaveTextContent('Open question');
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(await screen.findByRole('button', { name: /Mental Models/ })).toBeInTheDocument();
-
     fireEvent.click(screen.getByRole('button', { name: 'Add selected pack' }));
 
     await waitFor(() => expect(adoptWikiStarterPack).toHaveBeenCalledWith('mental-models'));
-    expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
-    expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Background maintenance checks due wiki pages about every six hours/i);
-    expect(screen.getByText('Scheduled page refresh is on.')).toBeInTheDocument();
-    // The extension ask is now a real card with detected state, rendered inline —
-    // it used to be a link to /connections#capture, which had nothing to land on.
-    expect(screen.getByLabelText('Browser capture setup')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'This wiki is now yours.' })).toBeInTheDocument();
+    // Adopted pages arrive already written. Nothing is built during first run.
+    expect(startWikiPageBuild).not.toHaveBeenCalled();
   });
 
-  it('builds a first page from pasted text', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Opportunity cost memo' });
-
+  it('puts a pasted source in the library and builds no page', async () => {
     render(<WikiOnboarding />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
-      target: { value: 'Opportunity cost is the price of the best alternative not taken. Every allocation of capital or attention forecloses another one, so the true cost of any choice is the value of the option you gave up rather than the cash you handed over. Accountants record the cash; the decision maker has to price the road not travelled, which is why two projects with identical budgets can differ enormously in what they actually cost the firm.' }
+      target: { value: 'Opportunity cost is the price of the best alternative not taken. Every allocation of capital or attention forecloses another one, so the true cost of any choice is the value of the option you gave up rather than the cash you handed over. Accountants record the cash; the decision maker has to price the road not travelled.' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to my library' }));
 
-    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Opportunity Cost'
-    })));
-    await waitFor(() => expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
-      createdFrom: expect.objectContaining({ type: 'article', objectId: 'article-1' }),
-      initialSourceRef: expect.objectContaining({ type: 'article', objectId: 'article-1' })
-    })));
-    await waitFor(() => expect(startWikiPageBuild).toHaveBeenCalledWith(
-      'paste-page',
-      expect.objectContaining({
-        maintenanceProfile: 'fast',
-        sourceLimit: 8,
-        inlineAutolinkLimit: 150,
-        skipQualityRebuild: false,
-        streamDraft: false,
-        deferInboundAutolinks: true
-      })
-    ));
-    expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
+    await waitFor(() => expect(importPastedText).toHaveBeenCalled());
+    // The whole point of the change: a wiki page is synthesis over accumulated
+    // reading, and one pasted link is not that. The evidence gate refused these
+    // roughly half the time in production, which made failure a new user's first
+    // outcome.
+    expect(createWikiPage).not.toHaveBeenCalled();
+    expect(startWikiPageBuild).not.toHaveBeenCalled();
+    expect(await screen.findByRole('heading', { name: 'That is in your library now.' })).toBeInTheDocument();
+    expect(screen.getByText('Opportunity cost memo')).toBeInTheDocument();
   });
 
-  it('strips a leading article when inferring a generated first-page title', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Availability Heuristic' });
-
-    render(<WikiOnboarding />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
-      target: { value: 'The availability heuristic is a shortcut where vivid examples crowd out base rates. People judge how likely something is by how easily an instance comes to mind, so a recent plane crash makes flying feel dangerous while the far larger risk of the drive to the airport stays invisible. The bias is strongest where coverage is uneven, because memory is sampling the news rather than the world.' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
-
-    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Availability Heuristic'
-    })));
-  });
-
-  it('hands the build off in the background instead of holding the user on a spinner', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'paste-page', title: 'Spaced Repetition' });
-
-    render(<WikiOnboarding />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
-      target: { value: 'Spaced repetition is a learning technique where reviews are timed to land just as recall begins to fail. Each successful retrieval lengthens the next interval, so material that is nearly forgotten gets seen often and material that is solid gets out of the way. The schedule matters more than the total hours, which is why massed cramming feels productive and disappears within a week.' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
-
-    // The user reaches the end of onboarding while the build is still running.
-    expect(await screen.findByRole('heading', { name: 'Your first page is ready.' })).toBeInTheDocument();
-
-    // And the in-flight build is recorded so the ambient banner can pick it up.
-    const handoff = JSON.parse(sessionStorage.getItem('noeis.onboarding.activeBuild.v1'));
-    expect(handoff).toEqual(expect.objectContaining({
-      pageId: 'paste-page',
-      title: 'Spaced Repetition'
-    }));
-  });
-
-  it('imports a pasted URL before creating the first wiki page', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'url-page', title: 'URL memo' });
-
+  it('leaves onboarding in the library', async () => {
     render(<WikiOnboarding />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
       target: { value: 'https://example.com/memo' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to my library' }));
 
     await waitFor(() => expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/memo' }));
-    expect(createWikiPage).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'URL memo',
-      initialSourceRef: expect.objectContaining({ url: 'https://example.com/memo' })
-    }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Go to my library' }));
+    expect(navigate).toHaveBeenCalledWith('/library', { replace: true });
+  });
+
+  it('imports a pasted URL rather than treating it as prose', async () => {
+    render(<WikiOnboarding />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
+      target: { value: 'https://example.com/memo' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add to my library' }));
+
+    await waitFor(() => expect(importPastedUrl).toHaveBeenCalledWith({ url: 'https://example.com/memo' }));
+    expect(importPastedText).not.toHaveBeenCalled();
   });
 
   it('lets users clear adopted sample packs and review possible merges', async () => {
@@ -248,10 +199,11 @@ describe('WikiOnboarding', () => {
     expect(screen.getByRole('heading', { name: 'This wiki is now yours.' })).toBeInTheDocument();
     expect(screen.getByLabelText("Tomorrow's Morning Paper")).toHaveTextContent(/Your adopted copy joins your own maintenance loop/i);
     await waitFor(() => expect(listWikiStarterPacks).toHaveBeenCalled());
-    // Onboarding now ends on the Paper — home — with the built page one click away.
-    expect(screen.getByRole('button', { name: 'Show me around' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Not yet — go to my page' }));
-    expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-1', { replace: true });
+    // Every path out of onboarding ends in the Library. A copied wiki also gets a
+    // link to the pages that arrived, since it has some.
+    expect(screen.getByRole('link', { name: 'See the copied pages' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go to my library' }));
+    expect(navigate).toHaveBeenCalledWith('/library', { replace: true });
   });
 
   it('refuses a source too thin to build from, before spending the user\'s time', async () => {
@@ -261,7 +213,7 @@ describe('WikiOnboarding', () => {
     fireEvent.change(await screen.findByPlaceholderText(/Paste a link to something you read/i), {
       target: { value: 'Goodharts law says a measure that becomes a target stops being a good measure.' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Build from this' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to my library' }));
 
     // This exact input reached production, burned ~20s, and was rejected by the
     // evidence gate for claims with no anchor in their source.
@@ -294,33 +246,4 @@ describe('WikiOnboarding', () => {
 
   /* You leave with a claim. Onboarding used to end on a page existing, which
      is the product describing itself rather than asking anything of you. */
-  it('ends by writing down one thing you believe, and opens it', async () => {
-    createWikiPage.mockResolvedValue({ _id: 'j1' });
-    updateWikiPage.mockResolvedValue({});
-    jest.spyOn(router, 'useSearchParams').mockReturnValue([new URLSearchParams('adoptedPage=page-1'), jest.fn()]);
-
-    render(<WikiOnboarding />);
-    const input = await screen.findByLabelText(/Now write one thing you believe/);
-
-    fireEvent.change(input, { target: { value: 'A written process improves judgment.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Write it down' }));
-
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/judgment/j1'));
-    expect(createWikiPage).toHaveBeenCalledWith({
-      title: 'A written process improves judgment.',
-      pageType: 'topic'
-    });
-    expect(updateWikiPage).toHaveBeenCalledWith('j1', {
-      judgment: { currentJudgment: 'A written process improves judgment.' }
-    });
-  });
-
-  it('lets you leave without one, rather than trapping you behind it', async () => {
-    jest.spyOn(router, 'useSearchParams').mockReturnValue([new URLSearchParams('adoptedPage=page-1'), jest.fn()]);
-    render(<WikiOnboarding />);
-
-    await screen.findByLabelText(/Now write one thing you believe/);
-    expect(screen.getByRole('button', { name: 'Not yet — go to my page' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Write it down' })).toBeDisabled();
-  });
 });
