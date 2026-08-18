@@ -378,3 +378,229 @@ a.paper__end-title:focus-visible {
   gap: 10px;
   padding-top: 16px;
 }
+
+/* ---------- the morning paper, at the lock ---------- */
+
+/* Rail B: the paper centres in the space beside the agent rather than hugging
+   the left edge of it. The measure stays the paper's own; what changes is that
+   the leftover space is split rather than all falling on the right. */
+.paper--compact {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.wfp-lead {
+  display: grid;
+  gap: 0;
+  margin: 0 0 4px;
+}
+
+/* The eyebrow sits over the lead rather than splitting to the corners. */
+.wfp-lead__eyebrow {
+  margin: 0 0 20px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* The claim carries the page. It is the one thing on this screen set at
+   headline size, because it is the only thing on it you are being asked
+   about. */
+.wfp-lead__claim {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(28px, 3.6vw, 40px);
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.wfp-lead__claim--quiet {
+  font-size: clamp(21px, 2.4vw, 27px);
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.wfp-lead__where {
+  margin: 12px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+}
+
+.wfp-lead__where a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+/* Four verbs, as words. This is the daily act. */
+.wfp-lead__verbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin: 22px 0 0;
+}
+
+body.noeis-editorial .wiki-front-page .wfp-lead__verbs button,
+.wfp-lead__verbs button,
+.wfp-lead__verbs a {
+  min-height: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid currentColor !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.06rem;
+  font-weight: 400;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wfp-lead__verbs button:disabled {
+  border-bottom-color: transparent !important;
+  cursor: default;
+  opacity: 0.55;
+}
+
+.wfp-lead__revision {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+body.noeis-editorial .wiki-front-page .wfp-lead__revision textarea,
+.wfp-lead__revision textarea {
+  width: 100%;
+  padding: 8px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.2rem;
+  line-height: 1.35;
+  resize: vertical;
+}
+
+/* "Continue" — the label over the connection, once a claim has led. */
+.paper__continue-label {
+  margin: 0 0 2px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+}
+
+/* The four mechanics, as one row of words. */
+.paper__mechanics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin: 26px 0 0;
+  padding-top: 22px;
+  border-top: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
+}
+
+.paper__mechanic-word {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  cursor: pointer;
+}
+
+.paper__mechanic-word:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.55;
+}
+
+.paper__section--open {
+  border-top: 0;
+  padding-top: 18px;
+}
+
+/* What grew, what is watched, and the way to everything you have read. */
+.wfp-tail {
+  margin: 30px 0 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
+}
+
+.wfp-tail__cap {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.wfp-tail__list {
+  margin: 12px 0 0;
+  padding-left: 22px;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.12rem;
+  line-height: 1.95;
+}
+
+.wfp-tail__list a {
+  color: var(--text-primary, var(--vellum-ink));
+  text-decoration: none;
+}
+
+.wfp-tail__list a:hover {
+  border-bottom: 1px solid currentColor;
+}
+
+.wfp-tail__quiet {
+  margin: 18px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1rem;
+}
+
+.wfp-tail__door {
+  margin: 26px 0 0;
+}
+
+.wfp-tail__door a {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.08rem;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+/* Once a claim has led, the connection is what you continue into, not a second
+   headline. It gives up the lead's size and the band the refresh receipt used
+   to sit in. */
+.paper--led .paper__lead-title {
+  font-size: clamp(19px, 1.9vw, 24px);
+  line-height: 1.3;
+}
+
+.paper--led .paper__lead {
+  gap: 10px;
+}
+
+.paper--led .paper__lead-foot {
+  padding-top: 0;
+  border-top: 0;
+  margin-top: -6px;
+}
+
+.paper--led .paper__card--lead .paper__relation-line {
+  font-size: var(--text-sm, 15px);
+}

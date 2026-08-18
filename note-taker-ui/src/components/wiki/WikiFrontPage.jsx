@@ -166,11 +166,14 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
    and under it everything the reading has built. It sits above every state of
    this page — including the loading one, so the wiki is never a blank curtain
    while it fetches. */
-const WikiFrontPageShell = ({ children, ...mainProps }) => (
+const WikiFrontPageShell = ({ children, lead = null, tail = null, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
-      <Paper compact />
+      {/* The morning paper: a claim you hold, then what to continue, then what
+          grew. The lead and the tail are this page's; the middle is the
+          reading loop's, which is why the paper takes them as slots. */}
+      <Paper compact lead={lead} tail={tail} />
       {children}
     </main>
   </>
@@ -479,6 +482,77 @@ const WikiFrontPage = () => {
   const claimCheckIn = briefing?.claimCheckIn || null;
   const watching = Array.isArray(briefing?.watching) ? briefing.watching : [];
 
+  /* The lead is a claim you hold and the four things you can do about it.
+     It was already here — Still hold, Revise, Retire, Open claim — but folded
+     inside "Review and system activity", which is a place you go rather than a
+     thing you meet. Opening Noeis should mean being asked whether you still
+     believe something. */
+  const paperLead = (
+    <div className="wfp-lead">
+      <p className="wfp-lead__eyebrow">Morning paper · {mastheadDate()}</p>
+      {claimCheckIn ? (
+        <>
+          <h2 className="wfp-lead__claim">{claimCheckIn.text}</h2>
+          <p className="wfp-lead__where">
+            <Link to={claimCheckIn.href}>{claimCheckIn.pageTitle}</Link>
+            {claimCheckIn.changedSinceLastCheck ? <span> · evidence changed since your last review</span> : null}
+          </p>
+          {showRevisionDraft ? (
+            <div className="wfp-lead__revision">
+              <textarea
+                aria-label="Revised claim"
+                value={revisionDraft}
+                onChange={(event) => setRevisionDraft(event.target.value)}
+                rows={3}
+              />
+              <div className="wfp-lead__verbs">
+                <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
+                <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="wfp-lead__verbs">
+              <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
+              <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
+              <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
+              <Link to={claimCheckIn.href}>Open claim</Link>
+            </div>
+          )}
+        </>
+      ) : (
+        /* No claim is due. The page says so in one line rather than promoting
+           something else into the space to keep it full. */
+        <h2 className="wfp-lead__claim wfp-lead__claim--quiet">
+          {checkInMessage || 'No claim is due for review this morning.'}
+        </h2>
+      )}
+    </div>
+  );
+
+  /* What grew, what is being watched, and the way to everything you have read. */
+  const paperTail = (
+    <div className="wfp-tail">
+      {curatedPages.length ? (
+        <>
+          <p className="wfp-tail__cap">Recently grown</p>
+          <ol className="wfp-tail__list">
+            {curatedPages.slice(0, 3).map(page => (
+              <li key={pageId(page)}>
+                <Link to={wikiReadPath(pageId(page))}>{page.title}</Link>
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : null}
+      {watching.length ? (
+        <p className="wfp-tail__quiet">Watching {watching.length} source{watching.length === 1 ? '' : 's'}.</p>
+      ) : null}
+      <p className="wfp-tail__door">
+        <Link to="/library">See everything you have read →</Link>
+      </p>
+    </div>
+  );
+
   const handleCheckIn = async (action, revisedText = '') => {
     if (!claimCheckIn || checkInBusy) return;
     if (action === 'retired' && !window.confirm('Retire this claim? It will remain permanently auditable and can be explicitly restored later.')) return;
@@ -607,32 +681,11 @@ const WikiFrontPage = () => {
         ) : null}
         {claimCheckIn || checkInMessage || briefing?.checkInStreak ? (
           <div className="wiki-front-page__judgment-panel">
-            {claimCheckIn ? (
-              <section className="wiki-front-page__check-in" aria-labelledby="morning-claim-check-in">
-                <span className="wiki-front-page__next-action-kicker">Claim check-in</span>
-                <h2 id="morning-claim-check-in">{claimCheckIn.text}</h2>
-                <p>{claimCheckIn.pageTitle}{claimCheckIn.changedSinceLastCheck ? ' · evidence changed since your last review' : ''}</p>
-                {showRevisionDraft ? (
-                  <div className="wiki-front-page__check-in-revision">
-                    <textarea
-                      aria-label="Revised claim"
-                      value={revisionDraft}
-                      onChange={(event) => setRevisionDraft(event.target.value)}
-                      rows={3}
-                    />
-                    <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
-                    <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
-                  </div>
-                ) : (
-                  <div className="wiki-front-page__check-in-actions">
-                    <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
-                    <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
-                    <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
-                    <Link to={claimCheckIn.href}>Open claim</Link>
-                  </div>
-                )}
-              </section>
-            ) : null}
+            {/* The claim check-in used to live here, inside "Review and system
+                activity". It is the lead of the paper now — a claim you hold and
+                the four things you can do about it — so it is not also folded
+                away in the operations panel. */}
+
             {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
             {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
           </div>
@@ -726,7 +779,7 @@ const WikiFrontPage = () => {
   // cleared their corpus later: never a dead screen.
   if (!curatedPages.length) {
     return (
-      <WikiFrontPageShell>
+      <WikiFrontPageShell lead={paperLead} tail={paperTail}>
         <header className="wiki-front-page__top">
           <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
             <p className="wiki-index__eyebrow wiki-front-page__masthead">
@@ -751,7 +804,7 @@ const WikiFrontPage = () => {
   }
 
   return (
-    <WikiFrontPageShell>
+    <WikiFrontPageShell lead={paperLead} tail={paperTail}>
       <div className="wiki-living-shell">
         <aside className="wiki-living-nav wfp-anim wfp-anim--1" aria-label="Wiki views">
           <div className="wiki-living-nav__head">

@@ -138,7 +138,7 @@ const ThreadCard = ({ card, onName, onDismiss, busy }) => {
    renders as a section inside that page instead of the page itself. Same
    layout, same lead, one size down: it is what the reading turned up this
    morning, and under it is everything the reading has built. */
-const Paper = ({ compact = false }) => {
+const Paper = ({ compact = false, lead = null, tail = null }) => {
   const navigate = useNavigate();
   const [edition, setEdition] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -282,7 +282,7 @@ const Paper = ({ compact = false }) => {
      first thing under it, not a second title for the same page. */
   const LeadTitle = compact ? 'h2' : 'h1';
   const frameProps = compact
-    ? { className: 'paper paper--compact', 'aria-label': 'The Paper' }
+    ? { className: `paper paper--compact${lead ? ' paper--led' : ''}`, 'aria-label': 'The Paper' }
     : { className: 'paper' };
 
   if (loading) {
@@ -299,14 +299,19 @@ const Paper = ({ compact = false }) => {
 
   return (
     <Frame {...frameProps}>
-      <header className={`paper__masthead ${step(1)}`}>
-        <p className="paper__masthead-title">Noeis · The Paper</p>
-        <p className="paper__masthead-date">{masthead}</p>
-      </header>
+      {/* On the wiki the lead is a claim you hold, and the paper's own masthead
+          would be a second eyebrow over it. The lead slot brings its own. */}
+      {lead ? <div className={step(1)}>{lead}</div> : (
+        <header className={`paper__masthead ${step(1)}`}>
+          <p className="paper__masthead-title">Noeis · The Paper</p>
+          <p className="paper__masthead-date">{masthead}</p>
+        </header>
+      )}
 
       {error ? <div className="paper__error" role="alert">{error}</div> : null}
 
       <section className={`paper__lead ${step(2)}`} aria-labelledby="paper-lead-title">
+        {lead ? <p className="paper__continue-label">Continue</p> : null}
         {coldStart ? (
           <>
             <LeadTitle id="paper-lead-title" className="paper__lead-title">The loop isn&rsquo;t running yet.</LeadTitle>
@@ -328,10 +333,13 @@ const Paper = ({ compact = false }) => {
             </LeadTitle>
             <RelationCard card={connection.card} lead />
             <div className="paper__lead-foot">
-              <Receipt>
-                refreshed {sourceDate(connection.generatedAt) || 'just now'}
-                {connection.dailyRunCap ? ` · ${connection.runsUsedToday}/${connection.dailyRunCap} refreshes today` : ''}
-              </Receipt>
+              {/* The refresh count is a thing the machine keeps, not news. */}
+              {lead ? <span /> : (
+                <Receipt>
+                  refreshed {sourceDate(connection.generatedAt) || 'just now'}
+                  {connection.dailyRunCap ? ` · ${connection.runsUsedToday}/${connection.dailyRunCap} refreshes today` : ''}
+                </Receipt>
+              )}
               <button type="button" className="paper__action paper__action--quiet" onClick={refreshLead} disabled={busy === 'connection'}>
                 {busy === 'connection' ? 'Reading…' : 'Refresh'}
               </button>
@@ -363,7 +371,60 @@ const Paper = ({ compact = false }) => {
         )}
       </section>
 
-      {MECHANICS.map(({ kind, label, invitation }) => {
+      {/* Four words on one line, not four boxes.
+          Each of these was a section with a RUN button and a "not run yet"
+          receipt under it — about six hundred pixels of the front page spent
+          telling you that nothing had happened. The lock draws them as a row
+          of words you can press. What comes back still opens below. */}
+      {lead ? (
+        <div className={`paper__mechanics ${step(4)}`}>
+          {MECHANICS.map(({ kind, label }) => (
+            <button
+              key={kind}
+              type="button"
+              className="paper__mechanic-word"
+              onClick={() => runMechanic(kind)}
+              disabled={busy === kind || Boolean(coldStart)}
+            >
+              {busy === kind ? `${label}…` : label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {lead ? MECHANICS.filter(({ kind }) => edition?.[kind]?.status === 'ready' && edition[kind].card).map(({ kind, label }) => {
+        const mechanic = edition[kind];
+        const running = busy === kind;
+        return (
+          <section className="paper__section paper__section--open" key={kind} aria-labelledby={`paper-${kind}`}>
+            <h2 className="paper__section-label" id={`paper-${kind}`}>{label}</h2>
+            {kind === 'thread' ? (
+              <ThreadCard card={mechanic.card} onName={nameThread} onDismiss={dismissThread} busy={running} />
+            ) : (
+              <RelationCard card={mechanic.card}>
+                {kind === 'collision' && mechanic.card.claim ? (
+                  <div className="paper__actions">
+                    <button type="button" className="paper__action" onClick={() => checkIn('reaffirmed')} disabled={running}>Still hold</button>
+                    <Link className="paper__action" to={mechanic.card.claim.href}>Revise</Link>
+                    <button type="button" className="paper__action paper__action--quiet" onClick={() => checkIn('retired')} disabled={running}>Retire</button>
+                  </div>
+                ) : null}
+                {kind === 'resolution' && mechanic.card.question ? (
+                  <div className="paper__actions">
+                    <Link className="paper__action" to={mechanic.card.question.href}>Open the question</Link>
+                    <button type="button" className="paper__action paper__action--quiet" onClick={markAnswered} disabled={running}>Mark answered</button>
+                  </div>
+                ) : null}
+              </RelationCard>
+            )}
+            {notes[kind] ? <Receipt>{notes[kind]}</Receipt> : null}
+          </section>
+        );
+      }) : null}
+
+      {tail ? <div className={step(5)}>{tail}</div> : null}
+
+      {lead ? null : MECHANICS.map(({ kind, label, invitation }) => {
         const mechanic = edition?.[kind];
         const running = busy === kind;
         return (

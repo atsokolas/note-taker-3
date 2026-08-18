@@ -657,3 +657,77 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   letter-spacing: 0 !important;
   text-transform: none !important;
 }
+
+/* ---------- the library, in the paper's language ---------- */
+
+/* Everything you have read, set like the morning paper rather than like a file
+   manager: one centred column at the paper's measure, the entries in the
+   reading serif, and the filing kept on the left where it belongs. Reached
+   from the foot of the wiki home, so the two pages read as one publication. */
+.library-column {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding-top: 34px;
+}
+
+.library-column__eyebrow {
+  margin: 0 0 26px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.library-column__kicker {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.library-column__continue h2 {
+  font-size: clamp(1.5rem, 2.4vw, 1.9rem);
+  line-height: 1.2;
+}
+
+/* The entries carry the page. A list of things you have read should read like
+   a list of things, not like rows in a table. */
+.library-column__rows a,
+.library-column__rows button,
+.library-column__row-title {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.14rem;
+  line-height: 1.45;
+}
+
+/* Finding and saving are tools, not headlines: they sit under the reading in
+   the smaller face so the entries stay the loudest thing on the page. */
+.library-column__tools {
+  margin-bottom: 30px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+}
+
+.library-column__find span,
+.library-column__saver {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+/* Left, not centred. A centred entry reads as a poster; the lock sets the
+   column left so the eye returns to the same margin down the whole page. */
+.library-column__eyebrow,
+.library-column__continue,
+.library-column__continue h2,
+.library-column__kicker,
+.library-column__source,
+.library-column__dek {
+  text-align: left;
+}
+
+.library-column__continue-link {
+  margin-left: 0;
+  margin-right: auto;
+}
