@@ -8,7 +8,9 @@ import { getDailyLoop, recordClaimCheckIn, armReadingWatch, disarmWatcher } from
 /* The Paper sits at the top of this page now. It is its own surface with its
    own suite; here it stands in as a marker, so these tests stay about the
    wiki and do not drag the reading-loop client in behind them. */
-jest.mock('../../pages/Paper', () => () => <div data-testid="paper-on-top" />);
+jest.mock('../../pages/Paper', () => ({ lead = null, tail = null }) => (
+  <div data-testid="paper-on-top">{lead}{tail}</div>
+));
 
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn()
@@ -658,5 +660,58 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(await screen.findByTestId('paper-on-top')).toBeInTheDocument();
     const main = document.querySelector('main.wiki-front-page');
     expect(main.firstElementChild).toBe(screen.getByTestId('paper-on-top'));
+  });
+
+
+  /* The morning paper leads with a claim you hold and the four things you can
+     do about it. Those four were already built — Still hold, Revise, Retire,
+     Open claim — but folded inside "Review and system activity", which is a
+     place you go rather than a thing you meet. */
+  describe('the lead', () => {
+    /* The default briefing carries no claim due for review; a lead needs one. */
+    const paint = () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        ...briefing,
+        claimCheckIn: {
+          pageId: 'wiki-first-principles',
+          pageTitle: 'Nvidia dossier',
+          claimId: 'c1',
+          text: 'Integration retains pricing power.',
+          changedSinceLastCheck: true,
+          href: '/wiki/workspace?page=wiki-first-principles&claimId=c1'
+        }
+      } });
+      return render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+    };
+
+    it('leads with the claim rather than with what the software noticed', async () => {
+      paint();
+      const claim = await screen.findByText('Integration retains pricing power.', {}, { timeout: 5000 });
+      expect(claim).toHaveClass('wfp-lead__claim');
+    });
+
+    it('offers the four verbs the lock draws', async () => {
+      paint();
+      await screen.findByText('Integration retains pricing power.', {}, { timeout: 5000 });
+      const verbs = document.querySelector('.wfp-lead__verbs');
+      ['Still hold', 'Revise', 'Retire', 'Open claim'].forEach((verb) => {
+        expect(within(verbs).getByText(verb)).toBeInTheDocument();
+      });
+    });
+
+    it('ends on the way to every page the reading has built', async () => {
+      paint();
+      await screen.findByText('Integration retains pricing power.', {}, { timeout: 5000 });
+      expect(within(document.querySelector('.wfp-tail')).getByRole('link', { name: /See every page in your wiki/ }))
+        .toHaveAttribute('href', '/wiki/workspace?view=list');
+    });
+
+    /* No claim due is a sentence, not an empty space filled with something
+       else promoted to keep it busy. */
+    it('says so in one line when no claim is due', async () => {
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByText(/No claim is due for review this morning/, {}, { timeout: 5000 }))
+        .toBeInTheDocument();
+    });
   });
 });

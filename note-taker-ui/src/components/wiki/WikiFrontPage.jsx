@@ -547,8 +547,11 @@ const WikiFrontPage = () => {
       {watching.length ? (
         <p className="wfp-tail__quiet">Watching {watching.length} source{watching.length === 1 ? '' : 's'}.</p>
       ) : null}
+      {/* Everything the reading has built — the wiki's own pages, not the
+          article shelf. The three above are what grew most recently; this is
+          the rest of them. */}
       <p className="wfp-tail__door">
-        <Link to="/library">See everything you have read →</Link>
+        <Link to="/wiki/workspace?view=list">See every page in your wiki →</Link>
       </p>
     </div>
   );
@@ -686,7 +689,9 @@ const WikiFrontPage = () => {
                 the four things you can do about it — so it is not also folded
                 away in the operations panel. */}
 
-            {checkInMessage ? <p className="wiki-front-page__check-in-register" role="status">{checkInMessage}</p> : null}
+            {/* What a check-in registered is reported by the lead, which is
+                where the check-in now happens. Saying it twice made the page
+                answer a question nobody asked twice. */}
             {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
           </div>
         ) : null}
