@@ -1627,6 +1627,9 @@ const DEFAULT_ASYNC_BUILD_TIMEOUT_MS = 4 * 60 * 1000;
 const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
   'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
+  // The Judgment index is built entirely out of this field, and it is small:
+  // null on every page that is not a judgment.
+  'judgment',
   'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
   'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
   'sourceRefs.type', 'sourceRefs.objectId',

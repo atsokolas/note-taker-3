@@ -391,4 +391,17 @@ describe('the agent rail', () => {
     expect(payload.judgment.currentJudgment).toBe('Demand still outruns deliverable capacity.');
     expect(payload.judgment.kind).toBeUndefined();
   });
+
+  /* The index needs one sentence and a provenance line per judgment. Asking
+     for whole pages pulled every body and every ledger in the corpus down the
+     wire to throw almost all of it away, which is why this page took minutes
+     to open on a real library. */
+  it('asks for a summary of the corpus, not every page in full', async () => {
+    jest.spyOn(router, 'useParams').mockReturnValue({});
+    listWikiPages.mockResolvedValue([]);
+    render(<Judgment />);
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+    expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({ summary: 1 }));
+  });
+
 });

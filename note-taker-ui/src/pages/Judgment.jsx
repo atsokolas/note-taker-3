@@ -304,14 +304,17 @@ const JudgmentDetail = ({ pageId }) => {
     setLoading(true);
     (async () => {
       try {
-        const loaded = await getWikiPage(pageId);
-        if (cancelled) return;
-        setPage(loaded);
         // Reading what arrived overnight is a read. It must not touch the
         // morning paper's cursor, so this reads the source events directly
-        // rather than opening the daily loop.
-        const events = await listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT });
+        // rather than opening the daily loop. It does not depend on the page
+        // either, so it goes at the same time rather than after it — two round
+        // trips in series is twice the wait on a cold API for no reason.
+        const [loaded, events] = await Promise.all([
+          getWikiPage(pageId),
+          listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => [])
+        ]);
         if (cancelled) return;
+        setPage(loaded);
         setOvernight(selectOvernightLine(loaded, events));
       } catch (loadError) {
         if (!cancelled) setError(loadError?.response?.data?.error || 'Could not open this judgment.');
@@ -597,7 +600,11 @@ const Judgment = () => {
     let cancelled = false;
     (async () => {
       try {
-        const pages = await listWikiPages();
+        /* The index renders one sentence and a provenance line per judgment.
+           Asking for whole pages meant every Tiptap body, every plainText, and
+           every source and claim ledger in the corpus came down the wire so
+           that almost all of them could be filtered out on arrival. */
+        const pages = await listWikiPages({ summary: 1, limit: 500 });
         if (!cancelled) setItems(buildJudgmentIndex(pages));
       } catch (error) {
         if (!cancelled) setIndexError('Could not load your judgments.');
