@@ -44,8 +44,11 @@ export const WALKTHROUGH_STOPS = [
     eyebrow: 'Home',
     title: 'This is home.',
     // Also empty on day one. A wiki page is something the user builds once there is
-    // material worth building from, so this promises the condition, not a page.
-    detail: 'Nothing here yet. Once you have gathered enough reading, this is where you build a page from it — and where Noeis tells you what changed while you were away.'
+    // material worth building from, so this promises the condition, not a page —
+    // and names the control that does it. The previous copy said a page gets built
+    // here without saying by what, which leaves the one action the user is supposed
+    // to take as the one thing the walkthrough never points at.
+    detail: 'Nothing here yet — you build the pages. Once you have gathered enough reading, ask for a wiki page below and Noeis writes it from what you saved. This is also where it tells you what changed while you were away.'
   }
 ];
 

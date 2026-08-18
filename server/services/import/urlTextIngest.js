@@ -44,6 +44,51 @@ const extractTagContent = (html = '', tagName = '') => {
   return match ? match[1] : '';
 };
 
+const extractSiteName = (html = '') => {
+  const match = String(html || '').match(/<meta\b[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i)
+    || String(html || '').match(/<meta\b[^>]+content=["']([^"']+)["'][^>]+property=["']og:site_name["']/i);
+  return match?.[1] ? decodeHtmlEntities(match[1]).trim() : '';
+};
+
+const compareKey = (value = '') => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Host labels worth comparing against: drop the TLD and the routing prefixes
+// ("en.", "www.", "m.") that are not what anyone calls the publication.
+const hostLabels = (hostname = '') => String(hostname || '')
+  .toLowerCase()
+  .split('.')
+  .slice(0, -1)
+  .filter((label) => label && !['www', 'm', 'en'].includes(label));
+
+/**
+ * Pages title themselves for a browser tab, not for a library. "Survivorship
+ * bias - Wikipedia" reads as a page about two things, and a shelf of them reads
+ * as a shelf of Wikipedia rather than a shelf of ideas.
+ *
+ * Only the publication gets removed, never a subtitle: the trailing segment has
+ * to match what the page itself says it is (og:site_name) or the host it came
+ * from. "Fooled by Randomness - The Hidden Role of Chance" keeps its second half
+ * because nothing claims that half is a publisher.
+ */
+const stripSiteSuffix = (title = '', { siteName = '', hostname = '' } = {}) => {
+  const known = [siteName, ...hostLabels(hostname)].map(compareKey).filter(Boolean);
+  if (!known.length) return String(title || '').trim();
+
+  let result = String(title || '').trim();
+  // Twice: "Goodhart's law - Wikipedia - Wikipedia" happens, and so does a page
+  // that names both its section and its site.
+  for (let pass = 0; pass < 2; pass += 1) {
+    const split = result.match(/^(.*\S)\s*[-|–—:·]{1,2}\s*([^-|–—:·]+)$/);
+    if (!split) break;
+    const [, head, tail] = split;
+    const tailKey = compareKey(tail);
+    if (!tailKey || !known.includes(tailKey)) break;
+    if (head.trim().length < 3) break;
+    result = head.trim();
+  }
+  return result;
+};
+
 const extractTitle = (html = '', fallback = '') => {
   const ogTitle = String(html || '').match(/<meta\b[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
     || String(html || '').match(/<meta\b[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
@@ -118,7 +163,10 @@ const fetchUrlForIngest = async ({ url, fetchImpl = fetch, timeoutMs = 12000 } =
     if (!res.ok) throw new Error(`URL fetch failed with HTTP ${res.status}.`);
     const contentType = String(res.headers?.get?.('content-type') || '').toLowerCase();
     const raw = await res.text();
-    const title = contentType.includes('html') ? extractTitle(raw, parsed.hostname) : parsed.hostname;
+    const rawTitle = contentType.includes('html') ? extractTitle(raw, parsed.hostname) : parsed.hostname;
+    const title = contentType.includes('html')
+      ? stripSiteSuffix(rawTitle, { siteName: extractSiteName(raw), hostname: parsed.hostname })
+      : rawTitle;
     const text = contentType.includes('html') ? extractReadableText(raw) : normalizeIngestText(raw);
     return {
       url: parsed.toString(),
@@ -131,6 +179,7 @@ const fetchUrlForIngest = async ({ url, fetchImpl = fetch, timeoutMs = 12000 } =
 };
 
 module.exports = {
+  stripSiteSuffix,
   deriveConceptTitleFromText,
   extractReadableText,
   extractTitle,

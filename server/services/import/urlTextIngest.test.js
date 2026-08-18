@@ -5,7 +5,8 @@ const {
   extractTitle,
   fetchUrlForIngest,
   normalizeIngestText,
-  stripHtml
+  stripHtml,
+  stripSiteSuffix
 } = require('./urlTextIngest');
 
 const run = async () => {
@@ -61,6 +62,57 @@ const run = async () => {
     () => fetchUrlForIngest({ url: 'file:///tmp/x' }),
     /http and https/
   );
+
+  // A page titles itself for a browser tab. A library of "X - Wikipedia" reads as
+  // a shelf of Wikipedia rather than a shelf of ideas, so the publication comes off
+  // the end — but only when something actually claims that half is a publication.
+  assert.strictEqual(
+    stripSiteSuffix('Survivorship bias - Wikipedia', { siteName: 'Wikipedia', hostname: 'en.wikipedia.org' }),
+    'Survivorship bias'
+  );
+
+  // The host answers it when the page never names itself.
+  assert.strictEqual(
+    stripSiteSuffix('The Tail End | Wait But Why', { hostname: 'waitbutwhy.com' }),
+    'The Tail End'
+  );
+
+  // A subtitle is part of the work. Nothing claims this half is a publisher.
+  assert.strictEqual(
+    stripSiteSuffix('Fooled by Randomness - The Hidden Role of Chance', {
+      siteName: 'Penguin Random House', hostname: 'penguinrandomhouse.com'
+    }),
+    'Fooled by Randomness - The Hidden Role of Chance'
+  );
+
+  ['-', '|', '\u2013', '\u2014', ':', '\u00b7'].forEach((separator) => {
+    assert.strictEqual(
+      stripSiteSuffix(`Goodhart's law ${separator} Wikipedia`, { siteName: 'Wikipedia', hostname: 'en.wikipedia.org' }),
+      "Goodhart's law",
+      `separator ${separator} left the publication attached`
+    );
+  });
+
+  // Stripping a title down to nothing is worse than leaving the suffix on.
+  assert.strictEqual(
+    stripSiteSuffix('Wikipedia', { siteName: 'Wikipedia', hostname: 'en.wikipedia.org' }),
+    'Wikipedia'
+  );
+
+  // With no idea what the publication is, guessing would eat real titles.
+  assert.strictEqual(stripSiteSuffix('Some page - Somewhere', {}), 'Some page - Somewhere');
+
+  // End to end: the suffix is gone by the time the source reaches the library.
+  const suffixed = await fetchUrlForIngest({
+    url: 'https://en.wikipedia.org/wiki/Goodhart',
+    fetchImpl: async () => ({
+      ok: true,
+      headers: { get: () => 'text/html' },
+      text: async () => '<html><head><meta property="og:site_name" content="Wikipedia">'
+        + '<title>Goodhart&#039;s law - Wikipedia</title></head><body><p>A law.</p></body></html>'
+    })
+  });
+  assert.strictEqual(suffixed.title, "Goodhart's law");
 
   console.log('urlTextIngest tests passed');
 };
