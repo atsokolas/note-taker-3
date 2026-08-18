@@ -20,21 +20,10 @@ export const WALKTHROUGH_STOPS = [
     route: '/library',
     eyebrow: 'Your library',
     title: 'Everything you keep lands here.',
-    // Filled with the user's real counts at render time; falls back to the plain
-    // sentence when there is nothing true to say yet.
     detail: 'Saved articles, highlights, and notes stay attached to where they came from.',
     detailWithMaterial: ({ sourceCount }) => (
       `The ${sourceCount === 1 ? 'source' : 'sources'} I just read for your page ${sourceCount === 1 ? 'is' : 'are'} in here — attached to where they came from.`
     )
-  },
-  {
-    id: 'capture',
-    route: '/connections#capture',
-    eyebrow: 'Capture',
-    title: 'I only get sharper if things reach me.',
-    // No embedded card: this stop navigates to the capture card on Connections, and
-    // showing a second copy in the panel just doubles the same ask.
-    detail: 'The card below is the one ask. Everything else can wait.'
   },
   {
     id: 'think',
@@ -55,6 +44,14 @@ export const WALKTHROUGH_STOPS = [
     detail: 'Come back here and Noeis shows what changed in your reading and what is worth returning to. It fills in as you feed it.'
   }
 ];
+
+// Connections is deliberately not a stop.
+//
+// The extension ask already happens on the last onboarding screen, where the user
+// can act on it without leaving. Walking them back to Connections showed the same
+// card a second time and spent a stop on a settings page, which is the least
+// interesting surface in the product and the one furthest from their own material.
+
 
 export const WALKTHROUGH_STOP_IDS = WALKTHROUGH_STOPS.map(stop => stop.id);
 
