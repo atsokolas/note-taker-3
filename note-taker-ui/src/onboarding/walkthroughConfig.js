@@ -20,9 +20,9 @@ export const WALKTHROUGH_STOPS = [
     route: '/library',
     eyebrow: 'Your library',
     title: 'Everything you keep lands here.',
-    detail: 'Saved articles, highlights, and notes stay attached to where they came from.',
+    detail: 'Everything you save keeps its source attached, so anything built on it can be traced back.',
     detailWithMaterial: ({ sourceCount }) => (
-      `The ${sourceCount === 1 ? 'source' : 'sources'} I just read for your page ${sourceCount === 1 ? 'is' : 'are'} in here — attached to where they came from.`
+      `The ${sourceCount === 1 ? 'source you just added is' : 'sources you just added are'} in here, with ${sourceCount === 1 ? 'its' : 'their'} origin attached.`
     )
   },
   {
@@ -30,7 +30,9 @@ export const WALKTHROUGH_STOPS = [
     route: '/think?tab=concepts',
     eyebrow: 'Think',
     title: 'This is where reading turns into your own thinking.',
-    detail: 'Concepts, open questions, and notes build on the sources underneath them.'
+    // Empty on day one, and the copy has to survive that: say what will fill the
+    // room rather than describing contents this user does not have.
+    detail: 'It is empty until you write in it. Concepts, open questions, and notes start from what you have saved, and keep pointing back at it.'
   },
   {
     id: 'home',
@@ -41,7 +43,9 @@ export const WALKTHROUGH_STOPS = [
     route: '/wiki',
     eyebrow: 'Home',
     title: 'This is home.',
-    detail: 'Come back here and Noeis shows what changed in your reading and what is worth returning to. It fills in as you feed it.'
+    // Also empty on day one. A wiki page is something the user builds once there is
+    // material worth building from, so this promises the condition, not a page.
+    detail: 'Nothing here yet. Once you have gathered enough reading, this is where you build a page from it — and where Noeis tells you what changed while you were away.'
   }
 ];
 

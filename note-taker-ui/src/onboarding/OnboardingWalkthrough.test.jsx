@@ -120,7 +120,7 @@ describe('OnboardingWalkthrough', () => {
     expect(screen.getByText(/Add a link or more material/i)).toBeInTheDocument();
   });
 
-  it('speaks about the user\'s own material once the build reports sources', async () => {
+  it('names the user\'s own material once the page reports sources', async () => {
     getWikiPageBuildStatus.mockResolvedValue({
       status: 'ready', error: '', errorCode: '', completedAt: '2999-01-01T00:00:00.000Z', page: { sourceRefs: [{}, {}] }
     });
@@ -128,7 +128,7 @@ describe('OnboardingWalkthrough', () => {
     startWalkthrough();
     renderWalkthrough();
 
-    expect(await screen.findByText(/The sources I just read for your page are in here/)).toBeInTheDocument();
+    expect(await screen.findByText(/The sources you just added are in here/)).toBeInTheDocument();
   });
 
   it('can be skipped outright at the first stop', async () => {
