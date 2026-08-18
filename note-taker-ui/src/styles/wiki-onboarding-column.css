@@ -333,3 +333,58 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__claim input,
   align-items: baseline;
   gap: 8px 22px;
 }
+
+/* ---------- one ask per screen ---------- */
+
+/* Actions stay words rather than pills — that is the reading language, and it is
+   right. What was missing is rank. Every action on these screens rendered at the
+   same size and weight, so "Start", "Add to my library" and "Show me around first"
+   all read as equal offers and the screen asked for three things at once.
+   The archive link already established the primary treatment: serif, a size up.
+   These borrow it, so the one action a screen is actually asking for looks like it. */
+body.noeis-editorial .wiki-onboarding__primary-action,
+.wiki-onboarding__primary-action {
+  justify-self: start;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.24rem;
+  line-height: 1.3;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* Everything alongside the primary is an alternative, not a peer: same words, but
+   quieter, so the eye lands on the ask first. */
+body.noeis-editorial .wiki-onboarding__secondary-action,
+body.noeis-editorial .wiki-onboarding__hook-actions a,
+.wiki-onboarding__secondary-action,
+.wiki-onboarding__hook-actions a {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.9rem;
+}
+
+body.noeis-editorial .wiki-onboarding__secondary-action:hover,
+body.noeis-editorial .wiki-onboarding__secondary-action:focus-visible,
+.wiki-onboarding__secondary-action:hover,
+.wiki-onboarding__secondary-action:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* A disabled primary should read as unavailable rather than merely unhovered. */
+body.noeis-editorial .wiki-onboarding__primary-action:disabled,
+.wiki-onboarding__primary-action:disabled {
+  color: var(--text-muted, var(--vellum-subtle));
+  border-bottom-color: transparent;
+  cursor: default;
+}
+
+/* The arrival line names the material that just landed, under the sentence that
+   says it landed. It is the evidence for the claim above it, so it reads as a
+   citation rather than a heading. */
+body.noeis-editorial .wiki-onboarding__arrival,
+.wiki-onboarding__arrival {
+  margin: -8px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+}
