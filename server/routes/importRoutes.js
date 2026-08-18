@@ -709,6 +709,27 @@ const buildImportRouter = ({
     return decoded;
   };
 
+  /**
+   * What Noeis can read Readwise with, for a given connection.
+   *
+   * Two credentials can arrive. Browser approval (the recommended path) stores an
+   * OAuth access token; the Advanced path stores a personal API token. Import used
+   * to accept only the second, so the path the product recommends was the one path
+   * that could not put anything in a library.
+   *
+   * The personal token comes first when both exist: it is the one Readwise
+   * documents for export, and it does not expire out from under a long import.
+   */
+  const resolveReadwiseCredential = (connection) => {
+    if (connection?.encryptedApiToken) {
+      return { token: decryptSecret(connection.encryptedApiToken), tokenType: 'api' };
+    }
+    if (connection?.encryptedAccessToken) {
+      return { token: decryptSecret(connection.encryptedAccessToken), tokenType: 'oauth' };
+    }
+    return null;
+  };
+
   const getReadwiseRedirectUri = (req) => (
     toTrimmedString(process.env.READWISE_REDIRECT_URI)
     || `${getRequestOrigin(req)}/api/import/readwise/oauth/callback`
@@ -1802,8 +1823,9 @@ const buildImportRouter = ({
       if (!connection) {
         return res.status(404).json({ error: 'Readwise connection not found.' });
       }
-      if (connection.mode === 'mcp_remote') {
-        const message = 'Readwise browser authorization is connected for agent retrieval. Direct Noeis preview still needs the advanced API-token sync path until the hosted Readwise broker ships.';
+      const previewCredential = resolveReadwiseCredential(connection);
+      if (!previewCredential) {
+        const message = 'Readwise is connected but did not return anything Noeis can read with. Reconnect, or add an API token under Advanced.';
         await markImportSessionUnavailable({
           sessionId: importSessionId,
           userId,
@@ -1815,12 +1837,11 @@ const buildImportRouter = ({
           connection: sanitizeConnection(connection.toObject())
         });
       }
-      if (!connection.encryptedApiToken) {
-        return res.status(400).json({ error: 'Readwise token is missing for this connection.' });
-      }
-
-      const apiToken = decryptSecret(connection.encryptedApiToken);
-      const { results, hasMore } = await fetchReadwisePreviewRows({ token: apiToken, limit: 25 });
+      const { results, hasMore } = await fetchReadwisePreviewRows({
+        token: previewCredential.token,
+        tokenType: previewCredential.tokenType,
+        limit: 25
+      });
       const preview = buildReadwisePreviewSummary({ results, hasMore });
       await markConnectionHealthy(connection, { previewed: true });
 
@@ -1891,8 +1912,13 @@ const buildImportRouter = ({
       if (!connection) {
         return res.status(404).json({ error: 'Readwise connection not found.' });
       }
-      if (connection.mode === 'mcp_remote') {
-        const message = 'Readwise browser authorization is connected for agent retrieval. Direct Noeis import still needs the advanced API-token sync path until the hosted Readwise broker ships.';
+      // Browser approval already returns an access token scoped to read highlights.
+      // This used to refuse it and send the user to find an API token under
+      // Advanced, so the recommended way to connect was the one way that could
+      // not fill a library.
+      const readwiseCredential = resolveReadwiseCredential(connection);
+      if (!readwiseCredential) {
+        const message = 'Readwise is connected but did not return anything Noeis can read with. Reconnect, or add an API token under Advanced.';
         await markImportSessionUnavailable({
           sessionId: importSessionId,
           userId,
@@ -1903,9 +1929,6 @@ const buildImportRouter = ({
           error: message,
           connection: sanitizeConnection(connection.toObject())
         });
-      }
-      if (!connection.encryptedApiToken) {
-        return res.status(400).json({ error: 'Readwise token is missing for this connection.' });
       }
 
       await patchImportSession({
@@ -1923,11 +1946,16 @@ const buildImportRouter = ({
         }
       });
 
-      const apiToken = decryptSecret(connection.encryptedApiToken);
+      // No lastSyncAt means nothing has ever been imported, so take the whole
+      // archive whether or not the caller thought to ask for it.
       const updatedAfter = !fullSync && connection.lastSyncAt
         ? new Date(connection.lastSyncAt).toISOString()
         : '';
-      const rows = await fetchReadwiseExportRows({ token: apiToken, updatedAfter });
+      const rows = await fetchReadwiseExportRows({
+        token: readwiseCredential.token,
+        tokenType: readwiseCredential.tokenType,
+        updatedAfter
+      });
 
       let importedArticles = 0;
       let importedHighlights = 0;

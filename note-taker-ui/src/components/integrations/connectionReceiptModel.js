@@ -370,7 +370,10 @@ export const buildReadwiseConnectionReceipt = ({
       tone: 'warning',
       headline: 'Browser approval is ready for agents.',
       summary: '',
-      detail: 'Direct Library refresh still needs the advanced API-token connection or a Readwise CSV upload.',
+      // Browser approval imports on its own now, so reaching this branch means the
+      // connection genuinely carries nothing Noeis can read with — not that the
+      // approved path is second-class, which is what this used to say.
+      detail: 'This connection cannot refresh the Library on its own. Add an API token, or upload a Readwise CSV.',
       nextAction: { label: 'Add API token' },
       isLive: false
     };

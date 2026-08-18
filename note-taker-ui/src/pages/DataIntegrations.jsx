@@ -405,6 +405,37 @@ const describeLoopHandoff = ({ readwiseConnection, notionConnection, session }) 
   return `Latest handoff: ${latest.label} ${latest.kind} on ${formatLoopDate(latest.date)}.`;
 };
 
+/**
+ * What to say when a source finishes connecting.
+ *
+ * The old line was "Readwise is connected. Run preview or sync to make the material
+ * retrievable in Noeis." — a receipt for the wrong event, handing the user a chore
+ * at the exact moment they expected to be done. Now the import has already run, so
+ * this reports what landed.
+ */
+const describeConnectImport = ({ provider = '', connection = null, summary = null } = {}) => {
+  const label = connection?.accountLabel || getProviderLabel(provider);
+  if (!summary) {
+    return connection?.lastSyncAt
+      ? `${label} is reconnected. Sync when you want to pull what has changed since.`
+      : `${label} is connected.`;
+  }
+  const articles = Number(summary.importedArticles || 0);
+  const highlights = Number(summary.importedHighlights || 0);
+  const notes = Number(summary.importedNotes || 0);
+  const parts = [
+    articles ? `${articles} ${articles === 1 ? 'article' : 'articles'}` : '',
+    highlights ? `${highlights} ${highlights === 1 ? 'highlight' : 'highlights'}` : '',
+    notes ? `${notes} ${notes === 1 ? 'page' : 'pages'}` : ''
+  ].filter(Boolean);
+  if (!parts.length) {
+    return `${label} is connected. Nothing to bring in yet — anything you save there from now on lands in your library.`;
+  }
+  const last = parts.pop();
+  const list = parts.length ? `${parts.join(', ')} and ${last}` : last;
+  return `${label} is connected. ${list} are in your library.`;
+};
+
 const buildConnectionReturnReceipt = ({ provider = '', status = 'connected', connection = null, summary = '' } = {}) => {
   const providerLabel = getProviderLabel(provider);
   const failed = status === 'error';
@@ -428,12 +459,14 @@ const buildConnectionReturnReceipt = ({ provider = '', status = 'connected', con
     id: `${provider || 'connection'}-oauth-return-${Date.now()}`,
     source: provider || 'connection',
     title: `${providerLabel} connected`,
-    summary: summary || `${connectionLabel} is connected. Run preview or sync to make the material retrievable in Noeis.`,
+    summary: summary || `${connectionLabel} is connected.`,
     status: 'completed',
     href: `/connections#${provider || 'sources'}`,
+    // Connecting already imported. The next thing worth doing is reading it, not
+    // returning to the settings page that sent them here.
     nextAction: {
-      label: provider === 'readwise' ? 'Preview or add direct sync' : `Sync from ${providerLabel}`,
-      href: `/connections#${provider || 'sources'}`
+      label: 'Open your library',
+      href: '/library'
     }
   };
 };
@@ -766,6 +799,74 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     };
   }, []);
 
+  /**
+   * Bring the whole archive in the moment a source is connected.
+   *
+   * Connecting used to end with "Readwise is connected. Run preview or sync to make
+   * the material retrievable" — so a new user finished the flow with a receipt and
+   * an empty library, and the actual import was a second errand on a settings page
+   * they had no reason to understand. Connecting *is* the request to import.
+   *
+   * Only on the first connect. A reconnect must not silently re-pull an entire
+   * archive the user already has.
+   */
+  const importWholeArchiveOnConnect = useCallback(async ({ provider, connection }) => {
+    if (!connection?.id || connection.lastSyncAt) return null;
+    const label = connection.accountLabel || getProviderLabel(provider);
+    setStatus(`Bringing your ${label} archive into Noeis...`);
+    systemStatus.setBackgroundWork({
+      label: `Importing ${getProviderLabel(provider)}`,
+      stage: 'Reading your archive'
+    });
+    try {
+      const session = await createImportSession({
+        provider,
+        mode: 'oauth',
+        sourceLabel: label,
+        sourceType: 'oauth'
+      }).catch(() => null);
+      if (session?.id) {
+        setCurrentSession({
+          ...session,
+          status: 'importing',
+          sourceLabel: label,
+          progress: {
+            ...(session.progress || {}),
+            stage: provider === 'readwise' ? 'fetching_readwise' : 'fetching_notion',
+            percent: Math.max(session.progress?.percent || 0, 5),
+            indexingState: 'not_started'
+          }
+        });
+      }
+      const data = provider === 'readwise'
+        ? await syncReadwiseConnection({
+          connectionId: connection.id,
+          importSessionId: session?.id,
+          // Nothing has ever been imported for this account, so take all of it.
+          fullSync: true
+        })
+        : await syncNotionConnection({ connectionId: connection.id, importSessionId: session?.id });
+      const summary = provider === 'readwise'
+        ? makeSummaryFromCsvResponse(data)
+        : makeSummaryFromNoteResponse(data);
+      setImportStats(summary);
+      setLastImportSourceLabel(label);
+      if (data?.connection) {
+        if (provider === 'readwise') setReadwiseConnection(data.connection);
+        else setNotionConnection(data.connection);
+      }
+      return summary;
+    } catch (error) {
+      // The connection itself is fine; only the import failed. Say which, so the
+      // user does not go back and reconnect something that already worked.
+      const detail = error?.response?.data?.error || error?.message || '';
+      setStatus(`${label} is connected, but the import did not finish. ${detail}`.trim(), 'error');
+      return null;
+    } finally {
+      systemStatus.setBackgroundWork(null);
+    }
+  }, [setStatus, systemStatus]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const source = params.get('source');
@@ -780,13 +881,12 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             const connections = await listImportConnections({ provider: 'notion' });
             const latest = connections[0] || null;
             setNotionConnection(latest);
+            const imported = await importWholeArchiveOnConnect({ provider: 'notion', connection: latest });
             const receipt = buildConnectionReturnReceipt({
               provider: 'notion',
               status: 'connected',
               connection: latest,
-              summary: latest?.id
-                ? `${latest.accountLabel || 'Notion'} is connected. Preview shared pages or sync them into Noeis.`
-                : 'Notion returned from browser approval. Refresh connection state if the workspace does not appear.'
+              summary: describeConnectImport({ provider: 'notion', connection: latest, summary: imported })
             });
             publishSystemReceipt(receipt);
             setStatus(receipt.summary, 'success');
@@ -833,12 +933,15 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               getConcepts().catch(() => []),
               getAllHighlights().catch(() => [])
             ]);
-            const moment = composeReadwiseConnectMoment({
-              highlightCount: Array.isArray(highlightsResult) ? highlightsResult.length : 0,
-              activeConceptCount: countActiveConcepts(concepts),
-              previewHighlights,
-              previewItems
-            });
+            const imported = await importWholeArchiveOnConnect({ provider: 'readwise', connection: latest });
+            const moment = imported
+              ? describeConnectImport({ provider: 'readwise', connection: latest, summary: imported })
+              : composeReadwiseConnectMoment({
+                highlightCount: Array.isArray(highlightsResult) ? highlightsResult.length : 0,
+                activeConceptCount: countActiveConcepts(concepts),
+                previewHighlights,
+                previewItems
+              });
             publishSystemReceipt(buildConnectionReturnReceipt({
               provider: 'readwise',
               status: 'connected',
@@ -868,7 +971,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
       selectSource(hashSource);
     }
-  }, [publishSystemReceipt, selectSource, setStatus]);
+  }, [importWholeArchiveOnConnect, publishSystemReceipt, selectSource, setStatus]);
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
@@ -1283,9 +1386,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
 
   const handleReadwiseSync = async () => {
     if (!readwiseSyncConnection?.id) {
-      setStatus(readwiseAgentConnection?.id
-        ? 'Readwise browser access is connected for agents. Direct import still needs the advanced API-token connection.'
-        : 'Connect Readwise first.', 'error');
+      setStatus('Connect Readwise first.', 'error');
       return;
     }
     let session = null;
@@ -2226,7 +2327,11 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     || (readwiseConnection?.mode === 'mcp_remote' ? readwiseConnection : null);
   const readwiseDirectConnection = readwiseConnections.find(connection => connection?.mode !== 'mcp_remote')
     || (readwiseConnection?.mode && readwiseConnection.mode !== 'mcp_remote' ? readwiseConnection : null);
-  const readwiseSyncConnection = readwiseDirectConnection || (readwiseConnection?.mode !== 'mcp_remote' ? readwiseConnection : null);
+  // Browser approval can import now that the server reads its access token, so this
+  // no longer discards an mcp_remote connection. The direct one still wins when both
+  // exist: a personal token is what Readwise documents for export and it does not
+  // expire partway through a long archive.
+  const readwiseSyncConnection = readwiseDirectConnection || readwiseConnection || null;
   const busy = importing.manual
     || importing.paste
     || importing.csv
@@ -2265,7 +2370,9 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     importStats,
     sourceLabel: lastImportSourceLabel
   });
-  const directReadwiseReady = Boolean(readwiseSyncConnection?.id && readwiseSyncConnection.mode !== 'mcp_remote');
+  // Browser approval is a real import path now, so readiness is about having a
+  // connection at all rather than about which way the user connected.
+  const directReadwiseReady = Boolean(readwiseSyncConnection?.id);
   const readwiseFeedStatus = directReadwiseReady
     ? (readwiseSyncConnection.lastSyncAt ? 'Import feed active' : 'Ready to sync')
     : readwiseAgentConnection?.id
@@ -2274,10 +2381,10 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   const readwiseFeedDetail = directReadwiseReady
     ? (readwiseSyncConnection.lastSyncAt
       ? `Last Readwise sync: ${formatLoopDate(readwiseSyncConnection.lastSyncAt)}.`
-      : 'Run Sync from Readwise to move new highlights into the Library and return loop.')
+      : 'Connected. Your archive is on its way into the Library.')
     : readwiseAgentConnection?.id
-      ? 'Browser approval is ready for agents. Direct Library refresh still needs the advanced token sync or a CSV import.'
-      : 'Connect with Readwise to give agents browser-approved access, then add direct sync when you want Library imports.';
+      ? 'Browser approval is ready, but this connection cannot refresh the Library on its own. Add an API token, or upload a CSV.'
+      : 'Connect with Readwise and your whole archive comes across.';
   const notionReceipt = buildNotionConnectionReceipt({
     connection: notionConnection,
     session: currentSession,
