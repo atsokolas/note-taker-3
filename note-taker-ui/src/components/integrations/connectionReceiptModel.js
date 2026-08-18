@@ -219,8 +219,8 @@ export const buildNotionConnectionReceipt = ({
         ? 'Sampling shared Notion pages and databases…'
         : `Previewed ${formatLoopDate(connection.lastPreviewAt)}.`,
       summary: '',
-      detail: 'No pages have been imported yet. Run Sync from Notion to make the previewed workspace material retrievable in Noeis.',
-      nextAction: { label: 'Sync from Notion' },
+      detail: 'Nothing has been imported yet. Import these pages to put them in the Library.',
+      nextAction: { label: 'Import from Notion', kind: 'import' },
       isLive: previewing,
       liveMessage: previewing ? 'Previewing Notion scope' : undefined
     };
@@ -228,14 +228,14 @@ export const buildNotionConnectionReceipt = ({
 
   if (connection.lastValidatedAt || connection.status === 'connected') {
     return {
-      statusLabel: 'Connected, not synced',
+      statusLabel: 'Connected, nothing imported yet',
       tone: 'warning',
-      headline: connection.lastValidatedAt
-        ? `Connection checked ${formatLoopDate(connection.lastValidatedAt)}.`
-        : 'OAuth is connected.',
+      headline: 'Notion is connected, but nothing has come across yet.',
       summary: '',
-      detail: 'Share the pages or databases you want Noeis to read with the integration, then run Preview scope or Sync from Notion.',
-      nextAction: { label: 'Preview or sync' },
+      // Unlike Readwise, Notion genuinely gates on what the user shared, so the
+      // instruction has to name that first or the import looks broken when it is not.
+      detail: 'Share the pages or databases you want Noeis to read with the integration, then import them.',
+      nextAction: { label: 'Import from Notion', kind: 'import' },
       isLive: false
     };
   }
@@ -381,14 +381,15 @@ export const buildReadwiseConnectionReceipt = ({
 
   if (syncConnection?.lastValidatedAt || syncConnection?.status === 'connected') {
     return {
-      statusLabel: 'Connected, not synced',
+      // Connecting imports on its own now, so landing here means the import has not
+      // run or did not finish. That calls for one plain instruction, not a menu:
+      // "Preview or sync" named two internal operations and no outcome.
+      statusLabel: 'Connected, nothing imported yet',
       tone: 'warning',
-      headline: syncConnection.lastValidatedAt
-        ? `Connection checked ${formatLoopDate(syncConnection.lastValidatedAt)}.`
-        : 'Token connection is ready.',
+      headline: 'Readwise is connected, but nothing has come across yet.',
       summary: '',
-      detail: 'Run Preview scope or Sync from Readwise to move highlights into the Library and return loop.',
-      nextAction: { label: 'Preview or sync' },
+      detail: 'Import your archive to put your highlights in the Library.',
+      nextAction: { label: 'Import my Readwise archive', kind: 'import' },
       isLive: false
     };
   }

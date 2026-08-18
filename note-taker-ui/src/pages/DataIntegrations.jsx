@@ -2719,6 +2719,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             receipt={readwiseReceipt}
             testId="readwise-sync-receipt"
             providerLabel="Readwise"
+            onNextAction={handleReadwiseSync}
+            nextActionBusy={readwiseSyncing}
           />
           <details className="import-callout" style={{ marginBottom: 18 }}>
             <summary className="muted-label">Advanced: direct sync with API token</summary>
@@ -2835,6 +2837,8 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             receipt={notionReceipt}
             testId="notion-sync-receipt"
             providerLabel="Notion"
+            onNextAction={handleNotionSync}
+            nextActionBusy={notionSyncing}
           />
           {notionConnection?.lastSyncAt ? (
             <p className="muted small">Where it lands: Library search, Think retrieval, and Morning Paper source maintenance.</p>

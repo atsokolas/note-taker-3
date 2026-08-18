@@ -3665,3 +3665,40 @@ body.noeis-editorial .palette-item.active {
   background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 5%, transparent);
   box-shadow: inset 2px 0 0 0 var(--vellum-ink, #1c1a17);
 }
+
+/*
+ * The import prompt on a connection receipt.
+ *
+ * Actions in this product are words, not pills, so this reads as the sentence it
+ * is. It replaces a "Next: Preview or sync" label that sat beside a differently
+ * named button — the instruction and the control were not the same words, and
+ * neither of them said "import".
+ */
+.connection-receipt__next-action {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.connection-receipt__next-action:hover:not(:disabled) {
+  opacity: 0.72;
+}
+
+.connection-receipt__next-action:disabled {
+  cursor: default;
+  opacity: 0.6;
+  text-decoration: none;
+}
+
+.connection-receipt__next-action:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
