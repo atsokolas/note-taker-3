@@ -70,6 +70,9 @@ describe('OnboardingWalkthrough', () => {
       // redirects, and racing that redirect stranded a finished user on a blank page.
       expect(WALKTHROUGH_STOPS[i].route).not.toBe('/paper');
       expect(WALKTHROUGH_STOPS[i].route).not.toBe('/');
+      // Connections is not a stop: the extension ask already happened on the last
+      // onboarding screen, and repeating it here spent a stop on a settings page.
+      expect(WALKTHROUGH_STOPS[i].route).not.toMatch(/^\/connections/);
       fireEvent.click(screen.getByRole('button', { name: i === WALKTHROUGH_STOPS.length - 1 ? 'Done' : 'Next' }));
     }
 
