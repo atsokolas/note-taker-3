@@ -6,6 +6,7 @@ import {
   listWikiStarterPacks
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
+import { getArticles } from '../api/articles';
 import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 import { startWalkthrough } from '../onboarding/walkthroughState';
@@ -13,6 +14,45 @@ import '../styles/wiki-front-page.css';
 import '../styles/wiki-onboarding-column.css';
 
 
+
+// Only what the Connections page can actually deep-link to. Naming a provider we
+// cannot open would put us back where we started: a name that looks clickable and
+// is not.
+const READING_PROVIDERS = [
+  { key: 'readwise', label: 'Readwise' },
+  { key: 'notion', label: 'Notion' },
+  { key: 'evernote', label: 'Evernote' }
+];
+
+const PROVIDER_LABELS = READING_PROVIDERS.reduce((labels, provider) => (
+  { ...labels, [provider.key]: provider.label }
+), {});
+
+const CONNECT_ATTEMPT_KEY = 'noeis.onboarding.connectAttempt';
+
+const rememberConnectAttempt = (provider) => {
+  try {
+    window.sessionStorage?.setItem(CONNECT_ATTEMPT_KEY, String(provider || ''));
+  } catch (_error) {
+    // The return receipt is a nicety; losing it must not block connecting.
+  }
+};
+
+const readConnectAttempt = () => {
+  try {
+    return window.sessionStorage?.getItem(CONNECT_ATTEMPT_KEY) || '';
+  } catch (_error) {
+    return '';
+  }
+};
+
+const clearConnectAttempt = () => {
+  try {
+    window.sessionStorage?.removeItem(CONNECT_ATTEMPT_KEY);
+  } catch (_error) {
+    // Nothing to clean up.
+  }
+};
 
 const starterFallback = [
   {
@@ -119,6 +159,7 @@ const WikiOnboarding = () => {
   const [selectedPackId, setSelectedPackId] = useState('mental-models');
   const [pasteText, setPasteText] = useState('');
   const [importedSource, setImportedSource] = useState(null);
+  const [connectedReceipt, setConnectedReceipt] = useState(null);
   const [adoptedStarterPages, setAdoptedStarterPages] = useState([]);
   const [adoptedPack, setAdoptedPack] = useState(null);
   const [mergeAvailable, setMergeAvailable] = useState(false);
@@ -136,6 +177,38 @@ const WikiOnboarding = () => {
       })
       .catch(() => {
         if (!cancelled) setPacks(starterFallback);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * Coming back from a connector.
+   *
+   * Connecting an archive leaves the app: OAuth goes to the provider and returns to
+   * Connections, and the first-run gate then sends the user here again because they
+   * still have no wiki pages. Without this they would land back on the opening
+   * screen as though nothing had happened, and be asked to start over.
+   *
+   * If they left to connect something and now have sources, first run is done —
+   * say what arrived and let them go to it.
+   */
+  useEffect(() => {
+    const attempted = readConnectAttempt();
+    if (!attempted) return undefined;
+    let cancelled = false;
+    getArticles({ limit: 50 })
+      .then((articles) => {
+        if (cancelled) return;
+        const count = Array.isArray(articles) ? articles.length : 0;
+        if (!count) return;
+        clearConnectAttempt();
+        setConnectedReceipt({ provider: attempted, count });
+        markWikiOnboardingComplete();
+        setStep('hook');
+      })
+      .catch(() => {
+        // If we cannot tell, leave them where they are rather than claiming an
+        // import that may not have happened.
       });
     return () => { cancelled = true; };
   }, []);
@@ -302,11 +375,28 @@ const WikiOnboarding = () => {
               material, and their own years of reading were an afterthought.
               A wiki built from a starter pack is a demo; a wiki built from your
               archive is yours on the first page. */}
+          {/* The provider names are the affordance. They used to be prose under a
+              single link to the whole settings page, so the one thing a reader with
+              an archive would reach for could not be clicked, and the link that
+              could dropped them on a page of every connector at once. Each name now
+              opens its own connector; the page already supports ?source= and an
+              anchor per card. */}
           <div className="wiki-onboarding__archive">
-            <Link className="wiki-onboarding__archive-primary" to="/connections#sources">
-              Connect your reading archive
-            </Link>
-            <p>Readwise, Notion, Instapaper, Evernote — whatever you have been saving into.</p>
+            <p className="wiki-onboarding__archive-lead">Connect your reading archive</p>
+            <ul className="wiki-onboarding__providers">
+              {READING_PROVIDERS.map(provider => (
+                <li key={provider.key}>
+                  <Link
+                    className="wiki-onboarding__provider"
+                    to={`/connections?source=${provider.key}#${provider.key}`}
+                    onClick={() => rememberConnectAttempt(provider.key)}
+                  >
+                    {provider.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p>Whatever you have been saving into. Come back here when it is connected.</p>
           </div>
 
           <label className="wiki-onboarding__paste">
@@ -355,13 +445,20 @@ const WikiOnboarding = () => {
           <h1>
             {arrivedWithPages
               ? 'This wiki is now yours.'
-              : 'That is in your library now.'}
+              : connectedReceipt
+                ? 'Your reading is in.'
+                : 'That is in your library now.'}
           </h1>
           <p>
             {arrivedWithPages
               ? 'The pages were copied into your workspace. Your copy grows as you feed it, and the original owner keeps theirs.'
               : 'Kept whole, with its source attached. Add a few more and the wiki has something real to be built from — when you decide to build it.'}
           </p>
+          {connectedReceipt ? (
+            <p className="wiki-onboarding__arrival">
+              {`${PROVIDER_LABELS[connectedReceipt.provider] || 'Your archive'} connected — ${connectedReceipt.count} ${connectedReceipt.count === 1 ? 'source' : 'sources'} in your library.`}
+            </p>
+          ) : null}
           {importedSource?.title ? (
             <p className="wiki-onboarding__arrival">{importedSource.title}</p>
           ) : null}

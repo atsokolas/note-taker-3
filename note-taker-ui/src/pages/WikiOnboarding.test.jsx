@@ -10,6 +10,7 @@ import {
   startWikiPageBuild
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
+import { getArticles } from '../api/articles';
 
 // createWikiPage and startWikiPageBuild are mocked so the tests can assert they are
 // never called: first run imports a source and stops.
@@ -24,6 +25,10 @@ jest.mock('../api/wiki', () => ({
 jest.mock('../api/imports', () => ({
   importPastedText: jest.fn(),
   importPastedUrl: jest.fn()
+}));
+
+jest.mock('../api/articles', () => ({
+  getArticles: jest.fn()
 }));
 
 describe('WikiOnboarding', () => {
@@ -74,6 +79,8 @@ describe('WikiOnboarding', () => {
       }
     });
     deleteWikiPage.mockResolvedValue({});
+    getArticles.mockResolvedValue([]);
+    sessionStorage.clear();
   });
 
   it('keeps long starter-pack titles inside the feed cards without uppercasing them', async () => {
@@ -222,6 +229,43 @@ describe('WikiOnboarding', () => {
     expect(createWikiPage).not.toHaveBeenCalled();
   });
 
+  it('opens each archive on its own connector rather than a settings page', async () => {
+    render(<WikiOnboarding />);
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+    // These were prose before: the one thing a reader with an archive reaches for
+    // could not be clicked.
+    const readwise = await screen.findByRole('link', { name: 'Readwise' });
+    expect(readwise).toHaveAttribute('href', '/connections?source=readwise#readwise');
+    expect(screen.getByRole('link', { name: 'Notion' })).toHaveAttribute('href', '/connections?source=notion#notion');
+    expect(screen.getByRole('link', { name: 'Evernote' })).toHaveAttribute('href', '/connections?source=evernote#evernote');
+  });
+
+  it('receipts the connection when the user comes back with material', async () => {
+    sessionStorage.setItem('noeis.onboarding.connectAttempt', 'readwise');
+    getArticles.mockResolvedValue([{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }]);
+
+    render(<WikiOnboarding />);
+
+    // Connecting leaves the app; the gate sends them back here. Without this they
+    // would land on the opening screen and be asked to start over.
+    expect(await screen.findByRole('heading', { name: 'Your reading is in.' })).toBeInTheDocument();
+    expect(screen.getByText('Readwise connected — 3 sources in your library.')).toBeInTheDocument();
+    expect(sessionStorage.getItem('noeis.onboarding.connectAttempt')).toBeNull();
+  });
+
+  it('does not claim an import that did not happen', async () => {
+    sessionStorage.setItem('noeis.onboarding.connectAttempt', 'notion');
+    getArticles.mockResolvedValue([]);
+
+    render(<WikiOnboarding />);
+
+    // They left to connect and came back with nothing. Saying "your reading is in"
+    // here would be a lie.
+    await waitFor(() => expect(getArticles).toHaveBeenCalled());
+    expect(screen.queryByRole('heading', { name: 'Your reading is in.' })).not.toBeInTheDocument();
+  });
+
   it('always allows a URL, however short', () => {
     expect(describeThinSource('https://example.com/a-long-article')).toBe('');
     expect(describeThinSource('short')).toMatch(/too short/i);
@@ -237,9 +281,9 @@ describe('WikiOnboarding', () => {
     render(<WikiOnboarding />);
     fireEvent.click(await screen.findByRole('button', { name: 'Start' }));
 
-    const archive = await screen.findByRole('link', { name: 'Connect your reading archive' });
-    expect(archive).toHaveAttribute('href', '/connections#sources');
-
+    // The archive is now a row of per-provider doors rather than one link to the
+    // settings page; the ordering rule it was written for still holds.
+    const archive = await screen.findByRole('link', { name: 'Readwise' });
     const packs = document.querySelector('.wiki-onboarding__packs');
     expect(archive.compareDocumentPosition(packs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
