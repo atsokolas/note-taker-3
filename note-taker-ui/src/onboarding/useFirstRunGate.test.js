@@ -28,6 +28,7 @@ describe('useFirstRunGate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
     syncWikiOnboardingState.mockResolvedValue(false);
     atPath('/paper');
@@ -35,6 +36,32 @@ describe('useFirstRunGate', () => {
 
   it('sends a brand-new user to the start of the flow, not the home page', async () => {
     listWikiPages.mockResolvedValue([]);
+
+    renderHook(() => useFirstRunGate());
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/onboarding/wiki', { replace: true }));
+  });
+
+  it('lets a new user reach the connector they just clicked', async () => {
+    // The provider links in onboarding appeared to do nothing. They were addressed
+    // correctly; this gate undid them. A user with no pages who lands on
+    // /connections looks exactly like a new user who wandered off, so the gate
+    // returned them to /onboarding/wiki before Connections finished mounting.
+    // The distinction the gate was missing: they went there on purpose.
+    sessionStorage.setItem('noeis.onboarding.connectAttempt', 'readwise');
+    listWikiPages.mockResolvedValue([]);
+    atPath('/connections');
+
+    renderHook(() => useFirstRunGate());
+
+    await waitFor(() => expect(listWikiPages).not.toHaveBeenCalled());
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('still rescues a new user who lands somewhere else entirely', async () => {
+    // Standing down must be scoped to the connect attempt, not to every stray route.
+    listWikiPages.mockResolvedValue([]);
+    atPath('/connections');
 
     renderHook(() => useFirstRunGate());
 

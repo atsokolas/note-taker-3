@@ -7,6 +7,7 @@ import {
 } from '../api/wiki';
 import { importPastedText, importPastedUrl } from '../api/imports';
 import { getArticles } from '../api/articles';
+import { clearConnectAttempt, readConnectAttempt, rememberConnectAttempt } from '../onboarding/connectAttempt';
 import { markWikiOnboardingComplete } from '../onboarding/onboardingState';
 import ExtensionCaptureCard from '../onboarding/ExtensionCaptureCard';
 import { startWalkthrough } from '../onboarding/walkthroughState';
@@ -27,32 +28,6 @@ const READING_PROVIDERS = [
 const PROVIDER_LABELS = READING_PROVIDERS.reduce((labels, provider) => (
   { ...labels, [provider.key]: provider.label }
 ), {});
-
-const CONNECT_ATTEMPT_KEY = 'noeis.onboarding.connectAttempt';
-
-const rememberConnectAttempt = (provider) => {
-  try {
-    window.sessionStorage?.setItem(CONNECT_ATTEMPT_KEY, String(provider || ''));
-  } catch (_error) {
-    // The return receipt is a nicety; losing it must not block connecting.
-  }
-};
-
-const readConnectAttempt = () => {
-  try {
-    return window.sessionStorage?.getItem(CONNECT_ATTEMPT_KEY) || '';
-  } catch (_error) {
-    return '';
-  }
-};
-
-const clearConnectAttempt = () => {
-  try {
-    window.sessionStorage?.removeItem(CONNECT_ATTEMPT_KEY);
-  } catch (_error) {
-    // Nothing to clean up.
-  }
-};
 
 const starterFallback = [
   {
