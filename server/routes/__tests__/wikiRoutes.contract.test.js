@@ -1709,7 +1709,12 @@ const run = async () => {
     assert.strictEqual(publicBySlug.body.page.plainText, 'A shared systems page for unauthenticated readers.');
     assert.strictEqual(publicBySlug.body.page.sourceRefs[0].title, 'Public source title');
     assert.strictEqual(publicBySlug.body.page.sourceRefs[0].url, 'https://example.com/source');
-    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].snippet, 'Public citation snippet.');
+    /* The passage does not travel. It used to: up to a thousand verbatim
+       characters of the source, per source, republished on a public URL. A
+       snippet is your extraction from someone else's work, so a public page
+       names the source and links to it — enough to go and check — and keeps
+       the passage on the owner's side. */
+    assert.strictEqual(publicBySlug.body.page.sourceRefs[0].snippet, '');
     assert.strictEqual(publicBySlug.body.page.sourceRefs[0].objectId, undefined);
     assert.strictEqual(publicBySlug.body.page.sourceRefs[0].privateNote, undefined);
     assert.strictEqual(publicBySlug.body.page.discussions, undefined);
@@ -1772,7 +1777,10 @@ const run = async () => {
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].type, 'external');
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].title, 'Public source title');
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].url, 'https://example.com/source');
-    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].snippet, 'Public citation snippet.');
+    /* Adopting copies what was public, which no longer includes the passage.
+       The adopter gets the source named and linked and re-grounds it against
+       their own reading, which is the only version of it they can defend. */
+    assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].snippet, '');
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].objectId, undefined);
     assert.strictEqual(adoptedPublicPage.body.page.sourceRefs[0].privateNote, undefined);
     assert.deepStrictEqual(adoptedPublicPage.body.page.discussions, []);

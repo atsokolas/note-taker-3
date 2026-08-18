@@ -964,12 +964,20 @@ const isQaOnlyPublicSource = (source = {}) => {
   return /\bdebug fixture\b|debug-fixture\.noeis\.local|\bqa[_ -]?(?:fixture|seed)\b/.test(value);
 };
 
-const publicSourceSnippet = (source = {}, { repoPage = false } = {}) => {
-  const snippet = String(source?.snippet || source?.quote || source?.excerpt || '').replace(/\s+/g, ' ').trim();
-  if (!snippet) return '';
-  if (repoPage && /^https?:\/\/(?:www\.)?github\.com\//i.test(String(source?.url || ''))) return '';
-  return snippet.slice(0, repoPage ? 320 : 1000);
-};
+/* Shared wiki, private evidence.
+   A snippet is the passage you pulled out of something you read: your
+   extraction, from someone else's work. Publishing it did both a private and a
+   public wrong — it put your reading on a URL under your name, and it
+   republished up to a thousand verbatim characters of a third party's article
+   for every source on the page. Repo pages already blanked theirs, which was
+   the same instinct applied to one case.
+
+   What a public page owes a reader is the ability to check it: the source
+   named, and a link to the original so they can go and read it where it was
+   published. That it survives without the passage is the point — a claim that
+   only holds up because you quoted the source at length was never checkable,
+   it was just long. */
+const publicSourceSnippet = () => '';
 
 const buildPublicInvestmentValuation = (page = {}) => {
   const valuation = page?.investmentDossier?.valuation || {};
