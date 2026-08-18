@@ -3641,3 +3641,27 @@ body.noeis-editorial .product-feedback-modal .feedback-field textarea::placehold
     margin-left: 0;
   }
 }
+
+/* ---------- the command palette, in the paper's family ---------- */
+
+/* The selected row was a saturated bar on cream and the backdrop was close to a
+   blackout, which made the page behind it look broken rather than dimmed.
+   Selection is a hairline and a little ink — the same move every other chosen
+   thing in the product makes. */
+body.noeis-editorial .palette-overlay {
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 16%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+body.noeis-editorial .palette-card {
+  background: var(--vellum-bg, #fffcf7);
+  border: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 88%, transparent);
+  border-radius: 4px;
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--vellum-ink, #1c1a17) 12%, transparent);
+}
+
+body.noeis-editorial .palette-item.active {
+  border-color: color-mix(in srgb, var(--vellum-line, #ded7c9) 92%, transparent);
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 5%, transparent);
+  box-shadow: inset 2px 0 0 0 var(--vellum-ink, #1c1a17);
+}

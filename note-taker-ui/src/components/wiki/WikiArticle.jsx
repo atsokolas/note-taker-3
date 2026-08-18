@@ -170,7 +170,7 @@ const WikiArticle = () => {
   if (!page) {
     return (
       <main className="wiki-article">
-        <Link className="wiki-article__back" to="/wiki">← Morning paper</Link>
+        <Link className="wiki-article__back" to="/wiki">← Wiki</Link>
         <p className="wiki-article__quiet">{error || 'That page is not here.'}</p>
       </main>
     );
@@ -179,7 +179,7 @@ const WikiArticle = () => {
   return (
     <main className="wiki-article" aria-labelledby="wiki-article-title">
       <div className={`wiki-article__meta ${step(1)}`}>
-        <Link className="wiki-article__back" to="/wiki">← Morning paper</Link>
+        <Link className="wiki-article__back" to="/wiki">← Wiki</Link>
         <span className="wiki-article__rights">
           {page.visibility === 'public' ? 'Public' : 'Private'}
           <span aria-hidden="true"> · </span>

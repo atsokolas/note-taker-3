@@ -20,6 +20,8 @@ const mockEditor = {
   isActive: jest.fn(() => false),
   on: jest.fn(),
   off: jest.fn(),
+  /* A note opens as reading; the editor is told when the human asks to edit. */
+  setEditable: jest.fn(),
   state: {
     selection: {
       from: 0,
@@ -256,5 +258,41 @@ describe('NotebookEditor', () => {
         content: [{ type: 'text', text: 'Next evidence to find: ' }]
       }
     ]);
+  });
+
+  /* /think opens straight into whichever note you were last in, and the body
+     used to be a live editor on first paint — so a keystroke aimed at the page
+     landed in the note. Editing is something you ask for now. */
+  describe('a note you have not asked to edit', () => {
+    const paint = (entryId = 'note-1') => render(
+      <NotebookEditor
+        entry={{ _id: entryId, title: 'Playing to Win', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    it('opens closed, and offers Edit rather than Save', () => {
+      paint();
+      expect(mockEditor.setEditable).toHaveBeenCalledWith(false);
+      expect(mockEditor.setEditable).not.toHaveBeenCalledWith(true);
+      expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('becomes editable when you press Edit, and only then offers Save', () => {
+      paint();
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      expect(mockEditor.setEditable).toHaveBeenCalledWith(true);
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+    });
+
+    it('also opens on a click in the note, because that is what a reader reaches for', () => {
+      paint();
+      fireEvent.click(document.querySelector('.think-notebook-editor__body'));
+      expect(mockEditor.setEditable).toHaveBeenCalledWith(true);
+    });
   });
 });

@@ -11238,3 +11238,58 @@ body.noeis-editorial .topbar__menu-item--narrow-only {
     padding-top: 92px;
   }
 }
+
+/* ---------- the nav never clips a word in half ---------- */
+
+/* At 430 the row ran out of space and the last item became "Judgn" — a word
+   the product does not contain. A label either fits or it does not appear;
+   nothing in between reads as anything but broken. The nav scrolls sideways
+   under the wordmark instead, with the current surface first in the reading
+   order so it is the one you always see. */
+@media (max-width: 560px) {
+  body.noeis-editorial .topbar__brand-nav {
+    min-width: 0;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    gap: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    /* The row can reach the edge; the type inside it may not be cut. */
+    mask-image: linear-gradient(to right, transparent 0, #000 6px, #000 calc(100% - 14px), transparent 100%);
+  }
+
+  body.noeis-editorial .topbar__primary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.noeis-editorial .topbar__primary-link {
+    flex: 0 0 auto;
+    overflow: visible;
+    text-overflow: clip;
+    scroll-snap-align: start;
+  }
+
+  /* Whichever surface you are on is the one that must be legible without
+     scrolling, so it goes first. */
+  body.noeis-editorial .topbar__primary-link.is-active {
+    order: -1;
+  }
+}
+
+/* The rail's ask must read in full at every width. It was clipped to "Bring
+   evidence, counterevidence, or w…", which turns an instruction into a riddle. */
+body.noeis-editorial .agent-rail__ask input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 560px) {
+  body.noeis-editorial .agent-rail__ask input {
+    font-size: 0.78rem;
+  }
+}

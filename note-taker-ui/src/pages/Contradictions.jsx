@@ -136,7 +136,7 @@ const Contradictions = () => {
   return (
     <main className="contradictions" aria-labelledby="contradictions-title">
       <div className={`contradictions__head ${step(1)}`}>
-        <Link className="contradictions__back" to="/wiki">← Morning paper</Link>
+        <Link className="contradictions__back" to="/wiki">← Wiki</Link>
         <h1 id="contradictions__title-h" className="contradictions__title">Where your reading disagrees</h1>
         <p className="contradictions__dek" id="contradictions-title">
           {items.length

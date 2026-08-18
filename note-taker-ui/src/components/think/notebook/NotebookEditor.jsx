@@ -358,7 +358,15 @@ const NotebookEditor = ({
     []
   );
 
+  /* A note opens as reading, not as a cursor already in your work.
+     /think opens straight into whichever note you were last in, and the body
+     was a live editor on first paint — so a keystroke aimed at the page (or a
+     stray one on the way to the search field) landed in the note. Editing is
+     now something you ask for: click the body, or press Edit. */
+  const [editingBody, setEditingBody] = useState(false);
+
   const editor = useEditor({
+    editable: false,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({ placeholder: 'Write freely… Type / for commands.' }),
@@ -379,6 +387,23 @@ const NotebookEditor = ({
       )
     }
   });
+
+  useEffect(() => {
+    if (editor) editor.setEditable(editingBody);
+  }, [editor, editingBody]);
+
+  /* Opening a different note starts it closed again. Carrying the open state
+     across would mean the second note you looked at was live before you had
+     read a word of it. */
+  useEffect(() => {
+    setEditingBody(false);
+  }, [entry?._id]);
+
+  const startEditingBody = () => {
+    if (editingBody) return;
+    setEditingBody(true);
+    window.requestAnimationFrame?.(() => editor?.commands.focus('end'));
+  };
 
   const slashCommands = useSlashCommands({
     editor,
@@ -777,7 +802,11 @@ const NotebookEditor = ({
                 <QuietButton onClick={() => onDelete(entry)} disabled={saving}>Delete</QuietButton>
               </div>
             </details>
-            <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+            {editingBody ? (
+              <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+            ) : (
+              <QuietButton onClick={startEditingBody}>Edit</QuietButton>
+            )}
           </div>
         </div>
       </div>
@@ -906,6 +935,12 @@ const NotebookEditor = ({
           {organizeError && <p className="status-message error-message">{organizeError}</p>}
         </div>
       )}
+      {/* Clicking the note is the other way in, because that is what a reader
+          reaches for. Reading it does nothing at all. */}
+      <div
+        className={`think-notebook-editor__body${editingBody ? ' is-editing' : ''}`}
+        onClick={startEditingBody}
+      >
       <EditorDraftShell
         editor={editor}
         surfaceRef={slashSurfaceRef}
@@ -915,6 +950,7 @@ const NotebookEditor = ({
         trayItems={['evidence', 'concept', 'question']}
         slashCommands={slashCommands}
       />
+      </div>
       <InsertHighlightModal
         open={insertMode === 'highlight'}
         highlights={highlights}

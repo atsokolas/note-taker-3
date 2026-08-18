@@ -142,6 +142,9 @@ const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, c
     <section className="judgment__field" aria-labelledby={id}>
       <h2 id={id}>{label}</h2>
       {settled.map(line => <p key={line.id} className="judgment__line">{line.text}</p>)}
+      {/* The heading stays and admits the section is empty, rather than hiding
+          behind an accordion or leaving the reader unsure it saved. */}
+      {settled.length ? null : <p className="judgment__line judgment__line--empty">Nothing here yet.</p>}
       <SourceLine sources={sources} />
       {children}
       {onWrite ? (
@@ -270,9 +273,15 @@ const JudgmentIndex = ({ items }) => {
           ))}
         </ul>
       ) : (
-        <p className={`judgment__nothing ${enter}`}>
-          No judgments yet. One starts the day you write down what you think and what would change your mind.
-        </p>
+        /* A door, not a form. The composer used to be the only thing on an
+           empty index, which made the product look like a text box. The claim
+           usually comes from something you were already reading. */
+        <div className={`judgment__nothing ${enter}`}>
+          <p>No claims yet.</p>
+          <p className="judgment__nothing-door">
+            <Link to="/wiki">Start one from this morning&rsquo;s paper.</Link>
+          </p>
+        </div>
       )}
     </main>
   );

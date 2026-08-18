@@ -474,3 +474,20 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
 }
+
+/* An empty section says so, quietly. */
+.judgment__line--empty {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-style: italic;
+}
+
+.judgment__nothing-door {
+  margin: 10px 0 0;
+}
+
+.judgment__nothing-door a {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}

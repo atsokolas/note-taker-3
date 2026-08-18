@@ -94,12 +94,18 @@ describe('Judgment index', () => {
     expect(screen.queryByText('A plain wiki page')).not.toBeInTheDocument();
   });
 
-  it('says one sentence when there is nothing yet', async () => {
+  /* An empty index used to be a composer with a sentence over it, which made
+     the product look like a text box. It is a door now: the claim usually comes
+     from something you were already reading, so it points back at the paper.
+     The composer stays, below. */
+  it('offers a door to the paper when there is nothing yet', async () => {
     listWikiPages.mockResolvedValue([]);
 
     renderIndex();
 
-    expect(await screen.findByText(/No judgments yet/)).toBeInTheDocument();
+    expect(await screen.findByText('No claims yet.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Start one from this morning/ }))
+      .toHaveAttribute('href', '/wiki');
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 });

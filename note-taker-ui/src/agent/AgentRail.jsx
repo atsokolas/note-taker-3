@@ -144,10 +144,13 @@ const AgentRail = () => {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={ASK_PLACEHOLDER}
+          title={ASK_PLACEHOLDER}
           autoComplete="off"
-          disabled={!canAsk}
+          /* Always typeable. A disabled field on a page that has nothing to
+             retrieve reads as a broken rail rather than an idle one; the ask
+             itself says when there is nothing to ask against. */
         />
-        <button type="submit" disabled={busy || !canAsk || !draft.trim()}>Ask</button>
+        <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
       <p className="agent-rail__caption">Retrieves. You accept.</p>
     </aside>
