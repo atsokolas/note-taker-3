@@ -388,3 +388,38 @@ body.noeis-editorial .wiki-onboarding__arrival,
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 1.06rem;
 }
+
+/* Each archive is its own door. Set as a row of names rather than a list, because
+   a reader scans for the one they use rather than reading all three. */
+.wiki-onboarding__archive-lead {
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.24rem;
+  line-height: 1.3;
+}
+
+.wiki-onboarding__providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 4px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+body.noeis-editorial .wiki-onboarding__provider,
+.wiki-onboarding__provider {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 1rem;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+body.noeis-editorial .wiki-onboarding__provider:hover,
+body.noeis-editorial .wiki-onboarding__provider:focus-visible,
+.wiki-onboarding__provider:hover,
+.wiki-onboarding__provider:focus-visible {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
