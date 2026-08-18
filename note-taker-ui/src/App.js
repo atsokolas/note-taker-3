@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import WikiFrontPage from './components/wiki/WikiFrontPage';
+import Judgment from './pages/Judgment';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
@@ -70,7 +71,10 @@ const Wiki = lazy(() => import('./pages/Wiki'));
    the whole way. A chunk you always need is not a chunk. */
 const WikiArticle = lazy(() => import('./components/wiki/WikiArticle'));
 const Contradictions = lazy(() => import('./pages/Contradictions'));
-const Judgment = lazy(() => import('./pages/Judgment'));
+/* Not code-split. /judgment is one of the four rooms and the one a citation
+   trail ends in, so its chunk is asked for on a cold open — and splitting it
+   means the browser only requests it after main.js has downloaded and parsed,
+   a second round trip in series before any of the claim can be drawn. */
 const WikiIngestRun = lazy(() => import('./pages/WikiIngestRun'));
 const WikiOnboarding = lazy(() => import('./pages/WikiOnboarding'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
