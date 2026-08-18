@@ -105,6 +105,79 @@ describe('WikiList', () => {
     expect(screen.queryByLabelText('Page type')).not.toBeInTheDocument();
   });
 
+  it('folds same-title pages into one row and says how many are behind it', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-bare',
+        title: 'Sovereign Debt',
+        pageType: 'topic',
+        status: 'draft',
+        sourceCount: 0,
+        updatedAt: '2026-05-09T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-grounded',
+        title: 'sovereign debt',
+        pageType: 'topic',
+        status: 'draft',
+        sourceCount: 4,
+        updatedAt: '2026-05-01T12:00:00.000Z'
+      }
+    ]);
+
+    renderWikiList();
+
+    // The library-grounded copy is the one the reader meets, even though the
+    // bare copy was touched more recently.
+    const rows = await screen.findAllByRole('article');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('4 sources');
+
+    const toggle = screen.getByRole('button', { name: '1 more with this title' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+
+    // Nothing was deleted: the other copy is one click away.
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Hide the other 1' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Open sovereign debt' })
+    ).toHaveAttribute('href', '/wiki/workspace?page=wiki-grounded');
+    expect(
+      screen.getByRole('link', { name: 'Open Sovereign Debt' })
+    ).toHaveAttribute('href', '/wiki/workspace?page=wiki-bare');
+  });
+
+  it('counts facets by what the list shows, not by every copy of a title', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-a',
+        title: 'Sovereign Debt',
+        pageType: 'topic',
+        status: 'draft',
+        visibility: 'private',
+        updatedAt: '2026-05-09T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-b',
+        title: 'Sovereign debt',
+        pageType: 'topic',
+        status: 'draft',
+        visibility: 'private',
+        sourceCount: 2,
+        updatedAt: '2026-05-01T12:00:00.000Z'
+      }
+    ]);
+
+    renderWikiList();
+
+    await screen.findAllByRole('article');
+    await waitFor(() => {
+      expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('1');
+    });
+  });
+
   it('renders wiki rows as real page links instead of button-only cards', async () => {
     renderWikiList('view=list', { compact: false });
 

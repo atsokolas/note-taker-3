@@ -22,6 +22,11 @@ import {
   qualityReviewLabel
 } from './wikiPageQualityReview';
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
+import {
+  canonicalWikiPages,
+  groupWikiPagesByTitle,
+  sameTitleToggleLabel
+} from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const VISIBILITIES = ['all', 'private', 'shared'];
@@ -216,6 +221,66 @@ const WikiPageRow = ({
   );
 };
 
+/*
+ * One title, one row.
+ *
+ * The wiki drafts the same page more than once, and the list used to read as
+ * though the library held five things where it held one. The row that survives
+ * is the one the library grounds — the copies behind it are folded, not
+ * deleted, and the count says how many are back there.
+ */
+const WikiSameTitleGroup = ({
+  compact,
+  group,
+  deletingId,
+  showQualityReview,
+  onOpen,
+  onDelete
+}) => {
+  const [open, setOpen] = useState(false);
+  const others = group.others || [];
+
+  const rowFor = (page) => (
+    <WikiPageRow
+      key={page._id || page.id}
+      compact={compact}
+      page={page}
+      showQualityReview={showQualityReview}
+      deleting={deletingId === (page._id || page.id)}
+      onOpen={() => onOpen(page._id || page.id)}
+      onDelete={() => onDelete(page)}
+    />
+  );
+
+  return (
+    <>
+      {rowFor(group.canonical)}
+      {others.length ? (
+        <div className="wiki-index__same-title">
+          <button
+            type="button"
+            className="wiki-index__same-title-toggle"
+            aria-expanded={open}
+            onClick={() => setOpen(current => !current)}
+          >
+            {sameTitleToggleLabel(others.length, open)}
+          </button>
+          {open ? (
+            <>
+              <p className="wiki-index__same-title-note">
+                These share a title. The one above is the one your library grounds.
+              </p>
+              <div className="wiki-index__same-title-rows">
+                {others.map(rowFor)}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+};
+
 const WikiList = ({ compact = false, onOpenPage }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -242,13 +307,14 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     return params;
   }, [needsReviewFilter, pageType, query, status, visibility]);
 
-  const displayPages = useMemo(
-    () => dedupePagesByRepoKey(pages),
+  const displayGroups = useMemo(
+    () => groupWikiPagesByTitle(dedupePagesByRepoKey(pages)),
     [pages]
   );
 
+  /* Facets count what the list shows: one page per title, not every copy. */
   const facetCounts = useMemo(
-    () => computeWikiFacetCounts(dedupePagesByRepoKey(catalogPages)),
+    () => computeWikiFacetCounts(canonicalWikiPages(dedupePagesByRepoKey(catalogPages))),
     [catalogPages]
   );
 
@@ -391,7 +457,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
       {loading ? <p className="wiki-index__status">Loading Wiki pages...</p> : null}
 
-      {!loading && displayPages.length === 0 ? (
+      {!loading && displayGroups.length === 0 ? (
         <section className="wiki-index__empty">
           {needsReviewFilter ? (
             <>
@@ -412,15 +478,15 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         className={`library-article-list wiki-index__list${loading ? ' is-loading' : ''}`}
         aria-label="Wiki pages"
       >
-        {displayPages.map(page => (
-          <WikiPageRow
-            key={page._id}
+        {displayGroups.map(group => (
+          <WikiSameTitleGroup
+            key={group.key}
             compact={compact}
-            page={page}
+            group={group}
             showQualityReview={needsReviewFilter}
-            deleting={deletingId === page._id}
-            onOpen={() => openPage(page._id)}
-            onDelete={() => handleDelete(page)}
+            deletingId={deletingId}
+            onOpen={openPage}
+            onDelete={handleDelete}
           />
         ))}
       </section>
