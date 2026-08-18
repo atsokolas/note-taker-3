@@ -239,6 +239,12 @@ describe('WikiOnboarding', () => {
     expect(readwise).toHaveAttribute('href', '/connections?source=readwise#readwise');
     expect(screen.getByRole('link', { name: 'Notion' })).toHaveAttribute('href', '/connections?source=notion#notion');
     expect(screen.getByRole('link', { name: 'Evernote' })).toHaveAttribute('href', '/connections?source=evernote#evernote');
+
+    // Addressing the link correctly is not the same as the user arriving. Clicking
+    // has to leave the marker that tells the first-run gate this departure was
+    // deliberate, or the gate sends them straight back here.
+    fireEvent.click(readwise);
+    expect(sessionStorage.getItem('noeis.onboarding.connectAttempt')).toBe('readwise');
   });
 
   it('receipts the connection when the user comes back with material', async () => {

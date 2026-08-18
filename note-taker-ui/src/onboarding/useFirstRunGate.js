@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { listWikiPages } from '../api/wiki';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from './onboardingState';
+import { readConnectAttempt } from './connectAttempt';
 import syncWikiOnboardingState from './onboardingSync';
 
 /**
@@ -53,6 +54,12 @@ const useFirstRunGate = ({ enabled = true } = {}) => {
     if (checkedRef.current) return;
     if (isWikiOnboardingComplete()) return;
     if (isExempt(location.pathname)) return;
+    // They left onboarding deliberately, to connect an archive. Sending them back
+    // now is not rescuing a lost new user, it is undoing the step they just took —
+    // which is exactly what happened: the provider links appeared to do nothing
+    // because this gate returned them to /onboarding/wiki before Connections
+    // finished mounting.
+    if (readConnectAttempt()) return;
 
     checkedRef.current = true;
 
