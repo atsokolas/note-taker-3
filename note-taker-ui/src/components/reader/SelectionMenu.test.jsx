@@ -23,6 +23,33 @@ describe('SelectionMenu', () => {
     }));
   });
 
+  /* The menu is positioned from range.getBoundingClientRect(), which is in
+     viewport coordinates. .article-reader carries a backdrop-filter, and a
+     filtered element becomes the containing block for its own position: fixed
+     descendants — so a menu rendered inside the reader was offset by the whole
+     article above the selection. It must leave the reader's subtree. */
+  it('escapes the reader subtree so viewport coordinates mean the viewport', () => {
+    const reader = document.createElement('div');
+    reader.className = 'article-reader';
+    document.body.appendChild(reader);
+
+    render(<SelectionMenu {...baseProps} />, { container: reader });
+
+    const menu = document.querySelector('.selection-menu');
+    expect(menu).toBeInTheDocument();
+    expect(reader.contains(menu)).toBe(false);
+    expect(menu.parentElement).toBe(document.body);
+
+    reader.remove();
+  });
+
+  it('anchors above the selection it was given', () => {
+    render(<SelectionMenu {...baseProps} rect={{ top: 537, left: 748, width: 630, height: 20 }} />);
+    const menu = document.querySelector('.selection-menu');
+    expect(menu.style.top).toBe('529px');
+    expect(menu.style.left).toBe('1063px');
+  });
+
   it('returns null when rect is missing', () => {
     const { container } = render(<SelectionMenu {...baseProps} rect={null} />);
     expect(container.firstChild).toBeNull();

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
@@ -60,12 +61,23 @@ const SelectionMenu = React.forwardRef(({
 
   if (!rect) return null;
 
+  /* rect comes from range.getBoundingClientRect(), which is in viewport
+     coordinates, so this menu must be positioned against the viewport. It was
+     rendered inside .article-reader, and that element carries a
+     backdrop-filter — which makes it the containing block for its own
+     position: fixed descendants. The menu was therefore offset by the whole
+     height of the article above the selection: select a sentence halfway down
+     a page and the menu appeared near the top of the column.
+
+     A floating overlay belongs at the document level regardless, so it goes
+     through a portal. That also keeps it right if any ancestor later picks up
+     a transform or a filter, which breaks fixed positioning the same way. */
   const style = {
     top: Math.max(8, rect.top - 8),
     left: rect.left + rect.width / 2
   };
 
-  return (
+  return createPortal((
     <div
       ref={setRefs}
       className={`selection-menu selection-menu--expanded${motionOk ? ' is-magnetic' : ''}`}
@@ -107,7 +119,7 @@ const SelectionMenu = React.forwardRef(({
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 });
 
 export default SelectionMenu;
