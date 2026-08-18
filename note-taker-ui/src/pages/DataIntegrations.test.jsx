@@ -433,6 +433,39 @@ describe('DataIntegrations first insight workflow', () => {
     expect(syncReadwiseConnection).not.toHaveBeenCalled();
   });
 
+  it('prompts a connected Readwise account to import, and the prompt runs it', async () => {
+    // If the import on connect never ran or did not finish, this is the fallback the
+    // user is left with. It has to be one plain instruction that actually works —
+    // not "Next: Preview or sync" printed beside a button named something else.
+    listImportConnections.mockImplementation(async ({ provider } = {}) => (
+      provider === 'readwise'
+        ? [{
+          id: 'rw-1',
+          provider: 'readwise',
+          accountLabel: 'reader@example.com',
+          status: 'connected',
+          health: 'healthy',
+          lastValidatedAt: '2026-08-17T10:00:00.000Z',
+          lastSyncAt: null
+        }]
+        : []
+    ));
+
+    render(
+      <MemoryRouter>
+        <DataIntegrations />
+      </MemoryRouter>
+    );
+
+    const receipt = await screen.findByTestId('readwise-sync-receipt');
+    expect(within(receipt).getByText('Connected, nothing imported yet')).toBeInTheDocument();
+
+    const prompt = await within(receipt).findByTestId('readwise-sync-receipt-next-action');
+    expect(prompt).toHaveTextContent(/Import my Readwise archive/i);
+    fireEvent.click(prompt);
+    await waitFor(() => expect(syncReadwiseConnection).toHaveBeenCalledTimes(1));
+  });
+
   it('turns a Readwise OAuth failure into a visible retry receipt and cleans callback params', async () => {
     window.history.pushState({}, '', '/connections?source=readwise&readwise=error');
 
@@ -475,8 +508,12 @@ describe('DataIntegrations first insight workflow', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
-    expect(within(receipt).getByText('Connected, not synced')).toBeInTheDocument();
+    expect(within(receipt).getByText('Connected, nothing imported yet')).toBeInTheDocument();
     expect(within(receipt).getByText(/Share the pages or databases/i)).toBeInTheDocument();
+    // The prompt is the control. It used to be a label reading "Next: Preview or
+    // sync" beside a button called "Sync from Notion" — neither said "import".
+    fireEvent.click(within(receipt).getByTestId('notion-sync-receipt-next-action'));
+    await waitFor(() => expect(syncNotionConnection).toHaveBeenCalledTimes(1));
     expect(screen.getByText(/Last sync:/)).toHaveTextContent('Last sync: Never');
   });
 
