@@ -62,6 +62,32 @@
   border-bottom: 1px solid currentColor;
 }
 
+/* The cabinet proper: the folder names and the filing chore, together.
+   On the desktop rail it is simply the rest of the list. */
+.library-shelf__cabinet {
+  display: grid;
+  margin-top: 12px;
+}
+
+/* The way into the cabinet on a phone, where it is folded shut by default. */
+.library-shelf__cabinet-toggle {
+  width: fit-content;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.library-shelf__cabinet-toggle:hover,
+.library-shelf__cabinet-toggle:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
 /* Filing is the cabinet's own work, so it sits at the foot of the cabinet. */
 .library-shelf__filing {
   width: fit-content;
@@ -105,6 +131,16 @@
 
   .library-shelf button {
     width: auto;
+  }
+
+  /* The reading is what greets you here too: the cabinet's own margin does not
+     push a saved sentence off the first screen. */
+  .library-shelf__cabinet {
+    margin-top: 14px;
+  }
+
+  .library-shelf__filing {
+    margin-top: 14px;
   }
 }
 
