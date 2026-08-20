@@ -170,12 +170,21 @@ const articleSchema = new mongoose.Schema({
   publicationDate: { type: String, default: '' },
   siteName: { type: String, default: '' },
   importMeta: { type: importMetaSchema, default: () => ({}) },
+  /* Evergreen: the reader's own declaration that this one is permanent.
+     Everything else in the product is measured against a clock — what changed
+     overnight, what has gone unread, what is drifting. Some reading is not
+     like that. It is held for life, and it should be reachable forever and
+     never counted as neglected. This is the only flag on either object that
+     the human sets and no agent may. */
+  evergreen: { type: Boolean, default: false },
+  evergreenAt: { type: Date, default: null },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false }
 }, { timestamps: true });
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
+articleSchema.index({ userId: 1, evergreen: 1, updatedAt: -1 });
 articleSchema.index({ userId: 1, createdAt: -1 });
 articleSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 articleSchema.index({ userId: 1, updatedAt: -1 });
@@ -854,12 +863,21 @@ const wikiPageSchema = new mongoose.Schema({
   discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) },
   externalWatches: { type: wikiExternalWatchesSchema, default: () => ({}) },
+  /* Evergreen: the reader's own declaration that this one is permanent.
+     Everything else in the product is measured against a clock — what changed
+     overnight, what has gone unread, what is drifting. Some reading is not
+     like that. It is held for life, and it should be reachable forever and
+     never counted as neglected. This is the only flag on either object that
+     the human sets and no agent may. */
+  evergreen: { type: Boolean, default: false },
+  evergreenAt: { type: Date, default: null },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false }
 }, { timestamps: true });
 
 wikiPageSchema.index({ userId: 1, updatedAt: -1 });
+wikiPageSchema.index({ userId: 1, evergreen: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, status: 1, updatedAt: -1 });
 wikiPageSchema.index({ userId: 1, visibility: 1, updatedAt: -1 });
 // Public surfaces query across owners, so every userId-prefixed index above is

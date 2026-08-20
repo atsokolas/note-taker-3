@@ -285,6 +285,7 @@ export const projectJudgment = (page, now = Date.now()) => {
     whatIDid: whatIDidLines(judgment),
     lessons: lessonLines(judgment),
     parked: clean(judgment.status) === 'parked',
+    evergreen: Boolean(page?.evergreen),
     review: reviewBlock(judgment, now)
   };
 };
@@ -314,6 +315,11 @@ export const judgmentActivity = (page, events = [], now = Date.now()) => {
   const judgment = page?.judgment || {};
   const pageId = idOf(page);
   if (clean(judgment.status) === 'parked') return { state: 'parked', arrived: 0, newestAt: null };
+  /* Evergreen outranks the clock entirely. The reader said this one is
+     permanent, so it is never quiet, never avoided, and never told it lacks a
+     falsifier — those are all ways of saying "you have neglected this", and
+     you cannot neglect something you decided to keep. */
+  if (page?.evergreen) return { state: 'evergreen', arrived: 0, newestAt: null };
 
   const lastTouched = time(judgment.lastReviewedAt || page?.updatedAt || null);
   const touchedAt = Number.isNaN(lastTouched) ? 0 : lastTouched;
@@ -346,6 +352,7 @@ export const activityNote = ({ state, arrived } = {}) => {
   }
   if (state === 'unfalsifiable') return 'Nothing could change your mind about this yet';
   if (state === 'parked') return 'Parked';
+  if (state === 'evergreen') return 'Kept';
   return '';
 };
 
@@ -360,6 +367,7 @@ export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) =>
       provenance: provenanceLine(page, now),
       state: activity.state,
       note: activityNote(activity),
+      evergreen: Boolean(page?.evergreen),
       updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
     };
   })

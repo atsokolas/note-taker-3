@@ -1628,6 +1628,7 @@ const DEFAULT_ASYNC_BUILD_TIMEOUT_MS = 4 * 60 * 1000;
 const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
   'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
+  'evergreen', 'evergreenAt',
   // The Judgment index is built entirely out of this field, and it is small:
   // null on every page that is not a judgment.
   'judgment',
@@ -5776,6 +5777,19 @@ const buildWikiRouter = ({
       }
       if (enumChecks[2]?.value) page.visibility = enumChecks[2].value;
       if (enumChecks[3]?.value) page.sourceScope = enumChecks[3].value;
+      /* Evergreen is the reader's own declaration, so an agent token cannot
+         set it. Everything else about a page can be proposed; whether you
+         keep something for life cannot be. */
+      if (req.body?.evergreen !== undefined) {
+        if (actorType === 'agent') {
+          return res.status(403).json({ error: 'Only the reader can mark a page evergreen.' });
+        }
+        if (typeof req.body.evergreen !== 'boolean') {
+          return res.status(400).json({ error: 'evergreen must be true or false.' });
+        }
+        page.evergreen = req.body.evergreen;
+        page.evergreenAt = req.body.evergreen ? (page.evergreenAt || new Date()) : null;
+      }
       if (req.body?.body !== undefined) {
         if (!req.body.body || typeof req.body.body !== 'object' || Array.isArray(req.body.body)) {
           return res.status(400).json({ error: 'body must be a TipTap JSON object.' });

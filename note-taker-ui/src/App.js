@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParam
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import Lessons from './pages/Lessons';
+import Evergreen from './pages/Evergreen';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
@@ -652,6 +653,10 @@ function App() {
                 back on their own — reachable from Judgment, which is where
                 they are made. */}
             <Route path="/lessons" element={<Lessons />} />
+            {/* What you keep: sources, pages and beliefs held for life, in
+                one place, because the reader does not file them separately in
+                their head. */}
+            <Route path="/evergreen" element={<Evergreen />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
             {/* Contradiction as a view, not a tag: where the library
                 disagrees with itself, both passages side by side. */}

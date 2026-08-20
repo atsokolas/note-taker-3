@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { askWikiPage, createWikiPage, getWikiPage, updateWikiPage } from '../../api/wiki';
+import { askWikiPage, createWikiPage, getWikiPage, setWikiPageEvergreen, updateWikiPage } from '../../api/wiki';
+import EvergreenToggle from '../EvergreenToggle';
 import renderTiptapDoc from './renderTiptapDoc';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import { SUPPORT_STATES } from './extensions/Claim';
@@ -189,6 +190,16 @@ const WikiArticle = () => {
               sources, claims, review state, discussions, and the agent that
               drafts and lints. Reading is the default; maintaining is a click. */}
           <Link to={wikiPagePath(page._id)}>Workspace</Link>
+          <span aria-hidden="true"> · </span>
+          {/* Some pages are worth returning to for years. Kept ones stop being
+              measured against any clock. */}
+          <EvergreenToggle
+            evergreen={Boolean(page.evergreen)}
+            onChange={async (next) => {
+              const saved = await setWikiPageEvergreen(page._id, next);
+              setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
+            }}
+          />
         </span>
       </div>
 

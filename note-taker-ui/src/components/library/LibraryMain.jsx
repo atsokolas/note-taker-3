@@ -36,6 +36,7 @@ const LibraryMain = ({
   onOpenConcept,
   onOpenQuestion,
   onAskLibrarian,
+  onToggleEvergreen,
   folderOptions,
   articleOptions,
   articleQuery,
@@ -236,6 +237,7 @@ const LibraryMain = ({
             onHighlightReplace={onHighlightReplace}
             onHighlightRemove={onHighlightRemove}
             onAskLibrarian={onAskLibrarian}
+            onToggleEvergreen={onToggleEvergreen}
             sourceTrace={(
               <LibrarySourceTrace
                 source={sourceDetail}

@@ -6,11 +6,13 @@ import {
   downloadJudgmentPamphlet,
   getJudgmentLibraryEvidence,
   getWikiPage,
+  setWikiPageEvergreen,
   listWikiPages,
   listWikiSourceEvents,
   updateWikiPage
 } from '../api/wiki';
 import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
+import EvergreenToggle from '../components/EvergreenToggle';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
@@ -688,6 +690,15 @@ const JudgmentDetail = ({ pageId }) => {
         <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
           {printing ? 'Setting it…' : 'Print this as one page'}
         </button>
+        {/* A belief held for life. Kept claims are never bubbled as neglected,
+            because you cannot neglect something you decided to keep. */}
+        <EvergreenToggle
+          evergreen={view.evergreen}
+          onChange={async (next) => {
+            const saved = await setWikiPageEvergreen(pageId, next);
+            setPage(current => ({ ...current, evergreen: saved?.evergreen ?? next, evergreenAt: saved?.evergreenAt ?? null }));
+          }}
+        />
       </div>
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 

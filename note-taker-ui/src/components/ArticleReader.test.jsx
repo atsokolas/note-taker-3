@@ -176,3 +176,37 @@ describe('ArticleReader', () => {
     expect(content.compareDocumentPosition(record) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe('keeping a source for life', () => {
+  beforeEach(() => {
+    useTextSelection.mockReturnValue({
+      selectionState: { isOpen: false, text: '', rect: null, anchor: null },
+      clearSelection: jest.fn()
+    });
+  });
+
+  it('offers the mark, and settles it the moment it is pressed', async () => {
+    const onToggleEvergreen = jest.fn().mockResolvedValue({ evergreen: true });
+    render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'The Bitter Lesson', content: '<p>Text.</p>' }}
+        highlights={[]}
+        onToggleEvergreen={onToggleEvergreen}
+      />
+    );
+
+    const keep = screen.getByRole('button', { name: 'Keep this' });
+    expect(keep).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(keep);
+
+    await waitFor(() => expect(onToggleEvergreen).toHaveBeenCalledWith('a1', true));
+    // It states the fact about the thing, rather than the pending action.
+    expect(await screen.findByRole('button', { name: 'Kept' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('is absent where nothing can be kept', () => {
+    render(<ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }} highlights={[]} />);
+    expect(screen.queryByRole('button', { name: 'Keep this' })).not.toBeInTheDocument();
+  });
+});

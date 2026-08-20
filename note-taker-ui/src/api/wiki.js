@@ -722,6 +722,13 @@ export const mergeWikiProposal = async (proposalId, pageId) => {
   return res.data;
 };
 
+/* Evergreen: the reader keeping something for life. Only the reader can set
+   it, so this is a plain page update with one field. */
+export const setWikiPageEvergreen = async (pageId, evergreen) => {
+  const res = await api.patch(`${WIKI_PAGES_PATH}/${pageId}`, { evergreen: Boolean(evergreen) }, getAuthHeaders());
+  return res.data;
+};
+
 /* What the library already holds about the claim on a judgment page. The
    answer is candidates, not lines: nothing is written until the reader files
    one under Why or Against. */
@@ -1005,6 +1012,7 @@ const wikiApi = {
   suggestWikiSchemaUpdates,
   listWikiSourceEvents,
   getJudgmentLibraryEvidence,
+  setWikiPageEvergreen,
   processWikiSourceEvent,
   processPendingWikiSourceEvents,
   listWikiRevisions,

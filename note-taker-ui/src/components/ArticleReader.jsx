@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
+import EvergreenToggle from './EvergreenToggle';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
@@ -26,6 +27,7 @@ const ArticleReader = forwardRef(({
   onHighlightReplace,
   onHighlightRemove,
   onAskLibrarian,
+  onToggleEvergreen,
   sourceTrace = null
 }, ref) => {
   const contentRef = useRef(null);
@@ -34,6 +36,11 @@ const ArticleReader = forwardRef(({
   const [saveError, setSaveError] = useState('');
   const [draftColor, setDraftColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
   const [saving, setSaving] = useState(false);
+  /* Kept lives here rather than being read straight off the prop, so pressing
+     it settles immediately instead of waiting for the article list to refetch.
+     It resets when a different source is opened. */
+  const [kept, setKept] = useState(Boolean(article?.evergreen));
+  useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
   const fireTourSignal = useTourSignal();
   const html = useMemo(
     () => renderArticleContentWithHighlights(article, highlights),
@@ -171,6 +178,18 @@ const ArticleReader = forwardRef(({
             {article.url && (
               <a href={article.url} target="_blank" rel="noopener noreferrer">Open source</a>
             )}
+            {/* Some reading is held for life. Kept sources answer first when a
+                judgment asks the library what it holds, and they read back
+                together at /evergreen. */}
+            {onToggleEvergreen ? (
+              <EvergreenToggle
+                evergreen={kept}
+                onChange={async (next) => {
+                  const saved = await onToggleEvergreen(article._id, next);
+                  setKept(Boolean(saved?.evergreen ?? next));
+                }}
+              />
+            ) : null}
           </div>
         </div>
         <div style={{ display: 'inline-flex', gap: 8 }}>

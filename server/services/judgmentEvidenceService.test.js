@@ -117,3 +117,32 @@ const fakeArticle = (articles) => ({
 
   console.log('judgmentEvidenceService tests passed');
 })();
+
+/* Evergreen: what the reader keeps for life answers first. */
+{
+  const { EVERGREEN_BONUS } = require('./judgmentEvidenceService');
+  const terms2 = claimTerms('Demand for compute outruns deliverable capacity');
+  const kept = {
+    _id: 'keeper', title: 'The capacity wall', evergreen: true,
+    content: '<p>Capacity is the binding constraint.</p>', highlights: []
+  };
+  const passing = {
+    _id: 'passing', title: 'A note on capacity and demand', evergreen: false,
+    content: '<p>Capacity and demand and compute and deliverable timelines.</p>', highlights: []
+  };
+
+  const keptRow = candidatesFromArticle(kept, terms2)[0];
+  const passingRow = candidatesFromArticle(passing, terms2)[0];
+  assert.strictEqual(keptRow.evergreen, true, 'the row says it is evergreen');
+  assert.strictEqual(passingRow.evergreen, false);
+  assert.ok(
+    keptRow.score > passingRow.score,
+    'an evergreen source outranks a better keyword match that is not'
+  );
+  assert.ok(EVERGREEN_BONUS > 0);
+
+  const order = rankCandidates([passingRow, keptRow], 5).map(row => row.id);
+  assert.strictEqual(order[0], 'article:keeper', 'and it comes back first');
+
+  console.log('evergreen retrieval tests passed');
+}

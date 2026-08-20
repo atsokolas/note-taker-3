@@ -522,6 +522,39 @@ const buildLegacyContentRouter = ({
     }
   });
 
+  /* Evergreen: the reader's own declaration that this source is permanent.
+     Everything else in the product is measured against a clock. Some reading
+     is not — it is held for life, and it should stay reachable and never be
+     counted as neglected. */
+  router.patch('/articles/:id/evergreen', authenticateToken, async (req, res) => {
+    try {
+      if (typeof req.body?.evergreen !== 'boolean') {
+        return res.status(400).json({ error: 'evergreen must be true or false.' });
+      }
+      const evergreen = req.body.evergreen;
+      const article = await Article.findOne({ _id: req.params.id, userId: req.user.id });
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found or you do not have permission to modify it.' });
+      }
+      article.evergreen = evergreen;
+      /* The date is when you first decided, not when you last toggled it, so
+         a canon can be read in the order it was built. */
+      article.evergreenAt = evergreen ? (article.evergreenAt || new Date()) : null;
+      await article.save();
+      return res.status(200).json({
+        _id: String(article._id),
+        evergreen: article.evergreen,
+        evergreenAt: article.evergreenAt
+      });
+    } catch (error) {
+      if (error.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid article ID format.' });
+      }
+      console.error('Error marking article evergreen:', error);
+      return res.status(500).json({ error: 'Failed to update this source.' });
+    }
+  });
+
   router.patch('/articles/:id/pdfs', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;

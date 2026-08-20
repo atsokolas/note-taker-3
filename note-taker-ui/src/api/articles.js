@@ -60,3 +60,17 @@ export const moveArticleToFolder = async (articleId, folderId) => {
   clearCachedPrefix('articles:');
   return res.data;
 };
+
+/* Evergreen: a source the reader keeps for life. It stops being measured
+   against any clock, it answers first when a judgment asks the library what it
+   holds, and it reads back on its own at /evergreen. The cache is cleared
+   because every list that shows sources now shows this too. */
+export const setArticleEvergreen = async (articleId, evergreen) => {
+  const res = await api.patch(
+    `/articles/${articleId}/evergreen`,
+    { evergreen: Boolean(evergreen) },
+    getAuthHeaders()
+  );
+  clearCachedPrefix('articles:');
+  return res.data;
+};

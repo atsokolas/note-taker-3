@@ -112,6 +112,10 @@ const sourceLabelFor = (article = {}) => {
  */
 const HIGHLIGHT_WEIGHT = 3;
 const BODY_WEIGHT = 1;
+/* A source the reader keeps for life outranks one they happened to save. This
+   is what "bubbles up" means here: when you ask what your library says about a
+   claim, the things you hold permanently answer first. */
+const EVERGREEN_BONUS = 100;
 
 const candidatesFromArticle = (article = {}, terms = []) => {
   const rows = [];
@@ -135,7 +139,8 @@ const candidatesFromArticle = (article = {}, terms = []) => {
       url: clean(article.url),
       savedAt: highlight?.createdAt || article.createdAt || null,
       matched: hits,
-      score: hits.length * HIGHLIGHT_WEIGHT
+      evergreen: Boolean(article.evergreen),
+      score: hits.length * HIGHLIGHT_WEIGHT + (article.evergreen ? EVERGREEN_BONUS : 0)
     });
   });
 
@@ -155,7 +160,8 @@ const candidatesFromArticle = (article = {}, terms = []) => {
     url: clean(article.url),
     savedAt: article.createdAt || null,
     matched: bodyHits,
-    score: bodyHits.length * BODY_WEIGHT
+    evergreen: Boolean(article.evergreen),
+    score: bodyHits.length * BODY_WEIGHT + (article.evergreen ? EVERGREEN_BONUS : 0)
   }];
 };
 
@@ -225,6 +231,7 @@ const findLibraryEvidence = async ({
 
 module.exports = {
   DEFAULT_LIMIT,
+  EVERGREEN_BONUS,
   claimTerms,
   stem,
   matchedTerms,

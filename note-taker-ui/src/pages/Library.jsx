@@ -5,7 +5,7 @@ import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import FolderTree from '../components/library/FolderTree';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
-import { moveArticleToFolder } from '../api/articles';
+import { moveArticleToFolder, setArticleEvergreen } from '../api/articles';
 import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
@@ -722,6 +722,18 @@ const Library = () => {
      context. */
   const { ask: askRail } = useAgentRail();
 
+  /* Keeping a source for life. The reader owns this one — no agent sets it —
+     and the reader's own list has to reflect it without a refetch, because the
+     control settles the moment it is pressed. */
+  const handleToggleEvergreen = useCallback(async (articleId, evergreen) => {
+    const saved = await setArticleEvergreen(articleId, evergreen);
+    const next = Boolean(saved?.evergreen ?? evergreen);
+    setAllArticles(current => current.map(item => (
+      String(item._id) === String(articleId) ? { ...item, evergreen: next } : item
+    )));
+    return saved;
+  }, [setAllArticles]);
+
   const handleAskLibrarian = useCallback((highlight) => {
     const prompt = buildLibrarianSelectionPrompt(highlight);
     if (!prompt) return;
@@ -992,6 +1004,7 @@ const Library = () => {
       onOpenConcept={handleOpenConceptModal}
       onOpenQuestion={handleOpenQuestionModal}
       onAskLibrarian={handleAskLibrarian}
+      onToggleEvergreen={handleToggleEvergreen}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       articleQuery={articleQuery}

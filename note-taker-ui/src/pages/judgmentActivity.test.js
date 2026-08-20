@@ -95,3 +95,23 @@ describe('buildJudgmentIndex with activity', () => {
     expect(index[0].note).toBe('');
   });
 });
+
+describe('evergreen', () => {
+  const evergreenPage = { ...page({ falsifiers: [] }), evergreen: true, updatedAt: daysAgo(400) };
+
+  it('outranks the clock: never quiet, never avoided, never told it lacks a falsifier', () => {
+    const activity = judgmentActivity(evergreenPage, [event(daysAgo(300))], NOW);
+    expect(activity.state).toBe('evergreen');
+    expect(activityNote(activity)).toBe('Kept');
+  });
+
+  it('reaches the index row', () => {
+    const index = buildJudgmentIndex([evergreenPage], [], NOW);
+    expect(index[0].state).toBe('evergreen');
+    expect(index[0].evergreen).toBe(true);
+  });
+
+  it('leaves an unmarked claim alone', () => {
+    expect(judgmentActivity(page(), [], NOW).state).toBe('quiet');
+  });
+});

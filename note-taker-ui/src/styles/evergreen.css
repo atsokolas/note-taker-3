@@ -1,0 +1,99 @@
+/* What you keep.
+   The same paper as Judgment and the morning paper. No counts, no states, no
+   clock — this is the one surface in the product that is not about change. */
+
+.evergreen {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: clamp(40px, 7vh, 84px) 20px clamp(96px, 20vh, 200px);
+}
+
+.evergreen__title {
+  margin: 0 0 8px;
+  font-size: clamp(2rem, 3.4vw, 2.8rem);
+  line-height: 1.08;
+}
+
+.evergreen__dek,
+.evergreen__empty,
+.evergreen__quiet,
+.evergreen__error {
+  max-width: 54ch;
+  margin: 0 0 34px;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.evergreen__error {
+  color: var(--nt-warning, #9a4a2d);
+}
+
+.evergreen__empty a,
+.evergreen__dek a {
+  color: inherit;
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+.evergreen__list {
+  display: grid;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evergreen__item {
+  display: grid;
+  gap: 3px;
+}
+
+.evergreen__link {
+  max-width: 58ch;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.24rem;
+  line-height: 1.42;
+  text-decoration: none;
+}
+
+.evergreen__link:hover {
+  border-bottom: 1px solid currentColor;
+}
+
+.evergreen__meta {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+}
+
+/* The control, wherever it appears: a word with a rule under it, the same as
+   every other decision in this product. Kept reads as settled, not as active. */
+.evergreen-toggle {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.evergreen-toggle:hover,
+.evergreen-toggle:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.evergreen-toggle.is-kept {
+  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 80%, var(--text-primary, var(--vellum-ink)));
+}
+
+.evergreen-toggle:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.6;
+}
