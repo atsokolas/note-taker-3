@@ -97,12 +97,16 @@
 
 /* The folders are shelves inside the library, not four more views of it. The
    indent is the whole hierarchy: All sources at the top, then what you keep,
-   then the ways of narrowing, then the shelves themselves. */
-.library-shelf__folders {
-  padding-left: 12px;
+   then the ways of narrowing, then the shelves themselves.
+
+   Qualified by the nav, because `.library-shelf ul` zeroes the padding on
+   every list in here and outranks a bare class. */
+.library-shelf ul.library-shelf__folders {
+  padding-left: 13px;
+  border-left: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent);
 }
 
-.library-shelf__folders button {
+.library-shelf ul.library-shelf__folders button {
   font-size: 0.9rem;
 }
 
