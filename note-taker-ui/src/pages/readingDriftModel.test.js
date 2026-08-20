@@ -106,3 +106,25 @@ describe('driftSentence', () => {
     expect(driftSentence(buildDrift([source('Capacity', 2)], NOW))).toBe('');
   });
 });
+
+/* Shipped saying "You have drifted away from Needs Review", which is the
+   product mistaking its own filing tray for a subject. */
+describe('procedural shelves', () => {
+  const { isProceduralShelf } = require('./readingDriftModel');
+
+  it('knows a stage of work from a subject', () => {
+    ['Needs Review', 'needs review', 'Inbox', 'To Read', 'Read Later', 'Unsorted', 'Archive']
+      .forEach(name => expect(isProceduralShelf(name)).toBe(true));
+    ['Investing & Capital Allocation', 'Psychology & Decision Making', 'Power', 'Reviews of Books']
+      .forEach(name => expect(isProceduralShelf(name)).toBe(false));
+  });
+
+  it('leaves them out of what a source is about', () => {
+    expect(topicsOf({ folder: { name: 'Needs Review' }, tags: ['inbox', 'Capacity'] })).toEqual(['Capacity']);
+  });
+
+  it('so a source filed only in a tray counts as unfiled, not as a topic', () => {
+    const drift = buildDrift([source('Needs Review', 2), source('Needs Review', 4)], NOW);
+    expect(drift.filed).toBe(0);
+  });
+});

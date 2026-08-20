@@ -30,26 +30,38 @@
 
 .drift__rows {
   display: grid;
-  gap: 14px;
+  gap: 18px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* The label sits above its own line rather than beside it. Beside it, every
+   real shelf name was truncated — "Investing & …", "Psychology &…" — because a
+   subject people actually name is longer than a column that also has to hold a
+   chart. Stacked, the name gets the full width and the line still reads. */
 .drift__row {
   display: grid;
-  grid-template-columns: minmax(84px, 0.28fr) minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "topic direction"
+    "line line";
+  gap: 2px 14px;
+  align-items: baseline;
 }
 
 .drift__topic {
+  grid-area: topic;
+  min-width: 0;
   overflow: hidden;
   color: var(--text-primary, var(--vellum-ink));
   font-size: 0.98rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.drift__direction { grid-area: direction; }
+.drift__line { grid-area: line; }
 
 .drift__line {
   width: 100%;
@@ -95,7 +107,6 @@
   justify-content: space-between;
   max-width: 100%;
   margin: 8px 0 0;
-  padding-left: 98px;
   color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 70%, transparent);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.68rem;
@@ -107,20 +118,4 @@
   border-bottom: 1px solid var(--nt-divider, var(--vellum-line));
   color: transparent;
   transform: translateY(-4px);
-}
-
-@media (max-width: 640px) {
-  .drift__scale {
-    padding-left: 0;
-  }
-
-  .drift__row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "topic direction" "line line";
-    gap: 4px 14px;
-  }
-
-  .drift__topic { grid-area: topic; }
-  .drift__direction { grid-area: direction; }
-  .drift__line { grid-area: line; }
 }

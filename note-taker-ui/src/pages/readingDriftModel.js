@@ -23,6 +23,21 @@ export const BUCKETS = 6;
 export const MIN_SOURCES = 8;
 const TOP_TOPICS = 5;
 
+/* Shelves that are a stage of work rather than a subject. "You have drifted
+   away from Needs Review" is not an observation about your reading, it is the
+   product mistaking its own filing tray for a topic. Matched loosely, because
+   these are names people type. */
+const PROCEDURAL_SHELVES = [
+  'needs review', 'review', 'inbox', 'unsorted', 'uncategorized', 'unfiled',
+  'to read', 'read later', 'reading list', 'saved', 'misc', 'miscellaneous',
+  'archive', 'archived', 'later', 'triage', 'untitled'
+];
+
+export const isProceduralShelf = (name = '') => {
+  const value = clean(name).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return PROCEDURAL_SHELVES.includes(value);
+};
+
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const list = value => (Array.isArray(value) ? value : []);
 const time = value => new Date(value || 0).getTime();
@@ -38,10 +53,11 @@ const time = value => new Date(value || 0).getTime();
 export const topicsOf = (article = {}) => {
   const topics = [];
   const folder = clean(article?.folder?.name);
-  if (folder) topics.push(folder);
+  if (folder && !isProceduralShelf(folder)) topics.push(folder);
   list(article?.tags).forEach((tag) => {
     const name = clean(tag?.name || tag);
-    if (name && !topics.some(item => item.toLowerCase() === name.toLowerCase())) topics.push(name);
+    if (!name || isProceduralShelf(name)) return;
+    if (!topics.some(item => item.toLowerCase() === name.toLowerCase())) topics.push(name);
   });
   return topics;
 };

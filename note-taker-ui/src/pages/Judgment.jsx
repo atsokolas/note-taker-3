@@ -285,6 +285,14 @@ const JudgmentIndex = ({ items }) => {
                     about does not need to be announced — so the index is
                     allowed to be completely silent, which is the point. */}
                 {item.note ? <span className="judgment__index-note">{item.note}</span> : null}
+                {/* Counted rather than hidden: a claim written down five times
+                    is worth knowing about, and silently dropping four of them
+                    would look like the product losing your work. */}
+                {item.duplicates ? (
+                  <span className="judgment__index-note judgment__index-dupes">
+                    {item.duplicates} more {item.duplicates === 1 ? 'copy' : 'copies'} of this claim
+                  </span>
+                ) : null}
                 {/* What holding it taught you, under the claim it came out of.
                     A lesson gathered into a list of its own is a fortune
                     cookie; here it is a record of what believing that cost. */}

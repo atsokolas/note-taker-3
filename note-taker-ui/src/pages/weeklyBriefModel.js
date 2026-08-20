@@ -1,6 +1,7 @@
 import {
   activityNote,
   claimSentence,
+  foldJudgmentPages,
   isJudgmentPage,
   judgmentActivity,
   lessonLines
@@ -50,7 +51,9 @@ export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now =
   const since = now - WEEK;
 
   const read = list(articles).filter(article => within(article?.createdAt || article?.savedAt, since));
-  const judgments = list(pages).filter(isJudgmentPage);
+  /* Folded the same way the index folds, or the brief lists one belief three
+     times and reads like the backlog it exists to replace. */
+  const judgments = foldJudgmentPages(list(pages).filter(isJudgmentPage)).map(item => item.page);
   const graded = judgments.map(page => ({ page, activity: judgmentActivity(page, events, now) }));
 
   /* Bore on what you hold: sources that arrived this week and touched a claim.
@@ -89,6 +92,31 @@ export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now =
      the brief worth opening on the weeks it does have something. */
   brief.isQuiet = !brief.read && !brief.boreOnBeliefs && !brief.learned.length && !brief.avoided.length;
   return brief;
+};
+
+/*
+ * The line on the paper.
+ *
+ * The paper knows its own pages and, once it has asked for them, the source
+ * events. It does not know what you saved this week, so it must not say
+ * anything about how much you read — briefOpening leads with a reading count
+ * and would have to invent it. This says only what the paper can actually see,
+ * which is what is waiting on you and what you learned.
+ */
+export const paperWeekLine = (brief = {}) => {
+  const avoided = list(brief.avoided).length;
+  const learned = list(brief.learned).length;
+  if (avoided) {
+    return avoided === 1
+      ? 'One claim has evidence you have not read.'
+      : `${avoided} claims have evidence you have not read.`;
+  }
+  if (learned) {
+    return learned === 1
+      ? 'You learned one thing this week.'
+      : `You learned ${learned} things this week.`;
+  }
+  return 'Nothing has needed you this week.';
 };
 
 /** The opening line, which is a count and not a rallying cry. */

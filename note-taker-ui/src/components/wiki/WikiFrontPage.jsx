@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listWikiPages } from '../../api/wiki';
+import { listWikiPages, listWikiSourceEvents } from '../../api/wiki';
 import {
   armReadingWatch,
   disarmWatcher,
@@ -33,7 +33,7 @@ import {
   filterPagesForTodaysPage
 } from './wikiRepoDedupeModel';
 import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupModel';
-import { briefOpening, buildWeeklyBrief } from '../../pages/weeklyBriefModel';
+import { buildWeeklyBrief, paperWeekLine } from '../../pages/weeklyBriefModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
 import Paper from '../../pages/Paper';
@@ -556,9 +556,28 @@ const WikiFrontPage = () => {
      arrives in — a standing weekly line under the daily one, rather than a
      room you would have to remember to visit. It is assembled from the pages
      this page already loaded, so it costs nothing extra to say. */
+  /* The events say which claims have had evidence arrive that nobody has read,
+     and without them this line could only ever say the week was quiet — which
+     is what it did say, every week, because `briefing.sourceEvents` is not a
+     field the briefing has. They are asked for after the index settles, like
+     the briefing itself, so a sentence in the tail never delays the reading. */
+  const [weekEvents, setWeekEvents] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const events = await listWikiSourceEvents({ limit: 200 });
+        if (!cancelled) setWeekEvents(Array.isArray(events) ? events : []);
+      } catch (_eventsError) {
+        /* The paper reads fine without them; the line just stays quiet. */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const week = useMemo(
-    () => buildWeeklyBrief({ pages, events: briefing?.sourceEvents || [] }),
-    [pages, briefing]
+    () => buildWeeklyBrief({ pages, events: weekEvents }),
+    [pages, weekEvents]
   );
 
   const paperTail = (
@@ -582,7 +601,7 @@ const WikiFrontPage = () => {
           has the rest. A quiet week says so rather than being hidden, because
           "nothing needed you" is a real answer and worth reading. */}
       <p className="wfp-tail__week">
-        <span>{briefOpening(week)}</span>
+        <span>{paperWeekLine(week)}</span>
         <Link to="/week">Your week →</Link>
       </p>
       {/* Everything the reading has built — the wiki's own pages, not the

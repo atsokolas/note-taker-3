@@ -356,13 +356,70 @@ export const activityNote = ({ state, arrived } = {}) => {
   return '';
 };
 
+/* One claim, one row.
+
+   A judgment is a wiki page, and the agent drafts pages more than once, so the
+   index shipped listing the same belief five times. A list of five identical
+   claims is not a list of what you believe — it is a list of what the software
+   did — and the copy you land on should be the one that has actually been
+   argued, not whichever was written last.
+
+   The same rule as the wiki list: most evidence wins, then most learned from,
+   then most recent. The copies behind it are counted, not hidden, so a
+   duplicate is visible as a duplicate rather than silently disappearing. */
+const claimKey = (page) => clean(claimSentence(page))
+  .toLowerCase()
+  .replace(/[.,;:!?'"()[\]]+$/g, '')
+  .trim();
+
+const claimWeight = (page) => {
+  const judgment = page?.judgment || {};
+  return [
+    whyLines(judgment).length + againstLines(judgment).length,
+    lessonLines(judgment).length,
+    changeMindLines(judgment).length,
+    time(judgment.lastReviewedAt || page?.updatedAt || 0) || 0
+  ];
+};
+
+const strongerClaim = (candidate, incumbent) => {
+  const left = claimWeight(candidate);
+  const right = claimWeight(incumbent);
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] > right[index];
+  }
+  return String(idOf(candidate)) > String(idOf(incumbent));
+};
+
+export const foldJudgmentPages = (pages = []) => {
+  const byKey = new Map();
+  const loose = [];
+  list(pages).forEach((page, index) => {
+    const key = claimKey(page);
+    if (!key) {
+      loose.push({ page, others: 0, index });
+      return;
+    }
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { page, others: 0, index });
+      return;
+    }
+    existing.others += 1;
+    if (strongerClaim(page, existing.page)) existing.page = page;
+  });
+  return [...byKey.values(), ...loose].sort((left, right) => left.index - right.index);
+};
+
 /** The index is a list of claim sentences. Nothing else earns a column. */
-export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) => list(pages)
-  .filter(isJudgmentPage)
-  .map((page) => {
+export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) => foldJudgmentPages(
+  list(pages).filter(isJudgmentPage)
+)
+  .map(({ page, others }) => {
     const activity = judgmentActivity(page, events, now);
     return {
       id: idOf(page),
+      duplicates: others,
       sentence: claimSentence(page),
       provenance: provenanceLine(page, now),
       state: activity.state,

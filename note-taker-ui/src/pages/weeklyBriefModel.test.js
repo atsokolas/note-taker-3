@@ -101,3 +101,53 @@ describe('briefOpening', () => {
     expect(briefOpening({ read: 6, boreOnBeliefs: 0 })).toBe('You read 6 things. None of it touched what you hold.');
   });
 });
+
+/* The paper's line shipped saying "A quiet week" every week, because the paper
+   passes no articles and the briefing has no sourceEvents field — so read was
+   always 0 and isQuiet was always true. These pin the thing that was wrong:
+   the line has to change when the facts change. */
+describe('paperWeekLine', () => {
+  const { paperWeekLine } = require('./weeklyBriefModel');
+
+  it('leads with evidence you have not read, because that is the only thing waiting', () => {
+    const brief = buildWeeklyBrief({
+      pages: [claim('a', 'Capex discipline is returning.')],
+      events: [event('a', daysAgo(40))],
+      now: NOW
+    });
+    expect(paperWeekLine(brief)).toBe('One claim has evidence you have not read.');
+  });
+
+  it('counts them when there is more than one', () => {
+    const brief = buildWeeklyBrief({
+      pages: [claim('a', 'One.'), claim('b', 'Two.')],
+      events: [event('a', daysAgo(40)), event('b', daysAgo(50))],
+      now: NOW
+    });
+    expect(paperWeekLine(brief)).toBe('2 claims have evidence you have not read.');
+  });
+
+  it('falls back to what you learned when nothing is waiting', () => {
+    const brief = buildWeeklyBrief({
+      pages: [claim('a', 'Compute stays scarce.', { judgment: { lessons: [
+        { lessonId: 'l1', text: 'Announced is not delivered.', at: daysAgo(2) }
+      ] } })],
+      now: NOW
+    });
+    expect(paperWeekLine(brief)).toBe('You learned one thing this week.');
+  });
+
+  it('says nothing needed you only when nothing did', () => {
+    expect(paperWeekLine(buildWeeklyBrief({ pages: [claim('a', 'Rates matter.')], now: NOW })))
+      .toBe('Nothing has needed you this week.');
+  });
+
+  it('never mentions reading, because the paper cannot see what was saved', () => {
+    const brief = buildWeeklyBrief({
+      pages: [claim('a', 'Capex discipline is returning.')],
+      events: [event('a', daysAgo(40))],
+      now: NOW
+    });
+    expect(paperWeekLine(brief)).not.toMatch(/read \d|You read/);
+  });
+});
