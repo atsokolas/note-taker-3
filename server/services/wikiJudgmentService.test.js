@@ -184,3 +184,40 @@ module.exports = { run };
 
   console.log('judgment lesson and park tests passed');
 }
+
+/* What a belief rests on. */
+{
+  const { normalizeDependencies } = require('./wikiJudgmentService');
+
+  const edges = normalizeDependencies([
+    { pageId: '507f1f77bcf86cd799439011', note: 'If compute stops being scarce this stops being cheap.' },
+    { pageId: '507f1f77bcf86cd799439011' },
+    { pageId: 'self-page' }
+  ], 'user', 'self-page');
+  assert.strictEqual(edges.length, 1, 'duplicates collapse and self-reference is dropped');
+  assert.strictEqual(edges[0].note, 'If compute stops being scarce this stops being cheap.');
+  assert.strictEqual(edges[0].proposedBy, 'user');
+  assert.ok(edges[0].dependencyId);
+
+  // An agent may propose an edge and may never store one as accepted.
+  const proposed = normalizeDependencies([{ pageId: 'p2', proposedBy: 'ai_proposed' }], 'agent', 'p1');
+  assert.strictEqual(proposed[0].proposedBy, 'ai_proposed');
+
+  let refusedAgent = null;
+  try {
+    normalizeDependencies([{ pageId: 'p2', proposedBy: 'user' }], 'agent', 'p1');
+  } catch (error) { refusedAgent = error; }
+  assert.ok(refusedAgent, 'an agent cannot accept a dependency on the reader\'s behalf');
+
+  let refusedEmpty = null;
+  try { normalizeDependencies([{ note: 'no page' }], 'user', 'p1'); } catch (error) { refusedEmpty = error; }
+  assert.ok(refusedEmpty, 'a dependency without a page is refused');
+
+  const carried = normalizeJudgment({
+    input: { currentJudgment: 'CoreWeave is undervalued.', dependsOn: [{ pageId: 'p9', note: 'Rests on compute scarcity.' }] },
+    pageId: 'p1'
+  });
+  assert.strictEqual(carried.dependsOn.length, 1, 'dependencies survive the normalizer');
+
+  console.log('judgment dependency tests passed');
+}

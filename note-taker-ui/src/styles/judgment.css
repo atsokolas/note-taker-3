@@ -825,3 +825,253 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
 .judgment__index li[data-state="parked"] a {
   color: color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 62%, transparent);
 }
+
+/* The week. Counts, not exhortation; and the only section that asks anything
+   is the one about evidence you have not read. */
+.brief__title {
+  margin: 0 0 20px;
+  font-size: clamp(2rem, 3.4vw, 2.8rem);
+  line-height: 1.08;
+}
+
+.brief__opening {
+  max-width: 54ch;
+  margin: 0 0 40px;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.24rem;
+  line-height: 1.42;
+}
+
+.brief__body {
+  display: grid;
+  gap: 34px;
+}
+
+.brief__section h2 {
+  margin: 0 0 4px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brief__section-note {
+  max-width: 54ch;
+  margin: 0 0 12px;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.brief__section ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brief__section li {
+  display: grid;
+  gap: 2px;
+}
+
+.brief__section a {
+  max-width: 58ch;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.06rem;
+  line-height: 1.42;
+  text-decoration: none;
+}
+
+.brief__section a:hover {
+  border-bottom: 1px solid currentColor;
+}
+
+.brief__row-note {
+  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.76rem;
+}
+
+.brief__learned li span {
+  display: block;
+  max-width: 58ch;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.06rem;
+  line-height: 1.42;
+}
+
+.brief__learned li a {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.76rem;
+}
+
+.brief__quiet-note,
+.brief__kept {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.brief__kept a {
+  color: inherit;
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+.brief__kept a:hover {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* What this rests on. The only structure in the product, and it stays in the
+   page's grammar: sentences, a rule, and a word to press. */
+.judgment-depends__list,
+.judgment-depends__supports ul {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-depends__list li,
+.judgment-depends__supports li {
+  display: grid;
+  gap: 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+}
+
+.judgment-depends a {
+  max-width: 58ch;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.02rem;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.judgment-depends a:hover {
+  border-bottom: 1px solid currentColor;
+}
+
+.judgment-depends__note {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.judgment-depends__missing {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-style: italic;
+}
+
+.judgment-depends__empty {
+  margin: 0;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.96rem;
+}
+
+.judgment-depends button,
+.judgment-depends__open {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.judgment-depends button:hover,
+.judgment-depends button:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment-depends button:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.judgment-depends__add {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin-top: 14px;
+}
+
+.judgment-depends__add label {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+body.noeis-editorial .judgment .judgment-depends__add input,
+body.noeis-editorial .judgment .judgment-depends__add select,
+.judgment .judgment-depends__add input,
+.judgment .judgment-depends__add select {
+  width: min(100%, 52ch) !important;
+  padding: 4px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.judgment-depends__actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 6px;
+}
+
+.judgment-depends__supports {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+}
+
+.judgment-depends__supports h3 {
+  margin: 0 0 10px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.judgment-depends__error {
+  margin: 0;
+  color: var(--nt-warning, #9a4a2d);
+  font-size: 0.88rem;
+}
+
+.judgment-park__supports {
+  max-width: 56ch;
+  margin: 0;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.judgment-park__supports a {
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}

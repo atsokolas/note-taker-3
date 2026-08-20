@@ -16,8 +16,12 @@ import EvergreenToggle from '../components/EvergreenToggle';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
+  addDependency,
+  dependencyLines,
   fileEvidenceIntoJudgment,
   parkJudgment,
+  removeDependency,
+  restingOn,
   resumeJudgment,
   answerProvenance,
   buildJudgmentIndex,
@@ -287,7 +291,11 @@ const JudgmentIndex = ({ items }) => {
           {/* A claim can turn out wrong. What holding it taught you does not,
               which is why the lessons get their own way in from here. */}
           <p className={`judgment__lessons-door ${enter}`}>
+            <Link to="/week">Your week →</Link>
+            <span aria-hidden="true"> · </span>
             <Link to="/lessons">What your judgments taught you →</Link>
+            <span aria-hidden="true"> · </span>
+            <Link to="/evergreen">What you keep →</Link>
           </p>
         </>
       ) : (
@@ -414,7 +422,7 @@ const LibraryEvidence = ({ pageId, onFile }) => {
  * asking at that moment: what did holding this teach you? The answer outlives
  * the claim. It is optional, because sometimes there isn't one.
  */
-const ParkJudgment = ({ parked, onPark, onResume }) => {
+const ParkJudgment = ({ parked, supports = [], onPark, onResume }) => {
   const [asking, setAsking] = useState(false);
   const [lesson, setLesson] = useState('');
   const [busy, setBusy] = useState(false);
@@ -456,6 +464,23 @@ const ParkJudgment = ({ parked, onPark, onResume }) => {
 
   return (
     <div className="judgment-park is-asking">
+      {/* This is the whole reason the edges are worth recording. Parking a
+          claim does not change what rests on it, and saying nothing would let
+          those quietly outlive their own foundation. It raises them; it does
+          not touch them. */}
+      {supports.length ? (
+        <p className="judgment-park__supports">
+          {supports.length === 1 ? 'One belief rests on this' : `${supports.length} beliefs rest on this`}
+          {': '}
+          {supports.map((item, index) => (
+            <React.Fragment key={item.id}>
+              {index > 0 ? '; ' : ''}
+              <Link to={`/judgment/${item.id}`}>{item.claim}</Link>
+            </React.Fragment>
+          ))}
+          . Parking this does not change them.
+        </p>
+      ) : null}
       <label htmlFor="judgment-lesson">What did holding this teach you?</label>
       <textarea
         id="judgment-lesson"
@@ -474,6 +499,110 @@ const ParkJudgment = ({ parked, onPark, onResume }) => {
       </div>
       {error ? <p className="judgment-park__error" role="alert">{error}</p> : null}
     </div>
+  );
+};
+
+/*
+ * What this rests on, and what rests on it.
+ *
+ * A list of claims is a list. A belief that depends on another belief is
+ * structure, and it is the only part of this product that compounds — retiring
+ * "compute is scarce" has to raise a question about "CoreWeave is undervalued",
+ * or the second one quietly outlives its own foundation.
+ *
+ * The edge is never drawn for you and never inferred. You pick the claim, and
+ * you say in your own words why one rests on the other, because an edge
+ * without a reason is a graph nobody can read six months later.
+ */
+const Dependencies = ({ rests, supports, options, onAdd, onRemove }) => {
+  const [adding, setAdding] = useState(false);
+  const [target, setTarget] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const add = async () => {
+    if (!target || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onAdd(target, note);
+      setAdding(false);
+      setTarget('');
+      setNote('');
+    } catch (addError) {
+      setError(addError?.message || 'That did not save.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="judgment__field judgment-depends" aria-labelledby="judgment-field-depends">
+      <h2 id="judgment-field-depends">This rests on</h2>
+
+      {rests.length ? (
+        <ul className="judgment-depends__list">
+          {rests.map(line => (
+            <li key={line.id}>
+              {line.claim
+                ? <Link to={`/judgment/${line.pageId}`}>{line.claim}</Link>
+                : <span className="judgment-depends__missing">A claim that is no longer here</span>}
+              {line.note ? <p className="judgment-depends__note">{line.note}</p> : null}
+              <button type="button" onClick={() => onRemove(line.id)}>Not any more</button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="judgment-depends__empty">Nothing yet. A belief that stands on its own is fine.</p>
+      )}
+
+      {adding ? (
+        <div className="judgment-depends__add">
+          <label htmlFor="judgment-depends-target">Which belief does this rest on?</label>
+          <select id="judgment-depends-target" value={target} onChange={(event) => setTarget(event.target.value)}>
+            <option value="">Choose a claim</option>
+            {options.map(option => (
+              <option key={option.id} value={option.id}>{option.sentence}</option>
+            ))}
+          </select>
+          <label htmlFor="judgment-depends-note">Why?</label>
+          <input
+            id="judgment-depends-note"
+            value={note}
+            placeholder="If that one goes, what happens to this one?"
+            onChange={(event) => setNote(event.target.value)}
+          />
+          <div className="judgment-depends__actions">
+            <button type="button" onClick={add} disabled={busy || !target}>
+              {busy ? 'Writing it down…' : 'It rests on that'}
+            </button>
+            <button type="button" className="is-quiet" onClick={() => setAdding(false)} disabled={busy}>Never mind</button>
+          </div>
+          {error ? <p className="judgment-depends__error" role="alert">{error}</p> : null}
+        </div>
+      ) : (
+        <button type="button" className="judgment-depends__open" onClick={() => setAdding(true)}>
+          Say what this rests on
+        </button>
+      )}
+
+      {/* The other direction, which is the reason the first one is worth
+          recording: these are what move if this claim does. */}
+      {supports.length ? (
+        <div className="judgment-depends__supports">
+          <h3>What rests on this</h3>
+          <ul>
+            {supports.map(item => (
+              <li key={item.id}>
+                <Link to={`/judgment/${item.id}`}>{item.claim}</Link>
+                {item.note ? <p className="judgment-depends__note">{item.note}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
   );
 };
 
@@ -585,6 +714,46 @@ const JudgmentDetail = ({ pageId }) => {
 
   const park = useCallback(lesson => commit(parkJudgment(page, lesson)), [commit, page]);
   const resume = useCallback(() => commit(resumeJudgment(page)), [commit, page]);
+
+  /* The other claims, so a dependency can be chosen and named. This is the one
+     thing on the page that needs to know the corpus exists; it loads after the
+     claim so it never delays the reading of it. */
+  const [corpus, setCorpus] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const pages = await listWikiPages({ summary: 1, limit: 500 });
+        if (!cancelled) setCorpus(Array.isArray(pages) ? pages : []);
+      } catch (_corpusError) {
+        /* The claim reads fine without the rest of the corpus. All that is
+           lost is the ability to name what this rests on. */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const pagesById = useMemo(
+    () => new Map(corpus.map(item => [String(item?._id || ''), item])),
+    [corpus]
+  );
+  const rests = useMemo(
+    () => dependencyLines(page?.judgment || {}, pagesById),
+    [page, pagesById]
+  );
+  const supports = useMemo(() => restingOn(pageId, corpus), [pageId, corpus]);
+  const dependencyOptions = useMemo(
+    () => buildJudgmentIndex(corpus).filter(item => String(item.id) !== String(pageId)),
+    [corpus, pageId]
+  );
+  const addDependsOn = useCallback(
+    (target, note) => commit(addDependency({ ...page, _id: pageId }, target, note)),
+    [commit, page, pageId]
+  );
+  const removeDependsOn = useCallback(
+    dependencyId => commit(removeDependency(page, dependencyId)),
+    [commit, page]
+  );
 
   /* A line the human typed, into any of the four. The agent is not involved.
      The id is the line's, so typing more of the same sentence rewrites it
@@ -764,7 +933,15 @@ const JudgmentDetail = ({ pageId }) => {
           </section>
         ) : null}
 
-        <ParkJudgment parked={view.parked} onPark={park} onResume={resume} />
+        <Dependencies
+          rests={rests}
+          supports={supports}
+          options={dependencyOptions}
+          onAdd={addDependsOn}
+          onRemove={removeDependsOn}
+        />
+
+        <ParkJudgment parked={view.parked} supports={supports} onPark={park} onResume={resume} />
 
         {/* The review is absent until the date. Then it arrives and asks one
             question; the answer is the human's, never the agents'. */}

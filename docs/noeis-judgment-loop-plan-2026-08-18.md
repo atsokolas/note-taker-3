@@ -91,9 +91,18 @@ their own surface: the shortest, most re-readable thing in the product.
    *CoreWeave is undervalued*? Agent-proposed, human-accepted — never a graph
    you are asked to draw.
 
-Stage 1 first because everything downstream is thin without a filled ledger.
-Stage 5 last because it is the best idea and the most speculative, and it needs
-a real stock of claims before it means anything.
+All five are built. Evergreen arrived alongside them and is not a stage: it is
+the counterweight to the whole loop. Everything else here is measured against a
+clock; some reading is held for life and must never be counted as neglected.
+
+## What is not yet proven
+
+Stage 5 is the most speculative thing in this plan and it is now shipped
+untested by use. Claim-to-claim dependency only means something once there is a
+real stock of claims with real edges between them, and declaring an edge is
+manual work most people will not do. If it goes unused, the honest next move is
+agent-proposed edges — the schema already carries `proposedBy` for exactly that
+— and not more UI around a graph nobody is drawing.
 
 ## Rules that do not bend
 

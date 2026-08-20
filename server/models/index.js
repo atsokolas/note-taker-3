@@ -478,6 +478,24 @@ const judgmentLessonSchema = new mongoose.Schema({
   at: { type: Date, default: Date.now }
 }, { _id: false });
 
+/* What this belief rests on.
+   A list of claims is a list. A belief that depends on another belief is
+   structure, and it is the only thing here that compounds: retire "compute is
+   scarce" and something has to ask what happens to "CoreWeave is undervalued".
+
+   `pageId` is another judgment page. `note` is the reader's own sentence about
+   why one rests on the other, because the edge without the reason is a graph
+   nobody can read six months later. `proposedBy` records whether an agent
+   suggested it — an agent may propose an edge and may never store one
+   accepted, which is the same rule as everywhere else. */
+const judgmentDependencySchema = new mongoose.Schema({
+  dependencyId: { type: String, required: true, trim: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  note: { type: String, default: '', trim: true },
+  proposedBy: { type: String, enum: ['user', 'ai_proposed'], default: 'user' },
+  acceptedAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 const wikiJudgmentSchema = new mongoose.Schema({
   /* Not required. A judgment page is one that carries a judgment, and in the
      reading language that is a claim with reasons — no framed question above
@@ -518,7 +536,8 @@ const wikiJudgmentSchema = new mongoose.Schema({
   unknowns: { type: [judgmentUnknownSchema], default: [] },
   falsifiers: { type: [judgmentFalsifierSchema], default: [] },
   decisions: { type: [judgmentDecisionSchema], default: [] },
-  lessons: { type: [judgmentLessonSchema], default: [] }
+  lessons: { type: [judgmentLessonSchema], default: [] },
+  dependsOn: { type: [judgmentDependencySchema], default: [] }
 }, { _id: false });
 
 const wikiClaimSchema = new mongoose.Schema({

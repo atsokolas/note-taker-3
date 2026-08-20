@@ -435,6 +435,66 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
   };
 };
 
+/* What a belief rests on, and what rests on it.
+
+   A list of claims is a list. A belief that depends on another belief is
+   structure, and it is the only thing here that compounds: retiring "compute
+   is scarce" has to raise a question about "CoreWeave is undervalued", or the
+   second one quietly outlives its own foundation.
+
+   The edge is never drawn for you. An agent may propose one; accepting it is
+   the reader's, like everything else on this page. */
+export const dependencyLines = (judgment = {}, pagesById = new Map()) => list(judgment.dependsOn)
+  .map((item, index) => {
+    const pageId = idOf(item?.pageId);
+    const page = pagesById.get(String(pageId)) || null;
+    return {
+      id: clean(item?.dependencyId) || `dependency:${index}`,
+      pageId,
+      claim: page ? claimSentence(page) : '',
+      note: clean(item?.note),
+      proposedBy: clean(item?.proposedBy) || 'user'
+    };
+  })
+  .filter(line => line.pageId);
+
+/** The other direction: everything in the corpus that rests on this page. */
+export const restingOn = (pageId, pages = []) => {
+  const target = String(idOf(pageId));
+  if (!target) return [];
+  return list(pages)
+    .filter(page => list(page?.judgment?.dependsOn).some(item => String(idOf(item?.pageId)) === target))
+    .map(page => ({
+      id: idOf(page),
+      claim: claimSentence(page),
+      note: clean(
+        list(page?.judgment?.dependsOn).find(item => String(idOf(item?.pageId)) === target)?.note
+      )
+    }))
+    .filter(item => item.id && item.claim);
+};
+
+export const addDependency = (page, dependsOnPageId, note = '') => {
+  const judgment = page?.judgment || {};
+  const target = String(idOf(dependsOnPageId));
+  if (!target || target === String(idOf(page))) return judgment;
+  const existing = list(judgment.dependsOn);
+  if (existing.some(item => String(idOf(item?.pageId)) === target)) return judgment;
+  return {
+    ...judgment,
+    dependsOn: [...existing, { pageId: target, note: clean(note), proposedBy: 'user' }]
+  };
+};
+
+export const removeDependency = (page, dependencyId) => {
+  const judgment = page?.judgment || {};
+  const id = clean(dependencyId);
+  return {
+    ...judgment,
+    dependsOn: list(judgment.dependsOn).filter(item => clean(item?.dependencyId) !== id)
+  };
+};
+
 /* Parking, and the lesson it leaves behind.
 
    Judgment had three moves and one of them was Retire, which means "I no

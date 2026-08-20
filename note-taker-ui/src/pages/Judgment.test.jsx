@@ -78,6 +78,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
   resetFirstPaint();
+  listWikiPages.mockResolvedValue([]);
   listWikiSourceEvents.mockResolvedValue([]);
   getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
 });
@@ -569,5 +570,101 @@ describe('The index only raises its voice about what was avoided', () => {
     listWikiSourceEvents.mockRejectedValue(new Error('nope'));
     renderIndex();
     expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+  });
+});
+
+describe('What a belief rests on', () => {
+  const otherClaim = {
+    _id: 'wiki-compute',
+    title: 'Compute',
+    judgment: { currentJudgment: 'Compute stays scarce.' }
+  };
+
+  beforeEach(() => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+  });
+
+  it('records the edge and the reason, never inferring either', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage(), otherClaim]);
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+
+    expect(await screen.findByText('Nothing yet. A belief that stands on its own is fine.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Say what this rests on' }));
+
+    fireEvent.change(screen.getByLabelText('Which belief does this rest on?'), { target: { value: 'wiki-compute' } });
+    fireEvent.change(screen.getByLabelText('Why?'), {
+      target: { value: 'If compute stops being scarce this stops being true.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'It rests on that' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    expect(body.judgment.dependsOn).toHaveLength(1);
+    expect(body.judgment.dependsOn[0]).toMatchObject({
+      pageId: 'wiki-compute',
+      note: 'If compute stops being scarce this stops being true.',
+      proposedBy: 'user'
+    });
+  });
+
+  it('never offers the claim itself as something it rests on', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage(), otherClaim]);
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    fireEvent.click(await screen.findByRole('button', { name: 'Say what this rests on' }));
+
+    const select = screen.getByLabelText('Which belief does this rest on?');
+    const options = Array.from(select.querySelectorAll('option')).map(option => option.value);
+    expect(options).toContain('wiki-compute');
+    expect(options).not.toContain('wiki-nvidia');
+  });
+
+  it('shows what would be shaken if this claim moved', async () => {
+    const dependent = {
+      _id: 'wiki-cw',
+      title: 'CoreWeave',
+      judgment: {
+        currentJudgment: 'CoreWeave is undervalued.',
+        dependsOn: [{ dependencyId: 'd1', pageId: 'wiki-nvidia', note: 'It prices the scarcity.' }]
+      }
+    };
+    listWikiPages.mockResolvedValue([judgmentPage(), dependent]);
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+
+    expect(await screen.findByRole('heading', { name: 'What rests on this' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'CoreWeave is undervalued.' })).toHaveAttribute('href', '/judgment/wiki-cw');
+    expect(screen.getByText('It prices the scarcity.')).toBeInTheDocument();
+  });
+
+  it('raises what rests on a claim before you park it, without touching them', async () => {
+    const dependent = {
+      _id: 'wiki-cw',
+      title: 'CoreWeave',
+      judgment: {
+        currentJudgment: 'CoreWeave is undervalued.',
+        dependsOn: [{ dependencyId: 'd1', pageId: 'wiki-nvidia', note: 'It prices the scarcity.' }]
+      }
+    };
+    listWikiPages.mockResolvedValue([judgmentPage(), dependent]);
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Park this' }));
+    expect(screen.getByText(/One belief rests on this/)).toBeInTheDocument();
+    expect(screen.getByText(/Parking this does not change them/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Park it' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    // Only this page was written. The dependent claim is raised, never edited.
+    expect(updateWikiPage.mock.calls.every(([id]) => id === 'wiki-nvidia')).toBe(true);
+  });
+
+  it('still reads the claim when the rest of the corpus cannot be loaded', async () => {
+    listWikiPages.mockRejectedValue(new Error('nope'));
+    renderDetail();
+    expect(await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
   });
 });

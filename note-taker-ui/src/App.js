@@ -4,6 +4,7 @@ import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import Lessons from './pages/Lessons';
 import Evergreen from './pages/Evergreen';
+import WeeklyBrief from './pages/WeeklyBrief';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
@@ -657,6 +658,8 @@ function App() {
                 one place, because the reader does not file them separately in
                 their head. */}
             <Route path="/evergreen" element={<Evergreen />} />
+            {/* The week, gathered from marks the surfaces already carry. */}
+            <Route path="/week" element={<WeeklyBrief />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
             {/* Contradiction as a view, not a tag: where the library
                 disagrees with itself, both passages side by side. */}

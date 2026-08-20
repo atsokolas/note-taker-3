@@ -5758,7 +5758,7 @@ const buildWikiRouter = ({
       const before = snapshotPage(page);
       const actorType = req.agentToken ? 'agent' : 'user';
       const normalizedJudgment = req.body?.judgment !== undefined
-        ? normalizeJudgment({ input: req.body.judgment, existing: page.judgment, actorType })
+        ? normalizeJudgment({ input: req.body.judgment, existing: page.judgment, actorType, pageId: String(page._id) })
         : null;
       const claimUpdates = req.body?.claimUpdates !== undefined
         ? normalizeClaimUpdates(req.body.claimUpdates)

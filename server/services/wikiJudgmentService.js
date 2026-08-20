@@ -143,6 +143,35 @@ const normalizeFalsifiers = (items = []) => {
    later found embarrassing is exactly the one worth keeping. Anything the
    caller sends that matches a lesson already stored is ignored in favour of
    the stored one. */
+/* Edges between beliefs. An agent may propose one and may never store one as
+   accepted: the reader decides what rests on what. Self-reference is dropped
+   rather than refused, because it is a mistake and not an attack. */
+const normalizeDependencies = (items = [], actorType = 'user', selfId = '') => {
+  if (!Array.isArray(items)) throw new JudgmentValidationError('judgment.dependsOn must be an array.');
+  const seen = new Set();
+  const out = [];
+  items.slice(0, 100).forEach((raw) => {
+    const item = plain(raw);
+    const pageId = clean(item.pageId, 120);
+    if (!pageId) throw new JudgmentValidationError('Each dependency requires a pageId.');
+    if (selfId && pageId === clean(selfId, 120)) return;
+    if (seen.has(pageId)) return;
+    seen.add(pageId);
+    const proposedBy = enumValue('dependency.proposedBy', item.proposedBy, VALUES.decisionCreator, 'user');
+    if (actorType === 'agent' && proposedBy !== 'ai_proposed') {
+      throw new JudgmentValidationError('An agent may only propose a dependency, never accept one.');
+    }
+    out.push({
+      dependencyId: stableId('dependency', item.dependencyId),
+      pageId,
+      note: clean(item.note, 2000),
+      proposedBy: actorType === 'agent' ? 'ai_proposed' : proposedBy,
+      acceptedAt: dateValue('dependency.acceptedAt', item.acceptedAt, null) || new Date()
+    });
+  });
+  return out;
+};
+
 const normalizeLessons = (items = [], priorItems = []) => {
   if (!Array.isArray(items)) throw new JudgmentValidationError('judgment.lessons must be an array.');
   const prior = (Array.isArray(priorItems) ? priorItems : []).map(plain);
@@ -214,7 +243,7 @@ const normalizeDecisions = (items = [], actorType = 'user', priorItems = []) => 
   });
 };
 
-const normalizeJudgment = ({ input, existing = null, actorType = 'user' } = {}) => {
+const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId = '' } = {}) => {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw new JudgmentValidationError('judgment must be an object.');
   }
@@ -255,7 +284,8 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user' } = {}) 
     parkedAt: status === 'parked'
       ? (dateValue('judgment.parkedAt', next.parkedAt, null) || prior.parkedAt || new Date())
       : null,
-    lessons: normalizeLessons(next.lessons || [], prior.lessons || [])
+    lessons: normalizeLessons(next.lessons || [], prior.lessons || []),
+    dependsOn: normalizeDependencies(next.dependsOn || [], actorType, pageId)
   };
 };
 
@@ -279,6 +309,7 @@ module.exports = {
   JudgmentValidationError,
   VALUES,
   normalizeClaimUpdates,
+  normalizeDependencies,
   normalizeJudgment,
   normalizeLessons
 };
