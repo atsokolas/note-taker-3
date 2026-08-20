@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getArticles } from '../api/articles';
 import { listWikiPages, listWikiSourceEvents } from '../api/wiki';
 import { briefOpening, buildWeeklyBrief } from './weeklyBriefModel';
+import ReadingDrift from '../components/ReadingDrift';
 import { takeFirstPaint } from '../motion/columnMotion';
 import '../styles/judgment.css';
 
@@ -39,6 +40,7 @@ const Section = ({ title, note, rows }) => {
 
 const WeeklyBrief = () => {
   const [brief, setBrief] = useState(null);
+  const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const arriving = useMemo(() => takeFirstPaint('weekly-brief'), []);
@@ -52,7 +54,10 @@ const WeeklyBrief = () => {
           getArticles().catch(() => []),
           listWikiSourceEvents({ limit: 400 }).catch(() => [])
         ]);
-        if (!cancelled) setBrief(buildWeeklyBrief({ pages, articles, events }));
+        if (!cancelled) {
+          setBrief(buildWeeklyBrief({ pages, articles, events }));
+          setArticles(articles);
+        }
       } catch (_loadError) {
         if (!cancelled) setError('Could not put this week together.');
       } finally {
@@ -115,6 +120,11 @@ const WeeklyBrief = () => {
               {brief.quiet.length} other{brief.quiet.length === 1 ? '' : 's'} sat quiet, which is not a problem.
             </p>
           ) : null}
+
+          {/* The one thing on this page that asks nothing. A week is about
+              what changed; this is about where three months of reading has
+              been going, which is the slower and more interesting question. */}
+          <ReadingDrift articles={articles} />
 
           {brief.kept ? (
             <p className="brief__kept">

@@ -350,6 +350,12 @@ const buildLegacyContentRouter = ({
             hiddenFromHome: 1,
             debugOnly: 1,
             archived: 1,
+            /* The Kept shelf filters on this, and the drift view reads tags.
+               Both were silently empty without them in the projection: an
+               explicit $project drops whatever it does not name. */
+            evergreen: 1,
+            evergreenAt: 1,
+            tags: 1,
             highlightCount: { $size: { $ifNull: ['$highlights', []] } }
           }
         },
