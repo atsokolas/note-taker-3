@@ -722,6 +722,21 @@ export const mergeWikiProposal = async (proposalId, pageId) => {
   return res.data;
 };
 
+/* What the library already holds about the claim on a judgment page. The
+   answer is candidates, not lines: nothing is written until the reader files
+   one under Why or Against. */
+export const getJudgmentLibraryEvidence = async (pageId, params = {}) => {
+  const res = await api.get(
+    `${WIKI_PAGES_PATH}/${pageId}/library-evidence${buildQueryString(params)}`,
+    getAuthHeaders()
+  );
+  return {
+    claim: String(res.data?.claim || ''),
+    terms: Array.isArray(res.data?.terms) ? res.data.terms : [],
+    candidates: Array.isArray(res.data?.candidates) ? res.data.candidates : []
+  };
+};
+
 export const listWikiSourceEvents = async (params = {}) => {
   const res = await api.get(`/api/wiki/source-events${buildQueryString(params)}`, getAuthHeaders());
   if (Array.isArray(res.data)) return res.data;
@@ -989,6 +1004,7 @@ const wikiApi = {
   listWikiActivity,
   suggestWikiSchemaUpdates,
   listWikiSourceEvents,
+  getJudgmentLibraryEvidence,
   processWikiSourceEvent,
   processPendingWikiSourceEvents,
   listWikiRevisions,

@@ -5,11 +5,12 @@ import Judgment from './Judgment';
 import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
 import { resetFirstPaint } from '../motion/columnMotion';
-import { askWikiPage, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { askWikiPage, getJudgmentLibraryEvidence, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
+  getJudgmentLibraryEvidence: jest.fn(),
   getWikiPage: jest.fn(),
   listWikiPages: jest.fn(),
   listWikiSourceEvents: jest.fn(),
@@ -78,6 +79,7 @@ beforeEach(() => {
   jest.restoreAllMocks();
   resetFirstPaint();
   listWikiSourceEvents.mockResolvedValue([]);
+  getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
 });
 
 describe('Judgment index', () => {
@@ -404,4 +406,58 @@ describe('the agent rail', () => {
     expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({ summary: 1 }));
   });
 
+});
+
+describe('Evidence from the library', () => {
+  const candidate = {
+    id: 'highlight:a1:h1',
+    kind: 'highlight',
+    text: 'Deliverable capacity lags demand by roughly two years.',
+    sourceLabel: 'On compute · FT'
+  };
+
+  beforeEach(() => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+  });
+
+  it('is a door, not a panel — nothing is fetched until it is opened', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    expect(getJudgmentLibraryEvidence).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Look in your library →' })).toBeInTheDocument();
+  });
+
+  it('offers what the library holds, and files the side the reader chooses', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
+
+    expect(await screen.findByText(candidate.text)).toBeInTheDocument();
+    // The provenance travels with the passage.
+    expect(screen.getByText('On compute · FT')).toBeInTheDocument();
+    // And the product does not pretend to know which side it falls on.
+    expect(screen.getByText('File under')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Against' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    const filed = body.judgment.against[body.judgment.against.length - 1];
+    expect(filed).toMatchObject({
+      text: candidate.text,
+      sourceLabel: 'On compute · FT',
+      acceptedFrom: 'highlight:a1:h1'
+    });
+  });
+
+  it('says plainly when the library has nothing to say about a claim you hold', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [] });
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
+    expect(await screen.findByText(/Nothing you have saved speaks to this yet/)).toBeInTheDocument();
+  });
 });

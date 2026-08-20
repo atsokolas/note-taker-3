@@ -1,0 +1,119 @@
+const assert = require('node:assert');
+const {
+  claimTerms,
+  matchedTerms,
+  snippetAround,
+  candidatesFromArticle,
+  rankCandidates,
+  alreadyFiled,
+  findLibraryEvidence
+} = require('./judgmentEvidenceService');
+
+// claimTerms
+assert.deepStrictEqual(
+  claimTerms('The demand for compute outruns deliverable capacity.'),
+  ['demand', 'compute', 'outruns', 'deliverable', 'capacity'],
+  'drops stopwords and short words, keeps the claim'
+);
+assert.deepStrictEqual(claimTerms('  '), [], 'an empty claim has no terms');
+assert.deepStrictEqual(claimTerms('Capacity and capacity'), ['capacity'], 'each term once');
+
+// matchedTerms: stems, so a plural in the passage still answers a singular claim
+assert.deepStrictEqual(
+  matchedTerms('Capacities were constrained all year', ['capacity', 'rates']),
+  ['capacity'],
+  'matches on the stem'
+);
+assert.deepStrictEqual(matchedTerms('nothing here', ['compute']), [], 'no false positives');
+
+// snippetAround centres on the match rather than truncating from the start
+const long = `${'filler '.repeat(60)}the capacity constraint is real${' tail'.repeat(60)}`;
+const snippet = snippetAround(long, ['capacity'], 120);
+assert.ok(snippet.includes('capacity'), 'the matched word survives the trim');
+assert.ok(snippet.length <= 130, 'and the snippet stays within budget');
+assert.strictEqual(snippetAround('short text', ['short'], 120), 'short text', 'short text is untouched');
+
+// candidatesFromArticle: the reader's own highlights outrank the body
+const article = {
+  _id: 'a1',
+  title: 'On compute',
+  siteName: 'FT',
+  url: 'https://example.com/a1',
+  content: '<p>Compute capacity is the binding constraint this cycle.</p>',
+  createdAt: '2026-06-01T00:00:00.000Z',
+  highlights: [
+    { _id: 'h1', text: 'Deliverable capacity lags demand by two years.', createdAt: '2026-06-02T00:00:00.000Z' },
+    { _id: 'h2', text: 'Unrelated aside about logistics.' }
+  ]
+};
+const terms = claimTerms('Demand for compute outruns deliverable capacity');
+const rows = candidatesFromArticle(article, terms);
+assert.strictEqual(rows.length, 1, 'only highlights that actually match are offered');
+assert.strictEqual(rows[0].kind, 'highlight');
+assert.strictEqual(rows[0].highlightId, 'h1');
+assert.strictEqual(rows[0].sourceLabel, 'On compute · FT', 'provenance travels with the line');
+assert.ok(rows[0].matched.includes('capacity'), 'the matched words are reported');
+// Nothing about which side it falls on: term overlap cannot tell support from contradiction.
+assert.strictEqual(rows[0].side, undefined, 'the service never guesses a side');
+
+const noHighlights = candidatesFromArticle({ ...article, highlights: [] }, terms);
+assert.strictEqual(noHighlights.length, 1, 'a source with no highlights falls back to its own words');
+assert.strictEqual(noHighlights[0].kind, 'source');
+
+const irrelevant = candidatesFromArticle(
+  { _id: 'a2', title: 'Gardening', content: 'Roses need pruning.', highlights: [] },
+  terms
+);
+assert.deepStrictEqual(irrelevant, [], 'a source about nothing relevant offers nothing');
+
+// rankCandidates
+const ranked = rankCandidates([
+  { id: 'low', score: 1, savedAt: '2026-08-01T00:00:00.000Z' },
+  { id: 'high', score: 9, savedAt: '2026-01-01T00:00:00.000Z' },
+  { id: 'mid', score: 3, savedAt: '2026-01-01T00:00:00.000Z' }
+], 2);
+assert.deepStrictEqual(ranked.map(r => r.id), ['high', 'mid'], 'strongest first, and the limit holds');
+
+// alreadyFiled: a passage the reader has already decided about is not offered back
+const filed = alreadyFiled({
+  why: [{ text: 'Deliverable capacity lags demand by two years.', acceptedFrom: 'highlight:a1:h1' }],
+  against: []
+});
+assert.ok(filed.has('highlight:a1:h1'), 'filed by id');
+assert.ok(filed.has('text:deliverable capacity lags demand by two years.'), 'and by text');
+
+// findLibraryEvidence, against a fake model
+const fakeArticle = (articles) => ({
+  find: () => ({
+    sort: () => ({
+      limit: () => ({ lean: async () => articles })
+    })
+  })
+});
+
+(async () => {
+  const empty = await findLibraryEvidence({ Article: fakeArticle([]), userId: 'u1', claim: 'the and of' });
+  assert.deepStrictEqual(empty.candidates, [], 'a claim made only of stopwords searches for nothing');
+
+  const found = await findLibraryEvidence({
+    Article: fakeArticle([article]),
+    userId: 'u1',
+    claim: 'Demand for compute outruns deliverable capacity'
+  });
+  assert.strictEqual(found.candidates.length, 1);
+  assert.strictEqual(found.candidates[0].highlightId, 'h1');
+  assert.ok(found.terms.includes('capacity'));
+
+  const alreadyDecided = await findLibraryEvidence({
+    Article: fakeArticle([article]),
+    userId: 'u1',
+    claim: 'Demand for compute outruns deliverable capacity',
+    judgment: { why: [{ acceptedFrom: 'highlight:a1:h1' }] }
+  });
+  assert.deepStrictEqual(alreadyDecided.candidates, [], 'what you already filed is not offered again');
+
+  const noModel = await findLibraryEvidence({ userId: 'u1', claim: 'compute capacity' });
+  assert.deepStrictEqual(noModel.candidates, [], 'survives a missing model');
+
+  console.log('judgmentEvidenceService tests passed');
+})();

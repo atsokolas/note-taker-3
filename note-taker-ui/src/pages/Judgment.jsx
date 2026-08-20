@@ -4,6 +4,7 @@ import {
   askWikiPage,
   createWikiPage,
   downloadJudgmentPamphlet,
+  getJudgmentLibraryEvidence,
   getWikiPage,
   listWikiPages,
   listWikiSourceEvents,
@@ -13,6 +14,7 @@ import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
+  fileEvidenceIntoJudgment,
   answerProvenance,
   buildJudgmentIndex,
   createJudgment,
@@ -287,6 +289,102 @@ const JudgmentIndex = ({ items }) => {
   );
 };
 
+/*
+ * What your library already said about this.
+ *
+ * The judgment could only be filled by typing into it, or by accepting a line
+ * an agent happened to bring past. Everything the reader had already saved and
+ * marked as worth keeping sat one room away and could not be reached from the
+ * claim it bore on.
+ *
+ * The agent retrieves. Every candidate arrives with the source it came from
+ * and the words that matched, and it is offered rather than filed — because
+ * whether a passage supports a claim or cuts against it is the question the
+ * page exists to ask, and no amount of word overlap answers it.
+ */
+const LibraryEvidence = ({ pageId, onFile }) => {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [candidates, setCandidates] = useState(null);
+  const [filingId, setFilingId] = useState('');
+
+  const look = useCallback(async () => {
+    setOpen(true);
+    setLoading(true);
+    setError('');
+    try {
+      const found = await getJudgmentLibraryEvidence(pageId);
+      setCandidates(found.candidates);
+    } catch (lookError) {
+      setError(lookError?.response?.data?.error || 'Your library could not be searched right now.');
+    } finally {
+      setLoading(false);
+    }
+  }, [pageId]);
+
+  const file = async (candidate, field) => {
+    setFilingId(candidate.id);
+    setError('');
+    try {
+      await onFile(candidate, field);
+      setCandidates(current => (current || []).filter(item => item.id !== candidate.id));
+    } catch (fileError) {
+      setError(fileError?.message || 'That line was not saved.');
+    } finally {
+      setFilingId('');
+    }
+  };
+
+  if (!open) {
+    return (
+      <button type="button" className="judgment__look" onClick={look}>
+        Look in your library →
+      </button>
+    );
+  }
+
+  return (
+    <section className="judgment-evidence" aria-label="Evidence from your library">
+      <div className="judgment-evidence__head">
+        <span>From your library</span>
+        <button type="button" onClick={() => setOpen(false)}>Close</button>
+      </div>
+      {loading ? <p className="judgment-evidence__quiet" role="status">Looking through what you have saved…</p> : null}
+      {error ? <p className="judgment-evidence__error" role="alert">{error}</p> : null}
+      {!loading && candidates && candidates.length === 0 ? (
+        <p className="judgment-evidence__quiet">
+          Nothing you have saved speaks to this yet. That is worth knowing about a claim you hold.
+        </p>
+      ) : null}
+      {candidates && candidates.length ? (
+        <ol className="judgment-evidence__list">
+          {candidates.map(candidate => (
+            <li key={candidate.id} className="judgment-evidence__item">
+              <blockquote>{candidate.text}</blockquote>
+              <p className="judgment-evidence__source">
+                {candidate.sourceLabel}
+                {candidate.kind === 'source' ? <span> · not highlighted, from the body</span> : null}
+              </p>
+              {/* Which side it falls on is the reader's call, and it is the
+                  whole question the page is asking. */}
+              <div className="judgment-evidence__file">
+                <span>File under</span>
+                <button type="button" disabled={Boolean(filingId)} onClick={() => file(candidate, 'why')}>
+                  {filingId === candidate.id ? 'Filing…' : 'Why'}
+                </button>
+                <button type="button" disabled={Boolean(filingId)} onClick={() => file(candidate, 'against')}>
+                  Against
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  );
+};
+
 const JudgmentDetail = ({ pageId }) => {
   const [page, setPage] = useState(null);
   const [overnight, setOvernight] = useState(null);
@@ -385,6 +483,11 @@ const JudgmentDetail = ({ pageId }) => {
 
   const writeAccepted = useCallback(
     (proposal, field) => commit(acceptProposalIntoJudgment(page, proposal, field)),
+    [commit, page]
+  );
+
+  const fileEvidence = useCallback(
+    (candidate, field) => commit(fileEvidenceIntoJudgment(page, candidate, field)),
     [commit, page]
   );
 
@@ -517,6 +620,7 @@ const JudgmentDetail = ({ pageId }) => {
           field="against"
           onWrite={(text, lineId) => writeLine(text, 'against', lineId)}
         />
+        <LibraryEvidence pageId={pageId} onFile={fileEvidence} />
         <Field
           label="I&rsquo;d change my mind if"
           lines={view.changeMindIf}

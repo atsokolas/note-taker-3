@@ -2,6 +2,7 @@ const express = require('express');
 const { collectContradictions } = require('../services/wikiContradictionService');
 const PDFDocument = require('pdfkit');
 const { buildPamphletPdf } = require('../services/judgmentPamphlet');
+const { findLibraryEvidence } = require('../services/judgmentEvidenceService');
 const mongoose = require('mongoose');
 const archiver = require('archiver');
 const {
@@ -5691,6 +5692,42 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error building judgment pamphlet:', error);
       return res.status(500).json({ error: 'The pamphlet could not be built.' });
+    }
+  });
+
+  /* What the library already holds about the claim on this page.
+     The agent retrieves and the human files: every candidate comes back with
+     the words that matched and the source it came from, and nothing is written
+     into the judgment here. Deciding whether a passage supports the claim or
+     cuts against it is the reader's, and it is the whole point of the page. */
+  router.get('/api/wiki/pages/:id/library-evidence', wikiAuth, async (req, res) => {
+    let page;
+    try {
+      page = await findOwnedPage(req).lean();
+    } catch (_error) {
+      return res.status(400).json({ error: 'Invalid wiki page id.' });
+    }
+    if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+    const claim = String(page?.judgment?.currentJudgment || page?.judgment?.governingQuestion || page?.title || '').trim();
+    if (!claim) {
+      return res.status(409).json({ error: 'There is no claim on this page to look for.' });
+    }
+    if (!Article?.find) {
+      return res.status(200).json({ claim, terms: [], candidates: [] });
+    }
+    try {
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 8, 25));
+      const { terms, candidates } = await findLibraryEvidence({
+        Article,
+        userId: req.user.id,
+        claim,
+        judgment: page.judgment || {},
+        limit
+      });
+      return res.status(200).json({ claim, terms, candidates });
+    } catch (error) {
+      console.error('Error retrieving library evidence:', error);
+      return res.status(500).json({ error: 'Your library could not be searched right now.' });
     }
   });
 

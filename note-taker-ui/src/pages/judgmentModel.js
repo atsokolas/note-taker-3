@@ -360,6 +360,36 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
   };
 };
 
+/* Filing something the library already held.
+   The candidate keeps its provenance on the line: sourceLabel is the source a
+   reader can name, acceptedFrom is the passage it came from, so the same
+   passage is not offered back once it has been decided about. sourceRefIds is
+   left alone — it addresses this page's own source ledger, and a library
+   article is not in it. */
+export const fileEvidenceIntoJudgment = (page, candidate, field) => {
+  const judgment = page?.judgment || {};
+  const text = clean(candidate?.text);
+  if (!text) return judgment;
+  const target = field === 'against' ? 'against' : 'why';
+  const current = target === 'why' ? whyLines(judgment) : againstLines(judgment);
+  return {
+    ...judgment,
+    [target]: [
+      ...current.map(line => ({
+        reasonId: line.id,
+        text: line.text,
+        sourceRefIds: line.sourceRefIds,
+        sourceLabel: line.sourceLabel
+      })),
+      {
+        text,
+        sourceLabel: clean(candidate?.sourceLabel),
+        acceptedFrom: clean(candidate?.id)
+      }
+    ]
+  };
+};
+
 /* Writing a line by hand.
    Three of the four fields could only be filled by accepting something an
    agent brought back, so a judgment you started yourself could never carry a
