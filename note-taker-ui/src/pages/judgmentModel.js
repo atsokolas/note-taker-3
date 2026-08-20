@@ -289,15 +289,80 @@ export const projectJudgment = (page, now = Date.now()) => {
   };
 };
 
+/* Why a judgment goes quiet, and which kind of quiet it is.
+
+   Three states are worth telling apart, and every tool that collapses them
+   into "stale" ends up nagging:
+
+     live     evidence arrived and the reader has been here since
+     quiet    nothing has arrived. Not the reader's fault, and not a problem —
+              a belief nothing has touched in six months may be the best one
+              they hold
+     avoided  evidence arrived and has sat unread. This is the only one worth
+              surfacing, and it is the whole job
+
+   And a fourth that is not about time at all: a claim with nothing that could
+   ever bear on it. Saying so once is a service; a belief that cannot be
+   checked is not a belief being maintained.
+
+   Parked is its own answer. The reader already said they are not tending it,
+   so it is never bubbled. */
+export const AVOIDED_AFTER_DAYS = 21;
+const DAY = 24 * 60 * 60 * 1000;
+
+export const judgmentActivity = (page, events = [], now = Date.now()) => {
+  const judgment = page?.judgment || {};
+  const pageId = idOf(page);
+  if (clean(judgment.status) === 'parked') return { state: 'parked', arrived: 0, newestAt: null };
+
+  const lastTouched = time(judgment.lastReviewedAt || page?.updatedAt || null);
+  const touchedAt = Number.isNaN(lastTouched) ? 0 : lastTouched;
+
+  const arrivals = list(events)
+    .filter(event => list(event?.affectedPageIds).map(idOf).includes(pageId))
+    .filter(event => clean(event?.status) !== 'ignored')
+    .map(event => time(event?.sourceUpdatedAt || event?.createdAt || null))
+    .filter(at => !Number.isNaN(at) && at > touchedAt)
+    .sort((left, right) => right - left);
+
+  if (arrivals.length) {
+    const newestAt = arrivals[0];
+    const state = (now - newestAt) > AVOIDED_AFTER_DAYS * DAY ? 'avoided' : 'live';
+    return { state, arrived: arrivals.length, newestAt: new Date(newestAt).toISOString() };
+  }
+
+  /* Only worth saying about a claim nothing is arriving for anyway. A live
+     claim gathering evidence does not need to be told it lacks a falsifier. */
+  if (!changeMindLines(judgment).length) return { state: 'unfalsifiable', arrived: 0, newestAt: null };
+
+  return { state: 'quiet', arrived: 0, newestAt: null };
+};
+
+/* The mark the index carries. Live and quiet say nothing at all, which is the
+   point: the index must be able to be silent. */
+export const activityNote = ({ state, arrived } = {}) => {
+  if (state === 'avoided') {
+    return `${arrived} thing${arrived === 1 ? '' : 's'} arrived about this and ${arrived === 1 ? 'is' : 'are'} unread`;
+  }
+  if (state === 'unfalsifiable') return 'Nothing could change your mind about this yet';
+  if (state === 'parked') return 'Parked';
+  return '';
+};
+
 /** The index is a list of claim sentences. Nothing else earns a column. */
-export const buildJudgmentIndex = (pages = [], now = Date.now()) => list(pages)
+export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) => list(pages)
   .filter(isJudgmentPage)
-  .map(page => ({
-    id: idOf(page),
-    sentence: claimSentence(page),
-    provenance: provenanceLine(page, now),
-    updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
-  }))
+  .map((page) => {
+    const activity = judgmentActivity(page, events, now);
+    return {
+      id: idOf(page),
+      sentence: claimSentence(page),
+      provenance: provenanceLine(page, now),
+      state: activity.state,
+      note: activityNote(activity),
+      updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
+    };
+  })
   .filter(item => item.id && item.sentence)
   .sort((left, right) => (time(right.updatedAt) || 0) - (time(left.updatedAt) || 0));
 

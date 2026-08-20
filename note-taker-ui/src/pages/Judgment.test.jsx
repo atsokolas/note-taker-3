@@ -522,3 +522,52 @@ describe('Parking a judgment, and the lesson it leaves', () => {
     expect(body.judgment.parkedAt).toBeNull();
   });
 });
+
+describe('The index only raises its voice about what was avoided', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const daysAgo = days => new Date(Date.now() - days * DAY).toISOString();
+
+  it('marks a claim whose arrived evidence has gone unread, and stays silent about the rest', async () => {
+    const avoided = judgmentPage();
+    avoided._id = 'wiki-avoided';
+    avoided.updatedAt = daysAgo(200);
+    avoided.judgment.lastReviewedAt = daysAgo(200);
+
+    const quiet = judgmentPage();
+    quiet._id = 'wiki-quiet';
+    quiet.title = 'Rates';
+    quiet.judgment.currentJudgment = 'Rates still matter for asset prices.';
+    quiet.updatedAt = daysAgo(200);
+    quiet.judgment.lastReviewedAt = daysAgo(200);
+
+    listWikiPages.mockResolvedValue([avoided, quiet]);
+    listWikiSourceEvents.mockResolvedValue([
+      { _id: 'e1', affectedPageIds: ['wiki-avoided'], sourceUpdatedAt: daysAgo(40) }
+    ]);
+
+    renderIndex();
+
+    await screen.findByRole('link', { name: /NVIDIA demand still outruns/ });
+    expect(screen.getByText('1 thing arrived about this and is unread')).toBeInTheDocument();
+
+    // The quiet claim gets no mark at all. Nothing arrived; that is not a problem.
+    const rows = screen.getAllByRole('listitem');
+    const quietRow = rows.find(row => row.textContent.includes('Rates still matter'));
+    expect(quietRow.textContent).toBe('Rates still matter for asset prices.');
+  });
+
+  it('reads the events alongside the pages rather than after them', async () => {
+    listWikiPages.mockResolvedValue([]);
+    listWikiSourceEvents.mockResolvedValue([]);
+    renderIndex();
+    await waitFor(() => expect(listWikiSourceEvents).toHaveBeenCalled());
+    expect(listWikiSourceEvents).toHaveBeenCalledWith(expect.objectContaining({ limit: 200 }));
+  });
+
+  it('still lists the claims when the events cannot be read', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    listWikiSourceEvents.mockRejectedValue(new Error('nope'));
+    renderIndex();
+    expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+  });
+});

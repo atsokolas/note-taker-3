@@ -272,8 +272,13 @@ const JudgmentIndex = ({ items }) => {
         <>
           <ul className={`judgment__index ${enter}`}>
             {items.map(item => (
-              <li key={item.id}>
+              <li key={item.id} data-state={item.state}>
                 <Link to={`/judgment/${item.id}`}>{item.sentence}</Link>
+                {/* Only two states say anything. A claim nothing has arrived
+                    for is not a problem, and a claim you have been reading
+                    about does not need to be announced — so the index is
+                    allowed to be completely silent, which is the point. */}
+                {item.note ? <span className="judgment__index-note">{item.note}</span> : null}
               </li>
             ))}
           </ul>
@@ -813,9 +818,16 @@ const Judgment = () => {
         /* The index renders one sentence and a provenance line per judgment.
            Asking for whole pages meant every Tiptap body, every plainText, and
            every source and claim ledger in the corpus came down the wire so
-           that almost all of them could be filtered out on arrival. */
-        const pages = await listWikiPages({ summary: 1, limit: 500 });
-        if (!cancelled) setItems(buildJudgmentIndex(pages));
+           that almost all of them could be filtered out on arrival.
+
+           Source events come alongside rather than after: they say which
+           claims have had evidence arrive that nobody has read, and that is
+           the only thing this list is allowed to raise its voice about. */
+        const [pages, events] = await Promise.all([
+          listWikiPages({ summary: 1, limit: 500 }),
+          listWikiSourceEvents({ limit: 200 }).catch(() => [])
+        ]);
+        if (!cancelled) setItems(buildJudgmentIndex(pages, events));
       } catch (error) {
         if (!cancelled) setIndexError('Could not load your judgments.');
       }

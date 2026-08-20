@@ -802,3 +802,26 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
 .lessons__origin a:hover {
   color: var(--text-primary, var(--vellum-ink));
 }
+
+/* The mark on an index row. It appears on two states out of five, and on a
+   quiet list it appears nowhere at all — a claim nothing has arrived for is
+   not a problem, and the list has to be able to say nothing. */
+.judgment__index li {
+  display: grid;
+  gap: 2px;
+}
+
+.judgment__index-note {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
+.judgment__index li[data-state="avoided"] .judgment__index-note {
+  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
+}
+
+.judgment__index li[data-state="parked"] a {
+  color: color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 62%, transparent);
+}
