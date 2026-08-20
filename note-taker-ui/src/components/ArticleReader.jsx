@@ -178,21 +178,24 @@ const ArticleReader = forwardRef(({
             {article.url && (
               <a href={article.url} target="_blank" rel="noopener noreferrer">Open source</a>
             )}
-            {/* Some reading is held for life. Kept sources answer first when a
-                judgment asks the library what it holds, and they read back
-                together at /evergreen. */}
-            {onToggleEvergreen ? (
-              <EvergreenToggle
-                evergreen={kept}
-                onChange={async (next) => {
-                  const saved = await onToggleEvergreen(article._id, next);
-                  setKept(Boolean(saved?.evergreen ?? next));
-                }}
-              />
-            ) : null}
           </div>
         </div>
-        <div style={{ display: 'inline-flex', gap: 8 }}>
+        {/* Keeping a source for life is something you do to it, so it sits
+            with the other thing you can do to it. In the meta line it was a
+            grey word between a date and a link, reading as another label
+            rather than an action — findable only if you already knew it was
+            there. */}
+        <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+          {onToggleEvergreen ? (
+            <EvergreenToggle
+              evergreen={kept}
+              label={kept ? 'Kept for good' : 'Keep for good'}
+              onChange={async (next) => {
+                const saved = await onToggleEvergreen(article._id, next);
+                setKept(Boolean(saved?.evergreen ?? next));
+              }}
+            />
+          ) : null}
           {onMove && (
             <QuietButton onClick={onMove}>
               Move

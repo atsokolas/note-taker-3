@@ -306,9 +306,13 @@ const JudgmentIndex = ({ items }) => {
               </li>
             ))}
           </ul>
-          {/* A claim can turn out wrong. What holding it taught you does not,
-              which is why the lessons get their own way in from here. */}
-
+          {/* One way in to the week, from the surface the week is mostly
+              about — its own back-link says All judgments. Not a row of doors
+              this time: the week is the only one of the three that is not
+              already folded into a room you can reach. */}
+          <p className={`judgment__week-door ${enter}`}>
+            <Link to="/week">Your week →</Link>
+          </p>
         </>
       ) : (
         /* A door, not a form. The composer used to be the only thing on an

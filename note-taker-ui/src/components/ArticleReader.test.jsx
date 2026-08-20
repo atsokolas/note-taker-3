@@ -195,18 +195,36 @@ describe('keeping a source for life', () => {
       />
     );
 
-    const keep = screen.getByRole('button', { name: 'Keep this' });
+    const keep = screen.getByRole('button', { name: 'Keep for good' });
     expect(keep).toHaveAttribute('aria-pressed', 'false');
 
     fireEvent.click(keep);
 
     await waitFor(() => expect(onToggleEvergreen).toHaveBeenCalledWith('a1', true));
     // It states the fact about the thing, rather than the pending action.
-    expect(await screen.findByRole('button', { name: 'Kept' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('button', { name: 'Kept for good' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  /* It sat in the meta line as a grey word between a date and a link, which
+     read as another label rather than something you could do. It belongs with
+     Move: the other thing you can do to a source. */
+  it('sits with the actions, not in the row of metadata labels', () => {
+    render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
+        highlights={[]}
+        onMove={() => {}}
+        onToggleEvergreen={jest.fn()}
+      />
+    );
+    const keep = screen.getByRole('button', { name: 'Keep for good' });
+    const move = screen.getByRole('button', { name: 'Move' });
+    expect(keep.parentElement).toBe(move.parentElement);
+    expect(document.querySelector('.article-reader-meta').contains(keep)).toBe(false);
   });
 
   it('is absent where nothing can be kept', () => {
     render(<ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }} highlights={[]} />);
-    expect(screen.queryByRole('button', { name: 'Keep this' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Keep for good' })).not.toBeInTheDocument();
   });
 });

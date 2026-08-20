@@ -1093,3 +1093,20 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   font-size: 0.94rem;
   line-height: 1.45;
 }
+
+/* The one way in to the week, at the foot of the claims it reports on. */
+.judgment__week-door {
+  margin: 26px 0 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.judgment__week-door a {
+  color: var(--text-muted, var(--vellum-subtle));
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+.judgment__week-door a:hover {
+  color: var(--text-primary, var(--vellum-ink));
+}
