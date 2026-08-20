@@ -766,3 +766,38 @@ describe('WikiFrontPage (AT-394)', () => {
     });
   });
 });
+
+describe('Recently grown', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    getDailyLoop.mockResolvedValue({ briefing: {} });
+  });
+
+  /* Shipped listing the same page three times: it read the repo-deduped list
+     rather than the title-folded one, so three copies of one claim arrived as
+     three things that recently grew. */
+  it('lists a page once however many copies of it exist', async () => {
+    const copy = (id) => ({
+      _id: id,
+      title: 'I believe AI compute is scarce',
+      pageType: 'topic',
+      status: 'draft',
+      updatedAt: '2026-08-18T12:00:00.000Z'
+    });
+    listWikiPages.mockResolvedValue([
+      copy('one'), copy('two'), copy('three'), { ...copy('other'), title: 'Reflexivity' }
+    ]);
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage />
+      </router.MemoryRouter>
+    );
+
+    const grown = await screen.findByText('Recently grown');
+    const list = grown.parentElement.querySelector('.wfp-tail__list');
+    const titles = [...list.querySelectorAll('li')].map(item => item.textContent);
+    expect(titles).toEqual(['I believe AI compute is scarce', 'Reflexivity']);
+  });
+});

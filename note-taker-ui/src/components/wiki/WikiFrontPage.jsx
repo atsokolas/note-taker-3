@@ -582,11 +582,14 @@ const WikiFrontPage = () => {
 
   const paperTail = (
     <div className="wfp-tail">
-      {curatedPages.length ? (
+      {/* Folded, like everything else that lists pages. This read the
+          repo-deduped list rather than the title-folded one, so three copies
+          of the same page arrived as three things that recently grew. */}
+      {canonicalPages.length ? (
         <>
           <p className="wfp-tail__cap">Recently grown</p>
           <ol className="wfp-tail__list">
-            {curatedPages.slice(0, 3).map(page => (
+            {canonicalPages.slice(0, 3).map(page => (
               <li key={pageId(page)}>
                 <Link to={wikiReadPath(pageId(page))}>{page.title}</Link>
               </li>
@@ -783,7 +786,7 @@ const WikiFrontPage = () => {
                 Page
                 <select aria-label="Reading watch page" value={readingPageId} onChange={(event) => setReadingPageId(event.target.value)} required>
                   <option value="">Choose a page</option>
-                  {curatedPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
+                  {canonicalPages.map(page => <option key={pageId(page)} value={pageId(page)}>{displayWikiPageTitle(page, 'Untitled page')}</option>)}
                 </select>
               </label>
               <label>
