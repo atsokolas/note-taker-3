@@ -933,7 +933,9 @@ const Library = () => {
      greets you, and the shelves are a faint list beside it. Folder, unfiled and
      highlight scopes still open the older cabinet views — behind the reading
      rather than in front of it. */
-  const isShelfView = !isReadingView && scope === 'all';
+  /* Kept reads like the shelf, because it is the shelf — a narrower one. */
+  const isShelfView = !isReadingView && (scope === 'all' || scope === 'kept');
+  const keptCount = useMemo(() => allArticles.filter(item => item?.evergreen).length, [allArticles]);
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
@@ -1200,6 +1202,7 @@ const Library = () => {
         scope={scope}
         folderId={folderId}
         unfiledCount={unfiledCount}
+        keptCount={keptCount}
         onSelectScope={handleSelectScope}
         onSelectFolder={handleSelectFolder}
         onReviewFiling={handleReviewFiling}
@@ -1246,6 +1249,7 @@ const Library = () => {
         >
           {isShelfView ? (
             <LibraryColumn
+              shelf={scope === 'kept' ? 'kept' : 'all'}
               articles={articles}
               allArticles={allArticles}
               loading={articlesLoading}

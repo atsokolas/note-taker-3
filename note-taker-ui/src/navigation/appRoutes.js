@@ -10,8 +10,6 @@
 const APP_ROUTE_PREFIXES = Object.freeze([
   '/wiki',
   '/judgment',
-  '/lessons',
-  '/evergreen',
   '/week',
   '/library',
   '/think',

@@ -2,8 +2,6 @@ import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMem
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
-import Lessons from './pages/Lessons';
-import Evergreen from './pages/Evergreen';
 import WeeklyBrief from './pages/WeeklyBrief';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
@@ -650,14 +648,6 @@ function App() {
                 is the claim itself. */}
             <Route path="/judgment" element={<Judgment />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
-            {/* Not a fifth room. The lessons a judgment left behind, read
-                back on their own — reachable from Judgment, which is where
-                they are made. */}
-            <Route path="/lessons" element={<Lessons />} />
-            {/* What you keep: sources, pages and beliefs held for life, in
-                one place, because the reader does not file them separately in
-                their head. */}
-            <Route path="/evergreen" element={<Evergreen />} />
             {/* The week, gathered from marks the surfaces already carry. */}
             <Route path="/week" element={<WeeklyBrief />} />
             <Route path="/wiki" element={<WikiFrontPage />} />

@@ -13,6 +13,7 @@ import '../../styles/library-column.css';
 const CHROME_STORE_LINK = 'https://chromewebstore.google.com/detail/noeis/kjhhcmgbhbeoglbhcjcpcjljcaimalkg';
 
 const LibraryColumn = ({
+  shelf = 'all',
   articles = [],
   allArticles = [],
   loading = false,
@@ -26,14 +27,22 @@ const LibraryColumn = ({
     () => buildLibraryColumn({ articles, allArticles }),
     [allArticles, articles]
   );
+  /* The kept shelf is the one shelf that is not about what is new, so it does
+     not lead with something to continue — it is a list you came looking for. */
+  const kept = shelf === 'kept';
   const step = (n) => (entering ? `wfp-anim wfp-anim--${n}` : 'library-column__return');
 
   return (
     <main className="library-column" aria-labelledby="library-column-title">
       <h1 className="sr-only" id="library-column-title">Library</h1>
-      <p className={`library-column__eyebrow ${step(1)}`}>Library</p>
+      <p className={`library-column__eyebrow ${step(1)}`}>{kept ? 'Kept' : 'Library'}</p>
+      {kept ? (
+        <p className={`library-column__shelf-note ${step(1)}`}>
+          Held for life, and never counted as neglected.
+        </p>
+      ) : null}
 
-      {continueItem ? (
+      {continueItem && !kept ? (
         <section className={`library-column__continue ${step(2)}`} aria-labelledby="library-continue-title">
           <p className="library-column__kicker">Continue</p>
           <h2 id="library-continue-title">
@@ -98,7 +107,9 @@ const LibraryColumn = ({
         <p className={`library-column__quiet ${step(4)}`}>
           {query
             ? `Nothing in your library matches “${query}”.`
-            : <>Nothing saved yet. <Link to="/connections#sources">Connect a source</Link> or install the saver and read something.</>}
+            : kept
+              ? 'Nothing kept yet. Open a source and press Keep this when it is worth returning to for years.'
+              : <>Nothing saved yet. <Link to="/connections#sources">Connect a source</Link> or install the saver and read something.</>}
         </p>
       ) : null}
     </main>

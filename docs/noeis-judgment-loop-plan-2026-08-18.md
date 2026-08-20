@@ -104,6 +104,20 @@ manual work most people will not do. If it goes unused, the honest next move is
 agent-proposed edges — the schema already carries `proposedBy` for exactly that
 — and not more UI around a graph nobody is drawing.
 
+## Where each of these lives
+
+None of them is a room of its own. A surface nobody can find is the same as one
+that does not exist, and a nav with eight entries is the cabinet all over again.
+
+- **The week** sits on the paper, under the daily briefing, in the column the
+  morning already arrives in. One sentence and a way in.
+- **Evergreen** is a shelf in the Library — `Kept` — because the reason to keep
+  a reading is to reach it again from where you reach everything else you have
+  read. It appears only once something is on it.
+- **Lessons** nest under the claim they came out of, on the judgment index. A
+  lesson gathered into a list of its own is a fortune cookie; under its claim it
+  is a record of what believing that cost.
+
 ## Rules that do not bend
 
 - Agents retrieve. The human accepts. Nothing writes itself in.

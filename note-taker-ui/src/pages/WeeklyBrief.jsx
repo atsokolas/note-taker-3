@@ -118,7 +118,7 @@ const WeeklyBrief = () => {
 
           {brief.kept ? (
             <p className="brief__kept">
-              <Link to="/evergreen">{brief.kept} thing{brief.kept === 1 ? '' : 's'} you keep for good →</Link>
+              <Link to="/library?scope=kept">{brief.kept} thing{brief.kept === 1 ? '' : 's'} you keep for good →</Link>
             </p>
           ) : null}
         </div>

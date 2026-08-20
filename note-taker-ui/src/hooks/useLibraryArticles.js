@@ -4,7 +4,7 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
  * @typedef {Object} LibraryArticlesParams
- * @property {'all'|'unfiled'|'folder'} scope
+ * @property {'all'|'unfiled'|'folder'|'kept'} scope
  * @property {string} [folderId]
  * @property {string} [query]
  * @property {'recent'|'oldest'|'most-highlighted'} [sort]
@@ -63,6 +63,11 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
       next = [];
     } else if (scope === 'unfiled') {
       next = next.filter(article => !article.folder);
+    } else if (scope === 'kept') {
+      /* What you hold for life. It is a shelf rather than a room of its own,
+         because the reason to keep a reading is to reach it again from the
+         place you reach everything else you have read. */
+      next = next.filter(article => article.evergreen);
     } else if (scope === 'folder' && folderId) {
       next = next.filter(article => article.folder?._id === folderId);
     }

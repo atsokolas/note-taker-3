@@ -76,4 +76,22 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
     });
   });
+
+  describe('the kept shelf', () => {
+    beforeEach(() => setViewport(false));
+
+    it('appears only once something has been kept', () => {
+      renderNav({ keptCount: 0 });
+      expect(screen.queryByRole('button', { name: /^Kept/ })).not.toBeInTheDocument();
+
+      renderNav({ keptCount: 3 });
+      expect(screen.getByRole('button', { name: 'Kept (3)' })).toBeInTheDocument();
+    });
+
+    it('is a way of moving, so it stays out on a phone', () => {
+      setViewport(true);
+      renderNav({ keptCount: 2 });
+      expect(screen.getByRole('button', { name: 'Kept (2)' })).toBeInTheDocument();
+    });
+  });
 });

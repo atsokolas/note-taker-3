@@ -285,18 +285,22 @@ const JudgmentIndex = ({ items }) => {
                     about does not need to be announced — so the index is
                     allowed to be completely silent, which is the point. */}
                 {item.note ? <span className="judgment__index-note">{item.note}</span> : null}
+                {/* What holding it taught you, under the claim it came out of.
+                    A lesson gathered into a list of its own is a fortune
+                    cookie; here it is a record of what believing that cost. */}
+                {item.lessons.length ? (
+                  <ul className="judgment__index-lessons">
+                    {item.lessons.map(lesson => (
+                      <li key={lesson.id}>{lesson.text}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>
           {/* A claim can turn out wrong. What holding it taught you does not,
               which is why the lessons get their own way in from here. */}
-          <p className={`judgment__lessons-door ${enter}`}>
-            <Link to="/week">Your week →</Link>
-            <span aria-hidden="true"> · </span>
-            <Link to="/lessons">What your judgments taught you →</Link>
-            <span aria-hidden="true"> · </span>
-            <Link to="/evergreen">What you keep →</Link>
-          </p>
+
         </>
       ) : (
         /* A door, not a form. The composer used to be the only thing on an

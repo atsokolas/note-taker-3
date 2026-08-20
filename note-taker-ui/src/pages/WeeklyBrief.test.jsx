@@ -72,7 +72,7 @@ describe('WeeklyBrief', () => {
   it('points at what you keep without counting it as work', async () => {
     listWikiPages.mockResolvedValue([{ _id: 'p', title: 'A page', evergreen: true }]);
     render(<WeeklyBrief />);
-    expect(await screen.findByRole('link', { name: '1 thing you keep for good →' })).toHaveAttribute('href', '/evergreen');
+    expect(await screen.findByRole('link', { name: '1 thing you keep for good →' })).toHaveAttribute('href', '/library?scope=kept');
   });
 
   it('says so when the week cannot be assembled', async () => {

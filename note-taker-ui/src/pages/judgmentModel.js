@@ -368,6 +368,10 @@ export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) =>
       state: activity.state,
       note: activityNote(activity),
       evergreen: Boolean(page?.evergreen),
+      /* Nested rather than gathered into a room of their own. A lesson without
+         the claim it came out of is a fortune cookie; under the claim, it is a
+         record of what believing that cost you. */
+      lessons: lessonLines(page?.judgment || {}),
       updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
     };
   })

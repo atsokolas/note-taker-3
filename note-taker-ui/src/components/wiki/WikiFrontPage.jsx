@@ -33,6 +33,7 @@ import {
   filterPagesForTodaysPage
 } from './wikiRepoDedupeModel';
 import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupModel';
+import { briefOpening, buildWeeklyBrief } from '../../pages/weeklyBriefModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
 import Paper from '../../pages/Paper';
@@ -551,6 +552,15 @@ const WikiFrontPage = () => {
   );
 
   /* What grew, what is being watched, and the way to everything you have read. */
+  /* The week belongs on the paper, in the same column the morning briefing
+     arrives in — a standing weekly line under the daily one, rather than a
+     room you would have to remember to visit. It is assembled from the pages
+     this page already loaded, so it costs nothing extra to say. */
+  const week = useMemo(
+    () => buildWeeklyBrief({ pages, events: briefing?.sourceEvents || [] }),
+    [pages, briefing]
+  );
+
   const paperTail = (
     <div className="wfp-tail">
       {curatedPages.length ? (
@@ -568,6 +578,13 @@ const WikiFrontPage = () => {
       {watching.length ? (
         <p className="wfp-tail__quiet">Watching {watching.length} source{watching.length === 1 ? '' : 's'}.</p>
       ) : null}
+      {/* The week, under the day. One sentence and a way in; the page itself
+          has the rest. A quiet week says so rather than being hidden, because
+          "nothing needed you" is a real answer and worth reading. */}
+      <p className="wfp-tail__week">
+        <span>{briefOpening(week)}</span>
+        <Link to="/week">Your week →</Link>
+      </p>
       {/* Everything the reading has built — the wiki's own pages, not the
           article shelf. The three above are what grew most recently; this is
           the rest of them. */}

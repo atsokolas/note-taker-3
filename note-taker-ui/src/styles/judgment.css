@@ -1075,3 +1075,21 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   border-bottom: 1px solid currentColor;
   text-decoration: none;
 }
+
+/* Lessons under the claim they came out of. Indented so they read as
+   belonging to it, and quieter, because the claim is still the row. */
+.judgment__index-lessons {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 0 0 0 14px;
+  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  list-style: none;
+}
+
+.judgment__index-lessons li {
+  max-width: 56ch;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
