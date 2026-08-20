@@ -77,6 +77,11 @@
   color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
 }
 
+/* An empty canon is quieter than a full one, but still there. */
+.library-shelf__kept.is-empty button {
+  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 46%, transparent);
+}
+
 .library-shelf__kept button.is-open {
   border-bottom-color: currentColor;
 }

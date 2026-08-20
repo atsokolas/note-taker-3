@@ -68,20 +68,23 @@ const LibraryShelfNav = ({
           </button>
         </li>
         {/* Directly under everything, because it is a cut of everything and
-            not a folder among folders: what you decided to hold for life. It
-            appears only once there is something on it. */}
-        {keptCount ? (
-          <li className="library-shelf__kept">
-            <button
-              type="button"
-              className={scope === 'kept' ? 'is-open' : ''}
-              aria-current={scope === 'kept' ? 'true' : undefined}
-              onClick={() => onSelectScope?.('kept')}
-            >
-              Kept ({keptCount})
-            </button>
-          </li>
-        ) : null}
+            not a folder among folders: what you decided to hold for life.
+
+            It is here even when it is empty. Hiding it until something was
+            kept meant the shelf could only be found by someone who had already
+            used a control they could not find either — the section taught
+            nobody it existed, and the empty shelf is where it explains
+            itself. */}
+        <li className={`library-shelf__kept${keptCount ? '' : ' is-empty'}`}>
+          <button
+            type="button"
+            className={scope === 'kept' ? 'is-open' : ''}
+            aria-current={scope === 'kept' ? 'true' : undefined}
+            onClick={() => onSelectScope?.('kept')}
+          >
+            Kept{keptCount ? ` (${keptCount})` : ''}
+          </button>
+        </li>
         <li>
           <button
             type="button"

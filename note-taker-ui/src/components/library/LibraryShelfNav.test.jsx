@@ -80,12 +80,22 @@ describe('LibraryShelfNav', () => {
   describe('the kept shelf', () => {
     beforeEach(() => setViewport(false));
 
-    it('appears only once something has been kept', () => {
-      renderNav({ keptCount: 0 });
-      expect(screen.queryByRole('button', { name: /^Kept/ })).not.toBeInTheDocument();
+    /* It used to hide until something was kept, so the only way to find the
+       shelf was to have already used a control you could not find either. The
+       empty shelf is where the idea explains itself. */
+    it('is there even when nothing is kept, and counts once something is', () => {
+      const { unmount } = renderNav({ keptCount: 0 });
+      expect(screen.getByRole('button', { name: 'Kept' })).toBeInTheDocument();
+      unmount();
 
       renderNav({ keptCount: 3 });
       expect(screen.getByRole('button', { name: 'Kept (3)' })).toBeInTheDocument();
+    });
+
+    it('sits directly under All sources, above the ways of narrowing', () => {
+      renderNav({ keptCount: 2 });
+      const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
+      expect(labels).toEqual(['All sources', 'Kept (2)', 'Unfiled (6)', 'Highlights']);
     });
 
     it('is a way of moving, so it stays out on a phone', () => {

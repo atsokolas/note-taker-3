@@ -108,7 +108,7 @@ const LibraryColumn = ({
           {query
             ? `Nothing in your library matches “${query}”.`
             : kept
-              ? 'Nothing kept yet. Open a source and press Keep this when it is worth returning to for years.'
+              ? 'Nothing kept yet. Open a source and press Keep for good when it is worth returning to for years rather than days.'
               : <>Nothing saved yet. <Link to="/connections#sources">Connect a source</Link> or install the saver and read something.</>}
         </p>
       ) : null}

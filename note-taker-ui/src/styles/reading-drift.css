@@ -101,12 +101,19 @@
   color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 82%, var(--text-primary, var(--vellum-ink)));
 }
 
+/* The drawing ends and the room begins. Without this the scale line ran
+   straight into the claim composer beneath it. */
+.drift {
+  display: block;
+  margin-bottom: 42px;
+}
+
 .drift__scale {
   display: flex;
   gap: 8px;
   justify-content: space-between;
   max-width: 100%;
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 70%, transparent);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.68rem;
