@@ -123,3 +123,64 @@ if (require.main === module) {
 }
 
 module.exports = { run };
+
+/* Parking and the lesson it leaves behind. */
+{
+  const parked = normalizeJudgment({
+    input: {
+      currentJudgment: 'Compute is scarce.',
+      status: 'parked',
+      lessons: [{ text: 'I kept confusing announced capacity with delivered capacity.', closedAs: 'parked' }]
+    }
+  });
+  assert.strictEqual(parked.status, 'parked', 'parked is a status a judgment can hold');
+  assert.ok(parked.parkedAt instanceof Date, 'parking is dated');
+  assert.strictEqual(parked.lessons.length, 1);
+  assert.strictEqual(parked.lessons[0].closedAs, 'parked');
+  assert.ok(parked.lessons[0].lessonId, 'a lesson gets a stable id');
+  assert.ok(parked.lessons[0].at, 'and a date');
+
+  // Picking it back up clears the date rather than recording that it was once parked.
+  const resumed = normalizeJudgment({
+    input: { currentJudgment: 'Compute is scarce.', status: 'monitoring' },
+    existing: parked
+  });
+  assert.strictEqual(resumed.parkedAt, null, 'parking is reversible');
+  assert.strictEqual(resumed.lessons.length, 1, 'but the lesson stays');
+
+  // A lesson is a ledger line: it cannot be edited away.
+  const rewritten = normalizeJudgment({
+    input: {
+      currentJudgment: 'Compute is scarce.',
+      status: 'monitoring',
+      lessons: [{ lessonId: parked.lessons[0].lessonId, text: 'Something more flattering.' }]
+    },
+    existing: resumed
+  });
+  assert.strictEqual(rewritten.lessons.length, 1);
+  assert.strictEqual(
+    rewritten.lessons[0].text,
+    'I kept confusing announced capacity with delivered capacity.',
+    'what was written stays written'
+  );
+
+  // And a second lesson appends.
+  const twice = normalizeJudgment({
+    input: {
+      currentJudgment: 'Compute is scarce.',
+      status: 'closed',
+      lessons: [...rewritten.lessons, { text: 'Power, not silicon, was the binding constraint.', closedAs: 'closed' }]
+    },
+    existing: rewritten
+  });
+  assert.strictEqual(twice.lessons.length, 2, 'lessons accumulate');
+  assert.strictEqual(twice.parkedAt, null, 'closing is not parking');
+
+  let refused = null;
+  try {
+    normalizeJudgment({ input: { currentJudgment: 'x', lessons: [{ text: '   ' }] } });
+  } catch (error) { refused = error; }
+  assert.ok(refused, 'an empty lesson is refused rather than stored');
+
+  console.log('judgment lesson and park tests passed');
+}

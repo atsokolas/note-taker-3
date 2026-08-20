@@ -455,6 +455,20 @@ const judgmentDecisionSchema = new mongoose.Schema({
   createdBy: { type: String, enum: ['user', 'ai_proposed'], default: 'user' }
 }, { _id: false });
 
+/* What you learned, which outlives the claim.
+   A judgment that closes or is parked leaves behind one thing worth keeping,
+   and it is not the claim — it is what holding it taught you. Lessons are
+   never rewritten and never deleted with the page: they are the compounding
+   part of the loop. `closedAs` records what the judgment was doing at the
+   moment the lesson was written, because "I was wrong" and "I stopped
+   watching" are different lessons. */
+const judgmentLessonSchema = new mongoose.Schema({
+  lessonId: { type: String, required: true, trim: true },
+  text: { type: String, required: true, trim: true },
+  closedAs: { type: String, enum: ['parked', 'closed', 'retired', 'revised', ''], default: '' },
+  at: { type: Date, default: Date.now }
+}, { _id: false });
+
 const wikiJudgmentSchema = new mongoose.Schema({
   /* Not required. A judgment page is one that carries a judgment, and in the
      reading language that is a claim with reasons — no framed question above
@@ -470,7 +484,13 @@ const wikiJudgmentSchema = new mongoose.Schema({
   governingQuestion: { type: String, default: '', trim: true },
   currentJudgment: { type: String, default: '', trim: true },
   confidence: { type: Number, min: 0, max: 1, default: null },
-  status: { type: String, enum: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'closed', 'archived'], default: 'framing' },
+  /* `parked` is not `closed`. Closed means the question is settled; parked
+     means the reader has stopped tending this one, which says nothing about
+     whether it is true. Without the distinction a belief you simply stopped
+     watching had to be retired to get it out of the way, so it left the list
+     looking like a belief you had abandoned. */
+  status: { type: String, enum: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'parked', 'closed', 'archived'], default: 'framing' },
+  parkedAt: { type: Date, default: null },
   decisionPosture: { type: String, enum: ['investigate', 'watch', 'act', 'avoid', 'no_action', 'closed'], default: 'investigate' },
   ownerLabel: { type: String, default: '', trim: true },
   startedAt: { type: Date, default: null },
@@ -488,7 +508,8 @@ const wikiJudgmentSchema = new mongoose.Schema({
   assumptions: { type: [judgmentAssumptionSchema], default: [] },
   unknowns: { type: [judgmentUnknownSchema], default: [] },
   falsifiers: { type: [judgmentFalsifierSchema], default: [] },
-  decisions: { type: [judgmentDecisionSchema], default: [] }
+  decisions: { type: [judgmentDecisionSchema], default: [] },
+  lessons: { type: [judgmentLessonSchema], default: [] }
 }, { _id: false });
 
 const wikiClaimSchema = new mongoose.Schema({

@@ -283,6 +283,8 @@ export const projectJudgment = (page, now = Date.now()) => {
     againstSources: resolveSources(page, against),
     changeMindIf: changeMindLines(judgment),
     whatIDid: whatIDidLines(judgment),
+    lessons: lessonLines(judgment),
+    parked: clean(judgment.status) === 'parked',
     review: reviewBlock(judgment, now)
   };
 };
@@ -359,6 +361,69 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
     ]
   };
 };
+
+/* Parking, and the lesson it leaves behind.
+
+   Judgment had three moves and one of them was Retire, which means "I no
+   longer believe this". A belief you have simply stopped tending is a
+   different thing, and forcing it through Retire made it leave the list
+   looking abandoned — so instead it stayed, and the list filled with claims
+   nobody was watching.
+
+   Park says nothing about whether the claim is true. And the moment of
+   parking or closing is where the durable thing gets made: not the claim,
+   but what holding it taught you. */
+export const isParked = (page) => clean(page?.judgment?.status) === 'parked';
+
+export const parkJudgment = (page, lessonText = '') => {
+  const judgment = page?.judgment || {};
+  return {
+    ...judgment,
+    status: 'parked',
+    lessons: appendLesson(judgment, lessonText, 'parked')
+  };
+};
+
+export const resumeJudgment = (page) => {
+  const judgment = page?.judgment || {};
+  return { ...judgment, status: 'monitoring', parkedAt: null };
+};
+
+const appendLesson = (judgment = {}, text = '', closedAs = '') => {
+  const lesson = clean(text);
+  const existing = list(judgment.lessons);
+  if (!lesson) return existing;
+  return [...existing, { text: lesson, closedAs, at: new Date().toISOString() }];
+};
+
+/* A lesson can also be written without closing anything, because sometimes you
+   learn the thing while you are still holding the belief. */
+export const writeLessonIntoJudgment = (page, text) => {
+  const judgment = page?.judgment || {};
+  const lessons = appendLesson(judgment, text, '');
+  return lessons === list(judgment.lessons) ? judgment : { ...judgment, lessons };
+};
+
+export const lessonLines = (judgment = {}) => list(judgment.lessons)
+  .map((item, index) => ({
+    id: clean(item?.lessonId) || `lesson:${index}`,
+    text: clean(item?.text),
+    closedAs: clean(item?.closedAs),
+    at: item?.at || null
+  }))
+  .filter(line => line.text);
+
+/* Every lesson in the product, newest first, each still naming the claim it
+   came from. This is the shortest thing in Noeis and the most re-readable. */
+export const buildLessonsIndex = (pages = []) => list(pages)
+  .flatMap(page => lessonLines(page?.judgment || {}).map(lesson => ({
+    ...lesson,
+    id: `${idOf(page)}:${lesson.id}`,
+    pageId: idOf(page),
+    claim: claimSentence(page)
+  })))
+  .filter(item => item.pageId && item.text)
+  .sort((left, right) => (time(right.at) || 0) - (time(left.at) || 0));
 
 /* Filing something the library already held.
    The candidate keeps its provenance on the line: sourceLabel is the source a

@@ -2,7 +2,8 @@ const crypto = require('crypto');
 
 const VALUES = Object.freeze({
   kind: ['thesis', 'decision', 'prediction'],
-  status: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'closed', 'archived'],
+  status: ['framing', 'researching', 'challenged', 'decision_ready', 'monitoring', 'parked', 'closed', 'archived'],
+  lessonClosedAs: ['parked', 'closed', 'retired', 'revised', ''],
   decisionPosture: ['investigate', 'watch', 'act', 'avoid', 'no_action', 'closed'],
   assumptionStatus: ['unreviewed', 'holds', 'weakened', 'failed'],
   unknownPriority: ['critical', 'high', 'medium', 'low'],
@@ -137,6 +138,37 @@ const normalizeFalsifiers = (items = []) => {
   });
 };
 
+/* Lessons are a ledger, like decisions. What was written stays written: a
+   lesson can be added and it can never be edited away, because a lesson you
+   later found embarrassing is exactly the one worth keeping. Anything the
+   caller sends that matches a lesson already stored is ignored in favour of
+   the stored one. */
+const normalizeLessons = (items = [], priorItems = []) => {
+  if (!Array.isArray(items)) throw new JudgmentValidationError('judgment.lessons must be an array.');
+  const prior = (Array.isArray(priorItems) ? priorItems : []).map(plain);
+  const priorById = new Map(prior.map(item => [clean(item.lessonId, 120), item]).filter(([id]) => id));
+  const kept = [...prior];
+  const keptIds = new Set(priorById.keys());
+
+  items.slice(0, 200).forEach((raw) => {
+    const item = plain(raw);
+    const id = clean(item.lessonId, 120);
+    if (id && keptIds.has(id)) return;
+    const text = clean(item.text, 2000);
+    if (!text) throw new JudgmentValidationError('Each lesson requires text.');
+    const lesson = {
+      lessonId: stableId('lesson', item.lessonId),
+      text,
+      closedAs: enumValue('lesson.closedAs', item.closedAs, VALUES.lessonClosedAs, ''),
+      at: dateValue('lesson.at', item.at, null) || new Date()
+    };
+    keptIds.add(lesson.lessonId);
+    kept.push(lesson);
+  });
+
+  return kept;
+};
+
 const normalizeDecisions = (items = [], actorType = 'user', priorItems = []) => {
   if (!Array.isArray(items)) throw new JudgmentValidationError('judgment.decisions must be an array.');
   const priorById = new Map((Array.isArray(priorItems) ? priorItems : []).map(raw => {
@@ -217,7 +249,13 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user' } = {}) 
     assumptions: normalizeAssumptions(next.assumptions || []),
     unknowns: normalizeUnknowns(next.unknowns || []),
     falsifiers: normalizeFalsifiers(next.falsifiers || []),
-    decisions: normalizeDecisions(next.decisions || [], actorType, prior.decisions || [])
+    decisions: normalizeDecisions(next.decisions || [], actorType, prior.decisions || []),
+    /* Parking is reversible, so the date comes off again when the reader picks
+       the judgment back up. It is not a record of having once parked it. */
+    parkedAt: status === 'parked'
+      ? (dateValue('judgment.parkedAt', next.parkedAt, null) || prior.parkedAt || new Date())
+      : null,
+    lessons: normalizeLessons(next.lessons || [], prior.lessons || [])
   };
 };
 
@@ -241,5 +279,6 @@ module.exports = {
   JudgmentValidationError,
   VALUES,
   normalizeClaimUpdates,
-  normalizeJudgment
+  normalizeJudgment,
+  normalizeLessons
 };

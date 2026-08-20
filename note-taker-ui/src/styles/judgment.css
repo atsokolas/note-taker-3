@@ -616,3 +616,189 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   cursor: default;
   opacity: 0.6;
 }
+
+/* What it taught me, on the claim it came from. */
+.judgment__lessons ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment__lessons li {
+  display: grid;
+  gap: 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+}
+
+.judgment__lessons li span {
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.judgment__lessons li small {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.74rem;
+}
+
+/* Park: a word at the foot of the page, not a button competing with the claim. */
+.judgment-park {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding-top: 18px;
+  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+}
+
+.judgment-park button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.judgment-park button:hover,
+.judgment-park button:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment-park button:disabled {
+  border-bottom-color: transparent;
+  cursor: default;
+  opacity: 0.6;
+}
+
+.judgment-park button.is-quiet {
+  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 70%, transparent);
+}
+
+.judgment-park label {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+/* Doubled and forced, the way every other writable line on this page has to
+   be: the app chrome styles bare inputs with a filled box, and a lesson is
+   written on a rule like everything else here. */
+body.noeis-editorial .judgment .judgment-park textarea,
+.judgment .judgment-park textarea {
+  width: min(100%, 52ch) !important;
+  padding: 4px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.02rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+body.noeis-editorial .judgment .judgment-park textarea:focus,
+.judgment .judgment-park textarea:focus {
+  outline: none;
+  border-bottom-color: var(--text-primary, var(--vellum-ink)) !important;
+}
+
+body.noeis-editorial .judgment .judgment-park textarea::placeholder,
+.judgment .judgment-park textarea::placeholder {
+  color: var(--text-muted, var(--vellum-subtle));
+  opacity: 0.72;
+}
+
+.judgment-park__actions {
+  display: flex;
+  gap: 18px;
+}
+
+.judgment-park__state {
+  max-width: 56ch;
+  margin: 0;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.judgment-park__error {
+  margin: 0;
+  color: var(--nt-warning, #9a4a2d);
+  font-size: 0.88rem;
+}
+
+.judgment__lessons-door {
+  margin: 26px 0 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+}
+
+.judgment__lessons-door a {
+  color: var(--text-muted, var(--vellum-subtle));
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+.judgment__lessons-door a:hover {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* The lessons page. The shortest thing in the product. */
+.lessons__title {
+  margin: 0 0 8px;
+  font-size: clamp(2rem, 3.4vw, 2.8rem);
+  line-height: 1.08;
+}
+
+.lessons__dek,
+.lessons__empty {
+  max-width: 54ch;
+  margin: 0 0 34px;
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.lessons__list {
+  display: grid;
+  gap: 30px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lessons__text {
+  max-width: 58ch;
+  margin: 0 0 4px;
+  color: var(--text-primary, var(--vellum-ink));
+  font-size: 1.24rem;
+  line-height: 1.42;
+}
+
+.lessons__origin {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+}
+
+.lessons__origin a {
+  color: inherit;
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
+.lessons__origin a:hover {
+  color: var(--text-primary, var(--vellum-ink));
+}

@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMem
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
+import Lessons from './pages/Lessons';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
@@ -647,6 +648,10 @@ function App() {
                 is the claim itself. */}
             <Route path="/judgment" element={<Judgment />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
+            {/* Not a fifth room. The lessons a judgment left behind, read
+                back on their own — reachable from Judgment, which is where
+                they are made. */}
+            <Route path="/lessons" element={<Lessons />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
             {/* Contradiction as a view, not a tag: where the library
                 disagrees with itself, both passages side by side. */}

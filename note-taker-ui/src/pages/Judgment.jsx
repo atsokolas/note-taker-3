@@ -15,6 +15,8 @@ import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
   fileEvidenceIntoJudgment,
+  parkJudgment,
+  resumeJudgment,
   answerProvenance,
   buildJudgmentIndex,
   createJudgment,
@@ -267,13 +269,20 @@ const JudgmentIndex = ({ items }) => {
         </div>
       </form>
       {items.length ? (
-        <ul className={`judgment__index ${enter}`}>
-          {items.map(item => (
-            <li key={item.id}>
-              <Link to={`/judgment/${item.id}`}>{item.sentence}</Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className={`judgment__index ${enter}`}>
+            {items.map(item => (
+              <li key={item.id}>
+                <Link to={`/judgment/${item.id}`}>{item.sentence}</Link>
+              </li>
+            ))}
+          </ul>
+          {/* A claim can turn out wrong. What holding it taught you does not,
+              which is why the lessons get their own way in from here. */}
+          <p className={`judgment__lessons-door ${enter}`}>
+            <Link to="/lessons">What your judgments taught you →</Link>
+          </p>
+        </>
       ) : (
         /* A door, not a form. The composer used to be the only thing on an
            empty index, which made the product look like a text box. The claim
@@ -385,6 +394,82 @@ const LibraryEvidence = ({ pageId, onFile }) => {
   );
 };
 
+/*
+ * Park, and the lesson.
+ *
+ * There were three moves and one of them was Retire, which means "I no longer
+ * believe this". A belief you have simply stopped tending is a different
+ * thing, and forcing it through Retire made it leave the list looking
+ * abandoned — so instead it stayed, and the list filled with claims nobody was
+ * watching.
+ *
+ * Parking asks one question on the way out, and it is the only question worth
+ * asking at that moment: what did holding this teach you? The answer outlives
+ * the claim. It is optional, because sometimes there isn't one.
+ */
+const ParkJudgment = ({ parked, onPark, onResume }) => {
+  const [asking, setAsking] = useState(false);
+  const [lesson, setLesson] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const run = async (action) => {
+    setBusy(true);
+    setError('');
+    try {
+      await action();
+      setAsking(false);
+      setLesson('');
+    } catch (actionError) {
+      setError(actionError?.message || 'That did not save.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (parked) {
+    return (
+      <div className="judgment-park is-parked">
+        <p className="judgment-park__state">You parked this. It is still yours; you are just not tending it.</p>
+        <button type="button" onClick={() => run(onResume)} disabled={busy}>
+          {busy ? 'Picking it up…' : 'Pick it back up'}
+        </button>
+        {error ? <p className="judgment-park__error" role="alert">{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (!asking) {
+    return (
+      <div className="judgment-park">
+        <button type="button" onClick={() => setAsking(true)}>Park this</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="judgment-park is-asking">
+      <label htmlFor="judgment-lesson">What did holding this teach you?</label>
+      <textarea
+        id="judgment-lesson"
+        rows={2}
+        value={lesson}
+        placeholder="One sentence. It outlives the claim."
+        onChange={(event) => setLesson(event.target.value)}
+      />
+      <div className="judgment-park__actions">
+        <button type="button" onClick={() => run(() => onPark(lesson))} disabled={busy}>
+          {busy ? 'Parking…' : 'Park it'}
+        </button>
+        <button type="button" className="is-quiet" onClick={() => { setAsking(false); setLesson(''); }} disabled={busy}>
+          Never mind
+        </button>
+      </div>
+      {error ? <p className="judgment-park__error" role="alert">{error}</p> : null}
+    </div>
+  );
+};
+
 const JudgmentDetail = ({ pageId }) => {
   const [page, setPage] = useState(null);
   const [overnight, setOvernight] = useState(null);
@@ -490,6 +575,9 @@ const JudgmentDetail = ({ pageId }) => {
     (candidate, field) => commit(fileEvidenceIntoJudgment(page, candidate, field)),
     [commit, page]
   );
+
+  const park = useCallback(lesson => commit(parkJudgment(page, lesson)), [commit, page]);
+  const resume = useCallback(() => commit(resumeJudgment(page)), [commit, page]);
 
   /* A line the human typed, into any of the four. The agent is not involved.
      The id is the line's, so typing more of the same sentence rewrites it
@@ -643,6 +731,24 @@ const JudgmentDetail = ({ pageId }) => {
             </p>
           ) : null}
         </Field>
+
+        {/* What holding this taught you. It sits with the claim while the
+            claim is alive, and it is the thing that outlives it. */}
+        {view.lessons.length ? (
+          <section className="judgment__field judgment__lessons" aria-labelledby="judgment-field-lessons">
+            <h2 id="judgment-field-lessons">What it taught me</h2>
+            <ul>
+              {view.lessons.map(lesson => (
+                <li key={lesson.id}>
+                  <span>{lesson.text}</span>
+                  {formatLedgerDate(lesson.at) ? <small>{formatLedgerDate(lesson.at)}</small> : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <ParkJudgment parked={view.parked} onPark={park} onResume={resume} />
 
         {/* The review is absent until the date. Then it arrives and asks one
             question; the answer is the human's, never the agents'. */}

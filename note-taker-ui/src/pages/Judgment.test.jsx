@@ -461,3 +461,64 @@ describe('Evidence from the library', () => {
     expect(await screen.findByText(/Nothing you have saved speaks to this yet/)).toBeInTheDocument();
   });
 });
+
+describe('Parking a judgment, and the lesson it leaves', () => {
+  beforeEach(() => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+  });
+
+  it('asks one question on the way out, and files the answer as a lesson', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Park this' }));
+    fireEvent.change(screen.getByLabelText('What did holding this teach you?'), {
+      target: { value: 'Announced capacity is not delivered capacity.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Park it' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    expect(body.judgment.status).toBe('parked');
+    expect(body.judgment.lessons[0]).toMatchObject({
+      text: 'Announced capacity is not delivered capacity.',
+      closedAs: 'parked'
+    });
+    // Parking says nothing about whether the claim is true.
+    expect(body.judgment.currentJudgment).toBe('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('lets you park without a lesson, because sometimes there is not one', async () => {
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Park this' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Park it' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    expect(body.judgment.status).toBe('parked');
+    expect(body.judgment.lessons).toEqual([]);
+  });
+
+  it('says a parked claim is still yours, and offers it back', async () => {
+    const parked = judgmentPage();
+    parked.judgment.status = 'parked';
+    parked.judgment.lessons = [{ lessonId: 'l1', text: 'Power, not silicon.', closedAs: 'parked', at: '2026-08-01T00:00:00.000Z' }];
+    getWikiPage.mockResolvedValue(parked);
+
+    renderDetail();
+    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+
+    expect(screen.getByText(/It is still yours; you are just not tending it/)).toBeInTheDocument();
+    // The lesson reads on the page it came from.
+    expect(screen.getByRole('heading', { name: 'What it taught me' })).toBeInTheDocument();
+    expect(screen.getByText('Power, not silicon.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick it back up' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    expect(body.judgment.status).toBe('monitoring');
+    expect(body.judgment.parkedAt).toBeNull();
+  });
+});
