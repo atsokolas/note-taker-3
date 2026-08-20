@@ -5,6 +5,8 @@ import * as router from 'react-router-dom';
 import Judgment from './Judgment';
 import { getWikiPage, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 
+jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
+
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),

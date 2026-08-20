@@ -11,8 +11,10 @@ import {
   listWikiSourceEvents,
   updateWikiPage
 } from '../api/wiki';
+import { getArticles } from '../api/articles';
 import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
+import ReadingDrift from '../components/ReadingDrift';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
@@ -215,7 +217,7 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   );
 };
 
-const JudgmentIndex = ({ items }) => {
+const JudgmentIndex = ({ items, articles }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -254,6 +256,11 @@ const JudgmentIndex = ({ items }) => {
   return (
     <main className="judgment judgment--index" aria-labelledby="judgment-index-title">
       <h1 className="sr-only" id="judgment-index-title">All judgments</h1>
+      {/* Where the reading has been going, above the beliefs it produced. It
+          is the one thing in the product that asks nothing of you, and it
+          belongs at the top of the room that asks the most: this is the
+          weather over the claims, not another claim. */}
+      <ReadingDrift articles={articles} />
       {/* A judgment starts by being written down. Before this the index could
           only list what already existed, and the empty state told you a
           judgment begins the day you write one without giving you anywhere to
@@ -1007,6 +1014,7 @@ const JudgmentDetail = ({ pageId }) => {
 const Judgment = () => {
   const { pageId = '' } = useParams();
   const [items, setItems] = useState([]);
+  const [articles, setArticles] = useState([]);
   const [indexError, setIndexError] = useState('');
 
   useEffect(() => {
@@ -1032,6 +1040,11 @@ const Judgment = () => {
           listWikiSourceEvents({ limit: 200 }).catch(() => [])
         ]);
         if (!cancelled) setItems(buildJudgmentIndex(pages, events));
+        /* The reading behind the drift, asked for after the claims have
+           arrived: the drawing is the slowest thing on the page and must not
+           be the reason the fastest thing waits. */
+        const read = await getArticles().catch(() => []);
+        if (!cancelled) setArticles(Array.isArray(read) ? read : []);
       } catch (error) {
         if (!cancelled) setIndexError('Could not load your judgments.');
       }
@@ -1048,7 +1061,7 @@ const Judgment = () => {
         ? <JudgmentDetail pageId={pageId} />
         : (
           <>
-            <JudgmentIndex items={items} />
+            <JudgmentIndex items={items} articles={articles} />
             {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
           </>
         )}

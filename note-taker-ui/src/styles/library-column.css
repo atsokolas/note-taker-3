@@ -62,11 +62,43 @@
   border-bottom: 1px solid currentColor;
 }
 
+/* Everything you have read, then the cut of it you keep, then the ways of
+   narrowing it. These four are the whole library seen four ways, so they sit
+   at the top level; the folders below are shelves inside it, and are indented
+   to say so. */
+.library-shelf__scopes > li:first-child button {
+  font-size: 1rem;
+}
+
+/* Kept is the one shelf that never changes. It carries a mark even when you
+   are not standing on it, because it is a decision you made rather than a
+   filter you are applying. */
+.library-shelf__kept button {
+  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
+}
+
+.library-shelf__kept button.is-open {
+  border-bottom-color: currentColor;
+}
+
 /* The cabinet proper: the folder names and the filing chore, together.
    On the desktop rail it is simply the rest of the list. */
 .library-shelf__cabinet {
   display: grid;
-  margin-top: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 60%, transparent);
+}
+
+/* The folders are shelves inside the library, not four more views of it. The
+   indent is the whole hierarchy: All sources at the top, then what you keep,
+   then the ways of narrowing, then the shelves themselves. */
+.library-shelf__folders {
+  padding-left: 12px;
+}
+
+.library-shelf__folders button {
+  font-size: 0.9rem;
 }
 
 /* The way into the cabinet on a phone, where it is folded shut by default. */

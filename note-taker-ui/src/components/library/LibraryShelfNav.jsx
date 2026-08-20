@@ -67,6 +67,21 @@ const LibraryShelfNav = ({
             All sources
           </button>
         </li>
+        {/* Directly under everything, because it is a cut of everything and
+            not a folder among folders: what you decided to hold for life. It
+            appears only once there is something on it. */}
+        {keptCount ? (
+          <li className="library-shelf__kept">
+            <button
+              type="button"
+              className={scope === 'kept' ? 'is-open' : ''}
+              aria-current={scope === 'kept' ? 'true' : undefined}
+              onClick={() => onSelectScope?.('kept')}
+            >
+              Kept ({keptCount})
+            </button>
+          </li>
+        ) : null}
         <li>
           <button
             type="button"
@@ -87,23 +102,6 @@ const LibraryShelfNav = ({
             Highlights
           </button>
         </li>
-        {/* Not a fourth way of moving so much as the one shelf that does not
-            change: what you decided to hold for life. The reason to keep a
-            reading is to reach it again from where you reach everything else
-            you have read, so it lives here rather than in a room of its own.
-            It appears only once there is something on it. */}
-        {keptCount ? (
-          <li>
-            <button
-              type="button"
-              className={scope === 'kept' ? 'is-open' : ''}
-              aria-current={scope === 'kept' ? 'true' : undefined}
-              onClick={() => onSelectScope?.('kept')}
-            >
-              Kept ({keptCount})
-            </button>
-          </li>
-        ) : null}
       </ul>
 
       {narrow && !showCabinet && folders.length ? (

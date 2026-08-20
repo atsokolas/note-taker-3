@@ -7,6 +7,8 @@ import { AgentRailProvider } from '../agent/AgentRailContext';
 import { resetFirstPaint } from '../motion/columnMotion';
 import { askWikiPage, getJudgmentLibraryEvidence, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 
+jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
+
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
@@ -666,5 +668,35 @@ describe('What a belief rests on', () => {
     listWikiPages.mockRejectedValue(new Error('nope'));
     renderDetail();
     expect(await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+  });
+});
+
+describe('The drift, above the claims', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const daysAgo = days => new Date(Date.now() - days * DAY).toISOString();
+  const many = (topic, days, count) => Array.from({ length: count }, (_, i) => ({
+    _id: `${topic}${days}${i}`, createdAt: daysAgo(days), folder: { _id: topic, name: topic }
+  }));
+
+  it('draws where the reading has been going, at the top of the index', async () => {
+    const { getArticles } = require('../api/articles');
+    getArticles.mockResolvedValue([...many('Capacity', 70, 5), ...many('Power', 4, 5)]);
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+
+    renderIndex();
+
+    expect(await screen.findByText('Where your reading is going')).toBeInTheDocument();
+    // Above the claims it produced: this is the weather, not another claim.
+    const drift = document.querySelector('.drift');
+    const list = document.querySelector('.judgment__index');
+    expect(drift.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('still lists the claims when the reading cannot be read', async () => {
+    const { getArticles } = require('../api/articles');
+    getArticles.mockRejectedValue(new Error('nope'));
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    renderIndex();
+    expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
   });
 });
