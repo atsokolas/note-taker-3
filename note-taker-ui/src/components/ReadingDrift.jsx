@@ -39,13 +39,20 @@ const DIRECTION_WORD = {
   steady: 'steady'
 };
 
-const ReadingDrift = ({ articles = [], now }) => {
+const ReadingDrift = ({ articles = [], unreadable = false, now }) => {
   const drift = useMemo(
     () => withDirections(buildDrift(articles, now)),
     [articles, now]
   );
-  const sentence = driftSentence(drift);
-  const shortfall = driftShortfall(drift);
+  const sentence = unreadable ? '' : driftSentence(drift);
+  /* "You have not filed enough" and "your library could not be read" look
+     identical from here and are completely different things to be told. The
+     first is about you; the second is about the server, and saying the first
+     when the second is true is the software blaming the reader for its own
+     outage. */
+  const shortfall = unreadable
+    ? 'Your library could not be read just now, so there is nothing to draw. This is not about your filing.'
+    : driftShortfall(drift);
 
   return (
     <section className="drift" aria-labelledby="drift-title">
@@ -54,7 +61,7 @@ const ReadingDrift = ({ articles = [], now }) => {
       {sentence ? <p className="drift__sentence">{sentence}</p> : null}
       {shortfall ? <p className="drift__shortfall">{shortfall}</p> : null}
 
-      {drift.enough ? (
+      {drift.enough && !unreadable ? (
         <ol className="drift__rows">
           {drift.series.map(item => (
             <li key={item.topic} className="drift__row" data-direction={item.direction}>
@@ -74,7 +81,7 @@ const ReadingDrift = ({ articles = [], now }) => {
         </ol>
       ) : null}
 
-      {drift.enough ? (
+      {drift.enough && !unreadable ? (
         <p className="drift__scale" aria-hidden="true">
           three months ago<span>·</span>now
         </p>

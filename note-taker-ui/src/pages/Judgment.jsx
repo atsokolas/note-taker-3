@@ -217,7 +217,7 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   );
 };
 
-const JudgmentIndex = ({ items, articles }) => {
+const JudgmentIndex = ({ items, articles, readingUnreadable }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -260,7 +260,7 @@ const JudgmentIndex = ({ items, articles }) => {
           is the one thing in the product that asks nothing of you, and it
           belongs at the top of the room that asks the most: this is the
           weather over the claims, not another claim. */}
-      <ReadingDrift articles={articles} />
+      <ReadingDrift articles={articles} unreadable={readingUnreadable} />
       {/* A judgment starts by being written down. Before this the index could
           only list what already existed, and the empty state told you a
           judgment begins the day you write one without giving you anywhere to
@@ -1015,6 +1015,7 @@ const Judgment = () => {
   const { pageId = '' } = useParams();
   const [items, setItems] = useState([]);
   const [articles, setArticles] = useState([]);
+  const [readingUnreadable, setReadingUnreadable] = useState(false);
   const [indexError, setIndexError] = useState('');
 
   useEffect(() => {
@@ -1043,8 +1044,18 @@ const Judgment = () => {
         /* The reading behind the drift, asked for after the claims have
            arrived: the drawing is the slowest thing on the page and must not
            be the reason the fastest thing waits. */
-        const read = await getArticles().catch(() => []);
-        if (!cancelled) setArticles(Array.isArray(read) ? read : []);
+        try {
+          const read = await getArticles();
+          if (!cancelled) {
+            setArticles(Array.isArray(read) ? read : []);
+            setReadingUnreadable(false);
+          }
+        } catch (_readingError) {
+          /* Say the server fell over. Swallowing this reported an outage as
+             "you have not filed anything", which is the software blaming the
+             reader for its own failure. */
+          if (!cancelled) setReadingUnreadable(true);
+        }
       } catch (error) {
         if (!cancelled) setIndexError('Could not load your judgments.');
       }
@@ -1061,7 +1072,7 @@ const Judgment = () => {
         ? <JudgmentDetail pageId={pageId} />
         : (
           <>
-            <JudgmentIndex items={items} articles={articles} />
+            <JudgmentIndex items={items} articles={articles} readingUnreadable={readingUnreadable} />
             {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
           </>
         )}

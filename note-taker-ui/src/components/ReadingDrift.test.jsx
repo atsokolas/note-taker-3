@@ -45,4 +45,21 @@ describe('ReadingDrift', () => {
     expect(container.querySelectorAll('button')).toHaveLength(0);
     expect(container.querySelectorAll('a')).toHaveLength(0);
   });
+
+  /* An outage read as "you have not filed anything", which is the software
+     blaming the reader for its own failure — and it is exactly why the drawing
+     looked missing while the API was crash-looping. */
+  it('says the library could not be read, rather than blaming your filing', () => {
+    render(<ReadingDrift now={NOW} articles={[]} unreadable />);
+    expect(screen.getByText(/Your library could not be read just now/)).toBeInTheDocument();
+    expect(screen.getByText(/This is not about your filing/)).toBeInTheDocument();
+    expect(screen.queryByText(/fills in as you file/)).not.toBeInTheDocument();
+  });
+
+  it('draws nothing at all when the reading is unreadable, even if some arrived', () => {
+    render(<ReadingDrift now={NOW} unreadable articles={[...many('Capacity', 70, 5), ...many('Power', 3, 5)]} />);
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(screen.queryByText(/more about/)).not.toBeInTheDocument();
+  });
+
 });
