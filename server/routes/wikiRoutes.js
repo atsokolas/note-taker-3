@@ -2067,6 +2067,16 @@ const buildWikiRouter = ({
     });
   };
 
+  /* find() casts a string id for you; aggregate() does not. */
+  const asObjectId = (value) => {
+    if (!value || typeof value === 'object') return value;
+    try {
+      return new mongoose.Types.ObjectId(String(value));
+    } catch (_castError) {
+      return value;
+    }
+  };
+
   const findOwnedPage = (req) => WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
 
   const refreshWikiProposals = async ({ userId, force = false } = {}) => {
@@ -2080,7 +2090,35 @@ const buildWikiRouter = ({
     }
 
     const [articles, notebooks, concepts, pages, questions] = await Promise.all([
-      Article?.find ? Article.find({ userId }).sort({ updatedAt: -1 }).limit(400).lean() : [],
+      /* Four hundred articles, and until now every one of them arrived with
+         its whole body attached. buildArchiveSignals only ever keeps 600
+         characters of it as a snippet, so the other however-many-hundred
+         kilobytes per article were read into the heap purely to be thrown
+         away — and on a 512MB box that is the difference between running and
+         not. This is what was killing the process: thirteen
+         "JavaScript heap out of memory" crashes in thirty-six hours, every one
+         of them at ~251MB with the collector already spending 99.9% of its
+         time in GC.
+
+         Truncated in the database instead. Twice what the signal keeps, so
+         nothing downstream changes. */
+      Article?.aggregate ? Article.aggregate([
+        { $match: { userId: asObjectId(userId) } },
+        { $sort: { updatedAt: -1 } },
+        { $limit: 400 },
+        {
+          $project: {
+            title: 1,
+            url: 1,
+            summary: 1,
+            updatedAt: 1,
+            content: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, 1200] },
+            'highlights.text': 1,
+            'highlights.note': 1,
+            'highlights.tags': 1
+          }
+        }
+      ]) : [],
       NotebookEntry?.find ? NotebookEntry.find({ userId }).sort({ updatedAt: -1 }).limit(300).lean() : [],
       TagMeta?.find ? TagMeta.find({ userId }).sort({ updatedAt: -1 }).limit(200).lean() : [],
       WikiPage.find({ userId, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(300).lean(),

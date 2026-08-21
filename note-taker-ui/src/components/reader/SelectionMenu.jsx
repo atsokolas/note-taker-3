@@ -5,8 +5,9 @@ import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 
 /* Clear of the line, not sitting on it. Eight pixels put the menu's bottom
-   edge into the sentence above the one you had selected. */
-const SELECTION_GAP_PX = 18;
+   edge into the sentence you had selected; eighteen still landed it in the
+   line above that one, which at this measure is about thirty pixels tall. */
+const SELECTION_GAP_PX = 30;
 const MAX_DRIFT_PX = 14;
 const POINTER_INFLUENCE_RADIUS_PX = 280;
 
