@@ -55,7 +55,7 @@ const LibraryShelfNav = ({
 
   return (
     <nav className={`library-shelf ${className}`.trim()} aria-label="Shelves">
-      <p className="library-shelf__eyebrow">Shelves</p>
+      <p className="library-shelf__eyebrow">Library</p>
       <ul className="library-shelf__scopes">
         <li>
           <button
@@ -120,6 +120,9 @@ const LibraryShelfNav = ({
 
       {showCabinet ? (
         <div className="library-shelf__cabinet">
+          {/* A label rather than a rule. The group needed saying, and a line
+              across the column was the product saying it without words. */}
+          {folders.length ? <p className="library-shelf__cabinet-eyebrow">Shelves</p> : null}
           {folders.length ? (
             <ul className="library-shelf__folders">
               {folders.map(folder => (

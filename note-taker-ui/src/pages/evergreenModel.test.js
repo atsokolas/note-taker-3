@@ -62,3 +62,37 @@ describe('the control', () => {
     expect(EVERGREEN_KIND_LABEL.judgment).toBe('A belief you hold');
   });
 });
+
+describe('the kept shelf', () => {
+  const { keptShelfLine, orderKeptOldestFirst } = require('./evergreenModel');
+  const NOW = new Date('2026-08-20T12:00:00.000Z').getTime();
+  const kept = (id, at) => ({ _id: id, title: id, evergreen: true, evergreenAt: at });
+
+  it('reads oldest first, which no other list in the product does', () => {
+    const ordered = orderKeptOldestFirst([
+      kept('new', '2026-08-01T00:00:00.000Z'),
+      kept('old', '2025-11-04T00:00:00.000Z'),
+      kept('mid', '2026-03-01T00:00:00.000Z'),
+      { _id: 'not-kept', evergreen: false }
+    ]);
+    expect(ordered.map(item => item._id)).toEqual(['old', 'mid', 'new']);
+  });
+
+  it('says how many and how long the oldest has been there', () => {
+    const line = keptShelfLine([kept('a', '2025-11-04T00:00:00.000Z'), kept('b', '2026-08-01T00:00:00.000Z')], NOW);
+    expect(line).toMatch(/^2 things you decided to keep\. The oldest since November 2025\.$/);
+  });
+
+  it('counts one thing as one thing', () => {
+    expect(keptShelfLine([kept('a', '2025-11-04T00:00:00.000Z')], NOW)).toMatch(/^One thing you decided to keep\./);
+  });
+
+  it('says something different when the canon has only just started', () => {
+    expect(keptShelfLine([kept('a', '2026-08-15T00:00:00.000Z')], NOW))
+      .toBe('One thing you decided to keep. The first one this month.');
+  });
+
+  it('says nothing at all when nothing is kept', () => {
+    expect(keptShelfLine([], NOW)).toBe('');
+  });
+});

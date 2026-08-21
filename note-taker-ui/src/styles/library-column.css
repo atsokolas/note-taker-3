@@ -21,15 +21,22 @@
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
 }
 
+/* Group labels, not links. Two of them do the work three ad-hoc rules were
+   doing before: the top group is the library seen whole, the second is the
+   shelves inside it. Eleven-ish px, uppercase, wide letter-spacing — the same
+   eyebrow this product uses everywhere else. */
 .library-shelf__eyebrow {
-  margin: 0 0 16px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-size: 0.82rem;
+  margin: 0 0 14px;
+  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 82%, transparent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .library-shelf ul {
   display: grid;
-  gap: 12px;
+  gap: 11px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -55,59 +62,74 @@
   color: var(--text-primary, var(--vellum-ink));
 }
 
-/* The shelf you are on is the only one at full weight. */
+/* The shelf you are on. Weight and a rule under the word, never colour alone —
+   that is this product's mark for a chosen thing, and it is also the
+   accessible one. */
 .library-shelf button.is-open {
   width: fit-content;
   color: var(--text-primary, var(--vellum-ink));
   border-bottom: 1px solid currentColor;
 }
 
-/* Everything you have read, then the cut of it you keep, then the ways of
-   narrowing it. These four are the whole library seen four ways, so they sit
-   at the top level; the folders below are shelves inside it, and are indented
-   to say so. */
+/* All sources is the whole thing; the three under it are cuts of it. */
 .library-shelf__scopes > li:first-child button {
-  font-size: 1rem;
+  font-size: 1.02rem;
+  color: color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 76%, transparent);
 }
 
-/* Kept is the one shelf that never changes. It carries a mark even when you
-   are not standing on it, because it is a decision you made rather than a
-   filter you are applying. */
+/* Kept has no colour of its own. It had the only tinted text in the rail,
+   which made a decision look like an alert, and colour on its own is a weak
+   signal anyway.
+
+   It is set in the serif instead, while the rest of the rail is the sans. That
+   is already this product's oldest distinction — serif is the reading, sans is
+   the apparatus — and the kept shelf is the only entry here that is reading
+   rather than a way of filtering it. It looks different because it is a
+   different kind of thing. */
 .library-shelf__kept button {
-  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
 }
 
-/* An empty canon is quieter than a full one, but still there. */
 .library-shelf__kept.is-empty button {
-  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 46%, transparent);
+  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 62%, transparent);
 }
 
-.library-shelf__kept button.is-open {
-  border-bottom-color: currentColor;
-}
-
-/* The cabinet proper: the folder names and the filing chore, together.
-   On the desktop rail it is simply the rest of the list. */
+/* Groups are separated by air and a label, not by rules. The rules were three
+   different line treatments in one small column, which is what made this read
+   as assembled rather than designed. */
 .library-shelf__cabinet {
   display: grid;
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 60%, transparent);
+  margin-top: 26px;
 }
 
-/* The folders are shelves inside the library, not four more views of it. The
-   indent is the whole hierarchy: All sources at the top, then what you keep,
-   then the ways of narrowing, then the shelves themselves.
+.library-shelf__cabinet-eyebrow {
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 82%, transparent);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
 
-   Qualified by the nav, because `.library-shelf ul` zeroes the padding on
-   every list in here and outranks a bare class. */
+/* Sub-items: smaller, lighter, indented. Qualified by the nav because
+   `.library-shelf ul` zeroes padding on every list in here. */
 .library-shelf ul.library-shelf__folders {
-  padding-left: 13px;
-  border-left: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent);
+  gap: 10px;
+  padding-left: 16px;
 }
 
 .library-shelf ul.library-shelf__folders button {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 88%, transparent);
+}
+
+.library-shelf ul.library-shelf__folders button:hover,
+.library-shelf ul.library-shelf__folders button:focus-visible,
+.library-shelf ul.library-shelf__folders button.is-open {
+  color: var(--text-primary, var(--vellum-ink));
 }
 
 /* The way into the cabinet on a phone, where it is folded shut by default. */
@@ -132,7 +154,7 @@
 /* Filing is the cabinet's own work, so it sits at the foot of the cabinet. */
 .library-shelf__filing {
   width: fit-content;
-  margin-top: 26px;
+  margin-top: 28px;
   padding: 0;
   border: 0;
   border-bottom: 1px solid currentColor;

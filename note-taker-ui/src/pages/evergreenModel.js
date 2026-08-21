@@ -61,6 +61,39 @@ export const buildEvergreenIndex = ({ articles = [], pages = [] } = {}) => [
   .filter(entry => entry.targetId && entry.title)
   .sort((left, right) => (time(right.keptAt) || 0) - (time(left.keptAt) || 0));
 
+/*
+ * The canon reads the other way round.
+ *
+ * Every other list in this product is newest first, because everything else is
+ * about what changed. This one is oldest first: the thing you have held
+ * longest leads, and the newest arrival is at the foot waiting to earn its
+ * place. That is what a canon is, and it is the only list here that reads like
+ * one.
+ */
+export const orderKeptOldestFirst = (articles = []) => list(articles)
+  .filter(article => article?.evergreen)
+  .sort((left, right) => (
+    (time(left.evergreenAt || left.createdAt) || 0) - (time(right.evergreenAt || right.createdAt) || 0)
+  ));
+
+const MONTH = { month: 'long', year: 'numeric' };
+
+/**
+ * What the shelf says about itself: how many, and how long the oldest has been
+ * there. The product noticing out loud, which is the only thing this shelf is
+ * for — it has nothing to ask you.
+ */
+export const keptShelfLine = (articles = [], now = Date.now()) => {
+  const kept = orderKeptOldestFirst(articles);
+  if (!kept.length) return '';
+  const count = kept.length === 1 ? 'One thing' : `${kept.length} things`;
+  const since = time(kept[0].evergreenAt || kept[0].createdAt);
+  if (Number.isNaN(since) || !since) return `${count} you decided to keep.`;
+  const days = Math.floor((now - since) / (24 * 60 * 60 * 1000));
+  if (days < 14) return `${count} you decided to keep. The first one this month.`;
+  return `${count} you decided to keep. The oldest since ${new Date(since).toLocaleDateString(undefined, MONTH)}.`;
+};
+
 export const evergreenHref = (entry = {}) => {
   if (entry.kind === 'source') return `/library?article=${entry.targetId}`;
   if (entry.kind === 'judgment') return `/judgment/${entry.targetId}`;

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { buildLibraryColumn } from './libraryColumnModel';
+import { keptShelfLine, orderKeptOldestFirst } from '../../pages/evergreenModel';
 import '../../styles/library-column.css';
 
 // The face of the Library: one thing to continue, then the shelf.
@@ -28,8 +29,25 @@ const LibraryColumn = ({
     [allArticles, articles]
   );
   /* The kept shelf is the one shelf that is not about what is new, so it does
-     not lead with something to continue — it is a list you came looking for. */
+     not lead with something to continue — it is a list you came looking for.
+
+     It also reads the other way round. Everything else here is newest first,
+     because everything else is about what changed; the canon leads with what
+     you have held longest and leaves the newest arrival at the foot, waiting
+     to earn its place. */
   const kept = shelf === 'kept';
+  const keptRows = useMemo(() => (kept
+    ? orderKeptOldestFirst(articles).map(article => ({
+      id: String(article._id || article.id || ''),
+      title: article.title || 'Untitled source',
+      source: article.siteName || article.author || '',
+      /* The date that matters on this shelf is when you decided to keep it,
+         not when you happened to save it. */
+      date: article.evergreenAt || article.createdAt || null
+    }))
+    : []), [kept, articles]);
+  const keptLine = useMemo(() => (kept ? keptShelfLine(articles) : ''), [kept, articles]);
+  const shelfRows = kept ? keptRows : rows;
   const step = (n) => (entering ? `wfp-anim wfp-anim--${n}` : 'library-column__return');
 
   return (
@@ -38,7 +56,7 @@ const LibraryColumn = ({
       <p className={`library-column__eyebrow ${step(1)}`}>{kept ? 'Kept' : 'Library'}</p>
       {kept ? (
         <p className={`library-column__shelf-note ${step(1)}`}>
-          Held for life, and never counted as neglected.
+          {keptLine || 'Held for life, and never counted as neglected.'}
         </p>
       ) : null}
 
@@ -86,9 +104,9 @@ const LibraryColumn = ({
         <p className="library-column__quiet" role="status">Opening the shelf…</p>
       ) : null}
 
-      {rows.length ? (
+      {shelfRows.length ? (
         <ul className={`library-column__shelf ${step(4)}`}>
-          {rows.map(item => (
+          {shelfRows.map(item => (
             <li key={item.id}>
               <button type="button" onClick={() => onSelectArticle?.(item.id)}>
                 <span className="library-column__row-title">{item.title}</span>
@@ -103,7 +121,7 @@ const LibraryColumn = ({
       ) : null}
 
       {/* Nothing saved yet is a sentence, not a dashboard of zeroes. */}
-      {!loading && !rows.length && !continueItem ? (
+      {!loading && !shelfRows.length && !continueItem ? (
         <p className={`library-column__quiet ${step(4)}`}>
           {query
             ? `Nothing in your library matches “${query}”.`
