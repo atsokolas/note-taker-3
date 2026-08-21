@@ -19,7 +19,16 @@ class EmbeddingError extends Error {
 // failure: every semantic feature went dark on the first request after any
 // quiet period, and the caller could not tell an asleep service from an empty
 // library. Wait the wake-up out instead of reporting nothing.
-const COLD_START_STATUSES = new Set([429, 502, 503, 504]);
+/* 429 is not a cold start. A waking service answers 502/503/504 while it
+   boots; 429 is a service that is awake and telling you to stop. Treating it
+   as a wake-up meant every rate-limited embed slept 4s, then 12s, then 20s,
+   and tried twelve times through the inner client's own retries before giving
+   up — thirty-six seconds of a worker holding its text and its errors, per
+   job, against a service that was never going to say yes.
+
+   The job runner already knows what to do with a rate limit: release the job
+   and stop after three of them. It just never got to see one in time. */
+const COLD_START_STATUSES = new Set([502, 503, 504]);
 const DEFAULT_EMBED_RETRY_DELAYS_MS = [4000, 12000, 20000];
 
 const isColdStart = (error) => (

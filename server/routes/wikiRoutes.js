@@ -2121,7 +2121,14 @@ const buildWikiRouter = ({
       ]) : [],
       NotebookEntry?.find ? NotebookEntry.find({ userId }).sort({ updatedAt: -1 }).limit(300).lean() : [],
       TagMeta?.find ? TagMeta.find({ userId }).sort({ updatedAt: -1 }).limit(200).lean() : [],
-      WikiPage.find({ userId, status: { $ne: 'archived' } }).sort({ updatedAt: -1 }).limit(300).lean(),
+      /* body and discussions are never read on this path — the signals use
+         title and plainText — and they are the two largest fields a page
+         carries. Excluding them changes nothing downstream. */
+      WikiPage.find({ userId, status: { $ne: 'archived' } })
+        .select('-body -discussions')
+        .sort({ updatedAt: -1 })
+        .limit(300)
+        .lean(),
       Question?.find ? Question.find({ userId }).sort({ updatedAt: -1 }).limit(200).lean() : []
     ]);
 
