@@ -46,6 +46,24 @@ const buildAnchor = (container, range, rawText) => {
  * @param {React.RefObject<HTMLElement>} params.menuRef
  * @param {number} [params.minLength]
  */
+/* Whether an event started inside the menu.
+
+   Both guards below used to ask only `menuRef.current.contains(target)`. That
+   is one ref away from being wrong: if the ref is not populated at the moment
+   the event fires — a portal that has not attached yet, a browser that orders
+   mousedown differently — the guard falls through and the selection is cleared
+   before the click on Highlight ever runs its handler. The menu vanishes and
+   nothing is saved, which is exactly what that failure looks like from the
+   outside.
+
+   The DOM already knows the answer and does not need a ref to say so. */
+const startedInsideMenu = (event, menuRef) => {
+  const target = event?.target;
+  if (!target) return false;
+  if (menuRef?.current?.contains?.(target)) return true;
+  return Boolean(target.closest?.('.selection-menu'));
+};
+
 const useTextSelection = ({ containerRef, menuRef, minLength = 3 }) => {
   const [selectionState, setSelectionState] = useState(/** @type {SelectionState} */ ({
     isOpen: false,
@@ -106,7 +124,7 @@ const useTextSelection = ({ containerRef, menuRef, minLength = 3 }) => {
     if (!container) return;
 
     const handleMouseUp = (event) => {
-      if (menuRef?.current && menuRef.current.contains(event.target)) return;
+      if (startedInsideMenu(event, menuRef)) return;
       captureSelection();
     };
     const handleKeyUp = () => captureSelection();
@@ -125,7 +143,7 @@ const useTextSelection = ({ containerRef, menuRef, minLength = 3 }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef?.current && menuRef.current.contains(event.target)) return;
+      if (startedInsideMenu(event, menuRef)) return;
       if (containerRef.current && containerRef.current.contains(event.target)) return;
       clearSelection();
     };

@@ -93,3 +93,57 @@ describe('useTextSelection', () => {
     expect(result.current.selectionState).toEqual({ isOpen: false, text: '', rect: null, anchor: null });
   });
 });
+
+describe('a click that starts inside the menu', () => {
+  /* The guard used to ask only menuRef.current.contains(target). One ref away
+     from wrong: if it is not populated when the event fires, the selection is
+     cleared before Highlight's own handler runs — the menu vanishes and
+     nothing saves. */
+  const menuNode = () => {
+    const menu = document.createElement('div');
+    menu.className = 'selection-menu';
+    const button = document.createElement('button');
+    menu.appendChild(button);
+    document.body.appendChild(menu);
+    return { menu, button };
+  };
+
+  it('does not clear the selection, even when the menu ref is empty', () => {
+    const container = makeContainer();
+    const { menu, button } = menuNode();
+    const { result } = renderHook(() => useTextSelection({
+      containerRef: { current: container },
+      menuRef: { current: null }
+    }));
+
+    jest.spyOn(window, 'getSelection').mockReturnValue(selectionOver(container, 'worth selecting'));
+    act(() => { container.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); });
+    expect(result.current.selectionState.isOpen).toBe(true);
+
+    act(() => { button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+
+    expect(result.current.selectionState.isOpen).toBe(true);
+    expect(result.current.selectionState.text).toBe('worth selecting');
+
+    menu.remove();
+    container.remove();
+  });
+
+  it('still clears when the click is genuinely outside', () => {
+    const container = makeContainer();
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    const { result } = renderHook(() => useTextSelection({
+      containerRef: { current: container },
+      menuRef: { current: null }
+    }));
+
+    jest.spyOn(window, 'getSelection').mockReturnValue(selectionOver(container, 'worth selecting'));
+    act(() => { container.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); });
+    act(() => { outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+
+    expect(result.current.selectionState.isOpen).toBe(false);
+    outside.remove();
+    container.remove();
+  });
+});
