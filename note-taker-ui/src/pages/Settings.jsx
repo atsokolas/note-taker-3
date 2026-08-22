@@ -326,7 +326,7 @@ const Settings = ({
           <p className="muted">Loading wiki schema…</p>
         ) : (
           <textarea
-            className="settings-wiki-schema-editor"
+            className="settings-wiki-schema-editor noeis-form-control"
             value={wikiSchemaDraft}
             onChange={handleWikiSchemaDraftChange}
             placeholder="Paste the current wiki schema markdown here."
@@ -378,11 +378,11 @@ const Settings = ({
           <div className="settings-option-group">
             <p className="muted">{wikiSchemaSuggestion.summary}</p>
             <textarea
+              className="noeis-form-control"
               readOnly
               aria-label="Suggested wiki schema patch"
               value={wikiSchemaSuggestion.proposedPatch || ''}
               rows={10}
-              style={{ width: '100%' }}
             />
           </div>
         )}
