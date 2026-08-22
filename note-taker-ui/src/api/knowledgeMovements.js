@@ -77,4 +77,17 @@ export const startKnowledgeMovementInvestigation = async ({
   return response.data;
 };
 
+export const getWeeklyMovements = async () => {
+  const response = await api.get('/api/knowledge/movements/weekly', getAuthHeaders());
+  if (
+    !response.data
+    || typeof response.data.weekStart !== 'string'
+    || typeof response.data.weekEnd !== 'string'
+    || !Array.isArray(response.data.groups)
+  ) {
+    throw new Error('Weekly digest response is malformed.');
+  }
+  return response.data;
+};
+
 export default getKnowledgeMovements;

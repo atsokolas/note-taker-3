@@ -1,7 +1,8 @@
 const express = require('express');
 const {
   buildKnowledgeMovements,
-  buildKnowledgeMovementEpisodes
+  buildKnowledgeMovementEpisodes,
+  buildWeeklyDigest
 } = require('../services/knowledgeMovementService');
 const { buildFieldReadiness } = require('../services/fieldReadinessService');
 
@@ -73,6 +74,16 @@ const buildKnowledgeMovementRouter = ({
     } catch (error) {
       console.error('Error building Field readiness:', error);
       return res.status(500).json({ error: 'Failed to evaluate Field readiness.' });
+    }
+  });
+
+  router.get('/api/knowledge/movements/weekly', authenticateToken, async (req, res) => {
+    try {
+      const digest = await buildWeeklyDigest({ userId: req.user.id, models, asOf: new Date() });
+      return res.status(200).json(digest);
+    } catch (error) {
+      console.error('Error building weekly digest:', error);
+      return res.status(500).json({ error: 'Failed to build the weekly digest.' });
     }
   });
 
