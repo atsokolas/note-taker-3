@@ -2,9 +2,19 @@ const express = require('express');
 const {
   buildKnowledgeMovements,
   buildKnowledgeMovementEpisodes,
-  buildWeeklyDigest
+  buildWeeklyDigest,
+  deckFor,
+  applyDeckState
 } = require('../services/knowledgeMovementService');
 const { buildFieldReadiness } = require('../services/fieldReadinessService');
+
+const serializeDeck = deck => ({
+  date: deck.date,
+  resolvedIds: deck.resolvedIds,
+  resolvedCount: deck.resolvedIds.length,
+  closed: Boolean(deck.closedAt),
+  closedAt: deck.closedAt || null
+});
 
 const parseSince = value => {
   if (value === undefined || value === null || value === '') return null;
@@ -23,6 +33,7 @@ const parseLimit = value => {
 
 const buildKnowledgeMovementRouter = ({
   authenticateToken,
+  User,
   WikiPage,
   WikiRevision,
   WikiSourceEvent,
@@ -57,13 +68,33 @@ const buildKnowledgeMovementRouter = ({
         since,
         limit: 50
       });
+      let deck = { date: '', resolvedIds: [], closedAt: null };
+      if (User?.findById) {
+        const user = await User.findById(req.user.id).select('morningPaper.deck');
+        deck = deckFor(user, new Date());
+      }
       return res.status(200).json({
         movements: buildKnowledgeMovementEpisodes(movements).slice(0, limit),
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        deck: serializeDeck(deck)
       });
     } catch (error) {
       console.error('Error building knowledge movements:', error);
       return res.status(500).json({ error: 'Failed to build knowledge movements.' });
+    }
+  });
+
+  router.post('/api/knowledge/movements/deck-state', authenticateToken, async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ error: 'User not found.' });
+      const deck = applyDeckState({ user, body: req.body || {}, now: new Date() });
+      await user.save({ timestamps: false });
+      return res.status(200).json({ deck: serializeDeck(deck) });
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+      console.error('Error saving deck state:', error);
+      return res.status(500).json({ error: 'Failed to save deck state.' });
     }
   });
 

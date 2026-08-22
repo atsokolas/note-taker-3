@@ -7,6 +7,7 @@ import {
   runReadingLoopMechanic
 } from '../api/readingLoop';
 import { recordClaimCheckIn } from '../api/dailyLoop';
+import { getKnowledgeMovements, saveDeckState } from '../api/knowledgeMovements';
 import { updateQuestion } from '../api/questions';
 import { createWikiPage } from '../api/wiki';
 import { formatSurfaceDate } from '../utils/dateDisplay';
@@ -47,6 +48,52 @@ const MECHANICS = [
     invitation: 'Name what you’ve been reading toward but haven’t written down.'
   }
 ];
+
+const MOVEMENT_LABELS = {
+  claim_changed: 'A claim changed',
+  new_evidence: 'New evidence',
+  contradiction: 'Contradicted',
+  question_answerable: 'A question you can answer',
+  connection_formed: 'A connection formed',
+  decision_due: 'Decision due',
+  outcome_due: 'Outcome due',
+  outcome_reviewed: 'An outcome landed'
+};
+
+// One deck, three clocks. Movements are what changed while the reader was
+// away — the world through its watchers, the corpus through its claims, the
+// judgment ledger through its reviews. Resolving every card closes the
+// paper; the seal is the reward and it is earned, never scheduled.
+const MovementCard = ({ movement, onNote, busy }) => (
+  <article className={`paper__movement paper__movement--${movement.materiality}`} data-movement-id={movement.id}>
+    <p className="paper__end-kicker">
+      {MOVEMENT_LABELS[movement.kind] || 'Changed'}
+      {sourceDate(movement.occurredAt) ? <span className="paper__end-date"> · {sourceDate(movement.occurredAt)}</span> : null}
+      {movement.materiality === 'critical' ? <span className="paper__movement-critical"> · critical</span> : null}
+    </p>
+    {movement.nextAction?.href ? (
+      <Link className="paper__movement-title" to={movement.nextAction.href}>{movement.title}</Link>
+    ) : (
+      <span className="paper__movement-title">{movement.title}</span>
+    )}
+    {movement.whyItMatters ? <p className="paper__relation-line">{movement.whyItMatters}</p> : null}
+    <div className="paper__actions">
+      {movement.nextAction?.href ? (
+        <Link className="paper__action" to={movement.nextAction.href}>{movement.nextAction.label || 'Open'}</Link>
+      ) : null}
+      <button type="button" className="paper__action paper__action--quiet" onClick={() => onNote(movement)} disabled={busy}>
+        Noted
+      </button>
+    </div>
+  </article>
+);
+
+const MovementSeal = ({ quiet }) => (
+  <div className="paper__seal" role="status">
+    <span className="paper__seal-rule" aria-hidden="true" />
+    <p className="paper__seal-line">{quiet ? 'Nothing changed in your world overnight. Rare.' : 'The paper is closed.'}</p>
+  </div>
+);
 
 const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
@@ -146,6 +193,13 @@ const Paper = ({ compact = false, lead = null, tail = null }) => {
   const [busy, setBusy] = useState('');
   const [notes, setNotes] = useState({});
   const [refreshingLead, setRefreshingLead] = useState(false);
+  const [movements, setMovements] = useState([]);
+  const [movementsQuiet, setMovementsQuiet] = useState(false);
+  const [deckDate, setDeckDate] = useState('');
+  const [resolvedIds, setResolvedIds] = useState([]);
+  const [deckClosed, setDeckClosed] = useState(false);
+  const [movementsError, setMovementsError] = useState(false);
+  const [notingId, setNotingId] = useState('');
   // The Paper arrives the way every other surface does: one brief entrance on
   // first sight this session, a crossfade on the way back.
   const arriving = useMemo(() => takeFirstPaint('paper'), []);
@@ -165,6 +219,26 @@ const Paper = ({ compact = false, lead = null, tail = null }) => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadMovements = useCallback(async () => {
+    try {
+      const data = await getKnowledgeMovements();
+      const list = Array.isArray(data.movements) ? data.movements : [];
+      setMovements(list);
+      // An empty list is a quiet world — main's contract carries no flag.
+      setMovementsQuiet(list.length === 0);
+      if (data.deck && typeof data.deck === 'object') {
+        setDeckDate(typeof data.deck.date === 'string' ? data.deck.date : '');
+        setResolvedIds(Array.isArray(data.deck.resolvedIds) ? data.deck.resolvedIds : []);
+        setDeckClosed(Boolean(data.deck.closed));
+      }
+      setMovementsError(false);
+    } catch (_err) {
+      setMovementsError(true);
+    }
+  }, []);
+
+  useEffect(() => { loadMovements(); }, [loadMovements]);
 
   // The lead is precomputed on the system's cadence. When the server says a
   // refresh is running, check back once rather than making the reader wait on
@@ -273,9 +347,33 @@ const Paper = ({ compact = false, lead = null, tail = null }) => {
     }
   };
 
+  const noteMovement = async (movement) => {
+    if (!movement?.id || notingId) return;
+    setNotingId(movement.id);
+    try {
+      const nextDeck = await saveDeckState({ date: deckDate || undefined, resolveId: movement.id });
+      const nextResolved = Array.isArray(nextDeck?.resolvedIds)
+        ? nextDeck.resolvedIds
+        : [...resolvedIds, movement.id];
+      setResolvedIds(nextResolved);
+      if (nextDeck?.date) setDeckDate(nextDeck.date);
+      const unresolvedLeft = movements.filter(item => !nextResolved.includes(item.id)).length;
+      if (unresolvedLeft === 0 && !deckClosed) {
+        await saveDeckState({ date: nextDeck?.date || deckDate || undefined, closed: true });
+        setDeckClosed(true);
+      }
+    } catch (_err) {
+      setNotes(current => ({ ...current, [`movement:${movement.id}`]: 'Could not record that.' }));
+    } finally {
+      setNotingId('');
+    }
+  };
+
   const masthead = useMemo(() => mastheadDate(), []);
   const connection = edition?.connection;
   const coldStart = edition?.coldStart;
+  const unresolved = movements.filter(movement => !resolvedIds.includes(movement.id));
+  const notedCount = movements.length - unresolved.length;
 
   const Frame = compact ? 'section' : 'main';
   /* Inside the wiki the page's own headline is the h1; the paper's lead is the
@@ -368,6 +466,29 @@ const Paper = ({ compact = false, lead = null, tail = null }) => {
             </div>
             {notes.connection ? <Receipt>{notes.connection}</Receipt> : null}
           </>
+        )}
+      </section>
+
+      <section className={`paper__deck ${step(3)}`} aria-labelledby="paper-deck-title">
+        <div className="paper__section-head">
+          <h2 className="paper__section-label" id="paper-deck-title">What changed while you were away</h2>
+          {notedCount && unresolved.length ? (
+            <Receipt>{`${notedCount} of ${movements.length} noted`}</Receipt>
+          ) : null}
+        </div>
+        {movementsError ? (
+          <p className="paper__section-empty">Could not check the world just now.</p>
+        ) : unresolved.length === 0 ? (
+          <MovementSeal quiet={movementsQuiet} />
+        ) : (
+          unresolved.map(movement => (
+            <MovementCard
+              key={movement.id}
+              movement={movement}
+              onNote={noteMovement}
+              busy={notingId === movement.id}
+            />
+          ))
         )}
       </section>
 

@@ -5395,6 +5395,7 @@ app.use(buildDailyLoopRouter({
 
 app.use(buildKnowledgeMovementRouter({
   authenticateToken: authenticateUserOrAgentToken,
+  User,
   WikiPage,
   WikiRevision,
   WikiSourceEvent,

@@ -52,7 +52,15 @@ const morningPaperSettingsSchema = new mongoose.Schema({
   lastSkippedAt: { type: Date, default: null },
   lastSkipReason: { type: String, default: '', trim: true },
   lastCheckInLocalDate: { type: String, default: '', trim: true },
-  checkInStreak: { type: Number, min: 0, default: 0 }
+  checkInStreak: { type: Number, min: 0, default: 0 },
+  deck: {
+    type: {
+      date: { type: String, default: '', trim: true },
+      resolvedIds: { type: [String], default: [] },
+      closedAt: { type: Date, default: null }
+    },
+    default: () => ({})
+  }
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({

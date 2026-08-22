@@ -1599,12 +1599,81 @@ const buildWeeklyDigest = async ({ userId, models = {}, asOf = new Date(), limit
   };
 };
 
+// Deck state: which movement cards the reader resolved today, and whether
+// the day's paper is closed. It rides the existing morningPaper subdoc, so
+// it survives reload without a new collection. A deck whose date stops
+// matching UTC today resets by construction.
+const DECK_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DECK_MAX_RESOLVED = 100;
+
+const asPlainRecord = value => (value && typeof value.toObject === 'function'
+  ? value.toObject({ virtuals: false })
+  : value);
+
+const todayKey = (now = new Date()) => new Date(now).toISOString().slice(0, 10);
+
+const deckFor = (user, now = new Date()) => {
+  const deck = asPlainRecord(user?.morningPaper?.deck) || {};
+  const date = todayKey(now);
+  if (deck.date !== date) return { date, resolvedIds: [], closedAt: null };
+  return {
+    date: deck.date,
+    resolvedIds: (Array.isArray(deck.resolvedIds) ? deck.resolvedIds : []).slice(0, DECK_MAX_RESOLVED),
+    closedAt: deck.closedAt || null
+  };
+};
+
+const applyDeckState = ({ user, body = {}, now = new Date() } = {}) => {
+  if (!user) {
+    const error = new Error('User not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+  const current = deckFor(user, now);
+  const requestedDate = body.date === undefined || body.date === null || body.date === ''
+    ? current.date
+    : String(body.date);
+  if (!DECK_DATE_PATTERN.test(requestedDate)) {
+    const error = new Error('date must be YYYY-MM-DD.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const deck = requestedDate === current.date
+    ? { date: current.date, resolvedIds: [...current.resolvedIds], closedAt: current.closedAt }
+    : { date: requestedDate, resolvedIds: [], closedAt: null };
+
+  if (body.resolveId !== undefined && body.resolveId !== null) {
+    const resolveId = String(body.resolveId).trim();
+    if (!resolveId || resolveId.length > 200) {
+      const error = new Error('resolveId must be a non-empty id of 200 characters or fewer.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!deck.resolvedIds.includes(resolveId)) {
+      if (deck.resolvedIds.length >= DECK_MAX_RESOLVED) {
+        const error = new Error(`The deck already holds the maximum of ${DECK_MAX_RESOLVED} resolved movements for today.`);
+        error.statusCode = 409;
+        throw error;
+      }
+      deck.resolvedIds.push(resolveId);
+    }
+  }
+  if (body.closed !== undefined) {
+    deck.closedAt = body.closed ? new Date(now) : null;
+  }
+  user.morningPaper = { ...(asPlainRecord(user.morningPaper) || {}), deck };
+  return deck;
+};
+
 module.exports = {
   MOVEMENT_KINDS,
   WEEKLY_EVENT_KINDS,
   buildKnowledgeMovements,
   buildWeeklyDigest,
   buildKnowledgeMovementEpisodes,
+  todayKey,
+  deckFor,
+  applyDeckState,
   diffClaimState,
   mergeDuplicateMovements,
   sourceFingerprint,
