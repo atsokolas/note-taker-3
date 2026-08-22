@@ -2044,3 +2044,104 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
 .wfp-tail__week a:hover {
   color: var(--text-primary, var(--vellum-ink));
 }
+
+/* ---------- the week in your thinking ---------- */
+
+.wfp-week {
+  display: grid;
+  gap: 18px;
+  max-width: 72ch;
+  margin: 8px auto 0;
+  padding: 26px 0 8px;
+  border-top: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
+}
+
+.wfp-week__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wfp-week__title {
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5f6b7a);
+}
+
+.wfp-week__range {
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted, #5f6b7a);
+}
+
+.wfp-week__group {
+  display: grid;
+  gap: 8px;
+}
+
+.wfp-week__page {
+  margin: 0;
+  font-family: var(--font-serif, 'Newsreader', Georgia, serif);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.wfp-week__page a {
+  color: var(--text-primary, #111827);
+  text-decoration: none;
+}
+
+.wfp-week__page a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wfp-week__items {
+  margin: 0;
+  padding: 0 0 0 2px;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.wfp-week__items li {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary, #111827);
+}
+
+.wfp-week__items a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.wfp-week__items a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wfp-week__kind {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5f6b7a);
+}
+
+@media (max-width: 640px) {
+  .wfp-week {
+    padding: 20px 0 4px;
+  }
+
+  .wfp-week__head {
+    flex-direction: column;
+    gap: 2px;
+  }
+}

@@ -37,6 +37,7 @@ import { buildWeeklyBrief, paperWeekLine } from '../../pages/weeklyBriefModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
 import Paper from '../../pages/Paper';
+import WeeklyDigest from './WeeklyDigest';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -177,6 +178,7 @@ const WikiFrontPageShell = ({ children, lead = null, tail = null, ...mainProps }
           reading loop's, which is why the paper takes them as slots. */}
       <Paper compact lead={lead} tail={tail} />
       {children}
+      <WeeklyDigest />
     </main>
   </>
 );

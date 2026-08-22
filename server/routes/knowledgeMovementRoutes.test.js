@@ -132,6 +132,22 @@ const server = app.listen(0, '127.0.0.1', async () => {
       'asOf', 'eligible', 'evidence', 'gaps', 'metrics', 'state', 'thresholds', 'version'
     ]);
 
+    const weekly = await request('/api/knowledge/movements/weekly');
+    assert.strictEqual(weekly.response.status, 200);
+    assert.ok(weekly.body.weekStart && weekly.body.weekEnd);
+    assert.ok(Array.isArray(weekly.body.groups));
+    const weeklyKinds = weekly.body.groups.flatMap(group => group.items.map(item => item.kind));
+    ['decision_due', 'outcome_due', 'question_answerable'].forEach(kind => {
+      assert.ok(!weeklyKinds.includes(kind), `${kind} is standing state, not a week event`);
+    });
+    if (!weekly.body.quiet) {
+      const group = weekly.body.groups[0];
+      assert.ok(group.subject.type === 'wiki_page');
+      assert.ok(group.subject.href.startsWith('/wiki/workspace'));
+      assert.ok(group.items.every(item => item.href));
+      assert.strictEqual(weekly.body.total >= weekly.body.groups.length, true);
+    }
+
     console.log('knowledgeMovementRoutes tests passed');
   } catch (error) {
     console.error(error);

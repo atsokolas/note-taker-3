@@ -12,6 +12,13 @@ jest.mock('../../pages/Paper', () => ({ lead = null, tail = null }) => (
   <div data-testid="paper-on-top">{lead}{tail}</div>
 ));
 
+jest.mock('../../api/knowledgeMovements', () => ({
+  __esModule: true,
+  default: jest.fn(),
+  getKnowledgeMovements: jest.fn(),
+  getWeeklyMovements: jest.fn().mockResolvedValue({ weekStart: '', weekEnd: '', totals: {}, total: 0, groups: [], quiet: true })
+}));
+
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn()
 }));

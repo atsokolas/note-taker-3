@@ -1512,9 +1512,98 @@ const buildKnowledgeMovements = async ({
   return finalize(movements);
 };
 
+// The weekly digest is a retrospective: it counts what happened, never what
+// is merely overdue. Standing states (decision_due, outcome_due,
+// question_answerable) are excluded by design — they belong to the day, and
+// they would repeat every week.
+const WEEKLY_EVENT_KINDS = Object.freeze([
+  'claim_changed',
+  'new_evidence',
+  'contradiction',
+  'connection_formed',
+  'outcome_reviewed'
+]);
+
+const pageRefForMovement = movement => {
+  const affectedPage = (Array.isArray(movement?.affected) ? movement.affected : [])
+    .find(ref => ref && ref.type === 'wiki_page' && ref.id);
+  if (affectedPage) return affectedPage;
+  if (movement?.subject?.type === 'wiki_page') return movement.subject;
+  return null;
+};
+
+const buildWeeklyDigest = async ({ userId, models = {}, asOf = new Date(), limit = 120 } = {}) => {
+  const weekEnd = new Date(asOf);
+  const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const movements = await buildKnowledgeMovements({
+    userId,
+    models,
+    since: weekStart.toISOString(),
+    limit: Math.max(1, Math.min(Number(limit) || 120, 200)),
+    asOf: weekEnd
+  });
+  const eventMovements = (Array.isArray(movements) ? movements : [])
+    .filter(movement => WEEKLY_EVENT_KINDS.includes(movement.kind));
+  const groupsByPage = new Map();
+  eventMovements.forEach(movement => {
+    const pageRef = pageRefForMovement(movement);
+    const key = pageRef ? `page:${pageRef.id}` : `${movement.subject?.type || 'unknown'}:${movement.subject?.id || movement.id}`;
+    if (!groupsByPage.has(key)) {
+      groupsByPage.set(key, {
+        subject: pageRef
+          ? { type: 'wiki_page', id: pageRef.id, title: pageRef.title, href: pageRef.href }
+          : { type: movement.subject?.type || 'unknown', id: movement.subject?.id || '', title: movement.subject?.title || '', href: movement.subject?.href || '/wiki' },
+        items: [],
+        worstMateriality: movement.materiality,
+        lastOccurredAt: movement.occurredAt
+      });
+    }
+    const group = groupsByPage.get(key);
+    group.items.push({
+      kind: movement.kind,
+      label: movement.kind.replace(/_/g, ' '),
+      title: movement.title,
+      whyItMatters: movement.whyItMatters || '',
+      occurredAt: movement.occurredAt,
+      href: movement.nextAction?.href || movement.subject?.href || group.subject.href
+    });
+    if ((MATERIALITY_RANK[movement.materiality] ?? 99) < (MATERIALITY_RANK[group.worstMateriality] ?? 99)) {
+      group.worstMateriality = movement.materiality;
+    }
+    if (new Date(movement.occurredAt || 0).getTime() > new Date(group.lastOccurredAt || 0).getTime()) {
+      group.lastOccurredAt = movement.occurredAt;
+    }
+  });
+  const groups = Array.from(groupsByPage.values())
+    .map(group => ({
+      subject: group.subject,
+      items: group.items.sort((left, right) => new Date(right.occurredAt || 0) - new Date(left.occurredAt || 0)),
+      worstMateriality: group.worstMateriality,
+      lastOccurredAt: group.lastOccurredAt
+    }))
+    .sort((left, right) => (
+      (MATERIALITY_RANK[left.worstMateriality] ?? 99) - (MATERIALITY_RANK[right.worstMateriality] ?? 99)
+      || new Date(right.lastOccurredAt || 0).getTime() - new Date(left.lastOccurredAt || 0).getTime()
+    ));
+  const totals = eventMovements.reduce((acc, movement) => {
+    acc[movement.kind] = (acc[movement.kind] || 0) + 1;
+    return acc;
+  }, {});
+  return {
+    weekStart: weekStart.toISOString(),
+    weekEnd: weekEnd.toISOString(),
+    totals,
+    total: eventMovements.length,
+    groups,
+    quiet: eventMovements.length === 0
+  };
+};
+
 module.exports = {
   MOVEMENT_KINDS,
+  WEEKLY_EVENT_KINDS,
   buildKnowledgeMovements,
+  buildWeeklyDigest,
   buildKnowledgeMovementEpisodes,
   diffClaimState,
   mergeDuplicateMovements,
