@@ -604,3 +604,82 @@ body.noeis-editorial .wiki-front-page .wfp-lead__revision textarea,
 .paper--led .paper__card--lead .paper__relation-line {
   font-size: var(--text-sm, 15px);
 }
+
+/* ---------- movements deck ---------- */
+
+/* The deck is finite by design: what changed, then the seal. Cards inherit
+   the section register — hairline rule, serif title, mono kicker — and the
+   only state a card can be in is here or noted. */
+
+.paper__deck {
+  display: grid;
+  gap: 22px;
+}
+
+.paper__movement {
+  display: grid;
+  gap: 8px;
+  padding: 16px 0 18px;
+  border-top: 1px solid var(--surface-border, rgba(15, 23, 42, 0.14));
+}
+
+.paper__movement-title {
+  margin: 0;
+  font-family: var(--font-serif, 'Newsreader', Georgia, serif);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--text-primary, #111827);
+  text-decoration: none;
+}
+
+.paper__movement-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.paper__movement .paper__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.paper__movement-critical {
+  color: var(--text-primary, #111827);
+}
+
+.paper__movement--critical {
+  border-top-color: var(--text-primary, #111827);
+}
+
+/* The seal. Three rules — solid, dashed, solid — read as a fret at arm's
+   length. Static by construction; nothing here needs motion to mean. */
+
+.paper__seal {
+  display: grid;
+  gap: 14px;
+  padding: 26px 0 6px;
+}
+
+.paper__seal-rule {
+  display: block;
+  height: 9px;
+  background-image:
+    linear-gradient(currentColor, currentColor),
+    repeating-linear-gradient(90deg, currentColor 0 12px, transparent 12px 24px),
+    linear-gradient(currentColor, currentColor);
+  background-size: 100% 1px, 100% 1px, 100% 1px;
+  background-position: 0 0, 0 4px, 0 8px;
+  background-repeat: no-repeat;
+  opacity: 0.45;
+}
+
+.paper__seal-line {
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5f6b7a);
+}

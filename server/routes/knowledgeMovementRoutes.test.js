@@ -7,6 +7,8 @@ const {
 
 const fixture = createKnowledgeMovementChainFixture();
 const userId = fixture.ids.user;
+const TODAY = new Date().toISOString().slice(0, 10);
+const TOMORROW = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
 class Query {
   constructor(value) { this.value = value; }
@@ -18,6 +20,17 @@ class Query {
 }
 
 const modelFor = value => ({ find: () => new Query(value) });
+
+const deckUser = {
+  _id: userId,
+  morningPaper: {},
+  savedCount: 0,
+  async save() {
+    this.savedCount += 1;
+    return this;
+  }
+};
+
 const app = express();
 app.use(express.json());
 app.use(buildKnowledgeMovementRouter({
@@ -28,6 +41,7 @@ app.use(buildKnowledgeMovementRouter({
     req.user = { id: userId };
     return next();
   },
+  User: { findById: () => new Query(deckUser) },
   WikiPage: modelFor([fixture.page]),
   WikiRevision: modelFor([fixture.candidateRevision]),
   WikiSourceEvent: modelFor([fixture.sourceEvent]),
@@ -147,6 +161,47 @@ const server = app.listen(0, '127.0.0.1', async () => {
       assert.ok(group.items.every(item => item.href));
       assert.strictEqual(weekly.body.total >= weekly.body.groups.length, true);
     }
+
+    const movementsResponse = await request('/api/knowledge/movements?limit=5&since=2026-07-27T00%3A00%3A00.000Z');
+    assert.ok(movementsResponse.body.deck && typeof movementsResponse.body.deck === 'object');
+    assert.ok(Array.isArray(movementsResponse.body.deck.resolvedIds));
+    const movementId = movementsResponse.body.movements[0].id;
+
+    const resolved = await fetch(`http://127.0.0.1:${port}/api/knowledge/movements/deck-state`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer qa', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: TODAY, resolveId: movementId })
+    });
+    assert.strictEqual(resolved.status, 200);
+    const resolvedBody = await resolved.json();
+    assert.strictEqual(resolvedBody.deck.resolvedCount, 1);
+    assert.strictEqual(deckUser.savedCount, 1);
+
+    const replayed = await request('/api/knowledge/movements?limit=5&since=2026-07-27T00%3A00%3A00.000Z');
+    assert.deepStrictEqual(replayed.body.deck.resolvedIds, [movementId], 'deck state survives reload');
+
+    const duplicate = await fetch(`http://127.0.0.1:${port}/api/knowledge/movements/deck-state`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer qa', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: TODAY, resolveId: movementId })
+    });
+    assert.strictEqual(duplicate.status, 200);
+    assert.strictEqual((await duplicate.json()).deck.resolvedCount, 1, 'duplicate resolve is idempotent');
+
+    const badDate = await fetch(`http://127.0.0.1:${port}/api/knowledge/movements/deck-state`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer qa', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: '08/21/2026' })
+    });
+    assert.strictEqual(badDate.status, 400);
+
+    const closed = await fetch(`http://127.0.0.1:${port}/api/knowledge/movements/deck-state`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer qa', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: TOMORROW, closed: true })
+    });
+    assert.strictEqual(closed.status, 200);
+    assert.strictEqual((await closed.json()).deck.closed, true);
 
     console.log('knowledgeMovementRoutes tests passed');
   } catch (error) {

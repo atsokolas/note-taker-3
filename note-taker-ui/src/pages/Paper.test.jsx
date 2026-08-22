@@ -2,6 +2,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Paper from './Paper';
+import { getKnowledgeMovements, saveDeckState } from '../api/knowledgeMovements';
 import {
   dismissReadingLoopThread,
   getReadingLoop,
@@ -27,6 +28,13 @@ jest.mock('../api/questions', () => ({
 
 jest.mock('../api/wiki', () => ({
   createWikiPage: jest.fn()
+}));
+
+jest.mock('../api/knowledgeMovements', () => ({
+  __esModule: true,
+  default: jest.fn(),
+  getKnowledgeMovements: jest.fn(),
+  saveDeckState: jest.fn()
 }));
 
 const idleMechanic = (kind) => ({
@@ -80,8 +88,19 @@ const baseEdition = (overrides = {}) => ({
 
 const renderPaper = () => render(<MemoryRouter><Paper /></MemoryRouter>);
 
+const emptyDeck = { date: '', resolvedIds: [], closedAt: null };
+const TODAY = new Date().toISOString().slice(0, 10);
+
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default to a quiet, unopened deck so the legacy tests stay about the
+  // reading loop; the deck tests below set their own world.
+  getKnowledgeMovements.mockResolvedValue({
+    movements: [],
+    generatedAt: '2026-08-21T09:00:00.000Z',
+    deck: emptyDeck
+  });
+  saveDeckState.mockResolvedValue(emptyDeck);
 });
 
 test('the lead names both ends, dates them, and quotes them', async () => {
@@ -377,4 +396,89 @@ describe('the paper at the top of the wiki', () => {
     await screen.findByText('Anthropic eval harness paper');
     expect(screen.queryByRole('link', { name: /Morning paper/ })).toBeNull();
   });
+});
+
+test('what changed renders as a finite deck with honest kickers and links', async () => {
+  getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+  getKnowledgeMovements.mockResolvedValue({
+    movements: [
+      {
+        id: 'contradiction:p1:c1:e1',
+        kind: 'contradiction',
+        occurredAt: '2026-08-21T06:00:00.000Z',
+        title: 'A filing contradicted the margin claim.',
+        whyItMatters: 'Two sources now disagree on the trend.',
+        materiality: 'critical',
+        subject: { type: 'wiki_claim', id: 'c1', title: '', href: '/wiki/workspace?page=p1&claimId=c1' },
+        nextAction: { label: 'Investigate in Think', href: '/think?tab=concepts', intent: 'investigate_movement' }
+      },
+      {
+        id: 'new_evidence:p2:c2:e2',
+        kind: 'new_evidence',
+        occurredAt: '2026-08-20T10:00:00.000Z',
+        title: 'A transcript supports the pricing claim.',
+        whyItMatters: '',
+        materiality: 'major',
+        subject: { type: 'wiki_claim', id: 'c2', title: '', href: '/wiki/workspace?page=p2&claimId=c2' },
+        nextAction: { label: 'Open', href: '/wiki/workspace?page=p2&claimId=c2' }
+      }
+    ],
+    generatedAt: '2026-08-21T09:00:00.000Z',
+    deck: { date: TODAY, resolvedIds: [], closedAt: null }
+  });
+  renderPaper();
+
+  expect(await screen.findByText('A filing contradicted the margin claim.')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'What changed while you were away' })).toBeInTheDocument();
+  expect(screen.getByText('Contradicted')).toBeInTheDocument();
+  expect(screen.getByText(/critical/)).toBeInTheDocument();
+  const link = screen.getByRole('link', { name: 'Investigate in Think' });
+  expect(link).toHaveAttribute('href', '/think?tab=concepts');
+});
+
+test('noting every card closes the paper and raises the seal', async () => {
+  getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+  const first = { id: 'contradiction:p1:c1:e1', kind: 'contradiction', title: 'One', whyItMatters: '', materiality: 'major', subject: {}, nextAction: null, occurredAt: '2026-08-21T06:00:00.000Z' };
+  const second = { id: 'decision_due:p9:d1', kind: 'decision_due', title: 'Two', whyItMatters: '', materiality: 'major', subject: {}, nextAction: null, occurredAt: '2026-08-21T05:00:00.000Z' };
+  getKnowledgeMovements.mockResolvedValue({
+    movements: [first, second],
+    generatedAt: '2026-08-21T09:00:00.000Z',
+    deck: { date: TODAY, resolvedIds: [], closedAt: null }
+  });
+  saveDeckState.mockImplementation(async (patch) => {
+    if (patch.resolveId === second.id) return { date: TODAY, resolvedIds: [first.id, second.id], closedAt: null };
+    if (patch.closed) return { date: TODAY, resolvedIds: [first.id, second.id], closedAt: 'x' };
+    return { date: TODAY, resolvedIds: [first.id], closedAt: null };
+  });
+  renderPaper();
+
+  expect(await screen.findByText('One')).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole('button', { name: /noted/i })[0]);
+  await waitFor(() => expect(saveDeckState).toHaveBeenCalledWith({ date: TODAY, resolveId: first.id }));
+
+  fireEvent.click(screen.getAllByRole('button', { name: /noted/i })[0]);
+  await waitFor(() => expect(saveDeckState).toHaveBeenCalledWith(expect.objectContaining({ resolveId: second.id })));
+  await waitFor(() => expect(saveDeckState).toHaveBeenCalledWith(expect.objectContaining({ closed: true })));
+  expect(await screen.findByText('The paper is closed.')).toBeInTheDocument();
+});
+
+test('a quiet world is said plainly and sealed', async () => {
+  getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+  getKnowledgeMovements.mockResolvedValue({
+    movements: [],
+    generatedAt: '2026-08-21T09:00:00.000Z',
+    deck: emptyDeck
+  });
+  renderPaper();
+
+  expect(await screen.findByText('Nothing changed in your world overnight. Rare.')).toBeInTheDocument();
+});
+
+test('when the movements check fails the paper says so and still opens', async () => {
+  getReadingLoop.mockResolvedValue({ edition: baseEdition(), connectionRefreshing: false });
+  getKnowledgeMovements.mockRejectedValue(new Error('down'));
+  renderPaper();
+
+  expect(await screen.findByText('Could not check the world just now.')).toBeInTheDocument();
+  expect(await screen.findByText('Anthropic eval harness paper')).toBeInTheDocument();
 });

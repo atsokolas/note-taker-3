@@ -90,4 +90,17 @@ export const getWeeklyMovements = async () => {
   return response.data;
 };
 
+export const saveDeckState = async (patch = {}) => {
+  const response = await api.post('/api/knowledge/movements/deck-state', patch, getAuthHeaders());
+  if (
+    !response.data
+    || !response.data.deck
+    || typeof response.data.deck.date !== 'string'
+    || !Array.isArray(response.data.deck.resolvedIds)
+  ) {
+    throw new Error('Deck state response is malformed.');
+  }
+  return response.data.deck;
+};
+
 export default getKnowledgeMovements;
