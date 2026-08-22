@@ -31,6 +31,30 @@ assert.match(rendered.text, /CLAIM CHECK-IN/);
 assert.strictEqual(briefingIsEmpty({ counts: {} }), true);
 assert.strictEqual(briefingIsEmpty(briefing), false);
 
+const movement = {
+  id: 'contradiction:p1:c1:e1',
+  kind: 'contradiction',
+  occurredAt: '2026-08-21T06:00:00.000Z',
+  title: 'A filing contradicted the margin claim.',
+  whyItMatters: 'Two sources now disagree on the trend your dossier holds.',
+  materiality: 'critical',
+  subject: { type: 'wiki_claim', id: 'c1', title: 'Margins expand', href: '/wiki/workspace?page=p1&claimId=c1' },
+  evidence: [],
+  affected: [],
+  unresolved: [],
+  nextAction: { label: 'Investigate in Think', href: '/think?tab=concepts', intent: 'investigate_movement' }
+};
+const renderedWithMovements = renderMorningPaperEmail({
+  briefing: {},
+  movements: [movement],
+  unsubscribeUrl: 'https://www.noeis.io/api/morning-paper/unsubscribe?token=x'
+});
+assert.match(renderedWithMovements.html, /WHAT CHANGED/);
+assert.match(renderedWithMovements.html, /A filing contradicted the margin claim\./);
+assert.match(renderedWithMovements.html, /Two sources now disagree/);
+assert.match(renderedWithMovements.html, /Contradicted · Aug 21/);
+assert.match(renderedWithMovements.text, /CONTRADICTED: A filing contradicted the margin claim\. — https:\/\/www\.noeis\.io\/think/);
+
 (async () => {
   const sent = await sendWithResend({
     apiKey: 're_test',
