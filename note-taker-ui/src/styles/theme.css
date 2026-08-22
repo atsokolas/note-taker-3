@@ -9068,3 +9068,76 @@ html[data-ui-theme='dark'] body.noeis-editorial .concept-editorial-evidence__ite
   color: var(--text-primary);
   font-size: 0.88rem;
 }
+
+/* ---------- noeis-form-control ----------
+   One styled control set for inputs, selects, textareas, and dates:
+   warm input surface, hairline border, focus ring from --focus-ring.
+   Stock browser chrome never appears inside a designed page. */
+
+.noeis-form-control {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 11px;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--border-subtle-2) 88%, var(--text-primary) 12%);
+  border-radius: 8px;
+  background-color: var(--input-surface);
+  color: var(--text-primary);
+  box-shadow: none;
+  font: inherit;
+  line-height: 1.35;
+  transition:
+    background-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+select.noeis-form-control {
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, color-mix(in srgb, currentColor 72%, transparent) 50%),
+    linear-gradient(135deg, color-mix(in srgb, currentColor 72%, transparent) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+}
+
+input[type='date'].noeis-form-control {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='date'].noeis-form-control::-webkit-calendar-picker-indicator {
+  opacity: 0.62;
+  cursor: pointer;
+}
+
+textarea.noeis-form-control {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.noeis-form-control:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--border-subtle-2) 64%, var(--text-primary) 36%);
+}
+
+.noeis-form-control:focus,
+.noeis-form-control:focus-visible {
+  outline: 0;
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border-subtle-2));
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.noeis-form-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.noeis-form-control::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+}
+

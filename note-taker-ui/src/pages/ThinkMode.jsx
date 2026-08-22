@@ -2618,6 +2618,7 @@ const ThinkMode = () => {
         <label className="feedback-field think-concept-composer-field">
           <span>Description</span>
           <textarea
+            className="noeis-form-control"
             value={conceptComposerDescriptionDraft}
             placeholder="Describe what this concept is about..."
             rows={3}
@@ -2698,6 +2699,7 @@ const ThinkMode = () => {
           <label className="think-index__filter">
             <span>Question status</span>
             <select
+              className="noeis-form-control"
               value={questionStatus}
               onChange={(event) => {
                 setQuestionStatus(event.target.value);
@@ -3880,13 +3882,13 @@ const ThinkMode = () => {
                   value={highlightQuery}
                   onChange={(event) => setHighlightQuery(event.target.value)}
                 />
-                <select value={highlightTag} onChange={(event) => setHighlightTag(event.target.value)}>
+                <select className="noeis-form-control" value={highlightTag} onChange={(event) => setHighlightTag(event.target.value)}>
                   <option value="">All concepts</option>
                   {tags.map(tag => (
                     <option key={tag.tag} value={tag.tag}>{tag.tag}</option>
                   ))}
                 </select>
-                <select value={highlightArticle} onChange={(event) => setHighlightArticle(event.target.value)}>
+                <select className="noeis-form-control" value={highlightArticle} onChange={(event) => setHighlightArticle(event.target.value)}>
                   <option value="">All articles</option>
                   {articleOptions.map(article => (
                     <option key={article} value={article}>{article}</option>
