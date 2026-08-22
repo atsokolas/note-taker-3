@@ -17,6 +17,7 @@ const SelectionMenu = React.forwardRef(({
   saving,
   onColorChange,
   onHighlight,
+  onHighlightInColor,
   onAskLibrarian,
 }, ref) => {
   const reducedMotion = usePrefersReducedMotion();
@@ -116,18 +117,30 @@ const SelectionMenu = React.forwardRef(({
         </button>
       </div>
       <div className="selection-menu-divider" />
-      {/* The colour is part of highlighting, not chrome around it. */}
+      {/* The colour is part of highlighting, not chrome around it — and a row
+          of coloured circles under the word Highlight reads as five ways to
+          highlight, not as a setting you adjust before pressing something
+          else. It was a picker: pressing yellow set the colour to the one
+          already selected and did nothing else, so the commonest way anyone
+          would try to highlight was the one gesture that never saved, and it
+          gave no feedback while failing.
+
+          Pressing a colour is the whole instruction. It saves, in that
+          colour. */}
       <div className="selection-menu__controls">
-        <div className="selection-menu__swatches" aria-label="Highlight color">
+        <div className="selection-menu__swatches" aria-label="Highlight in a colour">
           {HIGHLIGHT_COLOR_OPTIONS.map((option) => (
             <button
               key={option.value}
               type="button"
               className={`selection-menu__swatch ${color === option.value ? 'is-active' : ''}`}
               style={{ backgroundColor: option.value }}
-              onClick={() => onColorChange(option.value)}
-              title={option.label}
-              aria-label={option.label}
+              onClick={() => {
+                onColorChange(option.value);
+                if (onHighlightInColor) onHighlightInColor(option.value);
+              }}
+              title={`Highlight in ${option.label.toLowerCase()}`}
+              aria-label={`Highlight in ${option.label.toLowerCase()}`}
               aria-pressed={color === option.value}
               disabled={saving}
             />

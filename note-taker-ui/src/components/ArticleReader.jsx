@@ -81,7 +81,11 @@ const ArticleReader = forwardRef(({
     );
   }
 
-  const persistHighlight = async (afterSave) => {
+  /* The colour is passed in rather than read from state, because pressing a
+     swatch sets the colour and saves in the same gesture and the state update
+     has not flushed by the time the save runs. Without this, choosing green
+     would save the previous colour. */
+  const persistHighlight = async (afterSave, colorOverride) => {
     /* This used to return in silence. Pressing Highlight then did nothing at
        all: the menu stayed open, no request was made, and the console stayed
        empty — which is indistinguishable from a dead button. Whatever the
@@ -109,7 +113,7 @@ const ArticleReader = forwardRef(({
       _id: tempId,
       text: highlightText,
       tags: [],
-      color: draftColor,
+      color: colorOverride || draftColor,
       articleId: article._id,
       articleTitle: article.title,
       createdAt: new Date().toISOString(),
@@ -123,7 +127,7 @@ const ArticleReader = forwardRef(({
         text: highlightText,
         tags: [],
         anchor: highlightAnchor,
-        color: draftColor
+        color: colorOverride || draftColor
       });
       if (created?._id) {
         const normalizedCreated = {
@@ -149,6 +153,11 @@ const ArticleReader = forwardRef(({
     await persistHighlight();
   };
 
+  /* Pressing a colour is the whole instruction: highlight this, in that. */
+  const handleHighlightInColor = async (color) => {
+    await persistHighlight(undefined, color);
+  };
+
   const handleSaveAndOpen = async (callback, fallbackError) => {
     if (!callback) {
       setSaveError(fallbackError);
@@ -167,6 +176,7 @@ const ArticleReader = forwardRef(({
           saving={saving}
           onColorChange={setDraftColor}
           onHighlight={handleCreateHighlight}
+          onHighlightInColor={handleHighlightInColor}
           onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
         />
       )}

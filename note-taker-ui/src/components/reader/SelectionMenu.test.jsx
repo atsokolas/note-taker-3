@@ -131,4 +131,39 @@ describe('SelectionMenu', () => {
     expect(onHighlight).toHaveBeenCalledTimes(1);
     expect(onAskLibrarian).toHaveBeenCalledTimes(1);
   });
+
+  /* The commonest way anyone tries to highlight is to press the yellow circle.
+     It was a picker: it set the colour to the one already selected and did
+     nothing else — no save, no feedback, the menu still open. It looked broken
+     because for that gesture it was. */
+  it('saves when a colour is pressed, in the colour that was pressed', () => {
+    const onColorChange = jest.fn();
+    const onHighlightInColor = jest.fn();
+    render(
+      <SelectionMenu
+        {...baseProps}
+        onColorChange={onColorChange}
+        onHighlightInColor={onHighlightInColor}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight in mint' }));
+
+    expect(onHighlightInColor).toHaveBeenCalledWith('#caffbf');
+    expect(onColorChange).toHaveBeenCalledWith('#caffbf');
+  });
+
+  it('names each colour as the thing pressing it does', () => {
+    render(<SelectionMenu {...baseProps} />);
+    expect(screen.getByRole('button', { name: 'Highlight in yellow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Highlight in lavender' })).toBeInTheDocument();
+  });
+
+  it('still works as a plain picker where nothing is wired to save', () => {
+    const onColorChange = jest.fn();
+    render(<SelectionMenu {...baseProps} onColorChange={onColorChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight in blue' }));
+    expect(onColorChange).toHaveBeenCalledWith('#bde0fe');
+  });
+
 });
