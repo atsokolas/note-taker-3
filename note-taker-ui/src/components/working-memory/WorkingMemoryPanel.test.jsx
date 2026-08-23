@@ -28,7 +28,11 @@ describe('WorkingMemoryPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Collapse Working Memory/i }));
     expect(screen.queryByPlaceholderText(/Scratch freely/i)).not.toBeInTheDocument();
-    expect(screen.getByText('Working Memory')).toBeInTheDocument();
+    /* The panel lost its printed heading in the redesign and names itself
+       through the control that opens it, which is still how a screen reader
+       finds it. What matters here is that a collapsed panel is still
+       identifiable, not that a particular word is drawn. */
+    expect(screen.getByRole('button', { name: /Expand Working Memory/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Expand Working Memory/i }));
     expect(screen.getByPlaceholderText(/Scratch freely/i)).toBeInTheDocument();
@@ -49,7 +53,8 @@ describe('WorkingMemoryPanel', () => {
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[0]);
     fireEvent.click(checkboxes[1]);
-    fireEvent.click(screen.getByRole('button', { name: 'Promote selected' }));
+    // The button is called Promote now; it still promotes the whole selection.
+    fireEvent.click(screen.getByRole('button', { name: 'Promote' }));
 
     await waitFor(() => {
       expect(onPromoteBlocks).toHaveBeenCalledWith(expect.objectContaining({

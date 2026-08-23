@@ -143,10 +143,15 @@ describe('ConceptTemplatePickerModal', () => {
 
     render(<ConceptTemplatePickerModal open onClose={jest.fn()} onCreated={jest.fn()} />);
 
+    /* The create button is disabled until a template and a name exist, so this
+       test was clicking a dead control and asserting the error never arrived.
+       Do what the reader does: name the thing, then create it. */
     await waitFor(() => {
-      expect(screen.getByTestId('create-template-workspace-button')).toBeInTheDocument();
+      expect(screen.getByTestId('template-concept-name-input')).toBeInTheDocument();
     });
 
+    fireEvent.change(screen.getByTestId('template-concept-name-input'), { target: { value: 'Research Paper Analysis' } });
+    expect(screen.getByTestId('create-template-workspace-button')).not.toBeDisabled();
     fireEvent.click(screen.getByTestId('create-template-workspace-button'));
 
     await waitFor(() => {

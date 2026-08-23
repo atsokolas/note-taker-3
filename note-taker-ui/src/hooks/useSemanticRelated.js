@@ -44,7 +44,14 @@ const useSemanticRelated = ({
 } = {}) => {
   const safeSourceType = String(sourceType || '').trim().toLowerCase();
   const safeSourceId = String(sourceId || '').trim();
-  const safeTypes = useMemo(() => normalizeTypes(resultTypes), [resultTypes]);
+  /* resultTypes defaults to a literal, so every render handed this hook a new
+     array. Memoising on that array memoised nothing: safeTypes changed
+     identity each render, so run() was rebuilt, so the effect depending on it
+     fired again — and the request went out again, every render, before the
+     first answer had come back for the cache to catch. Key on the content
+     instead of the reference. */
+  const typesKey = normalizeTypes(resultTypes).join(',');
+  const safeTypes = useMemo(() => typesKey.split(','), [typesKey]);
   const cacheKey = useMemo(
     () => buildCacheKey({ sourceType: safeSourceType, sourceId: safeSourceId, resultTypes: safeTypes }),
     [safeSourceType, safeSourceId, safeTypes]

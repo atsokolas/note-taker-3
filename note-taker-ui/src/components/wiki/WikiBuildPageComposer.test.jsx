@@ -36,6 +36,19 @@ describe('WikiBuildPageComposer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    /* The agent ticker types its line out one character at a time. This suite
+       was racing that animation: alone it won and passed, under parallel load
+       it lost and asserted against a half-typed word. Declaring reduced motion
+       makes the ticker render at once, which is what these tests are actually
+       about — what it says, not how it arrives. */
+    window.matchMedia = query => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {}
+    });
     systemStatusControls = buildSystemStatusControls();
     jest.spyOn(router, 'useNavigate').mockReturnValue(mockNavigate);
     process.env.REACT_APP_WIKI_WORKSPACE_V1 = 'true';

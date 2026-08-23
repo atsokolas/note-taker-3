@@ -119,9 +119,16 @@ describe('app theme design-system tokens', () => {
     expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(160px, 220px) minmax(0, 860px) 48px;');
     expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(120px, 160px) minmax(0, 1fr) 48px;');
     expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(128px, 180px) minmax(0, 1fr) 48px;');
-    expect(thinkHomePolishCss).toContain('grid-template-columns: minmax(82px, 96px) minmax(0, 1fr) 48px;');
     expect(thinkHomePolishCss).toMatch(/\.wiki-read__rail-toggle--show \{[\s\S]*box-sizing: border-box;[\s\S]*max-width: 100%;/);
-    expect(thinkHomePolishCss).not.toMatch(/grid-template-columns: minmax\([^;]+\) minmax\([^;]+\) 3[0-9]px;/);
+    /* The thing this test is named for. A fourth literal used to be asserted
+       here — the 82/96 collapsed rail — and it was removed in a redesign,
+       which turned a guard about crushed columns into a guard about one
+       snapshot of the design. The columns above still exist and still document
+       real breakpoints; what actually protects the reader is that no track
+       gets crushed, so that is checked everywhere rather than in one file. */
+    [wikiCriticalCss, thinkHomePolishCss, editorialCss].forEach((sheet) => {
+      expect(sheet).not.toMatch(/grid-template-columns: minmax\([^;]+\) minmax\([^;]+\) 3[0-9]px;/);
+    });
     expect(editorialCss).toMatch(/\.concept-editorial-shell__partner,[\s\S]*\.concept-editorial-shell__stream \{[\s\S]*box-sizing: border-box;/);
     expect(editorialCss).toMatch(/\.concept-editorial-partner \{[\s\S]*box-sizing: border-box;/);
   });

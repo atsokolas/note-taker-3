@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import IdeaWorkbenchAgentRail from './IdeaWorkbenchAgentRail';
 
 const buildModel = (overrides = {}) => ({
@@ -21,6 +21,20 @@ const buildModel = (overrides = {}) => ({
 });
 
 describe('IdeaWorkbenchAgentRail', () => {
+  /* The ticker types its active line out one character at a time, so in a test
+     the newest line is empty unless we say the reader prefers reduced motion.
+     We are asserting what the ticker says, not how it animates. */
+  beforeEach(() => {
+    window.matchMedia = query => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {}
+    });
+  });
+
   it('renders the shared computation ticker in the concept marginalia rail', () => {
     render(
       <IdeaWorkbenchAgentRail
@@ -40,9 +54,17 @@ describe('IdeaWorkbenchAgentRail', () => {
     );
 
     expect(screen.getByLabelText('Thought partner computation trace')).toBeInTheDocument();
-    expect(screen.getAllByText('Reasoning pass returned 2 related suggestions.').length).toBeGreaterThan(0);
-    expect(screen.getByText('support staged · Buffett letters')).toBeInTheDocument();
+
+    /* The ticker types one line and folds the rest behind its history control,
+       so only the newest is on screen. These tests were written when every
+       line rendered at once. Assert what the ticker actually promises: the
+       last line is showing, and the earlier ones are one click away. */
     expect(screen.getByText('1 tension visible')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Expand 2 trace history lines/i }));
+    const history = screen.getByLabelText('Trace history');
+    expect(within(history).getByText('Reasoning pass returned 2 related suggestions.')).toBeInTheDocument();
+    expect(within(history).getByText('support staged · Buffett letters')).toBeInTheDocument();
   });
 
   it('shows working ticker lines when the concept agent is busy', () => {
@@ -52,8 +74,11 @@ describe('IdeaWorkbenchAgentRail', () => {
       />
     );
 
-    expect(screen.getByText('scanning concept workspace')).toBeInTheDocument();
-    expect(screen.getByText('testing Investing thesis')).toBeInTheDocument();
     expect(screen.getByText('drafting marginalia')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Expand 2 trace history lines/i }));
+    const history = screen.getByLabelText('Trace history');
+    expect(within(history).getByText('scanning concept workspace')).toBeInTheDocument();
+    expect(within(history).getByText('testing Investing thesis')).toBeInTheDocument();
   });
 });

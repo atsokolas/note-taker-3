@@ -1353,9 +1353,6 @@
   .wiki-workspace__pane--inactive {
     display: none;
   }
-  .wiki-workspace--agent-collapsed {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .wiki-workspace__agent-peek {
     left: auto;
     right: max(14px, env(safe-area-inset-right));
