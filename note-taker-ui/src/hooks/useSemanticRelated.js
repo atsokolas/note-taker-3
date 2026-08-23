@@ -4,6 +4,8 @@ import { fetchSemanticRelated } from '../api/retrieval';
 const CACHE_TTL_MS = 60 * 1000;
 const semanticCache = new Map();
 
+export const resetSemanticRelatedCacheForTests = () => semanticCache.clear();
+
 const normalizeTypes = (types) => {
   const rawList = Array.isArray(types)
     ? types
