@@ -1,5 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { notifyNoeisLoopStatusChanged } from '../system/noeisLoopEvents';
 
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 const HASH_PATTERN = /^[a-f\d]{64}$/i;
@@ -219,7 +220,7 @@ export const createWikiDecision = async (pageId, {
     { acceptedRevisionId: safeRevisionId, requestId: safeRequestId, decision: bodyDecision },
     getAuthHeaders()
   );
-  return requireMutationResponse(response.data, {
+  const mutation = requireMutationResponse(response.data, {
     pageId: safePageId,
     acceptedRevisionId: safeRevisionId,
     requestId: safeRequestId,
@@ -227,6 +228,8 @@ export const createWikiDecision = async (pageId, {
     kind: 'wiki_decision_accepted',
     action: 'accept_decision'
   });
+  notifyNoeisLoopStatusChanged('loop.outcome-review');
+  return mutation;
 };
 
 export const transitionWikiDecision = async (pageId, decisionId, { action } = {}) => {
@@ -239,13 +242,15 @@ export const transitionWikiDecision = async (pageId, decisionId, { action } = {}
     { action: safeAction },
     getAuthHeaders()
   );
-  return requireMutationResponse(response.data, {
+  const result = requireMutationResponse(response.data, {
     pageId: safePageId,
     decisionId: safeDecisionId,
     status: safeAction === 'take' ? 'taken' : 'cancelled',
     kind: `wiki_decision_${safeAction === 'take' ? 'taken' : 'cancelled'}`,
     action: safeAction
   });
+  notifyNoeisLoopStatusChanged('loop.outcome-review');
+  return result;
 };
 
 export const recordWikiDecisionOutcome = async (pageId, decisionId, { outcome = {} } = {}) => {
@@ -280,13 +285,15 @@ export const recordWikiDecisionOutcome = async (pageId, decisionId, { outcome = 
     { outcome: bodyOutcome },
     getAuthHeaders()
   );
-  return requireMutationResponse(response.data, {
+  const mutation = requireMutationResponse(response.data, {
     pageId: safePageId,
     decisionId: safeDecisionId,
     status: 'reviewed',
     kind: 'wiki_decision_outcome_recorded',
     action: 'record_outcome'
   });
+  notifyNoeisLoopStatusChanged('loop.outcome-review');
+  return mutation;
 };
 
 const decisionsApi = {

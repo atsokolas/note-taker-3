@@ -4,10 +4,15 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import Judgment from './Judgment';
 import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { resetFirstPaint } from '../motion/columnMotion';
 import { askWikiPage, getJudgmentLibraryEvidence, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
+
+jest.mock('../surface/NoeisSurfaceContext', () => ({
+  useNoeisSurface: jest.fn()
+}));
 
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
@@ -86,6 +91,18 @@ beforeEach(() => {
 });
 
 describe('Judgment index', () => {
+  it('declares the claim-first Judgment index to the persistent shell', async () => {
+    renderIndex();
+
+    await screen.findByText('No claims yet.');
+    expect(useNoeisSurface).toHaveBeenCalledWith(expect.objectContaining({
+      room: 'judgment',
+      objectType: 'judgment_index',
+      objectId: 'all',
+      projection: 'index'
+    }));
+  });
+
   it('is a list of claim sentences and nothing else', async () => {
     listWikiPages.mockResolvedValue([
       judgmentPage(),
@@ -116,6 +133,24 @@ describe('Judgment index', () => {
 });
 
 describe('Judgment claim', () => {
+  it('declares the exact claim and its decision identities to the persistent shell', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetail();
+
+    await screen.findByRole('heading', { level: 1 });
+    await waitFor(() => expect(useNoeisSurface).toHaveBeenCalledWith(expect.objectContaining({
+      room: 'judgment',
+      objectType: 'judgment_claim',
+      objectId: 'wiki-nvidia',
+      pageId: 'wiki-nvidia',
+      claimId: 'wiki-nvidia',
+      decisionIds: ['d-1'],
+      latestDecisionId: 'd-1',
+      projection: 'case'
+    })));
+  });
+
   it('shows the claim, the four human fields, and the way back', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
 

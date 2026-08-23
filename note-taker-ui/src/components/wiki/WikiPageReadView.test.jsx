@@ -29,6 +29,8 @@ import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovement
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 
+const mockUseNoeisSurface = jest.fn();
+
 jest.mock('../../api/wiki', () => ({
   approveWeekendReadingsRevision: jest.fn(),
   archiveWikiPage: jest.fn(),
@@ -76,6 +78,10 @@ jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Thought partner' }) 
 jest.mock('../../utils/wikiAnalytics', () => ({
   trackWikiQaPromoted: jest.fn(),
   trackWikiReadModePageView: jest.fn()
+}));
+
+jest.mock('../../surface/NoeisSurfaceContext', () => ({
+  useNoeisSurface: descriptor => mockUseNoeisSurface(descriptor)
 }));
 
 const page = {
@@ -243,6 +249,21 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.wiki-read--standard')).toBeInTheDocument();
     const createDisclosure = within(workspace).getByText('Record a decision from an accepted revision').closest('details');
     expect(createDisclosure).not.toHaveAttribute('open');
+  });
+
+  it('declares the loaded page as an exact ordinary Wiki surface', async () => {
+    renderReadView();
+
+    await screen.findByText('Enterprise AI Memory');
+    await waitFor(() => expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 'wiki',
+      objectType: 'wiki_page',
+      objectId: 'wiki-1',
+      pageId: 'wiki-1',
+      title: 'Enterprise AI Memory',
+      projection: 'ordinary',
+      mode: 'read'
+    })));
   });
 
   it('offers exact Think continuation only from a structurally accepted revision', async () => {
@@ -1946,7 +1967,9 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
     expect(maintainWikiPage).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Page maintenance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => {
       expect(maintainWikiPage).toHaveBeenCalledTimes(1);
       expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1');
@@ -1994,7 +2017,9 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await flushDeferredWikiReadWork();
     fireEvent.click(screen.getByText('Page maintenance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
 
     const receipt = await screen.findByLabelText('Wiki maintenance receipt');
@@ -2061,7 +2086,9 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
     expect(maintainWikiPage).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Page maintenance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Wiki maintenance',
@@ -2079,7 +2106,9 @@ describe('WikiPageReadView', () => {
     renderReadView({}, { systemStatusControls });
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
 
     await waitFor(() => expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki maintenance',
@@ -2107,7 +2136,9 @@ describe('WikiPageReadView', () => {
     renderReadView({}, { systemStatusControls });
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
 
     const receipt = await screen.findByLabelText('Wiki maintenance receipt');
     await waitFor(() => expect(receipt).toHaveAttribute('data-maintenance-state', 'research'));
@@ -2220,7 +2251,9 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.wiki-read__standard-facts')).toHaveTextContent('Entity');
     expect(screen.queryByRole('button', { name: 'Resume build' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1'));
     await waitFor(() => expect(screen.getByLabelText('Wiki maintenance receipt')).toHaveAttribute(
       'data-maintenance-state',
@@ -2252,7 +2285,9 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
 
     const receipt = await screen.findByLabelText('Wiki maintenance receipt');
     expect(receipt).toHaveTextContent('Checking this page against your corpus');

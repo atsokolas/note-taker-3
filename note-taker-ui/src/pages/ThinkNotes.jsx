@@ -5,9 +5,10 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { clearNotebookCache, getNotebookSummaries } from '../api/notebook';
 import { chatWithAgent } from '../api/agent';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
-import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
+import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import {
   buildNoteShelf,
   editedLine,
@@ -126,9 +127,11 @@ const ThinkNotes = () => {
     });
   }, [entry, saveEntry]);
 
-  useAgentRailSurface(
+  useContextualAgentSurface(
+    'agent-surface.think',
     {
-      id: openId ? `think:${openId}` : 'think',
+      objectType: openId ? 'notebook' : 'think_workspace',
+      objectId: openId || 'think',
       subject: entry?.title || (loading ? '' : 'Your notes.'),
       empty: 'Nothing to retrieve until you ask.'
     },
@@ -151,6 +154,19 @@ const ThinkNotes = () => {
       onAccept: appendLine
     }
   );
+
+  /* The route can say only "Think". Once the note arrives, the persistent
+     shell can carry the exact object without owning or remounting the editor.
+     Other rooms will adopt the same declaration as they are migrated. */
+  useNoeisSurface({
+    room: 'think',
+    objectType: 'notebook',
+    objectId: openId,
+    title: entry?.title || '',
+    orientation: entry
+      ? 'An unfinished note. The agent may retrieve; only you can add what it finds.'
+      : 'Open a note and keep the thought moving.'
+  });
 
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'think-notes__return');
 

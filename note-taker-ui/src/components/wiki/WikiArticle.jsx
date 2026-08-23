@@ -6,10 +6,12 @@ import renderTiptapDoc from './renderTiptapDoc';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import { SUPPORT_STATES } from './extensions/Claim';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
-import { useAgentRailSurface } from '../../agent/AgentRailContext';
+import { useContextualAgentSurface } from '../../agent/AgentRailContext';
+import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { takeFirstPaint } from '../../motion/columnMotion';
 import { docText, oneSentence } from '../../pages/judgmentModel';
 import { wikiPageEditPath, wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import '../../styles/wiki-article.css';
 
 // A wiki page, read as an article.
@@ -59,6 +61,14 @@ const WikiArticle = () => {
   const [carryError, setCarryError] = useState('');
   const navigate = useNavigate();
   const arriving = useMemo(() => takeFirstPaint(`wiki-article:${pageId}`), [pageId]);
+  const focusedClaimId = activeClaim?.claimId || searchParams.get('claimId') || '';
+  useNoeisSurface(buildWikiSurfaceDescriptor({
+    page,
+    pageId,
+    claimId: focusedClaimId,
+    revisionId: searchParams.get('revisionId') || '',
+    mode: 'read'
+  }));
 
   useEffect(() => {
     let cancelled = false;
@@ -97,9 +107,11 @@ const WikiArticle = () => {
     window.setTimeout(() => setSettled(''), 900);
   }, [page]);
 
-  useAgentRailSurface(
+  useContextualAgentSurface(
+    'agent-surface.wiki',
     {
-      id: `wiki-article:${pageId}`,
+      objectType: 'wiki_page',
+      objectId: pageId,
       subject: title,
       // The overnight draft is a line the rail offers, not a banner the page wears.
       lines: page?.aiState?.draftStatus === 'ready'
@@ -190,6 +202,12 @@ const WikiArticle = () => {
               sources, claims, review state, discussions, and the agent that
               drafts and lints. Reading is the default; maintaining is a click. */}
           <Link to={wikiPagePath(page._id)}>Workspace</Link>
+          {page?.judgment?.kind ? (
+            <>
+              <span aria-hidden="true"> · </span>
+              <Link to={`/judgment/${encodeURIComponent(page._id)}`}>Judgment</Link>
+            </>
+          ) : null}
           <span aria-hidden="true"> · </span>
           {/* Some pages are worth returning to for years. Kept ones stop being
               measured against any clock. */}

@@ -11,7 +11,6 @@ import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useTags from '../hooks/useTags';
-import { getContextPanelOpen } from '../utils/readingMode';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
@@ -25,29 +24,22 @@ import { chatWithAgent } from '../api/agent';
 import { startLibraryFilingSuggestions } from '../api/library';
 import { useSystemStatusControls, useSystemStatusSnapshot } from '../system/SystemStatusContext';
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
-import AgentPresence from '../components/agent/AgentPresence';
-import AgentTicker from '../components/agent/AgentTicker';
-import AgentContextShell from '../components/agent/AgentContextShell';
-import AgentSkillDock from '../components/agent/AgentSkillDock';
 import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
 import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftSuppression';
 import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
 import { librarySubject } from '../components/library/libraryColumnModel';
-import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
+import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
 import LibraryColumn from '../components/library/LibraryColumn';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
-import '../styles/library-room.css';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
 
-const RIGHT_STORAGE_KEY = 'workspace-right-open:/library';
-const CONTEXT_OVERRIDE_KEY = 'library.context.override:/library';
 const SOURCE_TYPES = new Set(['article', 'highlight', 'note']);
-const LIBRARY_AGENT_TITLE = 'Librarian';
 
 // Folder contract: GET `/folders` -> [{ _id, name, createdAt, updatedAt }].
 // Articles reference folders via `article.folder` (populated Folder) or null for unfiled.
@@ -95,23 +87,6 @@ const Library = () => {
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
-  /* The Librarian is folded now: it opens from a word rather than holding a
-     pane open before anyone asks. Someone who opened it before still finds it
-     open — the stored preference is honoured — but the first visit is one
-     agent, which is the rail. */
-  const [rightOpen, setRightOpen] = useState(() => {
-    if (requestedHighlightId) return true;
-    const stored = localStorage.getItem(RIGHT_STORAGE_KEY);
-    if (stored === null) return false;
-    return stored === 'true';
-  });
-  /* A URL that names an exact highlight is asking to see that highlight, and
-     source context is where it is shown. Without counting that as an override,
-     getContextPanelOpen forces the panel shut the moment the source is
-     selected — so the link opened the source and hid the thing it named. */
-  const [contextOverride, setContextOverride] = useState(() => (
-    Boolean(requestedHighlightId) || localStorage.getItem(CONTEXT_OVERRIDE_KEY) === 'true'
-  ));
   const [activeHighlightId, setActiveHighlightId] = useState('');
   const [sourceContextOpen, setSourceContextOpen] = useState(Boolean(requestedHighlightId));
   const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
@@ -123,7 +98,6 @@ const Library = () => {
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
-  const [librarianSelection, setLibrarianSelection] = useState(null);
   const readerRef = useRef(null);
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
@@ -510,30 +484,14 @@ const Library = () => {
     }
   }, [activeHighlightId, removeHighlight, selectedArticleId]);
 
-  const handleToggleRight = useCallback((nextOpen) => {
-    /* Opening the Librarian is a decision, and it outlives the next click.
-       getContextPanelOpen forces the panel shut whenever a source is selected
-       and no override is on record — so recording the override only when a
-       source was *already* selected meant opening the Librarian and then
-       opening a source silently closed it again, with nothing to say why. An
-       explicit open is an override whenever it happens. */
-    if (!contextOverride) {
-      setContextOverride(true);
-      localStorage.setItem(CONTEXT_OVERRIDE_KEY, 'true');
-    }
-    setRightOpen(nextOpen);
-    localStorage.setItem(RIGHT_STORAGE_KEY, String(nextOpen));
-  }, [contextOverride]);
-
-
   useEffect(() => {
     if (!shouldOpenReferencePullIn) return;
-    handleToggleRight(true);
+    setSourceContextOpen(true);
     if (!selectedArticleId) return;
     const params = new URLSearchParams(searchParams);
     params.delete('pull');
     setSearchParams(params, { replace: true });
-  }, [handleToggleRight, searchParams, selectedArticleId, setSearchParams, shouldOpenReferencePullIn]);
+  }, [searchParams, selectedArticleId, setSearchParams, shouldOpenReferencePullIn]);
 
   const handleOrganizeLibrary = useCallback(async () => {
     if (organizeLaunching) return;
@@ -827,107 +785,28 @@ const Library = () => {
   );
 
   const isReadingView = Boolean(selectedArticleId);
-  const topThemeTags = useMemo(
-    () => (Array.isArray(tags) ? tags.slice(0, 3).map((tag) => String(tag?.tag || '')).filter(Boolean) : []),
-    [tags]
-  );
   const articleHighlightCount = Array.isArray(articleHighlights) ? articleHighlights.length : 0;
   const articleReferenceCount = (
     (Array.isArray(references?.notebookBlocks) ? references.notebookBlocks.length : 0)
     + (Array.isArray(references?.collections) ? references.collections.length : 0)
   );
-  const libraryAgentTickerLines = useMemo(() => {
-    if (isReadingView) {
-      return [
-        selectedArticle?.title ? `reading ${selectedArticle.title}` : 'reading selected source',
-        `${articleHighlightCount} highlights available`,
-        `${articleReferenceCount} source references in margin`
-      ];
-    }
+  const exactBrowseSource = sourceDetailState.source?.source || sourceDetailState.source || null;
+  const exactSourceTitle = String(selectedArticle?.title || exactBrowseSource?.title || '').trim();
+  const exactSourceType = selectedArticleId ? 'article' : (browseSourceType || 'library_workspace');
+  const exactSourceId = selectedArticleId || browseSourceId || 'library';
 
-    const shelfLabel = scope === 'folder' && selectedFolderName ? selectedFolderName : scope;
-    return [
-      `${allArticles.length} sources in library`,
-      articleQuery
-        ? `filtering articles for "${articleQuery}"`
-        : highlightQuery
-          ? `filtering highlights for "${highlightQuery}"`
-          : `watching ${shelfLabel} shelf`,
-      topThemeTags.length > 0 ? `themes: ${topThemeTags.join(', ')}` : 'waiting for highlights to reveal themes'
-    ];
-  }, [
-    allArticles.length,
-    articleQuery,
-    articleHighlightCount,
-    articleReferenceCount,
-    highlightQuery,
-    isReadingView,
-    scope,
-    selectedArticle?.title,
-    selectedFolderName,
-    topThemeTags
-  ]);
-  const libraryAgentPanel = (
-    <section className="library-agent-card" aria-label="Library thought partner">
-      <AgentPresence
-        className="library-agent-card__presence"
-        status={articleLoading || articlesLoading ? 'working' : 'idle'}
-        title={LIBRARY_AGENT_TITLE}
-        subtitle={isReadingView ? 'Source context visible' : 'Library context visible'}
-      />
-      <AgentTicker
-        className="library-agent-card__ticker"
-        label={`${LIBRARY_AGENT_TITLE} library trace`}
-        state={articleLoading || articlesLoading ? 'working' : 'idle'}
-        lines={libraryAgentTickerLines}
-        sharedMemory
-        surface="Library"
-      />
-      <p className="library-agent-card__note">
-        {isReadingView
-          ? 'Use the margin to pull this source into Wiki or Think with provenance intact.'
-          : 'Open a source or pull highlights into Think; the agent keeps the active shelf, themes, and provenance in view.'}
-      </p>
-    </section>
-  );
-  const browseRailActions = useMemo(() => ([
-    {
-      label: 'Highlights',
-      isActive: scope === 'highlights',
-      onClick: () => handleSelectScope('highlights')
-    },
-    {
-      label: 'Notebook',
-      to: '/think?tab=notebook'
-    },
-    {
-      label: 'Concepts',
-      to: '/think?tab=concepts'
-    },
-    {
-      label: 'Questions',
-      to: '/think?tab=questions'
-    }
-  ]), [handleSelectScope, scope]);
-
-  const effectiveRightOpen = isReadingView && !contextOverride
-    ? true
-    : getContextPanelOpen({
-      hasSelection: Boolean(selectedArticleId),
-      storedOpen: rightOpen,
-      userOverride: contextOverride
-    });
-
-  useEffect(() => {
-    if (!effectiveRightOpen) return;
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        handleToggleRight(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [effectiveRightOpen, handleToggleRight]);
+  /* The Library owns source identity; the persistent shell owns the room. A
+     selected highlight or imported note must not collapse back to a generic
+     Library context merely because it has not opened the full article reader. */
+  useNoeisSurface({
+    room: 'library',
+    objectType: exactSourceType,
+    objectId: exactSourceId,
+    title: exactSourceTitle || 'Library',
+    orientation: exactSourceId === 'library'
+      ? 'Recover source material, its provenance, and the thinking it already supports.'
+      : 'Inspect this exact source, where it came from, and where it can move next.'
+  });
 
   /* The cabinet stopped being the face of the Library: the reading is what
      greets you, and the shelves are a faint list beside it. Folder, unfiled and
@@ -939,17 +818,27 @@ const Library = () => {
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
-  /* What the rail is looking at while the human is in here, and how it
-     retrieves on this page's behalf. Reading a source narrows it to that
-     source. The Librarian panel is still here and still does more; this is the
-     one line of retrieval that every room in the product shares. */
-  useAgentRailSurface(
+  /* One persistent agent, narrowed to the same exact source as the room. The
+     page no longer mounts a second Librarian identity beside it. */
+  useContextualAgentSurface(
+    'agent-surface.library',
     {
-      id: selectedArticleId ? `library:${selectedArticleId}` : 'library',
+      objectType: exactSourceType,
+      objectId: exactSourceId,
       subject: librarySubject({
-        article: selectedArticleId ? selectedArticle : null,
+        article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
         count: allArticles.length
       }),
+      lines: exactSourceId === 'library'
+        ? []
+        : [
+          articleHighlightCount
+            ? { id: 'highlights', text: `${articleHighlightCount} saved highlight${articleHighlightCount === 1 ? '' : 's'}.` }
+            : null,
+          articleReferenceCount
+            ? { id: 'references', text: `Used in ${articleReferenceCount} note${articleReferenceCount === 1 ? '' : 's'} or collection${articleReferenceCount === 1 ? '' : 's'}.` }
+            : null
+        ].filter(Boolean),
       empty: allArticles.length
         ? 'Nothing to retrieve until you ask.'
         : 'Nothing on the shelf to retrieve from yet.'
@@ -958,8 +847,8 @@ const Library = () => {
       onAsk: async (question) => {
         const result = await chatWithAgent({
           message: question,
-          context: selectedArticleId
-            ? { type: 'article', id: selectedArticleId, title: selectedArticle?.title || 'Article' }
+          context: exactSourceId !== 'library'
+            ? { type: exactSourceType, id: exactSourceId, title: exactSourceTitle || 'Source' }
             : { type: 'workspace', id: 'library', title: 'Library' }
         });
         const sentence = oneSentence(String(result?.reply || result?.message || result?.answer || ''));
@@ -968,7 +857,7 @@ const Library = () => {
           id: `library-ask:${sentence.slice(0, 32)}`,
           sentence,
           body: sentence,
-          origin: selectedArticleId ? 'Asked of this source' : 'Asked of the library',
+          origin: exactSourceId !== 'library' ? 'Asked of this source' : 'Asked of the library',
           // There is no claim contract to write into here, so there is one
           // decision to make: keep the line or let it go.
           fields: ['keep']
@@ -1036,48 +925,17 @@ const Library = () => {
     />
   );
 
-  const rightPanel = isReadingView ? (
-    <div className="editorial-side-rail section-stack library-context-stack library-context-stack--reading">
-      {/* The Librarian's chat surface is gone. One Ask on this page, and it
-          is the rail; a second one under the article meant two agents, one of
-          which you had to scroll to. What is left below is this source's own
-          material — its highlights and what references it — which is the
-          column's business, not an agent's. */}
-      {librarianSelection?.text ? (
-        <section className="library-librarian-selection" aria-label="Selected passage for Librarian">
-          <div>
-            <span>In the margin</span>
-            <button type="button" onClick={() => setLibrarianSelection(null)}>Clear</button>
-          </div>
-          <blockquote>{librarianSelection.text}</blockquote>
-          <p>Saved as a highlight. Its source travels with the question.</p>
-        </section>
-      ) : null}
-      {/* The subtitle was a list of the nouns inside the box — "Highlights,
-          pull-in, provenance, and article moves" — which is a table of
-          contents for something you are about to open anyway. */}
+  const readingContext = isReadingView ? (
+    <div className="section-stack library-context-stack library-context-stack--reading">
+      {/* This is source work, not another agent. The persistent shell rail is
+          the only place that asks and proposes; this fold keeps the exact
+          highlights, references, and connection actions with the article. */}
       <EditorialSideRailCollapsible
-        title="Source context"
+        title="Continue with this source"
         className="library-reading-rail__secondary"
         testId="library-reading-secondary-rail"
         defaultOpen={sourceContextOpen || Boolean(activeHighlightId)}
       >
-        <AgentSkillDock
-          surface="article"
-          contextType="article"
-          contextId={selectedArticleId}
-          targetContextType="article"
-          targetContextId={selectedArticleId}
-          contextTitle={selectedArticle?.title || 'Article'}
-          headline="Draft-first article moves"
-          title={LIBRARY_AGENT_TITLE}
-          subtitle="Turn the current article into a sharper summary, critique, question set, or concept lead."
-          className="library-reading-rail__skills agent-skill-dock--inline"
-          onInvoke={(nextPrompt) => askRail?.(
-            typeof nextPrompt === 'string' ? nextPrompt : (nextPrompt?.prompt || ''),
-            { origin: 'Asked of this source' }
-          )}
-        />
         <ReferencePullIn
           targetType="article"
           targetId={selectedArticleId}
@@ -1104,91 +962,7 @@ const Library = () => {
         />
       </EditorialSideRailCollapsible>
     </div>
-  ) : (
-    <div className="section-stack library-context-stack library-context-stack--browse">
-      {libraryAgentPanel}
-      <section className="library-browse-rail">
-        <div className="library-browse-rail__header">
-          <span>Marginalia</span>
-          <p>Active reasoning</p>
-        </div>
-
-        <nav className="library-browse-rail__nav" aria-label="Library marginalia">
-          {browseRailActions.map((item) => (
-            item.to ? (
-              <Link
-                key={item.label}
-                to={item.to}
-                className="library-browse-rail__nav-item"
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <button
-                key={item.label}
-                type="button"
-                className={`library-browse-rail__nav-item ${item.isActive ? 'is-active' : ''}`}
-                onClick={item.onClick}
-              >
-                {item.label}
-              </button>
-            )
-          ))}
-        </nav>
-
-        <div className="library-browse-rail__section">
-          <div className="library-browse-rail__section-head">
-            <h3>Current shelf</h3>
-            <span>{scope === 'folder' && selectedFolderName ? selectedFolderName : scope}</span>
-          </div>
-          <p>
-            Open a source from the reading room list. Cabinet stays available when you want filing or batch organization.
-          </p>
-        </div>
-
-        <div className="library-browse-rail__section">
-          <div className="library-browse-rail__section-head">
-            <h3>Curated theme</h3>
-            <span>{allArticles.length} sources</span>
-          </div>
-          <p>
-            {topThemeTags.length > 0
-              ? `Your library currently trends toward ${topThemeTags.join(', ')}.`
-              : 'Tag a few highlights to let recurring themes emerge here.'}
-          </p>
-        </div>
-
-        <div className="library-browse-rail__section">
-          <div className="library-browse-rail__section-head">
-            <h3>Next move</h3>
-            <span>{selectedArticleId ? 'Reading room' : 'Browse mode'}</span>
-          </div>
-          <p>
-            {selectedArticleId
-              ? 'Stay in the reading room to capture highlights, send them into notebook, and attach them to concepts or questions.'
-              : 'Use the quick links above to sort highlights, deepen a concept, or turn an open loop into a working question.'}
-          </p>
-        </div>
-      </section>
-    </div>
-  );
-  const contextualRightPanel = (
-    /* No orientation line. It read "Reading Consider the opposite with
-       provenance intact." directly under a heading that already said
-       Librarian, above a fold that already said Source context: three labels
-       naming the room, and then the room. The title of the thing you are
-       reading is at the top of the thing you are reading. */
-    <AgentContextShell
-      surface="library"
-      title={LIBRARY_AGENT_TITLE}
-      loading={Boolean(articleLoading || articlesLoading)}
-      loadingMessage="Retrieving Library context…"
-      error={isReadingView ? articleError : articlesError}
-      showPresence={false}
-    >
-      {rightPanel}
-    </AgentContextShell>
-  );
+  ) : null;
 
   return (
     <div className={`library-page-shell ${isReadingView ? 'is-reading' : 'is-browse'}`}>
@@ -1234,9 +1008,6 @@ const Library = () => {
                 </button>
               </>
             ) : null}
-            <button type="button" onClick={() => handleToggleRight(!effectiveRightOpen)}>
-              {LIBRARY_AGENT_TITLE}
-            </button>
           </span>
         </div>
         {/* The locked middle: the reading you were in, then the sources as a
@@ -1259,26 +1030,14 @@ const Library = () => {
               onSelectArticle={handleSelectArticle}
               entering={columnEntering}
             />
-          ) : mainPanel}
+          ) : (
+            <>
+              {mainPanel}
+              {readingContext}
+            </>
+          )}
         </div>
       </div>
-      {/* The Librarian, when it is asked for — the same fold whether you are
-          browsing the shelf or reading a source. Arriving on an exact highlight
-          opens it, because that link is a request to see that highlight. */}
-      {effectiveRightOpen ? (
-        <aside
-          className="library-page-shell__librarian"
-          aria-label={LIBRARY_AGENT_TITLE}
-          data-testid="library-right"
-          data-open="true"
-        >
-          <div className="library-page-shell__librarian-head">
-            <span>{LIBRARY_AGENT_TITLE}</span>
-            <button type="button" onClick={() => handleToggleRight(false)}>Close</button>
-          </div>
-          {contextualRightPanel}
-        </aside>
-      ) : null}
       <MoveToFolderModal
         open={moveModalOpen}
         folders={folders}

@@ -245,7 +245,7 @@ const AllHighlights = ({ embedded = false, filters = {} }) => {
             <select
               value={selectedTag}
               onChange={(e) => { setSelectedTag(e.target.value); setPage(1); }}
-              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--noeis-rule)' }}
             >
               {tagOptions.map(tag => (
                 <option key={tag} value={tag}>{tag === 'all' ? 'All tags' : tag}</option>

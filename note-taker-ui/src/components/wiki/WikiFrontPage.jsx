@@ -36,6 +36,9 @@ import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupMod
 import { buildWeeklyBrief, paperWeekLine } from '../../pages/weeklyBriefModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { labelFor } from './wikiGraph';
+import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
+import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
+import { useContextualAgentSurface } from '../../agent/AgentRailContext';
 import Paper from '../../pages/Paper';
 import WeeklyDigest from './WeeklyDigest';
 import '../../styles/wiki-critical.css';
@@ -221,6 +224,13 @@ const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = 
 };
 
 const WikiFrontPage = () => {
+  useNoeisSurface(buildWikiFrontSurfaceDescriptor());
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_workspace',
+    objectId: 'wiki',
+    subject: 'Your Wiki.',
+    empty: 'Open a page before asking against exact accepted knowledge.'
+  }, {});
   const pageIndexRequestRef = useRef(null);
   const [pages, setPages] = useState([]);
   const [briefing, setBriefing] = useState(null);

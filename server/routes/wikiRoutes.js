@@ -1629,9 +1629,23 @@ const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
   'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
   'evergreen', 'evergreenAt',
-  // The Judgment index is built entirely out of this field, and it is small:
-  // null on every page that is not a judgment.
-  'judgment',
+  // Judgment indexes need the claim, provenance, line counts, decisions, and
+  // lessons—not the full casebook subtree. Keep this field-by-field so new
+  // dossier or decision payloads cannot silently make every Wiki list heavy.
+  'judgment.kind', 'judgment.currentJudgment', 'judgment.governingQuestion',
+  'judgment.status', 'judgment.startedAt', 'judgment.lastReviewedAt',
+  'judgment.strongestCounterargument',
+  'judgment.why.reasonId', 'judgment.why.text', 'judgment.why.sourceRefIds', 'judgment.why.sourceLabel',
+  'judgment.against.reasonId', 'judgment.against.text', 'judgment.against.sourceRefIds', 'judgment.against.sourceLabel',
+  'judgment.assumptions.assumptionId', 'judgment.assumptions.text',
+  'judgment.assumptions.status', 'judgment.assumptions.sourceRefIds',
+  'judgment.falsifiers.falsifierId', 'judgment.falsifiers.text', 'judgment.falsifiers.status',
+  'judgment.decisions.decisionId', 'judgment.decisions.summary',
+  'judgment.decisions.status', 'judgment.decisions.decidedAt', 'judgment.decisions.createdAt',
+  'judgment.decisions.reviewAt', 'judgment.decisions.outcome.observedAt',
+  'judgment.decisions.outcome.summary', 'judgment.decisions.outcome.lesson',
+  'judgment.lessons.lessonId', 'judgment.lessons.text',
+  'judgment.lessons.closedAs', 'judgment.lessons.at',
   'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
   'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
   'sourceRefs.type', 'sourceRefs.objectId',

@@ -4,13 +4,18 @@ import * as router from 'react-router-dom';
 import WikiArticle from './WikiArticle';
 import { getWikiPage } from '../../api/wiki';
 
+const mockUseNoeisSurface = jest.fn();
+
 jest.mock('../../api/wiki', () => ({
   askWikiPage: jest.fn(),
   getWikiPage: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 jest.mock('../../agent/AgentRailContext', () => ({
-  useAgentRailSurface: () => {}
+  useContextualAgentSurface: () => {}
+}));
+jest.mock('../../surface/NoeisSurfaceContext', () => ({
+  useNoeisSurface: descriptor => mockUseNoeisSurface(descriptor)
 }));
 
 /* A citation is the product's whole claim made checkable. It rendered as a
@@ -63,5 +68,25 @@ describe('a citation in the reader', () => {
       .toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open source/ }))
       .toHaveAttribute('href', 'https://example.com/process');
+    expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 'wiki',
+      objectType: 'wiki_claim',
+      objectId: 'c1',
+      pageId: 'p1',
+      title: 'Circle of Competence',
+      projection: 'ordinary'
+    }));
+  });
+
+  it('links a Wiki carrying a judgment to the same exact object in Judgment', async () => {
+    getWikiPage.mockResolvedValue({
+      ...page(),
+      judgment: { kind: 'living_thesis', currentJudgment: 'Process improves judgment.' }
+    });
+
+    render(<WikiArticle />);
+
+    expect(await screen.findByRole('link', { name: 'Judgment' }))
+      .toHaveAttribute('href', '/judgment/p1');
   });
 });

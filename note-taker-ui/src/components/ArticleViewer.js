@@ -87,7 +87,7 @@ const ArticleViewer = ({ onArticleChange }) => {
     const selectionOverlayRef = useRef(null);
     const [folders, setFolders] = useState([]);
     const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
-    
+
     const [editingHighlightId, setEditingHighlightId] = useState(null);
     const [activeHighlightId, setActiveHighlightId] = useState('');
     const [editNote, setEditNote] = useState('');
@@ -435,7 +435,7 @@ const ArticleViewer = ({ onArticleChange }) => {
 
             if (selectedText && selectedText.length > 0 && selection.rangeCount > 0) {
                 selectionRangeRef.current = selection.getRangeAt(0).cloneRange();
-                
+
                 const range = selection.getRangeAt(0);
                 applyTempHighlight(range.cloneRange());
                 showSelectionOverlay(range.cloneRange());
@@ -558,12 +558,12 @@ const ArticleViewer = ({ onArticleChange }) => {
             ...selectedTags,
             ...parseTagInput(newTagInput)
         ]));
-        const newHighlight = { 
+        const newHighlight = {
             text: popup.text,
             note: popupNote.trim(),
             tags: tagsArray,
             position
-        }; 
+        };
         window.getSelection()?.removeAllRanges();
         clearTempHighlight();
         clearSelectionOverlay();
@@ -641,9 +641,9 @@ const ArticleViewer = ({ onArticleChange }) => {
         if (targetElement) {
             targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             targetElement.style.transition = 'background-color 0.3s ease-in-out';
-            targetElement.style.backgroundColor = 'var(--primary-color-light, rgba(0, 122, 255, 0.3))';
+            targetElement.style.backgroundColor = 'var(--noeis-action-soft, rgba(0, 122, 255, 0.3))';
             setTimeout(() => {
-                targetElement.style.backgroundColor = ''; 
+                targetElement.style.backgroundColor = '';
             }, 1000);
         }
     };
@@ -669,7 +669,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                 note: updatedNote,
                 tags: updatedTags.split(',').map(tag => tag.trim()).filter(t => t)
             }, getAuthConfig());
-            return response.data; 
+            return response.data;
         } catch (err) {
             console.error("Error updating highlight on backend:", err);
             throw new Error(err.response?.data?.error || "Failed to update highlight.");
@@ -681,9 +681,9 @@ const ArticleViewer = ({ onArticleChange }) => {
         try {
             const updatedArticleData = await updateHighlightOnBackend(highlightId, editNote, editTags);
             const processedArticle = processArticleContent(updatedArticleData);
-            setArticle(processedArticle); 
+            setArticle(processedArticle);
             alert("Highlight updated successfully!");
-            cancelEditHighlight(); 
+            cancelEditHighlight();
             onArticleChange();
         } catch (err) {
             alert(err.message);
@@ -741,7 +741,7 @@ const ArticleViewer = ({ onArticleChange }) => {
                         >
                             {editingHighlightId === h._id ? (
                                 <>
-                                    <textarea 
+                                    <textarea
                                         className="edit-highlight-note-input"
                                         value={editNote}
                                         onChange={(e) => setEditNote(e.target.value)}
@@ -823,8 +823,8 @@ const ArticleViewer = ({ onArticleChange }) => {
                     <div className="article-viewer-main">
                         <div className="article-management-bar">
                             {/* ... (Your existing management bar buttons) ... */}
-                            <button 
-                                className="management-button" 
+                            <button
+                                className="management-button"
                                 onClick={() => setIsRecommendModalOpen(true)}
                                 title="Recommend Article"
                             >
@@ -838,15 +838,15 @@ const ArticleViewer = ({ onArticleChange }) => {
                             >
                                 {wikiCreating ? 'Creating Wiki...' : 'Create Wiki'}
                             </button>
-                            <button 
-                                className="management-button delete-button" 
+                            <button
+                                className="management-button delete-button"
                                 onClick={handleDeleteArticle}
                                 title="Delete Article"
                             >
                                 Delete Article
                             </button>
-                            <select 
-                                className="management-button move-select" 
+                            <select
+                                className="management-button move-select"
                                 onChange={handleMoveArticle}
                                 value={article.folder ? article.folder._id : 'uncategorized'}
                                 title="Move to Folder"
@@ -875,10 +875,10 @@ const ArticleViewer = ({ onArticleChange }) => {
                                     ref={popupRef}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     className="highlight-popup-web-app-container"
-                                    style={{ 
-                                        top: popup.y, 
-                                        left: popup.x, 
-                                        position: 'absolute', 
+                                    style={{
+                                        top: popup.y,
+                                        left: popup.x,
+                                        position: 'absolute',
                                         transform: 'translate(-50%, -100%)'
                                     }}
                                 >
@@ -1090,11 +1090,11 @@ const ArticleViewer = ({ onArticleChange }) => {
                         <h2>Recommend Article</h2>
                         <p>Select up to 10 highlights to share with your recommendation.</p>
                         <p className="highlight-counter">{selectedHighlights.length} / 10 selected</p>
-                        
+
                         <div className="highlight-selection-list">
                             {(article.highlights || []).map(h => (
                                 <div key={h._id} className="highlight-selection-item">
-                                    <input 
+                                    <input
                                         type="checkbox"
                                         id={`cb-${h._id}`}
                                         checked={selectedHighlights.includes(h._id)}

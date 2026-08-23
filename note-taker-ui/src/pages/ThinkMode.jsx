@@ -68,6 +68,9 @@ import { buildThinkWikiPromotionPayload } from '../utils/thinkWikiPromotion';
 import { classifyHomeUniversalCommand } from '../utils/homeUniversalCommand';
 import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
+import { useContextualAgentSurface } from '../agent/AgentRailContext';
+import { buildThinkSurfaceDescriptor } from './thinkSurfaceModel';
 import { CalmEmptyLine, SidebarSkeletonRows } from '../components/think/EditorialRail';
 import ThinkShelfRail from '../components/think/ThinkShelfRail';
 import CalmIndexView from '../components/think/CalmIndexView';
@@ -948,6 +951,36 @@ const ThinkMode = () => {
     () => allQuestions.find(q => q._id === activeQuestionId) || null,
     [allQuestions, activeQuestionId]
   );
+
+  /* Think's legacy postures used to be the only primary-room surfaces that
+     left the persistent shell at a room-level identity. Declare the same exact
+     Concept, Question, thread, handoff, or accepted-Wiki basis the URL and
+     workspace are actually using; never substitute a display name for an id. */
+  const thinkSurfaceDescriptor = buildThinkSurfaceDescriptor({
+    activeView,
+    concept,
+    question: activeQuestionData,
+    thread: activeThreadData,
+    handoff: activeHandoffData,
+    requestedConceptId,
+    requestedQuestionId: activeQuestionId || searchParams.get('questionId') || '',
+    selectedThreadId,
+    selectedHandoffId,
+    selectedPathId,
+    selectedInsightId: searchParams.get('insightId') || '',
+    conceptName: selectedName || queryConceptName,
+    wikiPageId: requestedWikiPageId,
+    revisionId: requestedRevisionId,
+    claimId: requestedClaimId,
+    investigation: requestedInvestigation
+  });
+  useNoeisSurface(thinkSurfaceDescriptor);
+  useContextualAgentSurface('agent-surface.think', {
+    objectType: thinkSurfaceDescriptor.objectType || 'think_workspace',
+    objectId: thinkSurfaceDescriptor.objectId || 'think',
+    subject: thinkSurfaceDescriptor.title || 'Your thinking.',
+    empty: 'Use the active Think workspace to develop this object; retrieval appears here when this posture supports it.'
+  }, {});
 
   const workingMemoryScope = useMemo(() => {
     if (activeView === 'notebook' && activeNotebookEntry?._id) {

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import AgentRail from './AgentRail';
-import { AgentRailProvider, useAgentRailSurface } from './AgentRailContext';
-import { hasAgentRail } from './agentRailRoutes';
+import { AgentRailProvider, useContextualAgentSurface } from './AgentRailContext';
+import { hasContextualAgentRail } from './contextualAgentContracts';
 
 // A stand-in for a page: it registers a surface with the rail and records what
 // the rail hands back when the human accepts.
 const Surface = ({ id, subject, empty, onAsk, accepted }) => {
-  useAgentRailSurface(
-    { id, subject, empty },
+  useContextualAgentSurface(
+    'agent-surface.judgment',
+    { objectType: 'claim', objectId: id, subject, empty },
     {
       onAsk,
       onAccept: (proposal, field) => accepted.push({ text: proposal.body, field })
@@ -39,10 +40,29 @@ const renderRail = ({ onAsk = jest.fn(), accepted = [] } = {}) => {
   return { ...utils, accepted, rail: () => screen.getByRole('complementary', { name: 'Agent' }) };
 };
 
+const ProjectionToggle = () => {
+  const [embedded, setEmbedded] = useState(false);
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_page',
+    objectId: 'wiki-1',
+    subject: 'A Wiki page.'
+  }, {});
+  return (
+    <>
+      <button type="button" onClick={() => setEmbedded(current => !current)}>Swap projection</button>
+      {embedded ? <div data-testid="embedded-agent">Embedded Wiki agent</div> : <AgentRail />}
+    </>
+  );
+};
+
 describe('AgentRail', () => {
   it('says what it is for without branding itself', () => {
     const { rail } = renderRail();
 
+    expect(rail()).toHaveAttribute('data-agent-contract', 'agent-surface.judgment');
+    expect(rail()).toHaveAttribute('data-agent-presentation', 'rail');
+    expect(rail()).toHaveAttribute('data-agent-actions', expect.stringContaining('accept.against'));
+    expect(rail()).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
     expect(within(rail()).getByText('Agent')).toBeInTheDocument();
     expect(within(rail()).getByText('Retrieves. You accept.')).toBeInTheDocument();
     expect(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBeInTheDocument();
@@ -67,6 +87,24 @@ describe('AgentRail', () => {
     expect(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBe(input);
     expect(await within(rail()).findByText('The second claim.')).toBeInTheDocument();
     expect(within(rail()).queryByText('The first claim.')).not.toBeInTheDocument();
+  });
+
+  it('keeps an unfinished rail draft while Wiki temporarily uses the embedded projection', () => {
+    render(
+      <AgentRailProvider>
+        <ProjectionToggle />
+      </AgentRailProvider>
+    );
+    const input = screen.getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight');
+    fireEvent.change(input, { target: { value: 'unfinished cross-room thought' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
+    expect(screen.getByTestId('embedded-agent')).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Agent' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
+    expect(screen.getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'))
+      .toHaveValue('unfinished cross-room thought');
   });
 
   it('drops proposals about the last thing when the column moves on', async () => {
@@ -100,6 +138,27 @@ describe('AgentRail', () => {
     await waitFor(() => expect(accepted).toEqual([{ text: 'Supply is catching up.', field: 'against' }]));
   });
 
+  it('fails closed when a proposal asks for an action outside the room contract', async () => {
+    const onAsk = jest.fn(async () => ({
+      id: 'p1',
+      sentence: 'Publish this without review.',
+      body: 'Publish this without review.',
+      fields: ['publish']
+    }));
+    const { rail, accepted } = renderRail({ onAsk });
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'do it' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('Publish this without review.');
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+
+    expect(await within(rail()).findByRole('alert')).toHaveTextContent('does not permit');
+    expect(accepted).toEqual([]);
+    expect(within(rail()).getByText('Publish this without review.')).toBeInTheDocument();
+  });
+
   it('reports a failed retrieve instead of inventing a line', async () => {
     const onAsk = jest.fn(async () => { throw new Error('The index is offline.'); });
     const { rail } = renderRail({ onAsk });
@@ -113,10 +172,10 @@ describe('AgentRail', () => {
   });
 });
 
-describe('hasAgentRail', () => {
+describe('hasContextualAgentRail', () => {
   it('is present in the rooms and the surfaces inside them', () => {
     ['/library', '/think', '/wiki', '/judgment', '/judgment/abc'].forEach((path) => {
-      expect(hasAgentRail(path)).toBe(true);
+      expect(hasContextualAgentRail(path)).toBe(true);
     });
   });
 
@@ -124,14 +183,14 @@ describe('hasAgentRail', () => {
     // The workspace chat drafts, builds, ingests and lints. None of that is
     // the rail's, and two agents on one screen is the thing the rail exists to
     // stop — so on this one surface the rail is the one that gives way.
-    expect(hasAgentRail('/wiki/workspace')).toBe(false);
-    expect(hasAgentRail('/wiki/workspace?view=list')).toBe(false);
-    expect(hasAgentRail('/wiki')).toBe(true);
+    expect(hasContextualAgentRail('/wiki/workspace')).toBe(false);
+    expect(hasContextualAgentRail('/wiki/workspace?view=list')).toBe(false);
+    expect(hasContextualAgentRail('/wiki')).toBe(true);
   });
 
   it('is absent where the agent does not work', () => {
     ['/settings', '/connections', '/paper', '/onboarding/wiki', '/wiki/activity/run-1', '/'].forEach((path) => {
-      expect(hasAgentRail(path)).toBe(false);
+      expect(hasContextualAgentRail(path)).toBe(false);
     });
   });
 

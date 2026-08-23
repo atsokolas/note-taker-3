@@ -12,7 +12,8 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
-import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
+import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
@@ -36,6 +37,7 @@ import {
   selectOvernightLine,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
 
@@ -131,8 +133,6 @@ const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, c
     if (value.trim()) timerRef.current = window.setTimeout(() => save(value), AUTOSAVE_PAUSE_MS);
   };
 
-  /* Enter finishes this line and starts the next one. Blur just makes sure
-     what is on screen is also written down. */
   /* Enter finishes this line and starts the next one. So does leaving the
      field — the sentence settles into the section as a line rather than
      staying in the box you typed it in. The text is only cleared once it is
@@ -226,6 +226,8 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
+  useNoeisSurface(buildJudgmentSurfaceDescriptor());
+
   /* The claim is the page. A judgment is a wiki page carrying a judgment
      contract, so writing one down creates that page and puts the sentence in
      it — then opens it, because the next thing you want is to say why. */
@@ -251,7 +253,11 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
 
   // The index is a list of sentences, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
-  useAgentRailSurface({ id: 'judgment-index', subject: 'Your judgments.' }, {});
+  useContextualAgentSurface('agent-surface.judgment', {
+    objectType: 'judgment_index',
+    objectId: 'judgment-index',
+    subject: 'Your judgments.'
+  }, {});
 
   return (
     <main className="judgment judgment--index" aria-labelledby="judgment-index-title">
@@ -675,6 +681,12 @@ const JudgmentDetail = ({ pageId }) => {
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
 
+  /* The claim remains the dominant object. Decisions, observed outcomes,
+     lessons, and the accepted revision that grounded the latest decision are
+     carried as exact related identities rather than promoted into competing
+     dashboards or guessed from their prose. */
+  useNoeisSurface(buildJudgmentSurfaceDescriptor({ page, pageId }));
+
   /* A judgment lives behind a sign-in, which makes it hard to be held to. The
      pamphlet is the same four sections on one sheet, for handing to someone
      who is not going to make an account to read what you think. */
@@ -794,14 +806,21 @@ const JudgmentDetail = ({ pageId }) => {
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
-  useAgentRailSurface(
+  useContextualAgentSurface(
+    'agent-surface.judgment',
     view?.claim
       ? {
-        id: `judgment:${pageId}`,
+        objectType: 'judgment_claim',
+        objectId: pageId,
         subject: view.claim,
         empty: 'Nothing to retrieve until you ask.'
       }
-      : { id: `judgment:${pageId}`, subject: '', empty: 'Nothing to retrieve until you ask.' },
+      : {
+        objectType: 'judgment_claim',
+        objectId: pageId,
+        subject: '',
+        empty: 'Nothing to retrieve until you ask.'
+      },
     {
       onAsk: async (question, options = {}) => {
         const answered = await askWikiPage(pageId, question);

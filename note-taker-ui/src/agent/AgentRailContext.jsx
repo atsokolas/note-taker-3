@@ -1,4 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  buildContextualAgentSurface,
+  filterContextualAgentHandlers
+} from './contextualAgentContracts';
+import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 
 // The agent rail's state lives above the router, because the rail does not
 // leave when the column changes. A page tells the rail what it is looking at
@@ -11,10 +16,12 @@ const AgentRailContext = createContext(null);
 const EMPTY_SURFACE = Object.freeze({ id: '', subject: '', lines: [], empty: '' });
 
 export const AgentRailProvider = ({ children }) => {
+  const capabilityModel = useNoeisCapabilities();
   const [surface, setSurface] = useState(EMPTY_SURFACE);
   const [proposals, setProposals] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [draft, setDraft] = useState('');
   // Handlers change identity every render of the page that supplies them.
   // Holding them in a ref keeps that churn out of the render path.
   const handlers = useRef({});
@@ -80,6 +87,11 @@ export const AgentRailProvider = ({ children }) => {
   const accept = useCallback(async (proposal, field) => {
     const write = handlers.current.onAccept;
     if (!write) return;
+    const allowed = Array.isArray(surface.supportedActions) ? surface.supportedActions : [];
+    if (!allowed.includes(`accept.${field}`)) {
+      setError('This page does not permit that agent action. Nothing was written down.');
+      return;
+    }
     dismissProposal(proposal.id);
     setError('');
     try {
@@ -88,21 +100,29 @@ export const AgentRailProvider = ({ children }) => {
       setError(writeError?.response?.data?.error || 'That line could not be saved. It has not been written down.');
       addProposal(proposal);
     }
-  }, [addProposal, dismissProposal]);
+  }, [addProposal, dismissProposal, surface.supportedActions]);
+
+  const capabilityChecks = (surface.capabilities || []).map(capabilityModel.resolveCapability);
+  const blockedCapability = capabilityChecks.find(item => !['available', 'active'].includes(item.status));
+  const agentAvailable = !blockedCapability;
+  const availabilityReason = blockedCapability?.reason || 'Available for the current knowledge surface.';
 
   const value = useMemo(() => ({
     surface,
     proposals,
     busy,
-    canAsk,
+    canAsk: canAsk && agentAvailable,
+    availabilityReason,
     error,
+    draft,
+    setDraft,
     registerSurface,
     setHandlers,
     addProposal,
     dismissProposal,
     ask,
     accept
-  }), [accept, addProposal, ask, busy, canAsk, dismissProposal, error, proposals, registerSurface, setHandlers, surface]);
+  }), [accept, addProposal, agentAvailable, ask, availabilityReason, busy, canAsk, dismissProposal, draft, error, proposals, registerSurface, setHandlers, surface]);
 
   return <AgentRailContext.Provider value={value}>{children}</AgentRailContext.Provider>;
 };
@@ -112,7 +132,10 @@ export const useAgentRail = () => useContext(AgentRailContext) || {
   proposals: [],
   busy: false,
   canAsk: false,
+  availabilityReason: 'No contextual capability is active.',
   error: '',
+  draft: '',
+  setDraft: () => {},
   registerSurface: () => {},
   setHandlers: () => {},
   addProposal: () => {},
@@ -127,7 +150,7 @@ export const useAgentRail = () => useContext(AgentRailContext) || {
  * `descriptor` is plain data and is compared by value, so a page can rebuild it
  * every render. `handlers` is stored in a ref and may change freely.
  */
-export const useAgentRailSurface = (descriptor, handlers) => {
+const useResolvedAgentSurface = (descriptor, handlers) => {
   const { registerSurface, setHandlers } = useAgentRail();
   const descriptorKey = JSON.stringify(descriptor || null);
 
@@ -138,6 +161,15 @@ export const useAgentRailSurface = (descriptor, handlers) => {
   useEffect(() => {
     setHandlers(handlers);
   });
+};
+
+/* The room names a contract and supplies exact runtime data. Capability and
+   approval policy stay in the registry instead of being re-inferred inside
+   the rail or copied into each page. */
+export const useContextualAgentSurface = (contractId, context, handlers) => {
+  const descriptor = buildContextualAgentSurface(contractId, context);
+  const filteredHandlers = filterContextualAgentHandlers(contractId, handlers);
+  useResolvedAgentSurface(descriptor, filteredHandlers);
 };
 
 export default AgentRailContext;

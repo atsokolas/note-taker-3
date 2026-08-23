@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, QuietButton, SectionHeader } from '../ui';
 import { createConnection, getConnectionsForItem, searchConnectableItems } from '../../api/connections';
 
@@ -605,9 +606,9 @@ const ReferencePullIn = ({
                   </span>
                 </button>
                 {openPath ? (
-                  <a className="reference-pull-in__result-open" href={openPath}>
+                  <Link className="reference-pull-in__result-open" to={openPath}>
                     Open
-                  </a>
+                  </Link>
                 ) : null}
               </div>
             );
@@ -646,17 +647,18 @@ const ReferencePullIn = ({
           ) : null}
           <div className="reference-pull-in__constellation-edges">
             {constellation.rows.map(row => (
-              <a
+              <Link
                 key={`${row.direction}-${row.id}`}
                 className={`reference-pull-in__constellation-edge is-${row.direction}`}
                 data-direction={row.direction}
-                href={row.openPath || undefined}
+                to={row.openPath || '#'}
                 aria-disabled={row.openPath ? undefined : 'true'}
+                onClick={row.openPath ? undefined : event => event.preventDefault()}
               >
                 <span>{row.direction === 'outgoing' ? 'This uses' : 'This is used by'}</span>
                 <strong>{row.title}</strong>
                 <em>{formatRelationLabel(row.relationType)}</em>
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -676,28 +678,30 @@ const ReferencePullIn = ({
         {!connectionState.loading && !connectionState.error && hasConnectionRows && (
           <div className="reference-pull-in__backlink-list">
             {connectionState.outgoing.slice(0, 3).map((row) => (
-              <a
+              <Link
                 key={`out-${row.id}`}
                 className="reference-pull-in__backlink-row"
-                href={row.openPath || undefined}
+                to={row.openPath || '#'}
                 aria-disabled={row.openPath ? undefined : 'true'}
+                onClick={row.openPath ? undefined : event => event.preventDefault()}
               >
                 <span>Uses</span>
                 <strong>{row.title}</strong>
                 <em>{formatTypeLabel(row.itemType)}</em>
-              </a>
+              </Link>
             ))}
             {connectionState.incoming.slice(0, 3).map((row) => (
-              <a
+              <Link
                 key={`in-${row.id}`}
                 className="reference-pull-in__backlink-row"
-                href={row.openPath || undefined}
+                to={row.openPath || '#'}
                 aria-disabled={row.openPath ? undefined : 'true'}
+                onClick={row.openPath ? undefined : event => event.preventDefault()}
               >
                 <span>Used by</span>
                 <strong>{row.title}</strong>
                 <em>{formatTypeLabel(row.itemType)}</em>
-              </a>
+              </Link>
             ))}
           </div>
         )}

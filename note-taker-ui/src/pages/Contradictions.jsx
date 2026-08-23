@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createWikiPage, listWikiContradictions, updateWikiPage } from '../api/wiki';
 import { createJudgment } from './judgmentModel';
-import { useAgentRailSurface } from '../agent/AgentRailContext';
+import { useContextualAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import { wikiReadPath } from '../utils/wikiFeatureFlags';
 import '../styles/contradictions.css';
@@ -93,8 +93,9 @@ const Contradictions = () => {
     return () => { cancelled = true; };
   }, []);
 
-  useAgentRailSurface({
-    id: 'contradictions',
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'contradiction_index',
+    objectId: 'contradictions',
     subject: 'Where your library disagrees with itself.',
     empty: 'Nothing to retrieve until you ask.'
   }, {});

@@ -31,6 +31,8 @@ import SurfaceNotice from '../feedback/SurfaceNotice';
 import AgentTicker from '../agent/AgentTicker';
 import ReferencePullIn from '../references/ReferencePullIn';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
+import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
+import { getContextualAgentContract } from '../../agent/contextualAgentContracts';
 import WikiList from './WikiList';
 import WikiPageEditor from './WikiPageEditor';
 import WikiPageReadView from './WikiPageReadView';
@@ -42,6 +44,7 @@ import {
   recordVisit
 } from './wikiVisitTracker';
 import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
+import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -59,6 +62,7 @@ const MAINTENANCE_STREAM_TIMEOUT_MS = 12 * 60 * 1000;
 const INGEST_POLL_INTERVAL_MS = 1800;
 const INGEST_POLL_TIMEOUT_MS = 70000;
 const activeAutoBuildPageIds = new Set();
+const WIKI_WORKSPACE_AGENT_CONTRACT = getContextualAgentContract('agent-surface.wiki-workspace');
 const HEALTH_KEYS = [
   'newItems',
   'unsupportedClaims',
@@ -72,6 +76,11 @@ const WikiIndex = lazy(() => import('./WikiIndex'));
 const WorkspacePaneFallback = ({ label = 'Loading Wiki pane...' }) => (
   <p className="wiki-index__status">{label}</p>
 );
+
+const WikiWorkspaceSurface = ({ view }) => {
+  useNoeisSurface(buildWikiSurfaceDescriptor({ view, mode: 'workspace' }));
+  return null;
+};
 
 const scheduleAfterFirstPaint = (callback) => {
   let frame = 0;
@@ -2692,7 +2701,14 @@ const WikiWorkspaceChat = ({
   }, [chatDraft, busy]);
 
   return (
-    <section className="wiki-workspace-chat" aria-label={AGENT_CHAT_LABEL}>
+    <section
+      className="wiki-workspace-chat"
+      aria-label={AGENT_CHAT_LABEL}
+      data-agent-contract={WIKI_WORKSPACE_AGENT_CONTRACT?.id}
+      data-agent-presentation={WIKI_WORKSPACE_AGENT_CONTRACT?.presentation}
+      data-agent-actions={WIKI_WORKSPACE_AGENT_CONTRACT?.actions.join(' ')}
+      data-agent-proposal-policy={WIKI_WORKSPACE_AGENT_CONTRACT?.proposalPolicy}
+    >
       <header>
         {/* AT-291: pane label, not the page's document title — kept as h2 so the
             active right-pane content (article / sources / schema) owns the sole h1. */}
@@ -3481,6 +3497,7 @@ const WikiWorkspace = () => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {!selectedPageId ? <WikiWorkspaceSurface view={view} /> : null}
       {!selectedPageId ? <div className="wiki-workspace__mobile-tabs" role="tablist" aria-label="Workspace panes">
         <Link
           to={viewPathFor({ page: selectedPageId, view, mode: pageMode, pane: 'chat' })}

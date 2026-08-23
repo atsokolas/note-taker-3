@@ -84,8 +84,19 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
 };
 
 const AgentRail = () => {
-  const { surface, proposals, busy, canAsk, error, ask, accept, dismissProposal } = useAgentRail();
-  const [draft, setDraft] = useState('');
+  const {
+    surface,
+    proposals,
+    busy,
+    canAsk,
+    availabilityReason,
+    error,
+    draft,
+    setDraft,
+    ask,
+    accept,
+    dismissProposal
+  } = useAgentRail();
 
   const submit = (event) => {
     event.preventDefault();
@@ -100,10 +111,19 @@ const AgentRail = () => {
   // A surface that has not taught the rail how to retrieve says so, rather than
   // offering an input that would swallow the question.
   const quietLine = surface.empty
-    || (canAsk ? 'Nothing to retrieve until you ask.' : 'Nothing to retrieve here yet.');
+    || (canAsk ? 'Nothing to retrieve until you ask.' : availabilityReason || 'Nothing to retrieve here yet.');
+  const askPlaceholder = surface.askPlaceholder || ASK_PLACEHOLDER;
+  const caption = surface.caption || 'Retrieves. You accept.';
 
   return (
-    <aside className="agent-rail" aria-label="Agent">
+    <aside
+      className="agent-rail"
+      aria-label="Agent"
+      data-agent-contract={surface.contractId || undefined}
+      data-agent-presentation="rail"
+      data-agent-actions={Array.isArray(surface.supportedActions) ? surface.supportedActions.join(' ') : undefined}
+      data-agent-proposal-policy={surface.proposalPolicy || undefined}
+    >
       <p className="agent-rail__eyebrow">Agent</p>
 
       {surface.subject ? <p className="agent-rail__subject">{surface.subject}</p> : null}
@@ -143,8 +163,8 @@ const AgentRail = () => {
           id="agent-rail-ask"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={ASK_PLACEHOLDER}
-          title={ASK_PLACEHOLDER}
+          placeholder={askPlaceholder}
+          title={askPlaceholder}
           autoComplete="off"
           /* Always typeable. A disabled field on a page that has nothing to
              retrieve reads as a broken rail rather than an idle one; the ask
@@ -152,7 +172,7 @@ const AgentRail = () => {
         />
         <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
-      <p className="agent-rail__caption">Retrieves. You accept.</p>
+      <p className="agent-rail__caption">{caption}</p>
     </aside>
   );
 };
