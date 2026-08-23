@@ -1646,6 +1646,8 @@ const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   'judgment.decisions.outcome.summary', 'judgment.decisions.outcome.lesson',
   'judgment.lessons.lessonId', 'judgment.lessons.text',
   'judgment.lessons.closedAs', 'judgment.lessons.at',
+  'judgment.dependsOn.dependencyId', 'judgment.dependsOn.pageId',
+  'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy',
   'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
   'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
   'sourceRefs.type', 'sourceRefs.objectId',

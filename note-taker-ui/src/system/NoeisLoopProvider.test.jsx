@@ -37,7 +37,10 @@ const Probe = () => {
 };
 
 describe('NoeisLoopProvider', () => {
-  beforeEach(() => resetNoeisLoopSnapshotForTests());
+  beforeEach(() => {
+    localStorage.clear();
+    resetNoeisLoopSnapshotForTests();
+  });
 
   it('projects durable running work and the latest durable receipt into SystemStatus', async () => {
     getSystemLoops.mockResolvedValue(envelope({
@@ -70,6 +73,7 @@ describe('NoeisLoopProvider', () => {
   });
 
   it('shares a fresh snapshot across remounts', async () => {
+    localStorage.setItem('token', 'same-account');
     getSystemLoops.mockResolvedValue(envelope());
     const first = render(<Harness><NoeisLoopProvider><Probe /></NoeisLoopProvider></Harness>);
     expect(await screen.findByText('idle')).toBeInTheDocument();
@@ -77,6 +81,25 @@ describe('NoeisLoopProvider', () => {
     render(<Harness><NoeisLoopProvider><Probe /></NoeisLoopProvider></Harness>);
     expect(await screen.findByText('idle')).toBeInTheDocument();
     expect(getSystemLoops).toHaveBeenCalledTimes(1);
+  });
+
+  it('never reuses a loop snapshot after the signed-in account changes', async () => {
+    localStorage.setItem('token', 'account-a');
+    getSystemLoops.mockResolvedValueOnce(envelope({
+      'loop.wiki-maintenance': { status: 'ready', reason: 'Account A is ready.' }
+    }));
+    const first = render(<Harness><NoeisLoopProvider><Probe /></NoeisLoopProvider></Harness>);
+    expect(await screen.findByText('ready')).toBeInTheDocument();
+    first.unmount();
+
+    localStorage.setItem('token', 'account-b');
+    getSystemLoops.mockResolvedValueOnce(envelope({
+      'loop.wiki-maintenance': { status: 'needs_review', reason: 'Account B needs review.' }
+    }));
+    render(<Harness><NoeisLoopProvider><Probe /></NoeisLoopProvider></Harness>);
+
+    expect(await screen.findByText('needs_review')).toBeInTheDocument();
+    expect(getSystemLoops).toHaveBeenCalledTimes(2);
   });
 
   it('fails visibly instead of retaining a checking placeholder when durable status is unavailable', async () => {
@@ -109,5 +132,30 @@ describe('NoeisLoopProvider', () => {
     );
     expect(await screen.findByText('ready')).toBeInTheDocument();
     expect(screen.getByTestId('receipt')).toHaveTextContent('user-action');
+  });
+
+  it('does not move a prior background-loop receipt backwards', async () => {
+    getSystemLoops.mockResolvedValue(envelope({
+      'loop.wiki-maintenance': {
+        status: 'ready',
+        reason: 'Maintenance completed.',
+        receipt: {
+          id: 'maintenance-old', source: 'wiki', kind: 'wiki_maintenance', status: 'completed',
+          title: 'Wiki maintenance', summary: 'Older durable receipt.', completedAt: '2026-08-22T11:00:00.000Z'
+        }
+      }
+    }));
+    render(
+      <Harness initialState={{
+        latestReceipt: {
+          id: 'maintenance-new', title: 'Wiki maintenance', summary: 'Newer durable receipt.',
+          loopId: 'loop.wiki-maintenance', completedAt: '2026-08-22T12:00:00.000Z'
+        }
+      }}>
+        <NoeisLoopProvider><Probe /></NoeisLoopProvider>
+      </Harness>
+    );
+    expect(await screen.findByText('ready')).toBeInTheDocument();
+    expect(screen.getByTestId('receipt')).toHaveTextContent('maintenance-new');
   });
 });

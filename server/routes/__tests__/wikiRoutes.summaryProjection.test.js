@@ -62,6 +62,9 @@ assert.ok(!asksFor('claims.text'), 'claim text is not read by any list');
 assert.ok(!asksFor('claims.history'), 'claim history is the largest part of the claim ledger');
 assert.ok(!asksFor('citations.quote'), 'citation quotes are not read by any list');
 
+['judgment.dependsOn.dependencyId', 'judgment.dependsOn.pageId', 'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy']
+  .forEach(field => assert.ok(has(field), `the Judgment dependency graph reads ${field}`));
+
 /* ------------------------------------------------------------------ *
  * No accidental whole-subtree requests.
  * ------------------------------------------------------------------ */

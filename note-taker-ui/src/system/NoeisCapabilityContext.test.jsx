@@ -19,6 +19,7 @@ const Probe = () => {
 
 describe('NoeisCapabilityProvider', () => {
   beforeEach(() => {
+    localStorage.clear();
     resetNoeisCapabilitySnapshotForTests();
   });
 
@@ -40,6 +41,7 @@ describe('NoeisCapabilityProvider', () => {
   });
 
   it('shares the recent snapshot across provider remounts', async () => {
+    localStorage.setItem('token', 'same-account');
     listImportConnections.mockResolvedValue([{ id: 'rw-1', provider: 'readwise', status: 'connected' }]);
     const first = render(<NoeisCapabilityProvider><Probe /></NoeisCapabilityProvider>);
     expect(await screen.findByText('connected')).toBeInTheDocument();
@@ -47,5 +49,20 @@ describe('NoeisCapabilityProvider', () => {
     render(<NoeisCapabilityProvider><Probe /></NoeisCapabilityProvider>);
     expect(await screen.findByText('connected')).toBeInTheDocument();
     expect(listImportConnections).toHaveBeenCalledTimes(1);
+  });
+
+  it('never reuses connector readiness after the signed-in account changes', async () => {
+    localStorage.setItem('token', 'account-a');
+    listImportConnections.mockResolvedValueOnce([{ id: 'rw-a', provider: 'readwise', status: 'connected' }]);
+    const first = render(<NoeisCapabilityProvider><Probe /></NoeisCapabilityProvider>);
+    expect(await screen.findByText('connected')).toBeInTheDocument();
+    first.unmount();
+
+    localStorage.setItem('token', 'account-b');
+    listImportConnections.mockResolvedValueOnce([]);
+    render(<NoeisCapabilityProvider><Probe /></NoeisCapabilityProvider>);
+
+    expect(await screen.findByText('needs_setup')).toBeInTheDocument();
+    expect(listImportConnections).toHaveBeenCalledTimes(2);
   });
 });

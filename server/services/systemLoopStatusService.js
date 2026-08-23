@@ -51,9 +51,23 @@ const findLatestReceipt = async ({ NoeisReceipt, userId, kinds, query: binding =
     ...binding
   }, {
     sort: { completedAt: -1, updatedAt: -1 },
-    select: 'receiptId kind source sourceLabel status title summary nextAction provenance error createdAtExternal completedAt createdAt updatedAt'
+    select: 'receiptId kind source sourceLabel status title summary nextAction completedAt createdAt updatedAt'
   });
-  return row ? serializeStoredReceipt(row) : null;
+  if (!row) return null;
+  const receipt = serializeStoredReceipt(row);
+  return {
+    id: receipt.id,
+    kind: receipt.kind,
+    source: receipt.source,
+    sourceLabel: receipt.sourceLabel,
+    status: receipt.status,
+    title: receipt.title,
+    summary: receipt.summary,
+    nextAction: receipt.nextAction,
+    completedAt: receipt.completedAt,
+    createdAt: receipt.createdAt,
+    updatedAt: receipt.updatedAt
+  };
 };
 
 const loopState = ({ id, status, reason, updatedAt = null, href = '', receipt = null, metrics = {} }) => ({
@@ -90,6 +104,11 @@ const buildMaintenanceState = ({ run, receipt }) => {
   if (status === 'needs_review') return loopState({
     id: 'loop.wiki-maintenance', status: 'needs_review',
     reason: 'Wiki maintenance produced a candidate that needs human review.',
+    updatedAt, href, receipt
+  });
+  if (status !== 'completed') return loopState({
+    id: 'loop.wiki-maintenance', status: 'error',
+    reason: 'The latest Wiki maintenance run has an unreadable state and needs review.',
     updatedAt, href, receipt
   });
   return loopState({
@@ -186,7 +205,7 @@ const buildSystemLoopStatus = async ({ userId, models = {}, now = new Date() } =
       userId,
       archived: { $ne: true },
       'createdFrom.label': /^this-week-in-ai:/i
-    }),
+    }, { sort: { 'createdFrom.label': -1, createdAt: -1 } }),
     countRows(WikiPage, {
       userId,
       archived: { $ne: true },

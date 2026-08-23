@@ -1,12 +1,14 @@
 const assert = require('assert');
 const {
   LOOP_IDS,
+  buildMaintenanceState,
   buildSystemLoopStatus
 } = require('./systemLoopStatusService');
 
+const observedSorts = [];
 class Query {
   constructor(value) { this.value = value; }
-  sort() { return this; }
+  sort(value) { observedSorts.push(value); return this; }
   select() { return this; }
   lean() { return this; }
   then(resolve, reject) { return Promise.resolve(this.value).then(resolve, reject); }
@@ -55,7 +57,8 @@ const run = async () => {
       NoeisReceipt: receiptModel([
         {
           receiptId: 'maintenance-1', kind: 'wiki_maintenance', source: 'wiki', status: 'completed',
-          title: 'Wiki maintenance', summary: 'A source is being applied.', completedAt: '2026-08-22T11:58:00.000Z'
+          title: 'Wiki maintenance', summary: 'A source is being applied.', completedAt: '2026-08-22T11:58:00.000Z',
+          provenance: { privateArtifact: 'must not leave the status endpoint' }
         },
         {
           receiptId: 'paper-1', kind: 'morning_paper_email', source: 'morning-paper', status: 'completed',
@@ -79,11 +82,13 @@ const run = async () => {
   assert.strictEqual(result.loops['loop.morning-paper'].status, 'ready');
   assert.strictEqual(result.loops['loop.morning-paper'].receipt.id, 'paper-1');
   assert.strictEqual(result.loops['loop.wiki-maintenance'].status, 'running');
+  assert.strictEqual(result.loops['loop.wiki-maintenance'].receipt.provenance, undefined);
   assert.strictEqual(result.loops['loop.weekly-ai'].status, 'needs_review');
   assert.strictEqual(result.loops['loop.outcome-review'].status, 'needs_review');
   assert.strictEqual(result.loops['loop.outcome-review'].metrics.dueCount, 2);
   assert.ok(receiptQueries.some(query => query['provenance.maintenanceRunId'] === '64f600000000000000000003'));
   assert.ok(receiptQueries.some(query => query['provenance.pageId'] === pageId));
+  assert.ok(observedSorts.some(sort => sort['createdFrom.label'] === -1));
 
   const quiet = await buildSystemLoopStatus({
     userId,
@@ -97,6 +102,10 @@ const run = async () => {
     }
   });
   LOOP_IDS.forEach(id => assert.strictEqual(quiet.loops[id].status, 'idle'));
+
+  assert.strictEqual(buildMaintenanceState({ run: { status: 'completed' } }).status, 'ready');
+  assert.strictEqual(buildMaintenanceState({ run: { status: 'future_status' } }).status, 'error');
+  assert.strictEqual(buildMaintenanceState({ run: { status: '' } }).status, 'error');
 
   await assert.rejects(() => buildSystemLoopStatus({ models: {} }), /userId is required/);
   console.log('systemLoopStatusService tests passed');

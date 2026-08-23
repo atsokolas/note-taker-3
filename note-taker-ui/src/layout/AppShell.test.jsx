@@ -50,4 +50,27 @@ describe('AppShell landmarks', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('keeps keyboard focus inside the open agent drawer', () => {
+    render(
+      <AppShell
+        topBar={<header><button type="button">Outside</button></header>}
+        rightRail={<aside aria-label="Agent"><input aria-label="Agent question" /></aside>}
+      >
+        <main>Library</main>
+      </AppShell>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agent' }));
+    const close = screen.getByRole('button', { name: 'Close' });
+    const question = screen.getByRole('textbox', { name: 'Agent question' });
+
+    close.focus();
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(question).toHaveFocus();
+
+    question.focus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(close).toHaveFocus();
+  });
 });

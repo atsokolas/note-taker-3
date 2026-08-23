@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAgentRail } from './AgentRailContext';
 import '../styles/agent-rail.css';
 
@@ -28,6 +28,9 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [index, setIndex] = useState(0);
+  const leaveTimer = useRef(null);
+
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
 
   const candidates = [proposal, ...(Array.isArray(proposal.alternatives) ? proposal.alternatives : [])];
   const shown = candidates[index] || proposal;
@@ -35,7 +38,8 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
 
   const leave = (run) => {
     setLeaving(true);
-    window.setTimeout(run, 200);
+    window.clearTimeout(leaveTimer.current);
+    leaveTimer.current = window.setTimeout(run, 200);
   };
 
   /* Accept writes what is on screen, not what arrived first. */
@@ -101,7 +105,7 @@ const AgentRail = () => {
   const submit = (event) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || busy || !canAsk) return;
+    if (!question || busy) return;
     setDraft('');
     ask(question);
   };

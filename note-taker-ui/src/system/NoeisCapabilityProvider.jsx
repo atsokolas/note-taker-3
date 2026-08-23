@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listImportConnections } from '../api/imports';
 import {
   createConnectorCommands,
@@ -6,43 +6,30 @@ import {
   resolveCapabilityAvailability
 } from './noeisCapabilityModel';
 import { NoeisCapabilityContext } from './noeisCapabilityContext';
+import { createAuthScopedSnapshotCache } from './authScopedSnapshotCache';
 
-const SNAPSHOT_TTL_MS = 30_000;
-let cachedConnections = null;
-let cachedAt = 0;
-let pendingConnections = null;
-
-const loadConnectionSnapshot = async ({ force = false } = {}) => {
-  const fresh = Array.isArray(cachedConnections) && (Date.now() - cachedAt) < SNAPSHOT_TTL_MS;
-  if (!force && fresh) return cachedConnections;
-  if (pendingConnections) return pendingConnections;
-  pendingConnections = listImportConnections()
-    .then((connections) => {
-      cachedConnections = Array.isArray(connections) ? connections : [];
-      cachedAt = Date.now();
-      return cachedConnections;
-    })
-    .finally(() => {
-      pendingConnections = null;
-    });
-  return pendingConnections;
-};
+const connectionSnapshotCache = createAuthScopedSnapshotCache({
+  ttlMs: 30_000,
+  load: () => listImportConnections(),
+  normalize: connections => Array.isArray(connections) ? connections : []
+});
 
 export const resetNoeisCapabilitySnapshotForTests = () => {
-  cachedConnections = null;
-  cachedAt = 0;
-  pendingConnections = null;
+  connectionSnapshotCache.reset();
 };
 
 export const NoeisCapabilityProvider = ({ children }) => {
   const [state, setState] = useState({ loading: true, error: '', connections: [] });
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async ({ force = true } = {}) => {
     setState(current => ({ ...current, loading: true, error: '' }));
     try {
-      const connections = await loadConnectionSnapshot({ force });
+      const connections = await connectionSnapshotCache.read({ force });
+      if (!mountedRef.current) return;
       setState({ loading: false, error: '', connections: Array.isArray(connections) ? connections : [] });
     } catch (error) {
+      if (!mountedRef.current) return;
       setState({
         loading: false,
         error: error?.response?.data?.error || error?.message || 'Connection readiness could not be checked.',
@@ -52,7 +39,9 @@ export const NoeisCapabilityProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     refresh({ force: false });
+    return () => { mountedRef.current = false; };
   }, [refresh]);
 
   const connectors = useMemo(() => createConnectorRuntimeSnapshot(state), [state]);

@@ -5,30 +5,15 @@ import { normalizeSystemReceipt } from './systemStatusModel';
 import { NoeisLoopContext } from './noeisLoopContext';
 import { NOEIS_LOOP_STATUS_CHANGED_EVENT } from './noeisLoopEvents';
 import { NOEIS_LOOP_DEFINITIONS, createCheckingLoopSnapshot, createErrorLoopSnapshot, latestLoopReceipt } from './noeisLoopModel';
+import { createAuthScopedSnapshotCache } from './authScopedSnapshotCache';
 
-const SNAPSHOT_TTL_MS = 60_000;
-let cachedEnvelope = null;
-let cachedAt = 0;
-let pendingEnvelope = null;
-
-const loadLoopSnapshot = async ({ force = false } = {}) => {
-  const fresh = cachedEnvelope && (Date.now() - cachedAt) < SNAPSHOT_TTL_MS;
-  if (!force && fresh) return cachedEnvelope;
-  if (pendingEnvelope) return pendingEnvelope;
-  pendingEnvelope = getSystemLoops()
-    .then((envelope) => {
-      cachedEnvelope = envelope;
-      cachedAt = Date.now();
-      return envelope;
-    })
-    .finally(() => { pendingEnvelope = null; });
-  return pendingEnvelope;
-};
+const loopSnapshotCache = createAuthScopedSnapshotCache({
+  ttlMs: 60_000,
+  load: () => getSystemLoops()
+});
 
 export const resetNoeisLoopSnapshotForTests = () => {
-  cachedEnvelope = null;
-  cachedAt = 0;
-  pendingEnvelope = null;
+  loopSnapshotCache.reset();
 };
 
 const labelForLoop = loopId => NOEIS_LOOP_DEFINITIONS.find(loop => loop.id === loopId)?.name || 'Background loop';
@@ -85,7 +70,7 @@ export const NoeisLoopProvider = ({ children }) => {
     const latest = latestLoopReceipt(loops);
     const receipt = latest ? normalizeSystemReceipt(latest.receipt, { href: loops[latest.loopId]?.href }) : null;
     const currentReceipt = systemSnapshotRef.current.latestReceipt;
-    if (receipt && (!currentReceipt || currentReceipt.loopId || isNewerReceipt(receipt, currentReceipt))) {
+    if (receipt && (!currentReceipt || isNewerReceipt(receipt, currentReceipt))) {
       setLatestReceipt({ ...receipt, loopId: latest.loopId });
     }
   }, [clearRecoverableFailure, setBackgroundWork, setLatestReceipt, setRecoverableFailure]);
@@ -93,7 +78,7 @@ export const NoeisLoopProvider = ({ children }) => {
   const refresh = useCallback(async ({ force = true } = {}) => {
     setState(current => ({ ...current, loading: true, error: '' }));
     try {
-      const envelope = await loadLoopSnapshot({ force });
+      const envelope = await loopSnapshotCache.read({ force });
       if (!mountedRef.current) return;
       setState({ loading: false, error: '', generatedAt: envelope.generatedAt, loops: envelope.loops });
       if (projectedRef.current.statusFailure && systemSnapshotRef.current.recoverableFailure?.source === 'loop-registry') {

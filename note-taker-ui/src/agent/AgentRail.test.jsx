@@ -75,6 +75,20 @@ describe('AgentRail', () => {
     expect(within(rail()).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
   });
 
+  it('explains when the current surface has no retrieval handler', async () => {
+    render(
+      <AgentRailProvider>
+        <ProjectionToggle />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'What changed?' }
+    });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    expect(await within(rail).findByRole('alert')).toHaveTextContent('nothing to ask against');
+  });
+
   it('survives a column change and follows the new subject', async () => {
     const { rail } = renderRail();
 
@@ -120,6 +134,40 @@ describe('AgentRail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
 
     await waitFor(() => expect(within(rail()).queryByText('A retrieved line.')).not.toBeInTheDocument());
+  });
+
+  it('drops a retrieve that finishes after the column has moved on', async () => {
+    let release;
+    const onAsk = jest.fn(() => new Promise(resolve => { release = resolve; }));
+    const { rail } = renderRail({ onAsk });
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'anything' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+    release({ id: 'p1', sentence: 'A stale line.', body: 'A stale line.' });
+
+    await waitFor(() => expect(within(rail()).getByText('The second claim.')).toBeInTheDocument());
+    expect(within(rail()).queryByText('A stale line.')).not.toBeInTheDocument();
+  });
+
+  it('does not accept a proposal after the column changes during its exit motion', async () => {
+    const onAsk = jest.fn(async () => ({ id: 'p1', sentence: 'A stale line.', body: 'A stale line.' }));
+    const { rail, accepted } = renderRail({ onAsk });
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'anything' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+    await within(rail()).findByText('A stale line.');
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Against' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
+
+    await new Promise(resolve => window.setTimeout(resolve, 250));
+    expect(accepted).toEqual([]);
   });
 
   it('hands an accepted line to the page, with the field the human chose', async () => {

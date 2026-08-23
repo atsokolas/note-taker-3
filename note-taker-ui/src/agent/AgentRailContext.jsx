@@ -26,16 +26,37 @@ export const AgentRailProvider = ({ children }) => {
   // Holding them in a ref keeps that churn out of the render path.
   const handlers = useRef({});
   const surfaceKey = useRef('');
+  const surfaceOwner = useRef(null);
+  const surfaceRevision = useRef(0);
+  const pendingRevision = useRef(null);
 
-  const registerSurface = useCallback((next) => {
+  const registerSurface = useCallback((next, owner) => {
     const normalized = { ...EMPTY_SURFACE, ...(next || {}) };
     const key = JSON.stringify(normalized);
-    if (surfaceKey.current === key) return;
+    if (surfaceOwner.current === owner && surfaceKey.current === key) return;
+    surfaceOwner.current = owner;
     surfaceKey.current = key;
+    surfaceRevision.current += 1;
+    pendingRevision.current = null;
     setSurface(normalized);
     // A different subject is a different conversation. Proposals about the
     // last thing must not follow the human to the next one.
     setProposals([]);
+    setBusy(false);
+    setError('');
+  }, []);
+
+  const unregisterSurface = useCallback((owner) => {
+    if (surfaceOwner.current !== owner) return;
+    surfaceOwner.current = null;
+    surfaceKey.current = '';
+    surfaceRevision.current += 1;
+    pendingRevision.current = null;
+    handlers.current = {};
+    setSurface(EMPTY_SURFACE);
+    setProposals([]);
+    setBusy(false);
+    setCanAsk(false);
     setError('');
   }, []);
 
@@ -44,26 +65,39 @@ export const AgentRailProvider = ({ children }) => {
   // control that silently does nothing.
   const [canAsk, setCanAsk] = useState(false);
 
-  const setHandlers = useCallback((next) => {
+  const setHandlers = useCallback((next, owner) => {
+    if (owner && surfaceOwner.current !== owner) return;
     handlers.current = next || {};
     setCanAsk(typeof handlers.current.onAsk === 'function');
   }, []);
 
-  const addProposal = useCallback((proposal) => {
+  const capabilityChecks = (surface.capabilities || []).map(capabilityModel.resolveCapability);
+  const blockedCapability = capabilityChecks.find(item => !['available', 'active'].includes(item.status));
+  const agentAvailable = !blockedCapability;
+  const availabilityReason = blockedCapability?.reason || 'Available for the current knowledge surface.';
+
+  const addProposal = useCallback((proposal, revision = surfaceRevision.current) => {
     if (!proposal?.sentence) return;
     setProposals((current) => [
       ...current.filter(item => item.id !== proposal.id),
-      { fields: ['why', 'against'], ...proposal }
+      { fields: ['why', 'against'], ...proposal, _surfaceRevision: revision }
     ]);
   }, []);
 
-  const dismissProposal = useCallback((proposalId) => {
-    setProposals((current) => current.filter(item => item.id !== proposalId));
+  const dismissProposal = useCallback((proposalId, revision = surfaceRevision.current) => {
+    setProposals((current) => current.filter(item => (
+      item.id !== proposalId || item._surfaceRevision !== revision
+    )));
   }, []);
 
   const ask = useCallback(async (question, options = {}) => {
+    const revision = surfaceRevision.current;
+    if (pendingRevision.current === revision) return;
     const run = handlers.current.onAsk;
-    if (busy) return;
+    if (!agentAvailable) {
+      setError(availabilityReason);
+      return;
+    }
     /* A surface with nothing registered used to swallow the click: no request,
        no error, no sign anything had happened. Silence is the one answer an
        agent door must never give. */
@@ -71,20 +105,28 @@ export const AgentRailProvider = ({ children }) => {
       setError('This page has nothing to ask against yet.');
       return;
     }
+    pendingRevision.current = revision;
     setBusy(true);
     setError('');
     try {
       const proposal = await run(question, options);
-      if (proposal?.sentence) addProposal(proposal);
+      if (surfaceRevision.current !== revision) return;
+      if (proposal?.sentence) addProposal(proposal, revision);
       else setError('Nothing came back for that.');
     } catch (askError) {
+      if (surfaceRevision.current !== revision) return;
       setError(askError?.response?.data?.error || askError?.message || 'That search could not run.');
     } finally {
-      setBusy(false);
+      if (pendingRevision.current === revision) {
+        pendingRevision.current = null;
+        setBusy(false);
+      }
     }
-  }, [addProposal, busy]);
+  }, [addProposal, agentAvailable, availabilityReason]);
 
   const accept = useCallback(async (proposal, field) => {
+    const revision = surfaceRevision.current;
+    if (proposal?._surfaceRevision !== revision) return;
     const write = handlers.current.onAccept;
     if (!write) return;
     const allowed = Array.isArray(surface.supportedActions) ? surface.supportedActions : [];
@@ -92,20 +134,15 @@ export const AgentRailProvider = ({ children }) => {
       setError('This page does not permit that agent action. Nothing was written down.');
       return;
     }
-    dismissProposal(proposal.id);
+    dismissProposal(proposal.id, revision);
     setError('');
     try {
       await write(proposal, field);
     } catch (writeError) {
       setError(writeError?.response?.data?.error || 'That line could not be saved. It has not been written down.');
-      addProposal(proposal);
+      if (surfaceRevision.current === revision) addProposal(proposal, revision);
     }
   }, [addProposal, dismissProposal, surface.supportedActions]);
-
-  const capabilityChecks = (surface.capabilities || []).map(capabilityModel.resolveCapability);
-  const blockedCapability = capabilityChecks.find(item => !['available', 'active'].includes(item.status));
-  const agentAvailable = !blockedCapability;
-  const availabilityReason = blockedCapability?.reason || 'Available for the current knowledge surface.';
 
   const value = useMemo(() => ({
     surface,
@@ -117,12 +154,13 @@ export const AgentRailProvider = ({ children }) => {
     draft,
     setDraft,
     registerSurface,
+    unregisterSurface,
     setHandlers,
     addProposal,
     dismissProposal,
     ask,
     accept
-  }), [accept, addProposal, agentAvailable, ask, availabilityReason, busy, canAsk, dismissProposal, draft, error, proposals, registerSurface, setHandlers, surface]);
+  }), [accept, addProposal, agentAvailable, ask, availabilityReason, busy, canAsk, dismissProposal, draft, error, proposals, registerSurface, setHandlers, surface, unregisterSurface]);
 
   return <AgentRailContext.Provider value={value}>{children}</AgentRailContext.Provider>;
 };
@@ -137,6 +175,7 @@ export const useAgentRail = () => useContext(AgentRailContext) || {
   draft: '',
   setDraft: () => {},
   registerSurface: () => {},
+  unregisterSurface: () => {},
   setHandlers: () => {},
   addProposal: () => {},
   dismissProposal: () => {},
@@ -151,15 +190,18 @@ export const useAgentRail = () => useContext(AgentRailContext) || {
  * every render. `handlers` is stored in a ref and may change freely.
  */
 const useResolvedAgentSurface = (descriptor, handlers) => {
-  const { registerSurface, setHandlers } = useAgentRail();
+  const { registerSurface, unregisterSurface, setHandlers } = useAgentRail();
+  const owner = useRef(Symbol('agent-surface-owner'));
   const descriptorKey = JSON.stringify(descriptor || null);
 
   useEffect(() => {
-    registerSurface(descriptor ? JSON.parse(descriptorKey) : null);
-  }, [descriptorKey, registerSurface]); // eslint-disable-line react-hooks/exhaustive-deps
+    const currentOwner = owner.current;
+    registerSurface(descriptor ? JSON.parse(descriptorKey) : null, currentOwner);
+    return () => unregisterSurface(currentOwner);
+  }, [descriptorKey, registerSurface, unregisterSurface]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    setHandlers(handlers);
+    setHandlers(handlers, owner.current);
   });
 };
 
