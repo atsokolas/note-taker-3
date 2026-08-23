@@ -2,10 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSystemStatusControls } from '../system/SystemStatusContext';
 import api from '../api';
-import { Button, Card, Page } from '../components/ui';
+import { Button, Card } from '../components/ui';
 import { chatWithAgent, fetchNotionPagesViaAgent } from '../api/agent';
 import { getEmbeddingJobStatus } from '../api/ai';
-import ExternalBridgeCard from '../components/integrations/ExternalBridgeCard';
 import NotionAgentFetchCard from '../components/integrations/NotionAgentFetchCard';
 import ConnectionReceiptCard from '../components/integrations/ConnectionReceiptCard';
 import {
@@ -44,41 +43,12 @@ import {
   saveFirstInsightState,
   updateFirstInsightState
 } from '../utils/firstInsight';
-import useAgentBridge from '../hooks/integrations/useAgentBridge';
-import usePersonalAgents from '../hooks/integrations/usePersonalAgents';
 import { trackActivationMilestone } from '../utils/marketingAnalytics';
 import { composeReadwiseConnectMoment, countActiveConcepts } from '../utils/connectionMagicMoment';
+import { getImportSourceOptions } from '../system/noeisCapabilityModel';
+import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 
-const SOURCE_OPTIONS = [
-  {
-    key: 'readwise',
-    title: 'Readwise',
-    subtitle: 'Bring in highlights and notes from your reading layer.',
-    status: 'Available today',
-    helper: 'Connect through browser approval first; token sync and CSV remain available as direct Noeis fallbacks.'
-  },
-  {
-    key: 'notion',
-    title: 'Notion',
-    subtitle: 'Import pages plus database row content into notebook-ready text.',
-    status: 'Available today',
-    helper: 'OAuth connect, preview, and direct sync are live for accessible pages and database content.'
-  },
-  {
-    key: 'evernote',
-    title: 'Evernote',
-    subtitle: 'Keep notebook migrations clean instead of flattening everything into one dump.',
-    status: 'Available today',
-    helper: 'ENEX import uses the same session, indexing, and activation flow as the direct providers.'
-  },
-  {
-    key: 'files',
-    title: 'Files and text',
-    subtitle: 'Paste or upload markdown/plain text when you need a quick path.',
-    status: 'Available today',
-    helper: 'Useful for exports, clipped text, and one-off notes while direct connections are being added.'
-  }
-];
+const SOURCE_OPTIONS = getImportSourceOptions();
 
 const getRequestedSourceFromLocation = () => {
   if (typeof window === 'undefined') return '';
@@ -628,15 +598,19 @@ const getActivationCopy = ({ state, session, scheduleTarget }) => {
   };
 };
 
-const DataIntegrations = ({ embedded = false } = {}) => {
+const DataIntegrations = () => {
   const navigate = useNavigate();
+  const {
+    provided: capabilityProviderMounted,
+    connections: capabilityConnections,
+    loading: capabilityConnectionsLoading,
+    refresh: refreshCapabilities
+  } = useNoeisCapabilities();
   const systemStatus = useSystemStatusControls();
   const publishSystemReceipt = useCallback((receipt, fallback = null) => {
     const normalized = normalizeSystemReceipt(receipt, { href: '/connections' });
     systemStatus.setLatestReceipt(normalized || fallback);
   }, [systemStatus]);
-  const bridgeModel = useAgentBridge();
-  const personalAgentsModel = usePersonalAgents();
   const explicitSourceSelectionRef = useRef(Boolean(getRequestedSourceFromLocation()));
   const [selectedSource, setSelectedSource] = useState(() => getRequestedSourceFromLocation() || 'readwise');
   const selectSource = useCallback((source) => {
@@ -688,7 +662,6 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   const csvInputRef = useRef(null);
   const mdInputRef = useRef(null);
   const enexInputRef = useRef(null);
-  const [showAdvancedBridgeSetup, setShowAdvancedBridgeSetup] = useState(false);
   const setStatus = useCallback((message, tone = 'info') => {
     setImportStatus({ message, tone });
   }, []);
@@ -761,43 +734,32 @@ const DataIntegrations = ({ embedded = false } = {}) => {
   }, [currentSession?.status]);
 
   useEffect(() => {
-    let cancelled = false;
-    const loadReadwiseConnection = async () => {
-      try {
-        const connections = await listImportConnections({ provider: 'readwise' });
+    if (!capabilityProviderMounted) {
+      let cancelled = false;
+      Promise.all([
+        listImportConnections({ provider: 'readwise' }),
+        listImportConnections({ provider: 'notion' })
+      ]).then(([readwise, notion]) => {
         if (cancelled) return;
-        const latest = connections[0] || null;
-        setReadwiseConnections(Array.isArray(connections) ? connections : []);
-        setReadwiseConnection(latest);
-        if (latest?.accountLabel) {
-          setReadwiseLabel(latest.accountLabel);
-        }
-      } catch (error) {
-        console.error('Failed to load Readwise connection:', error);
-      }
-    };
-    loadReadwiseConnection();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadNotionConnection = async () => {
-      try {
-        const connections = await listImportConnections({ provider: 'notion' });
-        if (cancelled) return;
-        setNotionConnection(connections[0] || null);
-      } catch (error) {
-        console.error('Failed to load Notion connection:', error);
-      }
-    };
-    loadNotionConnection();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+        const safeReadwise = Array.isArray(readwise) ? readwise : [];
+        const latestReadwise = safeReadwise[0] || null;
+        setReadwiseConnections(safeReadwise);
+        setReadwiseConnection(latestReadwise);
+        setNotionConnection(Array.isArray(notion) ? notion[0] || null : null);
+        if (latestReadwise?.accountLabel) setReadwiseLabel(latestReadwise.accountLabel);
+      }).catch(error => console.error('Failed to load source connections:', error));
+      return () => { cancelled = true; };
+    }
+    if (capabilityConnectionsLoading) return;
+    const readwise = capabilityConnections.filter(connection => connection?.provider === 'readwise');
+    const notion = capabilityConnections.filter(connection => connection?.provider === 'notion');
+    const latestReadwise = readwise[0] || null;
+    setReadwiseConnections(readwise);
+    setReadwiseConnection(latestReadwise);
+    setNotionConnection(notion[0] || null);
+    if (latestReadwise?.accountLabel) setReadwiseLabel(latestReadwise.accountLabel);
+    return undefined;
+  }, [capabilityConnections, capabilityConnectionsLoading, capabilityProviderMounted]);
 
   /**
    * Bring the whole archive in the moment a source is connected.
@@ -854,6 +816,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
       if (data?.connection) {
         if (provider === 'readwise') setReadwiseConnection(data.connection);
         else setNotionConnection(data.connection);
+        await refreshCapabilities();
       }
       return summary;
     } catch (error) {
@@ -865,7 +828,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     } finally {
       systemStatus.setBackgroundWork(null);
     }
-  }, [setStatus, systemStatus]);
+  }, [refreshCapabilities, setStatus, systemStatus]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -881,6 +844,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
             const connections = await listImportConnections({ provider: 'notion' });
             const latest = connections[0] || null;
             setNotionConnection(latest);
+            await refreshCapabilities();
             const imported = await importWholeArchiveOnConnect({ provider: 'notion', connection: latest });
             const receipt = buildConnectionReturnReceipt({
               provider: 'notion',
@@ -917,6 +881,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
               setReadwiseLabel(latest.accountLabel);
             }
             setReadwiseConnections(Array.isArray(connections) ? connections : []);
+            await refreshCapabilities();
             let previewHighlights;
             let previewItems;
             if (latest?.id) {
@@ -971,7 +936,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     } else if (['readwise', 'notion', 'evernote'].includes(hashSource)) {
       selectSource(hashSource);
     }
-  }, [importWholeArchiveOnConnect, publishSystemReceipt, selectSource, setStatus]);
+  }, [importWholeArchiveOnConnect, publishSystemReceipt, refreshCapabilities, selectSource, setStatus]);
 
   useEffect(() => {
     const hashSource = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
@@ -1284,6 +1249,7 @@ const DataIntegrations = ({ embedded = false } = {}) => {
         ...previous.filter((item) => item?.id !== connection?.id)
       ]);
       setReadwiseToken('');
+      await refreshCapabilities();
       setStatus('Readwise connected. You can sync directly now.', 'success');
     } catch (error) {
       console.error('Readwise connect failed:', error);
@@ -3274,56 +3240,13 @@ const DataIntegrations = ({ embedded = false } = {}) => {
     </>
   );
 
-  if (embedded) {
-    return (
-      <div
-        className="connections-sources-section data-integrations-page"
-        data-testid="connections-sources"
-      >
-        {sourceContent}
-      </div>
-    );
-  }
-
   return (
-    <Page className="settings-page data-integrations-page">
-      <div className="page-header">
-        <p className="muted-label">Mode</p>
-        <h1>Bring your knowledge</h1>
-        <p className="muted">Choose a source, import the text cleanly, then turn it into a concept instead of leaving it as a dead archive.</p>
-      </div>
-
-      <Card className="settings-card data-integrations-agent-setup">
-        <div>
-          <p className="muted-label">Connected agents</p>
-          <h2>Need OpenClaw or Hermes?</h2>
-          <p className="muted">
-            Use the connections center for one-command browser approval. Raw bridge/runtime config lives under Advanced.
-          </p>
-        </div>
-        <div className="settings-option-row">
-          <Button type="button" variant="secondary" onClick={() => navigate('/connections#agents')}>
-            Open agent setup
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setShowAdvancedBridgeSetup((previous) => !previous)}
-          >
-            {showAdvancedBridgeSetup ? 'Hide advanced bridge' : 'Show advanced bridge'}
-          </Button>
-        </div>
-      </Card>
-
-      {showAdvancedBridgeSetup ? (
-        <ExternalBridgeCard
-          bridgeModel={bridgeModel}
-          sortedAgents={personalAgentsModel.sortedAgents}
-        />
-      ) : null}
-
+    <div
+      className="connections-sources-section data-integrations-page"
+      data-testid="connections-sources"
+    >
       {sourceContent}
-    </Page>
+    </div>
   );
 };
 

@@ -50,6 +50,15 @@ jest.mock('../api/tourApi', () => ({
   resetTourState: jest.fn().mockResolvedValue({})
 }));
 
+const waitForSettingsHydration = async () => {
+  await waitFor(() => {
+    expect(screen.queryByText('Loading funnel snapshot…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading connected agents…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading delivery settings…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading wiki schema…')).not.toBeInTheDocument();
+  });
+};
+
 describe('Settings marketing reporting', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -143,12 +152,39 @@ describe('Settings marketing reporting', () => {
 
     expect(screen.getByText('Loading funnel snapshot…')).toBeInTheDocument();
 
+    await waitForSettingsHydration();
     await waitFor(() => expect(screen.getByText('12')).toBeInTheDocument());
     expect(screen.getByText('Ai Second Brain')).toBeInTheDocument();
     expect(screen.getByText('google / organic')).toBeInTheDocument();
     expect(screen.getByText('2 activated')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open full analytics' })).toHaveAttribute('href', '/marketing-analytics');
     expect(screen.getByRole('link', { name: 'Open Search Console importer' })).toHaveAttribute('href', '/search-console-opportunities');
+  });
+
+  it('renders the authoritative theme preference instead of hard-coding dark mode', async () => {
+    getMarketingFunnelSnapshot.mockResolvedValue({ totals: {}, byEntry: [], bySource: [] });
+    const onUiSettingsChange = jest.fn();
+
+    render(
+      <MemoryRouter>
+        <Settings
+          uiSettings={{
+            typographyScale: 'default',
+            density: 'comfortable',
+            theme: 'auto',
+            accent: 'electric',
+            brandEnergy: true
+          }}
+          onUiSettingsChange={onUiSettingsChange}
+        />
+      </MemoryRouter>
+    );
+
+    await waitForSettingsHydration();
+    expect(screen.getByRole('button', { name: 'Auto' })).toHaveClass('is-active');
+    expect(screen.getByRole('button', { name: 'Dark' })).not.toHaveClass('is-active');
+    fireEvent.click(screen.getByRole('button', { name: 'Light' }));
+    expect(onUiSettingsChange).toHaveBeenCalledWith({ theme: 'light' });
   });
 
   it('lets the agent suggest wiki schema updates from recent activity', async () => {
@@ -167,6 +203,7 @@ describe('Settings marketing reporting', () => {
       </MemoryRouter>
     );
 
+    await waitForSettingsHydration();
     await screen.findByLabelText('Current wiki schema');
     fireEvent.click(screen.getByRole('button', { name: 'Suggest schema updates' }));
 
@@ -186,6 +223,7 @@ describe('Settings marketing reporting', () => {
       </MemoryRouter>
     );
 
+    await waitForSettingsHydration();
     const editor = await screen.findByLabelText('Current wiki schema');
     expect(editor.value).toContain('Page types I want');
 
@@ -215,6 +253,7 @@ describe('Settings marketing reporting', () => {
     );
 
     expect(screen.queryByText('Wiki schema')).not.toBeInTheDocument();
+    await waitForSettingsHydration();
     await waitFor(() => expect(getWikiSchema).not.toHaveBeenCalled());
   });
 
@@ -252,6 +291,7 @@ describe('Settings marketing reporting', () => {
       </MemoryRouter>
     );
 
+    await waitForSettingsHydration();
     expect(await screen.findByText('Research worker')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Agent token label'), { target: { value: 'Notebook worker' } });
     fireEvent.change(screen.getByLabelText('Agent token daily quota'), { target: { value: '25' } });
@@ -289,6 +329,7 @@ describe('Settings marketing reporting', () => {
       </MemoryRouter>
     );
 
+    await waitForSettingsHydration();
     const tokenRow = await screen.findByText('Research worker');
     const list = tokenRow.closest('.connected-agents-token-row');
     fireEvent.click(within(list).getByRole('button', { name: 'Revoke' }));
@@ -335,6 +376,7 @@ describe('Settings marketing reporting', () => {
       </MemoryRouter>
     );
 
+    await waitForSettingsHydration();
     const tokenRow = (await screen.findByText('Research worker')).closest('.connected-agents-token-row');
     fireEvent.click(within(tokenRow).getByRole('button', { name: 'Activity' }));
     expect(await screen.findByText('Activity · last 30 days')).toBeInTheDocument();

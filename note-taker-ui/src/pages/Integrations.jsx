@@ -89,7 +89,7 @@ const Integrations = () => {
         <Card className="settings-card connections-section__capture">
           <ExtensionCaptureCard heading="Capture" />
         </Card>
-        <DataIntegrations embedded />
+        <DataIntegrations />
       </section>
 
       <section id="agents" className="connections-section" aria-labelledby="connections-agents-heading">

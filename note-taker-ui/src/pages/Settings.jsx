@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Export from './Export';
 import { Page, Card, Button } from '../components/ui';
 import { Link } from 'react-router-dom';
-import { ACCENT_OPTIONS } from '../settings/uiPreferences';
+import { ACCENT_OPTIONS, THEME_OPTIONS } from '../settings/uiPreferences';
 import { resetTourState } from '../api/tourApi';
 import { getMarketingFunnelSnapshot } from '../api/marketingAnalytics';
 import { getWikiSchema, revertWikiSchema, saveWikiSchema, suggestWikiSchemaUpdates } from '../api/wiki';
@@ -12,6 +12,7 @@ import { trackWikiSchemaSaved, trackWikiSchemaSuggested } from '../utils/wikiAna
 import { isWikiReadModeV2Enabled } from '../utils/wikiFeatureFlags';
 import { TOUR_CACHE_KEY } from '../tour/tourConfig';
 import MorningPaperEmailSettingsCard from '../components/settings/MorningPaperEmailSettingsCard';
+import SystemInventoryCard from '../components/settings/SystemInventoryCard';
 
 const TYPOGRAPHY_OPTIONS = [
   { value: 'small', label: 'Small' },
@@ -233,16 +234,19 @@ const Settings = ({
         <div className="settings-option-group">
           <p className="muted-label">Theme</p>
           <div className="settings-option-row">
-            <button
-              type="button"
-              className="settings-option-button is-active"
-              onClick={() => onUiSettingsChange({ theme: 'dark' })}
-            >
-              Dark (Noeis)
-            </button>
+            {THEME_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                className={`settings-option-button${uiSettings.theme === option.value ? ' is-active' : ''}`}
+                onClick={() => onUiSettingsChange({ theme: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
           <p className="muted small" style={{ marginTop: 8 }}>
-            The rebrand is tuned for deep-focus dark mode only.
+            Auto follows your system appearance. Light and dark remain explicit choices.
           </p>
         </div>
 
@@ -283,6 +287,8 @@ const Settings = ({
           </div>
         </div>
       </Card>
+
+      <SystemInventoryCard Card={Card} theme={uiSettings.theme} />
 
       <MorningPaperEmailSettingsCard Card={Card} Button={Button} />
 
