@@ -43,6 +43,8 @@ export const useSystemStatus = (initialState = EMPTY_SYSTEM_STATUS) => {
           && current.summary === next.summary
           && current.status === next.status
           && current.href === next.href
+          && current.completedAt === next.completedAt
+          && current.loopId === next.loopId
         )
       ) return prev;
       return {

@@ -8,6 +8,8 @@
  *   summary: string;
  *   status?: ReceiptStatus;
  *   href?: string;
+ *   completedAt?: string;
+ *   loopId?: string;
  * }} SystemStatusReceipt
  */
 
@@ -15,6 +17,7 @@
  * @typedef {{
  *   label: string;
  *   stage?: string;
+ *   loopId?: string;
  * }} BackgroundWork
  */
 
@@ -23,6 +26,8 @@
  *   stage: string;
  *   message: string;
  *   retryable?: boolean;
+ *   loopId?: string;
+ *   source?: string;
  * }} RecoverableFailure
  */
 
@@ -76,13 +81,15 @@ export const normalizeSystemReceipt = (receipt, options = {}) => {
   const title = asString(receipt.title)
     || `${asString(receipt.sourceLabel || receipt.source || 'Noeis')} ${receipt.kind === 'import' ? 'import' : 'update'}`;
   const summary = asString(receipt.summary);
+  const completedAt = asString(receipt.completedAt || receipt.updatedAt || receipt.createdAt);
   if (!title && !summary) return null;
   return {
     id: asString(receipt.id),
     title,
     summary,
     status: asString(receipt.status) || 'completed',
-    href: asString(receipt.nextAction?.href || options.href)
+    href: asString(receipt.nextAction?.href || options.href),
+    ...(completedAt ? { completedAt } : {})
   };
 };
 
