@@ -280,6 +280,15 @@ html[data-noeis-theme][data-ui-theme] :is(
   box-shadow: var(--noeis-shadow-float);
 }
 
+/* The semantic package is loaded after the editorial room styles, so it also
+   owns the final mobile visibility rule. Show the current room in the header;
+   TopBar renders the complete four-room switcher inside More. */
+@media (max-width: 480px) {
+  html[data-noeis-theme][data-ui-theme] .topbar__primary-link:not(.is-active) {
+    display: none;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   html[data-noeis-theme][data-ui-theme] :is(.topbar__button, .topbar__theme-pill, .ui-button, .ui-quiet-button):hover {
     transform: translateY(-1px);

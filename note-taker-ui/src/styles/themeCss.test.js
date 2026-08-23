@@ -104,6 +104,12 @@ describe('app theme design-system tokens', () => {
     expect(editorialCss).toMatch(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*background: var\(--vellum-bg\) !important;/);
   });
 
+  it('keeps the mobile room label from colliding with shell controls', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
+
+    expect(css).toMatch(/@media \(max-width: 480px\)[\s\S]*\.topbar__primary-link:not\(\.is-active\) \{[\s\S]*display: none;/);
+  });
+
   it('keeps collapsed wiki and concept rails inside their grid tracks', () => {
     const wikiCriticalCss = fs.readFileSync(path.join(__dirname, 'wiki-critical.css'), 'utf8');
     const thinkHomePolishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
