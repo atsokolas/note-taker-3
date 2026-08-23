@@ -504,6 +504,8 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
   const pendingSaveTimerRef = useRef(null);
   const pendingSaveToastRef = useRef('');
   const agentProgressTimerRef = useRef(null);
+  const agentDraftRequestRef = useRef(0);
+  const agentQueueRequestRef = useRef(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -530,6 +532,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
   }, [drawerOpen, drawerTab, drawerFilter, drawerQuery]);
 
   const loadAgentDrafts = useCallback(async () => {
+    const requestId = ++agentDraftRequestRef.current;
     if (!conceptId) {
       setAgentDrafts([]);
       setAgentDraftsError('');
@@ -540,15 +543,18 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
     setAgentDraftsError('');
     try {
       const response = await getConceptAgentSuggestions(conceptId);
+      if (requestId !== agentDraftRequestRef.current) return;
       setAgentDrafts(Array.isArray(response?.drafts) ? response.drafts : []);
     } catch (error) {
+      if (requestId !== agentDraftRequestRef.current) return;
       setAgentDraftsError(error.response?.data?.error || 'Failed to load partner draft suggestions.');
     } finally {
-      setAgentDraftsLoading(false);
+      if (requestId === agentDraftRequestRef.current) setAgentDraftsLoading(false);
     }
   }, [conceptId]);
 
   const loadAgentQueues = useCallback(async () => {
+    const requestId = ++agentQueueRequestRef.current;
     if (!conceptId) {
       setAgentApprovals([]);
       setAgentApprovalsError('');
@@ -568,6 +574,8 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
       listAgentApprovals({ conceptId, status: 'pending', limit: 20 }),
       listAgentSoftDeletes({ conceptId, status: 'deleted', limit: 20 })
     ]);
+
+    if (requestId !== agentQueueRequestRef.current) return;
 
     if (approvalsResult.status === 'fulfilled') {
       setAgentApprovals(Array.isArray(approvalsResult.value?.approvals) ? approvalsResult.value.approvals : []);
@@ -611,6 +619,8 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
   }, [loadAgentQueues]);
 
   useEffect(() => () => {
+    agentDraftRequestRef.current += 1;
+    agentQueueRequestRef.current += 1;
     if (pendingSaveTimerRef.current) {
       window.clearTimeout(pendingSaveTimerRef.current);
     }

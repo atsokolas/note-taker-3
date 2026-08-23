@@ -11,6 +11,7 @@ import { getDailyLoop, recordClaimCheckIn, armReadingWatch, disarmWatcher } from
 jest.mock('../../pages/Paper', () => ({ lead = null, tail = null }) => (
   <div data-testid="paper-on-top">{lead}{tail}</div>
 ));
+jest.mock('./WeeklyDigest', () => () => null);
 
 jest.mock('../../api/knowledgeMovements', () => ({
   __esModule: true,
