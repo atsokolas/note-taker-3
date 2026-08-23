@@ -1,21 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap');
 
 body.noeis-editorial {
-  --noeis-ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --vellum-bg: #fffcf7;
-  --vellum-panel: #fcf9f3;
-  --vellum-panel-strong: #f6f4ec;
-  --vellum-panel-stronger: #eae8de;
-  --vellum-ink: var(--text-primary, #383831);
-  --vellum-muted: var(--text-secondary, #65655c);
-  --vellum-subtle: var(--text-muted, #818178);
-  --vellum-line: var(--surface-border, rgba(129, 129, 120, 0.18));
-  --vellum-line-strong: color-mix(in srgb, var(--surface-border, rgba(129, 129, 120, 0.18)) 155%, transparent);
-  --vellum-accent: #615e5b;
-  --vellum-accent-dim: #55524f;
-  --vellum-warm: #74614a;
+  --noeis-ui-font: var(--noeis-font-ui);
+  --vellum-bg: var(--noeis-canvas);
+  --vellum-panel: var(--noeis-paper);
+  --vellum-panel-strong: var(--noeis-paper-muted);
+  --vellum-panel-stronger: var(--noeis-paper-sunken);
+  --vellum-ink: var(--text-primary);
+  --vellum-muted: var(--text-secondary);
+  --vellum-subtle: var(--text-muted);
+  --vellum-line: var(--surface-border);
+  --vellum-line-strong: var(--noeis-rule-strong);
+  --vellum-accent: var(--noeis-ink-muted);
+  --vellum-accent-dim: var(--noeis-ink-subtle);
+  --vellum-warm: var(--noeis-thread-strong);
   --vellum-cyan: #1d8fa2;
-  --vellum-error: #a54731;
+  --vellum-error: var(--noeis-danger);
   --wiki-graph-node-concept: var(--wiki-warm-accent, #b1862e);
   --wiki-graph-node-entity: #6f6a61;
   --wiki-graph-node-source: var(--wiki-warm-accent, #b1862e);
@@ -35,27 +35,21 @@ body.noeis-editorial {
   --wiki-graph-label-backdrop: rgba(255, 252, 247, 0.82);
   --wiki-graph-label-text: #1f2933;
   --wiki-graph-node-stroke: rgba(255, 255, 255, 0.62);
-  --vellum-shadow: 0 24px 48px color-mix(in srgb, var(--vellum-ink) 6%, transparent);
+  --vellum-shadow: var(--noeis-shadow-float);
   --vellum-scrollbar-thumb: color-mix(in srgb, var(--vellum-ink) 18%, transparent);
   --vellum-scrollbar-thumb-hover: color-mix(in srgb, var(--vellum-ink) 34%, transparent);
   --vellum-scrollbar-thumb-active: color-mix(in srgb, var(--vellum-ink) 46%, transparent);
   --vellum-scrollbar-track: color-mix(in srgb, var(--vellum-ink) 6%, transparent);
-  /* noeis-rebrand.css forces a dark palette on :root and BOTH theme attributes,
-     including --surface-muted: #17265a (dark navy). The editorial body class
-     overrides the obvious surface tokens but missed --surface-muted, so 20+
-     elements (REUSE ACTIONS card, working notebook skeleton blocks, modal
-     surfaces, etc.) leak dark navy onto the cream page. Pin the muted/elevated
-     surfaces to vellum-panel equivalents so the editorial palette is internally
-     consistent. */
+  /* Room aliases are deliberately derived from the semantic shell package. */
   --surface-muted: var(--vellum-panel-strong);
   --surface-elevated: var(--vellum-panel);
   --surface-card: var(--vellum-bg);
   --surface-panel: var(--vellum-panel);
   --surface: var(--vellum-bg);
-  color-scheme: light;
+  color-scheme: inherit;
   background: var(--vellum-bg) !important;
   color: var(--vellum-ink);
-  font-family: "Newsreader", Georgia, serif;
+  font-family: var(--noeis-font-reading);
 }
 
 body.noeis-editorial,
@@ -68,10 +62,10 @@ body.noeis-editorial .wiki-workspace,
 body.noeis-editorial .think-home-editorial,
 body.noeis-editorial .agent-ticker {
   transition:
-    background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    background-color var(--noeis-motion-base) var(--noeis-ease-standard),
+    border-color var(--noeis-motion-base) var(--noeis-ease-standard),
+    color var(--noeis-motion-base) var(--noeis-ease-standard),
+    box-shadow var(--noeis-motion-base) var(--noeis-ease-standard);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -131,37 +125,23 @@ body.noeis-editorial {
   --dropzone-text-quiet: rgba(56, 56, 49, 0.5);
 }
 
-/* Dark-mode editorial. The base palette is warm-cream; dark mode flips
-   surfaces to deep warm-charcoal while keeping the tan tint family so the
-   workbench reads as the same surface, just unlit. Activated by the existing
-   html[data-ui-theme='dark'] mechanism so app-level theme toggle works.
-
-   Foundational vellum tokens MUST be redefined here — body.noeis-editorial
-   sets `background: var(--vellum-bg) !important` so without these the page
-   stays cream regardless of theme. (This was the actual bug the user hit —
-   foundational --background/--surface/--text in theme.css were being
-   painted over by the unconditional body.noeis-editorial cream surface.) */
+/* Dark room-only roles. Shell palette, typography, and motion still come from
+   the active semantic theme package. */
 html[data-ui-theme='dark'] body.noeis-editorial {
-  --vellum-bg: #14110d;
-  --vellum-panel: #1c1813;
-  --vellum-panel-strong: #221d16;
-  --vellum-panel-stronger: #2a241c;
-  --text-primary: #efe6d4;
-  --text-secondary: #b9b0a0;
-  --text-muted: #948b7d;
-  --text-link: var(--spark, #d6ad63);
-  --text-on-accent: #100f0c;
-  --surface-border: rgba(232, 222, 198, 0.10);
+  --vellum-bg: var(--noeis-canvas);
+  --vellum-panel: var(--noeis-paper);
+  --vellum-panel-strong: var(--noeis-paper-muted);
+  --vellum-panel-stronger: var(--noeis-paper-sunken);
   --vellum-ink: var(--text-primary);
   --vellum-muted: var(--text-secondary);
   --vellum-subtle: var(--text-muted);
   --vellum-line: var(--surface-border);
-  --vellum-line-strong: rgba(232, 222, 198, 0.18);
-  --vellum-accent: #d2c4ac;
-  --vellum-accent-dim: #b9ad96;
-  --vellum-warm: #e0bf91;
+  --vellum-line-strong: var(--noeis-rule-strong);
+  --vellum-accent: var(--noeis-ink-muted);
+  --vellum-accent-dim: var(--noeis-ink-subtle);
+  --vellum-warm: var(--noeis-thread-strong);
   --vellum-cyan: #5ac7d6;
-  --vellum-error: #d97a5e;
+  --vellum-error: var(--noeis-danger);
   --wiki-graph-node-concept: #c79a43;
   --wiki-graph-node-entity: #9d9487;
   --wiki-graph-node-source: #d2a34a;
@@ -181,12 +161,12 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --wiki-graph-label-backdrop: rgba(20, 17, 13, 0.76);
   --wiki-graph-label-text: #efe6d4;
   --wiki-graph-node-stroke: rgba(239, 230, 212, 0.36);
-  --vellum-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  --vellum-shadow: var(--noeis-shadow-float);
   --vellum-scrollbar-thumb: rgba(232, 222, 198, 0.22);
   --vellum-scrollbar-thumb-hover: rgba(232, 222, 198, 0.36);
   --vellum-scrollbar-thumb-active: rgba(232, 222, 198, 0.48);
   --vellum-scrollbar-track: rgba(232, 222, 198, 0.06);
-  color-scheme: dark;
+  color-scheme: inherit;
 
   --workbench-border-strong: rgba(170, 145, 100, 0.34);
   --workbench-border: rgba(170, 145, 100, 0.28);
@@ -7622,59 +7602,9 @@ body.noeis-editorial .think-concepts-index-list {
   gap: 18px;
 }
 
-body.noeis-editorial .three-pane--library .three-pane__main-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-}
-
-body.noeis-editorial .three-pane--library-browse .three-pane__main {
-  justify-content: flex-start;
-  padding-top: 0;
-}
-
-body.noeis-editorial .three-pane--library-browse .three-pane__main-header {
-  margin-bottom: 24px;
-}
-
-body.noeis-editorial .library-page-shell,
-body.noeis-editorial .library-page-shell .three-pane--library {
+body.noeis-editorial .library-page-shell {
   height: 100%;
   min-height: 0;
-}
-
-body.noeis-editorial .three-pane--library-browse .three-pane__right-header {
-  display: none !important;
-}
-
-body.noeis-editorial .three-pane--library-browse .three-pane__right {
-  padding-top: 18px;
-}
-
-body.noeis-editorial .three-pane--library-browse .right-drawer__panel {
-  padding-left: 18px;
-  background: var(--vellum-panel) !important;
-}
-
-body.noeis-editorial .library-context-stack--browse {
-  gap: 0;
-  min-height: calc(100vh - 168px);
-  padding: 18px 20px 24px;
-}
-
-body.noeis-editorial .three-pane--library .ui-page-title {
-  max-width: 430px;
-}
-
-body.noeis-editorial .three-pane--library .library-main-actions {
-  align-self: flex-start;
-  padding-top: 8px;
-}
-
-body.noeis-editorial .three-pane--library .library-main-browse,
-body.noeis-editorial .three-pane--library .library-main-reading {
-  display: grid;
-  gap: 18px;
 }
 
 body.noeis-editorial .library-reading-room-lead {
@@ -8013,103 +7943,6 @@ body.noeis-editorial .library-article-row-concepts {
   color: color-mix(in srgb, var(--text-link) 72%, var(--vellum-ink));
 }
 
-body.noeis-editorial .three-pane--library .library-section-head,
-body.noeis-editorial .three-pane--library .library-section-head.is-articles,
-body.noeis-editorial .three-pane--library .library-section-head.is-highlights {
-  padding: 0 !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
-}
-
-body.noeis-editorial .three-pane--library .library-section-head .ui-section-header {
-  margin: 0;
-}
-
-body.noeis-editorial .three-pane--library .library-section-head .ui-section-header__title {
-  display: block;
-  padding-left: 0 !important;
-  min-height: 0 !important;
-  font-size: 1.45rem;
-}
-
-body.noeis-editorial .three-pane--library .library-section-head .ui-section-header__title::before,
-body.noeis-editorial .three-pane--library .library-section-head .ui-section-header__title::after {
-  display: none !important;
-  content: none !important;
-}
-
-body.noeis-editorial .three-pane--library .library-cabinet-actions,
-body.noeis-editorial .three-pane--library .library-saved-views {
-  padding: 0 !important;
-  background: transparent !important;
-}
-
-body.noeis-editorial .three-pane--library .library-cabinet-actions {
-  display: grid;
-  gap: 14px;
-}
-
-body.noeis-editorial .three-pane--library .library-cabinet-nested {
-  display: grid;
-  gap: 8px;
-  padding-left: 16px;
-  border-left: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .three-pane--library .library-folder-items,
-body.noeis-editorial .three-pane--library .library-folder-tree,
-body.noeis-editorial .three-pane--library .library-folder-node,
-body.noeis-editorial .three-pane--library .library-folder-children {
-  background: transparent !important;
-}
-
-body.noeis-editorial .three-pane--library .library-folder-row,
-body.noeis-editorial .three-pane--library .library-cabinet-actions .list-button,
-body.noeis-editorial .three-pane--library .library-folder-button {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .three-pane--library .library-cabinet-actions .list-button,
-body.noeis-editorial .three-pane--library .library-folder-button {
-  justify-content: space-between;
-  width: 100%;
-  padding: 0 0 8px !important;
-  border-bottom: 1px solid transparent !important;
-  color: color-mix(in srgb, var(--vellum-ink) 82%, transparent) !important;
-}
-
-body.noeis-editorial .three-pane--library .library-cabinet-actions .list-button:hover,
-body.noeis-editorial .three-pane--library .library-folder-button:hover,
-body.noeis-editorial .three-pane--library .library-cabinet-actions .list-button.is-active,
-body.noeis-editorial .three-pane--library .library-folder-row.is-selected .library-folder-button {
-  color: var(--vellum-ink) !important;
-  border-bottom-color: var(--vellum-line) !important;
-}
-
-body.noeis-editorial .three-pane--library .library-cabinet-count,
-body.noeis-editorial .three-pane--library .library-folder-count {
-  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent) !important;
-}
-
-body.noeis-editorial .three-pane--library .library-article-list > .library-section-head {
-  display: none;
-}
-
-body.noeis-editorial .three-pane--library .library-article-list::before {
-  display: none !important;
-  content: none !important;
-}
-
-body.noeis-editorial .three-pane--library .library-article-row,
-body.noeis-editorial .three-pane--library .library-article-row:hover,
-body.noeis-editorial .three-pane--library .library-article-row.is-active {
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
 body.noeis-editorial .library-page-shell .library-article-row,
 body.noeis-editorial .wiki-index__list .library-article-row {
   grid-template-columns: minmax(76px, 0.15fr) minmax(0, 1fr) auto !important;
@@ -8152,22 +7985,6 @@ body.noeis-editorial .wiki-index__list .library-article-row-excerpt {
   line-height: 1.4;
 }
 
-body.noeis-editorial .three-pane--library .library-article-row-main,
-body.noeis-editorial .three-pane--library .library-article-row-action {
-  background: transparent !important;
-}
-
-body.noeis-editorial .three-pane--library .library-article-row-title {
-  max-width: 100%;
-  font-size: clamp(1.28rem, 1.7vw, 1.8rem);
-}
-
-body.noeis-editorial .three-pane--library .library-article-row-excerpt {
-  max-width: 600px;
-  font-size: 0.94rem;
-  line-height: 1.38;
-}
-
 body.noeis-editorial .library-article-search {
   display: grid;
   gap: 8px;
@@ -8193,215 +8010,9 @@ body.noeis-editorial .library-article-search input {
   font: inherit;
 }
 
-body.noeis-editorial .three-pane--library .library-highlights-surface > .ui-section-header {
-  margin-bottom: 12px;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row {
-  gap: 0;
-  padding: 18px 0;
-  border: 0;
-  border-bottom: 1px solid var(--vellum-line);
-  border-radius: 0;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row.is-active {
-  border-bottom-color: color-mix(in srgb, var(--vellum-ink) 32%, transparent);
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card {
-  gap: 14px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: start;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed-main {
-  gap: 8px;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed-title {
-  font-size: 0.66rem;
-  letter-spacing: 0.18em;
-  color: color-mix(in srgb, var(--vellum-ink) 58%, transparent);
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed-text {
-  max-width: 700px;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1.08rem;
-  line-height: 1.68;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-collapsed-meta {
-  gap: 8px;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-expanded {
-  gap: 16px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-actions {
-  gap: 10px;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-block {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent !important;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-block-quote {
-  font-size: 1rem;
-  line-height: 1.72;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-block-meta {
-  gap: 12px;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row-actions {
-  margin-top: 12px;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row-actions .ui-quiet-button,
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-actions .ui-quiet-button,
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-actions .ui-button,
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-organize-tag-input .ui-quiet-button {
-  min-height: 0;
-  padding: 0 0 6px;
-  border: 0 !important;
-  border-bottom: 1px solid transparent !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: color-mix(in srgb, var(--vellum-ink) 78%, transparent) !important;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row-actions .ui-quiet-button:hover,
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-actions .ui-quiet-button:hover,
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-card-actions .ui-button:hover,
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-organize-tag-input .ui-quiet-button:hover {
-  color: var(--vellum-ink) !important;
-  border-bottom-color: var(--vellum-line) !important;
-}
-
-body.noeis-editorial .three-pane--library .library-highlight-row .highlight-organize-panel,
-body.noeis-editorial .three-pane--library .library-highlight-row .related-suggestions-panel {
-  padding: 14px 0 0;
-  border: 0;
-  border-top: 1px solid var(--vellum-line);
-  border-radius: 0;
-  background: transparent !important;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .three-pane__main-header {
-  display: none !important;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library {
-  grid-template-columns: minmax(0, 860px) minmax(240px, 280px);
-  gap: 32px;
-  justify-content: space-between;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .three-pane__left {
-  display: none !important;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .three-pane__main {
-  grid-column: 1;
-  padding-top: 0;
-  max-width: 860px;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .right-drawer {
-  grid-column: 2;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-title {
-  max-width: 14ch;
-  font-size: clamp(1.86rem, 2.45vw, 2.85rem);
-  line-height: 0.98;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 16px;
-  margin-bottom: 20px;
-  padding: 0 0 16px !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-bottom: 1px solid var(--vellum-line) !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-content.reader {
-  max-width: 42rem;
-  margin-top: 0 !important;
-  font-size: 1.03rem;
-  line-height: 1.74;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-content.reader > :first-child {
-  margin-top: 0 !important;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-meta {
-  gap: 10px;
-  font-size: 0.62rem;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-header .ui-quiet-button {
-  min-height: 0;
-  padding: 0 0 6px;
-  border: 0 !important;
-  border-bottom: 1px solid transparent !important;
-  background: transparent !important;
-  font-size: 0.64rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library .article-reader-header .ui-quiet-button:hover {
-  border-bottom-color: var(--vellum-line) !important;
-}
-
 body.noeis-editorial .library-context-stack--reading {
   display: grid;
   gap: 14px;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library.three-pane--left-collapsed.three-pane--right-collapsed {
-  grid-template-columns: minmax(0, 920px);
-  justify-content: start;
-}
-
-body.noeis-editorial .library-page-shell.is-reading .three-pane--library.three-pane--left-collapsed.three-pane--right-collapsed .three-pane__main {
-  grid-column: 1;
 }
 
 body.noeis-editorial .agent-thought-partner__quick-prompts {
@@ -9251,126 +8862,6 @@ body.noeis-editorial .review-mode__right-panel {
   gap: 20px;
 }
 
-body.noeis-editorial .library-context-stack--browse {
-  gap: 18px;
-}
-
-body.noeis-editorial .library-agent-card {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--vellum-line);
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--vellum-panel) 92%, transparent), transparent 140%),
-    var(--vellum-surface);
-}
-
-body.noeis-editorial .library-agent-card__presence.agent-presence {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-body.noeis-editorial .library-agent-card__ticker.agent-ticker {
-  margin-top: 0;
-}
-
-body.noeis-editorial .library-agent-card__note {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 0.88rem;
-  line-height: 1.48;
-  color: color-mix(in srgb, var(--vellum-ink) 74%, transparent);
-}
-
-body.noeis-editorial .library-browse-rail {
-  display: grid;
-  gap: 18px;
-}
-
-body.noeis-editorial .library-browse-rail__header {
-  display: grid;
-  gap: 4px;
-  padding-top: 14px;
-  border-top: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .library-browse-rail__header span,
-body.noeis-editorial .library-browse-rail__nav-item,
-body.noeis-editorial .library-browse-rail__section-head span {
-  font-family: var(--noeis-ui-font);
-  font-size: 0.64rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .library-browse-rail__header span {
-  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
-}
-
-body.noeis-editorial .library-browse-rail__header p {
-  margin: 0;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.62rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-ink) 46%, transparent);
-}
-
-body.noeis-editorial .library-browse-rail__nav {
-  display: grid;
-  gap: 4px;
-}
-
-body.noeis-editorial .library-browse-rail__nav-item {
-  display: flex;
-  align-items: center;
-  min-height: 0;
-  padding: 9px 10px;
-  border: 0;
-  background: transparent;
-  color: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
-  text-align: left;
-  text-decoration: none;
-}
-
-body.noeis-editorial .library-browse-rail__nav-item.is-active {
-  background: var(--vellum-panel);
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .library-browse-rail__section {
-  display: grid;
-  gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid var(--vellum-line);
-}
-
-body.noeis-editorial .library-browse-rail__section-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-}
-
-body.noeis-editorial .library-browse-rail__section-head h3 {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 1rem;
-  line-height: 1.08;
-  color: var(--vellum-ink);
-}
-
-body.noeis-editorial .library-browse-rail__section p {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 0.88rem;
-  line-height: 1.48;
-  color: color-mix(in srgb, var(--vellum-ink) 80%, transparent);
-}
-
 body.noeis-editorial .right-drawer__panel {
   background: transparent;
 }
@@ -10043,7 +9534,7 @@ body.noeis-editorial .wiki-read__left-rail > .right-drawer {
   height: auto;
   margin-bottom: 18px;
   padding-bottom: 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 
 body.noeis-editorial .wiki-read__left-rail > .right-drawer > .right-drawer__edge-toggle,
@@ -10171,8 +9662,8 @@ body.noeis-editorial .wiki-read--standard .wiki-read__viewbar {
   min-height: 46px;
   align-items: center;
   margin-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 52%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 52%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
 }
 
 body.noeis-editorial .wiki-read--standard .wiki-read__tabs button {
@@ -10231,7 +9722,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__body h2 {
   margin: 2.25em 0 0.7em;
   padding: 0 0 0.42em;
   border-top: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
   font-size: 1.48rem;
   font-weight: 520;
   letter-spacing: -0.018em;
@@ -10245,7 +9736,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__body h3 {
 
 body.noeis-editorial .wiki-read--standard .wiki-read__toc nav {
   padding: 6px 0 0 14px;
-  border-left: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
 }
 
 body.noeis-editorial .wiki-read--standard .wiki-read__toc h2,
@@ -10273,7 +9764,7 @@ body.noeis-editorial .wiki-read--standard .wiki-read__toc a.is-active {
 body.noeis-editorial .wiki-read--standard .wiki-read__infobox--primary {
   padding: 4px 0 16px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
   background: transparent;
 }
 
@@ -10299,8 +9790,8 @@ body.noeis-editorial .wiki-read--standard .wiki-read__left-rail > .right-drawer 
 
 body.noeis-editorial .wiki-read__article-tools {
   margin: 38px 0 18px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 60%, transparent);
   font-family: var(--noeis-ui-font);
 }
 
@@ -10344,8 +9835,8 @@ body.noeis-editorial .wiki-read__rail-details-panel {
 }
 
 body.noeis-editorial .wiki-read__rail-details {
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 60%, transparent);
 }
 
 body.noeis-editorial .wiki-read__rail-details > summary {
@@ -10400,8 +9891,8 @@ body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
     order: 0;
     position: static;
     margin: 0 0 8px;
-    border-top: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 68%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 68%, transparent);
     font-family: var(--noeis-ui-font);
   }
 
@@ -10887,8 +10378,8 @@ body.noeis-editorial .think-calm-index__primary-move,
   align-items: center;
   margin: 24px 0 28px;
   padding: 20px 0;
-  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 36%, var(--nt-divider));
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 36%, var(--noeis-rule));
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
   border-radius: 0;
   background: transparent;
 }
@@ -10925,7 +10416,7 @@ body.noeis-editorial .think-calm-index__primary-action,
 .think-calm-index__primary-action {
   min-height: 38px;
   padding: 8px 13px;
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 48%, var(--nt-divider));
+  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 48%, var(--noeis-rule));
   border-radius: 0;
   background: transparent;
   color: var(--text-primary);
@@ -10965,7 +10456,7 @@ body.noeis-editorial .think-calm-index__primary-action:focus-visible,
 .think-calm-index__primary-action:hover,
 .think-calm-index__primary-action:focus-visible {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 72%, var(--nt-divider));
+  border-color: color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 72%, var(--noeis-rule));
   background: color-mix(in srgb, var(--wiki-warm-accent, var(--accent-primary)) 16%, var(--surface));
   outline: none;
 }
@@ -11017,7 +10508,7 @@ body.noeis-editorial .tix-thread__tag,
   text-transform: uppercase;
 }
 
-.tix-motion { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent); }
+.tix-motion { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent); }
 .tix-motion__list { display: grid; gap: 4px; }
 
 .tix-thread {
@@ -11057,7 +10548,7 @@ body.noeis-editorial .tix-thread__tag,
   overflow: hidden;
 }
 
-.tix-shelf { padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent); }
+.tix-shelf { padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent); }
 .tix-shelf__index {
   margin: 10px 0 0;
   max-width: 70ch;
@@ -11090,7 +10581,7 @@ body.noeis-editorial .tix-thread__tag,
   gap: 12px;
   align-items: center;
   padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 
 /* Arrival: one thing leads, others follow; then stillness. */
@@ -11159,7 +10650,8 @@ body.noeis-editorial .tix-thread__tag,
  * this case. CSS chooses which copy shows, so there is no viewport state to
  * keep in sync.
  */
-body.noeis-editorial .topbar__menu-item--narrow-only {
+body.noeis-editorial .topbar__menu-item--narrow-only,
+body.noeis-editorial .topbar__menu-item--mobile-room {
   display: none;
 }
 
@@ -11276,6 +10768,25 @@ body.noeis-editorial .topbar__menu-item--narrow-only {
      scrolling, so it goes first. */
   body.noeis-editorial .topbar__primary-link.is-active {
     order: -1;
+  }
+}
+
+/* A phone shows the room you are in and puts the complete four-room switcher
+   in More. Sideways scrolling technically kept every destination in the DOM,
+   but it visibly cut Judgment down to a single letter at 430px. A destination
+   should be discoverable by its name, not by dragging a masked navigation row. */
+@media (max-width: 480px) {
+  body.noeis-editorial .topbar__primary-link:not(.is-active) {
+    display: none;
+  }
+
+  body.noeis-editorial .topbar__primary-nav {
+    overflow: visible;
+    mask-image: none;
+  }
+
+  body.noeis-editorial .topbar__menu-item--mobile-room {
+    display: flex;
   }
 }
 

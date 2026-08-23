@@ -1,3 +1,5 @@
+import { getNoeisNavigationDefinitions } from '../system/noeisSurfaceDefinitions';
+
 // Four rooms: Library is what you read, Think is what you wrote, Wiki is what
 // the reading built, Judgment is what it was for.
 //
@@ -6,53 +8,17 @@
 // pages competed for the same first look and the nav pointed at both. The
 // Paper is now the top of the wiki, and Wiki is where the wordmark, / and
 // /paper all land.
-export const getPrimaryNavItems = () => [
-  {
-    label: 'Library',
-    to: '/library',
-    match: (location) => location.pathname.startsWith('/library')
-  },
-  {
-    // Bare /think, because Think opens the note you were last in rather than
-    // an index of rooms.
-    label: 'Think',
-    to: '/think',
-    match: (location) => location.pathname.startsWith('/think')
-  },
-  {
-    label: 'Wiki',
-    to: '/wiki',
-    match: (location) => (
-      location.pathname === '/'
-      || location.pathname.startsWith('/wiki')
-      || location.pathname.startsWith('/paper')
-    )
-  },
-  {
-    label: 'Judgment',
-    to: '/judgment',
-    match: (location) => location.pathname.startsWith('/judgment')
-  }
-];
+const toNavItem = definition => ({
+  id: definition.id,
+  label: definition.name,
+  to: definition.route,
+  match: definition.match,
+  ...(definition.navigationGroup === 'utility' ? { essential: true } : {})
+});
 
-export const getTopBarUtilityNavItems = () => [
-  {
-    label: 'Connections',
-    to: '/connections#sources',
-    essential: true,
-    match: (location) => (
-      location.pathname.startsWith('/connections')
-      || location.pathname.startsWith('/integrations')
-      || location.pathname.startsWith('/data-integrations')
-    )
-  },
-  {
-    label: 'Settings',
-    to: '/settings',
-    essential: true,
-    match: (location) => location.pathname.startsWith('/settings')
-  }
-];
+export const getPrimaryNavItems = () => getNoeisNavigationDefinitions('primary').map(toNavItem);
+
+export const getTopBarUtilityNavItems = () => getNoeisNavigationDefinitions('utility').map(toNavItem);
 
 /* Map, Today, Review and Return Queue are no longer rooms.
    - Today was a launcher for surfaces that are now the nav itself.
@@ -61,21 +27,21 @@ export const getTopBarUtilityNavItems = () => [
      which is the morning paper's job — the paper now says what is waiting and
      links through to the full view.
    Their routes all still resolve; they are simply not advertised as places. */
-export const getSecondaryNavItems = () => [
-  {
-    label: 'Growth',
-    to: '/marketing-analytics',
-    match: (location) => (
-      location.pathname.startsWith('/marketing-analytics')
-      || location.pathname.startsWith('/search-console-opportunities')
-    )
-  },
-  {
-    label: 'How To Use',
-    to: '/how-to-use',
-    match: (location) => location.pathname.startsWith('/how-to-use')
-  }
-];
+export const getSecondaryNavItems = () => getNoeisNavigationDefinitions('secondary').map(toNavItem);
+
+export const NOEIS_GO_TO_SHORTCUTS = Object.freeze([
+  Object.freeze({ key: 'h', label: 'Home', to: '/think?tab=home' }),
+  Object.freeze({ key: 'l', label: 'Library', to: '/library' }),
+  Object.freeze({ key: 't', label: 'Think', to: '/think?tab=home' }),
+  Object.freeze({ key: 'w', label: 'Wiki', to: '/wiki/workspace?view=graph' }),
+  Object.freeze({ key: 'j', label: 'Judgment', to: '/judgment' }),
+  Object.freeze({ key: 'r', label: 'Review', to: '/review' }),
+  Object.freeze({ key: 's', label: 'Settings', to: '/settings' })
+]);
+
+const SHORTCUT_BY_KEY = new Map(NOEIS_GO_TO_SHORTCUTS.map(item => [item.key, item]));
+
+export const resolveGoToShortcut = (key = '') => SHORTCUT_BY_KEY.get(String(key || '').toLowerCase()) || null;
 
 const THINK_POSTURE_PARAMS = {
   concepts: 'concept',

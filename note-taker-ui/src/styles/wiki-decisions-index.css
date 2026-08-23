@@ -63,7 +63,7 @@
 .wiki-decisions__error button {
   appearance: none;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 48%, transparent);
   border-radius: 8px;
   color: inherit;
   cursor: pointer;
@@ -87,7 +87,7 @@
 }
 
 .wiki-decisions__row {
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
   display: grid;
   gap: 10px;
   min-width: 0;
@@ -132,8 +132,8 @@
 .wiki-decisions__arc {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(140px, 0.65fr) minmax(0, 1fr);
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 24%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 24%, transparent);
 }
 
 .wiki-decisions__arc > section {
@@ -149,7 +149,7 @@
 }
 
 .wiki-decisions__arc > section + section {
-  border-left: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 22%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 22%, transparent);
 }
 
 .wiki-decisions__arc > section.is-observed {
@@ -173,7 +173,7 @@
 }
 
 .wiki-decisions__error {
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 40%, transparent);
   border-radius: 10px;
   display: grid;
   gap: 8px;
@@ -204,7 +204,7 @@
   }
 
   .wiki-decisions__arc > section + section {
-    border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 22%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 22%, transparent);
     border-left: 0;
   }
 }
@@ -216,7 +216,7 @@
 
   .wiki-decisions__arc > section:last-child {
     grid-column: 1 / -1;
-    border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 22%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 22%, transparent);
     border-left: 0;
   }
 }

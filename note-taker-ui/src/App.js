@@ -1,5 +1,5 @@
-import React, { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import React, { Suspense, lazy, useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import WeeklyBrief from './pages/WeeklyBrief';
@@ -29,15 +29,23 @@ import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
 import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
 import { buildCanonicalArticlePath } from './utils/firstInsight';
-import { buildThinkPosturePath, getPrimaryNavItems, getSecondaryNavItems, getTopBarUtilityNavItems } from './navigation/appNavigation';
+import {
+  buildThinkPosturePath,
+  getPrimaryNavItems,
+  getSecondaryNavItems,
+  getTopBarUtilityNavItems,
+  resolveGoToShortcut
+} from './navigation/appNavigation';
 import { namesAThinkObject } from './pages/thinkNotesModel';
 import { useSystemStatus } from './system/useSystemStatus';
 import { SystemStatusProvider } from './system/SystemStatusContext';
 import { AgentRailProvider } from './agent/AgentRailContext';
 import AgentRail from './agent/AgentRail';
-import { hasAgentRail } from './agent/agentRailRoutes';
+import { hasContextualAgentRail } from './agent/contextualAgentContracts';
+import { NoeisSurfaceProvider, useNoeisSurfaceState } from './surface/NoeisSurfaceContext';
+import { NoeisCapabilityProvider } from './system/NoeisCapabilityProvider';
+import { NoeisLoopProvider } from './system/NoeisLoopProvider';
 import './styles/theme.css';
-import './styles/tokens.css';
 import './styles/global.css';
 import './App.css';
 import './styles/reading-layout.css';
@@ -46,6 +54,8 @@ import './styles/idea-workbench.css';
 import './styles/brand-energy.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
+import './surface/surface-frame.css';
+import './styles/semantic-theme.css';
 
 const Trending = lazy(() => import('./pages/Trending'));
 const AllHighlights = lazy(() => import('./pages/AllHighlights'));
@@ -412,7 +422,7 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const normalized = applyUiSettingsToRoot(document.documentElement, uiSettings);
     persistUiSettingsToStorage(normalized);
   }, [uiSettings]);
@@ -538,50 +548,6 @@ function App() {
     };
   }, [paletteOpen, closePalette]);
 
-  // Global keyboard shortcuts and palette
-  useEffect(() => {
-    let lastG = 0;
-    const handleKeyDown = (e) => {
-      const tag = (e.target && e.target.tagName) || '';
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        openPalette();
-        return;
-      }
-
-      const isText = ['INPUT', 'TEXTAREA'].includes(tag) || e.target?.isContentEditable;
-      if (isText) return;
-
-      // ? opens the shortcut overlay. Bare key — no modifiers — and only
-      // outside text inputs (already filtered above). Shift+/ on US layouts
-      // gives '?'; on layouts where '?' needs another modifier, the user
-      // can still discover the overlay via the topbar Cmd-K hint or the
-      // CommandPalette itself.
-      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        setShortcutOverlayOpen(true);
-        return;
-      }
-
-      const now = Date.now();
-      if (e.key.toLowerCase() === 'g') {
-        lastG = now;
-        return;
-      }
-      if (now - lastG < 800) {
-        if (e.key.toLowerCase() === 'h') window.location.href = '/think?tab=home';
-        if (e.key.toLowerCase() === 'l') window.location.href = '/library';
-        if (e.key.toLowerCase() === 't') window.location.href = '/think?tab=home';
-        if (e.key.toLowerCase() === 'w') window.location.href = '/wiki/workspace?view=graph';
-        if (e.key.toLowerCase() === 'j') window.location.href = '/judgment';
-        if (e.key.toLowerCase() === 'r') window.location.href = '/review';
-        if (e.key.toLowerCase() === 's') window.location.href = '/settings';
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [openPalette]);
-
   const primaryNavItems = getPrimaryNavItems();
   const secondaryNavItems = getSecondaryNavItems();
 
@@ -589,6 +555,42 @@ function App() {
 
   const AppLayout = () => {
     const shellLocation = useLocation();
+    const navigate = useNavigate();
+    const { surface } = useNoeisSurfaceState();
+
+    useEffect(() => {
+      let lastG = 0;
+      const handleKeyDown = (event) => {
+        const tag = event.target?.tagName || '';
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault();
+          openPalette();
+          return;
+        }
+
+        const isText = ['INPUT', 'TEXTAREA'].includes(tag) || event.target?.isContentEditable;
+        if (isText) return;
+        if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          event.preventDefault();
+          setShortcutOverlayOpen(true);
+          return;
+        }
+
+        const now = Date.now();
+        if (event.key.toLowerCase() === 'g') {
+          lastG = now;
+          return;
+        }
+        if (now - lastG >= 800) return;
+        const shortcut = resolveGoToShortcut(event.key);
+        if (!shortcut) return;
+        event.preventDefault();
+        navigate(shortcut.to);
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
+
     const topBarAccountMenuItems = [
       {
         label: 'Feedback',
@@ -746,11 +748,13 @@ function App() {
     return (
       <AppShell
         brandEnergy={uiSettings.brandEnergy}
+        surface={surface}
         /* One instance, beside the routed column. Navigating swaps the column;
            the rail keeps its place and only changes what it is about. */
-        rightRail={hasAgentRail(shellLocation.pathname) ? <AgentRail /> : null}
+        rightRail={hasContextualAgentRail(shellLocation.pathname) ? <AgentRail /> : null}
         topBar={(
           <TopBar
+            routeLocation={shellLocation}
             brandEnergy={uiSettings.brandEnergy}
             primaryNav={primaryNavItems}
             utilityNav={utilityNavItems}
@@ -800,9 +804,15 @@ function App() {
 
     return (
       <TourProvider>
-        <AgentRailProvider>
-          <AppLayout />
-        </AgentRailProvider>
+        <NoeisCapabilityProvider>
+          <NoeisLoopProvider>
+            <AgentRailProvider>
+              <NoeisSurfaceProvider>
+                <AppLayout />
+              </NoeisSurfaceProvider>
+            </AgentRailProvider>
+          </NoeisLoopProvider>
+        </NoeisCapabilityProvider>
       </TourProvider>
     );
   };

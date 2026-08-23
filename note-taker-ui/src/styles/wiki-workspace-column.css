@@ -72,7 +72,7 @@
   justify-content: flex-start;
   padding: 0 0 14px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   background: transparent;
 }
 
@@ -80,7 +80,7 @@
   gap: 10px 20px;
   padding: 14px 0;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -100,7 +100,7 @@
 .wiki-workspace .wiki-workspace__mobile-agent input {
   padding: 7px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -235,7 +235,7 @@
   margin: 0 0 22px;
   padding: 20px 0 0;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   gap: 10px 22px;
@@ -289,7 +289,7 @@
   min-height: 0;
   padding: 7px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -324,8 +324,8 @@
 
 .wiki-index .wiki-corpus-shape {
   padding: 14px 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .wiki-index .wiki-corpus-shape__summary strong {
@@ -349,7 +349,7 @@
   margin: 22px 0;
   padding: 20px 0 0;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
 }
@@ -402,7 +402,7 @@
    stops being a rounded panel floating on the page. */
 .wiki-index .wiki-graph {
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -483,7 +483,7 @@
   justify-items: start;
   gap: 4px;
   padding: 0 0 22px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 /* Sources and the activity log are lists of things, separated by hairlines —
@@ -491,7 +491,7 @@
 .wiki-workspace .wiki-workspace-sources > input {
   padding: 8px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -507,7 +507,7 @@
   gap: 6px 24px;
   padding: 18px 0;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -565,7 +565,7 @@
 .wiki-workspace .wiki-workspace-schema textarea {
   padding: 12px 0 !important;
   border: 0 !important;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent) !important;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -667,7 +667,7 @@ body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__search input,
 .wiki-facet-rail .wiki-facet-rail__search input {
   padding: 7px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -698,7 +698,7 @@ body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
 .wiki-workspace .wiki-read__maintenance-receipt {
   padding: 0 0 18px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -830,7 +830,7 @@ body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
   gap: 10px 26px;
   padding: 0 0 16px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
 }
@@ -911,7 +911,7 @@ body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
 .wiki-workspace .wiki-meta-bar select {
   padding: 5px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -963,7 +963,7 @@ body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
 .wiki-workspace .reference-pull-in textarea {
   padding: 7px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -1072,7 +1072,7 @@ body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
 .wiki-workspace-chat .wiki-workspace-chat__composer-field > textarea {
   padding: 8px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -1138,7 +1138,7 @@ body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
 /* The command and reference palettes are lists of names. */
 .wiki-workspace-chat .wiki-workspace-chat__palette {
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: var(--vellum-bg, var(--surface));
   box-shadow: none;

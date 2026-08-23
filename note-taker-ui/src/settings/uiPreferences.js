@@ -1,3 +1,5 @@
+import { applySemanticThemeSnapshot, buildSemanticThemeSnapshot } from './semanticTheme';
+
 export const UI_SETTINGS_STORAGE_KEY = 'ui-settings.v1';
 
 export const ACCENT_OPTIONS = [
@@ -97,16 +99,14 @@ export const applyUiSettingsToRoot = (root, settings) => {
   const accent = ACCENT_BY_VALUE[normalized.accent] || ACCENT_BY_VALUE[DEFAULT_UI_SETTINGS.accent];
   const activeTheme = resolveActiveTheme(normalized.theme);
 
-  // data-ui-theme is the resolved theme ('light' | 'dark') — that's what CSS
-  // selectors gate on. data-ui-theme-pref preserves the user's preference
-  // including 'auto' so settings UI can render the right toggle state.
-  root.setAttribute('data-ui-theme', activeTheme);
-  root.setAttribute('data-ui-theme-pref', normalized.theme);
-  root.setAttribute('data-ui-density', normalized.density);
-  root.setAttribute('data-ui-typography', normalized.typographyScale);
-  root.setAttribute('data-ui-brand-energy', normalized.brandEnergy ? 'on' : 'off');
-  root.style.setProperty('--ui-accent', accent.color);
-  root.style.setProperty('--ui-accent-soft', accent.soft);
+  applySemanticThemeSnapshot(root, buildSemanticThemeSnapshot({
+    activeTheme,
+    preferredTheme: normalized.theme,
+    density: normalized.density,
+    typographyScale: normalized.typographyScale,
+    brandEnergy: normalized.brandEnergy,
+    accent
+  }));
 
   return normalized;
 };

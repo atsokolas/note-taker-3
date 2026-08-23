@@ -51,17 +51,17 @@ body.noeis-editorial.wiki-front-page-route .app-shell-new__body:has(.wiki-front-
 
 .wiki-front-page__graph-motif-nodes circle {
   fill: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 34%, transparent);
-  stroke: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 72%, transparent);
+  stroke: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 72%, transparent);
   stroke-width: 1.25;
 }
 
 html[data-ui-theme='dark'] .wiki-front-page__graph-motif-edges line {
-  stroke: color-mix(in srgb, var(--wiki-warm-accent, var(--spark)) 18%, transparent);
+  stroke: color-mix(in srgb, var(--wiki-warm-accent, var(--noeis-thread)) 18%, transparent);
 }
 
 html[data-ui-theme='dark'] .wiki-front-page__graph-motif-nodes circle {
-  fill: color-mix(in srgb, var(--wiki-warm-accent, var(--spark)) 28%, transparent);
-  stroke: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 55%, transparent);
+  fill: color-mix(in srgb, var(--wiki-warm-accent, var(--noeis-thread)) 28%, transparent);
+  stroke: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 55%, transparent);
 }
 
 .wiki-front-page__graph-motif-network {
@@ -81,7 +81,7 @@ html[data-ui-theme='dark'] .wiki-front-page__graph-motif-nodes circle {
 
 html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route,
 html[data-ui-theme='dark'] body.noeis-editorial:has(.wiki-front-page) {
-  background: var(--vellum-bg, var(--canvas)) !important;
+  background: var(--vellum-bg, var(--noeis-canvas)) !important;
 }
 
 html[data-ui-theme='dark'] .page-area:has(.wiki-front-page),
@@ -90,7 +90,7 @@ html[data-ui-theme='dark'] .wiki-front-page,
 html[data-ui-theme='dark'] body.noeis-editorial .page-area:has(.wiki-front-page),
 html[data-ui-theme='dark'] body.noeis-editorial .app-shell-new__body:has(.wiki-front-page),
 html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
-  background: var(--vellum-bg, var(--canvas));
+  background: var(--vellum-bg, var(--noeis-canvas));
 }
 
 .wiki-front-page__masthead {
@@ -126,7 +126,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
 .wiki-front-page__judgment-panel {
   padding-left: 24px;
-  border-left: 1px solid color-mix(in srgb, var(--nt-divider) 74%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
 }
 
 /* Legible secondary nav — workspace destinations near the door. */
@@ -177,7 +177,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 6px;
   max-width: min(52ch, 100%);
   padding: 8px 0 8px 14px;
-  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 54%, var(--nt-divider));
+  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 54%, var(--noeis-rule));
 }
 .wiki-front-page__next-action-kicker {
   color: var(--text-muted);
@@ -240,7 +240,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 .wiki-front-page__watcher-ledger {
   padding-top: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 .wiki-front-page__watcher-ledger summary {
   width: fit-content;
@@ -303,7 +303,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: clamp(32px, 4vw, 58px);
   align-items: start;
   padding-top: 20px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 78%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
 }
 
 .wiki-front-page__primary {
@@ -394,10 +394,10 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 14px;
   align-items: center;
   min-height: 70px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
 }
 .wiki-front-page__grown li:last-child {
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
 }
 .wiki-front-page__grown li > div {
   display: grid;
@@ -432,7 +432,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 /* Explore — a book's index, not a dashboard. */
 .wiki-front-page__explore {
   padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 .wiki-front-page__library-head {
   display: flex;
@@ -464,9 +464,9 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   width: min(100%, 520px);
   min-height: 42px;
   padding: 9px 12px;
-  border: 1px solid color-mix(in srgb, var(--nt-divider) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
   border-radius: 0;
-  background: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 88%, white);
+  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 88%, white);
   color: var(--text-primary);
   font: 0.86rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
 }
@@ -484,7 +484,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 10px;
   align-items: baseline;
   padding: 12px 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 62%, transparent);
 }
 .wiki-front-page__index li > span,
 .wiki-front-page__index li > small {
@@ -686,7 +686,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   display: grid;
   gap: 16px;
   padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 
 /* Empty corpus — the agent leans in; never a dead screen. */
@@ -750,7 +750,7 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
   .wiki-front-page__judgment-panel {
     padding: 18px 0 0;
-    border-top: 1px solid color-mix(in srgb, var(--nt-divider) 74%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
     border-left: 0;
   }
 
@@ -793,7 +793,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   max-width: 100%;
   grid-template-columns: minmax(184px, 0.26fr) minmax(560px, 1fr) minmax(286px, 0.42fr);
   min-height: calc(100vh - var(--app-topbar-h, 64px));
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 
 .wiki-living-nav,
@@ -804,7 +804,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-living-nav {
   padding: 32px 24px 48px;
-  border-right: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
 }
 
 .wiki-living-nav__head {
@@ -858,7 +858,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-nav button.is-active {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--vellum-warm, #b1862e) 10%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vellum-warm, #b1862e) 15%, var(--nt-divider));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vellum-warm, #b1862e) 15%, var(--noeis-rule));
 }
 
 .wiki-living-nav button small {
@@ -870,7 +870,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-nav__kinds {
   margin-top: 28px;
   padding-top: 22px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 
 .wiki-living-nav__kinds h2 {
@@ -888,7 +888,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   gap: 8px;
   margin-top: 28px;
   padding: 20px 11px 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 72%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
 }
 
 .wiki-living-nav__workspace-links a {
@@ -910,7 +910,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   display: grid;
   gap: 8px;
   padding-bottom: 26px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 78%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
 }
 
 .wiki-living-index__header h1 {
@@ -933,7 +933,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-index__briefing {
   margin: 9px 0 0;
   padding-left: 13px;
-  border-left: 1px solid color-mix(in srgb, var(--vellum-warm, #b1862e) 48%, var(--nt-divider));
+  border-left: 1px solid color-mix(in srgb, var(--vellum-warm, #b1862e) 48%, var(--noeis-rule));
   color: var(--text-muted);
   font-family: "Newsreader", Georgia, serif;
   font-size: 0.92rem;
@@ -951,7 +951,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   min-height: 42px;
   padding: 0 0 8px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 86%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 86%, transparent);
   border-radius: 0;
   background: transparent;
   color: var(--text-primary);
@@ -989,14 +989,14 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-row {
   position: relative;
   min-height: 72px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
   color: var(--text-secondary);
   font-size: 0.8rem;
   transition: color 150ms ease-out, background 180ms ease-out;
 }
 
 .wiki-living-row:last-of-type {
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
 }
 
 .wiki-living-row:hover {
@@ -1106,7 +1106,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-table__empty {
   margin: 0;
   padding: 32px 0;
-  border-top: 1px solid var(--nt-divider);
+  border-top: 1px solid var(--noeis-rule);
   color: var(--text-muted);
 }
 
@@ -1127,7 +1127,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-changes ol {
   margin: 0;
   padding: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
   list-style: none;
 }
 
@@ -1137,7 +1137,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   gap: 20px;
   align-items: center;
   min-height: 58px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
   color: var(--text-secondary);
   font-size: 0.8rem;
 }
@@ -1159,8 +1159,8 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   align-content: start;
   gap: 0;
   padding: clamp(38px, 4vw, 58px) clamp(22px, 3vw, 38px) 56px;
-  border-left: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
-  background: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 96%, var(--wiki-warm-accent, #b1862e) 4%);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
+  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 96%, var(--wiki-warm-accent, #b1862e) 4%);
 }
 
 .wiki-living-curator > header {
@@ -1190,7 +1190,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-living-curator__return,
 .wiki-living-curator__conversation {
   padding: 22px 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 76%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
 }
 
 .wiki-living-curator h3,
@@ -1272,7 +1272,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 30px;
-    border-top: 1px solid var(--nt-divider);
+    border-top: 1px solid var(--noeis-rule);
     border-left: 0;
   }
 
@@ -1293,7 +1293,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   .wiki-living-nav {
     padding: 18px 20px;
     border-right: 0;
-    border-bottom: 1px solid var(--nt-divider);
+    border-bottom: 1px solid var(--noeis-rule);
     overflow-x: auto;
   }
 
@@ -1412,7 +1412,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-front-page__check-in,
 .wiki-front-page__watching {
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 45%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 45%, transparent);
   margin-top: 22px;
   padding-top: 18px;
 }
@@ -1451,7 +1451,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-front-page__check-in button,
 .wiki-front-page__watching button {
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 62%, transparent);
   border-radius: 999px;
   color: inherit;
   cursor: pointer;
@@ -1479,8 +1479,8 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   position: sticky;
   top: 92px;
   padding: 4px 0 20px 26px;
-  border-left: 1px solid color-mix(in srgb, var(--nt-divider) 74%, transparent);
-  background: color-mix(in srgb, var(--vellum-bg, var(--canvas)) 84%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
+  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas)) 84%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(118%);
   backdrop-filter: blur(18px) saturate(118%);
 }
@@ -1503,7 +1503,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-front-page__partner {
   margin-bottom: 22px;
   padding-bottom: 22px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 74%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
 }
 
 .wiki-front-page__watching-header,
@@ -1540,7 +1540,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-front-page__watching li {
   position: relative;
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
   padding: 14px 0 14px 18px;
 }
 
@@ -1567,7 +1567,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-front-page__reading-watch select,
 .wiki-front-page__check-in-revision textarea {
   background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 52%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 52%, transparent);
   border-radius: 8px;
   color: inherit;
   padding: 9px 10px;
@@ -1575,12 +1575,12 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-front-page__watching-add {
   padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
 }
 
 .wiki-front-page__watching-more {
   margin: -14px 0 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
 }
 
 .wiki-front-page__watching-more > summary,
@@ -1626,7 +1626,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 .wiki-front-page__availability {
   margin: 0;
   padding: 10px 14px;
-  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 52%, var(--nt-divider));
+  border-left: 2px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 52%, var(--noeis-rule));
   color: var(--text-secondary);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
@@ -1634,8 +1634,8 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 }
 
 .wiki-front-page__operations {
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 82%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider) 70%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 82%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 70%, transparent);
 }
 
 .wiki-front-page__operations-summary {
@@ -1695,7 +1695,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 .wiki-front-page__operations-panel > * + * {
   padding-top: 24px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider) 66%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 66%, transparent);
 }
 
 .wiki-front-page__operations-panel .wiki-front-page__secondary-nav {
@@ -1755,7 +1755,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 @media (prefers-reduced-transparency: reduce) {
   .wiki-front-page__activity-rail {
-    background: var(--vellum-bg, var(--canvas));
+    background: var(--vellum-bg, var(--noeis-canvas));
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -1763,7 +1763,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 
 @media (prefers-contrast: more) {
   .wiki-front-page__activity-rail {
-    background: var(--vellum-bg, var(--canvas));
+    background: var(--vellum-bg, var(--noeis-canvas));
     border-left-color: currentColor;
   }
 }
@@ -1866,7 +1866,7 @@ body.noeis-editorial .wiki-living-index__search input,
 body.noeis-editorial .wiki-living-shell input[type='search'] {
   padding: 8px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -1906,7 +1906,7 @@ body.noeis-editorial .wiki-living-row__title small {
 body.noeis-editorial .wiki-front-page__making {
   margin-top: 36px;
   padding-top: 24px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 body.noeis-editorial .wiki-front-page__making > summary {
@@ -2010,7 +2010,7 @@ body.noeis-editorial .wiki-front-page__making textarea,
 body.noeis-editorial .wiki-front-page__operations-panel input {
   padding: 7px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;

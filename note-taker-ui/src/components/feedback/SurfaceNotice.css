@@ -1,7 +1,7 @@
 .surface-notice {
-  --surface-notice-accent: var(--nt-accent, #b89253);
+  --surface-notice-accent: var(--noeis-action, #b89253);
   --surface-notice-bg: color-mix(in srgb, var(--surface-notice-accent) 7%, transparent);
-  --surface-notice-border: color-mix(in srgb, var(--surface-notice-accent) 34%, var(--nt-divider, rgba(116, 100, 73, 0.34)));
+  --surface-notice-border: color-mix(in srgb, var(--surface-notice-accent) 34%, var(--noeis-rule, rgba(116, 100, 73, 0.34)));
   align-items: flex-start;
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--surface-notice-accent) 13%, transparent), transparent 48%),
@@ -18,16 +18,16 @@
 }
 
 .surface-notice--success {
-  --surface-notice-accent: var(--nt-success, #8d7a40);
+  --surface-notice-accent: var(--noeis-success, #8d7a40);
 }
 
 .surface-notice--warning,
 .surface-notice--recovering {
-  --surface-notice-accent: var(--nt-warning, #b89253);
+  --surface-notice-accent: var(--noeis-warning, #b89253);
 }
 
 .surface-notice--error {
-  --surface-notice-accent: var(--nt-danger, #b56a55);
+  --surface-notice-accent: var(--noeis-danger, #b56a55);
 }
 
 .surface-notice__dot {

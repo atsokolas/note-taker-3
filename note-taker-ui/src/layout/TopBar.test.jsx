@@ -110,6 +110,55 @@ describe('TopBar help menu', () => {
     expect(within(menu).getByRole('menuitem', { name: 'How To Use' })).toBeInTheDocument();
   });
 
+  it('keeps every room available in the mobile More copy', () => {
+    render(
+      <MemoryRouter initialEntries={['/think']}>
+        <TopBar
+          primaryNav={[
+            { label: 'Library', to: '/library' },
+            { label: 'Think', to: '/think' },
+            { label: 'Wiki', to: '/wiki' },
+            { label: 'Judgment', to: '/judgment' }
+          ]}
+          secondaryNav={[{ label: 'How To Use', to: '/how-to-use' }]}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByTestId('topbar-more-button'));
+    const menu = screen.getByTestId('topbar-more-menu');
+    expect(within(menu).getByRole('menuitem', { name: 'Library' })).toHaveClass('topbar__menu-item--mobile-room');
+    expect(within(menu).getByRole('menuitem', { name: 'Think' })).toHaveAttribute('href', '/think');
+    expect(within(menu).getByRole('menuitem', { name: 'Wiki' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Judgment' })).toBeInTheDocument();
+  });
+
+  it('uses the shell-owned location when browser history restores a room', () => {
+    const primaryNav = [
+      { label: 'Library', to: '/library', match: (location) => location.pathname.startsWith('/library') },
+      { label: 'Think', to: '/think', match: (location) => location.pathname.startsWith('/think') },
+      { label: 'Wiki', to: '/wiki', match: (location) => location.pathname.startsWith('/wiki') },
+      { label: 'Judgment', to: '/judgment', match: (location) => location.pathname.startsWith('/judgment') }
+    ];
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/judgment']}>
+        <TopBar primaryNav={primaryNav} routeLocation={{ pathname: '/judgment' }} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Judgment' })).toHaveClass('is-active');
+    expect(screen.getByRole('link', { name: 'Library' })).not.toHaveClass('is-active');
+
+    rerender(
+      <MemoryRouter initialEntries={['/judgment']}>
+        <TopBar primaryNav={primaryNav} routeLocation={{ pathname: '/library' }} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Library' })).toHaveClass('is-active');
+    expect(screen.getByRole('link', { name: 'Judgment' })).not.toHaveClass('is-active');
+  });
+
   it('closes the more menu on Escape', () => {
     render(
       <MemoryRouter>

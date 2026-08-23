@@ -109,7 +109,7 @@
 .shared-wiki-page .shared-wiki-page__adopt {
   padding: 26px 0 0;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;

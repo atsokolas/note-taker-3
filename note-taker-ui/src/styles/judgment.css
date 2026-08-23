@@ -18,7 +18,7 @@ body.noeis-editorial.judgment-route .app-shell-new__body:has(.judgment) {
 html[data-ui-theme='dark'] body.noeis-editorial.judgment-route,
 html[data-ui-theme='dark'] .page-area:has(.judgment),
 html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
-  background: var(--vellum-bg, var(--canvas));
+  background: var(--vellum-bg, var(--noeis-canvas));
 }
 
 /* The measure. Optically centred — a little above true centre, because a page
@@ -314,7 +314,7 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   gap: 10px;
   margin: 0 0 44px;
   padding: 0 0 28px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .judgment__new label {
@@ -330,7 +330,7 @@ body.noeis-editorial .judgment .judgment__new input,
   width: 100%;
   padding: 6px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -392,7 +392,7 @@ body.noeis-editorial .judgment .judgment__write input,
 .judgment .judgment__write input {
   padding: 4px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -520,7 +520,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   display: grid;
   gap: 14px;
   padding-top: 18px;
-  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-evidence__head {
@@ -557,7 +557,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
 }
 
 .judgment-evidence__error {
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
 }
 
 .judgment-evidence__list {
@@ -572,7 +572,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   display: grid;
   gap: 6px;
   padding-left: 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-evidence__item blockquote {
@@ -630,7 +630,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   display: grid;
   gap: 2px;
   padding-left: 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment__lessons li span {
@@ -651,7 +651,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   gap: 10px;
   justify-items: start;
   padding-top: 18px;
-  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-park button {
@@ -696,7 +696,7 @@ body.noeis-editorial .judgment .judgment-park textarea,
   width: min(100%, 52ch) !important;
   padding: 4px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -734,7 +734,7 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
 
 .judgment-park__error {
   margin: 0;
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
   font-size: 0.88rem;
 }
 
@@ -944,7 +944,7 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
   display: grid;
   gap: 2px;
   padding-left: 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-depends a {
@@ -1024,7 +1024,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   width: min(100%, 52ch) !important;
   padding: 4px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -1043,7 +1043,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 .judgment-depends__supports {
   margin-top: 22px;
   padding-top: 16px;
-  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-depends__supports h3 {
@@ -1058,7 +1058,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 
 .judgment-depends__error {
   margin: 0;
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
   font-size: 0.88rem;
 }
 
@@ -1083,7 +1083,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   gap: 4px;
   margin: 4px 0 0;
   padding: 0 0 0 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
   list-style: none;
 }
 

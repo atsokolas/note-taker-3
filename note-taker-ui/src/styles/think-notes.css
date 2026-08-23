@@ -297,6 +297,6 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
    rather than floating in the margin. */
 .think-notes .think-notes__shelf,
 .think-notes .think-shelf {
-  border-right: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 52%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   padding-right: clamp(18px, 2vw, 32px);
 }

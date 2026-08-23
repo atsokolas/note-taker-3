@@ -2,7 +2,9 @@ import {
   buildThinkPosturePath,
   getPrimaryNavItems,
   getSecondaryNavItems,
-  getTopBarUtilityNavItems
+  getTopBarUtilityNavItems,
+  NOEIS_GO_TO_SHORTCUTS,
+  resolveGoToShortcut
 } from './appNavigation';
 
 describe('appNavigation', () => {
@@ -70,5 +72,13 @@ describe('appNavigation', () => {
       expect(secondaryLabels).not.toContain(label);
     });
     expect(secondaryLabels).toEqual(['Growth', 'How To Use']);
+  });
+
+  it('keeps keyboard destinations in one ordered authority', () => {
+    expect(NOEIS_GO_TO_SHORTCUTS.map(item => item.label)).toEqual([
+      'Home', 'Library', 'Think', 'Wiki', 'Judgment', 'Review', 'Settings'
+    ]);
+    expect(resolveGoToShortcut('W')?.to).toBe('/wiki/workspace?view=graph');
+    expect(resolveGoToShortcut('x')).toBeNull();
   });
 });

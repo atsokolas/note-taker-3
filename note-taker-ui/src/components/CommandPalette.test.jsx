@@ -215,6 +215,19 @@ describe('CommandPalette', () => {
     });
   });
 
+  it('opens registry-backed connection actions when searched without cluttering the default palette', async () => {
+    await renderPalette();
+
+    expect(screen.queryByText(/Set up Readwise/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Quick open notes, highlights, claims, evidence...'), {
+      target: { value: 'Readwise' }
+    });
+    await flushSearch();
+
+    fireEvent.click(await screen.findByText(/Set up Readwise/));
+    expect(mockNavigate).toHaveBeenCalledWith('/connections?source=readwise#readwise');
+  });
+
   it('starts library filing review, leaves a receipt, and navigates to the Think thread', async () => {
     const { systemStatusControls } = await renderPalette();
 

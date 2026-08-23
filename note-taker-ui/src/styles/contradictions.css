@@ -39,7 +39,7 @@
 .contradiction {
   margin: 40px 0 0;
   padding: 30px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .contradiction__claim {
@@ -95,7 +95,7 @@
 .contradiction__quote {
   margin: 0 0 6px;
   padding-left: 14px;
-  border-left: 2px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 1.02rem;
   line-height: 1.55;

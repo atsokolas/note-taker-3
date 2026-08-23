@@ -20,6 +20,7 @@ import {
   parseHighlightToWikiSectionIntent,
   resolveHighlightsForIntent
 } from '../utils/highlightToThinkingModel';
+import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -241,6 +242,7 @@ const currentLocationSearch = () => (
 const CommandPalette = ({ open, onClose }) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
+  const capabilityModel = useNoeisCapabilities();
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
   const [searchGroups, setSearchGroups] = useState(EMPTY_GROUPS);
@@ -856,6 +858,13 @@ const CommandPalette = ({ open, onClose }) => {
       title: 'Pages',
       items: pages.map(page => ({ type: 'Page', label: page.label, path: page.path }))
     };
+    const connectionsSection = {
+      title: 'Connections',
+      items: capabilityModel.commands.map(command => ({
+        ...command,
+        label: `${command.label} · ${String(command.status || '').replace(/_/g, ' ')}`
+      }))
+    };
     const wikiDestinationsSection = {
       title: 'Wiki',
       items: [
@@ -964,6 +973,10 @@ const CommandPalette = ({ open, onClose }) => {
           items: rankedWikiDestinations
         });
       }
+      const rankedConnections = rankLocalItems(connectionsSection.items, q);
+      if (rankedConnections.length) {
+        list.push({ title: 'Connections', items: rankedConnections });
+      }
     } else {
       list.push({
         title: 'Think concepts',
@@ -994,7 +1007,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, collections, concepts, createCollection, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, capabilityModel.commands, collections, concepts, createCollection, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),

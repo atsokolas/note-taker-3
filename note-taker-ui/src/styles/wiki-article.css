@@ -76,7 +76,7 @@
 .wiki-article__custody {
   margin: 26px 0 0;
   padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   text-align: center;
   color: var(--text-secondary, var(--vellum-muted));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
@@ -179,7 +179,7 @@
  */
 body.noeis-editorial .wiki-article ~ .wiki-claim-popover,
 body.noeis-editorial .wiki-claim-popover {
-  border: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
   border-radius: 0;
   background: var(--vellum-bg, #fffcf7);
   box-shadow: 0 18px 44px color-mix(in srgb, #000 10%, transparent);
@@ -204,7 +204,7 @@ body.noeis-editorial .wiki-claim-popover__group-label {
 body.noeis-editorial .wiki-claim-popover__item {
   padding: 12px 0 0;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
   border-radius: 0;
   background: transparent;
 }
@@ -240,7 +240,7 @@ body.noeis-editorial .wiki-claim-popover a {
 .wiki-claim-popover__door {
   margin: 14px 0 0;
   padding: 12px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .wiki-claim-popover__carry {

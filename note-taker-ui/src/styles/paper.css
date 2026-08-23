@@ -479,7 +479,7 @@ body.noeis-editorial .wiki-front-page .wfp-lead__revision textarea,
   width: 100%;
   padding: 8px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   color: var(--text-primary, var(--vellum-ink)) !important;

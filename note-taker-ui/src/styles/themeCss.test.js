@@ -2,71 +2,67 @@ import fs from 'fs';
 import path from 'path';
 
 describe('app theme design-system tokens', () => {
-  it('defines the semantic surface tokens used by the architecture and motion specs', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
-    const rootBlock = css.match(/:root \{[\s\S]*?\n\}/)?.[0] || '';
-    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+  it('defines one versioned semantic package for shell palette, type, spacing, controls, and motion', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
+    const rootBlock = css.match(/:root,[\s\S]*?\n\}/)?.[0] || '';
 
     [
-      '--canvas:',
-      '--raised:',
-      '--sunken:',
-      '--spark:',
-      '--reading-text:',
-      '--working-text:',
-      '--theme-transition:'
+      '--noeis-canvas:',
+      '--noeis-paper:',
+      '--noeis-thread:',
+      '--noeis-font-ui:',
+      '--noeis-font-reading:',
+      '--noeis-space-4:',
+      '--noeis-control-height:',
+      '--noeis-motion-base:'
     ].forEach(token => {
       expect(rootBlock).toContain(token);
-      expect(darkBlock).toContain(token);
     });
+    expect(css).toContain("html[data-noeis-theme='theme.editorial.dark']");
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('uses a warm near-black dark palette instead of the old cold blue shell', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
-    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
+    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
 
-    expect(darkBlock).toContain('--canvas: #16140f');
-    expect(darkBlock).toContain('--raised: #211e17');
-    expect(darkBlock).toContain('--sunken: #100f0c');
+    expect(darkBlock).toContain('--noeis-canvas: #16140f');
+    expect(darkBlock).toContain('--noeis-paper: #211e17');
+    expect(darkBlock).toContain('--noeis-paper-sunken: #100f0c');
     expect(darkBlock).not.toContain('#0a0e17');
     expect(darkBlock).not.toContain('#0b1220');
     expect(darkBlock).not.toContain('#111a2a');
     expect(darkBlock).not.toContain('#141a26');
   });
 
-  it('keeps global and app CSS aliases attached to semantic tokens in dark mode', () => {
+  it('removes superseded token and rebrand layers instead of retaining dead theme authorities', () => {
     const globalCss = fs.readFileSync(path.join(__dirname, 'global.css'), 'utf8');
     const appCss = fs.readFileSync(path.join(__dirname, '..', 'App.css'), 'utf8');
-    const globalDarkBlock = globalCss.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
-    const appDarkBlock = appCss.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const appEntry = fs.readFileSync(path.join(__dirname, '..', 'App.js'), 'utf8');
 
-    expect(globalDarkBlock).toContain('var(--reading-text');
-    expect(globalDarkBlock).toContain('var(--working-text');
-    expect(appDarkBlock).toContain('var(--canvas');
-    expect(appDarkBlock).toContain('var(--raised');
-    expect(appDarkBlock).toContain('var(--spark');
-    expect(appDarkBlock).not.toContain('#0f172a');
-    expect(appDarkBlock).not.toContain('#111827');
+    expect(globalCss).not.toMatch(/^:root/m);
+    expect(appCss).not.toMatch(/^:root/m);
+    expect(appEntry).toContain("import './styles/semantic-theme.css';");
+    expect(appEntry).not.toContain("import './styles/tokens.css';");
+    expect(fs.existsSync(path.join(__dirname, 'tokens.css'))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, 'noeis-rebrand.css'))).toBe(false);
   });
 
-  it('keeps the Think/Wiki polish layer on the shared semantic palette', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
-    const topBlocks = css.slice(0, 1600);
+  it('keeps lazy Think styling from taking ownership of the shell theme', () => {
+    const thinkCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
+    const dashboardCss = fs.readFileSync(path.join(__dirname, 'dashboard-refresh.css'), 'utf8');
 
-    expect(topBlocks).toContain('--nt-app-bg: var(--canvas');
-    expect(topBlocks).toContain('--nt-surface-1: var(--raised');
-    expect(topBlocks).toContain('--nt-surface-2: var(--sunken');
-    expect(topBlocks).toContain('--nt-divider: var(--hairline');
-    expect(topBlocks).toContain('var(--spark');
-    expect(topBlocks).not.toContain('#0a1020');
-    expect(topBlocks).not.toContain('rgba(19, 28, 46');
-    expect(topBlocks).not.toContain('rgba(16, 24, 40');
+    expect(thinkCss.slice(0, 1600)).toContain('consume the shared semantic shell package');
+    expect(thinkCss.slice(0, 1600)).not.toContain('--noeis-canvas:');
+    expect(thinkCss).not.toMatch(/\.app-shell-new\s*\{[^}]*background:/);
+    expect(thinkCss).not.toMatch(/\.topbar\s*\{[^}]*background:/);
+    expect(dashboardCss).not.toMatch(/^:root/m);
   });
 
   it('defines canonical editorial text role tokens in light and dark palettes', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
-    const rootBlock = css.match(/:root \{[\s\S]*?\n\}/)?.[0] || '';
-    const darkBlock = css.match(/html\[data-ui-theme='dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
+    const css = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
+    const rootBlock = css.match(/:root,[\s\S]*?\n\}/)?.[0] || '';
+    const darkBlock = css.match(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*?\n\}/)?.[0] || '';
 
     [
       '--text-primary:',
@@ -77,17 +73,17 @@ describe('app theme design-system tokens', () => {
       '--surface-border:'
     ].forEach((token) => {
       expect(rootBlock).toContain(token);
-      expect(darkBlock).toContain(token);
     });
+    expect(darkBlock).toContain('--text-on-accent:');
   });
 
   it('rejects known cool palette literals from editorial dashboard dark tokens', () => {
-    const dashboardCss = fs.readFileSync(path.join(__dirname, 'dashboard-refresh.css'), 'utf8');
+    const semanticCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
     const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
     const wikiFrontCss = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
 
-    expect(dashboardCss).not.toContain('#9eb0cf');
-    expect(dashboardCss).not.toContain('rgba(96, 118, 153');
+    expect(semanticCss).not.toContain('#9eb0cf');
+    expect(semanticCss).not.toContain('rgba(96, 118, 153');
     expect(editorialCss).not.toContain('--vellum-blue');
     expect(wikiFrontCss).not.toContain('#0d1422');
   });
@@ -95,16 +91,16 @@ describe('app theme design-system tokens', () => {
   it('pins the wiki front page dark surface to the warm editorial palette', () => {
     const css = fs.readFileSync(path.join(__dirname, 'wiki-front-page.css'), 'utf8');
     const editorialCss = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
-    const dashboardCss = fs.readFileSync(path.join(__dirname, 'dashboard-refresh.css'), 'utf8');
+    const semanticCss = fs.readFileSync(path.join(__dirname, 'semantic-theme.css'), 'utf8');
 
     expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route");
-    expect(css).toContain('background: var(--vellum-bg, var(--canvas)) !important');
+    expect(css).toContain('background: var(--vellum-bg, var(--noeis-canvas)) !important');
     expect(css).toContain("html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page");
     expect(css).not.toContain('#0d1422');
-    expect(dashboardCss).not.toContain('#0d1422');
-    expect(dashboardCss).not.toContain('#9eb0cf');
-    expect(dashboardCss).not.toContain('rgba(96, 118, 153');
-    expect(dashboardCss).toMatch(/html\[data-ui-theme='dark'\] \{[\s\S]*--bg-shell: #14110d;/);
+    expect(semanticCss).not.toContain('#0d1422');
+    expect(semanticCss).not.toContain('#9eb0cf');
+    expect(semanticCss).not.toContain('rgba(96, 118, 153');
+    expect(semanticCss).toMatch(/html\[data-noeis-theme='theme\.editorial\.dark'\] \{[\s\S]*--noeis-canvas: #16140f;/);
     expect(editorialCss).toMatch(/html\[data-ui-theme='dark'\] body\.noeis-editorial \{[\s\S]*background: var\(--vellum-bg\) !important;/);
   });
 

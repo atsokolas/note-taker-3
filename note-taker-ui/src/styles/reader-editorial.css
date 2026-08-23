@@ -11,7 +11,7 @@
 body.noeis-editorial .article-reader-header {
   padding: 0 0 14px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -36,7 +36,7 @@ body.noeis-editorial .magnetic-reading-rail__track {
   height: 1px;
   border-radius: 0;
   opacity: 1;
-  background: color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  background: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 body.noeis-editorial .magnetic-reading-rail__fill {
