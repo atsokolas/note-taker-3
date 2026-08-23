@@ -62,4 +62,19 @@ describe('ReadingDrift', () => {
     expect(screen.queryByText(/more about/)).not.toBeInTheDocument();
   });
 
+
+  /* For the seconds the reading takes to arrive, the shortfall copy told a
+     reader with three hundred filed sources that they had filed nothing. */
+  it('does not blame your filing while the reading is still arriving', () => {
+    render(<ReadingDrift now={NOW} articles={[]} loading />);
+    expect(screen.getByText(/Reading back the last three months/)).toBeInTheDocument();
+    expect(screen.queryByText(/fills in as you file/)).not.toBeInTheDocument();
+  });
+
+  it('draws nothing while loading, even if some reading has arrived', () => {
+    render(<ReadingDrift now={NOW} loading articles={[...many('Capacity', 70, 5), ...many('Power', 3, 5)]} />);
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(screen.queryByText(/more about/)).not.toBeInTheDocument();
+  });
+
 });

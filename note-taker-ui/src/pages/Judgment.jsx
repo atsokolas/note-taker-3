@@ -217,7 +217,7 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   );
 };
 
-const JudgmentIndex = ({ items, articles, readingUnreadable }) => {
+const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -260,7 +260,7 @@ const JudgmentIndex = ({ items, articles, readingUnreadable }) => {
           is the one thing in the product that asks nothing of you, and it
           belongs at the top of the room that asks the most: this is the
           weather over the claims, not another claim. */}
-      <ReadingDrift articles={articles} unreadable={readingUnreadable} />
+      <ReadingDrift articles={articles} loading={loading} unreadable={readingUnreadable} />
       {/* A judgment starts by being written down. Before this the index could
           only list what already existed, and the empty state told you a
           judgment begins the day you write one without giving you anywhere to
@@ -321,6 +321,12 @@ const JudgmentIndex = ({ items, articles, readingUnreadable }) => {
             <Link to="/week">Your week →</Link>
           </p>
         </>
+      ) : loading ? (
+        /* Not "No claims yet". For the seconds this takes, an index that has
+           not arrived is indistinguishable from an index that is empty, and
+           telling a reader with a dozen claims that they have none is the
+           software describing its own latency as a fact about them. */
+        <p className="judgment__quiet" role="status">Reading back what you hold…</p>
       ) : (
         /* A door, not a form. The composer used to be the only thing on an
            empty index, which made the product look like a text box. The claim
@@ -1014,6 +1020,7 @@ const JudgmentDetail = ({ pageId }) => {
 const Judgment = () => {
   const { pageId = '' } = useParams();
   const [items, setItems] = useState([]);
+  const [indexLoading, setIndexLoading] = useState(true);
   const [articles, setArticles] = useState([]);
   const [readingUnreadable, setReadingUnreadable] = useState(false);
   const [indexError, setIndexError] = useState('');
@@ -1040,7 +1047,10 @@ const Judgment = () => {
           listWikiPages({ summary: 1, limit: 500 }),
           listWikiSourceEvents({ limit: 200 }).catch(() => [])
         ]);
-        if (!cancelled) setItems(buildJudgmentIndex(pages, events));
+        if (!cancelled) {
+          setItems(buildJudgmentIndex(pages, events));
+          setIndexLoading(false);
+        }
         /* The reading behind the drift, asked for after the claims have
            arrived: the drawing is the slowest thing on the page and must not
            be the reason the fastest thing waits. */
@@ -1057,7 +1067,10 @@ const Judgment = () => {
           if (!cancelled) setReadingUnreadable(true);
         }
       } catch (error) {
-        if (!cancelled) setIndexError('Could not load your judgments.');
+        if (!cancelled) {
+          setIndexError('Could not load your judgments.');
+          setIndexLoading(false);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -1072,7 +1085,7 @@ const Judgment = () => {
         ? <JudgmentDetail pageId={pageId} />
         : (
           <>
-            <JudgmentIndex items={items} articles={articles} readingUnreadable={readingUnreadable} />
+            <JudgmentIndex items={items} articles={articles} loading={indexLoading} readingUnreadable={readingUnreadable} />
             {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
           </>
         )}

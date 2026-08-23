@@ -39,20 +39,25 @@ const DIRECTION_WORD = {
   steady: 'steady'
 };
 
-const ReadingDrift = ({ articles = [], unreadable = false, now }) => {
+const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now }) => {
   const drift = useMemo(
     () => withDirections(buildDrift(articles, now)),
     [articles, now]
   );
-  const sentence = unreadable ? '' : driftSentence(drift);
+  const sentence = unreadable || loading ? '' : driftSentence(drift);
   /* "You have not filed enough" and "your library could not be read" look
      identical from here and are completely different things to be told. The
      first is about you; the second is about the server, and saying the first
      when the second is true is the software blaming the reader for its own
      outage. */
-  const shortfall = unreadable
-    ? 'Your library could not be read just now, so there is nothing to draw. This is not about your filing.'
-    : driftShortfall(drift);
+  const shortfall = loading
+    /* Before the reading arrives there is nothing to say about it. Saying
+       "this fills in as you file" during those seconds tells a reader with
+       three hundred filed sources that they have filed nothing. */
+    ? 'Reading back the last three months…'
+    : unreadable
+      ? 'Your library could not be read just now, so there is nothing to draw. This is not about your filing.'
+      : driftShortfall(drift);
 
   return (
     <section className="drift" aria-labelledby="drift-title">
@@ -61,7 +66,7 @@ const ReadingDrift = ({ articles = [], unreadable = false, now }) => {
       {sentence ? <p className="drift__sentence">{sentence}</p> : null}
       {shortfall ? <p className="drift__shortfall">{shortfall}</p> : null}
 
-      {drift.enough && !unreadable ? (
+      {drift.enough && !unreadable && !loading ? (
         <ol className="drift__rows">
           {drift.series.map(item => (
             <li key={item.topic} className="drift__row" data-direction={item.direction}>
@@ -81,7 +86,7 @@ const ReadingDrift = ({ articles = [], unreadable = false, now }) => {
         </ol>
       ) : null}
 
-      {drift.enough && !unreadable ? (
+      {drift.enough && !unreadable && !loading ? (
         <p className="drift__scale" aria-hidden="true">
           three months ago<span>·</span>now
         </p>

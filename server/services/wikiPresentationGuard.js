@@ -120,6 +120,47 @@ const normalizeExistingWikiTitleForPresentation = (value = '', options = {}) => 
   });
 };
 
+/*
+ * A model that answers with its scratchpad instead of its answer.
+ *
+ * The morning paper printed this, verbatim, as the day's editorial line:
+ *
+ *   "Here's a thinking process: 1. **Analyze User Request:** - Task: Write a
+ *    1-2 sentence editorial summary of what's new in a personal knowledge base
+ *    over the last 24 hours."
+ *
+ * A fallback model returned its reasoning, the trim function found a non-empty
+ * string and accepted it, and the product's own voice became a transcript of
+ * the machine talking to itself. The lead sentence is the one place that must
+ * never babble, and a deterministic summary is always standing by — so
+ * anything that reads like reasoning is refused rather than printed.
+ *
+ * These patterns are shaped to the scaffolding of thinking rather than to its
+ * subject matter. A real summary about analysis or tasks is fine; one that
+ * announces its own plan, numbers its steps, or wears markdown is not prose a
+ * person wrote.
+ */
+const SCRATCHPAD_PATTERNS = Object.freeze([
+  /\bthinking process\b/i,
+  /\banaly[sz]e\s+(the\s+)?user\s+(request|prompt|input)\b/i,
+  /\bhere('s| is)\s+(my|the)\s+(plan|approach|thinking|reasoning|process)\b/i,
+  /\blet me\s+(think|start|begin|first)\b/i,
+  /\bstep\s*\d\b/i,
+  /\b(draft|attempt|option|version)\s*\d\s*:/i,
+  /^\s*\d+\.\s+\S/,
+  /\*\*/,
+  /^#{1,6}\s/m,
+  /\b(task|output|constraints?|instructions?|requirements?)\s*:/i,
+  /\b(system|assistant|user)\s*:/i
+]);
+
+/** True when text reads as a model's working rather than as the answer. */
+const readsAsModelScratchpad = (value = '') => {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  return SCRATCHPAD_PATTERNS.some(pattern => pattern.test(text));
+};
+
 const sentenceBoundaryTrim = (value = '', {
   maxLength = 280,
   fallback = ''
@@ -150,8 +191,23 @@ const sentenceBoundaryTrim = (value = '', {
   return /[.!?]$/.test(clean) ? clean : `${clean}.`;
 };
 
+/**
+ * One editorial sentence, or nothing.
+ *
+ * The same trim as before with the scratchpad check in front of it. The raw
+ * text is judged before it is cut down, because trimming to 280 characters can
+ * slice the tell off the end and leave something that merely looks like prose.
+ */
+const editorialSentence = (value = '', { maxLength = 280, fallback = '' } = {}) => {
+  if (readsAsModelScratchpad(value)) return fallback;
+  const trimmed = sentenceBoundaryTrim(value, { maxLength, fallback });
+  return readsAsModelScratchpad(trimmed) ? fallback : trimmed;
+};
+
 module.exports = {
   normalizeSpaces,
+  editorialSentence,
+  readsAsModelScratchpad,
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
   buildRepoWikiTitle,

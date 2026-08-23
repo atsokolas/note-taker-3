@@ -1,6 +1,7 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 const {
+  editorialSentence,
   normalizeExistingWikiTitleForPresentation,
   sentenceBoundaryTrim
 } = require('./wikiPresentationGuard');
@@ -784,7 +785,11 @@ const buildWikiBriefing = async ({
         ]
       });
       const raw = typeof completion === 'string' ? completion : completion?.text || '';
-      const cleaned = sentenceBoundaryTrim(raw, { maxLength: 280, fallback: fallbackSummary });
+      /* A fallback model once answered with its own reasoning and the paper
+         printed it as the morning's editorial line. The deterministic summary
+         is always standing by, so anything that reads as working-out is
+         refused rather than published. */
+      const cleaned = editorialSentence(raw, { maxLength: 280, fallback: '' });
       if (cleaned) {
         summary = cleaned;
         model = completion?.model || 'hf';

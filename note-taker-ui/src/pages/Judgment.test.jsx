@@ -1,6 +1,6 @@
 import React from 'react';
 import * as router from 'react-router-dom';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import Judgment from './Judgment';
 import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
@@ -698,5 +698,32 @@ describe('The drift, above the claims', () => {
     listWikiPages.mockResolvedValue([judgmentPage()]);
     renderIndex();
     expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+  });
+});
+
+describe('The index while it is still loading', () => {
+  /* "No claims yet" appeared on every visit for the seconds the request took,
+     to an account with a dozen claims. The software describing its own latency
+     as a fact about the reader. */
+  it('does not say you have no claims before it knows', async () => {
+    let release;
+    listWikiPages.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+    listWikiSourceEvents.mockResolvedValue([]);
+
+    renderIndex();
+
+    expect(await screen.findByText('Reading back what you hold…')).toBeInTheDocument();
+    expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
+
+    await act(async () => { release([judgmentPage()]); });
+    expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+    expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
+  });
+
+  it('still says so once it knows the index really is empty', async () => {
+    listWikiPages.mockResolvedValue([]);
+    listWikiSourceEvents.mockResolvedValue([]);
+    renderIndex();
+    expect(await screen.findByText('No claims yet.')).toBeInTheDocument();
   });
 });
