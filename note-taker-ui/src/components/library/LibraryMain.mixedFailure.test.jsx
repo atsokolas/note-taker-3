@@ -2,15 +2,6 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import LibraryMain from './LibraryMain';
 
-let mockRelevancePayload;
-
-jest.mock('./LibrarySourceMemory', () => function MockLibrarySourceMemory({ onDataChange }) {
-  const ReactModule = require('react');
-  ReactModule.useEffect(() => {
-    onDataChange(mockRelevancePayload);
-  }, [onDataChange]);
-  return <div data-testid="source-memory">Source memory</div>;
-});
 jest.mock('./LibrarySourceList', () => function MockLibrarySourceList(props) {
   return (
     <div data-testid="source-list">
@@ -46,7 +37,7 @@ const baseProps = {
 
 describe('LibraryMain mixed-source failure boundary', () => {
   it('keeps the browse posture as one source list without an automatic detail preview', async () => {
-    mockRelevancePayload = {
+    const relevanceState = {
       loading: false,
       loadingMore: false,
       error: '',
@@ -59,7 +50,7 @@ describe('LibraryMain mixed-source failure boundary', () => {
       filteredOutCount: 0,
       loadMore: jest.fn()
     };
-    render(<LibraryMain {...baseProps} />);
+    render(<LibraryMain {...baseProps} relevanceState={relevanceState} />);
 
     expect(await screen.findByTestId('source-list')).toHaveTextContent('1 sources');
     expect(screen.getByTestId('library-composition')).toHaveAttribute('data-composition-layout', 'list');
@@ -68,7 +59,7 @@ describe('LibraryMain mixed-source failure boundary', () => {
   });
 
   it('keeps saved articles accessible when the initial mixed request fails', async () => {
-    mockRelevancePayload = {
+    const relevanceState = {
       loading: false,
       loadingMore: false,
       error: 'Mixed API unavailable.',
@@ -81,14 +72,14 @@ describe('LibraryMain mixed-source failure boundary', () => {
       filteredOutCount: 0,
       loadMore: jest.fn()
     };
-    render(<LibraryMain {...baseProps} />);
+    render(<LibraryMain {...baseProps} relevanceState={relevanceState} />);
 
     expect(await screen.findByTestId('article-list')).toHaveTextContent('offline fallback');
     expect(screen.queryByTestId('source-list')).not.toBeInTheDocument();
   });
 
   it('keeps loaded mixed rows visible when only cursor pagination fails', async () => {
-    mockRelevancePayload = {
+    const relevanceState = {
       loading: false,
       loadingMore: false,
       error: '',
@@ -101,7 +92,7 @@ describe('LibraryMain mixed-source failure boundary', () => {
       filteredOutCount: 0,
       loadMore: jest.fn()
     };
-    render(<LibraryMain {...baseProps} />);
+    render(<LibraryMain {...baseProps} relevanceState={relevanceState} />);
 
     expect(await screen.findByTestId('source-list'))
       .toHaveTextContent('1 sources · Could not load more sources.');

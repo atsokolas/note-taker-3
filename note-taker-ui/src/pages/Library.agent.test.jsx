@@ -7,6 +7,7 @@ import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
 import useTags from '../hooks/useTags';
+import useLibraryRoom from '../hooks/useLibraryRoom';
 import { getConnectionsForItem } from '../api/connections';
 import { startLibraryFilingSuggestions } from '../api/library';
 
@@ -17,6 +18,7 @@ jest.mock('../hooks/useFolders', () => jest.fn());
 jest.mock('../hooks/useLibraryArticles', () => jest.fn());
 jest.mock('../hooks/useArticleDetail', () => jest.fn());
 jest.mock('../hooks/useTags', () => jest.fn());
+jest.mock('../hooks/useLibraryRoom', () => jest.fn());
 
 jest.mock('../layout/ThreePaneLayout', () => ({
   __esModule: true,
@@ -161,6 +163,26 @@ describe('Library agent rail', () => {
       folders: [],
       loading: false,
       error: ''
+    });
+    useLibraryRoom.mockReturnValue({
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      sources: [],
+      coverage: null,
+      counts: {},
+      folders: [],
+      shelfCounts: {
+        articles: 2,
+        rawArticles: 2,
+        unfiledArticles: 2,
+        keptArticles: 0,
+        suppressedArticles: 0
+      },
+      nextCursor: null,
+      hasMore: false,
+      loadMore: jest.fn()
     });
     useLibraryArticles.mockReturnValue({
       articles: [],

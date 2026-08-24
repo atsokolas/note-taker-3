@@ -63,6 +63,49 @@ const requireLibraryPage = (data, { view, sourceScope }) => {
   return data;
 };
 
+const requireLibraryRoom = (data, { view }) => {
+  requireLibraryPage(data, { view, sourceScope: 'mixed' });
+  if (
+    data?.room !== 'library'
+    || !isPlainObject(data?.shelves)
+    || !Array.isArray(data.shelves.folders)
+    || !isPlainObject(data.shelves.counts)
+    || ['articles', 'rawArticles', 'unfiledArticles', 'keptArticles', 'suppressedArticles']
+      .some(key => !Number.isFinite(data.shelves.counts[key]) || data.shelves.counts[key] < 0)
+  ) {
+    throw new Error('Library room response is malformed.');
+  }
+  return data;
+};
+
+export const getLibraryRoom = async ({
+  view = 'recent',
+  limit = 40,
+  showSuppressed = false,
+  force = false
+} = {}) => {
+  if (!LIBRARY_RELEVANCE_VIEWS.includes(view)) {
+    throw new Error(`Library view must be one of: ${LIBRARY_RELEVANCE_VIEWS.join(', ')}.`);
+  }
+  const parsedLimit = Number(limit);
+  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+    throw new Error('Library limit must be an integer from 1 to 100.');
+  }
+  const params = new URLSearchParams({ view, limit: String(parsedLimit) });
+  if (showSuppressed) params.set('showSuppressed', '1');
+  const path = `/api/library/room?${params.toString()}`;
+  const authHeaders = getAuthHeaders();
+  const authScope = cacheScopeFor(authHeaders);
+  return fetchWithCache(
+    `library-room:${authScope}:${path}`,
+    async () => {
+      const response = await api.get(path, authHeaders);
+      return requireLibraryRoom(response.data, { view });
+    },
+    { ttlMs: 30_000, force: Boolean(force) }
+  );
+};
+
 export const getLibraryRelevance = async ({
   view = 'recent',
   limit = 40,

@@ -5442,7 +5442,9 @@ app.use(buildDecisionMutationRouter({
 
 app.use(buildLibraryRelevanceRouter({
   authenticateToken: authenticateUserOrAgentToken,
+  getFoldersWithCounts,
   Article,
+  Folder,
   NotebookEntry,
   TagMeta,
   WikiPage,

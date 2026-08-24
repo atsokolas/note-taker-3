@@ -12,12 +12,13 @@ import { getFolders } from '../api/folders';
  * @property {number} [articleCount]
  */
 
-const useFolders = () => {
+const useFolders = ({ enabled = true } = {}) => {
   const [folders, setFolders] = useState(/** @type {Folder[]} */ ([]));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fetchFolders = useCallback(async ({ force = false } = {}) => {
+    if (!enabled) return;
     setLoading(true);
     setError('');
     try {
@@ -28,7 +29,7 @@ const useFolders = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     fetchFolders();

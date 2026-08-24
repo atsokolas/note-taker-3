@@ -11,12 +11,13 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
  * @property {boolean} [includeSuppressed]
  */
 
-const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', includeSuppressed = false }) => {
+const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', includeSuppressed = false, enabled = true }) => {
   const [allArticles, setAllArticles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const fetchArticles = useCallback(async () => {
+    if (!enabled) return;
     const startedAt = startPerfTimer();
     setLoading(true);
     setError('');
@@ -33,7 +34,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
     } finally {
       setLoading(false);
     }
-  }, [includeSuppressed]);
+  }, [enabled, includeSuppressed]);
 
   useEffect(() => {
     fetchArticles();
