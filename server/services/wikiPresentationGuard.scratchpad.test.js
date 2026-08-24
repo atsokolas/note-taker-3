@@ -20,6 +20,8 @@ assert.strictEqual(
   'Step 1: gather the new sources.',
   '1. Summarise the new pages',
   'Here is my plan for the summary.',
+  'We need to produce a 1-2 sentence editorial summary of what is new.',
+  'I have to write a calm summary before returning the answer.',
   '**Analysis** of the last day.',
   '## Summary',
   'Task: write a summary.',

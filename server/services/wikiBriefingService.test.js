@@ -1,4 +1,9 @@
-const { buildWikiBriefing, invalidateWikiBriefingCache, __testables } = require('./wikiBriefingService');
+const {
+  buildWikiBriefing,
+  invalidateWikiBriefingCache,
+  loadCachedWikiBriefing,
+  __testables
+} = require('./wikiBriefingService');
 
 const {
   collectRecentlyUpdatedPages,
@@ -82,6 +87,27 @@ describe('wikiBriefingService', () => {
         WikiBriefingCache: { deleteOne }
       })).resolves.toBe(true);
       expect(deleteOne).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+
+    it('refuses a fresh cached briefing that contains model working', async () => {
+      const WikiBriefingCache = {
+        findOne: () => ({
+          lean: () => Promise.resolve({
+            payload: {
+              summary: 'We need to produce a 1-2 sentence editorial summary.',
+              generatedAt: new Date(NOW - 1000).toISOString()
+            },
+            expiresAt: new Date(NOW + 1000)
+          })
+        })
+      };
+
+      await expect(loadCachedWikiBriefing({
+        userId: 'user-1',
+        WikiBriefingCache,
+        now: NOW,
+        maxAgeMs: ONE_DAY_MS
+      })).resolves.toBe(null);
     });
   });
 

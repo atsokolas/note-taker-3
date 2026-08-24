@@ -6,7 +6,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 220px) minmax(420px, 1fr) minmax(230px, 280px);
   gap: clamp(28px, 4vw, 56px);
   align-items: start;
   width: 100%;
@@ -24,48 +24,23 @@
   position: sticky;
   top: 88px;
   min-width: 0;
+  padding-right: 18px;
+  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 68%, transparent);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
 }
 
-.think-notes__shelf-eyebrow {
-  margin: 0 0 16px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-size: 0.82rem;
-}
-
-.think-notes__shelf ul {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.think-notes__shelf button {
+.think-notes__shelf .think-notes__shelf-more {
   display: block;
-  width: 100%;
+  width: auto;
+  margin-top: 18px;
   padding: 0;
   border: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: inherit;
-  font-size: 0.94rem;
-  line-height: 1.4;
-  text-align: left;
-  cursor: pointer;
-  transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.think-notes__shelf button:hover,
-.think-notes__shelf button:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-/* The note you are in is the only one at full weight. */
-.think-notes__shelf button.is-open {
-  color: var(--text-primary, var(--vellum-ink));
   border-bottom: 1px solid currentColor;
-  width: fit-content;
+  background: transparent;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  cursor: pointer;
 }
 
 /* ---------- the note ---------- */
@@ -73,6 +48,26 @@
 .think-notes__note {
   min-width: 0;
   max-width: 720px;
+  opacity: 1;
+  transition: opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.think-notes__note.is-loading {
+  opacity: 0.58;
+}
+
+.think-notes__partner {
+  position: sticky;
+  top: 88px;
+  min-width: 0;
+  padding-left: clamp(18px, 2vw, 30px);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
+}
+
+.think-notes__partner .thought-partner-panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .think-notes__edited {
@@ -109,14 +104,33 @@
   line-height: 1.62;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
+  .think-notes {
+    grid-template-columns: minmax(0, 190px) minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .think-notes__partner {
+    position: static;
+    grid-column: 2;
+    padding: 24px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
   .think-notes {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
   }
 
   .think-notes__shelf {
     position: static;
+    order: 2;
+    padding-top: 28px;
+    padding-right: 0;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
+    border-right: 0;
   }
 
   .think-notes__shelf ul {
@@ -125,9 +139,14 @@
     gap: 8px 18px;
   }
 
-  .think-notes__shelf button {
-    width: auto;
+  .think-notes__shelf .room-shelf__item { width: auto; }
+
+  .think-notes__partner {
+    grid-column: 1;
+    order: 3;
   }
+
+  .think-notes__note { order: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -135,7 +154,7 @@
     animation: wfp-fade-in 80ms linear;
   }
 
-  .think-notes__shelf button {
+  .think-notes__note {
     transition: none;
   }
 }
@@ -297,6 +316,6 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-right,
    rather than floating in the margin. */
 .think-notes .think-notes__shelf,
 .think-notes .think-shelf {
-  border-right: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 52%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 52%, transparent);
   padding-right: clamp(18px, 2vw, 32px);
 }

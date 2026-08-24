@@ -29,6 +29,8 @@ import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovement
 import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 
+const mockUseNoeisSurface = jest.fn();
+
 jest.mock('../../api/wiki', () => ({
   approveWeekendReadingsRevision: jest.fn(),
   archiveWikiPage: jest.fn(),
@@ -76,6 +78,10 @@ jest.mock('../agent/ThoughtPartnerPanel', () => ({ title = 'Thought partner' }) 
 jest.mock('../../utils/wikiAnalytics', () => ({
   trackWikiQaPromoted: jest.fn(),
   trackWikiReadModePageView: jest.fn()
+}));
+
+jest.mock('../../surface/NoeisSurfaceContext', () => ({
+  useNoeisSurface: descriptor => mockUseNoeisSurface(descriptor)
 }));
 
 const page = {
@@ -243,6 +249,21 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.wiki-read--standard')).toBeInTheDocument();
     const createDisclosure = within(workspace).getByText('Record a decision from an accepted revision').closest('details');
     expect(createDisclosure).not.toHaveAttribute('open');
+  });
+
+  it('declares the loaded page as an exact ordinary Wiki surface', async () => {
+    renderReadView();
+
+    await screen.findByText('Enterprise AI Memory');
+    await waitFor(() => expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 'wiki',
+      objectType: 'wiki_page',
+      objectId: 'wiki-1',
+      pageId: 'wiki-1',
+      title: 'Enterprise AI Memory',
+      projection: 'ordinary',
+      mode: 'read'
+    })));
   });
 
   it('offers exact Think continuation only from a structurally accepted revision', async () => {
@@ -862,13 +883,11 @@ describe('WikiPageReadView', () => {
 
     const aboutHeading = await screen.findByRole('heading', { name: 'About this page' });
     const factualContext = aboutHeading.closest('.wiki-read__infobox--primary');
-    const leftRail = screen.getByRole('complementary', { name: 'Wiki navigation and agent' });
-    const thoughtPartner = leftRail.querySelector('.right-drawer');
+    const leftRail = screen.getByRole('complementary', { name: 'Wiki navigation' });
     const contents = within(leftRail).getByRole('navigation', { name: 'Page sections' });
     expect(factualContext).toHaveTextContent('About this page');
-    expect(thoughtPartner).toBeInTheDocument();
-    expect(thoughtPartner.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(factualContext).not.toContainElement(thoughtPartner);
+    expect(contents).toBeInTheDocument();
+    expect(leftRail.querySelector('.right-drawer')).not.toBeInTheDocument();
   });
 
   it('moves one accessible contents list below the title on mobile', async () => {
@@ -886,8 +905,8 @@ describe('WikiPageReadView', () => {
     expect(screen.getAllByRole('link', { name: 'Core idea' })).toHaveLength(1);
     expect(title.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(contents.compareDocumentPosition(articleBody) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(await screen.findByText('Ask Thought partner')).toBeInTheDocument();
-    expect(await screen.findByLabelText('Thought partner panel')).toBeInTheDocument();
+    expect(await screen.findByText('Reference…')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Thought partner panel')).not.toBeInTheDocument();
   });
 
   it('renders citation marginalia on wide readers without replacing references', async () => {
@@ -1005,7 +1024,7 @@ describe('WikiPageReadView', () => {
 
     await screen.findByRole('heading', { name: 'Enterprise AI Memory' });
     await flushDeferredWikiReadWork();
-    const rail = await screen.findByRole('complementary', { name: 'Wiki navigation and agent' });
+    const rail = await screen.findByRole('complementary', { name: 'Wiki navigation' });
 
     const referenceSummary = within(rail).getByText('Reference…');
     expect(within(rail).queryByLabelText('Reference pull-in')).not.toBeInTheDocument();
@@ -1833,7 +1852,7 @@ describe('WikiPageReadView', () => {
 
     const presenceRail = await screen.findByRole('complementary', { name: 'Page context' });
     await flushDeferredWikiReadWork();
-    expect(screen.getByText(/in its current Wiki state\./)).toBeInTheDocument();
+    expect(screen.queryByText(/in its current Wiki state\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/as accepted knowledge/)).not.toBeInTheDocument();
     const presenceToggle = within(presenceRail).queryByRole('button', { name: /show context/i });
     if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
@@ -1946,7 +1965,9 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
     expect(maintainWikiPage).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Page maintenance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => {
       expect(maintainWikiPage).toHaveBeenCalledTimes(1);
       expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1');
@@ -1994,7 +2015,9 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     await flushDeferredWikiReadWork();
     fireEvent.click(screen.getByText('Page maintenance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
 
     const receipt = await screen.findByLabelText('Wiki maintenance receipt');
@@ -2061,7 +2084,9 @@ describe('WikiPageReadView', () => {
     await flushDeferredWikiReadWork();
     expect(maintainWikiPage).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Page maintenance'));
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Wiki maintenance',
@@ -2079,7 +2104,9 @@ describe('WikiPageReadView', () => {
     renderReadView({}, { systemStatusControls });
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
 
     await waitFor(() => expect(systemStatusControls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'Wiki maintenance',
@@ -2107,7 +2134,9 @@ describe('WikiPageReadView', () => {
     renderReadView({}, { systemStatusControls });
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
 
     const receipt = await screen.findByLabelText('Wiki maintenance receipt');
     await waitFor(() => expect(receipt).toHaveAttribute('data-maintenance-state', 'research'));
@@ -2220,7 +2249,9 @@ describe('WikiPageReadView', () => {
     expect(document.querySelector('.wiki-read__standard-facts')).toHaveTextContent('Entity');
     expect(screen.queryByRole('button', { name: 'Resume build' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
     await waitFor(() => expect(maintainWikiPage).toHaveBeenCalledWith('wiki-1'));
     await waitFor(() => expect(screen.getByLabelText('Wiki maintenance receipt')).toHaveAttribute(
       'data-maintenance-state',
@@ -2252,7 +2283,9 @@ describe('WikiPageReadView', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Run again' }));
+    });
 
     const receipt = await screen.findByLabelText('Wiki maintenance receipt');
     expect(receipt).toHaveTextContent('Checking this page against your corpus');
@@ -2309,7 +2342,7 @@ describe('WikiPageReadView', () => {
     });
 
     await waitFor(() => {
-      expect(getWikiPage).toHaveBeenCalledWith('wiki-related');
+      expect(getWikiPage).toHaveBeenCalledWith('wiki-related', { reader: 1 });
       const tooltip = screen.getByRole('tooltip');
       expect(tooltip).toHaveClass('wiki-read-link-preview');
       expect(tooltip).toHaveTextContent('Small gains compound into durable knowledge.');

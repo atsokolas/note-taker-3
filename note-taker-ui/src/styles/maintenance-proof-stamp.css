@@ -56,7 +56,7 @@
   width: 100%;
   max-width: 760px;
   padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 32%, var(--nt-divider));
+  border: 1px solid color-mix(in srgb, var(--accent-primary, #b1862e) 32%, var(--noeis-rule));
   border-radius: 12px;
   background: color-mix(in srgb, var(--accent-primary, #b1862e) 10%, var(--surface));
 }

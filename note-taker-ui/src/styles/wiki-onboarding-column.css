@@ -117,7 +117,7 @@ body.noeis-editorial .wiki-onboarding__packs,
 .wiki-onboarding__packs {
   display: grid;
   gap: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 /* The pack rows are full-width list items; `.wiki-onboarding button` sets
@@ -130,7 +130,7 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__pack,
   width: 100%;
   padding: 15px 0;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   text-align: left;
@@ -165,7 +165,7 @@ body.noeis-editorial .wiki-onboarding__return-loop,
 .wiki-onboarding__return-loop {
   padding: 22px 0 0;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -214,7 +214,7 @@ body.noeis-editorial .wiki-onboarding__paste textarea,
   width: 100%;
   padding: 8px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -257,7 +257,7 @@ body.noeis-editorial .wiki-onboarding__error,
   gap: 6px;
   margin: 0 0 26px;
   padding: 0 0 22px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .wiki-onboarding__archive-primary {
@@ -291,7 +291,7 @@ body.noeis-editorial .wiki-onboarding__error,
   gap: 10px;
   margin: 28px 0 0;
   padding: 24px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .wiki-onboarding__claim label {
@@ -317,7 +317,7 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__claim input,
   width: 100%;
   padding: 6px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -383,7 +383,7 @@ body.noeis-editorial .wiki-onboarding__arrival,
 .wiki-onboarding__arrival {
   margin: -8px 0 0;
   padding: 10px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
   color: var(--text-primary, var(--vellum-ink));
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 1.06rem;

@@ -225,7 +225,7 @@ The UI shell now uses a shared token-driven layer across the four primary rooms:
 
 - Primary UI token overrides: `note-taker-ui/src/styles/dashboard-refresh.css`
 - Existing base theme variables/components: `note-taker-ui/src/styles/theme.css`
-- Base spacing/type aliases: `note-taker-ui/src/styles/tokens.css`
+- Cross-room semantic roles and motion rules: `note-taker-ui/src/styles/semantic-theme.css`
 
 ### Think Home / Shell polish checklist
 

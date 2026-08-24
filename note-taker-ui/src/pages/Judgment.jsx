@@ -12,9 +12,11 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
-import { useAgentRail, useAgentRailSurface } from '../agent/AgentRailContext';
+import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
+import JudgmentShelf from '../components/collection/JudgmentShelf';
 import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
@@ -36,6 +38,7 @@ import {
   selectOvernightLine,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
 
@@ -131,8 +134,6 @@ const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, c
     if (value.trim()) timerRef.current = window.setTimeout(() => save(value), AUTOSAVE_PAUSE_MS);
   };
 
-  /* Enter finishes this line and starts the next one. Blur just makes sure
-     what is on screen is also written down. */
   /* Enter finishes this line and starts the next one. So does leaving the
      field — the sentence settles into the section as a line rather than
      staying in the box you typed it in. The text is only cleared once it is
@@ -226,6 +227,8 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
+  useNoeisSurface(buildJudgmentSurfaceDescriptor());
+
   /* The claim is the page. A judgment is a wiki page carrying a judgment
      contract, so writing one down creates that page and puts the sentence in
      it — then opens it, because the next thing you want is to say why. */
@@ -251,7 +254,11 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
 
   // The index is a list of sentences, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
-  useAgentRailSurface({ id: 'judgment-index', subject: 'Your judgments.' }, {});
+  useContextualAgentSurface('agent-surface.judgment', {
+    objectType: 'judgment_index',
+    objectId: 'judgment-index',
+    subject: 'Your judgments.'
+  }, {});
 
   return (
     <main className="judgment judgment--index" aria-labelledby="judgment-index-title">
@@ -635,12 +642,16 @@ const Dependencies = ({ rests, supports, options, onAdd, onRemove }) => {
   );
 };
 
-const JudgmentDetail = ({ pageId }) => {
-  const [page, setPage] = useState(null);
+const JudgmentDetail = ({ pageId, initialPage = null }) => {
+  // The casebook index already carries the full human judgment contract. Use
+  // that narrow row as the first readable frame, then refresh the full reader
+  // document behind it. Opening a belief should never wait on body prose the
+  // case page does not render.
+  const [page, setPage] = useState(initialPage);
   const [overnight, setOvernight] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialPage);
   const claimRef = useRef(null);
   const flownFor = useRef('');
   const { ask, busy: asking, error: askError } = useAgentRail();
@@ -648,8 +659,16 @@ const JudgmentDetail = ({ pageId }) => {
   const [printError, setPrintError] = useState('');
 
   useEffect(() => {
+    if (!initialPage || String(initialPage?._id || '') !== String(pageId)) return;
+    setPage(current => (
+      String(current?._id || '') === String(pageId) ? current : initialPage
+    ));
+    setLoading(false);
+  }, [initialPage, pageId]);
+
+  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (!initialPage) setLoading(true);
     (async () => {
       try {
         // Reading what arrived overnight is a read. It must not touch the
@@ -658,7 +677,7 @@ const JudgmentDetail = ({ pageId }) => {
         // either, so it goes at the same time rather than after it — two round
         // trips in series is twice the wait on a cold API for no reason.
         const [loaded, events] = await Promise.all([
-          getWikiPage(pageId),
+          getWikiPage(pageId, { reader: 1 }),
           listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => [])
         ]);
         if (cancelled) return;
@@ -671,9 +690,15 @@ const JudgmentDetail = ({ pageId }) => {
       }
     })();
     return () => { cancelled = true; };
-  }, [pageId]);
+  }, [initialPage, pageId]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
+
+  /* The claim remains the dominant object. Decisions, observed outcomes,
+     lessons, and the accepted revision that grounded the latest decision are
+     carried as exact related identities rather than promoted into competing
+     dashboards or guessed from their prose. */
+  useNoeisSurface(buildJudgmentSurfaceDescriptor({ page, pageId }));
 
   /* A judgment lives behind a sign-in, which makes it hard to be held to. The
      pamphlet is the same four sections on one sheet, for handing to someone
@@ -752,7 +777,7 @@ const JudgmentDetail = ({ pageId }) => {
     let cancelled = false;
     (async () => {
       try {
-        const pages = await listWikiPages({ summary: 1, limit: 500 });
+        const pages = await listWikiPages({ projection: 'judgment', limit: 500 });
         if (!cancelled) setCorpus(Array.isArray(pages) ? pages : []);
       } catch (_corpusError) {
         /* The claim reads fine without the rest of the corpus. All that is
@@ -794,14 +819,21 @@ const JudgmentDetail = ({ pageId }) => {
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
-  useAgentRailSurface(
+  useContextualAgentSurface(
+    'agent-surface.judgment',
     view?.claim
       ? {
-        id: `judgment:${pageId}`,
+        objectType: 'judgment_claim',
+        objectId: pageId,
         subject: view.claim,
         empty: 'Nothing to retrieve until you ask.'
       }
-      : { id: `judgment:${pageId}`, subject: '', empty: 'Nothing to retrieve until you ask.' },
+      : {
+        objectType: 'judgment_claim',
+        objectId: pageId,
+        subject: '',
+        empty: 'Nothing to retrieve until you ask.'
+      },
     {
       onAsk: async (question, options = {}) => {
         const answered = await askWikiPage(pageId, question);
@@ -1020,6 +1052,7 @@ const JudgmentDetail = ({ pageId }) => {
 const Judgment = () => {
   const { pageId = '' } = useParams();
   const [items, setItems] = useState([]);
+  const [indexPages, setIndexPages] = useState([]);
   const [indexLoading, setIndexLoading] = useState(true);
   const [articles, setArticles] = useState([]);
   const [readingUnreadable, setReadingUnreadable] = useState(false);
@@ -1031,9 +1064,25 @@ const Judgment = () => {
   }, []);
 
   useEffect(() => {
-    if (pageId) return undefined;
     let cancelled = false;
     (async () => {
+      setIndexLoading(true);
+      setIndexError('');
+
+      /* Drift is supporting context, never a release gate for the casebook.
+         Start it beside the index and let it settle independently. */
+      if (!pageId) {
+        Promise.resolve().then(() => getArticles())
+          .then(read => {
+            if (cancelled) return;
+            setArticles(Array.isArray(read) ? read : []);
+            setReadingUnreadable(false);
+          })
+          .catch(() => {
+            if (!cancelled) setReadingUnreadable(true);
+          });
+      }
+
       try {
         /* The index renders one sentence and a provenance line per judgment.
            Asking for whole pages meant every Tiptap body, every plainText, and
@@ -1043,29 +1092,36 @@ const Judgment = () => {
            Source events come alongside rather than after: they say which
            claims have had evidence arrive that nobody has read, and that is
            the only thing this list is allowed to raise its voice about. */
-        const [pages, events] = await Promise.all([
-          listWikiPages({ summary: 1, limit: 500 }),
-          listWikiSourceEvents({ limit: 200 }).catch(() => [])
-        ]);
+        /* Detail and index share this exact request key. On a case route the
+           shelf and the dependency graph therefore reuse one in-flight read
+           instead of asking Mongo for the same casebook twice. */
+        const summaryPages = await listWikiPages({ projection: 'judgment', limit: 500 });
+        let pages = Array.isArray(summaryPages) ? summaryPages : [];
+        let nextItems = buildJudgmentIndex(pages, []);
+
+        /* A summary row is an optimization, not the source of truth. Older
+           pages can predate fields in the compact projection; if that makes a
+           non-empty Wiki corpus look like an empty casebook, recover once
+           from the full accepted pages rather than lying to the user. */
+        if (!nextItems.length && pages.length) {
+          const fullPages = await listWikiPages({ limit: 200 });
+          pages = Array.isArray(fullPages) ? fullPages : [];
+          nextItems = buildJudgmentIndex(pages, []);
+        }
         if (!cancelled) {
-          setItems(buildJudgmentIndex(pages, events));
+          setIndexPages(pages);
+          setItems(nextItems);
           setIndexLoading(false);
         }
-        /* The reading behind the drift, asked for after the claims have
-           arrived: the drawing is the slowest thing on the page and must not
-           be the reason the fastest thing waits. */
-        try {
-          const read = await getArticles();
-          if (!cancelled) {
-            setArticles(Array.isArray(read) ? read : []);
-            setReadingUnreadable(false);
-          }
-        } catch (_readingError) {
-          /* Say the server fell over. Swallowing this reported an outage as
-             "you have not filed anything", which is the software blaming the
-             reader for its own failure. */
-          if (!cancelled) setReadingUnreadable(true);
-        }
+
+        /* Movement signals refine the already-rendered casebook. Their
+           endpoint may be slow or unavailable without hiding the cases the
+           user already owns. */
+        Promise.resolve().then(() => listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }))
+          .then(events => {
+            if (!cancelled) setItems(buildJudgmentIndex(pages, events));
+          })
+          .catch(() => {});
       } catch (error) {
         if (!cancelled) {
           setIndexError('Could not load your judgments.');
@@ -1077,19 +1133,29 @@ const Judgment = () => {
   }, [pageId]);
 
   return (
-    <>
-      {/* The lock draws nothing behind the claim. A constellation drifting
-          past a judgment is decoration on the one page in the product that
-          should carry none. */}
-      {pageId
-        ? <JudgmentDetail pageId={pageId} />
-        : (
-          <>
-            <JudgmentIndex items={items} articles={articles} loading={indexLoading} readingUnreadable={readingUnreadable} />
-            {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
-          </>
-        )}
-    </>
+    <div className="judgment-room">
+      <div className="judgment-room__content">
+        {/* The lock draws nothing behind the claim. A constellation drifting
+            past a judgment is decoration on the one page in the product that
+            should carry none. */}
+        {pageId
+          ? (
+            <JudgmentDetail
+              pageId={pageId}
+              initialPage={indexPages.find(page => String(page?._id || '') === String(pageId)) || null}
+            />
+          )
+          : (
+            <>
+              <JudgmentIndex items={items} articles={articles} loading={indexLoading} readingUnreadable={readingUnreadable} />
+              {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
+            </>
+          )}
+      </div>
+      <aside className="judgment-room__shelf">
+        <JudgmentShelf items={items} activeId={pageId} />
+      </aside>
+    </div>
   );
 };
 

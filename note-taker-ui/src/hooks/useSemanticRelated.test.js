@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import useSemanticRelated from './useSemanticRelated';
+import useSemanticRelated, { resetSemanticRelatedCacheForTests } from './useSemanticRelated';
 import { fetchSemanticRelated } from '../api/retrieval';
 
 jest.mock('../api/retrieval', () => ({
@@ -38,6 +38,7 @@ const deferred = () => {
 
 describe('useSemanticRelated', () => {
   beforeEach(() => {
+    resetSemanticRelatedCacheForTests();
     fetchSemanticRelated.mockReset();
   });
 

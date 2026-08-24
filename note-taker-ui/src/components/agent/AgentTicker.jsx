@@ -60,7 +60,7 @@ const AgentTicker = ({
   lines = [],
   state = 'idle',
   className = '',
-  characterDelayMs = 22,
+  characterDelayMs = 16,
   sharedMemory = false,
   surface = ''
 }) => {
@@ -103,7 +103,10 @@ const AgentTicker = ({
     setTypedLength(reducedMotion ? activeLine.length : 0);
     if (reducedMotion || !activeLine) return undefined;
     const delay = Number(characterDelayMs);
-    const intervalMs = Number.isFinite(delay) && delay > 0 ? delay : 22;
+    // Keep the trace readable without making completed work look unfinished.
+    // At the old 22ms default, ordinary terminal lines could outlive a one-second
+    // UI transition and leave both tests and fast navigation with clipped copy.
+    const intervalMs = Number.isFinite(delay) && delay > 0 ? delay : 16;
     const intervalId = window.setInterval(() => {
       setTypedLength(current => {
         if (current >= activeLine.length) {

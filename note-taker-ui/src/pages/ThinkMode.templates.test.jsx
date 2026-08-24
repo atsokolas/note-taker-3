@@ -15,7 +15,7 @@ import { getArticles } from '../api/articles';
 import { listReturnQueue } from '../api/returnQueue';
 import { getNotebookFolders, getNotebookSummaries } from '../api/notebook';
 import { listAgentHandoffs, listPersonalAgents } from '../api/agent';
-import { createConnection, getConnectionsForScope, searchConnectableItems } from '../api/connections';
+import { createConnection, getConnectionsForItem, getConnectionsForScope, searchConnectableItems } from '../api/connections';
 import { updateConcept } from '../api/concepts';
 import { createWikiPage } from '../api/wiki';
 import { listWorkingMemory } from '../api/workingMemory';
@@ -346,6 +346,10 @@ describe('ThinkMode template integration', () => {
     mockSetSearchParams.mockReset();
     window.scrollTo = jest.fn();
     listReturnQueue.mockResolvedValue([]);
+    // These tests exercise Think composition and reference selection, not the
+    // backlink read model. Keep its request pending so it cannot resolve as an
+    // unrelated state update between a test's final assertion and cleanup.
+    getConnectionsForItem.mockImplementation(() => pendingRequest());
     useSearchParamsMock.mockReturnValue([
       new URLSearchParams('tab=concepts'),
       mockSetSearchParams

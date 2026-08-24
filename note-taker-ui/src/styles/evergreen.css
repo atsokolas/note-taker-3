@@ -26,7 +26,7 @@
 }
 
 .evergreen__error {
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
 }
 
 .evergreen__empty a,

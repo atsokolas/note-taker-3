@@ -323,7 +323,12 @@ describe('WikiWorkspace', () => {
     renderWorkspace();
     await settleWorkspaceEffects();
 
-    expect(screen.getByLabelText('Thought partner chat')).toBeInTheDocument();
+    const embeddedAgent = screen.getByLabelText('Thought partner chat');
+    expect(embeddedAgent).toBeInTheDocument();
+    expect(embeddedAgent).toHaveAttribute('data-agent-contract', 'agent-surface.wiki-workspace');
+    expect(embeddedAgent).toHaveAttribute('data-agent-presentation', 'embedded');
+    expect(embeddedAgent.getAttribute('data-agent-actions')).toContain('maintain');
+    expect(embeddedAgent).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
     await waitFor(() => expect(screen.getByLabelText('Thought partner status')).toHaveTextContent('Agent ready.'));
     expect(screen.queryByLabelText('Thought partner trace')).not.toBeInTheDocument();
     expect(screen.getByTestId('wiki-index')).toBeInTheDocument();

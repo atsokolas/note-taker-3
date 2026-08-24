@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAgentRail } from './AgentRailContext';
 import '../styles/agent-rail.css';
 
@@ -28,6 +28,9 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [index, setIndex] = useState(0);
+  const leaveTimer = useRef(null);
+
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
 
   const candidates = [proposal, ...(Array.isArray(proposal.alternatives) ? proposal.alternatives : [])];
   const shown = candidates[index] || proposal;
@@ -35,7 +38,8 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
 
   const leave = (run) => {
     setLeaving(true);
-    window.setTimeout(run, 200);
+    window.clearTimeout(leaveTimer.current);
+    leaveTimer.current = window.setTimeout(run, 200);
   };
 
   /* Accept writes what is on screen, not what arrived first. */
@@ -84,13 +88,24 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
 };
 
 const AgentRail = () => {
-  const { surface, proposals, busy, canAsk, error, ask, accept, dismissProposal } = useAgentRail();
-  const [draft, setDraft] = useState('');
+  const {
+    surface,
+    proposals,
+    busy,
+    canAsk,
+    availabilityReason,
+    error,
+    draft,
+    setDraft,
+    ask,
+    accept,
+    dismissProposal
+  } = useAgentRail();
 
   const submit = (event) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || busy || !canAsk) return;
+    if (!question || busy) return;
     setDraft('');
     ask(question);
   };
@@ -100,11 +115,33 @@ const AgentRail = () => {
   // A surface that has not taught the rail how to retrieve says so, rather than
   // offering an input that would swallow the question.
   const quietLine = surface.empty
-    || (canAsk ? 'Nothing to retrieve until you ask.' : 'Nothing to retrieve here yet.');
+    || (canAsk ? 'Nothing to retrieve until you ask.' : availabilityReason || 'Nothing to retrieve here yet.');
+  const askPlaceholder = surface.askPlaceholder || ASK_PLACEHOLDER;
+  const caption = surface.caption || 'Retrieves. You accept.';
 
   return (
-    <aside className="agent-rail" aria-label="Agent">
-      <p className="agent-rail__eyebrow">Agent</p>
+    <aside
+      className="agent-rail"
+      aria-label={surface.roleLabel || 'Agent'}
+      data-agent-contract={surface.contractId || undefined}
+      data-agent-presentation="rail"
+      data-agent-actions={Array.isArray(surface.supportedActions) ? surface.supportedActions.join(' ') : undefined}
+      data-agent-proposal-policy={surface.proposalPolicy || undefined}
+    >
+      <div className="agent-rail__identity">
+        <span
+          key={surface.id || 'idle'}
+          className={`agent-rail__thread${busy ? ' is-working' : ''}`}
+          aria-hidden="true"
+        >
+          <span className="agent-rail__thread-knot" />
+        </span>
+        <p className="agent-rail__eyebrow">{surface.roleLabel || 'Agent'}</p>
+      </div>
+
+      {surface.roleDescription ? (
+        <p className="agent-rail__role-description">{surface.roleDescription}</p>
+      ) : null}
 
       {surface.subject ? <p className="agent-rail__subject">{surface.subject}</p> : null}
 
@@ -143,8 +180,8 @@ const AgentRail = () => {
           id="agent-rail-ask"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={ASK_PLACEHOLDER}
-          title={ASK_PLACEHOLDER}
+          placeholder={askPlaceholder}
+          title={askPlaceholder}
           autoComplete="off"
           /* Always typeable. A disabled field on a page that has nothing to
              retrieve reads as a broken rail rather than an idle one; the ask
@@ -152,7 +189,7 @@ const AgentRail = () => {
         />
         <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
-      <p className="agent-rail__caption">Retrieves. You accept.</p>
+      <p className="agent-rail__caption">{caption}</p>
     </aside>
   );
 };

@@ -774,7 +774,7 @@ const Notebook = () => {
                     onChange={(e) => setTagsInput(e.target.value)}
                     placeholder="Tags (comma separated)"
                     className="notebook-title-input"
-                    style={{ maxWidth: '240px', borderBottom: '1px solid var(--border-color)' }}
+                    style={{ maxWidth: '240px', borderBottom: '1px solid var(--noeis-rule)' }}
                   />
                   <Button variant="secondary" onClick={() => setHighlightModalOpen(true)} data-onboard-id="insert-highlight">Insert Highlight</Button>
                   <Button variant="secondary" onClick={() => handleDumpToWorkingMemory()}>
@@ -832,7 +832,7 @@ const Notebook = () => {
               value={hlSearch}
               onChange={(e) => setHlSearch(e.target.value)}
               placeholder="Search highlights..."
-              style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+              style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '8px', border: '1px solid var(--noeis-rule)' }}
             />
             <div className="search-card-grid" style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {filteredHighlights.map(h => (

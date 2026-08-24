@@ -32,17 +32,9 @@ describe('stitch editorial CSS tokens', () => {
 
     // Nothing else clamps: the old per-page grants are gone rather than
     // sitting there looking load-bearing.
-    ['.paper', '.judgment-room', '.wiki-page'].forEach((page) => {
+    ['.paper', '.judgment', '.wiki-page'].forEach((page) => {
       expect(css).not.toContain(`.app-shell-new__body:has(${page}) {`);
     });
-  });
-
-  it('keeps the Judgment Library retrieval field visibly keyboard focused', () => {
-    const css = fs.readFileSync(path.join(__dirname, 'judgment-room.css'), 'utf8');
-
-    expect(css).toContain('.judgment-retrieval input:focus-visible');
-    expect(css).toContain('outline: 2px solid var(--judgment-accent)');
-    expect(css).toContain('.judgment-retrieval form label > div:focus-within');
   });
 
   it('defines the accent tokens used by interactive trace states in light and dark palettes', () => {
@@ -78,7 +70,7 @@ describe('stitch editorial CSS tokens', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
     expect(css).toContain('body.noeis-editorial .agent-ticker');
-    expect(css).toContain('background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1)');
+    expect(css).toContain('background-color var(--noeis-motion-base) var(--noeis-ease-standard)');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('transition: none;');
   });
@@ -127,7 +119,7 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
     expect(css).toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?library-article-row\.is-magnetic:focus-within[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
-    expect(css).not.toContain('.three-pane--library .library-article-row::before');
+    expect(css).not.toContain('.three-pane--library');
   });
 
   it('keeps mobile editorial chrome compact while preserving essential utility links', () => {
@@ -139,7 +131,8 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.topbar__content[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.topbar__right[\s\S]*?justify-content: space-between;/);
     expect(css).toMatch(/@media \(max-width: 640px\)[\s\S]*?body\.noeis-editorial \.app-shell-new--stitch \.app-shell-new__body[\s\S]*?padding-top: 112px;/);
-    expect(css).not.toContain('.topbar__primary-link:not(.is-active)');
+    expect(css).toMatch(/@media \(max-width: 480px\)[\s\S]*?\.topbar__primary-link:not\(\.is-active\)[\s\S]*?display: none;/);
+    expect(css).toMatch(/@media \(max-width: 480px\)[\s\S]*?\.topbar__menu-item--mobile-room[\s\S]*?display: flex;/);
     expect(css).toContain('.topbar__menu-popover--portal');
   });
 
@@ -178,7 +171,7 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
-    expect(css).toContain('body.noeis-editorial .wiki-facet-rail--deep');
+    expect(css).not.toContain('body.noeis-editorial .wiki-facet-rail--deep');
     expect(css).toMatch(/@media \(max-width: 960px\)[\s\S]*?wiki-index__faceted-main[\s\S]*?order: 2;/);
   });
 

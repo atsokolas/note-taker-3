@@ -76,10 +76,10 @@ const ConnectedAgentsCard = ({ tokenModel }) => {
             aria-label="Agent token label"
             style={{
               width: '100%',
-              border: '1px solid var(--border-color-light)',
+              border: '1px solid var(--border-subtle-2)',
               borderRadius: 10,
               background: 'var(--surface-elevated)',
-              color: 'var(--text-color)',
+              color: 'var(--text-primary)',
               padding: '10px 12px',
               font: 'inherit'
             }}
@@ -97,10 +97,10 @@ const ConnectedAgentsCard = ({ tokenModel }) => {
             aria-label="Agent token daily quota"
             style={{
               width: '100%',
-              border: '1px solid var(--border-color-light)',
+              border: '1px solid var(--border-subtle-2)',
               borderRadius: 10,
               background: 'var(--surface-elevated)',
-              color: 'var(--text-color)',
+              color: 'var(--text-primary)',
               padding: '10px 12px',
               font: 'inherit'
             }}
@@ -116,10 +116,10 @@ const ConnectedAgentsCard = ({ tokenModel }) => {
             aria-label="Agent token expiry"
             style={{
               width: '100%',
-              border: '1px solid var(--border-color-light)',
+              border: '1px solid var(--border-subtle-2)',
               borderRadius: 10,
               background: 'var(--surface-elevated)',
-              color: 'var(--text-color)',
+              color: 'var(--text-primary)',
               padding: '10px 12px',
               font: 'inherit'
             }}
@@ -160,8 +160,8 @@ const ConnectedAgentsCard = ({ tokenModel }) => {
           style={{
             padding: '14px 16px',
             borderRadius: 14,
-            border: '1px solid color-mix(in srgb, var(--primary-color, #0b74ff) 28%, var(--border-color-light))',
-            background: 'color-mix(in srgb, var(--surface-elevated) 92%, var(--primary-color, #0b74ff) 6%)',
+            border: '1px solid color-mix(in srgb, var(--noeis-action, #0b74ff) 28%, var(--border-subtle-2))',
+            background: 'color-mix(in srgb, var(--surface-elevated) 92%, var(--noeis-action, #0b74ff) 6%)',
             marginBottom: 16
           }}
         >

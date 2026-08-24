@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
+import { NOEIS_GO_TO_SHORTCUTS } from '../navigation/appNavigation';
 
 /**
  * KeyboardShortcutOverlay — modal that lists every global shortcut.
  * Triggered globally by `?` (handled in App.js).
  *
- * Source-of-truth for shortcuts: keep in sync with App.js's handleKeyDown
- * effect. We deliberately don't auto-derive — the cross-cutting handler is
- * deeply imperative and each shortcut deserves its own one-liner caption
- * for the user.
+ * Go-to destinations are projected from the same contract used by App.js.
+ * The overlay describes that behavior; it does not maintain a second list.
  */
 const SECTIONS = [
   {
@@ -20,14 +19,7 @@ const SECTIONS = [
   },
   {
     title: 'Go to (press G then…)',
-    items: [
-      { keys: ['G', 'H'], label: 'Home' },
-      { keys: ['G', 'L'], label: 'Library' },
-      { keys: ['G', 'T'], label: 'Think' },
-      { keys: ['G', 'W'], label: 'Wiki' },
-      { keys: ['G', 'R'], label: 'Review' },
-      { keys: ['G', 'S'], label: 'Settings' }
-    ]
+    items: NOEIS_GO_TO_SHORTCUTS.map(item => ({ keys: ['G', item.key.toUpperCase()], label: item.label }))
   },
   {
     title: 'Reading & highlights',

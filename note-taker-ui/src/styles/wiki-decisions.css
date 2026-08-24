@@ -56,7 +56,7 @@
 .wiki-decisions__more {
   appearance: none;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 48%, transparent);
   border-radius: 8px;
   color: inherit;
   cursor: pointer;
@@ -82,7 +82,7 @@
 }
 
 .wiki-decisions__row {
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 28%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 28%, transparent);
   display: grid;
   gap: 10px;
   padding: 16px 0 4px;
@@ -124,8 +124,8 @@
 .wiki-decision-review__chronology {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(160px, 0.7fr) minmax(0, 1fr);
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 30%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 30%, transparent);
 }
 
 .wiki-decision-review__chronology > section {
@@ -141,7 +141,7 @@
 }
 
 .wiki-decision-review__chronology > section + section {
-  border-left: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 24%, transparent);
 }
 
 .wiki-decision-review__chronology h5 {
@@ -199,7 +199,7 @@
 .wiki-decision-form__error,
 .wiki-decision-form__blocker,
 .wiki-decision-form__receipt {
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 40%, transparent);
   border-radius: 10px;
   display: grid;
   gap: 8px;
@@ -232,7 +232,7 @@
 
 .wiki-decision-form fieldset,
 .wiki-decision-outcome fieldset {
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 30%, transparent);
   border-radius: 10px;
   margin: 0;
   padding: 12px;
@@ -251,7 +251,7 @@
 .wiki-decision-outcome select,
 .wiki-decision-outcome textarea {
   background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 52%, transparent);
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 52%, transparent);
   border-radius: 8px;
   color: inherit;
   font: inherit;
@@ -279,7 +279,7 @@
 
 .wiki-read__decision-create {
   margin-top: 6px;
-  border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 30%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 30%, transparent);
 }
 
 .wiki-read__decision-create > summary {
@@ -318,7 +318,7 @@
   }
 
   .wiki-decision-review__chronology > section + section {
-    border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 24%, transparent);
     border-left: 0;
   }
 }
@@ -330,7 +330,7 @@
 
   .wiki-decision-review__observed-layer {
     grid-column: 1 / -1;
-    border-top: 1px solid color-mix(in srgb, var(--border-color, #7d7669) 24%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 24%, transparent);
     border-left: 0 !important;
   }
 }

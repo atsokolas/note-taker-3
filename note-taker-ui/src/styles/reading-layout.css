@@ -1,11 +1,11 @@
 /* Before: some embedded media could inherit source widths and visually crowd the reading surface.
    After: media is hard-constrained to the reading column, right panel remains separate, and content scales safely across breakpoints. */
 :root {
-  --surface-bg: var(--surface, #ffffff);
+  --noeis-paper: var(--surface, #ffffff);
   --surface-border: var(--border-subtle-2, rgba(15, 23, 42, 0.08));
   --text-primary: var(--text, #111827);
   --text-muted: var(--text-secondary, #5f6b7a);
-  --radius: var(--radius-2, 10px);
+  --noeis-radius-control: var(--radius-2, 10px);
 }
 
 .article-viewer-shell {
@@ -64,7 +64,7 @@
 }
 
 .article-viewer-card {
-  background: var(--surface-bg);
+  background: var(--noeis-paper);
   border-color: var(--surface-border);
 }
 
@@ -118,7 +118,7 @@
   width: auto !important;
   max-width: 100% !important;
   height: auto !important;
-  border-radius: var(--radius);
+  border-radius: var(--noeis-radius-control);
   max-height: min(72vh, 920px);
   object-fit: contain;
 }
@@ -128,7 +128,7 @@
   width: 100% !important;
   max-width: 100% !important;
   height: auto !important;
-  border-radius: var(--radius);
+  border-radius: var(--noeis-radius-control);
   object-fit: contain;
 }
 
@@ -136,10 +136,10 @@
 .article-reader-content :is(iframe, object, embed) {
   width: 100% !important;
   border: 0;
-  border-radius: var(--radius);
+  border-radius: var(--noeis-radius-control);
   aspect-ratio: 16 / 9;
   min-height: 240px;
-  background: var(--surface-bg);
+  background: var(--noeis-paper);
 }
 
 .article-reading-surface .content-body figure,

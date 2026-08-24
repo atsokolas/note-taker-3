@@ -653,6 +653,7 @@ const { decryptSecret: decryptIntegrationSecretForAgent } = require('./utils/int
 const { buildAgentSettingsRouter } = require('./routes/agentSettingsRoutes');
 const { buildDailyLoopRouter } = require('./routes/dailyLoopRoutes');
 const { buildKnowledgeMovementRouter } = require('./routes/knowledgeMovementRoutes');
+const { buildSystemLoopRouter } = require('./routes/systemLoopRoutes');
 const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
 const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
 const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
@@ -5406,6 +5407,15 @@ app.use(buildKnowledgeMovementRouter({
   Question,
   Connection,
   ReferenceEdge
+}));
+
+app.use(buildSystemLoopRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiMaintenanceRun,
+  WikiBriefingCache,
+  MorningPaperDelivery,
+  WikiPage,
+  NoeisReceipt
 }));
 
 app.use(buildDecisionIndexRouter({

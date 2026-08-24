@@ -5,6 +5,7 @@ import {
   approveWeekendReadingsRevision,
   archiveWikiPage,
   askWikiPage,
+  createWikiPage,
   getWeekendReadingsStatus,
   getWikiBacklinks,
   getWikiPage,
@@ -29,10 +30,7 @@ import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
 import AgentTicker from '../agent/AgentTicker';
-import AgentContextShell from '../agent/AgentContextShell';
-import ThoughtPartnerPanel from '../agent/ThoughtPartnerPanel';
 import ReferencePullIn from '../references/ReferencePullIn';
-import RightDrawer from '../../layout/RightDrawer';
 import {
   countWikiClaims,
   countWikiPageWords,
@@ -86,6 +84,10 @@ import DecisionCreateForm from './decisions/DecisionCreateForm';
 import DecisionReviewPanel from './decisions/DecisionReviewPanel';
 import { selectableAcceptedRevisions } from './decisions/acceptedRevisionIdentity';
 import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigation';
+import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
+import { useContextualAgentSurface } from '../../agent/AgentRailContext';
+import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
+import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -1203,6 +1205,8 @@ const WikiPageReadView = ({
   const [weekendPublicationError, setWeekendPublicationError] = useState('');
   const [weekendPublicUrl, setWeekendPublicUrl] = useState('');
   const [activeClaim, setActiveClaim] = useState(null);
+  const [carryingTension, setCarryingTension] = useState(false);
+  const [carryTensionError, setCarryTensionError] = useState('');
   const [preview, setPreview] = useState(null);
   const [lastVisit, setLastVisit] = useState(null);
   const [activeTab, setActiveTab] = useState(requestedReadTab);
@@ -1219,12 +1223,27 @@ const WikiPageReadView = ({
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
+  useNoeisSurface(buildWikiSurfaceDescriptor({
+    page,
+    pageId,
+    claimId: activeClaim?.claimId || focusedClaimId,
+    revisionId: new URLSearchParams(traceSearch || '').get('revisionId') || '',
+    acceptedRevisionId: continuationBasis?.revisionId || '',
+    mode: 'read'
+  }));
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_page',
+    objectId: pageId,
+    subject: displayWikiPageTitle(page, 'Wiki page'),
+    empty: page
+      ? 'Nothing to retrieve until you ask against this accepted page.'
+      : 'Loading the page before the steward checks it.'
+  }, {});
   const reducedMotion = useReducedMotion();
   const [showMarginalia, setShowMarginalia] = useState(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
     return window.matchMedia('(min-width: 1280px)').matches;
   });
-  const [agentContextOpen, setAgentContextOpen] = useState(true);
   const [mobileStandardReader, setMobileStandardReader] = useState(() => (
     typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
@@ -1307,7 +1326,7 @@ const WikiPageReadView = ({
       setLoading(true);
       setError('');
       try {
-        const loaded = await getWikiPage(pageId);
+        const loaded = await getWikiPage(pageId, { reader: 1 });
         if (cancelled) return;
         latestPageRef.current = loaded;
         setPage(loaded);
@@ -1416,7 +1435,7 @@ const WikiPageReadView = ({
     if (streamBusy) return undefined;
     lastRefreshNonceRef.current = refreshNonce;
     let cancelled = false;
-    getWikiPage(pageId)
+    getWikiPage(pageId, { reader: 1 })
       .then((loaded) => {
         if (cancelled) return;
         const streamed = latestPageRef.current;
@@ -1908,7 +1927,7 @@ const WikiPageReadView = ({
     const anchorRect = target.getBoundingClientRect();
     previewTimerRef.current = window.setTimeout(async () => {
       try {
-        const loaded = await getWikiPage(targetPageId);
+        const loaded = await getWikiPage(targetPageId, { reader: 1 });
         setPreview({ page: loaded, anchorRect });
       } catch (_error) {
         setPreview(null);
@@ -2000,6 +2019,30 @@ const WikiPageReadView = ({
       .filter(Boolean);
     return [...supportingFallbackSources, ...contradictionFallbackSources];
   }, [activeClaim, claimLedgerById, page]);
+
+  const carryActiveTension = useCallback(async () => {
+    if (carryingTension) return;
+    const seed = tensionSeed({
+      claim: activeClaim ? claimLedgerById.get(activeClaim.claimId) : null,
+      sources: resolvedActiveSources,
+      fallbackSentence: displayWikiPageTitle(page, 'Wiki tension')
+    });
+    if (!seed) return;
+    setCarryingTension(true);
+    setCarryTensionError('');
+    try {
+      const judgmentId = await carryTensionToJudgment(seed, {
+        createPage: createWikiPage,
+        updatePage: updateWikiPage
+      });
+      setActiveClaim(null);
+      navigate(`/judgment/${judgmentId}`);
+    } catch (error) {
+      setCarryTensionError(error?.message || 'This could not be carried into a judgment.');
+    } finally {
+      setCarryingTension(false);
+    }
+  }, [activeClaim, carryingTension, claimLedgerById, navigate, page, resolvedActiveSources]);
 
   const currentClaimTexts = useMemo(() => (
     nonCriticalReady && lastVisit?.lastViewedAt ? extractClaimTexts(page?.body) : []
@@ -2691,44 +2734,7 @@ const WikiPageReadView = ({
         </details>
       ) : null}
       <div className={`wiki-read__layout${railCollapsed ? ' wiki-read__layout--rail-collapsed' : ''}`}>
-        {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc wiki-read__left-rail${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`} aria-label="Wiki navigation and agent">
-          {nonCriticalReady ? (
-            <RightDrawer title={AGENT_DISPLAY_NAME} open={agentContextOpen} onToggle={setAgentContextOpen}>
-              <AgentContextShell
-                surface="wiki"
-                title={AGENT_DISPLAY_NAME}
-                orientation={`Reading ${displayWikiPageTitle(page, 'this page')} in its current Wiki state.`}
-                showPresence={false}
-              >
-                <ThoughtPartnerPanel
-                  className="wiki-read__partner"
-                  variant="stream"
-                  contextType="wiki"
-                  contextId={pageId}
-                  contextTitle={displayWikiPageTitle(page, 'Wiki page')}
-                  contextMetadata={{
-                    summary: firstParagraphText(page?.tiptapJson || emptyDoc) || '',
-                    nextActions: ['Continue in Think', 'Challenge a claim', 'Inspect provenance']
-                  }}
-                  title={AGENT_DISPLAY_NAME}
-                  subtitle="Page context"
-                  placeholder="Ask to continue, challenge, or inspect this page."
-                  promptTemplates={[
-                    'Challenge the strongest claim on this page.',
-                    'What evidence should I inspect next?',
-                    'Help me continue this page in Think.'
-                  ]}
-                  showQuickPrompts={false}
-                  emptyStateText="Ask when you want to investigate. Proposals stay separate until you explicitly review them."
-                  submitLabel="↗"
-                />
-                <WikiReferenceComposer
-                  pageId={pageId}
-                  pageTitle={displayWikiPageTitle(page, 'Wiki page')}
-                />
-              </AgentContextShell>
-            </RightDrawer>
-          ) : null}
+        {!standardWikiPage || !mobileStandardReader ? <aside className={`wiki-read__toc wiki-read__left-rail${standardWikiPage ? ' wiki-read__toc--desktop' : ''}`} aria-label="Wiki navigation">
           {repoDossierMode && repoSectionNav.length ? (
             <nav className="wiki-read__repo-dossier-toc" aria-label="Repository dossier contents">
               <h2>Dossier</h2>
@@ -2771,6 +2777,12 @@ const WikiPageReadView = ({
                 ))}
               </ol>
             </nav>
+          ) : null}
+          {nonCriticalReady ? (
+            <WikiReferenceComposer
+              pageId={pageId}
+              pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+            />
           ) : null}
         </aside> : null}
         <article
@@ -2870,7 +2882,7 @@ const WikiPageReadView = ({
                   decisionId={focusedDecisionId}
                   page={page}
                   onPageRefresh={async () => {
-                    const refreshed = await getWikiPage(pageId);
+                    const refreshed = await getWikiPage(pageId, { reader: 1 });
                     if (refreshed) {
                       latestPageRef.current = refreshed;
                       setPage(refreshed);
@@ -2883,7 +2895,7 @@ const WikiPageReadView = ({
                     page={page}
                     pageId={pageId}
                     onCreated={async () => {
-                      const refreshed = await getWikiPage(pageId);
+                      const refreshed = await getWikiPage(pageId, { reader: 1 });
                       if (refreshed) {
                         latestPageRef.current = refreshed;
                         setPage(refreshed);
@@ -3045,42 +3057,10 @@ const WikiPageReadView = ({
             </aside>
           ) : null}
           {standardWikiPage && mobileStandardReader && nonCriticalReady ? (
-            <details className="wiki-read__mobile-agent">
-              <summary>Ask {AGENT_DISPLAY_NAME}</summary>
-              <AgentContextShell
-                surface="wiki"
-                title={AGENT_DISPLAY_NAME}
-                orientation={`Reading ${displayWikiPageTitle(page, 'this page')} in its current Wiki state.`}
-                showPresence={false}
-              >
-                <ThoughtPartnerPanel
-                  className="wiki-read__partner"
-                  variant="stream"
-                  contextType="wiki"
-                  contextId={pageId}
-                  contextTitle={displayWikiPageTitle(page, 'Wiki page')}
-                  contextMetadata={{
-                    summary: firstParagraphText(page?.tiptapJson || emptyDoc) || '',
-                    nextActions: ['Continue in Think', 'Challenge a claim', 'Inspect provenance']
-                  }}
-                  title={AGENT_DISPLAY_NAME}
-                  subtitle="Page context"
-                  placeholder="Ask to continue, challenge, or inspect this page."
-                  promptTemplates={[
-                    'Challenge the strongest claim on this page.',
-                    'What evidence should I inspect next?',
-                    'Help me continue this page in Think.'
-                  ]}
-                  showQuickPrompts={false}
-                  emptyStateText="Ask when you want to investigate. Proposals stay separate until you explicitly review them."
-                  submitLabel="↗"
-                />
-                <WikiReferenceComposer
-                  pageId={pageId}
-                  pageTitle={displayWikiPageTitle(page, 'Wiki page')}
-                />
-              </AgentContextShell>
-            </details>
+            <WikiReferenceComposer
+              pageId={pageId}
+              pageTitle={displayWikiPageTitle(page, 'Wiki page')}
+            />
           ) : null}
           {!showPageTalk || activeTab === 'article' ? (
             <section
@@ -3268,7 +3248,7 @@ const WikiPageReadView = ({
                           decisionId={focusedDecisionId}
                           page={page}
                           onPageRefresh={async () => {
-                            const refreshed = await getWikiPage(pageId);
+                            const refreshed = await getWikiPage(pageId, { reader: 1 });
                             if (refreshed) {
                               latestPageRef.current = refreshed;
                               setPage(refreshed);
@@ -3281,7 +3261,7 @@ const WikiPageReadView = ({
                             page={page}
                             pageId={pageId}
                             onCreated={async () => {
-                              const refreshed = await getWikiPage(pageId);
+                              const refreshed = await getWikiPage(pageId, { reader: 1 });
                               if (refreshed) {
                                 latestPageRef.current = refreshed;
                                 setPage(refreshed);
@@ -3531,6 +3511,9 @@ const WikiPageReadView = ({
           claim={activeLedgerClaim}
           sources={resolvedActiveSources}
           onClose={() => setActiveClaim(null)}
+          onCarry={isTension(resolvedActiveSources) ? carryActiveTension : null}
+          carrying={carryingTension}
+          carryError={carryTensionError}
         />
       ) : null}
       <WikiLinkPreview

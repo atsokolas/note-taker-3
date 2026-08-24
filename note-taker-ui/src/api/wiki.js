@@ -1,5 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
+import { notifyNoeisLoopStatusChanged } from '../system/noeisLoopEvents';
 import { parseGitHubRepoInput } from '../utils/githubRepoInput';
 import { getPendingWikiClaimReview } from './wikiPendingClaimReview';
 
@@ -7,6 +8,7 @@ export { getPendingWikiClaimReview };
 
 const WIKI_PAGES_PATH = '/api/wiki/pages';
 const wikiPageListRequests = new Map();
+const wikiPageRequests = new Map();
 
 const safeId = (id) => encodeURIComponent(String(id || '').trim());
 
@@ -20,24 +22,29 @@ const buildQueryString = (params = {}) => {
   return suffix ? `?${suffix}` : '';
 };
 
-export const listWikiPages = (params = {}) => {
-  const path = `${WIKI_PAGES_PATH}${buildQueryString(params)}`;
-  const activeRequest = wikiPageListRequests.get(path);
+const shareInFlightRequest = (requests, key, createRequest) => {
+  const activeRequest = requests.get(key);
   if (activeRequest) return activeRequest;
 
-  const request = api.get(path, getAuthHeaders()).then((res) => {
-    if (Array.isArray(res.data)) return res.data;
-    if (Array.isArray(res.data?.pages)) return res.data.pages;
-    return [];
-  });
   let sharedRequest;
-  sharedRequest = request.finally(() => {
-    if (wikiPageListRequests.get(path) === sharedRequest) {
-      wikiPageListRequests.delete(path);
-    }
-  });
-  wikiPageListRequests.set(path, sharedRequest);
+  sharedRequest = Promise.resolve()
+    .then(createRequest)
+    .finally(() => {
+      if (requests.get(key) === sharedRequest) requests.delete(key);
+    });
+  requests.set(key, sharedRequest);
   return sharedRequest;
+};
+
+export const listWikiPages = (params = {}) => {
+  const path = `${WIKI_PAGES_PATH}${buildQueryString(params)}`;
+  return shareInFlightRequest(wikiPageListRequests, path, () => (
+    api.get(path, getAuthHeaders()).then((res) => {
+      if (Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res.data?.pages)) return res.data.pages;
+      return [];
+    })
+  ));
 };
 
 const apiUrl = (path = '') => {
@@ -126,9 +133,13 @@ export const adoptWikiCurrentResearchHead = async (pageId) => {
   return res.data || {};
 };
 
-export const getWikiPage = async (id) => {
-  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
-  return res.data;
+export const getWikiPage = (id, params = {}) => {
+  const path = `${WIKI_PAGES_PATH}/${safeId(id)}${buildQueryString(params)}`;
+  return shareInFlightRequest(
+    wikiPageRequests,
+    path,
+    () => api.get(path, getAuthHeaders()).then((res) => res.data)
+  );
 };
 
 export const getPublicWikiPage = async (idOrSlug) => {
@@ -298,6 +309,7 @@ const WEEKEND_READINGS_PATH = '/api/wiki/weekend-readings';
 
 export const createWeekendReadingsDraft = async (draft = {}) => {
   const res = await api.post(`${WEEKEND_READINGS_PATH}/drafts`, draft, getAuthHeaders());
+  notifyNoeisLoopStatusChanged('loop.weekly-ai');
   return res.data || {};
 };
 
@@ -312,6 +324,7 @@ const transitionWeekendReadings = async (pageId, action, confirmation) => {
     { confirmation },
     getAuthHeaders()
   );
+  notifyNoeisLoopStatusChanged('loop.weekly-ai');
   return res.data || {};
 };
 
@@ -370,6 +383,7 @@ const wikiMaintenanceError = (requestError) => {
 export const maintainWikiPage = async (id, options = {}) => {
   try {
     const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft`, options, getAuthHeaders());
+    notifyNoeisLoopStatusChanged('loop.wiki-maintenance');
     return res.data;
   } catch (error) {
     throw wikiMaintenanceError(error);
@@ -384,6 +398,7 @@ export const draftWikiPage = maintainWikiPage;
  */
 export const startWikiPageBuild = async (id, options = {}) => {
   const res = await api.post(`${WIKI_PAGES_PATH}/${safeId(id)}/ai/draft/async`, options, getAuthHeaders());
+  notifyNoeisLoopStatusChanged('loop.wiki-maintenance');
   return res.data || {};
 };
 
@@ -395,7 +410,7 @@ export const getWikiPageBuildStatus = async (id) => {
   const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
   const page = res.data || {};
   const aiState = page.aiState || {};
-  return {
+  const result = {
     pageId: safeId(id),
     status: aiState.draftStatus || 'idle',
     error: aiState.lastError || '',
@@ -404,6 +419,8 @@ export const getWikiPageBuildStatus = async (id) => {
     completedAt: aiState.draftCompletedAt || null,
     page
   };
+  if (['ready', 'error'].includes(result.status)) notifyNoeisLoopStatusChanged('loop.wiki-maintenance');
+  return result;
 };
 
 const WIKI_STREAM_READ_TIMEOUT_MS = 45000;

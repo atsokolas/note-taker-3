@@ -13,6 +13,7 @@ import { matchesSourceQuery, sourceRowKey } from './librarySourceIdentity';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 
 const SOURCE_ROW_HEIGHT = 168;
+const ROOM_SOURCE_ROW_HEIGHT = 94;
 const SKELETON_ROWS = 6;
 
 const hasSafeInternalHref = ref => (
@@ -33,6 +34,11 @@ const sourceTypeLabel = type => {
   if (type === 'note') return 'Notebook';
   return 'Article';
 };
+
+const humanizeSourceLabel = value => String(value || '')
+  .replace(/[_-]+/g, ' ')
+  .replace(/\b\w/g, letter => letter.toUpperCase())
+  .trim();
 
 const coverageMessage = ({ coverage, counts, sourceView, hasMore }) => {
   if (coverage?.status !== 'partial') return '';
@@ -80,11 +86,13 @@ const SourceRowSkeleton = React.memo(() => (
 
 const LibrarySourceRow = React.memo(({
   row,
-  onSelectSource,
+  onOpenSource,
   onMoveArticle,
   articleById = null,
-  selected = false
+  selected = false,
+  variant = 'default'
 }) => {
+  const isRoom = variant === 'room';
   const [activated, setActivated] = useState(false);
   const receiptTimerRef = useRef(null);
   const source = row?.source || {};
@@ -105,7 +113,7 @@ const LibrarySourceRow = React.memo(({
   const metaBits = [
     provenance.parentTitle,
     provenance.author,
-    provenance.provider || provenance.siteName
+    humanizeSourceLabel(provenance.provider || provenance.siteName)
   ].filter(Boolean).filter(value => (
     String(value).trim().toLowerCase() !== typeLabel.toLowerCase()
   ));
@@ -150,7 +158,7 @@ const LibrarySourceRow = React.memo(({
 
   return (
     <div
-      className={`library-article-row library-source-row is-magnetic${activated ? ' is-activated' : ''}${selected ? ' is-selected' : ''}`}
+      className={`library-article-row library-source-row${isRoom ? ' library-source-row--room' : ''} is-magnetic${activated ? ' is-activated' : ''}${selected ? ' is-selected' : ''}`}
       data-source-type={source.type || 'article'}
       data-source-key={sourceRowKey(row)}
       aria-selected={selected ? 'true' : undefined}
@@ -167,12 +175,12 @@ const LibrarySourceRow = React.memo(({
           data-testid="library-source-open"
           onClick={() => {
             triggerReceipt();
-            onSelectSource?.(source);
+            onOpenSource?.(source);
           }}
         >
           <div className="library-article-row-title">{source.title || 'Untitled source'}</div>
           <div className="library-article-row-kicker">
-            <span className="library-source-row__type">{typeLabel}</span>
+            {!isRoom ? <span className="library-source-row__type">{typeLabel}</span> : null}
             {metaBits.length > 0 ? (
               <span className="library-article-row-source">{metaBits.join(' · ')}</span>
             ) : null}
@@ -182,11 +190,13 @@ const LibrarySourceRow = React.memo(({
               From {provenance.parentTitle}
             </div>
           ) : null}
-          <div className="library-article-row-meta">
-            <span>{connectionSummary}</span>
-          </div>
+          {!isRoom ? (
+            <div className="library-article-row-meta">
+              <span>{connectionSummary}</span>
+            </div>
+          ) : null}
         </button>
-        {visibleRefs.length > 0 ? (
+        {!isRoom && visibleRefs.length > 0 ? (
           <div className="library-article-row-relevance" aria-label="Appears in">
             {visibleRefs.map(ref => (
               <a
@@ -202,7 +212,7 @@ const LibrarySourceRow = React.memo(({
           </div>
         ) : null}
       </div>
-      {canMove ? (
+      {!isRoom && canMove ? (
         <button
           className="library-article-row-action"
           type="button"
@@ -459,7 +469,7 @@ const LibrarySourceList = ({
   loadingMore = false,
   error,
   emptyLabel,
-  onSelectSource,
+  onOpenSource,
   onMoveArticle,
   articles = [],
   scope = 'all',
@@ -480,8 +490,10 @@ const LibrarySourceList = ({
   title = 'Sources',
   subtitle = 'Articles, highlights, and notebook entries in one index.',
   selectedSourceKey = '',
-  inlinePreview = null
+  inlinePreview = null,
+  variant = 'default'
 }) => {
+  const isRoom = variant === 'room';
   const hasError = Boolean(error);
   const articleById = useMemo(() => new Map(
     (Array.isArray(articles) ? articles : [])
@@ -527,10 +539,11 @@ const LibrarySourceList = ({
       >
         <LibrarySourceRow
           row={row}
-          onSelectSource={onSelectSource}
+          onOpenSource={onOpenSource}
           onMoveArticle={onMoveArticle}
           articleById={articleById}
           selected={selected}
+          variant={variant}
         />
         {selected && inlinePreview ? (
           <div
@@ -547,7 +560,7 @@ const LibrarySourceList = ({
 
   return (
     <div
-      className={`library-article-list library-source-list ${loading ? 'is-loading' : ''} ${hasError ? 'has-error' : ''} ${isEmpty ? 'is-empty' : ''}`.trim()}
+      className={`library-article-list library-source-list${isRoom ? ' library-source-list--room' : ''} ${loading ? 'is-loading' : ''} ${hasError ? 'has-error' : ''} ${isEmpty ? 'is-empty' : ''}`.trim()}
       data-ui-surface-state={loading ? 'loading' : hasError ? 'error' : isEmpty ? 'empty' : 'ready'}
       data-testid="library-source-list"
     >
@@ -618,7 +631,7 @@ const LibrarySourceList = ({
             <VirtualList
               items={visibleSources}
               height={virtualHeight}
-              itemSize={SOURCE_ROW_HEIGHT}
+              itemSize={isRoom ? ROOM_SOURCE_ROW_HEIGHT : SOURCE_ROW_HEIGHT}
               dynamicItemHeights
               className="library-article-list-virtual"
               renderItem={(row, index) => (

@@ -9,8 +9,11 @@ jest.mock('../../api/knowledgeMovements', () => ({
 }));
 
 const renderDigest = async () => {
-  const view = render(<MemoryRouter><WeeklyDigest /></MemoryRouter>);
-  await act(async () => {});
+  let view;
+  await act(async () => {
+    view = render(<MemoryRouter><WeeklyDigest /></MemoryRouter>);
+    await Promise.resolve();
+  });
   return view;
 };
 
@@ -50,7 +53,7 @@ test('the week renders grouped by the page it happened to', async () => {
       }
     ]
   });
-  renderDigest();
+  await renderDigest();
 
   expect(await screen.findByRole('heading', { name: 'The week in your thinking' })).toBeInTheDocument();
   expect(screen.getByText('Nvidia dossier')).toBeInTheDocument();

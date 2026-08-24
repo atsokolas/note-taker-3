@@ -26,7 +26,6 @@ const LibraryMain = ({
   selectedFolderName,
   readerRef,
   onSelectArticle,
-  onSelectSource = null,
   onOpenSource = null,
   onSelectScope = null,
   onMoveArticle,
@@ -97,11 +96,17 @@ const LibraryMain = ({
   }, []);
   const showReadingRoomLead = scope === 'unfiled';
   const isMixedBrowse = scope === 'all';
-  const allowedSourceIds = useMemo(() => new Set(
-    (suppressedVisible ? allArticles : filterLibraryBrowseItems(allArticles))
-      .map(article => String(article?._id || ''))
-      .filter(Boolean)
-  ), [allArticles, suppressedVisible]);
+  const allowedSourceIds = useMemo(() => {
+    // The mixed-source endpoint already applies the visibility contract. Do
+    // not hold its first useful page behind the older all-articles request;
+    // once that summary arrives it becomes a second, local safety fence.
+    if (articlesLoading) return null;
+    return new Set(
+      (suppressedVisible ? allArticles : filterLibraryBrowseItems(allArticles))
+        .map(article => String(article?._id || ''))
+        .filter(Boolean)
+    );
+  }, [allArticles, articlesLoading, suppressedVisible]);
   const handleRelevanceDataChange = useCallback(next => {
     setRelevanceState(previous => {
       if (
@@ -120,26 +125,18 @@ const LibraryMain = ({
       return next;
     });
   }, []);
-  const handleSelectSource = useCallback((source) => {
-    if (onSelectSource) {
-      onSelectSource(source);
-      return;
-    }
-    if (source?.type === 'article' || !source?.type) {
-      onSelectArticle?.(source?.id);
-      return;
-    }
-    if (source?.type === 'highlight' && source.parentId) {
-      onSelectArticle?.(source.parentId);
-    }
-  }, [onSelectArticle, onSelectSource]);
   const handleOpenSource = useCallback((source) => {
     if (onOpenSource) {
       onOpenSource(source);
       return;
     }
-    handleSelectSource(source);
-  }, [handleSelectSource, onOpenSource]);
+    if (source?.type === 'note') return;
+    if (source?.type === 'highlight' && source.parentId) {
+      onSelectArticle?.(source.parentId);
+      return;
+    }
+    onSelectArticle?.(source?.id);
+  }, [onOpenSource, onSelectArticle]);
   const viewLabel = sourceView === 'active'
     ? 'Active in my thinking'
     : sourceView === 'needs_review'
@@ -193,7 +190,7 @@ const LibraryMain = ({
       return fromList;
     }
     if (selectedType === 'article' && sourceDetail) return sourceDetail;
-    return null;
+    return relevanceState.sources[0] || null;
   }, [relevanceState.sources, selectedSourceKey, selectedSourceRow, sourceDetail]);
 
   if (scope === 'highlights') {
@@ -267,8 +264,7 @@ const LibraryMain = ({
         data-testid="library-composition"
         data-composition-layout={compactComposition ? 'compact' : 'rail'}
       >
-        <aside className="library-composition__index" aria-label="Source index">
-          <LibrarySourceMemory
+        <LibrarySourceMemory
             onSelectArticle={onSelectArticle}
             onSelectSource={handleOpenSource}
             view={sourceView}
@@ -283,8 +279,8 @@ const LibraryMain = ({
             shelfNavigation={shelfNavigation}
             coverageStatus={relevanceState.coverage?.status || null}
             showSuppressed={suppressedVisible}
+            headless
           />
-        </aside>
 
         <div className="library-composition__list">
           {compactComposition && !selectedSourceKey && !relevanceFailed ? (
@@ -298,15 +294,15 @@ const LibraryMain = ({
           {!relevanceFailed ? (
             <LibrarySourceList
               sources={relevanceState.sources}
-              loading={articlesLoading || relevancePending}
+              loading={relevancePending}
               loadingMore={relevanceState.loadingMore}
               error={articlesError}
               emptyLabel={articleQuery
                 ? `No sources match "${articleQuery}".`
                 : sourceViewEmptyLabel}
               query={articleQuery}
-              onQueryChange={onArticleQueryChange}
-              onSelectSource={handleSelectSource}
+              onQueryChange={null}
+              onOpenSource={handleOpenSource}
               onMoveArticle={onMoveArticle}
               articles={allArticles}
               scope={scope}
@@ -326,6 +322,7 @@ const LibraryMain = ({
               subtitle={viewSubtitle}
               selectedSourceKey={selectedSourceKey}
               inlinePreview={compactComposition ? sourceTrace : null}
+              variant="room"
             />
           ) : (
             <LibraryArticleList
@@ -351,7 +348,7 @@ const LibraryMain = ({
           )}
         </div>
 
-        {!compactComposition && selectedSourceKey ? (
+        {!compactComposition && previewSource ? (
           <aside className="library-composition__preview" aria-label="Selected source">
             {sourceTrace}
           </aside>

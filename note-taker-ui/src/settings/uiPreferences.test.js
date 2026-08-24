@@ -14,6 +14,9 @@ describe('uiPreferences', () => {
     document.documentElement.removeAttribute('data-ui-density');
     document.documentElement.removeAttribute('data-ui-typography');
     document.documentElement.removeAttribute('data-ui-brand-energy');
+    document.documentElement.removeAttribute('data-noeis-theme');
+    document.documentElement.removeAttribute('data-noeis-theme-package');
+    document.documentElement.removeAttribute('data-noeis-theme-schema');
     document.documentElement.style.removeProperty('--ui-accent');
     document.documentElement.style.removeProperty('--ui-accent-soft');
   });
@@ -37,6 +40,9 @@ describe('uiPreferences', () => {
     expect(document.documentElement.getAttribute('data-ui-density')).toBe('compact');
     expect(document.documentElement.getAttribute('data-ui-typography')).toBe('large');
     expect(document.documentElement.getAttribute('data-ui-brand-energy')).toBe('off');
+    expect(document.documentElement.getAttribute('data-noeis-theme')).toBe('theme.editorial.dark');
+    expect(document.documentElement.getAttribute('data-noeis-theme-package')).toBe('theme.editorial');
+    expect(document.documentElement.getAttribute('data-noeis-theme-schema')).toBe('1');
     expect(document.documentElement.style.getPropertyValue('--ui-accent')).toBe('#36e4ff');
   });
 

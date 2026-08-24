@@ -6,7 +6,10 @@ import { AUTH_RETURN_KEY, isAppRoute, rememberReturnPath } from './appRoutes';
    wearing one face. */
 describe('telling a page of the product from a page that sells it', () => {
   it('knows the rooms behind the sign-in', () => {
-    ['/wiki', '/wiki/read/abc', '/judgment', '/judgment/p1', '/library', '/think', '/settings/profile']
+    [
+      '/wiki', '/wiki/read/abc', '/judgment', '/judgment/p1', '/library', '/think', '/settings/profile',
+      '/all-highlights', '/tags/investing', '/views/one', '/search', '/concepts/moats', '/questions/q1'
+    ]
       .forEach(path => expect(isAppRoute(path)).toBe(true));
   });
 

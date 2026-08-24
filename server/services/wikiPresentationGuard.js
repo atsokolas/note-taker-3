@@ -145,6 +145,7 @@ const SCRATCHPAD_PATTERNS = Object.freeze([
   /\banaly[sz]e\s+(the\s+)?user\s+(request|prompt|input)\b/i,
   /\bhere('s| is)\s+(my|the)\s+(plan|approach|thinking|reasoning|process)\b/i,
   /\blet me\s+(think|start|begin|first)\b/i,
+  /\b(?:we|i)\s+(?:need|have)\s+to\s+(?:produce|write|create|draft|summari[sz]e)\b/i,
   /\bstep\s*\d\b/i,
   /\b(draft|attempt|option|version)\s*\d\s*:/i,
   /^\s*\d+\.\s+\S/,

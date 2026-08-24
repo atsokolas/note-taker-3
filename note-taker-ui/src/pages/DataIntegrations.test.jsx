@@ -70,43 +70,6 @@ jest.mock('../api/agent', () => ({
   chatWithAgent: jest.fn()
 }));
 
-jest.mock('../hooks/integrations/useAgentBridge', () => () => ({
-  bridgeActorType: 'byo_agent',
-  setBridgeActorType: jest.fn(),
-  bridgeActorId: '',
-  setBridgeActorId: jest.fn(),
-  bridgeScope: 'agent_ops',
-  setBridgeScope: jest.fn(),
-  bridgeTtl: 1800,
-  setBridgeTtl: jest.fn(),
-  bridgeBusy: false,
-  bridgeError: '',
-  bridgeToken: '',
-  bridgeManifestLoading: false,
-  bridgeManifestError: '',
-  bridgeManifest: null,
-  bridgeHealth: null,
-  bridgeAccessCheckLoading: false,
-  bridgeAccessCheckError: '',
-  bridgeCopyStatus: '',
-  bridgeMeta: { scope: 'agent_ops', expiresInSec: 1800 },
-  protocolApprovals: [],
-  protocolApprovalsLoading: false,
-  protocolApprovalsError: '',
-  protocolApprovalBusyId: '',
-  handleCreateBridgeToken: jest.fn(),
-  handleTestBridgeConnection: jest.fn(),
-  handleRunBridgeAccessCheck: jest.fn(),
-  handleForgetBridgeHealth: jest.fn(),
-  handleCopyBridgeConfig: jest.fn(),
-  handleApproveProtocolApproval: jest.fn(),
-  handleRejectProtocolApproval: jest.fn()
-}));
-
-jest.mock('../hooks/integrations/usePersonalAgents', () => () => ({
-  sortedAgents: []
-}));
-
 jest.mock('../utils/marketingAnalytics', () => ({
   trackActivationMilestone: jest.fn()
 }));
@@ -161,32 +124,15 @@ describe('DataIntegrations first insight workflow', () => {
     });
   });
 
-  it('marks the import surface as a scrollable settings-style page', async () => {
+  it('renders as the single source section owned by Connections', async () => {
     const { container } = render(
       <MemoryRouter>
         <DataIntegrations />
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Bring your knowledge')).toBeInTheDocument();
-    expect(container.querySelector('.ui-page')).toHaveClass('settings-page', 'data-integrations-page');
-  });
-
-  it('keeps the OpenClaw and Hermes agent bridge behind advanced setup on the active integrations route', async () => {
-    render(
-      <MemoryRouter>
-        <DataIntegrations />
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByText('Need OpenClaw or Hermes?')).toBeInTheDocument();
-    expect(screen.queryByText('Connect OpenClaw or Hermes')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show advanced bridge' }));
-
-    expect(await screen.findByText('Connect OpenClaw or Hermes')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Best for delegated research/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /MCP-first runtime/i })).toBeInTheDocument();
+    expect(await screen.findByTestId('connections-sources')).toBeInTheDocument();
+    expect(container.querySelector('.ui-page')).not.toBeInTheDocument();
   });
 
   it('shows which connected sources are feeding the return loop', async () => {

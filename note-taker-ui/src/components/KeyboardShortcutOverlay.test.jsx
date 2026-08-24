@@ -18,6 +18,7 @@ describe('KeyboardShortcutOverlay', () => {
     expect(screen.getByText('Library')).toBeInTheDocument();
     expect(screen.getByText('Think')).toBeInTheDocument();
     expect(screen.getByText('Wiki')).toBeInTheDocument();
+    expect(screen.getByText('Judgment')).toBeInTheDocument();
     expect(screen.getByText('Review')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
     expect(screen.queryByText('Brain')).not.toBeInTheDocument();

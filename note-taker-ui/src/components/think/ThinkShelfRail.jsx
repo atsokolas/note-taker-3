@@ -9,6 +9,12 @@ import {
   sortShelfRailQuestions
 } from './calmIndexModel';
 import { SidebarSkeletonRows } from './EditorialRail';
+import {
+  RoomShelf,
+  RoomShelfList,
+  RoomShelfSection,
+  roomShelfItemClass
+} from '../collection/RoomShelf';
 
 const ShelfSection = ({
   label,
@@ -23,21 +29,20 @@ const ShelfSection = ({
   const hiddenCount = Math.max(0, items.length - SHELF_RAIL_VISIBLE_LIMIT);
 
   return (
-    <section className="think-shelf-rail__section" aria-label={label}>
-      <h2 className="think-shelf-rail__section-label">{label}</h2>
+    <RoomShelfSection className="think-shelf-rail__section" label={label}>
       {loading ? (
         <SidebarSkeletonRows rows={4} />
       ) : items.length === 0 ? (
         <p className="think-shelf-rail__empty muted small">{emptyMessage}</p>
       ) : (
         <>
-          <ul className="think-shelf-rail__list">
+          <RoomShelfList className="think-shelf-rail__list">
             {visibleItems.map((item) => (
               <li key={getItemKey(item)}>
                 {renderItem(item)}
               </li>
             ))}
-          </ul>
+          </RoomShelfList>
           {!expanded && hiddenCount > 0 ? (
             <button
               type="button"
@@ -49,7 +54,7 @@ const ShelfSection = ({
           ) : null}
         </>
       )}
-    </section>
+    </RoomShelfSection>
   );
 };
 
@@ -62,6 +67,9 @@ const ThinkShelfRail = ({
   conceptsLoading = false,
   questionsLoading = false,
   notebookLoading = false,
+  activeConcept = '',
+  activeQuestionId = '',
+  activeNotebookId = '',
   onSelectConcept,
   onSelectQuestion,
   onSelectNotebook
@@ -87,17 +95,17 @@ const ThinkShelfRail = ({
   );
 
   return (
-    <div className="think-shelf-rail" data-testid="think-shelf-rail">
-      <label className="think-shelf-rail__search feedback-field">
-        <span className="sr-only">Search concepts, questions, and notebook</span>
-        <input
-          type="search"
-          value={search}
-          placeholder="Search corpus"
-          data-testid="think-index-search-input"
-          onChange={(event) => onSearchChange?.(event.target.value)}
-        />
-      </label>
+    <RoomShelf
+      className="think-shelf-rail"
+      data-testid="think-shelf-rail"
+      label="Think"
+      count={concepts.length + questions.length + notebookEntries.length}
+      search={search}
+      searchLabel="Search concepts, questions, and notebook"
+      searchPlaceholder="Search corpus"
+      searchTestId="think-index-search-input"
+      onSearchChange={onSearchChange}
+    >
 
       <ShelfSection
         label="Concepts"
@@ -108,7 +116,7 @@ const ThinkShelfRail = ({
         renderItem={(item) => (
           <button
             type="button"
-            className="think-shelf-rail__item"
+            className={roomShelfItemClass({ active: item.name === activeConcept, className: 'think-shelf-rail__item' })}
             onClick={() => onSelectConcept?.(item.name)}
           >
             <span className="think-shelf-rail__item-title">{item.name}</span>
@@ -134,13 +142,13 @@ const ThinkShelfRail = ({
             </>
           );
           return sourceHref ? (
-            <Link className="think-shelf-rail__item" to={sourceHref}>
+            <Link className={roomShelfItemClass({ active: item._id === activeQuestionId, className: 'think-shelf-rail__item' })} to={sourceHref}>
               {content}
             </Link>
           ) : (
             <button
               type="button"
-              className="think-shelf-rail__item"
+              className={roomShelfItemClass({ active: item._id === activeQuestionId, className: 'think-shelf-rail__item' })}
               onClick={() => onSelectQuestion?.(item._id)}
             >
               {content}
@@ -158,14 +166,14 @@ const ThinkShelfRail = ({
         renderItem={(item) => (
           <button
             type="button"
-            className="think-shelf-rail__item"
+            className={roomShelfItemClass({ active: item._id === activeNotebookId, className: 'think-shelf-rail__item' })}
             onClick={() => onSelectNotebook?.(item._id)}
           >
             <span className="think-shelf-rail__item-title">{item.title || 'Untitled'}</span>
           </button>
         )}
       />
-    </div>
+    </RoomShelf>
   );
 };
 

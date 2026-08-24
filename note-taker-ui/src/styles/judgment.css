@@ -1,9 +1,6 @@
-/* Judgment — one claim, one column.
-   The same editorial register as the wiki front page and the Paper: vellum,
-   Newsreader for the claim, a quiet sans for the fields. The emptiness around
-   the column is the design, not space waiting to be filled — no rails, no
-   partner panels, no caseboard. Motion is borrowed wholesale from
-   wiki-front-page.css (.wfp-anim): one brief entrance, then stillness. */
+/* Judgment — the same bookshelf as the other rooms, with a casebook in the
+   center. The shelf preserves orientation; the center remains the evidence-
+   bound work. The contextual agent continues to live in AppShell's margin. */
 
 body.noeis-editorial.judgment-route .brand-gradient,
 body.noeis-editorial.judgment-route .topbar .brand-gradient {
@@ -15,10 +12,66 @@ body.noeis-editorial.judgment-route .app-shell-new__body:has(.judgment) {
   isolation: isolate;
 }
 
+.judgment-room {
+  display: grid;
+  grid-template-columns: minmax(220px, 268px) minmax(0, 1fr);
+  grid-template-areas: "shelf content";
+  min-height: calc(100vh - var(--topbar-height, 76px));
+}
+
+.judgment-room__content {
+  grid-area: content;
+  min-width: 0;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+}
+
+.judgment-room__shelf {
+  grid-area: shelf;
+  min-width: 0;
+  padding: 42px 24px 72px;
+}
+
+.judgment-shelf .room-shelf__section:first-of-type {
+  margin-top: 18px;
+}
+
+.judgment-shelf .room-shelf__item {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+}
+
+.judgment-shelf .room-shelf__item > span:first-child {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.judgment-shelf span.room-shelf__item {
+  cursor: default;
+}
+
+.judgment-shelf__empty {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.judgment-shelf::after {
+  content: "μνήμη · κρίσις";
+  display: block;
+  margin-top: 52px;
+  color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 64%, transparent);
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.78rem;
+  font-style: italic;
+  letter-spacing: 0.08em;
+}
+
 html[data-ui-theme='dark'] body.noeis-editorial.judgment-route,
 html[data-ui-theme='dark'] .page-area:has(.judgment),
 html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
-  background: var(--vellum-bg, var(--canvas));
+  background: var(--vellum-bg, var(--noeis-canvas));
 }
 
 /* The measure. Optically centred — a little above true centre, because a page
@@ -29,7 +82,7 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   display: grid;
   gap: 0;
   align-content: start;
-  width: min(100%, 580px);
+  width: min(100%, 940px);
   margin: 0 auto;
   padding: clamp(48px, 9vh, 104px) 20px clamp(96px, 22vh, 220px);
   color: var(--text-primary, var(--vellum-ink));
@@ -147,6 +200,7 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
 
 .judgment__fields {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 36px;
   margin-top: 52px;
 }
@@ -286,11 +340,28 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
 }
 
 @media (max-width: 640px) {
+  .judgment-room {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .judgment-room__content {
+    order: 1;
+    border-left: 0;
+  }
+
+  .judgment-room__shelf {
+    order: 2;
+    padding: 24px 20px 56px;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+  }
+
   .judgment {
     padding: 32px 20px 72px;
   }
 
   .judgment__fields {
+    grid-template-columns: 1fr;
     margin-top: 40px;
     gap: 30px;
   }
@@ -314,7 +385,7 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   gap: 10px;
   margin: 0 0 44px;
   padding: 0 0 28px;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
 .judgment__new label {
@@ -330,7 +401,7 @@ body.noeis-editorial .judgment .judgment__new input,
   width: 100%;
   padding: 6px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -392,7 +463,7 @@ body.noeis-editorial .judgment .judgment__write input,
 .judgment .judgment__write input {
   padding: 4px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -520,7 +591,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   display: grid;
   gap: 14px;
   padding-top: 18px;
-  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-evidence__head {
@@ -557,7 +628,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
 }
 
 .judgment-evidence__error {
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
 }
 
 .judgment-evidence__list {
@@ -572,7 +643,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   display: grid;
   gap: 6px;
   padding-left: 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-evidence__item blockquote {
@@ -630,7 +701,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   display: grid;
   gap: 2px;
   padding-left: 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment__lessons li span {
@@ -651,7 +722,7 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   gap: 10px;
   justify-items: start;
   padding-top: 18px;
-  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-park button {
@@ -696,7 +767,7 @@ body.noeis-editorial .judgment .judgment-park textarea,
   width: min(100%, 52ch) !important;
   padding: 4px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -734,7 +805,7 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
 
 .judgment-park__error {
   margin: 0;
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
   font-size: 0.88rem;
 }
 
@@ -944,7 +1015,7 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
   display: grid;
   gap: 2px;
   padding-left: 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-depends a {
@@ -1024,7 +1095,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   width: min(100%, 52ch) !important;
   padding: 4px 0 !important;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 55%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -1043,7 +1114,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 .judgment-depends__supports {
   margin-top: 22px;
   padding-top: 16px;
-  border-top: 1px solid var(--nt-divider, var(--vellum-line));
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
 }
 
 .judgment-depends__supports h3 {
@@ -1058,7 +1129,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 
 .judgment-depends__error {
   margin: 0;
-  color: var(--nt-warning, #9a4a2d);
+  color: var(--noeis-warning, #9a4a2d);
   font-size: 0.88rem;
 }
 
@@ -1083,7 +1154,7 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   gap: 4px;
   margin: 4px 0 0;
   padding: 0 0 0 14px;
-  border-left: 1px solid var(--nt-divider, var(--vellum-line));
+  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
   list-style: none;
 }
 

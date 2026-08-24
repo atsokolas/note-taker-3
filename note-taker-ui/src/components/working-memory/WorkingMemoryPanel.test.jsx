@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import WorkingMemoryPanel from './WorkingMemoryPanel';
 import api from '../../api';
+import { getConcepts } from '../../api/concepts';
 
 jest.mock('react-router-dom', () => ({
   Link: ({ children }) => <span>{children}</span>
@@ -8,6 +9,10 @@ jest.mock('react-router-dom', () => ({
 
 jest.mock('../../api', () => ({
   get: jest.fn()
+}));
+
+jest.mock('../../api/concepts', () => ({
+  getConcepts: jest.fn()
 }));
 
 jest.mock('../../hooks/useAuthHeaders', () => ({
@@ -18,10 +23,13 @@ describe('WorkingMemoryPanel', () => {
   beforeEach(() => {
     window.localStorage.clear();
     api.get.mockResolvedValue({ data: [] });
+    getConcepts.mockResolvedValue([]);
   });
 
-  it('is expanded by default and toggles collapsed state', () => {
+  it('is expanded by default and toggles collapsed state', async () => {
     render(<WorkingMemoryPanel items={[]} />);
+
+    await waitFor(() => expect(getConcepts).toHaveBeenCalled());
 
     expect(screen.getByPlaceholderText(/Scratch freely/i)).toBeInTheDocument();
     expect(screen.getByText('No dumped items yet.')).toBeInTheDocument();

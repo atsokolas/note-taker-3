@@ -9,6 +9,10 @@ jest.mock('../../api/connections', () => ({
   searchConnectableItems: jest.fn().mockResolvedValue([])
 }));
 
+jest.mock('../return-queue/ReturnLaterControl', () => () => null);
+jest.mock('../connections/ConnectionBuilder', () => () => null);
+jest.mock('../retrieval/RelatedSuggestions', () => () => null);
+
 describe('NoteCard progressive disclosure', () => {
   it('defaults to collapsed and hides full body text', () => {
     render(

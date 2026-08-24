@@ -1,0 +1,323 @@
+/*
+ * Noeis semantic theme package v1
+ *
+ * This is the only shell-owned palette, typography, spacing, control, and
+ * motion authority. Room styles consume these roles and may add domain roles;
+ * they must not redefine the shell package.
+ */
+:root,
+html[data-noeis-theme='theme.editorial.light'] {
+  color-scheme: light;
+
+  --noeis-canvas: #f7f4ed;
+  --noeis-chrome: #fbf8f1;
+  --noeis-paper: #fffdf8;
+  --noeis-paper-muted: #f4eee2;
+  --noeis-paper-sunken: #eee7d9;
+  --noeis-floating: rgba(255, 253, 248, 0.94);
+  --noeis-ink: #332f29;
+  --noeis-ink-muted: #5f625f;
+  --noeis-ink-subtle: #7a756c;
+  --noeis-rule: rgba(91, 80, 63, 0.16);
+  --noeis-rule-strong: rgba(91, 80, 63, 0.28);
+  --noeis-thread: #b1862e;
+  --noeis-thread-strong: #8b5f1d;
+  --noeis-success: #6f7340;
+  --noeis-warning: #9a6a2d;
+  --noeis-danger: #9b5a46;
+  --noeis-danger-soft: color-mix(in srgb, var(--noeis-danger) 12%, var(--noeis-paper));
+  --noeis-action: var(--ui-accent, #6f87ff);
+  --noeis-action-strong: color-mix(in srgb, var(--noeis-action) 78%, black);
+  --noeis-action-soft: var(--ui-accent-soft, rgba(111, 135, 255, 0.18));
+  --noeis-active: color-mix(in srgb, var(--noeis-thread) 10%, var(--noeis-paper));
+  --noeis-focus: color-mix(in srgb, var(--noeis-action) 38%, transparent);
+  --noeis-shadow-soft: 0 10px 26px rgba(55, 43, 26, 0.08);
+  --noeis-shadow-float: 0 20px 48px rgba(55, 43, 26, 0.14);
+  --noeis-mix-lift: #ffffff;
+
+  --noeis-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --noeis-font-reading: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --noeis-font-mono: "SFMono-Regular", Menlo, Consolas, monospace;
+  --noeis-type-display: clamp(1.85rem, 1.35rem + 1.45vw, 2.7rem);
+  --noeis-type-title: clamp(1.42rem, 1.16rem + 0.75vw, 2rem);
+  --noeis-type-heading: clamp(1.03rem, 0.96rem + 0.32vw, 1.24rem);
+  --noeis-type-body: var(--ui-font-size-base, 16px);
+  --noeis-type-meta: 0.72rem;
+  --noeis-line-reading: 1.68;
+  --noeis-line-ui: 1.5;
+
+  --noeis-density-scale: 1;
+  --ui-font-size-base: 16px;
+  --ui-line-height-base: 1.64;
+  --ui-card-padding: 24px;
+  --noeis-space-1: calc(4px * var(--noeis-density-scale));
+  --noeis-space-2: calc(8px * var(--noeis-density-scale));
+  --noeis-space-3: calc(12px * var(--noeis-density-scale));
+  --noeis-space-4: calc(16px * var(--noeis-density-scale));
+  --noeis-space-5: calc(24px * var(--noeis-density-scale));
+  --noeis-space-6: calc(32px * var(--noeis-density-scale));
+  --noeis-space-7: calc(40px * var(--noeis-density-scale));
+  --noeis-space-8: calc(48px * var(--noeis-density-scale));
+  --noeis-radius-control: 10px;
+  --noeis-radius-sm: 6px;
+  --noeis-radius-panel: 16px;
+  --noeis-radius-pill: 999px;
+  --noeis-control-height: 44px;
+
+  --noeis-motion-fast: 140ms;
+  --noeis-motion-base: 220ms;
+  --noeis-motion-deliberate: 320ms;
+  --noeis-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Stable semantic projections for room styles. They name visual roles, not
+     independent palettes; every value still resolves through this package. */
+  --surface: var(--noeis-paper);
+  --surface-panel: var(--noeis-paper-muted);
+  --surface-card: var(--noeis-paper);
+  --surface-muted: var(--noeis-paper-muted);
+  --surface-elevated: var(--noeis-floating);
+  --surface-border: var(--noeis-rule);
+  --border-subtle: var(--noeis-rule);
+  --border-subtle-2: var(--noeis-rule);
+  --border-strong: var(--noeis-rule-strong);
+  --text-primary: var(--noeis-ink);
+  --text-secondary: var(--noeis-ink-muted);
+  --text-muted: var(--noeis-ink-subtle);
+  --text-link: var(--noeis-thread-strong);
+  --text-on-accent: var(--noeis-paper);
+  --text: var(--noeis-ink);
+  --muted: var(--noeis-ink-muted);
+  --link: var(--noeis-thread-strong);
+  --accent: var(--noeis-action);
+  --accent-soft: var(--noeis-action-soft);
+  --mix-lift: var(--noeis-mix-lift);
+  --shadow-subtle: var(--noeis-shadow-soft);
+  --shadow-1: var(--noeis-shadow-soft);
+  --shadow-2: var(--noeis-shadow-float);
+  --font-sans: var(--noeis-font-ui);
+  --font-serif: var(--noeis-font-reading);
+  --font-mono: var(--noeis-font-mono);
+  --type-h1: var(--noeis-type-title);
+  --type-h2: var(--noeis-type-heading);
+  --type-h3: 1rem;
+  --type-label: var(--noeis-type-meta);
+  --type-body: var(--noeis-type-body);
+  --type-small: 0.78rem;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-xxl: 28px;
+  --line-tight: 1.3;
+  --line-normal: 1.6;
+  --space-1: var(--noeis-space-1);
+  --space-2: var(--noeis-space-2);
+  --space-3: var(--noeis-space-3);
+  --space-4: var(--noeis-space-4);
+  --space-5: var(--noeis-space-5);
+  --space-6: var(--noeis-space-6);
+  --space-7: var(--noeis-space-7);
+  --space-8: var(--noeis-space-8);
+  --space-12: var(--noeis-space-3);
+  --space-16: var(--noeis-space-4);
+  --space-24: var(--noeis-space-5);
+  --space-32: var(--noeis-space-6);
+  --radius-1: 6px;
+  --radius-2: var(--noeis-radius-control);
+  --radius-3: 14px;
+  --radius-10: var(--noeis-radius-control);
+  --radius-12: 12px;
+  --radius-16: var(--noeis-radius-panel);
+  --radius-md: 11px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: var(--noeis-radius-pill);
+  --motion-fast: var(--noeis-motion-fast);
+  --motion-base: var(--noeis-motion-base);
+  --ease-standard: var(--noeis-ease-standard);
+  --theme-transition: background-color var(--noeis-motion-base) var(--noeis-ease-standard), color var(--noeis-motion-base) var(--noeis-ease-standard), border-color var(--noeis-motion-base) var(--noeis-ease-standard);
+  --wiki-warm-accent: var(--noeis-thread);
+  --wiki-warm-accent-strong: var(--noeis-thread-strong);
+  --wiki-neutral-accent: var(--noeis-ink-subtle);
+  --wiki-quiet-danger: var(--noeis-danger);
+}
+
+html[data-noeis-theme='theme.editorial.dark'] {
+  color-scheme: dark;
+  --noeis-canvas: #16140f;
+  --noeis-chrome: #1a1712;
+  --noeis-paper: #211e17;
+  --noeis-paper-muted: #1c1813;
+  --noeis-paper-sunken: #100f0c;
+  --noeis-floating: rgba(33, 30, 23, 0.94);
+  --noeis-ink: #f1eadc;
+  --noeis-ink-muted: #c5bda9;
+  --noeis-ink-subtle: #948b7d;
+  --noeis-rule: rgba(223, 206, 166, 0.16);
+  --noeis-rule-strong: rgba(223, 206, 166, 0.28);
+  --noeis-thread: #d6ad63;
+  --noeis-thread-strong: #e0b971;
+  --noeis-danger: #c78978;
+  --noeis-focus: color-mix(in srgb, var(--noeis-action) 46%, transparent);
+  --noeis-shadow-soft: 0 10px 26px rgba(0, 0, 0, 0.36);
+  --noeis-shadow-float: 0 22px 52px rgba(0, 0, 0, 0.52);
+  --noeis-mix-lift: #332812;
+  --text-on-accent: #100f0c;
+}
+
+html[data-ui-density='compact'] {
+  --noeis-density-scale: 0.86;
+  --ui-card-padding: 18px;
+}
+
+html[data-ui-typography='small'] {
+  --ui-font-size-base: 15px;
+  --ui-line-height-base: 1.56;
+}
+
+html[data-ui-typography='large'] {
+  --ui-font-size-base: 17px;
+  --ui-line-height-base: 1.72;
+}
+
+html[data-noeis-theme][data-ui-theme] body.noeis-editorial {
+  background: var(--noeis-canvas) !important;
+  color: var(--noeis-ink);
+  font-family: var(--noeis-font-ui);
+}
+
+html[data-noeis-theme][data-ui-theme] .app-shell-new {
+  background: var(--noeis-canvas);
+}
+
+html[data-noeis-theme][data-ui-theme] .app-shell-new__nav,
+html[data-noeis-theme][data-ui-theme] .topbar {
+  background: color-mix(in srgb, var(--noeis-chrome) 94%, transparent);
+  border-color: var(--noeis-rule);
+}
+
+html[data-noeis-theme][data-ui-theme] .topbar {
+  min-height: 62px;
+  padding-block: var(--noeis-space-2);
+}
+
+html[data-noeis-theme][data-ui-theme] .topbar__brand {
+  font-family: var(--noeis-font-reading);
+}
+
+html[data-noeis-theme][data-ui-theme] :is(
+  .topbar__brand,
+  .topbar__primary-link,
+  .topbar__icon-button,
+  .topbar__theme-pill,
+  .topbar__button,
+  .topbar__search-trigger,
+  .topbar__search-wrap
+) {
+  min-height: var(--noeis-control-height);
+}
+
+html[data-noeis-theme][data-ui-theme] :is(
+  .topbar__primary-link,
+  .topbar__icon-button,
+  .topbar__theme-pill,
+  .topbar__button,
+  .topbar__search-trigger
+) {
+  min-width: var(--noeis-control-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html[data-noeis-theme][data-ui-theme] :is(
+  .topbar__button,
+  .topbar__theme-pill,
+  .topbar__search-trigger,
+  .topbar__search-wrap,
+  .ui-button,
+  .ui-quiet-button
+) {
+  border-color: var(--noeis-rule);
+  border-radius: var(--noeis-radius-control);
+  transition: border-color var(--noeis-motion-fast) var(--noeis-ease-standard), background-color var(--noeis-motion-fast) var(--noeis-ease-standard), color var(--noeis-motion-fast) var(--noeis-ease-standard), transform var(--noeis-motion-fast) var(--noeis-ease-standard), box-shadow var(--noeis-motion-fast) var(--noeis-ease-standard);
+}
+
+html[data-noeis-theme][data-ui-theme] :is(.topbar__button, .topbar__theme-pill) {
+  font-weight: 600;
+}
+
+html[data-noeis-theme][data-ui-theme] :is(
+  .topbar__button,
+  .topbar__theme-pill,
+  .topbar__search-trigger,
+  .topbar__search-wrap
+) {
+  background: color-mix(in srgb, var(--noeis-paper-muted) 82%, transparent);
+}
+
+html[data-noeis-theme][data-ui-theme] :is(
+  .topbar__button,
+  .topbar__theme-pill,
+  .topbar__search-trigger,
+  .ui-button,
+  .ui-quiet-button
+):focus-visible {
+  outline: 2px solid var(--noeis-focus);
+  outline-offset: 2px;
+}
+
+html[data-noeis-theme][data-ui-theme] :is(
+  .topbar__menu-popover,
+  .command-palette,
+  .system-status__drawer,
+  .right-drawer__panel
+) {
+  background: var(--noeis-floating);
+  border-color: var(--noeis-rule);
+  box-shadow: var(--noeis-shadow-float);
+}
+
+/* The semantic package is loaded after the editorial room styles, so it also
+   owns the final mobile visibility rule. Show the current room in the header;
+   TopBar renders the complete four-room switcher inside More. */
+@media (max-width: 480px) {
+  html[data-noeis-theme][data-ui-theme] .topbar__primary-link:not(.is-active) {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html[data-noeis-theme][data-ui-theme] :is(.topbar__button, .topbar__theme-pill, .ui-button, .ui-quiet-button):hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --noeis-motion-fast: 1ms;
+    --noeis-motion-base: 1ms;
+    --noeis-motion-deliberate: 1ms;
+    --theme-transition: none;
+  }
+
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  html[data-noeis-theme][data-ui-theme] :is(
+    .app-shell-new,
+    .topbar,
+    .topbar *,
+    .command-palette,
+    .system-status__drawer,
+    .agent-rail,
+    .right-drawer__panel
+  ) {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    transform: none !important;
+  }
+}

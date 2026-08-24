@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { prepareOrdinaryWikiBuild } = require('./wikiBuildPreflightService');
+const noSemanticMatches = async () => [];
 
 const findModel = (rows = []) => ({
   find() {
@@ -41,7 +42,8 @@ const run = async () => {
     userId: 'user-1',
     title: 'Sparse attention',
     createdFrom: { type: 'idea', text: 'Explain sparse attention.' },
-    models
+    models,
+    search: noSemanticMatches
   });
   assert.equal(ready.eligible, true);
   assert.equal(ready.directSourceCount, 1);
@@ -54,7 +56,8 @@ const run = async () => {
     userId: 'user-1',
     title: 'Roman concrete',
     createdFrom: { type: 'idea', text: 'Explain Roman concrete.' },
-    models
+    models,
+    search: noSemanticMatches
   });
   assert.equal(missing.eligible, false);
   assert.equal(missing.code, 'WIKI_BUILD_EVIDENCE_MISSING');
@@ -68,7 +71,8 @@ const run = async () => {
       type: 'idea',
       text: 'Long-context models: how sparse attention reduces token interactions.'
     },
-    models
+    models,
+    search: noSemanticMatches
   });
   assert.equal(scoped.eligible, true);
   assert.equal(scoped.sourceRefs[0].title, 'Sparse attention for long-context models');
@@ -77,7 +81,8 @@ const run = async () => {
     userId: 'user-1',
     title: 'Margin of Safety',
     createdFrom: { type: 'idea', text: 'Explain margin of safety.' },
-    models
+    models,
+    search: noSemanticMatches
   });
   assert.equal(lexicalFalsePositive.eligible, false);
   assert.equal(lexicalFalsePositive.code, 'WIKI_BUILD_EVIDENCE_MISSING');
@@ -101,7 +106,8 @@ const run = async () => {
       NotebookEntry: findModel([]),
       TagMeta: findModel([]),
       Question: findModel([])
-    }
+    },
+    search: noSemanticMatches
   });
   assert.equal(connectorSubject.eligible, true, JSON.stringify(connectorSubject.message || ''));
   assert.equal(connectorSubject.code, 'WIKI_BUILD_EVIDENCE_READY');
@@ -121,7 +127,8 @@ const run = async () => {
       NotebookEntry: findModel([]),
       TagMeta: findModel([]),
       Question: findModel([])
-    }
+    },
+    search: noSemanticMatches
   });
   assert.equal(absentSubject.eligible, false);
   assert.equal(absentSubject.code, 'WIKI_BUILD_EVIDENCE_MISSING');

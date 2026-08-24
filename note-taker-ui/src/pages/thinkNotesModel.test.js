@@ -61,6 +61,19 @@ describe('the faint shelf', () => {
     expect(shelf.map(item => item.title)).toEqual(['Replication checklist', 'First principles', 'Reading map']);
     expect(shelf.map(item => item.isOpen)).toEqual([false, true, false]);
   });
+
+  it('stays bounded until the human searches or asks for the full recent set', () => {
+    const many = Array.from({ length: 24 }, (_, index) => ({
+      _id: `note-${index}`,
+      title: index === 22 ? 'A specific parenting thought' : `Note ${index}`,
+      updatedAt: new Date(Date.UTC(2026, 7, 24, 0, index)).toISOString()
+    }));
+
+    expect(buildNoteShelf({ notes: many })).toHaveLength(18);
+    expect(buildNoteShelf({ notes: many, query: 'parenting' }).map(item => item.title))
+      .toEqual(['A specific parenting thought']);
+    expect(buildNoteShelf({ notes: many, expanded: true })).toHaveLength(24);
+  });
 });
 
 describe('editedLine', () => {

@@ -18,6 +18,61 @@
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
 }
 
+/* A single living thread ties the agent to the object in the column. It is a
+   bit of delight with a job: the knot wakes when context changes and travels
+   while retrieval is running. The rail remains paper, never a floating card. */
+.agent-rail__identity {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.agent-rail__thread {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 1px;
+  overflow: visible;
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 42%, var(--noeis-rule));
+}
+
+.agent-rail__thread::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 0;
+  width: 1px;
+  height: 11px;
+  background: inherit;
+}
+
+.agent-rail__thread-knot {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--wiki-warm-accent, var(--vellum-warm));
+  border-radius: 50%;
+  background: var(--noeis-paper, var(--vellum-surface, #fbf8f2));
+  animation: agent-thread-arrive 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.agent-rail__thread.is-working .agent-rail__thread-knot {
+  animation: agent-thread-work 1.25s ease-in-out infinite;
+}
+
+@keyframes agent-thread-arrive {
+  from { opacity: 0; transform: translateX(-8px) scale(0.7); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes agent-thread-work {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-9px); }
+}
+
 .agent-rail__eyebrow {
   margin: 0;
   color: var(--text-muted, var(--vellum-subtle));
@@ -32,6 +87,16 @@
   color: var(--text-secondary, var(--vellum-muted));
   font-size: 0.84rem;
   line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.agent-rail__role-description {
+  margin: -5px 0 2px 26px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-reading-font, ui-serif, Georgia, serif);
+  font-size: 0.82rem;
+  font-style: italic;
+  line-height: 1.5;
   text-wrap: pretty;
 }
 
@@ -162,7 +227,7 @@
   min-width: 0;
   padding: 8px 0;
   border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 78%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -225,10 +290,24 @@
   min-width: 0;
   /* One hairline, the full height of the page — the rail box is short, and a
      border on the rail itself would read as a floating segment. */
-  border-right: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
-/* Narrow viewports: the rail folds under the column rather than squeezing it. */
+/* The wrapper disappears from desktop layout, leaving the rail itself as the
+   second grid item. On compact screens the same DOM instance becomes a sheet;
+   route changes therefore keep agent state instead of remounting a mobile copy. */
+.agent-rail-drawer,
+.agent-rail-drawer__sheet {
+  display: contents;
+}
+
+.agent-rail-drawer__trigger,
+.agent-rail-drawer__backdrop,
+.agent-rail-drawer__close {
+  display: none;
+}
+
+/* Narrow viewports protect the reading/writing plane. Context is deliberate. */
 @media (max-width: 1080px) {
   .app-shell-new__body--railed {
     grid-template-columns: minmax(0, 1fr);
@@ -238,16 +317,109 @@
     border-right: 0;
   }
 
-  .agent-rail {
+  .agent-rail-drawer__trigger {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 72;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 62px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vellum-surface, #fbf8f2) 92%, transparent);
+    box-shadow: 0 12px 32px rgba(23, 27, 35, 0.12);
+    color: var(--text-primary, var(--vellum-ink));
+    font: 600 0.7rem/1 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    backdrop-filter: blur(14px);
+    cursor: pointer;
+  }
+
+  .agent-rail-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .agent-rail-drawer[data-open='true'] {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .agent-rail-drawer__backdrop {
+    position: absolute;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgba(24, 26, 30, 0.2);
+    opacity: 0;
+    transition: opacity 180ms ease;
+  }
+
+  .agent-rail-drawer[data-open='true'] .agent-rail-drawer__backdrop {
+    opacity: 1;
+  }
+
+  .agent-rail-drawer__sheet {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: block;
+    width: min(380px, calc(100vw - 28px));
+    overflow-y: auto;
+    padding: 18px 22px 28px;
+    border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+    background: var(--noeis-floating);
+    box-shadow: -18px 0 48px rgba(23, 27, 35, 0.12);
+    transform: translateX(102%);
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .agent-rail-drawer[data-open='true'] .agent-rail-drawer__sheet {
+    transform: translateX(0);
+  }
+
+  .agent-rail-drawer__close {
+    display: block;
+    margin: 0 0 6px auto;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid currentColor;
+    background: transparent;
+    color: var(--text-muted, var(--vellum-subtle));
+    font: 500 0.72rem/1.4 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+    cursor: pointer;
+  }
+
+  .agent-rail-drawer__sheet .agent-rail {
     position: static;
     max-width: none;
-    padding: 24px 0 40px;
-    border-top: 1px solid color-mix(in srgb, var(--nt-divider, var(--vellum-line)) 62%, transparent);
+    padding: 18px 0 40px;
+    border-top: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .agent-rail__thread-knot,
+  .agent-rail__thread.is-working .agent-rail__thread-knot {
+    animation: none;
+  }
+
   .agent-rail__proposal {
     transition: opacity 80ms linear;
+  }
+
+  .agent-rail-drawer__backdrop,
+  .agent-rail-drawer__sheet {
+    transition: none;
   }
 }

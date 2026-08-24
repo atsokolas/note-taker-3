@@ -1,110 +1,5 @@
-/* Before: weak hierarchy and low section contrast made Library/Think feel visually flat.
-   After: added a compact type scale, stronger selected/focus states, and distinct article/highlight section treatments while preserving layout structure. */
-:root {
-  --canvas: #f7f4ed;
-  --raised: #fffdf8;
-  --sunken: #eee7d9;
-  --spark: #b1862e;
-  --reading-text: #332f29;
-  --working-text: #4f596c;
-  --hairline: rgba(91, 80, 63, 0.16);
-  --well: #f1eadc;
-  --input-surface: #f8f3e9;
-  --focus-ring: rgba(177, 134, 46, 0.36);
-  --theme-transition: background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --background: var(--canvas);
-  --surface: var(--raised);
-  --surface-base: var(--background);
-  --surface-panel: color-mix(in srgb, var(--raised) 92%, var(--sunken));
-  --surface-card: var(--raised);
-  --border-subtle: var(--hairline);
-  --surface-elevated: color-mix(in srgb, var(--raised) 96%, white);
-  --text-primary: var(--reading-text);
-  --text-secondary: var(--working-text);
-  --text-muted: #7a756c;
-  --text-link: var(--spark);
-  --text-on-accent: #fffdf8;
-  --surface-border: var(--hairline);
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --radius-1: 8px;
-  --radius-2: 12px;
-  --radius-3: 16px;
-  --shadow-subtle: 0 10px 26px rgba(15, 23, 42, 0.08);
-  --font-sans: "Manrope", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "Iowan Old Style", "Source Serif 4", "Spectral", Georgia, serif;
-  --type-h1: clamp(1.58rem, 1.26rem + 1.1vw, 2.22rem);
-  --type-h2: clamp(1.04rem, 0.98rem + 0.34vw, 1.26rem);
-  --type-label: 0.72rem;
-  --type-body: 0.98rem;
-  --bg: var(--background);
-  --accent: #0b74ff;
-  --accent-soft: rgba(11, 116, 255, 0.08);
-  --wiki-warm-accent: var(--spark);
-  --wiki-warm-accent-strong: #8b5f1d;
-  --wiki-neutral-accent: #6f6a61;
-  --wiki-quiet-danger: #9b5a46;
-  --surface-muted: var(--well);
-  /* color-mix(in srgb, var(--surface) X%, var(--mix-lift)) is used in 30+
-     places to "lift" a surface a bit lighter than its base. In light mode
-     the lift target is white. In dark mode lifting toward white blows out
-     the contrast — override --mix-lift below so dark stays dark. */
-  --mix-lift: #ffffff;
-  --border: var(--border-subtle);
-  --text: var(--text-primary);
-  --muted: var(--text-secondary);
-  --shadow: var(--shadow-subtle);
-  --radius: var(--radius-2);
-  --spacing: var(--space-4);
-}
-
-/* Dark mode token overrides --------------------------------------------------
-   Before: only --surface-base/-panel/-card flipped, leaving --background,
-   --surface, --text-primary, --text-secondary, --border-subtle, etc. at
-   their light values. Result: flipping the toggle changed almost nothing
-   visible because the foundational tokens stayed light.
-   After: the full foundational set flips, and the aliases (--text, --border,
-   --bg, --muted, --shadow) cascade because they're var() pointers. */
-html[data-ui-theme='dark'] {
-  --canvas: #16140f;
-  --raised: #211e17;
-  --sunken: #100f0c;
-  --spark: #d6ad63;
-  --reading-text: #f1eadc;
-  --working-text: #c5bda9;
-  --hairline: rgba(223, 206, 166, 0.16);
-  --well: #19160f;
-  --input-surface: #1d1a13;
-  --focus-ring: rgba(214, 173, 99, 0.42);
-  --theme-transition: background-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), color 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  --background: var(--canvas);
-  --surface: var(--raised);
-  --surface-base: var(--canvas);
-  --surface-panel: color-mix(in srgb, var(--raised) 86%, var(--sunken));
-  --surface-card: color-mix(in srgb, var(--raised) 94%, var(--spark) 6%);
-  --surface-elevated: color-mix(in srgb, var(--raised) 88%, #332812);
-  --surface-muted: var(--well);
-  --border-subtle: var(--hairline);
-  --text-primary: var(--reading-text);
-  --text-secondary: var(--working-text);
-  --text-muted: #948b7d;
-  --text-link: var(--spark);
-  --text-on-accent: #100f0c;
-  --surface-border: var(--hairline);
-  --accent: var(--spark);
-  --accent-soft: rgba(214, 173, 99, 0.14);
-  --wiki-warm-accent: #d2a45f;
-  --wiki-warm-accent-strong: #e0b971;
-  --wiki-neutral-accent: #a8a198;
-  --wiki-quiet-danger: #c78978;
-  --shadow-subtle: 0 10px 26px rgba(0, 0, 0, 0.4);
-  --mix-lift: #332812;
-  color-scheme: dark;
-}
+/* Shell palette, type, space, controls, and motion now live in
+   semantic-theme.css. This file contains component and room presentation. */
 
 .skeleton {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.06) 25%, rgba(0, 0, 0, 0.1) 37%, rgba(0, 0, 0, 0.06) 63%);
@@ -164,7 +59,7 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--type-body);
-  background: var(--surface-base);
+  background: var(--noeis-canvas);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   line-height: 1.68;
@@ -221,7 +116,7 @@ p {
 
 .app-shell-new {
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--noeis-canvas);
   display: flex;
   flex-direction: column;
 }
@@ -630,7 +525,7 @@ body.noeis-editorial .palette-list {
 .three-pane__right {
   background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
+  border-radius: var(--noeis-radius-control);
   padding: var(--space-4);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -648,7 +543,7 @@ body.noeis-editorial .palette-list {
 .three-pane__main {
   background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
+  border-radius: var(--noeis-radius-control);
   padding: var(--space-4);
   min-height: 0;
   overflow-y: auto;
@@ -861,7 +756,7 @@ body.noeis-editorial .palette-list {
 }
 
 .highlight-tag-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--noeis-rule);
 }
 
 .notebook-grid {
@@ -900,7 +795,7 @@ body.noeis-editorial .palette-list {
 }
 
 .tag-chip {
-  border: 1px solid var(--border);
+  border: 1px solid var(--noeis-rule);
   border-radius: 999px;
   padding: 8px 12px;
   background: var(--surface);
@@ -1116,58 +1011,6 @@ body.noeis-editorial .palette-list {
   display: grid;
   gap: 8px;
   padding-left: 14px;
-}
-
-.wiki-facet-rail {
-  min-width: 0;
-}
-
-.wiki-facet-rail__search {
-  margin: 0;
-}
-
-.wiki-facet-rail__search input {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--surface-card);
-  color: var(--text-primary);
-}
-
-.wiki-facet-rail__primary {
-  margin-top: 4px;
-}
-
-.wiki-facet-rail__section {
-  display: grid;
-  gap: 8px;
-}
-
-.wiki-facet-rail__section-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 4px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.wiki-facet-rail__section-chevron {
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.wiki-facet-rail__facet.is-empty .library-cabinet-count {
-  opacity: 0.55;
 }
 
 .wiki-index--faceted .wiki-index__faceted-layout {
@@ -5094,7 +4937,7 @@ html[data-ui-theme='dark'] .article-reader-header {
 }
 
 .tag-accordion {
-  border: 1px solid var(--border);
+  border: 1px solid var(--noeis-rule);
   border-radius: 10px;
   margin-bottom: 12px;
 }
@@ -5120,14 +4963,14 @@ html[data-ui-theme='dark'] .article-reader-header {
 }
 
 .tag-accordion .accordion-body {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--noeis-rule);
   padding: 12px 14px;
   display: grid;
   gap: 12px;
 }
 
 .tag-highlight-item {
-  border: 1px solid var(--border);
+  border: 1px solid var(--noeis-rule);
   border-radius: 10px;
   padding: 12px;
   background: #fdfefe;
@@ -5166,7 +5009,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   display: grid;
   gap: 6px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--noeis-rule);
 }
 
 .reflection-row:first-child {
@@ -6421,7 +6264,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   border: 1px solid var(--border-subtle, #d9dbe8);
   border-radius: 10px;
   padding: 10px;
-  background: var(--surface-0, #fff);
+  background: var(--noeis-paper, #fff);
   color: inherit;
   cursor: pointer;
 }
@@ -6456,7 +6299,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   border-radius: 12px;
   padding: 14px;
   overflow: auto;
-  background: var(--surface-0, #fff);
+  background: var(--noeis-paper, #fff);
   min-height: 0;
 }
 
@@ -6477,7 +6320,7 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .concept-template-modal__target-button {
   border: 1px solid var(--border-subtle, #d9dbe8);
-  background: var(--surface-0, #fff);
+  background: var(--noeis-paper, #fff);
   color: var(--text, #14172b);
   border-radius: 999px;
   padding: 5px 10px;
@@ -6510,7 +6353,7 @@ html[data-ui-theme='dark'] .article-reader-header {
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 0.8rem;
-  background: var(--surface-1, #f7f8fc);
+  background: var(--noeis-paper-muted, #f7f8fc);
 }
 
 .concept-template-modal__sample-list,
@@ -7437,7 +7280,7 @@ html[data-ui-theme='dark'] .external-bridge-pre {
   width: 10px;
   height: 10px;
   margin-top: 5px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--noeis-rule);
   border-radius: 999px;
   background: transparent;
 }
@@ -9140,4 +8983,3 @@ textarea.noeis-form-control {
 .noeis-form-control::placeholder {
   color: color-mix(in srgb, var(--text-muted) 78%, transparent);
 }
-

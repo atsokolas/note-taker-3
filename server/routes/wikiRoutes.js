@@ -794,6 +794,20 @@ const buildPromotedDiscussionDoc = ({ title, discussion, citationIndexMap = new 
   };
 };
 
+// Lists need one stable presentation flag, not knowledge of every specialized
+// page contract. Derive it at the API boundary from authoritative fields so
+// old repository and dossier pages group correctly without a data migration.
+const serializeWikiKind = (page = {}) => {
+  const github = page?.externalWatches?.githubRepo || {};
+  const repository = String(page?.pageType || '').toLowerCase() === 'repo'
+    || Boolean(String(page?.repoKey || '').trim())
+    || ['owner', 'repo', 'lastHeadSha', 'publishedHeadSha']
+      .some(field => Boolean(String(github?.[field] || '').trim()));
+  if (repository) return 'repository';
+  if (page?.investmentDossier?.version) return 'investment';
+  return 'general';
+};
+
 const serializeWikiPage = (page) => {
   if (!page) return page;
   const rawPage = typeof page.toObject === 'function'
@@ -824,6 +838,7 @@ const serializeWikiPage = (page) => {
   const presentationTitle = normalizeExistingWikiTitleForPresentation(raw.title || 'Untitled Wiki Page');
   return {
     ...raw,
+    wikiKind: serializeWikiKind(raw),
     title: presentationTitle,
     pageType: normalizePageType(raw.pageType || 'topic'),
     body: raw.body || emptyDoc(),
@@ -1625,13 +1640,42 @@ const DEFAULT_ASYNC_BUILD_TIMEOUT_MS = 4 * 60 * 1000;
 //   ProseMirror document can stay behind.
 //
 // Adding a field here is adding it to every list request on every surface.
+const WIKI_JUDGMENT_FIELDS = Object.freeze([
+  'judgment.kind', 'judgment.currentJudgment', 'judgment.governingQuestion',
+  'judgment.status', 'judgment.startedAt', 'judgment.lastReviewedAt',
+  'judgment.strongestCounterargument',
+  'judgment.why.reasonId', 'judgment.why.text', 'judgment.why.sourceRefIds', 'judgment.why.sourceLabel',
+  'judgment.against.reasonId', 'judgment.against.text', 'judgment.against.sourceRefIds', 'judgment.against.sourceLabel',
+  'judgment.assumptions.assumptionId', 'judgment.assumptions.text',
+  'judgment.assumptions.status', 'judgment.assumptions.sourceRefIds',
+  'judgment.falsifiers.falsifierId', 'judgment.falsifiers.text', 'judgment.falsifiers.status',
+  'judgment.decisions.decisionId', 'judgment.decisions.summary',
+  'judgment.decisions.status', 'judgment.decisions.decidedAt', 'judgment.decisions.createdAt',
+  'judgment.decisions.reviewAt', 'judgment.decisions.outcome.observedAt',
+  'judgment.decisions.outcome.summary', 'judgment.decisions.outcome.lesson',
+  'judgment.lessons.lessonId', 'judgment.lessons.text',
+  'judgment.lessons.closedAs', 'judgment.lessons.at',
+  'judgment.dependsOn.dependencyId', 'judgment.dependsOn.pageId',
+  'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy'
+]);
+
+const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
+  '_id', 'title', 'updatedAt', 'createdAt',
+  ...WIKI_JUDGMENT_FIELDS
+]);
+
 const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
   'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
   'evergreen', 'evergreenAt',
-  // The Judgment index is built entirely out of this field, and it is small:
-  // null on every page that is not a judgment.
-  'judgment',
+  // The Wiki shelf separates ordinary pages, repository wikis, and investment
+  // dossiers. One scalar is enough to identify the dossier contract without
+  // pulling its research, valuation, or evidence subtrees into every row.
+  'investmentDossier.version',
+  // Judgment indexes need the claim and human-owned lines, never the whole
+  // casebook subtree. Share the same narrow contract with Judgment's dedicated
+  // projection so the two paths cannot drift.
+  ...WIKI_JUDGMENT_FIELDS,
   'externalWatches.githubRepo', 'externalWatches.edgar', 'externalWatches.transcripts',
   'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url',
   'sourceRefs.type', 'sourceRefs.objectId',
@@ -3501,6 +3545,10 @@ const buildWikiRouter = ({
         return res.status(400).json({ error: 'quality must be one of: ok, needs_review, blocked.' });
       }
       const includeLowQuality = ['1', 'true', 'yes'].includes(String(req.query.includeLowQuality || '').toLowerCase());
+      const projection = String(req.query.projection || '').trim().toLowerCase();
+      if (projection && projection !== 'judgment') {
+        return res.status(400).json({ error: 'projection must be judgment when provided.' });
+      }
       if (status?.value) query.status = status.value;
       else query.status = { $ne: 'archived' };
       if (visibility?.value) query.visibility = visibility.value;
@@ -3521,8 +3569,12 @@ const buildWikiRouter = ({
       // is in it and why. Callers that want whole pages simply do not pass it.
       const summaryOnly = ['1', 'true', 'yes'].includes(String(req.query.summary || '').toLowerCase());
       let pagesQuery = WikiPage.find(query).sort({ updatedAt: -1 }).limit(scanLimit);
-      if (summaryOnly && pagesQuery.select) {
-        pagesQuery = pagesQuery.select(WIKI_PAGE_SUMMARY_FIELDS.join(' '));
+      if (pagesQuery.select) {
+        if (projection === 'judgment') {
+          pagesQuery = pagesQuery.select(WIKI_JUDGMENT_INDEX_FIELDS.join(' '));
+        } else if (summaryOnly) {
+          pagesQuery = pagesQuery.select(WIKI_PAGE_SUMMARY_FIELDS.join(' '));
+        }
       }
       const pages = await pagesQuery.lean();
       const serialized = pages.map(serializeWikiPage).filter((page) => {
@@ -4911,32 +4963,57 @@ const buildWikiRouter = ({
 
   router.get('/api/wiki/pages/:id', wikiAuth, async (req, res) => {
     try {
-      let page = await findOwnedPage(req);
+      /* Reader routes never mutate the fetched document. Lean avoids hydrating
+         large repository evidence ledgers into thousands of Mongoose
+         subdocuments before the page can paint. The article projection also
+         leaves the historical claim ledger and maintenance workbench behind;
+         neither is rendered by the article, and repo histories can exceed the
+         article itself by an order of magnitude. */
+      const pageQuery = WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
+      if (String(req.query?.reader || '') === '1') {
+        pageQuery.select([
+          '-claims.history',
+          '-citations',
+          '-discussions',
+          '-aiState.build',
+          '-aiState.sectionMaintenance',
+          '-aiState.changeLog',
+          '-aiState.suggestions'
+        ].join(' '));
+      }
+      const page = await pageQuery.lean();
       if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
       const repoWatch = page.externalWatches?.githubRepo || {};
       const lastProbeAt = repoWatch.lastHeadProbeAt ? new Date(repoWatch.lastHeadProbeAt).getTime() : 0;
       const probeStale = Date.now() - lastProbeAt >= 15 * 60 * 1000;
       if (repoWatch.status === 'active' && repoWatch.owner && repoWatch.repo && probeStale) {
-        const probeController = new AbortController();
-        const probeTimer = setTimeout(() => probeController.abort(), 1800);
-        try {
-          const probe = await checkGitHubRepoHeadForPage({ WikiPage, page, signal: probeController.signal });
-          page = probe.page || page;
-          if (probe.changed) {
-            const pageId = page._id;
-            const userId = page.userId;
-            setImmediate(async () => {
-              try {
-                const freshPage = await WikiPage.findOne({ _id: pageId, userId });
-                if (freshPage) await checkGitHubRepoWatchForPage({ WikiSourceEvent, page: freshPage });
-              } catch (_syncError) {}
+        const pageId = page._id;
+        const userId = page.userId;
+        /* Opening a Wiki is a database read, never a GitHub request. A stale
+           repo probe is useful maintenance, but it cannot sit on the reader's
+           critical path. Run the bounded probe after the response begins and
+           let the next read observe any changed-head metadata it records. */
+        setImmediate(async () => {
+          const probeController = new AbortController();
+          const probeTimer = setTimeout(() => probeController.abort(), 1800);
+          try {
+            const freshPage = await WikiPage.findOne({ _id: pageId, userId });
+            if (!freshPage) return;
+            const probe = await checkGitHubRepoHeadForPage({
+              WikiPage,
+              page: freshPage,
+              signal: probeController.signal
             });
+            if (probe.changed) {
+              const changedPage = await WikiPage.findOne({ _id: pageId, userId });
+              if (changedPage) await checkGitHubRepoWatchForPage({ WikiSourceEvent, page: changedPage });
+            }
+          } catch (_probeError) {
+            // Reading remains available when GitHub is unavailable or rate limited.
+          } finally {
+            clearTimeout(probeTimer);
           }
-        } catch (_probeError) {
-          // Page reads remain available when GitHub is unavailable or rate limited.
-        } finally {
-          clearTimeout(probeTimer);
-        }
+        });
       }
       res.status(200).json(serializeWikiPage(page));
     } catch (_error) {
@@ -8284,5 +8361,6 @@ module.exports = {
   serializePublicWikiPage,
   serializeWikiPage,
   slugify,
+  WIKI_JUDGMENT_INDEX_FIELDS,
   WIKI_PAGE_SUMMARY_FIELDS
 };

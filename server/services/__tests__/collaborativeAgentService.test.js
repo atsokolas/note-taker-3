@@ -4,6 +4,7 @@ const { __testables } = require('../collaborativeAgentService');
 const {
   tokenize,
   buildTokenRegex,
+  matchedExcerpt,
   buildReply,
   buildOutputArtifactReply,
   inferReplyIntent,
@@ -12,6 +13,7 @@ const {
   loadGraphRelatedItems,
   buildPartnerChatMessages,
   groundOrdinalWorkspaceReferences,
+  ensureRetrievedItemNamed,
   buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
   pruneRelatedItemsForContext,
@@ -86,6 +88,43 @@ const run = async () => {
   assert.ok(regex instanceof RegExp, 'Expected regex instance.');
   assert.ok(regex.test('hello beta world'), 'Regex should match token text.');
   assert.strictEqual(buildTokenRegex([]), null, 'Empty token list should yield null regex.');
+  assert.match(
+    matchedExcerpt(
+      'An opening anecdote about an unrelated event. '.repeat(12)
+        + 'The operating strategy depends on choosing a distinct set of activities that competitors cannot copy.',
+      ['strategy', 'activities']
+    ),
+    /operating strategy depends/i,
+    'Retrieved snippets should show the matching passage rather than paragraph one.'
+  );
+  assert.doesNotMatch(
+    matchedExcerpt(
+      'Name: Strategy Notes URL: https://example.com/strategy The useful passage explains how strategic choices reinforce one another.',
+      ['strategy', 'choices']
+    ),
+    /^Name:/i,
+    'Imported Name and URL preambles should not become the evidence shown to a user.'
+  );
+  assert.strictEqual(
+    ensureRetrievedItemNamed({
+      reply: 'A useful source is nearby.',
+      fallback: 'The Feynman Learning Technique is the strongest returned lead.',
+      relatedItems: [{ id: 'feynman', title: 'The Feynman Learning Technique' }],
+      intent: 'retrieve'
+    }),
+    'The Feynman Learning Technique is the strongest returned lead.',
+    'Retrieve replies must name a returned item rather than imply provenance.'
+  );
+  assert.strictEqual(
+    ensureRetrievedItemNamed({
+      reply: 'The Feynman Learning Technique is the strongest returned lead.',
+      fallback: 'fallback',
+      relatedItems: [{ id: 'feynman', title: 'The Feynman Learning Technique' }],
+      intent: 'retrieve'
+    }),
+    'The Feynman Learning Technique is the strongest returned lead.',
+    'A reply that already names its returned item should survive unchanged.'
+  );
 
   assert.strictEqual(
     inferReplyIntent({ message: 'Clean up library structure and stage a reviewable organization plan.' }),

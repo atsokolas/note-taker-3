@@ -179,6 +179,7 @@ describe('wiki critical CSS loading', () => {
     expect(polishCss).toContain('container-name: wikiread');
     expect(polishCss).toContain('@container wikiread (max-width: 1200px)');
     expect(polishCss).toContain('.wiki-workspace .wiki-read__layout--rail-collapsed');
+    expect(polishCss).toContain('grid-template-columns: minmax(0, 1fr) 48px');
     expect(polishCss).not.toContain('grid-template-columns: 200px 464px 300px');
   });
 });

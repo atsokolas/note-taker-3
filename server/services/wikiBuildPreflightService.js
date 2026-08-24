@@ -133,7 +133,8 @@ const prepareOrdinaryWikiBuild = async ({
   title,
   createdFrom = {},
   models = {},
-  sourceLimit = 12
+  sourceLimit = 12,
+  search = semanticSearch
 } = {}) => {
   const topic = clean(title);
   const page = {
@@ -148,7 +149,7 @@ const prepareOrdinaryWikiBuild = async ({
   // The fast profile still runs topic-targeted queries, while avoiding the
   // broad 150-row-per-model maintenance scan that made this preflight feel
   // like the build itself.
-  const semanticMatches = await findSemanticSubjectMatches({ topic, userId, models });
+  const semanticMatches = await findSemanticSubjectMatches({ topic, userId, models, search });
   const librarySources = await collectLibrarySources({
     userId,
     models,

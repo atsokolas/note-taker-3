@@ -10,7 +10,7 @@ jest.mock('../api/wiki', () => ({
   listWikiContradictions: jest.fn(),
   updateWikiPage: jest.fn()
 }));
-jest.mock('../agent/AgentRailContext', () => ({ useAgentRailSurface: () => {} }));
+jest.mock('../agent/AgentRailContext', () => ({ useContextualAgentSurface: () => {} }));
 
 const item = {
   pageId: 'p1',

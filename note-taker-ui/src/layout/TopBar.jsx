@@ -67,7 +67,8 @@ const TopBar = ({
   onThemeChange = null,
   themeSaving = false,
   systemStatus = null,
-  onSystemStatusRetry = null
+  onSystemStatusRetry = null,
+  routeLocation = null
 }) => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const themeMenuRef = useRef(null);
@@ -83,7 +84,8 @@ const TopBar = ({
     [theme]
   );
   const navigate = useNavigate();
-  const location = useLocation();
+  const routerLocation = useLocation();
+  const location = routeLocation || routerLocation;
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const moreMenuRef = useRef(null);
@@ -360,6 +362,11 @@ const TopBar = ({
                 popoverRef={morePopoverRef}
                 testId="topbar-more-menu"
               >
+                {primaryNav.map((item) => renderMenuItem(
+                  item,
+                  () => setMoreOpen(false),
+                  'topbar__menu-item--mobile-room'
+                ))}
                 {secondaryNav.map((item) => renderMenuItem(item, () => setMoreOpen(false)))}
                 {/* Below 1240px the utility buttons are hidden — Connections
                     and Settings are the widest things in the bar and were

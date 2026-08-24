@@ -1,49 +1,46 @@
 # Noeis Brand System (Product)
 
 ## Intent
-A dark-first interface that feels structured and exploratory at the same time: calm enough for deep thinking, energetic enough to invite connection-making.
 
-## Core Principles
-- Build for focused attention, not visual noise.
-- Keep UI chrome quiet; let user material dominate.
-- Use visual energy to show affordance and relationships, not decoration.
-- Favor composable surfaces and consistent spacing over one-off treatments.
+Noeis is a warm, Greek-inflected editorial study: calm enough for sustained reading, structured enough to make knowledge relationships legible, and lively enough to make thinking feel inviting.
 
-## Color System
-- Base background: `#050918`
-- Primary surface: `#0D1430`
-- Raised surface: `#121F49`
-- Subtle border: `rgba(130, 152, 230, 0.28)`
-- Primary text: `#F1F5FF`
-- Secondary text: `#9FB1E6`
-- Electric accent (default): `#36E4FF`
-- Violet accent: `#9D84FF`
-- Indigo accent: `#6F87FF`
+## Core principles
 
-## Typography
-- Header family (monospace): `IBM Plex Mono`, `SFMono-Regular`, `Menlo`, `Consolas`, `monospace`
-- Body family (warm sans): `Nunito Sans`, `Avenir Next`, `Avenir`, `Segoe UI`, system sans-serif
+- Let the user's material dominate; keep navigation and agent chrome quiet.
+- Use one persistent visual language across Library, Think, Wiki, and Judgment.
+- Adapt each room through semantic roles and composition, not a separate palette or component dialect.
+- Use motion to clarify continuity, state, and relationships. Honor `prefers-reduced-motion`.
+- Prefer deliberate whitespace, readable measure, and restrained borders over card grids and decorative panels.
 
-## Iconography
-- Minimal line-art glyphs with rounded joins.
-- Motifs should suggest nodes, routes, links, and state transitions.
-- Keep stroke weight consistent with text weight at small sizes.
+## Semantic theme authority
 
-## Motion & Texture
-- Motion is low-amplitude and purposeful (hover/focus, subtle drift).
-- Use node/grid overlays sparingly to imply semantic structure.
-- Respect `prefers-reduced-motion` across all surfaces.
-- Prefer `140ms` to `220ms` motion windows with ease-out timing for direct manipulation.
-- Use trace-line hover states on list rows to reinforce semantic linking without distracting from content.
+- Package: `theme.editorial`, schema version `1`.
+- Theme implementation: `note-taker-ui/src/styles/semantic-theme.css`.
+- Snapshot validation and application: `note-taker-ui/src/settings/semanticTheme.js`.
+- Persisted user preferences: `note-taker-ui/src/settings/uiPreferences.js`.
+- Shared surface frame: `note-taker-ui/src/surface/surface-frame.css`.
+- Shared shell: `note-taker-ui/src/layout/AppShell.jsx` and `note-taker-ui/src/layout/TopBar.jsx`.
 
-## Implementation Source of Truth
-- Primary brand overrides live in: `note-taker-ui/src/styles/noeis-rebrand.css`
-- UI settings contract lives in: `note-taker-ui/src/settings/uiPreferences.js`
-- Left rail icon set lives in: `note-taker-ui/src/layout/LeftNav.jsx`
-- Screen polish for Think/Library/Notebook (spacing + micro-interactions) also lives in `noeis-rebrand.css`.
+The semantic package owns canvas, chrome, paper, ink, rules, typography, spacing, controls, focus, shadow, and motion. Room styles consume those roles and may define domain-specific roles only when they express real meaning, such as Wiki evidence or Judgment state.
+
+## Visual character
+
+- Light: warm vellum canvas, dark ink, restrained bronze thread, quiet rules.
+- Dark: deep warm paper rather than blue-black dashboard chrome.
+- Reading typography: `Newsreader`, `Iowan Old Style`, Georgia, serif.
+- Interface typography: the system sans stack.
+- Code and provenance: the system monospace stack.
+- Motion: 140–320ms direct transitions, reduced to the package's 1ms safety value when reduced motion is requested.
 
 ## Guardrails
-- Do not introduce light mode variants.
-- Avoid flat grayscale productivity defaults.
-- Avoid high-saturation gradients as primary panel backgrounds.
-- New components should use existing tokens before adding custom colors.
+
+- Do not create another root palette, token file, or room-owned shell theme.
+- Do not reintroduce `noeis-rebrand.css`, `tokens.css`, or the old `nt`, `dashboard`, and `original` token dialects.
+- Do not turn knowledge surfaces into generic dashboards or uniform card grids.
+- Glass belongs only on genuinely floating controls.
+- New components must use semantic roles before adding local values.
+- Light and dark variants, density, typography scale, and user accent must remain a single fail-closed snapshot.
+
+## Verification
+
+Changes to the brand system require semantic-theme contract tests, a production build, and rendered checks across Library, Think, Wiki, and Judgment at desktop, sidebar-width, mobile, and reduced-motion settings.

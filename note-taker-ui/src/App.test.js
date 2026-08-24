@@ -25,6 +25,10 @@ jest.mock('./api/uiSettings', () => ({
   saveUiSettings: jest.fn(() => Promise.resolve({}))
 }));
 
+jest.mock('./utils/marketingAnalytics', () => ({
+  trackMarketingEvent: jest.fn()
+}));
+
 jest.mock('@vercel/analytics/react', () => ({
   Analytics: () => null
 }), { virtual: true });

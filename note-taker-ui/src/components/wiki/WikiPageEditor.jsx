@@ -37,6 +37,8 @@ import {
 } from './wikiVisitTracker';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
+import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
+import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -143,6 +145,13 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   // Hovered/focused claim → drives the citation popover. Stored as the claim
   // attributes plus the anchor rect so the popover can position against it.
   const [activeClaim, setActiveClaim] = useState(null);
+  useNoeisSurface(buildWikiSurfaceDescriptor({
+    page,
+    pageId,
+    claimId: activeClaim?.claimId || searchParams.get('claimId') || '',
+    revisionId: searchParams.get('revisionId') || '',
+    mode: 'edit'
+  }));
 
   const handleClaimHover = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');

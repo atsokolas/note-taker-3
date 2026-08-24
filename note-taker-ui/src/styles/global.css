@@ -1,20 +1,3 @@
-:root {
-  /* AT-290: free/standard fonts only, using the system UI stack for chrome. */
-  --font-sans: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "Iowan Old Style", "Lyon Text", "Georgia", "Times New Roman", serif;
-  --text: var(--reading-text, #332f29);
-  --text-secondary: var(--working-text, #4f596c);
-  --link: var(--reading-text, #332f29);
-}
-
-/* global.css redefines --text/--text-secondary/--link at :root, so they
-   need their own dark override or text stays dark on dark backgrounds. */
-html[data-ui-theme='dark'] {
-  --text: var(--reading-text, #f1eadc);
-  --text-secondary: var(--working-text, #c5bda9);
-  --link: var(--reading-text, #f1eadc);
-}
-
 html {
   font-size: 16px;
 }

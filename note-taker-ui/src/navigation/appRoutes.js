@@ -7,36 +7,13 @@
 // different questions: a page that exists and needs you signed in, and a page
 // that does not exist.
 
-const APP_ROUTE_PREFIXES = Object.freeze([
-  '/wiki',
-  '/judgment',
-  '/week',
-  '/library',
-  '/think',
-  '/paper',
-  '/settings',
-  '/connections',
-  '/integrations',
-  '/data-integrations',
-  '/map',
-  '/review',
-  '/return-queue',
-  '/trending',
-  '/export',
-  '/today',
-  '/onboarding',
-  '/articles',
-  '/collections',
-  '/how-to-use',
-  '/marketing-analytics',
-  '/search-console-opportunities'
-]);
+import { getAuthenticatedRoutePrefixes } from '../system/noeisSurfaceDefinitions';
 
 /** True for a page that exists but is behind the sign-in. */
 export const isAppRoute = (pathname = '') => {
   const path = String(pathname || '').split('?')[0].replace(/\/+$/, '') || '/';
   if (path === '/') return false;
-  return APP_ROUTE_PREFIXES.some(prefix => path === prefix || path.startsWith(`${prefix}/`));
+  return getAuthenticatedRoutePrefixes().some(prefix => path === prefix || path.startsWith(`${prefix}/`));
 };
 
 /* Where to come back to once you have signed in. The same key the API client

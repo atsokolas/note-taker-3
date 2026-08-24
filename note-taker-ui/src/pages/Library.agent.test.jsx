@@ -11,6 +11,7 @@ import { getConnectionsForItem } from '../api/connections';
 import { startLibraryFilingSuggestions } from '../api/library';
 
 const mockNavigate = jest.fn();
+const mockDeclareSurface = jest.fn();
 
 jest.mock('../hooks/useFolders', () => jest.fn());
 jest.mock('../hooks/useLibraryArticles', () => jest.fn());
@@ -42,10 +43,6 @@ jest.mock('../components/library/LibraryMain', () => ({
     articleQuery,
     onArticleQueryChange,
     onSelectArticle,
-    onReviewFiling,
-    onToggleSuppressed,
-    suppressedVisible,
-    unfiledCount,
     shelfNavigation
   }) => (
     <div>
@@ -53,14 +50,6 @@ jest.mock('../components/library/LibraryMain', () => ({
       {!selectedArticleId ? (
         <>
           <div data-testid="library-source-shelf">{shelfNavigation}</div>
-          <div data-testid="library-reading-room-lead">
-            Reading room lead · {unfiledCount} unfiled
-            {suppressedVisible ? ' · showing review imports' : ''}
-          </div>
-          <button type="button" onClick={onReviewFiling}>Review filing suggestions</button>
-          <button type="button" onClick={onToggleSuppressed}>
-            {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
-          </button>
         </>
       ) : null}
       {!selectedArticleId ? (
@@ -106,9 +95,8 @@ jest.mock('../components/agent/ThoughtPartnerPanel', () => ({
   __esModule: true,
   default: () => <div data-testid="thought-partner-panel">Library thought partner</div>
 }));
-jest.mock('../components/agent/AgentSkillDock', () => ({
-  __esModule: true,
-  default: () => <div data-testid="agent-skill-dock">Article moves</div>
+jest.mock('../surface/NoeisSurfaceContext', () => ({
+  useNoeisSurface: (descriptor) => mockDeclareSurface(descriptor)
 }));
 
 jest.mock('../api/articles', () => ({
@@ -158,6 +146,7 @@ describe('Library agent rail', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
     mockNavigate.mockReset();
+    mockDeclareSurface.mockReset();
     localStorage.clear();
     window.matchMedia = jest.fn().mockReturnValue({ matches: true });
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
@@ -199,27 +188,12 @@ describe('Library agent rail', () => {
     }));
   });
 
-  it('folds the Librarian behind a word and opens it in full when asked', () => {
-    // One agent to a screen. The rail is the agent every room shares; the
-    // Librarian does more — filing, structure, selection — so it keeps its
-    // panel, it just no longer holds a third pane open to say so.
+  it('does not mount a second page-specific agent beside the persistent rail', () => {
     renderLibrary();
 
     expect(screen.queryByTestId('library-right')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Librarian' })[0]);
-
-    const rightRail = screen.getByTestId('library-right');
-    expect(rightRail).toHaveAccessibleName('Librarian');
-    expect(rightRail).toHaveTextContent('Library context visible');
-    expect(rightRail).toHaveTextContent('themes: valuation, process');
-    expect(screen.getByLabelText('Librarian library trace')).toBeInTheDocument();
-  });
-
-  it('names the Librarian on the word that opens it', () => {
-    renderLibrary();
-
-    expect(screen.getAllByRole('button', { name: 'Librarian' }).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Library thought partner')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Librarian' })).not.toBeInTheDocument();
   });
 
   it('keeps article search in the main list instead of duplicating it in the Cabinet rail', () => {
@@ -241,13 +215,13 @@ describe('Library agent rail', () => {
     expect(screen.queryByTestId('library-reading-room-lead')).not.toBeInTheDocument();
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Shelves' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review filing suggestions' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
   });
 
   it('starts the filing classification flow from the reading room lead action', async () => {
     renderLibrary();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review filing' }));
 
     await waitFor(() => {
       expect(startLibraryFilingSuggestions).toHaveBeenCalledTimes(1);
@@ -275,19 +249,22 @@ describe('Library agent rail', () => {
     expect(screen.getByRole('button', { name: 'Show review imports' })).toBeInTheDocument();
   });
 
-  it('reads in one column, with the Librarian a word away and marginalia closed', async () => {
-    // What matters here is the fold, not which component the harness mocks:
-    // reading is the source and its marginalia, the Librarian is reachable by
-    // name, and neither is a pane held open before anyone asks.
+  it('reads in one column with source work attached and no duplicate agent', async () => {
     renderLibrary();
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open article' }));
 
     await waitFor(() => {
       expect(document.querySelector('.library-page-shell.is-reading')).toBeInTheDocument();
     });
-    expect(screen.getAllByRole('button', { name: 'Librarian' }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Librarian' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
     expect(screen.getByTestId('library-reading-secondary-rail')).not.toHaveAttribute('open');
+    expect(mockDeclareSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 'library',
+      objectType: 'article',
+      objectId: 'article-1',
+      title: 'Investor letter'
+    }));
   });
 
   it('opens source context when navigation targets an exact highlight', async () => {
