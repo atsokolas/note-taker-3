@@ -13,7 +13,14 @@ import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 
 const AgentRailContext = createContext(null);
 
-const EMPTY_SURFACE = Object.freeze({ id: '', subject: '', lines: [], empty: '' });
+const EMPTY_SURFACE = Object.freeze({
+  id: '',
+  roleLabel: 'Agent',
+  roleDescription: '',
+  subject: '',
+  lines: [],
+  empty: ''
+});
 
 export const AgentRailProvider = ({ children }) => {
   const capabilityModel = useNoeisCapabilities();

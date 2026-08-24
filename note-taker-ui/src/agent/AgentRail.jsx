@@ -122,13 +122,26 @@ const AgentRail = () => {
   return (
     <aside
       className="agent-rail"
-      aria-label="Agent"
+      aria-label={surface.roleLabel || 'Agent'}
       data-agent-contract={surface.contractId || undefined}
       data-agent-presentation="rail"
       data-agent-actions={Array.isArray(surface.supportedActions) ? surface.supportedActions.join(' ') : undefined}
       data-agent-proposal-policy={surface.proposalPolicy || undefined}
     >
-      <p className="agent-rail__eyebrow">Agent</p>
+      <div className="agent-rail__identity">
+        <span
+          key={surface.id || 'idle'}
+          className={`agent-rail__thread${busy ? ' is-working' : ''}`}
+          aria-hidden="true"
+        >
+          <span className="agent-rail__thread-knot" />
+        </span>
+        <p className="agent-rail__eyebrow">{surface.roleLabel || 'Agent'}</p>
+      </div>
+
+      {surface.roleDescription ? (
+        <p className="agent-rail__role-description">{surface.roleDescription}</p>
+      ) : null}
 
       {surface.subject ? <p className="agent-rail__subject">{surface.subject}</p> : null}
 

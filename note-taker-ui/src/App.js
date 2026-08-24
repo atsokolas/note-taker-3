@@ -325,6 +325,92 @@ const PublicFallback = () => {
   return <NotFound />;
 };
 
+/* Stable authenticated runtime.
+ *
+ * These boundaries must live outside App. Defining them inside App creates a
+ * new React component type whenever settings, tour state, or system status
+ * changes; React then tears down the entire room, refetches its object, and
+ * drops in-flight Agent work. The renderer may change as App state changes,
+ * but this component identity does not. */
+const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOverlayOpen }) => {
+  const shellLocation = useLocation();
+  const navigate = useNavigate();
+  const { surface } = useNoeisSurfaceState();
+
+  useEffect(() => {
+    let lastG = 0;
+    const handleKeyDown = (event) => {
+      const tag = event.target?.tagName || '';
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        openPalette();
+        return;
+      }
+
+      const isText = ['INPUT', 'TEXTAREA'].includes(tag) || event.target?.isContentEditable;
+      if (isText) return;
+      if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        setShortcutOverlayOpen(true);
+        return;
+      }
+
+      const now = Date.now();
+      if (event.key.toLowerCase() === 'g') {
+        lastG = now;
+        return;
+      }
+      if (now - lastG >= 800) return;
+      const shortcut = resolveGoToShortcut(event.key);
+      if (!shortcut) return;
+      event.preventDefault();
+      navigate(shortcut.to);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate, openPalette, setShortcutOverlayOpen]);
+
+  return renderLayout({ shellLocation, navigate, surface });
+};
+
+const AuthenticatedAppRuntime = ({ renderLayout, openPalette, setShortcutOverlayOpen }) => (
+  <TourProvider>
+    <NoeisCapabilityProvider>
+      <NoeisLoopProvider>
+        <AgentRailProvider>
+          <NoeisSurfaceProvider>
+            <AuthenticatedLayoutRuntime
+              renderLayout={renderLayout}
+              openPalette={openPalette}
+              setShortcutOverlayOpen={setShortcutOverlayOpen}
+            />
+          </NoeisSurfaceProvider>
+        </AgentRailProvider>
+      </NoeisLoopProvider>
+    </NoeisCapabilityProvider>
+  </TourProvider>
+);
+
+const AppRouterContent = ({
+  isAuthenticated,
+  publicRouteProps,
+  renderLayout,
+  openPalette,
+  setShortcutOverlayOpen
+}) => {
+  const location = useLocation();
+  const shouldUsePublicRoutes = !isAuthenticated || isPublicSharePath(location.pathname);
+
+  if (shouldUsePublicRoutes) return <PublicRoutes {...publicRouteProps} />;
+  return (
+    <AuthenticatedAppRuntime
+      renderLayout={renderLayout}
+      openPalette={openPalette}
+      setShortcutOverlayOpen={setShortcutOverlayOpen}
+    />
+  );
+};
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => (
     bootstrapDevTokenFromLocation() || hasUsableStoredToken()
@@ -553,44 +639,7 @@ function App() {
 
   if (isLoading) return <RouteLoadingFallback />;
 
-  const AppLayout = () => {
-    const shellLocation = useLocation();
-    const navigate = useNavigate();
-    const { surface } = useNoeisSurfaceState();
-
-    useEffect(() => {
-      let lastG = 0;
-      const handleKeyDown = (event) => {
-        const tag = event.target?.tagName || '';
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-          event.preventDefault();
-          openPalette();
-          return;
-        }
-
-        const isText = ['INPUT', 'TEXTAREA'].includes(tag) || event.target?.isContentEditable;
-        if (isText) return;
-        if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          setShortcutOverlayOpen(true);
-          return;
-        }
-
-        const now = Date.now();
-        if (event.key.toLowerCase() === 'g') {
-          lastG = now;
-          return;
-        }
-        if (now - lastG >= 800) return;
-        const shortcut = resolveGoToShortcut(event.key);
-        if (!shortcut) return;
-        event.preventDefault();
-        navigate(shortcut.to);
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
-
+  const renderAppLayout = ({ shellLocation, surface }) => {
     const topBarAccountMenuItems = [
       {
         label: 'Feedback',
@@ -749,9 +798,12 @@ function App() {
       <AppShell
         brandEnergy={uiSettings.brandEnergy}
         surface={surface}
-        /* One instance, beside the routed column. Navigating swaps the column;
-           the rail keeps its place and only changes what it is about. */
-        rightRail={hasContextualAgentRail(shellLocation.pathname) ? <AgentRail /> : null}
+        /* Think owns its thought partner inside the writing surface. The shell
+           must never mount a second, generic agent beside it. */
+        rightRail={hasContextualAgentRail(shellLocation.pathname)
+          && !(shellLocation.pathname === '/think' || shellLocation.pathname.startsWith('/think/'))
+          ? <AgentRail />
+          : null}
         topBar={(
           <TopBar
             routeLocation={shellLocation}
@@ -788,40 +840,17 @@ function App() {
     );
   };
 
-  const AppRouterContent = () => {
-    const location = useLocation();
-    const shouldUsePublicRoutes = !isAuthenticated || isPublicSharePath(location.pathname);
-
-    if (shouldUsePublicRoutes) {
-      return (
-        <PublicRoutes
-          chromeStoreLink={chromeStoreLink}
-          handleLoginSuccess={handleLoginSuccess}
-          uiSettings={uiSettings}
-        />
-      );
-    }
-
-    return (
-      <TourProvider>
-        <NoeisCapabilityProvider>
-          <NoeisLoopProvider>
-            <AgentRailProvider>
-              <NoeisSurfaceProvider>
-                <AppLayout />
-              </NoeisSurfaceProvider>
-            </AgentRailProvider>
-          </NoeisLoopProvider>
-        </NoeisCapabilityProvider>
-      </TourProvider>
-    );
-  };
-
   return (
     <SystemStatusProvider value={systemStatusContextValue}>
       <Router>
         <Analytics />
-        <AppRouterContent />
+        <AppRouterContent
+          isAuthenticated={isAuthenticated}
+          publicRouteProps={{ chromeStoreLink, handleLoginSuccess, uiSettings }}
+          renderLayout={renderAppLayout}
+          openPalette={openPalette}
+          setShortcutOverlayOpen={setShortcutOverlayOpen}
+        />
       </Router>
     </SystemStatusProvider>
   );

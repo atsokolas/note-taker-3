@@ -44,6 +44,7 @@ describe('contextual agent contracts', () => {
     expect(buildContextualAgentSurface('agent-surface.library', {
       objectType: 'article',
       objectId: 'article-1',
+      roleLabel: 'Source guide',
       subject: 'A source',
       lines: [null, { id: 'h', text: '2 highlights.' }]
     })).toEqual(expect.objectContaining({

@@ -8,6 +8,8 @@ export const CONTEXTUAL_AGENT_PRESENTATIONS = Object.freeze({
 const contract = ({
   id,
   room,
+  roleLabel,
+  roleDescription,
   agentId = 'agent.context-partner',
   presentation = CONTEXTUAL_AGENT_PRESENTATIONS.rail,
   capabilities = [],
@@ -17,6 +19,8 @@ const contract = ({
   schemaVersion: CONTEXTUAL_AGENT_CONTRACT_VERSION,
   id,
   room,
+  roleLabel,
+  roleDescription,
   agentId,
   presentation,
   capabilities: Object.freeze([...capabilities]),
@@ -47,6 +51,8 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.library',
     room: 'library',
+    roleLabel: 'Source guide',
+    roleDescription: 'Follows the source, its provenance, and where it connects.',
     capabilities: ['capability.library.retrieve', 'capability.knowledge.connect'],
     actions: ['retrieve', 'accept.keep'],
     match: ({ pathname }) => String(pathname || '').startsWith('/library')
@@ -54,6 +60,8 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.think',
     room: 'think',
+    roleLabel: 'Thought partner',
+    roleDescription: 'Works beside the thought without writing over it.',
     capabilities: ['capability.library.retrieve', 'capability.knowledge.connect'],
     actions: ['retrieve', 'accept.append'],
     match: ({ pathname }) => String(pathname || '').startsWith('/think')
@@ -61,6 +69,8 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.wiki',
     room: 'wiki',
+    roleLabel: 'Wiki steward',
+    roleDescription: 'Checks the accepted page against its sources and maintenance history.',
     capabilities: ['capability.library.retrieve', 'capability.wiki.maintain'],
     actions: ['retrieve', 'accept.edit'],
     match: ({ pathname }) => {
@@ -73,6 +83,8 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
   contract({
     id: 'agent-surface.judgment',
     room: 'judgment',
+    roleLabel: 'Skeptical partner',
+    roleDescription: 'Tests the live judgment against support, counterevidence, and unknowns.',
     capabilities: ['capability.library.retrieve', 'capability.judgment.review'],
     actions: ['retrieve', 'accept.why', 'accept.against'],
     match: ({ pathname }) => String(pathname || '').startsWith('/judgment')
@@ -106,6 +118,8 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     contractId: resolved.id,
     agentId: resolved.agentId,
     room: resolved.room,
+    roleLabel: String(context.roleLabel || resolved.roleLabel || 'Agent').trim(),
+    roleDescription: String(context.roleDescription || resolved.roleDescription || '').trim(),
     objectType,
     objectId,
     subject,

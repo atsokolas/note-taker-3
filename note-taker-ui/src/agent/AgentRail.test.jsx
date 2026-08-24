@@ -37,7 +37,7 @@ const renderRail = ({ onAsk = jest.fn(), accepted = [] } = {}) => {
       <AgentRail />
     </AgentRailProvider>
   );
-  return { ...utils, accepted, rail: () => screen.getByRole('complementary', { name: 'Agent' }) };
+  return { ...utils, accepted, rail: () => screen.getByRole('complementary', { name: 'Skeptical partner' }) };
 };
 
 const ProjectionToggle = () => {
@@ -63,7 +63,8 @@ describe('AgentRail', () => {
     expect(rail()).toHaveAttribute('data-agent-presentation', 'rail');
     expect(rail()).toHaveAttribute('data-agent-actions', expect.stringContaining('accept.against'));
     expect(rail()).toHaveAttribute('data-agent-proposal-policy', 'human_acceptance');
-    expect(within(rail()).getByText('Agent')).toBeInTheDocument();
+    expect(within(rail()).getByText('Skeptical partner')).toBeInTheDocument();
+    expect(within(rail()).getByText(/tests the live judgment/i)).toBeInTheDocument();
     expect(within(rail()).getByText('Retrieves. You accept.')).toBeInTheDocument();
     expect(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBeInTheDocument();
     expect(within(rail()).queryByText(/thought partner/i)).not.toBeInTheDocument();
@@ -81,7 +82,7 @@ describe('AgentRail', () => {
         <ProjectionToggle />
       </AgentRailProvider>
     );
-    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    const rail = screen.getByRole('complementary', { name: 'Wiki steward' });
     fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'What changed?' }
     });

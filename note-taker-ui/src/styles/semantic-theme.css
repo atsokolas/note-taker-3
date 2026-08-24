@@ -272,7 +272,6 @@ html[data-noeis-theme][data-ui-theme] :is(
   .topbar__menu-popover,
   .command-palette,
   .system-status__drawer,
-  .agent-rail,
   .right-drawer__panel
 ) {
   background: var(--noeis-floating);
