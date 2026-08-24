@@ -8,6 +8,7 @@ const {
   buildMixedLibraryRelevancePage,
   decodeCursor
 } = require('../services/libraryMixedSourceService');
+const { buildLibraryRoomProjection } = require('../services/libraryRoomProjectionService');
 
 const parseLimit = value => {
   if (value === undefined || value === null || value === '') return 40;
@@ -19,9 +20,48 @@ const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
 
 const buildLibraryRelevanceRouter = ({
   authenticateToken,
+  getFoldersWithCounts,
   ...models
 } = {}) => {
   const router = express.Router();
+
+  router.get('/api/library/room', authenticateToken, async (req, res) => {
+    const view = String(req.query.view || 'recent').trim();
+    if (!LIBRARY_RELEVANCE_VIEWS.includes(view)) {
+      return res.status(400).json({
+        error: `view must be one of: ${LIBRARY_RELEVANCE_VIEWS.join(', ')}.`
+      });
+    }
+    const limit = parseLimit(req.query.limit);
+    if (limit === undefined) {
+      return res.status(400).json({ error: 'limit must be a positive integer.' });
+    }
+    const showSuppressed = String(req.query.showSuppressed || '0').trim();
+    if (!['0', '1'].includes(showSuppressed)) {
+      return res.status(400).json({ error: 'showSuppressed must be 0 or 1.' });
+    }
+
+    try {
+      const projection = await buildLibraryRoomProjection({
+        userId: req.user.id,
+        models,
+        getFoldersWithCounts,
+        view,
+        limit,
+        includeSuppressed: showSuppressed === '1'
+      });
+      return res.status(200).json({
+        room: 'library',
+        view,
+        sourceScope: 'mixed',
+        ...projection,
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error building Library room projection:', error);
+      return res.status(500).json({ error: 'Failed to load Library.' });
+    }
+  });
 
   router.get('/api/library/relevance', authenticateToken, async (req, res) => {
     const view = String(req.query.view || 'recent').trim();

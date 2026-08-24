@@ -1,16 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { TagChip } from '../components/ui';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
-import FolderTree from '../components/library/FolderTree';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder, setArticleEvergreen } from '../api/articles';
 import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
-import useTags from '../hooks/useTags';
+import useLibraryRoom from '../hooks/useLibraryRoom';
 import LibraryConceptModal from '../components/library/LibraryConceptModal';
 import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
@@ -25,7 +23,7 @@ import { startLibraryFilingSuggestions } from '../api/library';
 import { useSystemStatusControls, useSystemStatusSnapshot } from '../system/SystemStatusContext';
 import { normalizeSystemReceipt } from '../system/systemStatusModel';
 import { EditorialSideRailCollapsible } from '../components/think/EditorialSideRail';
-import { matchesCruftHeuristic, filterLibraryBrowseItems } from '../utils/cruftSuppression';
+import { filterLibraryBrowseItems } from '../utils/cruftSuppression';
 import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
@@ -102,7 +100,25 @@ const Library = () => {
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
-  const { folders, loading: foldersLoading, error: foldersError } = useFolders();
+  // The room projection belongs to Library, not merely its index. Keep it
+  // alive while a source is open so shelves and counts do not disappear and
+  // the legacy full-corpus loaders do not return behind the reader.
+  const roomProjectionEnabled = scope === 'all';
+  const libraryRoom = useLibraryRoom({
+    view: sourceView,
+    showSuppressed: showSuppressedItems,
+    enabled: roomProjectionEnabled
+  });
+  const legacyFolders = useFolders({ enabled: !roomProjectionEnabled || Boolean(libraryRoom.error) });
+  const folders = roomProjectionEnabled && !libraryRoom.error
+    ? libraryRoom.folders
+    : legacyFolders.folders;
+  const foldersLoading = roomProjectionEnabled && !libraryRoom.error
+    ? libraryRoom.loading
+    : legacyFolders.loading;
+  const foldersError = roomProjectionEnabled && !libraryRoom.error
+    ? ''
+    : legacyFolders.error;
   const {
     articles,
     allArticles,
@@ -114,9 +130,9 @@ const Library = () => {
     folderId,
     query: articleQuery,
     sort: 'recent',
-    includeSuppressed: showSuppressedItems
+    includeSuppressed: showSuppressedItems,
+    enabled: !roomProjectionEnabled || Boolean(libraryRoom.error)
   });
-  const { tags, loading: tagsLoading } = useTags();
   const {
     article: selectedArticle,
     highlights: articleHighlights,
@@ -327,19 +343,6 @@ const Library = () => {
     clearBrowseSelectionParams(params);
     setSearchParams(params);
   }, [scope, searchParams, setSearchParams]);
-
-  const handleSourceViewChange = useCallback((nextView) => {
-    const params = new URLSearchParams(searchParams);
-    if (nextView === 'recent') {
-      params.delete('sourceView');
-    } else {
-      params.set('sourceView', nextView);
-    }
-    params.delete('articleId');
-    params.delete('highlightId');
-    clearBrowseSelectionParams(params);
-    setSearchParams(params);
-  }, [searchParams, setSearchParams]);
 
   const handleSelectFolder = useCallback((id) => {
     const params = new URLSearchParams(searchParams);
@@ -568,16 +571,24 @@ const Library = () => {
     [fallbackCounts, countsFromFolders]
   );
 
-  const unfiledCount = folderCounts.unfiled || 0;
+  const projectedShelfCounts = roomProjectionEnabled && !libraryRoom.error
+    ? libraryRoom.shelfCounts
+    : null;
+  const unfiledCount = projectedShelfCounts?.unfiledArticles ?? folderCounts.unfiled ?? 0;
   const corpusTotal = useMemo(() => {
+    if (projectedShelfCounts) return projectedShelfCounts.articles || 0;
     if (showSuppressedItems) return allArticles.length;
     return filterLibraryBrowseItems(allArticles).length;
-  }, [allArticles, showSuppressedItems]);
-  const rawCorpusTotal = useMemo(() => allArticles.length, [allArticles.length]);
+  }, [allArticles, projectedShelfCounts, showSuppressedItems]);
+  const rawCorpusTotal = useMemo(
+    () => projectedShelfCounts?.rawArticles ?? allArticles.length,
+    [allArticles.length, projectedShelfCounts]
+  );
   const suppressedCount = useMemo(() => {
+    if (projectedShelfCounts) return projectedShelfCounts.suppressedArticles || 0;
     if (showSuppressedItems) return 0;
     return Math.max(0, allArticles.length - filterLibraryBrowseItems(allArticles).length);
-  }, [allArticles, showSuppressedItems]);
+  }, [allArticles, projectedShelfCounts, showSuppressedItems]);
   const folderOptions = useMemo(() => {
     const options = [{ value: 'unfiled', label: 'Unfiled' }];
     folders.forEach(folder => {
@@ -585,10 +596,6 @@ const Library = () => {
     });
     return options;
   }, [folders]);
-  const visibleTags = useMemo(
-    () => (Array.isArray(tags) ? tags : []).filter(tag => !matchesCruftHeuristic(tag?.tag || tag?.name)),
-    [tags]
-  );
   const articleOptions = useMemo(
     () => allArticles.map(article => ({ value: article._id, label: article.title || 'Untitled article' })),
     [allArticles]
@@ -742,29 +749,6 @@ const Library = () => {
   }, [folders, folderId, scope]);
 
 
-  const sourceIndexFolders = (
-    <div className="library-source-index-folders" data-testid="library-source-index-folders">
-      {foldersLoading ? <p className="muted small">Loading folders…</p> : null}
-      {foldersError ? <p className="status-message error-message">{foldersError}</p> : null}
-      {!foldersLoading && !foldersError ? (
-        <FolderTree
-          folders={folders}
-          counts={folderCounts}
-          selectedFolderId={folderId}
-          onSelectFolder={handleSelectFolder}
-        />
-      ) : null}
-      <Link className="library-source-index-folders__saved" to="/views">Saved views</Link>
-      {!tagsLoading && visibleTags.length > 0 ? (
-        <div className="library-source-index-folders__tags">
-          {visibleTags.slice(0, 6).map(tag => (
-            <TagChip key={tag.tag} to={`/tags/${encodeURIComponent(tag.tag)}`}>{tag.tag}</TagChip>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-
   const isReadingView = Boolean(selectedArticleId);
   const articleHighlightCount = Array.isArray(articleHighlights) ? articleHighlights.length : 0;
   const articleReferenceCount = (
@@ -795,7 +779,11 @@ const Library = () => {
      rather than in front of it. */
   /* Kept reads like the shelf, because it is the shelf — a narrower one. */
   const isKeptShelf = !isReadingView && scope === 'kept';
-  const keptCount = useMemo(() => allArticles.filter(item => item?.evergreen).length, [allArticles]);
+  const keptCount = useMemo(
+    () => projectedShelfCounts?.keptArticles
+      ?? allArticles.filter(item => item?.evergreen).length,
+    [allArticles, projectedShelfCounts]
+  );
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
@@ -808,7 +796,7 @@ const Library = () => {
       objectId: exactSourceId,
       subject: librarySubject({
         article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
-        count: allArticles.length
+        count: corpusTotal
       }),
       lines: exactSourceId === 'library'
         ? []
@@ -820,7 +808,7 @@ const Library = () => {
             ? { id: 'references', text: `Used in ${articleReferenceCount} note${articleReferenceCount === 1 ? '' : 's'} or collection${articleReferenceCount === 1 ? '' : 's'}.` }
             : null
         ].filter(Boolean),
-      empty: allArticles.length
+      empty: corpusTotal
         ? 'Nothing to retrieve until you ask.'
         : 'Nothing on the shelf to retrieve from yet.'
     },
@@ -867,7 +855,6 @@ const Library = () => {
       readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
       onOpenSource={handleOpenSource}
-      onSelectScope={handleSelectScope}
       onMoveArticle={openMoveModal}
       onHighlightOptimistic={addHighlightOptimistic}
       onHighlightReplace={replaceHighlight}
@@ -887,7 +874,6 @@ const Library = () => {
       onDumpHighlight={(highlight) => handleDumpToWorkingMemory(highlight?.text || '')}
       allArticles={allArticles}
       unfiledCount={unfiledCount}
-      shelfNavigation={sourceIndexFolders}
       onReviewFiling={handleReviewFiling}
       filingLaunching={filingLaunching}
       filingReceipt={filingReceipt}
@@ -897,11 +883,11 @@ const Library = () => {
       suppressedCount={suppressedCount}
       latestReceipt={systemStatusSnapshot.latestReceipt}
       sourceView={sourceView}
-      onSourceViewChange={handleSourceViewChange}
       selectedSourceKey={selectedSourceKey}
       sourceDetail={sourceDetailState.source}
       sourceDetailLoading={sourceDetailState.loading}
       sourceDetailError={sourceDetailState.error}
+      relevanceState={roomProjectionEnabled ? libraryRoom : null}
     />
   );
 

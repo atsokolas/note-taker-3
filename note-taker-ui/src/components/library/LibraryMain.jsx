@@ -1,12 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback } from 'react';
 import ArticleReader from '../ArticleReader';
 import LibraryArticleList from './LibraryArticleList';
 import LibraryHighlights from './LibraryHighlights';
 import LibraryReadingRoomLead from './LibraryReadingRoomLead';
 import LibrarySourceList from './LibrarySourceList';
-import LibrarySourceMemory from './LibrarySourceMemory';
 import LibrarySourceTrace from './LibrarySourceTrace';
-import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import '../../styles/library-source-memory.css';
 
 const LibraryMain = ({
@@ -24,7 +22,6 @@ const LibraryMain = ({
   readerRef,
   onSelectArticle,
   onOpenSource = null,
-  onSelectScope = null,
   onMoveArticle,
   onHighlightOptimistic,
   onHighlightReplace,
@@ -44,7 +41,6 @@ const LibraryMain = ({
   onDumpHighlight,
   allArticles = [],
   unfiledCount = 0,
-  shelfNavigation = null,
   onReviewFiling,
   filingLaunching = false,
   filingReceipt = null,
@@ -54,13 +50,13 @@ const LibraryMain = ({
   suppressedCount = 0,
   latestReceipt = null,
   sourceView = 'recent',
-  onSourceViewChange = null,
   selectedSourceKey = '',
   sourceDetail = null,
   sourceDetailLoading = false,
-  sourceDetailError = ''
+  sourceDetailError = '',
+  relevanceState = null
 }) => {
-  const [relevanceState, setRelevanceState] = useState({
+  const relevance = relevanceState || {
     loading: true,
     loadingMore: false,
     error: '',
@@ -72,38 +68,9 @@ const LibraryMain = ({
     hasMore: false,
     filteredOutCount: 0,
     loadMore: null
-  });
+  };
   const showReadingRoomLead = scope === 'unfiled';
   const isMixedBrowse = scope === 'all';
-  const allowedSourceIds = useMemo(() => {
-    // The mixed-source endpoint already applies the visibility contract. Do
-    // not hold its first useful page behind the older all-articles request;
-    // once that summary arrives it becomes a second, local safety fence.
-    if (articlesLoading) return null;
-    return new Set(
-      (suppressedVisible ? allArticles : filterLibraryBrowseItems(allArticles))
-        .map(article => String(article?._id || ''))
-        .filter(Boolean)
-    );
-  }, [allArticles, articlesLoading, suppressedVisible]);
-  const handleRelevanceDataChange = useCallback(next => {
-    setRelevanceState(previous => {
-      if (
-        previous.loading === next.loading
-        && previous.loadingMore === next.loadingMore
-        && previous.error === next.error
-        && previous.paginationError === next.paginationError
-        && previous.coverage === next.coverage
-        && previous.counts === next.counts
-        && previous.sources === next.sources
-        && previous.nextCursor === next.nextCursor
-        && previous.hasMore === next.hasMore
-        && previous.filteredOutCount === next.filteredOutCount
-        && previous.loadMore === next.loadMore
-      ) return previous;
-      return next;
-    });
-  }, []);
   const handleOpenSource = useCallback((source) => {
     if (onOpenSource) {
       onOpenSource(source);
@@ -130,11 +97,11 @@ const LibraryMain = ({
       : sourceView === 'unconnected'
         ? 'Sources not yet used by a durable thinking object.'
         : 'Sources in the order they entered your Library.';
-  const relevancePending = isMixedBrowse && relevanceState.loading;
+  const relevancePending = isMixedBrowse && relevance.loading;
   const relevanceFailed = Boolean(
     isMixedBrowse
-    && relevanceState.error
-    && relevanceState.sources.length === 0
+    && relevance.error
+    && relevance.sources.length === 0
   );
   const sourceViewEmptyLabel = sourceView === 'active'
     ? 'No visible source is currently used by a durable thinking object.'
@@ -206,30 +173,12 @@ const LibraryMain = ({
         data-testid="library-composition"
         data-composition-layout="list"
       >
-        <LibrarySourceMemory
-            onSelectArticle={onSelectArticle}
-            onSelectSource={handleOpenSource}
-            view={sourceView}
-            onViewChange={onSourceViewChange}
-            allowedSourceIds={allowedSourceIds}
-            renderRows={false}
-            onDataChange={handleRelevanceDataChange}
-            variant="index"
-            scope={scope}
-            unfiledCount={unfiledCount}
-            onSelectScope={onSelectScope}
-            shelfNavigation={shelfNavigation}
-            coverageStatus={relevanceState.coverage?.status || null}
-            showSuppressed={suppressedVisible}
-            headless
-          />
-
         <div className="library-composition__list">
           {!relevanceFailed ? (
             <LibrarySourceList
-              sources={relevanceState.sources}
+              sources={relevance.sources}
               loading={relevancePending}
-              loadingMore={relevanceState.loadingMore}
+              loadingMore={relevance.loadingMore}
               error={articlesError}
               emptyLabel={articleQuery
                 ? `No sources match "${articleQuery}".`
@@ -241,17 +190,17 @@ const LibraryMain = ({
               articles={allArticles}
               scope={scope}
               suppressedVisible={suppressedVisible}
-              corpusTotal={Number(relevanceState.counts?.recent?.value ?? corpusTotal)}
-              rawCorpusTotal={Number(relevanceState.counts?.recent?.value ?? rawCorpusTotal)}
-              suppressedCount={relevanceState.filteredOutCount}
+              corpusTotal={Number(relevance.counts?.recent?.value ?? corpusTotal)}
+              rawCorpusTotal={Number(relevance.counts?.recent?.value ?? rawCorpusTotal)}
+              suppressedCount={relevance.filteredOutCount || 0}
               latestReceipt={latestReceipt}
-              coverage={relevanceState.coverage}
-              counts={relevanceState.counts}
+              coverage={relevance.coverage}
+              counts={relevance.counts}
               sourceView={sourceView}
-              paginationError={relevanceState.paginationError}
-              filteredOutCount={relevanceState.filteredOutCount}
-              hasMore={relevanceState.hasMore}
-              onLoadMore={relevanceState.loadMore}
+              paginationError={relevance.paginationError}
+              filteredOutCount={relevance.filteredOutCount || 0}
+              hasMore={relevance.hasMore}
+              onLoadMore={relevance.loadMore}
               title={viewLabel}
               subtitle={viewSubtitle}
               selectedSourceKey={selectedSourceKey}

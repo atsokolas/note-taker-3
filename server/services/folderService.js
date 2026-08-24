@@ -15,10 +15,12 @@ const mergeFolderCounts = (folders, counts) => {
 
 const buildFolderService = ({ Folder, Article, mongoose }) => {
   const getFoldersWithCounts = async (userId) => {
-    const folders = await Folder.find({ userId }).sort({ name: 1 }).lean();
-    const counts = await Article.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId), folder: { $ne: null } } },
-      { $group: { _id: '$folder', articleCount: { $sum: 1 } } }
+    const [folders, counts] = await Promise.all([
+      Folder.find({ userId }).sort({ name: 1 }).lean(),
+      Article.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(userId), folder: { $ne: null } } },
+        { $group: { _id: '$folder', articleCount: { $sum: 1 } } }
+      ])
     ]);
     return mergeFolderCounts(folders, counts);
   };

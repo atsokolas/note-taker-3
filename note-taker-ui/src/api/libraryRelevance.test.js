@@ -1,6 +1,7 @@
 import api from '../api';
 import { clearCachedPrefix } from '../utils/cache';
 import {
+  getLibraryRoom,
   getLibraryRelevance,
   getLibrarySourceDetail
 } from './libraryRelevance';
@@ -40,11 +41,46 @@ describe('Library relevance API', () => {
     mockAuthToken = 'test-only';
     clearCachedPrefix('library-relevance:');
     clearCachedPrefix('library-relevance-detail:');
+    clearCachedPrefix('library-room:');
   });
 
   afterEach(() => {
     clearCachedPrefix('library-relevance:');
     clearCachedPrefix('library-relevance-detail:');
+    clearCachedPrefix('library-room:');
+  });
+
+  it('loads one fail-closed room projection with sources, shelves, and counts', async () => {
+    const payload = {
+      ...mixedPage(),
+      room: 'library',
+      shelves: {
+        folders: [{ _id: 'folder-1', name: 'AI & Computing', articleCount: 1 }],
+        counts: {
+          articles: 1,
+          rawArticles: 2,
+          unfiledArticles: 1,
+          keptArticles: 0,
+          suppressedArticles: 1
+        }
+      }
+    };
+    api.get.mockResolvedValue({ data: payload });
+
+    await expect(getLibraryRoom()).resolves.toBe(payload);
+    await expect(getLibraryRoom()).resolves.toBe(payload);
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledWith(
+      '/api/library/room?view=recent&limit=40',
+      { headers: { Authorization: 'Bearer test-only' } }
+    );
+  });
+
+  it('rejects a room response without canonical shelf counts', async () => {
+    api.get.mockResolvedValue({
+      data: { ...mixedPage(), room: 'library', shelves: { folders: [], counts: {} } }
+    });
+    await expect(getLibraryRoom()).rejects.toThrow(/room response is malformed/i);
   });
 
   it('uses the canonical default query, authenticates, caches, and preserves mixed identity', async () => {

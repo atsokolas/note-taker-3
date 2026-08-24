@@ -29,6 +29,11 @@ app.use(buildLibraryRelevanceRouter({
     req.user = { id: USER_ID };
     return next();
   },
+  getFoldersWithCounts: async () => [{
+    _id: '64f100000000000000000041',
+    name: 'AI & Computing',
+    articleCount: 1
+  }],
   Article: modelFor([{
     _id: '64f100000000000000000021',
     userId: USER_ID,
@@ -98,6 +103,20 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual(mixedNext.body.sources[0].source.type, 'article');
     assert.strictEqual(mixedNext.body.nextCursor, null);
     assert.strictEqual(mixedNext.body.hasMore, false);
+
+    const room = await request('/api/library/room?view=recent&limit=20');
+    assert.strictEqual(room.response.status, 200);
+    assert.strictEqual(room.body.room, 'library');
+    assert.strictEqual(room.body.sourceScope, 'mixed');
+    assert.strictEqual(room.body.sources.length, 2);
+    assert.strictEqual(room.body.shelves.folders[0].name, 'AI & Computing');
+    assert.deepStrictEqual(room.body.shelves.counts, {
+      articles: 1,
+      rawArticles: 1,
+      unfiledArticles: 1,
+      keptArticles: 1,
+      suppressedArticles: 0
+    });
 
     const invalidCursor = await request(
       '/api/library/relevance?view=recent&sourceScope=mixed&cursor=not-a-cursor'
