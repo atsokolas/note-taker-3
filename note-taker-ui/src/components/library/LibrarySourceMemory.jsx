@@ -67,8 +67,8 @@ const emptyState = () => ({
 });
 
 const formatCount = (count) => {
-  const parsedCount = Number(count?.value);
-  const hasCount = Number.isFinite(parsedCount) && parsedCount >= 0;
+  const parsedCount = count?.value;
+  const hasCount = typeof parsedCount === 'number' && Number.isFinite(parsedCount) && parsedCount >= 0;
   if (!hasCount) {
     return { hasCount: false, label: '', accessible: '' };
   }
@@ -94,7 +94,8 @@ const LibrarySourceMemory = ({
   onSelectScope = null,
   shelfNavigation = null,
   coverageStatus = null,
-  showSuppressed = false
+  showSuppressed = false,
+  headless = false
 }) => {
   const view = VIEW_OPTIONS.some(option => option.id === controlledView)
     ? controlledView
@@ -293,6 +294,11 @@ const LibrarySourceMemory = ({
     if (!active.hasCount) return '';
     return `${active.label} active in thinking`;
   })();
+
+  // LibraryMain owns the visible four-room composition. In that composition
+  // this component is the source-data controller only; rendering its legacy
+  // index would duplicate the persistent Library shelf beside it.
+  if (headless) return null;
 
   return (
     <section

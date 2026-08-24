@@ -1,4 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import {
+  RoomShelf,
+  RoomShelfButton,
+  RoomShelfList,
+  RoomShelfMeta,
+  RoomShelfSection
+} from '../collection/RoomShelf';
 
 // The cabinet, in the column's language.
 //
@@ -35,11 +42,17 @@ const useNarrowShelf = () => {
 };
 
 const LibraryShelfNav = ({
+  count,
   folders = [],
+  folderCounts = {},
+  foldersLoading = false,
+  foldersError = '',
   scope = 'all',
   folderId = '',
   unfiledCount = 0,
   keptCount = 0,
+  query = '',
+  onQueryChange,
   onSelectScope,
   onSelectFolder,
   onReviewFiling,
@@ -54,18 +67,26 @@ const LibraryShelfNav = ({
   const showCabinet = !narrow || cabinetOpen || scope === 'folder' || !folders.length;
 
   return (
-    <nav className={`library-shelf ${className}`.trim()} aria-label="Shelves">
-      <p className="library-shelf__eyebrow">Library</p>
-      <ul className="library-shelf__scopes">
+    <RoomShelf
+      as="nav"
+      className={`library-shelf ${className}`.trim()}
+      aria-label="Shelves"
+      label="Library"
+      count={count}
+      search={query}
+      searchLabel="Search library"
+      searchPlaceholder="Search library"
+      onSearchChange={onQueryChange}
+    >
+      <RoomShelfList className="library-shelf__scopes">
         <li>
-          <button
-            type="button"
-            className={scope === 'all' ? 'is-open' : ''}
-            aria-current={scope === 'all' ? 'true' : undefined}
+          <RoomShelfButton
+            active={scope === 'all'}
             onClick={() => onSelectScope?.('all')}
           >
-            All sources
-          </button>
+            <span>All sources</span>
+            {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
+          </RoomShelfButton>
         </li>
         {/* Directly under everything, because it is a cut of everything and
             not a folder among folders: what you decided to hold for life.
@@ -76,36 +97,32 @@ const LibraryShelfNav = ({
             nobody it existed, and the empty shelf is where it explains
             itself. */}
         <li className={`library-shelf__kept${keptCount ? '' : ' is-empty'}`}>
-          <button
-            type="button"
-            className={scope === 'kept' ? 'is-open' : ''}
-            aria-current={scope === 'kept' ? 'true' : undefined}
+          <RoomShelfButton
+            active={scope === 'kept'}
             onClick={() => onSelectScope?.('kept')}
           >
-            Kept{keptCount ? ` (${keptCount})` : ''}
-          </button>
+            <span>Kept</span>
+            <RoomShelfMeta>{keptCount}</RoomShelfMeta>
+          </RoomShelfButton>
         </li>
         <li>
-          <button
-            type="button"
-            className={scope === 'unfiled' ? 'is-open' : ''}
-            aria-current={scope === 'unfiled' ? 'true' : undefined}
+          <RoomShelfButton
+            active={scope === 'unfiled'}
             onClick={() => onSelectScope?.('unfiled')}
           >
-            Unfiled{unfiledCount ? ` (${unfiledCount})` : ''}
-          </button>
+            <span>Unfiled</span>
+            <RoomShelfMeta>{unfiledCount}</RoomShelfMeta>
+          </RoomShelfButton>
         </li>
         <li>
-          <button
-            type="button"
-            className={scope === 'highlights' ? 'is-open' : ''}
-            aria-current={scope === 'highlights' ? 'true' : undefined}
+          <RoomShelfButton
+            active={scope === 'highlights'}
             onClick={() => onSelectScope?.('highlights')}
           >
-            Highlights
-          </button>
+            <span>Highlights</span>
+          </RoomShelfButton>
         </li>
-      </ul>
+      </RoomShelfList>
 
       {narrow && !showCabinet && folders.length ? (
         <button
@@ -119,25 +136,33 @@ const LibraryShelfNav = ({
       ) : null}
 
       {showCabinet ? (
-        <div className="library-shelf__cabinet">
+        <RoomShelfSection className="library-shelf__cabinet" label="Shelves">
           {/* A label rather than a rule. The group needed saying, and a line
               across the column was the product saying it without words. */}
-          {folders.length ? <p className="library-shelf__cabinet-eyebrow">Shelves</p> : null}
-          {folders.length ? (
-            <ul className="library-shelf__folders">
+          {foldersLoading ? (
+            <p className="library-shelf__status" role="status">Loading shelves…</p>
+          ) : null}
+          {foldersError ? (
+            <p className="library-shelf__status is-error" role="alert">{foldersError}</p>
+          ) : null}
+          {!foldersLoading && !foldersError && folders.length ? (
+            <RoomShelfList className="library-shelf__folders">
               {folders.map(folder => (
                 <li key={folder._id}>
-                  <button
-                    type="button"
-                    className={scope === 'folder' && folderId === folder._id ? 'is-open' : ''}
-                    aria-current={scope === 'folder' && folderId === folder._id ? 'true' : undefined}
+                  <RoomShelfButton
+                    active={scope === 'folder' && folderId === folder._id}
+                    nested
                     onClick={() => onSelectFolder?.(folder._id)}
                   >
-                    {folder.name}
-                  </button>
+                    <span>{folder.name}</span>
+                    {folderCounts[folder._id] > 0 ? <RoomShelfMeta>{folderCounts[folder._id]}</RoomShelfMeta> : null}
+                  </RoomShelfButton>
                 </li>
               ))}
-            </ul>
+            </RoomShelfList>
+          ) : null}
+          {!foldersLoading && !foldersError && !folders.length ? (
+            <p className="library-shelf__status">No shelves yet.</p>
           ) : null}
 
           {/* Filing is the cabinet's own work, so it lives with the cabinet. */}
@@ -162,9 +187,9 @@ const LibraryShelfNav = ({
               Close the cabinet
             </button>
           ) : null}
-        </div>
+        </RoomShelfSection>
       ) : null}
-    </nav>
+    </RoomShelf>
   );
 };
 

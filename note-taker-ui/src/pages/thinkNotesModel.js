@@ -49,7 +49,9 @@ export const resolveOpenNoteId = ({ requestedId = '', notes = [], recentIds = []
 };
 
 /** The faint list beside the note: every other note, most recent first. */
-export const buildNoteShelf = ({ notes = [], openId = '' } = {}) => list(notes)
+export const buildNoteShelf = ({ notes = [], openId = '', query = '', expanded = false, limit = 18 } = {}) => {
+  const needle = clean(query).toLowerCase();
+  const sorted = list(notes)
   .map(entry => ({
     id: idOf(entry),
     title: clean(entry?.title) || 'Untitled',
@@ -57,7 +59,10 @@ export const buildNoteShelf = ({ notes = [], openId = '' } = {}) => list(notes)
     isOpen: idOf(entry) === clean(openId)
   }))
   .filter(item => item.id)
+  .filter(item => !needle || item.title.toLowerCase().includes(needle))
   .sort((left, right) => time(right.updatedAt) - time(left.updatedAt));
+  return expanded || needle ? sorted : sorted.slice(0, limit);
+};
 
 /** "edited this morning" — from the timestamp, never guessed. */
 export const editedLine = (entry, now = Date.now()) => {

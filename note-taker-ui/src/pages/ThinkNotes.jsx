@@ -2,12 +2,17 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { clearNotebookCache, getNotebookSummaries } from '../api/notebook';
-import { chatWithAgent } from '../api/agent';
+import { clearNotebookCache, getNotebookShelf } from '../api/notebook';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
-import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
+import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import {
+  RoomShelf,
+  RoomShelfButton,
+  RoomShelfList,
+  RoomShelfMeta,
+  RoomShelfSection
+} from '../components/collection/RoomShelf';
 import { takeFirstPaint } from '../motion/columnMotion';
-import { oneSentence } from './judgmentModel';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import {
   buildNoteShelf,
@@ -33,16 +38,19 @@ const ThinkNotes = () => {
   const [openId, setOpenId] = useState('');
   const [entry, setEntry] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingEntry, setLoadingEntry] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const { ask } = useAgentRail();
+  const [shelfQuery, setShelfQuery] = useState('');
+  const [shelfExpanded, setShelfExpanded] = useState(false);
+  const [queuedPrompt, setQueuedPrompt] = useState(null);
   const arriving = useMemo(() => takeFirstPaint('think-notes'), []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const summaries = await getNotebookSummaries();
+        const summaries = await getNotebookShelf();
         if (cancelled) return;
         const list = Array.isArray(summaries) ? summaries : [];
         setNotes(list);
@@ -66,12 +74,19 @@ const ThinkNotes = () => {
   useEffect(() => {
     if (!openId) return undefined;
     let cancelled = false;
+    setLoadingEntry(true);
+    setError('');
     (async () => {
       try {
         const res = await api.get(`/api/notebook/${openId}`, getAuthHeaders());
         if (!cancelled) setEntry(res.data || null);
       } catch (loadError) {
-        if (!cancelled) setError(loadError?.response?.data?.error || 'Could not open that note.');
+        if (!cancelled) {
+          setEntry(null);
+          setError(loadError?.response?.data?.error || 'Could not open that note.');
+        }
+      } finally {
+        if (!cancelled) setLoadingEntry(false);
       }
     })();
     return () => { cancelled = true; };
@@ -87,7 +102,24 @@ const ThinkNotes = () => {
     setSearchParams(params, { replace: true });
   }, [openId, searchParams, setSearchParams]);
 
-  const shelf = useMemo(() => buildNoteShelf({ notes, openId }), [notes, openId]);
+  const shelf = useMemo(() => buildNoteShelf({
+    notes,
+    openId,
+    query: shelfQuery,
+    expanded: shelfExpanded
+  }), [notes, openId, shelfExpanded, shelfQuery]);
+  const hasMoreNotes = !shelfExpanded && !shelfQuery.trim() && notes.length > shelf.length;
+  const entryMatchesRoute = Boolean(
+    entry?._id
+    && openId
+    && String(entry._id) === String(openId)
+  );
+  const noteContextText = useMemo(() => {
+    const blocks = Array.isArray(entry?.blocks)
+      ? entry.blocks.map(block => String(block?.text || '').trim()).filter(Boolean).join(' ')
+      : '';
+    return blocks || String(entry?.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }, [entry]);
 
   const saveEntry = useCallback(async (payload) => {
     if (!payload?.id) return;
@@ -107,53 +139,11 @@ const ThinkNotes = () => {
     }
   }, []);
 
-  /* Accepting a fetched line appends it to the note as a new block. It appends:
-     nothing already written is rewritten by something the agent found. */
-  const appendLine = useCallback(async (proposal) => {
-    if (!entry?._id) return;
-    const blocks = [
-      ...(Array.isArray(entry.blocks) ? entry.blocks : []),
-      { type: 'paragraph', text: proposal.body }
-    ];
-    await saveEntry({
-      id: entry._id,
-      title: entry.title || 'Untitled note',
-      content: `${entry.content || ''}<p>${proposal.body}</p>`,
-      blocks,
-      type: entry.type || 'note',
-      tags: entry.tags || [],
-      claimId: entry.claimId || null,
-      linkedArticleId: entry.linkedArticleId || null
-    });
-  }, [entry, saveEntry]);
-
-  useContextualAgentSurface(
-    'agent-surface.think',
-    {
-      objectType: openId ? 'notebook' : 'think_workspace',
-      objectId: openId || 'think',
-      subject: entry?.title || (loading ? '' : 'Your notes.'),
-      empty: 'Nothing to retrieve until you ask.'
-    },
-    {
-      onAsk: async (question) => {
-        const result = await chatWithAgent({
-          message: question,
-          context: { type: 'notebook', id: openId, title: entry?.title || 'Note' }
-        });
-        const sentence = oneSentence(String(result?.reply || result?.message || result?.answer || ''));
-        if (!sentence) return null;
-        return {
-          id: `think-ask:${sentence.slice(0, 32)}`,
-          sentence,
-          body: sentence,
-          origin: 'Asked of this note',
-          fields: ['append']
-        };
-      },
-      onAccept: appendLine
-    }
-  );
+  const openThinkView = useCallback((tab) => {
+    const params = new URLSearchParams();
+    params.set('tab', tab);
+    setSearchParams(params);
+  }, [setSearchParams]);
 
   /* The route can say only "Think". Once the note arrives, the persistent
      shell can carry the exact object without owning or remounting the editor.
@@ -172,27 +162,58 @@ const ThinkNotes = () => {
 
   return (
     <div className="think-notes">
-      <aside className={`think-notes__shelf ${step(1)}`} aria-label="Your notes">
-        {/* The lock points it back the way every other return does. */}
-        <p className="think-notes__shelf-eyebrow">← All notes</p>
-        <ul>
-          {shelf.map(item => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={item.isOpen ? 'is-open' : ''}
-                aria-current={item.isOpen ? 'true' : undefined}
-                onClick={() => setOpenId(item.id)}
-              >
-                {item.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
+      <RoomShelf
+        className={`think-notes__shelf ${step(1)}`}
+        aria-label="Think navigation"
+        label="Think"
+        count={notes.length}
+        search={shelfQuery}
+        searchLabel="Find a note"
+        searchPlaceholder="Find a note"
+        onSearchChange={setShelfQuery}
+      >
+        <RoomShelfList className="think-notes__spaces">
+          <li>
+            <RoomShelfButton active onClick={() => openThinkView('notebook')}>
+              <span>Notebook</span>
+              <RoomShelfMeta>{notes.length}</RoomShelfMeta>
+            </RoomShelfButton>
+          </li>
+          <li><RoomShelfButton onClick={() => openThinkView('concepts')}><span>Concepts</span></RoomShelfButton></li>
+          <li><RoomShelfButton onClick={() => openThinkView('questions')}><span>Questions</span></RoomShelfButton></li>
+        </RoomShelfList>
+        <RoomShelfSection label="Recent notes">
+          <RoomShelfList>
+            {shelf.map(item => (
+              <li key={item.id}>
+                <RoomShelfButton
+                  active={item.isOpen}
+                  nested
+                  onClick={() => setOpenId(item.id)}
+                >
+                  <span>{item.title}</span>
+                </RoomShelfButton>
+              </li>
+            ))}
+          </RoomShelfList>
+          {hasMoreNotes ? (
+            <button
+              type="button"
+              className="think-notes__shelf-more"
+              onClick={() => setShelfExpanded(true)}
+            >
+              Show all recent notes
+            </button>
+          ) : null}
+        </RoomShelfSection>
+      </RoomShelf>
 
-      <main className="think-notes__note" aria-labelledby="think-note-title">
-        {entry ? (
+      <main
+        className={`think-notes__note${loadingEntry ? ' is-loading' : ''}`}
+        aria-labelledby="think-note-title"
+        aria-busy={loadingEntry ? 'true' : undefined}
+      >
+        {entryMatchesRoute ? (
           <div className={step(2)}>
             <NotebookEditor
               entry={entry}
@@ -206,14 +227,18 @@ const ThinkNotes = () => {
               agentContextId={openId}
               agentContextTitle={entry.title || 'Note'}
             />
-            {/* The door is a line of text in the column; the fetching happens
-                in the rail, and the note changes only on Accept. */}
+            {/* A quiet shortcut into the same partner beside the document. */}
             <button
               type="button"
               className="think-notes__door"
-              onClick={() => ask?.(FETCH_QUESTION, { fields: ['append'], origin: 'Asked of this note' })}
+              onClick={() => setQueuedPrompt({
+                id: `note-source:${openId}:${Date.now()}`,
+                prompt: FETCH_QUESTION,
+                contextType: 'notebook',
+                contextId: openId
+              })}
             >
-              Ask the agent to fetch a source into this note
+              Ask the thought partner to find a source
             </button>
           </div>
         ) : (
@@ -224,6 +249,28 @@ const ThinkNotes = () => {
           </p>
         )}
       </main>
+
+      <aside className={`think-notes__partner ${step(3)}`} aria-label="Thought partner">
+        <ThoughtPartnerPanel
+          variant="stream"
+          contextType="notebook"
+          contextId={entryMatchesRoute ? openId : ''}
+          contextTitle={entryMatchesRoute ? entry?.title || 'Note' : 'Think'}
+          contextMetadata={entryMatchesRoute ? { primaryText: noteContextText } : null}
+          queuedPrompt={queuedPrompt}
+          title="Thought partner"
+          subtitle="Working beside this note"
+          placeholder="Challenge, connect, or develop this thought…"
+          promptTemplates={[
+            'Find a source that changes this note.',
+            'What is the strongest unresolved idea here?',
+            'Challenge the weakest assumption on this page.'
+          ]}
+          passiveStatusText="Keep writing. I will stay quiet until you ask me to connect, challenge, or develop the page."
+          emptyStateText="Ask when you want another mind in the room."
+          submitLabel="↗"
+        />
+      </aside>
     </div>
   );
 };

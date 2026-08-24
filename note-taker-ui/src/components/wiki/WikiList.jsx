@@ -8,7 +8,12 @@ import WikiEmergingProposals from './WikiEmergingProposals';
 import WikiInbox from './WikiInbox';
 import WikiFacetRail from './WikiFacetRail';
 import { PAGE_TYPES, labelFor } from './wikiGraph';
-import { computeWikiFacetCounts, isWikiAllPagesActive } from './wikiFacetModel';
+import {
+  computeWikiFacetCounts,
+  isWikiAllPagesActive,
+  WIKI_KIND_FLAGS,
+  wikiKindForPage
+} from './wikiFacetModel';
 import {
   formatWikiRowDate,
   wikiPreviewForPage,
@@ -34,7 +39,8 @@ const STATUSES = ['all', 'draft', 'published', 'archived'];
 
 const WikiPageRowKicker = ({ page, showQualityReview, qualityLabel, blocked }) => (
   <div className="library-article-row-kicker">
-    <span className="library-article-row-source">{labelFor(page.pageType || 'topic')}</span>
+    <span className="library-article-row-source">{WIKI_KIND_FLAGS[wikiKindForPage(page)]}</span>
+    <span className="library-article-row-tag">{labelFor(page.pageType || 'topic')}</span>
     <span className="library-article-row-tag">{labelFor(page.status || 'draft')}</span>
     {String(page.visibility || 'private') === 'shared' ? (
       <span className="library-article-row-tag">Shared</span>
@@ -287,6 +293,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   const [pages, setPages] = useState([]);
   const [catalogPages, setCatalogPages] = useState([]);
   const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('all');
   const [pageType, setPageType] = useState('all');
   const [visibility, setVisibility] = useState('all');
   const [status, setStatus] = useState('all');
@@ -307,9 +314,14 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     return params;
   }, [needsReviewFilter, pageType, query, status, visibility]);
 
+  const visiblePages = useMemo(
+    () => (kind === 'all' ? pages : pages.filter((page) => wikiKindForPage(page) === kind)),
+    [kind, pages]
+  );
+
   const displayGroups = useMemo(
-    () => groupWikiPagesByTitle(dedupePagesByRepoKey(pages)),
-    [pages]
+    () => groupWikiPagesByTitle(dedupePagesByRepoKey(visiblePages)),
+    [visiblePages]
   );
 
   /* Facets count what the list shows: one page per title, not every copy. */
@@ -333,7 +345,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       setPages(nextPages);
       if (
         compact
-        && isWikiAllPagesActive({ pageType, visibility, status, needsReviewFilter })
+        && isWikiAllPagesActive({ kind, pageType, visibility, status, needsReviewFilter })
       ) {
         setCatalogPages(nextPages);
       }
@@ -395,6 +407,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   };
 
   const handleSelectAllPages = () => {
+    setKind('all');
     setPageType('all');
     setVisibility('all');
     setStatus('all');
@@ -405,16 +418,8 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     setNeedsReviewFilter(!needsReviewFilter);
   };
 
-  const handleSelectPageType = (nextType) => {
-    setPageType(current => (current === nextType ? 'all' : nextType));
-  };
-
-  const handleSelectStatus = (nextStatus) => {
-    setStatus(current => (current === nextStatus ? 'all' : nextStatus));
-  };
-
-  const handleSelectVisibility = (nextVisibility) => {
-    setVisibility(current => (current === nextVisibility ? 'all' : nextVisibility));
+  const handleSelectKind = (nextKind) => {
+    setKind(current => (current === nextKind ? 'all' : nextKind));
   };
 
   const listBody = (
@@ -526,8 +531,8 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       {compact ? (
         <div className="wiki-index__faceted-layout">
           <WikiFacetRail
-            scope="primary"
             query={query}
+            kind={kind}
             pageType={pageType}
             visibility={visibility}
             status={status}
@@ -535,26 +540,12 @@ const WikiList = ({ compact = false, onOpenPage }) => {
             facetCounts={facetCounts}
             onQueryChange={setQuery}
             onSelectAllPages={handleSelectAllPages}
+            onSelectKind={handleSelectKind}
             onSelectNeedsReview={handleSelectNeedsReview}
-            onSelectPageType={handleSelectPageType}
-            onSelectStatus={handleSelectStatus}
-            onSelectVisibility={handleSelectVisibility}
           />
           <div className="wiki-index__faceted-main">
             {listBody}
           </div>
-          <WikiFacetRail
-            scope="deep"
-            deepSectionsDefaultOpen={false}
-            pageType={pageType}
-            visibility={visibility}
-            status={status}
-            needsReviewFilter={needsReviewFilter}
-            facetCounts={facetCounts}
-            onSelectPageType={handleSelectPageType}
-            onSelectStatus={handleSelectStatus}
-            onSelectVisibility={handleSelectVisibility}
-          />
         </div>
       ) : listBody}
     </Container>

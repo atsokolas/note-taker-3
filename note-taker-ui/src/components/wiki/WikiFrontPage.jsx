@@ -35,12 +35,25 @@ import {
 import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupModel';
 import { buildWeeklyBrief, paperWeekLine } from '../../pages/weeklyBriefModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
-import { labelFor } from './wikiGraph';
+import {
+  WIKI_KINDS,
+  WIKI_KIND_FLAGS,
+  WIKI_KIND_LABELS,
+  wikiKindForPage
+} from './wikiFacetModel';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { useContextualAgentSurface } from '../../agent/AgentRailContext';
 import Paper from '../../pages/Paper';
 import WeeklyDigest from './WeeklyDigest';
+import {
+  RoomShelf,
+  RoomShelfButton,
+  RoomShelfList,
+  RoomShelfMeta,
+  RoomShelfSection,
+  roomShelfItemClass
+} from '../collection/RoomShelf';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
 
@@ -74,22 +87,7 @@ const relativeTime = (iso) => {
   return formatSurfaceDate(iso, { includeYear: true });
 };
 
-// externalWatches.githubRepo is a schema sub-document with defaults, so it exists
-// on every page and Boolean() of it is always true. Every ordinary wiki was being
-// labelled a developer wiki and counted as one — a Wikipedia article showed as
-// "DEVELOPER WIKI · 2 repository sources" on production. Ask for actual repository
-// identity instead of the container's presence.
-const isDeveloperWiki = (page = {}) => {
-  if (page.pageType === 'repo') return true;
-  if (page.repoKey) return true;
-  const watch = page.externalWatches?.githubRepo || {};
-  return Boolean(
-    String(watch.owner || '').trim()
-    || String(watch.repo || '').trim()
-    || String(watch.lastHeadSha || '').trim()
-    || String(watch.publishedHeadSha || '').trim()
-  );
-};
+const isDeveloperWiki = (page = {}) => wikiKindForPage(page) === 'repository';
 
 const pendingWikiReview = (page = {}) => {
   const candidateStatus = String(page.aiState?.candidateStatus || '').trim();
@@ -150,6 +148,12 @@ const completeLeadSentence = (value = '', maxLength = 280) => {
   return /[.!?]$/.test(clean) ? clean : `${clean}.`;
 };
 
+const isEditorialBriefing = (value = '') => {
+  const text = String(value || '').trim();
+  if (!text) return false;
+  return !/^(user safety|safety|quality(?: gate)?)\s*:/i.test(text);
+};
+
 // The morning-paper lead must always be readable as a complete sentence.
 // The page still has entrance motion, but the content itself does not reveal
 // word-by-word because QA and real users can otherwise catch a dangling phrase.
@@ -165,21 +169,21 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
 
-/* The Paper is the top of this page now, not a room beside it.
-   It was in the nav and at /paper, and the wiki opened onto its own morning
-   briefing, so the product had two front pages saying overlapping things and a
-   nav that named both. There is one: what the reading turned up this morning,
-   and under it everything the reading has built. It sits above every state of
-   this page — including the loading one, so the wiki is never a blank curtain
-   while it fetches. */
+/* The Paper belongs at the Wiki's threshold, but it is a return signal rather
+   than the Wiki's entire first screen. Keep the full reading loop available in
+   one native disclosure so a finished briefing cannot push the user's saved
+   pages below the fold after an initially tidy loading state. */
 const WikiFrontPageShell = ({ children, lead = null, tail = null, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
-      {/* The morning paper: a claim you hold, then what to continue, then what
-          grew. The lead and the tail are this page's; the middle is the
-          reading loop's, which is why the paper takes them as slots. */}
-      <Paper compact lead={lead} tail={tail} />
+      <details className="wiki-front-page__paper-fold">
+        <summary>
+          <span>Morning paper</span>
+          <span>{lead ? 'A claim and today’s changes are ready.' : 'Read what changed while you were away.'}</span>
+        </summary>
+        <Paper compact lead={lead} tail={tail} />
+      </details>
       {children}
       <WeeklyDigest />
     </main>
@@ -253,6 +257,7 @@ const WikiFrontPage = () => {
   const [availabilityNotice, setAvailabilityNotice] = useState('');
   const [wikiSearch, setWikiSearch] = useState('');
   const [wikiFilter, setWikiFilter] = useState('all');
+  const [mobileShelfOpen, setMobileShelfOpen] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -430,22 +435,15 @@ const WikiFrontPage = () => {
     return candidates[0] || null;
   }, [sourceMaterialPages, recentlyUpdated, weighted, briefing, resolvePage]);
 
-  const pageKinds = useMemo(() => {
-    const counts = new Map();
-    canonicalPages.forEach((page) => {
-      if (isDeveloperWiki(page)) return;
-      const kind = String(page.pageType || 'topic').trim() || 'topic';
-      counts.set(kind, (counts.get(kind) || 0) + 1);
-    });
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || labelFor(a[0]).localeCompare(labelFor(b[0])));
+  const wikiKindCounts = useMemo(() => {
+    const counts = Object.fromEntries(WIKI_KINDS.map(kind => [kind, 0]));
+    canonicalPages.forEach((page) => { counts[wikiKindForPage(page)] += 1; });
+    return counts;
   }, [canonicalPages]);
 
   const explorePages = useMemo(() => {
     const query = wikiSearch.trim().toLowerCase();
     let visible = weighted;
-    if (wikiFilter === 'topics') visible = visible.filter(page => !isDeveloperWiki(page));
-    if (wikiFilter === 'developer') visible = visible.filter(isDeveloperWiki);
     if (wikiFilter === 'review') visible = visible.filter(page => (
       pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
     ));
@@ -454,7 +452,7 @@ const WikiFrontPage = () => {
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     if (wikiFilter.startsWith('kind:')) {
       const kind = wikiFilter.slice(5);
-      visible = visible.filter(page => String(page.pageType || 'topic') === kind);
+      visible = visible.filter(page => wikiKindForPage(page) === kind);
     }
     if (!query) return visible;
     return visible.filter(page => (
@@ -466,11 +464,6 @@ const WikiFrontPage = () => {
   const exactReviewCount = useMemo(() => canonicalPages.filter(page => (
     pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
   )).length, [canonicalPages, sourceMaterialIds]);
-
-  const developerWikiCount = useMemo(
-    () => canonicalPages.filter(isDeveloperWiki).length,
-    [canonicalPages]
-  );
 
   const reviewCount = briefing?.counts?.driftingPages
     ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
@@ -490,13 +483,19 @@ const WikiFrontPage = () => {
     </nav>
   );
 
+  const proposedLeadSentence = completeLeadSentence(briefing?.lead
+    ? [briefing.lead.title, briefing.lead.page?.title, briefing.lead.impactSummary]
+      .filter(Boolean)
+      .join('. ')
+    : briefing?.summary || '');
+  const quietWikiState = reviewCount
+    ? `${reviewCount} page${reviewCount === 1 ? ' is' : 's are'} ready for review.`
+    : 'Your accepted pages are current.';
   const leadSentence = hasMovements
     ? 'Something consequential needs your review.'
-    : completeLeadSentence(briefing?.lead
-      ? [briefing.lead.title, briefing.lead.page?.title, briefing.lead.impactSummary]
-        .filter(Boolean)
-        .join('. ')
-      : briefing?.summary || 'Read what you know, or begin a new thought.');
+    : isEditorialBriefing(proposedLeadSentence)
+      ? proposedLeadSentence
+      : quietWikiState;
   const briefingNextAction = useMemo(
     () => briefing?.lead?.page?.id ? {
       label: `Open ${briefing.lead.page.title || 'watched page'}`,
@@ -883,54 +882,82 @@ const WikiFrontPage = () => {
   return (
     <WikiFrontPageShell lead={paperLead} tail={paperTail}>
       <div className="wiki-living-shell">
-        <aside className="wiki-living-nav wfp-anim wfp-anim--1" aria-label="Wiki views">
-          <div className="wiki-living-nav__head">
-            <span>Wiki</span>
-            <strong>{canonicalPages.length}</strong>
-          </div>
-          <nav>
+        <RoomShelf
+          className={`wiki-living-nav wfp-anim wfp-anim--1${mobileShelfOpen ? ' is-mobile-open' : ''}`}
+          aria-label="Wiki views"
+          label="Wiki"
+          count={canonicalPages.length}
+          search={wikiSearch}
+          searchLabel="Search your wikis"
+          searchPlaceholder="Search your wikis"
+          onSearchChange={setWikiSearch}
+        >
+          <button
+            type="button"
+            className="wiki-living-nav__mobile-toggle"
+            aria-expanded={mobileShelfOpen}
+            onClick={() => setMobileShelfOpen(value => !value)}
+          >
+            <span>Browse wikis</span>
+            <RoomShelfMeta>{canonicalPages.length}</RoomShelfMeta>
+          </button>
+          <RoomShelfList className="wiki-living-nav__primary">
             {[
               ['all', 'All wikis', canonicalPages.length],
-              ['topics', 'Topics', canonicalPages.length - developerWikiCount],
-              ['developer', 'Developer wikis', developerWikiCount],
               ['review', 'Needs review', exactReviewCount],
               ['recent', 'Recently updated', recentlyUpdated.length]
             ].map(([value, label, count]) => (
-              <button
-                key={value}
-                type="button"
-                className={wikiFilter === value ? 'is-active' : ''}
-                aria-pressed={wikiFilter === value}
-                onClick={() => setWikiFilter(value)}
-              >
-                <span>{label}</span>
-                <small>{count}</small>
-              </button>
-            ))}
-          </nav>
-          {pageKinds.length ? (
-            <section className="wiki-living-nav__kinds" aria-labelledby="wiki-living-kinds">
-              <h2 id="wiki-living-kinds">Kinds</h2>
-              {pageKinds.map(([kind, count]) => (
-                <button
-                  key={kind}
-                  type="button"
-                  className={wikiFilter === `kind:${kind}` ? 'is-active' : ''}
-                  aria-pressed={wikiFilter === `kind:${kind}`}
-                  onClick={() => setWikiFilter(`kind:${kind}`)}
+              <li key={value}>
+                <RoomShelfButton
+                  active={wikiFilter === value}
+                  aria-pressed={wikiFilter === value}
+                  onClick={() => setWikiFilter(value)}
                 >
-                  <span>{labelFor(kind)}</span>
-                  <small>{count}</small>
-                </button>
+                  <span>{label}</span>
+                  <RoomShelfMeta>{count}</RoomShelfMeta>
+                </RoomShelfButton>
+              </li>
+            ))}
+          </RoomShelfList>
+          <RoomShelfSection className="wiki-living-nav__kinds" label="Wiki types">
+            <RoomShelfList>
+              {WIKI_KINDS.map((kind) => (
+                <li key={kind}>
+                  <RoomShelfButton
+                    active={wikiFilter === `kind:${kind}`}
+                    nested
+                    aria-pressed={wikiFilter === `kind:${kind}`}
+                    onClick={() => setWikiFilter(`kind:${kind}`)}
+                  >
+                    <span>{WIKI_KIND_LABELS[kind]}</span>
+                    <RoomShelfMeta>{wikiKindCounts[kind]}</RoomShelfMeta>
+                  </RoomShelfButton>
+                </li>
               ))}
-            </section>
-          ) : null}
-          <div className="wiki-living-nav__workspace-links">
-            <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
-            <Link to="/wiki/contradictions">Disagreements</Link>
-            <Link to="/wiki/workspace?view=list">Full workspace</Link>
-          </div>
-        </aside>
+            </RoomShelfList>
+          </RoomShelfSection>
+          <RoomShelfSection className="wiki-living-nav__workspace" label="Workspace">
+            <RoomShelfList>
+              <li><Link className={roomShelfItemClass({ nested: true })} to="/wiki/workspace?view=graph">Knowledge map</Link></li>
+              <li><Link className={roomShelfItemClass({ nested: true })} to="/wiki/contradictions">Disagreements</Link></li>
+              <li><Link className={roomShelfItemClass({ nested: true })} to="/wiki/workspace?view=list">Full workspace</Link></li>
+            </RoomShelfList>
+          </RoomShelfSection>
+          <RoomShelfSection className="wiki-living-nav__pages" label="Pages">
+            <RoomShelfList>
+              {explorePages.slice(0, 6).map((page) => {
+                const id = String(pageId(page));
+                return (
+                  <li key={id}>
+                    <Link className={roomShelfItemClass({ nested: true })} to={wikiReadPath(id)}>
+                      <span>{displayWikiPageTitle(page, 'Untitled page')}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </RoomShelfList>
+          </RoomShelfSection>
+        </RoomShelf>
 
         <section className="wiki-living-index wfp-anim wfp-anim--2" aria-labelledby="wiki-living-title">
           <header className="wiki-living-index__header">
@@ -957,16 +984,6 @@ const WikiFrontPage = () => {
               </Link>
             </p>
           ) : null}
-
-          <label className="wiki-living-index__search">
-            <span className="sr-only">Search your wikis</span>
-            <input
-              type="search"
-              value={wikiSearch}
-              onChange={event => setWikiSearch(event.target.value)}
-              placeholder="Search your wikis…"
-            />
-          </label>
 
           {pages.length >= INDEX_PAGE_LIMIT ? (
             <p className="wiki-front-page__library-boundary">
@@ -996,10 +1013,9 @@ const WikiFrontPage = () => {
                     role="row"
                   >
                     <div className="wiki-living-row__title" role="cell">
-                      <span aria-hidden="true" />
                       <div>
                         <Link to={wikiReadPath(rowId)}>{displayWikiPageTitle(item, 'Untitled page')}</Link>
-                        <small>{isDeveloperWiki(item) ? 'Developer wiki' : labelFor(item.pageType || 'topic')}</small>
+                        <small>{WIKI_KIND_FLAGS[wikiKindForPage(item)]}</small>
                         {!folded && sameTitle.length ? (
                           <button
                             type="button"

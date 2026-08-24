@@ -154,6 +154,10 @@ describe('WikiFrontPage same-title fold', () => {
     await screen.findByRole('table', { name: 'Living Wiki pages' });
     const nav = document.querySelector('.wiki-living-nav');
     expect(within(nav).getByText('All wikis').nextSibling).toHaveTextContent('2');
+    const mobileToggle = within(nav).getByRole('button', { name: /browse wikis/i });
+    expect(mobileToggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(mobileToggle);
+    expect(mobileToggle).toHaveAttribute('aria-expanded', 'true');
   });
 });
 
@@ -254,6 +258,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByRole('button', { name: /All wikis 3/i })).toHaveAttribute('aria-pressed', 'true');
 
     const livingTable = screen.getByRole('table', { name: 'Living Wiki pages' });
+    expect(livingTable.querySelector('.wiki-living-row__title > span')).not.toBeInTheDocument();
     expect(within(livingTable).getByRole('link', { name: 'First Principles Thinking' }))
       .toHaveAttribute('href', '/wiki/read/wiki-first-principles');
     expect(within(livingTable).getByRole('link', { name: 'Margin of Safety' }))
@@ -281,7 +286,23 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.queryByText(/pages need review/i)).not.toBeInTheDocument();
   });
 
-  it('keeps developer Wikis and review candidates filterable without presenting proposals as accepted knowledge', async () => {
+  it('does not surface internal safety boilerplate as the Wiki briefing', async () => {
+    getDailyLoop.mockResolvedValueOnce({
+      briefing: {
+        ...briefing,
+        summary: 'User Safety: safe.',
+        counts: { ...briefing.counts, driftingPages: 4 }
+      }
+    });
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const currentBriefing = await screen.findByLabelText('Current Wiki briefing');
+    expect(currentBriefing).toHaveTextContent('4 pages are ready for review.');
+    expect(currentBriefing).not.toHaveTextContent('User Safety');
+  });
+
+  it('groups general wikis, repository wikis, and investment dossiers without presenting proposals as accepted knowledge', async () => {
     const repoPage = {
       _id: 'repo-wiki',
       title: 'atsokolas/note-taker-3 Repo Wiki',
@@ -293,7 +314,14 @@ describe('WikiFrontPage (AT-394)', () => {
       ...pages[0],
       aiState: { candidateStatus: 'awaiting_maintenance_acceptance' }
     };
-    listWikiPages.mockResolvedValueOnce([candidatePage, repoPage, pages[1]]);
+    const dossierPage = {
+      _id: 'costco-dossier',
+      title: 'Costco investment dossier',
+      pageType: 'entity',
+      investmentDossier: { version: 2 },
+      sourceRefs: [{ _id: 'costco-source' }]
+    };
+    listWikiPages.mockResolvedValueOnce([candidatePage, repoPage, dossierPage, pages[1]]);
     getDailyLoop.mockResolvedValueOnce({ briefing: { ...briefing, recentlyUpdatedPages: [] } });
 
     render(
@@ -306,9 +334,19 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(within(table).getByText('Review available')).toBeInTheDocument();
     expect(within(table).queryByText(/accepted/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Developer wikis 1/i }));
+    expect(screen.getByRole('button', { name: /General wikis 2/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Repository wikis 1/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Investment dossiers 1/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Repository wikis 1/i }));
     expect(within(table).getByRole('link', { name: 'note-taker-3 — repo wiki' })).toBeInTheDocument();
+    expect(within(table).getByText('Repo wiki')).toBeInTheDocument();
     expect(within(table).queryByRole('link', { name: 'First Principles Thinking' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Investment dossiers 1/i }));
+    expect(within(table).getByRole('link', { name: 'Costco investment dossier' })).toBeInTheDocument();
+    expect(within(table).getByText('Investment dossier')).toBeInTheDocument();
+    expect(within(table).queryByRole('link', { name: 'note-taker-3 — repo wiki' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Needs review 1/i }));
     expect(within(table).getByRole('link', { name: 'First Principles Thinking' })).toBeInTheDocument();
@@ -709,16 +747,17 @@ describe('WikiFrontPage (AT-394)', () => {
     await waitFor(() => expect(overflow).toHaveAttribute('open'));
   });
 
-  /* One front page. Paper used to be a room of its own in the nav, so the wiki
-     opened onto its own morning briefing and the two competed for the same first
-     look. The paper is the top of this page now — above every state of it,
-     including the loading one, so the wiki is never a blank curtain. */
-  it('carries the paper at the top, before anything the wiki has to say', async () => {
+  it('keeps the full paper at the top without letting it displace the wiki index', async () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
     expect(await screen.findByTestId('paper-on-top')).toBeInTheDocument();
     const main = document.querySelector('main.wiki-front-page');
-    expect(main.firstElementChild).toBe(screen.getByTestId('paper-on-top'));
+    const fold = main.firstElementChild;
+    expect(fold).toHaveClass('wiki-front-page__paper-fold');
+    expect(fold).not.toHaveAttribute('open');
+    expect(fold).toContainElement(screen.getByTestId('paper-on-top'));
+    fireEvent.click(within(fold).getByText('Morning paper'));
+    expect(fold).toHaveAttribute('open');
   });
 
 

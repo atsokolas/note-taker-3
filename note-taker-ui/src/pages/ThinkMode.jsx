@@ -108,8 +108,6 @@ const ConceptTemplatePickerModal = lazy(() => import('../components/think/concep
 const ConceptEvidenceStreamView = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView'));
 const ConceptEvidenceStreamRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
   .then((module) => ({ default: module.ConceptEvidenceStreamRail })));
-const ConceptPartnerRail = lazy(() => import('../components/think/concepts/ConceptEvidenceStreamView')
-  .then((module) => ({ default: module.ConceptPartnerRail })));
 const ConceptShareModal = lazy(() => import('../components/think/concepts/ConceptShareModal'));
 const QuestionShareModal = lazy(() => import('../components/think/questions/QuestionShareModal'));
 const SemanticRelatedPanel = lazy(() => import('../components/retrieval/SemanticRelatedPanel'));
@@ -633,7 +631,6 @@ const ThinkMode = () => {
   const [conceptEditorialEditor, setConceptEditorialEditor] = useState(null);
   const [conceptReceivingDrop, setConceptReceivingDrop] = useState(false);
   const [conceptEditorialSection, setConceptEditorialSection] = useState('assistant');
-  const [conceptPartnerCollapsed, setConceptPartnerCollapsed] = useState(false);
   const [conceptShareModalOpen, setConceptShareModalOpen] = useState(false);
   const [questionShareModalOpen, setQuestionShareModalOpen] = useState(false);
   const conceptComposerInputRef = useRef(null);
@@ -2484,6 +2481,9 @@ const ThinkMode = () => {
       conceptsLoading={conceptsLoading}
       questionsLoading={allQuestionsLoading}
       notebookLoading={notebookLoadingList}
+      activeConcept={activeView === 'concepts' ? selectedName : ''}
+      activeQuestionId={activeView === 'questions' ? activeQuestionId : ''}
+      activeNotebookId={activeView === 'notebook' ? notebookActiveId : ''}
       onSelectConcept={handleSelectConcept}
       onSelectQuestion={handleOpenQuestion}
       onSelectNotebook={handleSelectNotebookEntry}
@@ -2937,7 +2937,6 @@ const ThinkMode = () => {
 
   useEffect(() => {
     setConceptEditorialSection('assistant');
-    setConceptPartnerCollapsed(false);
   }, [selectedName]);
 
   const insightsPanel = (
@@ -3630,17 +3629,7 @@ const ThinkMode = () => {
   );
 
   const leftPanel = isConceptWorkbenchView
-    ? (
-      <ConceptPartnerRail
-        concept={concept}
-        concepts={concepts}
-        selectedConceptName={selectedName}
-        model={ideaWorkbenchModel}
-        activeSection={conceptEditorialSection}
-        onChangeSection={setConceptEditorialSection}
-        onOpenConcept={handleSelectConcept}
-      />
-    )
+    ? thinkShelfRail
     : (activeView === 'threads'
       ? (
         <ProtocolRouteView
@@ -4159,47 +4148,10 @@ const ThinkMode = () => {
 
   const selectedConceptLayout = isConceptWorkbenchView ? (
     <div className="concept-editorial-shell-page" data-think-posture="concept">
-      <div className={`concept-editorial-shell ${conceptPartnerCollapsed ? 'is-partner-collapsed' : ''}`.trim()}>
-        <aside className={`concept-editorial-shell__partner ${conceptPartnerCollapsed ? 'is-collapsed' : ''}`.trim()}>
-          <ConceptPartnerRail
-            concept={concept}
-            concepts={concepts}
-            selectedConceptName={selectedName}
-            model={ideaWorkbenchModel}
-            activeSection={conceptEditorialSection}
-            onChangeSection={setConceptEditorialSection}
-            onOpenConcept={handleSelectConcept}
-            collapsed={conceptPartnerCollapsed}
-            onToggleCollapse={() => setConceptPartnerCollapsed((current) => !current)}
-          />
+      <div className="concept-editorial-shell">
+        <aside className="concept-editorial-shell__partner">
+          {thinkShelfRail}
           {renderReferencePullIn('concept-editorial-shell__reference-pull-in')}
-          <div className="concept-editorial-shell__promotion">
-            <SectionHeader title="Create" subtitle="Start a new working thought without leaving Think." />
-            <div className="think-concept-composer-anchor">
-              <QuietButton
-                type="button"
-                onClick={() => openConceptComposer('selected-concept')}
-                data-testid="think-new-concept-sidebar-button"
-              >
-                New concept
-              </QuietButton>
-              {renderConceptComposer('selected-concept')}
-            </div>
-          </div>
-          {(concept?._id || selectedName) && (
-            <div className="concept-editorial-shell__promotion">
-              <SectionHeader title="Graduate" subtitle="Turn this working thought into a durable wiki page." />
-              <Button
-                type="button"
-                onClick={() => { void handlePromoteThinkObjectToWiki('concept'); }}
-                disabled={wikiPromotionState.busyTarget === conceptWikiPromotionTarget}
-              >
-                {wikiPromotionState.busyTarget === conceptWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
-              </Button>
-              {renderWikiPromotionTrace(conceptWikiPromotionTarget)}
-              {wikiPromotionState.error && wikiPromotionState.busyTarget !== questionWikiPromotionTarget ? wikiPromotionError : null}
-            </div>
-          )}
         </aside>
         <main className="concept-editorial-shell__main">
           <div className="concept-editorial-shell__main-actions">
@@ -4229,7 +4181,18 @@ const ThinkMode = () => {
             <QuietButton type="button" onClick={openTemplatePicker}>
               Use template
             </QuietButton>
+            {(concept?._id || selectedName) ? (
+              <QuietButton
+                type="button"
+                onClick={() => { void handlePromoteThinkObjectToWiki('concept'); }}
+                disabled={wikiPromotionState.busyTarget === conceptWikiPromotionTarget}
+              >
+                {wikiPromotionState.busyTarget === conceptWikiPromotionTarget ? 'Promoting...' : 'Promote to wiki page'}
+              </QuietButton>
+            ) : null}
           </div>
+          {renderWikiPromotionTrace(conceptWikiPromotionTarget)}
+          {wikiPromotionState.error && wikiPromotionState.busyTarget !== questionWikiPromotionTarget ? wikiPromotionError : null}
           {!conceptComposerOpen && conceptComposerStatus.message ? (
             <p
               className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
@@ -4340,7 +4303,6 @@ const ThinkMode = () => {
                 onIntegrateCard={handleIntegrateConceptCard}
                 activeSection={conceptEditorialSection}
                 onOpenTemplatePicker={openTemplatePicker}
-                referencePullInSlot={renderReferencePullIn('concept-editorial-evidence__reference-control')}
                 groundedObjectsSlot={(
                   <ThinkGroundedObjects
                     conceptId={concept?._id || requestedConceptId}

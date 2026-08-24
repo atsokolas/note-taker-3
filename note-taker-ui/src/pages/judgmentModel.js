@@ -417,6 +417,7 @@ export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) =>
 )
   .map(({ page, others }) => {
     const activity = judgmentActivity(page, events, now);
+    const decisions = list(page?.judgment?.decisions);
     return {
       id: idOf(page),
       duplicates: others,
@@ -429,6 +430,8 @@ export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) =>
          the claim it came out of is a fortune cookie; under the claim, it is a
          record of what believing that cost you. */
       lessons: lessonLines(page?.judgment || {}),
+      decisionCount: decisions.length,
+      outcomeCount: decisions.filter((decision) => Boolean(decision?.outcome?.observedAt)).length,
       updatedAt: page?.judgment?.lastReviewedAt || page?.updatedAt || null
     };
   })

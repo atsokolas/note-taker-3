@@ -90,18 +90,16 @@ describe('WikiList', () => {
     renderWikiList();
 
     expect(await screen.findByTestId('wiki-facet-rail')).toBeInTheDocument();
-    expect(await screen.findByTestId('wiki-facet-rail-deep')).toBeInTheDocument();
+    expect(screen.queryByTestId('wiki-facet-rail-deep')).not.toBeInTheDocument();
     expect(await screen.findByLabelText('Wiki pages')).toHaveClass('wiki-index__list');
     await waitFor(() => {
       expect(listWikiPages).toHaveBeenCalled();
     });
     expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('2');
     expect(screen.getByTestId('wiki-facet-needs-review')).toHaveTextContent('1');
-
-    const deepRail = screen.getByTestId('wiki-facet-rail-deep');
-    fireEvent.click(within(deepRail).getByRole('button', { name: 'By type' }));
-    expect(within(deepRail).getByTestId('wiki-facet-type-overview')).toHaveTextContent('1');
-    expect(within(deepRail).getByTestId('wiki-facet-type-concept')).toHaveTextContent('1');
+    expect(screen.getByTestId('wiki-facet-kind-general')).toHaveTextContent('2');
+    expect(screen.getByTestId('wiki-facet-kind-repository')).toHaveTextContent('0');
+    expect(screen.getByTestId('wiki-facet-kind-investment')).toHaveTextContent('0');
     expect(screen.queryByLabelText('Page type')).not.toBeInTheDocument();
   });
 
@@ -269,17 +267,48 @@ describe('WikiList', () => {
     });
   });
 
-  it('filters compact list results when a type facet is selected', async () => {
+  it('groups compact results into general wikis, repository wikis, and investment dossiers', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-general',
+        title: 'Systems Thinking',
+        pageType: 'concept',
+        status: 'published',
+        updatedAt: '2026-05-03T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-repo',
+        title: 'Noeis Repository',
+        pageType: 'repo',
+        status: 'published',
+        updatedAt: '2026-05-02T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-investment',
+        title: 'Costco investment dossier',
+        pageType: 'entity',
+        investmentDossier: { version: 2 },
+        status: 'draft',
+        updatedAt: '2026-05-01T12:00:00.000Z'
+      }
+    ]);
     renderWikiList();
 
-    await screen.findByRole('article', { name: 'Investing - Concepts, Ideas, and Strategies' });
-    const deepRail = screen.getByTestId('wiki-facet-rail-deep');
-    fireEvent.click(within(deepRail).getByRole('button', { name: 'By type' }));
-    fireEvent.click(within(deepRail).getByTestId('wiki-facet-type-overview'));
+    await screen.findByRole('article', { name: 'Systems Thinking' });
+    expect(screen.getByRole('article', { name: 'Noeis Repository' })).toHaveTextContent('Repo wiki');
+    expect(screen.getByRole('article', { name: 'Costco investment dossier' })).toHaveTextContent('Investment dossier');
+
+    fireEvent.click(screen.getByTestId('wiki-facet-kind-repository'));
 
     await waitFor(() => {
-      expect(listWikiPages).toHaveBeenLastCalledWith(expect.objectContaining({ pageType: 'overview' }));
+      expect(screen.getByRole('article', { name: 'Noeis Repository' })).toBeInTheDocument();
+      expect(screen.queryByRole('article', { name: 'Systems Thinking' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('article', { name: 'Costco investment dossier' })).not.toBeInTheDocument();
     });
+
+    // Kind is a presentation concern over the already-loaded catalog, so the
+    // grouping does not invent a second server-side taxonomy request.
+    expect(listWikiPages).toHaveBeenCalledTimes(1);
   });
 
   it('searches from the facet rail in compact mode', async () => {

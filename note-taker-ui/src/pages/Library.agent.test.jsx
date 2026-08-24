@@ -43,10 +43,6 @@ jest.mock('../components/library/LibraryMain', () => ({
     articleQuery,
     onArticleQueryChange,
     onSelectArticle,
-    onReviewFiling,
-    onToggleSuppressed,
-    suppressedVisible,
-    unfiledCount,
     shelfNavigation
   }) => (
     <div>
@@ -54,14 +50,6 @@ jest.mock('../components/library/LibraryMain', () => ({
       {!selectedArticleId ? (
         <>
           <div data-testid="library-source-shelf">{shelfNavigation}</div>
-          <div data-testid="library-reading-room-lead">
-            Reading room lead · {unfiledCount} unfiled
-            {suppressedVisible ? ' · showing review imports' : ''}
-          </div>
-          <button type="button" onClick={onReviewFiling}>Review filing suggestions</button>
-          <button type="button" onClick={onToggleSuppressed}>
-            {suppressedVisible ? 'Hide review imports' : 'Show review imports'}
-          </button>
         </>
       ) : null}
       {!selectedArticleId ? (
@@ -227,13 +215,13 @@ describe('Library agent rail', () => {
     expect(screen.queryByTestId('library-reading-room-lead')).not.toBeInTheDocument();
     expect(screen.queryByTestId('library-left')).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Shelves' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review filing suggestions' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
   });
 
   it('starts the filing classification flow from the reading room lead action', async () => {
     renderLibrary();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review filing suggestions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review filing' }));
 
     await waitFor(() => {
       expect(startLibraryFilingSuggestions).toHaveBeenCalledTimes(1);
@@ -263,7 +251,7 @@ describe('Library agent rail', () => {
 
   it('reads in one column with source work attached and no duplicate agent', async () => {
     renderLibrary();
-    fireEvent.click(screen.getByRole('button', { name: /Continue/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open article' }));
 
     await waitFor(() => {
       expect(document.querySelector('.library-page-shell.is-reading')).toBeInTheDocument();
@@ -274,7 +262,7 @@ describe('Library agent rail', () => {
     expect(mockDeclareSurface).toHaveBeenLastCalledWith(expect.objectContaining({
       room: 'library',
       objectType: 'article',
-      objectId: 'article-2',
+      objectId: 'article-1',
       title: 'Investor letter'
     }));
   });

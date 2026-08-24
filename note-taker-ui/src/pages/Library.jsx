@@ -372,25 +372,6 @@ const Library = () => {
     setSearchParams(params, { replace: false });
   }, [searchParams, setSearchParams]);
 
-  const handleSelectSource = useCallback((source) => {
-    const type = String(source?.type || 'article').trim();
-    const id = String(source?.id || '').trim();
-    const parentId = String(source?.parentId || '').trim();
-    if (!SOURCE_TYPES.has(type) || !id) return;
-    const params = new URLSearchParams(searchParams);
-    params.set('scope', 'all');
-    params.set('sourceType', type);
-    params.set('sourceId', id);
-    if (type === 'highlight' && parentId) {
-      params.set('parentId', parentId);
-    } else {
-      params.delete('parentId');
-    }
-    params.delete('articleId');
-    params.delete('highlightId');
-    setSearchParams(params, { replace: false });
-  }, [searchParams, setSearchParams]);
-
   const handleOpenSource = useCallback((source) => {
     const type = String(source?.type || 'article').trim();
     const id = String(source?.id || '').trim();
@@ -813,7 +794,7 @@ const Library = () => {
      highlight scopes still open the older cabinet views — behind the reading
      rather than in front of it. */
   /* Kept reads like the shelf, because it is the shelf — a narrower one. */
-  const isShelfView = !isReadingView && (scope === 'all' || scope === 'kept');
+  const isKeptShelf = !isReadingView && scope === 'kept';
   const keptCount = useMemo(() => allArticles.filter(item => item?.evergreen).length, [allArticles]);
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
@@ -885,7 +866,6 @@ const Library = () => {
       selectedFolderName={selectedFolderName}
       readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
-      onSelectSource={handleSelectSource}
       onOpenSource={handleOpenSource}
       onSelectScope={handleSelectScope}
       onMoveArticle={openMoveModal}
@@ -972,11 +952,17 @@ const Library = () => {
           Highlights is a shelf like any other; choosing it puts you in your
           highlights with the same folders alongside. */}
       <LibraryShelfNav
+        count={corpusTotal}
         folders={folders}
+        folderCounts={folderCounts}
+        foldersLoading={foldersLoading}
+        foldersError={foldersError}
         scope={scope}
         folderId={folderId}
         unfiledCount={unfiledCount}
         keptCount={keptCount}
+        query={articleQuery}
+        onQueryChange={handleArticleQueryChange}
         onSelectScope={handleSelectScope}
         onSelectFolder={handleSelectFolder}
         onReviewFiling={handleReviewFiling}
@@ -991,22 +977,20 @@ const Library = () => {
             </button>
           ) : <span />}
           <span className="library-page-shell__doors">
-            {/* The reading-room lead used to carry filing and review inside
-                the column. The locked middle is the reading and the list, so
-                the two verbs move up here with the other doors rather than
-                being lost — still one click, just not in the way. */}
+            {/* Filing already lives in the shelf. The less-frequent cleanup
+                controls stay available without sitting above every source. */}
             {!isReadingView ? (
-              <>
-                <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
-                  {organizeLaunching ? 'Starting' : 'Clean up structure'}
-                </button>
-                <button type="button" onClick={handleReviewFiling} disabled={filingLaunching}>
-                  {filingLaunching ? 'Starting' : 'Review filing suggestions'}
-                </button>
-                <button type="button" onClick={handleToggleSuppressedItems}>
-                  {showSuppressedItems ? 'Hide review imports' : 'Show review imports'}
-                </button>
-              </>
+              <details className="library-page-shell__tools">
+                <summary>Library actions</summary>
+                <div>
+                  <button type="button" onClick={handleOrganizeLibrary} disabled={organizeLaunching}>
+                    {organizeLaunching ? 'Starting' : 'Clean up structure'}
+                  </button>
+                  <button type="button" onClick={handleToggleSuppressedItems}>
+                    {showSuppressedItems ? 'Hide review imports' : 'Show review imports'}
+                  </button>
+                </div>
+              </details>
             ) : null}
           </span>
         </div>
@@ -1015,12 +999,12 @@ const Library = () => {
             other scope — folders, unfiled, highlights — because those are its
             own views and the lock does not redraw them. */}
         <div
-          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isShelfView ? 'is-shelf' : ''}`}
+          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isKeptShelf ? 'is-shelf' : ''}`}
           data-testid="library-main"
         >
-          {isShelfView ? (
+          {isKeptShelf ? (
             <LibraryColumn
-              shelf={scope === 'kept' ? 'kept' : 'all'}
+              shelf="kept"
               articles={articles}
               allArticles={allArticles}
               loading={articlesLoading}

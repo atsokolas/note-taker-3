@@ -32,11 +32,40 @@ describe('LibraryShelfNav', () => {
     it('is one faint list: the ways of moving, the shelves, and the filing', () => {
       renderNav();
       expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Unfiled (6)' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Unfiled 6' })).toBeInTheDocument();
+      expect(screen.getByRole('searchbox', { name: 'Search library' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Investing' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
       // Nothing is folded away where the reading was never displaced.
       expect(screen.queryByRole('button', { name: /shelves$/ })).not.toBeInTheDocument();
+    });
+
+    it('keeps every existing shelf in the cabinet, even for a large library', () => {
+      const manyFolders = Array.from({ length: 32 }, (_, index) => ({
+        _id: `folder-${index}`,
+        name: `Shelf ${String(index + 1).padStart(2, '0')}`
+      }));
+      renderNav({ folders: manyFolders });
+
+      expect(screen.getAllByRole('button', { name: /^Shelf / })).toHaveLength(32);
+      expect(screen.getByRole('button', { name: 'Shelf 32' })).toBeInTheDocument();
+    });
+
+    it('states whether the cabinet is still loading or failed to load', () => {
+      const { rerender } = renderNav({ folders: [], foldersLoading: true });
+      expect(screen.getByRole('status')).toHaveTextContent('Loading shelves');
+
+      rerender(
+        <LibraryShelfNav
+          folders={[]}
+          foldersError="Failed to load folders."
+          scope="all"
+          unfiledCount={6}
+          onReviewFiling={() => {}}
+        />
+      );
+      expect(screen.getByRole('alert')).toHaveTextContent('Failed to load folders.');
+      expect(screen.queryByText('No shelves yet.')).not.toBeInTheDocument();
     });
   });
 
@@ -85,23 +114,23 @@ describe('LibraryShelfNav', () => {
        empty shelf is where the idea explains itself. */
     it('is there even when nothing is kept, and counts once something is', () => {
       const { unmount } = renderNav({ keptCount: 0 });
-      expect(screen.getByRole('button', { name: 'Kept' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kept 0' })).toBeInTheDocument();
       unmount();
 
       renderNav({ keptCount: 3 });
-      expect(screen.getByRole('button', { name: 'Kept (3)' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kept 3' })).toBeInTheDocument();
     });
 
     it('sits directly under All sources, above the ways of narrowing', () => {
       renderNav({ keptCount: 2 });
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'Kept (2)', 'Unfiled (6)', 'Highlights']);
+      expect(labels).toEqual(['All sources', 'Kept2', 'Unfiled6', 'Highlights']);
     });
 
     it('is a way of moving, so it stays out on a phone', () => {
       setViewport(true);
       renderNav({ keptCount: 2 });
-      expect(screen.getByRole('button', { name: 'Kept (2)' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kept 2' })).toBeInTheDocument();
     });
   });
 });

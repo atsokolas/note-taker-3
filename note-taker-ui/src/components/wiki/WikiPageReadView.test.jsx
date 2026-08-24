@@ -883,13 +883,11 @@ describe('WikiPageReadView', () => {
 
     const aboutHeading = await screen.findByRole('heading', { name: 'About this page' });
     const factualContext = aboutHeading.closest('.wiki-read__infobox--primary');
-    const leftRail = screen.getByRole('complementary', { name: 'Wiki navigation and agent' });
-    const thoughtPartner = leftRail.querySelector('.right-drawer');
+    const leftRail = screen.getByRole('complementary', { name: 'Wiki navigation' });
     const contents = within(leftRail).getByRole('navigation', { name: 'Page sections' });
     expect(factualContext).toHaveTextContent('About this page');
-    expect(thoughtPartner).toBeInTheDocument();
-    expect(thoughtPartner.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(factualContext).not.toContainElement(thoughtPartner);
+    expect(contents).toBeInTheDocument();
+    expect(leftRail.querySelector('.right-drawer')).not.toBeInTheDocument();
   });
 
   it('moves one accessible contents list below the title on mobile', async () => {
@@ -907,8 +905,8 @@ describe('WikiPageReadView', () => {
     expect(screen.getAllByRole('link', { name: 'Core idea' })).toHaveLength(1);
     expect(title.compareDocumentPosition(contents) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(contents.compareDocumentPosition(articleBody) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(await screen.findByText('Ask Thought partner')).toBeInTheDocument();
-    expect(await screen.findByLabelText('Thought partner panel')).toBeInTheDocument();
+    expect(await screen.findByText('Reference…')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Thought partner panel')).not.toBeInTheDocument();
   });
 
   it('renders citation marginalia on wide readers without replacing references', async () => {
@@ -1026,7 +1024,7 @@ describe('WikiPageReadView', () => {
 
     await screen.findByRole('heading', { name: 'Enterprise AI Memory' });
     await flushDeferredWikiReadWork();
-    const rail = await screen.findByRole('complementary', { name: 'Wiki navigation and agent' });
+    const rail = await screen.findByRole('complementary', { name: 'Wiki navigation' });
 
     const referenceSummary = within(rail).getByText('Reference…');
     expect(within(rail).queryByLabelText('Reference pull-in')).not.toBeInTheDocument();
@@ -1854,7 +1852,7 @@ describe('WikiPageReadView', () => {
 
     const presenceRail = await screen.findByRole('complementary', { name: 'Page context' });
     await flushDeferredWikiReadWork();
-    expect(screen.getByText(/in its current Wiki state\./)).toBeInTheDocument();
+    expect(screen.queryByText(/in its current Wiki state\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/as accepted knowledge/)).not.toBeInTheDocument();
     const presenceToggle = within(presenceRail).queryByRole('button', { name: /show context/i });
     if (presenceToggle) await act(async () => { fireEvent.click(presenceToggle); });
@@ -2344,7 +2342,7 @@ describe('WikiPageReadView', () => {
     });
 
     await waitFor(() => {
-      expect(getWikiPage).toHaveBeenCalledWith('wiki-related');
+      expect(getWikiPage).toHaveBeenCalledWith('wiki-related', { reader: 1 });
       const tooltip = screen.getByRole('tooltip');
       expect(tooltip).toHaveClass('wiki-read-link-preview');
       expect(tooltip).toHaveTextContent('Small gains compound into durable knowledge.');

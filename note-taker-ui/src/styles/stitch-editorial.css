@@ -522,7 +522,7 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
   min-height: 100vh;
   max-width: 1500px;
   margin: 0 auto;
-  padding: 112px 40px 40px;
+  padding: 84px 40px 40px;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -568,7 +568,7 @@ body.noeis-editorial .topbar__content {
   gap: 18px;
   width: min(1500px, calc(100vw - 64px));
   margin: 0 auto;
-  padding: 22px 0 18px;
+  padding: 14px 0 12px;
   overflow: visible;
 }
 
@@ -3489,11 +3489,6 @@ body.noeis-editorial .concept-editorial-shell {
   gap: 28px;
   align-items: start;
   transition: grid-template-columns 220ms ease, gap 220ms ease;
-}
-
-body.noeis-editorial .concept-editorial-shell.is-partner-collapsed {
-  grid-template-columns: 84px minmax(0, 1fr) 336px;
-  gap: 22px;
 }
 
 body.noeis-editorial .concept-editorial-shell__partner,
@@ -6903,8 +6898,7 @@ body.noeis-editorial .question-editorial-shell .agent-thought-partner__thread {
     padding: 32px 0 40px;
   }
 
-  body.noeis-editorial .concept-editorial-shell,
-  body.noeis-editorial .concept-editorial-shell.is-partner-collapsed {
+  body.noeis-editorial .concept-editorial-shell {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
@@ -7742,54 +7736,6 @@ body.noeis-editorial .library-reading-room-lead__suppressed-action {
   flex: 0 0 auto;
 }
 
-body.noeis-editorial .wiki-facet-rail.library-cabinet {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-}
-
-body.noeis-editorial .wiki-facet-rail .library-cabinet-actions,
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__primary {
-  display: grid;
-  gap: 14px;
-  padding: 0 !important;
-  background: transparent !important;
-}
-
-body.noeis-editorial .wiki-facet-rail .library-cabinet-actions .list-button,
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__facet {
-  justify-content: space-between;
-  width: 100%;
-  padding: 0 0 8px !important;
-  border: 0 !important;
-  border-bottom: 1px solid transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: color-mix(in srgb, var(--text-primary) 82%, transparent) !important;
-}
-
-body.noeis-editorial .wiki-facet-rail .library-cabinet-actions .list-button:hover,
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__facet:hover,
-body.noeis-editorial .wiki-facet-rail .library-cabinet-actions .list-button.is-active,
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__facet.is-active {
-  color: var(--text-primary) !important;
-  border-bottom-color: var(--vellum-line) !important;
-}
-
-body.noeis-editorial .wiki-facet-rail .library-cabinet-count {
-  color: color-mix(in srgb, var(--text-primary) 54%, transparent) !important;
-}
-
-body.noeis-editorial .wiki-facet-rail__search input {
-  width: 100%;
-  min-height: 42px;
-  border: 1px solid var(--vellum-line);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--vellum-panel) 82%, transparent);
-  color: var(--text-primary);
-  padding: 0 12px;
-}
-
 body.noeis-editorial .wiki-index__list.library-article-list {
   border: 0 !important;
   padding: 0 !important;
@@ -7818,10 +7764,6 @@ body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-main {
   min-width: 0;
 }
 
-body.noeis-editorial .wiki-facet-rail--deep {
-  grid-column: 1;
-}
-
 @media (max-width: 960px) {
   body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-layout {
     display: flex;
@@ -7829,17 +7771,8 @@ body.noeis-editorial .wiki-facet-rail--deep {
     gap: 16px;
   }
 
-  body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-rail-primary,
-  body.noeis-editorial .wiki-index--faceted .wiki-facet-rail--primary {
-    order: 1;
-  }
-
   body.noeis-editorial .wiki-index--faceted .wiki-index__faceted-main {
     order: 2;
-  }
-
-  body.noeis-editorial .wiki-index--faceted .wiki-facet-rail--deep {
-    order: 3;
   }
 }
 
@@ -10249,86 +10182,14 @@ body.noeis-editorial .right-drawer__mobile-sheet .right-drawer__header-icon {
 
 body.noeis-editorial .think-shelf-rail,
 .think-shelf-rail {
-  display: grid;
-  gap: 18px;
   min-width: 0;
   padding-top: 4px;
-}
-
-body.noeis-editorial .think-shelf-rail__search,
-.think-shelf-rail__search {
-  margin: 0;
-}
-
-body.noeis-editorial .think-shelf-rail__search input,
-.think-shelf-rail__search input {
-  width: 100%;
-  min-width: 0;
-}
-
-body.noeis-editorial .think-shelf-rail__section,
-.think-shelf-rail__section {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-body.noeis-editorial .think-shelf-rail__section-label,
-.think-shelf-rail__section-label {
-  margin: 0;
-  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
-  font-size: 0.72rem;
-  font-weight: 750;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-body.noeis-editorial .think-shelf-rail__list,
-.think-shelf-rail__list {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  min-width: 0;
-}
-
-body.noeis-editorial .think-shelf-rail__item,
-.think-shelf-rail__item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-body.noeis-editorial .think-shelf-rail__item:hover,
-.think-shelf-rail__item:hover {
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 
 body.noeis-editorial .think-shelf-rail__item-title,
 .think-shelf-rail__item-title {
   min-width: 0;
-  color: var(--text-primary);
-  font-size: 0.92rem;
-  line-height: 1.35;
   overflow-wrap: anywhere;
-}
-
-body.noeis-editorial .think-shelf-rail__item-meta,
-.think-shelf-rail__item-meta {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
 }
 
 body.noeis-editorial .think-shelf-rail__expand,

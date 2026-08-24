@@ -5,6 +5,11 @@ import WikiFacetRail from './WikiFacetRail';
 const baseCounts = {
   all: 4,
   needsReview: 1,
+  byKind: {
+    general: 2,
+    repository: 1,
+    investment: 1
+  },
   byType: {
     overview: 2,
     concept: 1,
@@ -43,12 +48,13 @@ describe('WikiFacetRail', () => {
     expect(screen.getByText('Browse your wiki.')).toBeInTheDocument();
     expect(screen.getByTestId('wiki-facet-all-pages')).toHaveTextContent('4');
     expect(screen.getByTestId('wiki-facet-needs-review')).toHaveTextContent('1');
-    expect(screen.getByTestId('wiki-facet-type-overview')).toHaveTextContent('2');
-    expect(screen.queryByTestId('wiki-facet-type-entity')).not.toBeInTheDocument();
+    expect(screen.getByTestId('wiki-facet-kind-general')).toHaveTextContent('2');
+    expect(screen.getByTestId('wiki-facet-kind-repository')).toHaveTextContent('1');
+    expect(screen.getByTestId('wiki-facet-kind-investment')).toHaveTextContent('1');
   });
 
   it('calls facet handlers from the rail', () => {
-    const onSelectPageType = jest.fn();
+    const onSelectKind = jest.fn();
     const onSelectNeedsReview = jest.fn();
     const onQueryChange = jest.fn();
 
@@ -58,31 +64,27 @@ describe('WikiFacetRail', () => {
         facetCounts={baseCounts}
         onQueryChange={onQueryChange}
         onSelectNeedsReview={onSelectNeedsReview}
-        onSelectPageType={onSelectPageType}
+        onSelectKind={onSelectKind}
       />
     );
 
     fireEvent.change(screen.getByTestId('wiki-facet-search'), { target: { value: 'beta' } });
     fireEvent.click(screen.getByTestId('wiki-facet-needs-review'));
-    fireEvent.click(screen.getByTestId('wiki-facet-type-concept'));
+    fireEvent.click(screen.getByTestId('wiki-facet-kind-investment'));
 
     expect(onQueryChange).toHaveBeenCalledWith('beta');
     expect(onSelectNeedsReview).toHaveBeenCalledTimes(1);
-    expect(onSelectPageType).toHaveBeenCalledWith('concept');
+    expect(onSelectKind).toHaveBeenCalledWith('investment');
   });
 
-  it('renders deep facet sections in a separate rail with collapsed defaults', () => {
+  it('marks the selected wiki kind', () => {
     render(
       <WikiFacetRail
-        scope="deep"
-        deepSectionsDefaultOpen={false}
+        kind="repository"
         facetCounts={baseCounts}
-        onSelectPageType={jest.fn()}
       />
     );
 
-    expect(screen.getByTestId('wiki-facet-rail-deep')).toBeInTheDocument();
-    expect(screen.queryByTestId('wiki-facet-search')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'By type' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('wiki-facet-kind-repository')).toHaveAttribute('aria-pressed', 'true');
   });
 });

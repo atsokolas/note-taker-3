@@ -70,7 +70,7 @@ const renderList = (props = {}) => render(
       loading={false}
       error=""
       emptyLabel="None"
-      onSelectSource={() => {}}
+      onOpenSource={() => {}}
       {...props}
     />
   </MemoryRouter>
@@ -88,14 +88,14 @@ describe('LibrarySourceList', () => {
     expect(screen.getByText('Article')).toBeInTheDocument();
   });
 
-  it('selects highlight and notebook rows with exact source identity', () => {
-    const onSelectSource = jest.fn();
-    renderList({ onSelectSource });
+  it('opens highlight and notebook rows with exact source identity', () => {
+    const onOpenSource = jest.fn();
+    renderList({ onOpenSource });
 
     fireEvent.click(screen.getByRole('button', {
       name: 'Open highlight: Costs decline with utilization'
     }));
-    expect(onSelectSource).toHaveBeenCalledWith(expect.objectContaining({
+    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({
       type: 'highlight',
       id: 'highlight-1',
       parentId: 'article-1'
@@ -104,7 +104,7 @@ describe('LibrarySourceList', () => {
     fireEvent.click(screen.getByRole('button', {
       name: 'Open notebook entry: Notebook entry about inference'
     }));
-    expect(onSelectSource).toHaveBeenCalledWith(expect.objectContaining({
+    expect(onOpenSource).toHaveBeenCalledWith(expect.objectContaining({
       type: 'note',
       id: 'note-1'
     }));
@@ -135,10 +135,10 @@ describe('LibrarySourceList', () => {
   });
 
   it('preserves durable destinations and article Move without selecting the row', () => {
-    const onSelectSource = jest.fn();
+    const onOpenSource = jest.fn();
     const onMoveArticle = jest.fn();
     renderList({
-      onSelectSource,
+      onOpenSource,
       onMoveArticle,
       articles: [{ _id: 'article-1', title: 'A durable article' }]
     });
@@ -150,7 +150,7 @@ describe('LibrarySourceList', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Move' }));
     expect(onMoveArticle).toHaveBeenCalledWith(expect.objectContaining({ _id: 'article-1' }));
-    expect(onSelectSource).not.toHaveBeenCalled();
+    expect(onOpenSource).not.toHaveBeenCalled();
   });
 
   it('filters mixed source types through search and wires load-more', () => {

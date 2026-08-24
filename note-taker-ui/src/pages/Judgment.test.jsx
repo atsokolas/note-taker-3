@@ -111,9 +111,24 @@ describe('Judgment index', () => {
 
     renderIndex();
 
-    const claim = await screen.findByRole('link', { name: 'NVIDIA demand still outruns deliverable capacity.' });
+    const claim = await within(document.querySelector('.judgment-room__content'))
+      .findByRole('link', { name: 'NVIDIA demand still outruns deliverable capacity.' });
     expect(claim).toHaveAttribute('href', '/judgment/wiki-nvidia');
     expect(screen.queryByText('A plain wiki page')).not.toBeInTheDocument();
+  });
+
+  it('recovers from a compact projection that hides judgments on older pages', async () => {
+    listWikiPages
+      .mockResolvedValueOnce([{ _id: 'wiki-nvidia', title: 'NVIDIA' }])
+      .mockResolvedValueOnce([judgmentPage()]);
+
+    renderIndex();
+
+    expect(await within(document.querySelector('.judgment-room__content')).findByRole('link', {
+      name: 'NVIDIA demand still outruns deliverable capacity.'
+    })).toHaveAttribute('href', '/judgment/wiki-nvidia');
+    expect(listWikiPages).toHaveBeenNthCalledWith(1, { projection: 'judgment', limit: 500 });
+    expect(listWikiPages).toHaveBeenNthCalledWith(2, { limit: 200 });
   });
 
   /* An empty index used to be a composer with a sentence over it, which made
@@ -128,7 +143,7 @@ describe('Judgment index', () => {
     expect(await screen.findByText('No claims yet.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Start one from this morning/ }))
       .toHaveAttribute('href', '/wiki');
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(document.querySelector('.judgment__index')).not.toBeInTheDocument();
   });
 });
 
@@ -139,6 +154,7 @@ describe('Judgment claim', () => {
     renderDetail();
 
     await screen.findByRole('heading', { level: 1 });
+    expect(getWikiPage).toHaveBeenCalledWith('wiki-nvidia', { reader: 1 });
     await waitFor(() => expect(useNoeisSurface).toHaveBeenCalledWith(expect.objectContaining({
       room: 'judgment',
       objectType: 'judgment_claim',
@@ -298,7 +314,7 @@ describe('the agent rail', () => {
     renderDetail();
     fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
 
-    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('SemiAnalysis')).toBeInTheDocument();
   });
 
@@ -317,7 +333,7 @@ describe('the agent rail', () => {
     renderDetail();
     fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
 
-    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
     expect(within(rail).getByText('1 of 2 retrieved')).toBeInTheDocument();
 
@@ -334,8 +350,8 @@ describe('the agent rail', () => {
 
     renderDetail();
 
-    const rail = await screen.findByRole('complementary', { name: 'Agent' });
-    expect(within(rail).getByText('Agent')).toBeInTheDocument();
+    const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
+    expect(within(rail).getByText('Skeptical partner')).toBeInTheDocument();
     expect(await within(rail).findByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(within(rail).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
     expect(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBeInTheDocument();
@@ -351,7 +367,7 @@ describe('the agent rail', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
 
-    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
     // The retrieved line is in the rail, not the column, and nothing is saved.
     expect(updateWikiPage).not.toHaveBeenCalled();
@@ -372,7 +388,7 @@ describe('the agent rail', () => {
 
     renderDetail();
 
-    const rail = await screen.findByRole('complementary', { name: 'Agent' });
+    const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
     fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'what did packaging do' }
     });
@@ -395,7 +411,7 @@ describe('the agent rail', () => {
     renderDetail();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
-    const rail = screen.getByRole('complementary', { name: 'Agent' });
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     await within(rail).findByText('A line the human does not want.');
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Dismiss' }));
@@ -436,12 +452,12 @@ describe('the agent rail', () => {
      for whole pages pulled every body and every ledger in the corpus down the
      wire to throw almost all of it away, which is why this page took minutes
      to open on a real library. */
-  it('asks for a summary of the corpus, not every page in full', async () => {
+  it('asks for the Judgment projection, not every page in full', async () => {
     jest.spyOn(router, 'useParams').mockReturnValue({});
     listWikiPages.mockResolvedValue([]);
     render(<Judgment />);
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
-    expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({ summary: 1 }));
+    expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({ projection: 'judgment' }));
   });
 
 });
@@ -585,11 +601,12 @@ describe('The index only raises its voice about what was avoided', () => {
 
     renderIndex();
 
-    await screen.findByRole('link', { name: /NVIDIA demand still outruns/ });
+    const content = within(document.querySelector('.judgment-room__content'));
+    await content.findByRole('link', { name: /NVIDIA demand still outruns/ });
     expect(screen.getByText('1 thing arrived about this and is unread')).toBeInTheDocument();
 
     // The quiet claim gets no mark at all. Nothing arrived; that is not a problem.
-    const rows = screen.getAllByRole('listitem');
+    const rows = content.getAllByRole('listitem');
     const quietRow = rows.find(row => row.textContent.includes('Rates still matter'));
     expect(quietRow.textContent).toBe('Rates still matter for asset prices.');
   });
@@ -599,14 +616,15 @@ describe('The index only raises its voice about what was avoided', () => {
     listWikiSourceEvents.mockResolvedValue([]);
     renderIndex();
     await waitFor(() => expect(listWikiSourceEvents).toHaveBeenCalled());
-    expect(listWikiSourceEvents).toHaveBeenCalledWith(expect.objectContaining({ limit: 200 }));
+    expect(listWikiSourceEvents).toHaveBeenCalledWith(expect.objectContaining({ limit: 40 }));
   });
 
   it('still lists the claims when the events cannot be read', async () => {
     listWikiPages.mockResolvedValue([judgmentPage()]);
     listWikiSourceEvents.mockRejectedValue(new Error('nope'));
     renderIndex();
-    expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+    expect(await within(document.querySelector('.judgment-room__content'))
+      .findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
   });
 });
 
@@ -672,7 +690,9 @@ describe('What a belief rests on', () => {
     await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
 
     expect(await screen.findByRole('heading', { name: 'What rests on this' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'CoreWeave is undervalued.' })).toHaveAttribute('href', '/judgment/wiki-cw');
+    expect(within(document.querySelector('.judgment-room__content'))
+      .getByRole('link', { name: 'CoreWeave is undervalued.' }))
+      .toHaveAttribute('href', '/judgment/wiki-cw');
     expect(screen.getByText('It prices the scarcity.')).toBeInTheDocument();
   });
 
@@ -732,7 +752,8 @@ describe('The drift, above the claims', () => {
     getArticles.mockRejectedValue(new Error('nope'));
     listWikiPages.mockResolvedValue([judgmentPage()]);
     renderIndex();
-    expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+    expect(await within(document.querySelector('.judgment-room__content'))
+      .findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
   });
 });
 
@@ -751,7 +772,8 @@ describe('The index while it is still loading', () => {
     expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
 
     await act(async () => { release([judgmentPage()]); });
-    expect(await screen.findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+    expect(await within(document.querySelector('.judgment-room__content'))
+      .findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
     expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
   });
 

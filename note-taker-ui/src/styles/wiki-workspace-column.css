@@ -643,49 +643,6 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 
 /* ---- The facet rail beside the list -------------------------------------- */
 
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__section-toggle,
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__primary button,
-body.noeis-editorial .wiki-facet-rail .library-cabinet-count,
-.wiki-facet-rail .wiki-facet-rail__section-toggle,
-.wiki-facet-rail .wiki-facet-rail__primary button,
-.wiki-facet-rail .library-cabinet-count {
-  color: var(--text-secondary, var(--vellum-muted));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__primary button.is-active,
-.wiki-facet-rail .wiki-facet-rail__primary button.is-active {
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  background: transparent !important;
-}
-
-body.noeis-editorial .wiki-facet-rail .wiki-facet-rail__search input,
-.wiki-facet-rail .wiki-facet-rail__search input {
-  padding: 7px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-}
-
-/* "Pages / Browse your wiki." is a section head, not a stamped label. */
-body.noeis-editorial .wiki-facet-rail .ui-section-header__subtitle,
-.wiki-facet-rail .ui-section-header__subtitle {
-  color: var(--text-muted, var(--vellum-subtle)) !important;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
-  font-size: 0.84rem !important;
-  font-weight: 400 !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-}
-
 /* ---- A page, open in the workspace --------------------------------------
  *
  * The body of the page already reads the way it should — this is the chrome

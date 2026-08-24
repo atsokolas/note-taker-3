@@ -171,7 +171,7 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
-    expect(css).toContain('body.noeis-editorial .wiki-facet-rail--deep');
+    expect(css).not.toContain('body.noeis-editorial .wiki-facet-rail--deep');
     expect(css).toMatch(/@media \(max-width: 960px\)[\s\S]*?wiki-index__faceted-main[\s\S]*?order: 2;/);
   });
 

@@ -4,8 +4,8 @@
 
 .library-page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 188px) minmax(0, 1fr);
-  gap: clamp(24px, 3.4vw, 52px);
+  grid-template-columns: minmax(0, 208px) minmax(0, 1fr);
+  gap: clamp(18px, 1.8vw, 28px);
   align-items: start;
 }
 
@@ -42,79 +42,14 @@
   position: sticky;
   top: 88px;
   min-width: 0;
-  padding-top: clamp(40px, 7vh, 84px);
+  max-height: calc(100vh - 88px);
+  padding: clamp(24px, 4vh, 44px) 18px 48px 0;
+  border-right: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 68%, transparent);
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-}
-
-/* Group labels, not links. Two of them do the work three ad-hoc rules were
-   doing before: the top group is the library seen whole, the second is the
-   shelves inside it. Eleven-ish px, uppercase, wide letter-spacing — the same
-   eyebrow this product uses everywhere else. */
-.library-shelf__eyebrow {
-  margin: 0 0 14px;
-  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 82%, transparent);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.library-shelf ul {
-  display: grid;
-  gap: 11px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.library-shelf button {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font: inherit;
-  font-size: 0.94rem;
-  line-height: 1.4;
-  text-align: left;
-  cursor: pointer;
-  transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.library-shelf button:hover,
-.library-shelf button:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-/* The shelf you are on. Weight and a rule under the word, never colour alone —
-   that is this product's mark for a chosen thing, and it is also the
-   accessible one. */
-.library-shelf button.is-open {
-  width: fit-content;
-  color: var(--text-primary, var(--vellum-ink));
-  border-bottom: 1px solid currentColor;
-}
-
-/* All sources is the whole thing; the three under it are cuts of it. */
-.library-shelf__scopes > li:first-child button {
-  font-size: 1.02rem;
-  color: color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 76%, transparent);
-}
-
-/* Kept has no colour of its own. It had the only tinted text in the rail,
-   which made a decision look like an alert, and colour on its own is a weak
-   signal anyway.
-
-   It is set in the serif instead, while the rest of the rail is the sans. That
-   is already this product's oldest distinction — serif is the reading, sans is
-   the apparatus — and the kept shelf is the only entry here that is reading
-   rather than a way of filtering it. It looks different because it is a
-   different kind of thing. */
-.library-shelf__kept button {
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1.02rem;
-  letter-spacing: 0.01em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) transparent;
+  scrollbar-width: thin;
 }
 
 .library-shelf__kept.is-empty button {
@@ -129,32 +64,15 @@
   margin-top: 26px;
 }
 
-.library-shelf__cabinet-eyebrow {
-  margin: 0 0 12px;
-  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 82%, transparent);
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+.library-shelf__status {
+  margin: 2px 9px 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
-/* Sub-items: smaller, lighter, indented. Qualified by the nav because
-   `.library-shelf ul` zeroes padding on every list in here. */
-.library-shelf ul.library-shelf__folders {
-  gap: 10px;
-  padding-left: 16px;
-}
-
-.library-shelf ul.library-shelf__folders button {
-  font-size: 0.88rem;
-  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 88%, transparent);
-}
-
-.library-shelf ul.library-shelf__folders button:hover,
-.library-shelf ul.library-shelf__folders button:focus-visible,
-.library-shelf ul.library-shelf__folders button.is-open {
-  color: var(--text-primary, var(--vellum-ink));
+.library-shelf__status.is-error {
+  color: var(--status-danger, #8a3e34);
 }
 
 /* The way into the cabinet on a phone, where it is folded shut by default. */
@@ -208,7 +126,12 @@
 
   .library-shelf {
     position: static;
+    max-height: none;
     padding-top: 24px;
+    padding-right: 0;
+    border-right: 0;
+    overflow-y: visible;
+    overscroll-behavior: auto;
   }
 
   .library-shelf ul {
@@ -546,6 +469,36 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 22px;
+}
+
+.library-page-shell__tools {
+  position: relative;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.library-page-shell__tools summary {
+  width: fit-content;
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.library-page-shell__tools summary::-webkit-details-marker { display: none; }
+
+.library-page-shell__tools[open] > div {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  min-width: 176px;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--vellum-line);
+  background: var(--vellum, #f7f3eb);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--vellum-ink) 9%, transparent);
 }
 
 .library-page-shell__column-head button {
