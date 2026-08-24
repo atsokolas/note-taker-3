@@ -115,7 +115,22 @@ const buildNotebookRouter = ({
       const summaryParam = String(req.query.summary || '').trim().toLowerCase();
       const summaryOnly = summaryParam === '1' || summaryParam === 'true';
       if (summaryOnly) {
-        const entries = await NotebookEntry.aggregate([
+        const requestedLimit = Number.parseInt(req.query.limit, 10);
+        const limit = Number.isFinite(requestedLimit)
+          ? Math.max(1, Math.min(500, requestedLimit))
+          : 0;
+        const compactParam = String(req.query.compact || '').trim().toLowerCase();
+        const compact = compactParam === '1' || compactParam === 'true';
+        if (compact) {
+          const query = NotebookEntry.find({ userId })
+            .select('_id title folder type createdAt updatedAt')
+            .sort({ updatedAt: -1, _id: -1 });
+          if (limit) query.limit(limit);
+          const entries = await query.lean();
+          res.status(200).json(entries);
+          return;
+        }
+        const pipeline = [
           { $match: { userId: new mongoose.Types.ObjectId(userId) } },
           {
             $project: {
@@ -144,8 +159,10 @@ const buildNotebookRouter = ({
               }
             }
           },
-          { $sort: { updatedAt: -1, _id: -1 } }
-        ]);
+          { $sort: { updatedAt: -1, _id: -1 } },
+          ...(limit ? [{ $limit: limit }] : [])
+        ];
+        const entries = await NotebookEntry.aggregate(pipeline);
         res.status(200).json(entries);
         return;
       }

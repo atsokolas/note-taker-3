@@ -14,7 +14,8 @@ const SEARCH_STOPWORDS = new Set([
   'your', 'you', 'are', 'was', 'were', 'have', 'has', 'had', 'will',
   'would', 'could', 'should', 'what', 'when', 'where', 'which', 'who',
   'whom', 'why', 'how', 'into', 'onto', 'about', 'between', 'within',
-  'their', 'there', 'then', 'than'
+  'their', 'there', 'then', 'than', 'article', 'find', 'library', 'material',
+  'most', 'note', 'source', 'sharpen'
 ]);
 
 const toSafeString = (value) => String(value || '').trim();
@@ -208,6 +209,47 @@ const buildTokenRegex = (tokens = []) => {
   const pattern = tokens.map(escapeRegExp).join('|');
   if (!pattern) return null;
   return new RegExp(pattern, 'i');
+};
+
+const matchedExcerpt = (value = '', tokens = [], limit = 260) => {
+  let text = stripHtml(value).replace(
+    /^Name:\s*.{0,500}?\bURL:\s*https?:\/\/\S+\s*/i,
+    ''
+  );
+  const hadReadingChrome = /\bReading Time:\s*\d+\s*minutes?\b/i.test(text.slice(0, 240));
+  text = text
+    .replace(/\(\s*attr\(href\)\s*\)/gi, '')
+    .replace(/^[^.!?]{0,180}\|?\s*Reading Time:\s*\d+\s*minutes?\s*/i, '');
+  if (hadReadingChrome) text = text.replace(/^[^.!?]{1,240}[?!]\s*/, '');
+  if (!text) return '';
+  const safeTokens = (Array.isArray(tokens) ? tokens : []).filter(Boolean);
+  if (!safeTokens.length) return truncate(text, limit);
+  const lower = text.toLowerCase();
+  const candidates = safeTokens
+    .map(token => lower.indexOf(String(token).toLowerCase()))
+    .filter(index => index >= 0);
+  if (!candidates.length) return truncate(text, limit);
+
+  const windowSize = Math.max(limit * 2, 420);
+  const best = candidates
+    .map(index => {
+      const start = Math.max(0, index - Math.floor(windowSize * 0.35));
+      const window = lower.slice(start, start + windowSize);
+      const score = safeTokens.reduce((sum, token) => sum + (window.includes(String(token).toLowerCase()) ? 1 : 0), 0);
+      return { start, score, matchIndex: index };
+    })
+    .sort((left, right) => right.score - left.score || left.start - right.start)[0];
+  let start = Math.max(0, best.matchIndex - Math.floor(limit * 0.32));
+  if (start > 0) {
+    const nextSpace = text.indexOf(' ', start);
+    if (nextSpace >= 0 && nextSpace - start < 40) start = nextSpace + 1;
+  }
+  let excerpt = text.slice(start, start + limit).trim();
+  const lastSpace = excerpt.lastIndexOf(' ');
+  if (start + limit < text.length && lastSpace > Math.floor(limit * 0.7)) {
+    excerpt = excerpt.slice(0, lastSpace).trim();
+  }
+  return `${start > 0 ? '…' : ''}${excerpt}${start + limit < text.length ? '…' : ''}`;
 };
 
 const normalizeHistory = (history = []) => {
@@ -1493,6 +1535,17 @@ const groundOrdinalWorkspaceReferences = (reply = '', metadataSource = {}, reque
   return `${lead} “${best.title}”. ${groundedReply}`;
 };
 
+const ensureRetrievedItemNamed = ({ reply = '', fallback = '', relatedItems = [], intent = '' } = {}) => {
+  const safeReply = toSafeString(reply);
+  if (intent !== 'retrieve' || !Array.isArray(relatedItems) || relatedItems.length === 0) return safeReply;
+  const lower = safeReply.toLowerCase();
+  const namesReturnedItem = relatedItems.some(item => {
+    const title = toSafeString(item?.title).toLowerCase();
+    return title && lower.includes(title);
+  });
+  return namesReturnedItem ? safeReply : toSafeString(fallback);
+};
+
 const buildPartnerChatMessages = ({
   message = '',
   conversationState = {},
@@ -2191,9 +2244,9 @@ const searchInternalItems = async ({
       type: 'article',
       id: String(entry._id),
       title: toSafeString(entry.title) || 'Article',
-      snippet: truncate(entry.content || entry.url || ''),
+      snippet: matchedExcerpt(entry.content || entry.url || '', tokens),
       updatedAt: entry.updatedAt,
-      score: scoreText(combined) + 0.3
+      score: scoreText(combined) + (scoreText(entry.title || '') * 2) + 0.3
     });
   });
   notes.forEach((entry) => {
@@ -2205,9 +2258,9 @@ const searchInternalItems = async ({
       type: 'notebook',
       id: String(entry._id),
       title: toSafeString(entry.title) || 'Notebook note',
-      snippet: truncate(entry.content || blocks),
+      snippet: matchedExcerpt(entry.content || blocks, tokens),
       updatedAt: entry.updatedAt,
-      score: scoreText(combined) + 0.2
+      score: scoreText(combined) + (scoreText(entry.title || '') * 2) + 0.2
     });
   });
   concepts.forEach((entry) => {
@@ -2216,9 +2269,9 @@ const searchInternalItems = async ({
       type: 'concept',
       id: String(entry._id),
       title: toSafeString(entry.name) || 'Concept',
-      snippet: truncate(entry.description || ''),
+      snippet: matchedExcerpt(entry.description || '', tokens),
       updatedAt: entry.updatedAt,
-      score: scoreText(combined)
+      score: scoreText(combined) + (scoreText(entry.name || '') * 2)
     });
   });
 
@@ -2810,6 +2863,12 @@ const generateCollaborativeReply = async ({
     message: conversationState.resolvedMessage || safeMessage,
     conversationState
   });
+  finalReply = ensureRetrievedItemNamed({
+    reply: finalReply,
+    fallback: fallbackReply,
+    relatedItems,
+    intent
+  });
   const proposalBundle = buildProposalBundle({
     intent,
     context,
@@ -2875,6 +2934,7 @@ module.exports = {
   __testables: {
     tokenize,
     buildTokenRegex,
+    matchedExcerpt,
     buildReply,
     inferReplyIntent,
     buildOrientationReply,
@@ -2882,6 +2942,7 @@ module.exports = {
     loadGraphRelatedItems,
     buildPartnerChatMessages,
     groundOrdinalWorkspaceReferences,
+    ensureRetrievedItemNamed,
     buildOutputArtifactReply,
     buildWikiClaimSourceReply,
     prepareRelatedItemsForReply,

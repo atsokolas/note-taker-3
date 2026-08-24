@@ -653,6 +653,9 @@ const loadCachedWikiBriefing = async ({
   if (!userId || !WikiBriefingCache) return null;
   const cacheDoc = await safeFindOne(WikiBriefingCache, { userId });
   if (!isFreshBriefingCache(cacheDoc, { now, maxAgeMs })) return null;
+  // A cache row can outlive a model-quality repair. Revalidate on read so a
+  // previously accepted scratchpad cannot keep leaking until its TTL expires.
+  if (!editorialSentence(cacheDoc.payload.summary, { maxLength: 280, fallback: '' })) return null;
   return cacheDoc.payload;
 };
 

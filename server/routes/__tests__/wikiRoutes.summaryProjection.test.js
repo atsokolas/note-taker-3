@@ -1,6 +1,10 @@
 const assert = require('assert');
 
-const { WIKI_PAGE_SUMMARY_FIELDS } = require('../wikiRoutes');
+const {
+  serializeWikiPage,
+  WIKI_JUDGMENT_INDEX_FIELDS,
+  WIKI_PAGE_SUMMARY_FIELDS
+} = require('../wikiRoutes');
 
 /**
  * The projection a list of Wiki pages is served through.
@@ -25,6 +29,11 @@ const asksFor = (prefix) => WIKI_PAGE_SUMMARY_FIELDS.some(field => field.startsW
 
 ['_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'updatedAt', 'createdAt']
   .forEach(field => assert.ok(has(field), `a row renders ${field}`));
+
+assert.ok(has('investmentDossier.version'), 'the Wiki shelf identifies investment dossiers without loading them');
+assert.strictEqual(serializeWikiPage({ title: 'Topic' }).wikiKind, 'general');
+assert.strictEqual(serializeWikiPage({ title: 'Repo', pageType: 'repo' }).wikiKind, 'repository');
+assert.strictEqual(serializeWikiPage({ title: 'Dossier', investmentDossier: { version: 1 } }).wikiKind, 'investment');
 
 // The row preview reads summary || scope || description || plainText || body.
 // None of the first three exist on the schema and body is too expensive to
@@ -79,5 +88,14 @@ assert.ok(!asksFor('citations.quote'), 'citation quotes are not read by any list
   ));
 
 assert.ok(Object.isFrozen(WIKI_PAGE_SUMMARY_FIELDS), 'the projection is shared across requests and must not be mutable');
+
+const judgmentFields = new Set(WIKI_JUDGMENT_INDEX_FIELDS);
+['_id', 'title', 'judgment.currentJudgment', 'judgment.governingQuestion',
+  'judgment.why.text', 'judgment.against.text', 'judgment.falsifiers.text',
+  'judgment.decisions.summary', 'judgment.lessons.text']
+  .forEach(field => assert.ok(judgmentFields.has(field), `the Judgment casebook reads ${field}`));
+['plainText', 'body', 'sourceRefs', 'claims', 'citations', 'aiState']
+  .forEach(field => assert.ok(!judgmentFields.has(field), `the Judgment index never loads ${field}`));
+assert.ok(Object.isFrozen(WIKI_JUDGMENT_INDEX_FIELDS), 'the Judgment projection must not be mutable');
 
 console.log('wikiRoutes summary projection tests passed');

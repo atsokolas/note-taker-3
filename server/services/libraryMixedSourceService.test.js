@@ -179,6 +179,8 @@ const run = async () => {
   assert.strictEqual(firstPage.sources[1].provenance.provider, 'notion');
   assert.strictEqual(firstPage.sources.some(row => row.source.id === suppressedArticle._id), false);
   assert.strictEqual(firstPage.sources.some(row => row.source.id === foreignArticle._id), false);
+  assert.ok(firstPage.coverage.limitations.includes('connection_context_deferred_for_recent_view'));
+  assert.deepStrictEqual(firstPage.counts.active, { value: null, exact: false });
 
   const secondPage = await buildMixedLibraryRelevancePage({
     userId: USER_ID,

@@ -266,19 +266,69 @@ const buildMixedLibraryRelevancePage = async ({
     debugOnly: { $ne: true },
     archived: { $ne: true }
   };
-  const [articleRows, noteRows, articleTotal, noteTotal] = await Promise.all([
+  const boundedRecentHighlights = view === 'recent' && typeof Article.aggregate === 'function';
+  const aggregateUserId = (() => {
+    const ObjectId = Article?.db?.base?.Types?.ObjectId;
+    return ObjectId?.isValid?.(userId) ? new ObjectId(String(userId)) : userId;
+  })();
+  const [articleRows, noteRows, articleTotal, noteTotal, highlightRows] = await Promise.all([
     awaitQuery(Article.find(visibleQuery), {
-      select: '_id userId title url author publicationDate siteName importMeta highlights hiddenFromHome debugOnly archived createdAt updatedAt',
+      select: boundedRecentHighlights
+        ? '_id userId title url author publicationDate siteName importMeta hiddenFromHome debugOnly archived createdAt updatedAt'
+        : '_id userId title url author publicationDate siteName importMeta highlights hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
       limit: sourceScanLimit
     }),
     awaitQuery(NotebookEntry.find(visibleQuery), {
-      select: '_id userId title content type importMeta hiddenFromHome debugOnly archived createdAt updatedAt',
+      // List composition never renders note bodies. Pulling 80 full notebook
+      // documents made one large imported note capable of delaying the whole
+      // Library room by seconds.
+      select: '_id userId title type importMeta hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
       limit: sourceScanLimit
     }),
     Article.countDocuments ? Article.countDocuments(visibleQuery) : null,
-    NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null
+    NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null,
+    boundedRecentHighlights
+      ? Article.aggregate([
+        {
+          $match: includeSuppressed ? { userId: aggregateUserId } : {
+            userId: aggregateUserId,
+            hiddenFromHome: { $ne: true },
+            debugOnly: { $ne: true },
+            archived: { $ne: true }
+          }
+        },
+        { $unwind: '$highlights' },
+        { $match: { 'highlights._id': { $exists: true } } },
+        {
+          $addFields: {
+            recentHighlightAt: {
+              $ifNull: [
+                '$highlights.importMeta.importedAt',
+                { $ifNull: ['$highlights.createdAt', { $ifNull: ['$importMeta.importedAt', '$createdAt'] }] }
+              ]
+            }
+          }
+        },
+        { $sort: { recentHighlightAt: -1, 'highlights._id': -1 } },
+        { $limit: sourceScanLimit },
+        {
+          $project: {
+            _id: 1,
+            userId: 1,
+            title: 1,
+            url: 1,
+            author: 1,
+            publicationDate: 1,
+            siteName: 1,
+            importMeta: 1,
+            createdAt: 1,
+            highlight: '$highlights'
+          }
+        }
+      ])
+      : []
   ]);
 
   const articles = (Array.isArray(articleRows) ? articleRows : [])
@@ -289,14 +339,87 @@ const buildMixedLibraryRelevancePage = async ({
     .filter(value => ownedBy(value, userId) && (includeSuppressed || visible(value)));
   const rows = [
     ...articles.map(articleRow),
-    ...articles.flatMap(article => (
-      (Array.isArray(article?.highlights) ? article.highlights : [])
-        .map(highlight => plain(highlight))
-        .filter(highlight => id(highlight))
-        .map(highlight => highlightRow(article, highlight))
-    )),
+    ...(boundedRecentHighlights
+      ? (Array.isArray(highlightRows) ? highlightRows : [])
+        .map(plain)
+        .filter(value => ownedBy(value, userId) && id(value?.highlight))
+        .map(value => highlightRow(value, plain(value.highlight)))
+      : articles.flatMap(article => (
+        (Array.isArray(article?.highlights) ? article.highlights : [])
+          .map(highlight => plain(highlight))
+          .filter(highlight => id(highlight))
+          .map(highlight => highlightRow(article, highlight))
+      ))),
     ...notes.map(noteRow)
   ];
+
+  // The Library landing page is a recency index, not a connection report.
+  // Return its first useful page before walking the entire knowledge graph;
+  // the connection-oriented views below still perform that richer work when
+  // the user asks for it. This keeps large Readwise/Notion imports from making
+  // the primary room feel empty for several seconds.
+  if (view === 'recent') {
+    rows.forEach(row => {
+      row.relevance = {
+        connected: [],
+        movements: [],
+        connectedCount: 0,
+        movementCount: 0
+      };
+    });
+    const selected = rows.sort((left, right) => compareTuples(rowTuple(left), rowTuple(right)));
+    const afterCursor = decodedCursor
+      ? selected.filter(row => compareTuples(rowTuple(row), decodedCursor.tuple) > 0)
+      : selected;
+    const pageRowsSelected = afterCursor.slice(0, limit);
+    const hasMore = afterCursor.length > pageRowsSelected.length;
+    const nextCursor = hasMore && pageRowsSelected.length
+      ? encodeCursor({ view, tuple: rowTuple(pageRowsSelected[pageRowsSelected.length - 1]) })
+      : null;
+    const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit;
+    const notesComplete = Number.isFinite(noteTotal) && noteTotal <= sourceScanLimit;
+    const highlightCount = rows.filter(row => row.source.type === 'highlight').length;
+    const limitations = [
+      'connection_context_deferred_for_recent_view',
+      'material_movements_deferred_for_recent_view'
+    ];
+    if (!Number.isFinite(articleTotal)) limitations.push('article_total_unavailable');
+    if (!Number.isFinite(noteTotal)) limitations.push('note_total_unavailable');
+    if (Number.isFinite(articleTotal) && articleTotal > sourceScanLimit) {
+      limitations.push(`article_scan_limited_to_${sourceScanLimit}`);
+    }
+    if (Number.isFinite(noteTotal) && noteTotal > sourceScanLimit) {
+      limitations.push(`note_scan_limited_to_${sourceScanLimit}`);
+    }
+
+    return {
+      sources: pageRowsSelected,
+      counts: {
+        recent: { value: selected.length, exact: articlesComplete && notesComplete },
+        active: { value: null, exact: false },
+        needs_review: { value: null, exact: false },
+        unconnected: { value: null, exact: false }
+      },
+      nextCursor,
+      hasMore,
+      coverage: {
+        status: 'partial',
+        sourceTypes: SOURCE_TYPES,
+        scanned: {
+          articles: articles.length,
+          highlights: highlightCount,
+          notes: notes.length
+        },
+        eligible: {
+          articles: Number.isFinite(articleTotal) ? articleTotal : null,
+          highlights: articlesComplete ? highlightCount : null,
+          notes: Number.isFinite(noteTotal) ? noteTotal : null
+        },
+        limitations
+      }
+    };
+  }
+
   const sourceByKey = new Map(rows.map(row => [
     refKey(row.source.type, row.source.id, row.source.parentId),
     row

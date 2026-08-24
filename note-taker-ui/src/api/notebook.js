@@ -1,30 +1,45 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { clearCached, fetchWithCache } from '../utils/cache';
+import { createAuthScopedSnapshotCache } from '../system/authScopedSnapshotCache';
 
-const NOTEBOOK_SUMMARIES_CACHE_KEY = 'notebook.summaries';
-const NOTEBOOK_FOLDERS_CACHE_KEY = 'notebook.folders';
 const NOTEBOOK_CACHE_TTL_MS = 30_000;
+const THINK_SHELF_LIMIT = 120;
 
-export const clearNotebookCache = () => {
-  clearCached(NOTEBOOK_SUMMARIES_CACHE_KEY);
-  clearCached(NOTEBOOK_FOLDERS_CACHE_KEY);
-};
-
-export const getNotebookSummaries = async ({ force = false } = {}) => fetchWithCache(
-  NOTEBOOK_SUMMARIES_CACHE_KEY,
-  async () => {
+const summariesCache = createAuthScopedSnapshotCache({
+  ttlMs: NOTEBOOK_CACHE_TTL_MS,
+  load: async () => {
     const res = await api.get('/api/notebook?summary=1', getAuthHeaders());
     return res.data || [];
   },
-  { force, ttlMs: NOTEBOOK_CACHE_TTL_MS }
-);
+  normalize: value => (Array.isArray(value) ? value : [])
+});
 
-export const getNotebookFolders = async ({ force = false } = {}) => fetchWithCache(
-  NOTEBOOK_FOLDERS_CACHE_KEY,
-  async () => {
+const thinkShelfCache = createAuthScopedSnapshotCache({
+  ttlMs: NOTEBOOK_CACHE_TTL_MS,
+  load: async () => {
+    const res = await api.get(`/api/notebook?summary=1&compact=1&limit=${THINK_SHELF_LIMIT}`, getAuthHeaders());
+    return res.data || [];
+  },
+  normalize: value => (Array.isArray(value) ? value : [])
+});
+
+const foldersCache = createAuthScopedSnapshotCache({
+  ttlMs: NOTEBOOK_CACHE_TTL_MS,
+  load: async () => {
     const res = await api.get('/api/notebook/folders', getAuthHeaders());
     return res.data || [];
   },
-  { force, ttlMs: NOTEBOOK_CACHE_TTL_MS }
-);
+  normalize: value => (Array.isArray(value) ? value : [])
+});
+
+export const clearNotebookCache = () => {
+  summariesCache.reset();
+  thinkShelfCache.reset();
+  foldersCache.reset();
+};
+
+export const getNotebookSummaries = async ({ force = false } = {}) => summariesCache.read({ force });
+
+export const getNotebookShelf = async ({ force = false } = {}) => thinkShelfCache.read({ force });
+
+export const getNotebookFolders = async ({ force = false } = {}) => foldersCache.read({ force });

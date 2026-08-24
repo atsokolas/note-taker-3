@@ -8,6 +8,7 @@ export { getPendingWikiClaimReview };
 
 const WIKI_PAGES_PATH = '/api/wiki/pages';
 const wikiPageListRequests = new Map();
+const wikiPageRequests = new Map();
 
 const safeId = (id) => encodeURIComponent(String(id || '').trim());
 
@@ -21,24 +22,29 @@ const buildQueryString = (params = {}) => {
   return suffix ? `?${suffix}` : '';
 };
 
-export const listWikiPages = (params = {}) => {
-  const path = `${WIKI_PAGES_PATH}${buildQueryString(params)}`;
-  const activeRequest = wikiPageListRequests.get(path);
+const shareInFlightRequest = (requests, key, createRequest) => {
+  const activeRequest = requests.get(key);
   if (activeRequest) return activeRequest;
 
-  const request = api.get(path, getAuthHeaders()).then((res) => {
-    if (Array.isArray(res.data)) return res.data;
-    if (Array.isArray(res.data?.pages)) return res.data.pages;
-    return [];
-  });
   let sharedRequest;
-  sharedRequest = request.finally(() => {
-    if (wikiPageListRequests.get(path) === sharedRequest) {
-      wikiPageListRequests.delete(path);
-    }
-  });
-  wikiPageListRequests.set(path, sharedRequest);
+  sharedRequest = Promise.resolve()
+    .then(createRequest)
+    .finally(() => {
+      if (requests.get(key) === sharedRequest) requests.delete(key);
+    });
+  requests.set(key, sharedRequest);
   return sharedRequest;
+};
+
+export const listWikiPages = (params = {}) => {
+  const path = `${WIKI_PAGES_PATH}${buildQueryString(params)}`;
+  return shareInFlightRequest(wikiPageListRequests, path, () => (
+    api.get(path, getAuthHeaders()).then((res) => {
+      if (Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res.data?.pages)) return res.data.pages;
+      return [];
+    })
+  ));
 };
 
 const apiUrl = (path = '') => {
@@ -127,9 +133,13 @@ export const adoptWikiCurrentResearchHead = async (pageId) => {
   return res.data || {};
 };
 
-export const getWikiPage = async (id) => {
-  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}`, getAuthHeaders());
-  return res.data;
+export const getWikiPage = (id, params = {}) => {
+  const path = `${WIKI_PAGES_PATH}/${safeId(id)}${buildQueryString(params)}`;
+  return shareInFlightRequest(
+    wikiPageRequests,
+    path,
+    () => api.get(path, getAuthHeaders()).then((res) => res.data)
+  );
 };
 
 export const getPublicWikiPage = async (idOrSlug) => {
