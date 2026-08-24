@@ -110,28 +110,13 @@ describe('LibrarySourceList', () => {
     }));
   });
 
-  it('marks the selected source row for the composition preview', () => {
+  it('marks an exact selected source without adding a second detail surface', () => {
     renderList({ selectedSourceKey: 'highlight:highlight-1:article-1' });
     const selected = screen.getByText('Costs decline with utilization')
       .closest('[data-source-key]');
     expect(selected).toHaveClass('is-selected');
     expect(selected).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('places an inline provenance preview immediately after the selected source', () => {
-    renderList({
-      selectedSourceKey: 'highlight:highlight-1:article-1',
-      inlinePreview: <div data-testid="preview-probe">Inline provenance</div>
-    });
-    const block = screen.getByText('Costs decline with utilization')
-      .closest('[data-source-block-key]');
-    expect(block).toHaveClass('is-selected-block');
-    expect(block.querySelector('[data-testid="library-inline-preview"]'))
-      .toHaveTextContent('Inline provenance');
-    expect(screen.queryByTestId('preview-probe')).toBeInTheDocument();
-    const titles = screen.getAllByTestId('library-source-open').map(node => node.textContent);
-    expect(titles[0]).toMatch(/Notebook entry/i);
-    expect(titles[1]).toMatch(/Costs decline/i);
+    expect(screen.queryByTestId('library-inline-preview')).not.toBeInTheDocument();
   });
 
   it('preserves durable destinations and article Move without selecting the row', () => {
