@@ -23,7 +23,7 @@ jest.mock('./LibraryArticleList', () => function MockLibraryArticleList({ title 
 });
 jest.mock('./LibraryReadingRoomLead', () => () => null);
 jest.mock('./LibraryHighlights', () => () => null);
-jest.mock('./LibrarySourceTrace', () => () => null);
+jest.mock('./LibrarySourceTrace', () => () => <div data-testid="source-trace">Source trace</div>);
 jest.mock('../ArticleReader', () => () => null);
 
 const baseProps = {
@@ -45,6 +45,28 @@ const baseProps = {
 };
 
 describe('LibraryMain mixed-source failure boundary', () => {
+  it('keeps the browse posture as one source list without an automatic detail preview', async () => {
+    mockRelevancePayload = {
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      coverage: null,
+      counts: { recent: { value: 1, exact: true } },
+      sources: [{ source: { type: 'article', id: 'article-1', title: 'Saved article' } }],
+      nextCursor: null,
+      hasMore: false,
+      filteredOutCount: 0,
+      loadMore: jest.fn()
+    };
+    render(<LibraryMain {...baseProps} />);
+
+    expect(await screen.findByTestId('source-list')).toHaveTextContent('1 sources');
+    expect(screen.getByTestId('library-composition')).toHaveAttribute('data-composition-layout', 'list');
+    expect(screen.queryByTestId('source-trace')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Selected source')).not.toBeInTheDocument();
+  });
+
   it('keeps saved articles accessible when the initial mixed request fails', async () => {
     mockRelevancePayload = {
       loading: false,

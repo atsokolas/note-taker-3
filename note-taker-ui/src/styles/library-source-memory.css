@@ -1,28 +1,17 @@
 body.noeis-editorial .library-composition {
   --library-memory-accent: color-mix(in srgb, var(--wiki-warm-accent, #9a6b2f) 74%, var(--vellum-ink));
   display: grid;
-  grid-template-columns: minmax(250px, .72fr) minmax(0, 1.5fr);
-  gap: 24px 30px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
   min-width: 0;
   width: 100%;
 }
 
-body.noeis-editorial .library-composition.has-selection {
-  grid-template-columns: minmax(250px, .72fr) minmax(0, 1.5fr);
-}
-
-body.noeis-editorial .library-composition__index,
-body.noeis-editorial .library-composition__preview {
+body.noeis-editorial .library-composition__index {
   position: sticky;
   top: 12px;
   min-width: 0;
-}
-
-body.noeis-editorial .library-composition__preview {
-  max-height: calc(100vh - 148px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 body.noeis-editorial .library-composition__list,
@@ -350,20 +339,8 @@ body.noeis-editorial .library-source-trace__actions a {
   overflow-wrap: anywhere;
 }
 
-body.noeis-editorial .library-composition__inline-preview { display: none; }
-
-@media (max-width: 1100px) {
-  body.noeis-editorial .library-composition {
-    grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
-    gap: 24px;
-  }
-  body.noeis-editorial .library-composition__preview { display: none; }
-  body.noeis-editorial .library-composition__inline-preview { display: block; }
-}
-
 @media (max-width: 720px) {
-  body.noeis-editorial .library-composition,
-  body.noeis-editorial .library-composition.is-compact {
+  body.noeis-editorial .library-composition {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
   }
@@ -372,7 +349,6 @@ body.noeis-editorial .library-composition__inline-preview { display: none; }
     order: 1;
   }
   body.noeis-editorial .library-composition__list { order: 2; }
-  body.noeis-editorial .library-composition__inline-preview { margin-bottom: 16px; }
   body.noeis-editorial .library-source-trace__provenance li,
   body.noeis-editorial .library-source-trace__uses nav a {
     grid-template-columns: minmax(68px, max-content) minmax(0, 1fr);

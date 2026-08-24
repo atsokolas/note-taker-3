@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import ArticleReader from '../ArticleReader';
 import LibraryArticleList from './LibraryArticleList';
 import LibraryHighlights from './LibraryHighlights';
@@ -7,10 +7,7 @@ import LibrarySourceList from './LibrarySourceList';
 import LibrarySourceMemory from './LibrarySourceMemory';
 import LibrarySourceTrace from './LibrarySourceTrace';
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
-import { sourceRowKey } from './librarySourceIdentity';
 import '../../styles/library-source-memory.css';
-
-const COMPACT_COMPOSITION_QUERY = '(max-width: 1100px)';
 
 const LibraryMain = ({
   selectedArticleId,
@@ -59,7 +56,6 @@ const LibraryMain = ({
   sourceView = 'recent',
   onSourceViewChange = null,
   selectedSourceKey = '',
-  selectedSourceRow = null,
   sourceDetail = null,
   sourceDetailLoading = false,
   sourceDetailError = ''
@@ -77,23 +73,6 @@ const LibraryMain = ({
     filteredOutCount: 0,
     loadMore: null
   });
-  const [compactComposition, setCompactComposition] = useState(() => (
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia(COMPACT_COMPOSITION_QUERY).matches
-      : false
-  ));
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
-    const media = window.matchMedia(COMPACT_COMPOSITION_QUERY);
-    const sync = () => setCompactComposition(Boolean(media.matches));
-    sync();
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', sync);
-      return () => media.removeEventListener('change', sync);
-    }
-    media.addListener(sync);
-    return () => media.removeListener(sync);
-  }, []);
   const showReadingRoomLead = scope === 'unfiled';
   const isMixedBrowse = scope === 'all';
   const allowedSourceIds = useMemo(() => {
@@ -165,34 +144,6 @@ const LibraryMain = ({
         ? 'Every visible source is connected.'
         : 'No sources saved yet.';
 
-  const previewSource = useMemo(() => {
-    const selectedType = String(selectedSourceKey || '').split(':')[0];
-    const fromList = selectedSourceRow
-      || (selectedSourceKey
-        ? relevanceState.sources.find(row => sourceRowKey(row) === selectedSourceKey) || null
-        : null);
-    if (fromList) {
-      if (
-        selectedType === 'article'
-        && sourceDetail
-        && String(sourceDetail.id || '') === String(fromList?.source?.id || '')
-      ) {
-        return {
-          ...fromList,
-          provenance: {
-            ...(fromList.provenance || {}),
-            ...(sourceDetail.provenance || {})
-          },
-          relevance: sourceDetail.relevance || fromList.relevance,
-          sourceUrl: sourceDetail.sourceUrl || fromList.source?.sourceUrl || ''
-        };
-      }
-      return fromList;
-    }
-    if (selectedType === 'article' && sourceDetail) return sourceDetail;
-    return relevanceState.sources[0] || null;
-  }, [relevanceState.sources, selectedSourceKey, selectedSourceRow, sourceDetail]);
-
   if (scope === 'highlights') {
     return (
       <div className="library-main-highlights">
@@ -249,20 +200,11 @@ const LibraryMain = ({
   }
 
   if (isMixedBrowse) {
-    const sourceTrace = (
-      <LibrarySourceTrace
-        source={previewSource}
-        loading={Boolean(selectedSourceKey) && sourceDetailLoading && !previewSource}
-        error={sourceDetailError}
-        variant="preview"
-        onOpenSource={handleOpenSource}
-      />
-    );
     return (
       <div
-        className={`library-main-browse library-composition${compactComposition ? ' is-compact' : ''}${selectedSourceKey ? ' has-selection' : ''}`}
+        className="library-main-browse library-composition"
         data-testid="library-composition"
-        data-composition-layout={compactComposition ? 'compact' : 'rail'}
+        data-composition-layout="list"
       >
         <LibrarySourceMemory
             onSelectArticle={onSelectArticle}
@@ -283,14 +225,6 @@ const LibraryMain = ({
           />
 
         <div className="library-composition__list">
-          {compactComposition && !selectedSourceKey && !relevanceFailed ? (
-            <div
-              className="library-composition__inline-preview library-composition__inline-preview--empty"
-              data-testid="library-inline-preview"
-            >
-              {sourceTrace}
-            </div>
-          ) : null}
           {!relevanceFailed ? (
             <LibrarySourceList
               sources={relevanceState.sources}
@@ -321,7 +255,6 @@ const LibraryMain = ({
               title={viewLabel}
               subtitle={viewSubtitle}
               selectedSourceKey={selectedSourceKey}
-              inlinePreview={compactComposition ? sourceTrace : null}
               variant="room"
             />
           ) : (
@@ -347,12 +280,6 @@ const LibraryMain = ({
             />
           )}
         </div>
-
-        {!compactComposition && previewSource ? (
-          <aside className="library-composition__preview" aria-label="Selected source">
-            {sourceTrace}
-          </aside>
-        ) : null}
       </div>
     );
   }

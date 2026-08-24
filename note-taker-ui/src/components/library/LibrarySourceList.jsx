@@ -490,7 +490,6 @@ const LibrarySourceList = ({
   title = 'Sources',
   subtitle = 'Articles, highlights, and notebook entries in one index.',
   selectedSourceKey = '',
-  inlinePreview = null,
   variant = 'default'
 }) => {
   const isRoom = variant === 'room';
@@ -510,24 +509,6 @@ const LibrarySourceList = ({
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
     return Math.min(680, Math.max(320, viewport ? viewport - 290 : 560));
   }, []);
-  const selectedPreviewRef = useRef(null);
-
-  useEffect(() => {
-    if (!inlinePreview || !selectedSourceKey) return undefined;
-    const node = selectedPreviewRef.current;
-    if (!node || typeof node.scrollIntoView !== 'function') return undefined;
-    const reduceMotion = typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const frame = window.requestAnimationFrame(() => {
-      node.scrollIntoView({
-        block: 'nearest',
-        inline: 'nearest',
-        behavior: reduceMotion ? 'auto' : 'smooth'
-      });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [inlinePreview, selectedSourceKey]);
-
   const renderSourceBlock = (row, index, { withKey = true } = {}) => {
     const key = sourceRowKey(row) || String(index);
     const selected = Boolean(selectedSourceKey) && key === selectedSourceKey;
@@ -545,15 +526,6 @@ const LibrarySourceList = ({
           selected={selected}
           variant={variant}
         />
-        {selected && inlinePreview ? (
-          <div
-            ref={selectedPreviewRef}
-            className="library-composition__inline-preview"
-            data-testid="library-inline-preview"
-          >
-            {inlinePreview}
-          </div>
-        ) : null}
       </div>
     );
   };
