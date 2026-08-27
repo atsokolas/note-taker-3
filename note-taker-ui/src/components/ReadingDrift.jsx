@@ -57,6 +57,12 @@ const positionOf = (shares = [], index = 0) => {
 
 const workByline = (work = {}) => work.author || work.publication || '';
 
+const annotationAlignment = (index, length) => {
+  if (index < 2) return 'start';
+  if (index >= length - 2) return 'end';
+  return 'center';
+};
+
 const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now }) => {
   const [activePoint, setActivePoint] = useState(null);
   const drift = useMemo(
@@ -93,6 +99,8 @@ const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now 
               : null;
             const peak = item.shares.indexOf(Math.max(...item.shares));
             const annotationId = active ? `drift-note-${item.topic.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${activePoint.index}` : undefined;
+            const anchor = active ? positionOf(item.shares, activePoint.index) : null;
+            const alignment = active ? annotationAlignment(activePoint.index, item.periods.length) : 'center';
             return (
               <li
                 key={item.topic}
@@ -127,39 +135,43 @@ const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now 
                       <span aria-hidden="true" />
                     </button>
                   ) : null)}
+                  <aside
+                    id={annotationId}
+                    className={`drift__annotation is-${alignment}`}
+                    style={anchor ? {
+                      '--drift-anchor-x': anchor.left,
+                      '--drift-anchor-y': anchor.top
+                    } : undefined}
+                    aria-hidden={!active}
+                  >
+                    {active ? (
+                      <>
+                        <div className="drift__annotation-head">
+                          <div>
+                            <span className="drift__annotation-period">{periodLabel(active)}</span>
+                            <strong>{item.topic}</strong>
+                          </div>
+                          <span className="drift__annotation-share">
+                            {active.count} of {active.total}
+                            <small>filed sources</small>
+                          </span>
+                        </div>
+                        <ol className="drift__works">
+                          {active.works.slice(0, 4).map((work, index) => (
+                            <li key={work.id || `${work.title}-${index}`}>
+                              <span>{work.title}</span>
+                              {workByline(work) ? <small>{workByline(work)}</small> : null}
+                            </li>
+                          ))}
+                        </ol>
+                        {active.works.length > 4 ? (
+                          <p className="drift__more">+ {active.works.length - 4} more in this fortnight</p>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </aside>
                 </div>
                 <span className="drift__direction">{DIRECTION_WORD[item.direction]}</span>
-                <aside
-                  id={annotationId}
-                  className="drift__annotation"
-                  aria-hidden={!active}
-                >
-                  {active ? (
-                    <>
-                      <div className="drift__annotation-head">
-                        <div>
-                          <span className="drift__annotation-period">{periodLabel(active)}</span>
-                          <strong>{item.topic}</strong>
-                        </div>
-                        <span className="drift__annotation-share">
-                          {active.count} of {active.total}
-                          <small>filed sources</small>
-                        </span>
-                      </div>
-                      <ol className="drift__works">
-                        {active.works.slice(0, 4).map((work, index) => (
-                          <li key={work.id || `${work.title}-${index}`}>
-                            <span>{work.title}</span>
-                            {workByline(work) ? <small>{workByline(work)}</small> : null}
-                          </li>
-                        ))}
-                      </ol>
-                      {active.works.length > 4 ? (
-                        <p className="drift__more">+ {active.works.length - 4} more in this fortnight</p>
-                      ) : null}
-                    </>
-                  ) : null}
-                </aside>
               </li>
             );
           })}

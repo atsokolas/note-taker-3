@@ -50,6 +50,7 @@ describe('ReadingDrift', () => {
     expect(screen.getByText('Power work 3-3')).toBeInTheDocument();
     expect(screen.getByText('+ 1 more in this fortnight')).toBeInTheDocument();
     expect(container.querySelector('.drift__row.is-reading')).toBeInTheDocument();
+    expect(container.querySelector('.drift__plot > .drift__annotation.is-end')).toBeInTheDocument();
     expect(container.querySelectorAll('a')).toHaveLength(0);
   });
 
