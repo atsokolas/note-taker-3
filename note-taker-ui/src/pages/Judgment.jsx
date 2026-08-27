@@ -16,7 +16,7 @@ import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
-import { flySentenceInto, takeFirstPaint } from '../motion/columnMotion';
+import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
   addDependency,
@@ -61,8 +61,10 @@ const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((count
   [field]: Array.isArray(judgment?.[field]) ? judgment[field].length : 0
 }), {});
 const SOURCE_EVENT_LIMIT = 40;
+const AUTOSAVE_PAUSE_MS = 700;
 
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
+const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 /** Sources read as the publications they are: "SemiAnalysis and TrendForce". */
 const SourceLine = ({ sources = [] }) => {
@@ -83,6 +85,78 @@ const SourceLine = ({ sources = [] }) => {
   );
 };
 
+/* The wiki name is the column that pops up. The claim is the sentence of
+   belief, and it only appears under the name once they are different things.
+   Editing the title writes the wiki page's title — the same handle the graph,
+   the living list, and every other room already use. */
+const Title = ({ title = '', claim = '', onSave, titleRef }) => {
+  const stored = title || claim;
+  const [draft, setDraft] = useState(stored);
+  const [writeError, setWriteError] = useState('');
+  const timerRef = useRef(0);
+
+  useEffect(() => { setDraft(stored); }, [stored]);
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+  const save = useCallback(async (value) => {
+    const next = asLine(value) || claim;
+    if (!next || next === stored || !onSave) return;
+    setWriteError('');
+    try {
+      await onSave(next);
+    } catch (failure) {
+      setWriteError(
+        failure?.response?.data?.error
+        || failure?.message
+        || 'That name could not be saved.'
+      );
+    }
+  }, [claim, onSave, stored]);
+
+  const named = Boolean(asLine(draft) && claim && asLine(draft).toLowerCase() !== claim.toLowerCase());
+
+  return (
+    <>
+      <div className="judgment__claim" ref={titleRef}>
+        <h1 className="sr-only" id="judgment-claim">{asLine(draft) || claim}</h1>
+        <input
+          id="judgment-title"
+          className="judgment__title"
+          aria-label="Title"
+          autoComplete="off"
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            window.clearTimeout(timerRef.current);
+            if (asLine(event.target.value)) {
+              timerRef.current = window.setTimeout(() => save(event.target.value), AUTOSAVE_PAUSE_MS);
+            }
+          }}
+          onBlur={() => {
+            window.clearTimeout(timerRef.current);
+            save(draft);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            event.currentTarget.blur();
+          }}
+          placeholder={claim || 'Name this'}
+        />
+      </div>
+      {named ? <p className="judgment__claim-sentence">{claim}</p> : null}
+      {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
+    </>
+  );
+};
+
+const BeliefLink = ({ to, title, claim }) => (
+  <>
+    <Link to={to}>{title || claim}</Link>
+    {title && claim ? <p className="judgment-depends__claim">{claim}</p> : null}
+  </>
+);
+
 /* The four sections are the page, so all four are on it.
    An empty one is still not a box to fill in with something plausible — it is
    the question that section asks, and one line to answer it.
@@ -91,8 +165,6 @@ const SourceLine = ({ sources = [] }) => {
    sentence you had typed but not submitted was not saved anywhere — you could
    fill in all four fields, look away, and have written nothing. Typing updates
    the same line in place; Enter finishes it and starts another. */
-const AUTOSAVE_PAUSE_MS = 700;
-
 const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, children }) => {
   const [draft, setDraft] = useState('');
   const [state, setState] = useState('idle');   // idle | saving | saved | error
@@ -249,7 +321,7 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
     }
   }, [creating, draft, navigate]);
 
-  // The index is a list of sentences, not a thing to interrogate. The rail
+  // The index is a title column, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
   useContextualAgentSurface('agent-surface.judgment', {
     objectType: 'judgment_index',
@@ -290,7 +362,15 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
           <ul className={`judgment__index ${enter}`}>
             {items.map(item => (
               <li key={item.id} data-state={item.state}>
-                <Link to={`/judgment/${item.id}`}>{item.sentence}</Link>
+                <Link
+                  to={`/judgment/${item.id}`}
+                  onClick={(event) => handOffSentence(item.headline, event.currentTarget)}
+                >
+                  {item.headline}
+                </Link>
+                {/* The claim stays, quieter, once the case has a name of its
+                    own. A title that is still the claim is not repeated. */}
+                {item.title ? <p className="judgment__index-claim">{item.sentence}</p> : null}
                 {/* Only two states say anything. A claim nothing has arrived
                     for is not a problem, and a claim you have been reading
                     about does not need to be announced — so the index is
@@ -508,7 +588,7 @@ const ParkJudgment = ({ parked, supports = [], onPark, onResume }) => {
           {supports.map((item, index) => (
             <React.Fragment key={item.id}>
               {index > 0 ? '; ' : ''}
-              <Link to={`/judgment/${item.id}`}>{item.claim}</Link>
+              <Link to={`/judgment/${item.id}`}>{item.headline || item.claim}</Link>
             </React.Fragment>
           ))}
           . Parking this does not change them.
@@ -578,8 +658,8 @@ const Dependencies = ({ rests, supports, options, onAdd, onRemove }) => {
         <ul className="judgment-depends__list">
           {rests.map(line => (
             <li key={line.id}>
-              {line.claim
-                ? <Link to={`/judgment/${line.pageId}`}>{line.claim}</Link>
+              {line.headline
+                ? <BeliefLink to={`/judgment/${line.pageId}`} title={line.title} claim={line.claim} />
                 : <span className="judgment-depends__missing">A claim that is no longer here</span>}
               {line.note ? <p className="judgment-depends__note">{line.note}</p> : null}
               <button type="button" onClick={() => onRemove(line.id)}>Not any more</button>
@@ -596,7 +676,7 @@ const Dependencies = ({ rests, supports, options, onAdd, onRemove }) => {
           <select id="judgment-depends-target" value={target} onChange={(event) => setTarget(event.target.value)}>
             <option value="">Choose a claim</option>
             {options.map(option => (
-              <option key={option.id} value={option.id}>{option.sentence}</option>
+              <option key={option.id} value={option.id}>{option.headline || option.sentence}</option>
             ))}
           </select>
           <label htmlFor="judgment-depends-note">Why?</label>
@@ -628,7 +708,7 @@ const Dependencies = ({ rests, supports, options, onAdd, onRemove }) => {
           <ul>
             {supports.map(item => (
               <li key={item.id}>
-                <Link to={`/judgment/${item.id}`}>{item.claim}</Link>
+                <BeliefLink to={`/judgment/${item.id}`} title={item.title} claim={item.claim} />
                 {item.note ? <p className="judgment-depends__note">{item.note}</p> : null}
               </li>
             ))}
@@ -721,13 +801,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [pageId, printing, view]);
 
-  /* The claim arrived from somewhere — a wiki check-in, the index — as a
-     sentence the human was already reading. It flies from where it was to
-     where it belongs instead of appearing as a new headline. */
+  /* The title arrived from somewhere — the index, the shelf — as the name
+     already on the page. It flies from where it was to where it belongs
+     instead of appearing as a new headline. The claim stays the sentence. */
   useLayoutEffect(() => {
-    if (!view?.claim || flownFor.current === view.claim) return;
-    if (flySentenceInto(claimRef.current, view.claim)) flownFor.current = view.claim;
-  }, [view?.claim]);
+    if (!view?.headline || flownFor.current === view.headline) return;
+    if (flySentenceInto(claimRef.current, view.headline)) flownFor.current = view.headline;
+  }, [view?.headline]);
 
   /* The line settles into the field first: the human already decided, so the
      page should not make them watch a spinner to see their own decision. If the
@@ -813,6 +893,25 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     (text, field, lineId) => commit(upsertLineIntoJudgment(page, text, field, lineId)),
     [commit, page]
   );
+
+  /* The name is the wiki page's title, not a judgment field. Renaming it
+     does not rewrite the claim, so the case can join the wiki hierarchy
+     without changing what is believed. */
+  const rename = useCallback(async (nextTitle) => {
+    const title = asLine(nextTitle);
+    if (!title) return;
+    const previous = page?.title;
+    setPage(current => ({ ...current, title }));
+    try {
+      const saved = await updateWikiPage(pageId, { title });
+      if (saved && typeof saved === 'object') {
+        setPage(current => ({ ...current, ...saved, title: saved.title || title }));
+      }
+    } catch (saveError) {
+      setPage(current => ({ ...current, title: previous }));
+      throw saveError;
+    }
+  }, [page, pageId]);
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
@@ -903,7 +1002,12 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       </div>
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
-      <h1 className="judgment__claim" id="judgment-claim" ref={claimRef}>{view.claim}</h1>
+      <Title
+        title={view.pageTitle}
+        claim={view.claim}
+        onSave={rename}
+        titleRef={claimRef}
+      />
       {view.provenance ? (
         <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
       ) : null}

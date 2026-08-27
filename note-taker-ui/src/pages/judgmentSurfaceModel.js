@@ -1,14 +1,10 @@
+import { judgmentHeadline } from './judgmentModel';
+
 const clean = value => String(value || '').trim();
 const list = value => (Array.isArray(value) ? value : []);
 
 const pageIdentity = (page = {}, fallback = '') => clean(
   page?._id || page?.id || page?.pageId || fallback
-);
-
-const claimTitle = (page = {}) => clean(
-  page?.judgment?.currentJudgment
-  || page?.judgment?.governingQuestion
-  || page?.title
 );
 
 const decisionIdentity = decision => clean(decision?.decisionId);
@@ -47,7 +43,7 @@ export const buildJudgmentSurfaceDescriptor = ({ page = null, pageId = '' } = {}
     room: 'judgment',
     objectType: 'judgment_claim',
     objectId: safePageId,
-    title: claimTitle(page) || 'Judgment',
+    title: judgmentHeadline(page) || 'Judgment',
     pageId: safePageId,
     claimId: clean(judgment.claimId) || safePageId,
     projection: 'case',

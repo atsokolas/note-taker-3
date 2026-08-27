@@ -16,6 +16,8 @@ describe('dependencyLines', () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({
       pageId: 'p-compute',
+      title: '',
+      headline: 'Compute stays scarce.',
       claim: 'Compute stays scarce.',
       note: 'If compute stops being scarce this stops being cheap.'
     });
@@ -25,6 +27,17 @@ describe('dependencyLines', () => {
     const lines = dependencyLines(coreweave.judgment, new Map());
     expect(lines[0].pageId).toBe('p-compute');
     expect(lines[0].claim).toBe('');
+    expect(lines[0].headline).toBe('');
+  });
+
+  it('uses the wiki name when the rested-on page has one', () => {
+    const named = { ...compute, title: 'Compute' };
+    const lines = dependencyLines(coreweave.judgment, new Map([['p-compute', named]]));
+    expect(lines[0]).toMatchObject({
+      title: 'Compute',
+      headline: 'Compute',
+      claim: 'Compute stays scarce.'
+    });
   });
 });
 
@@ -32,7 +45,7 @@ describe('restingOn', () => {
   it('finds what would be shaken if this claim moved', () => {
     const resting = restingOn('p-compute', [compute, coreweave]);
     expect(resting).toHaveLength(1);
-    expect(resting[0]).toMatchObject({ id: 'p-cw', claim: 'CoreWeave is undervalued.' });
+    expect(resting[0]).toMatchObject({ id: 'p-cw', headline: 'CoreWeave is undervalued.', claim: 'CoreWeave is undervalued.' });
     expect(resting[0].note).toContain('stops being cheap');
   });
 

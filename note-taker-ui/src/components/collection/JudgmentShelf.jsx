@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { handOffSentence } from '../../motion/columnMotion';
 import {
   RoomShelf,
   RoomShelfList,
@@ -15,7 +16,11 @@ const JudgmentShelf = ({ items = [], activeId = '' }) => {
   const normalizedQuery = query.trim().toLowerCase();
   const visible = useMemo(() => (
     normalizedQuery
-      ? items.filter((item) => includes(item.sentence, normalizedQuery))
+      ? items.filter((item) => (
+        includes(item.headline, normalizedQuery)
+        || includes(item.sentence, normalizedQuery)
+        || includes(item.title, normalizedQuery)
+      ))
       : items
   ), [items, normalizedQuery]);
   const counts = useMemo(() => ({
@@ -39,18 +44,22 @@ const JudgmentShelf = ({ items = [], activeId = '' }) => {
       <RoomShelfSection label="Open cases">
         {visible.length ? (
           <RoomShelfList>
-            {visible.slice(0, 8).map((item) => (
-              <li key={item.id}>
-                <Link
-                  className={roomShelfItemClass({ active: String(item.id) === String(activeId) })}
-                  aria-current={String(item.id) === String(activeId) ? 'page' : undefined}
-                  to={`/judgment/${encodeURIComponent(item.id)}`}
-                >
-                  <span>{item.sentence}</span>
-                  {item.state === 'arrived' ? <RoomShelfMeta>New</RoomShelfMeta> : null}
-                </Link>
-              </li>
-            ))}
+            {visible.slice(0, 8).map((item) => {
+              const label = item.headline || item.sentence;
+              return (
+                <li key={item.id}>
+                  <Link
+                    className={roomShelfItemClass({ active: String(item.id) === String(activeId) })}
+                    aria-current={String(item.id) === String(activeId) ? 'page' : undefined}
+                    to={`/judgment/${encodeURIComponent(item.id)}`}
+                    onClick={(event) => handOffSentence(label, event.currentTarget)}
+                  >
+                    <span>{label}</span>
+                    {item.state === 'arrived' ? <RoomShelfMeta>New</RoomShelfMeta> : null}
+                  </Link>
+                </li>
+              );
+            })}
           </RoomShelfList>
         ) : <p className="judgment-shelf__empty">No matching cases.</p>}
       </RoomShelfSection>

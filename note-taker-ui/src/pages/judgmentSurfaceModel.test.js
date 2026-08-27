@@ -45,7 +45,7 @@ describe('buildJudgmentSurfaceDescriptor', () => {
       room: 'judgment',
       objectType: 'judgment_claim',
       objectId: 'page-1',
-      title: 'Demand still outruns deliverable capacity.',
+      title: 'NVIDIA',
       pageId: 'page-1',
       claimId: 'claim-1',
       projection: 'case',

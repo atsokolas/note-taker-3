@@ -6,6 +6,8 @@ import JudgmentShelf from './JudgmentShelf';
 const items = [
   {
     id: 'claim-1',
+    headline: 'Compute',
+    title: 'Compute',
     sentence: 'AI compute remains scarce.',
     state: 'arrived',
     decisionCount: 2,
@@ -14,6 +16,7 @@ const items = [
   },
   {
     id: 'claim-2',
+    headline: 'Member surplus supports renewal.',
     sentence: 'Member surplus supports renewal.',
     decisionCount: 1,
     outcomeCount: 0,
@@ -32,7 +35,7 @@ describe('JudgmentShelf', () => {
     renderShelf({ activeId: 'claim-1' });
 
     expect(screen.getByRole('navigation', { name: 'Judgments' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /AI compute remains scarce/i })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /Compute/i })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Claims').parentElement).toHaveTextContent('2');
     expect(screen.getByText('Decisions').parentElement).toHaveTextContent('3');
     expect(screen.getByText('Outcomes').parentElement).toHaveTextContent('1');
@@ -46,8 +49,18 @@ describe('JudgmentShelf', () => {
       target: { value: 'member' }
     });
 
-    expect(screen.queryByRole('link', { name: /AI compute remains scarce/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Compute/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Member surplus supports renewal/i })).toBeInTheDocument();
     expect(screen.getByText('Claims').parentElement).toHaveTextContent('2');
+  });
+
+  it('still finds a named case by the claim under the title', () => {
+    renderShelf();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search judgments' }), {
+      target: { value: 'scarce' }
+    });
+
+    expect(screen.getByRole('link', { name: /Compute/i })).toBeInTheDocument();
   });
 });

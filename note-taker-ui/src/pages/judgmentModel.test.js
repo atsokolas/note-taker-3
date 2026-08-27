@@ -3,6 +3,8 @@ import {
   buildJudgmentIndex,
   claimSentence,
   docText,
+  judgmentHeadline,
+  namedTitle,
   oneSentence,
   projectJudgment,
   provenanceLine,
@@ -55,7 +57,23 @@ describe('judgmentModel', () => {
 
     expect(claimSentence(page())).toBe('NVIDIA demand still outruns deliverable capacity.');
     expect(projected.claim).toBe('NVIDIA demand still outruns deliverable capacity.');
-    expect(buildJudgmentIndex([page()], NOW)[0].sentence).toBe(projected.claim);
+    expect(projected.title).toBe('NVIDIA');
+    expect(projected.headline).toBe('NVIDIA');
+    expect(namedTitle(page())).toBe('NVIDIA');
+    expect(judgmentHeadline(page())).toBe('NVIDIA');
+    expect(buildJudgmentIndex([page()], NOW)[0]).toMatchObject({
+      title: 'NVIDIA',
+      headline: 'NVIDIA',
+      sentence: projected.claim
+    });
+  });
+
+  it('does not invent a name when the wiki title is still the claim', () => {
+    const unnamed = { _id: 'p', title: 'A claim.', judgment: { currentJudgment: 'A claim.' } };
+    expect(namedTitle(unnamed)).toBe('');
+    expect(judgmentHeadline(unnamed)).toBe('A claim.');
+    expect(projectJudgment(unnamed).title).toBe('');
+    expect(projectJudgment(unnamed).headline).toBe('A claim.');
   });
 
   it('projects the four human fields and drops retired conditions', () => {

@@ -59,12 +59,31 @@ export const isJudgmentPage = (page) => {
   );
 };
 
+const sameLine = (left, right) => clean(left).toLowerCase() === clean(right).toLowerCase();
+
 /** The claim is the sentence. It is the same sentence everywhere it appears. */
 export const claimSentence = (page) => (
   clean(page?.judgment?.currentJudgment)
   || clean(page?.judgment?.governingQuestion)
   || clean(page?.title)
 );
+
+/* The wiki name, when it is actually a name.
+
+   Graph, links, same-title grouping, and every other room already key off
+   `page.title`. A judgment starts with the claim written into that field as
+   well, because a case has to exist as a wiki page from the first sentence.
+   That copy is not a name yet. Naming the page is what lets the case join
+   the wiki hierarchy without rewriting what you think. */
+export const namedTitle = (page = {}) => {
+  const title = clean(page?.title);
+  const claim = claimSentence(page);
+  if (!title || (claim && sameLine(title, claim))) return '';
+  return title;
+};
+
+/** What pops up: the name if there is one, otherwise the claim. */
+export const judgmentHeadline = (page = {}) => namedTitle(page) || claimSentence(page);
 
 const sourceRefHref = (ref) => {
   const url = clean(ref?.url);
@@ -275,6 +294,8 @@ export const projectJudgment = (page, now = Date.now()) => {
   return {
     id: idOf(page),
     claim: claimSentence(page),
+    title: namedTitle(page),
+    headline: judgmentHeadline(page),
     pageTitle: clean(page?.title),
     provenance: provenanceLine(page, now),
     why,
@@ -411,17 +432,20 @@ export const foldJudgmentPages = (pages = []) => {
   return [...byKey.values(), ...loose].sort((left, right) => left.index - right.index);
 };
 
-/** The index is a list of claim sentences. Nothing else earns a column. */
+/** The index is a title column. The claim sits under it when they differ. */
 export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) => foldJudgmentPages(
   list(pages).filter(isJudgmentPage)
 )
   .map(({ page, others }) => {
     const activity = judgmentActivity(page, events, now);
     const decisions = list(page?.judgment?.decisions);
+    const sentence = claimSentence(page);
     return {
       id: idOf(page),
       duplicates: others,
-      sentence: claimSentence(page),
+      title: namedTitle(page),
+      headline: judgmentHeadline(page),
+      sentence,
       provenance: provenanceLine(page, now),
       state: activity.state,
       note: activityNote(activity),
@@ -515,6 +539,8 @@ export const dependencyLines = (judgment = {}, pagesById = new Map()) => list(ju
     return {
       id: clean(item?.dependencyId) || `dependency:${index}`,
       pageId,
+      title: page ? namedTitle(page) : '',
+      headline: page ? judgmentHeadline(page) : '',
       claim: page ? claimSentence(page) : '',
       note: clean(item?.note),
       proposedBy: clean(item?.proposedBy) || 'user'
@@ -530,6 +556,8 @@ export const restingOn = (pageId, pages = []) => {
     .filter(page => list(page?.judgment?.dependsOn).some(item => String(idOf(item?.pageId)) === target))
     .map(page => ({
       id: idOf(page),
+      title: namedTitle(page),
+      headline: judgmentHeadline(page),
       claim: claimSentence(page),
       note: clean(
         list(page?.judgment?.dependsOn).find(item => String(idOf(item?.pageId)) === target)?.note

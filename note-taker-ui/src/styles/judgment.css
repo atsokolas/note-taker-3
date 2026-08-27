@@ -188,6 +188,62 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   text-wrap: balance;
 }
 
+/* The title is the heading. body.noeis-editorial paints inputs with
+   !important, so the name has to outrank that rather than match it. */
+body.noeis-editorial .judgment .judgment__title,
+.judgment .judgment__title {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 4px !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-wrap: balance;
+}
+
+body.noeis-editorial .judgment .judgment__title:focus,
+.judgment .judgment__title:focus {
+  outline: none;
+  border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
+}
+
+body.noeis-editorial .judgment .judgment__title::placeholder,
+.judgment .judgment__title::placeholder {
+  color: var(--text-muted, var(--vellum-subtle)) !important;
+  opacity: 1;
+}
+
+.judgment__claim-sentence,
+.judgment__index-claim,
+.judgment-depends__claim {
+  margin: 10px 0 0;
+  max-width: 46ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.08rem;
+  font-weight: 400;
+  line-height: 1.42;
+  text-wrap: pretty;
+}
+
+.judgment__index-claim {
+  margin-top: 6px;
+  font-size: 1.02rem;
+}
+
+.judgment-depends__claim {
+  margin: 4px 0 0;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
 .judgment__provenance {
   margin: 18px 0 0;
   color: var(--text-secondary, var(--vellum-muted));

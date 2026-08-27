@@ -111,7 +111,7 @@ describe('Judgment index', () => {
     }));
   });
 
-  it('is a list of claim sentences and nothing else', async () => {
+  it('is a title column, with the claim under it when they differ', async () => {
     listWikiPages.mockResolvedValue([
       judgmentPage(),
       { _id: 'plain', title: 'A plain wiki page' }
@@ -119,9 +119,10 @@ describe('Judgment index', () => {
 
     renderIndex();
 
-    const claim = await within(document.querySelector('.judgment-room__content'))
-      .findByRole('link', { name: 'NVIDIA demand still outruns deliverable capacity.' });
-    expect(claim).toHaveAttribute('href', '/judgment/wiki-nvidia');
+    const content = within(document.querySelector('.judgment-room__content'));
+    const title = await content.findByRole('link', { name: 'NVIDIA' });
+    expect(title).toHaveAttribute('href', '/judgment/wiki-nvidia');
+    expect(content.getByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(screen.queryByText('A plain wiki page')).not.toBeInTheDocument();
   });
 
@@ -133,7 +134,7 @@ describe('Judgment index', () => {
     renderIndex();
 
     expect(await within(document.querySelector('.judgment-room__content')).findByRole('link', {
-      name: 'NVIDIA demand still outruns deliverable capacity.'
+      name: 'NVIDIA'
     })).toHaveAttribute('href', '/judgment/wiki-nvidia');
     expect(listWikiPages).toHaveBeenNthCalledWith(1, { projection: 'judgment', limit: 500 });
     expect(listWikiPages).toHaveBeenNthCalledWith(2, { limit: 200 });
@@ -169,6 +170,7 @@ describe('Judgment claim', () => {
       objectId: 'wiki-nvidia',
       pageId: 'wiki-nvidia',
       claimId: 'wiki-nvidia',
+      title: 'NVIDIA',
       decisionIds: ['d-1'],
       latestDecisionId: 'd-1',
       projection: 'case'
@@ -180,7 +182,9 @@ describe('Judgment claim', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'NVIDIA demand still outruns deliverable capacity.' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(document.querySelector('.judgment__claim-sentence'))
+      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
     expect(screen.getByRole('link', { name: '← All judgments' })).toHaveAttribute('href', '/judgment');
     expect(screen.getByRole('heading', { level: 2, name: 'Why' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Against' })).toBeInTheDocument();
@@ -188,6 +192,34 @@ describe('Judgment claim', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'What I did' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'SemiAnalysis' })).toHaveAttribute('href', 'https://semianalysis.com/capacity');
     expect(screen.getByText(/this line doesn’t get edited, only added to/)).toBeInTheDocument();
+  });
+
+  it('renames the case without rewriting the claim', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), ...body }));
+
+    renderDetail();
+
+    const title = await screen.findByLabelText('Title');
+    fireEvent.change(title, { target: { value: 'NVDA' } });
+    fireEvent.blur(title);
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-nvidia', { title: 'NVDA' }));
+    expect(updateWikiPage.mock.calls[0][1].judgment).toBeUndefined();
+    expect(screen.getByLabelText('Title')).toHaveValue('NVDA');
+    expect(document.querySelector('.judgment__claim-sentence'))
+      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('lets an unnamed case keep the claim as the title that pops up', async () => {
+    const unnamed = judgmentPage();
+    unnamed.title = unnamed.judgment.currentJudgment;
+    getWikiPage.mockResolvedValue(unnamed);
+
+    renderDetail();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(document.querySelector('.judgment__claim-sentence')).toBeNull();
   });
 
   /* This used to assert the opposite: an empty field was absent entirely.
@@ -464,7 +496,7 @@ describe('Evidence from the library', () => {
 
   it('is a door, not a panel — nothing is fetched until it is opened', async () => {
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
     expect(getJudgmentLibraryEvidence).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Look in your library →' })).toBeInTheDocument();
   });
@@ -474,7 +506,7 @@ describe('Evidence from the library', () => {
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
 
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
     fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
 
     expect(await screen.findByText(candidate.text)).toBeInTheDocument();
@@ -498,7 +530,7 @@ describe('Evidence from the library', () => {
   it('says plainly when the library has nothing to say about a claim you hold', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [] });
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
     fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
     expect(await screen.findByText(/Nothing you have saved speaks to this yet/)).toBeInTheDocument();
   });
@@ -512,7 +544,7 @@ describe('Parking a judgment, and the lesson it leaves', () => {
 
   it('asks one question on the way out, and files the answer as a lesson', async () => {
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
 
     fireEvent.click(screen.getByRole('button', { name: 'Park this' }));
     fireEvent.change(screen.getByLabelText('What did holding this teach you?'), {
@@ -533,7 +565,7 @@ describe('Parking a judgment, and the lesson it leaves', () => {
 
   it('lets you park without a lesson, because sometimes there is not one', async () => {
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
     fireEvent.click(screen.getByRole('button', { name: 'Park this' }));
     fireEvent.click(screen.getByRole('button', { name: 'Park it' }));
 
@@ -550,7 +582,7 @@ describe('Parking a judgment, and the lesson it leaves', () => {
     getWikiPage.mockResolvedValue(parked);
 
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
 
     expect(screen.getByText(/It is still yours; you are just not tending it/)).toBeInTheDocument();
     // The lesson reads on the page it came from.
@@ -590,13 +622,15 @@ describe('The index only raises its voice about what was avoided', () => {
     renderIndex();
 
     const content = within(document.querySelector('.judgment-room__content'));
-    await content.findByRole('link', { name: /NVIDIA demand still outruns/ });
+    await content.findByRole('link', { name: 'NVIDIA' });
     expect(screen.getByText('1 thing arrived about this and is unread')).toBeInTheDocument();
 
     // The quiet claim gets no mark at all. Nothing arrived; that is not a problem.
     const rows = content.getAllByRole('listitem');
     const quietRow = rows.find(row => row.textContent.includes('Rates still matter'));
-    expect(quietRow.textContent).toBe('Rates still matter for asset prices.');
+    expect(quietRow).toHaveTextContent('Rates');
+    expect(quietRow).toHaveTextContent('Rates still matter for asset prices.');
+    expect(quietRow.querySelector('.judgment__index-note')).toBeNull();
   });
 
   it('reads the events alongside the pages rather than after them', async () => {
@@ -612,7 +646,7 @@ describe('The index only raises its voice about what was avoided', () => {
     listWikiSourceEvents.mockRejectedValue(new Error('nope'));
     renderIndex();
     expect(await within(document.querySelector('.judgment-room__content'))
-      .findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+      .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
   });
 });
 
@@ -631,7 +665,7 @@ describe('What a belief rests on', () => {
   it('records the edge and the reason, never inferring either', async () => {
     listWikiPages.mockResolvedValue([judgmentPage(), otherClaim]);
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
 
     expect(await screen.findByText('Nothing yet. A belief that stands on its own is fine.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Say what this rests on' }));
@@ -655,7 +689,7 @@ describe('What a belief rests on', () => {
   it('never offers the claim itself as something it rests on', async () => {
     listWikiPages.mockResolvedValue([judgmentPage(), otherClaim]);
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
     fireEvent.click(await screen.findByRole('button', { name: 'Say what this rests on' }));
 
     const select = screen.getByLabelText('Which belief does this rest on?');
@@ -675,11 +709,11 @@ describe('What a belief rests on', () => {
     };
     listWikiPages.mockResolvedValue([judgmentPage(), dependent]);
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
 
     expect(await screen.findByRole('heading', { name: 'What rests on this' })).toBeInTheDocument();
     expect(within(document.querySelector('.judgment-room__content'))
-      .getByRole('link', { name: 'CoreWeave is undervalued.' }))
+      .getByRole('link', { name: 'CoreWeave' }))
       .toHaveAttribute('href', '/judgment/wiki-cw');
     expect(screen.getByText('It prices the scarcity.')).toBeInTheDocument();
   });
@@ -695,7 +729,7 @@ describe('What a belief rests on', () => {
     };
     listWikiPages.mockResolvedValue([judgmentPage(), dependent]);
     renderDetail();
-    await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ });
+    await screen.findByLabelText('Title');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Park this' }));
     expect(screen.getByText(/One belief rests on this/)).toBeInTheDocument();
@@ -710,7 +744,7 @@ describe('What a belief rests on', () => {
   it('still reads the claim when the rest of the corpus cannot be loaded', async () => {
     listWikiPages.mockRejectedValue(new Error('nope'));
     renderDetail();
-    expect(await screen.findByRole('heading', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Title')).toBeInTheDocument();
   });
 });
 
@@ -741,7 +775,7 @@ describe('The drift, above the claims', () => {
     listWikiPages.mockResolvedValue([judgmentPage()]);
     renderIndex();
     expect(await within(document.querySelector('.judgment-room__content'))
-      .findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+      .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
   });
 });
 
@@ -761,7 +795,7 @@ describe('The index while it is still loading', () => {
 
     await act(async () => { release([judgmentPage()]); });
     expect(await within(document.querySelector('.judgment-room__content'))
-      .findByRole('link', { name: /NVIDIA demand still outruns/ })).toBeInTheDocument();
+      .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
     expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
   });
 
