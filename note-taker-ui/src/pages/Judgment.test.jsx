@@ -183,8 +183,8 @@ describe('Judgment claim', () => {
     renderDetail();
 
     expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
-    expect(document.querySelector('.judgment__claim-sentence'))
-      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
     expect(screen.getByRole('link', { name: '← All judgments' })).toHaveAttribute('href', '/judgment');
     expect(screen.getByText('I’d change my mind if')).toBeInTheDocument();
     expect(screen.getByText('Confirmed signed capacity converts within 90 days.')).toBeInTheDocument();
@@ -230,8 +230,8 @@ describe('Judgment claim', () => {
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-nvidia', { title: 'NVDA' }));
     expect(updateWikiPage.mock.calls[0][1].judgment).toBeUndefined();
     expect(screen.getByLabelText('Title')).toHaveValue('NVDA');
-    expect(document.querySelector('.judgment__claim-sentence'))
-      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
   });
 
   it('does not overwrite a title still being typed', async () => {
@@ -251,15 +251,101 @@ describe('Judgment claim', () => {
     expect(title).toHaveValue('NVDA Corp');
   });
 
-  it('lets an unnamed case keep the claim as the title that pops up', async () => {
+  it('keeps an unnamed case’s title empty and the opinion underneath', async () => {
     const unnamed = judgmentPage();
     unnamed.title = unnamed.judgment.currentJudgment;
     getWikiPage.mockResolvedValue(unnamed);
 
     renderDetail();
 
-    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
-    expect(document.querySelector('.judgment__claim-sentence')).toBeNull();
+    const title = await screen.findByLabelText('Title');
+    expect(title).toHaveValue('');
+    expect(title).toHaveAttribute('placeholder', 'Name this');
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('names an unnamed case without swallowing the opinion', async () => {
+    const unnamed = judgmentPage();
+    unnamed.title = unnamed.judgment.currentJudgment;
+    getWikiPage.mockResolvedValue(unnamed);
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...unnamed, ...body }));
+
+    renderDetail();
+
+    const title = await screen.findByLabelText('Title');
+    fireEvent.change(title, { target: { value: 'AI' } });
+    fireEvent.blur(title);
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledWith('wiki-nvidia', { title: 'AI' }));
+    expect(updateWikiPage.mock.calls[0][1].judgment).toBeUndefined();
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('rewrites the opinion without renaming the case', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    updateWikiPage.mockImplementation(async (_id, body) => ({
+      ...judgmentPage(),
+      judgment: body.judgment || judgmentPage().judgment
+    }));
+
+    renderDetail();
+
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
+    fireEvent.blur(opinion);
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[0];
+    expect(body.title).toBeUndefined();
+    expect(body.judgment.currentJudgment).toBe('I am bullish NVIDIA compute.');
+    expect(body.judgment.why).toEqual(judgmentPage().judgment.why);
+    expect(screen.getByLabelText('Title')).toHaveValue('NVIDIA');
+  });
+
+  it('does not overwrite an opinion still being typed', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    let finishSave;
+    updateWikiPage.mockImplementation(() => new Promise((resolve) => {
+      finishSave = () => resolve({
+        ...judgmentPage(),
+        judgment: { ...judgmentPage().judgment, currentJudgment: 'I am bullish NVIDIA.' }
+      });
+    }));
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.focus(opinion);
+    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA.' } });
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
+    await act(async () => { finishSave(); });
+    expect(opinion).toHaveValue('I am bullish NVIDIA compute.');
+  });
+
+  it('restores the name if the title is cleared', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetail();
+    const title = await screen.findByLabelText('Title');
+    fireEvent.change(title, { target: { value: '   ' } });
+    fireEvent.blur(title);
+
+    expect(title).toHaveValue('NVIDIA');
+    expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('keeps the claim if the opinion is cleared', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: '' } });
+    fireEvent.blur(opinion);
+
+    expect(opinion).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
   /* This used to assert the opposite: an empty field was absent entirely.

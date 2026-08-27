@@ -44,7 +44,8 @@ describe('updates on an opened judgment', () => {
 
   it('holds the prior still, and the log underneath', async () => {
     renderCase();
-    expect(await screen.findByLabelText('Title')).toHaveValue('A written process improves judgment.');
+    expect(await screen.findByLabelText('Title')).toHaveValue('');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('A written process improves judgment.');
     expect(screen.getByText('Process still loses half the bets.')).toBeInTheDocument();
     expect(screen.getByLabelText('Source 1: Everyone Has a Process')).toHaveTextContent('[1]');
     expect(screen.queryByText('Everyone Has a Process')).not.toBeInTheDocument();
