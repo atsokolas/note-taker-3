@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import ReadingDrift from './ReadingDrift';
 
 const NOW = new Date('2026-08-18T12:00:00.000Z').getTime();
@@ -61,6 +61,25 @@ describe('ReadingDrift', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Power, Aug 4–Aug 18: 5 of 5 filed sources/ }));
     expect(screen.getByText('Power work 3-0')).toBeInTheDocument();
+  });
+
+  it('keeps the annotation mounted through its exit transition', () => {
+    jest.useFakeTimers();
+    const { container } = render(<ReadingDrift now={NOW} articles={[
+      ...many('Capacity', 70, 4), ...many('Power', 3, 5)
+    ]} />);
+
+    const point = screen.getByRole('button', { name: /Power, Aug 4–Aug 18: 5 of 5 filed sources/ });
+    fireEvent.mouseEnter(point);
+    fireEvent.mouseLeave(container.querySelector('.drift__row.is-reading'));
+
+    expect(screen.getByText('Power work 3-0')).toBeInTheDocument();
+    expect(container.querySelector('.drift__row.is-reading')).not.toBeInTheDocument();
+    expect(container.querySelector('.drift__row.has-annotation')).toBeInTheDocument();
+
+    act(() => jest.advanceTimersByTime(260));
+    expect(screen.queryByText('Power work 3-0')).not.toBeInTheDocument();
+    jest.useRealTimers();
   });
 
   /* An outage read as "you have not filed anything", which is the software

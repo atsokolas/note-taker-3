@@ -51,7 +51,7 @@
   position: relative;
 }
 
-.drift__row.is-reading { z-index: 10; }
+.drift__row.has-annotation { z-index: 10; }
 
 .drift__topic {
   grid-area: topic;
@@ -140,10 +140,11 @@
   opacity: 0.18;
   transform: translate(-50%, -50%);
   transition:
-    width 150ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 150ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 150ms ease,
-    background-color 150ms ease;
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    background-color 180ms ease,
+    box-shadow 220ms ease;
 }
 
 .drift__point.is-peak span,
@@ -186,11 +187,13 @@
   box-shadow: 0 16px 34px color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 14%, transparent);
   opacity: 0;
   pointer-events: none;
-  transform: translate(var(--drift-note-x), calc(-100% - 7px));
+  transform: translate(var(--drift-note-x), calc(-100% - 8px)) scale(0.985);
   transform-origin: 50% 100%;
+  will-change: opacity, transform;
   transition:
-    opacity 140ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 190ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms ease;
 }
 
 .drift__annotation.is-start {
@@ -205,7 +208,7 @@
 
 .drift__row.is-reading .drift__annotation {
   opacity: 1;
-  transform: translate(var(--drift-note-x), calc(-100% - 14px));
+  transform: translate(var(--drift-note-x), calc(-100% - 14px)) scale(1);
 }
 
 .drift__annotation-head {
