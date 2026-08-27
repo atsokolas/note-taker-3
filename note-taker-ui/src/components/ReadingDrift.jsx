@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { buildDrift, driftSentence, driftShortfall, withDirections } from '../pages/readingDriftModel';
 import '../styles/reading-drift.css';
 
@@ -39,7 +39,26 @@ const DIRECTION_WORD = {
   steady: 'steady'
 };
 
+const monthDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+
+const periodLabel = ({ startsAt, endsAt } = {}) => {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'This fortnight';
+  return `${monthDay.format(start)}–${monthDay.format(end)}`;
+};
+
+const positionOf = (shares = [], index = 0) => {
+  const peak = Math.max(...shares, 0.0001);
+  const x = shares.length > 1 ? index * (WIDTH / (shares.length - 1)) : 0;
+  const y = HEIGHT - ((shares[index] || 0) / peak) * HEIGHT;
+  return { left: `${x}%`, top: `${y}px` };
+};
+
+const workByline = (work = {}) => work.author || work.publication || '';
+
 const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now }) => {
+  const [activePoint, setActivePoint] = useState(null);
   const drift = useMemo(
     () => withDirections(buildDrift(articles, now)),
     [articles, now]
@@ -68,21 +87,82 @@ const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now 
 
       {drift.enough && !unreadable && !loading ? (
         <ol className="drift__rows">
-          {drift.series.map(item => (
-            <li key={item.topic} className="drift__row" data-direction={item.direction}>
-              <span className="drift__topic">{item.topic}</span>
-              <svg
-                className="drift__line"
-                viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-                preserveAspectRatio="none"
-                role="img"
-                aria-label={`${item.topic}: ${DIRECTION_WORD[item.direction]}, ${item.total} source${item.total === 1 ? '' : 's'} over three months`}
+          {drift.series.map(item => {
+            const active = activePoint?.topic === item.topic
+              ? item.periods[activePoint.index]
+              : null;
+            const peak = item.shares.indexOf(Math.max(...item.shares));
+            const annotationId = active ? `drift-note-${item.topic.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${activePoint.index}` : undefined;
+            return (
+              <li
+                key={item.topic}
+                className={`drift__row${active ? ' is-reading' : ''}`}
+                data-direction={item.direction}
+                onMouseLeave={() => setActivePoint(current => current?.topic === item.topic ? null : current)}
               >
-                <path d={path(item.shares)} vectorEffect="non-scaling-stroke" />
-              </svg>
-              <span className="drift__direction">{DIRECTION_WORD[item.direction]}</span>
-            </li>
-          ))}
+                <span className="drift__topic">{item.topic}</span>
+                <div className="drift__plot">
+                  <svg
+                    className="drift__line"
+                    viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+                    preserveAspectRatio="none"
+                    role="img"
+                    aria-label={`${item.topic}: ${DIRECTION_WORD[item.direction]}, ${item.total} source${item.total === 1 ? '' : 's'} over three months`}
+                  >
+                    <path d={path(item.shares)} vectorEffect="non-scaling-stroke" />
+                  </svg>
+                  {item.periods.map((period, index) => period.count ? (
+                    <button
+                      key={period.startsAt}
+                      type="button"
+                      className={`drift__point${index === peak ? ' is-peak' : ''}${activePoint?.topic === item.topic && activePoint.index === index ? ' is-active' : ''}`}
+                      style={positionOf(item.shares, index)}
+                      aria-label={`${item.topic}, ${periodLabel(period)}: ${period.count} of ${period.total} filed sources`}
+                      aria-describedby={activePoint?.topic === item.topic && activePoint.index === index ? annotationId : undefined}
+                      onMouseEnter={() => setActivePoint({ topic: item.topic, index })}
+                      onFocus={() => setActivePoint({ topic: item.topic, index })}
+                      onBlur={() => setActivePoint(null)}
+                      onClick={() => setActivePoint({ topic: item.topic, index })}
+                    >
+                      <span aria-hidden="true" />
+                    </button>
+                  ) : null)}
+                </div>
+                <span className="drift__direction">{DIRECTION_WORD[item.direction]}</span>
+                <aside
+                  id={annotationId}
+                  className="drift__annotation"
+                  aria-hidden={!active}
+                >
+                  {active ? (
+                    <>
+                      <div className="drift__annotation-head">
+                        <div>
+                          <span className="drift__annotation-period">{periodLabel(active)}</span>
+                          <strong>{item.topic}</strong>
+                        </div>
+                        <span className="drift__annotation-share">
+                          {active.count} of {active.total}
+                          <small>filed sources</small>
+                        </span>
+                      </div>
+                      <ol className="drift__works">
+                        {active.works.slice(0, 4).map((work, index) => (
+                          <li key={work.id || `${work.title}-${index}`}>
+                            <span>{work.title}</span>
+                            {workByline(work) ? <small>{workByline(work)}</small> : null}
+                          </li>
+                        ))}
+                      </ol>
+                      {active.works.length > 4 ? (
+                        <p className="drift__more">+ {active.works.length - 4} more in this fortnight</p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </aside>
+              </li>
+            );
+          })}
         </ol>
       ) : null}
 

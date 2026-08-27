@@ -13,6 +13,7 @@ const daysAgo = days => new Date(NOW - days * DAY).toISOString();
 
 const source = (topic, days, extra = {}) => ({
   _id: `${topic}-${days}-${Math.random()}`,
+  title: `${topic || 'Unfiled'} work from ${days} days ago`,
   createdAt: daysAgo(days),
   folder: topic ? { _id: topic, name: topic } : null,
   ...extra
@@ -44,6 +45,23 @@ describe('buildDrift', () => {
     expect(capacity.counts).toHaveLength(6);
     expect(capacity.counts[capacity.counts.length - 1]).toBe(1); // most recent fortnight
     expect(capacity.counts[0]).toBe(1); // ~70 days ago
+  });
+
+  it('keeps the exact works and date window behind every point', () => {
+    const drift = buildDrift([
+      source('Power', 2, { _id: 'grid-1', title: 'The New Power Grid', siteName: 'IEEE' }),
+      source('Power', 4, { _id: 'grid-2', title: 'Datacenters Meet the Grid', author: 'Jane Doe' })
+    ], NOW);
+    const current = drift.series.find(item => item.topic === 'Power').periods.at(-1);
+
+    expect(current.count).toBe(2);
+    expect(current.total).toBe(2);
+    expect(current.startsAt).toBe('2026-08-04T12:00:00.000Z');
+    expect(current.endsAt).toBe('2026-08-18T12:00:00.000Z');
+    expect(current.works).toEqual([
+      expect.objectContaining({ id: 'grid-1', title: 'The New Power Grid', publication: 'IEEE' }),
+      expect.objectContaining({ id: 'grid-2', title: 'Datacenters Meet the Grid', author: 'Jane Doe' })
+    ]);
   });
 
   it('ignores reading older than the window', () => {
