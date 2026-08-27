@@ -8,7 +8,25 @@ describe('writing a line by hand', () => {
     const next = writeLineIntoJudgment(page, 'The incentive points the same way.', 'why');
     expect(next.why.map(line => line.text)).toEqual(['It held last quarter.', 'The incentive points the same way.']);
     expect(next.why[0].sourceLabel).toBe('Ledger');
-    expect(next.why[1].at).toEqual(expect.any(String));
+    expect(next.why[1].createdAt).toEqual(expect.any(String));
+  });
+
+  it('keeps the date an earlier reason was written', () => {
+    const page = {
+      judgment: {
+        why: [{
+          reasonId: 'r1',
+          text: 'It held last quarter.',
+          sourceRefIds: [],
+          sourceLabel: 'Ledger',
+          createdAt: '2026-02-14T12:00:00.000Z'
+        }]
+      }
+    };
+    const next = writeLineIntoJudgment(page, 'The incentive points the same way.', 'why');
+    expect(next.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
+    expect(next.why[1].createdAt).toEqual(expect.any(String));
+    expect(next.why[1].createdAt).not.toBe('2026-02-14T12:00:00.000Z');
   });
 
   it('writes a falsifier under "I’d change my mind if"', () => {

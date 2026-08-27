@@ -234,6 +234,23 @@ describe('Judgment claim', () => {
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
   });
 
+  it('does not overwrite a title still being typed', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    let finishSave;
+    updateWikiPage.mockImplementation(() => new Promise((resolve) => {
+      finishSave = () => resolve({ ...judgmentPage(), title: 'NVDA' });
+    }));
+
+    renderDetail();
+    const title = await screen.findByLabelText('Title');
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: 'NVDA' } });
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    fireEvent.change(title, { target: { value: 'NVDA Corp' } });
+    await act(async () => { finishSave(); });
+    expect(title).toHaveValue('NVDA Corp');
+  });
+
   it('lets an unnamed case keep the claim as the title that pops up', async () => {
     const unnamed = judgmentPage();
     unnamed.title = unnamed.judgment.currentJudgment;

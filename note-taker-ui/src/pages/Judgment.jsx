@@ -99,8 +99,12 @@ const Title = ({ title = '', claim = '', onSave, titleRef }) => {
   const [draft, setDraft] = useState(stored);
   const [writeError, setWriteError] = useState('');
   const timerRef = useRef(0);
+  const editingRef = useRef(false);
 
-  useEffect(() => { setDraft(stored); }, [stored]);
+  useEffect(() => {
+    if (editingRef.current) return;
+    setDraft(stored);
+  }, [stored]);
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
   const save = useCallback(async (value) => {
@@ -130,6 +134,7 @@ const Title = ({ title = '', claim = '', onSave, titleRef }) => {
           aria-label="Title"
           autoComplete="off"
           value={draft}
+          onFocus={() => { editingRef.current = true; }}
           onChange={(event) => {
             setDraft(event.target.value);
             window.clearTimeout(timerRef.current);
@@ -138,6 +143,7 @@ const Title = ({ title = '', claim = '', onSave, titleRef }) => {
             }
           }}
           onBlur={() => {
+            editingRef.current = false;
             window.clearTimeout(timerRef.current);
             save(draft);
           }}

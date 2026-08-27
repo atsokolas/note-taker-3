@@ -570,13 +570,14 @@ const persistReason = (line = {}) => {
   };
   const origin = clean(line.acceptedFrom);
   if (origin) next.acceptedFrom = origin;
-  if (line.at) next.at = line.at;
+  const when = line.createdAt || line.at;
+  if (when) next.createdAt = when;
   return next;
 };
 
 const stampedReason = (fields = {}) => ({
   ...fields,
-  at: fields.at || new Date().toISOString()
+  createdAt: fields.createdAt || fields.at || new Date().toISOString()
 });
 
 /* Accepting a proposal appends one line to Why or Against. It appends: the

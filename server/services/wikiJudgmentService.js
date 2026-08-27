@@ -72,7 +72,7 @@ const normalizeReasons = (field, items = []) => {
       sourceRefIds: normalizeRefs(item.sourceRefIds),
       sourceLabel: clean(item.sourceLabel, 200),
       acceptedFrom: clean(item.acceptedFrom, 200),
-      createdAt: dateValue(`${field}.createdAt`, item.createdAt, new Date())
+      createdAt: dateValue(`${field}.createdAt`, item.createdAt || item.at, new Date())
     };
   });
 };

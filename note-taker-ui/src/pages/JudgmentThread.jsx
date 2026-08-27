@@ -179,14 +179,15 @@ const UpdateComposer = ({ onWrite, onPending, onSettle }) => {
 
   const finish = async () => {
     window.clearTimeout(timerRef.current);
-    if (!draft.trim()) return;
+    if (!draft.trim()) return true;
     const written = await save(draft);
-    if (!written) return;
+    if (!written) return false;
     onSettle?.(written);
     onPending?.('');
     lineIdRef.current = '';
     setDraft('');
     setState('idle');
+    return true;
   };
 
   return (
@@ -196,7 +197,7 @@ const UpdateComposer = ({ onWrite, onPending, onSettle }) => {
         onKind={async (next) => {
           if (next === kind) return;
           window.clearTimeout(timerRef.current);
-          if (draft.trim()) await finish();
+          if (draft.trim() && !(await finish())) return;
           lineIdRef.current = '';
           setKind(next);
         }}
