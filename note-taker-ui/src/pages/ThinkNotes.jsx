@@ -167,6 +167,8 @@ const ThinkNotes = () => {
       <RoomShelf
         className={`think-notes__shelf ${step(1)}`}
         aria-label="Think navigation"
+        data-writing-rail="left"
+        data-writing-rail-label="Notes"
         label="Think"
         count={notes.length}
         search={shelfQuery}
@@ -253,7 +255,12 @@ const ThinkNotes = () => {
         )}
       </main>
 
-      <aside className={`think-notes__partner ${step(3)}`} aria-label="Thought partner">
+      <aside
+        className={`think-notes__partner ${step(3)}`}
+        aria-label="Thought partner"
+        data-writing-rail="right"
+        data-writing-rail-label="Partner"
+      >
         <ThoughtPartnerPanel
           variant="stream"
           contextType="notebook"

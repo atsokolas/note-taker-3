@@ -321,13 +321,21 @@ const NotebookEditorialView = ({
   return (
     <div className="notebook-editorial-shell-page" data-think-posture="notebook">
       <div className="notebook-editorial-shell">
-        <aside className="notebook-editorial-shell__left">
+        <aside
+          className="notebook-editorial-shell__left"
+          data-writing-rail="left"
+          data-writing-rail-label="Notes"
+        >
           {!activeNotebookEntry && shelfRail ? shelfRail : leftPanel}
         </aside>
         <main className="notebook-editorial-shell__main">
           {mainPanel}
         </main>
-        <aside className="notebook-editorial-shell__right">
+        <aside
+          className="notebook-editorial-shell__right"
+          data-writing-rail="right"
+          data-writing-rail-label="Partner"
+        >
           {rightPanel}
         </aside>
       </div>
