@@ -132,8 +132,10 @@ const ThinkNotes = () => {
         String(item?._id) === String(payload.id) ? { ...item, ...res.data } : item
       )));
       clearNotebookCache();
+      return res.data;
     } catch (saveError) {
       setError(saveError?.response?.data?.error || 'Failed to save note.');
+      throw saveError;
     } finally {
       setSaving(false);
     }
@@ -222,6 +224,7 @@ const ThinkNotes = () => {
               saving={saving}
               error={error}
               onSave={saveEntry}
+              onInvokeAgentSkill={setQueuedPrompt}
               showInlineAgentDock={false}
               agentContextType="notebook"
               agentContextId={openId}

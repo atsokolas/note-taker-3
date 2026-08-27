@@ -5,7 +5,8 @@ import { getSlashCommandItems } from './slashCommands';
 const RichTextToolbar = ({
   editor,
   variant = 'full',
-  className = ''
+  className = '',
+  onAskSelection = null
 }) => {
   if (!editor) return null;
 
@@ -25,6 +26,17 @@ const RichTextToolbar = ({
           {item.label}
         </QuietButton>
       ))}
+      {onAskSelection ? (
+        <QuietButton
+          type="button"
+          aria-label="Ask thought partner about selection"
+          className="think-rich-text-toolbar__partner"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={onAskSelection}
+        >
+          Ask partner
+        </QuietButton>
+      ) : null}
     </div>
   );
 };

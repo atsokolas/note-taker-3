@@ -1,6 +1,7 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookEditor from './NotebookEditor';
+import { listWikiPages } from '../../../api/wiki';
 
 const mockUseEditor = jest.fn();
 const mockChain = {
@@ -12,6 +13,8 @@ const mockChain = {
   toggleBulletList: jest.fn(() => mockChain),
   toggleOrderedList: jest.fn(() => mockChain),
   toggleBlockquote: jest.fn(() => mockChain),
+  deleteRange: jest.fn(() => mockChain),
+  insertContent: jest.fn(() => mockChain),
   run: jest.fn(() => true)
 };
 
@@ -25,6 +28,7 @@ const mockEditor = {
   state: {
     selection: {
       from: 0,
+      to: 0,
       $from: {
         index: jest.fn(() => 0)
       }
@@ -34,6 +38,7 @@ const mockEditor = {
     coordsAtPos: jest.fn(() => ({ left: 0, right: 0 }))
   },
   commands: {
+    focus: jest.fn(),
     setContent: jest.fn(),
     insertContent: jest.fn()
   },
@@ -51,7 +56,9 @@ jest.mock('@tiptap/react', () => ({
 jest.mock('../../return-queue/ReturnLaterControl', () => () => <div data-testid="return-later-control" />);
 jest.mock('../../agent/AgentSkillDock', () => () => <div data-testid="agent-skill-dock" />);
 jest.mock('./InsertHighlightModal', () => () => null);
-jest.mock('./InsertReferenceModal', () => () => null);
+jest.mock('./InsertReferenceModal', () => ({ open, title }) => (
+  open ? <div data-testid={`reference-modal-${title}`}>{title}</div> : null
+));
 
 jest.mock('../../../hooks/useHighlights', () => () => ({
   highlights: [],
@@ -69,6 +76,10 @@ jest.mock('../../../api/organize', () => ({
   searchNotebookClaims: jest.fn(async () => [])
 }));
 
+jest.mock('../../../api/wiki', () => ({
+  listWikiPages: jest.fn(async () => [])
+}));
+
 jest.mock('../../../hooks/useCssMagneticLerp', () => () => ({
   elRef: { current: null },
   setTarget: jest.fn(),
@@ -82,6 +93,7 @@ jest.mock('../../../hooks/useMotionPreferences', () => ({
 
 describe('NotebookEditor', () => {
   beforeEach(() => {
+    listWikiPages.mockResolvedValue([]);
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
@@ -104,6 +116,8 @@ describe('NotebookEditor', () => {
     mockEditor.commands.setContent.mockClear();
     mockEditor.commands.insertContent.mockClear();
     mockEditor.state.selection.from = 0;
+    mockEditor.state.selection.to = 0;
+    delete mockEditor.state.doc;
     mockEditor.state.selection.$from.index.mockReturnValue(0);
   });
 
@@ -260,6 +274,47 @@ describe('NotebookEditor', () => {
     ]);
   });
 
+  it('opens source and concept insertion from Notion-style inline triggers', async () => {
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+    const editorProps = mockUseEditor.mock.calls[0][0].editorProps;
+    act(() => editorProps.handleTextInput({ state: { doc: { textBetween: () => ' ' } } }, 2, 2, '@'));
+    expect(await screen.findByText('Insert Article')).toBeInTheDocument();
+
+    act(() => editorProps.handleTextInput({ state: { doc: { textBetween: () => '[' } } }, 3, 3, '['));
+    expect(await screen.findByText('Link Concept or Wiki')).toBeInTheDocument();
+  });
+
+  it('stages an exact selected passage in the thought partner without auto-submitting it', () => {
+    const onInvokeAgentSkill = jest.fn();
+    mockEditor.state.selection.from = 2;
+    mockEditor.state.selection.to = 18;
+    mockEditor.state.doc = { textBetween: jest.fn(() => 'A consequential claim') };
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        onInvokeAgentSkill={onInvokeAgentSkill}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Ask thought partner about selection' }));
+    expect(onInvokeAgentSkill).toHaveBeenCalledWith(expect.objectContaining({
+      mode: 'draft',
+      contextType: 'notebook',
+      prompt: expect.stringContaining('A consequential claim')
+    }));
+  });
+
   /* /think opens straight into whichever note you were last in, and the body
      used to be a live editor on first paint — so a keystroke aimed at the page
      landed in the note. Editing is something you ask for now. */
@@ -282,17 +337,40 @@ describe('NotebookEditor', () => {
       expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     });
 
-    it('becomes editable when you press Edit, and only then offers Save', () => {
+    it('becomes editable when you press Edit and replaces the Save button with quiet autosave state', () => {
       paint();
       fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
       expect(mockEditor.setEditable).toHaveBeenCalledWith(true);
-      expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+      expect(screen.getByRole('status')).toHaveTextContent('Editing');
     });
 
     it('also opens on a click in the note, because that is what a reader reaches for', () => {
       paint();
       fireEvent.click(document.querySelector('.think-notebook-editor__body'));
       expect(mockEditor.setEditable).toHaveBeenCalledWith(true);
+    });
+
+    it('autosaves after the document changes without interrupting writing', async () => {
+      const onSave = jest.fn(async payload => payload);
+      render(
+        <NotebookEditor
+          entry={{ _id: 'note-1', title: 'Playing to Win', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+          saving={false}
+          error=""
+          onSave={onSave}
+          onDelete={jest.fn()}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      const updateRegistration = [...mockEditor.on.mock.calls].reverse().find(([eventName]) => eventName === 'update');
+      expect(updateRegistration).toBeTruthy();
+      act(() => updateRegistration[1]());
+      expect(screen.getByRole('status')).toHaveTextContent('Editing');
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'note-1', title: 'Playing to Win' }));
+      }, { timeout: 1800 });
+      expect(screen.getByRole('status')).toHaveTextContent('Saved');
     });
   });
 });

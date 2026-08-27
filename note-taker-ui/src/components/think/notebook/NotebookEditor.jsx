@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -19,7 +19,11 @@ import useConcepts from '../../../hooks/useConcepts';
 import useQuestions from '../../../hooks/useQuestions';
 import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../../../utils/notebookBlocks';
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
+import { listWikiPages } from '../../../api/wiki';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
+import '../../../styles/think-writing.css';
+
+const AUTOSAVE_DELAY_MS = 850;
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -265,6 +269,15 @@ const QuestionRefNode = createReferenceNode({
   buildHref: (attrs) => (attrs.questionId ? `/think?tab=questions&questionId=${attrs.questionId}` : '')
 });
 
+const WikiRefNode = createReferenceNode({
+  name: 'wikiRef',
+  label: 'Wiki',
+  idKey: 'wikiId',
+  titleKey: 'wikiTitle',
+  metaKey: 'wikiMeta',
+  buildHref: (attrs) => (attrs.wikiId ? `/wiki/workspace?page=${encodeURIComponent(attrs.wikiId)}` : '')
+});
+
 const NotebookEditor = ({
   entry,
   saving,
@@ -288,8 +301,17 @@ const NotebookEditor = ({
 }) => {
   const slashSurfaceRef = useRef(null);
   const slashKeyDownRef = useRef(() => false);
+  const referenceTriggerRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const saveSequenceRef = useRef(0);
+  const dirtyRef = useRef(false);
+  const titleDraftRef = useRef(entry?.title || '');
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
+  const [saveState, setSaveState] = useState('idle');
+  const [agentThreadPulse, setAgentThreadPulse] = useState(false);
   const [insertMode, setInsertMode] = useState('');
+  const [wikiPages, setWikiPages] = useState([]);
+  const [wikiPagesLoading, setWikiPagesLoading] = useState(false);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const [entryType, setEntryType] = useState(entry?.type || 'note');
@@ -375,16 +397,33 @@ const NotebookEditor = ({
       highlightExtension,
       ArticleRefNode,
       ConceptRefNode,
-      QuestionRefNode
+      QuestionRefNode,
+      WikiRefNode
     ],
     content: entry?.blocks?.length ? buildDocFromBlocks(entry.blocks) : (entry?.content || '<p></p>'),
     editorProps: {
-      attributes: { class: 'think-notebook-editor-body' },
+      attributes: {
+        class: 'think-notebook-editor-body',
+        'aria-label': 'Notebook page',
+        'data-markdown-shortcuts': 'headings lists quotes divider code'
+      },
       handleKeyDown: (view, event) => (
         slashKeyDownRef.current?.(view, event)
         || handleEditorStructureShortcut({ editor, event, allowTitle: true })
         || false
-      )
+      ),
+      handleTextInput: (view, from, to, text) => {
+        const before = view.state.doc.textBetween(Math.max(0, from - 1), from, '', '');
+        const atBoundary = !before || /\s/.test(before);
+        if (text === '@' && atBoundary) {
+          referenceTriggerRef.current = { from, to: to + 1 };
+          window.requestAnimationFrame?.(() => setInsertMode('article'));
+        } else if (text === '[' && before === '[') {
+          referenceTriggerRef.current = { from: Math.max(0, from - 1), to: to + 1 };
+          window.requestAnimationFrame?.(() => setInsertMode('concept'));
+        }
+        return false;
+      }
     }
   });
 
@@ -397,6 +436,9 @@ const NotebookEditor = ({
      read a word of it. */
   useEffect(() => {
     setEditingBody(false);
+    setSaveState('idle');
+    dirtyRef.current = false;
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
   }, [entry?._id]);
 
   const startEditingBody = () => {
@@ -404,6 +446,12 @@ const NotebookEditor = ({
     setEditingBody(true);
     window.requestAnimationFrame?.(() => editor?.commands.focus('end'));
   };
+
+  useEffect(() => {
+    if (!editingBody) return undefined;
+    document.body.classList.add('think-writing-active');
+    return () => document.body.classList.remove('think-writing-active');
+  }, [editingBody]);
 
   const slashCommands = useSlashCommands({
     editor,
@@ -439,6 +487,7 @@ const NotebookEditor = ({
   useEffect(() => {
     if (!entry) return;
     setTitleDraft(entry.title || '');
+    titleDraftRef.current = entry.title || '';
     setEntryType(entry.type || 'note');
     setEntryTags(Array.isArray(entry.tags) ? entry.tags : []);
     setClaimId(entry.claimId ? String(entry.claimId) : '');
@@ -450,6 +499,28 @@ const NotebookEditor = ({
       editor.commands.setContent(content, false);
     }
   }, [entry, editor]);
+
+  useEffect(() => {
+    if (insertMode !== 'concept') return undefined;
+    let cancelled = false;
+    setWikiPagesLoading(true);
+    listWikiPages({ limit: 120, summary: 1, includeLowQuality: 1 })
+      .then((pages) => {
+        if (!cancelled) setWikiPages(Array.isArray(pages) ? pages : []);
+      })
+      .catch(() => {
+        if (!cancelled) setWikiPages([]);
+      })
+      .finally(() => {
+        if (!cancelled) setWikiPagesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [insertMode]);
+
+  const conceptAndWikiTargets = useMemo(() => ([
+    ...(concepts || []).map(item => ({ ...item, referenceKind: 'concept' })),
+    ...(wikiPages || []).map(item => ({ ...item, referenceKind: 'wiki' }))
+  ]), [concepts, wikiPages]);
 
   useEffect(() => {
     let cancelled = false;
@@ -551,24 +622,68 @@ const NotebookEditor = ({
     setEntryTags(prev => prev.filter(tag => tag !== tagValue));
   };
 
-  const handleSave = () => {
-    if (!entry || !editor) return;
+  const buildSavePayload = useCallback(() => {
+    if (!entry || !editor) return null;
     const currentDoc = editor.getJSON();
     const normalized = ensureBlockIds(currentDoc);
     if (normalized.changed) {
       editor.commands.setContent(normalized.node, false);
     }
     const blocks = serializeBlocksFromDoc(normalized.node);
-    onSave({
+    return {
       id: entry._id,
-      title: titleDraft.trim() || 'Untitled note',
+      title: titleDraftRef.current.trim() || 'Untitled note',
       content: editor.getHTML(),
       blocks,
       type: entryType,
       tags: entryTags,
       claimId: entryType === 'evidence' ? (claimId || null) : null,
       linkedArticleId: entry.linkedArticleId || null
-    });
+    };
+  }, [claimId, editor, entry, entryTags, entryType]);
+
+  const commitDraft = useCallback(async () => {
+    const payload = buildSavePayload();
+    if (!payload || !dirtyRef.current) return;
+    const sequence = ++saveSequenceRef.current;
+    dirtyRef.current = false;
+    setSaveState('saving');
+    try {
+      await onSave(payload);
+      if (sequence === saveSequenceRef.current) setSaveState('saved');
+    } catch (_saveError) {
+      dirtyRef.current = true;
+      if (sequence === saveSequenceRef.current) setSaveState('error');
+    }
+  }, [buildSavePayload, onSave]);
+
+  const scheduleSave = useCallback(() => {
+    dirtyRef.current = true;
+    setSaveState('dirty');
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(commitDraft, AUTOSAVE_DELAY_MS);
+  }, [commitDraft]);
+
+  useEffect(() => {
+    if (!editor || !editingBody) return undefined;
+    const onUpdate = () => scheduleSave();
+    editor.on('update', onUpdate);
+    return () => editor.off('update', onUpdate);
+  }, [editingBody, editor, scheduleSave]);
+
+  useEffect(() => () => {
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+  }, []);
+
+  const insertTriggeredReference = (node) => {
+    if (!editor) return;
+    const range = referenceTriggerRef.current;
+    referenceTriggerRef.current = null;
+    if (range && editor.chain) {
+      editor.chain().focus().deleteRange(range).insertContent(node).run();
+      return;
+    }
+    editor.commands.insertContent(node);
   };
 
   const handleInsertHighlight = (highlight) => {
@@ -587,7 +702,7 @@ const NotebookEditor = ({
 
   const handleInsertArticle = (article) => {
     if (!editor) return;
-    editor.commands.insertContent({
+    insertTriggeredReference({
       type: 'articleRef',
       attrs: {
         articleId: article._id,
@@ -600,7 +715,7 @@ const NotebookEditor = ({
 
   const handleInsertConcept = (concept) => {
     if (!editor) return;
-    editor.commands.insertContent({
+    insertTriggeredReference({
       type: 'conceptRef',
       attrs: {
         conceptId: concept._id || '',
@@ -624,9 +739,38 @@ const NotebookEditor = ({
     });
   };
 
+  const handleInsertWiki = (page) => {
+    if (!editor) return;
+    insertTriggeredReference({
+      type: 'wikiRef',
+      attrs: {
+        wikiId: page._id,
+        wikiTitle: page.title || 'Untitled wiki',
+        wikiMeta: page.pageType === 'repo' ? 'Repository wiki' : page.pageType === 'company_dossier' ? 'Investment dossier' : 'Living wiki',
+        blockId: createId()
+      }
+    });
+  };
+
   const handleSelectInsertMode = (mode) => {
+    referenceTriggerRef.current = null;
     setInsertMenuOpen(false);
     setInsertMode(mode);
+  };
+
+  const handleAskSelection = (selectedText) => {
+    const passage = String(selectedText || '').trim();
+    if (!passage || !onInvokeAgentSkill) return;
+    setAgentThreadPulse(true);
+    window.setTimeout(() => setAgentThreadPulse(false), 720);
+    onInvokeAgentSkill({
+      id: `notebook-selection-${entry?._id || 'draft'}-${Date.now()}`,
+      mode: 'draft',
+      prompt: `Work with this exact passage from “${titleDraft || entry?.title || 'Untitled'}”:\n\n“${passage}”\n\nHelp me sharpen, challenge, or extend it. Ask a clarifying question if my intent is ambiguous.`,
+      contextType: agentContextType || 'notebook',
+      contextId: agentContextId || entry?._id || '',
+      contextTitle: agentContextTitle || titleDraft || entry?.title || 'Notebook'
+    });
   };
 
   const handleExport = async () => {
@@ -681,7 +825,12 @@ const NotebookEditor = ({
             rows={1}
             className="think-notebook-title-input"
             value={titleDraft}
-            onChange={(event) => setTitleDraft(event.target.value)}
+            onFocus={startEditingBody}
+            onChange={(event) => {
+              titleDraftRef.current = event.target.value;
+              setTitleDraft(event.target.value);
+              scheduleSave();
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.preventDefault();
             }}
@@ -694,7 +843,7 @@ const NotebookEditor = ({
           />
           {metaLine ? <p className="think-notebook-title-meta" id={metaId}>{metaLine}</p> : null}
           <p className="think-notebook-title-hint">
-            Start with a title, then shape the document with headings, lists, quotes, and inline emphasis.
+            Write naturally. Use ## for a heading, - for a list, &gt; for a quote, @ for a source, [[ for a concept, or / for anything else.
           </p>
         </div>
         {notebookSourceMeta && (
@@ -803,7 +952,9 @@ const NotebookEditor = ({
               </div>
             </details>
             {editingBody ? (
-              <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+              <span className={`think-notebook-save-state is-${saveState}`} role="status" aria-live="polite">
+                {saving || saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Could not save · retrying on your next change' : saveState === 'saved' ? 'Saved' : 'Editing'}
+              </span>
             ) : (
               <QuietButton onClick={startEditingBody}>Edit</QuietButton>
             )}
@@ -938,8 +1089,11 @@ const NotebookEditor = ({
       {/* Clicking the note is the other way in, because that is what a reader
           reaches for. Reading it does nothing at all. */}
       <div
-        className={`think-notebook-editor__body${editingBody ? ' is-editing' : ''}`}
+        className={`think-notebook-editor__body${editingBody ? ' is-editing' : ''}${agentThreadPulse ? ' is-connecting-agent' : ''}`}
         onClick={startEditingBody}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) commitDraft();
+        }}
       >
       <EditorDraftShell
         editor={editor}
@@ -949,6 +1103,8 @@ const NotebookEditor = ({
         helperCopy="Type / for commands. Use arrows to choose and Enter to apply."
         trayItems={['evidence', 'concept', 'question']}
         slashCommands={slashCommands}
+        contextualToolbar
+        onAskSelection={onInvokeAgentSkill ? handleAskSelection : null}
       />
       </div>
       <InsertHighlightModal
@@ -956,7 +1112,10 @@ const NotebookEditor = ({
         highlights={highlights}
         loading={highlightsLoading}
         error={highlightsError}
-        onClose={() => setInsertMode('')}
+        onClose={() => {
+          referenceTriggerRef.current = null;
+          setInsertMode('');
+        }}
         onSelect={(highlight) => {
           handleInsertHighlight(highlight);
           setInsertMode('');
@@ -970,7 +1129,10 @@ const NotebookEditor = ({
         getLabel={(item) => item.title || 'Untitled article'}
         getMeta={(item) => item.source || ''}
         placeholder="Search articles..."
-        onClose={() => setInsertMode('')}
+        onClose={() => {
+          referenceTriggerRef.current = null;
+          setInsertMode('');
+        }}
         onSelect={(item) => {
           handleInsertArticle(item);
           setInsertMode('');
@@ -978,15 +1140,19 @@ const NotebookEditor = ({
       />
       <InsertReferenceModal
         open={insertMode === 'concept'}
-        title="Insert Concept"
-        subtitle="Search by name or description."
-        items={concepts}
-        getLabel={(item) => item.name || 'Concept'}
-        getMeta={(item) => item.description || ''}
-        placeholder="Search concepts..."
-        onClose={() => setInsertMode('')}
+        title="Link Concept or Wiki"
+        subtitle={wikiPagesLoading ? 'Opening your living wikis…' : 'Search your accepted concepts and living wiki pages.'}
+        items={conceptAndWikiTargets}
+        getLabel={(item) => item.referenceKind === 'wiki' ? item.title || 'Untitled wiki' : item.name || 'Concept'}
+        getMeta={(item) => item.referenceKind === 'wiki' ? `Wiki · ${item.pageType || 'general'}` : `Concept · ${item.description || 'working idea'}`}
+        placeholder="Search concepts and wikis..."
+        onClose={() => {
+          referenceTriggerRef.current = null;
+          setInsertMode('');
+        }}
         onSelect={(item) => {
-          handleInsertConcept(item);
+          if (item.referenceKind === 'wiki') handleInsertWiki(item);
+          else handleInsertConcept(item);
           setInsertMode('');
         }}
       />

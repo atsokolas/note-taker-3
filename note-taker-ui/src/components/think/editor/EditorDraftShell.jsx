@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { EditorContent } from '@tiptap/react';
 import RichTextToolbar from './RichTextToolbar';
 import SlashCommandMenu from './SlashCommandMenu';
@@ -20,11 +20,21 @@ const EditorDraftShell = ({
   blockControlsClassName = '',
   trayItems = [],
   trayClassName = '',
-  slashCommands = null
+  slashCommands = null,
+  contextualToolbar = false,
+  onAskSelection = null
 }) => {
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
   const caretMagnet = useCssMagneticLerp('--caret-magnet-x', 0.24);
+  const [hasSelection, setHasSelection] = useState(false);
+
+  const readSelection = useCallback(() => {
+    if (!editor) return '';
+    const { from, to } = editor.state.selection;
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) return '';
+    return editor.state.doc?.textBetween?.(from, to, ' ') || '';
+  }, [editor]);
 
   const syncCaretMagnet = useCallback(() => {
     if (!editor || !magnetCaretToolbar || reducedMotion || !finePointer) {
@@ -74,6 +84,18 @@ const EditorDraftShell = ({
     };
   }, [editor, hideToolbar, magnetCaretToolbar, reducedMotion, finePointer, surfaceRef, syncCaretMagnet, caretMagnet]);
 
+  useEffect(() => {
+    if (!editor || !contextualToolbar) return undefined;
+    const update = () => setHasSelection(Boolean(readSelection().trim()));
+    editor.on('selectionUpdate', update);
+    editor.on('transaction', update);
+    update();
+    return () => {
+      editor.off('selectionUpdate', update);
+      editor.off('transaction', update);
+    };
+  }, [contextualToolbar, editor, readSelection]);
+
   if (!editor) return null;
 
   return (
@@ -85,7 +107,9 @@ const EditorDraftShell = ({
         <div
           className={[
             'think-rich-text-toolbar-magnet',
-            magnetCaretToolbar && !reducedMotion && finePointer ? 'is-motion' : ''
+            magnetCaretToolbar && !reducedMotion && finePointer ? 'is-motion' : '',
+            contextualToolbar ? 'is-contextual' : '',
+            !contextualToolbar || hasSelection ? 'is-visible' : ''
           ].filter(Boolean).join(' ')}
           ref={caretMagnet.elRef}
         >
@@ -93,6 +117,7 @@ const EditorDraftShell = ({
             editor={editor}
             variant={toolbarVariant}
             className={toolbarClassName}
+            onAskSelection={onAskSelection ? () => onAskSelection(readSelection()) : null}
           />
         </div>
       )}
