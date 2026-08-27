@@ -190,7 +190,11 @@ describe('Judgment claim', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Against' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'I’d change my mind if' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'What I did' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'SemiAnalysis' })).toHaveAttribute('href', 'https://semianalysis.com/capacity');
+    expect(screen.getByRole('link', { name: 'Source 1: SemiAnalysis' }))
+      .toHaveAttribute('href', 'https://semianalysis.com/capacity');
+    expect(screen.getByRole('link', { name: 'Source 2: TrendForce' }))
+      .toHaveAttribute('href', 'https://trendforce.com/supply');
+    expect(screen.queryByText('SemiAnalysis and TrendForce')).not.toBeInTheDocument();
     expect(screen.getByText(/this line doesn’t get edited, only added to/)).toBeInTheDocument();
   });
 
@@ -510,8 +514,9 @@ describe('Evidence from the library', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
 
     expect(await screen.findByText(candidate.text)).toBeInTheDocument();
-    // The provenance travels with the passage.
-    expect(screen.getByText('On compute · FT')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open in Library' }))
+      .toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
+    expect(screen.queryByText('On compute · FT')).not.toBeInTheDocument();
     // And the product does not pretend to know which side it falls on.
     expect(screen.getByText('File under')).toBeInTheDocument();
 
@@ -525,6 +530,8 @@ describe('Evidence from the library', () => {
       sourceLabel: 'On compute · FT',
       acceptedFrom: 'highlight:a1:h1'
     });
+    expect(await screen.findByRole('link', { name: 'Source 3: On compute · FT' }))
+      .toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
   });
 
   it('says plainly when the library has nothing to say about a claim you hold', async () => {

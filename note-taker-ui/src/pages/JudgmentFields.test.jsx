@@ -46,6 +46,8 @@ describe('the four sections of a judgment', () => {
     expect(screen.getByRole('heading', { name: /change my mind if/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'What I did' })).toBeInTheDocument();
     expect(screen.getByText('Process still loses half the bets.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Source 1: Everyone Has a Process')).toHaveTextContent('[1]');
+    expect(screen.queryByText('Everyone Has a Process')).not.toBeInTheDocument();
   });
 
   /* No Write button. A sentence you typed but had not submitted used to be

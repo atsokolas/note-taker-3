@@ -110,6 +110,21 @@ const sourceLabel = (ref) => (
   || clean(ref?.title)
 );
 
+/* Library evidence arrives as highlight:article:highlight or article:article.
+   Wiki already opens those in the library rather than reprinting the title;
+   Why and Against should do the same. */
+export const sourceHrefFromOrigin = (origin = '', fallbackUrl = '') => {
+  const value = clean(origin);
+  const highlight = value.match(/^highlight:([^:]+):(.+)$/);
+  if (highlight) {
+    return `/library?articleId=${encodeURIComponent(highlight[1])}&highlightId=${encodeURIComponent(highlight[2])}`;
+  }
+  const article = value.match(/^article:(.+)$/);
+  if (article) return `/library?articleId=${encodeURIComponent(article[1])}`;
+  const url = clean(fallbackUrl);
+  return /^https?:\/\//i.test(url) ? url : '';
+};
+
 /** Where a retrieved answer came from, as one line: the citations the answer
  *  carried, in the human's own naming for them. Returns '' when the answer
  *  cited nothing, which the rail says out loud rather than hiding. */
@@ -124,26 +139,60 @@ export const answerProvenance = (page, answer) => {
   return labels.slice(0, 3).join(' · ');
 };
 
-/** The sources named under Why — the publications, not a citation apparatus. */
-const resolveSources = (page, lines = []) => {
+const sourceKey = (source) => source?.href || source?.id || source?.label;
+
+const sourcesForLine = (page, line = {}) => {
   const byId = new Map(list(page?.sourceRefs).map(ref => [idOf(ref), ref]));
   const seen = new Set();
-  const resolved = [];
-  lines.forEach((line) => {
-    list(line.sourceRefIds).map(idOf).forEach((refId) => {
-      const ref = byId.get(refId);
-      const label = sourceLabel(ref);
-      if (!ref || !label || seen.has(label)) return;
-      seen.add(label);
-      resolved.push({ id: refId, label, href: sourceRefHref(ref) });
-    });
-    const literal = clean(line.sourceLabel);
-    if (literal && !seen.has(literal)) {
-      seen.add(literal);
-      resolved.push({ id: `label:${literal}`, label: literal, href: '' });
-    }
+  const sources = [];
+  const add = (source) => {
+    const key = sourceKey(source);
+    if (!source.label || !key || seen.has(key)) return;
+    seen.add(key);
+    sources.push(source);
+  };
+  list(line.sourceRefIds).map(idOf).forEach((refId) => {
+    const ref = byId.get(refId);
+    const label = sourceLabel(ref);
+    if (!ref || !label) return;
+    add({ id: refId, label, href: sourceRefHref(ref) });
   });
-  return resolved;
+  const literal = clean(line.sourceLabel);
+  if (literal) {
+    add({
+      id: `label:${literal}`,
+      label: literal,
+      href: sourceHrefFromOrigin(line.acceptedFrom)
+    });
+  }
+  return sources;
+};
+
+const numberCitations = (lines = []) => {
+  const numbers = new Map();
+  let next = 1;
+  return lines.map((line) => ({
+    ...line,
+    sources: list(line.sources).map((source) => {
+      const key = sourceKey(source);
+      if (!numbers.has(key)) numbers.set(key, next++);
+      return { ...source, n: numbers.get(key) };
+    })
+  }));
+};
+
+const uniqueSources = (lines = []) => {
+  const seen = new Set();
+  const sources = [];
+  lines.forEach((line) => {
+    list(line.sources).forEach((source) => {
+      const key = sourceKey(source);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      sources.push(source);
+    });
+  });
+  return sources;
 };
 
 const reasonLines = (items = [], prefix) => list(items)
@@ -151,7 +200,8 @@ const reasonLines = (items = [], prefix) => list(items)
     id: clean(item?.reasonId) || `${prefix}:${index}`,
     text: clean(item?.text),
     sourceRefIds: list(item?.sourceRefIds),
-    sourceLabel: clean(item?.sourceLabel)
+    sourceLabel: clean(item?.sourceLabel),
+    acceptedFrom: clean(item?.acceptedFrom)
   }))
   .filter(line => line.text);
 
@@ -168,7 +218,8 @@ const whyLines = (judgment = {}) => {
       id: clean(item?.assumptionId) || `assumption:${index}`,
       text: clean(item?.text),
       sourceRefIds: list(item?.sourceRefIds),
-      sourceLabel: ''
+      sourceLabel: '',
+      acceptedFrom: ''
     }))
     .filter(line => line.text);
 };
@@ -177,7 +228,13 @@ const againstLines = (judgment = {}) => {
   const own = reasonLines(judgment.against, 'against');
   if (own.length) return own;
   const counter = clean(judgment.strongestCounterargument);
-  return counter ? [{ id: 'strongest-counterargument', text: counter, sourceRefIds: [], sourceLabel: '' }] : [];
+  return counter ? [{
+    id: 'strongest-counterargument',
+    text: counter,
+    sourceRefIds: [],
+    sourceLabel: '',
+    acceptedFrom: ''
+  }] : [];
 };
 
 const changeMindLines = (judgment = {}) => list(judgment.falsifiers)
@@ -289,8 +346,12 @@ export const formatLedgerDate = (value) => {
 /** The whole page, as one object. Empty fields come back empty, not padded. */
 export const projectJudgment = (page, now = Date.now()) => {
   const judgment = page?.judgment || {};
-  const why = whyLines(judgment);
-  const against = againstLines(judgment);
+  const withSources = (lines) => lines.map((line) => ({ ...line, sources: sourcesForLine(page, line) }));
+  const whyBase = withSources(whyLines(judgment));
+  const againstBase = withSources(againstLines(judgment));
+  const numbered = numberCitations([...whyBase, ...againstBase]);
+  const why = numbered.slice(0, whyBase.length);
+  const against = numbered.slice(whyBase.length);
   return {
     id: idOf(page),
     claim: claimSentence(page),
@@ -299,9 +360,9 @@ export const projectJudgment = (page, now = Date.now()) => {
     pageTitle: clean(page?.title),
     provenance: provenanceLine(page, now),
     why,
-    whySources: resolveSources(page, why),
+    whySources: uniqueSources(why),
     against,
-    againstSources: resolveSources(page, against),
+    againstSources: uniqueSources(against),
     changeMindIf: changeMindLines(judgment),
     whatIDid: whatIDidLines(judgment),
     lessons: lessonLines(judgment),
@@ -497,6 +558,18 @@ export const selectOvernightLine = (page, events = []) => {
   };
 };
 
+const persistReason = (line = {}) => {
+  const next = {
+    reasonId: line.id || line.reasonId,
+    text: line.text,
+    sourceRefIds: line.sourceRefIds,
+    sourceLabel: line.sourceLabel
+  };
+  const origin = clean(line.acceptedFrom);
+  if (origin) next.acceptedFrom = origin;
+  return next;
+};
+
 /* Accepting a proposal appends one line to Why or Against. It appends: the
    lines already on the page are carried over untouched, and the proposal's
    origin travels with the new line so the page can always say where the
@@ -508,12 +581,7 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
   return {
     ...judgment,
     [target]: [
-      ...current.map(line => ({
-        reasonId: line.id,
-        text: line.text,
-        sourceRefIds: line.sourceRefIds,
-        sourceLabel: line.sourceLabel
-      })),
+      ...current.map(persistReason),
       {
         text: clean(proposal?.body || proposal?.sentence),
         acceptedFrom: clean(proposal?.id),
@@ -665,12 +733,7 @@ export const fileEvidenceIntoJudgment = (page, candidate, field) => {
   return {
     ...judgment,
     [target]: [
-      ...current.map(line => ({
-        reasonId: line.id,
-        text: line.text,
-        sourceRefIds: line.sourceRefIds,
-        sourceLabel: line.sourceLabel
-      })),
+      ...current.map(persistReason),
       {
         text,
         sourceLabel: clean(candidate?.sourceLabel),
@@ -696,12 +759,7 @@ export const writeLineIntoJudgment = (page, text, field) => {
     return {
       ...judgment,
       [field]: [
-        ...current.map(existing => ({
-          reasonId: existing.id,
-          text: existing.text,
-          sourceRefIds: existing.sourceRefIds,
-          sourceLabel: existing.sourceLabel
-        })),
+        ...current.map(persistReason),
         { text: line }
       ]
     };
@@ -757,12 +815,7 @@ export const upsertLineIntoJudgment = (page, text, field, lineId) => {
     /* Read the projection first, so a page whose Why came from the older
        dossier shape keeps those lines rather than losing them to this write. */
     const current = (field === 'why' ? whyLines(judgment) : againstLines(judgment))
-      .map(existing => ({
-        reasonId: existing.id,
-        text: existing.text,
-        sourceRefIds: existing.sourceRefIds,
-        sourceLabel: existing.sourceLabel
-      }));
+      .map(persistReason);
     return {
       ...judgment,
       [field]: upsertById(

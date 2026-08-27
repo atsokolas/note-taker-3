@@ -8,7 +8,8 @@ import {
   oneSentence,
   projectJudgment,
   provenanceLine,
-  selectOvernightLine
+  selectOvernightLine,
+  sourceHrefFromOrigin
 } from './judgmentModel';
 
 const NOW = new Date('2026-08-14T09:30:00.000Z').getTime();
@@ -93,6 +94,63 @@ describe('judgmentModel', () => {
 
     expect(projected.whySources.map(source => source.label)).toEqual(['SemiAnalysis', 'TrendForce']);
     expect(projected.againstSources).toEqual([]);
+    expect(projected.why[0].sources).toEqual([
+      expect.objectContaining({ n: 1, label: 'SemiAnalysis', href: 'https://semianalysis.com/capacity' })
+    ]);
+    expect(projected.why[1].sources).toEqual([
+      expect.objectContaining({ n: 2, label: 'TrendForce', href: 'https://trendforce.com/supply' })
+    ]);
+  });
+
+  it('opens a library-filed line at the passage, not by reprinting the title', () => {
+    const filed = {
+      _id: 'p',
+      title: 'Compute',
+      judgment: {
+        currentJudgment: 'Compute is scarce.',
+        why: [{
+          reasonId: 'r1',
+          text: 'Deliverable capacity lags demand by two years.',
+          sourceLabel: 'On compute · FT',
+          acceptedFrom: 'highlight:a1:h1'
+        }]
+      }
+    };
+    const projected = projectJudgment(filed, NOW);
+    expect(projected.why[0].sources).toEqual([
+      expect.objectContaining({
+        n: 1,
+        label: 'On compute · FT',
+        href: '/library?articleId=a1&highlightId=h1'
+      })
+    ]);
+  });
+
+  it('gives the same source the same number on Why and Against', () => {
+    const shared = {
+      _id: 'p',
+      sourceRefs: [{
+        _id: 'src-1',
+        type: 'external',
+        citationLabel: 'SemiAnalysis',
+        url: 'https://semianalysis.com/capacity'
+      }],
+      judgment: {
+        currentJudgment: 'A claim.',
+        why: [{ reasonId: 'w1', text: 'One reason.', sourceRefIds: ['src-1'] }],
+        against: [{ reasonId: 'a1', text: 'One objection.', sourceRefIds: ['src-1'] }]
+      }
+    };
+    const projected = projectJudgment(shared, NOW);
+    expect(projected.why[0].sources[0].n).toBe(1);
+    expect(projected.against[0].sources[0].n).toBe(1);
+  });
+
+  it('rebuilds a library href from the passage the line was accepted from', () => {
+    expect(sourceHrefFromOrigin('highlight:a1:h1')).toBe('/library?articleId=a1&highlightId=h1');
+    expect(sourceHrefFromOrigin('article:a1')).toBe('/library?articleId=a1');
+    expect(sourceHrefFromOrigin('', 'https://ft.com/compute')).toBe('https://ft.com/compute');
+    expect(sourceHrefFromOrigin('overnight-event')).toBe('');
   });
 
   it('leaves empty fields empty rather than inventing lines', () => {

@@ -1,4 +1,4 @@
-import { fileEvidenceIntoJudgment, projectJudgment } from './judgmentModel';
+import { fileEvidenceIntoJudgment, projectJudgment, writeLineIntoJudgment } from './judgmentModel';
 
 const candidate = {
   id: 'highlight:a1:h1',
@@ -44,5 +44,20 @@ describe('fileEvidenceIntoJudgment', () => {
     const view = projectJudgment(next);
     expect(view.against.map(line => line.text)).toContain(candidate.text);
     expect(view.against[0].sourceLabel).toBe('On compute · FT');
+    expect(view.against[0].sources).toEqual([
+      expect.objectContaining({
+        n: 1,
+        label: 'On compute · FT',
+        href: '/library?articleId=a1&highlightId=h1'
+      })
+    ]);
+  });
+
+  it('keeps the passage origin when another line is written later', () => {
+    const page = { judgment: {} };
+    const filed = { ...page, judgment: fileEvidenceIntoJudgment(page, candidate, 'why') };
+    const next = writeLineIntoJudgment(filed, 'Another reason.', 'why');
+    expect(next.why[0].acceptedFrom).toBe('highlight:a1:h1');
+    expect(next.why[1]).toEqual({ text: 'Another reason.' });
   });
 });

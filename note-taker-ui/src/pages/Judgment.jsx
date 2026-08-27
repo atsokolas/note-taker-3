@@ -33,6 +33,7 @@ import {
   projectJudgment,
   newLineId,
   selectOvernightLine,
+  sourceHrefFromOrigin,
   upsertLineIntoJudgment
 } from './judgmentModel';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
@@ -66,21 +67,50 @@ const AUTOSAVE_PAUSE_MS = 700;
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
 const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
-/** Sources read as the publications they are: "SemiAnalysis and TrendForce". */
-const SourceLine = ({ sources = [] }) => {
-  if (!sources.length) return null;
+/* Wiki cites with a number, not the publication's name. The name is the
+   destination; the mark is the link. */
+const CitationMark = ({ source }) => {
+  const mark = `[${source.n}]`;
+  const label = source.label ? `Source ${source.n}: ${source.label}` : `Source ${source.n}`;
+  if (source.href) {
+    return isExternal(source.href)
+      ? <a className="judgment__cite" href={source.href} target="_blank" rel="noreferrer" aria-label={label}>{mark}</a>
+      : <Link className="judgment__cite" to={source.href} aria-label={label}>{mark}</Link>;
+  }
+  return <span className="judgment__cite" title={source.label} aria-label={label}>{mark}</span>;
+};
+
+const JudgmentLine = ({ line }) => (
+  <p className={`judgment__line${line.empty ? ' judgment__line--empty' : ''}`}>
+    {line.text}
+    {line.sources?.length ? (
+      <sup className="judgment__cites">
+        {line.sources.map((source) => <CitationMark key={source.id} source={source} />)}
+      </sup>
+    ) : null}
+  </p>
+);
+
+const evidenceHref = (candidate = {}) => (
+  sourceHrefFromOrigin(candidate.id, candidate.url)
+  || (candidate.articleId
+    ? `/library?articleId=${encodeURIComponent(candidate.articleId)}${
+      candidate.highlightId ? `&highlightId=${encodeURIComponent(candidate.highlightId)}` : ''
+    }`
+    : '')
+);
+
+const EvidenceSource = ({ candidate }) => {
+  const href = evidenceHref(candidate);
+  if (!href && candidate.kind !== 'source') return null;
   return (
-    <p className="judgment__sources">
-      {sources.map((source, index) => (
-        <React.Fragment key={source.id}>
-          {index > 0 ? <span>{index === sources.length - 1 ? ' and ' : ', '}</span> : null}
-          {source.href
-            ? (isExternal(source.href)
-              ? <a href={source.href} target="_blank" rel="noreferrer">{source.label}</a>
-              : <Link to={source.href}>{source.label}</Link>)
-            : <span className="judgment__source-plain">{source.label}</span>}
-        </React.Fragment>
-      ))}
+    <p className="judgment-evidence__source">
+      {href
+        ? (isExternal(href)
+          ? <a href={href} target="_blank" rel="noreferrer">Open source</a>
+          : <Link to={href}>Open in Library</Link>)
+        : null}
+      {candidate.kind === 'source' ? <span>{href ? ' · not highlighted, from the body' : 'Not highlighted, from the body'}</span> : null}
     </p>
   );
 };
@@ -165,7 +195,7 @@ const BeliefLink = ({ to, title, claim }) => (
    sentence you had typed but not submitted was not saved anywhere — you could
    fill in all four fields, look away, and have written nothing. Typing updates
    the same line in place; Enter finishes it and starts another. */
-const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, children }) => {
+const Field = ({ label, lines = [], prompt = '', field, onWrite, children }) => {
   const [draft, setDraft] = useState('');
   const [state, setState] = useState('idle');   // idle | saving | saved | error
   const [writeError, setWriteError] = useState('');
@@ -223,11 +253,10 @@ const Field = ({ label, lines = [], sources = [], prompt = '', field, onWrite, c
   return (
     <section className="judgment__field" aria-labelledby={id}>
       <h2 id={id}>{label}</h2>
-      {settled.map(line => <p key={line.id} className="judgment__line">{line.text}</p>)}
+      {settled.map(line => <JudgmentLine key={line.id} line={line} />)}
       {/* The heading stays and admits the section is empty, rather than hiding
           behind an accordion or leaving the reader unsure it saved. */}
-      {settled.length ? null : <p className="judgment__line judgment__line--empty">Nothing here yet.</p>}
-      <SourceLine sources={sources} />
+      {settled.length ? null : <JudgmentLine line={{ text: 'Nothing here yet.', empty: true }} />}
       {children}
       {onWrite ? (
         <div className="judgment__write">
@@ -499,10 +528,7 @@ const LibraryEvidence = ({ pageId, onFile }) => {
           {candidates.map(candidate => (
             <li key={candidate.id} className="judgment-evidence__item">
               <blockquote>{candidate.text}</blockquote>
-              <p className="judgment-evidence__source">
-                {candidate.sourceLabel}
-                {candidate.kind === 'source' ? <span> · not highlighted, from the body</span> : null}
-              </p>
+              <EvidenceSource candidate={candidate} />
               {/* Which side it falls on is the reader's call, and it is the
                   whole question the page is asking. */}
               <div className="judgment-evidence__file">
@@ -1016,7 +1042,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <Field
           label="Why"
           lines={view.why}
-          sources={view.whySources}
           prompt="Why do you believe it?"
           field="why"
           onWrite={(text, lineId) => writeLine(text, 'why', lineId)}
@@ -1024,7 +1049,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <Field
           label="Against"
           lines={view.against}
-          sources={view.againstSources}
           prompt="What argues against it?"
           field="against"
           onWrite={(text, lineId) => writeLine(text, 'against', lineId)}
