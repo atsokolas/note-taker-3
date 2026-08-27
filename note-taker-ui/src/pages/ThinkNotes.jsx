@@ -132,8 +132,10 @@ const ThinkNotes = () => {
         String(item?._id) === String(payload.id) ? { ...item, ...res.data } : item
       )));
       clearNotebookCache();
+      return res.data;
     } catch (saveError) {
       setError(saveError?.response?.data?.error || 'Failed to save note.');
+      throw saveError;
     } finally {
       setSaving(false);
     }
@@ -165,6 +167,8 @@ const ThinkNotes = () => {
       <RoomShelf
         className={`think-notes__shelf ${step(1)}`}
         aria-label="Think navigation"
+        data-writing-rail="left"
+        data-writing-rail-label="Notes"
         label="Think"
         count={notes.length}
         search={shelfQuery}
@@ -222,6 +226,7 @@ const ThinkNotes = () => {
               saving={saving}
               error={error}
               onSave={saveEntry}
+              onInvokeAgentSkill={setQueuedPrompt}
               showInlineAgentDock={false}
               agentContextType="notebook"
               agentContextId={openId}
@@ -250,7 +255,12 @@ const ThinkNotes = () => {
         )}
       </main>
 
-      <aside className={`think-notes__partner ${step(3)}`} aria-label="Thought partner">
+      <aside
+        className={`think-notes__partner ${step(3)}`}
+        aria-label="Thought partner"
+        data-writing-rail="right"
+        data-writing-rail-label="Partner"
+      >
         <ThoughtPartnerPanel
           variant="stream"
           contextType="notebook"

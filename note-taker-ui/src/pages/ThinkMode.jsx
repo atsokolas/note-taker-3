@@ -1838,8 +1838,10 @@ const ThinkMode = () => {
       const res = await api.put(`/api/notebook/${payload.id}`, payload, getAuthHeaders());
       const updated = res.data;
       applyNotebookEntryUpdate(updated);
+      return updated;
     } catch (err) {
       setNotebookEntryError(err.response?.data?.error || 'Failed to save note.');
+      throw err;
     } finally {
       setNotebookSaving(false);
     }
