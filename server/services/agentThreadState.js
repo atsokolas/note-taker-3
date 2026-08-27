@@ -8,7 +8,18 @@ const MAX_THREAD_MESSAGE_COUNT = 120;
 const MAX_THREAD_PROPOSAL_BUNDLE_COUNT = 24;
 
 const THREAD_STATUS_VALUES = new Set(['active', 'archived']);
-const THREAD_SCOPE_VALUES = new Set(['global', 'workspace', 'article', 'notebook', 'concept', 'handoff', 'selection']);
+const THREAD_SCOPE_VALUES = new Set([
+  'global',
+  'workspace',
+  'article',
+  'notebook',
+  'concept',
+  'question',
+  'wiki_page',
+  'think',
+  'handoff',
+  'selection'
+]);
 const THREAD_ROLE_VALUES = new Set(['system', 'user', 'assistant', 'tool']);
 const THREAD_STEP_STATUS_VALUES = new Set(['pending', 'in_progress', 'completed', 'blocked']);
 const ACTOR_TYPE_VALUES = new Set(['user', 'native_agent', 'byo_agent']);

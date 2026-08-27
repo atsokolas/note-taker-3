@@ -31,8 +31,8 @@ const contract = ({
 
 /*
  * One declarative authority for where the contextual agent lives and what it
- * may do. The contracts name capabilities; pages still own the transport and
- * the exact write handler because those are durable domain operations.
+ * may do. The contracts name capabilities; the shell owns the durable chat
+ * transport while pages expose only exact, accepted domain writes.
  *
  * The Wiki workspace is deliberately explicit. It has the same product agent
  * in an embedded workbench projection because building, ingesting, linting and
@@ -138,9 +138,6 @@ export const filterContextualAgentHandlers = (contractId, handlers = {}) => {
   if (!resolved || resolved.presentation !== CONTEXTUAL_AGENT_PRESENTATIONS.rail) return {};
   const accepts = resolved.actions.some(action => action.startsWith('accept.'));
   return {
-    ...(resolved.actions.includes('retrieve') && typeof handlers.onAsk === 'function'
-      ? { onAsk: handlers.onAsk }
-      : {}),
     ...(accepts && typeof handlers.onAccept === 'function'
       ? { onAccept: handlers.onAccept }
       : {})

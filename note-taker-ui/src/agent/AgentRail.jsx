@@ -1,5 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAgentRail } from './AgentRailContext';
+import { mapAgentStructureProposal, sourceLabelForAgentMessage } from './agentConversationModel';
+import StructureProposalReview from '../components/agent/StructureProposalReview';
+import useAgentReviewState from '../components/agent/useAgentReviewState';
 import '../styles/agent-rail.css';
 
 // The agent's side of the page. One instance, mounted at the shell, so it is
@@ -8,6 +11,7 @@ import '../styles/agent-rail.css';
 // finds is written down until someone says so.
 
 const ASK_PLACEHOLDER = 'Bring evidence, counterevidence, or what moved overnight';
+const NOOP_ASYNC = async () => {};
 
 /* One retrieved line, in the state the product is actually about: the sentence,
    where it came from, and what the human can do with it.
@@ -91,6 +95,9 @@ const AgentRail = () => {
   const {
     surface,
     proposals,
+    messages,
+    threadId,
+    activity,
     busy,
     canAsk,
     availabilityReason,
@@ -101,6 +108,30 @@ const AgentRail = () => {
     accept,
     dismissProposal
   } = useAgentRail();
+  const [reviewError, setReviewError] = useState('');
+  const reportReviewError = useCallback((message) => setReviewError(String(message || '')), []);
+  const {
+    pendingStructureProposals,
+    resolvedStructureProposals,
+    structureProposalLoadingId,
+    structureProposalOperationLoadingId,
+    loadStructureProposals,
+    handleUpdateStructureProposalOperationStatus,
+    handleBulkUpdateStructureProposalOperationStatus,
+    handleApplyStructureProposal,
+    handleRejectStructureProposal,
+    handleRollbackStructureProposal
+  } = useAgentReviewState({
+    activeThreadId: threadId,
+    mapStructureProposal: mapAgentStructureProposal,
+    loadRuns: NOOP_ASYNC,
+    loadHarnessMetrics: NOOP_ASYNC,
+    setError: reportReviewError
+  });
+
+  useEffect(() => {
+    if (threadId) loadStructureProposals(threadId);
+  }, [loadStructureProposals, threadId]);
 
   const submit = (event) => {
     event.preventDefault();
@@ -111,7 +142,10 @@ const AgentRail = () => {
   };
 
   const lines = Array.isArray(surface.lines) ? surface.lines : [];
-  const quiet = !proposals.length && !lines.length && !busy && !error;
+  const visibleMessages = messages
+    .filter(message => !proposals.some(proposal => proposal.sentence === message.text))
+    .slice(-6);
+  const quiet = !visibleMessages.length && !proposals.length && !lines.length && !busy && !error;
   // A surface that has not taught the rail how to retrieve says so, rather than
   // offering an input that would swallow the question.
   const quietLine = surface.empty
@@ -151,6 +185,20 @@ const AgentRail = () => {
         </ul>
       ) : null}
 
+      {visibleMessages.length ? (
+        <ol className="agent-rail__conversation" aria-live="polite">
+          {visibleMessages.map(message => (
+            <li key={message.id} className={`agent-rail__message agent-rail__message--${message.role}`}>
+              <span>{message.role === 'user' ? 'You' : 'Noeis'}</span>
+              <p>{message.text}</p>
+              {sourceLabelForAgentMessage(message) ? (
+                <small>{sourceLabelForAgentMessage(message)}</small>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
       {proposals.length ? (
         <div className="agent-rail__proposals" aria-live="polite">
           {proposals.map(proposal => (
@@ -165,8 +213,45 @@ const AgentRail = () => {
         </div>
       ) : null}
 
-      {busy ? <p className="agent-rail__status" role="status">Looking…</p> : null}
+      {pendingStructureProposals.length ? (
+        <section className="agent-rail__review-stage" aria-label="Review staged organization plan">
+          <p className="agent-rail__review-label">Review before anything changes</p>
+          {pendingStructureProposals.map(proposal => (
+            <StructureProposalReview
+              key={proposal.structureProposalId}
+              proposal={proposal}
+              isLoading={structureProposalLoadingId === proposal.structureProposalId}
+              activeOperationId={structureProposalOperationLoadingId}
+              onApply={handleApplyStructureProposal}
+              onReject={handleRejectStructureProposal}
+              onUpdateOperationStatus={handleUpdateStructureProposalOperationStatus}
+              onBulkUpdateOperationStatus={handleBulkUpdateStructureProposalOperationStatus}
+            />
+          ))}
+        </section>
+      ) : null}
+
+      {resolvedStructureProposals.some(proposal => ['applied', 'partially_applied'].includes(proposal.status)) ? (
+        <section className="agent-rail__review-stage" aria-label="Recent organization plan">
+          <p className="agent-rail__review-label">Recent applied plan</p>
+          {resolvedStructureProposals
+            .filter(proposal => ['applied', 'partially_applied'].includes(proposal.status))
+            .slice(0, 1)
+            .map(proposal => (
+              <StructureProposalReview
+                key={proposal.structureProposalId}
+                proposal={proposal}
+                isLoading={structureProposalLoadingId === proposal.structureProposalId}
+                activeOperationId={structureProposalOperationLoadingId}
+                onRollback={handleRollbackStructureProposal}
+              />
+            ))}
+        </section>
+      ) : null}
+
+      {busy ? <p className="agent-rail__status" role="status">{activity || 'Thinking…'}</p> : null}
       {error ? <p className="agent-rail__error" role="alert">{error}</p> : null}
+      {reviewError ? <p className="agent-rail__error" role="alert">{reviewError}</p> : null}
 
       {/* An empty rail says so in a sentence. It does not draw a dashed box
           around the absence. */}
@@ -189,7 +274,7 @@ const AgentRail = () => {
         />
         <button type="submit" disabled={busy || !draft.trim()}>Ask</button>
       </form>
-      <p className="agent-rail__caption">{caption}</p>
+      <p className="agent-rail__caption">{threadId ? 'One conversation, wherever you go.' : caption}</p>
     </aside>
   );
 };

@@ -1,6 +1,6 @@
 /* The agent rail.
    Cream like the column, separated by one hairline. Not a card, not a panel,
-   not a chat log — the margin of the page, where the agent works. It never
+   not a chat app — the margin of the page, where the agent works. It never
    animates on navigation, because it never arrives: it was already there. */
 
 .agent-rail {
@@ -109,6 +109,48 @@
   color: var(--text-secondary, var(--vellum-muted));
   font-size: 0.82rem;
   line-height: 1.55;
+}
+
+/* One restrained conversation crosses rooms. The labels keep authorship
+   legible without turning the margin into stacked message bubbles. */
+.agent-rail__conversation {
+  display: grid;
+  gap: 14px;
+  max-height: min(34vh, 320px);
+  margin: 0;
+  padding: 0 6px 0 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.agent-rail__message {
+  display: grid;
+  gap: 4px;
+}
+
+.agent-rail__message > span,
+.agent-rail__message > small {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.agent-rail__message > p {
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-reading-font, ui-serif, Georgia, serif);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.agent-rail__message--user > p {
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.79rem;
 }
 
 /* ---------- retrieved lines ---------- */
@@ -273,6 +315,48 @@
   color: var(--text-muted, var(--vellum-subtle));
   font-size: 0.76rem;
   line-height: 1.5;
+}
+
+.agent-rail__review-stage {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+}
+
+.agent-rail__review-label {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 600 0.66rem/1.35 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* The shared review contract belongs in every agent surface. In the narrow
+   resident rail it becomes a calm vertical checklist rather than the wider
+   Think workbench card. */
+.agent-rail__review-stage .agent-thought-partner__review-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.agent-rail__review-stage .agent-thought-partner__review-head,
+.agent-rail__review-stage .agent-thought-partner__structure-step-head {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.agent-rail__review-stage .agent-thought-partner__structure-summary,
+.agent-rail__review-stage .agent-thought-partner__structure-bulk-actions,
+.agent-rail__review-stage .agent-thought-partner__draft-actions {
+  flex-wrap: wrap;
+}
+
+.agent-rail__review-stage .agent-thought-partner__structure-step {
+  padding-inline: 0;
 }
 
 /* ---------- the shell slot ---------- */

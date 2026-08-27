@@ -207,6 +207,14 @@ const run = async () => {
     assert.ok(body.includes('Save answer to Talk'), 'Graph-expanded answers should return a Talk follow-up action.');
     assert.ok(body.includes('/build Loss Aversion and Opportunity Cost'), 'Graph-expanded answers should return a bridge-page draft action.');
     assert.ok(
+      body.includes('capability.workspace.retrieve'),
+      'Wiki graph reads should pass through the same automatic-read capability contract.'
+    );
+    assert.ok(
+      body.includes('artifact_draft'),
+      'Wiki graph answers should expose their structured answer-artifact model profile.'
+    );
+    assert.ok(
       !body.includes('Answered from the selected wiki page.'),
       'Graph-expanded answers should not claim they only used the selected page.'
     );

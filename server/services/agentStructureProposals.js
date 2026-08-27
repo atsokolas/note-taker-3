@@ -432,6 +432,8 @@ const rollbackAcceptedStructureProposal = async ({
   AgentStructureProposal,
   NotebookFolder,
   NotebookEntry,
+  Folder,
+  Article,
   userId = '',
   structureProposalId = '',
   actor = {}
@@ -452,7 +454,7 @@ const rollbackAcceptedStructureProposal = async ({
   }
 
   await rollbackStructureProposal({
-    models: buildExecutionModels({ NotebookFolder, NotebookEntry }),
+    models: buildExecutionModels({ NotebookFolder, NotebookEntry, Folder, Article }),
     proposal: normalizeStructureProposal(doc.toObject ? doc.toObject({ getters: false, virtuals: false }) : doc),
     userId
   });

@@ -1953,7 +1953,7 @@ const agentHandoffEventSchema = new mongoose.Schema({
 const agentThreadScopeSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['global', 'workspace', 'article', 'notebook', 'concept', 'handoff', 'selection'],
+    enum: ['global', 'workspace', 'article', 'notebook', 'concept', 'question', 'wiki_page', 'think', 'handoff', 'selection'],
     default: 'global'
   },
   id: { type: String, default: '', trim: true },

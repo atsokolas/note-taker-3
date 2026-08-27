@@ -802,6 +802,10 @@ const {
   rollbackStoredStructureProposal
 } = require('./services/agentStructureProposals');
 const {
+  planLibraryStructureProposal,
+  persistLibraryStructureProposal
+} = require('./services/agentStructurePlanningService');
+const {
   getAgentHarnessMetricsSnapshot
 } = require('./services/agentHarnessMetrics');
 const {
@@ -7010,6 +7014,9 @@ app.use(buildAgentChatRouter({
   resolveExecutableProposalBundle,
   applyProposalBundleInvalidations,
   sanitizeAgentArtifactDraftDoc,
+  sanitizeAgentStructureProposalDoc,
+  planLibraryStructureProposal,
+  persistLibraryStructureProposal,
   threadMessagesToHistory,
   truncate: truncateThreadText,
   trackEvent,
