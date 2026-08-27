@@ -14,8 +14,10 @@ const {
   buildPartnerChatMessages,
   groundOrdinalWorkspaceReferences,
   ensureRetrievedItemNamed,
+  leaksInternalReasoning,
   buildWikiClaimSourceReply,
   prepareRelatedItemsForReply,
+  filterRetrievedItemsForRequest,
   pruneRelatedItemsForContext,
   shouldSearchWorkspaceForWikiPage
 } = __testables;
@@ -77,6 +79,34 @@ const run = async () => {
     { _id: routedWikiPageId, userId: 'user-1' },
     'Wiki hydration should stay bound to the exact owned page identity.'
   );
+  assert.strictEqual(
+    leaksInternalReasoning('Here is my thinking process: 1. Analyze User Input'),
+    true,
+    'Prompt or chain-of-thought leakage must be rejected before it reaches the UI.'
+  );
+  const emptySourceActionReply = buildReply({
+    message: 'Pull the strongest sources into this note.',
+    context: { type: 'notebook', id: 'n1', title: 'Working note' },
+    contextItem: { type: 'notebook', id: 'n1', title: 'Working note' },
+    relatedItems: [],
+    intentDecision: {
+      replyIntent: 'retrieve',
+      interactionMode: 'act'
+    }
+  });
+  assert.match(emptySourceActionReply, /did not stage a change/i, 'Empty retrieval actions must fail closed.');
+  const claimTestPlan = buildReply({
+    message: 'Give me a plan for testing this claim.',
+    context: { type: 'notebook', id: 'n1', title: 'Working note' },
+    contextItem: { type: 'notebook', id: 'n1', title: 'Working note' },
+    relatedItems: [],
+    intentDecision: {
+      replyIntent: 'plan',
+      interactionMode: 'plan'
+    }
+  });
+  assert.match(claimTestPlan, /falsifiable sentence/i, 'Planning should return concrete steps instead of nearby material.');
+  assert.match(claimTestPlan, /until you approve/i, 'Planning must preserve the human-acceptance boundary.');
 
   const tokens = tokenize('Find the note about systems thinking and evidence loops in my notebook');
   assert.ok(tokens.includes('systems'), 'Expected systems token.');
@@ -310,6 +340,17 @@ const run = async () => {
   ]);
   assert.strictEqual(prepared.length, 1, 'Low-signal hostname-only source items should be filtered when richer material exists.');
   assert.strictEqual(prepared[0].title, 'Feedback loops', 'Expected richer notebook item to survive filtering.');
+
+  const sourceOnlyRetrieval = filterRetrievedItemsForRequest([
+    { type: 'article', id: 'a1', title: 'Market structure primer' },
+    { type: 'concept', id: 'c1', title: 'Market structure' },
+    { type: 'notebook', id: 'n1', title: 'Market notes' }
+  ], 'Pull the strongest sources into this note.');
+  assert.deepStrictEqual(
+    sourceOnlyRetrieval.map((item) => item.id),
+    ['a1'],
+    'A source request must not stage concepts or notes as if they were source documents.'
+  );
 
   const pruned = pruneRelatedItemsForContext({
     context: { type: 'article', id: 'a1', title: 'World Models' },

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0.0 — 2026-08-27
+
+### Added
+
+- A durable, cross-room agent conversation that follows the active Library, Think, Wiki, or Judgment context.
+- An explicit intent kernel, capability broker, and task-aware model router for answer, retrieval, planning, drafting, and reviewable actions.
+- Schema-bound Library organization plans that are ownership-validated, staged for human review, and reversible after application.
+
+### Changed
+
+- OpenRouter is preferred when configured, with bounded model routes and automatic Hugging Face fallback for eligible non-streaming failures.
+- Agent replies now carry inspectable intent, capability, model-route, and upstream-attempt metadata.
+
+### Fixed
+
+- Model output is validated before any streaming text is released to the interface, preventing malformed plans or hidden reasoning from leaking through partial responses.
+- Agent threads preserve exact room identities across navigation without carrying pending page-bound writes to a different surface.
+
 ## 1.1.0.1 — 2026-08-13
 
 ### Changed

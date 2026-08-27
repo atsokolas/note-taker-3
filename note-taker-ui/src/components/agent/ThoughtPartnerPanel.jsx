@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  buildAgentMessage,
+  buildAgentContextFromIdentity,
+  mapAgentStructureProposal,
+  mapAgentThreadMessages
+} from '../../agent/agentConversationModel';
+import { useAgentRail } from '../../agent/AgentRailContext';
+import {
   chatWithAgent,
   dismissAgentArtifactDraft,
   getAgentHarnessMetrics,
@@ -85,18 +92,6 @@ const normalizeContextMetadata = (metadata = {}) => {
   };
 };
 
-const toContext = (contextType, contextId, contextTitle = '', contextMetadata = null) => {
-  const type = clean(contextType).toLowerCase();
-  const id = clean(contextId);
-  if (!type || !id) return null;
-  return {
-    type,
-    id,
-    title: clean(contextTitle),
-    metadata: normalizeContextMetadata(contextMetadata)
-  };
-};
-
 const toItemPath = (item = {}) => {
   const type = clean(item.type).toLowerCase();
   const id = clean(item.id);
@@ -149,25 +144,6 @@ const describeStructureOperationPreview = (operation = {}) => {
       return clean(operation?.title) || formatStatusLabel(operation?.type || 'step');
   }
 };
-
-const mapThreadMessages = (thread = null) => (
-  Array.isArray(thread?.messages)
-    ? thread.messages.map((message, index) => ({
-        id: `${clean(thread?.threadId) || 'thread'}-${message?.createdAt || index}-${index}`,
-        role: clean(message?.role).toLowerCase() === 'assistant' ? 'assistant' : 'user',
-        text: clean(message?.text),
-        createdAt: clean(message?.createdAt),
-        relatedItems: Array.isArray(message?.relatedItems) ? message.relatedItems : [],
-        premiumWebResearchAvailable: message?.metadata?.premiumWebResearchAvailable,
-        proposalBundle: message?.proposalBundle && typeof message.proposalBundle === 'object'
-          ? message.proposalBundle
-          : null,
-        planner: message?.metadata?.planner && typeof message.metadata.planner === 'object'
-          ? message.metadata.planner
-          : null
-      })).filter((message) => message.text)
-    : []
-);
 
 const mapDraft = (draft = {}) => ({
   draftId: clean(draft?.draftId),
@@ -269,37 +245,6 @@ const mapProposedChange = (change = {}) => ({
   rolledBackAt: clean(change?.rolledBackAt)
 });
 
-const mapStructureProposal = (proposal = {}) => ({
-  structureProposalId: clean(proposal?.structureProposalId),
-  sourceThreadId: clean(proposal?.sourceThreadId),
-  sourceRunId: clean(proposal?.sourceRunId),
-  status: clean(proposal?.status) || 'pending',
-  scope: clean(proposal?.scope),
-  scopeRef: clean(proposal?.scopeRef),
-  title: clean(proposal?.title),
-  summary: clean(proposal?.summary),
-  rationale: clean(proposal?.rationale),
-  acceptedAt: clean(proposal?.acceptedAt),
-  rejectedAt: clean(proposal?.rejectedAt),
-  rolledBackAt: clean(proposal?.rolledBackAt),
-  executionResult: proposal?.executionResult && typeof proposal.executionResult === 'object'
-    ? proposal.executionResult
-    : null,
-  operations: Array.isArray(proposal?.operations)
-    ? proposal.operations.map((operation = {}) => ({
-        opId: clean(operation?.opId),
-        type: clean(operation?.type),
-        targetDomain: clean(operation?.targetDomain),
-        status: clean(operation?.status) || 'pending',
-        payload: operation?.payload && typeof operation.payload === 'object' ? operation.payload : {},
-        preview: operation?.preview && typeof operation.preview === 'object' ? operation.preview : {},
-        risk: clean(operation?.risk),
-        isActionable: operation?.isActionable !== false,
-        invalidFields: Array.isArray(operation?.invalidFields) ? operation.invalidFields.map((value) => clean(value)).filter(Boolean) : []
-      }))
-    : []
-});
-
 const getSnapshotText = (snapshot = {}) => truncate(snapshot?.description || snapshot?.content || '', 360);
 const formatStatusLabel = (status = '') => clean(status).replace(/_/g, ' ') || 'pending';
 const formatDateTime = (value = '') => {
@@ -343,6 +288,12 @@ const ThoughtPartnerPanel = ({
   onPostureChange = null,
   passiveStatusText = 'Quiet mode is active. The agent is watching for reusable structure without steering the draft.'
 }) => {
+  const {
+    threadId: shellThreadId,
+    messages: shellMessages,
+    adoptThread: adoptShellThread,
+    resetConversation: resetShellConversation
+  } = useAgentRail();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -363,7 +314,8 @@ const ThoughtPartnerPanel = ({
   const [pendingSkillInvocation, setPendingSkillInvocation] = useState(null);
   const handledQueuedPromptIdRef = useRef('');
   const threadViewportRef = useRef(null);
-  const activeThreadId = clean(threadId || thread?.threadId);
+  const shellMessagesRef = useRef(shellMessages);
+  const activeThreadId = clean(threadId || thread?.threadId || shellThreadId);
   const isStreamVariant = variant === 'stream';
   const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
   const normalizedPostureOptions = useMemo(
@@ -378,8 +330,17 @@ const ThoughtPartnerPanel = ({
   const activePostureValue = activePosture?.value || '';
   const isPassiveNotebookPosture = activePostureValue === 'notebook';
 
+  useEffect(() => {
+    shellMessagesRef.current = shellMessages;
+  }, [shellMessages]);
+
   const context = useMemo(
-    () => toContext(contextType, contextId, contextTitle, contextMetadata),
+    () => buildAgentContextFromIdentity({
+      type: contextType,
+      id: contextId,
+      title: contextTitle,
+      metadata: normalizeContextMetadata(contextMetadata)
+    }),
     [contextId, contextMetadata, contextTitle, contextType]
   );
   const promptTemplates = useMemo(() => (
@@ -396,7 +357,7 @@ const ThoughtPartnerPanel = ({
     const safeThreadId = clean(nextThread?.threadId);
     if (!safeThreadId) return;
     setThreadId(safeThreadId);
-    setMessages(mapThreadMessages(nextThread));
+    setMessages(mapAgentThreadMessages(nextThread));
     setProposalBundles(
       Array.isArray(nextThread?.proposalBundles)
         ? nextThread.proposalBundles.filter((bundle) => clean(bundle?.bundleId))
@@ -490,7 +451,7 @@ const ThoughtPartnerPanel = ({
   } = useAgentReviewState({
     activeThreadId,
     mapProposedChange,
-    mapStructureProposal,
+    mapStructureProposal: mapAgentStructureProposal,
     loadRuns,
     loadHarnessMetrics,
     setError
@@ -531,18 +492,13 @@ const ThoughtPartnerPanel = ({
     setLoading(true);
     setInput('');
 
-    const userMessage = {
-      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      role: 'user',
-      text: message,
-      createdAt: new Date().toISOString()
-    };
+    const userMessage = buildAgentMessage({ role: 'user', text: message });
     setMessages(prev => [...prev, userMessage]);
 
     try {
       const result = await chatWithAgent({
         message,
-        threadId: threadId || clean(thread?.threadId) || undefined,
+        threadId: threadId || clean(thread?.threadId) || clean(shellThreadId) || undefined,
         threadTitle: clean(thread?.title) || contextTitle || title,
         persistThread: true,
         context,
@@ -559,18 +515,14 @@ const ThoughtPartnerPanel = ({
         limit: 6
       });
       const assistantMessage = {
-        id: `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        role: 'assistant',
-        text: clean(result?.reply) || 'No reply generated.',
-        createdAt: new Date().toISOString(),
-        relatedItems: Array.isArray(result?.relatedItems) ? result.relatedItems : [],
-        premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
-        proposalBundle: result?.proposalBundle && typeof result.proposalBundle === 'object'
-          ? result.proposalBundle
-          : null,
-        planner: result?.planner && typeof result.planner === 'object' ? result.planner : null
+        ...buildAgentMessage({
+          role: 'assistant',
+          text: clean(result?.reply) || 'No reply generated.',
+          result
+        }),
+        premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable)
       };
-      const hydratedMessages = result?.thread?.threadId ? mapThreadMessages(result.thread) : [];
+      const hydratedMessages = result?.thread?.threadId ? mapAgentThreadMessages(result.thread) : [];
       const didHydrateThread = Boolean(result?.thread?.threadId && hydratedMessages.length > 0);
       const responseProposedChanges = Array.isArray(result?.proposedChanges)
         ? result.proposedChanges
@@ -592,7 +544,10 @@ const ThoughtPartnerPanel = ({
                 relatedItems: Array.isArray(entry.relatedItems) ? entry.relatedItems : [],
                 metadata: {
                   premiumWebResearchAvailable: entry.premiumWebResearchAvailable,
-                  planner: entry.planner && typeof entry.planner === 'object' ? entry.planner : undefined
+                  planner: entry.planner && typeof entry.planner === 'object' ? entry.planner : undefined,
+                  intent: entry.intent && typeof entry.intent === 'object' ? entry.intent : undefined,
+                  capability: entry.capability && typeof entry.capability === 'object' ? entry.capability : undefined,
+                  modelRoute: entry.modelRoute && typeof entry.modelRoute === 'object' ? entry.modelRoute : undefined
                 },
                 proposalBundle: entry.proposalBundle && typeof entry.proposalBundle === 'object'
                   ? entry.proposalBundle
@@ -600,6 +555,7 @@ const ThoughtPartnerPanel = ({
               }))
             };
         hydrateFromThread(threadForUi);
+        adoptShellThread(threadForUi);
         loadArtifactDrafts(result.thread.threadId);
         loadRuns(result.thread.threadId);
         if (responseProposedChanges.length === 0) loadProposedChanges(result.thread.threadId);
@@ -630,7 +586,7 @@ const ThoughtPartnerPanel = ({
     } finally {
       setLoading(false);
     }
-  }, [context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, replaceProposedChange, replaceStructureProposal, thread?.threadId, thread?.title, threadId, title]);
+  }, [adoptShellThread, context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, replaceProposedChange, replaceStructureProposal, shellThreadId, thread?.threadId, thread?.title, threadId, title]);
 
   const handleExecuteProposalBundle = useCallback((bundle = {}) => {
     const title = clean(bundle?.title);
@@ -642,6 +598,13 @@ const ThoughtPartnerPanel = ({
   useEffect(() => {
     if (clean(thread?.threadId)) {
       hydrateFromThread(thread);
+      adoptShellThread(thread);
+      setError('');
+      return;
+    }
+    if (clean(shellThreadId)) {
+      setThreadId(clean(shellThreadId));
+      setMessages(Array.isArray(shellMessagesRef.current) ? shellMessagesRef.current : []);
       setError('');
       return;
     }
@@ -661,7 +624,7 @@ const ThoughtPartnerPanel = ({
     setEditingDraftBody('');
     setPendingSkillInvocation(null);
     setError('');
-  }, [clearReviewState, contextId, contextType, hydrateFromThread, thread]);
+  }, [adoptShellThread, clearReviewState, contextId, contextType, hydrateFromThread, shellThreadId, thread]);
 
   useEffect(() => {
     if (!activeThreadId) return;
@@ -1135,7 +1098,8 @@ const ThoughtPartnerPanel = ({
     setEditingDraftSummary('');
     setEditingDraftBody('');
     setPendingSkillInvocation(null);
-  }, [clearReviewState]);
+    resetShellConversation();
+  }, [clearReviewState, resetShellConversation]);
 
   const quickPromptsSection = (
     <div className="agent-thought-partner__quick-prompts">

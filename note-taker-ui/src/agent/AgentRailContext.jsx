@@ -4,14 +4,21 @@ import {
   filterContextualAgentHandlers
 } from './contextualAgentContracts';
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
+import { getAgentThread, streamChatWithAgent } from '../api/agent';
+import {
+  buildAgentContext,
+  buildAgentMessage,
+  mapAgentThreadMessages
+} from './agentConversationModel';
 
 // The agent rail's state lives above the router, because the rail does not
-// leave when the column changes. A page tells the rail what it is looking at
-// and how to ask on its behalf; the rail owns the asking, the proposals, and
-// the Accept/Dismiss. Nothing the agent retrieves reaches the column until the
-// human accepts it — that is the whole contract, so it lives in one place.
+// leave when the column changes. A page tells the rail what it is looking at;
+// the rail owns the durable conversation, proposals, and Accept/Dismiss. A
+// room supplies only its narrow accepted-write adapter. Nothing the agent
+// retrieves reaches the room until the human accepts it.
 
 const AgentRailContext = createContext(null);
+const ACTIVE_THREAD_STORAGE_KEY = 'noeis.agent.active_thread';
 
 const EMPTY_SURFACE = Object.freeze({
   id: '',
@@ -26,6 +33,9 @@ export const AgentRailProvider = ({ children }) => {
   const capabilityModel = useNoeisCapabilities();
   const [surface, setSurface] = useState(EMPTY_SURFACE);
   const [proposals, setProposals] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [threadId, setThreadId] = useState('');
+  const [activity, setActivity] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [draft, setDraft] = useState('');
@@ -36,6 +46,7 @@ export const AgentRailProvider = ({ children }) => {
   const surfaceOwner = useRef(null);
   const surfaceRevision = useRef(0);
   const pendingRevision = useRef(null);
+  const conversationStarted = useRef(false);
 
   const registerSurface = useCallback((next, owner) => {
     const normalized = { ...EMPTY_SURFACE, ...(next || {}) };
@@ -46,8 +57,8 @@ export const AgentRailProvider = ({ children }) => {
     surfaceRevision.current += 1;
     pendingRevision.current = null;
     setSurface(normalized);
-    // A different subject is a different conversation. Proposals about the
-    // last thing must not follow the human to the next one.
+    // A different subject changes the agent's exact working context, not the
+    // conversation. Only pending, page-bound writes are discarded.
     setProposals([]);
     setBusy(false);
     setError('');
@@ -63,19 +74,28 @@ export const AgentRailProvider = ({ children }) => {
     setSurface(EMPTY_SURFACE);
     setProposals([]);
     setBusy(false);
-    setCanAsk(false);
     setError('');
   }, []);
-
-  // Whether this surface can be asked at all. A surface that has not taught the
-  // rail how to retrieve for it gets a quiet, disabled input rather than a
-  // control that silently does nothing.
-  const [canAsk, setCanAsk] = useState(false);
 
   const setHandlers = useCallback((next, owner) => {
     if (owner && surfaceOwner.current !== owner) return;
     handlers.current = next || {};
-    setCanAsk(typeof handlers.current.onAsk === 'function');
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const savedThreadId = window.localStorage?.getItem(ACTIVE_THREAD_STORAGE_KEY) || '';
+    if (!savedThreadId) return () => { cancelled = true; };
+    getAgentThread(savedThreadId)
+      .then((result) => {
+        if (cancelled || conversationStarted.current || !result?.thread?.threadId) return;
+        setThreadId(String(result.thread.threadId));
+        setMessages(mapAgentThreadMessages(result.thread));
+      })
+      .catch(() => {
+        if (!cancelled) window.localStorage?.removeItem(ACTIVE_THREAD_STORAGE_KEY);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const capabilityChecks = (surface.capabilities || []).map(capabilityModel.resolveCapability);
@@ -91,6 +111,23 @@ export const AgentRailProvider = ({ children }) => {
     ]);
   }, []);
 
+  const adoptThread = useCallback((thread) => {
+    const nextThreadId = String(thread?.threadId || '').trim();
+    if (!nextThreadId) return;
+    conversationStarted.current = true;
+    setThreadId(nextThreadId);
+    setMessages(mapAgentThreadMessages(thread));
+    window.localStorage?.setItem(ACTIVE_THREAD_STORAGE_KEY, nextThreadId);
+  }, []);
+
+  const resetConversation = useCallback(() => {
+    conversationStarted.current = false;
+    setThreadId('');
+    setMessages([]);
+    setProposals([]);
+    window.localStorage?.removeItem(ACTIVE_THREAD_STORAGE_KEY);
+  }, []);
+
   const dismissProposal = useCallback((proposalId, revision = surfaceRevision.current) => {
     setProposals((current) => current.filter(item => (
       item.id !== proposalId || item._surfaceRevision !== revision
@@ -100,36 +137,77 @@ export const AgentRailProvider = ({ children }) => {
   const ask = useCallback(async (question, options = {}) => {
     const revision = surfaceRevision.current;
     if (pendingRevision.current === revision) return;
-    const run = handlers.current.onAsk;
     if (!agentAvailable) {
       setError(availabilityReason);
       return;
     }
-    /* A surface with nothing registered used to swallow the click: no request,
-       no error, no sign anything had happened. Silence is the one answer an
-       agent door must never give. */
-    if (!run) {
-      setError('This page has nothing to ask against yet.');
+    if (!surface.contractId) {
+      setError('Open a knowledge room before asking against it.');
       return;
     }
     pendingRevision.current = revision;
+    conversationStarted.current = true;
     setBusy(true);
     setError('');
+    setActivity('Reading the current context…');
+    const userMessage = buildAgentMessage({ role: 'user', text: question });
+    const pendingAssistant = buildAgentMessage({ role: 'assistant', text: '' });
+    setMessages(current => [...current, userMessage, pendingAssistant]);
     try {
-      const proposal = await run(question, options);
-      if (surfaceRevision.current !== revision) return;
-      if (proposal?.sentence) addProposal(proposal, revision);
-      else setError('Nothing came back for that.');
+      const result = await streamChatWithAgent({
+        message: question,
+        threadId: threadId || undefined,
+        threadTitle: surface.subject || surface.roleLabel || 'Noeis conversation',
+        persistThread: true,
+        context: buildAgentContext(surface),
+        history: messages.map(({ role, text }) => ({ role, text })),
+        limit: 6
+      }, {
+        onActivity: (receipt) => setActivity(String(receipt?.summary || 'Working…')),
+        onDelta: (delta) => setMessages(current => current.map(message => (
+          message.id === pendingAssistant.id
+            ? { ...message, text: `${message.text || ''}${delta}` }
+            : message
+        )))
+      });
+      const hydrated = result?.thread?.threadId ? mapAgentThreadMessages(result.thread) : [];
+      if (hydrated.length) setMessages(hydrated);
+      else {
+        const assistant = buildAgentMessage({ role: 'assistant', text: result?.reply || 'No reply generated.', result });
+        setMessages(current => current.map(message => (
+          message.id === pendingAssistant.id ? assistant : message
+        )));
+      }
+      if (result?.thread?.threadId) {
+        adoptThread(result.thread);
+      }
+      if (!result?.structureProposal && surfaceRevision.current === revision && typeof handlers.current.onAccept === 'function') {
+        const sentence = String(result?.reply || '').trim();
+        const allowedFields = (surface.supportedActions || [])
+          .filter(action => action.startsWith('accept.'))
+          .map(action => action.slice('accept.'.length));
+        if (sentence && allowedFields.length) {
+          addProposal({
+            id: `agent-reply:${Date.now()}`,
+            sentence,
+            body: sentence,
+            source: (result?.relatedItems || []).map(item => item?.title).filter(Boolean).slice(0, 2).join(' and '),
+            origin: options.origin || '',
+            fields: Array.isArray(options.fields) && options.fields.length ? options.fields : allowedFields
+          }, revision);
+        }
+      }
     } catch (askError) {
-      if (surfaceRevision.current !== revision) return;
-      setError(askError?.response?.data?.error || askError?.message || 'That search could not run.');
+      setMessages(current => current.filter(message => message.id !== pendingAssistant.id));
+      setError(askError?.response?.data?.error || askError?.message || 'That conversation could not continue.');
     } finally {
       if (pendingRevision.current === revision) {
         pendingRevision.current = null;
         setBusy(false);
+        setActivity('');
       }
     }
-  }, [addProposal, agentAvailable, availabilityReason]);
+  }, [addProposal, adoptThread, agentAvailable, availabilityReason, messages, surface, threadId]);
 
   const accept = useCallback(async (proposal, field) => {
     const revision = surfaceRevision.current;
@@ -154,12 +232,17 @@ export const AgentRailProvider = ({ children }) => {
   const value = useMemo(() => ({
     surface,
     proposals,
+    messages,
+    threadId,
+    activity,
     busy,
-    canAsk: canAsk && agentAvailable,
+    canAsk: Boolean(surface.contractId) && agentAvailable,
     availabilityReason,
     error,
     draft,
     setDraft,
+    adoptThread,
+    resetConversation,
     registerSurface,
     unregisterSurface,
     setHandlers,
@@ -167,20 +250,25 @@ export const AgentRailProvider = ({ children }) => {
     dismissProposal,
     ask,
     accept
-  }), [accept, addProposal, agentAvailable, ask, availabilityReason, busy, canAsk, dismissProposal, draft, error, proposals, registerSurface, setHandlers, surface, unregisterSurface]);
+  }), [accept, activity, addProposal, adoptThread, agentAvailable, ask, availabilityReason, busy, dismissProposal, draft, error, messages, proposals, registerSurface, resetConversation, setHandlers, surface, threadId, unregisterSurface]);
 
   return <AgentRailContext.Provider value={value}>{children}</AgentRailContext.Provider>;
 };
 
-export const useAgentRail = () => useContext(AgentRailContext) || {
+const EMPTY_AGENT_RAIL = Object.freeze({
   surface: EMPTY_SURFACE,
   proposals: [],
+  messages: [],
+  threadId: '',
+  activity: '',
   busy: false,
   canAsk: false,
   availabilityReason: 'No contextual capability is active.',
   error: '',
   draft: '',
   setDraft: () => {},
+  adoptThread: () => {},
+  resetConversation: () => {},
   registerSurface: () => {},
   unregisterSurface: () => {},
   setHandlers: () => {},
@@ -188,7 +276,9 @@ export const useAgentRail = () => useContext(AgentRailContext) || {
   dismissProposal: () => {},
   ask: async () => {},
   accept: async () => {}
-};
+});
+
+export const useAgentRail = () => useContext(AgentRailContext) || EMPTY_AGENT_RAIL;
 
 /**
  * Called by a page to say what the rail is looking at and how to act for it.

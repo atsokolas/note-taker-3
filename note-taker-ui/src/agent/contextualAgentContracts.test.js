@@ -64,7 +64,7 @@ describe('contextual agent contracts', () => {
     const onAsk = jest.fn();
     const onAccept = jest.fn();
     expect(filterContextualAgentHandlers('agent-surface.library', { onAsk, onAccept, onPublish: jest.fn() }))
-      .toEqual({ onAsk, onAccept });
+      .toEqual({ onAccept });
     expect(filterContextualAgentHandlers('agent-surface.wiki-workspace', { onAsk, onAccept })).toEqual({});
     expect(filterContextualAgentHandlers('agent-surface.missing', { onAsk, onAccept })).toEqual({});
     expect(getContextualAgentContract('agent-surface.library')?.room).toBe('library');

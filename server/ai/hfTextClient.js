@@ -63,6 +63,104 @@ const DEFAULT_ROUTE_PROFILES = Object.freeze({
   ]
 });
 
+const DEFAULT_ROUTE_CONTRACTS = Object.freeze({
+  partner_chat: Object.freeze({
+    temperature: 0.25,
+    maxTokens: 360,
+    reasoningEffort: 'low',
+    parserStrategy: 'plain_text',
+    responseFormat: null
+  }),
+  critique: Object.freeze({
+    temperature: 0.2,
+    maxTokens: 700,
+    reasoningEffort: 'medium',
+    parserStrategy: 'plain_text',
+    responseFormat: null
+  }),
+  artifact_draft: Object.freeze({
+    temperature: 0.2,
+    maxTokens: 1400,
+    reasoningEffort: 'medium',
+    parserStrategy: 'plain_text',
+    responseFormat: null
+  }),
+  tool_router: Object.freeze({
+    temperature: 0,
+    maxTokens: 300,
+    reasoningEffort: 'low',
+    parserStrategy: 'tool_call',
+    responseFormat: null
+  }),
+  structure_planner: Object.freeze({
+    temperature: 0.1,
+    maxTokens: 1200,
+    reasoningEffort: 'medium',
+    parserStrategy: 'json',
+    responseFormat: Object.freeze({ type: 'json_object' })
+  }),
+  hygiene_scan: Object.freeze({
+    temperature: 0.15,
+    maxTokens: 1400,
+    reasoningEffort: 'medium',
+    parserStrategy: 'json',
+    responseFormat: Object.freeze({ type: 'json_object' })
+  }),
+  deep_audit: Object.freeze({
+    temperature: 0.2,
+    maxTokens: 1800,
+    reasoningEffort: 'high',
+    parserStrategy: 'plain_text',
+    responseFormat: null
+  })
+});
+
+const DEFAULT_GENERATION_CONTRACT = Object.freeze({
+  temperature: 0.35,
+  maxTokens: 260,
+  reasoningEffort: 'medium',
+  parserStrategy: 'plain_text',
+  responseFormat: null
+});
+
+const getRouteContract = (route = '') => ({
+  ...DEFAULT_GENERATION_CONTRACT,
+  ...(DEFAULT_ROUTE_CONTRACTS[String(route || '').trim()] || {})
+});
+
+const resolveParserStrategy = ({ profile = {}, responseFormat, hasExplicitResponseFormat = false, tools = [] } = {}) => {
+  if (responseFormat?.type && /json/i.test(responseFormat.type)) return 'json';
+  if (Array.isArray(tools) && tools.length > 0 && profile.parserStrategy === 'tool_call') return 'tool_call';
+  if (hasExplicitResponseFormat && !responseFormat) return 'plain_text';
+  return profile.parserStrategy === 'tool_call' ? 'plain_text' : profile.parserStrategy;
+};
+
+const resolveGenerationContract = ({
+  route = '',
+  temperature,
+  maxTokens,
+  reasoningEffort,
+  responseFormat,
+  tools = []
+} = {}) => {
+  const profile = getRouteContract(route);
+  const hasExplicitResponseFormat = responseFormat !== undefined;
+  const resolvedResponseFormat = hasExplicitResponseFormat ? responseFormat : profile.responseFormat;
+  return {
+    route: String(route || '').trim(),
+    temperature: temperature === undefined ? profile.temperature : temperature,
+    maxTokens: maxTokens === undefined ? profile.maxTokens : maxTokens,
+    reasoningEffort: reasoningEffort === undefined ? profile.reasoningEffort : reasoningEffort,
+    responseFormat: resolvedResponseFormat,
+    parserStrategy: resolveParserStrategy({
+      profile,
+      responseFormat: resolvedResponseFormat,
+      hasExplicitResponseFormat,
+      tools
+    })
+  };
+};
+
 const ROUTE_ENV_KEYS = Object.freeze({
   partner_chat: 'HF_AGENT_CHAT_ROUTES',
   tool_router: 'HF_AGENT_TOOL_ROUTES',
@@ -196,9 +294,16 @@ const getConfiguredRouteProfiles = (provider = DEFAULT_PROVIDER, { upstream = 'h
   }, {});
 };
 
-const getConfig = () => {
+const resolvePreferredUpstream = () => {
+  const requested = String(process.env.AI_TEXT_UPSTREAM || '').trim().toLowerCase();
+  if (requested === 'openrouter' || requested === 'huggingface') return requested;
+  return String(process.env.OPENROUTER_API_KEY || '').trim() ? 'openrouter' : 'huggingface';
+};
+
+const getConfig = ({ upstream: upstreamOverride = '' } = {}) => {
   const openRouterToken = process.env.OPENROUTER_API_KEY || '';
-  const useOpenRouter = Boolean(String(openRouterToken || '').trim());
+  const upstream = upstreamOverride || resolvePreferredUpstream();
+  const useOpenRouter = upstream === 'openrouter';
   const model = useOpenRouter
     ? (process.env.OPENROUTER_TEXT_MODEL || DEFAULT_OPENROUTER_TEXT_MODEL)
     : (process.env.HF_TEXT_MODEL || DEFAULT_TEXT_MODEL);
@@ -224,7 +329,6 @@ const getConfig = () => {
   const routerBaseUrl = useOpenRouter
     ? (process.env.OPENROUTER_BASE_URL || DEFAULT_OPENROUTER_BASE_URL)
     : (process.env.HF_ROUTER_BASE_URL || DEFAULT_ROUTER_BASE_URL);
-  const upstream = useOpenRouter ? 'openrouter' : 'huggingface';
   return {
     token: useOpenRouter ? openRouterToken : (process.env.HF_TOKEN || ''),
     model,
@@ -240,6 +344,14 @@ const getConfig = () => {
       : [],
     routeProfiles: getConfiguredRouteProfiles(provider, { upstream, primaryModel: model, fallbacks: textModelFallbacks })
   };
+};
+
+const getConfigChain = ({ allowFallback = true } = {}) => {
+  const preferred = getConfig();
+  if (!allowFallback) return [preferred];
+  const alternateUpstream = preferred.upstream === 'openrouter' ? 'huggingface' : 'openrouter';
+  const alternate = getConfig({ upstream: alternateUpstream });
+  return String(alternate.token || '').trim() ? [preferred, alternate] : [preferred];
 };
 
 const startupConfig = getConfig();
@@ -587,6 +699,114 @@ const extractChatContent = (body) => {
   return '';
 };
 
+const parseStructuredText = (value = '') => {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const direct = parseJsonSafely(text);
+  if (direct) return direct;
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return fenced ? parseJsonSafely(fenced[1].trim()) : null;
+};
+
+const hasReasoningLeak = (value = '') => (
+  /^(?:analysis|reasoning|chain of thought|thought process)\s*:/i.test(String(value || '').trim())
+  || /^let(?:'s| us) (?:reason|analy[sz]e|think through)\b/i.test(String(value || '').trim())
+);
+
+const validateJsonSchemaValue = (value, schema = {}, path = '$') => {
+  if (!schema || typeof schema !== 'object') return '';
+  const expectedTypes = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
+  const matchesType = (type) => {
+    if (type === 'null') return value === null;
+    if (type === 'array') return Array.isArray(value);
+    if (type === 'object') return value !== null && typeof value === 'object' && !Array.isArray(value);
+    if (type === 'integer') return Number.isInteger(value);
+    if (type === 'number') return typeof value === 'number' && Number.isFinite(value);
+    return typeof value === type;
+  };
+  if (expectedTypes.length > 0 && !expectedTypes.some(matchesType)) {
+    return `${path} must be ${expectedTypes.join(' or ')}.`;
+  }
+  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
+    return `${path} is not an allowed value.`;
+  }
+  if (typeof value === 'string') {
+    if (Number.isFinite(schema.minLength) && value.length < schema.minLength) return `${path} is too short.`;
+    if (Number.isFinite(schema.maxLength) && value.length > schema.maxLength) return `${path} is too long.`;
+  }
+  if (Array.isArray(value)) {
+    if (Number.isFinite(schema.minItems) && value.length < schema.minItems) return `${path} has too few items.`;
+    if (Number.isFinite(schema.maxItems) && value.length > schema.maxItems) return `${path} has too many items.`;
+    for (let index = 0; index < value.length; index += 1) {
+      const itemError = validateJsonSchemaValue(value[index], schema.items, `${path}[${index}]`);
+      if (itemError) return itemError;
+    }
+  }
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    const properties = schema.properties && typeof schema.properties === 'object' ? schema.properties : {};
+    for (const key of Array.isArray(schema.required) ? schema.required : []) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) return `${path}.${key} is required.`;
+    }
+    if (schema.additionalProperties === false) {
+      const unexpected = Object.keys(value).find((key) => !Object.prototype.hasOwnProperty.call(properties, key));
+      if (unexpected) return `${path}.${unexpected} is not allowed.`;
+    }
+    for (const [key, childSchema] of Object.entries(properties)) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+      const propertyError = validateJsonSchemaValue(value[key], childSchema, `${path}.${key}`);
+      if (propertyError) return propertyError;
+    }
+  }
+  return '';
+};
+
+const schemaFromResponseFormat = (responseFormat) => (
+  responseFormat?.type === 'json_schema' ? responseFormat?.json_schema?.schema : null
+);
+
+const validateOutputContract = ({
+  text = '',
+  toolCalls = [],
+  parserStrategy = 'plain_text',
+  responseFormat = null
+} = {}) => {
+  if (parserStrategy === 'tool_call') {
+    return Array.isArray(toolCalls) && toolCalls.length > 0
+      ? { ok: true }
+      : { ok: false, message: 'Model did not return the required tool call.' };
+  }
+  if (parserStrategy === 'json') {
+    const parsed = parseStructuredText(text);
+    if (!parsed) return { ok: false, message: 'Model did not return valid structured JSON.' };
+    const schemaError = validateJsonSchemaValue(parsed, schemaFromResponseFormat(responseFormat));
+    return schemaError
+      ? { ok: false, message: `Model response failed its structured contract: ${schemaError}` }
+      : { ok: true };
+  }
+  return hasReasoningLeak(text)
+    ? { ok: false, message: 'Model exposed internal reasoning instead of a user-facing answer.' }
+    : { ok: true };
+};
+
+const summarizeUpstreamFailure = ({ upstream = '', error, latencyMs = 0 } = {}) => {
+  const status = Number(error?.status || 0);
+  let reason = 'request_failed';
+  if (status === 402) reason = 'payment_required';
+  else if (status === 408) reason = 'timed_out';
+  else if (status === 429) reason = 'rate_limited';
+  else if (status === 502 && /structured contract|structured JSON/i.test(String(error?.message || ''))) reason = 'invalid_output';
+  else if (status >= 500) reason = 'upstream_unavailable';
+  return {
+    upstream,
+    status: 'failed',
+    reason,
+    httpStatus: status || undefined,
+    model: String(error?.model || '').trim() || undefined,
+    provider: String(error?.provider || '').trim() || undefined,
+    latencyMs
+  };
+};
+
 const extractDeltaContent = (payload) => {
   const delta = payload?.choices?.[0]?.delta?.content;
   if (typeof delta === 'string') return delta;
@@ -605,20 +825,21 @@ const isTextGenerationConfigured = () => {
   return Boolean(String(token || '').trim() && (String(model || '').trim() || hasProfileRoute));
 };
 
-const chatComplete = async ({
+const chatCompleteWithConfig = async ({
   messages = [],
-  temperature = 0.35,
-  maxTokens = 260,
-  reasoningEffort = 'medium',
+  temperature,
+  maxTokens,
+  reasoningEffort,
   fallbackModels = [],
   preferFallbackModels = false,
   route = '',
   modelRoutes = [],
-  responseFormat = null,
+  responseFormat,
   reasoning = null,
   tools = null,
-  toolChoice = null
-} = {}) => {
+  toolChoice = null,
+  signal = null
+} = {}, config = getConfig()) => {
   const {
     token,
     model,
@@ -630,7 +851,15 @@ const chatComplete = async ({
     upstream,
     referer,
     appTitle
-  } = getConfig();
+  } = config;
+  const generationContract = resolveGenerationContract({
+    route,
+    temperature,
+    maxTokens,
+    reasoningEffort,
+    responseFormat,
+    tools
+  });
   if (!token) {
     const tokenName = upstream === 'openrouter' ? 'OPENROUTER_API_KEY' : 'HF_TOKEN';
     throw buildError({
@@ -705,17 +934,18 @@ const chatComplete = async ({
         appTitle,
         payload: {
           messages: safeMessages,
-          temperature,
-          max_tokens: maxTokens,
+          temperature: generationContract.temperature,
+          max_tokens: generationContract.maxTokens,
           ...(reasoning && typeof reasoning === 'object'
             ? { reasoning }
-            : reasoningEffort
-              ? { reasoning_effort: reasoningEffort }
+            : generationContract.reasoningEffort
+              ? { reasoning_effort: generationContract.reasoningEffort }
               : {}),
-          ...(responseFormat ? { response_format: responseFormat } : {}),
+          ...(generationContract.responseFormat ? { response_format: generationContract.responseFormat } : {}),
           ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {})
-        }
+        },
+        signal
       });
 
       const text = extractChatContent(body);
@@ -732,13 +962,32 @@ const chatComplete = async ({
           upstream
         });
       }
+      const validation = validateOutputContract({
+        text,
+        toolCalls,
+        parserStrategy: generationContract.parserStrategy,
+        responseFormat: generationContract.responseFormat
+      });
+      if (!validation.ok) {
+        throw buildError({
+          status: 502,
+          detail: validation.message,
+          message: validation.message,
+          provider: resolvedProvider || provider,
+          model: candidateModel,
+          upstream
+        });
+      }
 
       return {
         text,
         model: candidateModel,
         provider: resolvedProvider || candidateProvider,
         toolCalls,
-        raw: body
+        raw: body,
+        route: generationContract.route,
+        outputContract: generationContract.parserStrategy,
+        upstream
       };
     } catch (error) {
       lastError = error;
@@ -758,6 +1007,51 @@ const chatComplete = async ({
     model,
     upstream
   });
+};
+
+const chatComplete = async (input = {}) => {
+  const allowUpstreamFallback = !Array.isArray(input.modelRoutes) || input.modelRoutes.length === 0;
+  const configs = getConfigChain({ allowFallback: allowUpstreamFallback });
+  const attempts = [];
+  let lastError = null;
+
+  for (const config of configs) {
+    const startedAt = Date.now();
+    try {
+      const completion = await chatCompleteWithConfig(input, config);
+      return {
+        ...completion,
+        upstreamAttempts: [
+          ...attempts,
+          {
+            upstream: config.upstream,
+            status: 'succeeded',
+            model: completion.model,
+            provider: completion.provider || undefined,
+            latencyMs: Date.now() - startedAt
+          }
+        ]
+      };
+    } catch (error) {
+      lastError = error;
+      attempts.push(summarizeUpstreamFailure({
+        upstream: config.upstream,
+        error,
+        latencyMs: Date.now() - startedAt
+      }));
+      const hasNextUpstream = config !== configs.at(-1);
+      if (!hasNextUpstream || !isFallbackModelStatus(error?.status)) {
+        error.upstreamAttempts = attempts;
+        throw error;
+      }
+    }
+  }
+
+  if (lastError) {
+    lastError.upstreamAttempts = attempts;
+    throw lastError;
+  }
+  throw buildError({ status: 502, message: 'No AI text upstream is available.' });
 };
 
 const readStreamingCompletion = async ({ response, onDelta, signal }) => {
@@ -815,14 +1109,14 @@ const readStreamingCompletion = async ({ response, onDelta, signal }) => {
 
 const chatCompleteStream = async ({
   messages = [],
-  temperature = 0.35,
-  maxTokens = 260,
-  reasoningEffort = 'medium',
+  temperature,
+  maxTokens,
+  reasoningEffort,
   fallbackModels = [],
   preferFallbackModels = false,
   route = '',
   modelRoutes = [],
-  responseFormat = null,
+  responseFormat,
   reasoning = null,
   tools = null,
   toolChoice = null,
@@ -841,6 +1135,14 @@ const chatCompleteStream = async ({
     referer,
     appTitle
   } = getConfig();
+  const generationContract = resolveGenerationContract({
+    route,
+    temperature,
+    maxTokens,
+    reasoningEffort,
+    responseFormat,
+    tools
+  });
   if (!token) {
     const tokenName = upstream === 'openrouter' ? 'OPENROUTER_API_KEY' : 'HF_TOKEN';
     throw buildError({
@@ -915,20 +1217,25 @@ const chatCompleteStream = async ({
         appTitle,
         payload: {
           messages: safeMessages,
-          temperature,
-          max_tokens: maxTokens,
+          temperature: generationContract.temperature,
+          max_tokens: generationContract.maxTokens,
           ...(reasoning && typeof reasoning === 'object'
             ? { reasoning }
-            : reasoningEffort
-              ? { reasoning_effort: reasoningEffort }
+            : generationContract.reasoningEffort
+              ? { reasoning_effort: generationContract.reasoningEffort }
               : {}),
-          ...(responseFormat ? { response_format: responseFormat } : {}),
+          ...(generationContract.responseFormat ? { response_format: generationContract.responseFormat } : {}),
           ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
           ...(toolChoice ? { tool_choice: toolChoice } : {})
         },
         signal
       });
-      const streamed = await readStreamingCompletion({ response, onDelta, signal });
+      // Buffer the candidate until its output contract passes. Emitting model
+      // deltas first would let malformed JSON or hidden reasoning reach the UI
+      // before this fail-closed boundary can reject the response. A validated
+      // answer is still delivered through the streaming callback as one safe
+      // chunk; callers keep the same transport contract without partial leaks.
+      const streamed = await readStreamingCompletion({ response, onDelta: null, signal });
       if (!streamed.text) {
         throw buildError({
           status: 502,
@@ -939,11 +1246,29 @@ const chatCompleteStream = async ({
           upstream
         });
       }
+      const validation = validateOutputContract({
+        text: streamed.text,
+        parserStrategy: generationContract.parserStrategy,
+        responseFormat: generationContract.responseFormat
+      });
+      if (!validation.ok) {
+        throw buildError({
+          status: 502,
+          detail: validation.message,
+          message: validation.message,
+          provider: resolvedProvider || provider,
+          model: candidateModel,
+          upstream
+        });
+      }
+      if (typeof onDelta === 'function') onDelta(streamed.text);
       return {
         text: streamed.text,
         model: candidateModel,
         provider: resolvedProvider || candidateProvider,
-        raw: streamed.raw
+        raw: streamed.raw,
+        route: generationContract.route,
+        outputContract: generationContract.parserStrategy
       };
     } catch (error) {
       lastError = error;
@@ -972,11 +1297,18 @@ module.exports = {
   getConfig,
   isTextGenerationConfigured,
   __testables: {
+    getRouteContract,
+    resolveParserStrategy,
+    resolveGenerationContract,
+    validateOutputContract,
     parseRouteEntry,
     parseRouteList,
     isFallbackModelStatus,
     mergeCandidateRoutes,
     getConfiguredRouteProfiles,
+    getConfigChain,
+    validateJsonSchemaValue,
+    summarizeUpstreamFailure,
     extractDeltaContent
   }
 };

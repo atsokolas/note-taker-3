@@ -30,7 +30,6 @@ import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/l
 import { librarySubject } from '../components/library/libraryColumnModel';
 import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
-import { oneSentence } from './judgmentModel';
 import LibraryColumn from '../components/library/LibraryColumn';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
@@ -664,8 +663,8 @@ const Library = () => {
      It used to open a second panel below the article with its own textarea, so
      selecting a sentence produced a fourth input on a screen that already had
      three, while the rail sat beside it saying it had nothing to retrieve. The
-     rail already knows how to answer this: its onAsk carries the article as
-     context. */
+     rail already owns the durable conversation and receives the article's
+     exact context from the active Library surface. */
   const { ask: askRail } = useAgentRail();
 
   /* Keeping a source for life. The reader owns this one — no agent sets it —
@@ -813,25 +812,6 @@ const Library = () => {
         : 'Nothing on the shelf to retrieve from yet.'
     },
     {
-      onAsk: async (question) => {
-        const result = await chatWithAgent({
-          message: question,
-          context: exactSourceId !== 'library'
-            ? { type: exactSourceType, id: exactSourceId, title: exactSourceTitle || 'Source' }
-            : { type: 'workspace', id: 'library', title: 'Library' }
-        });
-        const sentence = oneSentence(String(result?.reply || result?.message || result?.answer || ''));
-        if (!sentence) return null;
-        return {
-          id: `library-ask:${sentence.slice(0, 32)}`,
-          sentence,
-          body: sentence,
-          origin: exactSourceId !== 'library' ? 'Asked of this source' : 'Asked of the library',
-          // There is no claim contract to write into here, so there is one
-          // decision to make: keep the line or let it go.
-          fields: ['keep']
-        };
-      },
       // Accepting keeps the line where the human's loose material already goes.
       // Dismissing leaves nothing behind, which is the point.
       onAccept: (proposal) => handleDumpToWorkingMemory(proposal.body)

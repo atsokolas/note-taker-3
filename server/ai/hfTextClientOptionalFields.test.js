@@ -17,6 +17,28 @@ const jsonResponse = (status, body) => ({
   text: async () => JSON.stringify(body)
 });
 
+const streamingResponse = (text, status = 200) => {
+  const encoder = new TextEncoder();
+  const chunks = [
+    `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`,
+    'data: [DONE]\n\n'
+  ].map(chunk => encoder.encode(chunk));
+  let index = 0;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    body: {
+      getReader: () => ({
+        read: async () => index < chunks.length
+          ? { done: false, value: chunks[index++] }
+          : { done: true, value: undefined },
+        cancel: async () => {}
+      })
+    },
+    text: async () => ''
+  };
+};
+
 const completion = (text = 'ok') => ({
   choices: [{ message: { content: text } }]
 });
@@ -27,7 +49,7 @@ const withStubbedFetch = async (handler, run) => {
   global.fetch = async (url, options) => {
     const payload = JSON.parse(options.body);
     calls.push(payload);
-    return handler(payload, calls.length);
+    return handler(payload, calls.length, url);
   };
   try {
     return await run(calls);
@@ -159,6 +181,124 @@ const run = async () => {
         const succeeded = calls[calls.length - 1];
         assert.ok(!Object.prototype.hasOwnProperty.call(succeeded, 'provider'));
         assert.ok(!Object.prototype.hasOwnProperty.call(succeeded, 'reasoning'));
+      }
+    );
+
+    // 6. Route contracts supply task-specific defaults when the caller does
+    //    not override them.
+    await withStubbedFetch(
+      () => jsonResponse(200, completion('A grounded answer.')),
+      async (calls) => {
+        const result = await chatComplete({
+          route: 'partner_chat',
+          messages: [{ role: 'user', content: 'answer from my note' }]
+        });
+        assert.equal(result.route, 'partner_chat');
+        assert.equal(result.outputContract, 'plain_text');
+        assert.equal(calls[0].temperature, 0.25);
+        assert.equal(calls[0].max_tokens, 360);
+        assert.equal(calls[0].reasoning_effort, 'low');
+      }
+    );
+
+    // 7. Invalid structured output fails over to the next provider route
+    //    instead of leaking an unvalidated plan into the product.
+    await withStubbedFetch(
+      (payload) => payload.provider === 'groq'
+        ? jsonResponse(200, completion('not structured'))
+        : jsonResponse(200, completion('{"title":"Reviewable plan","operations":[]}')),
+      async (calls) => {
+        const result = await chatComplete({
+          route: 'structure_planner',
+          messages: [{ role: 'user', content: 'organize this workspace' }]
+        });
+        assert.equal(result.outputContract, 'json');
+        assert.equal(result.provider, 'cerebras');
+        assert.deepEqual(calls[0].response_format, { type: 'json_object' });
+        assert.ok(calls.length >= 2, 'invalid JSON should advance to the next configured route');
+      }
+    );
+
+    // 8. OpenRouter may be preferred without becoming a single point of failure.
+    //    An incomplete schema-bound plan must fail closed there and retry on HF.
+    await withEnv({
+      ...baseEnv,
+      OPENROUTER_API_KEY: 'test-openrouter-key',
+      OPENROUTER_TEXT_MODEL: 'openai/gpt-4o-mini',
+      OPENROUTER_TEXT_MODEL_FALLBACKS: '',
+      OPENROUTER_AGENT_STRUCTURE_ROUTES: 'openai/gpt-4o-mini'
+    }, async () => {
+      const { chatComplete: completeWithFallback } = loadClient();
+      const responseFormat = {
+        type: 'json_schema',
+        json_schema: {
+          name: 'plan',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['title', 'operations'],
+            properties: {
+              title: { type: 'string' },
+              operations: { type: 'array', minItems: 1, items: { type: 'string' } }
+            }
+          }
+        }
+      };
+      await withStubbedFetch(
+        (_payload, _callNumber, url) => String(url).includes('openrouter.ai')
+          ? jsonResponse(200, completion('{"title":"Incomplete","operations":[]}'))
+          : jsonResponse(200, completion('{"title":"Complete","operations":["move"]}')),
+        async () => {
+          const result = await completeWithFallback({
+            route: 'structure_planner',
+            responseFormat,
+            messages: [{ role: 'user', content: 'organize this workspace' }]
+          });
+          assert.equal(result.upstream, 'huggingface');
+          assert.deepEqual(
+            result.upstreamAttempts.map(({ upstream, status, reason }) => ({ upstream, status, reason })),
+            [
+              { upstream: 'openrouter', status: 'failed', reason: 'invalid_output' },
+              { upstream: 'huggingface', status: 'succeeded', reason: undefined }
+            ]
+          );
+        }
+      );
+    });
+
+    // 9. Streaming is fail-closed too: rejected model text is buffered and
+    //    never reaches the caller's delta callback.
+    await withStubbedFetch(
+      () => streamingResponse('Reasoning: hidden chain of thought'),
+      async () => {
+        const deltas = [];
+        const { chatCompleteStream } = loadClient();
+        await assert.rejects(
+          () => chatCompleteStream({
+            route: 'partner_chat',
+            messages: [{ role: 'user', content: 'answer safely' }],
+            onDelta: delta => deltas.push(delta)
+          }),
+          error => error.status === 502
+        );
+        assert.deepEqual(deltas, []);
+      }
+    );
+
+    // 10. A valid buffered stream is released exactly once after validation.
+    await withStubbedFetch(
+      () => streamingResponse('A grounded answer.'),
+      async () => {
+        const deltas = [];
+        const { chatCompleteStream } = loadClient();
+        const result = await chatCompleteStream({
+          route: 'partner_chat',
+          messages: [{ role: 'user', content: 'answer safely' }],
+          onDelta: delta => deltas.push(delta)
+        });
+        assert.equal(result.text, 'A grounded answer.');
+        assert.deepEqual(deltas, ['A grounded answer.']);
       }
     );
   });

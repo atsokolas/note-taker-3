@@ -522,6 +522,19 @@ const run = async () => {
   const investingFolder = state.libraryFolders.find((folder) => folder.name === 'Investing');
   assert.ok(investingFolder, 'Library filing apply should create the proposed folder.');
   assert.strictEqual(state.articles.find((article) => article._id === 'article-1').folder, investingFolder._id);
+
+  const rolledBackLibrary = await rollbackAcceptedStructureProposal({
+    AgentStructureProposal: libraryModel,
+    Folder: models.Folder,
+    Article: models.Article,
+    userId: 'user-1',
+    structureProposalId: 'plan-library',
+    actor: { actorType: 'user', actorId: 'user-1' }
+  });
+
+  assert.strictEqual(rolledBackLibrary.status, 'rolled_back');
+  assert.strictEqual(state.articles.find((article) => article._id === 'article-1').folder, null);
+  assert.strictEqual(state.libraryFolders.some((folder) => folder.name === 'Investing'), false);
 };
 
 if (require.main === module) {

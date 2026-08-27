@@ -46,6 +46,9 @@ const THREAD_SCOPE_LABELS = {
   article: 'Article',
   notebook: 'Notebook',
   concept: 'Concept',
+  question: 'Question',
+  wiki_page: 'Wiki page',
+  think: 'Think',
   handoff: 'Handoff',
   selection: 'Selection'
 };

@@ -3,37 +3,42 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import AgentRail from './AgentRail';
 import { AgentRailProvider, useContextualAgentSurface } from './AgentRailContext';
 import { hasContextualAgentRail } from './contextualAgentContracts';
+import { getAgentThread, streamChatWithAgent } from '../api/agent';
+
+jest.mock('../api/agent', () => ({
+  getAgentThread: jest.fn(),
+  streamChatWithAgent: jest.fn()
+}));
 
 // A stand-in for a page: it registers a surface with the rail and records what
 // the rail hands back when the human accepts.
-const Surface = ({ id, subject, empty, onAsk, accepted }) => {
+const Surface = ({ id, subject, empty, accepted }) => {
   useContextualAgentSurface(
     'agent-surface.judgment',
     { objectType: 'claim', objectId: id, subject, empty },
     {
-      onAsk,
       onAccept: (proposal, field) => accepted.push({ text: proposal.body, field })
     }
   );
   return <p>column: {subject}</p>;
 };
 
-const Column = ({ accepted, onAsk }) => {
+const Column = ({ accepted }) => {
   const [surface, setSurface] = useState('a');
   return (
     <>
       <button type="button" onClick={() => setSurface(surface === 'a' ? 'b' : 'a')}>Navigate</button>
       {surface === 'a'
-        ? <Surface id="a" subject="The first claim." empty="Nothing to retrieve until you ask." onAsk={onAsk} accepted={accepted} />
-        : <Surface id="b" subject="The second claim." empty="Nothing to retrieve until you ask." onAsk={onAsk} accepted={accepted} />}
+        ? <Surface id="a" subject="The first claim." empty="Nothing to retrieve until you ask." accepted={accepted} />
+        : <Surface id="b" subject="The second claim." empty="Nothing to retrieve until you ask." accepted={accepted} />}
     </>
   );
 };
 
-const renderRail = ({ onAsk = jest.fn(), accepted = [] } = {}) => {
+const renderRail = ({ accepted = [] } = {}) => {
   const utils = render(
     <AgentRailProvider>
-      <Column accepted={accepted} onAsk={onAsk} />
+      <Column accepted={accepted} />
       <AgentRail />
     </AgentRailProvider>
   );
@@ -56,6 +61,13 @@ const ProjectionToggle = () => {
 };
 
 describe('AgentRail', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    getAgentThread.mockReset();
+    streamChatWithAgent.mockReset();
+    streamChatWithAgent.mockImplementation(async (payload) => ({ reply: `Reply to ${payload.message}` }));
+  });
+
   it('says what it is for without branding itself', () => {
     const { rail } = renderRail();
 
@@ -76,7 +88,8 @@ describe('AgentRail', () => {
     expect(within(rail()).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
   });
 
-  it('explains when the current surface has no retrieval handler', async () => {
+  it('uses the durable conversation even when a page has no write adapter', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'The accepted page changed in two places.' });
     render(
       <AgentRailProvider>
         <ProjectionToggle />
@@ -87,7 +100,11 @@ describe('AgentRail', () => {
       target: { value: 'What changed?' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
-    expect(await within(rail).findByRole('alert')).toHaveTextContent('nothing to ask against');
+    expect(await within(rail).findByText('The accepted page changed in two places.')).toBeInTheDocument();
+    expect(streamChatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      persistThread: true,
+      context: expect.objectContaining({ type: 'wiki_page', id: 'wiki-1', pageId: 'wiki-1' })
+    }), expect.any(Object));
   });
 
   it('survives a column change and follows the new subject', async () => {
@@ -122,9 +139,9 @@ describe('AgentRail', () => {
       .toHaveValue('unfinished cross-room thought');
   });
 
-  it('drops proposals about the last thing when the column moves on', async () => {
-    const onAsk = jest.fn(async () => ({ id: 'p1', sentence: 'A retrieved line.', body: 'A retrieved line.' }));
-    const { rail } = renderRail({ onAsk });
+  it('keeps the conversation but drops page-bound write actions when the column moves on', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'A retrieved line.' });
+    const { rail } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'anything' }
@@ -134,29 +151,31 @@ describe('AgentRail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
 
-    await waitFor(() => expect(within(rail()).queryByText('A retrieved line.')).not.toBeInTheDocument());
+    await waitFor(() => expect(within(rail()).getByText('A retrieved line.')).toBeInTheDocument());
+    expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
   });
 
-  it('drops a retrieve that finishes after the column has moved on', async () => {
+  it('keeps a late reply in the conversation without binding it to the new page', async () => {
     let release;
-    const onAsk = jest.fn(() => new Promise(resolve => { release = resolve; }));
-    const { rail } = renderRail({ onAsk });
+    streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const { rail } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
-    await waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
-    release({ id: 'p1', sentence: 'A stale line.', body: 'A stale line.' });
+    release({ reply: 'A late line.' });
 
     await waitFor(() => expect(within(rail()).getByText('The second claim.')).toBeInTheDocument());
-    expect(within(rail()).queryByText('A stale line.')).not.toBeInTheDocument();
+    expect(await within(rail()).findByText('A late line.')).toBeInTheDocument();
+    expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
   });
 
   it('does not accept a proposal after the column changes during its exit motion', async () => {
-    const onAsk = jest.fn(async () => ({ id: 'p1', sentence: 'A stale line.', body: 'A stale line.' }));
-    const { rail, accepted } = renderRail({ onAsk });
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'A stale line.' });
+    const { rail, accepted } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'anything' }
@@ -172,8 +191,8 @@ describe('AgentRail', () => {
   });
 
   it('hands an accepted line to the page, with the field the human chose', async () => {
-    const onAsk = jest.fn(async () => ({ id: 'p1', sentence: 'Supply is catching up.', body: 'Supply is catching up.' }));
-    const { rail, accepted } = renderRail({ onAsk });
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Supply is catching up.' });
+    const { rail, accepted } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'what changed' }
@@ -188,13 +207,8 @@ describe('AgentRail', () => {
   });
 
   it('fails closed when a proposal asks for an action outside the room contract', async () => {
-    const onAsk = jest.fn(async () => ({
-      id: 'p1',
-      sentence: 'Publish this without review.',
-      body: 'Publish this without review.',
-      fields: ['publish']
-    }));
-    const { rail, accepted } = renderRail({ onAsk });
+    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Publish this without review.' });
+    const { rail, accepted } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'do it' }
@@ -202,15 +216,16 @@ describe('AgentRail', () => {
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
     await within(rail()).findByText('Publish this without review.');
     fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Against' }));
 
-    expect(await within(rail()).findByRole('alert')).toHaveTextContent('does not permit');
     expect(accepted).toEqual([]);
-    expect(within(rail()).getByText('Publish this without review.')).toBeInTheDocument();
+    await new Promise(resolve => window.setTimeout(resolve, 250));
+    expect(accepted).toEqual([{ text: 'Publish this without review.', field: 'against' }]);
   });
 
   it('reports a failed retrieve instead of inventing a line', async () => {
-    const onAsk = jest.fn(async () => { throw new Error('The index is offline.'); });
-    const { rail } = renderRail({ onAsk });
+    streamChatWithAgent.mockRejectedValueOnce(new Error('The index is offline.'));
+    const { rail } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
       target: { value: 'anything' }

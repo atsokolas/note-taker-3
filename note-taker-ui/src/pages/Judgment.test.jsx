@@ -6,7 +6,8 @@ import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { resetFirstPaint } from '../motion/columnMotion';
-import { askWikiPage, getJudgmentLibraryEvidence, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { getJudgmentLibraryEvidence, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { streamChatWithAgent } from '../api/agent';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
 
@@ -22,6 +23,11 @@ jest.mock('../api/wiki', () => ({
   listWikiPages: jest.fn(),
   listWikiSourceEvents: jest.fn(),
   updateWikiPage: jest.fn()
+}));
+
+jest.mock('../api/agent', () => ({
+  getAgentThread: jest.fn(),
+  streamChatWithAgent: jest.fn()
 }));
 
 const judgmentPage = () => ({
@@ -82,12 +88,14 @@ const renderIndex = () => {
 };
 
 beforeEach(() => {
+  window.localStorage.clear();
   jest.clearAllMocks();
   jest.restoreAllMocks();
   resetFirstPaint();
   listWikiPages.mockResolvedValue([]);
   listWikiSourceEvents.mockResolvedValue([]);
   getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
+  streamChatWithAgent.mockResolvedValue({ reply: 'Noeis found no decisive counterevidence.' });
 });
 
 describe('Judgment index', () => {
@@ -290,25 +298,14 @@ describe('the overnight line', () => {
 });
 
 describe('the agent rail', () => {
-  const answers = (text) => ({
-    discussions: [{
-      answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }
-    }]
-  });
-
-  const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
-
   it('names where a retrieved line came from, and says so when nothing did', async () => {
     // A retrieved sentence with no source is an assertion. The whole contract
     // is that the agent retrieves rather than knows, so provenance is part of
     // the line — and its absence is worth saying out loud.
     getWikiPage.mockResolvedValue(judgmentPage());
-    askWikiPage.mockResolvedValue({
-      sourceRefs: [{ _id: 'src-1', citationLabel: 'SemiAnalysis' }],
-      discussions: [{
-        answer: doc('Supply is catching up faster than the thesis assumes.'),
-        citations: [{ sourceRefId: 'src-1' }]
-      }]
+    streamChatWithAgent.mockResolvedValue({
+      reply: 'Supply is catching up faster than the thesis assumes.',
+      relatedItems: [{ itemType: 'wiki_page', itemId: 'src-1', title: 'SemiAnalysis' }]
     });
 
     renderDetail();
@@ -318,30 +315,16 @@ describe('the agent rail', () => {
     expect(await within(rail).findByText('SemiAnalysis')).toBeInTheDocument();
   });
 
-  it('offers the rest of what came back instead of presenting the first as the answer', async () => {
+  it('does not invent additional candidates when the durable reply contains one answer', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    askWikiPage.mockResolvedValue({
-      sourceRefs: [{ _id: 'src-1', citationLabel: 'SemiAnalysis' }],
-      discussions: [{
-        answer: doc('Supply is catching up faster than the thesis assumes.'),
-        citations: [{ sourceRefId: 'src-1' }],
-        alternatives: [{ answer: doc('Lead times have not moved at all this quarter.') }]
-      }]
-    });
-    updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
+    streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
 
     renderDetail();
     fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
-    expect(within(rail).getByText('1 of 2 retrieved')).toBeInTheDocument();
-
-    fireEvent.click(within(rail).getByRole('button', { name: 'Another' }));
-
-    expect(within(rail).getByText('Lead times have not moved at all this quarter.')).toBeInTheDocument();
-    expect(within(rail).getByText('2 of 2 retrieved')).toBeInTheDocument();
-    // Nothing is written by looking at the next one.
+    expect(within(rail).queryByRole('button', { name: 'Another' })).not.toBeInTheDocument();
     expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
@@ -360,7 +343,7 @@ describe('the agent rail', () => {
 
   it('runs the column door in the rail and only writes when the human accepts', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    askWikiPage.mockResolvedValue(answers('Supply is catching up faster than the thesis assumes. More context follows.'));
+    streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
@@ -383,7 +366,7 @@ describe('the agent rail', () => {
 
   it('asks in the human’s own words and lets them choose the field', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    askWikiPage.mockResolvedValue(answers('Packaging capacity is still the binding constraint.'));
+    streamChatWithAgent.mockResolvedValue({ reply: 'Packaging capacity is still the binding constraint.' });
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
@@ -395,7 +378,11 @@ describe('the agent rail', () => {
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
 
     await within(rail).findByText('Packaging capacity is still the binding constraint.');
-    expect(askWikiPage).toHaveBeenCalledWith('wiki-nvidia', 'what did packaging do');
+    expect(streamChatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'what did packaging do',
+      persistThread: true,
+      context: expect.objectContaining({ type: 'wiki_page', id: 'wiki-nvidia', pageId: 'wiki-nvidia' })
+    }), expect.any(Object));
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Accept' }));
     fireEvent.click(await within(rail).findByRole('button', { name: 'Why' }));
@@ -406,7 +393,7 @@ describe('the agent rail', () => {
 
   it('dismisses a retrieved line without writing anything', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    askWikiPage.mockResolvedValue(answers('A line the human does not want.'));
+    streamChatWithAgent.mockResolvedValue({ reply: 'A line the human does not want.' });
 
     renderDetail();
 
@@ -416,7 +403,8 @@ describe('the agent rail', () => {
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Dismiss' }));
 
-    await waitFor(() => expect(within(rail).queryByText('A line the human does not want.')).not.toBeInTheDocument());
+    await waitFor(() => expect(within(rail).queryByRole('button', { name: 'Dismiss' })).not.toBeInTheDocument());
+    expect(within(rail).getByText('A line the human does not want.')).toBeInTheDocument();
     expect(updateWikiPage).not.toHaveBeenCalled();
   });
 

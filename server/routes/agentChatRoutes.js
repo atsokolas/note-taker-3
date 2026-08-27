@@ -9,6 +9,12 @@ const {
 } = require('../services/wikiAskService');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const { getWikiSchemaPromptContent } = require('../services/wikiSchemaService');
+const { resolveAgentCapability } = require('../services/agentCapabilityBroker');
+const { resolveAgentModelRoute } = require('../services/agentModelRouter');
+const {
+  planLibraryStructureProposal: defaultPlanLibraryStructureProposal,
+  persistLibraryStructureProposal: defaultPersistLibraryStructureProposal
+} = require('../services/agentStructurePlanningService');
 
 const buildAgentChatRouter = ({
   authenticateToken,
@@ -56,12 +62,99 @@ const buildAgentChatRouter = ({
   resolveExecutableProposalBundle,
   applyProposalBundleInvalidations,
   sanitizeAgentArtifactDraftDoc,
+  sanitizeAgentStructureProposalDoc,
+  planLibraryStructureProposal = defaultPlanLibraryStructureProposal,
+  persistLibraryStructureProposal = defaultPersistLibraryStructureProposal,
   threadMessagesToHistory,
   truncate,
   trackEvent,
   EVENT_NAMES
 }) => {
   const router = express.Router();
+
+  const isLibraryOrganizationTurn = (result = {}) => (
+    String(result?.capability?.id || '').trim() === 'capability.workspace.organize'
+  );
+
+  const prepareLibraryStructurePlan = async ({
+    result = {},
+    userId = '',
+    message = '',
+    proposalActor = { actorType: 'native_agent', actorId: 'resident' },
+    canPropose = true
+  } = {}) => {
+    if (!isLibraryOrganizationTurn(result)) return { result, draft: null };
+    if (!canPropose) {
+      return {
+        result: {
+          ...result,
+          proposalBundle: null,
+          reply: 'This agent can inspect your Library, but it is not allowed to stage structural changes. Nothing changed.',
+          structurePlanning: { status: 'blocked', reason: 'propose_changes_disabled' }
+        },
+        draft: null
+      };
+    }
+
+    try {
+      const planned = await planLibraryStructureProposal({
+        Folder,
+        Article,
+        userId,
+        request: message,
+        sourceBundleId: String(result?.proposalBundle?.bundleId || '').trim(),
+        actor: proposalActor
+      });
+      const operationCount = Array.isArray(planned?.draft?.operations) ? planned.draft.operations.length : 0;
+      return {
+        result: {
+          ...result,
+          proposalBundle: null,
+          reply: `I staged “${planned.draft.title}” with ${operationCount} reviewable ${operationCount === 1 ? 'change' : 'changes'}. Inspect each move before applying it; nothing in your Library has changed yet.`,
+          structurePlanning: {
+            status: 'ready',
+            inventory: planned.inventory,
+            model: planned.model || undefined,
+            provider: planned.provider || undefined,
+            upstream: planned.upstream || undefined,
+            upstreamAttempts: planned.upstreamAttempts
+          }
+        },
+        draft: planned.draft
+      };
+    } catch (error) {
+      const userFacingReason = Number(error?.status) === 409
+        ? String(error?.message || '').trim()
+        : 'The proposed operations could not be verified against your current folders and articles.';
+      console.warn('[agent-chat] structure planning failed closed', {
+        status: error?.status,
+        message: error?.message,
+        upstreamAttempts: error?.upstreamAttempts
+      });
+      return {
+        result: {
+          ...result,
+          proposalBundle: null,
+          reply: `I could not produce a safe Library structure plan from the current inventory, so I did not stage or apply anything. ${userFacingReason}`.trim(),
+          structurePlanning: {
+            status: 'failed',
+            reason: userFacingReason
+          }
+        },
+        draft: null
+      };
+    }
+  };
+
+  const persistPreparedStructurePlan = async ({ prepared = {}, thread = null } = {}) => {
+    if (!prepared?.draft || !thread?._id) return null;
+    const proposal = await persistLibraryStructureProposal({
+      AgentStructureProposal,
+      draft: prepared.draft,
+      threadId: String(thread._id)
+    });
+    return sanitizeAgentStructureProposalDoc(proposal);
+  };
 
   const loadThread = async (userId, threadId) => {
     const safeId = String(threadId || '').trim();
@@ -199,8 +292,22 @@ const buildAgentChatRouter = ({
             prompt: `Turn this answer into one open question for "${selectedTitle}" and show me the exact question before saving.`
           }
         ];
+    const capability = resolveAgentCapability({
+      intentDecision: {
+        replyIntent: graphExpanded ? 'retrieve' : 'answer',
+        interactionMode: graphExpanded ? 'retrieve' : 'answer',
+        retrievalPolicy: graphExpanded ? 'workspace' : 'context'
+      },
+      relatedItems
+    });
     return {
       reply,
+      capability,
+      modelRoute: resolveAgentModelRoute({
+        capability,
+        intentDecision: { replyIntent: graphExpanded ? 'retrieve' : 'answer' },
+        skillInvocation: { outputType: 'summary_brief' }
+      }),
       relatedItems,
       citations: [],
       suggestedActions,
@@ -278,11 +385,16 @@ const buildAgentChatRouter = ({
       metadata: {
         premiumWebResearchAvailable: Boolean(result?.premiumWebResearchAvailable),
         planner: result?.planner ? normalizeThreadPlanner(result.planner) : undefined,
+        intent: result?.intent && typeof result.intent === 'object' ? result.intent : undefined,
+        capability: result?.capability && typeof result.capability === 'object' ? result.capability : undefined,
+        modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : undefined,
         activityReceipts: Array.isArray(result?.activityReceipts) ? result.activityReceipts : []
       }
     });
     if (result?.planner) {
       targetThread.planner = normalizeThreadPlanner(result.planner);
+    } else if (result?.intent?.plannerPolicy === 'hidden') {
+      targetThread.planner = null;
     }
     compactThreadState(targetThread, {
       actor: { actorType: 'native_agent', actorId: '' }
@@ -584,7 +696,7 @@ const buildAgentChatRouter = ({
       }
 
       const entitlements = await getUserAgentEntitlements(String(req.user.id));
-      const result = await generateCollaborativeReply({
+      const generatedResult = await generateCollaborativeReply({
         userId: String(req.user.id),
         message: req.body?.message,
         history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
@@ -593,12 +705,24 @@ const buildAgentChatRouter = ({
         premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
         skillInvocation: req.body?.skillInvocation || {}
       });
+      const preparedStructurePlan = await prepareLibraryStructurePlan({
+        result: generatedResult,
+        userId: String(req.user.id),
+        message: req.body?.message
+      });
+      const result = preparedStructurePlan.result;
       const persistedThread = await persistChatTurn({
         userId: String(req.user.id),
         actor,
-        payload: req.body || {},
+        payload: preparedStructurePlan.draft
+          ? { ...(req.body || {}), persistThread: true }
+          : (req.body || {}),
         result,
         thread
+      });
+      const structureProposal = await persistPreparedStructurePlan({
+        prepared: preparedStructurePlan,
+        thread: persistedThread
       });
       if (result?.proposalBundle) {
         emitHarnessEvent({
@@ -638,7 +762,8 @@ const buildAgentChatRouter = ({
         ...result,
         entitlements,
         thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
-        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined
+        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
+        structureProposal: structureProposal || undefined
       });
     } catch (error) {
       if (Number(error?.status) >= 400 && Number(error?.status) < 500) {
@@ -707,6 +832,13 @@ const buildAgentChatRouter = ({
         });
       }
 
+      const preparedStructurePlan = await prepareLibraryStructurePlan({
+        result,
+        userId: String(req.user.id),
+        message: req.body?.message
+      });
+      result = preparedStructurePlan.result;
+
       const relatedCount = Array.isArray(result?.relatedItems) ? result.relatedItems.length : 0;
       if (result?.retrieval?.source === 'wiki_graph') {
         const pageTitles = Array.isArray(result?.retrieval?.pageTitles)
@@ -755,9 +887,15 @@ const buildAgentChatRouter = ({
       const persistedThread = await persistChatTurn({
         userId: String(req.user.id),
         actor,
-        payload: req.body || {},
+        payload: preparedStructurePlan.draft
+          ? { ...(req.body || {}), persistThread: true }
+          : (req.body || {}),
         result: resultWithReceipts,
         thread
+      });
+      const structureProposal = await persistPreparedStructurePlan({
+        prepared: preparedStructurePlan,
+        thread: persistedThread
       });
       if (result?.proposalBundle) {
         emitHarnessEvent({
@@ -784,7 +922,8 @@ const buildAgentChatRouter = ({
         ...resultWithReceipts,
         entitlements,
         thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
-        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined
+        draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
+        structureProposal: structureProposal || undefined
       });
       return res.end();
     } catch (error) {
@@ -826,7 +965,7 @@ const buildAgentChatRouter = ({
       const entitlements = await getUserAgentEntitlements(String(req.personalAgent.userId));
       const thread = await loadThread(String(req.personalAgent.userId), req.body?.threadId);
 
-      const result = await generateCollaborativeReply({
+      const generatedResult = await generateCollaborativeReply({
         userId: String(req.personalAgent.userId),
         message: req.body?.message,
         history: thread ? threadMessagesToHistory(thread.messages) : req.body?.history,
@@ -835,15 +974,30 @@ const buildAgentChatRouter = ({
         premiumWebResearchAvailable: entitlements.premiumWebResearchAvailable,
         skillInvocation: req.body?.skillInvocation || {}
       });
+      const actor = {
+        actorType: 'byo_agent',
+        actorId: String(req.personalAgent.id || '')
+      };
+      const preparedStructurePlan = await prepareLibraryStructurePlan({
+        result: generatedResult,
+        userId: String(req.personalAgent.userId),
+        message: req.body?.message,
+        proposalActor: actor,
+        canPropose: capabilities.proposeChanges
+      });
+      const result = preparedStructurePlan.result;
       const persistedThread = await persistChatTurn({
         userId: String(req.personalAgent.userId),
-        actor: {
-          actorType: 'byo_agent',
-          actorId: String(req.personalAgent.id || '')
-        },
-        payload: req.body || {},
+        actor,
+        payload: preparedStructurePlan.draft
+          ? { ...(req.body || {}), persistThread: true }
+          : (req.body || {}),
         result,
         thread
+      });
+      const structureProposal = await persistPreparedStructurePlan({
+        prepared: preparedStructurePlan,
+        thread: persistedThread
       });
       if (result?.proposalBundle) {
         emitHarnessEvent({
@@ -888,6 +1042,7 @@ const buildAgentChatRouter = ({
         entitlements,
         thread: persistedThread ? sanitizeAgentThreadDoc(persistedThread) : undefined,
         draftArtifact: draftArtifact ? sanitizeAgentArtifactDraftDoc(draftArtifact) : undefined,
+        structureProposal: structureProposal || undefined,
         actor: {
           actorType: 'byo_agent',
           actorId: String(req.personalAgent.id || ''),
