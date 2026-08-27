@@ -173,17 +173,13 @@
    `display: flex` on these same class names at that specificity, and a bare
    `.think-notes .x` loses to it. */
 body.noeis-editorial .think-notes .think-notebook-title-kicker,
-body.noeis-editorial .think-notes .think-notebook-title-hint,
 body.noeis-editorial .think-notes .notebook-organize-panel,
-body.noeis-editorial .think-notes .think-notebook-editor-formatting,
 body.noeis-editorial .think-notes .think-editor-slash-hint,
 body.noeis-editorial .think-notes .think-editor-block-controls,
 body.noeis-editorial .think-notes .notebook-insert-group,
 body.noeis-editorial .think-notes .think-draft-block-tray,
 .think-notes .think-notebook-title-kicker,
-.think-notes .think-notebook-title-hint,
 .think-notes .notebook-organize-panel,
-.think-notes .think-notebook-editor-formatting,
 .think-notes .think-editor-slash-hint,
 .think-notes .think-editor-block-controls,
 .think-notes .notebook-insert-group,
@@ -208,14 +204,6 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
 .think-notes .think-notebook-editor-actions-right > .ui-quiet-button,
 .think-notes .think-notebook-editor-actions-overflow {
   display: none;
-}
-
-.think-notes .think-notebook-editor,
-.think-notes .think-editor-draft-surface {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .think-notes .think-notebook-editor-actions {
@@ -245,20 +233,9 @@ body.noeis-editorial .think-notes .think-notebook-editor-actions-overflow,
 
 .think-notes .ProseMirror {
   padding: 0;
-  border: 0;
-  background: transparent;
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 1.06rem;
   line-height: 1.66;
-}
-
-/* The body is the page, not a box on it. */
-.think-notes .think-editor-draft-surface,
-.think-notes .think-editor-draft-surface > div {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 /* Save is the one control the note needs. It reads as a word, like every other

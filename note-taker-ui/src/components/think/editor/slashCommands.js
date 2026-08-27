@@ -75,7 +75,8 @@ const COMMAND_MAP = {
 
 const VARIANT_MAP = {
   full: ['paragraph', 'title', 'heading', 'subhead', 'bold', 'italic', 'bulletList', 'orderedList', 'quote'],
-  slim: ['bold', 'italic', 'heading', 'bulletList', 'orderedList', 'quote']
+  slim: ['bold', 'italic', 'heading', 'bulletList', 'orderedList', 'quote'],
+  selection: ['bold', 'italic', 'quote']
 };
 
 export const getSlashCommandItems = (variant = 'full', extraItems = []) => {

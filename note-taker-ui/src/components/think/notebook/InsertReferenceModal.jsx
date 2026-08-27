@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, QuietButton } from '../../ui';
 
 /**
@@ -39,6 +39,17 @@ const InsertReferenceModal = ({
       return label.includes(q) || meta.includes(q) || tags.includes(q);
     });
   }, [items, query, getLabel, getMeta, getTags]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose, open]);
 
   if (!open) return null;
 

@@ -69,11 +69,34 @@ const bucketIndexFor = (at, now) => {
   return index >= BUCKETS ? -1 : index;
 };
 
+const periodFor = (index, now) => {
+  const endsAt = now - index * BUCKET_DAYS * DAY;
+  const startsAt = endsAt - BUCKET_DAYS * DAY;
+  return {
+    startsAt: new Date(startsAt).toISOString(),
+    endsAt: new Date(endsAt).toISOString()
+  };
+};
+
+const workOf = (article = {}) => ({
+  id: clean(article?._id),
+  title: clean(article?.title) || 'Untitled source',
+  author: clean(article?.author),
+  publication: clean(article?.siteName),
+  url: clean(article?.url),
+  savedAt: article?.createdAt || article?.savedAt || null
+});
+
 /**
  * The topic mix, fortnight by fortnight, most recent last.
  */
 export const buildDrift = (articles = [], now = Date.now()) => {
-  const buckets = Array.from({ length: BUCKETS }, () => ({ total: 0, byTopic: new Map() }));
+  const buckets = Array.from({ length: BUCKETS }, (_, index) => ({
+    index,
+    total: 0,
+    byTopic: new Map(),
+    worksByTopic: new Map()
+  }));
   let filed = 0;
 
   list(articles).forEach((article) => {
@@ -88,6 +111,9 @@ export const buildDrift = (articles = [], now = Date.now()) => {
     bucket.total += 1;
     topics.forEach((topic) => {
       bucket.byTopic.set(topic, (bucket.byTopic.get(topic) || 0) + 1);
+      const works = bucket.worksByTopic.get(topic) || [];
+      works.push(workOf(article));
+      bucket.worksByTopic.set(topic, works);
     });
   });
 
@@ -108,6 +134,17 @@ export const buildDrift = (articles = [], now = Date.now()) => {
     topic: name,
     counts: ordered.map(bucket => bucket.byTopic.get(name) || 0),
     shares: ordered.map(bucket => (bucket.total ? (bucket.byTopic.get(name) || 0) / bucket.total : 0)),
+    periods: ordered.map(bucket => {
+      const count = bucket.byTopic.get(name) || 0;
+      return {
+        ...periodFor(bucket.index, now),
+        count,
+        total: bucket.total,
+        share: bucket.total ? count / bucket.total : 0,
+        works: (bucket.worksByTopic.get(name) || [])
+          .sort((left, right) => time(right.savedAt) - time(left.savedAt))
+      };
+    }),
     total: totals.get(name) || 0
   }));
 

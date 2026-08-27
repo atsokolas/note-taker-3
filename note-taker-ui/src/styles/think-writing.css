@@ -1,0 +1,265 @@
+/* The notebook is a document, not a form inside a card. Keep this contract
+   beside the shared editor so every Think route gets the same writing feel. */
+body.noeis-editorial .think-notebook-editor-pane,
+body.noeis-editorial .think-notebook-editor,
+body.noeis-editorial .think-notebook-editor__body,
+body.noeis-editorial .think-editor-draft-surface,
+body.noeis-editorial .think-editor-draft-surface > div,
+.think-notebook-editor-pane,
+.think-notebook-editor,
+.think-notebook-editor__body,
+.think-editor-draft-surface,
+.think-editor-draft-surface > div {
+  min-width: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.noeis-editorial .think-notebook-editor-body,
+body.noeis-editorial .think-notebook-editor-body:focus,
+body.noeis-editorial .think-notebook-editor-body:focus-visible,
+body.noeis-editorial .think-notebook-editor .ProseMirror:focus,
+body.noeis-editorial .think-notebook-editor .ProseMirror:focus-visible,
+.think-notebook-editor-body,
+.think-notebook-editor-body:focus,
+.think-notebook-editor-body:focus-visible {
+  padding-inline: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.think-notebook-editor__body {
+  position: relative;
+  padding: 4px 0 48px;
+}
+
+/* Chromium paints selected empty paragraphs as a stray blue caret beside the
+   real passage. Preserve normal text selection while keeping blank writing
+   lines visually blank. */
+.think-notebook-editor-body > p:has(> .ProseMirror-trailingBreak)::selection,
+.think-notebook-editor-body .ProseMirror-trailingBreak::selection {
+  background: transparent;
+}
+
+.think-notebook-save-state {
+  color: var(--vellum-subtle, #827c72);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.think-notebook-save-state.is-saved {
+  color: color-mix(in srgb, var(--vellum-ink, #29251f) 68%, var(--vellum-subtle, #827c72));
+}
+
+.think-notebook-save-state.is-error {
+  color: var(--danger, #9a4038);
+}
+
+.think-selection-toolbar {
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--vellum-line, #ded7c9) 76%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--vellum-paper, #fbf8f1) 94%, transparent);
+  box-shadow: 0 12px 32px rgba(43, 37, 28, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar,
+.think-selection-toolbar .think-rich-text-toolbar {
+  width: auto;
+  flex-wrap: nowrap;
+  gap: 2px;
+  overflow: visible;
+}
+
+body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet-button,
+.think-selection-toolbar .think-rich-text-toolbar .ui-quiet-button {
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet-button:hover,
+body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet-button:focus-visible,
+.think-selection-toolbar .think-rich-text-toolbar .ui-quiet-button:hover,
+.think-selection-toolbar .think-rich-text-toolbar .ui-quiet-button:focus-visible {
+  background: color-mix(in srgb, var(--vellum-accent, #9b6a18) 10%, transparent);
+}
+
+.think-rich-text-toolbar__partner {
+  margin-left: 6px;
+  padding-left: 10px !important;
+  border-left: 1px solid var(--vellum-line, #ded7c9) !important;
+  color: var(--vellum-accent, #9b6a18) !important;
+}
+
+/* A passage sent to the Thought Partner traces one brief line into the margin.
+   It explains the relationship without turning the editor into a diagram. */
+.think-notebook-editor__body::after {
+  position: absolute;
+  top: 22px;
+  right: -34px;
+  width: clamp(48px, 10vw, 150px);
+  height: 1px;
+  content: '';
+  background: linear-gradient(90deg, color-mix(in srgb, var(--vellum-accent, #aa7b2d) 72%, transparent), transparent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  pointer-events: none;
+}
+
+.think-notebook-editor__body.is-connecting-agent::after {
+  animation: think-agent-thread 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Focus mode gives the writing the room instead of merely dimming its rails.
+   The remaining strip is a named handle: hover it to peek, or move keyboard
+   focus into it to restore the rail. Blurring the editor restores both. */
+@media (min-width: 1181px) {
+  .think-notes {
+    transition:
+      grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      gap 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body.think-writing-active .think-notes {
+    grid-template-columns: 30px minmax(420px, 1fr) 30px;
+    gap: 18px;
+  }
+
+  body.think-writing-active .think-notes__note {
+    width: 100%;
+    justify-self: center;
+  }
+
+  body.think-writing-active .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+    grid-template-columns: minmax(180px, 220px) minmax(420px, 1fr) 30px;
+  }
+
+  body.think-writing-active .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+    grid-template-columns: 30px minmax(420px, 1fr) minmax(230px, 280px);
+  }
+}
+
+@media (min-width: 1121px) {
+  body.noeis-editorial .notebook-editorial-shell {
+    transition:
+      grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      gap 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body.think-writing-active .notebook-editorial-shell {
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
+    gap: 18px;
+  }
+
+  body.think-writing-active .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+    grid-template-columns: 250px minmax(0, 1fr) 30px;
+  }
+
+  body.think-writing-active .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+    grid-template-columns: 30px minmax(0, 1fr) 300px;
+  }
+
+  body.think-writing-active [data-writing-rail] {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  body.think-writing-active [data-writing-rail] > * {
+    opacity: 0;
+    transform: translateX(var(--think-rail-retreat));
+    transition:
+      opacity 120ms ease,
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body.think-writing-active [data-writing-rail='left'] {
+    --think-rail-retreat: -14px;
+  }
+
+  body.think-writing-active [data-writing-rail='right'] {
+    --think-rail-retreat: 14px;
+  }
+
+  body.think-writing-active [data-writing-rail]::after {
+    position: absolute;
+    top: min(30vh, 240px);
+    display: block;
+    width: 18px;
+    padding-block: 6px;
+    content: attr(data-writing-rail-label);
+    color: color-mix(in srgb, var(--vellum-accent, #9b6a18) 72%, var(--vellum-subtle, #827c72));
+    font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    opacity: 0.82;
+    pointer-events: none;
+    transition: opacity 100ms ease;
+  }
+
+  body.think-writing-active [data-writing-rail='left']::after {
+    right: 3px;
+    transform: rotate(180deg);
+  }
+
+  body.think-writing-active [data-writing-rail='right']::after {
+    left: 3px;
+  }
+
+  body.think-writing-active [data-writing-rail]:is(:hover, :focus-within) {
+    overflow: visible;
+    cursor: default;
+  }
+
+  body.think-writing-active [data-writing-rail]:is(:hover, :focus-within) > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  body.think-writing-active [data-writing-rail]:is(:hover, :focus-within)::after {
+    opacity: 0;
+  }
+}
+
+@keyframes think-agent-thread {
+  0% { opacity: 0; transform: scaleX(0); }
+  35% { opacity: 0.75; }
+  75% { opacity: 0.45; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .think-notes,
+  body.noeis-editorial .notebook-editorial-shell,
+  body.think-writing-active [data-writing-rail] > *,
+  body.think-writing-active [data-writing-rail]::after {
+    transition: none;
+  }
+
+  .think-notebook-editor__body.is-connecting-agent::after {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .think-notebook-editor__body::after {
+    display: none;
+  }
+}
