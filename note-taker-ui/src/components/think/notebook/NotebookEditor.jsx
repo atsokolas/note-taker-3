@@ -305,6 +305,7 @@ const NotebookEditor = ({
   const saveTimerRef = useRef(null);
   const saveSequenceRef = useRef(0);
   const dirtyRef = useRef(false);
+  const hydratedEntryIdRef = useRef('');
   const titleDraftRef = useRef(entry?.title || '');
   const [titleDraft, setTitleDraft] = useState(entry?.title || '');
   const [saveState, setSaveState] = useState('idle');
@@ -448,10 +449,21 @@ const NotebookEditor = ({
   };
 
   useEffect(() => {
-    if (!editingBody) return undefined;
-    document.body.classList.add('think-writing-active');
-    return () => document.body.classList.remove('think-writing-active');
-  }, [editingBody]);
+    if (!editor || !editingBody) {
+      document.body.classList.remove('think-writing-active');
+      return undefined;
+    }
+    const begin = () => document.body.classList.add('think-writing-active');
+    const end = () => document.body.classList.remove('think-writing-active');
+    editor.on('focus', begin);
+    editor.on('blur', end);
+    if (editor.isFocused) begin();
+    return () => {
+      editor.off('focus', begin);
+      editor.off('blur', end);
+      end();
+    };
+  }, [editor, editingBody]);
 
   const slashCommands = useSlashCommands({
     editor,
@@ -485,7 +497,10 @@ const NotebookEditor = ({
   }, [editor, onRegisterInsert]);
 
   useEffect(() => {
-    if (!entry) return;
+    if (!entry?._id) return;
+    const incomingEntryId = String(entry._id);
+    if (hydratedEntryIdRef.current === incomingEntryId) return;
+    hydratedEntryIdRef.current = incomingEntryId;
     setTitleDraft(entry.title || '');
     titleDraftRef.current = entry.title || '';
     setEntryType(entry.type || 'note');

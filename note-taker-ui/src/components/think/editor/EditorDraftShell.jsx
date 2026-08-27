@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { EditorContent } from '@tiptap/react';
+import React, { useCallback, useEffect } from 'react';
+import { BubbleMenu, EditorContent } from '@tiptap/react';
 import RichTextToolbar from './RichTextToolbar';
 import SlashCommandMenu from './SlashCommandMenu';
 import DraftBlockTray from './DraftBlockTray';
@@ -27,8 +27,6 @@ const EditorDraftShell = ({
   const reducedMotion = usePrefersReducedMotion();
   const finePointer = useFinePointer();
   const caretMagnet = useCssMagneticLerp('--caret-magnet-x', 0.24);
-  const [hasSelection, setHasSelection] = useState(false);
-
   const readSelection = useCallback(() => {
     if (!editor) return '';
     const { from, to } = editor.state.selection;
@@ -37,7 +35,7 @@ const EditorDraftShell = ({
   }, [editor]);
 
   const syncCaretMagnet = useCallback(() => {
-    if (!editor || !magnetCaretToolbar || reducedMotion || !finePointer) {
+    if (!editor || contextualToolbar || !magnetCaretToolbar || reducedMotion || !finePointer) {
       caretMagnet.reset(0);
       return;
     }
@@ -59,10 +57,10 @@ const EditorDraftShell = ({
     } catch (_err) {
       caretMagnet.setTarget(0);
     }
-  }, [editor, magnetCaretToolbar, reducedMotion, finePointer, surfaceRef, caretMagnet]);
+  }, [editor, contextualToolbar, magnetCaretToolbar, reducedMotion, finePointer, surfaceRef, caretMagnet]);
 
   useEffect(() => {
-    if (!editor || hideToolbar || !magnetCaretToolbar || reducedMotion || !finePointer) {
+    if (!editor || hideToolbar || contextualToolbar || !magnetCaretToolbar || reducedMotion || !finePointer) {
       caretMagnet.reset(0);
       return undefined;
     }
@@ -82,19 +80,7 @@ const EditorDraftShell = ({
       prose?.removeEventListener('scroll', onChange);
       window.removeEventListener('resize', onChange);
     };
-  }, [editor, hideToolbar, magnetCaretToolbar, reducedMotion, finePointer, surfaceRef, syncCaretMagnet, caretMagnet]);
-
-  useEffect(() => {
-    if (!editor || !contextualToolbar) return undefined;
-    const update = () => setHasSelection(Boolean(readSelection().trim()));
-    editor.on('selectionUpdate', update);
-    editor.on('transaction', update);
-    update();
-    return () => {
-      editor.off('selectionUpdate', update);
-      editor.off('transaction', update);
-    };
-  }, [contextualToolbar, editor, readSelection]);
+  }, [editor, hideToolbar, contextualToolbar, magnetCaretToolbar, reducedMotion, finePointer, surfaceRef, syncCaretMagnet, caretMagnet]);
 
   if (!editor) return null;
 
@@ -103,13 +89,34 @@ const EditorDraftShell = ({
       className={['think-editor-draft-surface', className].filter(Boolean).join(' ')}
       ref={surfaceRef}
     >
-      {!hideToolbar && (
+      {!hideToolbar && contextualToolbar ? (
+        <BubbleMenu
+          editor={editor}
+          updateDelay={60}
+          tippyOptions={{
+            duration: [120, 80],
+            placement: 'top-start',
+            maxWidth: 'none'
+          }}
+          shouldShow={({ editor: activeEditor, from, to }) => (
+            Boolean(activeEditor?.isEditable && Number.isFinite(from) && Number.isFinite(to) && from !== to)
+          )}
+        >
+          <div className="think-selection-toolbar">
+            <RichTextToolbar
+              editor={editor}
+              variant="selection"
+              className={toolbarClassName}
+              onAskSelection={onAskSelection ? () => onAskSelection(readSelection()) : null}
+            />
+          </div>
+        </BubbleMenu>
+      ) : !hideToolbar ? (
         <div
           className={[
             'think-rich-text-toolbar-magnet',
             magnetCaretToolbar && !reducedMotion && finePointer ? 'is-motion' : '',
-            contextualToolbar ? 'is-contextual' : '',
-            !contextualToolbar || hasSelection ? 'is-visible' : ''
+            'is-visible'
           ].filter(Boolean).join(' ')}
           ref={caretMagnet.elRef}
         >
@@ -120,7 +127,7 @@ const EditorDraftShell = ({
             onAskSelection={onAskSelection ? () => onAskSelection(readSelection()) : null}
           />
         </div>
-      )}
+      ) : null}
       <div className={['think-editor-slash-hint', helperClassName].filter(Boolean).join(' ')}>
         <span className="think-editor-slash-hint__token">/</span>
         <span>{helperCopy}</span>

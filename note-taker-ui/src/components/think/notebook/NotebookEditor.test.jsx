@@ -47,6 +47,7 @@ const mockEditor = {
 };
 
 jest.mock('@tiptap/react', () => ({
+  BubbleMenu: ({ children }) => <div data-testid="selection-bubble">{children}</div>,
   EditorContent: ({ editor }) => <div data-testid="editor-content">{editor ? 'editor-ready' : 'editor-missing'}</div>,
   NodeViewWrapper: ({ children }) => <div>{children}</div>,
   ReactNodeViewRenderer: () => () => null,
@@ -121,7 +122,7 @@ describe('NotebookEditor', () => {
     mockEditor.state.selection.$from.index.mockReturnValue(0);
   });
 
-  it('renders a title-first drafting surface with rich text controls', () => {
+  it('renders a title-first drafting surface with a compact selection toolbar', () => {
     render(
       <NotebookEditor
         entry={{ _id: 'note-1', title: '', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
@@ -136,15 +137,11 @@ describe('NotebookEditor', () => {
     expect(screen.getByText(/Type \/ for commands/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Move up' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Move down' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Paragraph' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Title' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Heading' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Subhead' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bold' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Italic' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bulleted list' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Numbered list' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quote' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Paragraph' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Heading' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Evidence block' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Concept block' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Question block' })).toBeInTheDocument();
@@ -313,6 +310,31 @@ describe('NotebookEditor', () => {
       contextType: 'notebook',
       prompt: expect.stringContaining('A consequential claim')
     }));
+  });
+
+  it('does not rehydrate the editor when autosave returns the same note identity', () => {
+    const props = {
+      saving: false,
+      error: '',
+      onSave: jest.fn(),
+      onDelete: jest.fn()
+    };
+    const { rerender } = render(
+      <NotebookEditor
+        {...props}
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Local draft</p>', blocks: [], type: 'note', tags: [] }}
+      />
+    );
+    const hydrationCount = mockEditor.commands.setContent.mock.calls.length;
+
+    rerender(
+      <NotebookEditor
+        {...props}
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Saved response</p>', blocks: [], type: 'note', tags: [] }}
+      />
+    );
+
+    expect(mockEditor.commands.setContent).toHaveBeenCalledTimes(hydrationCount);
   });
 
   /* /think opens straight into whichever note you were last in, and the body
