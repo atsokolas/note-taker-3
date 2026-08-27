@@ -45,12 +45,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "topic direction"
-    "line line"
-    "annotation annotation";
+    "line line";
   gap: 2px 14px;
   align-items: baseline;
   position: relative;
 }
+
+.drift__row.has-annotation { z-index: 10; }
 
 .drift__topic {
   grid-area: topic;
@@ -139,10 +140,11 @@
   opacity: 0.18;
   transform: translate(-50%, -50%);
   transition:
-    width 150ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 150ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 150ms ease,
-    background-color 150ms ease;
+    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    background-color 180ms ease,
+    box-shadow 220ms ease;
 }
 
 .drift__point.is-peak span,
@@ -173,29 +175,40 @@
 }
 
 .drift__annotation {
-  grid-area: annotation;
-  min-width: 0;
-  max-height: 0;
+  --drift-note-x: -50%;
+  position: absolute;
+  z-index: 5;
+  top: var(--drift-anchor-y, 0);
+  left: var(--drift-anchor-x, 50%);
+  width: min(320px, calc(100vw - 40px));
   margin: 0;
-  overflow: hidden;
-  border-left: 1px solid transparent;
+  padding: 14px 16px 13px;
+  background: color-mix(in srgb, var(--vellum-bg, var(--noeis-canvas, #f8f4ec)) 96%, transparent);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--text-primary, var(--vellum-ink)) 14%, transparent);
   opacity: 0;
-  transform: translateY(-4px);
+  pointer-events: none;
+  transform: translate(var(--drift-note-x), calc(-100% - 8px)) scale(0.985);
+  transform-origin: 50% 100%;
+  will-change: opacity, transform;
   transition:
-    max-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 140ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 190ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 260ms ease;
+}
+
+.drift__annotation.is-start {
+  --drift-note-x: 0%;
+  transform-origin: 0 100%;
+}
+
+.drift__annotation.is-end {
+  --drift-note-x: -100%;
+  transform-origin: 100% 100%;
 }
 
 .drift__row.is-reading .drift__annotation {
-  max-height: 270px;
-  margin-top: 8px;
-  padding: 12px 0 4px 16px;
-  border-left-color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 58%, transparent);
   opacity: 1;
-  transform: none;
+  transform: translate(var(--drift-note-x), calc(-100% - 14px)) scale(1);
 }
 
 .drift__annotation-head {
@@ -250,8 +263,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  padding: 5px 0;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 56%, transparent);
+  padding: 3px 0;
 }
 
 .drift__works span {
