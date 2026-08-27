@@ -31,22 +31,22 @@ import {
   formatLedgerDate,
   oneSentence,
   projectJudgment,
-  newLineId,
   selectOvernightLine,
   sourceHrefFromOrigin,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { UpdateComposer, JudgmentLog } from './JudgmentThread';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
 
 // Judgment.
 //
-// One claim, one column, and the four things a person actually keeps: why they
-// believe it, what argues against it, what would change their mind, and what
-// they did about it. Agents retrieve; the human accepts. Nothing an agent
-// brings back is written down until a person says so, and nothing already
-// written down is edited by anything that arrives later.
+// One claim, and a log of how it is held. The prior does not grow: the name,
+// the sentence, and what would change your mind. Everything else — why,
+// against, what you did — is a newest-first line in the case. Agents retrieve;
+// the human accepts. Nothing an agent brings back is written down until a
+// person says so.
 //
 // The retrieving happens in the rail, which is not part of this page — it was
 // already on screen before this column arrived and it will still be there after
@@ -63,33 +63,8 @@ const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((count
 }), {});
 const SOURCE_EVENT_LIMIT = 40;
 const AUTOSAVE_PAUSE_MS = 700;
-
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
 const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
-/* Wiki cites with a number, not the publication's name. The name is the
-   destination; the mark is the link. */
-const CitationMark = ({ source }) => {
-  const mark = `[${source.n}]`;
-  const label = source.label ? `Source ${source.n}: ${source.label}` : `Source ${source.n}`;
-  if (source.href) {
-    return isExternal(source.href)
-      ? <a className="judgment__cite" href={source.href} target="_blank" rel="noreferrer" aria-label={label}>{mark}</a>
-      : <Link className="judgment__cite" to={source.href} aria-label={label}>{mark}</Link>;
-  }
-  return <span className="judgment__cite" title={source.label} aria-label={label}>{mark}</span>;
-};
-
-const JudgmentLine = ({ line }) => (
-  <p className={`judgment__line${line.empty ? ' judgment__line--empty' : ''}`}>
-    {line.text}
-    {line.sources?.length ? (
-      <sup className="judgment__cites">
-        {line.sources.map((source) => <CitationMark key={source.id} source={source} />)}
-      </sup>
-    ) : null}
-  </p>
-);
 
 const evidenceHref = (candidate = {}) => (
   sourceHrefFromOrigin(candidate.id, candidate.url)
@@ -186,102 +161,6 @@ const BeliefLink = ({ to, title, claim }) => (
     {title && claim ? <p className="judgment-depends__claim">{claim}</p> : null}
   </>
 );
-
-/* The four sections are the page, so all four are on it.
-   An empty one is still not a box to fill in with something plausible — it is
-   the question that section asks, and one line to answer it.
-
-   The line writes itself down. There was a Write button, which meant a
-   sentence you had typed but not submitted was not saved anywhere — you could
-   fill in all four fields, look away, and have written nothing. Typing updates
-   the same line in place; Enter finishes it and starts another. */
-const Field = ({ label, lines = [], prompt = '', field, onWrite, children }) => {
-  const [draft, setDraft] = useState('');
-  const [state, setState] = useState('idle');   // idle | saving | saved | error
-  const [writeError, setWriteError] = useState('');
-  const lineIdRef = useRef('');
-  const timerRef = useRef(0);
-  const id = `judgment-field-${label.replace(/\W+/g, '-').toLowerCase()}`;
-
-  const save = useCallback(async (text) => {
-    const line = text.trim();
-    if (!line || !onWrite) return;
-    if (!lineIdRef.current) lineIdRef.current = newLineId(field || 'line');
-    setState('saving');
-    setWriteError('');
-    try {
-      await onWrite(line, lineIdRef.current);
-      setState('saved');
-      return true;
-    } catch (failure) {
-      setState('error');
-      setWriteError(
-        failure?.response?.data?.error
-        || failure?.message
-        || 'That line could not be saved.'
-      );
-      return false;
-    }
-  }, [field, onWrite]);
-
-  useEffect(() => () => window.clearTimeout(timerRef.current), []);
-
-  const type = (value) => {
-    setDraft(value);
-    setState(value.trim() ? 'typing' : 'idle');
-    window.clearTimeout(timerRef.current);
-    if (value.trim()) timerRef.current = window.setTimeout(() => save(value), AUTOSAVE_PAUSE_MS);
-  };
-
-  /* Enter finishes this line and starts the next one. So does leaving the
-     field — the sentence settles into the section as a line rather than
-     staying in the box you typed it in. The text is only cleared once it is
-     actually written down; a failed save keeps it on screen to be retried. */
-  const finish = async () => {
-    window.clearTimeout(timerRef.current);
-    if (!draft.trim()) return;
-    const written = await save(draft);
-    if (!written) return;
-    lineIdRef.current = '';
-    setDraft('');
-    setState('idle');
-  };
-
-  /* The line being written lives in the input, not twice on the page. */
-  const settled = lines.filter(line => line.id !== lineIdRef.current);
-
-  return (
-    <section className="judgment__field" aria-labelledby={id}>
-      <h2 id={id}>{label}</h2>
-      {settled.map(line => <JudgmentLine key={line.id} line={line} />)}
-      {/* The heading stays and admits the section is empty, rather than hiding
-          behind an accordion or leaving the reader unsure it saved. */}
-      {settled.length ? null : <JudgmentLine line={{ text: 'Nothing here yet.', empty: true }} />}
-      {children}
-      {onWrite ? (
-        <div className="judgment__write">
-          <label className="sr-only" htmlFor={`${id}-write`}>{prompt || `Add a line to ${label}`}</label>
-          <input
-            id={`${id}-write`}
-            value={draft}
-            onChange={(event) => type(event.target.value)}
-            onBlur={finish}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return;
-              event.preventDefault();
-              finish();
-            }}
-            placeholder={prompt}
-          />
-          <span className="judgment__write-state" aria-live="polite">
-            {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : ''}
-          </span>
-          {writeError ? <span role="alert">{writeError}</span> : null}
-        </div>
-      ) : null}
-    </section>
-  );
-};
 
 /* The overnight line: one sentence, then two words. Accept resolves in place
    into the choice of field — the human decides which of the two it is — and the
@@ -511,7 +390,7 @@ const LibraryEvidence = ({ pageId, onFile }) => {
   }
 
   return (
-    <section className="judgment-evidence" aria-label="Evidence from your library">
+    <section className="judgment-evidence judgment-evidence--drawer" aria-label="Evidence from your library">
       <div className="judgment-evidence__head">
         <span>From your library</span>
         <button type="button" onClick={() => setOpen(false)}>Close</button>
@@ -760,6 +639,14 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const { ask, busy: asking, error: askError } = useAgentRail();
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
+  const [arrivingId, setArrivingId] = useState('');
+  const [pendingId, setPendingId] = useState('');
+
+  useEffect(() => {
+    if (!arrivingId) return undefined;
+    const timer = window.setTimeout(() => setArrivingId(''), 800);
+    return () => window.clearTimeout(timer);
+  }, [arrivingId]);
 
   useEffect(() => {
     if (!initialPage || String(initialPage?._id || '') !== String(pageId)) return;
@@ -916,7 +803,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      The id is the line's, so typing more of the same sentence rewrites it
      rather than adding another. */
   const writeLine = useCallback(
-    (text, field, lineId) => commit(upsertLineIntoJudgment(page, text, field, lineId)),
+    async (text, field, lineId) => {
+      await commit(upsertLineIntoJudgment(page, text, field, lineId));
+    },
     [commit, page]
   );
 
@@ -1038,47 +927,28 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
       ) : null}
 
-      <div className={`judgment__fields ${step(4)}`}>
-        <Field
-          label="Why"
-          lines={view.why}
-          prompt="Why do you believe it?"
-          field="why"
-          onWrite={(text, lineId) => writeLine(text, 'why', lineId)}
-        />
-        <Field
-          label="Against"
-          lines={view.against}
-          prompt="What argues against it?"
-          field="against"
-          onWrite={(text, lineId) => writeLine(text, 'against', lineId)}
+      {view.changeMindIf.length ? (
+        <p className={`judgment__falsifier ${step(3)}`}>
+          <span>I’d change my mind if</span>
+          {view.changeMindIf.map(line => (
+            <span key={line.id} className={line.id === arrivingId ? 'is-arriving' : ''}>
+              {line.text}
+            </span>
+          ))}
+        </p>
+      ) : null}
+
+      <div className={step(4)}>
+        <UpdateComposer
+          onWrite={writeLine}
+          onPending={setPendingId}
+          onSettle={setArrivingId}
         />
         <LibraryEvidence pageId={pageId} onFile={fileEvidence} />
-        <Field
-          label="I&rsquo;d change my mind if"
-          lines={view.changeMindIf}
-          prompt="What would change your mind?"
-          field="changeMindIf"
-          onWrite={(text, lineId) => writeLine(text, 'changeMindIf', lineId)}
-        />
-        <Field
-          label="What I did"
-          lines={view.whatIDid}
-          prompt="What did you do about it?"
-          field="whatIDid"
-          onWrite={(text, lineId) => writeLine(text, 'whatIDid', lineId)}
-        >
-          {view.whatIDid.length ? (
-            <p className="judgment__ledger-note">
-              {formatLedgerDate(view.whatIDid[view.whatIDid.length - 1].at)
-                ? `${formatLedgerDate(view.whatIDid[view.whatIDid.length - 1].at)} — this line doesn’t get edited, only added to.`
-                : 'This line doesn’t get edited, only added to.'}
-            </p>
-          ) : null}
-        </Field>
+        <JudgmentLog view={view} arrivingId={arrivingId} pendingId={pendingId} />
+      </div>
 
-        {/* What holding this taught you. It sits with the claim while the
-            claim is alive, and it is the thing that outlives it. */}
+      <div className={`judgment__after ${step(4)}`}>
         {view.lessons.length ? (
           <section className="judgment__field judgment__lessons" aria-labelledby="judgment-field-lessons">
             <h2 id="judgment-field-lessons">What it taught me</h2>
@@ -1103,8 +973,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
         <ParkJudgment parked={view.parked} supports={supports} onPark={park} onResume={resume} />
 
-        {/* The review is absent until the date. Then it arrives and asks one
-            question; the answer is the human's, never the agents'. */}
         {view.review ? (
           <section className="judgment__field judgment__review" aria-labelledby="judgment-field-review">
             <h2 id="judgment-field-review">What happened?</h2>

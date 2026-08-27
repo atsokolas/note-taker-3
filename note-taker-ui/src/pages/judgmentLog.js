@@ -1,0 +1,130 @@
+// The opened case is two altitudes: a prior that does not grow, and a log
+// that does. Why, Against, and Did share one newest-first spine. Falsifiers
+// stay on the prior — they are the contract of holding the claim, not another
+// card in the flood.
+//
+// Dated lines from this month sit with undated ones in the open band, because
+// most of a case was written before we stamped time. Earlier months fold to a
+// count. Nothing is inferred: a line without a date is not given one.
+
+const list = (value) => (Array.isArray(value) ? value : []);
+
+const time = (value) => {
+  if (!value) return NaN;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? NaN : parsed;
+};
+
+export const LOG_FILTERS = ['all', 'why', 'against'];
+
+const monthKey = (at) => {
+  const atMs = time(at);
+  if (Number.isNaN(atMs)) return 'undated';
+  const date = new Date(atMs);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const monthLabel = (key) => {
+  if (key === 'undated' || key === 'now') return '';
+  const [year, month] = key.split('-').map(Number);
+  if (!year || !month) return '';
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric'
+  });
+};
+
+const currentMonthKey = (now) => monthKey(now);
+
+const asEntry = (line, kind, order) => ({
+  id: line.id,
+  kind,
+  text: line.text,
+  sources: list(line.sources),
+  at: line.at || null,
+  order
+});
+
+const byRecency = (left, right) => {
+  const leftAt = time(left.at);
+  const rightAt = time(right.at);
+  const leftMs = Number.isNaN(leftAt) ? 0 : leftAt;
+  const rightMs = Number.isNaN(rightAt) ? 0 : rightAt;
+  if (rightMs !== leftMs) return rightMs - leftMs;
+  return (right.order || 0) - (left.order || 0);
+};
+
+const entriesFrom = (view = {}) => {
+  const why = list(view.why).map((line, order) => asEntry(line, 'why', order));
+  const against = list(view.against).map((line, order) => asEntry(line, 'against', order));
+  const did = list(view.whatIDid).map((line, order) => asEntry(line, 'did', order));
+  return [...why, ...against, ...did].filter(entry => entry.text).sort(byRecency);
+};
+
+export const matchesLogFilter = (entry, filter) => {
+  if (!filter || filter === 'all') return true;
+  if (filter === 'why') return entry.kind === 'why';
+  if (filter === 'against') return entry.kind === 'against';
+  return true;
+};
+
+/** Groups for the log. The open band is this month plus anything undated. */
+export const buildJudgmentLog = (view = {}, now = Date.now()) => {
+  const current = currentMonthKey(now);
+  const open = [];
+  const earlier = new Map();
+
+  entriesFrom(view).forEach((entry) => {
+    const key = monthKey(entry.at);
+    if (key === 'undated' || key === current) {
+      open.push(entry);
+      return;
+    }
+    const bucket = earlier.get(key) || [];
+    bucket.push(entry);
+    earlier.set(key, bucket);
+  });
+
+  const groups = [];
+  if (open.length) {
+    groups.push({
+      id: 'now',
+      label: '',
+      open: true,
+      entries: open
+    });
+  }
+
+  [...earlier.entries()]
+    .sort((left, right) => right[0].localeCompare(left[0]))
+    .forEach(([key, entries]) => {
+      groups.push({
+        id: key,
+        label: monthLabel(key),
+        open: false,
+        entries
+      });
+    });
+
+  if (!groups.length) return [];
+  if (!groups.some(group => group.open)) groups[0].open = true;
+  return groups;
+};
+
+export const filterLog = (groups = [], filter = 'all') => groups
+  .map(group => ({
+    ...group,
+    entries: group.entries.filter(entry => matchesLogFilter(entry, filter))
+  }))
+  .filter(group => group.entries.length);
+
+/** A line still in the composer is already saved; it is not yet a log row. */
+export const omitEntry = (groups = [], id = '') => {
+  if (!id) return groups;
+  return groups
+    .map(group => ({
+      ...group,
+      entries: group.entries.filter(entry => entry.id !== id)
+    }))
+    .filter(group => group.entries.length);
+};

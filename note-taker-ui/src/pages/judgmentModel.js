@@ -201,7 +201,8 @@ const reasonLines = (items = [], prefix) => list(items)
     text: clean(item?.text),
     sourceRefIds: list(item?.sourceRefIds),
     sourceLabel: clean(item?.sourceLabel),
-    acceptedFrom: clean(item?.acceptedFrom)
+    acceptedFrom: clean(item?.acceptedFrom),
+    at: item?.at || item?.createdAt || null
   }))
   .filter(line => line.text);
 
@@ -219,7 +220,8 @@ const whyLines = (judgment = {}) => {
       text: clean(item?.text),
       sourceRefIds: list(item?.sourceRefIds),
       sourceLabel: '',
-      acceptedFrom: ''
+      acceptedFrom: '',
+      at: item?.at || item?.createdAt || null
     }))
     .filter(line => line.text);
 };
@@ -233,7 +235,8 @@ const againstLines = (judgment = {}) => {
     text: counter,
     sourceRefIds: [],
     sourceLabel: '',
-    acceptedFrom: ''
+    acceptedFrom: '',
+    at: null
   }] : [];
 };
 
@@ -567,8 +570,14 @@ const persistReason = (line = {}) => {
   };
   const origin = clean(line.acceptedFrom);
   if (origin) next.acceptedFrom = origin;
+  if (line.at) next.at = line.at;
   return next;
 };
+
+const stampedReason = (fields = {}) => ({
+  ...fields,
+  at: fields.at || new Date().toISOString()
+});
 
 /* Accepting a proposal appends one line to Why or Against. It appends: the
    lines already on the page are carried over untouched, and the proposal's
@@ -582,11 +591,11 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
     ...judgment,
     [target]: [
       ...current.map(persistReason),
-      {
+      stampedReason({
         text: clean(proposal?.body || proposal?.sentence),
         acceptedFrom: clean(proposal?.id),
         sourceLabel: clean(proposal?.sourceLabel)
-      }
+      })
     ]
   };
 };
@@ -734,11 +743,11 @@ export const fileEvidenceIntoJudgment = (page, candidate, field) => {
     ...judgment,
     [target]: [
       ...current.map(persistReason),
-      {
+      stampedReason({
         text,
         sourceLabel: clean(candidate?.sourceLabel),
         acceptedFrom: clean(candidate?.id)
-      }
+      })
     ]
   };
 };
@@ -760,7 +769,7 @@ export const writeLineIntoJudgment = (page, text, field) => {
       ...judgment,
       [field]: [
         ...current.map(persistReason),
-        { text: line }
+        stampedReason({ text: line })
       ]
     };
   }
@@ -822,7 +831,7 @@ export const upsertLineIntoJudgment = (page, text, field, lineId) => {
         current,
         'reasonId',
         lineId,
-        () => ({ reasonId: lineId, text: line }),
+        () => stampedReason({ reasonId: lineId, text: line }),
         item => ({ ...item, text: line })
       )
     };

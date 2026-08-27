@@ -8,6 +8,7 @@ describe('writing a line by hand', () => {
     const next = writeLineIntoJudgment(page, 'The incentive points the same way.', 'why');
     expect(next.why.map(line => line.text)).toEqual(['It held last quarter.', 'The incentive points the same way.']);
     expect(next.why[0].sourceLabel).toBe('Ledger');
+    expect(next.why[1].at).toEqual(expect.any(String));
   });
 
   it('writes a falsifier under "I’d change my mind if"', () => {

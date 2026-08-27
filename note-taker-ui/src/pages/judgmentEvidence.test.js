@@ -58,6 +58,6 @@ describe('fileEvidenceIntoJudgment', () => {
     const filed = { ...page, judgment: fileEvidenceIntoJudgment(page, candidate, 'why') };
     const next = writeLineIntoJudgment(filed, 'Another reason.', 'why');
     expect(next.why[0].acceptedFrom).toBe('highlight:a1:h1');
-    expect(next.why[1]).toEqual({ text: 'Another reason.' });
+    expect(next.why[1]).toMatchObject({ text: 'Another reason.' });
   });
 });

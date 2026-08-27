@@ -46,7 +46,7 @@ const judgmentPage = () => ({
       { reasonId: 'why-1', text: 'AI demand keeps compounding faster than new supply.', sourceRefIds: ['src-1'] },
       { reasonId: 'why-2', text: 'Lead times and power constrain what can be delivered.', sourceRefIds: ['src-2'] }
     ],
-    against: [{ reasonId: 'against-1', text: 'Hyperscalers are designing more in-house silicon.' }],
+    against: [{ reasonId: 'against-1', text: 'Hyperscalers are designing more in-house silicon.', sourceRefIds: ['src-1'] }],
     falsifiers: [{ falsifierId: 'f-1', text: 'Confirmed signed capacity converts within 90 days.', status: 'unobserved' }],
     decisions: [{
       decisionId: 'd-1',
@@ -177,7 +177,7 @@ describe('Judgment claim', () => {
     })));
   });
 
-  it('shows the claim, the four human fields, and the way back', async () => {
+  it('holds the prior still, with the log underneath', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
 
     renderDetail();
@@ -186,16 +186,35 @@ describe('Judgment claim', () => {
     expect(document.querySelector('.judgment__claim-sentence'))
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
     expect(screen.getByRole('link', { name: '← All judgments' })).toHaveAttribute('href', '/judgment');
-    expect(screen.getByRole('heading', { level: 2, name: 'Why' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Against' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'I’d change my mind if' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'What I did' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Source 1: SemiAnalysis' }))
-      .toHaveAttribute('href', 'https://semianalysis.com/capacity');
+    expect(screen.getByText('I’d change my mind if')).toBeInTheDocument();
+    expect(screen.getByText('Confirmed signed capacity converts within 90 days.')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+    const semi = screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' });
+    expect(semi).toHaveLength(2);
+    expect(semi[0]).toHaveAttribute('href', 'https://semianalysis.com/capacity');
     expect(screen.getByRole('link', { name: 'Source 2: TrendForce' }))
       .toHaveAttribute('href', 'https://trendforce.com/supply');
     expect(screen.queryByText('SemiAnalysis and TrendForce')).not.toBeInTheDocument();
-    expect(screen.getByText(/this line doesn’t get edited, only added to/)).toBeInTheDocument();
+    expect(screen.getByText('AI demand keeps compounding faster than new supply.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /February 2026/ })).toBeInTheDocument();
+    expect(screen.queryByText('Started 1.5%. Won’t add until signed capacity converts.')).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(semi[0]);
+    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
+    expect(document.querySelectorAll('.judgment-log__row.is-kin')).toHaveLength(2);
+    expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
+  });
+
+  it('lets the log show one side of the case', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetail();
+
+    await screen.findByRole('heading', { level: 1 });
+    fireEvent.click(screen.getByRole('tab', { name: 'Against' }));
+    expect(screen.getByText('Hyperscalers are designing more in-house silicon.')).toBeInTheDocument();
+    expect(screen.queryByText('AI demand keeps compounding faster than new supply.')).not.toBeInTheDocument();
   });
 
   it('renames the case without rewriting the claim', async () => {
@@ -241,10 +260,10 @@ describe('Judgment claim', () => {
     renderDetail();
 
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.getByRole('heading', { level: 2, name: 'Against' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'What I did' })).toBeInTheDocument();
-    expect(screen.getByLabelText('What argues against it?')).toHaveValue('');
-    expect(document.querySelectorAll('#judgment-field-against .judgment__line')).toHaveLength(0);
+    expect(screen.queryByRole('heading', { level: 2, name: 'Against' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'What I did' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Why do you believe it?')).toHaveValue('');
+    expect(screen.queryByText('Hyperscalers are designing more in-house silicon.')).not.toBeInTheDocument();
     expect(screen.queryByText(/this line doesn’t get edited/)).not.toBeInTheDocument();
   });
 

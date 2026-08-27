@@ -252,14 +252,317 @@ body.noeis-editorial .judgment .judgment__title::placeholder,
   line-height: 1.5;
 }
 
-/* ---------- the four fields ---------- */
-
-.judgment__fields {
+.judgment__falsifier {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 22px 0 0;
+  max-width: 46ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+.judgment__falsifier span:first-child {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.judgment__falsifier .is-arriving {
+  animation: judgment-log-arrive 640ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- composer + log ---------- */
+
+.judgment-composer {
+  display: grid;
+  gap: 10px;
+  margin: 40px 0 0;
+  padding: 0 0 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+}
+
+.judgment-composer__kinds {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.judgment-composer__kinds::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 22px;
+  height: 1px;
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 70%, transparent);
+  transform: translate3d(var(--kind-x, 0px), 0, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.judgment-composer__kinds button {
+  min-height: 0;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.judgment-composer__kinds button.is-active,
+.judgment-composer__kinds button[aria-checked='true'] {
+  border-bottom-color: currentColor;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+@media (pointer: fine) {
+  .judgment-composer__kinds::after {
+    opacity: 0.85;
+  }
+
+  .judgment-composer__kinds button.is-active,
+  .judgment-composer__kinds button[aria-checked='true'] {
+    border-bottom-color: transparent;
+  }
+}
+
+body.noeis-editorial .judgment .judgment-composer input,
+.judgment-composer input {
+  width: 100%;
+  padding: 6px 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, var(--vellum-ink)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.12rem;
+  line-height: 1.4;
+}
+
+.judgment-composer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  min-height: 1.1em;
+}
+
+.judgment-composer__meta [role='alert'] {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.judgment-log {
+  margin: 8px 0 0;
+}
+
+.judgment-log__filters {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin: 0 0 18px;
+}
+
+.judgment-log__filters button {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.judgment-log__filters button.is-active,
+.judgment-log__filters button[aria-selected='true'] {
+  border-bottom-color: currentColor;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment-log__list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-log__row {
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: baseline;
+  margin: 0 -8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.judgment-log__kind {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.judgment-log__row--did .judgment-log__kind,
+.judgment-log__row--did .judgment-log__text {
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.judgment-log__text {
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.judgment-log__when {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.judgment-log__whisper {
+  margin: 0 0 0 auto;
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.judgment-log.is-listening .judgment-log__row:not(.is-kin) {
+  opacity: 0.38;
+}
+
+.judgment-log__row.is-kin {
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 72%, transparent);
+}
+
+.judgment-log__row.is-kin .judgment__cite {
+  color: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.judgment-log__row.is-arriving {
+  animation: judgment-log-arrive 640ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes judgment-log-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.judgment-log__month-name {
+  margin: 22px 0 10px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.judgment-log__fold {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.judgment-log__fold:hover,
+.judgment-log__fold:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment-log__empty {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+}
+
+.judgment__after {
+  display: grid;
   gap: 36px;
   margin-top: 52px;
 }
+
+.judgment-evidence--drawer {
+  margin: 18px 0 8px;
+  padding: 16px 0 8px;
+}
+
+@media (max-width: 640px) {
+  .judgment-log__row {
+    grid-template-columns: 4.2rem minmax(0, 1fr);
+  }
+
+  .judgment-log__when {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judgment-composer__kinds::after {
+    display: none;
+  }
+
+  .judgment-composer__kinds button.is-active,
+  .judgment-composer__kinds button[aria-checked='true'] {
+    border-bottom-color: currentColor;
+  }
+
+  .judgment-log__row.is-arriving,
+  .judgment__falsifier .is-arriving {
+    animation: none;
+  }
+
+  .judgment-log.is-listening .judgment-log__row:not(.is-kin),
+  .judgment-log__row {
+    opacity: 1;
+    transition: none;
+  }
+}
+
+/* ---------- quieter rooms under the log ---------- */
 
 .judgment .judgment__field h2 {
   margin: 0 0 10px;
@@ -319,15 +622,6 @@ body.noeis-editorial .judgment .judgment__title::placeholder,
   background-color: color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 3px;
   outline: none;
-}
-
-/* The append-only note. Quiet, because it is a rule, not news. */
-.judgment__ledger-note {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
-  line-height: 1.6;
 }
 
 /* ---------- the other agent door ---------- */
@@ -428,12 +722,6 @@ body.noeis-editorial .judgment .judgment__title::placeholder,
   .judgment {
     padding: 32px 20px 72px;
   }
-
-  .judgment__fields {
-    grid-template-columns: 1fr;
-    margin-top: 40px;
-    gap: 30px;
-  }
 }
 
 /* Reduced motion: everything appears instantly; nothing is lost. */
@@ -513,56 +801,11 @@ body.noeis-editorial .judgment .judgment__new input,
   font-size: 0.84rem;
 }
 
-/* The line you write into a section yourself. It is the quietest thing in the
-   field — a rule you type on — because the lines already written are what the
-   page is for, and this is only how another one gets there. */
-.judgment__write {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 18px;
-  margin: 14px 0 0;
-}
-
-.judgment__write input {
-  flex: 1 1 15rem;
-}
-
-body.noeis-editorial .judgment .judgment__write input,
-.judgment .judgment__write input {
-  padding: 4px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--text-primary, var(--vellum-ink)) !important;
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-body.noeis-editorial .judgment .judgment__write input::placeholder,
-.judgment .judgment__write input::placeholder {
-  color: var(--text-muted, var(--vellum-subtle));
-  opacity: 0.72;
-}
-
-/* Whether the line is written down yet. Quiet, and it does not move the text:
-   the receipt for typing is that the typing is kept, not that something
-   flashes about it. */
 .judgment__write-state {
   min-width: 3.4rem;
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.78rem;
-}
-
-.judgment__write [role="alert"] {
-  flex: 1 0 100%;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
 }
 
 /* The agent door says what it is doing, where the click happened. */
@@ -613,12 +856,6 @@ body.noeis-editorial .judgment .judgment__write input::placeholder,
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
-}
-
-/* An empty section says so, quietly. */
-.judgment__line--empty {
-  color: var(--text-muted, var(--vellum-subtle));
-  font-style: italic;
 }
 
 .judgment__nothing-door {
