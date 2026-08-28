@@ -124,13 +124,16 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   animation: think-agent-thread 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* While typing, rails fade into named handles. Hover or keyboard focus
-   peeks a rail back. Idle or blur restores both with the same fade. */
+/* While typing, rails dissolve into named handles. Hover or keyboard
+   focus peeks a rail back. Idle or blur restores both. Fade out is a
+   touch quicker than fade in; layout trails opacity so it never reads
+   as a cut. Wfp settle on restore; ease-in-out on hide so the start
+   of the dissolve is not a snap. */
 @media (min-width: 1181px) {
   .think-notes {
     transition:
-      grid-template-columns 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      gap 280ms cubic-bezier(0.22, 1, 0.36, 1);
+      grid-template-columns 720ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)),
+      gap 720ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -157,8 +160,8 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 @media (min-width: 1121px) {
   body.noeis-editorial .notebook-editorial-shell {
     transition:
-      grid-template-columns 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      gap 280ms cubic-bezier(0.22, 1, 0.36, 1);
+      grid-template-columns 720ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1)),
+      gap 720ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -176,18 +179,24 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     }
   }
 
+  /* Resting / fade-in: longer wfp settle so rails return as a dissolve. */
   [data-writing-rail] > * {
     opacity: 1;
     transform: none;
     transition:
-      opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+      opacity 680ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   [data-writing-rail]::after {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 680ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  [data-writing-rail='right'] > *,
+  [data-writing-rail='right']::after {
+    transition-delay: 48ms;
   }
 
   body.think-writing-active [data-writing-rail] {
@@ -196,8 +205,12 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     cursor: pointer;
   }
 
+  /* Writing / fade-out: slightly quicker, ease-in-out so hide does not snap. */
   body.think-writing-active [data-writing-rail] > * {
     opacity: 0;
+    transition:
+      opacity 540ms cubic-bezier(0.4, 0, 0.2, 1),
+      transform 800ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -207,11 +220,16 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   body.think-writing-active [data-writing-rail='left'] {
-    --think-rail-retreat: -14px;
+    --think-rail-retreat: -4px;
   }
 
   body.think-writing-active [data-writing-rail='right'] {
-    --think-rail-retreat: 14px;
+    --think-rail-retreat: 4px;
+  }
+
+  body.think-writing-active [data-writing-rail='right'] > *,
+  body.think-writing-active [data-writing-rail='right']::after {
+    transition-delay: 48ms;
   }
 
   body.think-writing-active [data-writing-rail]::after {
@@ -229,6 +247,7 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     text-transform: uppercase;
     writing-mode: vertical-rl;
     opacity: 0.82;
+    transition: opacity 540ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   body.think-writing-active [data-writing-rail='left']::after {
@@ -248,10 +267,12 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   body.think-writing-active [data-writing-rail]:is(:hover, :focus-within) > * {
     opacity: 1;
     transform: none;
+    transition-delay: 0ms;
   }
 
   body.think-writing-active [data-writing-rail]:is(:hover, :focus-within)::after {
     opacity: 0;
+    transition-delay: 0ms;
   }
 }
 
