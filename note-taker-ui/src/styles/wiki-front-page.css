@@ -592,31 +592,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   width: 100%;
 }
 
-/* Repo wiki entry — mirrors the quiet composer treatment. */
-.wiki-front-page__repo-create {
-  position: relative;
-  max-width: min(100%, 560px);
-  margin-top: 0;
-  border-radius: 10px;
-}
-
-.wiki-front-page__repo-create .wiki-repo-create.wiki-front-page__repo-builder {
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.wiki-front-page__repo-create .wiki-repo-create__row {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-}
-
-.wiki-front-page__repo-create .wiki-repo-create__row input {
-  min-width: 0;
-  width: 100%;
-}
-
 .wiki-front-page__company-builder {
   max-width: min(100%, 760px);
   margin-top: 14px;
@@ -693,18 +668,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 }
 
 @media (min-width: 1280px) {
-  .wiki-front-page__repo-create {
-    max-width: min(100%, 720px);
-  }
-}
-
-@media (min-width: 1440px) {
-  .wiki-front-page__repo-create {
-    max-width: min(100%, 760px);
-  }
-}
-
-@media (min-width: 1280px) {
   .wiki-front-page__composer {
     max-width: min(100%, 720px);
   }
@@ -741,6 +704,72 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   gap: 16px;
   padding-top: 18px;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+}
+
+.wiki-creation {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.wiki-creation__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 68%, transparent);
+}
+
+.wiki-creation__modes button {
+  position: relative;
+  padding: 0 0 9px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 0.86rem/1.2 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  cursor: pointer;
+}
+
+.wiki-creation__modes button[aria-pressed="true"] {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.wiki-creation__modes button[aria-pressed="true"]::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: var(--wiki-warm-accent, var(--vellum-warm));
+}
+
+.wiki-creation__description {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: 0.82rem/1.5 var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+}
+
+.wiki-creation__panel {
+  min-width: 0;
+}
+
+.wiki-creation .wiki-front-page__company-builder {
+  margin-top: 0;
+  max-width: 100%;
+}
+
+.wiki-creation .wiki-company-dossier__form {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 560px) {
+  .wiki-creation__modes {
+    gap: 8px 16px;
+  }
 }
 
 /* Empty corpus — the agent leans in; never a dead screen. */
@@ -1680,17 +1709,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   border-left: 0;
 }
 
-.wiki-front-page__specialized-creation {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.wiki-front-page__specialized-creation > h2 {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-
 @keyframes wfp-materialize {
   from { opacity: 0; transform: translate3d(0, -4px, 0) scale(0.98); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
@@ -1759,9 +1777,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
     align-items: flex-start;
   }
 
-  .wiki-front-page__specialized-creation {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

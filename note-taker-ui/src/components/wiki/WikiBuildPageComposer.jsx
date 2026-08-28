@@ -28,7 +28,7 @@ export const wikiBuildTopicFromPrompt = (value = '') => {
   return prompt;
 };
 
-const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => {
+const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt, onBusyChange }) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
   const [prompt, setPrompt] = useState('');
@@ -47,6 +47,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
     const question = governingQuestion.trim();
     if (!topic || busy || (livingThesis && !question)) return;
     setBusy(true);
+    onBusyChange?.(true);
     setStatus('');
     setError('');
     const repo = livingThesis ? null : parseGitHubRepoInput(buildBrief);
@@ -129,6 +130,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt }) => 
           : 'Failed to build this wiki page.');
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   };
 

@@ -31,19 +31,12 @@ jest.mock('../../api/dailyLoop', () => ({
   disarmWatcher: jest.fn()
 }));
 
-jest.mock('./WikiBuildPageComposer', () => ({ className = '' }) => (
-  <form className={className} aria-label="Ask the wiki agent to build a page">
-    <input aria-label="Build page prompt" />
-    <button type="button">Build page</button>
-  </form>
-));
-
-jest.mock('./WikiCompanyDossierComposer', () => ({ className = '' }) => (
-  <section className={className}>Company dossier composer</section>
-));
-
-jest.mock('./WikiRepoCreateComposer', () => ({ className = '' }) => (
-  <section className={className}>Repository wiki composer</section>
+jest.mock('./WikiCreationComposer', () => () => (
+  <section aria-label="Create a wiki">
+    <button type="button">Wiki</button>
+    <button type="button">Repo wiki</button>
+    <button type="button">Investment dossier</button>
+  </section>
 ));
 
 jest.mock('./decisions/DecisionsIndex', () => () => (
@@ -255,6 +248,7 @@ describe('WikiFrontPage (AT-394)', () => {
     // is in the column, behind one disclosure.
     expect(screen.queryByRole('complementary', { name: 'Wiki Curator' })).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__making summary')).toHaveTextContent('Build a wiki');
+    expect(screen.getByRole('button', { name: 'Investment dossier' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /All wikis 3/i })).toHaveAttribute('aria-pressed', 'true');
 
     const livingTable = screen.getByRole('table', { name: 'Living Wiki pages' });
@@ -424,7 +418,8 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: /start your wiki/i }))
       .toHaveTextContent(/start your wiki/i);
     expect(navigate).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Ask the wiki agent to build a page')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Create a wiki' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Investment dossier' })).toBeInTheDocument();
   });
 
   it('does not redirect returning users whose pages are hidden from the front page', async () => {

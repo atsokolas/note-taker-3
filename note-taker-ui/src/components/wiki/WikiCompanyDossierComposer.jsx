@@ -8,11 +8,13 @@ import { Button } from '../ui';
 const WikiCompanyDossierComposer = ({
   className = '',
   onCreated,
-  trackInJudgment = false
+  trackInJudgment = false,
+  embedded = false,
+  onBusyChange
 }) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
   const [ticker, setTicker] = useState('');
   const [startingJudgment, setStartingJudgment] = useState('');
   const [requiredReturn, setRequiredReturn] = useState('10');
@@ -25,6 +27,7 @@ const WikiCompanyDossierComposer = ({
     event.preventDefault();
     if (busy) return;
     setBusy(true);
+    onBusyChange?.(true);
     setStatus('');
     setError('');
     systemStatus.setBackgroundWork?.({
@@ -82,21 +85,24 @@ const WikiCompanyDossierComposer = ({
       });
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
       systemStatus.setBackgroundWork?.(null);
     }
   };
 
   return (
     <section className={`wiki-company-dossier${className ? ` ${className}` : ''}`}>
-      <button
-        className="wiki-company-dossier__toggle"
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(value => !value)}
-      >
-        <span aria-hidden="true">{open ? '▾' : '▸'}</span>
-        {trackInJudgment ? 'Create a company case' : 'Create an investment dossier'}
-      </button>
+      {!embedded ? (
+        <button
+          className="wiki-company-dossier__toggle"
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(value => !value)}
+        >
+          <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+          {trackInJudgment ? 'Create a company case' : 'Create an investment dossier'}
+        </button>
+      ) : null}
       {open ? (
         <form onSubmit={handleSubmit} className="wiki-company-dossier__form">
           <p>
