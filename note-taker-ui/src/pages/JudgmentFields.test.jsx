@@ -3,17 +3,17 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import Judgment from './Judgment';
-import { getWikiPage, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { getCompanyDossierJudgmentReview, getJudgmentLibraryEvidence, getWikiPage, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
 
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
-  getCompanyDossierJudgmentReview: jest.fn().mockResolvedValue(null),
-  getJudgmentLibraryEvidence: jest.fn().mockResolvedValue({ candidates: [] }),
+  getCompanyDossierJudgmentReview: jest.fn(() => Promise.resolve(null)),
+  getJudgmentLibraryEvidence: jest.fn(() => Promise.resolve({ claim: '', terms: [], candidates: [] })),
   getWikiPage: jest.fn(),
-  listCompanyDossierJudgmentReviews: jest.fn().mockResolvedValue([]),
+  listCompanyDossierJudgmentReviews: jest.fn(() => Promise.resolve([])),
   listWikiPages: jest.fn().mockResolvedValue([]),
   listWikiSourceEvents: jest.fn(),
   updateWikiPage: jest.fn()
@@ -43,6 +43,8 @@ describe('updates on an opened judgment', () => {
     jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
     getWikiPage.mockResolvedValue(page());
     listWikiSourceEvents.mockResolvedValue([]);
+    getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
   it('holds the prior still, and the log underneath', async () => {
@@ -132,6 +134,8 @@ describe('a line that does not land', () => {
     jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
     getWikiPage.mockResolvedValue(page());
     listWikiSourceEvents.mockResolvedValue([]);
+    getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   });
 
   it('says so, instead of quietly dropping it', async () => {

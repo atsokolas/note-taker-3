@@ -613,7 +613,8 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     /* The library already spoke. Start that read with the page, but do not
        hold the prior for it — empty mornings stay silent, and a slow library
        must not delay the claim. */
-    getJudgmentLibraryEvidence(pageId)
+    Promise.resolve()
+      .then(() => getJudgmentLibraryEvidence(pageId))
       .then((found) => {
         if (!cancelled) setInbox(Array.isArray(found?.candidates) ? found.candidates : []);
       })
@@ -630,7 +631,8 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         const [loaded, events, reviewResult] = await Promise.all([
           getWikiPage(pageId, { reader: 1 }),
           listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => []),
-          getCompanyDossierJudgmentReview(pageId)
+          Promise.resolve()
+            .then(() => getCompanyDossierJudgmentReview(pageId))
             .then(review => ({ review }))
             .catch(reviewError => ({ reviewError }))
         ]);
