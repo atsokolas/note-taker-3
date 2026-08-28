@@ -227,11 +227,6 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     --think-rail-retreat: 4px;
   }
 
-  body.think-writing-active [data-writing-rail='right'] > *,
-  body.think-writing-active [data-writing-rail='right']::after {
-    transition-delay: 48ms;
-  }
-
   body.think-writing-active [data-writing-rail]::after {
     position: absolute;
     top: min(30vh, 240px);
@@ -257,6 +252,11 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 
   body.think-writing-active [data-writing-rail='right']::after {
     left: 3px;
+  }
+
+  body.think-writing-active [data-writing-rail='right'] > *,
+  body.think-writing-active [data-writing-rail='right']::after {
+    transition-delay: 48ms;
   }
 
   body.think-writing-active [data-writing-rail]:is(:hover, :focus-within) {
