@@ -255,6 +255,7 @@ describe('judgmentModel', () => {
     }];
     const dismissed = dismissOvernightLine(page(), 'event-1');
     expect(dismissed.dismissedOvernightEventIds).toEqual(['event-1']);
+    expect(dismissOvernightLine({ judgment: dismissed }, 'event-1').dismissedOvernightEventIds).toEqual(['event-1']);
     expect(selectOvernightLine({ ...page(), judgment: dismissed }, events)).toBeNull();
     expect(dismissed.why.map(line => line.text)).toEqual(page().judgment.why.map(line => line.text));
 
@@ -291,14 +292,6 @@ describe('judgmentModel', () => {
     ];
     const dismissed = dismissOvernightLine(page(), 'event-new');
     expect(selectOvernightLine({ ...page(), judgment: dismissed }, events).id).toBe('event-old');
-  });
-
-  it('records a dismissed overnight id on this case without touching Why or Against', () => {
-    const next = dismissOvernightLine(page(), 'event-1');
-    expect(next.dismissedOvernightEventIds).toEqual(['event-1']);
-    expect(next.why).toEqual(page().judgment.why);
-    expect(next.against).toEqual(page().judgment.against);
-    expect(dismissOvernightLine({ judgment: next }, 'event-1').dismissedOvernightEventIds).toEqual(['event-1']);
   });
 
   it('dates a change of opinion as a ledger line and leaves the reasons alone', () => {
