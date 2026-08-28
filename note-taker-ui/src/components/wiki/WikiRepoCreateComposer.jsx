@@ -49,7 +49,7 @@ const stageIndexForElapsed = (elapsedSeconds = 0) => {
   return 0;
 };
 
-const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) => {
+const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated, onBusyChange }) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
   const [repoUrl, setRepoUrl] = useState('');
@@ -90,6 +90,7 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
     const input = repoUrl.trim();
     if (!input || busy) return;
     setBusy(true);
+    onBusyChange?.(true);
     setStartedAt(Date.now());
     setElapsedSeconds(0);
     setStatus('');
@@ -131,6 +132,7 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated }) 
       setError(submitError?.message || 'Failed to create repo wiki.');
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
       setStartedAt(null);
     }
   };

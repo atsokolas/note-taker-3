@@ -14,9 +14,7 @@ import {
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
-import WikiBuildPageComposer from './WikiBuildPageComposer';
-import WikiRepoCreateComposer from './WikiRepoCreateComposer';
-import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
+import WikiCreationComposer from './WikiCreationComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
@@ -832,12 +830,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             </form>
           </details>
         </section>
-        <section className="wiki-front-page__specialized-creation" aria-label="Specialized Wiki builders">
-          <h2 className="wiki-index__eyebrow">Specialized builders</h2>
-          <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
-          <WikiCompanyDossierComposer className="wiki-front-page__company-builder" />
-
-        </section>
       </div>
     </details>
   );
@@ -895,7 +887,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           </p>
         </section>
         <section className="wiki-front-page__composer wfp-anim wfp-anim--4" aria-label="Build a wiki page">
-          <WikiBuildPageComposer compact className="wiki-front-page__builder" />
+          <WikiCreationComposer />
         </section>
         {operationalWorkspace}
         {error ? <div className="wiki-index__error" role="alert">{error}</div> : null}
@@ -1111,13 +1103,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           <details className="wiki-front-page__making wfp-anim wfp-anim--4">
             <summary>Build a wiki</summary>
             <div className="wiki-front-page__creation-tools">
-              <section aria-label="Build or update a wiki">
-                <WikiBuildPageComposer compact className="wiki-front-page__builder" />
-              </section>
-              <section aria-label="Create a developer wiki from GitHub">
-                <p>Connect a public GitHub repository to create a maintained developer reference.</p>
-                <WikiRepoCreateComposer compact className="wiki-front-page__repo-builder" />
-              </section>
+              <WikiCreationComposer />
             </div>
           </details>
         </section>

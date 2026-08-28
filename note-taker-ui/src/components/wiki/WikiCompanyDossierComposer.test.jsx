@@ -24,6 +24,19 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
+test('opens directly when embedded in the Wiki creation chooser', () => {
+  render(
+    <MemoryRouter>
+      <WikiCompanyDossierComposer embedded />
+    </MemoryRouter>
+  );
+
+  expect(screen.queryByRole('button', { name: /create an investment dossier/i })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Company ticker')).toBeInTheDocument();
+  expect(screen.getByLabelText('Starting investment judgment')).toBeInTheDocument();
+  expect(screen.getByText(/enters Judgment only when you choose to track it/i)).toBeInTheDocument();
+});
+
 test('creates a human-owned company dossier and opens first-head build review', async () => {
   const navigate = jest.fn();
   jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
