@@ -1,4 +1,8 @@
-const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptService');
+const {
+  persistNoeisReceipt,
+  sanitizeReceiptForStorage,
+  serializeStoredReceipt
+} = require('./noeisReceiptService');
 
 const clean = (value = '', limit = 600) => String(value || '')
   .replace(/\s+/g, ' ')
@@ -148,25 +152,43 @@ const resolveDossierJudgmentReview = async ({
     );
   }
 
-  return persistNoeisReceipt({
-    NoeisReceipt,
+  const completedReceipt = {
+    ...receipt,
+    status: 'completed',
+    summary: selected === 'kept'
+      ? 'Reviewed the accepted research and kept the current judgment.'
+      : 'Reviewed the accepted research and revised the current judgment.',
+    provenance: {
+      ...receipt.provenance,
+      resolution: selected,
+      resolvedAt: now,
+      judgmentAfterReview: current
+    },
+    completedAt: now,
+    nextAction: { type: 'open_judgment', id: pageId, title: 'Open the company case' }
+  };
+  const safeReceipt = sanitizeReceiptForStorage(completedReceipt);
+  const updated = await resolveQuery(NoeisReceipt.findOneAndUpdate({
     userId,
-    receipt: {
-      ...receipt,
-      status: 'completed',
-      summary: selected === 'kept'
-        ? 'Reviewed the accepted research and kept the current judgment.'
-        : 'Reviewed the accepted research and revised the current judgment.',
-      provenance: {
-        ...receipt.provenance,
-        resolution: selected,
-        resolvedAt: now,
-        judgmentAfterReview: current
-      },
-      completedAt: now,
-      nextAction: { type: 'open_judgment', id: pageId, title: 'Open the company case' }
-    }
-  });
+    receiptId: receipt.id,
+    kind: 'company_dossier_judgment_review',
+    status: 'awaiting_review',
+    'provenance.pageId': pageId
+  }, {
+    $set: { ...safeReceipt, userId }
+  }, { new: true }));
+  if (updated) return serializeStoredReceipt(updated);
+
+  const latest = serializeStoredReceipt(await resolveQuery(NoeisReceipt.findOne({
+    userId,
+    receiptId: receipt.id,
+    kind: 'company_dossier_judgment_review',
+    'provenance.pageId': pageId
+  })));
+  if (latest?.status === 'completed' && clean(latest.provenance?.resolution, 24) === selected) {
+    return latest;
+  }
+  throw new DossierJudgmentReviewError('This dossier review was resolved by another request.', 409);
 };
 
 module.exports = {

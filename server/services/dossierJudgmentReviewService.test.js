@@ -26,12 +26,22 @@ const run = async () => {
     },
     findOne(query) {
       return new Query(rows.find(row => (
-        (!query.receiptId || row.receiptId === query.receiptId)
+        (!query.userId || String(row.userId) === String(query.userId))
+        && (!query.receiptId || row.receiptId === query.receiptId)
         && (!query.kind || row.kind === query.kind)
+        && (!query.status || row.status === query.status)
         && (!query['provenance.pageId'] || row.provenance?.pageId === query['provenance.pageId'])
       )) || null);
     },
     async findOneAndUpdate(query, update) {
+      const current = rows.find(row => (
+        (!query.userId || String(row.userId) === String(query.userId))
+        && (!query.receiptId || row.receiptId === query.receiptId)
+        && (!query.kind || row.kind === query.kind)
+        && (!query.status || row.status === query.status)
+        && (!query['provenance.pageId'] || row.provenance?.pageId === query['provenance.pageId'])
+      ));
+      if (query.status && !current) return null;
       const next = { ...update.$set, receiptId: query.receiptId };
       const index = rows.findIndex(row => row.receiptId === query.receiptId);
       if (index >= 0) rows[index] = next;
@@ -101,6 +111,13 @@ const run = async () => {
     resolution: 'revised'
   });
   assert.equal(replay.id, receipt.id);
+
+  await assert.rejects(
+    resolveDossierJudgmentReview({
+      NoeisReceipt, userId: 'owner-1', page, receiptId: receipt.id, resolution: 'kept'
+    }),
+    error => error.statusCode === 409 && /resolved/i.test(error.message)
+  );
 
   const untracked = buildDossierJudgmentReviewReceipt({
     page: { ...page, judgment: null },
