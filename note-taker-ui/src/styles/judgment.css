@@ -220,6 +220,37 @@ body.noeis-editorial .judgment .judgment__title::placeholder,
   opacity: 1;
 }
 
+/* The opinion sits under the name, always. Same face as the index's claim
+   line: Newsreader, quieter, one sentence. body.noeis-editorial paints
+   inputs with a filled panel, so this has to outrank that the way the
+   title does. */
+body.noeis-editorial .judgment .judgment__opinion,
+.judgment .judgment__opinion {
+  display: block;
+  width: 100%;
+  max-width: 46ch;
+  margin: 10px 0 0;
+  padding: 0 0 2px !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-secondary, var(--vellum-muted)) !important;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
+  font-size: 1.08rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0;
+  line-height: 1.42 !important;
+  text-wrap: pretty;
+}
+
+body.noeis-editorial .judgment .judgment__opinion:focus,
+.judgment .judgment__opinion:focus {
+  outline: none;
+  border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
+}
+
 .judgment__claim-sentence,
 .judgment__index-claim,
 .judgment-depends__claim {

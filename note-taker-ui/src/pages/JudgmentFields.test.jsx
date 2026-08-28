@@ -44,7 +44,8 @@ describe('updates on an opened judgment', () => {
 
   it('holds the prior still, and the log underneath', async () => {
     renderCase();
-    expect(await screen.findByLabelText('Title')).toHaveValue('A written process improves judgment.');
+    expect(await screen.findByLabelText('Title')).toHaveValue('');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('A written process improves judgment.');
     expect(screen.getByText('Process still loses half the bets.')).toBeInTheDocument();
     expect(screen.getByLabelText('Source 1: Everyone Has a Process')).toHaveTextContent('[1]');
     expect(screen.queryByText('Everyone Has a Process')).not.toBeInTheDocument();
@@ -140,5 +141,18 @@ describe('a line that does not land', () => {
     fireEvent.blur(input);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/was not saved/);
+  });
+
+  it('keeps the current kind when settling the draft fails', async () => {
+    updateWikiPage.mockRejectedValue(new Error('That line was not saved. It is still only on this screen.'));
+    renderCase();
+    await screen.findByLabelText('Title');
+    const input = screen.getByLabelText('Why do you believe it?');
+    fireEvent.change(input, { target: { value: 'Process still loses half the bets twice.' } });
+    choose('Against');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/was not saved/);
+    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
+    expect(input).toHaveValue('Process still loses half the bets twice.');
   });
 });

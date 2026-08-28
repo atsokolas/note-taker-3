@@ -76,6 +76,47 @@ const runReasonLists = () => {
   assert.deepStrictEqual(reasoned.why[0].sourceRefIds, ['507f1f77bcf86cd799439011']);
   assert.strictEqual(reasoned.against[0].acceptedFrom, 'event-1');
 
+  const dated = normalizeJudgment({
+    input: {
+      ...base(),
+      why: [{
+        reasonId: 'why-1',
+        text: 'AI demand keeps compounding faster than new supply.',
+        createdAt: '2026-02-14T12:00:00.000Z'
+      }]
+    }
+  });
+  assert.strictEqual(dated.why[0].createdAt.toISOString(), '2026-02-14T12:00:00.000Z');
+
+  const fromAlias = normalizeJudgment({
+    input: {
+      ...base(),
+      why: [{
+        reasonId: 'why-1',
+        text: 'AI demand keeps compounding faster than new supply.',
+        at: '2026-02-14T12:00:00.000Z'
+      }]
+    }
+  });
+  assert.strictEqual(fromAlias.why[0].createdAt.toISOString(), '2026-02-14T12:00:00.000Z');
+
+  const preserved = normalizeJudgment({
+    existing: dated,
+    input: {
+      ...base(),
+      why: [
+        {
+          reasonId: 'why-1',
+          text: 'AI demand keeps compounding faster than new supply.',
+          createdAt: '2026-02-14T12:00:00.000Z'
+        },
+        { text: 'A fresh reason.' }
+      ]
+    }
+  });
+  assert.strictEqual(preserved.why[0].createdAt.toISOString(), '2026-02-14T12:00:00.000Z');
+  assert.ok(preserved.why[1].createdAt instanceof Date);
+
   // A judgment that has never had either field keeps them as empty lists, so the
   // page can tell "nothing recorded" apart from "not supported".
   const empty = normalizeJudgment({ input: base() });

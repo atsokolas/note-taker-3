@@ -90,66 +90,102 @@ const EvidenceSource = ({ candidate }) => {
   );
 };
 
-/* The wiki name is the column that pops up. The claim is the sentence of
-   belief, and it only appears under the name once they are different things.
-   Editing the title writes the wiki page's title — the same handle the graph,
-   the living list, and every other room already use. */
-const Title = ({ title = '', claim = '', onSave, titleRef }) => {
-  const stored = title || claim;
+/* A line that writes itself after a pause, and refuses to be empty.
+   In-flight saves must not clobber the draft while the field still has focus —
+   a slow round-trip is not a reason to throw away the next keystroke. */
+const AutosaveField = ({ value = '', format, onSave, className, ...inputProps }) => {
+  const stored = format(value);
   const [draft, setDraft] = useState(stored);
-  const [writeError, setWriteError] = useState('');
   const timerRef = useRef(0);
+  const editingRef = useRef(false);
 
-  useEffect(() => { setDraft(stored); }, [stored]);
+  useEffect(() => {
+    if (editingRef.current) return;
+    setDraft(stored);
+  }, [stored]);
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
-  const save = useCallback(async (value) => {
-    const next = asLine(value) || claim;
-    if (!next || next === stored || !onSave) return;
+  const save = useCallback(async (raw) => {
+    const next = format(raw);
+    if (!next) {
+      setDraft(stored);
+      return;
+    }
+    if (next === stored || !onSave) return;
+    await onSave(next);
+  }, [format, onSave, stored]);
+
+  return (
+    <input
+      {...inputProps}
+      className={className}
+      autoComplete="off"
+      value={draft}
+      onFocus={() => { editingRef.current = true; }}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        window.clearTimeout(timerRef.current);
+        if (format(event.target.value)) {
+          timerRef.current = window.setTimeout(() => save(event.target.value), AUTOSAVE_PAUSE_MS);
+        }
+      }}
+      onBlur={() => {
+        editingRef.current = false;
+        window.clearTimeout(timerRef.current);
+        save(draft);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        event.currentTarget.blur();
+      }}
+    />
+  );
+};
+
+/* Two altitudes: the name, then the opinion. The name is the wiki page's
+   title when it is actually a name; until then the field stays empty. The
+   sentence of belief always sits under it. Editing the title writes the wiki
+   handle the rest of the product already uses. Editing the opinion writes
+   the claim, and only the claim. */
+const Title = ({ title = '', claim = '', onSave, onWriteClaim, titleRef }) => {
+  const [writeError, setWriteError] = useState('');
+
+  const run = useCallback(async (action, fallback) => {
     setWriteError('');
     try {
-      await onSave(next);
+      await action();
     } catch (failure) {
       setWriteError(
         failure?.response?.data?.error
         || failure?.message
-        || 'That name could not be saved.'
+        || fallback
       );
     }
-  }, [claim, onSave, stored]);
-
-  const named = Boolean(asLine(draft) && claim && asLine(draft).toLowerCase() !== claim.toLowerCase());
+  }, []);
 
   return (
     <>
       <div className="judgment__claim" ref={titleRef}>
-        <h1 className="sr-only" id="judgment-claim">{asLine(draft) || claim}</h1>
-        <input
+        <h1 className="sr-only" id="judgment-claim">{claim}</h1>
+        <AutosaveField
           id="judgment-title"
           className="judgment__title"
           aria-label="Title"
-          autoComplete="off"
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            window.clearTimeout(timerRef.current);
-            if (asLine(event.target.value)) {
-              timerRef.current = window.setTimeout(() => save(event.target.value), AUTOSAVE_PAUSE_MS);
-            }
-          }}
-          onBlur={() => {
-            window.clearTimeout(timerRef.current);
-            save(draft);
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            event.currentTarget.blur();
-          }}
-          placeholder={claim || 'Name this'}
+          placeholder="Name this"
+          value={title}
+          format={asLine}
+          onSave={(next) => run(() => onSave?.(next), 'That name could not be saved.')}
+        />
+        <AutosaveField
+          id="judgment-opinion"
+          className="judgment__opinion"
+          aria-label="What you hold"
+          value={claim}
+          format={oneSentence}
+          onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
         />
       </div>
-      {named ? <p className="judgment__claim-sentence">{claim}</p> : null}
       {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
     </>
   );
@@ -828,6 +864,14 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [page, pageId]);
 
+  /* The opinion is the claim. Writing it leaves the name alone; a judgment
+     without a sentence is not a judgment, so an empty field never saves. */
+  const writeClaim = useCallback(async (sentence) => {
+    const next = oneSentence(sentence);
+    if (!next) return;
+    await commit({ ...(page?.judgment || {}), currentJudgment: next });
+  }, [commit, page]);
+
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
   useContextualAgentSurface(
@@ -918,9 +962,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
       <Title
-        title={view.pageTitle}
+        title={view.title}
         claim={view.claim}
         onSave={rename}
+        onWriteClaim={writeClaim}
         titleRef={claimRef}
       />
       {view.provenance ? (
