@@ -745,6 +745,7 @@ export const fileEvidenceIntoJudgment = (page, candidate, field) => {
     [target]: [
       ...current.map(persistReason),
       stampedReason({
+        reasonId: newLineId(target),
         text,
         sourceLabel: clean(candidate?.sourceLabel),
         acceptedFrom: clean(candidate?.id)

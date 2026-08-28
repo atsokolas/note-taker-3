@@ -10,7 +10,10 @@ jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
+  getCompanyDossierJudgmentReview: jest.fn().mockResolvedValue(null),
+  getJudgmentLibraryEvidence: jest.fn().mockResolvedValue({ candidates: [] }),
   getWikiPage: jest.fn(),
+  listCompanyDossierJudgmentReviews: jest.fn().mockResolvedValue([]),
   listWikiPages: jest.fn().mockResolvedValue([]),
   listWikiSourceEvents: jest.fn(),
   updateWikiPage: jest.fn()

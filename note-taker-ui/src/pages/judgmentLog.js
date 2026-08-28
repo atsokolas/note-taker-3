@@ -7,7 +7,10 @@
 // most of a case was written before we stamped time. Earlier months fold to a
 // count. Nothing is inferred: a line without a date is not given one.
 
+import { sourceHrefFromOrigin } from './judgmentModel';
+
 const list = (value) => (Array.isArray(value) ? value : []);
+const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const time = (value) => {
   if (!value) return NaN;
@@ -127,4 +130,20 @@ export const omitEntry = (groups = [], id = '') => {
       entries: group.entries.filter(entry => entry.id !== id)
     }))
     .filter(group => group.entries.length);
+};
+
+/* An inbox passage that already speaks in the log shares that source's [n].
+   One that does not still carries a name to whisper — the same whisper the
+   log uses — so hovering it is the same gesture as hovering a citation. */
+export const sourceKinForCandidate = (view = {}, candidate = {}) => {
+  const href = sourceHrefFromOrigin(candidate?.id, candidate?.url);
+  const label = clean(candidate?.sourceLabel);
+  const sources = [...list(view.why), ...list(view.against)]
+    .flatMap(line => list(line.sources));
+  const match = sources.find(source => (
+    (href && source.href === href) || (label && source.label === label)
+  ));
+  if (match) return match;
+  if (label) return { n: null, label, href };
+  return null;
 };

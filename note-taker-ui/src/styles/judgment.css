@@ -351,7 +351,8 @@ body.noeis-editorial .judgment .judgment__opinion:focus,
 }
 
 .judgment-composer__kinds button.is-active,
-.judgment-composer__kinds button[aria-checked='true'] {
+.judgment-composer__kinds button[aria-checked='true'],
+.judgment-composer__kinds button.is-hint {
   border-bottom-color: currentColor;
   color: var(--text-primary, var(--vellum-ink));
 }
@@ -362,7 +363,8 @@ body.noeis-editorial .judgment .judgment__opinion:focus,
   }
 
   .judgment-composer__kinds button.is-active,
-  .judgment-composer__kinds button[aria-checked='true'] {
+  .judgment-composer__kinds button[aria-checked='true'],
+  .judgment-composer__kinds button.is-hint {
     border-bottom-color: transparent;
   }
 }
@@ -394,6 +396,129 @@ body.noeis-editorial .judgment .judgment-composer input,
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
+}
+
+/* Quiet lines the library already held, in the composer band. Filing one is
+   the same gesture as writing a Why: the rail names the side, the line
+   settles into the log, and the inbox evaporates. */
+.judgment-inbox {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.judgment-inbox__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-inbox__line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 18px;
+  align-items: baseline;
+  overflow: hidden;
+  max-height: 8.5rem;
+  margin: 0;
+  padding: 7px 0;
+  opacity: 1;
+  transition:
+    max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.judgment-inbox__line.is-leaving {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+.judgment-inbox__passage {
+  min-width: 0;
+  margin: 0;
+}
+
+.judgment-inbox__text {
+  display: inline;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  text-align: left;
+  text-wrap: pretty;
+  cursor: pointer;
+}
+
+button.judgment-inbox__text:hover,
+button.judgment-inbox__text:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment-inbox__line.is-kin .judgment-inbox__text {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin) {
+  opacity: 0.38;
+}
+
+.judgment-inbox__more {
+  justify-self: start;
+  min-height: 0;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.judgment-inbox__more:hover,
+.judgment-inbox__more:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment__kind-words {
+  display: inline-flex;
+  gap: 18px;
+  white-space: nowrap;
+}
+
+.judgment__kind-words button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.judgment__kind-words button.is-lit,
+.judgment__kind-words button:hover,
+.judgment__kind-words button:focus-visible {
+  border-bottom-color: currentColor;
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.judgment__kind-words button:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .judgment-log {
@@ -556,11 +681,6 @@ body.noeis-editorial .judgment .judgment-composer input,
   margin-top: 52px;
 }
 
-.judgment-evidence--drawer {
-  margin: 18px 0 8px;
-  padding: 16px 0 8px;
-}
-
 @media (max-width: 640px) {
   .judgment-log__row {
     grid-template-columns: 4.2rem minmax(0, 1fr);
@@ -577,7 +697,8 @@ body.noeis-editorial .judgment .judgment-composer input,
   }
 
   .judgment-composer__kinds button.is-active,
-  .judgment-composer__kinds button[aria-checked='true'] {
+  .judgment-composer__kinds button[aria-checked='true'],
+  .judgment-composer__kinds button.is-hint {
     border-bottom-color: currentColor;
   }
 
@@ -587,7 +708,9 @@ body.noeis-editorial .judgment .judgment-composer input,
   }
 
   .judgment-log.is-listening .judgment-log__row:not(.is-kin),
-  .judgment-log__row {
+  .judgment-log__row,
+  .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
+  .judgment-inbox__line {
     opacity: 1;
     transition: none;
   }
@@ -757,7 +880,8 @@ body.noeis-editorial .judgment .judgment-composer input,
 
 /* Reduced motion: everything appears instantly; nothing is lost. */
 @media (prefers-reduced-motion: reduce) {
-  .judgment__proposal {
+  .judgment__proposal,
+  .judgment-inbox__line {
     transition: none;
   }
 }
@@ -918,142 +1042,6 @@ body.noeis-editorial .judgment .judgment__new input,
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   text-decoration: none;
   border-bottom: 1px solid currentColor;
-}
-
-/* What the library already said.
-   A door in the same grammar as the rest of the page: a word with a rule under
-   it. Opened, it is a short list of passages in the source's own words, each
-   with the source it came from and one decision to make about it. */
-.judgment__look {
-  justify-self: start;
-  min-height: 0;
-  margin: 4px 0 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.84rem;
-  cursor: pointer;
-}
-
-.judgment__look:hover,
-.judgment__look:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
-}
-
-.judgment-evidence {
-  display: grid;
-  gap: 14px;
-  padding-top: 18px;
-  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-evidence__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 20px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.judgment-evidence__head button {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-}
-
-.judgment-evidence__quiet,
-.judgment-evidence__error {
-  max-width: 56ch;
-  margin: 0;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.94rem;
-  line-height: 1.5;
-}
-
-.judgment-evidence__error {
-  color: var(--noeis-warning, #9a4a2d);
-}
-
-.judgment-evidence__list {
-  display: grid;
-  gap: 20px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.judgment-evidence__item {
-  display: grid;
-  gap: 6px;
-  padding-left: 14px;
-  border-left: 1px solid var(--noeis-rule, var(--vellum-line));
-}
-
-.judgment-evidence__item blockquote {
-  margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font-size: 1.02rem;
-  line-height: 1.5;
-}
-
-.judgment-evidence__source {
-  margin: 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-}
-
-.judgment-evidence__source a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid currentColor;
-}
-
-.judgment-evidence__source a:hover,
-.judgment-evidence__source a:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
-.judgment-evidence__file {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  margin-top: 2px;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.78rem;
-}
-
-.judgment-evidence__file button {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font: inherit;
-  cursor: pointer;
-}
-
-.judgment-evidence__file button:disabled {
-  border-bottom-color: transparent;
-  cursor: default;
-  opacity: 0.6;
 }
 
 /* What it taught me, on the claim it came from. */

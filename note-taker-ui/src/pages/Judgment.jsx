@@ -37,10 +37,9 @@ import {
   oneSentence,
   projectJudgment,
   selectOvernightLine,
-  sourceHrefFromOrigin,
   upsertLineIntoJudgment
 } from './judgmentModel';
-import { UpdateComposer, JudgmentLog } from './JudgmentThread';
+import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -68,7 +67,6 @@ const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((count
 }), {});
 const SOURCE_EVENT_LIMIT = 40;
 const AUTOSAVE_PAUSE_MS = 700;
-const isExternal = (href = '') => /^https?:\/\//i.test(href);
 const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const markPendingDossierResearch = (items = [], reviews = []) => {
@@ -82,30 +80,6 @@ const markPendingDossierResearch = (items = [], reviews = []) => {
   return items.map(item => (
     pendingPageIds.has(String(item.id)) ? { ...item, pendingDossierResearch: true } : item
   ));
-};
-
-const evidenceHref = (candidate = {}) => (
-  sourceHrefFromOrigin(candidate.id, candidate.url)
-  || (candidate.articleId
-    ? `/library?articleId=${encodeURIComponent(candidate.articleId)}${
-      candidate.highlightId ? `&highlightId=${encodeURIComponent(candidate.highlightId)}` : ''
-    }`
-    : '')
-);
-
-const EvidenceSource = ({ candidate }) => {
-  const href = evidenceHref(candidate);
-  if (!href && candidate.kind !== 'source') return null;
-  return (
-    <p className="judgment-evidence__source">
-      {href
-        ? (isExternal(href)
-          ? <a href={href} target="_blank" rel="noreferrer">Open source</a>
-          : <Link to={href}>Open in Library</Link>)
-        : null}
-      {candidate.kind === 'source' ? <span>{href ? ' · not highlighted, from the body' : 'Not highlighted, from the body'}</span> : null}
-    </p>
-  );
 };
 
 /* A line that writes itself after a pause, and refuses to be empty.
@@ -220,11 +194,12 @@ const BeliefLink = ({ to, title, claim }) => (
    into the choice of field — the human decides which of the two it is — and the
    line settles into that field. Dismiss evaporates it. Height eases either way
    and nothing jumps; there is no toast, because the page itself is the receipt. */
-const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
+const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   const leave = (run) => {
+    onHint?.('');
     setLeaving(true);
     window.setTimeout(run, 200);
   };
@@ -232,19 +207,18 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss }) => {
   return (
     <div className={`judgment__proposal${leaving ? ' is-leaving' : ''}`} role="group" aria-label="Overnight agent line">
       <p className="judgment__proposal-sentence">{proposal.sentence}</p>
-      <span className="judgment__proposal-actions">
-        {choosing ? (
-          <>
-            <button type="button" disabled={busy} onClick={() => leave(() => onAccept(proposal, 'why'))}>Why</button>
-            <button type="button" disabled={busy} onClick={() => leave(() => onAccept(proposal, 'against'))}>Against</button>
-          </>
-        ) : (
-          <>
-            <button type="button" disabled={busy} onClick={() => setChoosing(true)}>Accept</button>
-            <button type="button" disabled={busy} onClick={() => leave(() => onDismiss(proposal))}>Dismiss</button>
-          </>
-        )}
-      </span>
+      {choosing ? (
+        <KindWords
+          disabled={busy}
+          onHint={onHint}
+          onChoose={(field) => leave(() => onAccept(proposal, field))}
+        />
+      ) : (
+        <span className="judgment__proposal-actions">
+          <button type="button" disabled={busy} onClick={() => setChoosing(true)}>Accept</button>
+          <button type="button" disabled={busy} onClick={() => leave(() => onDismiss(proposal))}>Dismiss</button>
+        </span>
+      )}
     </div>
   );
 };
@@ -394,99 +368,6 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
         </div>
       )}
     </main>
-  );
-};
-
-/*
- * What your library already said about this.
- *
- * The judgment could only be filled by typing into it, or by accepting a line
- * an agent happened to bring past. Everything the reader had already saved and
- * marked as worth keeping sat one room away and could not be reached from the
- * claim it bore on.
- *
- * The agent retrieves. Every candidate arrives with the source it came from
- * and the words that matched, and it is offered rather than filed — because
- * whether a passage supports a claim or cuts against it is the question the
- * page exists to ask, and no amount of word overlap answers it.
- */
-const LibraryEvidence = ({ pageId, onFile }) => {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [candidates, setCandidates] = useState(null);
-  const [filingId, setFilingId] = useState('');
-
-  const look = useCallback(async () => {
-    setOpen(true);
-    setLoading(true);
-    setError('');
-    try {
-      const found = await getJudgmentLibraryEvidence(pageId);
-      setCandidates(found.candidates);
-    } catch (lookError) {
-      setError(lookError?.response?.data?.error || 'Your library could not be searched right now.');
-    } finally {
-      setLoading(false);
-    }
-  }, [pageId]);
-
-  const file = async (candidate, field) => {
-    setFilingId(candidate.id);
-    setError('');
-    try {
-      await onFile(candidate, field);
-      setCandidates(current => (current || []).filter(item => item.id !== candidate.id));
-    } catch (fileError) {
-      setError(fileError?.message || 'That line was not saved.');
-    } finally {
-      setFilingId('');
-    }
-  };
-
-  if (!open) {
-    return (
-      <button type="button" className="judgment__look" onClick={look}>
-        Look in your library →
-      </button>
-    );
-  }
-
-  return (
-    <section className="judgment-evidence judgment-evidence--drawer" aria-label="Evidence from your library">
-      <div className="judgment-evidence__head">
-        <span>From your library</span>
-        <button type="button" onClick={() => setOpen(false)}>Close</button>
-      </div>
-      {loading ? <p className="judgment-evidence__quiet" role="status">Looking through what you have saved…</p> : null}
-      {error ? <p className="judgment-evidence__error" role="alert">{error}</p> : null}
-      {!loading && candidates && candidates.length === 0 ? (
-        <p className="judgment-evidence__quiet">
-          Nothing you have saved speaks to this yet. That is worth knowing about a claim you hold.
-        </p>
-      ) : null}
-      {candidates && candidates.length ? (
-        <ol className="judgment-evidence__list">
-          {candidates.map(candidate => (
-            <li key={candidate.id} className="judgment-evidence__item">
-              <blockquote>{candidate.text}</blockquote>
-              <EvidenceSource candidate={candidate} />
-              {/* Which side it falls on is the reader's call, and it is the
-                  whole question the page is asking. */}
-              <div className="judgment-evidence__file">
-                <span>File under</span>
-                <button type="button" disabled={Boolean(filingId)} onClick={() => file(candidate, 'why')}>
-                  {filingId === candidate.id ? 'Filing…' : 'Why'}
-                </button>
-                <button type="button" disabled={Boolean(filingId)} onClick={() => file(candidate, 'against')}>
-                  Against
-                </button>
-              </div>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-    </section>
   );
 };
 
@@ -704,6 +585,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
   const [pendingId, setPendingId] = useState('');
+  const [inbox, setInbox] = useState([]);
+  const [kin, setKin] = useState(null);
+  const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
@@ -725,6 +609,17 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   useEffect(() => {
     let cancelled = false;
     if (!initialPage) setLoading(true);
+    setInbox([]);
+    /* The library already spoke. Start that read with the page, but do not
+       hold the prior for it — empty mornings stay silent, and a slow library
+       must not delay the claim. */
+    getJudgmentLibraryEvidence(pageId)
+      .then((found) => {
+        if (!cancelled) setInbox(Array.isArray(found?.candidates) ? found.candidates : []);
+      })
+      .catch(() => {
+        if (!cancelled) setInbox([]);
+      });
     (async () => {
       try {
         // Reading what arrived overnight is a read. It must not touch the
@@ -825,7 +720,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   );
 
   const fileEvidence = useCallback(
-    (candidate, field) => commit(fileEvidenceIntoJudgment(page, candidate, field)),
+    async (candidate, field) => {
+      const judgment = fileEvidenceIntoJudgment(page, candidate, field);
+      const target = field === 'against' ? 'against' : 'why';
+      const last = (judgment[target] || []).at(-1);
+      await commit(judgment);
+      if (last?.reasonId) setArrivingId(last.reasonId);
+    },
     [commit, page]
   );
 
@@ -1001,6 +902,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             busy={busy}
             onAccept={acceptOvernight}
             onDismiss={() => setOvernight(null)}
+            onHint={setKindHint}
           />
         </div>
       ) : null}
@@ -1058,12 +960,25 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
       <div className={step(4)}>
         <UpdateComposer
+          key={pageId}
           onWrite={writeLine}
           onPending={setPendingId}
           onSettle={setArrivingId}
+          inbox={inbox}
+          onFile={fileEvidence}
+          view={view}
+          kin={kin}
+          onKin={setKin}
+          hintKind={kindHint}
+          onHint={setKindHint}
         />
-        <LibraryEvidence pageId={pageId} onFile={fileEvidence} />
-        <JudgmentLog view={view} arrivingId={arrivingId} pendingId={pendingId} />
+        <JudgmentLog
+          view={view}
+          arrivingId={arrivingId}
+          pendingId={pendingId}
+          kin={kin}
+          onKin={setKin}
+        />
       </div>
 
       <div className={`judgment__after ${step(4)}`}>

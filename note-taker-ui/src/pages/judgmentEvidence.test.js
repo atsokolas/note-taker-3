@@ -15,6 +15,8 @@ describe('fileEvidenceIntoJudgment', () => {
       sourceLabel: 'On compute · FT',
       acceptedFrom: 'highlight:a1:h1'
     });
+    expect(judgment.why[0].createdAt).toEqual(expect.any(String));
+    expect(judgment.why[0].reasonId).toEqual(expect.stringMatching(/^why_/));
     expect(judgment.against || []).toHaveLength(0);
   });
 
@@ -25,12 +27,15 @@ describe('fileEvidenceIntoJudgment', () => {
   });
 
   it('appends without disturbing what is already filed', () => {
-    const page = { judgment: { why: [{ reasonId: 'r1', text: 'An earlier reason.', sourceRefIds: [], sourceLabel: '' }] } };
+    const page = { judgment: { why: [{ reasonId: 'r1', text: 'An earlier reason.', sourceRefIds: [], sourceLabel: '', createdAt: '2026-02-14T12:00:00.000Z' }] } };
     const judgment = fileEvidenceIntoJudgment(page, candidate, 'why');
     expect(judgment.why.map(line => line.text)).toEqual([
       'An earlier reason.',
       candidate.text
     ]);
+    expect(judgment.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
+    expect(judgment.why[1].createdAt).toEqual(expect.any(String));
+    expect(judgment.why[1].createdAt).not.toBe('2026-02-14T12:00:00.000Z');
   });
 
   it('refuses a candidate with nothing in it', () => {
