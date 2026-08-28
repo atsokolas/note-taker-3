@@ -23,6 +23,7 @@ import {
   requestWeekendReadingsReview,
   streamAskWikiPage,
   streamMaintainWikiPage,
+  trackCompanyDossierInJudgment,
   updateWikiPage
 } from '../../api/wiki';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
@@ -51,6 +52,7 @@ jest.mock('../../api/wiki', () => ({
   requestWeekendReadingsReview: jest.fn(),
   streamAskWikiPage: jest.fn(),
   streamMaintainWikiPage: jest.fn(),
+  trackCompanyDossierInJudgment: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 
@@ -225,6 +227,15 @@ describe('WikiPageReadView', () => {
     streamAskWikiPage.mockResolvedValue(page);
     createWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
     streamMaintainWikiPage.mockResolvedValue({ _id: 'wiki-new', title: 'Portfolio Concentration' });
+    trackCompanyDossierInJudgment.mockResolvedValue({
+      action: 'tracked',
+      page: {
+        ...page,
+        investmentDossier: { version: 2 },
+        judgment: { kind: 'thesis', currentJudgment: 'The owner thesis.' }
+      },
+      receipt: { title: 'Tracking COST in Judgment.', summary: 'The company case is ready.' }
+    });
     updateWikiPage.mockResolvedValue({ ...page, visibility: 'shared' });
     startKnowledgeMovementInvestigation.mockResolvedValue({
       concept: {
@@ -701,16 +712,13 @@ describe('WikiPageReadView', () => {
     renderReadView({}, { systemStatusControls });
 
     expect(await screen.findByRole('heading', { name: 'DEERE & CO investment dossier' })).toBeInTheDocument();
-    const receipt = screen.getByRole('region', { name: 'Wiki maintenance receipt' });
-    expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
-    expect(receipt).not.toHaveClass('is-compact');
-    expect(within(receipt).getByRole('heading', { name: 'This dossier needs more evidence' })).toBeInTheDocument();
-    expect(receipt).toHaveTextContent(initialMessage);
-    expect(receipt).not.toHaveTextContent('Stale rejected-candidate copy');
-    expect(within(receipt).getByRole('button', { name: 'Continue research' })).toBeInTheDocument();
-    expect(within(receipt).queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
+    const cover = screen.getByRole('region', { name: 'Evidence incomplete' });
+    expect(cover).toHaveTextContent(initialMessage);
+    expect(cover).not.toHaveTextContent('Stale rejected-candidate copy');
+    expect(within(cover).getByRole('button', { name: 'Check for research updates' })).toBeInTheDocument();
+    expect(within(cover).queryByRole('button', { name: 'Discard draft' })).not.toBeInTheDocument();
 
-    fireEvent.click(within(receipt).getByRole('button', { name: 'Continue research' }));
+    fireEvent.click(within(cover).getByRole('button', { name: 'Check for research updates' }));
 
     await waitFor(() => expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith({
       title: 'Dossier research is incomplete',
@@ -720,8 +728,7 @@ describe('WikiPageReadView', () => {
     }));
     expect(systemStatusControls.setRecoverableFailure).not.toHaveBeenCalled();
     expect(await screen.findByRole('alert')).toHaveTextContent(liveMessage);
-    expect(receipt).toHaveAttribute('data-maintenance-state', 'research');
-    expect(receipt).toHaveTextContent(liveMessage);
+    expect(cover).toHaveTextContent(liveMessage);
   });
 
   it('lets a shared wiki page stop exposing its public link from the read surface', async () => {
@@ -828,7 +835,7 @@ describe('WikiPageReadView', () => {
     expect(objectLabel.nextElementSibling).toBe(title);
   });
 
-  it('leads investment dossiers with the research article and collapses the owner decision record after it', async () => {
+  it('leads investment dossiers with one case cover and keeps owner judgment in Judgment', async () => {
     getWikiPage.mockResolvedValueOnce({
       ...page,
       title: 'Costco Wholesale investment dossier',
@@ -860,12 +867,39 @@ describe('WikiPageReadView', () => {
     const decisionRecord = container.querySelector('.wiki-read__decision-record');
     expect(header).not.toHaveClass('wiki-read__header--living-thesis');
     expect(container.querySelector('.wiki-read__object-label')).not.toBeInTheDocument();
-    expect(decisionRecord).not.toHaveAttribute('open');
+    expect(decisionRecord).not.toBeInTheDocument();
     expect(researchReview).not.toHaveAttribute('open');
     expect(body.compareDocumentPosition(researchReview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(body.compareDocumentPosition(decisionRecord) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(decisionRecord).getByText('Owner judgment workspace')).toBeInTheDocument();
-    expect(within(decisionRecord).getByText('Can Costco compound owner value above the hurdle?')).toBeInTheDocument();
+    const cover = screen.getByRole('region', { name: 'Research in progress' });
+    expect(within(cover).getByText('Tracked as an active case')).toBeInTheDocument();
+    expect(within(cover).getByRole('link', { name: 'Open company case →' })).toHaveAttribute('href', '/judgment/wiki-1');
+    expect(screen.getByText('Research acceptance never rewrites your belief.')).toBeInTheDocument();
+    expect(screen.queryByText('Can Costco compound owner value above the hurdle?')).not.toBeInTheDocument();
+  });
+
+  it('keeps a dossier in Wiki until the owner explicitly tracks it in Judgment', async () => {
+    const navigate = jest.fn();
+    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      title: 'Costco Wholesale investment dossier',
+      investmentDossier: {
+        version: 2,
+        company: { ticker: 'COST', name: 'Costco Wholesale Corporation' }
+      },
+      judgment: null
+    });
+
+    renderReadView();
+
+    const button = await screen.findByRole('button', { name: 'Track in Judgment' });
+    expect(screen.getByText('Research can remain useful without becoming an active decision.')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    await waitFor(() => expect(trackCompanyDossierInJudgment).toHaveBeenCalledWith('wiki-1'));
+    expect(navigate).toHaveBeenCalledWith('/judgment/wiki-1');
   });
 
   it('renders an ordinary Wiki as a restrained reference article', async () => {

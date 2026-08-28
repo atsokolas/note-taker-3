@@ -6,7 +6,16 @@ import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { resetFirstPaint } from '../motion/columnMotion';
-import { getJudgmentLibraryEvidence, getWikiPage, listWikiPages, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import {
+  getCompanyDossierJudgmentReview,
+  getJudgmentLibraryEvidence,
+  getWikiPage,
+  listCompanyDossierJudgmentReviews,
+  listWikiPages,
+  listWikiSourceEvents,
+  resolveCompanyDossierJudgmentReview,
+  updateWikiPage
+} from '../api/wiki';
 import { streamChatWithAgent } from '../api/agent';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
@@ -18,10 +27,13 @@ jest.mock('../surface/NoeisSurfaceContext', () => ({
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
+  getCompanyDossierJudgmentReview: jest.fn(),
   getJudgmentLibraryEvidence: jest.fn(),
   getWikiPage: jest.fn(),
+  listCompanyDossierJudgmentReviews: jest.fn(),
   listWikiPages: jest.fn(),
   listWikiSourceEvents: jest.fn(),
+  resolveCompanyDossierJudgmentReview: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 
@@ -67,6 +79,29 @@ const overnightEvent = () => ({
   createdAt: '2026-08-14T04:00:00.000Z'
 });
 
+const dossierResearchReview = () => ({
+  id: 'company-dossier-judgment-review:wiki-nvidia:candidate-1',
+  kind: 'company_dossier_judgment_review',
+  status: 'awaiting_review',
+  title: 'Review what changed for NVDA',
+  provenance: {
+    pageId: 'wiki-nvidia',
+    judgmentAtAcceptance: 'NVIDIA demand still outruns deliverable capacity.',
+    comparison: {
+      headline: 'Supply evidence strengthened while export risk widened.',
+      summary: 'The accepted research changed two decision-relevant claims.',
+      claimChanges: [{
+        kind: 'changed',
+        title: 'CoWoS supply expanded faster than expected.',
+        detail: 'The capacity constraint eased, but did not disappear.'
+      }],
+      expectations: {
+        summary: 'The base case still requires revenue growth above 30%.'
+      }
+    }
+  }
+});
+
 // The rail is mounted beside the column, as it is in the shell. Rendering them
 // together is what lets a test assert the whole contract: the agent retrieves
 // on one side, the human accepts, and the line appears on the other.
@@ -93,7 +128,14 @@ beforeEach(() => {
   jest.restoreAllMocks();
   resetFirstPaint();
   listWikiPages.mockResolvedValue([]);
+  listCompanyDossierJudgmentReviews.mockResolvedValue([]);
   listWikiSourceEvents.mockResolvedValue([]);
+  getCompanyDossierJudgmentReview.mockResolvedValue(null);
+  resolveCompanyDossierJudgmentReview.mockImplementation(async (_pageId, _receiptId, resolution) => ({
+    ...dossierResearchReview(),
+    status: 'completed',
+    provenance: { ...dossierResearchReview().provenance, resolution }
+  }));
   getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
   streamChatWithAgent.mockResolvedValue({ reply: 'Noeis found no decisive counterevidence.' });
 });
@@ -124,6 +166,19 @@ describe('Judgment index', () => {
     expect(title).toHaveAttribute('href', '/judgment/wiki-nvidia');
     expect(content.getByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(screen.queryByText('A plain wiki page')).not.toBeInTheDocument();
+  });
+
+  it('quietly marks a case when accepted dossier research awaits the owner', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    listCompanyDossierJudgmentReviews.mockResolvedValue([dossierResearchReview()]);
+
+    renderIndex();
+
+    const content = within(document.querySelector('.judgment-room__content'));
+    const caseLink = await content.findByRole('link', { name: 'NVIDIA' });
+    const row = caseLink.closest('li');
+    expect(within(row).getByText('Accepted research to review')).toBeInTheDocument();
+    expect(updateWikiPage).not.toHaveBeenCalled();
   });
 
   it('recovers from a compact projection that hides judgments on older pages', async () => {
@@ -302,6 +357,67 @@ describe('Judgment claim', () => {
     expect(body.judgment.currentJudgment).toBe('I am bullish NVIDIA compute.');
     expect(body.judgment.why).toEqual(judgmentPage().judgment.why);
     expect(screen.getByLabelText('Title')).toHaveValue('NVIDIA');
+  });
+
+  it('asks the owner to review accepted dossier research without changing the judgment', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
+
+    renderDetail();
+
+    expect(await screen.findByText('Accepted research · your view is unchanged')).toBeInTheDocument();
+    expect(screen.getByText('Supply evidence strengthened while export risk widened.')).toBeInTheDocument();
+    expect(screen.getByText('CoWoS supply expanded faster than expected.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Read the accepted research' }))
+      .toHaveAttribute('href', '/wiki/workspace?page=wiki-nvidia#wiki-dossier-review');
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('lets the owner keep the judgment without writing it again', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
+
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep this view' }));
+
+    await waitFor(() => expect(resolveCompanyDossierJudgmentReview).toHaveBeenCalledWith(
+      'wiki-nvidia',
+      dossierResearchReview().id,
+      'kept'
+    ));
+    expect(updateWikiPage).not.toHaveBeenCalled();
+    expect(screen.queryByText('Accepted research · your view is unchanged')).not.toBeInTheDocument();
+  });
+
+  it('resolves a review as revised only after the owner changes the judgment', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
+    updateWikiPage.mockImplementation(async (_id, body) => ({
+      ...judgmentPage(),
+      judgment: body.judgment
+    }));
+
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Revise the view' }));
+    const opinion = screen.getByLabelText('What you hold');
+    expect(opinion).toHaveFocus();
+    expect(resolveCompanyDossierJudgmentReview).not.toHaveBeenCalled();
+
+    fireEvent.change(opinion, { target: { value: 'Capacity is easing faster than demand is compounding.' } });
+    fireEvent.blur(opinion);
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    await waitFor(() => expect(resolveCompanyDossierJudgmentReview).toHaveBeenCalledWith(
+      'wiki-nvidia',
+      dossierResearchReview().id,
+      'revised'
+    ));
+    expect(updateWikiPage.mock.invocationCallOrder[0])
+      .toBeLessThan(resolveCompanyDossierJudgmentReview.mock.invocationCallOrder[0]);
   });
 
   it('does not overwrite an opinion still being typed', async () => {

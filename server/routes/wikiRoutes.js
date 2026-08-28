@@ -36,8 +36,15 @@ const {
 } = require('../services/wikiRevisionService');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
 const {
+  buildDossierJudgmentReviewReceipt,
+  listDossierJudgmentReviews,
+  loadDossierJudgmentReview,
+  resolveDossierJudgmentReview
+} = require('../services/dossierJudgmentReviewService');
+const {
   activeCompanyDossierKey,
   buildCompanyDossierBody,
+  buildCompanyDossierJudgmentInput,
   buildInvestmentDossierProfile,
   companyDossierInputsMatch,
   normalizeCompanyDossierInput
@@ -1076,6 +1083,7 @@ const serializePublicWikiPage = (page) => {
   if (repoPage && maintenanceProof) maintenanceProof.sourceCount = publicSourceRefs.length;
   const publicRepoEnvelope = repoPage ? buildPublicRepoEnvelope(full) : null;
   const investmentValuation = buildPublicInvestmentValuation(full);
+  const investmentDossierPage = Boolean(full?.investmentDossier?.version);
 
   return {
     _id: String(full._id || ''),
@@ -1099,6 +1107,8 @@ const serializePublicWikiPage = (page) => {
     claimCount: full.claimCount ?? 0,
     wordCount: full.wordCount ?? countWords(full.plainText || ''),
     maintenanceProof,
+    wikiKind: repoPage ? 'repository' : investmentDossierPage ? 'investment' : 'general',
+    ...(investmentDossierPage ? { artifactType: 'investment_dossier' } : {}),
     ...(investmentValuation ? { investmentValuation } : {}),
     ...(publicRepoEnvelope || {})
   };
@@ -3849,22 +3859,9 @@ const buildWikiRouter = ({
         },
         body,
         plainText: extractPlainText(body),
-        judgment: normalizeJudgment({
-          input: {
-            kind: 'thesis',
-            governingQuestion: `Can ${company.companyName || company.ticker} compound owner value above a ${(input.requiredReturn * 100).toFixed(1)}% annual hurdle over ${input.horizonYears} years?`,
-            currentJudgment: input.startingJudgment,
-            status: 'researching',
-            decisionPosture: 'investigate',
-            ownerLabel: 'Owner',
-            startedAt: new Date(),
-            causalModel: { summary: '', nodes: [], edges: [] },
-            assumptions: [],
-            unknowns: [],
-            falsifiers: [],
-            decisions: []
-          }
-        }),
+        // A dossier is maintained research. It becomes an active case only
+        // after the owner explicitly chooses Track in Judgment.
+        judgment: null,
         investmentDossier: buildInvestmentDossierProfile({
           ...input,
           ...company,
@@ -3921,10 +3918,6 @@ const buildWikiRouter = ({
         actorType: 'user',
         summary: `Created ${company.ticker} investment dossier from the owner's starting judgment.`
       });
-      if (revision?._id && page.judgment) {
-        page.judgment.initialRevisionId = revision._id;
-        await page.save();
-      }
 
       const secPrimaryPackAcquisition = await acquireSecPrimaryPackForDossier({
         page,
@@ -3970,10 +3963,10 @@ const buildWikiRouter = ({
         status: watchError || acquisitionStops.length ? 'partial' : 'completed',
         title: `Created ${company.ticker} investment dossier.`,
         summary: watchError
-          ? 'The private dossier and owner judgment were saved. The SEC filing check needs retry.'
+          ? 'The private dossier and starting view were saved. The SEC filing check needs retry.'
           : acquisitionStops.length
             ? `The private dossier and filing watch were saved. ${acquisitionStops.map(stop => stop.message).join(' ')}`
-            : 'The private dossier, owner judgment, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, a named-competitor filing, a verified independent benchmark, and a dated public market price were saved.',
+            : 'The private dossier, starting view, return hurdle, free SEC filing watch, Company Facts operating history, official product evidence, a named-competitor filing, a verified independent benchmark, and a dated public market price were saved.',
         metrics: {
           ticker: company.ticker,
           cik: company.cik,
@@ -4063,6 +4056,91 @@ const buildWikiRouter = ({
     }
   });
 
+  router.post('/api/wiki/pages/:id/track-in-judgment', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) {
+        return res.status(403).json({ error: 'Only the human owner can track a dossier in Judgment.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const profile = page.investmentDossier || {};
+      if (!profile.version) {
+        return res.status(409).json({ error: 'Only an investment dossier can be tracked as a company case.' });
+      }
+      if (page.judgment?.kind) {
+        return res.status(200).json({
+          action: 'existing',
+          page: serializeWikiPage(page),
+          receipt: {
+            id: `company-dossier-judgment:${serializeId(page._id)}`,
+            kind: 'company_dossier_judgment_existing',
+            source: 'judgment',
+            sourceLabel: 'Judgment',
+            status: 'completed',
+            title: `${profile.company?.ticker || page.title} is already tracked in Judgment.`,
+            summary: 'The existing owner judgment was left unchanged.',
+            touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }]
+          }
+        });
+      }
+
+      const hurdle = profile.hurdle || {};
+      page.judgment = normalizeJudgment({
+        input: buildCompanyDossierJudgmentInput({
+          companyName: profile.company?.name,
+          ticker: profile.company?.ticker,
+          startingJudgment: profile.startingJudgment,
+          requiredReturn: hurdle.annualReturn,
+          horizonYears: hurdle.horizonYears
+        }),
+        actorType: 'user',
+        pageId: String(page._id)
+      });
+      page.markModified?.('judgment');
+      await page.save();
+      const revision = await createWikiRevision({
+        WikiRevision,
+        userId: req.user.id,
+        page,
+        reason: 'judgment_tracking_started',
+        actorType: 'user',
+        summary: `Started tracking ${profile.company?.ticker || page.title} in Judgment.`
+      });
+      if (revision?._id) {
+        page.judgment.initialRevisionId = revision._id;
+        page.markModified?.('judgment');
+        await page.save();
+      }
+      await syncPageGraph(page, req.user.id);
+
+      const receiptInput = {
+        id: `company-dossier-judgment:${serializeId(page._id)}`,
+        kind: 'company_dossier_judgment_started',
+        source: 'judgment',
+        sourceLabel: 'Judgment',
+        status: 'completed',
+        title: `Tracking ${profile.company?.ticker || page.title} in Judgment.`,
+        summary: 'The dossier remains in Wiki. Judgment now carries the owner-controlled company case.',
+        touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
+        nextAction: {
+          type: 'open_judgment',
+          id: serializeId(page._id),
+          title: 'Open the company case'
+        },
+        completedAt: new Date()
+      };
+      const receipt = await persistNoeisReceipt({
+        NoeisReceipt,
+        userId: req.user.id,
+        receipt: receiptInput
+      }) || receiptInput;
+      res.status(200).json({ action: 'tracked', page: serializeWikiPage(page), receipt });
+    } catch (error) {
+      console.error('Error tracking company dossier in Judgment:', error);
+      res.status(error.statusCode || 500).json({ error: error.message || 'Failed to track this dossier in Judgment.' });
+    }
+  });
+
   router.get('/api/wiki/pages/:id/research-candidate', wikiAuth, async (req, res) => {
     try {
       if (!WikiRevision) return res.status(503).json({ error: 'Wiki revisions are not available.' });
@@ -4149,6 +4227,7 @@ const buildWikiRouter = ({
         }
       }
       const now = new Date();
+      const candidateLabel = firstHead ? 'first trusted head' : 'maintenance candidate';
       if (decision === 'accept') {
         restorePageSnapshot(page, revision.after);
         const profile = page.investmentDossier || {};
@@ -4206,7 +4285,7 @@ const buildWikiRouter = ({
         page.markModified?.('freshness');
         await page.save();
         revision.promotionStatus = 'promoted';
-        revision.summary = `Accepted first trusted head for "${page.title}".`;
+        revision.summary = `Accepted ${candidateLabel} for "${page.title}".`;
         await revision.save();
         await syncPageGraph(page, req.user.id);
         const acceptanceRevision = await createWikiRevision({
@@ -4216,8 +4295,17 @@ const buildWikiRouter = ({
           before,
           reason: 'user_edit',
           actorType: 'user',
-          summary: `Owner accepted the first trusted head for "${page.title}".`
+          summary: `Owner accepted the ${candidateLabel} for "${page.title}".`
         });
+        const judgmentReviewInput = maintenance
+          ? buildDossierJudgmentReviewReceipt({
+            page,
+            comparison: maintenanceComparison,
+            candidateRevisionId: revision._id,
+            acceptanceRevisionId: acceptanceRevision?._id,
+            now
+          })
+          : null;
         const receiptInput = {
           id: `company-dossier-${firstHead ? 'first-head' : 'maintenance'}:${serializeId(page._id)}:${serializeId(revision._id)}`,
           kind: firstHead ? 'company_dossier_first_head_accepted' : 'company_dossier_maintenance_accepted',
@@ -4227,8 +4315,10 @@ const buildWikiRouter = ({
           title: `Accepted the ${firstHead ? 'first trusted head' : 'maintenance candidate'} for ${page.investmentDossier?.company?.ticker || page.title}`,
           summary: `${maintenanceComparison.headline} ${maintenanceComparison.judgmentSummary}`,
           provenance: {
+            pageId: serializeId(page._id),
             candidateRevisionId: serializeId(revision._id),
-            acceptanceRevisionId: serializeId(acceptanceRevision?._id)
+            acceptanceRevisionId: serializeId(acceptanceRevision?._id),
+            sourceEventId: serializeId(revision.sourceEventId)
           },
           touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
           completedAt: now
@@ -4238,6 +4328,13 @@ const buildWikiRouter = ({
           userId: req.user.id,
           receipt: receiptInput
         });
+        const judgmentReview = judgmentReviewInput
+          ? await persistNoeisReceipt({
+            NoeisReceipt,
+            userId: req.user.id,
+            receipt: judgmentReviewInput
+          })
+          : null;
         trackWikiEvent(req, EVENT_NAMES.WIKI_DRAFT_GENERATED, {
           pageId: serializeId(page._id),
           title: page.title,
@@ -4249,18 +4346,21 @@ const buildWikiRouter = ({
         });
         return res.status(200).json({
           page: serializeWikiPage(page),
-          receipt: persistedReceipt || receiptInput
+          receipt: persistedReceipt || receiptInput,
+          judgmentReview
         });
       }
 
       revision.promotionStatus = 'rejected';
-      revision.summary = `Owner rejected first-head candidate for "${page.title}".`;
+      revision.summary = `Owner rejected ${candidateLabel} for "${page.title}".`;
       await revision.save();
       page.aiState = {
         ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
         candidateStatus: firstHead ? 'first_head_rejected' : 'maintenance_rejected',
         lastCandidateAt: now,
-        lastCandidateSummary: 'The owner rejected the first research head. The original private scaffold and judgment remain unchanged.'
+        lastCandidateSummary: firstHead
+          ? 'The owner rejected the first research head. The original private scaffold and judgment remain unchanged.'
+          : 'The owner rejected the maintenance candidate. The accepted research head and judgment remain unchanged.'
       };
       delete page.aiState.firstHeadCandidateRevisionId;
       delete page.aiState.firstHeadCandidateAt;
@@ -4278,7 +4378,11 @@ const buildWikiRouter = ({
         status: 'needs_review',
         title: `Rejected the ${firstHead ? 'first research head' : 'maintenance candidate'} for ${page.investmentDossier?.company?.ticker || page.title}.`,
         summary: `The generated candidate was rejected. The trusted private ${firstHead ? 'scaffold' : 'research head'} and owner judgment are unchanged.`,
-        provenance: { candidateRevisionId: serializeId(revision._id) },
+        provenance: {
+          pageId: serializeId(page._id),
+          candidateRevisionId: serializeId(revision._id),
+          sourceEventId: serializeId(revision.sourceEventId)
+        },
         touched: [{ type: 'wiki_page', id: serializeId(page._id), title: page.title }],
         completedAt: now
       };
@@ -4294,6 +4398,63 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error reviewing first-head candidate:', error);
       res.status(500).json({ error: 'Failed to review the first-head candidate.' });
+    }
+  });
+
+  router.get('/api/wiki/judgment-research-reviews', wikiAuth, async (req, res) => {
+    try {
+      const reviews = await listDossierJudgmentReviews({
+        NoeisReceipt,
+        userId: req.user.id,
+        limit: req.query?.limit
+      });
+      return res.status(200).json({ reviews });
+    } catch (error) {
+      console.error('Error listing dossier Judgment reviews:', error);
+      return res.status(500).json({ error: 'Failed to load pending dossier Judgment reviews.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/judgment-research-review', wikiAuth, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      if (!page.investmentDossier?.version || !page.judgment?.kind) {
+        return res.status(200).json({ review: null });
+      }
+      const review = await loadDossierJudgmentReview({
+        NoeisReceipt,
+        userId: req.user.id,
+        pageId: page._id
+      });
+      return res.status(200).json({ review });
+    } catch (error) {
+      console.error('Error loading dossier Judgment review:', error);
+      return res.status(500).json({ error: 'Failed to load the dossier Judgment review.' });
+    }
+  });
+
+  router.post('/api/wiki/pages/:id/judgment-research-review/:resolution', wikiAuth, async (req, res) => {
+    try {
+      if (req.agentToken) {
+        return res.status(403).json({ error: 'Only the human owner can resolve a dossier Judgment review.' });
+      }
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const receipt = await resolveDossierJudgmentReview({
+        NoeisReceipt,
+        userId: req.user.id,
+        page,
+        receiptId: req.body?.receiptId,
+        resolution: req.params.resolution
+      });
+      return res.status(200).json({ receipt });
+    } catch (error) {
+      if (!error.statusCode) console.error('Error resolving dossier Judgment review:', error);
+      return res.status(error.statusCode || 500).json({
+        code: error.code || 'DOSSIER_JUDGMENT_REVIEW_FAILED',
+        error: error.message || 'Failed to resolve the dossier Judgment review.'
+      });
     }
   });
 

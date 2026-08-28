@@ -702,6 +702,7 @@ function App() {
             {/* The week, gathered from marks the surfaces already carry. */}
             <Route path="/week" element={<WeeklyBrief />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
+            <Route path="/wiki/dossiers" element={<WikiFrontPage initialKind="investment" />} />
             {/* Contradiction as a view, not a tag: where the library
                 disagrees with itself, both passages side by side. */}
             <Route path="/wiki/contradictions" element={<Contradictions />} />

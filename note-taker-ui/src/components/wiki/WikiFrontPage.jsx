@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { listWikiPages, listWikiSourceEvents } from '../../api/wiki';
 import {
   armReadingWatch,
@@ -227,7 +227,9 @@ const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = 
   }
 };
 
-const WikiFrontPage = () => {
+const WikiFrontPage = ({ initialKind = '' }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
   useNoeisSurface(buildWikiFrontSurfaceDescriptor());
   useContextualAgentSurface('agent-surface.wiki', {
     objectType: 'wiki_workspace',
@@ -256,8 +258,29 @@ const WikiFrontPage = () => {
   }, [hasMovements]);
   const [availabilityNotice, setAvailabilityNotice] = useState('');
   const [wikiSearch, setWikiSearch] = useState('');
-  const [wikiFilter, setWikiFilter] = useState('all');
+  const searchParams = new URLSearchParams(location.search);
+  const requestedKind = searchParams.get('kind') || initialKind;
+  const requestedView = searchParams.get('view');
+  const requestedFilter = WIKI_KINDS.includes(requestedKind)
+    ? `kind:${requestedKind}`
+    : ['review', 'recent'].includes(requestedView) ? requestedView : 'all';
+  const [wikiFilter, setWikiFilter] = useState(requestedFilter);
   const [mobileShelfOpen, setMobileShelfOpen] = useState(false);
+
+  useEffect(() => {
+    setWikiFilter(requestedFilter);
+  }, [requestedFilter]);
+
+  const selectWikiFilter = (value) => {
+    setWikiFilter(value);
+    const next = new URLSearchParams(location.search);
+    next.delete('kind');
+    next.delete('view');
+    if (value.startsWith('kind:')) next.set('kind', value.slice(5));
+    else if (['review', 'recent'].includes(value)) next.set('view', value);
+    const query = next.toString();
+    navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+  };
 
   useEffect(() => {
     document.body.classList.add('wiki-front-page-route');
@@ -472,6 +495,7 @@ const WikiFrontPage = () => {
     <nav className="wiki-front-page__secondary-nav" aria-label="Wiki workspace">
       <Link to="/wiki/workspace?view=graph">Knowledge map</Link>
       <Link to="/wiki/workspace?view=list">All pages</Link>
+      <Link to="/wiki/dossiers">Investment dossiers</Link>
       <Link to="/wiki/workspace?view=list&quality=needs_review">Needs review</Link>
       {/* Where the library disagrees with itself. A contradiction used to be a
           colour inside one article, which meant you found it only if you were
@@ -911,7 +935,7 @@ const WikiFrontPage = () => {
                 <RoomShelfButton
                   active={wikiFilter === value}
                   aria-pressed={wikiFilter === value}
-                  onClick={() => setWikiFilter(value)}
+                  onClick={() => selectWikiFilter(value)}
                 >
                   <span>{label}</span>
                   <RoomShelfMeta>{count}</RoomShelfMeta>
@@ -927,7 +951,7 @@ const WikiFrontPage = () => {
                     active={wikiFilter === `kind:${kind}`}
                     nested
                     aria-pressed={wikiFilter === `kind:${kind}`}
-                    onClick={() => setWikiFilter(`kind:${kind}`)}
+                    onClick={() => selectWikiFilter(`kind:${kind}`)}
                   >
                     <span>{WIKI_KIND_LABELS[kind]}</span>
                     <RoomShelfMeta>{wikiKindCounts[kind]}</RoomShelfMeta>

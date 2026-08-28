@@ -19,6 +19,7 @@ import {
   requestWeekendReadingsReview,
   streamAskWikiPage,
   streamMaintainWikiPage,
+  trackCompanyDossierInJudgment,
   updateWikiPage
 } from '../../api/wiki';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
@@ -78,6 +79,7 @@ import WikiLivingThesis from './WikiLivingThesis';
 import WikiInvestmentValuation from './WikiInvestmentValuation';
 import WikiFirstHeadReview from './WikiFirstHeadReview';
 import WikiInvestmentMaintenanceComparison from './WikiInvestmentMaintenanceComparison';
+import WikiDossierCaseCover from './WikiDossierCaseCover';
 import WikiWeekendReadingsPublication from './WikiWeekendReadingsPublication';
 import '../../styles/wiki-claim-focus.css';
 import DecisionCreateForm from './decisions/DecisionCreateForm';
@@ -1200,6 +1202,8 @@ const WikiPageReadView = ({
   const [error, setError] = useState('');
   const [shareBusy, setShareBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
+  const [judgmentTrackBusy, setJudgmentTrackBusy] = useState(false);
+  const [judgmentTrackStatus, setJudgmentTrackStatus] = useState('');
   const [weekendPublicationState, setWeekendPublicationState] = useState({ code: 'loading', label: 'Loading publication state…' });
   const [weekendPublicationBusy, setWeekendPublicationBusy] = useState(false);
   const [weekendPublicationError, setWeekendPublicationError] = useState('');
@@ -1765,6 +1769,35 @@ const WikiPageReadView = ({
       setShareBusy(false);
     }
   }, [page, pageId]);
+
+  const handleTrackInJudgment = useCallback(async () => {
+    if (!pageId || judgmentTrackBusy) return;
+    setJudgmentTrackBusy(true);
+    setJudgmentTrackStatus('');
+    try {
+      const result = await trackCompanyDossierInJudgment(pageId);
+      const nextPage = result?.page;
+      if (nextPage) {
+        latestPageRef.current = nextPage;
+        setPage(nextPage);
+      }
+      systemStatus.setLatestReceipt?.({
+        title: result?.receipt?.title || 'Tracking this dossier in Judgment.',
+        summary: result?.receipt?.summary || 'The research stays in Wiki. The company case is ready in Judgment.',
+        status: 'completed',
+        href: `/judgment/${pageId}`
+      });
+      navigate(`/judgment/${pageId}`);
+    } catch (trackError) {
+      setJudgmentTrackStatus(
+        trackError?.response?.data?.error
+        || trackError?.message
+        || 'This dossier could not be tracked in Judgment.'
+      );
+    } finally {
+      setJudgmentTrackBusy(false);
+    }
+  }, [judgmentTrackBusy, navigate, pageId, systemStatus]);
 
   const handleAsk = async (question) => {
     setAsking(true);
@@ -2478,6 +2511,10 @@ const WikiPageReadView = ({
   const edgarWatchConfigured = Boolean(normalizeId(edgarWatch.ticker || edgarWatch.cik));
   const evidenceIncomplete = companyDossier
     && page?.aiState?.errorCode === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE';
+  const dossierReviewPending = investmentDossierPage && [
+    'awaiting_first_head_acceptance',
+    'awaiting_maintenance_acceptance'
+  ].includes(page?.aiState?.candidateStatus);
   const persistedMaintenanceFailure = !evidenceIncomplete && (
     page?.aiState?.draftStatus === 'error'
     || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED'
@@ -2632,7 +2669,7 @@ const WikiPageReadView = ({
           ) : null}
         </section>
       ) : null}
-      {(!loading && page && specializedWorkflowPage) ? (
+      {(!loading && page && specializedWorkflowPage && !investmentDossierPage) ? (
         <details
           className="wiki-read__maintenance-disclosure wiki-read__page-status"
           open={maintenanceActive || evidenceIncomplete || persistedMaintenanceFailure}
@@ -2846,9 +2883,20 @@ const WikiPageReadView = ({
                 }}
               />
             ) : null}
+            {investmentDossierPage ? (
+              <WikiDossierCaseCover
+                page={page}
+                pageId={pageId}
+                shareBlocked={shareBlocked}
+                maintenanceActive={maintenanceActive}
+                judgmentTrackBusy={judgmentTrackBusy}
+                judgmentTrackStatus={judgmentTrackStatus}
+                onMaintain={handleMaintain}
+                onTrackInJudgment={handleTrackInJudgment}
+              />
+            ) : null}
             {!standardWikiPage ? <nav className="wiki-read__continuation-actions" aria-label="Continue this page">
               {(page.sourceRefs || []).length ? <a href="#wiki-read-references-title">Inspect sources</a> : null}
-              {investmentDossierPage ? <a href="#wiki-dossier-review">Review research</a> : null}
               {continuationBasis ? (
                 <button
                   type="button"
@@ -2863,7 +2911,7 @@ const WikiPageReadView = ({
             {continuationState.error ? (
               <p className="wiki-read__continuation-error" role="status">{continuationState.error}</p>
             ) : null}
-            {specializedWorkflowPage ? <details
+            {specializedWorkflowPage && !investmentDossierPage ? <details
               className="wiki-read__page-status wiki-read__stage5-decisions"
               open={Boolean(focusedDecisionId)}
               id={focusedDecisionId ? `decision-${focusedDecisionId}` : 'wiki-stage5-decisions'}
@@ -3108,11 +3156,15 @@ const WikiPageReadView = ({
                 ) : null}
               </section>
               {investmentDossierPage ? (
-                <details id="wiki-dossier-review" className="wiki-read__dossier-review wiki-read__page-status">
+                <details
+                  id="wiki-dossier-review"
+                  className="wiki-read__dossier-review wiki-read__page-status"
+                  open={dossierReviewPending || undefined}
+                >
                   <summary className="wiki-read__page-status-summary">
                     <span className="wiki-read__page-status-label">Research and valuation review</span>
                     <span className="wiki-read__page-status-facts">
-                      <span>Separate from accepted research</span>
+                      <span>Candidate → accepted research → optional Judgment revision</span>
                     </span>
                     <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
                   </summary>
@@ -3138,6 +3190,11 @@ const WikiPageReadView = ({
                     <WikiInvestmentMaintenanceComparison
                       comparison={page?.investmentDossier?.lastMaintenanceComparison}
                     />
+                    {page?.judgment?.kind ? (
+                      <p className="wiki-read__dossier-judgment-link">
+                        Research acceptance never rewrites your belief. <Link to={`/judgment/${pageId}`}>Review the company case in Judgment →</Link>
+                      </p>
+                    ) : null}
                   </div>
                 </details>
               ) : null}
@@ -3311,32 +3368,6 @@ const WikiPageReadView = ({
                         ) : null}
                       </div>
                     </section>
-                  </div>
-                </details>
-              ) : null}
-              {investmentDossierPage && page?.judgment?.kind ? (
-                <details
-                  id="wiki-investment-decision-record"
-                  className="wiki-read__page-status wiki-read__decision-record"
-                >
-                  <summary className="wiki-read__page-status-summary">
-                    <span className="wiki-read__page-status-label">Decision record</span>
-                    <span className="wiki-read__page-status-facts">
-                      <span>Owner judgment workspace</span>
-                      <span>Separate from the research draft</span>
-                    </span>
-                    <span className="wiki-read__page-status-action" aria-hidden="true">Open</span>
-                  </summary>
-                  <div className="wiki-read__page-status-panel">
-                    <WikiLivingThesis
-                      page={page}
-                      pageId={pageId}
-                      onPageUpdate={(nextPage) => {
-                        if (!nextPage) return;
-                        latestPageRef.current = nextPage;
-                        setPage(nextPage);
-                      }}
-                    />
                   </div>
                 </details>
               ) : null}

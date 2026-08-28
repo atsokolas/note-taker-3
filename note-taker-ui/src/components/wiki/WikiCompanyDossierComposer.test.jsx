@@ -2,14 +2,17 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
-import { createCompanyDossier } from '../../api/wiki';
+import { createCompanyDossier, trackCompanyDossierInJudgment } from '../../api/wiki';
 import { SystemStatusProvider } from '../../system/SystemStatusContext';
 import WikiCompanyDossierComposer from './WikiCompanyDossierComposer';
 
-jest.mock('../../api/wiki', () => ({ createCompanyDossier: jest.fn() }));
+jest.mock('../../api/wiki', () => ({
+  createCompanyDossier: jest.fn(),
+  trackCompanyDossierInJudgment: jest.fn()
+}));
 
 const fillDossierForm = () => {
-  fireEvent.click(screen.getByRole('button', { name: /create a maintained company dossier/i }));
+  fireEvent.click(screen.getByRole('button', { name: /create an investment dossier/i }));
   fireEvent.change(screen.getByLabelText('Company ticker'), { target: { value: 'amd' } });
   fireEvent.change(screen.getByLabelText('Starting investment judgment'), {
     target: { value: 'AMD can gain durable share if its accelerator roadmap and software improve.' }
@@ -52,6 +55,7 @@ test('creates a human-owned company dossier and opens first-head build review', 
     horizonYears: 5
   }));
   expect(navigate).toHaveBeenCalledWith('/wiki/workspace?page=page-amd&build=1', { replace: false });
+  expect(trackCompanyDossierInJudgment).not.toHaveBeenCalled();
   expect(controls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
     title: 'Created AMD investment dossier.',
     status: 'completed'
@@ -155,7 +159,7 @@ test('declines a foreign filer inline and preserves the entered judgment', async
       </SystemStatusProvider>
     </MemoryRouter>
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Create a maintained company dossier' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create an investment dossier' }));
   fireEvent.change(screen.getByLabelText('Company ticker'), { target: { value: 'ASML' } });
   fireEvent.change(screen.getByLabelText('Starting investment judgment'), {
     target: { value: 'ASML has durable lithography economics but geopolitical concentration matters.' }
@@ -171,4 +175,42 @@ test('declines a foreign filer inline and preserves the entered judgment', async
     stage: 'Filer not supported yet',
     retryable: false
   }));
+});
+
+test('creates in Wiki, explicitly tracks the case, and opens Judgment', async () => {
+  const navigate = jest.fn();
+  jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+  createCompanyDossier.mockResolvedValue({
+    action: 'created',
+    company: { ticker: 'AMD' },
+    page: { _id: 'page-amd' },
+    receipt: { title: 'Created AMD investment dossier.', summary: 'The dossier is ready.' }
+  });
+  trackCompanyDossierInJudgment.mockResolvedValue({
+    action: 'tracked',
+    page: { _id: 'page-amd', judgment: { currentJudgment: 'AMD can gain durable share.' } }
+  });
+  const controls = {
+    setLatestReceipt: jest.fn(),
+    setBackgroundWork: jest.fn(),
+    setRecoverableFailure: jest.fn(),
+    clearRecoverableFailure: jest.fn()
+  };
+
+  render(
+    <MemoryRouter>
+      <SystemStatusProvider value={controls}>
+        <WikiCompanyDossierComposer trackInJudgment />
+      </SystemStatusProvider>
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Create a company case' }));
+  fireEvent.change(screen.getByLabelText('Company ticker'), { target: { value: 'amd' } });
+  fireEvent.change(screen.getByLabelText('Starting investment judgment'), {
+    target: { value: 'AMD can gain durable share if its accelerator roadmap and software improve.' }
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Create and track case' }));
+
+  await waitFor(() => expect(trackCompanyDossierInJudgment).toHaveBeenCalledWith('page-amd'));
+  expect(navigate).toHaveBeenCalledWith('/judgment/page-amd', { replace: false });
 });

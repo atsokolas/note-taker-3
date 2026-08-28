@@ -16,6 +16,8 @@ const matches = (record, query = {}) => Object.entries(query).every(([key, expec
 class Query {
   constructor(value) { this.value = value; }
   select() { return this; }
+  sort() { return this; }
+  limit() { return this; }
   lean() { return Promise.resolve(this.value ? clone(this.value) : null); }
   then(resolve, reject) { return Promise.resolve(this.value).then(resolve, reject); }
 }
@@ -143,9 +145,13 @@ const run = async () => {
   const receipts = [];
   let candidateQualityPass = true;
   const NoeisReceipt = {
-    findOneAndUpdate: async (_query, update) => {
+    find: query => new Query(receipts.filter(record => matches(record, query))),
+    findOne: query => new Query(receipts.find(record => matches(record, query)) || null),
+    findOneAndUpdate: async (query, update) => {
       const stored = clone(update.$set);
-      receipts.push(stored);
+      const index = receipts.findIndex(record => matches(record, query));
+      if (index >= 0) receipts[index] = stored;
+      else receipts.push(stored);
       return stored;
     }
   };
@@ -215,6 +221,93 @@ const run = async () => {
 
     const repeated = await request(`/api/wiki/pages/${pageId}/research-candidate/accept`, { method: 'POST' });
     assert.equal(repeated.response.status, 409);
+
+    const maintenanceCandidateId = new mongoose.Types.ObjectId().toString();
+    const sourceEventId = new mongoose.Types.ObjectId().toString();
+    const acceptedRecord = WikiPage.records.find(row => String(row._id) === pageId);
+    const maintenanceBefore = snapshotPage(acceptedRecord);
+    acceptedRecord.aiState = {
+      ...acceptedRecord.aiState,
+      candidateStatus: 'awaiting_maintenance_acceptance',
+      maintenanceCandidateRevisionId: maintenanceCandidateId
+    };
+    const maintenanceAfter = {
+      ...clone(maintenanceBefore),
+      body: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Accepted maintenance research.' }] }]
+      },
+      plainText: 'Accepted maintenance research.',
+      claims: [{
+        claimId: 'fast-moat',
+        text: 'Onsite density deepens workflow integration and raised retention.',
+        section: 'Product and Technical Moat'
+      }]
+    };
+    WikiRevision.records.push({
+      _id: maintenanceCandidateId,
+      userId: ownerId,
+      pageId,
+      promotionStatus: 'candidate',
+      reason: 'agent_candidate',
+      before: maintenanceBefore,
+      after: maintenanceAfter,
+      sourceEventId,
+      sourceVersion: {
+        provider: 'sec-companyfacts',
+        trustedHeadHash: snapshotContentHash(maintenanceBefore)
+      }
+    });
+
+    const maintenanceAccepted = await request(`/api/wiki/pages/${pageId}/research-candidate/accept`, { method: 'POST' });
+    assert.equal(maintenanceAccepted.response.status, 200, JSON.stringify(maintenanceAccepted.body));
+    assert.equal(maintenanceAccepted.body.page.plainText, 'Accepted maintenance research.');
+    assert.equal(maintenanceAccepted.body.page.judgment.currentJudgment, 'FAST can compound.');
+    assert.equal(maintenanceAccepted.body.judgmentReview.status, 'awaiting_review');
+    assert.equal(maintenanceAccepted.body.judgmentReview.provenance.pageId, pageId);
+    assert.equal(maintenanceAccepted.body.judgmentReview.provenance.candidateRevisionId, maintenanceCandidateId);
+    assert.equal(maintenanceAccepted.body.judgmentReview.provenance.sourceEventId, sourceEventId);
+    assert.equal(receipts.find(row => row.kind === 'company_dossier_maintenance_accepted').provenance.pageId, pageId);
+
+    const loadedReview = await request(`/api/wiki/pages/${pageId}/judgment-research-review`);
+    assert.equal(loadedReview.response.status, 200);
+    assert.equal(loadedReview.body.review.id, maintenanceAccepted.body.judgmentReview.id);
+    assert.equal(loadedReview.body.review.status, 'awaiting_review');
+    const pendingReviews = await request('/api/wiki/judgment-research-reviews');
+    assert.equal(pendingReviews.response.status, 200);
+    assert.deepEqual(pendingReviews.body.reviews.map(review => review.id), [loadedReview.body.review.id]);
+
+    const prematureRevision = await request(`/api/wiki/pages/${pageId}/judgment-research-review/revised`, {
+      method: 'POST',
+      body: { receiptId: loadedReview.body.review.id }
+    });
+    assert.equal(prematureRevision.response.status, 409);
+    assert.equal(prematureRevision.body.code, 'DOSSIER_JUDGMENT_NOT_REVISED');
+
+    const agentReview = await request(`/api/wiki/pages/${pageId}/judgment-research-review/kept`, {
+      method: 'POST',
+      headers: { 'x-agent-token': 'yes' },
+      body: { receiptId: loadedReview.body.review.id }
+    });
+    assert.equal(agentReview.response.status, 403);
+
+    const keptReview = await request(`/api/wiki/pages/${pageId}/judgment-research-review/kept`, {
+      method: 'POST',
+      body: { receiptId: loadedReview.body.review.id }
+    });
+    assert.equal(keptReview.response.status, 200, JSON.stringify(keptReview.body));
+    assert.equal(keptReview.body.receipt.status, 'completed');
+    assert.equal(keptReview.body.receipt.provenance.resolution, 'kept');
+    assert.equal(WikiPage.records.find(row => String(row._id) === pageId).judgment.currentJudgment, 'FAST can compound.');
+    const noPendingReviews = await request('/api/wiki/judgment-research-reviews');
+    assert.deepEqual(noPendingReviews.body.reviews, []);
+
+    const replayedReview = await request(`/api/wiki/pages/${pageId}/judgment-research-review/kept`, {
+      method: 'POST',
+      body: { receiptId: loadedReview.body.review.id }
+    });
+    assert.equal(replayedReview.response.status, 200);
+    assert.equal(replayedReview.body.receipt.provenance.resolution, 'kept');
 
     const missingConfirmation = await request(`/api/wiki/pages/${legacyPageId}/research-head/adopt`, {
       method: 'POST'

@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCompanyDossier } from '../../api/wiki';
+import { createCompanyDossier, trackCompanyDossierInJudgment } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { Button } from '../ui';
 
-const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
+const WikiCompanyDossierComposer = ({
+  className = '',
+  onCreated,
+  trackInJudgment = false
+}) => {
   const navigate = useNavigate();
   const systemStatus = useSystemStatusControls();
   const [open, setOpen] = useState(false);
@@ -37,7 +41,11 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
       const page = result?.page || {};
       const id = page?._id || page?.id;
       if (!id) throw new Error('The dossier was created without a page id.');
-      const href = wikiPagePath(id);
+      const tracked = trackInJudgment
+        ? await trackCompanyDossierInJudgment(id)
+        : null;
+      const resolvedPage = tracked?.page || page;
+      const href = trackInJudgment ? `/judgment/${id}` : wikiPagePath(id);
       const partial = result?.receipt?.status === 'partial' || Boolean(result?.watchResult?.watchError);
       const receiptStatus = partial ? 'completed_with_warnings' : 'completed';
       systemStatus.setLatestReceipt({
@@ -47,10 +55,15 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
         href
       });
       systemStatus.clearRecoverableFailure?.();
-      onCreated?.(page);
-      navigate(result.action === 'existing' || partial ? href : `${href}&build=1`, { replace: false });
+      onCreated?.(resolvedPage);
+      navigate(
+        trackInJudgment || result.action === 'existing' || partial ? href : `${href}&build=1`,
+        { replace: false }
+      );
       setStatus(result.receipt?.summary || (
-        result.action === 'existing'
+        trackInJudgment
+          ? 'The dossier is now tracked in Judgment.'
+          : result.action === 'existing'
           ? 'Opened the existing dossier without creating a duplicate.'
           : 'Company dossier created and ready for first-head review.'
       ));
@@ -82,11 +95,15 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
         onClick={() => setOpen(value => !value)}
       >
         <span aria-hidden="true">{open ? '▾' : '▸'}</span>
-        Create a maintained company dossier
+        {trackInJudgment ? 'Create a company case' : 'Create an investment dossier'}
       </button>
       {open ? (
         <form onSubmit={handleSubmit} className="wiki-company-dossier__form">
-          <p>Your judgment stays yours. Noeis uses free SEC filings and opens a private draft for review.</p>
+          <p>
+            {trackInJudgment
+              ? 'Noeis creates the research dossier in Wiki, then tracks your starting judgment here as a company case.'
+              : 'Noeis uses free SEC filings and opens a private research draft. It enters Judgment only when you choose to track it.'}
+          </p>
           <label>
             Ticker
             <input aria-label="Company ticker" value={ticker} onChange={event => setTicker(event.target.value)} placeholder="AMD" disabled={busy} />
@@ -113,7 +130,7 @@ const WikiCompanyDossierComposer = ({ className = '', onCreated }) => {
             </label>
           </div>
           <Button type="submit" variant="secondary" disabled={busy || !ticker.trim() || startingJudgment.trim().length < 20}>
-            {busy ? 'Attaching SEC filings…' : 'Create dossier'}
+            {busy ? 'Attaching SEC filings…' : trackInJudgment ? 'Create and track case' : 'Create dossier'}
           </Button>
           {status ? <p className="wiki-company-dossier__status" role="status">{status}</p> : null}
           {error ? <p className="wiki-index__error" role="alert">{error}</p> : null}
