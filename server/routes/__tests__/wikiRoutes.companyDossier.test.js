@@ -477,6 +477,46 @@ const run = async () => {
     );
     assert.equal(WikiPage.records.length, 2);
     assert.equal(WikiPage.records.filter(page => page.status !== 'archived').length, 1);
+    assert.equal(WikiPage.records.at(-1).judgment, null, 'creating a dossier must not opt it into Judgment');
+
+    const agentTracking = await request(
+      base,
+      `/api/wiki/pages/${recreated.body.page._id}/track-in-judgment`,
+      {},
+      { 'x-agent-token': 'yes' }
+    );
+    assert.equal(agentTracking.response.status, 403);
+    assert.equal(WikiPage.records.at(-1).judgment, null, 'an agent cannot opt a dossier into Judgment');
+
+    const tracked = await request(
+      base,
+      `/api/wiki/pages/${recreated.body.page._id}/track-in-judgment`,
+      {}
+    );
+    assert.equal(tracked.response.status, 200, JSON.stringify(tracked.body));
+    assert.equal(tracked.body.action, 'tracked');
+    assert.equal(tracked.body.page.judgment.kind, 'thesis');
+    assert.equal(
+      tracked.body.page.judgment.currentJudgment,
+      input.startingJudgment
+    );
+    assert.equal(FakeRevision.records.at(-1).reason, 'judgment_tracking_started');
+    const judgmentRevisionCount = FakeRevision.records.filter(
+      revision => revision.reason === 'judgment_tracking_started'
+    ).length;
+
+    const replayedTracking = await request(
+      base,
+      `/api/wiki/pages/${recreated.body.page._id}/track-in-judgment`,
+      {}
+    );
+    assert.equal(replayedTracking.response.status, 200, JSON.stringify(replayedTracking.body));
+    assert.equal(replayedTracking.body.action, 'existing');
+    assert.equal(
+      FakeRevision.records.filter(revision => revision.reason === 'judgment_tracking_started').length,
+      judgmentRevisionCount,
+      'tracking replay must not create another revision'
+    );
 
     WikiPage.records.at(-1).sourceRefs = WikiPage.records.at(-1).sourceRefs
       .filter(sourceRef => (

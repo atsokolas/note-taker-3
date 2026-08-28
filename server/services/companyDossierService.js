@@ -106,6 +106,28 @@ const buildInvestmentDossierProfile = ({
   })
 );
 
+const buildCompanyDossierJudgmentInput = ({
+  companyName,
+  ticker,
+  startingJudgment,
+  requiredReturn,
+  horizonYears,
+  now = new Date()
+} = {}) => ({
+  kind: 'thesis',
+  governingQuestion: `Can ${clean(companyName, 240) || clean(ticker, 12)} compound owner value above a ${(Number(requiredReturn) * 100).toFixed(1)}% annual hurdle over ${Number(horizonYears)} years?`,
+  currentJudgment: clean(startingJudgment),
+  status: 'researching',
+  decisionPosture: 'investigate',
+  ownerLabel: 'Owner',
+  startedAt: now,
+  causalModel: { summary: '', nodes: [], edges: [] },
+  assumptions: [],
+  unknowns: [],
+  falsifiers: [],
+  decisions: []
+});
+
 const companyDossierInputsMatch = (profile = {}, input = {}) => {
   const hurdle = profile.hurdle || {};
   return (
@@ -124,6 +146,7 @@ const activeCompanyDossierKey = (cik = '') => {
 module.exports = {
   activeCompanyDossierKey,
   buildCompanyDossierBody,
+  buildCompanyDossierJudgmentInput,
   buildInvestmentDossierProfile,
   companyDossierInputsMatch,
   normalizeCompanyDossierInput

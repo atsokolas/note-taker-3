@@ -3,11 +3,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   createWikiPage,
   downloadJudgmentPamphlet,
+  getCompanyDossierJudgmentReview,
   getJudgmentLibraryEvidence,
   getWikiPage,
   setWikiPageEvergreen,
+  listCompanyDossierJudgmentReviews,
   listWikiPages,
   listWikiSourceEvents,
+  resolveCompanyDossierJudgmentReview,
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
@@ -16,6 +19,8 @@ import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
+import WikiCompanyDossierComposer from '../components/wiki/WikiCompanyDossierComposer';
+import DossierResearchReview from '../components/judgment/DossierResearchReview';
 import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import {
   acceptProposalIntoJudgment,
@@ -65,6 +70,19 @@ const SOURCE_EVENT_LIMIT = 40;
 const AUTOSAVE_PAUSE_MS = 700;
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
 const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+const markPendingDossierResearch = (items = [], reviews = []) => {
+  const pendingPageIds = new Set(
+    (Array.isArray(reviews) ? reviews : [])
+      .filter(review => review?.status === 'awaiting_review')
+      .map(review => String(review?.provenance?.pageId || ''))
+      .filter(Boolean)
+  );
+  if (!pendingPageIds.size) return items;
+  return items.map(item => (
+    pendingPageIds.has(String(item.id)) ? { ...item, pendingDossierResearch: true } : item
+  ));
+};
 
 const evidenceHref = (candidate = {}) => (
   sourceHrefFromOrigin(candidate.id, candidate.url)
@@ -301,6 +319,10 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
           {createError ? <span role="alert">{createError}</span> : null}
         </div>
       </form>
+      <WikiCompanyDossierComposer
+        className={`judgment__company-case ${enter}`}
+        trackInJudgment
+      />
       {items.length ? (
         <>
           <ul className={`judgment__index ${enter}`}>
@@ -320,6 +342,11 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
                     about does not need to be announced — so the index is
                     allowed to be completely silent, which is the point. */}
                 {item.note ? <span className="judgment__index-note">{item.note}</span> : null}
+                {item.pendingDossierResearch ? (
+                  <span className="judgment__index-note judgment__index-research-review">
+                    Accepted research to review
+                  </span>
+                ) : null}
                 {/* Counted rather than hidden: a claim written down five times
                     is worth knowing about, and silently dropping four of them
                     would look like the product losing your work. */}
@@ -677,6 +704,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
   const [pendingId, setPendingId] = useState('');
+  const [researchReview, setResearchReview] = useState(null);
+  const [researchReviewBusy, setResearchReviewBusy] = useState(false);
+  const [researchReviewError, setResearchReviewError] = useState('');
 
   useEffect(() => {
     if (!arrivingId) return undefined;
@@ -702,13 +732,20 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         // rather than opening the daily loop. It does not depend on the page
         // either, so it goes at the same time rather than after it — two round
         // trips in series is twice the wait on a cold API for no reason.
-        const [loaded, events] = await Promise.all([
+        const [loaded, events, reviewResult] = await Promise.all([
           getWikiPage(pageId, { reader: 1 }),
-          listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => [])
+          listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => []),
+          getCompanyDossierJudgmentReview(pageId)
+            .then(review => ({ review }))
+            .catch(reviewError => ({ reviewError }))
         ]);
         if (cancelled) return;
         setPage(loaded);
         setOvernight(selectOvernightLine(loaded, events));
+        setResearchReview(reviewResult.review || null);
+        setResearchReviewError(reviewResult.reviewError
+          ? 'The accepted-research review could not be loaded. Your judgment was not changed.'
+          : '');
       } catch (loadError) {
         if (!cancelled) setError(loadError?.response?.data?.error || 'Could not open this judgment.');
       } finally {
@@ -864,13 +901,37 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [page, pageId]);
 
+  const resolveResearchReview = useCallback(async (resolution) => {
+    if (!researchReview?.id || researchReviewBusy) return null;
+    setResearchReviewBusy(true);
+    setResearchReviewError('');
+    try {
+      const resolved = await resolveCompanyDossierJudgmentReview(pageId, researchReview.id, resolution);
+      setResearchReview(resolved?.status === 'awaiting_review' ? resolved : null);
+      return resolved;
+    } catch (reviewError) {
+      setResearchReviewError(
+        reviewError?.response?.data?.error
+        || reviewError?.message
+        || 'The research review could not be resolved.'
+      );
+      return null;
+    } finally {
+      setResearchReviewBusy(false);
+    }
+  }, [pageId, researchReview, researchReviewBusy]);
+
   /* The opinion is the claim. Writing it leaves the name alone; a judgment
      without a sentence is not a judgment, so an empty field never saves. */
   const writeClaim = useCallback(async (sentence) => {
     const next = oneSentence(sentence);
     if (!next) return;
     await commit({ ...(page?.judgment || {}), currentJudgment: next });
-  }, [commit, page]);
+    const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
+    if (researchReview?.status === 'awaiting_review' && next !== prior) {
+      await resolveResearchReview('revised');
+    }
+  }, [commit, page, researchReview, resolveResearchReview]);
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
@@ -970,6 +1031,18 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       />
       {view.provenance ? (
         <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
+      ) : null}
+
+      <DossierResearchReview
+        pageId={pageId}
+        review={researchReview}
+        busy={researchReviewBusy}
+        error={researchReviewError}
+        onKeep={() => resolveResearchReview('kept')}
+        onRevise={() => document.getElementById('judgment-opinion')?.focus()}
+      />
+      {!researchReview && researchReviewError ? (
+        <p className="judgment-research-review__error" role="alert">{researchReviewError}</p>
       ) : null}
 
       {view.changeMindIf.length ? (
@@ -1107,9 +1180,12 @@ const Judgment = () => {
         /* Detail and index share this exact request key. On a case route the
            shelf and the dependency graph therefore reuse one in-flight read
            instead of asking Mongo for the same casebook twice. */
-        const summaryPages = await listWikiPages({ projection: 'judgment', limit: 500 });
+        const [summaryPages, dossierReviews] = await Promise.all([
+          listWikiPages({ projection: 'judgment', limit: 500 }),
+          listCompanyDossierJudgmentReviews({ limit: 200 }).catch(() => [])
+        ]);
         let pages = Array.isArray(summaryPages) ? summaryPages : [];
-        let nextItems = buildJudgmentIndex(pages, []);
+        let nextItems = markPendingDossierResearch(buildJudgmentIndex(pages, []), dossierReviews);
 
         /* A summary row is an optimization, not the source of truth. Older
            pages can predate fields in the compact projection; if that makes a
@@ -1118,7 +1194,7 @@ const Judgment = () => {
         if (!nextItems.length && pages.length) {
           const fullPages = await listWikiPages({ limit: 200 });
           pages = Array.isArray(fullPages) ? fullPages : [];
-          nextItems = buildJudgmentIndex(pages, []);
+          nextItems = markPendingDossierResearch(buildJudgmentIndex(pages, []), dossierReviews);
         }
         if (!cancelled) {
           setIndexPages(pages);
@@ -1131,7 +1207,9 @@ const Judgment = () => {
            user already owns. */
         Promise.resolve().then(() => listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }))
           .then(events => {
-            if (!cancelled) setItems(buildJudgmentIndex(pages, events));
+            if (!cancelled) {
+              setItems(markPendingDossierResearch(buildJudgmentIndex(pages, events), dossierReviews));
+            }
           })
           .catch(() => {});
       } catch (error) {

@@ -9524,6 +9524,19 @@ body.noeis-editorial .wiki-read__dossier-review {
   margin: 26px 0;
 }
 
+body.noeis-editorial .wiki-read__dossier-judgment-link {
+  margin: 0;
+  padding: 18px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.8rem;
+}
+
+body.noeis-editorial .wiki-read__dossier-judgment-link a {
+  color: var(--vellum-ink);
+}
+
 body.noeis-editorial .wiki-read--standard .wiki-read__header {
   gap: 10px;
   padding-bottom: 0;

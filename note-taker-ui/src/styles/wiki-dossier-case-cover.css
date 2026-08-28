@@ -1,0 +1,158 @@
+body.noeis-editorial .wiki-dossier-cover {
+  margin: 24px 0 34px;
+  padding: 24px 0 26px;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 72%, transparent);
+}
+
+body.noeis-editorial .wiki-dossier-cover__heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 20px 32px;
+}
+
+body.noeis-editorial .wiki-dossier-cover__heading h2,
+body.noeis-editorial .wiki-dossier-cover__heading p {
+  margin: 0;
+}
+
+body.noeis-editorial .wiki-dossier-cover__eyebrow,
+body.noeis-editorial .wiki-dossier-cover__facts dt {
+  color: var(--vellum-accent);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.noeis-editorial .wiki-dossier-cover__heading h2 {
+  margin-top: 5px;
+  font-size: clamp(1.45rem, 2.7vw, 2rem);
+  font-weight: 450;
+  line-height: 1.08;
+}
+
+body.noeis-editorial .wiki-dossier-cover__heading h2 + p {
+  max-width: 66ch;
+  margin-top: 7px;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+body.noeis-editorial .wiki-dossier-cover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 16px;
+}
+
+body.noeis-editorial .wiki-dossier-cover__actions a,
+body.noeis-editorial .wiki-dossier-cover__text-action {
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--vellum-ink);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+body.noeis-editorial .wiki-dossier-cover__primary {
+  font-weight: 700;
+}
+
+body.noeis-editorial .wiki-dossier-cover__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 24px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 58%, transparent);
+}
+
+body.noeis-editorial .wiki-dossier-cover__facts > div {
+  min-width: 0;
+  padding: 17px 18px 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 48%, transparent);
+}
+
+body.noeis-editorial .wiki-dossier-cover__facts > div:nth-child(3n + 2),
+body.noeis-editorial .wiki-dossier-cover__facts > div:nth-child(3n + 3) {
+  padding-left: 18px;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 48%, transparent);
+}
+
+body.noeis-editorial .wiki-dossier-cover__facts dd {
+  margin: 7px 0 3px;
+  color: var(--vellum-ink);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.03rem;
+  line-height: 1.28;
+}
+
+body.noeis-editorial .wiki-dossier-cover__facts small {
+  display: block;
+  color: var(--vellum-subtle);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+body.noeis-editorial .wiki-dossier-cover__facts .is-attention dt,
+body.noeis-editorial .wiki-dossier-cover__facts .is-attention dd {
+  color: var(--vellum-accent);
+}
+
+body.noeis-editorial .wiki-dossier-cover__status {
+  margin: 14px 0 0;
+  color: var(--noeis-danger, #8f332c);
+  font-family: var(--noeis-ui-font);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  body.noeis-editorial .wiki-dossier-cover__heading {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  body.noeis-editorial .wiki-dossier-cover__actions {
+    justify-content: flex-start;
+  }
+
+  body.noeis-editorial .wiki-dossier-cover__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.noeis-editorial .wiki-dossier-cover__facts > div:nth-child(n) {
+    padding-left: 0;
+    padding-right: 16px;
+    border-left: 0;
+  }
+
+  body.noeis-editorial .wiki-dossier-cover__facts > div:nth-child(even) {
+    padding-left: 16px;
+    border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 48%, transparent);
+  }
+}
+
+@media (max-width: 560px) {
+  body.noeis-editorial .wiki-dossier-cover {
+    margin-top: 18px;
+    padding-top: 18px;
+  }
+
+  body.noeis-editorial .wiki-dossier-cover__facts {
+    grid-template-columns: 1fr;
+  }
+
+  body.noeis-editorial .wiki-dossier-cover__facts > div:nth-child(n) {
+    padding: 14px 0;
+    border-left: 0;
+  }
+}

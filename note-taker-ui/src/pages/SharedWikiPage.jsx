@@ -45,9 +45,12 @@ export const isPublicRepoWikiPage = (page = {}) => {
   return false;
 };
 
-/** Company dossiers are identified only by their public-safe filing clock. */
+/** Prefer the explicit public artifact contract; retain the filing-clock
+ * fallback for links published before the dossier envelope existed. */
 export const isPublicCompanyDossierPage = (page = {}) => (
-  String(page?.maintenanceProof?.clock?.type || '').toLowerCase() === 'sec_edgar'
+  String(page?.artifactType || '').toLowerCase() === 'investment_dossier'
+  || String(page?.wikiKind || '').toLowerCase() === 'investment'
+  || String(page?.maintenanceProof?.clock?.type || '').toLowerCase() === 'sec_edgar'
 );
 
 /** Derive owner/repo from public maintenance proof or title — never externalWatches. */
@@ -481,7 +484,13 @@ const SharedWikiPage = () => {
         <article className="shared-wiki-page__article" onClick={handleCitationClick}>
           <header className="shared-wiki-page__hero">
             <p className="shared-wiki-page__eyebrow">
-              {weekendReadingsMode ? (thisWeekInAIMode ? 'This Week in AI' : 'Weekend Readings') : (repoDossierMode ? 'Shared repository dossier' : 'Shared wiki')}
+              {weekendReadingsMode
+                ? (thisWeekInAIMode ? 'This Week in AI' : 'Weekend Readings')
+                : repoDossierMode
+                  ? 'Shared repository dossier'
+                  : companyDossierMode
+                    ? 'Public investment dossier'
+                    : 'Shared wiki'}
             </p>
             <h1>{displayTitle}</h1>
             {companyBriefSplit?.brief ? (
@@ -499,9 +508,9 @@ const SharedWikiPage = () => {
             ) : (
             <section className="shared-wiki-page__adopt" aria-label="Adopt shared wiki">
               <div>
-                <h2>{repoDossierMode ? 'Make this dossier yours.' : 'This is a shared wiki.'}</h2>
+                <h2>{repoDossierMode || companyDossierMode ? 'Make this dossier yours.' : 'This is a shared wiki.'}</h2>
                 <p>
-                  {repoDossierMode
+                  {repoDossierMode || companyDossierMode
                     ? 'Copy it into your workspace to edit, extend, and maintain against your own sources.'
                     : 'Make it yours to edit, expand, and connect to your own thinking. Your copy joins your own background maintenance loop; the original owner keeps their version.'}
                 </p>

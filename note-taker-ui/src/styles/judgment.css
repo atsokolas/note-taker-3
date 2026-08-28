@@ -832,6 +832,26 @@ body.noeis-editorial .judgment .judgment__new input,
   font-size: 0.84rem;
 }
 
+.judgment__company-case {
+  margin: -24px 0 44px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+}
+
+.judgment__company-case .wiki-company-dossier__toggle {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.9rem;
+  border-bottom: 1px solid currentColor;
+}
+
+.judgment__company-case .wiki-company-dossier__form {
+  padding: 22px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .judgment__write-state {
   min-width: 3.4rem;
   color: var(--text-muted, var(--vellum-subtle));
@@ -1237,6 +1257,11 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
   letter-spacing: 0.02em;
 }
 
+.judgment__index-research-review {
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--vellum-accent) 84%, var(--text-primary, var(--vellum-ink)));
+}
+
 .judgment__index li[data-state="avoided"] .judgment__index-note {
   color: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 78%, var(--text-primary, var(--vellum-ink)));
 }
@@ -1528,4 +1553,95 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 
 .judgment__week-door a:hover {
   color: var(--text-primary, var(--vellum-ink));
+}
+
+/* Accepted research enters Judgment as a question, never as a rewritten
+   belief. It shares the case's typography and rules instead of becoming a
+   dashboard card, so the owner can read the delta and answer in place. */
+.judgment-research-review {
+  margin: 22px 0 30px;
+  padding: 18px 0 20px;
+  border-top: 1px solid var(--noeis-rule, var(--vellum-line));
+  border-bottom: 1px solid var(--noeis-rule, var(--vellum-line));
+}
+
+.judgment-research-review__eyebrow {
+  margin: 0 0 7px;
+  color: var(--vellum-accent);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.judgment-research-review h2 {
+  max-width: 34ch;
+  margin: 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  font-weight: 450;
+  line-height: 1.12;
+}
+
+.judgment-research-review > p:not(.judgment-research-review__eyebrow):not(.judgment-research-review__error) {
+  max-width: 64ch;
+  margin: 9px 0 0;
+  color: var(--text-secondary, var(--vellum-subtle));
+  line-height: 1.5;
+}
+
+.judgment-research-review ul {
+  display: grid;
+  gap: 9px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-research-review li {
+  display: grid;
+  gap: 2px;
+  max-width: 68ch;
+}
+
+.judgment-research-review li strong {
+  font-weight: 500;
+}
+
+.judgment-research-review li span,
+.judgment-research-review__expectations {
+  color: var(--text-secondary, var(--vellum-subtle));
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.judgment-research-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-top: 18px;
+}
+
+.judgment-research-review__actions a,
+.judgment-research-review__actions button {
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.judgment-research-review__actions button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.judgment-research-review__error {
+  margin: 12px 0 0;
+  color: var(--noeis-warning, #9a4a2d);
+  font-size: 0.86rem;
 }

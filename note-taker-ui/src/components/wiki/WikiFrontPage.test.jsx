@@ -353,6 +353,31 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(within(table).queryByRole('link', { name: 'note-taker-3 — repo wiki' })).not.toBeInTheDocument();
   });
 
+  it('opens the dedicated investment dossier collection from its stable URL', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      pages[0],
+      {
+        _id: 'costco-dossier',
+        title: 'Costco investment dossier',
+        pageType: 'entity',
+        investmentDossier: { version: 2 },
+        sourceRefs: [{ _id: 'costco-source' }]
+      }
+    ]);
+    getDailyLoop.mockResolvedValueOnce({ briefing: { ...briefing, recentlyUpdatedPages: [] } });
+
+    render(
+      <router.MemoryRouter>
+        <WikiFrontPage initialKind="investment" />
+      </router.MemoryRouter>
+    );
+
+    const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
+    expect(screen.getByRole('button', { name: /Investment dossiers 1/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(table).getByRole('link', { name: 'Costco investment dossier' })).toBeInTheDocument();
+    expect(within(table).queryByRole('link', { name: 'First Principles Thinking' })).not.toBeInTheDocument();
+  });
+
   it('falls back to the strongest page when the briefing fails', async () => {
     getDailyLoop.mockRejectedValueOnce(new Error('down'));
 

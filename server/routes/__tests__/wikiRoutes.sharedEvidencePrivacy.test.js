@@ -62,6 +62,20 @@ const run = () => {
   assert.strictEqual(shared.judgment, undefined);
   assert.strictEqual(shared.claims, undefined);
 
+  const dossier = serializePublicWikiPage({
+    ...page,
+    investmentDossier: {
+      version: 1,
+      company: { ticker: 'COST', name: 'Costco Wholesale Corporation' },
+      startingJudgment: 'Private owner thesis.'
+    }
+  });
+  assert.strictEqual(dossier.wikiKind, 'investment');
+  assert.strictEqual(dossier.artifactType, 'investment_dossier');
+  assert.strictEqual(dossier.investmentDossier, undefined);
+  assert.strictEqual(dossier.judgment, undefined);
+  assert.ok(!JSON.stringify(dossier).includes('Private owner thesis'));
+
   console.log('ok - shared wiki keeps the evidence private');
 };
 

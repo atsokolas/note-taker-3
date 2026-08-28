@@ -97,6 +97,41 @@ export const createCompanyDossier = async (payload = {}) => {
   return res.data || {};
 };
 
+export const trackCompanyDossierInJudgment = async (pageId) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/track-in-judgment`,
+    {},
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
+export const getCompanyDossierJudgmentReview = async (pageId) => {
+  const res = await api.get(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-research-review`,
+    getAuthHeaders()
+  );
+  return res.data?.review || null;
+};
+
+export const listCompanyDossierJudgmentReviews = async ({ limit = 200 } = {}) => {
+  const res = await api.get(
+    '/api/wiki/judgment-research-reviews',
+    { ...getAuthHeaders(), params: { limit } }
+  );
+  return Array.isArray(res.data?.reviews) ? res.data.reviews : [];
+};
+
+export const resolveCompanyDossierJudgmentReview = async (pageId, receiptId, resolution) => {
+  const action = resolution === 'revised' ? 'revised' : 'kept';
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-research-review/${action}`,
+    { receiptId },
+    getAuthHeaders()
+  );
+  return res.data?.receipt || null;
+};
+
 export const refreshInvestmentValuation = async (pageId, payload = {}) => {
   const res = await api.post(
     `${WIKI_PAGES_PATH}/${safeId(pageId)}/valuation`,
