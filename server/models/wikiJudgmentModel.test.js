@@ -74,6 +74,17 @@ const claimOnly = new WikiPage({
 assert.equal(claimOnly.validateSync(), undefined);
 assert.equal(claimOnly.judgment.currentJudgment, 'Demand still outruns deliverable capacity.');
 assert.equal(claimOnly.judgment.kind, null);
+assert.deepStrictEqual(claimOnly.judgment.dismissedOvernightEventIds, []);
+
+const silencedOvernight = new WikiPage({
+  ...base(),
+  judgment: {
+    currentJudgment: 'Demand still outruns deliverable capacity.',
+    dismissedOvernightEventIds: ['event-1']
+  }
+});
+assert.equal(silencedOvernight.validateSync(), undefined);
+assert.deepStrictEqual(silencedOvernight.judgment.dismissedOvernightEventIds, ['event-1']);
 
 /* The older framed shape still validates, and still requires its question to
    be supplied alongside the kind by the service. */

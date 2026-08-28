@@ -285,7 +285,10 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
       ? (dateValue('judgment.parkedAt', next.parkedAt, null) || prior.parkedAt || new Date())
       : null,
     lessons: normalizeLessons(next.lessons || [], prior.lessons || []),
-    dependsOn: normalizeDependencies(next.dependsOn || [], actorType, pageId)
+    dependsOn: normalizeDependencies(next.dependsOn || [], actorType, pageId),
+    /* Per-case overnight silence. Not an event ignore — the same filing may
+       still matter to another claim. */
+    dismissedOvernightEventIds: cleanList(next.dismissedOvernightEventIds, 80)
   };
 };
 

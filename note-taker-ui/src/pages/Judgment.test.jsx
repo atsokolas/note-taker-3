@@ -6,6 +6,7 @@ import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { resetFirstPaint } from '../motion/columnMotion';
+import { SystemStatusProvider } from '../system/SystemStatusContext';
 import {
   getCompanyDossierJudgmentReview,
   getJudgmentLibraryEvidence,
@@ -115,6 +116,15 @@ const withRail = (children) => (
 const renderDetail = () => {
   jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-nvidia' });
   return render(withRail(<Judgment />));
+};
+
+const renderDetailWithStatus = (controls) => {
+  jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-nvidia' });
+  return render(
+    <SystemStatusProvider value={controls}>
+      {withRail(<Judgment />)}
+    </SystemStatusProvider>
+  );
 };
 
 const renderIndex = () => {
@@ -339,10 +349,12 @@ describe('Judgment claim', () => {
   });
 
   it('rewrites the opinion without renaming the case', async () => {
-    getWikiPage.mockResolvedValue(judgmentPage());
+    const dated = judgmentPage();
+    dated.judgment.why[0].createdAt = '2026-02-14T12:00:00.000Z';
+    getWikiPage.mockResolvedValue(dated);
     updateWikiPage.mockImplementation(async (_id, body) => ({
-      ...judgmentPage(),
-      judgment: body.judgment || judgmentPage().judgment
+      ...dated,
+      judgment: body.judgment || dated.judgment
     }));
 
     renderDetail();
@@ -355,8 +367,19 @@ describe('Judgment claim', () => {
     const [, body] = updateWikiPage.mock.calls[0];
     expect(body.title).toBeUndefined();
     expect(body.judgment.currentJudgment).toBe('I am bullish NVIDIA compute.');
-    expect(body.judgment.why).toEqual(judgmentPage().judgment.why);
+    expect(body.judgment.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
+    expect(body.judgment.why.map(line => line.text)).toEqual(dated.judgment.why.map(line => line.text));
+    expect(body.judgment.against).toEqual(dated.judgment.against);
+    expect(body.judgment.decisions.at(-1)).toMatchObject({
+      summary: 'Changed what I hold: I am bullish NVIDIA compute.',
+      status: 'taken'
+    });
+    expect(body.judgment.decisions.at(-1).decidedAt).toEqual(expect.any(String));
     expect(screen.getByLabelText('Title')).toHaveValue('NVIDIA');
+    await waitFor(() => {
+      expect(document.querySelector('.judgment-log__row--did .judgment-log__text'))
+        .toHaveTextContent('Changed what I hold: I am bullish NVIDIA compute.');
+    });
   });
 
   it('asks the owner to review accepted dossier research without changing the judgment', async () => {
@@ -549,16 +572,46 @@ describe('the overnight line', () => {
     expect(updateWikiPage.mock.calls[0][1].judgment.why).toHaveLength(3);
   });
 
-  it('evaporates on Dismiss and writes nothing', async () => {
+  it('evaporates on Dismiss, persists the id, and writes nothing into Why or Against', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
+    updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
 
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledTimes(1));
+    const [, body] = updateWikiPage.mock.calls[0];
+    expect(body.judgment.dismissedOvernightEventIds).toEqual(['event-1']);
+    expect(body.judgment.why).toEqual(judgmentPage().judgment.why);
+    expect(body.judgment.against).toEqual(judgmentPage().judgment.against);
     await waitFor(() => expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument());
-    expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('does not resurrect a dismissed overnight line after remount', async () => {
+    const stored = { dismissedOvernightEventIds: [] };
+    getWikiPage.mockImplementation(async () => {
+      const loaded = judgmentPage();
+      loaded.judgment.dismissedOvernightEventIds = [...stored.dismissedOvernightEventIds];
+      return loaded;
+    });
+    listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
+    updateWikiPage.mockImplementation(async (_id, updates) => {
+      stored.dismissedOvernightEventIds = [...(updates.judgment.dismissedOvernightEventIds || [])];
+      return { ...judgmentPage(), judgment: updates.judgment };
+    });
+
+    const first = renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
+    await waitFor(() => expect(stored.dismissedOvernightEventIds).toEqual(['event-1']));
+    await waitFor(() => expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument());
+
+    first.unmount();
+    renderDetail();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument();
   });
 
   it('never reads the daily loop, so the morning paper cursor is untouched', async () => {
@@ -863,6 +916,53 @@ describe('Evidence from the library', () => {
     expect(screen.queryByRole('region', { name: 'From your library' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+  });
+
+  it('reports a failed library prefetch through system status, not a toast or the case', async () => {
+    const controls = {
+      setBackgroundWork: jest.fn(),
+      setLatestReceipt: jest.fn(),
+      clearRecentReceipts: jest.fn(),
+      setRecoverableFailure: jest.fn(),
+      clearRecoverableFailure: jest.fn(),
+      resetSystemStatus: jest.fn()
+    };
+    getJudgmentLibraryEvidence.mockRejectedValue(new Error('library down'));
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetailWithStatus(controls);
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    await waitFor(() => expect(controls.setRecoverableFailure).toHaveBeenCalled());
+    expect(controls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'Library evidence',
+      retryable: true
+    }));
+    expect(controls.setLatestReceipt).not.toHaveBeenCalled();
+    expect(screen.queryByText(/could not be read/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/toast/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+  });
+
+  it('does not announce a quiet library read in system status', async () => {
+    const controls = {
+      setBackgroundWork: jest.fn(),
+      setLatestReceipt: jest.fn(),
+      clearRecentReceipts: jest.fn(),
+      setRecoverableFailure: jest.fn(),
+      clearRecoverableFailure: jest.fn(),
+      resetSystemStatus: jest.fn()
+    };
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [] });
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetailWithStatus(controls);
+
+    await screen.findByLabelText('Title');
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
+    expect(controls.setBackgroundWork).not.toHaveBeenCalled();
+    expect(controls.setRecoverableFailure).not.toHaveBeenCalled();
+    expect(controls.setLatestReceipt).not.toHaveBeenCalled();
   });
 
   it('keeps a long inbox to a few lines, with more…', async () => {

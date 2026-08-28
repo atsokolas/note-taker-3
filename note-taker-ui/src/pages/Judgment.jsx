@@ -22,19 +22,24 @@ import JudgmentShelf from '../components/collection/JudgmentShelf';
 import WikiCompanyDossierComposer from '../components/wiki/WikiCompanyDossierComposer';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
 import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
+import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
+import { useSystemStatusControls } from '../system/SystemStatusContext';
 import {
   acceptProposalIntoJudgment,
   addDependency,
   dependencyLines,
+  dismissOvernightLine,
   fileEvidenceIntoJudgment,
   parkJudgment,
   removeDependency,
   restingOn,
   resumeJudgment,
+  reviseCurrentJudgment,
   buildJudgmentIndex,
   createJudgment,
   formatLedgerDate,
   oneSentence,
+  newLineId,
   projectJudgment,
   selectOvernightLine,
   upsertLineIntoJudgment
@@ -67,6 +72,7 @@ const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((count
 }), {});
 const SOURCE_EVENT_LIMIT = 40;
 const AUTOSAVE_PAUSE_MS = 700;
+const LIBRARY_PREFETCH_BUSY_MS = 1200;
 const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const markPendingDossierResearch = (items = [], reviews = []) => {
@@ -85,7 +91,7 @@ const markPendingDossierResearch = (items = [], reviews = []) => {
 /* A line that writes itself after a pause, and refuses to be empty.
    In-flight saves must not clobber the draft while the field still has focus —
    a slow round-trip is not a reason to throw away the next keystroke. */
-const AutosaveField = ({ value = '', format, onSave, className, ...inputProps }) => {
+const AutosaveField = ({ value = '', format, onSave, onIdle, className, ...inputProps }) => {
   const stored = format(value);
   const [draft, setDraft] = useState(stored);
   const timerRef = useRef(0);
@@ -124,7 +130,7 @@ const AutosaveField = ({ value = '', format, onSave, className, ...inputProps })
       onBlur={() => {
         editingRef.current = false;
         window.clearTimeout(timerRef.current);
-        save(draft);
+        Promise.resolve(save(draft)).finally(() => onIdle?.());
       }}
       onKeyDown={(event) => {
         if (event.key !== 'Enter') return;
@@ -140,7 +146,7 @@ const AutosaveField = ({ value = '', format, onSave, className, ...inputProps })
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', onSave, onWriteClaim, titleRef }) => {
+const Title = ({ title = '', claim = '', onSave, onWriteClaim, onClaimSettled, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -176,6 +182,7 @@ const Title = ({ title = '', claim = '', onSave, onWriteClaim, titleRef }) => {
           value={claim}
           format={oneSentence}
           onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
+          onIdle={onClaimSettled}
         />
       </div>
       {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
@@ -197,11 +204,12 @@ const BeliefLink = ({ to, title, claim }) => (
 const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const reduced = usePrefersReducedMotion();
 
   const leave = (run) => {
     onHint?.('');
     setLeaving(true);
-    window.setTimeout(run, 200);
+    window.setTimeout(run, reduced ? 0 : 200);
   };
 
   return (
@@ -591,6 +599,18 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [researchReview, setResearchReview] = useState(null);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
+  const [libraryAttempt, setLibraryAttempt] = useState(0);
+  const systemStatus = useSystemStatusControls();
+  const opinionRevisionIdRef = useRef('');
+  const pageRef = useRef(page);
+
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  useEffect(() => {
+    opinionRevisionIdRef.current = '';
+  }, [pageId]);
 
   useEffect(() => {
     if (!arrivingId) return undefined;
@@ -609,18 +629,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   useEffect(() => {
     let cancelled = false;
     if (!initialPage) setLoading(true);
-    setInbox([]);
-    /* The library already spoke. Start that read with the page, but do not
-       hold the prior for it — empty mornings stay silent, and a slow library
-       must not delay the claim. */
-    Promise.resolve()
-      .then(() => getJudgmentLibraryEvidence(pageId))
-      .then((found) => {
-        if (!cancelled) setInbox(Array.isArray(found?.candidates) ? found.candidates : []);
-      })
-      .catch(() => {
-        if (!cancelled) setInbox([]);
-      });
     (async () => {
       try {
         // Reading what arrived overnight is a read. It must not touch the
@@ -651,6 +659,57 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     })();
     return () => { cancelled = true; };
   }, [initialPage, pageId]);
+
+  /* Library evidence is supporting context, never a release gate. Quiet
+     mornings stay silent. The topbar speaks only if the read runs long or
+     fails — not a toast, and not an alarm on the case. */
+  useEffect(() => {
+    let cancelled = false;
+    let announced = false;
+    setInbox([]);
+
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      announced = true;
+      systemStatus.setBackgroundWork({
+        label: 'Looking in your library',
+        stage: 'Reading what you already saved'
+      });
+    }, LIBRARY_PREFETCH_BUSY_MS);
+
+    const settle = () => {
+      window.clearTimeout(timer);
+      if (announced) systemStatus.setBackgroundWork(null);
+    };
+
+    Promise.resolve()
+      .then(() => getJudgmentLibraryEvidence(pageId))
+      .then((found) => {
+        if (cancelled) return;
+        settle();
+        setInbox(Array.isArray(found?.candidates) ? found.candidates : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        settle();
+        setInbox([]);
+        systemStatus.setRecoverableFailure({
+          stage: 'Library evidence',
+          message: 'Your library could not be read for this claim.',
+          retryable: true,
+          retry: () => {
+            systemStatus.clearRecoverableFailure();
+            setLibraryAttempt(current => current + 1);
+          }
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (announced) systemStatus.setBackgroundWork(null);
+    };
+  }, [pageId, libraryAttempt, systemStatus]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
 
@@ -825,16 +884,22 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [pageId, researchReview, researchReviewBusy]);
 
   /* The opinion is the claim. Writing it leaves the name alone; a judgment
-     without a sentence is not a judgment, so an empty field never saves. */
+     without a sentence is not a judgment, so an empty field never saves. A
+     change is dated in the log so a mind-change is not a silent rewrite. */
   const writeClaim = useCallback(async (sentence) => {
     const next = oneSentence(sentence);
     if (!next) return;
-    await commit({ ...(page?.judgment || {}), currentJudgment: next });
+    if (!opinionRevisionIdRef.current) opinionRevisionIdRef.current = newLineId('whatIDid');
+    const current = pageRef.current;
+    const judgment = reviseCurrentJudgment(current, next, opinionRevisionIdRef.current);
+    if (judgment === (current?.judgment || {})) return;
+    pageRef.current = { ...current, judgment };
+    await commit(judgment);
     const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
     if (researchReview?.status === 'awaiting_review' && next !== prior) {
       await resolveResearchReview('revised');
     }
-  }, [commit, page, researchReview, resolveResearchReview]);
+  }, [commit, researchReview, resolveResearchReview]);
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
@@ -873,6 +938,21 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [busy, writeAccepted]);
 
+  const dismissOvernight = useCallback(async (proposal) => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    setOvernight(null);
+    try {
+      await commit(dismissOvernightLine(page, proposal?.id));
+    } catch (saveError) {
+      setError(saveError?.response?.data?.error || 'That line could not be dismissed. It will still be here in the morning.');
+      setOvernight(proposal);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, commit, page]);
+
   const arriving = useMemo(() => takeFirstPaint(`judgment:${pageId}`), [pageId]);
   const step = (n) => (arriving ? `wfp-anim wfp-anim--${n}` : 'judgment-return');
 
@@ -903,7 +983,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
             proposal={overnight}
             busy={busy}
             onAccept={acceptOvernight}
-            onDismiss={() => setOvernight(null)}
+            onDismiss={dismissOvernight}
             onHint={setKindHint}
           />
         </div>
@@ -931,6 +1011,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         claim={view.claim}
         onSave={rename}
         onWriteClaim={writeClaim}
+        onClaimSettled={() => { opinionRevisionIdRef.current = ''; }}
         titleRef={claimRef}
       />
       {view.provenance ? (

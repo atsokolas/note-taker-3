@@ -526,12 +526,35 @@ export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) =>
   .filter(item => item.id && item.sentence)
   .sort((left, right) => (time(right.updatedAt) || 0) - (time(left.updatedAt) || 0));
 
+/* Overnight silence is per case. A global event ignore would hide the same
+   filing from every other claim it touched. These ids live on the judgment
+   blob so tomorrow’s open can be honestly empty. */
+const dismissedOvernightIds = (judgment = {}) => {
+  const seen = new Set();
+  return list(judgment.dismissedOvernightEventIds)
+    .map(value => idOf(value) || clean(value))
+    .filter((id) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+};
+
+const filedOvernightOrigins = (judgment = {}) => new Set(
+  [...whyLines(judgment), ...againstLines(judgment)]
+    .map(line => clean(line.acceptedFrom))
+    .filter(Boolean)
+);
+
 /* The overnight line: one sentence about what arrived while the human was not
    here. It is a proposal — it sits above the claim until the human accepts it
    into Why or Against, or dismisses it. It never writes itself in. */
 export const selectOvernightLine = (page, events = []) => {
   const pageId = idOf(page);
   if (!pageId) return null;
+  const judgment = page?.judgment || {};
+  const silenced = new Set(dismissedOvernightIds(judgment));
+  const filed = filedOvernightOrigins(judgment);
   const candidates = list(events)
     .filter(event => list(event?.affectedPageIds).map(idOf).includes(pageId))
     .filter(event => clean(event?.status) !== 'ignored')
@@ -542,6 +565,7 @@ export const selectOvernightLine = (page, events = []) => {
       detail: oneSentence(event?.summary, 140)
     }))
     .filter(event => event.id && event.title)
+    .filter(event => !silenced.has(event.id) && !filed.has(event.id))
     .sort((left, right) => (time(right.at) || 0) - (time(left.at) || 0));
   const latest = candidates[0];
   if (!latest) return null;
@@ -558,6 +582,19 @@ export const selectOvernightLine = (page, events = []) => {
     // record's.
     body: body.charAt(0).toUpperCase() + body.slice(1),
     sourceLabel: ''
+  };
+};
+
+/** Persist that this case has heard the overnight line and let it go. */
+export const dismissOvernightLine = (page, eventId) => {
+  const judgment = page?.judgment || {};
+  const id = idOf(eventId);
+  if (!id) return judgment;
+  const existing = dismissedOvernightIds(judgment);
+  if (existing.includes(id)) return judgment;
+  return {
+    ...judgment,
+    dismissedOvernightEventIds: [...existing, id]
   };
 };
 
@@ -866,6 +903,23 @@ export const upsertLineIntoJudgment = (page, text, field, lineId) => {
   }
 
   return judgment;
+};
+
+/* Changing what you hold is a mind-change, not a silent rewrite. The claim
+   updates, and a dated Did line records that it did. Why and Against keep
+   the dates they were written. An empty field is not a new opinion. Pass a
+   lineId to rewrite the in-progress revision instead of stacking another. */
+export const reviseCurrentJudgment = (page, sentence, lineId = '') => {
+  const next = oneSentence(sentence);
+  const judgment = page?.judgment || {};
+  if (!next) return judgment;
+  const previous = oneSentence(judgment.currentJudgment);
+  if (next === previous) return judgment;
+  const nextPage = { ...page, judgment: { ...judgment, currentJudgment: next } };
+  const note = `Changed what I hold: ${next}`;
+  return lineId
+    ? upsertLineIntoJudgment(nextPage, note, 'whatIDid', lineId)
+    : writeLineIntoJudgment(nextPage, note, 'whatIDid');
 };
 
 /* Writing a judgment down, wherever you are when you decide to.
