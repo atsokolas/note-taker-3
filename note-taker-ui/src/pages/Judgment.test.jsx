@@ -6,6 +6,7 @@ import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { resetFirstPaint } from '../motion/columnMotion';
+import { SystemStatusProvider } from '../system/SystemStatusContext';
 import {
   getCompanyDossierJudgmentReview,
   getJudgmentLibraryEvidence,
@@ -115,6 +116,15 @@ const withRail = (children) => (
 const renderDetail = () => {
   jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-nvidia' });
   return render(withRail(<Judgment />));
+};
+
+const renderDetailWithStatus = (controls) => {
+  jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-nvidia' });
+  return render(
+    <SystemStatusProvider value={controls}>
+      {withRail(<Judgment />)}
+    </SystemStatusProvider>
+  );
 };
 
 const renderIndex = () => {
@@ -339,10 +349,12 @@ describe('Judgment claim', () => {
   });
 
   it('rewrites the opinion without renaming the case', async () => {
-    getWikiPage.mockResolvedValue(judgmentPage());
+    const dated = judgmentPage();
+    dated.judgment.why[0].createdAt = '2026-02-14T12:00:00.000Z';
+    getWikiPage.mockResolvedValue(dated);
     updateWikiPage.mockImplementation(async (_id, body) => ({
-      ...judgmentPage(),
-      judgment: body.judgment || judgmentPage().judgment
+      ...dated,
+      judgment: body.judgment || dated.judgment
     }));
 
     renderDetail();
@@ -355,8 +367,19 @@ describe('Judgment claim', () => {
     const [, body] = updateWikiPage.mock.calls[0];
     expect(body.title).toBeUndefined();
     expect(body.judgment.currentJudgment).toBe('I am bullish NVIDIA compute.');
-    expect(body.judgment.why).toEqual(judgmentPage().judgment.why);
+    expect(body.judgment.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
+    expect(body.judgment.why.map(line => line.text)).toEqual(dated.judgment.why.map(line => line.text));
+    expect(body.judgment.against).toEqual(dated.judgment.against);
+    expect(body.judgment.decisions.at(-1)).toMatchObject({
+      summary: 'Changed what I hold: I am bullish NVIDIA compute.',
+      status: 'taken'
+    });
+    expect(body.judgment.decisions.at(-1).decidedAt).toEqual(expect.any(String));
     expect(screen.getByLabelText('Title')).toHaveValue('NVIDIA');
+    await waitFor(() => {
+      expect(document.querySelector('.judgment-log__row--did .judgment-log__text'))
+        .toHaveTextContent('Changed what I hold: I am bullish NVIDIA compute.');
+    });
   });
 
   it('asks the owner to review accepted dossier research without changing the judgment', async () => {
@@ -549,16 +572,46 @@ describe('the overnight line', () => {
     expect(updateWikiPage.mock.calls[0][1].judgment.why).toHaveLength(3);
   });
 
-  it('evaporates on Dismiss and writes nothing', async () => {
+  it('evaporates on Dismiss, persists the id, and writes nothing into Why or Against', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
+    updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
 
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalledTimes(1));
+    const [, body] = updateWikiPage.mock.calls[0];
+    expect(body.judgment.dismissedOvernightEventIds).toEqual(['event-1']);
+    expect(body.judgment.why).toEqual(judgmentPage().judgment.why);
+    expect(body.judgment.against).toEqual(judgmentPage().judgment.against);
     await waitFor(() => expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument());
-    expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
+  it('does not resurrect a dismissed overnight line after remount', async () => {
+    const stored = { dismissedOvernightEventIds: [] };
+    getWikiPage.mockImplementation(async () => {
+      const loaded = judgmentPage();
+      loaded.judgment.dismissedOvernightEventIds = [...stored.dismissedOvernightEventIds];
+      return loaded;
+    });
+    listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
+    updateWikiPage.mockImplementation(async (_id, updates) => {
+      stored.dismissedOvernightEventIds = [...(updates.judgment.dismissedOvernightEventIds || [])];
+      return { ...judgmentPage(), judgment: updates.judgment };
+    });
+
+    const first = renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Dismiss' }));
+    await waitFor(() => expect(stored.dismissedOvernightEventIds).toEqual(['event-1']));
+    await waitFor(() => expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument());
+
+    first.unmount();
+    renderDetail();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument();
   });
 
   it('never reads the daily loop, so the morning paper cursor is untouched', async () => {
@@ -568,6 +621,51 @@ describe('the overnight line', () => {
 
     await screen.findByRole('heading', { level: 1 });
     expect(listWikiSourceEvents).toHaveBeenCalled();
+  });
+
+  it('keeps Why and Against as buttons, even when the inbox is offering the same words', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({
+      claim: 'c',
+      terms: [],
+      candidates: [{
+        id: 'highlight:a1:h1',
+        text: 'Deliverable capacity lags demand by roughly two years.',
+        sourceLabel: 'On compute · FT'
+      }]
+    });
+    getWikiPage.mockResolvedValue(judgmentPage());
+    listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
+
+    renderDetail();
+    await screen.findByText(/Overnight: A 13F filing was posted\./);
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    const overnight = screen.getByRole('group', { name: 'Overnight agent line' });
+    expect(within(overnight).getByRole('button', { name: 'Why' })).toBeInTheDocument();
+    expect(within(overnight).getByRole('button', { name: 'Against' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Why' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab', { name: 'Against' })).toHaveLength(1);
+  });
+
+  it('does not write overnight into the composer draft', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
+    updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
+
+    renderDetail();
+    const input = await screen.findByLabelText('Why do you believe it?');
+    fireEvent.change(input, { target: { value: 'A typed why.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Overnight agent line' })).getByRole('button', { name: 'Against' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const overnightSave = updateWikiPage.mock.calls.find(([, body]) => (
+      (body.judgment.against || []).some(line => /13F/.test(line.text))
+    ));
+    expect(overnightSave).toBeTruthy();
+    expect(overnightSave[1].judgment.why.map(line => line.text)).not.toContain('A typed why.');
+    expect(overnightSave[1].judgment.against.at(-1).reasonId || '').not.toMatch(/^why_/);
+    expect(input).toHaveValue('A typed why.');
   });
 });
 
@@ -736,48 +834,175 @@ describe('Evidence from the library', () => {
     getWikiPage.mockResolvedValue(judgmentPage());
   });
 
-  it('is a door, not a panel — nothing is fetched until it is opened', async () => {
+  it('opens the prior without waiting on the library inbox', async () => {
+    let resolveEvidence;
+    getJudgmentLibraryEvidence.mockImplementation(() => new Promise((resolve) => {
+      resolveEvidence = resolve;
+    }));
+
     renderDetail();
-    await screen.findByLabelText('Title');
-    expect(getJudgmentLibraryEvidence).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Look in your library →' })).toBeInTheDocument();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+    expect(screen.queryByText(candidate.text)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveEvidence({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+    });
+    expect(await screen.findByText(candidate.text)).toBeInTheDocument();
   });
 
-  it('offers what the library holds, and files the side the reader chooses', async () => {
+  it('shows library passages in the composer without a door', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+
+    renderDetail();
+
+    expect(await screen.findByText(candidate.text)).toBeInTheDocument();
+    expect(getJudgmentLibraryEvidence).toHaveBeenCalledWith('wiki-nvidia');
+    expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
+    expect(screen.queryByText('File under')).not.toBeInTheDocument();
+    expect(screen.queryByText('On compute · FT')).not.toBeInTheDocument();
+    const inbox = screen.getByRole('region', { name: 'From your library' });
+    expect(within(inbox).getByRole('button', { name: 'Why' })).toBeInTheDocument();
+    expect(within(inbox).getByRole('button', { name: 'Against' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
+  });
+
+  it('files an inbox line under Why, and the line leaves the inbox for the log', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
 
     renderDetail();
-    await screen.findByLabelText('Title');
-    fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
-
-    expect(await screen.findByText(candidate.text)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open in Library' }))
-      .toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
-    expect(screen.queryByText('On compute · FT')).not.toBeInTheDocument();
-    // And the product does not pretend to know which side it falls on.
-    expect(screen.getByText('File under')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Against' }));
+    const inbox = await screen.findByRole('region', { name: 'From your library' });
+    fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
     const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
-    const filed = body.judgment.against[body.judgment.against.length - 1];
+    const filed = body.judgment.why[body.judgment.why.length - 1];
     expect(filed).toMatchObject({
       text: candidate.text,
       sourceLabel: 'On compute · FT',
       acceptedFrom: 'highlight:a1:h1'
     });
+    expect(filed.createdAt).toEqual(expect.any(String));
     expect(await screen.findByRole('link', { name: 'Source 3: On compute · FT' }))
       .toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'From your library' })).not.toBeInTheDocument();
+    });
   });
 
-  it('says plainly when the library has nothing to say about a claim you hold', async () => {
+  it('files the passage itself once Why is selected on the rail', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+
+    renderDetail();
+    await screen.findByText(candidate.text);
+    fireEvent.click(screen.getByRole('radio', { name: 'Why' }));
+    fireEvent.click(screen.getByRole('button', { name: candidate.text }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    expect(body.judgment.why.at(-1).text).toBe(candidate.text);
+  });
+
+  it('stays silent when the library has nothing to say', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [] });
     renderDetail();
     await screen.findByLabelText('Title');
-    fireEvent.click(screen.getByRole('button', { name: 'Look in your library →' }));
-    expect(await screen.findByText(/Nothing you have saved speaks to this yet/)).toBeInTheDocument();
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
+    expect(screen.queryByText(/Nothing you have saved speaks to this yet/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'From your library' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+  });
+
+  it('reports a failed library prefetch through system status, not a toast or the case', async () => {
+    const controls = {
+      setBackgroundWork: jest.fn(),
+      setLatestReceipt: jest.fn(),
+      clearRecentReceipts: jest.fn(),
+      setRecoverableFailure: jest.fn(),
+      clearRecoverableFailure: jest.fn(),
+      resetSystemStatus: jest.fn()
+    };
+    getJudgmentLibraryEvidence.mockRejectedValue(new Error('library down'));
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetailWithStatus(controls);
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    await waitFor(() => expect(controls.setRecoverableFailure).toHaveBeenCalled());
+    expect(controls.setRecoverableFailure).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'Library evidence',
+      retryable: true
+    }));
+    expect(controls.setLatestReceipt).not.toHaveBeenCalled();
+    expect(screen.queryByText(/could not be read/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/toast/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
+  });
+
+  it('does not announce a quiet library read in system status', async () => {
+    const controls = {
+      setBackgroundWork: jest.fn(),
+      setLatestReceipt: jest.fn(),
+      clearRecentReceipts: jest.fn(),
+      setRecoverableFailure: jest.fn(),
+      clearRecoverableFailure: jest.fn(),
+      resetSystemStatus: jest.fn()
+    };
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [] });
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetailWithStatus(controls);
+
+    await screen.findByLabelText('Title');
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
+    expect(controls.setBackgroundWork).not.toHaveBeenCalled();
+    expect(controls.setRecoverableFailure).not.toHaveBeenCalled();
+    expect(controls.setLatestReceipt).not.toHaveBeenCalled();
+  });
+
+  it('keeps a long inbox to a few lines, with more…', async () => {
+    const many = Array.from({ length: 5 }, (_, index) => ({
+      id: `highlight:a1:h${index}`,
+      text: `Passage ${index} about capacity.`,
+      sourceLabel: 'FT'
+    }));
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: many });
+
+    renderDetail();
+    expect(await screen.findByText('Passage 0 about capacity.')).toBeInTheDocument();
+    expect(screen.queryByText('Passage 3 about capacity.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'more…' }));
+    expect(screen.getByText('Passage 3 about capacity.')).toBeInTheDocument();
+  });
+
+  it('whispers a source that already speaks in the log', async () => {
+    const kinCandidate = {
+      id: 'highlight:a9:h9',
+      text: 'A later note on the same SemiAnalysis thread.',
+      sourceLabel: 'SemiAnalysis'
+    };
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [kinCandidate] });
+
+    renderDetail();
+    fireEvent.mouseEnter(await screen.findByText(kinCandidate.text));
+    expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
+    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
+  });
+
+  it('lights Why on the rail from the inbox line', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+
+    renderDetail();
+    const inbox = await screen.findByRole('region', { name: 'From your library' });
+    fireEvent.click(screen.getByRole('radio', { name: 'Against' }));
+    expect(screen.getByRole('radio', { name: 'Against' })).toBeChecked();
+    fireEvent.mouseEnter(within(inbox).getByRole('button', { name: 'Why' }));
+    expect(screen.getByRole('radio', { name: 'Why' })).toHaveAttribute('data-hint', 'true');
   });
 });
 

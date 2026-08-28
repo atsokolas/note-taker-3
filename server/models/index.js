@@ -545,7 +545,8 @@ const wikiJudgmentSchema = new mongoose.Schema({
   falsifiers: { type: [judgmentFalsifierSchema], default: [] },
   decisions: { type: [judgmentDecisionSchema], default: [] },
   lessons: { type: [judgmentLessonSchema], default: [] },
-  dependsOn: { type: [judgmentDependencySchema], default: [] }
+  dependsOn: { type: [judgmentDependencySchema], default: [] },
+  dismissedOvernightEventIds: { type: [String], default: [] }
 }, { _id: false });
 
 const wikiClaimSchema = new mongoose.Schema({

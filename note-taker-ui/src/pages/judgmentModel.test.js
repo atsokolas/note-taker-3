@@ -2,14 +2,17 @@ import {
   acceptProposalIntoJudgment,
   buildJudgmentIndex,
   claimSentence,
+  dismissOvernightLine,
   docText,
   judgmentHeadline,
   namedTitle,
   oneSentence,
   projectJudgment,
   provenanceLine,
+  reviseCurrentJudgment,
   selectOvernightLine,
-  sourceHrefFromOrigin
+  sourceHrefFromOrigin,
+  writeLineIntoJudgment
 } from './judgmentModel';
 
 const NOW = new Date('2026-08-14T09:30:00.000Z').getTime();
@@ -241,6 +244,85 @@ describe('judgmentModel', () => {
     expect(lowercase.sentence).toBe('Overnight: a 13F filing. It does not touch the capacity gap.');
     expect(lowercase.body).toBe('A 13F filing. It does not touch the capacity gap.');
     expect(selectOvernightLine(page(), [events[1]])).toBeNull();
+  });
+
+  it('does not resurrect a dismissed overnight line, and still files', () => {
+    const events = [{
+      _id: 'event-1',
+      affectedPageIds: ['wiki-nvidia'],
+      title: 'A 13F filing was posted',
+      createdAt: '2026-08-14T04:00:00.000Z'
+    }];
+    const dismissed = dismissOvernightLine(page(), 'event-1');
+    expect(dismissed.dismissedOvernightEventIds).toEqual(['event-1']);
+    expect(dismissOvernightLine({ judgment: dismissed }, 'event-1').dismissedOvernightEventIds).toEqual(['event-1']);
+    expect(selectOvernightLine({ ...page(), judgment: dismissed }, events)).toBeNull();
+    expect(dismissed.why.map(line => line.text)).toEqual(page().judgment.why.map(line => line.text));
+
+    const filed = writeLineIntoJudgment({ ...page(), judgment: dismissed }, 'A later reason.', 'why');
+    expect(filed.dismissedOvernightEventIds).toEqual(['event-1']);
+    expect(filed.why.at(-1).text).toBe('A later reason.');
+  });
+
+  it('skips an overnight line already filed under Why or Against', () => {
+    const events = [{
+      _id: 'event-1',
+      affectedPageIds: ['wiki-nvidia'],
+      title: 'A 13F filing was posted',
+      createdAt: '2026-08-14T04:00:00.000Z'
+    }];
+    const filed = acceptProposalIntoJudgment(page(), { id: 'event-1', body: 'A 13F filing was posted.' }, 'against');
+    expect(selectOvernightLine({ ...page(), judgment: filed }, events)).toBeNull();
+  });
+
+  it('picks the next overnight line after the latest is dismissed', () => {
+    const events = [
+      {
+        _id: 'event-new',
+        affectedPageIds: ['wiki-nvidia'],
+        title: 'A later filing',
+        createdAt: '2026-08-15T04:00:00.000Z'
+      },
+      {
+        _id: 'event-old',
+        affectedPageIds: ['wiki-nvidia'],
+        title: 'An earlier filing',
+        createdAt: '2026-08-14T04:00:00.000Z'
+      }
+    ];
+    const dismissed = dismissOvernightLine(page(), 'event-new');
+    expect(selectOvernightLine({ ...page(), judgment: dismissed }, events).id).toBe('event-old');
+  });
+
+  it('dates a change of opinion as a ledger line and leaves the reasons alone', () => {
+    const dated = {
+      ...page(),
+      judgment: {
+        ...page().judgment,
+        why: page().judgment.why.map((line, index) => (
+          index === 0 ? { ...line, createdAt: '2026-02-14T12:00:00.000Z' } : line
+        ))
+      }
+    };
+    const next = reviseCurrentJudgment(dated, 'I am bullish NVIDIA compute.');
+    expect(next.currentJudgment).toBe('I am bullish NVIDIA compute.');
+    expect(next.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
+    expect(next.why.map(line => line.text)).toEqual(dated.judgment.why.map(line => line.text));
+    expect(next.decisions.at(-1)).toMatchObject({
+      summary: 'Changed what I hold: I am bullish NVIDIA compute.',
+      status: 'taken'
+    });
+    expect(next.decisions.at(-1).decidedAt).toEqual(expect.any(String));
+    expect(reviseCurrentJudgment(dated, '   ')).toBe(dated.judgment);
+    expect(reviseCurrentJudgment(dated, dated.judgment.currentJudgment).decisions)
+      .toEqual(dated.judgment.decisions);
+
+    const first = reviseCurrentJudgment(dated, 'I am bullish.', 'whatIDid_rev');
+    const second = reviseCurrentJudgment({ judgment: first }, 'I am bullish NVIDIA compute.', 'whatIDid_rev');
+    expect(second.decisions.filter(line => line.decisionId === 'whatIDid_rev')).toHaveLength(1);
+    expect(second.decisions.at(-1).summary).toBe('Changed what I hold: I am bullish NVIDIA compute.');
+    expect(second.decisions.at(-1).decidedAt).toBe(first.decisions.at(-1).decidedAt);
+    expect(second.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
   });
 
   it('appends an accepted line without touching the lines already there', () => {

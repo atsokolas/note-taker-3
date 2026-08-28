@@ -3,11 +3,14 @@ import { Link } from 'react-router-dom';
 import useCssMagneticLerp from '../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { formatLedgerDate, newLineId } from './judgmentModel';
-import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry } from './judgmentLog';
+import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate } from './judgmentLog';
 
 const AUTOSAVE_PAUSE_MS = 700;
 const KIND_MARK = 22;
+const INBOX_OPEN = 3;
+const LEAVE_MS = 200;
 const isExternal = (href = '') => /^https?:\/\//i.test(href);
+const FILE_KINDS = new Set(['why', 'against']);
 
 const KINDS = [
   { field: 'why', label: 'Why', prompt: 'Why do you believe it?' },
@@ -36,7 +39,8 @@ const markOffset = (rail, clientX) => {
 };
 
 const activeMarkOffset = (rail) => {
-  const active = rail.querySelector('[aria-checked="true"]');
+  const hinted = rail.querySelector('[data-hint="true"]');
+  const active = hinted || rail.querySelector('[aria-checked="true"]');
   if (!active) return 0;
   const railRect = rail.getBoundingClientRect();
   const buttonRect = active.getBoundingClientRect();
@@ -65,7 +69,7 @@ const CitationMark = ({ source, onKin }) => {
 };
 
 const LogRow = ({ entry, kin, arriving, onKin }) => {
-  const related = kin != null && entry.sources.some(source => source.n === kin.n);
+  const related = kin != null && kin.n != null && entry.sources.some(source => source.n === kin.n);
   const when = formatLedgerDate(entry.at);
   return (
     <li
@@ -92,7 +96,7 @@ const LogRow = ({ entry, kin, arriving, onKin }) => {
   );
 };
 
-const KindRail = ({ kind, onKind }) => {
+const KindRail = ({ kind, hintKind, onKind }) => {
   const magnetic = useCssMagneticLerp('--kind-x', 0.28);
   const fine = useFinePointer();
   const reduced = usePrefersReducedMotion();
@@ -110,7 +114,7 @@ const KindRail = ({ kind, onKind }) => {
   useEffect(() => {
     rest(!placed.current);
     placed.current = true;
-  }, [kind, rest]);
+  }, [kind, hintKind, rest]);
 
   return (
     <div
@@ -132,7 +136,11 @@ const KindRail = ({ kind, onKind }) => {
           type="button"
           role="radio"
           aria-checked={kind === option.field}
-          className={kind === option.field ? 'is-active' : ''}
+          data-hint={hintKind === option.field ? 'true' : undefined}
+          className={[
+            kind === option.field ? 'is-active' : '',
+            hintKind === option.field ? 'is-hint' : ''
+          ].filter(Boolean).join(' ')}
           onClick={() => onKind(option.field)}
         >
           {option.label}
@@ -142,7 +150,169 @@ const KindRail = ({ kind, onKind }) => {
   );
 };
 
-const UpdateComposer = ({ onWrite, onPending, onSettle }) => {
+const KindWords = ({ kind, disabled, onHint, onChoose }) => (
+  <span className="judgment__kind-words">
+    {['why', 'against'].map((field) => (
+      <button
+        key={field}
+        type="button"
+        className={kind === field ? 'is-lit' : ''}
+        disabled={disabled}
+        onMouseEnter={() => onHint?.(field)}
+        onMouseLeave={() => onHint?.('')}
+        onFocus={() => onHint?.(field)}
+        onBlur={() => onHint?.('')}
+        onClick={() => onChoose?.(field)}
+      >
+        {field === 'why' ? 'Why' : 'Against'}
+      </button>
+    ))}
+  </span>
+);
+
+const InboxLine = ({
+  candidate,
+  kind,
+  leaving,
+  filing,
+  kin,
+  match,
+  onKin,
+  onHint,
+  onFile,
+  onPress
+}) => {
+  const related = kin != null && kin.n != null && match?.n === kin.n;
+  const fileable = FILE_KINDS.has(kind);
+  const whisper = match || null;
+
+  return (
+    <li
+      className={[
+        'judgment-inbox__line',
+        leaving ? 'is-leaving' : '',
+        related ? 'is-kin' : ''
+      ].filter(Boolean).join(' ')}
+    >
+      <p className="judgment-inbox__passage">
+        {fileable ? (
+          <button
+            type="button"
+            className="judgment-inbox__text"
+            disabled={filing}
+            onMouseEnter={() => whisper && onKin?.(whisper)}
+            onMouseLeave={() => onKin?.(null)}
+            onFocus={() => whisper && onKin?.(whisper)}
+            onBlur={() => onKin?.(null)}
+            onClick={() => onPress(candidate)}
+          >
+            {candidate.text}
+          </button>
+        ) : (
+          <span
+            className="judgment-inbox__text"
+            onMouseEnter={() => whisper && onKin?.(whisper)}
+            onMouseLeave={() => onKin?.(null)}
+          >
+            {candidate.text}
+          </span>
+        )}
+        {match?.n != null ? (
+          <sup className="judgment__cites">
+            <CitationMark source={match} onKin={onKin} />
+          </sup>
+        ) : null}
+      </p>
+      <KindWords
+        kind={kind}
+        disabled={filing}
+        onHint={onHint}
+        onChoose={(field) => onFile(candidate, field)}
+      />
+    </li>
+  );
+};
+
+const MorningInbox = ({
+  candidates = [],
+  kind,
+  view,
+  kin,
+  onKin,
+  onHint,
+  onFile
+}) => {
+  const [open, setOpen] = useState(false);
+  const [leavingId, setLeavingId] = useState('');
+  const [filingId, setFilingId] = useState('');
+  const [dismissed, setDismissed] = useState([]);
+  const reduced = usePrefersReducedMotion();
+  const remaining = candidates.filter(candidate => !dismissed.includes(candidate.id));
+  const visible = open ? remaining : remaining.slice(0, INBOX_OPEN);
+  const hidden = Math.max(0, remaining.length - visible.length);
+  const listening = kin != null && kin.n != null;
+
+  const file = async (candidate, field) => {
+    if (filingId || !FILE_KINDS.has(field)) return;
+    setFilingId(candidate.id);
+    try {
+      const filed = await onFile(candidate, field);
+      if (filed === false) return;
+      setLeavingId(candidate.id);
+      const wait = reduced ? 0 : LEAVE_MS;
+      if (wait) await new Promise(resolve => window.setTimeout(resolve, wait));
+      setDismissed(current => (current.includes(candidate.id) ? current : [...current, candidate.id]));
+    } finally {
+      setFilingId('');
+    }
+  };
+
+  if (!remaining.length) return null;
+
+  return (
+    <div
+      className={`judgment-inbox${listening ? ' is-listening' : ''}`}
+      role="region"
+      aria-label="From your library"
+    >
+      <ol className="judgment-inbox__list">
+        {visible.map(candidate => (
+          <InboxLine
+            key={candidate.id}
+            candidate={candidate}
+            kind={kind}
+            leaving={leavingId === candidate.id}
+            filing={Boolean(filingId)}
+            kin={kin}
+            match={sourceKinForCandidate(view, candidate)}
+            onKin={onKin}
+            onHint={onHint}
+            onFile={file}
+            onPress={(item) => file(item, kind)}
+          />
+        ))}
+      </ol>
+      {hidden ? (
+        <button type="button" className="judgment-inbox__more" onClick={() => setOpen(true)}>
+          more…
+        </button>
+      ) : null}
+    </div>
+  );
+};
+
+const UpdateComposer = ({
+  onWrite,
+  onPending,
+  onSettle,
+  inbox = [],
+  onFile,
+  view,
+  kin,
+  onKin,
+  hintKind,
+  onHint
+}) => {
   const [kind, setKind] = useState('why');
   const [draft, setDraft] = useState('');
   const [state, setState] = useState('idle');
@@ -190,16 +360,38 @@ const UpdateComposer = ({ onWrite, onPending, onSettle }) => {
     return true;
   };
 
+  const chooseKind = async (next) => {
+    window.clearTimeout(timerRef.current);
+    if (draft.trim() && !(await finish())) return false;
+    lineIdRef.current = '';
+    if (next !== kind) setKind(next);
+    return true;
+  };
+
+  const fileInbox = async (candidate, field) => {
+    const ok = await chooseKind(field);
+    if (!ok) return false;
+    try {
+      await onFile?.(candidate, field);
+      return true;
+    } catch (failure) {
+      setWriteError(
+        failure?.response?.data?.error
+        || failure?.message
+        || 'That line was not saved.'
+      );
+      return false;
+    }
+  };
+
   return (
     <div className="judgment-composer">
       <KindRail
         kind={kind}
+        hintKind={hintKind}
         onKind={async (next) => {
           if (next === kind) return;
-          window.clearTimeout(timerRef.current);
-          if (draft.trim() && !(await finish())) return;
-          lineIdRef.current = '';
-          setKind(next);
+          await chooseKind(next);
         }}
       />
       <label className="sr-only" htmlFor="judgment-update">{prompt}</label>
@@ -228,6 +420,15 @@ const UpdateComposer = ({ onWrite, onPending, onSettle }) => {
         </span>
         {writeError ? <span role="alert">{writeError}</span> : null}
       </div>
+      <MorningInbox
+        candidates={inbox}
+        kind={kind}
+        view={view}
+        kin={kin}
+        onKin={onKin}
+        onHint={onHint}
+        onFile={fileInbox}
+      />
     </div>
   );
 };
@@ -266,10 +467,9 @@ const MonthFold = ({ group, kin, arrivingId, onKin, onToggle }) => {
   );
 };
 
-const JudgmentLog = ({ view, arrivingId, pendingId }) => {
+const JudgmentLog = ({ view, arrivingId, pendingId, kin, onKin }) => {
   const [filter, setFilter] = useState('all');
   const [unfolded, setUnfolded] = useState(() => new Set());
-  const [kin, setKin] = useState(null);
   const spine = useMemo(() => buildJudgmentLog(view), [view]);
   const groups = filterLog(
     omitEntry(
@@ -278,7 +478,8 @@ const JudgmentLog = ({ view, arrivingId, pendingId }) => {
     ),
     filter
   );
-  const speaking = kin
+  const listening = kin != null && kin.n != null;
+  const speaking = listening
     ? spine.flatMap(group => group.entries).filter(entry => entry.sources.some(source => source.n === kin.n)).length
     : 0;
 
@@ -292,7 +493,7 @@ const JudgmentLog = ({ view, arrivingId, pendingId }) => {
   };
 
   return (
-    <section className={`judgment-log${kin ? ' is-listening' : ''}`} aria-label="The case so far">
+    <section className={`judgment-log${listening ? ' is-listening' : ''}`} aria-label="The case so far">
       <div className="judgment-log__filters" role="tablist" aria-label="Show">
         {LOG_FILTERS.map((id) => (
           <button
@@ -319,7 +520,7 @@ const JudgmentLog = ({ view, arrivingId, pendingId }) => {
             group={group}
             kin={kin}
             arrivingId={arrivingId}
-            onKin={setKin}
+            onKin={onKin}
             onToggle={() => toggle(group.id)}
           />
         </div>
@@ -332,4 +533,4 @@ const JudgmentLog = ({ view, arrivingId, pendingId }) => {
   );
 };
 
-export { UpdateComposer, JudgmentLog };
+export { UpdateComposer, JudgmentLog, KindWords };

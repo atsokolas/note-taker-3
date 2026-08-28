@@ -1,4 +1,4 @@
-import { buildJudgmentLog, filterLog, omitEntry } from './judgmentLog';
+import { buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate } from './judgmentLog';
 
 const NOW = new Date('2026-08-14T12:00:00.000Z').getTime();
 
@@ -38,5 +38,22 @@ describe('the judgment log', () => {
   it('keeps a line still being typed out of the spine', () => {
     const [open] = omitEntry(buildJudgmentLog(view, NOW), 'w2');
     expect(open.entries.map(entry => entry.id)).toEqual(['w1', 'a1']);
+  });
+});
+
+describe('sourceKinForCandidate', () => {
+  it('shares a numbered source when the inbox already speaks in the log', () => {
+    const match = sourceKinForCandidate(view, {
+      id: 'highlight:a1:h1',
+      sourceLabel: 'SemiAnalysis'
+    });
+    expect(match).toMatchObject({ n: 1, label: 'SemiAnalysis' });
+  });
+
+  it('still carries a name to whisper when the source is new', () => {
+    expect(sourceKinForCandidate(view, {
+      id: 'highlight:z:h',
+      sourceLabel: 'On compute · FT'
+    })).toEqual({ n: null, label: 'On compute · FT', href: '/library?articleId=z&highlightId=h' });
   });
 });

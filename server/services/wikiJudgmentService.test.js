@@ -147,6 +147,16 @@ const runReasonLists = () => {
   assert.strictEqual(legacy.strongestCounterargument, 'Pricing power may not survive the next cycle.');
   assert.deepStrictEqual(legacy.against, []);
 
+  const silenced = normalizeJudgment({
+    input: { ...base(), dismissedOvernightEventIds: ['event-1', '  ', 'event-2'] }
+  });
+  assert.deepStrictEqual(silenced.dismissedOvernightEventIds, ['event-1', 'event-2']);
+  const keptSilence = normalizeJudgment({
+    existing: silenced,
+    input: { ...base(), why: [{ text: 'A reason that does not un-silence morning.' }] }
+  });
+  assert.deepStrictEqual(keptSilence.dismissedOvernightEventIds, ['event-1', 'event-2']);
+
   // A blank line is a mistake, not a record.
   assert.throws(
     () => normalizeJudgment({ input: { ...base(), why: [{ text: '   ' }] } }),
