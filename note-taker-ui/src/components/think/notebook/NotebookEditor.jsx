@@ -11,6 +11,7 @@ import InsertReferenceModal from './InsertReferenceModal';
 import AgentSkillDock from '../../agent/AgentSkillDock';
 import EditorDraftShell from '../editor/EditorDraftShell';
 import useSlashCommands from '../editor/useSlashCommands';
+import useThinkWritingActivity from '../editor/useThinkWritingActivity';
 import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
 import useHighlights from '../../../hooks/useHighlights';
@@ -448,22 +449,7 @@ const NotebookEditor = ({
     window.requestAnimationFrame?.(() => editor?.commands.focus('end'));
   };
 
-  useEffect(() => {
-    if (!editor || !editingBody) {
-      document.body.classList.remove('think-writing-active');
-      return undefined;
-    }
-    const begin = () => document.body.classList.add('think-writing-active');
-    const end = () => document.body.classList.remove('think-writing-active');
-    editor.on('focus', begin);
-    editor.on('blur', end);
-    if (editor.isFocused) begin();
-    return () => {
-      editor.off('focus', begin);
-      editor.off('blur', end);
-      end();
-    };
-  }, [editor, editingBody]);
+  useThinkWritingActivity(editor, { enabled: editingBody });
 
   const slashCommands = useSlashCommands({
     editor,

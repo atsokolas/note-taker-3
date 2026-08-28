@@ -11,7 +11,14 @@ describe('Think writing focus mode', () => {
     expect(css).toContain("[data-writing-rail='right']:is(:hover, :focus-within)");
   });
 
-  it('keeps focus-mode motion removable', () => {
+  it('fades rails in and out instead of snapping them away', () => {
+    expect(css).toMatch(/\[data-writing-rail\] > \*[\s\S]*?transition:[\s\S]*?opacity 280ms/);
+    expect(css).toMatch(/body\.think-writing-active \[data-writing-rail\] > \*[\s\S]*?opacity: 0;/);
+  });
+
+  it('keeps a short opacity fade under reduced motion and skips rail retreat motion', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body\.think-writing-active \[data-writing-rail\]::after/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: opacity 80ms/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transform: none/);
   });
 });

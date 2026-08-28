@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
+import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
 const mockChain = {
@@ -120,6 +121,7 @@ describe('NotebookEditor', () => {
     mockEditor.state.selection.to = 0;
     delete mockEditor.state.doc;
     mockEditor.state.selection.$from.index.mockReturnValue(0);
+    document.body.classList.remove('think-writing-active');
   });
 
   it('renders a title-first drafting surface with a compact selection toolbar', () => {
@@ -351,6 +353,10 @@ describe('NotebookEditor', () => {
       />
     );
 
+    const writingUpdates = () => mockEditor.on.mock.calls.filter(([eventName, handler]) => (
+      eventName === 'update' && handler.length > 0
+    ));
+
     it('opens closed, and offers Edit rather than Save', () => {
       paint();
       expect(mockEditor.setEditable).toHaveBeenCalledWith(false);
@@ -393,6 +399,50 @@ describe('NotebookEditor', () => {
         expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 'note-1', title: 'Playing to Win' }));
       }, { timeout: 1800 });
       expect(screen.getByRole('status')).toHaveTextContent('Saved');
+    });
+
+    it('keeps rails visible on focus and fades them only after typing', () => {
+      paint();
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      const focusRegistration = mockEditor.on.mock.calls.find(([eventName]) => eventName === 'focus');
+      if (focusRegistration) {
+        act(() => focusRegistration[1]());
+      }
+      expect(document.body.classList.contains('think-writing-active')).toBe(false);
+
+      const updateRegistrations = writingUpdates();
+      expect(updateRegistrations.length).toBeGreaterThan(0);
+      act(() => {
+        updateRegistrations.forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
+      });
+      expect(document.body.classList.contains('think-writing-active')).toBe(true);
+    });
+
+    it('does not retreat rails for a selection-only update', () => {
+      paint();
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      act(() => {
+        writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: false } }));
+      });
+      expect(document.body.classList.contains('think-writing-active')).toBe(false);
+    });
+
+    it('restores rails after typing goes idle', () => {
+      jest.useFakeTimers();
+      try {
+        paint();
+        fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+        act(() => {
+          writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
+        });
+        expect(document.body.classList.contains('think-writing-active')).toBe(true);
+        act(() => {
+          jest.advanceTimersByTime(THINK_WRITING_IDLE_MS);
+        });
+        expect(document.body.classList.contains('think-writing-active')).toBe(false);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });
