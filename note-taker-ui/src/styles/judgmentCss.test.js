@@ -1,0 +1,29 @@
+const fs = require('fs');
+const path = require('path');
+
+const css = fs.readFileSync(path.join(__dirname, 'judgment.css'), 'utf8');
+
+describe('overnight as a note under the door', () => {
+  it('shares one paper edge for overnight and the library inbox', () => {
+    expect(css).toMatch(/\.judgment-slip\s*\{[^}]*margin-left:\s*-0\.55rem/s);
+    expect(css).toMatch(/\.judgment-slip\s*\{[^}]*border-left:\s*1px solid/s);
+    expect(css).toMatch(/\.judgment-slip\s*\{[^}]*--ink-agent/s);
+    expect(css).toMatch(/\.judgment-slip\s*\{[^}]*background:\s*transparent/s);
+    expect(css).toMatch(/\.judgment-slip\s*\{[^}]*box-shadow:\s*none/s);
+    expect(css).toMatch(/\.judgment-slip\s*\{[^}]*border-radius:\s*0/s);
+  });
+
+  it('does not paint overnight or the inbox as a card or glass tray', () => {
+    const slip = css.match(/\.judgment-slip\s*\{[^}]*\}/s)?.[0] || '';
+    expect(slip).not.toMatch(/backdrop-filter/);
+    expect(slip).not.toMatch(/rgba?\([^)]*0\.\d+\s*\)/);
+    expect(css).not.toMatch(/\.judgment__proposal[^{]*\{[^}]*box-shadow:\s*(?!none)[^;]+/s);
+    expect(css).not.toMatch(/\.judgment-inbox\s*\{[^}]*box-shadow:\s*(?!none)[^;]+/s);
+  });
+
+  it('lets overnight evaporate instantly when motion is reduced', () => {
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.judgment__proposal,[\s\S]*?transition:\s*none/
+    );
+  });
+});

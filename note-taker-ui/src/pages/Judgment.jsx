@@ -199,10 +199,9 @@ const BeliefLink = ({ to, title, claim }) => (
   </>
 );
 
-/* The overnight line: one sentence, then two words. Accept resolves in place
-   into the choice of field — the human decides which of the two it is — and the
-   line settles into that field. Dismiss evaporates it. Height eases either way
-   and nothing jumps; there is no toast, because the page itself is the receipt. */
+/* A note under the door: one sentence on the threshold of the claim, then
+   two words. Accept resolves in place into Why or Against; dismiss evaporates
+   it. Height eases either way and nothing jumps. Not a tray, not a toast. */
 const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -215,7 +214,11 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   };
 
   return (
-    <div className={`judgment__proposal${leaving ? ' is-leaving' : ''}`} role="group" aria-label="Overnight agent line">
+    <div
+      className={`judgment-slip judgment__proposal${leaving ? ' is-leaving' : ''}`}
+      role="group"
+      aria-label="Overnight agent line"
+    >
       <p className="judgment__proposal-sentence">{proposal.sentence}</p>
       {choosing ? (
         <KindWords
@@ -979,19 +982,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   return (
     <main className="judgment" aria-labelledby="judgment-claim">
-      {overnight ? (
-        <div className={step(1)}>
-          <OvernightLine
-            proposal={overnight}
-            busy={busy}
-            onAccept={acceptOvernight}
-            onDismiss={dismissOvernight}
-            onHint={setKindHint}
-          />
-        </div>
-      ) : null}
-
-      <div className={`judgment__meta ${step(2)}`}>
+      <div className={`judgment__meta ${step(1)}`}>
         <Link className="judgment__back" to="/judgment">← All judgments</Link>
         <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
           {printing ? 'Setting it…' : 'Print this as one page'}
@@ -1007,6 +998,18 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         />
       </div>
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
+
+      {overnight ? (
+        <div className={step(2)}>
+          <OvernightLine
+            proposal={overnight}
+            busy={busy}
+            onAccept={acceptOvernight}
+            onDismiss={dismissOvernight}
+            onHint={setKindHint}
+          />
+        </div>
+      ) : null}
 
       <Title
         key={pageId}
