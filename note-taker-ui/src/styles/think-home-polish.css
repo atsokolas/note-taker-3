@@ -7860,6 +7860,25 @@ a.wiki-claim-popover__item-title:focus-visible {
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent-primary, var(--noeis-action)) 62%, transparent);
 }
 
+.wiki-read__references li.is-kin {
+  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 10%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm, #b1862e)) 62%, transparent);
+}
+
+.wiki-read__article.is-listening .wiki-claim-citation:not(.is-kin) {
+  opacity: 0.38;
+}
+
+.wiki-read__article.is-listening .wiki-claim-citation.is-kin {
+  color: var(--wiki-warm-accent, var(--vellum-warm, #b1862e));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-read__article.is-listening .wiki-claim-citation:not(.is-kin) {
+    opacity: 1;
+  }
+}
+
 .wiki-read__reference-head {
   display: flex;
   gap: 7px;

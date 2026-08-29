@@ -267,7 +267,7 @@ const renderTextNode = (node, key, options = {}) => {
             <button
               type="button"
               id={footnoteId}
-              className="wiki-claim-citation"
+              className={`wiki-claim-citation${options.kinFootnote && (firstVisibleIndex ? `wiki-ref-${firstVisibleIndex}` : '') === options.kinFootnote ? ' is-kin' : ''}`}
               data-claim-id={attrs['data-claim-id']}
               data-support={attrs['data-support']}
               data-citation-indexes={indexes}

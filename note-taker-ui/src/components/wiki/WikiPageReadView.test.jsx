@@ -2471,6 +2471,21 @@ describe('WikiPageReadView', () => {
     expect(citation.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
+  it('lights the matching citation when you hover a footnote', async () => {
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    fireEvent.mouseOver(citation);
+
+    expect(citation.closest('article')).toHaveClass('is-listening');
+    expect(citation).toHaveClass('is-kin');
+    expect(document.getElementById('wiki-ref-1')).toHaveClass('is-kin');
+  });
+
   it('highlights a live edited paragraph and marks its table of contents section until clicked', async () => {
     const { rerender } = render(
       <MemoryRouter>

@@ -997,7 +997,7 @@ const WikiReferenceComposer = ({ pageId, pageTitle }) => {
   );
 };
 
-const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJumpBack }) => {
+const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJumpBack, onListen }) => {
   if (!sources.length) return null;
   const firstCitationByIndex = citations.reduce((map, citation) => {
     if (!map.has(citation.index)) map.set(citation.index, citation);
@@ -1018,7 +1018,9 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
               key={source._id || source.id || `${source.title}-${index}`}
               id={refId}
               tabIndex="-1"
-              className={highlightedRef === refId ? 'is-highlighted' : ''}
+              className={highlightedRef === refId ? 'is-highlighted is-kin' : ''}
+              onMouseEnter={() => onListen?.(refId)}
+              onMouseLeave={() => onListen?.('')}
             >
               <div className="wiki-read__reference-head">
                 <span className="wiki-read__reference-index">[{citationIndex}]</span>
@@ -1212,6 +1214,7 @@ const WikiPageReadView = ({
   const [activeTab, setActiveTab] = useState(requestedReadTab);
   const [markdownStatus, setMarkdownStatus] = useState('');
   const [highlightedRef, setHighlightedRef] = useState('');
+  const [kinRef, setKinRef] = useState('');
   const [recentParagraphAnchors, setRecentParagraphAnchors] = useState(() => new Set());
   const [recentTocIds, setRecentTocIds] = useState(() => new Set());
   const [liveUpdateToast, setLiveUpdateToast] = useState(null);
@@ -1854,6 +1857,7 @@ const WikiPageReadView = ({
       contradictionIndexes: parseIndexAttribute(target.getAttribute('data-contradiction-indexes')),
       anchorRect: target.getBoundingClientRect()
     });
+    setKinRef(target.getAttribute('data-footnote-target') || '');
   }, []);
 
   const highlightReference = useCallback((refId = '') => {
@@ -1862,6 +1866,8 @@ const WikiPageReadView = ({
       setHighlightedRef(current => (current === refId ? '' : current));
     }, 1600);
   }, []);
+
+  const listeningRef = kinRef || highlightedRef;
 
   const handleCitationClick = useCallback((event) => {
     const target = event.target.closest?.('.wiki-claim-citation');
@@ -1943,6 +1949,7 @@ const WikiPageReadView = ({
       next.closest?.('span.wiki-claim')
     )) return;
     setActiveClaim(null);
+    setKinRef('');
   }, []);
 
   const handleLinkEnter = useCallback((event) => {
@@ -2818,7 +2825,7 @@ const WikiPageReadView = ({
         </aside> : null}
         <article
           ref={articleRef}
-          className="wiki-read__article"
+          className={`wiki-read__article${listeningRef ? ' is-listening' : ''}`}
           onMouseOver={(event) => {
             handleClaimHover(event);
             handleLinkEnter(event);
@@ -3135,7 +3142,8 @@ const WikiPageReadView = ({
                     validWikiLinkTargetIds,
                     claimLedgerById,
                     focusedClaimId,
-                    focusedClaimRef: focusRequestedClaimNode
+                    focusedClaimRef: focusRequestedClaimNode,
+                    kinFootnote: listeningRef
                   })
                 )}
               </section>
@@ -3195,7 +3203,8 @@ const WikiPageReadView = ({
               <WikiReadReferences
                 sources={page.sourceRefs || []}
                 citations={footnoteCitations}
-                highlightedRef={highlightedRef}
+                highlightedRef={listeningRef}
+                onListen={setKinRef}
                 onJumpBack={handleReferenceBacklink}
               />
               {standardWikiPage ? (
