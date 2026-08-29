@@ -430,6 +430,51 @@ describe('Judgment claim', () => {
       expect(document.querySelector('.judgment-log__row--did .judgment-log__text'))
         .toHaveTextContent('Changed what I hold: I am bullish NVIDIA compute.');
     });
+    expect(screen.getByTestId('opinion-ghost'))
+      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
+  });
+
+  it('does not ghost the opinion on first paint', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    renderDetail();
+    await screen.findByLabelText('What you hold');
+    expect(screen.queryByTestId('opinion-ghost')).not.toBeInTheDocument();
+  });
+
+  it('ghosts the previous opinion on an unnamed case, not the stuffed title', async () => {
+    const unnamed = judgmentPage();
+    unnamed.title = unnamed.judgment.currentJudgment;
+    getWikiPage.mockResolvedValue(unnamed);
+    updateWikiPage.mockImplementation(async (_id, body) => ({
+      ...unnamed,
+      title: unnamed.title,
+      judgment: body.judgment || unnamed.judgment
+    }));
+
+    renderDetail();
+
+    const opinion = await screen.findByLabelText('What you hold');
+    expect(screen.getByLabelText('Title')).toHaveValue('');
+    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
+    fireEvent.blur(opinion);
+
+    await waitFor(() => expect(screen.getByTestId('opinion-ghost'))
+      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.'));
+    expect(screen.getByTestId('opinion-ghost'))
+      .not.toHaveTextContent('Name this');
+    expect(screen.getByLabelText('Title')).toHaveValue('');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
+  });
+
+  it('does not ghost a blank when the opinion is restored', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: '' } });
+    fireEvent.blur(opinion);
+    expect(opinion).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(screen.queryByTestId('opinion-ghost')).not.toBeInTheDocument();
   });
 
   it('asks the owner to review accepted dossier research without changing the judgment', async () => {

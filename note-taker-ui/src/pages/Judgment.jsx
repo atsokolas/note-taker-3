@@ -45,6 +45,7 @@ import {
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
+import { OpinionGhost } from './opinionGhost';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -146,7 +147,7 @@ const AutosaveField = ({ value = '', format, onSave, onIdle, className, ...input
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', onSave, onWriteClaim, onClaimSettled, titleRef }) => {
+const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onClaimSettled, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -184,6 +185,7 @@ const Title = ({ title = '', claim = '', onSave, onWriteClaim, onClaimSettled, t
           onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
           onIdle={onClaimSettled}
         />
+        <OpinionGhost sentence={claim} identity={pageId} />
       </div>
       {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
     </>
@@ -1007,6 +1009,8 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
       <Title
+        key={pageId}
+        pageId={pageId}
         title={view.title}
         claim={view.claim}
         onSave={rename}
