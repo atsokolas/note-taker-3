@@ -605,6 +605,9 @@ const wikiFreshnessSchema = new mongoose.Schema({
   status: { type: String, enum: ['fresh', 'needs_review', 'stale', 'conflicted'], default: 'fresh' },
   lastSourceEventAt: { type: Date, default: null },
   lastMaintainedAt: { type: Date, default: null },
+  /* Human acceptance clock for the living index. Distinct from lastMaintainedAt
+     when maintenance runs without a signed review; Accept always inks both. */
+  lastReviewedAt: { type: Date, default: null },
   pendingSourceEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   conflictCount: { type: Number, default: 0 },
   staleSectionCount: { type: Number, default: 0 },
@@ -899,6 +902,10 @@ const wikiPageSchema = new mongoose.Schema({
      the human sets and no agent may. */
   evergreen: { type: Boolean, default: false },
   evergreenAt: { type: Date, default: null },
+  /* Quiet date on the living index after a human Accepts a review. Not a
+     notification — the inked day the maintenance column can stop saying
+     "Not reviewed". */
+  lastReviewedAt: { type: Date, default: null },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false }

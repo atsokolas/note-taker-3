@@ -69,6 +69,6 @@ export const RoomShelfButton = ({ active = false, nested = false, className = ''
   </button>
 );
 
-export const RoomShelfMeta = ({ children }) => (
-  <span className="room-shelf__item-meta">{children}</span>
+export const RoomShelfMeta = ({ children, className = '' }) => (
+  <span className={`room-shelf__item-meta${className ? ` ${className}` : ''}`.trim()}>{children}</span>
 );

@@ -67,9 +67,10 @@ const ArticleReader = forwardRef(({
     scrollToHighlight: (highlightId) => {
       if (!contentRef.current) return;
       const target = contentRef.current.querySelector(`[data-highlight-id="highlight-${highlightId}"]`);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('is-cited-passage');
+      window.setTimeout(() => target.classList.remove('is-cited-passage'), 1600);
     }
   }));
 

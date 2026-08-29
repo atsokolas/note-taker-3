@@ -7768,6 +7768,13 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   font-size: 0.88rem;
   color: var(--vellum-ink);
   line-height: 1.35;
+  text-decoration: none;
+}
+
+a.wiki-claim-popover__item-title:hover,
+a.wiki-claim-popover__item-title:focus-visible {
+  text-decoration: underline;
+  outline: none;
 }
 
 .wiki-claim-popover__item-snippet {
@@ -7781,11 +7788,23 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
   overflow: hidden;
 }
 
+.wiki-claim-popover__item-doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: baseline;
+}
+
 .wiki-claim-popover__item-link {
   color: var(--vellum-accent);
   font-size: 0.78rem;
   font-weight: 500;
   text-decoration: none;
+}
+
+.wiki-claim-popover__item-link--secondary {
+  color: var(--vellum-subtle);
+  font-weight: 400;
 }
 
 .wiki-claim-popover__item-link:hover,
@@ -7868,6 +7887,13 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 .wiki-read__reference-title {
   color: var(--text-primary);
   font-weight: 650;
+  text-decoration: none;
+}
+
+a.wiki-read__reference-title:hover,
+a.wiki-read__reference-title:focus-visible {
+  text-decoration: underline;
+  outline: none;
 }
 
 .wiki-read__references p {
@@ -7875,11 +7901,17 @@ html[data-ui-theme='dark'] .wiki-claim-popover__evidence--contradicts .wiki-clai
 }
 
 .wiki-read__reference-source {
+  display: inline-block;
   width: fit-content;
+  margin-right: 14px;
   color: var(--text-secondary);
   font-size: 0.82rem;
   text-decoration: none;
   border-bottom: 1px dotted color-mix(in srgb, var(--text-secondary) 44%, transparent);
+}
+
+.wiki-read__reference-source.is-secondary {
+  color: var(--text-muted, var(--vellum-subtle));
 }
 
 .wiki-read__reference-source:hover,

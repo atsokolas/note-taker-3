@@ -31,10 +31,22 @@ const NOOP_ASYNC = async () => {};
 const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [arriving, setArriving] = useState(true);
   const [index, setIndex] = useState(0);
   const leaveTimer = useRef(null);
 
   useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+
+  useEffect(() => {
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (reduce) {
+      setArriving(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setArriving(false), 420);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const candidates = [proposal, ...(Array.isArray(proposal.alternatives) ? proposal.alternatives : [])];
   const shown = candidates[index] || proposal;
@@ -50,7 +62,7 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
   const acceptShown = (field) => onAccept({ ...proposal, ...shown, id: proposal.id }, field);
 
   return (
-    <div className={`agent-rail__proposal${leaving ? ' is-leaving' : ''}`}>
+    <div className={`agent-rail__proposal${leaving ? ' is-leaving' : ''}${arriving ? ' is-arriving' : ''}`}>
       <p className="agent-rail__proposal-sentence">{shown.sentence}</p>
       <p className="agent-rail__proposal-source">
         {shown.source || 'No source came back with this.'}

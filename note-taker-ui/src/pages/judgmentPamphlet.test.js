@@ -107,4 +107,10 @@ describe('the sheet itself', () => {
   it('names the publication under the reason that rests on it', () => {
     expect(printed(FIXTURES['a judgment whose sources are attached by id'])).toContain('What Is Strategy?');
   });
+
+  it('closes with the Greek colophon on the sheet', () => {
+    const lines = printed(FIXTURES['a judgment written by hand']);
+    expect(lines).toContain('μνήμη · κρίσις');
+    expect(lines.some(line => line.startsWith('Printed August 17, 2026'))).toBe(true);
+  });
 });

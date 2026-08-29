@@ -16,17 +16,24 @@ import '../styles/evergreen.css';
 const EvergreenToggle = ({ evergreen = false, onChange, label = '', className = '' }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [filing, setFiling] = useState(false);
 
   const toggle = async () => {
     if (busy) return;
     setBusy(true);
     setError('');
+    const next = !evergreen;
+    if (next) setFiling(true);
     try {
-      await onChange(!evergreen);
+      await onChange(next);
     } catch (toggleError) {
       setError(toggleError?.response?.data?.error || 'That did not save.');
+      setFiling(false);
     } finally {
       setBusy(false);
+      if (next) {
+        window.setTimeout(() => setFiling(false), 520);
+      }
     }
   };
 
@@ -34,7 +41,7 @@ const EvergreenToggle = ({ evergreen = false, onChange, label = '', className = 
     <>
       <button
         type="button"
-        className={`evergreen-toggle${evergreen ? ' is-kept' : ''} ${className}`.trim()}
+        className={`evergreen-toggle${evergreen ? ' is-kept' : ''}${filing ? ' is-filing' : ''} ${className}`.trim()}
         aria-pressed={evergreen}
         title={evergreen ? 'Kept for good. Press to let it go.' : 'Keep this for good.'}
         disabled={busy}
