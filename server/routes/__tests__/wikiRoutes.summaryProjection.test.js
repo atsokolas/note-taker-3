@@ -32,6 +32,8 @@ const asksFor = (prefix) => WIKI_PAGE_SUMMARY_FIELDS.some(field => field.startsW
 
 assert.ok(has('investmentDossier.version'), 'the Wiki shelf identifies investment dossiers without loading them');
 assert.strictEqual(serializeWikiPage({ title: 'Topic' }).wikiKind, 'general');
+assert.strictEqual(serializeWikiPage({ title: 'Kept', evergreen: true, evergreenAt: new Date() }).evergreen, true);
+assert.strictEqual(serializeWikiPage({ title: 'Loose' }).evergreen, false);
 assert.strictEqual(serializeWikiPage({ title: 'Repo', pageType: 'repo' }).wikiKind, 'repository');
 assert.strictEqual(serializeWikiPage({ title: 'Dossier', investmentDossier: { version: 1 } }).wikiKind, 'investment');
 
@@ -90,7 +92,8 @@ assert.ok(!asksFor('citations.quote'), 'citation quotes are not read by any list
 assert.ok(Object.isFrozen(WIKI_PAGE_SUMMARY_FIELDS), 'the projection is shared across requests and must not be mutable');
 
 const judgmentFields = new Set(WIKI_JUDGMENT_INDEX_FIELDS);
-['_id', 'title', 'judgment.currentJudgment', 'judgment.governingQuestion',
+['_id', 'title', 'evergreen', 'evergreenAt',
+  'judgment.currentJudgment', 'judgment.governingQuestion',
   'judgment.why.text', 'judgment.against.text', 'judgment.falsifiers.text',
   'judgment.decisions.summary', 'judgment.lessons.text']
   .forEach(field => assert.ok(judgmentFields.has(field), `the Judgment casebook reads ${field}`));

@@ -38,16 +38,17 @@ export const getLibraryScopeLabel = (scope = 'all') => (
  */
 export const resolveLibraryEmptyState = ({
   scope = 'all',
-  corpusTotal = 0,
-  rawCorpusTotal = 0,
+  corpusTotal,
+  rawCorpusTotal,
   suppressedCount = 0,
   suppressedVisible = false,
   query = '',
   emptyLabel = ''
 } = {}) => {
   const trimmedQuery = String(query || '').trim();
+  if (!Number.isFinite(Number(corpusTotal)) && !trimmedQuery) return null;
   const total = Number(corpusTotal) || 0;
-  const rawTotal = Number(rawCorpusTotal) || 0;
+  const rawTotal = Number.isFinite(Number(rawCorpusTotal)) ? Number(rawCorpusTotal) : 0;
   const hiddenCount = Number(suppressedCount) || 0;
 
   if (trimmedQuery) {

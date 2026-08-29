@@ -13,7 +13,8 @@ import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', includeSuppressed = false, enabled = true }) => {
   const [allArticles, setAllArticles] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(enabled));
+  const [resolved, setResolved] = useState(false);
   const [error, setError] = useState('');
 
   const fetchArticles = useCallback(async () => {
@@ -33,6 +34,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
       setError(err.response?.data?.error || 'Failed to load articles.');
     } finally {
       setLoading(false);
+      setResolved(true);
     }
   }, [enabled, includeSuppressed]);
 
@@ -90,7 +92,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
     return next;
   }, [allArticles, scope, folderId, query, sort]);
 
-  return { articles, allArticles, loading, error, refresh: fetchArticles, setAllArticles };
+  return { articles, allArticles, loading, error, resolved, refresh: fetchArticles, setAllArticles };
 };
 
 export default useLibraryArticles;

@@ -117,7 +117,9 @@ describe('stitch editorial CSS tokens', () => {
 
     expect(css).toContain('body.noeis-editorial .library-article-row.is-magnetic::before');
     expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
-    expect(css).toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?library-article-row\.is-magnetic:focus-within[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
+    expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?--magnetic-x: 0px;/);
+    expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?translate3d\(var\(--magnetic-x, 0px\), 0, 0\)/);
+    expect(css).not.toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
     expect(css).not.toContain('.three-pane--library');
   });

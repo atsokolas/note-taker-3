@@ -205,6 +205,36 @@ describe('keeping a source for life', () => {
     expect(await screen.findByRole('button', { name: 'Kept for good' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('still reads as kept after the source is reloaded from what the server stored', async () => {
+    const onToggleEvergreen = jest.fn().mockResolvedValue({ evergreen: true, evergreenAt: '2026-08-29T12:00:00.000Z' });
+    const { rerender } = render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'The Bitter Lesson', content: '<p>Text.</p>' }}
+        highlights={[]}
+        onToggleEvergreen={onToggleEvergreen}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep for good' }));
+    expect(await screen.findByRole('button', { name: 'Kept for good' })).toHaveAttribute('aria-pressed', 'true');
+
+    rerender(
+      <ArticleReader
+        article={{
+          _id: 'a1',
+          title: 'The Bitter Lesson',
+          content: '<p>Text.</p>',
+          evergreen: true,
+          evergreenAt: '2026-08-29T12:00:00.000Z'
+        }}
+        highlights={[]}
+        onToggleEvergreen={onToggleEvergreen}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Kept for good' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   /* It sat in the meta line as a grey word between a date and a link, which
      read as another label rather than something you could do. It belongs with
      Move: the other thing you can do to a source. */

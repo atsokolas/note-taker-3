@@ -11,6 +11,7 @@ import {
 } from './libraryEmptyStateModel';
 import { matchesSourceQuery, sourceRowKey } from './librarySourceIdentity';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import useMagneticRow from '../../hooks/useMagneticRow';
 
 const SOURCE_ROW_HEIGHT = 168;
 const ROOM_SOURCE_ROW_HEIGHT = 94;
@@ -95,6 +96,7 @@ const LibrarySourceRow = React.memo(({
   const isRoom = variant === 'room';
   const [activated, setActivated] = useState(false);
   const receiptTimerRef = useRef(null);
+  const magnetic = useMagneticRow();
   const source = row?.source || {};
   const provenance = row?.provenance || {};
   const connectedRefs = (Array.isArray(row?.relevance?.connected)
@@ -135,17 +137,6 @@ const LibrarySourceRow = React.memo(({
     return 'Not used yet';
   })();
 
-  const handlePointerMove = (event) => {
-    const target = event.currentTarget;
-    const rect = target.getBoundingClientRect();
-    target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
-    target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
-  };
-  const handlePointerLeave = (event) => {
-    const target = event.currentTarget;
-    target.style.removeProperty('--row-bloom-x');
-    target.style.removeProperty('--row-bloom-y');
-  };
   const triggerReceipt = () => {
     setActivated(true);
     if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
@@ -158,12 +149,13 @@ const LibrarySourceRow = React.memo(({
 
   return (
     <div
+      ref={magnetic.rowRef}
       className={`library-article-row library-source-row${isRoom ? ' library-source-row--room' : ''} is-magnetic${activated ? ' is-activated' : ''}${selected ? ' is-selected' : ''}`}
       data-source-type={source.type || 'article'}
       data-source-key={sourceRowKey(row)}
       aria-selected={selected ? 'true' : undefined}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
+      onPointerMove={magnetic.onPointerMove}
+      onPointerLeave={magnetic.onPointerLeave}
     >
       <div className="library-article-row-date">{formatSurfaceDate(rowDate, { includeYear: true })}</div>
       <div className="library-article-row-content">
@@ -476,8 +468,8 @@ const LibrarySourceList = ({
   query = '',
   onQueryChange = null,
   suppressedVisible = false,
-  corpusTotal = 0,
-  rawCorpusTotal = 0,
+  corpusTotal,
+  rawCorpusTotal,
   suppressedCount = 0,
   latestReceipt = null,
   coverage = null,

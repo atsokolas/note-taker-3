@@ -87,4 +87,19 @@ describe('WikiFacetRail', () => {
 
     expect(screen.getByTestId('wiki-facet-kind-repository')).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('does not paint PAGES 0 while counts are still unknown', () => {
+    render(
+      <WikiFacetRail
+        query=""
+        onQueryChange={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Pages')).toBeInTheDocument();
+    expect(document.querySelector('.room-shelf__count')).toBeNull();
+    expect(screen.getByTestId('wiki-facet-all-pages')).not.toHaveTextContent('0');
+    expect(screen.getByTestId('wiki-facet-needs-review')).not.toHaveTextContent('0');
+    expect(screen.getByTestId('wiki-facet-kind-general')).not.toHaveTextContent('0');
+  });
 });

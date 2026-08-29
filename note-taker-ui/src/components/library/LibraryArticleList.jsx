@@ -17,6 +17,7 @@ import {
 } from './libraryEmptyStateModel';
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import useMagneticRow from '../../hooks/useMagneticRow';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -97,6 +98,7 @@ const LibraryArticleRow = React.memo(({
 }) => {
   const [activated, setActivated] = useState(false);
   const receiptTimerRef = useRef(null);
+  const magnetic = useMagneticRow();
   const sourceLabel = getSourceLabel(article);
   const tags = getArticleTags(article);
   const conceptNames = getConnectedConceptNames(article);
@@ -105,20 +107,6 @@ const LibraryArticleRow = React.memo(({
   const highlightCount = getHighlightCount(article);
   const rowDate = article.updatedAt || article.createdAt;
 
-  // Cursor-following bloom — same vocabulary as ThinkHome primary action,
-  // applied lightly here because rows are dense and many. CSS-only fallback
-  // (no JS state) keeps the virtualized list cheap.
-  const handlePointerMove = (event) => {
-    const target = event.currentTarget;
-    const rect = target.getBoundingClientRect();
-    target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
-    target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
-  };
-  const handlePointerLeave = (event) => {
-    const target = event.currentTarget;
-    target.style.removeProperty('--row-bloom-x');
-    target.style.removeProperty('--row-bloom-y');
-  };
   const triggerReceipt = () => {
     setActivated(true);
     if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
@@ -131,9 +119,10 @@ const LibraryArticleRow = React.memo(({
 
   return (
   <div
+    ref={magnetic.rowRef}
     className={`library-article-row is-magnetic${activated ? ' is-activated' : ''}`}
-    onPointerMove={handlePointerMove}
-    onPointerLeave={handlePointerLeave}
+    onPointerMove={magnetic.onPointerMove}
+    onPointerLeave={magnetic.onPointerLeave}
   >
     <div className="library-article-row-date">{formatSurfaceDate(rowDate, { includeYear: true })}</div>
     <button
@@ -366,8 +355,8 @@ const LibraryArticleList = ({
   query = '',
   onQueryChange = null,
   suppressedVisible = false,
-  corpusTotal = 0,
-  rawCorpusTotal = 0,
+  corpusTotal,
+  rawCorpusTotal,
   suppressedCount = 0,
   latestReceipt = null
 }) => {

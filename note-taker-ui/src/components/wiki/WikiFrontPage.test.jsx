@@ -182,6 +182,8 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(document.body.classList.contains('wiki-front-page-route')).toBe(true);
     expect(document.querySelector('.wiki-front-page__graph-motif')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(/opening your living knowledge/i);
+    expect(document.querySelector('.room-shelf__count')).toBeNull();
+    expect(screen.queryByText('Pages')).not.toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1, hidden: true })).toHaveTextContent('Your Wiki');
   });
@@ -484,6 +486,7 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Your living wikis' }))
       .toBeInTheDocument();
+    expect(document.querySelector('.room-shelf__count')).toHaveTextContent(String(pages.length));
     expect(screen.getByText(/While you were away I rebuilt Opportunity Cost/i)).toBeInTheDocument();
     expect(listWikiPages).toHaveBeenCalledTimes(1);
     expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, includeLowQuality: 1, summary: 1 });

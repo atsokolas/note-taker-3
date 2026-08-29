@@ -33,6 +33,18 @@ describe('LibraryArticleList', () => {
   });
 
   it('marks rows as magnetic and drives row bloom CSS vars on pointermove', () => {
+    const realRaf = window.requestAnimationFrame;
+    const realMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query.includes('pointer: fine'),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {}
+    });
+    window.requestAnimationFrame = (cb) => {
+      cb();
+      return 1;
+    };
     const { container } = renderList();
     const row = container.querySelector('.library-article-row.is-magnetic');
     expect(row).not.toBeNull();
@@ -45,10 +57,13 @@ describe('LibraryArticleList', () => {
     row.dispatchEvent(move);
     expect(row.style.getPropertyValue('--row-bloom-x')).toBe('220px');
     expect(row.style.getPropertyValue('--row-bloom-y')).toBe('30px');
+    expect(row.style.getPropertyValue('--magnetic-x')).not.toBe('');
 
     fireEvent.pointerLeave(row);
     expect(row.style.getPropertyValue('--row-bloom-x')).toBe('');
     expect(row.style.getPropertyValue('--row-bloom-y')).toBe('');
+    window.requestAnimationFrame = realRaf;
+    window.matchMedia = realMatchMedia;
   });
 
   it('clicking the row body invokes onSelectArticle with id', () => {

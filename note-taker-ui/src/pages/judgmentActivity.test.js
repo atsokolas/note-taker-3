@@ -111,6 +111,13 @@ describe('evergreen', () => {
     expect(index[0].evergreen).toBe(true);
   });
 
+  it('still reads as kept after the stored page is projected again', () => {
+    const stored = { ...evergreenPage, evergreen: true, evergreenAt: daysAgo(10) };
+    const afterReload = buildJudgmentIndex([stored], [], NOW);
+    expect(afterReload[0].evergreen).toBe(true);
+    expect(afterReload[0].note).toBe('Kept');
+  });
+
   it('leaves an unmarked claim alone', () => {
     expect(judgmentActivity(page(), [], NOW).state).toBe('quiet');
   });
