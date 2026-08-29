@@ -243,12 +243,6 @@ const Library = () => {
   }, [requestedHighlightId, selectedArticleId, articleHighlights]);
 
   useEffect(() => {
-    if (requestedArticleId) return;
-    setSelectedArticleId('');
-    setActiveHighlightId('');
-  }, [requestedArticleId]);
-
-  useEffect(() => {
     if (searchParams.get('scope')) return;
     const params = new URLSearchParams(searchParams);
     params.set('scope', 'all');
