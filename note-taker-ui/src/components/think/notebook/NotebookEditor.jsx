@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NodeViewWrapper, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -14,6 +15,7 @@ import useSlashCommands from '../editor/useSlashCommands';
 import useThinkWritingActivity from '../editor/useThinkWritingActivity';
 import { createArtifactSlashItems } from '../editor/editorArtifacts';
 import { handleEditorStructureShortcut } from '../editor/editorShortcuts';
+import { createNotebookClaimSlashItems } from './notebookClaimSlash';
 import useHighlights from '../../../hooks/useHighlights';
 import useArticles from '../../../hooks/useArticles';
 import useConcepts from '../../../hooks/useConcepts';
@@ -327,6 +329,7 @@ const NotebookEditor = ({
   const [claimEvidenceItems, setClaimEvidenceItems] = useState([]);
   const [claimEvidenceLoading, setClaimEvidenceLoading] = useState(false);
   const [organizeError, setOrganizeError] = useState('');
+  const navigate = useNavigate();
   const { highlights, highlightMap, loading: highlightsLoading, error: highlightsError } = useHighlights();
   const { articles } = useArticles({ enabled: insertMode === 'article' });
   const { concepts } = useConcepts();
@@ -368,8 +371,9 @@ const NotebookEditor = ({
       intent: 'artifact',
       artifactType: 'question',
       onSelect: () => setInsertMode('question')
-    }
-  ]), []);
+    },
+    ...createNotebookClaimSlashItems({ claimId, navigate })
+  ]), [claimId, navigate]);
 
   useEffect(() => {
     highlightLookupRef.current = (id) => highlightMap.get(String(id));

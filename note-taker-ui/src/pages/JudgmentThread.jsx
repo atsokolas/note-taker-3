@@ -4,7 +4,7 @@ import useCssMagneticLerp from '../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { clearSentenceHandoff, flySentenceInto, handOffSentence, peekSentenceHandoff } from '../motion/columnMotion';
 import { formatLedgerDate, isLibraryHref, newLineId } from './judgmentModel';
-import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate, speaksWith } from './judgmentLog';
+import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sameWeek, sourceKinForCandidate, speaksWith, weekKey } from './judgmentLog';
 
 const AUTOSAVE_PAUSE_MS = 700;
 const KIND_MARK = 22;
@@ -76,9 +76,12 @@ const CitationMark = ({ source, onKin }) => {
 
 const LogRow = ({ entry, kin, arriving, onKin }) => {
   const textRef = useRef(null);
-  const related = entry.sources.some(source => speaksWith(source, kin));
+  const related = kin?.week
+    ? sameWeek(entry.at, kin)
+    : entry.sources.some(source => speaksWith(source, kin));
   const willFly = arriving && peekSentenceHandoff()?.sentence === String(entry.text || '').replace(/\s+/g, ' ').trim();
   const when = formatLedgerDate(entry.at);
+  const week = weekKey(entry.at);
 
   useLayoutEffect(() => {
     if (!arriving) return;
@@ -105,7 +108,19 @@ const LogRow = ({ entry, kin, arriving, onKin }) => {
           </sup>
         ) : null}
       </p>
-      {when ? <time className="judgment-log__when" dateTime={entry.at}>{when}</time> : null}
+      {when ? (
+        <time
+          className="judgment-log__when"
+          dateTime={entry.at}
+          tabIndex={0}
+          onMouseEnter={() => week && onKin?.({ week, label: 'Same week' })}
+          onMouseLeave={() => onKin?.(null)}
+          onFocus={() => week && onKin?.({ week, label: 'Same week' })}
+          onBlur={() => onKin?.(null)}
+        >
+          {when}
+        </time>
+      ) : null}
     </li>
   );
 };
@@ -500,10 +515,12 @@ const JudgmentLog = ({ view, arrivingId, pendingId, kin, onKin }) => {
     ),
     filter
   );
-  const listening = kin != null && kin.n != null;
-  const speaking = listening
-    ? spine.flatMap(group => group.entries).filter(entry => entry.sources.some(source => source.n === kin.n)).length
-    : 0;
+  const listening = Boolean(kin?.week || kin?.n != null);
+  const speaking = kin?.week
+    ? spine.flatMap(group => group.entries).filter(entry => sameWeek(entry.at, kin)).length
+    : listening
+      ? spine.flatMap(group => group.entries).filter(entry => entry.sources.some(source => source.n === kin.n)).length
+      : 0;
 
   const toggle = (id) => {
     setUnfolded((current) => {

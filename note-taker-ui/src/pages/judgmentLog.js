@@ -39,6 +39,19 @@ const monthLabel = (key) => {
 
 const currentMonthKey = (now) => monthKey(now);
 
+/** ISO week (Monday start), so hovering a date can light the same week. */
+export const weekKey = (value) => {
+  const atMs = time(value);
+  if (Number.isNaN(atMs)) return '';
+  const date = new Date(atMs);
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+  return `${utc.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+};
+
 const asEntry = (line, kind, order) => ({
   id: line.id,
   kind,
@@ -158,3 +171,5 @@ export const speaksWith = (source = {}, kin = null) => {
   if (kin.href && source.href && kin.href === source.href) return true;
   return false;
 };
+
+export const sameWeek = (at, kin) => Boolean(kin?.week && weekKey(at) === kin.week);

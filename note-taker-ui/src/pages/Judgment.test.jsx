@@ -1102,6 +1102,25 @@ describe('Evidence from the library', () => {
     expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
   });
 
+  it('lights other log rows from the same week when you hover a date', async () => {
+    const dated = judgmentPage();
+    dated.judgment.why[0].createdAt = '2026-08-10T12:00:00.000Z';
+    dated.judgment.why[1].createdAt = '2026-08-14T12:00:00.000Z';
+    dated.judgment.against[0].createdAt = '2026-08-01T12:00:00.000Z';
+    getWikiPage.mockResolvedValue(dated);
+
+    renderDetail();
+    const stamp = await screen.findByText((_, node) => (
+      node?.tagName === 'TIME' && node.getAttribute('dateTime') === '2026-08-10T12:00:00.000Z'
+    ));
+    fireEvent.mouseEnter(stamp);
+
+    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
+    expect(screen.getByText('AI demand keeps compounding faster than new supply.').closest('.judgment-log__row')).toHaveClass('is-kin');
+    expect(screen.getByText('Lead times and power constrain what can be delivered.').closest('.judgment-log__row')).toHaveClass('is-kin');
+    expect(screen.getByText('Hyperscalers are designing more in-house silicon.').closest('.judgment-log__row')).not.toHaveClass('is-kin');
+  });
+
   it('lights Why on the rail from the inbox line', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
 

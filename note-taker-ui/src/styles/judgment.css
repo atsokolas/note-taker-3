@@ -599,6 +599,7 @@ button.judgment-inbox__text:focus-visible {
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.72rem;
   white-space: nowrap;
+  cursor: default;
 }
 
 .judgment-log__whisper {

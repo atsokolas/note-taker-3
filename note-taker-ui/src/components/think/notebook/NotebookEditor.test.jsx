@@ -119,6 +119,9 @@ describe('NotebookEditor', () => {
     mockEditor.commands.insertContent.mockClear();
     mockEditor.state.selection.from = 0;
     mockEditor.state.selection.to = 0;
+    mockEditor.state.selection.empty = true;
+    mockEditor.state.selection.$from.parent = { textContent: '' };
+    mockEditor.state.selection.$from.parentOffset = 0;
     delete mockEditor.state.doc;
     mockEditor.state.selection.$from.index.mockReturnValue(0);
     document.body.classList.remove('think-writing-active');
@@ -166,6 +169,27 @@ describe('NotebookEditor', () => {
     expect(mockEditor.chain).toHaveBeenCalled();
     expect(mockChain.toggleBold).toHaveBeenCalled();
     expect(mockChain.toggleBlockquote).toHaveBeenCalled();
+  });
+
+  it('offers Hold this from /hold in the slash menu', async () => {
+    mockEditor.state.selection.empty = true;
+    mockEditor.state.selection.from = 5;
+    mockEditor.state.selection.to = 5;
+    mockEditor.state.selection.$from.parent = { textContent: '/hold' };
+    mockEditor.state.selection.$from.parentOffset = 5;
+    mockEditor.view.coordsAtPos.mockReturnValue({ left: 12, right: 12, top: 10, bottom: 24 });
+
+    render(
+      <NotebookEditor
+        entry={{ _id: 'note-1', title: 'Draft', content: '<p>Draft</p>', blocks: [], type: 'note', tags: [] }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('menuitem', { name: /Hold this/i })).toBeInTheDocument();
   });
 
   it('keeps insert actions collapsed until requested', () => {

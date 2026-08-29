@@ -1,4 +1,4 @@
-import { buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate, speaksWith } from './judgmentLog';
+import { buildJudgmentLog, filterLog, omitEntry, sameWeek, sourceKinForCandidate, speaksWith, weekKey } from './judgmentLog';
 
 const NOW = new Date('2026-08-14T12:00:00.000Z').getTime();
 
@@ -69,5 +69,13 @@ describe('speaksWith', () => {
 
   it('does not invent kinship across different sources', () => {
     expect(speaksWith(filed, { n: 2, label: 'TrendForce', href: 'https://trendforce.com/supply' })).toBe(false);
+  });
+});
+
+describe('weekKey', () => {
+  it('lights two dated lines from the same week', () => {
+    expect(weekKey('2026-08-10T12:00:00.000Z')).toBe(weekKey('2026-08-14T12:00:00.000Z'));
+    expect(sameWeek('2026-08-10T12:00:00.000Z', { week: weekKey('2026-08-14T12:00:00.000Z') })).toBe(true);
+    expect(sameWeek('2026-02-14T12:00:00.000Z', { week: weekKey('2026-08-14T12:00:00.000Z') })).toBe(false);
   });
 });
