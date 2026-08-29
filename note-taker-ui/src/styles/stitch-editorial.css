@@ -1496,6 +1496,15 @@ body.noeis-editorial .article-reader-meta {
   text-transform: uppercase;
 }
 
+body.noeis-editorial .article-folio {
+  margin-top: 8px;
+  max-width: 38rem;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.12rem;
+  line-height: 1.5;
+  color: var(--ink-human, var(--vellum-ink));
+}
+
 body.noeis-editorial .article-reader-content.reader {
   max-width: 780px;
   margin: 0;
