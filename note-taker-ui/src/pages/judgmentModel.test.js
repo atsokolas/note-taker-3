@@ -156,6 +156,48 @@ describe('judgmentModel', () => {
     expect(sourceHrefFromOrigin('overnight-event')).toBe('');
   });
 
+  it('opens a library article in the library even when the source also has a web url', () => {
+    const filed = {
+      _id: 'p',
+      sourceRefs: [{
+        _id: 'src-a',
+        type: 'article',
+        citationLabel: '10-K',
+        objectId: 'a1',
+        url: 'https://www.sec.gov/Archives/edgar/data/1045810/000104581025000106/nvda-20250126.htm'
+      }],
+      judgment: {
+        currentJudgment: 'A claim.',
+        why: [{ reasonId: 'w1', text: 'A passage from the filing.', sourceRefIds: ['src-a'] }]
+      }
+    };
+    expect(projectJudgment(filed).why[0].sources[0]).toEqual(expect.objectContaining({
+      n: 1,
+      label: '10-K',
+      href: '/library?articleId=a1'
+    }));
+  });
+
+  it('opens a library highlight at the passage, not the publisher’s site', () => {
+    const filed = {
+      _id: 'p',
+      sourceRefs: [{
+        _id: 'src-h',
+        type: 'highlight',
+        citationLabel: 'Shareholder letter',
+        objectId: 'h1',
+        parentObjectId: 'a1',
+        url: 'https://www.berkshirehathaway.com/letters/2024ltr.pdf'
+      }],
+      judgment: {
+        currentJudgment: 'A claim.',
+        why: [{ reasonId: 'w1', text: 'The passage itself.', sourceRefIds: ['src-h'] }]
+      }
+    };
+    expect(projectJudgment(filed).why[0].sources[0].href)
+      .toBe('/library?articleId=a1&highlightId=h1');
+  });
+
   it('leaves empty fields empty rather than inventing lines', () => {
     const bare = { _id: 'bare', title: 'Bare', judgment: { currentJudgment: 'A claim with nothing behind it yet.' } };
     const projected = projectJudgment(bare, NOW);

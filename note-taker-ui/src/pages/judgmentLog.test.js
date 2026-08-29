@@ -1,4 +1,4 @@
-import { buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate } from './judgmentLog';
+import { buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate, speaksWith } from './judgmentLog';
 
 const NOW = new Date('2026-08-14T12:00:00.000Z').getTime();
 
@@ -55,5 +55,19 @@ describe('sourceKinForCandidate', () => {
       id: 'highlight:z:h',
       sourceLabel: 'On compute · FT'
     })).toEqual({ n: null, label: 'On compute · FT', href: '/library?articleId=z&highlightId=h' });
+  });
+});
+
+describe('speaksWith', () => {
+  const semi = { n: 1, label: 'SemiAnalysis', href: 'https://semianalysis.com/capacity' };
+  const filed = { n: 3, label: 'SemiAnalysis', href: '/library?articleId=a9&highlightId=h9' };
+
+  it('treats the same source as kin after it has been filed under a library href', () => {
+    expect(speaksWith(filed, semi)).toBe(true);
+    expect(speaksWith(semi, filed)).toBe(true);
+  });
+
+  it('does not invent kinship across different sources', () => {
+    expect(speaksWith(filed, { n: 2, label: 'TrendForce', href: 'https://trendforce.com/supply' })).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import Judgment from './Judgment';
 import AgentRail from '../agent/AgentRail';
 import { AgentRailProvider } from '../agent/AgentRailContext';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
-import { resetFirstPaint } from '../motion/columnMotion';
+import { clearSentenceHandoff, peekSentenceHandoff, resetFirstPaint } from '../motion/columnMotion';
 import { SystemStatusProvider } from '../system/SystemStatusContext';
 import {
   getCompanyDossierJudgmentReview,
@@ -137,6 +137,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
   resetFirstPaint();
+  clearSentenceHandoff();
   listWikiPages.mockResolvedValue([]);
   listCompanyDossierJudgmentReviews.mockResolvedValue([]);
   listWikiSourceEvents.mockResolvedValue([]);
@@ -176,6 +177,23 @@ describe('Judgment index', () => {
     expect(title).toHaveAttribute('href', '/judgment/wiki-nvidia');
     expect(content.getByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(screen.queryByText('A plain wiki page')).not.toBeInTheDocument();
+  });
+
+  it('hands the case headline off when opening a claim, so the title can fly', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+
+    renderIndex();
+
+    const title = await within(document.querySelector('.judgment-room__content'))
+      .findByRole('link', { name: 'NVIDIA' });
+    title.getBoundingClientRect = () => ({ top: 80, left: 24, width: 220, height: 28 });
+    title.addEventListener('click', (event) => event.preventDefault());
+    fireEvent.click(title);
+
+    expect(peekSentenceHandoff()).toEqual(expect.objectContaining({
+      sentence: 'NVIDIA',
+      rect: expect.objectContaining({ top: 80, left: 24, width: 220 })
+    }));
   });
 
   it('quietly marks a case when accepted dossier research awaits the owner', async () => {
@@ -269,6 +287,38 @@ describe('Judgment claim', () => {
     expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
     expect(document.querySelectorAll('.judgment-log__row.is-kin')).toHaveLength(2);
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
+  });
+
+  it('opens a library-backed [n] in the library instead of ejecting to the open web', async () => {
+    getWikiPage.mockResolvedValue({
+      ...judgmentPage(),
+      sourceRefs: [
+        ...judgmentPage().sourceRefs,
+        {
+          _id: 'src-lib',
+          type: 'article',
+          citationLabel: '10-K',
+          objectId: 'nvda-10k',
+          url: 'https://www.sec.gov/Archives/edgar/data/1045810/nvda.htm'
+        }
+      ],
+      judgment: {
+        ...judgmentPage().judgment,
+        why: [
+          ...judgmentPage().judgment.why,
+          { reasonId: 'why-lib', text: 'The filing already names the capacity gap.', sourceRefIds: ['src-lib'] }
+        ]
+      }
+    });
+
+    renderDetail();
+
+    const cite = await screen.findByRole('link', { name: 'Source 3: 10-K' });
+    expect(cite).toHaveAttribute('href', '/library?articleId=nvda-10k');
+    expect(cite).not.toHaveAttribute('target');
+    expect(cite).toHaveClass('is-passage');
+    expect(screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' })[0])
+      .toHaveAttribute('target', '_blank');
   });
 
   it('lets the log show one side of the case', async () => {
@@ -893,6 +943,43 @@ describe('Evidence from the library', () => {
     });
   });
 
+  it('flies the inbox passage into the arriving log row instead of evaporating and popping', async () => {
+    const animate = jest.fn(() => ({ finished: Promise.resolve() }));
+    const realGetRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.animate = animate;
+    Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      if (this.classList?.contains('judgment-inbox__text')) {
+        return { top: 120, left: 40, width: 280, height: 36, bottom: 156, right: 320 };
+      }
+      if (this.classList?.contains('judgment-log__text')) {
+        return { top: 420, left: 80, width: 560, height: 40, bottom: 460, right: 640 };
+      }
+      return { top: 0, left: 0, width: 120, height: 20, bottom: 20, right: 120 };
+    };
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+
+    try {
+      renderDetail();
+      const inbox = await screen.findByRole('region', { name: 'From your library' });
+      fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
+
+      await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+      expect(document.querySelector('.judgment-inbox__line')).toHaveClass('is-leaving');
+      await waitFor(() => expect(animate).toHaveBeenCalled());
+      const [frames] = animate.mock.calls[0];
+      expect(frames[0].transform).toBe('translate3d(-40px, -300px, 0) scale(0.5)');
+      expect(frames[1].transform).toBe('translate3d(0, 0, 0) scale(1)');
+      const arrived = [...document.querySelectorAll('.judgment-log__row')]
+        .find(row => row.textContent.includes(candidate.text));
+      expect(arrived).toBeTruthy();
+      expect(arrived).not.toHaveClass('is-arriving');
+    } finally {
+      delete Element.prototype.animate;
+      Element.prototype.getBoundingClientRect = realGetRect;
+    }
+  });
+
   it('files the passage itself once Why is selected on the rail', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
@@ -991,6 +1078,27 @@ describe('Evidence from the library', () => {
     renderDetail();
     fireEvent.mouseEnter(await screen.findByText(kinCandidate.text));
     expect(screen.getByText('SemiAnalysis · 2 lines')).toBeInTheDocument();
+    expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
+  });
+
+  it('keeps the arrived log row in the same kinship as [n] hover', async () => {
+    const kinCandidate = {
+      id: 'highlight:a9:h9',
+      text: 'A later note on the same SemiAnalysis thread.',
+      sourceLabel: 'SemiAnalysis'
+    };
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [kinCandidate] });
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+
+    renderDetail();
+    const inbox = await screen.findByRole('region', { name: 'From your library' });
+    fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const arrived = await screen.findByText(kinCandidate.text);
+    const semi = screen.getAllByRole('link', { name: 'Source 1: SemiAnalysis' })[0];
+    fireEvent.mouseEnter(semi);
+    expect(arrived.closest('.judgment-log__row')).toHaveClass('is-kin');
     expect(document.querySelector('.judgment-log')).toHaveClass('is-listening');
   });
 

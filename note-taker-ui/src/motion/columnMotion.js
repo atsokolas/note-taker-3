@@ -64,13 +64,17 @@ export const clearSentenceHandoff = () => { handoff = null; };
  */
 export const flySentenceInto = (node, text) => {
   const claimed = handoff;
-  handoff = null;
   if (!node || !claimed) return false;
   const sentence = String(text || '').replace(/\s+/g, ' ').trim();
   if (!sentence || sentence !== claimed.sentence) return false;
   // A handoff older than a moment belongs to a navigation that already
   // happened; flying from a stale rect would look like a glitch.
-  if (Date.now() - claimed.at > 1200) return false;
+  if (Date.now() - claimed.at > 1200) {
+    handoff = null;
+    return false;
+  }
+  // Claimed: this is the destination. A later paint must not fly it again.
+  handoff = null;
   if (prefersReducedMotion()) {
     node.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: REDUCED_MS, easing: 'linear' });
     return true;

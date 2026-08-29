@@ -87,6 +87,8 @@ export const namedTitle = (page = {}) => {
 /** What pops up: the name if there is one, otherwise the claim. */
 export const judgmentHeadline = (page = {}) => namedTitle(page) || claimSentence(page);
 
+export const isLibraryHref = (href = '') => /^\/library(\?|$)/.test(clean(href));
+
 const sourceLabel = (ref) => (
   clean(ref?.citationLabel)
   || clean(ref?.provider)

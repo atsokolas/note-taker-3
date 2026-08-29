@@ -147,3 +147,14 @@ export const sourceKinForCandidate = (view = {}, candidate = {}) => {
   if (label) return { n: null, label, href };
   return null;
 };
+
+/* Inbox line, log row, and [n] are the same source when they share a number,
+   a name, or a place. Filing a passage under a library href must not break
+   kinship with the [n] that already whispered that name. */
+export const speaksWith = (source = {}, kin = null) => {
+  if (!kin || !source) return false;
+  if (kin.n != null && source.n != null && kin.n === source.n) return true;
+  if (kin.label && source.label && kin.label === source.label) return true;
+  if (kin.href && source.href && kin.href === source.href) return true;
+  return false;
+};
