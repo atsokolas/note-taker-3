@@ -15,9 +15,12 @@ const nodeAt = (rect) => {
   };
 };
 
+const originalMatchMedia = window.matchMedia;
+
 beforeEach(() => {
   resetFirstPaint();
   clearSentenceHandoff();
+  window.matchMedia = originalMatchMedia;
 });
 
 describe('the arrival stagger', () => {
@@ -64,6 +67,18 @@ describe('the shared sentence', () => {
 
     expect(flySentenceInto(title, 'A different headline.')).toBe(false);
     expect(title.animate).not.toHaveBeenCalled();
+    expect(peekSentenceHandoff()?.sentence).toBe('A claim sentence.');
+  });
+
+  it('leaves the handoff when a different sentence asks first, so the right destination can still fly', () => {
+    handOffSentence('A claim sentence.', nodeAt({ top: 120, left: 40, width: 300 }));
+    const title = nodeAt({ top: 300, left: 100, width: 600 });
+    const row = nodeAt({ top: 400, left: 80, width: 500 });
+
+    expect(flySentenceInto(title, 'NVIDIA')).toBe(false);
+    expect(flySentenceInto(row, 'A claim sentence.')).toBe(true);
+    expect(row.animate).toHaveBeenCalledTimes(1);
+    expect(peekSentenceHandoff()).toBeNull();
   });
 
   it('does nothing when nobody handed a sentence off', () => {
@@ -71,5 +86,19 @@ describe('the shared sentence', () => {
 
     expect(flySentenceInto(title, 'A claim sentence.')).toBe(false);
     expect(title.animate).not.toHaveBeenCalled();
+  });
+
+  it('fades in with opacity only when motion is reduced', () => {
+    window.matchMedia = jest.fn().mockImplementation((query) => ({
+      matches: query === '(prefers-reduced-motion: reduce)'
+    }));
+    handOffSentence('A claim sentence.', nodeAt({ top: 120, left: 40, width: 300 }));
+    const title = nodeAt({ top: 300, left: 100, width: 600 });
+
+    expect(flySentenceInto(title, 'A claim sentence.')).toBe(true);
+    expect(title.animate).toHaveBeenCalledWith(
+      [{ opacity: 0 }, { opacity: 1 }],
+      expect.objectContaining({ duration: 80, easing: 'linear' })
+    );
   });
 });

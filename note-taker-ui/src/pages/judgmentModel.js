@@ -85,9 +85,7 @@ export const namedTitle = (page = {}) => {
 /** What pops up: the name if there is one, otherwise the claim. */
 export const judgmentHeadline = (page = {}) => namedTitle(page) || claimSentence(page);
 
-const sourceRefHref = (ref) => {
-  const url = clean(ref?.url);
-  if (/^https?:\/\//i.test(url)) return url;
+const libraryHrefForRef = (ref) => {
   const type = clean(ref?.type).toLowerCase();
   const objectId = idOf(ref?.objectId);
   if (!objectId) return '';
@@ -98,11 +96,24 @@ const sourceRefHref = (ref) => {
       ? `/library?articleId=${encodeURIComponent(parentId)}&highlightId=${encodeURIComponent(objectId)}`
       : `/library?highlightId=${encodeURIComponent(objectId)}`;
   }
+  return '';
+};
+
+const sourceRefHref = (ref) => {
+  const inLibrary = libraryHrefForRef(ref);
+  if (inLibrary) return inLibrary;
+  const url = clean(ref?.url);
+  if (/^https?:\/\//i.test(url)) return url;
+  const type = clean(ref?.type).toLowerCase();
+  const objectId = idOf(ref?.objectId);
+  if (!objectId) return '';
   if (type === 'concept') return `/think?tab=concepts&concept=${encodeURIComponent(objectId)}`;
   if (type === 'question') return `/think?tab=questions&questionId=${encodeURIComponent(objectId)}`;
   if (type === 'notebook') return `/think?tab=notebook&entryId=${encodeURIComponent(objectId)}`;
   return '';
 };
+
+export const isLibraryHref = (href = '') => /^\/library(\?|$)/.test(clean(href));
 
 const sourceLabel = (ref) => (
   clean(ref?.citationLabel)

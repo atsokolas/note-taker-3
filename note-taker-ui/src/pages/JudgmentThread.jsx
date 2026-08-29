@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useCssMagneticLerp from '../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
-import { formatLedgerDate, newLineId } from './judgmentModel';
-import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate } from './judgmentLog';
+import { clearSentenceHandoff, flySentenceInto, handOffSentence, peekSentenceHandoff } from '../motion/columnMotion';
+import { formatLedgerDate, isLibraryHref, newLineId } from './judgmentModel';
+import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sourceKinForCandidate, speaksWith } from './judgmentLog';
 
 const AUTOSAVE_PAUSE_MS = 700;
 const KIND_MARK = 22;
@@ -47,6 +48,11 @@ const activeMarkOffset = (rail) => {
   return buttonRect.left - railRect.left + (buttonRect.width - KIND_MARK) / 2;
 };
 
+const citeClass = (source) => [
+  'judgment__cite',
+  isLibraryHref(source.href) ? 'is-passage' : ''
+].filter(Boolean).join(' ');
+
 const CitationMark = ({ source, onKin }) => {
   const mark = `[${source.n}]`;
   const label = source.label ? `Source ${source.n}: ${source.label}` : `Source ${source.n}`;
@@ -58,30 +64,38 @@ const CitationMark = ({ source, onKin }) => {
   };
   if (source.href) {
     return isExternal(source.href)
-      ? <a className="judgment__cite" href={source.href} target="_blank" rel="noreferrer" aria-label={label} {...kin}>{mark}</a>
-      : <Link className="judgment__cite" to={source.href} aria-label={label} {...kin}>{mark}</Link>;
+      ? <a className={citeClass(source)} href={source.href} target="_blank" rel="noreferrer" aria-label={label} {...kin}>{mark}</a>
+      : <Link className={citeClass(source)} to={source.href} aria-label={label} {...kin}>{mark}</Link>;
   }
   return (
-    <span className="judgment__cite" tabIndex={0} title={source.label} aria-label={label} {...kin}>
+    <span className={citeClass(source)} tabIndex={0} title={source.label} aria-label={label} {...kin}>
       {mark}
     </span>
   );
 };
 
 const LogRow = ({ entry, kin, arriving, onKin }) => {
-  const related = kin != null && kin.n != null && entry.sources.some(source => source.n === kin.n);
+  const textRef = useRef(null);
+  const related = entry.sources.some(source => speaksWith(source, kin));
+  const willFly = arriving && peekSentenceHandoff()?.sentence === String(entry.text || '').replace(/\s+/g, ' ').trim();
   const when = formatLedgerDate(entry.at);
+
+  useLayoutEffect(() => {
+    if (!arriving) return;
+    flySentenceInto(textRef.current, entry.text);
+  }, [arriving, entry.text]);
+
   return (
     <li
       className={[
         'judgment-log__row',
         `judgment-log__row--${entry.kind}`,
         related ? 'is-kin' : '',
-        arriving ? 'is-arriving' : ''
+        arriving && !willFly ? 'is-arriving' : ''
       ].filter(Boolean).join(' ')}
     >
       <span className="judgment-log__kind">{kindName(entry.kind)}</span>
-      <p className="judgment-log__text">
+      <p className="judgment-log__text" ref={textRef}>
         {entry.text}
         {entry.sources.length ? (
           <sup className="judgment__cites">
@@ -182,7 +196,8 @@ const InboxLine = ({
   onFile,
   onPress
 }) => {
-  const related = kin != null && kin.n != null && match?.n === kin.n;
+  const textRef = useRef(null);
+  const related = speaksWith(match, kin);
   const fileable = FILE_KINDS.has(kind);
   const whisper = match || null;
 
@@ -197,6 +212,7 @@ const InboxLine = ({
       <p className="judgment-inbox__passage">
         {fileable ? (
           <button
+            ref={textRef}
             type="button"
             className="judgment-inbox__text"
             disabled={filing}
@@ -204,12 +220,13 @@ const InboxLine = ({
             onMouseLeave={() => onKin?.(null)}
             onFocus={() => whisper && onKin?.(whisper)}
             onBlur={() => onKin?.(null)}
-            onClick={() => onPress(candidate)}
+            onClick={() => onPress(candidate, textRef.current)}
           >
             {candidate.text}
           </button>
         ) : (
           <span
+            ref={textRef}
             className="judgment-inbox__text"
             onMouseEnter={() => whisper && onKin?.(whisper)}
             onMouseLeave={() => onKin?.(null)}
@@ -227,7 +244,7 @@ const InboxLine = ({
         kind={kind}
         disabled={filing}
         onHint={onHint}
-        onChoose={(field) => onFile(candidate, field)}
+        onChoose={(field) => onFile(candidate, field, textRef.current)}
       />
     </li>
   );
@@ -252,13 +269,18 @@ const MorningInbox = ({
   const hidden = Math.max(0, remaining.length - visible.length);
   const listening = kin != null && kin.n != null;
 
-  const file = async (candidate, field) => {
+  const file = async (candidate, field, origin) => {
     if (filingId || !FILE_KINDS.has(field)) return;
     setFilingId(candidate.id);
+    handOffSentence(candidate.text, origin);
+    setLeavingId(candidate.id);
     try {
       const filed = await onFile(candidate, field);
-      if (filed === false) return;
-      setLeavingId(candidate.id);
+      if (filed === false) {
+        clearSentenceHandoff();
+        setLeavingId('');
+        return;
+      }
       const wait = reduced ? 0 : LEAVE_MS;
       if (wait) await new Promise(resolve => window.setTimeout(resolve, wait));
       setDismissed(current => (current.includes(candidate.id) ? current : [...current, candidate.id]));
@@ -288,7 +310,7 @@ const MorningInbox = ({
             onKin={onKin}
             onHint={onHint}
             onFile={file}
-            onPress={(item) => file(item, kind)}
+            onPress={(item, origin) => file(item, kind, origin)}
           />
         ))}
       </ol>

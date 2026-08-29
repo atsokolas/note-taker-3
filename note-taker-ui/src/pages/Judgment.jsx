@@ -785,8 +785,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       const judgment = fileEvidenceIntoJudgment(page, candidate, field);
       const target = field === 'against' ? 'against' : 'why';
       const last = (judgment[target] || []).at(-1);
-      await commit(judgment);
       if (last?.reasonId) setArrivingId(last.reasonId);
+      try {
+        await commit(judgment);
+      } catch (failure) {
+        setArrivingId('');
+        throw failure;
+      }
     },
     [commit, page]
   );

@@ -771,11 +771,21 @@ button.judgment-inbox__text:focus-visible {
   margin-left: 0.08em;
 }
 
+.judgment__cite.is-passage {
+  background-color: color-mix(in srgb, #f6e27a 28%, transparent);
+  border-radius: 2px;
+}
+
 .judgment__cite:hover,
 .judgment__cite:focus-visible {
   background-color: color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 3px;
   outline: none;
+}
+
+.judgment__cite.is-passage:hover,
+.judgment__cite.is-passage:focus-visible {
+  background-color: color-mix(in srgb, #f6e27a 46%, transparent);
 }
 
 /* ---------- the other agent door ---------- */
