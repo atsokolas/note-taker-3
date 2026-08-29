@@ -1,11 +1,20 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
+import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
 import MagneticReadingRail from './reader/MagneticReadingRail';
+import {
+  connectedJudgmentIds,
+  pickFolioLine,
+  rememberOpenedJudgment
+} from './reader/folioModel';
+import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
+import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
@@ -18,10 +27,43 @@ const formatDate = (value) => {
 
 const hasReadableContent = (value) => String(value || '').replace(/<[^>]*>/g, '').trim().length > 0;
 
+const highlightIdsOf = (highlights = []) => (
+  (Array.isArray(highlights) ? highlights : [])
+    .map((item) => String(item?._id || item?.id || '').trim())
+    .filter(Boolean)
+);
+
+const ArticleFolioLine = ({ line, articleId }) => {
+  const reduced = usePrefersReducedMotion();
+  const finePointer = useFinePointer();
+  const arriving = useMemo(
+    () => Boolean(articleId) && takeFirstPaint(`article-folio:${articleId}`),
+    [articleId]
+  );
+  if (!line?.text || !line?.href) return null;
+  const motion = arriving
+    ? (reduced || !finePointer ? ' is-arriving is-reduced' : ' is-arriving')
+    : '';
+  return (
+    <Link
+      to={line.href}
+      className={`article-folio${motion}`}
+      data-testid="article-folio"
+      onClick={(event) => {
+        rememberOpenedJudgment(line.id);
+        handOffSentence(line.text, event.currentTarget);
+      }}
+    >
+      {line.text}
+    </Link>
+  );
+};
+
 const ArticleReader = forwardRef(({
   article,
   highlights = [],
   graphConnections = null,
+  preferredClaimId = '',
   onMove,
   onHighlightOptimistic,
   onHighlightReplace,
@@ -39,7 +81,22 @@ const ArticleReader = forwardRef(({
      it settles immediately instead of waiting for the article list to refetch.
      It resets when a different source is opened. */
   const [kept, setKept] = useState(Boolean(article?.evergreen));
+  const [folioPages, setFolioPages] = useState([]);
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
+  useEffect(() => {
+    setFolioPages([]);
+    const articleId = article?._id;
+    if (!articleId) return undefined;
+    let cancelled = false;
+    listWikiPages({ limit: 500, summary: 1 })
+      .then((pages) => {
+        if (!cancelled) setFolioPages(Array.isArray(pages) ? pages : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFolioPages([]);
+      });
+    return () => { cancelled = true; };
+  }, [article?._id]);
   const fireTourSignal = useTourSignal();
   const html = useMemo(
     () => renderArticleContentWithHighlights(article, highlights),
@@ -55,6 +112,13 @@ const ArticleReader = forwardRef(({
     menuRef
   });
   const selectionKey = `${selectionState.text || ''}:${selectionState.anchor?.startOffsetApprox ?? ''}`;
+  const folioLine = useMemo(() => pickFolioLine(folioPages, {
+    articleId: article?._id,
+    highlightIds: highlightIdsOf(highlights),
+    connectedPageIds: connectedJudgmentIds(graphConnections),
+    preferredId: preferredClaimId,
+    search: typeof window === 'undefined' ? '' : window.location.search
+  }), [article?._id, folioPages, graphConnections, highlights, preferredClaimId]);
 
   useEffect(() => {
     if (!selectionState.isOpen) return;
@@ -176,6 +240,7 @@ const ArticleReader = forwardRef(({
               <a href={article.url} target="_blank" rel="noopener noreferrer">Open source</a>
             )}
           </div>
+          {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
         </div>
         {/* Keeping a source for life is something you do to it, so it sits
             with the other thing you can do to it. In the meta line it was a

@@ -30,6 +30,14 @@ body.noeis-editorial .article-reader-meta {
   font-size: 0.84rem;
 }
 
+body.noeis-editorial .article-folio {
+  margin-top: 10px;
+  max-width: 38rem;
+  font-size: 1.12rem;
+  line-height: 1.5;
+  color: var(--ink-human, var(--vellum-ink));
+}
+
 /* The reading progress is a hairline that fills, not a glass pill on a
    gradient. It reports where you are; it does not announce itself. */
 body.noeis-editorial .magnetic-reading-rail__track {

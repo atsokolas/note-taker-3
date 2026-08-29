@@ -43,6 +43,7 @@ import {
   selectOvernightLine,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
@@ -605,6 +606,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   useEffect(() => {
     opinionRevisionIdRef.current = '';
+  }, [pageId]);
+
+  useEffect(() => {
+    if (pageId) rememberOpenedJudgment(pageId);
   }, [pageId]);
 
   useEffect(() => {
