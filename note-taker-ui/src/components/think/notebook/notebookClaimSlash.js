@@ -38,7 +38,7 @@ export const createNotebookClaimSlashItems = ({ claimId = '', navigate, onError 
     label: 'This is a Why',
     description: claimId
       ? 'File this sentence as a Why on the linked claim.'
-      : 'Hold this sentence as a claim.',
+      : 'Start a claim from this sentence.',
     keywords: ['why', 'reason', 'because'],
     prioritizeForQuery: ['why'],
     onSelect: async ({ editor }) => {

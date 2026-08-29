@@ -190,6 +190,7 @@ describe('NotebookEditor', () => {
     );
 
     expect(await screen.findByRole('menuitem', { name: /Hold this/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /This is a Why/i })).not.toBeInTheDocument();
   });
 
   it('keeps insert actions collapsed until requested', () => {
