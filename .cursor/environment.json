@@ -1,0 +1,20 @@
+{
+  "name": "note-taker-3",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api-server",
+      "command": "npm start"
+    },
+    {
+      "name": "ui-server",
+      "command": "BROWSER=none PORT=3000 npm start --prefix note-taker-ui"
+    }
+  ],
+  "ports": [
+    { "name": "API", "port": 5500 },
+    { "name": "UI", "port": 3000 }
+  ]
+}
