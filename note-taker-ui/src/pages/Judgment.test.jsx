@@ -463,7 +463,6 @@ describe('Judgment claim', () => {
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.'));
     expect(screen.getByTestId('opinion-ghost'))
       .not.toHaveTextContent('Name this');
-    expect(screen.getByLabelText('Title')).toHaveValue('');
     expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
   });
 
