@@ -127,6 +127,11 @@ describe('G-then-rooms', () => {
       document.body.appendChild(el);
       return el;
     });
+    const prose = document.createElement('div');
+    prose.className = 'ProseMirror tiptap-editor';
+    prose.setAttribute('contenteditable', 'true');
+    document.body.appendChild(prose);
+    targets.push(prose);
     const slash = document.createElement('div');
     slash.className = 'think-slash-menu';
     const slashItem = document.createElement('button');

@@ -57,6 +57,7 @@ const TYPING_SELECTOR = [
   '[contenteditable="true"]',
   '[contenteditable=""]',
   '.ProseMirror',
+  '.tiptap-editor',
   '.think-slash-menu'
 ].join(', ');
 
@@ -71,8 +72,9 @@ export const isGoToTypingTarget = (target) => {
   return Boolean(el.closest(TYPING_SELECTOR));
 };
 
-/* One chord state in, one chord state out. Incomplete sequences fail
-   silently: the prime drops and nothing is announced. */
+/* One chord state in, one chord state out. Quiet: no toast, no palette,
+   no motion — reduced-motion users get the same silent navigate.
+   Incomplete sequences fail silently: the prime drops and nothing is announced. */
 export const consumeGoToChord = (state = {}, event = {}, now = Date.now()) => {
   const primedAt = Number(state.primedAt) || 0;
   if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) {
