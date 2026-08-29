@@ -693,6 +693,44 @@ describe('wikiAskService', () => {
       expect(marks.length).toBeGreaterThan(0);
     });
 
+    it('lists related wiki page titles without spending a model call', async () => {
+      const chatComplete = jest.fn();
+      const out = await askWikiPage({
+        page: buildPage({ title: 'Costco Wholesale investment dossier' }),
+        relatedPages: [
+          { _id: 'page-1', title: 'Membership economics', plainText: 'Renewals fund the model.' },
+          { _id: 'page-2', title: 'Retail inventory turns', plainText: 'Turns shape working capital.' },
+          { _id: 'page-3', title: 'Supplier bargaining power', plainText: 'Scale changes terms.' }
+        ],
+        question: 'Name the Wiki pages most relevant to this dossier. Use page titles.',
+        aiClient: { chatComplete, isTextGenerationConfigured: () => true }
+      });
+      expect(chatComplete).not.toHaveBeenCalled();
+      expect(out.model).toBe('deterministic');
+      expect(out.answer.content.map(node => node.content?.[0]?.text)).toEqual([
+        'Membership economics',
+        'Retail inventory turns',
+        'Supplier bargaining power'
+      ]);
+    });
+
+    it('returns a source-grounded fallback when model generation exceeds its budget', async () => {
+      const chatComplete = jest.fn(({ signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      }));
+      const out = await askWikiPage({
+        page: buildPage(),
+        question: 'What is the most important risk?',
+        modelTimeoutMs: 10,
+        aiClient: { chatComplete, isTextGenerationConfigured: () => true }
+      });
+      expect(chatComplete).toHaveBeenCalledTimes(1);
+      expect(out.model).toBe('fallback');
+      expect(out.status).toBe('failed');
+      expect(out.errorMessage).toMatch(/exceeded/);
+      expect(out.answer.type).toBe('doc');
+    });
+
     it('answers temporal questions from revision history before falling back to generic source-change prose', async () => {
       const chatComplete = jest.fn();
       const out = await askWikiPage({

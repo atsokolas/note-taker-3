@@ -30,6 +30,8 @@ class EmbeddingError extends Error {
    and stop after three of them. It just never got to see one in time. */
 const COLD_START_STATUSES = new Set([502, 503, 504]);
 const DEFAULT_EMBED_RETRY_DELAYS_MS = [4000, 12000, 20000];
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
+let rateLimitedUntil = 0;
 
 const isColdStart = (error) => (
   COLD_START_STATUSES.has(Number(error?.status)) || Number(error?.status) === 0 || !error?.status
@@ -37,10 +39,21 @@ const isColdStart = (error) => (
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const embedText = async (text, { retryDelaysMs = DEFAULT_EMBED_RETRY_DELAYS_MS } = {}) => {
+const embedText = async (text, {
+  retryDelaysMs = DEFAULT_EMBED_RETRY_DELAYS_MS,
+  rateLimitCooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN_MS
+} = {}) => {
   const trimmed = truncateText(String(text || '').trim());
   if (!trimmed) {
     throw new EmbeddingError('Embedding requires non-empty text.', 400);
+  }
+  const now = Date.now();
+  if (now < rateLimitedUntil) {
+    throw new EmbeddingError(
+      'Embedding service is cooling down after a rate limit.',
+      429,
+      { retryAfterMs: rateLimitedUntil - now }
+    );
   }
   const delays = Array.isArray(retryDelaysMs) ? retryDelaysMs : [];
   let lastError = null;
@@ -58,6 +71,12 @@ const embedText = async (text, { retryDelaysMs = DEFAULT_EMBED_RETRY_DELAYS_MS }
       return embedding;
     } catch (error) {
       lastError = error;
+      if (Number(error?.status) === 429) {
+        rateLimitedUntil = Math.max(
+          rateLimitedUntil,
+          Date.now() + Math.max(1000, Number(rateLimitCooldownMs) || DEFAULT_RATE_LIMIT_COOLDOWN_MS)
+        );
+      }
       // A malformed request or a missing route will answer identically forever;
       // only wait out the statuses a waking service actually returns.
       if (!isColdStart(error) || attempt === delays.length) break;
@@ -71,5 +90,6 @@ const embedText = async (text, { retryDelaysMs = DEFAULT_EMBED_RETRY_DELAYS_MS }
 module.exports = {
   embedText,
   EmbeddingError,
-  DEFAULT_EMBED_RETRY_DELAYS_MS
+  DEFAULT_EMBED_RETRY_DELAYS_MS,
+  DEFAULT_RATE_LIMIT_COOLDOWN_MS
 };

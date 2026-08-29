@@ -27,12 +27,44 @@ const MAX_WIKI_PAGE_CANDIDATES = 80;
 const MAX_TEMPORAL_REVISIONS = 8;
 const MAX_TEMPORAL_CONTEXTS = 5;
 const MAX_CONTRADICTION_CONTEXTS = 6;
+const DEFAULT_MODEL_TIMEOUT_MS = 15 * 1000;
 const EXACT_SENTENCE_STOPWORDS = new Set([
   'about', 'answer', 'exact', 'from', 'page', 'quote', 'sentence', 'this',
   'verbatim', 'word', 'wording', 'words'
 ]);
 
 const asString = (value = '') => String(value || '').trim();
+
+const runWithDeadline = async (task, {
+  signal = null,
+  timeoutMs = DEFAULT_MODEL_TIMEOUT_MS
+} = {}) => {
+  const controller = new AbortController();
+  const safeTimeoutMs = Math.max(100, Number(timeoutMs) || DEFAULT_MODEL_TIMEOUT_MS);
+  const abortFromParent = () => controller.abort(signal?.reason);
+  if (signal?.aborted) abortFromParent();
+  else signal?.addEventListener?.('abort', abortFromParent, { once: true });
+
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error(`Wiki answer generation exceeded ${safeTimeoutMs}ms.`);
+      error.code = 'WIKI_ASK_TIMEOUT';
+      controller.abort(error);
+      reject(error);
+    }, safeTimeoutMs);
+  });
+
+  try {
+    return await Promise.race([
+      Promise.resolve().then(() => task(controller.signal)),
+      timeout
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener?.('abort', abortFromParent);
+  }
+};
 
 const truncate = (value = '', limit = 1000) => {
   const text = asString(value).replace(/\s+/g, ' ');
@@ -277,6 +309,13 @@ const semanticPageScores = async ({ userId, question, models = {}, deps = {}, li
   const empty = new Map();
   if (!userId || !asString(question).trim()) return empty;
   try {
+    if (!deps.embed) {
+      // A disabled local AI service is a product configuration, not a cold
+      // start. Skip semantic recall and preserve the lexical path immediately.
+      // eslint-disable-next-line global-require
+      const { isAiEnabled } = require('../config/aiClient');
+      if (!isAiEnabled()) return empty;
+    }
     // eslint-disable-next-line global-require
     const { embedText } = deps.embed || require('../ai/embed');
     // eslint-disable-next-line global-require
@@ -351,7 +390,8 @@ const buildRelatedPageContexts = ({
   relatedPages = [],
   question = '',
   limit = MAX_RELATED_PAGES,
-  selectedPageOnly = false
+  selectedPageOnly = false,
+  includeUnscored = false
 } = {}) => {
   if (selectedPageOnly) return [];
   const currentId = serializeObjectId(page);
@@ -379,7 +419,7 @@ const buildRelatedPageContexts = ({
         score
       };
     })
-    .filter(candidate => candidate.score > 0)
+    .filter(candidate => includeUnscored || candidate.score > 0)
     .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
     .slice(0, Math.max(0, limit));
   return rows;
@@ -1172,6 +1212,24 @@ const buildGraphFallbackAnswer = ({
   };
 };
 
+const isWikiPageListRequest = (question = '') => (
+  /\b(name|list|which|what)\b[^?]{0,100}\bwiki pages?\b/i.test(asString(question))
+);
+
+const buildWikiPageListAnswer = ({ page, relatedPageContexts = [] } = {}) => {
+  const relatedTitles = (Array.isArray(relatedPageContexts) ? relatedPageContexts : [])
+    .map(candidate => truncate(candidate?.title, 160))
+    .filter(Boolean);
+  const selectedTitle = truncate(page?.title, 160);
+  const titles = Array.from(new Set(relatedTitles.length ? relatedTitles : [selectedTitle]))
+    .filter(Boolean)
+    .slice(0, 3);
+  return {
+    paragraphs: titles.map(title => ({ text: title, citationIndexes: [] })),
+    citationIndexesUsed: []
+  };
+};
+
 const buildTemporalFallbackAnswer = ({
   page,
   temporalContexts = [],
@@ -1245,7 +1303,8 @@ const buildAskGraphContext = ({
     page,
     relatedPages: rankedPages,
     question,
-    selectedPageOnly
+    selectedPageOnly,
+    includeUnscored: isWikiPageListRequest(question)
   });
   const highlightContexts = selectedPageOnly
     ? []
@@ -1486,7 +1545,9 @@ const askWikiPage = async ({
   relatedPages = [],
   conceptRecords = [],
   backlinkRows = [],
-  revisionRows = []
+  revisionRows = [],
+  signal = null,
+  modelTimeoutMs = Number(process.env.WIKI_ASK_MODEL_TIMEOUT_MS || DEFAULT_MODEL_TIMEOUT_MS)
 } = {}) => {
   const trimmed = truncate(question, MAX_QUESTION);
   if (!trimmed) {
@@ -1541,6 +1602,17 @@ const askWikiPage = async ({
   });
   const temporalFallback = buildTemporalFallbackAnswer({ page, temporalContexts, sources });
   const contradictionFallback = buildContradictionFallbackAnswer({ page, contradictionContexts });
+  if (isWikiPageListRequest(trimmed)) {
+    const listAnswer = buildWikiPageListAnswer({ page, relatedPageContexts });
+    return {
+      answer: docFromAnswer(listAnswer, sources.length),
+      citationIndexesUsed: [],
+      provenance: buildProvenance(''),
+      model: 'deterministic',
+      status: 'answered',
+      errorMessage: ''
+    };
+  }
   if (isSummaryRequest(trimmed)) {
     const summaryAnswer = buildPageSummaryAnswer({ page, question: trimmed });
     return {
@@ -1642,7 +1714,7 @@ const askWikiPage = async ({
   });
   let completion = null;
   try {
-    completion = await chatClient({
+    completion = await runWithDeadline((requestSignal) => chatClient({
       route: 'artifact_draft',
       maxTokens: 1200,
       temperature: 0.3,
@@ -1651,8 +1723,9 @@ const askWikiPage = async ({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: trimmed }
-      ]
-    });
+      ],
+      signal: requestSignal
+    }), { signal, timeoutMs: modelTimeoutMs });
   } catch (error) {
     return {
       answer: docFromAnswer(fallback, sources.length),
@@ -1715,6 +1788,9 @@ module.exports = {
     extractMentionedTitleCandidates,
     rankWikiPageCandidates,
     semanticPageScores,
-    pickExactPageSentence
+    pickExactPageSentence,
+    isWikiPageListRequest,
+    buildWikiPageListAnswer,
+    runWithDeadline
   }
 };

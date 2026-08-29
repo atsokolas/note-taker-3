@@ -38,6 +38,21 @@ const parseSseBlock = (block = '') => {
   }
 };
 
+export const AGENT_STREAM_IDLE_TIMEOUT_MS = 30 * 1000;
+
+const readStreamWithTimeout = (reader, timeoutMs) => {
+  const safeTimeoutMs = Math.max(100, Number(timeoutMs) || AGENT_STREAM_IDLE_TIMEOUT_MS);
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error('Thought Partner paused too long. Nothing was changed; ask again to retry.');
+      error.code = 'AGENT_STREAM_TIMEOUT';
+      reject(error);
+    }, safeTimeoutMs);
+  });
+  return Promise.race([reader.read(), timeout]).finally(() => clearTimeout(timeoutId));
+};
+
 export const streamChatWithAgent = async (payload = {}, handlers = {}) => {
   const token = localStorage.getItem('token');
   const res = await fetch(apiUrl('/api/agent/chat/stream'), {
@@ -72,6 +87,7 @@ export const streamChatWithAgent = async (payload = {}, handlers = {}) => {
   let buffer = '';
   let finalPayload = null;
   let streamError = null;
+  const idleTimeoutMs = handlers.idleTimeoutMs || AGENT_STREAM_IDLE_TIMEOUT_MS;
 
   const consumeBlock = (block) => {
     const { event, payload: blockPayload } = parseSseBlock(block);
@@ -88,13 +104,24 @@ export const streamChatWithAgent = async (payload = {}, handlers = {}) => {
     }
   };
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split(/\r?\n\r?\n/);
-    buffer = blocks.pop() || '';
-    blocks.forEach(consumeBlock);
+  try {
+    while (true) {
+      const { done, value } = await readStreamWithTimeout(reader, idleTimeoutMs);
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = blocks.pop() || '';
+      blocks.forEach(consumeBlock);
+    }
+  } catch (error) {
+    if (error?.code === 'AGENT_STREAM_TIMEOUT') {
+      try {
+        await reader.cancel?.();
+      } catch (_cancelError) {
+        // The useful outcome is already the recoverable timeout shown to the user.
+      }
+    }
+    throw error;
   }
   buffer += decoder.decode();
   if (buffer.trim()) consumeBlock(buffer);
