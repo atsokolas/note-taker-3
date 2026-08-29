@@ -79,7 +79,8 @@ describe('useOpinionGhost', () => {
     rerender(<Probe sentence="The third hold." />);
 
     expect(screen.getByTestId('ghost')).toHaveTextContent('The first hold.');
-    act(() => { jest.advanceTimersByTime(OPINION_GHOST_LINGER_MS + OPINION_GHOST_FADE_MS); });
+    act(() => { jest.advanceTimersByTime(OPINION_GHOST_LINGER_MS); });
+    act(() => { jest.advanceTimersByTime(OPINION_GHOST_FADE_MS); });
     expect(screen.getByTestId('ghost')).toHaveTextContent('');
   });
 
