@@ -84,16 +84,22 @@ const ArticleReader = forwardRef(({
   const [folioPages, setFolioPages] = useState([]);
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
   useEffect(() => {
-    setFolioPages([]);
     const articleId = article?._id;
-    if (!articleId) return undefined;
+    const replacePages = (next) => {
+      setFolioPages((current) => (current.length || next.length ? next : current));
+    };
+    if (!articleId) {
+      replacePages([]);
+      return undefined;
+    }
     let cancelled = false;
+    replacePages([]);
     listWikiPages({ limit: 500, summary: 1 })
       .then((pages) => {
-        if (!cancelled) setFolioPages(Array.isArray(pages) ? pages : []);
+        if (!cancelled) replacePages(Array.isArray(pages) ? pages : []);
       })
       .catch(() => {
-        if (!cancelled) setFolioPages([]);
+        if (!cancelled) replacePages([]);
       });
     return () => { cancelled = true; };
   }, [article?._id]);

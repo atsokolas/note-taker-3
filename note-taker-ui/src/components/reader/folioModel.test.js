@@ -176,6 +176,6 @@ describe('remembering the open claim', () => {
     expect(pickFolioLine([
       claim('other', { currentJudgment: 'Rates still matter.', updatedAt: '2026-08-29T00:00:00.000Z' }),
       claim('wiki-nvidia', { currentJudgment: 'Compute stays scarce.', updatedAt: '2026-01-01T00:00:00.000Z' })
-    ], { articleId })?._id).toBe('wiki-nvidia');
+    ], { articleId })?.id).toBe('wiki-nvidia');
   });
 });
