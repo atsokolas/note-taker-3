@@ -863,9 +863,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }
 
   // First-run fallback for users who have already completed onboarding and
-  // cleared their corpus later: never a dead screen. Unknown is not empty —
-  // hold the last shell (or the loading paper) until a load actually answers.
-  if (!loading && hasAnyWikiContent === false && !curatedPages.length) {
+  // cleared their corpus later — or whose only pages are hidden from the
+  // front. Unknown is not empty: hold the last shell (or the loading paper)
+  // until a load actually answers. Quiet empty only after that answer.
+  if (!loading && hasAnyWikiContent != null && !curatedPages.length) {
     return (
       <WikiFrontPageShell lead={paperLead} tail={paperTail}>
         <header className="wiki-front-page__top">

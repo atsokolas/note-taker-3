@@ -273,7 +273,7 @@ const LibraryMain = ({
   return (
     <div className="library-main-browse">
       {showReadingRoomLead && Number.isFinite(unfiledCount) ? (
-        <LibraryReadingRoomLead>
+        <LibraryReadingRoomLead
           articles={articles}
           allArticles={allArticles}
           unfiledCount={unfiledCount}

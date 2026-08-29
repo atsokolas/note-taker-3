@@ -167,12 +167,12 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).not.toContain('.wiki-front-page__hairline');
   });
 
-  it('aligns wiki facet rail and list rows with library cabinet grammar', () => {
+  it('aligns wiki list rows with library row grammar and leaves the facet rail on RoomShelf', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
-    expect(css).toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
+    expect(css).not.toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).not.toContain('body.noeis-editorial .wiki-facet-rail--deep');
     expect(css).toMatch(/@media \(max-width: 960px\)[\s\S]*?wiki-index__faceted-main[\s\S]*?order: 2;/);
   });
