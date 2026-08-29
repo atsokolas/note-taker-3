@@ -2960,8 +2960,7 @@ body.noeis-editorial .palette-list {
   }
 }
 
-.selection-menu__actions,
-.selection-menu__controls {
+.selection-menu__actions {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2991,37 +2990,6 @@ body.noeis-editorial .palette-list {
 
 .selection-menu-button.is-muted {
   color: var(--muted);
-}
-
-.selection-menu-divider {
-  width: 100%;
-  height: 1px;
-  background: var(--border-subtle);
-}
-
-.selection-menu__swatches {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.selection-menu__swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.selection-menu__swatch:hover {
-  transform: translateY(-1px);
-}
-
-.selection-menu__swatch.is-active {
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .selection-menu__input {
@@ -6647,10 +6615,6 @@ html[data-ui-theme='dark'] .selection-menu {
 
 html[data-ui-theme='dark'] .selection-menu-button:hover {
   background: color-mix(in srgb, var(--surface-muted) 85%, var(--mix-lift) 6%);
-}
-
-html[data-ui-theme='dark'] .selection-menu-divider {
-  background: color-mix(in srgb, var(--border-subtle) 100%, var(--mix-lift) 6%);
 }
 
 html[data-ui-theme='dark'] .magnetic-reading-rail__track {

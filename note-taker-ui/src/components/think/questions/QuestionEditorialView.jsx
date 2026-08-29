@@ -550,7 +550,7 @@ const QuestionEditorialView = ({
           </div>
           <div className="question-dialectic-margin__lanes">
             <section>
-              <h3>Strongest support</h3>
+              <h3>Support</h3>
               {questionSupportSignals.length === 0 ? (
                 <CalmEmptyLine>No support staged yet.</CalmEmptyLine>
               ) : (

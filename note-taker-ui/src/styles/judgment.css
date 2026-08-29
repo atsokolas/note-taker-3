@@ -125,10 +125,11 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
 
 .judgment__proposal-sentence {
   margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-  line-height: 1.55;
+  color: var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink)));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  font-weight: 400;
+  line-height: 1.5;
   text-wrap: pretty;
 }
 
@@ -450,9 +451,10 @@ body.noeis-editorial .judgment .judgment-composer input,
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-secondary, var(--vellum-muted));
+  color: var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink)));
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 0.94rem;
+  font-weight: 400;
   line-height: 1.5;
   text-align: left;
   text-wrap: pretty;
@@ -461,11 +463,11 @@ body.noeis-editorial .judgment .judgment-composer input,
 
 button.judgment-inbox__text:hover,
 button.judgment-inbox__text:focus-visible {
-  color: var(--text-primary, var(--vellum-ink));
+  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
 }
 
 .judgment-inbox__line.is-kin .judgment-inbox__text {
-  color: var(--text-primary, var(--vellum-ink));
+  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
 }
 
 .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin) {
@@ -585,7 +587,7 @@ button.judgment-inbox__text:focus-visible {
 
 .judgment-log__text {
   margin: 0;
-  color: var(--text-primary, var(--vellum-ink));
+  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 0.94rem;
   line-height: 1.55;

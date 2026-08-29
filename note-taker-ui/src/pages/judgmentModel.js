@@ -406,13 +406,13 @@ export const judgmentActivity = (page, events = [], now = Date.now()) => {
   return { state: 'quiet', arrived: 0, newestAt: null };
 };
 
-/* The mark the index carries. Live and quiet say nothing at all, which is the
-   point: the index must be able to be silent. */
+/* The mark the index carries. Live, quiet, and a claim without a falsifier
+   say nothing at all — a missing pin is not a nag. */
 export const activityNote = ({ state, arrived } = {}) => {
   if (state === 'avoided') {
     return `${arrived} thing${arrived === 1 ? '' : 's'} arrived about this and ${arrived === 1 ? 'is' : 'are'} unread`;
   }
-  if (state === 'unfalsifiable') return 'Nothing could change your mind about this yet';
+  if (state === 'unfalsifiable') return '';
   if (state === 'parked') return 'Parked';
   if (state === 'evergreen') return 'Kept';
   return '';

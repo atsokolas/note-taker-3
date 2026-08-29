@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 
@@ -13,11 +12,8 @@ const POINTER_INFLUENCE_RADIUS_PX = 280;
 
 const SelectionMenu = React.forwardRef(({
   rect,
-  color,
   saving,
-  onColorChange,
   onHighlight,
-  onHighlightInColor,
   onAskLibrarian,
 }, ref) => {
   const reducedMotion = usePrefersReducedMotion();
@@ -101,13 +97,9 @@ const SelectionMenu = React.forwardRef(({
       style={style}
       role="menu"
     >
-      {/* Two things you can do to a sentence you just selected: keep it, or ask
-          about it. There were four buttons and a tag field here, which is a
-          form standing on top of the paragraph you were reading — and three of
-          the four asked you to decide what kind of thing the sentence was
-          before you had finished reading it. Filing it as a concept or a
-          question is still a thing you can do to the highlight afterwards, in
-          the Library, once you know. */}
+      {/* Two things you can do to a sentence: keep it, or ask about it.
+          Colour is one warm ink. A row of crayons asked you to decorate
+          before you had finished reading. */}
       <div className="selection-menu__actions">
         <button type="button" className="selection-menu-button" onClick={onHighlight} disabled={saving}>
           {saving ? 'Saving...' : 'Highlight'}
@@ -115,37 +107,6 @@ const SelectionMenu = React.forwardRef(({
         <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
           Ask about this
         </button>
-      </div>
-      <div className="selection-menu-divider" />
-      {/* The colour is part of highlighting, not chrome around it — and a row
-          of coloured circles under the word Highlight reads as five ways to
-          highlight, not as a setting you adjust before pressing something
-          else. It was a picker: pressing yellow set the colour to the one
-          already selected and did nothing else, so the commonest way anyone
-          would try to highlight was the one gesture that never saved, and it
-          gave no feedback while failing.
-
-          Pressing a colour is the whole instruction. It saves, in that
-          colour. */}
-      <div className="selection-menu__controls">
-        <div className="selection-menu__swatches" aria-label="Highlight in a colour">
-          {HIGHLIGHT_COLOR_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`selection-menu__swatch ${color === option.value ? 'is-active' : ''}`}
-              style={{ backgroundColor: option.value }}
-              onClick={() => {
-                onColorChange(option.value);
-                if (onHighlightInColor) onHighlightInColor(option.value);
-              }}
-              title={`Highlight in ${option.label.toLowerCase()}`}
-              aria-label={`Highlight in ${option.label.toLowerCase()}`}
-              aria-pressed={color === option.value}
-              disabled={saving}
-            />
-          ))}
-        </div>
       </div>
     </div>
   ), document.body);

@@ -4391,7 +4391,7 @@ const ThinkMode = () => {
         placeholder="Ask what to resume, refine, or gather next."
         promptTemplates={[
           'What should I resume first?',
-          'Which concept has the strongest motion right now?',
+          'Which concept is in motion right now?',
           'What question is still most unresolved?'
         ]}
         emptyStateText="Use the stream to sort the notebook, concepts, and open questions before diving deeper."

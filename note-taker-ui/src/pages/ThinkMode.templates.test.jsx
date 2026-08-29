@@ -995,7 +995,7 @@ describe('ThinkMode template integration', () => {
     expect(screen.getByText('Challenger mode: pressure-test claims, ask what would change your mind, and surface counter-evidence.')).toBeInTheDocument();
     expect(screen.getByText('Dialectical margin')).toBeInTheDocument();
     expect(screen.getByTestId('question-editorial-secondary-rail')).not.toHaveAttribute('open');
-    expect(screen.getByText('Strongest support')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Support' })).toBeInTheDocument();
     expect(screen.getByText('Counter-pressure')).toBeInTheDocument();
     const inlineDock = screen.getByTestId('question-inline-evidence-dock');
     expect(inlineDock).toHaveTextContent('Support notch');

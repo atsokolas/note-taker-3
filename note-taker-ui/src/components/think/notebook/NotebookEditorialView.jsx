@@ -259,7 +259,7 @@ const NotebookEditorialView = ({
         <AgentArtifactDraftsPanel
           draftsModel={sharedArtifactDraftsModel}
           title="Draft staging"
-          subtitle="Promote the strongest note-driven outputs without leaving the notebook."
+          subtitle="Promote a note-driven output without leaving the notebook."
           emptyText="No staged drafts yet."
           accent="output"
           className="editorial-side-rail__drafts think-draft-staging-panel"

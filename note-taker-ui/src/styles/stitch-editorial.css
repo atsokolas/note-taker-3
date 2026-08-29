@@ -7,6 +7,10 @@ body.noeis-editorial {
   --vellum-panel-strong: var(--noeis-paper-muted);
   --vellum-panel-stronger: var(--noeis-paper-sunken);
   --vellum-ink: var(--text-primary);
+  /* Human writes in full ink. The agent is a half-step warmer — you always
+     know who spoke, without a badge. */
+  --ink-human: var(--vellum-ink);
+  --ink-agent: color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink));
   --vellum-muted: var(--text-secondary);
   --vellum-subtle: var(--text-muted);
   --vellum-line: var(--surface-border);
@@ -133,6 +137,8 @@ html[data-ui-theme='dark'] body.noeis-editorial {
   --vellum-panel-strong: var(--noeis-paper-muted);
   --vellum-panel-stronger: var(--noeis-paper-sunken);
   --vellum-ink: var(--text-primary);
+  --ink-human: var(--vellum-ink);
+  --ink-agent: color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink));
   --vellum-muted: var(--text-secondary);
   --vellum-subtle: var(--text-muted);
   --vellum-line: var(--surface-border);
@@ -8475,54 +8481,6 @@ body.noeis-editorial .agent-thought-partner__plan-preview-actions .ui-quiet-butt
 
 body.noeis-editorial .agent-thought-partner__message {
   display: grid;
-  gap: 4px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 0 0 10px;
-  border: 0 !important;
-  border-bottom: 1px solid rgba(186, 186, 176, 0.18);
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-body.noeis-editorial .agent-thought-partner__message.is-user {
-  padding-left: 14px;
-  position: relative;
-}
-
-body.noeis-editorial .agent-thought-partner__message.is-user::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 3px;
-  bottom: 14px;
-  width: 1px;
-  background: color-mix(in srgb, var(--vellum-ink) 54%, transparent);
-}
-
-body.noeis-editorial .agent-thought-partner__message-role {
-  margin: 0;
-  font-family: var(--noeis-ui-font);
-  font-size: 0.52rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--vellum-ink) 42%, transparent);
-}
-
-body.noeis-editorial .agent-thought-partner__message p:last-child {
-  margin: 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 0.9rem;
-  line-height: 1.62;
-  color: color-mix(in srgb, var(--vellum-ink) 86%, transparent);
-}
-
-body.noeis-editorial .agent-thought-partner__message.is-user p:last-child {
-  color: rgba(79, 74, 70, 0.86);
-}
-
-body.noeis-editorial .agent-thought-partner__message {
-  display: grid;
   gap: 5px;
   min-width: 0;
   max-width: 100%;
@@ -8530,11 +8488,12 @@ body.noeis-editorial .agent-thought-partner__message {
   border: 0 !important;
   border-bottom: 1px solid var(--vellum-line) !important;
   background: transparent !important;
+  box-shadow: none !important;
 }
 
 body.noeis-editorial .agent-thought-partner__message.is-user {
   padding-left: 10px;
-  border-left: 2px solid color-mix(in srgb, var(--vellum-ink) 18%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--ink-human, var(--vellum-ink)) 18%, transparent);
   background: transparent !important;
 }
 
@@ -8552,9 +8511,16 @@ body.noeis-editorial .agent-thought-partner__message p {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
+  font-family: "Newsreader", Georgia, serif;
   font-size: 0.96rem;
+  font-weight: 400;
   line-height: 1.58;
-  color: var(--vellum-ink);
+  color: var(--ink-agent, var(--vellum-ink));
+}
+
+body.noeis-editorial .agent-thought-partner__message.is-user p,
+body.noeis-editorial .agent-thought-partner__message.is-user p:last-child {
+  color: var(--ink-human, var(--vellum-ink));
 }
 
 body.noeis-editorial .agent-thought-partner__related-items {

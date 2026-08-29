@@ -55,10 +55,10 @@ describe('judgmentActivity', () => {
     expect(judgmentActivity(page(), noise, NOW)).toMatchObject({ state: 'quiet', arrived: 0 });
   });
 
-  it('says once when nothing could ever bear on the claim', () => {
+  it('does not nag when nothing could yet bear on the claim', () => {
     const activity = judgmentActivity(page({ falsifiers: [] }), [], NOW);
     expect(activity.state).toBe('unfalsifiable');
-    expect(activityNote(activity)).toBe('Nothing could change your mind about this yet');
+    expect(activityNote(activity)).toBe('');
   });
 
   it('does not raise a missing falsifier on a claim that is gathering evidence', () => {
@@ -86,6 +86,7 @@ describe('buildJudgmentIndex with activity', () => {
 
     const other = index.find(item => item.id === 'p2');
     expect(other.state).toBe('unfalsifiable');
+    expect(other.note).toBe('');
   });
 
   it('still works when no events are passed at all', () => {

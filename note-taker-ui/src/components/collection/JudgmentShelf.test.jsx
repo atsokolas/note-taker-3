@@ -42,6 +42,19 @@ describe('JudgmentShelf', () => {
     expect(screen.getByText('Lessons').parentElement).toHaveTextContent('1');
   });
 
+  it('does not show casebook zeros', () => {
+    render(
+      <MemoryRouter>
+        <JudgmentShelf items={[{ id: 'c1', headline: 'A claim.', sentence: 'A claim.' }]} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Claims')).toBeInTheDocument();
+    expect(screen.queryByText('Decisions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Outcomes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lessons')).not.toBeInTheDocument();
+  });
+
   it('searches the visible cases without mutating the casebook', () => {
     renderShelf();
 

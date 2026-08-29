@@ -273,7 +273,7 @@ const ThinkNotes = () => {
           placeholder="Challenge, connect, or develop this thought…"
           promptTemplates={[
             'Find a source that changes this note.',
-            'What is the strongest unresolved idea here?',
+            'What is still unresolved on this page?',
             'Challenge the weakest assumption on this page.'
           ]}
           passiveStatusText="Keep writing. I will stay quiet until you ask me to connect, challenge, or develop the page."

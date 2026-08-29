@@ -34,7 +34,6 @@ const ArticleReader = forwardRef(({
   const readerRootRef = useRef(null);
   const menuRef = useRef(null);
   const [saveError, setSaveError] = useState('');
-  const [draftColor, setDraftColor] = useState(DEFAULT_HIGHLIGHT_COLOR);
   const [saving, setSaving] = useState(false);
   /* Kept lives here rather than being read straight off the prop, so pressing
      it settles immediately instead of waiting for the article list to refetch.
@@ -59,7 +58,6 @@ const ArticleReader = forwardRef(({
 
   useEffect(() => {
     if (!selectionState.isOpen) return;
-    setDraftColor(DEFAULT_HIGHLIGHT_COLOR);
     setSaveError('');
   }, [selectionKey, selectionState.isOpen]);
 
@@ -82,11 +80,7 @@ const ArticleReader = forwardRef(({
     );
   }
 
-  /* The colour is passed in rather than read from state, because pressing a
-     swatch sets the colour and saves in the same gesture and the state update
-     has not flushed by the time the save runs. Without this, choosing green
-     would save the previous colour. */
-  const persistHighlight = async (afterSave, colorOverride) => {
+  const persistHighlight = async (afterSave) => {
     /* This used to return in silence. Pressing Highlight then did nothing at
        all: the menu stayed open, no request was made, and the console stayed
        empty — which is indistinguishable from a dead button. Whatever the
@@ -114,7 +108,7 @@ const ArticleReader = forwardRef(({
       _id: tempId,
       text: highlightText,
       tags: [],
-      color: colorOverride || draftColor,
+      color: DEFAULT_HIGHLIGHT_COLOR,
       articleId: article._id,
       articleTitle: article.title,
       createdAt: new Date().toISOString(),
@@ -128,7 +122,7 @@ const ArticleReader = forwardRef(({
         text: highlightText,
         tags: [],
         anchor: highlightAnchor,
-        color: colorOverride || draftColor
+        color: DEFAULT_HIGHLIGHT_COLOR
       });
       if (created?._id) {
         const normalizedCreated = {
@@ -154,11 +148,6 @@ const ArticleReader = forwardRef(({
     await persistHighlight();
   };
 
-  /* Pressing a colour is the whole instruction: highlight this, in that. */
-  const handleHighlightInColor = async (color) => {
-    await persistHighlight(undefined, color);
-  };
-
   const handleSaveAndOpen = async (callback, fallbackError) => {
     if (!callback) {
       setSaveError(fallbackError);
@@ -173,11 +162,8 @@ const ArticleReader = forwardRef(({
         <SelectionMenu
           ref={menuRef}
           rect={selectionState.rect}
-          color={draftColor}
           saving={saving}
-          onColorChange={setDraftColor}
           onHighlight={handleCreateHighlight}
-          onHighlightInColor={handleHighlightInColor}
           onAskLibrarian={() => handleSaveAndOpen(onAskLibrarian, 'The agent is unavailable here.')}
         />
       )}

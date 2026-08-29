@@ -204,4 +204,12 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toMatch(/connections-return-loop__feed strong,[\s\S]*?overflow-wrap: normal;/);
     expect(css).toMatch(/connections-return-loop__feed p,[\s\S]*?overflow-wrap: break-word;/);
   });
+
+  it('keeps two inks so agent and human writing can be told apart', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
+    expect(css).toContain('--ink-human:');
+    expect(css).toContain('--ink-agent:');
+    expect(css).toContain('color: var(--ink-agent, var(--vellum-ink))');
+    expect(css).toContain('color: var(--ink-human, var(--vellum-ink))');
+  });
 });

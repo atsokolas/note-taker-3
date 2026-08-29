@@ -1,3 +1,5 @@
+/* Capture is one warm ink. Older highlights may still carry a stored colour
+   and we render that; we do not offer a crayon box at the moment of reading. */
 export const DEFAULT_HIGHLIGHT_COLOR = '#f6e27a';
 
 export const HIGHLIGHT_COLOR_OPTIONS = [
