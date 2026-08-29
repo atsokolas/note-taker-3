@@ -2,15 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
 
-// Ghost of the previous opinion.
-//
-// When the held sentence changes, the old one stays briefly as faded italic
-// ink — dated disagreement with yourself — then yields. It is session-local
-// and only for a replacement that just happened. First paint, a blank, and a
-// different claim do not linger.
+// Ghost ink: a name that is not there yet, and the opinion you just left.
+// Same fade, same italic paper. The missing name is not a form label; the
+// previous hold is not a banner. Both yield.
 
+export const GHOST_FADE_MS = 420;
 export const OPINION_GHOST_LINGER_MS = 1400;
-export const OPINION_GHOST_FADE_MS = 420;
+export const OPINION_GHOST_FADE_MS = GHOST_FADE_MS;
+export const MISSING_NAME = 'Name this';
+export const GHOST_INK_CLASS = 'judgment__ghost';
+
+const writtenName = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+/** The ghost of a missing name. Empty once the case is named. Never the claim. */
+export const ghostOfMissingName = (name = '') => (writtenName(name) ? '' : MISSING_NAME);
 
 /** The previous held sentence, or empty when nothing should linger. */
 export const ghostOfPreviousOpinion = (previous, next) => {
@@ -67,23 +72,35 @@ export const useOpinionGhost = (sentence, identity = '') => {
       ghostingRef.current = '';
       setGhost('');
       setYielding(false);
-    }, OPINION_GHOST_FADE_MS);
+    }, GHOST_FADE_MS);
     return () => window.clearTimeout(done);
   }, [yielding]);
 
   return { ghost, yielding };
 };
 
+export const GhostInk = ({ as: Tag = 'p', yielding = false, className = '', testId, children }) => (
+  <Tag
+    className={[GHOST_INK_CLASS, className, yielding ? 'is-yielding' : '']
+      .filter(Boolean)
+      .join(' ')}
+    data-testid={testId}
+    aria-hidden="true"
+  >
+    {children}
+  </Tag>
+);
+
 export const OpinionGhost = ({ sentence = '', identity = '' }) => {
   const { ghost, yielding } = useOpinionGhost(sentence, identity);
   if (!ghost) return null;
   return (
-    <p
-      className={`judgment__opinion-ghost${yielding ? ' is-yielding' : ''}`}
-      data-testid="opinion-ghost"
-      aria-hidden="true"
+    <GhostInk
+      yielding={yielding}
+      className="judgment__opinion-ghost"
+      testId="opinion-ghost"
     >
       {ghost}
-    </p>
+    </GhostInk>
   );
 };

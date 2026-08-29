@@ -86,6 +86,9 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   margin: 0 auto;
   padding: clamp(48px, 9vh, 104px) 20px clamp(96px, 22vh, 220px);
   color: var(--text-primary, var(--vellum-ink));
+  --judgment-ghost-ink: var(--ink-human, var(--text-primary, var(--vellum-ink)));
+  --judgment-ghost-rest: 0.36;
+  --judgment-ghost-fade: 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* A return is not an arrival. The stagger is a first-paint cue; coming back to
@@ -215,10 +218,23 @@ body.noeis-editorial .judgment .judgment__title:focus,
   border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
 }
 
+/* Ghost of the missing name — italic paper, not a muted form label.
+   Yields on focus and as soon as a name is typed. Same ink as the
+   opinion linger. body.noeis-editorial paints placeholders, so this
+   has to outrank that. */
 body.noeis-editorial .judgment .judgment__title::placeholder,
 .judgment .judgment__title::placeholder {
-  color: var(--text-muted, var(--vellum-subtle)) !important;
-  opacity: 1;
+  color: var(--judgment-ghost-ink) !important;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: inherit;
+  opacity: var(--judgment-ghost-rest);
+  transition: opacity var(--judgment-ghost-fade);
+}
+
+body.noeis-editorial .judgment .judgment__title:focus::placeholder,
+.judgment .judgment__title:focus::placeholder {
+  opacity: 0;
 }
 
 /* The opinion sits under the name, always. Same face as the index's claim
@@ -252,27 +268,30 @@ body.noeis-editorial .judgment .judgment__opinion:focus,
   border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
 }
 
-/* The sentence you just left. Faded italic of the previous hold, then it
-   yields. Opacity only — no slide, no height trick — so reduced motion can
-   skip the linger in JS without a second animation system. */
+/* Shared ghost ink. The missing name uses the title placeholder; the
+   previous hold uses this line. Opacity only — no slide, no height trick —
+   so reduced motion can skip the linger in JS without a second animation. */
+.judgment .judgment__ghost {
+  color: var(--judgment-ghost-ink);
+  font-style: italic;
+  font-weight: 400;
+  pointer-events: none;
+  opacity: var(--judgment-ghost-rest);
+  transition: opacity var(--judgment-ghost-fade);
+}
+
+.judgment .judgment__ghost.is-yielding {
+  opacity: 0;
+}
+
 .judgment .judgment__opinion-ghost {
   display: block;
   max-width: 46ch;
   margin: 8px 0 0;
-  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
   font-size: 1.02rem;
-  font-style: italic;
-  font-weight: 400;
   line-height: 1.42;
   text-wrap: pretty;
-  pointer-events: none;
-  opacity: 0.36;
-  transition: opacity 420ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.judgment .judgment__opinion-ghost.is-yielding {
-  opacity: 0;
 }
 
 .judgment__claim-sentence,
@@ -737,6 +756,11 @@ button.judgment-inbox__text:focus-visible {
   .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
   .judgment-inbox__line {
     opacity: 1;
+    transition: none;
+  }
+
+  .judgment .judgment__title::placeholder,
+  .judgment .judgment__ghost {
     transition: none;
   }
 

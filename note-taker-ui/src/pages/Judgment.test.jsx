@@ -378,6 +378,35 @@ describe('Judgment claim', () => {
     expect(title).toHaveAttribute('placeholder', 'Name this');
     expect(screen.getByLabelText('What you hold'))
       .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(title).not.toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('yields the name ghost when a name is typed', async () => {
+    const unnamed = judgmentPage();
+    unnamed.title = unnamed.judgment.currentJudgment;
+    getWikiPage.mockResolvedValue(unnamed);
+
+    renderDetail();
+
+    const title = await screen.findByLabelText('Title');
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: 'Compute' } });
+
+    expect(title).toHaveValue('Compute');
+    expect(screen.queryByDisplayValue('Name this')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('does not ghost Name this on a named case', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetail();
+
+    const title = await screen.findByLabelText('Title');
+    expect(title).toHaveValue('NVIDIA');
+    expect(title).not.toHaveAttribute('placeholder', 'Name this');
+    expect(screen.queryByDisplayValue('Name this')).not.toBeInTheDocument();
   });
 
   it('names an unnamed case without swallowing the opinion', async () => {

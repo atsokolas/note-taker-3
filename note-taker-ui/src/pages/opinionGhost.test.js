@@ -1,9 +1,14 @@
 import React from 'react';
+import { namedTitle } from './judgmentModel';
 import { act, render, screen } from '@testing-library/react';
 import {
+  GHOST_FADE_MS,
+  GHOST_INK_CLASS,
+  MISSING_NAME,
   OPINION_GHOST_FADE_MS,
   OPINION_GHOST_LINGER_MS,
   OpinionGhost,
+  ghostOfMissingName,
   ghostOfPreviousOpinion,
   useOpinionGhost
 } from './opinionGhost';
@@ -23,6 +28,30 @@ const originalMatchMedia = window.matchMedia;
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
   jest.useRealTimers();
+});
+
+describe('ghostOfMissingName', () => {
+  it('is Name this when the case has no name', () => {
+    expect(ghostOfMissingName('')).toBe(MISSING_NAME);
+    expect(ghostOfMissingName('   ')).toBe(MISSING_NAME);
+    expect(ghostOfMissingName(null)).toBe(MISSING_NAME);
+  });
+
+  it('is silent once a name is written', () => {
+    expect(ghostOfMissingName('NVIDIA')).toBe('');
+    expect(ghostOfMissingName('AI')).toBe('');
+  });
+
+  it('follows the empty wiki name, not a stuffed claim', () => {
+    expect(ghostOfMissingName(namedTitle({
+      title: 'NVIDIA demand still outruns deliverable capacity.',
+      judgment: { currentJudgment: 'NVIDIA demand still outruns deliverable capacity.' }
+    }))).toBe(MISSING_NAME);
+    expect(ghostOfMissingName(namedTitle({
+      title: 'NVIDIA',
+      judgment: { currentJudgment: 'NVIDIA demand still outruns deliverable capacity.' }
+    }))).toBe('');
+  });
 });
 
 describe('ghostOfPreviousOpinion', () => {
@@ -117,13 +146,14 @@ describe('OpinionGhost', () => {
     );
     const ghost = screen.getByTestId('opinion-ghost');
     expect(ghost).toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
+    expect(ghost).toHaveClass(GHOST_INK_CLASS);
     expect(ghost).toHaveClass('judgment__opinion-ghost');
     expect(ghost).not.toHaveClass('is-yielding');
 
     act(() => { jest.advanceTimersByTime(OPINION_GHOST_LINGER_MS); });
     expect(screen.getByTestId('opinion-ghost')).toHaveClass('is-yielding');
 
-    act(() => { jest.advanceTimersByTime(OPINION_GHOST_FADE_MS); });
+    act(() => { jest.advanceTimersByTime(GHOST_FADE_MS); });
     expect(screen.queryByTestId('opinion-ghost')).not.toBeInTheDocument();
   });
 });

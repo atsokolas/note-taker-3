@@ -45,7 +45,7 @@ import {
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
-import { OpinionGhost } from './opinionGhost';
+import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -171,7 +171,7 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onCl
           id="judgment-title"
           className="judgment__title"
           aria-label="Title"
-          placeholder="Name this"
+          placeholder={ghostOfMissingName(title) || undefined}
           value={title}
           format={asLine}
           onSave={(next) => run(() => onSave?.(next), 'That name could not be saved.')}
