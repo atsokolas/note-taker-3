@@ -24,6 +24,7 @@ jest.mock('react-router-dom', () => {
     children
   );
 
+  const navigate = jest.fn();
   return {
     __esModule: true,
     MemoryRouter: passthrough,
@@ -34,7 +35,7 @@ jest.mock('react-router-dom', () => {
     Navigate: () => null,
     Link: linkEl,
     NavLink: linkEl,
-    useNavigate: () => jest.fn(),
+    useNavigate: () => navigate,
     useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'test' }),
     useParams: () => ({}),
     useSearchParams: () => [new URLSearchParams(), jest.fn()],
