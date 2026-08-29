@@ -356,6 +356,12 @@ const isLowSignalRelatedItem = (item = {}) => {
   return looksLikeHostname(title) || looksLikeUrl(title) || looksLikeHostname(snippet) || looksLikeUrl(snippet);
 };
 
+const visibleWikiClaimTitle = (item = {}) => {
+  const candidates = [item?.title, item?.id].map(toSafeString).filter(Boolean);
+  const identity = candidates.find(value => value.includes(':claim-')) || '';
+  return identity ? identity.slice(0, identity.indexOf(':claim-')).trim() : '';
+};
+
 const prepareRelatedItemsForReply = (items = [], limit = DEFAULT_LIMIT) => {
   const list = Array.isArray(items) ? items.filter(Boolean) : [];
   const hasRichItems = list.some((item) => !isLowSignalRelatedItem(item));
@@ -363,7 +369,9 @@ const prepareRelatedItemsForReply = (items = [], limit = DEFAULT_LIMIT) => {
   const prepared = [];
 
   list.forEach((item) => {
-    const title = toSafeString(item?.title);
+    const rawType = toSafeString(item?.type).toLowerCase();
+    const claimPageTitle = rawType === 'wiki_claim' ? visibleWikiClaimTitle(item) : '';
+    const title = claimPageTitle || toSafeString(item?.title);
     const snippet = truncate(item?.snippet || '', 180);
     const displayKey = `${title.toLowerCase()}|${snippet.toLowerCase()}`;
 
@@ -372,7 +380,7 @@ const prepareRelatedItemsForReply = (items = [], limit = DEFAULT_LIMIT) => {
     if (displayKey !== '|') seenDisplay.add(displayKey);
 
     prepared.push({
-      type: toSafeString(item?.type).toLowerCase(),
+      type: rawType === 'wiki_claim' ? 'wiki_page' : rawType,
       id: toSafeString(item?.id),
       title,
       snippet,
@@ -2331,6 +2339,16 @@ const queryModelMany = async (Model, query = {}, select = '') => {
   return Array.isArray(result) ? result : [];
 };
 
+const wikiClaimPageReference = (value = '') => {
+  const safeValue = toSafeString(value);
+  const claimSeparator = safeValue.indexOf(':claim-');
+  if (claimSeparator < 1) return { id: '', title: '' };
+  const parent = safeValue.slice(0, claimSeparator).trim();
+  return mongoose.Types.ObjectId.isValid(parent)
+    ? { id: parent, title: '' }
+    : { id: '', title: parent };
+};
+
 const hydrateGraphConnectionItems = async ({
   userObjectId,
   graphItems = [],
@@ -2353,7 +2371,22 @@ const hydrateGraphConnectionItems = async ({
   const notebookIds = idsFor('notebook').filter(id => mongoose.Types.ObjectId.isValid(id));
   const conceptIds = idsFor('concept').filter(id => mongoose.Types.ObjectId.isValid(id));
   const conceptNames = idsFor('concept').filter(id => !mongoose.Types.ObjectId.isValid(id));
-  const wikiPageIds = idsFor('wiki_page').filter(id => mongoose.Types.ObjectId.isValid(id));
+  const wikiClaimIds = idsFor('wiki_claim');
+  const wikiClaimReferences = wikiClaimIds.map(id => ({ claimId: id, ...wikiClaimPageReference(id) }));
+  const wikiPageIds = Array.from(new Set([
+    ...idsFor('wiki_page').filter(id => mongoose.Types.ObjectId.isValid(id)),
+    ...wikiClaimReferences.map(reference => reference.id).filter(Boolean)
+  ]));
+  const wikiPageTitles = Array.from(new Set(
+    wikiClaimReferences.map(reference => reference.title).filter(Boolean)
+  ));
+  const wikiPageConditions = [
+    ...(wikiPageIds.length ? [{ _id: { $in: wikiPageIds } }] : []),
+    ...(wikiPageTitles.length ? [{ title: { $in: wikiPageTitles } }] : [])
+  ];
+  const wikiPageQuery = wikiPageConditions.length
+    ? { userId: userObjectId, $or: wikiPageConditions }
+    : { userId: userObjectId, _id: { $in: [] } };
   const questionIds = idsFor('question').filter(id => mongoose.Types.ObjectId.isValid(id));
   const highlightIds = idsFor('highlight');
 
@@ -2364,7 +2397,7 @@ const hydrateGraphConnectionItems = async ({
     conceptNames.length
       ? queryModelMany(TagMeta, { userId: userObjectId, name: { $in: conceptNames } }, '_id name description updatedAt')
       : [],
-    queryModelMany(WikiPage, { _id: { $in: wikiPageIds }, userId: userObjectId }, '_id title plainText updatedAt'),
+    queryModelMany(WikiPage, wikiPageQuery, '_id title plainText updatedAt'),
     queryModelMany(Question, { _id: { $in: questionIds }, userId: userObjectId }, '_id text linkedTagName updatedAt'),
     highlightIds.length
       ? queryModelMany(Article, { userId: userObjectId, 'highlights._id': { $in: highlightIds } }, '_id title highlights updatedAt')
@@ -2405,13 +2438,20 @@ const hydrateGraphConnectionItems = async ({
     hydratedByKey.set(`concept:${entry.name}`, item);
   });
   wikiPages.forEach((entry) => {
-    hydratedByKey.set(`wiki_page:${entry._id}`, {
+    const pageItem = {
       type: 'wiki_page',
       id: String(entry._id),
       title: toSafeString(entry.title) || 'Wiki page',
       snippet: truncate(entry.plainText || ''),
       updatedAt: entry.updatedAt
-    });
+    };
+    hydratedByKey.set(`wiki_page:${entry._id}`, pageItem);
+    wikiClaimReferences
+      .filter(reference => (
+        reference.id === String(entry._id)
+        || reference.title.toLowerCase() === pageItem.title.toLowerCase()
+      ))
+      .forEach(reference => hydratedByKey.set(`wiki_claim:${reference.claimId}`, pageItem));
   });
   questions.forEach((entry) => {
     hydratedByKey.set(`question:${entry._id}`, {
@@ -2439,6 +2479,16 @@ const hydrateGraphConnectionItems = async ({
   return graphItems.map((item) => {
     const key = `${toSafeString(item?.type).toLowerCase()}:${toSafeString(item?.id)}`;
     const hydrated = hydratedByKey.get(key);
+    if (!hydrated && toSafeString(item?.type).toLowerCase() === 'wiki_claim') {
+      const title = visibleWikiClaimTitle(item);
+      return title ? {
+        type: 'wiki_page',
+        id: '',
+        title,
+        snippet: '',
+        relationType: toSafeString(item?.relationType)
+      } : null;
+    }
     return {
       ...(hydrated || {
         type: toSafeString(item?.type).toLowerCase(),
@@ -2448,7 +2498,7 @@ const hydrateGraphConnectionItems = async ({
       }),
       relationType: toSafeString(item?.relationType)
     };
-  }).filter(item => item.title || item.id);
+  }).filter(item => item && (item.title || item.id));
 };
 
 const loadGraphRelatedItems = async ({

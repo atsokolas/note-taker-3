@@ -170,7 +170,7 @@ const ThinkNotes = () => {
         data-writing-rail="left"
         data-writing-rail-label="Notes"
         label="Think"
-        count={notes.length}
+        count={loading ? undefined : notes.length}
         search={shelfQuery}
         searchLabel="Find a note"
         searchPlaceholder="Find a note"
@@ -180,7 +180,7 @@ const ThinkNotes = () => {
           <li>
             <RoomShelfButton active onClick={() => openThinkView('notebook')}>
               <span>Notebook</span>
-              <RoomShelfMeta>{notes.length}</RoomShelfMeta>
+              {!loading ? <RoomShelfMeta>{notes.length}</RoomShelfMeta> : null}
             </RoomShelfButton>
           </li>
           <li><RoomShelfButton onClick={() => openThinkView('concepts')}><span>Concepts</span></RoomShelfButton></li>

@@ -361,7 +361,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         if (!cached) loadBriefing();
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [seed]);
 
   const curatedPages = useMemo(
     () => dedupePagesByRepoKey(filterReturnViewItems(pages)),

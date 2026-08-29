@@ -321,6 +321,46 @@ const run = async () => {
     'Graph related items should hydrate connected article/wiki nodes for agent usage replies.'
   );
 
+  const claimGraphItems = await loadGraphRelatedItems({
+    userObjectId: 'user-1',
+    context: { type: 'concept', id: activeConceptId, title: 'Systems Thinking' },
+    contextItem: { type: 'concept', id: activeConceptId, title: 'Systems Thinking' },
+    Connection: makeFindModel(() => [
+      {
+        fromType: 'concept',
+        fromId: activeConceptId,
+        toType: 'wiki_claim',
+        toId: 'Decision Quality:claim-first',
+        relationType: 'supports'
+      },
+      {
+        fromType: 'concept',
+        fromId: activeConceptId,
+        toType: 'wiki_claim',
+        toId: 'Decision Quality:claim-second',
+        relationType: 'supports'
+      }
+    ]),
+    Article: makeFindModel(() => []),
+    NotebookEntry: makeFindModel(() => []),
+    TagMeta: makeFindModel(() => []),
+    WikiPage: makeFindModel(() => [{
+      _id: wikiPageId,
+      title: 'Decision Quality',
+      plainText: 'A named page about making better decisions.',
+      updatedAt: '2026-04-18T12:01:00.000Z'
+    }]),
+    Question: makeFindModel(() => [])
+  });
+  const claimGraphReply = buildOrientationReply({
+    message: 'What should I work on next?',
+    context: { type: 'think', title: 'Think home' },
+    relatedItems: claimGraphItems
+  });
+  assert.ok(claimGraphReply.includes('Decision Quality'), 'Claim connections should resolve to the named Wiki page.');
+  assert.ok(!claimGraphReply.includes('claim-'), 'Composite claim identities must never reach user-facing copy.');
+  assert.ok(!claimGraphReply.includes('wiki claim'), 'The agent should describe the named page, not its storage primitive.');
+
   const emptyUsageReply = buildOrientationReply({
     message: 'What references this?',
     context: { type: 'article', id: 'a1', title: 'World Models' },
