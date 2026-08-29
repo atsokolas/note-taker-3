@@ -121,6 +121,17 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Kept 3' })).toBeInTheDocument();
     });
 
+    it('keeps counts silent until the Library has actually answered', () => {
+      renderNav({ count: undefined, keptCount: undefined, unfiledCount: undefined });
+
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Kept' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Unfiled' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /All sources 0/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Kept 0/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Unfiled 0/ })).not.toBeInTheDocument();
+    });
+
     it('sits directly under All sources, above the ways of narrowing', () => {
       renderNav({ keptCount: 2 });
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);

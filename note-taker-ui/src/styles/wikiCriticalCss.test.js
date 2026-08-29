@@ -175,11 +175,14 @@ describe('wiki critical CSS loading', () => {
 
   it('guards the workspace reader against the old crushed 464px article column', () => {
     const polishCss = fs.readFileSync(path.join(__dirname, 'think-home-polish.css'), 'utf8');
+    const workspaceCss = fs.readFileSync(path.join(__dirname, 'wiki-workspace-column.css'), 'utf8');
 
     expect(polishCss).toContain('container-name: wikiread');
-    expect(polishCss).toContain('@container wikiread (max-width: 1200px)');
-    expect(polishCss).toContain('.wiki-workspace .wiki-read__layout--rail-collapsed');
-    expect(polishCss).toContain('grid-template-columns: minmax(0, 1fr) 48px');
-    expect(polishCss).not.toContain('grid-template-columns: 200px 464px 300px');
+    expect(workspaceCss).toContain('@container wikiread (max-width: 1280px)');
+    expect(workspaceCss).toContain('body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout--rail-collapsed');
+    expect(workspaceCss).toContain('grid-template-columns: minmax(164px, 200px) minmax(0, 1fr)');
+    expect(workspaceCss).toContain('grid-column: 2');
+    expect(workspaceCss).not.toContain('grid-template-columns: 200px 464px 300px');
+    expect(polishCss).not.toContain('AT-295');
   });
 });

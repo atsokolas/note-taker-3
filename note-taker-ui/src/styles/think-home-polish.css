@@ -10486,48 +10486,6 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   grid-row: 1;
 }
 
-.wiki-workspace__agent-peek {
-  position: fixed;
-  left: max(14px, env(safe-area-inset-left));
-  top: calc(96px + 16px);
-  z-index: 22;
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 13px 0 10px;
-  border: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 38%, var(--noeis-rule));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text-primary);
-  cursor: pointer;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
-  font-size: 0.68rem;
-  font-weight: 850;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow: 0 10px 28px color-mix(in srgb, #000 10%, transparent);
-}
-
-.wiki-workspace__agent-peek span {
-  width: 18px;
-  height: 18px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 16%, transparent);
-  color: var(--wiki-warm-accent, #b1862e);
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.wiki-workspace__agent-peek:hover,
-.wiki-workspace__agent-peek:focus-visible {
-  outline: none;
-  border-color: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 64%, var(--noeis-rule));
-  background: color-mix(in srgb, var(--wiki-warm-accent, #b1862e) 9%, var(--surface));
-}
-
 .wiki-workspace__right-pane {
   overflow-x: clip;
   overflow-y: auto;
@@ -10575,66 +10533,6 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   .wiki-workspace .wiki-read__header h1 {
     font-size: clamp(2rem, 7.4vw, 2.2rem);
     line-height: 1.04;
-  }
-}
-
-/* AT-295: in the two-pane workspace, keep the article as the primary reading
-   surface even when the agent pane and context rail are visible. */
-@container wikiread (max-width: 1200px) {
-  .wiki-workspace .wiki-read__layout {
-    grid-template-columns: minmax(0, 1fr) minmax(132px, 160px);
-    gap: 12px;
-  }
-
-  .wiki-workspace .wiki-read__layout--rail-collapsed {
-    grid-template-columns: minmax(0, 1fr) 48px;
-    gap: 12px;
-  }
-
-  .wiki-workspace .wiki-read__toc {
-    display: none;
-  }
-
-  .wiki-workspace .wiki-read__toc nav,
-  .wiki-workspace .wiki-read__infobox {
-    padding: 10px;
-  }
-
-  .wiki-workspace .wiki-read__toc h2,
-  .wiki-workspace .wiki-read__infobox h2 {
-    font-size: 0.78rem;
-  }
-
-  .wiki-workspace .wiki-read__toc ol {
-    gap: 5px;
-  }
-
-  .wiki-workspace .wiki-read__toc a,
-  .wiki-workspace .wiki-read__infobox dd {
-    font-size: 0.78rem;
-    line-height: 1.3;
-  }
-
-  .wiki-workspace .wiki-read__infobox dl > div {
-    grid-template-columns: 1fr;
-    gap: 3px;
-  }
-}
-
-@container wikiread (max-width: 980px) {
-  .wiki-workspace .wiki-read__layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .wiki-workspace .wiki-read__layout--rail-collapsed {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .wiki-workspace .wiki-read__toc nav,
-  .wiki-workspace .wiki-read__infobox {
-    padding: 8px;
   }
 }
 

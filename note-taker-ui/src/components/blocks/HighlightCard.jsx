@@ -10,7 +10,7 @@ import {
   searchHighlightClaims
 } from '../../api/organize';
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
-import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 const ITEM_TYPES = [
   { value: 'note', label: 'Note' },

@@ -27,6 +27,22 @@ const sharedPage = (overrides = {}) => ({
   ...overrides
 });
 
+const bindClaimSource = (page, sourceId = 'source-1') => {
+  page.sourceRefs[0] = { ...page.sourceRefs[0], _id: sourceId };
+  page.claims[0] = { ...page.claims[0], sourceRefIds: [sourceId] };
+  return page;
+};
+
+const bindSecSnapshot = (page, sourceEventId, revisionId) => {
+  page.publicProof.acceptanceSnapshot = {
+    kind: 'sec_dossier_head_v1',
+    sourceEventId,
+    revisionId,
+    headContentHash: buildPublicProofHeadHash(page)
+  };
+  return page;
+};
+
 (() => {
   const registry = buildPublicProofRegistryState({
     expectedCount: 8,
@@ -160,21 +176,33 @@ const sharedPage = (overrides = {}) => ({
 })();
 
 (() => {
-  const proven = sharedPage({
+  const proven = bindClaimSource(sharedPage({
     _id: 'accepted-repo',
     sourceRefs: [{ title: 'README' }],
     claims: [{ claimId: 'claim-1' }],
     publicProof: {
       grade: 'proven',
       acceptedAt: '2026-07-12T00:00:00.000Z',
-      acceptedEventId: 'maintenance-receipt-1',
+      acceptedEventId: 'repo-comparison:baseline123:accepted123:private-repo-event',
       reason: 'A claim-level repository maintenance receipt passed editorial acceptance.',
       acceptedClocks: [{
         type: 'github',
         sourceEventId: 'private-repo-event',
         revisionId: 'private-repo-revision',
         acceptedAt: '2026-07-12T00:00:00.000Z'
-      }]
+      }],
+      acceptanceSnapshot: {
+        kind: 'repo_comparison_v2',
+        repository: 'atsokolas/note-taker-3',
+        baselineHeadSha: 'baseline123',
+        observedHeadSha: 'accepted123',
+        publishedHeadSha: 'accepted123',
+        comparisonVersion: 2,
+        sourceEventId: 'private-repo-event',
+        revisionId: 'private-repo-revision',
+        maintenanceRunId: 'private-maintenance-run',
+        counts: { sourceBackedClaimChanges: 1 }
+      }
     },
     externalWatches: {
       githubRepo: {
@@ -188,13 +216,51 @@ const sharedPage = (overrides = {}) => ({
     aiState: {
       changeLog: [{ type: 'maintenance', text: 'Updated one claim from repository evidence.', createdAt: '2026-07-12T00:00:00.000Z' }]
     }
-  });
+  }));
   const grade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: proven });
   assert.strictEqual(grade.grade, 'proven');
   assert.strictEqual(grade.criteria.explicitlyAccepted, true);
+  assert.strictEqual(grade.criteria.acceptanceBound, true);
   assert.deepStrictEqual(grade.criteria.requiredClocks, { github: true });
   assert.strictEqual(grade.reason, 'A claim-level repository maintenance receipt passed editorial acceptance.');
   assert.ok(!JSON.stringify(grade).includes('private-repo-event'));
+
+  const foreignReceipt = JSON.parse(JSON.stringify(proven));
+  foreignReceipt.publicProof.acceptanceSnapshot.revisionId = 'foreign-revision';
+  const foreignReceiptGrade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: foreignReceipt });
+  assert.strictEqual(foreignReceiptGrade.grade, 'candidate');
+  assert.strictEqual(foreignReceiptGrade.criteria.acceptanceBound, false);
+
+  const splitReceipt = JSON.parse(JSON.stringify(proven));
+  splitReceipt.publicProof.acceptedClocks = [
+    {
+      type: 'github',
+      sourceEventId: 'private-repo-event',
+      revisionId: 'different-revision',
+      acceptedAt: '2026-07-12T00:00:00.000Z'
+    },
+    {
+      type: 'github',
+      sourceEventId: 'different-event',
+      revisionId: 'private-repo-revision',
+      acceptedAt: '2026-07-12T00:00:00.000Z'
+    }
+  ];
+  const splitReceiptGrade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: splitReceipt });
+  assert.strictEqual(splitReceiptGrade.grade, 'candidate');
+  assert.strictEqual(splitReceiptGrade.criteria.acceptanceBound, false);
+
+  const wrongClockType = JSON.parse(JSON.stringify(proven));
+  wrongClockType.publicProof.acceptedClocks[0].type = 'earnings_transcript';
+  const wrongClockTypeGrade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: wrongClockType });
+  assert.strictEqual(wrongClockTypeGrade.grade, 'candidate');
+  assert.strictEqual(wrongClockTypeGrade.criteria.acceptanceBound, false);
+
+  const foreignEvidence = JSON.parse(JSON.stringify(proven));
+  foreignEvidence.claims[0].sourceRefIds = ['foreign-source'];
+  const foreignEvidenceGrade = buildPublicProofGrade({ slot: { key: 'noeis-repo' }, page: foreignEvidence });
+  assert.strictEqual(foreignEvidenceGrade.grade, 'candidate');
+  assert.strictEqual(foreignEvidenceGrade.criteria.sourceGrounded, false);
 })();
 
 (() => {
@@ -233,21 +299,22 @@ const sharedPage = (overrides = {}) => ({
   });
   assert.ok(!incomplete.reason.includes('must not survive'));
 
+  const acceptedPage = bindSecSnapshot(bindClaimSource(sharedPage({
+    ...alphabetBase,
+    publicProof: {
+      ...alphabetBase.publicProof,
+      reason: 'The authoritative SEC filing clock passed editorial acceptance.',
+      acceptedClocks: [{
+        type: 'sec_edgar',
+        sourceEventId: 'private-filing-event',
+        revisionId: 'private-filing-revision',
+        acceptedAt: '2026-07-12T00:00:00.000Z'
+      }]
+    }
+  })), 'private-filing-event', 'private-filing-revision');
   const accepted = buildPublicProofGrade({
     slot: { key: 'alphabet' },
-    page: sharedPage({
-      ...alphabetBase,
-      publicProof: {
-        ...alphabetBase.publicProof,
-        reason: 'The authoritative SEC filing clock passed editorial acceptance.',
-        acceptedClocks: [{
-          type: 'sec_edgar',
-          sourceEventId: 'private-filing-event',
-          revisionId: 'private-filing-revision',
-          acceptedAt: '2026-07-12T00:00:00.000Z'
-        }]
-      }
-    })
+    page: acceptedPage
   });
   assert.strictEqual(accepted.grade, 'proven');
   assert.strictEqual(accepted.criteria.explicitlyAccepted, true);
@@ -357,6 +424,8 @@ const sharedPage = (overrides = {}) => ({
       acceptedClocks: [{ type: 'sec_edgar', sourceEventId: 'nvda-debt-event', revisionId: 'nvda-revision', acceptedAt: '2026-07-19T00:00:00.000Z' }]
     }
   });
+  bindClaimSource(page);
+  bindSecSnapshot(page, 'nvda-debt-event', 'nvda-revision');
   const slot = DEFAULT_PUBLIC_PROOF_SLOTS.find(candidate => candidate.key === 'nvidia');
   const grade = buildPublicProofGrade({ slot, page });
   assert.strictEqual(grade.grade, 'proven');
@@ -365,7 +434,7 @@ const sharedPage = (overrides = {}) => ({
 })();
 
 (() => {
-  const staleHead = sharedPage({
+  const staleHead = bindClaimSource(sharedPage({
     _id: 'nvidia-stale-head',
     title: 'NVIDIA’s AI engine—and the obligations underneath it',
     updatedAt: '2026-07-19T19:32:00.000Z',
@@ -378,7 +447,7 @@ const sharedPage = (overrides = {}) => ({
       grade: 'proven', acceptedAt: '2026-07-19T19:15:00.000Z', acceptedEventId: 'sec:NVDA:filing',
       acceptedClocks: [{ type: 'sec_edgar', sourceEventId: 'filing', revisionId: 'filing-revision', acceptedAt: '2026-07-19T19:15:00.000Z' }]
     }
-  });
+  }));
   const slot = DEFAULT_PUBLIC_PROOF_SLOTS.find(candidate => candidate.key === 'nvidia');
   const staleGrade = buildPublicProofGrade({ slot, page: staleHead });
   assert.strictEqual(staleGrade.grade, 'acceptance_in_progress');
@@ -386,7 +455,8 @@ const sharedPage = (overrides = {}) => ({
 
   staleHead.publicProof.acceptanceSnapshot = {
     kind: 'sec_dossier_head_v1',
-    revisionId: 'research-revision',
+    sourceEventId: 'filing',
+    revisionId: 'filing-revision',
     headContentHash: buildPublicProofHeadHash(staleHead)
   };
   const boundGrade = buildPublicProofGrade({ slot, page: staleHead });
@@ -399,7 +469,7 @@ const sharedPage = (overrides = {}) => ({
     _id: 'legacy-alphabet',
     title: 'Alphabet is Berkshire Hathaway 2.0'
   });
-  const acceptedPage = sharedPage({
+  const acceptedPage = bindSecSnapshot(bindClaimSource(sharedPage({
     _id: 'accepted-alphabet',
     title: 'Alphabet’s Berkshire-like allocator—and where the analogy breaks',
     sourceRefs: [{ title: 'Alphabet 10-Q' }],
@@ -423,7 +493,7 @@ const sharedPage = (overrides = {}) => ({
         acceptedAt: '2026-07-16T00:00:00.000Z'
       }]
     }
-  });
+  })), 'filing-event', 'filing-revision');
   const [selected] = selectPublicProofPages({
     pages: [legacyConfiguredPage, acceptedPage],
     slots: [DEFAULT_PUBLIC_PROOF_SLOTS[0]],

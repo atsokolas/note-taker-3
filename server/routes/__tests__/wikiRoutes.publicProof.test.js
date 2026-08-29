@@ -52,8 +52,8 @@ const records = [
   page({
     _id: 'nvidia',
     title: 'NVIDIA’s AI engine—and the obligations underneath it',
-    sourceRefs: [{ title: 'NVIDIA 8-K', url: 'https://www.sec.gov/Archives/nvidia' }],
-    claims: [{ claimId: 'nvidia-claim', text: 'NVIDIA issued senior notes.' }],
+    sourceRefs: [{ _id: 'nvidia-source', title: 'NVIDIA 8-K', url: 'https://www.sec.gov/Archives/nvidia' }],
+    claims: [{ claimId: 'nvidia-claim', text: 'NVIDIA issued senior notes.', sourceRefIds: ['nvidia-source'] }],
     externalWatches: { edgar: { status: 'active', ticker: 'NVDA', cik: '0001045810' } },
     freshness: { acceptedThrough: { sourceEventId: 'nvidia-event', title: 'NVIDIA 8-K filed 2026-06-18', url: 'https://www.sec.gov/Archives/nvidia', acceptedAt: '2026-07-19T00:00:00.000Z' } },
     aiState: { changeLog: [{ type: 'maintenance', text: 'Updated the balance-sheet claim.', createdAt: '2026-07-19T00:00:00.000Z' }] },
@@ -105,8 +105,8 @@ const records = [
     _id: 'openai-agents',
     title: 'openai/openai-agents-js maintained developer dossier',
     pageType: 'repo',
-    sourceRefs: [{ title: 'AI SDK adapter', url: 'https://github.com/openai/openai-agents-js' }],
-    claims: [{ claimId: 'claim-openai', text: 'Provider tool search changed.' }],
+    sourceRefs: [{ _id: 'openai-source', title: 'AI SDK adapter', url: 'https://github.com/openai/openai-agents-js' }],
+    claims: [{ claimId: 'claim-openai', text: 'Provider tool search changed.', sourceRefIds: ['openai-source'] }],
     externalWatches: {
       githubRepo: {
         owner: 'openai', repo: 'openai-agents-js', defaultBranch: 'main', status: 'active',
@@ -119,9 +119,17 @@ const records = [
       changeLog: [{ type: 'maintenance', text: 'Rewrote the provider tool-search contract.', createdAt: '2026-07-19T00:00:00.000Z' }]
     },
     publicProof: {
-      grade: 'proven', acceptedAt: '2026-07-19T00:00:00.000Z', acceptedEventId: 'accepted-openai',
+      grade: 'proven', acceptedAt: '2026-07-19T00:00:00.000Z', acceptedEventId: 'repo-comparison:baseline-openai:710cccfd8fd26b395f8e3470419852d76de80967:event-openai',
       reason: 'A source-backed external repository maintenance event passed acceptance.',
-      acceptedClocks: [{ type: 'github', sourceEventId: 'event-openai', revisionId: 'revision-openai', acceptedAt: '2026-07-19T00:00:00.000Z' }]
+      acceptedClocks: [{ type: 'github', sourceEventId: 'event-openai', revisionId: 'revision-openai', acceptedAt: '2026-07-19T00:00:00.000Z' }],
+      acceptanceSnapshot: {
+        kind: 'repo_comparison_v2', repository: 'openai/openai-agents-js',
+        baselineHeadSha: 'baseline-openai',
+        observedHeadSha: '710cccfd8fd26b395f8e3470419852d76de80967',
+        publishedHeadSha: '710cccfd8fd26b395f8e3470419852d76de80967',
+        comparisonVersion: 2, sourceEventId: 'event-openai', revisionId: 'revision-openai',
+        maintenanceRunId: 'run-openai', counts: { sourceBackedClaimChanges: 3 }
+      }
     }
   })
 ];
@@ -130,7 +138,8 @@ const nvidiaRecord = records.find(record => record._id === 'nvidia');
 nvidiaRecord.updatedAt = '2026-07-20T00:00:00.000Z';
 nvidiaRecord.publicProof.acceptanceSnapshot = {
   kind: 'sec_dossier_head_v1',
-  revisionId: 'nvidia-head-revision',
+  sourceEventId: 'nvidia-event',
+  revisionId: 'nvidia-revision',
   headContentHash: buildPublicProofHeadHash(nvidiaRecord)
 };
 

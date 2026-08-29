@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import useSemanticRelated from '../../hooks/useSemanticRelated';
-import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 const buildOpenPath = (item) => {
   if (!item) return '/search';

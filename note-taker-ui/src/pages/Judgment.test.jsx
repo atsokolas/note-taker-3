@@ -1247,6 +1247,23 @@ describe('The drift, above the claims', () => {
     expect(await within(document.querySelector('.judgment-room__content'))
       .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
   });
+
+  it('does not mistake a fast casebook for an empty reading history', async () => {
+    const { getArticles } = require('../api/articles');
+    let releaseReading;
+    getArticles.mockReturnValue(new Promise((resolve) => { releaseReading = resolve; }));
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+
+    renderIndex();
+
+    expect(await within(document.querySelector('.judgment-room__content'))
+      .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
+    expect(screen.getByText('Reading back the last three months…')).toBeInTheDocument();
+    expect(screen.queryByText(/file a little more/i)).not.toBeInTheDocument();
+
+    await act(async () => { releaseReading([]); });
+    expect(screen.queryByText('Reading back the last three months…')).not.toBeInTheDocument();
+  });
 });
 
 describe('The index while it is still loading', () => {

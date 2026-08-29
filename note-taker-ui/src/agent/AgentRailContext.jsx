@@ -4,6 +4,7 @@ import {
   filterContextualAgentHandlers
 } from './contextualAgentContracts';
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
+import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { getAgentThread, streamChatWithAgent } from '../api/agent';
 import {
   buildAgentContext,
@@ -29,6 +30,15 @@ const EMPTY_SURFACE = Object.freeze({
   empty: ''
 });
 
+const surfaceIdentity = (surface = {}) => [
+  surface.contractId,
+  surface.room,
+  surface.objectType,
+  surface.objectId
+].map(value => String(value || '').trim()).join('|');
+
+const isAbortError = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';
+
 export const AgentRailProvider = ({ children }) => {
   const capabilityModel = useNoeisCapabilities();
   const [surface, setSurface] = useState(EMPTY_SURFACE);
@@ -43,37 +53,59 @@ export const AgentRailProvider = ({ children }) => {
   // Holding them in a ref keeps that churn out of the render path.
   const handlers = useRef({});
   const surfaceKey = useRef('');
+  const surfaceIdentityKey = useRef('');
   const surfaceOwner = useRef(null);
   const surfaceRevision = useRef(0);
-  const pendingRevision = useRef(null);
+  const pendingRequest = useRef(null);
   const conversationStarted = useRef(false);
 
   const registerSurface = useCallback((next, owner) => {
     const normalized = { ...EMPTY_SURFACE, ...(next || {}) };
     const key = JSON.stringify(normalized);
     if (surfaceOwner.current === owner && surfaceKey.current === key) return;
+    const nextIdentity = surfaceIdentity(normalized);
+    const identityChanged = surfaceIdentityKey.current !== nextIdentity;
     surfaceOwner.current = owner;
     surfaceKey.current = key;
-    surfaceRevision.current += 1;
-    pendingRevision.current = null;
+    surfaceIdentityKey.current = nextIdentity;
     setSurface(normalized);
-    // A different subject changes the agent's exact working context, not the
-    // conversation. Only pending, page-bound writes are discarded.
-    setProposals([]);
-    setBusy(false);
-    setError('');
+    if (identityChanged) {
+      surfaceRevision.current += 1;
+      const pending = pendingRequest.current;
+      pending?.controller?.abort();
+      pendingRequest.current = null;
+      if (pending) {
+        setMessages(current => current.filter(message => (
+          message.id !== pending.userMessageId && message.id !== pending.assistantMessageId
+        )));
+      }
+      // Conversation history can travel. Page-bound work cannot.
+      setProposals([]);
+      setBusy(false);
+      setActivity('');
+      setError('');
+    }
   }, []);
 
   const unregisterSurface = useCallback((owner) => {
     if (surfaceOwner.current !== owner) return;
     surfaceOwner.current = null;
     surfaceKey.current = '';
+    surfaceIdentityKey.current = '';
     surfaceRevision.current += 1;
-    pendingRevision.current = null;
+    const pending = pendingRequest.current;
+    pending?.controller?.abort();
+    pendingRequest.current = null;
     handlers.current = {};
     setSurface(EMPTY_SURFACE);
     setProposals([]);
+    if (pending) {
+      setMessages(current => current.filter(message => (
+        message.id !== pending.userMessageId && message.id !== pending.assistantMessageId
+      )));
+    }
     setBusy(false);
+    setActivity('');
     setError('');
   }, []);
 
@@ -121,6 +153,8 @@ export const AgentRailProvider = ({ children }) => {
   }, []);
 
   const resetConversation = useCallback(() => {
+    pendingRequest.current?.controller?.abort();
+    pendingRequest.current = null;
     conversationStarted.current = false;
     setThreadId('');
     setMessages([]);
@@ -136,7 +170,7 @@ export const AgentRailProvider = ({ children }) => {
 
   const ask = useCallback(async (question, options = {}) => {
     const revision = surfaceRevision.current;
-    if (pendingRevision.current === revision) return;
+    if (pendingRequest.current) return;
     if (!agentAvailable) {
       setError(availabilityReason);
       return;
@@ -145,13 +179,23 @@ export const AgentRailProvider = ({ children }) => {
       setError('Open a knowledge room before asking against it.');
       return;
     }
-    pendingRevision.current = revision;
+    const controller = new AbortController();
     conversationStarted.current = true;
     setBusy(true);
     setError('');
     setActivity('Reading the current context…');
     const userMessage = buildAgentMessage({ role: 'user', text: question });
     const pendingAssistant = buildAgentMessage({ role: 'assistant', text: '' });
+    const request = {
+      revision,
+      controller,
+      userMessageId: userMessage.id,
+      assistantMessageId: pendingAssistant.id
+    };
+    pendingRequest.current = request;
+    const isCurrentRequest = () => (
+      pendingRequest.current === request && surfaceRevision.current === revision
+    );
     setMessages(current => [...current, userMessage, pendingAssistant]);
     try {
       const result = await streamChatWithAgent({
@@ -163,13 +207,20 @@ export const AgentRailProvider = ({ children }) => {
         history: messages.map(({ role, text }) => ({ role, text })),
         limit: 6
       }, {
-        onActivity: (receipt) => setActivity(String(receipt?.summary || 'Working…')),
-        onDelta: (delta) => setMessages(current => current.map(message => (
-          message.id === pendingAssistant.id
-            ? { ...message, text: `${message.text || ''}${delta}` }
-            : message
-        )))
+        signal: controller.signal,
+        onActivity: (receipt) => {
+          if (isCurrentRequest()) setActivity(String(receipt?.summary || 'Working…'));
+        },
+        onDelta: (delta) => {
+          if (!isCurrentRequest()) return;
+          setMessages(current => current.map(message => (
+            message.id === pendingAssistant.id
+              ? { ...message, text: `${message.text || ''}${delta}` }
+              : message
+          )));
+        }
       });
+      if (!isCurrentRequest()) return;
       const hydrated = result?.thread?.threadId ? mapAgentThreadMessages(result.thread) : [];
       if (hydrated.length) setMessages(hydrated);
       else {
@@ -198,11 +249,12 @@ export const AgentRailProvider = ({ children }) => {
         }
       }
     } catch (askError) {
+      if (!isCurrentRequest() || isAbortError(askError)) return;
       setMessages(current => current.filter(message => message.id !== pendingAssistant.id));
       setError(askError?.response?.data?.error || askError?.message || 'That conversation could not continue.');
     } finally {
-      if (pendingRevision.current === revision) {
-        pendingRevision.current = null;
+      if (pendingRequest.current === request) {
+        pendingRequest.current = null;
         setBusy(false);
         setActivity('');
       }
@@ -292,10 +344,13 @@ const useResolvedAgentSurface = (descriptor, handlers) => {
   const descriptorKey = JSON.stringify(descriptor || null);
 
   useEffect(() => {
+    registerSurface(descriptor ? JSON.parse(descriptorKey) : null, owner.current);
+  }, [descriptorKey, registerSurface]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     const currentOwner = owner.current;
-    registerSurface(descriptor ? JSON.parse(descriptorKey) : null, currentOwner);
     return () => unregisterSurface(currentOwner);
-  }, [descriptorKey, registerSurface, unregisterSurface]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [unregisterSurface]);
 
   useEffect(() => {
     setHandlers(handlers, owner.current);
@@ -309,6 +364,18 @@ export const useContextualAgentSurface = (contractId, context, handlers) => {
   const descriptor = buildContextualAgentSurface(contractId, context);
   const filteredHandlers = filterContextualAgentHandlers(contractId, handlers);
   useResolvedAgentSurface(descriptor, filteredHandlers);
+};
+
+/* One object declaration feeds both the room shell and its collaborator.
+   Presentation may vary; identity may not. */
+export const useNoeisAgentSurface = (contractId, descriptor, presentation = {}, handlers = {}) => {
+  useNoeisSurface(descriptor);
+  useContextualAgentSurface(contractId, {
+    objectType: descriptor?.objectType,
+    objectId: descriptor?.objectId,
+    subject: descriptor?.title,
+    ...presentation
+  }, handlers);
 };
 
 export default AgentRailContext;

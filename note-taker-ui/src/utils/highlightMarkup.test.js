@@ -63,4 +63,20 @@ describe('renderArticleContentWithHighlights', () => {
     expect(marks).toHaveLength(1);
     expect(marks[0].textContent).toBe('beta gamma');
   });
+
+  it('removes imported template syntax while preserving the article body', () => {
+    const html = renderArticleContentWithHighlights({
+      content: [
+        '<p>URL: https://example.com/story</p>',
+        '<p>Thought and Opinion</p>',
+        '<p>Read Caption</p>',
+        '<p>[[Margin of Safety]] ( attr(href) ) protects against mistakes.</p>'
+      ].join(''),
+      url: 'https://example.com/story'
+    });
+
+    const text = new DOMParser().parseFromString(html, 'text/html').body.textContent;
+    expect(text).toContain('Margin of Safety protects against mistakes.');
+    expect(text).not.toMatch(/attr\(href\)|Read Caption|Thought and Opinion|URL:/i);
+  });
 });

@@ -27,7 +27,21 @@ describe('Landing', () => {
         href: '/share/wiki/alphabet-berkshire-2-0',
         title: 'Alphabet is Berkshire Hathaway 2.0'
       },
-      items: []
+      items: [{
+        publicUrl: '/share/wiki/alphabet-berkshire-2-0',
+        page: { title: 'Alphabet is Berkshire Hathaway 2.0' },
+        proofGrade: {
+          grade: 'proven',
+          acceptedAt: '2026-07-16T00:00:00.000Z',
+          criteria: {
+            explicitlyAccepted: true,
+            acceptedVersion: true,
+            materialEvent: true,
+            sourceGrounded: true,
+            acceptanceBound: true
+          }
+        }
+      }]
     });
   });
 

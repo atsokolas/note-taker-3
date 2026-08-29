@@ -40,8 +40,7 @@ import {
   wikiKindForPage
 } from './wikiFacetModel';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
-import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
-import { useContextualAgentSurface } from '../../agent/AgentRailContext';
+import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import Paper from '../../pages/Paper';
 import WeeklyDigest from './WeeklyDigest';
 import {
@@ -228,10 +227,7 @@ const writeFrontPageCache = ({ pages = [], briefing = null, hasAnyWikiContent = 
 const WikiFrontPage = ({ initialKind = '' }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  useNoeisSurface(buildWikiFrontSurfaceDescriptor());
-  useContextualAgentSurface('agent-surface.wiki', {
-    objectType: 'wiki_workspace',
-    objectId: 'wiki',
+  useNoeisAgentSurface('agent-surface.wiki', buildWikiFrontSurfaceDescriptor(), {
     subject: 'Your Wiki.',
     empty: 'Open a page before asking against exact accepted knowledge.'
   }, {});

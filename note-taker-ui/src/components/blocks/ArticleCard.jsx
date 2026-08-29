@@ -3,7 +3,7 @@ import { QuietButton } from '../ui';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
 import RelatedSuggestions from '../retrieval/RelatedSuggestions';
-import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 
 const summarize = (text, max = 170) => {
   const raw = String(text || '').replace(/\s+/g, ' ').trim();

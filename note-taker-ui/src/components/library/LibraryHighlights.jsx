@@ -17,7 +17,7 @@ import VirtualList from '../virtual/VirtualList';
 import { createProfilerLogger } from '../../utils/perf';
 import useTourSignal from '../../tour/useTourSignal';
 import { deleteHighlight } from '../../api/highlights';
-import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 import {
   buildQuestionPayloadFromHighlights,
   buildQuestionReviewPath,

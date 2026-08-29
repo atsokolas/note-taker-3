@@ -21,6 +21,8 @@
 /* The chat pane folds to this. It used to be a floating pill with a chevron in
    a coin; it is now the same kind of word as every other action. */
 .wiki-workspace .wiki-workspace__agent-peek {
+  right: max(14px, env(safe-area-inset-right));
+  left: auto;
   gap: 6px;
   min-height: 0;
   padding: 0;
@@ -649,6 +651,119 @@ body.noeis-editorial .wiki-index .library-article-row-title,
  * around it: the maintenance stamp, the status summary, the Article/Talk
  * switch, and the tab that opens the context gutter.
  */
+
+/* The workspace has one margin, not two competing sidebars. Contents and
+   page context share that margin while the article owns the reading canvas.
+   This is the authoritative workspace composition; standalone and public
+   readers keep the general reader grid from think-home-polish.css. */
+@container wikiread (max-width: 1280px) {
+  body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout,
+  body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(164px, 200px) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: clamp(24px, 3cqi, 42px);
+    row-gap: 24px;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    min-width: 0;
+    position: static;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__article {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__rail,
+  .wiki-workspace .wiki-read .wiki-read__rail--collapsed {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    min-width: 0;
+    padding-top: 22px;
+    border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+    position: static;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__rail--collapsed {
+    justify-items: start;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc nav,
+  .wiki-workspace .wiki-read .wiki-read__infobox {
+    padding: 0;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc a {
+    position: relative;
+    transition: color 160ms ease, transform 160ms ease;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc a.is-active {
+    transform: translateX(5px);
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc a.is-active::before {
+    width: 3px;
+    height: 3px;
+    margin-left: -11px;
+    border-radius: 999px;
+    background: var(--wiki-warm-accent, var(--vellum-warm));
+    content: '';
+    flex: 0 0 3px;
+  }
+}
+
+@container wikiread (max-width: 760px) {
+  body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout,
+  body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__layout--rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    gap: 22px;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__article,
+  .wiki-workspace .wiki-read .wiki-read__toc,
+  .wiki-workspace .wiki-read .wiki-read__rail,
+  .wiki-workspace .wiki-read .wiki-read__rail--collapsed {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__article {
+    order: 1;
+  }
+
+  body.noeis-editorial .wiki-workspace .wiki-read .wiki-read__body {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc {
+    order: 2;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__rail,
+  .wiki-workspace .wiki-read .wiki-read__rail--collapsed {
+    order: 3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-workspace .wiki-read .wiki-read__toc a {
+    transition: none;
+  }
+
+  .wiki-workspace .wiki-read .wiki-read__toc a.is-active {
+    transform: none;
+  }
+}
 
 /* "Ready for maintenance" is a report on the page, so it sits above the page
    as a line of text rather than as a stamp floating in its own frame. */

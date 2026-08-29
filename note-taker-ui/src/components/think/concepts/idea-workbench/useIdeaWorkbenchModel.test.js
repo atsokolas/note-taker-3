@@ -1,4 +1,4 @@
-import { cleanSourceTextForDisplay } from './ideaWorkbenchText';
+import { cleanSourceTextForDisplay } from '../../../../utils/sourceDisplayText';
 import {
   isIdeaWorkbenchConceptIdentityReady,
   reconcileHydratedWorkbench,

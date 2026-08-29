@@ -14,8 +14,7 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
-import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
-import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
+import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
@@ -231,7 +230,7 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   );
 };
 
-const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
+const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnreadable }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -239,8 +238,6 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
   const [draft, setDraft] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-
-  useNoeisSurface(buildJudgmentSurfaceDescriptor());
 
   /* The claim is the page. A judgment is a wiki page carrying a judgment
      contract, so writing one down creates that page and puts the sentence in
@@ -267,9 +264,7 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
 
   // The index is a title column, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
-  useContextualAgentSurface('agent-surface.judgment', {
-    objectType: 'judgment_index',
-    objectId: 'judgment-index',
+  useNoeisAgentSurface('agent-surface.judgment', buildJudgmentSurfaceDescriptor(), {
     subject: 'Your judgments.'
   }, {});
 
@@ -280,7 +275,7 @@ const JudgmentIndex = ({ items, articles, loading, readingUnreadable }) => {
           is the one thing in the product that asks nothing of you, and it
           belongs at the top of the room that asks the most: this is the
           weather over the claims, not another claim. */}
-      <ReadingDrift articles={articles} loading={loading} unreadable={readingUnreadable} />
+      <ReadingDrift articles={articles} loading={readingLoading} unreadable={readingUnreadable} />
       {/* A judgment starts by being written down. Before this the index could
           only list what already existed, and the empty state told you a
           judgment begins the day you write one without giving you anywhere to
@@ -717,8 +712,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      lessons, and the accepted revision that grounded the latest decision are
      carried as exact related identities rather than promoted into competing
      dashboards or guessed from their prose. */
-  useNoeisSurface(buildJudgmentSurfaceDescriptor({ page, pageId }));
-
   /* A judgment lives behind a sign-in, which makes it hard to be held to. The
      pamphlet is the same four sections on one sheet, for handing to someone
      who is not going to make an account to read what you think. */
@@ -903,18 +896,15 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
-  useContextualAgentSurface(
+  useNoeisAgentSurface(
     'agent-surface.judgment',
+    buildJudgmentSurfaceDescriptor({ page, pageId }),
     view?.claim
       ? {
-        objectType: 'judgment_claim',
-        objectId: pageId,
         subject: view.claim,
         empty: 'Nothing to retrieve until you ask.'
       }
       : {
-        objectType: 'judgment_claim',
-        objectId: pageId,
         subject: '',
         empty: 'Nothing to retrieve until you ask.'
     },
@@ -1138,6 +1128,7 @@ const Judgment = () => {
   const [indexPages, setIndexPages] = useState([]);
   const [indexLoading, setIndexLoading] = useState(true);
   const [articles, setArticles] = useState([]);
+  const [readingLoading, setReadingLoading] = useState(true);
   const [readingUnreadable, setReadingUnreadable] = useState(false);
   const [indexError, setIndexError] = useState('');
 
@@ -1155,14 +1146,20 @@ const Judgment = () => {
       /* Drift is supporting context, never a release gate for the casebook.
          Start it beside the index and let it settle independently. */
       if (!pageId) {
+        setReadingLoading(true);
+        setReadingUnreadable(false);
         Promise.resolve().then(() => getArticles())
           .then(read => {
             if (cancelled) return;
             setArticles(Array.isArray(read) ? read : []);
+            setReadingLoading(false);
             setReadingUnreadable(false);
           })
           .catch(() => {
-            if (!cancelled) setReadingUnreadable(true);
+            if (!cancelled) {
+              setReadingLoading(false);
+              setReadingUnreadable(true);
+            }
           });
       }
 
@@ -1235,7 +1232,13 @@ const Judgment = () => {
           )
           : (
             <>
-              <JudgmentIndex items={items} articles={articles} loading={indexLoading} readingUnreadable={readingUnreadable} />
+              <JudgmentIndex
+                items={items}
+                articles={articles}
+                loading={indexLoading}
+                readingLoading={readingLoading}
+                readingUnreadable={readingUnreadable}
+              />
               {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
             </>
           )}
