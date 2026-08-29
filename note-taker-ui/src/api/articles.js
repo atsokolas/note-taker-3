@@ -72,5 +72,9 @@ export const setArticleEvergreen = async (articleId, evergreen) => {
     getAuthHeaders()
   );
   clearCachedPrefix('articles:');
+  /* The Kept shelf count lives on the room projection, not the article list.
+     Leaving that cache warm is how Keep for good still read as Kept 0. */
+  clearCachedPrefix('library-room:');
+  clearCachedPrefix('library-relevance:');
   return res.data;
 };

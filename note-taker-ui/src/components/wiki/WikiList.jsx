@@ -33,6 +33,7 @@ import {
   sameTitleToggleLabel
 } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import useMagneticRow from '../../hooks/useMagneticRow';
 
 const VISIBILITIES = ['all', 'private', 'shared'];
 const STATUSES = ['all', 'draft', 'published', 'archived'];
@@ -66,6 +67,7 @@ const WikiPageRow = ({
   const [actionsOpen, setActionsOpen] = useState(false);
   const [activated, setActivated] = useState(false);
   const receiptTimerRef = useRef(null);
+  const magnetic = useMagneticRow();
   const snippet = wikiPreviewForPage(page, compact ? 118 : 180);
   const title = displayWikiPageTitle(page);
   const qualityReview = normalizeQualityReview(page);
@@ -93,19 +95,6 @@ const WikiPageRow = ({
   useEffect(() => () => {
     if (receiptTimerRef.current) window.clearTimeout(receiptTimerRef.current);
   }, []);
-
-  const handlePointerMove = (event) => {
-    const target = event.currentTarget;
-    const rect = target.getBoundingClientRect();
-    target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
-    target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
-  };
-
-  const handlePointerLeave = (event) => {
-    const target = event.currentTarget;
-    target.style.removeProperty('--row-bloom-x');
-    target.style.removeProperty('--row-bloom-y');
-  };
 
   const mainContent = (
     <>
@@ -139,11 +128,12 @@ const WikiPageRow = ({
 
   return (
     <div
+      ref={magnetic.rowRef}
       className={rowClassName}
       role="article"
       aria-label={title}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
+      onPointerMove={magnetic.onPointerMove}
+      onPointerLeave={magnetic.onPointerLeave}
     >
       <div className="library-article-row-date">{formatWikiRowDate(rowDate)}</div>
       {showQualityReview ? (
@@ -292,6 +282,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [pages, setPages] = useState([]);
   const [catalogPages, setCatalogPages] = useState([]);
+  const [catalogKnown, setCatalogKnown] = useState(false);
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState('all');
   const [pageType, setPageType] = useState('all');
@@ -348,6 +339,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         && isWikiAllPagesActive({ kind, pageType, visibility, status, needsReviewFilter })
       ) {
         setCatalogPages(nextPages);
+        setCatalogKnown(true);
       }
     } catch (_error) {
       setError('Failed to load Wiki pages.');
@@ -537,7 +529,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
             visibility={visibility}
             status={status}
             needsReviewFilter={needsReviewFilter}
-            facetCounts={facetCounts}
+            facetCounts={catalogKnown ? facetCounts : null}
             onQueryChange={setQuery}
             onSelectAllPages={handleSelectAllPages}
             onSelectKind={handleSelectKind}

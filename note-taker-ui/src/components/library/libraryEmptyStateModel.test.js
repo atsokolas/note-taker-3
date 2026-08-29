@@ -23,6 +23,11 @@ describe('libraryEmptyStateModel', () => {
     });
   });
 
+  it('stays quiet when the corpus has not answered yet', () => {
+    expect(resolveLibraryEmptyState({ scope: 'all' })).toBeNull();
+    expect(resolveLibraryEmptyState({ scope: 'all', corpusTotal: undefined })).toBeNull();
+  });
+
   it('returns suppressed-empty when only review imports remain hidden', () => {
     expect(resolveLibraryEmptyState({
       scope: 'all',

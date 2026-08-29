@@ -234,10 +234,11 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     empty: 'Open a page before asking against exact accepted knowledge.'
   }, {});
   const pageIndexRequestRef = useRef(null);
-  const [pages, setPages] = useState([]);
-  const [briefing, setBriefing] = useState(null);
-  const [hasAnyWikiContent, setHasAnyWikiContent] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [seed] = useState(() => readFrontPageCache());
+  const [pages, setPages] = useState(() => seed?.pages || []);
+  const [briefing, setBriefing] = useState(() => seed?.briefing || null);
+  const [hasAnyWikiContent, setHasAnyWikiContent] = useState(() => seed?.hasAnyWikiContent ?? null);
+  const [loading, setLoading] = useState(() => !seed);
   const [error, setError] = useState('');
   const [checkInBusy, setCheckInBusy] = useState(false);
   const [checkInMessage, setCheckInMessage] = useState('');
@@ -287,7 +288,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
 
   useEffect(() => {
     let cancelled = false;
-    const cached = readFrontPageCache();
+    const cached = seed || readFrontPageCache();
     const snapshot = {
       pages: cached?.pages || [],
       briefing: cached?.briefing || null,
@@ -298,8 +299,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       setBriefing(cached.briefing);
       setHasAnyWikiContent(cached.hasAnyWikiContent);
       setLoading(false);
-    } else {
-      setLoading(true);
     }
     setError('');
     setAvailabilityNotice('');
@@ -814,7 +813,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     </details>
   );
 
-  if (loading) {
+  if (loading || (hasAnyWikiContent == null && !curatedPages.length && !error)) {
     return (
       <WikiFrontPageShell aria-busy="true">
         <h1 className="sr-only">Your Wiki</h1>
@@ -848,8 +847,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }
 
   // First-run fallback for users who have already completed onboarding and
-  // cleared their corpus later: never a dead screen.
-  if (!curatedPages.length) {
+  // cleared their corpus later — or whose only pages are hidden from the
+  // front. Unknown is not empty: hold the last shell (or the loading paper)
+  // until a load actually answers. Quiet empty only after that answer.
+  if (!loading && hasAnyWikiContent != null && !curatedPages.length) {
     return (
       <WikiFrontPageShell lead={paperLead} tail={paperTail} hasMatter={hasPaperMatter}>
         <header className="wiki-front-page__top">
@@ -882,7 +883,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           className={`wiki-living-nav wfp-anim wfp-anim--1${mobileShelfOpen ? ' is-mobile-open' : ''}`}
           aria-label="Wiki views"
           label="Wiki"
-          count={canonicalPages.length}
+          count={canonicalPages.length || undefined}
           search={wikiSearch}
           searchLabel="Search your wikis"
           searchPlaceholder="Search your wikis"
@@ -895,13 +896,13 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             onClick={() => setMobileShelfOpen(value => !value)}
           >
             <span>Browse wikis</span>
-            <RoomShelfMeta>{canonicalPages.length}</RoomShelfMeta>
+            {canonicalPages.length ? <RoomShelfMeta>{canonicalPages.length}</RoomShelfMeta> : null}
           </button>
           <RoomShelfList className="wiki-living-nav__primary">
             {[
               ['all', 'All wikis', canonicalPages.length],
               ['review', 'Needs review', exactReviewCount],
-              ['recent', 'Recently updated', recentlyUpdated.length]
+              ['recent', 'Recently updated', briefing ? recentlyUpdated.length : undefined]
             ].map(([value, label, count]) => (
               <li key={value}>
                 <RoomShelfButton
@@ -910,7 +911,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                   onClick={() => selectWikiFilter(value)}
                 >
                   <span>{label}</span>
-                  <RoomShelfMeta>{count}</RoomShelfMeta>
+                  {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
                 </RoomShelfButton>
               </li>
             ))}

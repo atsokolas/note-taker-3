@@ -45,6 +45,16 @@ describe('useLibraryRoom', () => {
     expect(result.current.shelfCounts.articles).toBe(2);
   });
 
+  it('lets Keep bump the shelf count before the room refetches', async () => {
+    const { result } = renderHook(() => useLibraryRoom());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.adjustShelfCount('keptArticles', 1);
+    });
+    expect(result.current.shelfCounts.keptArticles).toBe(1);
+  });
+
   it('continues through the bounded relevance cursor without reloading shelves', async () => {
     getLibraryRelevance.mockResolvedValue({
       sources: [{ source: { type: 'note', id: 'note-2', title: 'Second' } }],

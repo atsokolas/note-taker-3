@@ -122,6 +122,7 @@ const Library = () => {
     allArticles,
     loading: articlesLoading,
     error: articlesError,
+    resolved: articlesResolved,
     setAllArticles
   } = useLibraryArticles({
     scope,
@@ -576,7 +577,7 @@ const Library = () => {
     : null;
   const libraryTotalsReady = roomProjectionEnabled && !libraryRoom.error
     ? !libraryRoom.loading
-    : !articlesLoading;
+    : articlesResolved;
   const unfiledCount = libraryTotalsReady
     ? projectedShelfCounts?.unfiledArticles ?? folderCounts.unfiled ?? 0
     : undefined;
@@ -586,10 +587,10 @@ const Library = () => {
     if (showSuppressedItems) return allArticles.length;
     return filterLibraryBrowseItems(allArticles).length;
   }, [allArticles, libraryTotalsReady, projectedShelfCounts, showSuppressedItems]);
-  const rawCorpusTotal = useMemo(
-    () => projectedShelfCounts?.rawArticles ?? allArticles.length,
-    [allArticles.length, projectedShelfCounts]
-  );
+  const rawCorpusTotal = useMemo(() => {
+    if (!libraryTotalsReady) return undefined;
+    return projectedShelfCounts?.rawArticles ?? allArticles.length;
+  }, [allArticles.length, libraryTotalsReady, projectedShelfCounts]);
   const suppressedCount = useMemo(() => {
     if (projectedShelfCounts) return projectedShelfCounts.suppressedArticles || 0;
     if (showSuppressedItems) return 0;
@@ -681,10 +682,12 @@ const Library = () => {
     const saved = await setArticleEvergreen(articleId, evergreen);
     const next = Boolean(saved?.evergreen ?? evergreen);
     setAllArticles(current => current.map(item => (
-      String(item._id) === String(articleId) ? { ...item, evergreen: next } : item
+      String(item._id) === String(articleId) ? { ...item, evergreen: next, evergreenAt: saved?.evergreenAt ?? item.evergreenAt } : item
     )));
+    libraryRoom.adjustShelfCount?.('keptArticles', next ? 1 : -1);
+    libraryRoom.refresh?.();
     return saved;
-  }, [setAllArticles]);
+  }, [libraryRoom, setAllArticles]);
 
   const handleAskLibrarian = useCallback((highlight) => {
     const prompt = buildLibrarianSelectionPrompt(highlight);

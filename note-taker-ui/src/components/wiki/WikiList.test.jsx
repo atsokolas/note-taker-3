@@ -66,6 +66,16 @@ describe('WikiList', () => {
     ]);
   });
 
+  it('does not flash PAGES 0 before the catalog answers', () => {
+    listWikiPages.mockReturnValueOnce(new Promise(() => {}));
+    renderWikiList();
+
+    expect(screen.getByTestId('wiki-facet-rail')).toBeInTheDocument();
+    expect(document.querySelector('.room-shelf__count')).toBeNull();
+    expect(screen.getByTestId('wiki-facet-all-pages')).not.toHaveTextContent('0');
+    expect(screen.getByTestId('wiki-facet-kind-general')).not.toHaveTextContent('0');
+  });
+
   it('loads an unfiltered catalog for compact facet counts', async () => {
     listWikiPages.mockResolvedValueOnce([
       {

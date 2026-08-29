@@ -55,6 +55,49 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
     };
   }, [enabled, showSuppressed, view]);
 
+  const refresh = useCallback(async () => {
+    if (!enabled) return;
+    const requestId = requestRef.current + 1;
+    requestRef.current = requestId;
+    try {
+      const payload = await getLibraryRoom({ view, limit: 40, showSuppressed, force: true });
+      if (requestRef.current !== requestId) return;
+      setState({
+        loading: false,
+        loadingMore: false,
+        error: '',
+        paginationError: '',
+        sources: payload.sources,
+        coverage: payload.coverage,
+        counts: payload.counts,
+        folders: payload.shelves.folders,
+        shelfCounts: payload.shelves.counts,
+        nextCursor: payload.nextCursor,
+        hasMore: payload.hasMore
+      });
+    } catch (error) {
+      if (requestRef.current !== requestId) return;
+      setState(previous => ({
+        ...previous,
+        error: error?.response?.data?.error || error?.message || 'Could not load Library.'
+      }));
+    }
+  }, [enabled, showSuppressed, view]);
+
+  const adjustShelfCount = useCallback((key, delta) => {
+    setState((previous) => {
+      const current = Number(previous.shelfCounts?.[key]);
+      if (!Number.isFinite(current)) return previous;
+      return {
+        ...previous,
+        shelfCounts: {
+          ...previous.shelfCounts,
+          [key]: Math.max(0, current + delta)
+        }
+      };
+    });
+  }, []);
+
   const loadMore = useCallback(async () => {
     if (!enabled || state.loadingMore || !state.hasMore || !state.nextCursor) return;
     const requestId = requestRef.current;
@@ -87,7 +130,7 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
     }
   }, [enabled, showSuppressed, state.hasMore, state.loadingMore, state.nextCursor, view]);
 
-  return { ...state, loadMore };
+  return { ...state, loadMore, refresh, adjustShelfCount };
 };
 
 export default useLibraryRoom;

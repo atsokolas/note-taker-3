@@ -65,9 +65,10 @@ const WikiFacetRail = ({
   onSelectKind,
   onSelectNeedsReview
 }) => {
+  const countsKnown = Boolean(facetCounts);
   const counts = facetCounts || {
-    all: 0,
-    needsReview: 0,
+    all: undefined,
+    needsReview: undefined,
     byKind: {},
     byType: {},
     byStatus: {},
@@ -88,7 +89,7 @@ const WikiFacetRail = ({
       aria-label="Wiki page facets"
       data-testid="wiki-facet-rail"
       label="Pages"
-      count={counts.all}
+      count={countsKnown ? counts.all : undefined}
       description="Browse your wiki."
       search={query}
       searchLabel="Search Wiki pages"
@@ -100,7 +101,7 @@ const WikiFacetRail = ({
         <li>
           <FacetButton
             label="All pages"
-            count={counts.all}
+            count={countsKnown ? counts.all : undefined}
             active={allPagesActive}
             testId="wiki-facet-all-pages"
             onClick={() => onSelectAllPages?.()}
@@ -109,7 +110,7 @@ const WikiFacetRail = ({
         <li>
           <FacetButton
             label="Needs review"
-            count={counts.needsReview}
+            count={countsKnown ? counts.needsReview : undefined}
             active={needsReviewFilter}
             testId="wiki-facet-needs-review"
             onClick={() => onSelectNeedsReview?.()}
@@ -122,7 +123,7 @@ const WikiFacetRail = ({
             <li key={value}>
               <FacetButton
                 label={WIKI_KIND_LABELS[value]}
-                count={counts.byKind?.[value] ?? 0}
+                count={countsKnown ? (counts.byKind?.[value] ?? 0) : undefined}
                 active={kind === value}
                 nested
                 testId={`wiki-facet-kind-${value}`}

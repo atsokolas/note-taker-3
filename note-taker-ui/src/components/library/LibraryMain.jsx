@@ -42,13 +42,13 @@ const LibraryMain = ({
   onQueryChange,
   onDumpHighlight,
   allArticles = [],
-  unfiledCount = 0,
+  unfiledCount,
   onReviewFiling,
   filingLaunching = false,
   filingReceipt = null,
   onToggleSuppressed,
-  corpusTotal = 0,
-  rawCorpusTotal = 0,
+  corpusTotal,
+  rawCorpusTotal,
   suppressedCount = 0,
   latestReceipt = null,
   sourceView = 'recent',
@@ -223,8 +223,12 @@ const LibraryMain = ({
               articles={allArticles}
               scope={scope}
               suppressedVisible={suppressedVisible}
-              corpusTotal={Number(relevance.counts?.recent?.value ?? corpusTotal)}
-              rawCorpusTotal={Number(relevance.counts?.recent?.value ?? rawCorpusTotal)}
+              corpusTotal={Number.isFinite(Number(relevance.counts?.recent?.value))
+                ? Number(relevance.counts.recent.value)
+                : corpusTotal}
+              rawCorpusTotal={Number.isFinite(Number(relevance.counts?.recent?.value))
+                ? Number(relevance.counts.recent.value)
+                : rawCorpusTotal}
               suppressedCount={relevance.filteredOutCount || 0}
               latestReceipt={latestReceipt}
               coverage={relevance.coverage}
@@ -268,7 +272,7 @@ const LibraryMain = ({
 
   return (
     <div className="library-main-browse">
-      {showReadingRoomLead ? (
+      {showReadingRoomLead && Number.isFinite(unfiledCount) ? (
         <LibraryReadingRoomLead
           articles={articles}
           allArticles={allArticles}

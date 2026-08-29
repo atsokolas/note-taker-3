@@ -117,7 +117,9 @@ describe('stitch editorial CSS tokens', () => {
 
     expect(css).toContain('body.noeis-editorial .library-article-row.is-magnetic::before');
     expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
-    expect(css).toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?library-article-row\.is-magnetic:focus-within[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
+    expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?--magnetic-x: 0px;/);
+    expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?translate3d\(var\(--magnetic-x, 0px\), 0, 0\)/);
+    expect(css).not.toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
     expect(css).not.toContain('.three-pane--library');
   });
@@ -165,12 +167,12 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).not.toContain('.wiki-front-page__hairline');
   });
 
-  it('aligns wiki facet rail and list rows with library cabinet grammar', () => {
+  it('aligns wiki list rows with library row grammar and leaves the facet rail on RoomShelf', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
-    expect(css).toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).toContain('body.noeis-editorial .wiki-index__list.library-article-list');
     expect(css).toContain('body.noeis-editorial .wiki-index__list .library-article-row:last-child');
+    expect(css).not.toContain('body.noeis-editorial .wiki-facet-rail.library-cabinet');
     expect(css).not.toContain('body.noeis-editorial .wiki-facet-rail--deep');
     expect(css).toMatch(/@media \(max-width: 960px\)[\s\S]*?wiki-index__faceted-main[\s\S]*?order: 2;/);
   });

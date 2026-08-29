@@ -846,6 +846,8 @@ const serializeWikiPage = (page) => {
   const presentationTitle = normalizeExistingWikiTitleForPresentation(raw.title || 'Untitled Wiki Page');
   return {
     ...raw,
+    evergreen: Boolean(raw.evergreen),
+    evergreenAt: raw.evergreenAt || null,
     wikiKind: serializeWikiKind(raw),
     title: presentationTitle,
     pageType: normalizePageType(raw.pageType || 'topic'),
@@ -1672,6 +1674,7 @@ const WIKI_JUDGMENT_FIELDS = Object.freeze([
 
 const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
   '_id', 'title', 'updatedAt', 'createdAt',
+  'evergreen', 'evergreenAt',
   ...WIKI_JUDGMENT_FIELDS
 ]);
 
