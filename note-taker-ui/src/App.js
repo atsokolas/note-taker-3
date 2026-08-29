@@ -31,10 +31,11 @@ import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
 import { buildCanonicalArticlePath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
+  consumeGoToChord,
   getPrimaryNavItems,
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
-  resolveGoToShortcut
+  isGoToTypingTarget
 } from './navigation/appNavigation';
 import { namesAThinkObject } from './pages/thinkNotesModel';
 import { useSystemStatus } from './system/useSystemStatus';
@@ -338,36 +339,33 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
   const { surface } = useNoeisSurfaceState();
 
   useEffect(() => {
-    let lastG = 0;
+    let primedAt = 0;
     const handleKeyDown = (event) => {
-      const tag = event.target?.tagName || '';
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         openPalette();
         return;
       }
 
-      const isText = ['INPUT', 'TEXTAREA'].includes(tag) || event.target?.isContentEditable;
+      const next = consumeGoToChord({ primedAt }, event);
+      primedAt = next.primedAt;
+      if (next.to) {
+        event.preventDefault();
+        event.stopPropagation();
+        setShortcutOverlayOpen(false);
+        navigate(next.to);
+        return;
+      }
+
+      const isText = isGoToTypingTarget(event.target);
       if (isText) return;
       if (event.key === '?' && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
         setShortcutOverlayOpen(true);
-        return;
       }
-
-      const now = Date.now();
-      if (event.key.toLowerCase() === 'g') {
-        lastG = now;
-        return;
-      }
-      if (now - lastG >= 800) return;
-      const shortcut = resolveGoToShortcut(event.key);
-      if (!shortcut) return;
-      event.preventDefault();
-      navigate(shortcut.to);
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [navigate, openPalette, setShortcutOverlayOpen]);
 
   return renderLayout({ shellLocation, navigate, surface });

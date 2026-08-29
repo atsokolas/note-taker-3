@@ -1,8 +1,11 @@
 import {
   buildThinkPosturePath,
+  consumeGoToChord,
   getPrimaryNavItems,
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
+  GO_TO_CHORD_MS,
+  isGoToTypingTarget,
   NOEIS_GO_TO_SHORTCUTS,
   resolveGoToShortcut
 } from './appNavigation';
@@ -75,10 +78,93 @@ describe('appNavigation', () => {
   });
 
   it('keeps keyboard destinations in one ordered authority', () => {
-    expect(NOEIS_GO_TO_SHORTCUTS.map(item => item.label)).toEqual([
-      'Home', 'Library', 'Think', 'Wiki', 'Judgment', 'Review', 'Settings'
+    expect(NOEIS_GO_TO_SHORTCUTS.map(item => `${item.key}:${item.to}`)).toEqual([
+      'h:/think?tab=home',
+      'n:/think?tab=notebook',
+      'c:/think?tab=concepts',
+      'q:/think?tab=questions',
+      'l:/library',
+      'w:/wiki',
+      'j:/judgment',
+      'o:/connections'
     ]);
-    expect(resolveGoToShortcut('W')?.to).toBe('/wiki/workspace?view=graph');
+    expect(resolveGoToShortcut('W')?.to).toBe('/wiki');
+    expect(resolveGoToShortcut('t')).toBeNull();
+    expect(resolveGoToShortcut('r')).toBeNull();
+    expect(resolveGoToShortcut('s')).toBeNull();
+    expect(resolveGoToShortcut('g')).toBeNull();
     expect(resolveGoToShortcut('x')).toBeNull();
+  });
+});
+
+const bodyEvent = (key, extras = {}) => ({ key, target: document.body, ...extras });
+
+const playChord = (keys, { start = 1_000, step = 120, extras = {} } = {}) => {
+  const navigate = jest.fn();
+  let primedAt = 0;
+  keys.forEach((key, index) => {
+    const next = consumeGoToChord({ primedAt }, bodyEvent(key, extras), start + (index * step));
+    primedAt = next.primedAt;
+    if (next.to) navigate(next.to);
+  });
+  return navigate;
+};
+
+describe('G-then-rooms', () => {
+  it('navigates each mnemonic letter after G', () => {
+    NOEIS_GO_TO_SHORTCUTS.forEach((room) => {
+      const navigate = playChord(['g', room.key]);
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith(room.to);
+    });
+  });
+
+  it('does not fire while typing in an input, textarea, or contenteditable', () => {
+    const navigate = jest.fn();
+    const targets = ['input', 'textarea', 'div'].map((tag) => {
+      const el = document.createElement(tag);
+      if (tag === 'div') el.setAttribute('contenteditable', 'true');
+      document.body.appendChild(el);
+      return el;
+    });
+    const slash = document.createElement('div');
+    slash.className = 'think-slash-menu';
+    const slashItem = document.createElement('button');
+    slash.appendChild(slashItem);
+    document.body.appendChild(slash);
+    targets.push(slashItem);
+
+    targets.forEach((target) => {
+      expect(isGoToTypingTarget(target)).toBe(true);
+      let primedAt = 0;
+      [['g', 1000], ['h', 1100]].forEach(([key, now]) => {
+        const next = consumeGoToChord({ primedAt }, { key, target }, now);
+        primedAt = next.primedAt;
+        if (next.to) navigate(next.to);
+      });
+    });
+
+    expect(navigate).not.toHaveBeenCalled();
+    targets.forEach((target) => target.remove());
+    slash.remove();
+  });
+
+  it('fails silently when the chord is incomplete or the window lapses', () => {
+    expect(playChord(['g', 'x'])).not.toHaveBeenCalled();
+    expect(playChord(['h'])).not.toHaveBeenCalled();
+    expect(playChord(['g', 'g'])).not.toHaveBeenCalled();
+
+    const navigate = jest.fn();
+    let primedAt = 0;
+    primedAt = consumeGoToChord({ primedAt }, bodyEvent('g'), 1000).primedAt;
+    const late = consumeGoToChord({ primedAt }, bodyEvent('h'), 1000 + GO_TO_CHORD_MS + 1);
+    if (late.to) navigate(late.to);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('ignores the chord when modifier keys are down', () => {
+    expect(playChord(['g', 'h'], { extras: { metaKey: true } })).not.toHaveBeenCalled();
+    expect(playChord(['g', 'h'], { extras: { ctrlKey: true } })).not.toHaveBeenCalled();
+    expect(playChord(['g', 'h'], { extras: { altKey: true } })).not.toHaveBeenCalled();
   });
 });
