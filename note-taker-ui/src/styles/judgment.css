@@ -103,7 +103,23 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   }
 }
 
-/* ---------- the overnight line ---------- */
+/* ---------- a note under the door ---------- */
+
+/* Overnight and the library inbox share one paper edge: slightly offset from
+   the type, a hairline of agent ink, no fill, no glass, no card. Empty
+   overnight is silence — this block is not rendered. */
+.judgment-slip {
+  margin-left: -0.55rem;
+  padding-left: 0.8rem;
+  border-left: 1px solid color-mix(
+    in srgb,
+    var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink))) 40%,
+    transparent
+  );
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
 
 .judgment__proposal {
   display: flex;
@@ -111,19 +127,29 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   align-items: baseline;
   gap: 6px 22px;
   overflow: hidden;
+  max-width: 44ch;
   max-height: 12rem;
-  margin-bottom: 40px;
+  margin-top: 6px;
+  margin-bottom: 10px;
+  padding-top: 1px;
+  padding-bottom: 1px;
   opacity: 1;
   transition:
     max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    margin-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    margin 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .judgment__proposal.is-leaving {
   max-height: 0;
+  margin-top: 0;
   margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
   opacity: 0;
+  border-left-color: transparent;
 }
 
 .judgment__proposal-sentence {
@@ -443,11 +469,12 @@ body.noeis-editorial .judgment .judgment-composer input,
 
 /* Quiet lines the library already held, in the composer band. Filing one is
    the same gesture as writing a Why: the rail names the side, the line
-   settles into the log, and the inbox evaporates. */
+   settles into the log, and the inbox evaporates. Same paper edge as
+   overnight — a slip under the rail, not a second tray. */
 .judgment-inbox {
   display: grid;
   gap: 2px;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .judgment-inbox__list {
@@ -871,10 +898,6 @@ button.judgment-inbox__text:focus-visible {
 .judgment__door-link:disabled {
   cursor: wait;
   opacity: 0.55;
-}
-
-.judgment__door .judgment__proposal {
-  margin-bottom: 0;
 }
 
 .judgment__error {

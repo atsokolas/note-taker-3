@@ -654,7 +654,7 @@ describe('Judgment claim', () => {
 });
 
 describe('the overnight line', () => {
-  it('sits above the claim and writes into Against when accepted', async () => {
+  it('sits on the threshold of the claim and writes into Against when accepted', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
@@ -662,6 +662,12 @@ describe('the overnight line', () => {
     renderDetail();
 
     expect(await screen.findByText(/Overnight: A 13F filing was posted\./)).toBeInTheDocument();
+    const overnight = screen.getByRole('group', { name: 'Overnight agent line' });
+    const back = screen.getByRole('link', { name: /All judgments/ });
+    const title = screen.getByLabelText('Title');
+    expect(back.compareDocumentPosition(overnight) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overnight.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overnight).toHaveClass('judgment-slip');
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Against' }));
@@ -789,6 +795,19 @@ describe('the overnight line', () => {
     expect(overnightSave[1].judgment.why.map(line => line.text)).not.toContain('A typed why.');
     expect(overnightSave[1].judgment.against.at(-1).reasonId || '').not.toMatch(/^why_/);
     expect(input).toHaveValue('A typed why.');
+  });
+
+  it('is silent when nothing arrived overnight', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    listWikiSourceEvents.mockResolvedValue([]);
+
+    renderDetail();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.queryByRole('group', { name: 'Overnight agent line' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nothing (arrived|waiting|overnight)/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/morning inbox/i)).not.toBeInTheDocument();
   });
 });
 
@@ -987,6 +1006,7 @@ describe('Evidence from the library', () => {
     expect(screen.queryByText('File under')).not.toBeInTheDocument();
     expect(screen.queryByText('On compute · FT')).not.toBeInTheDocument();
     const inbox = screen.getByRole('region', { name: 'From your library' });
+    expect(inbox).toHaveClass('judgment-slip');
     expect(within(inbox).getByRole('button', { name: 'Why' })).toBeInTheDocument();
     expect(within(inbox).getByRole('button', { name: 'Against' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
