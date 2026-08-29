@@ -174,7 +174,12 @@ const request = async ({
               message,
               bodySnippet: snippet
             });
-            if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+            // Embedding traffic has a persistent queue with its own minute-scale
+            // backoff. Retrying a 429 here only amplifies load before that queue
+            // can release the job. Other routes retain their short retry because
+            // they do not have a durable scheduler behind them.
+            const retryableRateLimit = res.status === 429 && safePath !== '/embed';
+            if ((retryableRateLimit || res.status >= 500) && attempt < retries) {
               logAgentMetric('ai_upstream.retry', {
                 path: safePath,
                 status: String(res.status)
@@ -201,7 +206,7 @@ const request = async ({
               throw error;
             }
             throw buildError({
-              status: 502,
+              status: res.status || 502,
               message,
               hint: 'Check AI_SERVICE_URL, cold start, or Render service status.'
             });
