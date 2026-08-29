@@ -172,6 +172,9 @@ const renderPamphlet = (doc, pamphlet, { printedAt = new Date() } = {}) => {
 
   rule();
   doc.font(SANS).fontSize(8).fillColor('#8a8377')
+    .text('μνήμη · κρίσις', { characterSpacing: 1.4 });
+  doc.moveDown(0.35);
+  doc.font(SANS).fontSize(8).fillColor('#8a8377')
     .text(`Printed ${formatDate(printedAt)}. This is what I thought and why; the reasons are the argument, not the conclusion.`, {
       lineGap: 2
     });

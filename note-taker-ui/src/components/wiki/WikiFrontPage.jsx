@@ -101,7 +101,13 @@ const wikiReviewState = (page = {}, changedByLibrary = false) => {
 };
 
 const wikiReviewDate = (page = {}) => {
-  const reviewedAt = page.lastReviewedAt || page.qualityReview?.reviewedAt;
+  /* Prefer the signed review clock. lastMaintainedAt is honest for Accepts
+     that already closed before lastReviewedAt existed — never invent from
+     updatedAt. */
+  const reviewedAt = page.lastReviewedAt
+    || page.freshness?.lastReviewedAt
+    || page.qualityReview?.reviewedAt
+    || page.freshness?.lastMaintainedAt;
   return reviewedAt ? relativeTime(reviewedAt) : 'Not reviewed';
 };
 
@@ -166,21 +172,17 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
 
-/* The Paper belongs at the Wiki's threshold, but it is a return signal rather
-   than the Wiki's entire first screen. Keep the full reading loop available in
-   one native disclosure so a finished briefing cannot push the user's saved
-   pages below the fold after an initially tidy loading state. */
-const WikiFrontPageShell = ({ children, lead = null, tail = null, ...mainProps }) => (
+/* Morning Paper is a broadsheet when something is due, and silence when
+   nothing closed. It is never a collapsed badge that invents readiness. */
+const WikiFrontPageShell = ({ children, lead = null, tail = null, hasMatter = false, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
-      <details className="wiki-front-page__paper-fold">
-        <summary>
-          <span>Morning paper</span>
-          <span>{lead ? 'A claim and today’s changes are ready.' : 'Read what changed while you were away.'}</span>
-        </summary>
-        <Paper compact lead={lead} tail={tail} />
-      </details>
+      {hasMatter ? (
+        <section className="wiki-front-page__broadsheet" aria-label="Morning paper">
+          <Paper compact lead={lead} tail={tail} />
+        </section>
+      ) : null}
       {children}
       <WeeklyDigest />
     </main>
@@ -532,12 +534,57 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   );
   const claimCheckIn = briefing?.claimCheckIn || null;
   const watching = Array.isArray(briefing?.watching) ? briefing.watching : [];
+  /* A claim due for review, or the quiet receipt of a check-in just taken.
+     Anything else is silence — never a badge that invents readiness. */
+  const hasPaperMatter = Boolean(claimCheckIn || checkInMessage);
+
+  /* What grew, what is being watched, and the way to everything you have read.
+     The week belongs on the paper — a standing weekly line under the daily one.
+     Events say which claims have had unread evidence; without them the line
+     could only ever say the week was quiet. */
+  const [weekEvents, setWeekEvents] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const events = await listWikiSourceEvents({ limit: 200 });
+        if (!cancelled) setWeekEvents(Array.isArray(events) ? events : []);
+      } catch (_eventsError) {
+        /* The paper reads fine without them; the line just stays quiet. */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const week = useMemo(
+    () => buildWeeklyBrief({ pages, events: weekEvents }),
+    [pages, weekEvents]
+  );
+
+  const handleCheckIn = async (action, revisedText = '') => {
+    if (!claimCheckIn || checkInBusy) return;
+    if (action === 'retired' && !window.confirm('Retire this claim? It will remain permanently auditable and can be explicitly restored later.')) return;
+    setCheckInBusy(true);
+    setCheckInMessage('');
+    try {
+      const result = await recordClaimCheckIn({
+        pageId: claimCheckIn.pageId,
+        claimId: claimCheckIn.claimId,
+        action,
+        revisedText
+      });
+      setCheckInMessage(result.acknowledgment || `Claim ${action}.`);
+      setBriefing(previous => ({ ...previous, claimCheckIn: null, checkInStreak: result.streak ?? previous?.checkInStreak }));
+      setShowRevisionDraft(false);
+    } catch (requestError) {
+      setCheckInMessage(requestError?.response?.data?.error || 'Could not record the claim check-in.');
+    } finally {
+      setCheckInBusy(false);
+    }
+  };
 
   /* The lead is a claim you hold and the four things you can do about it.
-     It was already here — Still hold, Revise, Retire, Open claim — but folded
-     inside "Review and system activity", which is a place you go rather than a
-     thing you meet. Opening Noeis should mean being asked whether you still
-     believe something. */
+     Opening Noeis should mean being asked whether you still believe something. */
   const paperLead = (
     <div className="wfp-lead">
       <p className="wfp-lead__eyebrow">Morning paper · {mastheadDate()}</p>
@@ -571,8 +618,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           )}
         </>
       ) : (
-        /* No claim is due. The page says so in one line rather than promoting
-           something else into the space to keep it full. */
         <h2 className="wfp-lead__claim wfp-lead__claim--quiet">
           {checkInMessage || 'No claim is due for review this morning.'}
         </h2>
@@ -580,40 +625,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     </div>
   );
 
-  /* What grew, what is being watched, and the way to everything you have read. */
-  /* The week belongs on the paper, in the same column the morning briefing
-     arrives in — a standing weekly line under the daily one, rather than a
-     room you would have to remember to visit. It is assembled from the pages
-     this page already loaded, so it costs nothing extra to say. */
-  /* The events say which claims have had evidence arrive that nobody has read,
-     and without them this line could only ever say the week was quiet — which
-     is what it did say, every week, because `briefing.sourceEvents` is not a
-     field the briefing has. They are asked for after the index settles, like
-     the briefing itself, so a sentence in the tail never delays the reading. */
-  const [weekEvents, setWeekEvents] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const events = await listWikiSourceEvents({ limit: 200 });
-        if (!cancelled) setWeekEvents(Array.isArray(events) ? events : []);
-      } catch (_eventsError) {
-        /* The paper reads fine without them; the line just stays quiet. */
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const week = useMemo(
-    () => buildWeeklyBrief({ pages, events: weekEvents }),
-    [pages, weekEvents]
-  );
-
   const paperTail = (
     <div className="wfp-tail">
-      {/* Folded, like everything else that lists pages. This read the
-          repo-deduped list rather than the title-folded one, so three copies
-          of the same page arrived as three things that recently grew. */}
       {canonicalPages.length ? (
         <>
           <p className="wfp-tail__cap">Recently grown</p>
@@ -629,44 +642,15 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       {watching.length ? (
         <p className="wfp-tail__quiet">Watching {watching.length} source{watching.length === 1 ? '' : 's'}.</p>
       ) : null}
-      {/* The week, under the day. One sentence and a way in; the page itself
-          has the rest. A quiet week says so rather than being hidden, because
-          "nothing needed you" is a real answer and worth reading. */}
       <p className="wfp-tail__week">
         <span>{paperWeekLine(week)}</span>
         <Link to="/week">Your week →</Link>
       </p>
-      {/* Everything the reading has built — the wiki's own pages, not the
-          article shelf. The three above are what grew most recently; this is
-          the rest of them. */}
       <p className="wfp-tail__door">
         <Link to="/wiki/workspace?view=list">See every page in your wiki →</Link>
       </p>
     </div>
   );
-
-  const handleCheckIn = async (action, revisedText = '') => {
-    if (!claimCheckIn || checkInBusy) return;
-    if (action === 'retired' && !window.confirm('Retire this claim? It will remain permanently auditable and can be explicitly restored later.')) return;
-    setCheckInBusy(true);
-    setCheckInMessage('');
-    try {
-      const result = await recordClaimCheckIn({
-        pageId: claimCheckIn.pageId,
-        claimId: claimCheckIn.claimId,
-        action,
-        revisedText
-      });
-      setCheckInMessage(result.acknowledgment || `Claim ${action}.`);
-      setBriefing(previous => ({ ...previous, claimCheckIn: null, checkInStreak: result.streak ?? previous?.checkInStreak }));
-      setShowRevisionDraft(false);
-    } catch (requestError) {
-      setCheckInMessage(requestError?.response?.data?.error || 'Could not record the claim check-in.');
-    } finally {
-      setCheckInBusy(false);
-    }
-  };
-
   const handleArmReading = async (event) => {
     event.preventDefault();
     if (!readingPageId || !readingFeedUrl || watchingBusy) return;
@@ -867,7 +851,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   // cleared their corpus later: never a dead screen.
   if (!curatedPages.length) {
     return (
-      <WikiFrontPageShell lead={paperLead} tail={paperTail}>
+      <WikiFrontPageShell lead={paperLead} tail={paperTail} hasMatter={hasPaperMatter}>
         <header className="wiki-front-page__top">
           <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
             <p className="wiki-index__eyebrow wiki-front-page__masthead">
@@ -892,7 +876,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }
 
   return (
-    <WikiFrontPageShell lead={paperLead} tail={paperTail}>
+    <WikiFrontPageShell lead={paperLead} tail={paperTail} hasMatter={hasPaperMatter}>
       <div className="wiki-living-shell">
         <RoomShelf
           className={`wiki-living-nav wfp-anim wfp-anim--1${mobileShelfOpen ? ' is-mobile-open' : ''}`}

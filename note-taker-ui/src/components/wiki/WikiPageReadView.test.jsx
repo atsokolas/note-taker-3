@@ -1963,8 +1963,8 @@ describe('WikiPageReadView', () => {
     );
 
     const references = (await screen.findByRole('heading', { name: 'References' })).closest('section');
-    expect(within(references).getAllByRole('link', { name: 'Return to source' })[0]).toHaveAttribute('href', '/library?articleId=article-1');
-    expect(within(references).getAllByRole('link', { name: 'Return to source' })[1]).toHaveAttribute('href', '/library?articleId=article-1&highlightId=highlight-1');
+    expect(within(references).getAllByRole('link', { name: 'Open in Library' })[0]).toHaveAttribute('href', '/library?articleId=article-1');
+    expect(within(references).getAllByRole('link', { name: 'Open in Library' })[1]).toHaveAttribute('href', '/library?articleId=article-1&highlightId=highlight-1');
     expect(within(references).getByRole('link', { name: 'Open original' })).toHaveAttribute('href', 'https://example.com/source');
   });
 

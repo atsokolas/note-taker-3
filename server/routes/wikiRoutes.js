@@ -2,6 +2,7 @@ const express = require('express');
 const { collectContradictions } = require('../services/wikiContradictionService');
 const PDFDocument = require('pdfkit');
 const { buildPamphletPdf } = require('../services/judgmentPamphlet');
+const { inkWikiPageReview } = require('../services/wikiReviewClock');
 const { findLibraryEvidence } = require('../services/judgmentEvidenceService');
 const mongoose = require('mongoose');
 const archiver = require('archiver');
@@ -4280,6 +4281,7 @@ const buildWikiRouter = ({
           status: 'fresh',
           lastMaintainedAt: now
         };
+        inkWikiPageReview(page, now);
         page.markModified?.('investmentDossier');
         page.markModified?.('aiState');
         page.markModified?.('freshness');

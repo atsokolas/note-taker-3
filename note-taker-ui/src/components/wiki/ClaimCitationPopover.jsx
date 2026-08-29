@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { buildSourceOpenPath, isExternalSourceHref } from '../../utils/sourceRoutes';
+import { Link } from 'react-router-dom';
+import { resolveSourceDoors } from '../../utils/sourceRoutes';
 
 /**
  * ClaimCitationPopover — Wikipedia-style footnote popover for an inline
@@ -51,6 +52,47 @@ const formatConfidence = (value) => {
   return `${Math.round(number * 100)}% confidence`;
 };
 
+const SourceTitle = ({ source, doors }) => {
+  const title = source.title || 'Untitled source';
+  if (doors.ownedHref) {
+    return doors.isLibrary ? (
+      <Link className="wiki-claim-popover__item-title" to={doors.ownedHref}>{title}</Link>
+    ) : (
+      <a className="wiki-claim-popover__item-title" href={doors.ownedHref}>{title}</a>
+    );
+  }
+  return <span className="wiki-claim-popover__item-title">{title}</span>;
+};
+
+const SourceDoors = ({ doors }) => {
+  if (!doors.openHref) return null;
+  return (
+    <div className="wiki-claim-popover__item-doors">
+      {doors.ownedHref ? (
+        doors.isLibrary ? (
+          <Link className="wiki-claim-popover__item-link" to={doors.ownedHref}>
+            Open in Library →
+          </Link>
+        ) : (
+          <a className="wiki-claim-popover__item-link" href={doors.ownedHref}>
+            Return to source →
+          </a>
+        )
+      ) : null}
+      {doors.originalHref ? (
+        <a
+          className={`wiki-claim-popover__item-link${doors.ownedHref ? ' wiki-claim-popover__item-link--secondary' : ''}`}
+          href={doors.originalHref}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open original ↗
+        </a>
+      ) : null}
+    </div>
+  );
+};
+
 const EvidenceList = ({ title, sources, role }) => {
   if (!sources.length) return null;
   return (
@@ -58,27 +100,17 @@ const EvidenceList = ({ title, sources, role }) => {
       <h3 className="wiki-claim-popover__evidence-title">{title}</h3>
       <ol className="wiki-claim-popover__list">
         {sources.map((source, index) => {
-          const openHref = buildSourceOpenPath(source);
-          const external = isExternalSourceHref(openHref);
+          const doors = resolveSourceDoors(source);
           return (
             <li key={source._id || `${source.type}-${index}`} className="wiki-claim-popover__item">
               <div className="wiki-claim-popover__item-head">
                 <span className="wiki-claim-popover__item-index">[{source.citationIndex || index + 1}]</span>
-                <span className="wiki-claim-popover__item-title">{source.title || 'Untitled source'}</span>
+                <SourceTitle source={source} doors={doors} />
               </div>
               {source.snippet ? (
                 <p className="wiki-claim-popover__item-snippet">{source.snippet}</p>
               ) : null}
-              {openHref ? (
-                <a
-                  className="wiki-claim-popover__item-link"
-                  href={openHref}
-                  target={external ? '_blank' : undefined}
-                  rel={external ? 'noreferrer' : undefined}
-                >
-                  {external ? 'Open original ↗' : 'Return to source →'}
-                </a>
-              ) : null}
+              <SourceDoors doors={doors} />
             </li>
           );
         })}

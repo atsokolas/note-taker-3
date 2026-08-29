@@ -102,7 +102,11 @@ const LibraryShelfNav = ({
             onClick={() => onSelectScope?.('kept')}
           >
             <span>Kept</span>
-            {Number.isFinite(keptCount) ? <RoomShelfMeta>{keptCount}</RoomShelfMeta> : null}
+            {Number.isFinite(keptCount) ? (
+              <RoomShelfMeta className={keptCount > 0 ? 'is-ticking' : undefined} key={keptCount}>
+                {keptCount}
+              </RoomShelfMeta>
+            ) : null}
           </RoomShelfButton>
         </li>
         <li>

@@ -216,6 +216,7 @@ const run = async () => {
     assert.equal(accepted.body.page.aiState.errorCode, '');
     assert.deepEqual(accepted.body.page.aiState.lastCandidateQuality, {});
     assert.equal(accepted.body.page.aiState.lastCandidateSummary, '');
+    assert.ok(accepted.body.page.lastReviewedAt, 'Accept should ink a last-review date on the page.');
     assert.equal(WikiRevision.records.find(row => String(row._id) === candidateId).promotionStatus, 'promoted');
     assert.equal(receipts.at(-1).kind, 'company_dossier_first_head_accepted');
 

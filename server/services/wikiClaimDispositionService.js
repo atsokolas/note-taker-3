@@ -3,6 +3,7 @@ const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptS
 const { semanticClaim } = require('./claimRevisionReviewService');
 const { snapshotCanonicalContentHash, snapshotContentHash } = require('./wikiRevisionService');
 const { buildClaimBodyPatch } = require('./wikiClaimBodyPatchService');
+const { inkWikiPageReview } = require('./wikiReviewClock');
 
 const ACTIONS = new Set(['accept', 'reject', 'defer', 'preserve']);
 const TERMINAL_STATES = new Set(['accepted', 'rejected', 'preserved']);
@@ -1110,6 +1111,7 @@ const settleRepoClaimCohort = async ({
       acceptedAt: completedAt
     }
   };
+  inkWikiPageReview(page, completedAt);
   page.markModified?.('externalWatches');
   page.markModified?.('aiState');
   page.markModified?.('freshness');
@@ -1325,8 +1327,10 @@ const disposeWikiClaimCandidate = async ({
         };
         page.freshness = {
           ...(plain(page.freshness) || {}),
-          status: 'fresh'
+          status: 'fresh',
+          lastMaintainedAt: actedAt
         };
+        inkWikiPageReview(page, actedAt);
         page.markModified?.('aiState');
         page.markModified?.('freshness');
         await page.save({ session });

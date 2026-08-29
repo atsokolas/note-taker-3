@@ -518,11 +518,11 @@ describe('WikiPageEditor', () => {
     expect(within(contradictionGroup).getByText('Counter source')).toBeInTheDocument();
     expect(within(supportGroup).queryByText('Counter source')).not.toBeInTheDocument();
     expect(within(popover).queryByText('Old source')).not.toBeInTheDocument();
-    expect(within(supportGroup).getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
+    expect(within(supportGroup).getByRole('link', { name: 'Open in Library →' })).toHaveAttribute(
       'href',
       '/library?articleId=article-ledger&highlightId=highlight-ledger'
     );
-    expect(within(contradictionGroup).getByRole('link', { name: 'Return to source →' }))
+    expect(within(contradictionGroup).getByRole('link', { name: 'Open in Library →' }))
       .toHaveAttribute('href', '/library?articleId=article-conflict');
   });
 

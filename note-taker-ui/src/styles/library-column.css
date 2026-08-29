@@ -56,6 +56,21 @@
   color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 62%, transparent);
 }
 
+.library-shelf__kept .room-shelf__item-meta.is-ticking {
+  animation: library-kept-tick 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes library-kept-tick {
+  0% { transform: translateY(3px); opacity: 0.4; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-shelf__kept .room-shelf__item-meta.is-ticking {
+    animation: none;
+  }
+}
+
 /* Groups are separated by air and a label, not by rules. The rules were three
    different line treatments in one small column, which is what made this read
    as assembled rather than designed. */

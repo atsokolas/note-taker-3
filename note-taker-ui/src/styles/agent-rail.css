@@ -182,9 +182,26 @@
   overflow: hidden;
   max-height: 20rem;
   opacity: 1;
+  transform: translateX(0);
   transition:
     max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.agent-rail__proposal.is-arriving {
+  animation: agent-rail-note-slide 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes agent-rail-note-slide {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .agent-rail__proposal.is-leaving {
@@ -515,7 +532,10 @@
     animation: none;
   }
 
-  .agent-rail__proposal {
+  .agent-rail__proposal,
+  .agent-rail__proposal.is-arriving {
+    animation: none;
+    transform: none;
     transition: opacity 80ms linear;
   }
 

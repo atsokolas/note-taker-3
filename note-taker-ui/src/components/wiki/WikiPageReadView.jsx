@@ -27,7 +27,7 @@ import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
-import { buildSourceOpenPath, isExternalSourceHref } from '../../utils/sourceRoutes';
+import { resolveSourceDoors } from '../../utils/sourceRoutes';
 import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
@@ -1012,8 +1012,7 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
           const citation = firstCitationByIndex.get(citationIndex);
           const refId = `wiki-ref-${citationIndex}`;
           const excerpt = sourceExcerpt(source);
-          const openHref = buildSourceOpenPath(source);
-          const external = isExternalSourceHref(openHref);
+          const doors = resolveSourceDoors(source);
           return (
             <li
               key={source._id || source.id || `${source.title}-${index}`}
@@ -1036,19 +1035,41 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
                     ^
                   </a>
                 ) : null}
-                <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
+                {doors.ownedHref ? (
+                  doors.isLibrary ? (
+                    <Link className="wiki-read__reference-title" to={doors.ownedHref}>
+                      {source.title || 'Untitled source'}
+                    </Link>
+                  ) : (
+                    <a className="wiki-read__reference-title" href={doors.ownedHref}>
+                      {source.title || 'Untitled source'}
+                    </a>
+                  )
+                ) : (
+                  <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
+                )}
               </div>
               {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
-              {openHref ? (
-                external ? (
-                  <a className="wiki-read__reference-source" href={openHref} target="_blank" rel="noreferrer">
-                    Open original
-                  </a>
+              {doors.ownedHref ? (
+                doors.isLibrary ? (
+                  <Link className="wiki-read__reference-source" to={doors.ownedHref}>
+                    Open in Library
+                  </Link>
                 ) : (
-                  <Link className="wiki-read__reference-source" to={openHref}>
+                  <Link className="wiki-read__reference-source" to={doors.ownedHref}>
                     Return to source
                   </Link>
                 )
+              ) : null}
+              {doors.originalHref ? (
+                <a
+                  className={`wiki-read__reference-source${doors.ownedHref ? ' is-secondary' : ''}`}
+                  href={doors.originalHref}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open original
+                </a>
               ) : null}
             </li>
           );

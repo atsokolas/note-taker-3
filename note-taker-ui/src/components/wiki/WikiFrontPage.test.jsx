@@ -767,19 +767,33 @@ describe('WikiFrontPage (AT-394)', () => {
     await waitFor(() => expect(overflow).toHaveAttribute('open'));
   });
 
-  it('keeps the full paper at the top without letting it displace the wiki index', async () => {
+  it('keeps Morning Paper silent when nothing is due, and opens as a broadsheet when a claim is', async () => {
+    const { unmount } = render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+    expect(document.querySelector('.wiki-front-page__paper-fold')).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
+    unmount();
+
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
+      ...briefing,
+      claimCheckIn: {
+        pageId: 'wiki-first-principles',
+        pageTitle: 'Nvidia dossier',
+        claimId: 'c1',
+        text: 'Integration retains pricing power.',
+        changedSinceLastCheck: true,
+        href: '/wiki/workspace?page=wiki-first-principles&claimId=c1'
+      }
+    } });
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByTestId('paper-on-top')).toBeInTheDocument();
-    const main = document.querySelector('main.wiki-front-page');
-    const fold = main.firstElementChild;
-    expect(fold).toHaveClass('wiki-front-page__paper-fold');
-    expect(fold).not.toHaveAttribute('open');
-    expect(fold).toContainElement(screen.getByTestId('paper-on-top'));
-    fireEvent.click(within(fold).getByText('Morning paper'));
-    expect(fold).toHaveAttribute('open');
+    expect(await screen.findByText('Integration retains pricing power.')).toBeInTheDocument();
+    const broadsheet = document.querySelector('.wiki-front-page__broadsheet');
+    expect(broadsheet).toBeTruthy();
+    expect(broadsheet).toContainElement(screen.getByTestId('paper-on-top'));
+    expect(document.querySelector('.wiki-front-page__paper-fold')).not.toBeInTheDocument();
   });
-
 
   /* The morning paper leads with a claim you hold and the four things you can
      do about it. Those four were already built — Still hold, Revise, Retire,
@@ -824,12 +838,13 @@ describe('WikiFrontPage (AT-394)', () => {
         .toHaveAttribute('href', '/wiki/workspace?view=list');
     });
 
-    /* No claim due is a sentence, not an empty space filled with something
-       else promoted to keep it busy. */
-    it('says so in one line when no claim is due', async () => {
+    /* No claim due is silence — not a badge, not a quiet filler sentence that
+       still occupies the Morning Paper plane. */
+    it('stays silent when no claim is due', async () => {
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
-      expect(await screen.findByText(/No claim is due for review this morning/, {}, { timeout: 5000 }))
-        .toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(screen.queryByText(/No claim is due for review this morning/)).not.toBeInTheDocument();
+      expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
   });
 });
@@ -839,6 +854,8 @@ describe('Recently grown', () => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    listWikiPages.mockReset();
+    getDailyLoop.mockReset();
     getDailyLoop.mockResolvedValue({ briefing: {} });
   });
 
@@ -856,6 +873,17 @@ describe('Recently grown', () => {
     listWikiPages.mockResolvedValue([
       copy('one'), copy('two'), copy('three'), { ...copy('other'), title: 'Reflexivity' }
     ]);
+    getDailyLoop.mockResolvedValue({
+      briefing: {
+        claimCheckIn: {
+          pageId: 'one',
+          pageTitle: 'I believe AI compute is scarce',
+          claimId: 'c1',
+          text: 'Compute stays scarce.',
+          href: '/wiki/workspace?page=one&claimId=c1'
+        }
+      }
+    });
     render(
       <router.MemoryRouter>
         <WikiFrontPage />

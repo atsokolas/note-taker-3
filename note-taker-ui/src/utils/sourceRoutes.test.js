@@ -3,7 +3,8 @@ import {
   buildCanonicalHighlightPath,
   buildSourceOpenPath,
   buildSourceOriginPath,
-  isExternalSourceHref
+  isExternalSourceHref,
+  resolveSourceDoors
 } from './sourceRoutes';
 
 describe('sourceRoutes', () => {
@@ -32,6 +33,30 @@ describe('sourceRoutes', () => {
       objectId: 'highlight-1',
       url: 'https://example.com/original'
     })).toBe('https://example.com/original');
+  });
+
+  it('keeps Library and original as separate doors', () => {
+    expect(resolveSourceDoors({
+      type: 'article',
+      objectId: 'article-1',
+      url: 'https://sec.gov/filing'
+    })).toEqual({
+      ownedHref: '/library?articleId=article-1',
+      originalHref: 'https://sec.gov/filing',
+      openHref: '/library?articleId=article-1',
+      isLibrary: true,
+      isExternalOnly: false
+    });
+    expect(resolveSourceDoors({
+      type: 'external',
+      url: 'https://sec.gov/filing'
+    })).toEqual({
+      ownedHref: '',
+      originalHref: 'https://sec.gov/filing',
+      openHref: 'https://sec.gov/filing',
+      isLibrary: false,
+      isExternalOnly: true
+    });
   });
 
   it('keeps real external sources external and rejects unsafe fallbacks', () => {

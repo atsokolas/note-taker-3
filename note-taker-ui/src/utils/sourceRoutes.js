@@ -4,6 +4,8 @@ const idOf = (value) => clean(value?._id || value?.id || value);
 
 export const isExternalSourceHref = (href = '') => /^https?:\/\//i.test(clean(href));
 
+export const isLibraryHref = (href = '') => /^\/library(\?|$)/.test(clean(href));
+
 export const buildCanonicalArticlePath = (articleId = '') => {
   const id = idOf(articleId);
   return id ? `/library?articleId=${encodeURIComponent(id)}` : '/library';
@@ -19,12 +21,7 @@ export const buildCanonicalHighlightPath = ({ articleId = '', highlightId = '' }
   return highlight ? `${path}&highlightId=${encodeURIComponent(highlight)}` : path;
 };
 
-/**
- * Return to saved evidence before falling back to the public web. A source can
- * retain its original URL for provenance while its object identity keeps the
- * user inside the exact Library reading context.
- */
-export const buildSourceOpenPath = (source = {}) => {
+const buildOwnedSourcePath = (source = {}) => {
   const type = clean(source?.type || source?.sourceType).toLowerCase();
   // `_id` identifies the source-ref wrapper, not the saved Library object.
   // Opening it would create a plausible-looking but broken reader URL.
@@ -42,10 +39,37 @@ export const buildSourceOpenPath = (source = {}) => {
   if ((type === 'notebook' || type === 'note') && objectId) {
     return `/think?tab=notebook&entryId=${encodeURIComponent(objectId)}`;
   }
+  return '';
+};
 
+const buildOriginalSourceHref = (source = {}) => {
   const url = clean(source?.url);
   return isExternalSourceHref(url) ? url : '';
 };
+
+/**
+ * Owned evidence and the public original are separate doors. A citation can
+ * keep its filing URL for provenance while the Library path opens the exact
+ * saved passage. Never invent a Library door from a public URL alone.
+ */
+export const resolveSourceDoors = (source = {}) => {
+  const ownedHref = buildOwnedSourcePath(source);
+  const originalHref = buildOriginalSourceHref(source);
+  return {
+    ownedHref,
+    originalHref,
+    openHref: ownedHref || originalHref,
+    isLibrary: isLibraryHref(ownedHref),
+    isExternalOnly: !ownedHref && Boolean(originalHref)
+  };
+};
+
+/**
+ * Return to saved evidence before falling back to the public web. A source can
+ * retain its original URL for provenance while its object identity keeps the
+ * user inside the exact Library reading context.
+ */
+export const buildSourceOpenPath = (source = {}) => resolveSourceDoors(source).openHref;
 
 export const buildSourceOriginPath = (origin = '', fallbackUrl = '') => {
   const value = clean(origin);

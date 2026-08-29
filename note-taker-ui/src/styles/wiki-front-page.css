@@ -79,6 +79,14 @@ html[data-ui-theme='dark'] .wiki-front-page__graph-motif-nodes circle {
   padding: 34px 30px 72px;
 }
 
+.wiki-front-page__broadsheet {
+  width: min(100%, 760px);
+  margin-inline: auto;
+  padding: 6px 0 10px;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
+}
+
 .wiki-front-page__paper-fold {
   width: min(100%, 760px);
   margin-inline: auto;
