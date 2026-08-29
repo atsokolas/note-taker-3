@@ -451,8 +451,23 @@ describe('WikiPageEditor', () => {
       ...page,
       sourceRefs: [
         { _id: 'source-old', type: 'article', title: 'Old source', snippet: 'Stale index source' },
-        { _id: 'source-ledger', type: 'article', title: 'Ledger source', snippet: 'Stable ledger source' },
-        { _id: 'source-conflict', type: 'article', title: 'Counter source', snippet: 'Contradicting ledger source' }
+        {
+          _id: 'source-ledger',
+          type: 'highlight',
+          objectId: 'highlight-ledger',
+          parentObjectId: 'article-ledger',
+          title: 'Ledger source',
+          snippet: 'Stable ledger source',
+          url: 'https://example.com/ledger'
+        },
+        {
+          _id: 'source-conflict',
+          type: 'article',
+          objectId: 'article-conflict',
+          title: 'Counter source',
+          snippet: 'Contradicting ledger source',
+          url: 'https://example.com/conflict'
+        }
       ],
       citations: [
         { _id: 'citation-ledger', sourceRefId: 'source-ledger', sourceTitle: 'Ledger source' },
@@ -503,6 +518,12 @@ describe('WikiPageEditor', () => {
     expect(within(contradictionGroup).getByText('Counter source')).toBeInTheDocument();
     expect(within(supportGroup).queryByText('Counter source')).not.toBeInTheDocument();
     expect(within(popover).queryByText('Old source')).not.toBeInTheDocument();
+    expect(within(supportGroup).getByRole('link', { name: 'Return to source →' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-ledger&highlightId=highlight-ledger'
+    );
+    expect(within(contradictionGroup).getByRole('link', { name: 'Return to source →' }))
+      .toHaveAttribute('href', '/library?articleId=article-conflict');
   });
 
   it('uses inline contradiction indexes as the fallback when no claim ledger exists', async () => {

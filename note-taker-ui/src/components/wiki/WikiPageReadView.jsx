@@ -27,6 +27,8 @@ import { getConnectionsForItem } from '../../api/connections';
 import { recordClaimCheckIn, recordWikiPageVisit } from '../../api/dailyLoop';
 import { trackWikiQaPromoted, trackWikiReadModePageView } from '../../utils/wikiAnalytics';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { buildSourceOpenPath, isExternalSourceHref } from '../../utils/sourceRoutes';
+import { cleanSourceTextForDisplay } from '../../utils/sourceDisplayText';
 import ClaimCitationPopover from './ClaimCitationPopover';
 import renderTiptapDoc, { citationAnchorId, extractTocItems, firstParagraphText } from './renderTiptapDoc';
 import { cleanWikiLinkSnippetText } from './wikiLinkText';
@@ -86,8 +88,7 @@ import DecisionCreateForm from './decisions/DecisionCreateForm';
 import DecisionReviewPanel from './decisions/DecisionReviewPanel';
 import { selectableAcceptedRevisions } from './decisions/acceptedRevisionIdentity';
 import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigation';
-import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
-import { useContextualAgentSurface } from '../../agent/AgentRailContext';
+import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 
@@ -468,17 +469,7 @@ const contradictionCount = (claims = []) => (
     .length
 );
 
-const cleanSourceText = (value = '') => String(value || '')
-  .replace(/&lt;/gi, '<')
-  .replace(/&gt;/gi, '>')
-  .replace(/<\/(p|div|li|br)>/gi, ' ')
-  .replace(/<[^>]+>/g, ' ')
-  .replace(/&nbsp;/gi, ' ')
-  .replace(/&amp;/gi, '&')
-  .replace(/&quot;/gi, '"')
-  .replace(/&#39;/gi, "'")
-  .replace(/\s+/g, ' ')
-  .trim();
+const cleanSourceText = cleanSourceTextForDisplay;
 
 const normalizeFocusedClaimId = value => {
   const rawClaimId = String(value || '');
@@ -517,25 +508,6 @@ const autoInfoboxSummary = (body) => conciseInfoboxText(firstParagraphText(body)
 const sourceExcerpt = (source = {}) => (
   cleanSourceText(source.excerpt || source.snippet || source.summary || source.description || source.text || '')
 );
-
-const sourceLibraryPath = (source = {}) => {
-  const type = normalizeId(source.type || source.sourceType).toLowerCase();
-  const objectId = normalizeId(source.objectId || source.sourceObjectId || source.articleId || source.highlightId);
-  const parentObjectId = normalizeId(source.parentObjectId || source.parentArticleId || source.articleId);
-
-  if (type === 'article' && objectId) {
-    return `/library?articleId=${encodeURIComponent(objectId)}`;
-  }
-
-  if (type === 'highlight' && objectId) {
-    const params = new URLSearchParams();
-    if (parentObjectId) params.set('articleId', parentObjectId);
-    params.set('highlightId', objectId);
-    return `/library?${params.toString()}`;
-  }
-
-  return '';
-};
 
 const citationMatchesSource = (citation = {}, source = {}) => {
   const sourceId = source?._id || source?.id;
@@ -1040,7 +1012,8 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
           const citation = firstCitationByIndex.get(citationIndex);
           const refId = `wiki-ref-${citationIndex}`;
           const excerpt = sourceExcerpt(source);
-          const internalSourcePath = sourceLibraryPath(source);
+          const openHref = buildSourceOpenPath(source);
+          const external = isExternalSourceHref(openHref);
           return (
             <li
               key={source._id || source.id || `${source.title}-${index}`}
@@ -1066,14 +1039,16 @@ const WikiReadReferences = ({ sources = [], citations = [], highlightedRef, onJu
                 <span className="wiki-read__reference-title">{source.title || 'Untitled source'}</span>
               </div>
               {excerpt ? <p>{conciseText(excerpt, 240)}</p> : null}
-              {internalSourcePath ? (
-                <Link className="wiki-read__reference-source" to={internalSourcePath}>
-                  Open in Library
-                </Link>
-              ) : source.url ? (
-                <a className="wiki-read__reference-source" href={source.url} target="_blank" rel="noreferrer">
-                  Open source
-                </a>
+              {openHref ? (
+                external ? (
+                  <a className="wiki-read__reference-source" href={openHref} target="_blank" rel="noreferrer">
+                    Open original
+                  </a>
+                ) : (
+                  <Link className="wiki-read__reference-source" to={openHref}>
+                    Return to source
+                  </Link>
+                )
               ) : null}
             </li>
           );
@@ -1227,17 +1202,15 @@ const WikiPageReadView = ({
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
-  useNoeisSurface(buildWikiSurfaceDescriptor({
+  const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
     claimId: activeClaim?.claimId || focusedClaimId,
     revisionId: new URLSearchParams(traceSearch || '').get('revisionId') || '',
     acceptedRevisionId: continuationBasis?.revisionId || '',
     mode: 'read'
-  }));
-  useContextualAgentSurface('agent-surface.wiki', {
-    objectType: 'wiki_page',
-    objectId: pageId,
+  });
+  useNoeisAgentSurface('agent-surface.wiki', wikiSurfaceDescriptor, {
     subject: displayWikiPageTitle(page, 'Wiki page'),
     empty: page
       ? 'Nothing to retrieve until you ask against this accepted page.'

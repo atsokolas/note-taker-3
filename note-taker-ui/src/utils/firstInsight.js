@@ -1,3 +1,5 @@
+import { buildCanonicalArticlePath } from './sourceRoutes';
+
 const STORAGE_KEY = 'first-insight.activation.v1';
 const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -29,12 +31,6 @@ const normalizeState = (value = {}) => {
     counts: normalizeCounts(value.counts)
   };
   return state;
-};
-
-export const buildCanonicalArticlePath = (articleId = '') => {
-  const safeArticleId = normalizeString(articleId);
-  if (!safeArticleId) return '/library';
-  return `/library?articleId=${encodeURIComponent(safeArticleId)}`;
 };
 
 export const readFirstInsightState = () => {

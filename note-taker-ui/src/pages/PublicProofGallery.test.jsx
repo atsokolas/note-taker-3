@@ -261,7 +261,7 @@ describe('PublicProofGallery', () => {
       reason: 'Explicitly accepted source-to-claim maintenance event.',
       acceptedAt: '2026-07-12T12:00:00.000Z',
       comparisonUrl: '/share/wiki/note-taker-3-repo/comparison',
-      criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+      criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true, acceptanceBound: true }
     };
     getPublicProofRegistry.mockResolvedValue(payload);
 
@@ -283,7 +283,7 @@ describe('PublicProofGallery', () => {
     alphabet.proofGrade = {
       grade: 'proven', label: 'Proven', reason: 'The SEC filing clock passed acceptance.',
       acceptedAt: '2026-07-16T12:00:00.000Z', comparisonUrl: '',
-      criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+      criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true, acceptanceBound: true }
     };
     payload.items.push(proofItem({
       slot: 'openai-agents-js',
@@ -295,7 +295,7 @@ describe('PublicProofGallery', () => {
         grade: 'proven', label: 'Proven', reason: 'The GitHub comparison passed acceptance.',
         acceptedAt: '2026-07-19T12:00:00.000Z',
         comparisonUrl: '/share/wiki/openai-agents-js-proof/comparison',
-        criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true }
+        criteria: { explicitlyAccepted: true, acceptedVersion: true, materialEvent: true, sourceGrounded: true, acceptanceBound: true }
       },
       maintenanceProof: {
         clock: { type: 'github', label: 'GitHub default-branch and release monitoring' },
@@ -334,6 +334,7 @@ describe('PublicProofGallery', () => {
         acceptedVersion: true,
         materialEvent: true,
         sourceGrounded: true,
+        acceptanceBound: true,
         requiredClocks: { secEdgar: true },
         optionalClocks: { earningsTranscript: false }
       }

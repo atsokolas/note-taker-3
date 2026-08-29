@@ -14,6 +14,7 @@ const LibraryMain = ({
   articleGraphConnections,
   articleLoading,
   articleError,
+  articleErrorKind = '',
   articles,
   articlesLoading,
   articlesError,
@@ -21,6 +22,7 @@ const LibraryMain = ({
   selectedFolderName,
   readerRef,
   onSelectArticle,
+  onRetryArticle = null,
   onOpenSource = null,
   onMoveArticle,
   onHighlightOptimistic,
@@ -127,10 +129,29 @@ const LibraryMain = ({
   }
 
   if (selectedArticleId) {
+    const hasReadableArticle = Boolean(selectedArticle);
+    const isInitialLoad = articleLoading && !hasReadableArticle;
+    const isUnavailable = !articleLoading && !hasReadableArticle && Boolean(articleError);
+    const unavailableTitle = articleErrorKind === 'missing'
+      ? 'This source left the shelf.'
+      : articleErrorKind === 'unavailable'
+        ? 'This source belongs elsewhere.'
+        : 'The shelf did not answer.';
+    const unavailableCopy = articleErrorKind === 'missing'
+      ? 'It may have been deleted since this link was made.'
+      : articleErrorKind === 'unavailable'
+        ? 'The link is valid, but this account cannot read it.'
+        : 'Your place is held. Try again when the connection settles.';
+
     return (
       <div className={`section-stack library-main-reading ${articleLoading ? 'is-loading' : ''} ${articleError ? 'has-error' : ''}`.trim()}>
-        {articleError && <p className="status-message error-message">{articleError}</p>}
-        {articleLoading && (
+        {hasReadableArticle && articleError && (
+          <div className="library-reader-refresh" role="status">
+            <span>Could not refresh. Your reading copy is still here.</span>
+            {onRetryArticle ? <button type="button" onClick={onRetryArticle}>Try again</button> : null}
+          </div>
+        )}
+        {isInitialLoad && (
           <div className="think-concept-loading" aria-hidden="true">
             <div className="skeleton skeleton-title" style={{ width: '58%', height: 22 }} />
             <div className="skeleton skeleton-text" style={{ width: '28%' }} />
@@ -141,7 +162,19 @@ const LibraryMain = ({
             <div className="skeleton skeleton-text" style={{ width: '98%', height: 14 }} />
           </div>
         )}
-        {!articleLoading && (
+        {isUnavailable && (
+          <section className="library-reader-state" aria-labelledby="library-reader-state-title">
+            <span className="library-reader-state__eyebrow">Source unavailable</span>
+            <h1 id="library-reader-state-title">{unavailableTitle}</h1>
+            <p>{unavailableCopy}</p>
+            <div className="library-reader-state__actions">
+              {onRetryArticle ? <button type="button" onClick={onRetryArticle}>Try again</button> : null}
+              <button type="button" onClick={() => onSelectArticle?.('')}>Back to Library</button>
+            </div>
+            <span className="library-reader-state__thread" aria-hidden="true">The thread remains tied here.</span>
+          </section>
+        )}
+        {hasReadableArticle && (
           <ArticleReader
             ref={readerRef}
             article={selectedArticle}

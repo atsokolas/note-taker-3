@@ -27,7 +27,7 @@ import {
   computeConceptFreshness,
   mergeConceptChangeDrafts
 } from './conceptChangeDrafts';
-import { cleanSourceTextForDisplay } from './ideaWorkbenchText';
+import { cleanSourceTextForDisplay } from '../../../../utils/sourceDisplayText';
 
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = 'idea-workbench';

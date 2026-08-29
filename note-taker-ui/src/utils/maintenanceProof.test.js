@@ -15,7 +15,8 @@ describe('maintenanceProof utils', () => {
           slot: 'alphabet',
           label: 'Investing dossier',
           publicUrl: '/share/wiki/alphabet-berkshire-2-0',
-          page: { title: 'Alphabet is Berkshire Hathaway 2.0' }
+          page: { title: 'Alphabet is Berkshire Hathaway 2.0' },
+          proofGrade: { grade: 'candidate', label: 'Candidate', criteria: {} }
         }
       ]
     });
@@ -32,7 +33,18 @@ describe('maintenanceProof utils', () => {
       items: [{
         slot: 'nvidia',
         publicUrl: '/share/wiki/nvidia',
-        proofGrade: { grade: 'proven', label: 'Proven', criteria: {} },
+        proofGrade: {
+          grade: 'proven',
+          label: 'Proven',
+          acceptedAt: '2026-07-16T00:00:00.000Z',
+          criteria: {
+            explicitlyAccepted: true,
+            acceptedVersion: true,
+            materialEvent: true,
+            sourceGrounded: true,
+            acceptanceBound: true
+          }
+        },
         page: { title: 'NVIDIA dossier' }
       }]
     });
@@ -40,6 +52,25 @@ describe('maintenanceProof utils', () => {
     expect(registry.registryState).toBe('resolved');
     expect(registry.provenCount).toBe(1);
     expect(registry.slotCoverageComplete).toBe(false);
+  });
+
+  it('fails closed when registry metadata claims an unbound item is proven', () => {
+    const registry = normalizePublicProofRegistry({
+      complete: true,
+      registryState: 'resolved',
+      provenCount: 9,
+      homepageCta: { href: '/share/wiki/unbound', title: 'Unbound proof' },
+      items: [{
+        publicUrl: '/share/wiki/unbound',
+        proofGrade: { grade: 'proven', label: 'Proven', criteria: {} },
+        page: { title: 'Unbound proof' }
+      }]
+    });
+
+    expect(registry.registryState).toBe('unresolved');
+    expect(registry.provenCount).toBe(0);
+    expect(registry.homepageCta).toBeNull();
+    expect(registry.items[0].proofGrade).toBeNull();
   });
 
   it('builds honest unavailable copy for missing material events', () => {

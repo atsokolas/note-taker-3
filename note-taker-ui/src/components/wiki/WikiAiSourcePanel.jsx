@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, SurfaceCard } from '../ui';
-import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import { buildSourceOpenPath } from '../../utils/sourceRoutes';
 
 const sourceScopeCopy = {
   entire_library: 'Maintenance uses your entire library.',
@@ -39,24 +39,7 @@ const emptySourceForm = {
   url: ''
 };
 
-const appendQueryParam = (path, key, value) => {
-  const cleanValue = String(value || '').trim();
-  if (!path || !cleanValue) return path || '';
-  return `${path}${path.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(cleanValue)}`;
-};
-
-export const buildWikiSourceOpenHref = (source = {}) => {
-  const type = String(source?.type || '').trim();
-  const objectId = String(source?.objectId || '').trim();
-  const parentObjectId = String(source?.parentObjectId || '').trim();
-  if (type === 'highlight' && parentObjectId) {
-    return appendQueryParam(buildCanonicalArticlePath(parentObjectId), 'highlightId', objectId);
-  }
-  if (type === 'article' && objectId) {
-    return buildCanonicalArticlePath(objectId);
-  }
-  return String(source?.url || '').trim();
-};
+export const buildWikiSourceOpenHref = buildSourceOpenPath;
 
 const cleanPanelText = (value = '') => String(value || '')
   .replace(/&lt;/gi, '<')

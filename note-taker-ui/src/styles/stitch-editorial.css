@@ -9813,24 +9813,6 @@ body.noeis-editorial .wiki-read__rail-details[open] > summary::after {
   content: 'Close';
 }
 
-/* Wiki already owns the outer context rail. Give that rail enough room for
-   useful agent orientation while the article remains the dominant column. */
-@container wikiread (min-width: 981px) and (max-width: 1200px) {
-  body.noeis-editorial .wiki-workspace .wiki-read__layout:not(.wiki-read__layout--rail-collapsed) {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
-    gap: 20px;
-  }
-
-  body.noeis-editorial .wiki-workspace .wiki-read--standard .wiki-read__layout:not(.wiki-read__layout--rail-collapsed) {
-    grid-template-columns: minmax(132px, 160px) minmax(0, 1fr) minmax(205px, 225px);
-    gap: 20px;
-  }
-
-  body.noeis-editorial .wiki-workspace .wiki-read--standard .wiki-read__toc {
-    display: grid;
-  }
-}
-
 @container wikiread (max-width: 980px) {
   body.noeis-editorial .wiki-read--standard .wiki-read__toc {
     display: grid;

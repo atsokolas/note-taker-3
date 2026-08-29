@@ -1,4 +1,5 @@
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
+import { cleanImportedArticleDocument } from './sourceDisplayText';
 
 const SKIP_TEXT_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
 
@@ -113,6 +114,7 @@ export const renderArticleContentWithHighlights = (article, highlights = []) => 
   const doc = parser.parseFromString(article.content, 'text/html');
 
   doc.querySelectorAll('script, style, noscript').forEach(node => node.remove());
+  cleanImportedArticleDocument(doc);
 
   // The reader header owns the page h1; demote imported article titles in the body.
   doc.querySelectorAll('h1').forEach((heading) => {

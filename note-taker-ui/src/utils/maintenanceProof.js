@@ -15,17 +15,35 @@ export const normalizeProofGrade = (proofGrade = null) => {
   const criteria = proofGrade.criteria && typeof proofGrade.criteria === 'object'
     ? proofGrade.criteria
     : {};
+  const acceptedAt = proofGrade.acceptedAt ? new Date(proofGrade.acceptedAt) : null;
+  const hasValidAcceptance = grade !== 'proven' || (
+    criteria.explicitlyAccepted === true
+    && criteria.acceptedVersion === true
+    && criteria.materialEvent === true
+    && criteria.sourceGrounded === true
+    && criteria.acceptanceBound === true
+    && acceptedAt
+    && !Number.isNaN(acceptedAt.getTime())
+  );
+  if (!hasValidAcceptance) return null;
   return {
     grade,
     label: cleanText(proofGrade.label),
     reason: cleanText(proofGrade.reason),
-    acceptedAt: proofGrade.acceptedAt || null,
+    acceptedAt: grade === 'proven' ? acceptedAt.toISOString() : null,
     comparisonUrl: comparisonUrl.startsWith('/share/wiki/') ? comparisonUrl : '',
     criteria: {
       explicitlyAccepted: criteria.explicitlyAccepted === true,
       acceptedVersion: criteria.acceptedVersion === true,
       materialEvent: criteria.materialEvent === true,
-      sourceGrounded: criteria.sourceGrounded === true
+      sourceGrounded: criteria.sourceGrounded === true,
+      acceptanceBound: criteria.acceptanceBound === true,
+      requiredClocks: criteria.requiredClocks && typeof criteria.requiredClocks === 'object'
+        ? { ...criteria.requiredClocks }
+        : {},
+      optionalClocks: criteria.optionalClocks && typeof criteria.optionalClocks === 'object'
+        ? { ...criteria.optionalClocks }
+        : {}
     }
   };
 };
@@ -127,29 +145,29 @@ export const normalizePublicProofRegistry = (payload = {}) => {
   const items = (Array.isArray(payload.items) ? payload.items : [])
     .map(normalizePublicProofItem)
     .filter(item => item.href);
-  const homepageCta = payload.homepageCta && typeof payload.homepageCta === 'object'
+  const requestedHomepageCta = payload.homepageCta && typeof payload.homepageCta === 'object'
     ? {
       href: pagePublicPath({}, payload.homepageCta.href || payload.homepageCta.url),
       title: cleanText(payload.homepageCta.title)
     }
     : null;
+  const promotableItems = items.filter(item => ['proven', 'candidate'].includes(item.proofGrade?.grade));
+  const provenItems = promotableItems.filter(item => item.proofGrade.grade === 'proven');
+  const requestedHomepageItem = requestedHomepageCta?.href
+    ? promotableItems.find(item => item.href === requestedHomepageCta.href)
+    : null;
+  const homepageItem = requestedHomepageItem || provenItems[0] || promotableItems[0] || null;
   const privacyStatement = cleanText(payload.privacyStatement) || PUBLIC_PROOF_PRIVACY_STATEMENT;
 
   return {
     items,
-    registryState: cleanText(payload.registryState) === 'resolved'
-      || payload.complete === true
-      || items.some(item => item.proofGrade?.grade === 'proven')
-      ? 'resolved'
-      : 'unresolved',
-    provenCount: Number.isFinite(Number(payload.provenCount))
-      ? Number(payload.provenCount)
-      : items.filter(item => item.proofGrade?.grade === 'proven').length,
+    registryState: provenItems.length > 0 ? 'resolved' : 'unresolved',
+    provenCount: provenItems.length,
     slotCoverageComplete: payload.slotCoverageComplete === true,
-    homepageCta: homepageCta?.href ? homepageCta : (items[0]?.href ? {
-      href: items[0].href,
-      title: items[0].title
-    } : null),
+    homepageCta: homepageItem ? {
+      href: homepageItem.href,
+      title: requestedHomepageItem?.title || homepageItem.title
+    } : null,
     privacyStatement
   };
 };

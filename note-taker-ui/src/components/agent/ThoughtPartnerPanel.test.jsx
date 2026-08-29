@@ -175,6 +175,51 @@ describe('ThoughtPartnerPanel', () => {
     });
   });
 
+  it('aborts and discards an answer when Think moves to another exact object', async () => {
+    let release;
+    chatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const { rerender } = render(
+      <ThoughtPartnerPanel
+        contextType="concept"
+        contextId="concept-1"
+        contextTitle="Market structure"
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Ask your thought partner...'), {
+      target: { value: 'Challenge this concept.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    await waitFor(() => expect(chatWithAgent).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <ThoughtPartnerPanel
+        contextType="concept"
+        contextId="concept-2"
+        contextTitle="Power laws"
+      />
+    );
+    release({ reply: 'This belongs to the prior concept.' });
+
+    expect(chatWithAgent.mock.calls[0][1].signal).toHaveProperty('aborted', true);
+    await waitFor(() => expect(screen.queryByText('This belongs to the prior concept.')).not.toBeInTheDocument());
+    expect(screen.queryByText('Challenge this concept.')).not.toBeInTheDocument();
+    expect(screen.getByText('Context: Power laws')).toBeInTheDocument();
+  });
+
+  it('uses a friendly object name rather than exposing a raw ID in prompts', () => {
+    render(
+      <ThoughtPartnerPanel
+        contextType="article"
+        contextId="69e5249745d9ac6fa41271af"
+        promptTemplates={['What matters in {context}?']}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'What matters in article?' })).toBeInTheDocument();
+    expect(screen.queryByText(/69e5249745d9ac6fa41271af/)).not.toBeInTheDocument();
+  });
+
   it('renders response proposed changes immediately after an agent run settles', async () => {
     chatWithAgent.mockResolvedValue({
       reply: 'I staged a reviewable challenge.',

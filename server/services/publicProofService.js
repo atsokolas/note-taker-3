@@ -93,6 +93,7 @@ const asPlain = (value = {}) => (
 );
 
 const pageId = (page = {}) => clean(page._id || page.id, 120);
+const itemId = value => clean(value?._id || value?.id || value, 180);
 
 const pageReviewedAt = (page = {}) => (
   asDate(page.lastReviewedAt)
@@ -220,6 +221,42 @@ const defaultProofGrade = (slot = {}) => {
   return PUBLIC_PROOF_GRADES.ILLUSTRATIVE;
 };
 
+const hasBoundClaimEvidence = (page = {}) => {
+  const sourceIds = new Set((Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+    .map(itemId)
+    .filter(Boolean));
+  if (!sourceIds.size) return false;
+  return (Array.isArray(page.claims) ? page.claims : []).some(claim => (
+    (Array.isArray(claim?.sourceRefIds) ? claim.sourceRefIds : [])
+      .map(itemId)
+      .some(sourceRefId => sourceIds.has(sourceRefId))
+  ));
+};
+
+const acceptanceRecordIsBound = ({ configured = {}, page = {}, repoProof = false } = {}) => {
+  const snapshot = asPlain(configured.acceptanceSnapshot);
+  const clocks = Array.isArray(configured.acceptedClocks) ? configured.acceptedClocks : [];
+  const snapshotEventId = itemId(snapshot.sourceEventId);
+  const snapshotRevisionId = itemId(snapshot.revisionId);
+  const expectedClockType = repoProof ? 'github' : 'sec_edgar';
+  const matchingClock = clocks.some(clock => (
+    clean(clock?.type, 60) === expectedClockType
+    && itemId(clock?.sourceEventId) === snapshotEventId
+    && itemId(clock?.revisionId) === snapshotRevisionId
+  ));
+  if (!snapshotEventId || !snapshotRevisionId || !matchingClock) return false;
+
+  if (!repoProof) return snapshot.kind === 'sec_dossier_head_v1';
+  const watch = page.externalWatches?.githubRepo || {};
+  return snapshot.kind === 'repo_comparison_v2'
+    && clean(snapshot.repository, 260).toLowerCase() === repoIdentityFor(page)
+    && Number(snapshot.comparisonVersion || 0) >= 2
+    && clean(snapshot.publishedHeadSha, 80) === clean(watch.publishedHeadSha, 80)
+    && clean(snapshot.observedHeadSha, 80) === clean(watch.publishedHeadSha, 80)
+    && clean(snapshot.maintenanceRunId, 180)
+    && Number(snapshot.counts?.sourceBackedClaimChanges || 0) >= 1;
+};
+
 const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null } = {}) => {
   const configured = asPlain(page.publicProof);
   const requestedGrade = clean(configured.grade, 40);
@@ -255,7 +292,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
     clean(proof.currentThrough?.ref, 1000)
     || clean(page.freshness?.acceptedThrough?.sourceEventId, 180)
   );
-  const hasEvidence = Number(proof.sourceCount || 0) > 0 && Number(proof.claimCount || 0) > 0;
+  const hasEvidence = hasBoundClaimEvidence(page);
   const hasMaterialEvent = Boolean(proof.latestMaterialEvent?.at && clean(proof.latestMaterialEvent?.summary, 240));
   const acceptanceSnapshot = asPlain(configured.acceptanceSnapshot);
   const snapshotHash = clean(acceptanceSnapshot.headContentHash, 128);
@@ -269,6 +306,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
   const headAccepted = requiredClock !== 'sec_edgar'
     ? true
     : Boolean(hasExactHeadAcceptance || legacyHeadNotKnownToBeStale);
+  const acceptanceBound = acceptanceRecordIsBound({ configured, page, repoProof });
   const canBeProven = requestedGrade === PUBLIC_PROOF_GRADES.PROVEN
     && acceptedAt
     && acceptedEventId
@@ -276,6 +314,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
     && hasEvidence
     && hasMaterialEvent
     && hasRequiredClockAcceptance
+    && acceptanceBound
     && headAccepted;
   const grade = canBeProven
     ? PUBLIC_PROOF_GRADES.PROVEN
@@ -306,6 +345,7 @@ const buildPublicProofGrade = ({ slot = {}, page = {}, maintenanceProof = null }
       acceptedVersion: hasAcceptedVersion,
       materialEvent: hasMaterialEvent,
       sourceGrounded: hasEvidence,
+      acceptanceBound,
       ...(requiredClock === 'sec_edgar' ? { headAccepted } : {}),
       ...((requiredClock || repoProof) ? { requiredClocks } : {}),
       ...(requiredClock === 'sec_edgar' ? { optionalClocks } : {})

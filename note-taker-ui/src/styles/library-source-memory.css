@@ -8,6 +8,91 @@ body.noeis-editorial .library-composition {
   width: 100%;
 }
 
+body.noeis-editorial .library-reader-state {
+  position: relative;
+  display: grid;
+  align-content: center;
+  min-height: min(68vh, 680px);
+  max-width: 620px;
+  padding: clamp(48px, 9vw, 112px) 0;
+}
+
+body.noeis-editorial .library-reader-state::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 18px);
+  width: clamp(28px, 6vw, 72px);
+  border-top: 1px solid color-mix(in srgb, var(--library-memory-accent) 42%, transparent);
+}
+
+body.noeis-editorial .library-reader-state__eyebrow,
+body.noeis-editorial .library-reader-state__thread {
+  font-family: var(--noeis-ui-font);
+  font-size: .62rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--vellum-ink) 48%, transparent);
+}
+
+body.noeis-editorial .library-reader-state h1 {
+  max-width: 12ch;
+  margin: 14px 0 12px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(2.5rem, 6vw, 4.8rem);
+  font-weight: 400;
+  line-height: .94;
+  letter-spacing: -.045em;
+}
+
+body.noeis-editorial .library-reader-state > p {
+  max-width: 44ch;
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--vellum-ink) 72%, transparent);
+}
+
+body.noeis-editorial .library-reader-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 28px;
+}
+
+body.noeis-editorial .library-reader-state__actions button,
+body.noeis-editorial .library-reader-refresh button {
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--vellum-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+body.noeis-editorial .library-reader-state__thread {
+  margin-top: clamp(64px, 10vw, 120px);
+  color: color-mix(in srgb, var(--library-memory-accent) 72%, transparent);
+}
+
+body.noeis-editorial .library-reader-refresh {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--vellum-line);
+  font-family: var(--noeis-ui-font);
+  font-size: .72rem;
+  color: color-mix(in srgb, var(--vellum-ink) 64%, transparent);
+}
+
+@media (max-width: 720px) {
+  body.noeis-editorial .library-reader-state::before { display: none; }
+  body.noeis-editorial .library-reader-state { min-height: 58vh; }
+}
+
 body.noeis-editorial .library-composition__index {
   position: sticky;
   top: 12px;

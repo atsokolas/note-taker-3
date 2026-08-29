@@ -177,7 +177,12 @@ const AgentRail = () => {
         <p className="agent-rail__role-description">{surface.roleDescription}</p>
       ) : null}
 
-      {surface.subject ? <p className="agent-rail__subject">{surface.subject}</p> : null}
+      {surface.subject ? (
+        <p className="agent-rail__subject" key={surface.id || surface.subject}>
+          <span>Now with</span>
+          {surface.subject}
+        </p>
+      ) : null}
 
       {lines.length ? (
         <ul className="agent-rail__lines">

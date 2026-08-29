@@ -35,6 +35,16 @@ const Column = ({ accepted }) => {
   );
 };
 
+const PresentationColumn = ({ accepted = [] }) => {
+  const [subject, setSubject] = useState('Loading title…');
+  return (
+    <>
+      <button type="button" onClick={() => setSubject('The resolved claim title.')}>Resolve title</button>
+      <Surface id="stable-id" subject={subject} empty="Nothing to retrieve until you ask." accepted={accepted} />
+    </>
+  );
+};
+
 const renderRail = ({ accepted = [] } = {}) => {
   const utils = render(
     <AgentRailProvider>
@@ -155,7 +165,7 @@ describe('AgentRail', () => {
     expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
   });
 
-  it('keeps a late reply in the conversation without binding it to the new page', async () => {
+  it('discards and aborts a late reply when the exact room object changes', async () => {
     let release;
     streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
     const { rail } = renderRail();
@@ -169,8 +179,34 @@ describe('AgentRail', () => {
     release({ reply: 'A late line.' });
 
     await waitFor(() => expect(within(rail()).getByText('The second claim.')).toBeInTheDocument());
-    expect(await within(rail()).findByText('A late line.')).toBeInTheDocument();
+    expect(streamChatWithAgent.mock.calls[0][1].signal).toHaveProperty('aborted', true);
+    await waitFor(() => expect(within(rail()).queryByText('A late line.')).not.toBeInTheDocument());
+    expect(within(rail()).queryByText('anything')).not.toBeInTheDocument();
     expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+  });
+
+  it('keeps pending work when only the named presentation resolves', async () => {
+    let release;
+    streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    render(
+      <AgentRailProvider>
+        <PresentationColumn />
+        <AgentRail />
+      </AgentRailProvider>
+    );
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'What changed?' }
+    });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve title' }));
+    release({ reply: 'The answer remains correctly bound.' });
+
+    expect(await within(rail).findByText('The answer remains correctly bound.')).toBeInTheDocument();
+    expect(streamChatWithAgent.mock.calls[0][1].signal).toHaveProperty('aborted', false);
+    expect(within(rail).getByText('The resolved claim title.')).toBeInTheDocument();
   });
 
   it('does not accept a proposal after the column changes during its exit motion', async () => {

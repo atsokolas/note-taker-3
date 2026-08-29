@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { buildSourceOpenPath, isExternalSourceHref } from '../../utils/sourceRoutes';
 
 /**
  * ClaimCitationPopover — Wikipedia-style footnote popover for an inline
@@ -56,27 +57,31 @@ const EvidenceList = ({ title, sources, role }) => {
     <section className={`wiki-claim-popover__evidence wiki-claim-popover__evidence--${role}`}>
       <h3 className="wiki-claim-popover__evidence-title">{title}</h3>
       <ol className="wiki-claim-popover__list">
-        {sources.map((source, index) => (
-          <li key={source._id || `${source.type}-${index}`} className="wiki-claim-popover__item">
-            <div className="wiki-claim-popover__item-head">
-              <span className="wiki-claim-popover__item-index">[{source.citationIndex || index + 1}]</span>
-              <span className="wiki-claim-popover__item-title">{source.title || 'Untitled source'}</span>
-            </div>
-            {source.snippet ? (
-              <p className="wiki-claim-popover__item-snippet">{source.snippet}</p>
-            ) : null}
-            {source.url ? (
-              <a
-                className="wiki-claim-popover__item-link"
-                href={source.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open source ↗
-              </a>
-            ) : null}
-          </li>
-        ))}
+        {sources.map((source, index) => {
+          const openHref = buildSourceOpenPath(source);
+          const external = isExternalSourceHref(openHref);
+          return (
+            <li key={source._id || `${source.type}-${index}`} className="wiki-claim-popover__item">
+              <div className="wiki-claim-popover__item-head">
+                <span className="wiki-claim-popover__item-index">[{source.citationIndex || index + 1}]</span>
+                <span className="wiki-claim-popover__item-title">{source.title || 'Untitled source'}</span>
+              </div>
+              {source.snippet ? (
+                <p className="wiki-claim-popover__item-snippet">{source.snippet}</p>
+              ) : null}
+              {openHref ? (
+                <a
+                  className="wiki-claim-popover__item-link"
+                  href={openHref}
+                  target={external ? '_blank' : undefined}
+                  rel={external ? 'noreferrer' : undefined}
+                >
+                  {external ? 'Open original ↗' : 'Return to source →'}
+                </a>
+              ) : null}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );

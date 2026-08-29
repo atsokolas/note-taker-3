@@ -6,8 +6,12 @@ export const executeAgentActions = async (payload = {}) => {
   return res.data || {};
 };
 
-export const chatWithAgent = async (payload = {}) => {
-  const res = await api.post('/api/agent/chat', payload, getAuthHeaders());
+export const chatWithAgent = async (payload = {}, options = {}) => {
+  const config = {
+    ...getAuthHeaders(),
+    ...(options.signal ? { signal: options.signal } : {})
+  };
+  const res = await api.post('/api/agent/chat', payload, config);
   return res.data || {};
 };
 

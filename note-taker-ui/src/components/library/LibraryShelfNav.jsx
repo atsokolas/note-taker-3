@@ -49,8 +49,8 @@ const LibraryShelfNav = ({
   foldersError = '',
   scope = 'all',
   folderId = '',
-  unfiledCount = 0,
-  keptCount = 0,
+  unfiledCount,
+  keptCount,
   query = '',
   onQueryChange,
   onSelectScope,
@@ -96,13 +96,13 @@ const LibraryShelfNav = ({
             used a control they could not find either — the section taught
             nobody it existed, and the empty shelf is where it explains
             itself. */}
-        <li className={`library-shelf__kept${keptCount ? '' : ' is-empty'}`}>
+        <li className={`library-shelf__kept${keptCount === 0 ? ' is-empty' : ''}`}>
           <RoomShelfButton
             active={scope === 'kept'}
             onClick={() => onSelectScope?.('kept')}
           >
             <span>Kept</span>
-            <RoomShelfMeta>{keptCount}</RoomShelfMeta>
+            {Number.isFinite(keptCount) ? <RoomShelfMeta>{keptCount}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
         <li>
@@ -111,7 +111,7 @@ const LibraryShelfNav = ({
             onClick={() => onSelectScope?.('unfiled')}
           >
             <span>Unfiled</span>
-            <RoomShelfMeta>{unfiledCount}</RoomShelfMeta>
+            {Number.isFinite(unfiledCount) ? <RoomShelfMeta>{unfiledCount}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
         <li>

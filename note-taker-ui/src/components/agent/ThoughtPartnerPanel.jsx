@@ -18,7 +18,7 @@ import {
   updateAgentArtifactDraft
 } from '../../api/agent';
 import { Button, QuietButton, SurfaceCard } from '../ui';
-import { buildCanonicalArticlePath } from '../../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 import { buildQueuedAgentSkillPrompt } from '../../utils/agentSkillInvocation';
 import useProtocolApprovals from '../../hooks/useProtocolApprovals';
 import ProtocolApprovalsPanel from './ProtocolApprovalsPanel';
@@ -29,6 +29,8 @@ import AgentTicker from './AgentTicker';
 import AgentPresence from './AgentPresence';
 
 const clean = (value) => String(value || '').trim();
+const isAbortError = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';
+const friendlyContextLabel = (type = '') => clean(type).replace(/_/g, ' ') || 'current thought';
 const truncate = (value, limit = 320) => {
   const safe = clean(value);
   if (safe.length <= limit) return safe;
@@ -315,6 +317,8 @@ const ThoughtPartnerPanel = ({
   const handledQueuedPromptIdRef = useRef('');
   const threadViewportRef = useRef(null);
   const shellMessagesRef = useRef(shellMessages);
+  const pendingRequestRef = useRef(null);
+  const contextIdentityRef = useRef('');
   const activeThreadId = clean(threadId || thread?.threadId || shellThreadId);
   const isStreamVariant = variant === 'stream';
   const isThreadStreamVariant = isStreamVariant && Boolean(activeThreadId);
@@ -343,6 +347,21 @@ const ThoughtPartnerPanel = ({
     }),
     [contextId, contextMetadata, contextTitle, contextType]
   );
+  const contextIdentity = `${clean(context?.type)}:${clean(context?.id)}`;
+  const namedContext = clean(contextTitle || context?.title) || friendlyContextLabel(contextType);
+
+  useEffect(() => {
+    if (contextIdentityRef.current === contextIdentity) return;
+    contextIdentityRef.current = contextIdentity;
+    const pending = pendingRequestRef.current;
+    pending?.controller?.abort();
+    pendingRequestRef.current = null;
+    if (pending) {
+      setMessages(current => current.filter(message => message.id !== pending.userMessageId));
+      setLoading(false);
+      setError('');
+    }
+  }, [contextIdentity]);
   const promptTemplates = useMemo(() => (
     Array.isArray(promptTemplatesProp) && promptTemplatesProp.length > 0
       ? promptTemplatesProp
@@ -493,6 +512,16 @@ const ThoughtPartnerPanel = ({
     setInput('');
 
     const userMessage = buildAgentMessage({ role: 'user', text: message });
+    const controller = new AbortController();
+    const request = {
+      controller,
+      contextIdentity,
+      userMessageId: userMessage.id
+    };
+    pendingRequestRef.current = request;
+    const isCurrentRequest = () => (
+      pendingRequestRef.current === request && contextIdentityRef.current === contextIdentity
+    );
     setMessages(prev => [...prev, userMessage]);
 
     try {
@@ -513,7 +542,8 @@ const ThoughtPartnerPanel = ({
           text: entry.text
         })),
         limit: 6
-      });
+      }, { signal: controller.signal });
+      if (!isCurrentRequest()) return;
       const assistantMessage = {
         ...buildAgentMessage({
           role: 'assistant',
@@ -581,12 +611,16 @@ const ThoughtPartnerPanel = ({
       }
       setPendingSkillInvocation(null);
     } catch (chatError) {
+      if (!isCurrentRequest() || isAbortError(chatError)) return;
       setInput(message);
       setError(chatError.response?.data?.error || 'Failed to ask thought partner.');
     } finally {
-      setLoading(false);
+      if (pendingRequestRef.current === request) {
+        pendingRequestRef.current = null;
+        setLoading(false);
+      }
     }
-  }, [adoptShellThread, context, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, replaceProposedChange, replaceStructureProposal, shellThreadId, thread?.threadId, thread?.title, threadId, title]);
+  }, [adoptShellThread, context, contextIdentity, contextTitle, disabled, hydrateFromThread, loadArtifactDrafts, loadHarnessMetrics, loadProposedChanges, loadRuns, loadStructureProposals, loadWriteBoundary, loading, messages, onThreadChange, pendingSkillInvocation, replaceProposedChange, replaceStructureProposal, shellThreadId, thread?.threadId, thread?.title, threadId, title]);
 
   const handleExecuteProposalBundle = useCallback((bundle = {}) => {
     const title = clean(bundle?.title);
@@ -957,7 +991,7 @@ const ThoughtPartnerPanel = ({
   const partnerSubtitle = subtitle || (contextTitle ? `Context: ${contextTitle}` : 'Ask about your notes, concepts, and articles.');
   const tickerLines = useMemo(() => {
     const lines = [];
-    const safeContextTitle = clean(contextTitle || context?.title || contextId);
+    const safeContextTitle = namedContext;
     if (loading) {
       lines.push('reading current context');
       if (safeContextTitle) lines.push(`testing ${safeContextTitle}`);
@@ -985,11 +1019,9 @@ const ThoughtPartnerPanel = ({
   }, [
     activePlanner?.activeWorkerLabel,
     context?.metadata?.relatedItems,
-    context?.title,
-    contextId,
-    contextTitle,
     latestPendingProposalBundle,
     loading,
+    namedContext,
     runs
   ]);
   const tickerState = loading ? 'working' : (runs.some((run) => !['completed', 'failed', 'cancelled'].includes(clean(run.status).toLowerCase())) ? 'working' : 'idle');
@@ -1104,7 +1136,7 @@ const ThoughtPartnerPanel = ({
   const quickPromptsSection = (
     <div className="agent-thought-partner__quick-prompts">
       {promptTemplates.map((template) => {
-        const prompt = buildPrompt(template, contextTitle || contextId);
+        const prompt = buildPrompt(template, namedContext);
         return (
           <QuietButton
             key={template}

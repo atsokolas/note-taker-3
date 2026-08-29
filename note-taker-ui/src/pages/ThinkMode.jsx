@@ -68,8 +68,7 @@ import { buildThinkWikiPromotionPayload } from '../utils/thinkWikiPromotion';
 import { classifyHomeUniversalCommand } from '../utils/homeUniversalCommand';
 import { navigateWithViewTransition } from '../utils/viewTransitionNavigation';
 import { AGENT_DISPLAY_NAME } from '../constants/agentIdentity';
-import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
-import { useContextualAgentSurface } from '../agent/AgentRailContext';
+import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { buildThinkSurfaceDescriptor } from './thinkSurfaceModel';
 import { CalmEmptyLine, SidebarSkeletonRows } from '../components/think/EditorialRail';
 import ThinkShelfRail from '../components/think/ThinkShelfRail';
@@ -971,10 +970,7 @@ const ThinkMode = () => {
     claimId: requestedClaimId,
     investigation: requestedInvestigation
   });
-  useNoeisSurface(thinkSurfaceDescriptor);
-  useContextualAgentSurface('agent-surface.think', {
-    objectType: thinkSurfaceDescriptor.objectType || 'think_workspace',
-    objectId: thinkSurfaceDescriptor.objectId || 'think',
+  useNoeisAgentSurface('agent-surface.think', thinkSurfaceDescriptor, {
     subject: thinkSurfaceDescriptor.title || 'Your thinking.',
     empty: 'Use the active Think workspace to develop this object; retrieval appears here when this posture supports it.'
   }, {});

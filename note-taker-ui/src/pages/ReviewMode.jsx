@@ -12,13 +12,13 @@ import { createQuestion } from '../api/questions';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import SemanticRelatedPanel from '../components/retrieval/SemanticRelatedPanel';
 import {
-  buildCanonicalArticlePath,
   clearFirstInsightState,
   getFirstInsightOpenPath,
   getFirstInsightSummary,
   isFirstInsightActive,
   readFirstInsightState
 } from '../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
 
 const ReviewMode = () => {
   const tabs = useMemo(() => ([

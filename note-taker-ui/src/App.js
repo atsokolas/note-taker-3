@@ -28,7 +28,7 @@ import TourManager from './tour/TourManager';
 import OnboardingBuildBanner from './onboarding/OnboardingBuildBanner';
 import FirstRunGate from './onboarding/FirstRunGate';
 import OnboardingWalkthrough from './onboarding/OnboardingWalkthrough';
-import { buildCanonicalArticlePath } from './utils/firstInsight';
+import { buildCanonicalArticlePath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
   getPrimaryNavItems,

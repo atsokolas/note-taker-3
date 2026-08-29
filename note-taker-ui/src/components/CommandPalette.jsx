@@ -4,7 +4,7 @@ import api from '../api';
 import { searchKeyword } from '../api/retrieval';
 import { createWikiPage, listWikiPages } from '../api/wiki';
 import { Card, Button } from './ui';
-import { buildCanonicalArticlePath } from '../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
 import { getNotebookSummaries } from '../api/notebook';
 import { createQuestion } from '../api/questions';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';

@@ -28,11 +28,10 @@ import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
 import { librarySubject } from '../components/library/libraryColumnModel';
-import { useAgentRail, useContextualAgentSurface } from '../agent/AgentRailContext';
+import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryColumn from '../components/library/LibraryColumn';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
-import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
 
@@ -138,6 +137,8 @@ const Library = () => {
     references,
     loading: articleLoading,
     error: articleError,
+    errorKind: articleErrorKind,
+    refresh: retryArticle,
     addHighlightOptimistic,
     replaceHighlight,
     removeHighlight
@@ -570,15 +571,21 @@ const Library = () => {
     [fallbackCounts, countsFromFolders]
   );
 
-  const projectedShelfCounts = roomProjectionEnabled && !libraryRoom.error
+  const projectedShelfCounts = roomProjectionEnabled && !libraryRoom.error && !libraryRoom.loading
     ? libraryRoom.shelfCounts
     : null;
-  const unfiledCount = projectedShelfCounts?.unfiledArticles ?? folderCounts.unfiled ?? 0;
+  const libraryTotalsReady = roomProjectionEnabled && !libraryRoom.error
+    ? !libraryRoom.loading
+    : !articlesLoading;
+  const unfiledCount = libraryTotalsReady
+    ? projectedShelfCounts?.unfiledArticles ?? folderCounts.unfiled ?? 0
+    : undefined;
   const corpusTotal = useMemo(() => {
+    if (!libraryTotalsReady) return undefined;
     if (projectedShelfCounts) return projectedShelfCounts.articles || 0;
     if (showSuppressedItems) return allArticles.length;
     return filterLibraryBrowseItems(allArticles).length;
-  }, [allArticles, projectedShelfCounts, showSuppressedItems]);
+  }, [allArticles, libraryTotalsReady, projectedShelfCounts, showSuppressedItems]);
   const rawCorpusTotal = useMemo(
     () => projectedShelfCounts?.rawArticles ?? allArticles.length,
     [allArticles.length, projectedShelfCounts]
@@ -762,7 +769,7 @@ const Library = () => {
   /* The Library owns source identity; the persistent shell owns the room. A
      selected highlight or imported note must not collapse back to a generic
      Library context merely because it has not opened the full article reader. */
-  useNoeisSurface({
+  const librarySurfaceDescriptor = {
     room: 'library',
     objectType: exactSourceType,
     objectId: exactSourceId,
@@ -770,7 +777,7 @@ const Library = () => {
     orientation: exactSourceId === 'library'
       ? 'Recover source material, its provenance, and the thinking it already supports.'
       : 'Inspect this exact source, where it came from, and where it can move next.'
-  });
+  };
 
   /* The cabinet stopped being the face of the Library: the reading is what
      greets you, and the shelves are a faint list beside it. Folder, unfiled and
@@ -779,20 +786,21 @@ const Library = () => {
   /* Kept reads like the shelf, because it is the shelf — a narrower one. */
   const isKeptShelf = !isReadingView && scope === 'kept';
   const keptCount = useMemo(
-    () => projectedShelfCounts?.keptArticles
-      ?? allArticles.filter(item => item?.evergreen).length,
-    [allArticles, projectedShelfCounts]
+    () => libraryTotalsReady
+      ? projectedShelfCounts?.keptArticles
+        ?? allArticles.filter(item => item?.evergreen).length
+      : undefined,
+    [allArticles, libraryTotalsReady, projectedShelfCounts]
   );
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
   /* One persistent agent, narrowed to the same exact source as the room. The
      page no longer mounts a second Librarian identity beside it. */
-  useContextualAgentSurface(
+  useNoeisAgentSurface(
     'agent-surface.library',
+    librarySurfaceDescriptor,
     {
-      objectType: exactSourceType,
-      objectId: exactSourceId,
       subject: librarySubject({
         article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
         count: corpusTotal
@@ -807,9 +815,11 @@ const Library = () => {
             ? { id: 'references', text: `Used in ${articleReferenceCount} note${articleReferenceCount === 1 ? '' : 's'} or collection${articleReferenceCount === 1 ? '' : 's'}.` }
             : null
         ].filter(Boolean),
-      empty: corpusTotal
-        ? 'Nothing to retrieve until you ask.'
-        : 'Nothing on the shelf to retrieve from yet.'
+      empty: corpusTotal == null
+        ? 'Reading your shelf…'
+        : corpusTotal
+          ? 'Nothing to retrieve until you ask.'
+          : 'Nothing on the shelf to retrieve from yet.'
     },
     {
       // Accepting keeps the line where the human's loose material already goes.
@@ -827,6 +837,7 @@ const Library = () => {
       articleGraphConnections={articleGraphConnections}
       articleLoading={articleLoading}
       articleError={articleError}
+      articleErrorKind={articleErrorKind}
       articles={articles}
       articlesLoading={articlesLoading}
       articlesError={articlesError}
@@ -834,6 +845,7 @@ const Library = () => {
       selectedFolderName={selectedFolderName}
       readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
+      onRetryArticle={retryArticle}
       onOpenSource={handleOpenSource}
       onMoveArticle={openMoveModal}
       onHighlightOptimistic={addHighlightOptimistic}
@@ -871,7 +883,7 @@ const Library = () => {
     />
   );
 
-  const readingContext = isReadingView ? (
+  const readingContext = isReadingView && selectedArticle ? (
     <div className="section-stack library-context-stack library-context-stack--reading">
       {/* This is source work, not another agent. The persistent shell rail is
           the only place that asks and proposes; this fold keeps the exact

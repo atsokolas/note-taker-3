@@ -24,8 +24,8 @@ const page = {
   visibility: 'private',
   body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alphabet allocates capital.' }] }] },
   plainText: 'Alphabet allocates capital.',
-  sourceRefs: [{ title: 'Alphabet 10-K' }],
-  claims: [{ claimId: 'claim-1', text: 'Alphabet allocates capital.' }],
+  sourceRefs: [{ _id: '507f1f77bcf86cd799439016', title: 'Alphabet 10-K' }],
+  claims: [{ claimId: 'claim-1', text: 'Alphabet allocates capital.', sourceRefIds: ['507f1f77bcf86cd799439016'] }],
   freshness: {
     acceptedThrough: {
       sourceEventId: filingId,

@@ -11,13 +11,13 @@ import LibraryNotebookModal from '../components/library/LibraryNotebookModal';
 import LibraryQuestionModal from '../components/library/LibraryQuestionModal';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import {
-  buildCanonicalArticlePath,
   clearFirstInsightState,
   getFirstInsightOpenPath,
   getFirstInsightSummary,
   isFirstInsightActive,
   readFirstInsightState
 } from '../utils/firstInsight';
+import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
 
 const IMPORTANT_TAG = 'important';
 
