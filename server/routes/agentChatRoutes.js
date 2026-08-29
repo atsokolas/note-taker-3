@@ -207,7 +207,7 @@ const buildAgentChatRouter = ({
     return selected;
   };
 
-  const buildWikiGraphChatReply = async ({ userId, message, context } = {}) => {
+  const buildWikiGraphChatReply = async ({ userId, message, context, signal = null } = {}) => {
     const question = String(message || '').trim();
     const pageId = String(context?.pageId || '').trim();
     if (!question || !pageId || !askWikiPage || !loadWikiAskCorpus) return null;
@@ -238,7 +238,8 @@ const buildAgentChatRouter = ({
       conceptRecords: corpus?.conceptRecords || [],
       backlinkRows: corpus?.backlinkRows || [],
       revisionRows: corpus?.revisionRows || [],
-      wikiSchemaContent
+      wikiSchemaContent,
+      signal
     });
     const reply = textFromRichDoc(answerResult?.answer)
       || answerResult?.errorMessage
@@ -808,7 +809,8 @@ const buildAgentChatRouter = ({
       let result = await buildWikiGraphChatReply({
         userId: String(req.user.id),
         message: req.body?.message,
-        context
+        context,
+        signal: streamController.signal
       });
       if (result) {
         await streamReplyText(res, result.reply);

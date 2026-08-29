@@ -308,7 +308,7 @@ const MorningInbox = ({
 
   return (
     <div
-      className={`judgment-inbox${listening ? ' is-listening' : ''}`}
+      className={`judgment-slip judgment-inbox${listening ? ' is-listening' : ''}`}
       role="region"
       aria-label="From your library"
     >

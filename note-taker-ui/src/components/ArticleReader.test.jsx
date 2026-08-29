@@ -1,10 +1,16 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ArticleReader from './ArticleReader';
 import { createHighlight } from '../api/highlights';
+import { listWikiPages } from '../api/wiki';
 import useTextSelection from './reader/useTextSelection';
+import { resetFirstPaint } from '../motion/columnMotion';
+import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 
 jest.mock('../api/highlights', () => ({
   createHighlight: jest.fn()
+}));
+jest.mock('../api/wiki', () => ({
+  listWikiPages: jest.fn(async () => [])
 }));
 jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian }) => (
   <button type="button" onClick={onAskLibrarian}>Ask about this</button>
@@ -12,10 +18,19 @@ jest.mock('./reader/SelectionMenu', () => ({ onAskLibrarian }) => (
 jest.mock('./reader/MagneticReadingRail', () => () => <div data-testid="magnetic-reading-rail" />);
 jest.mock('./reader/useTextSelection', () => jest.fn());
 jest.mock('../tour/useTourSignal', () => () => jest.fn());
+jest.mock('../hooks/useMotionPreferences', () => ({
+  usePrefersReducedMotion: jest.fn(() => false),
+  useFinePointer: jest.fn(() => true)
+}));
 
 describe('ArticleReader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
+    resetFirstPaint();
+    listWikiPages.mockResolvedValue([]);
+    usePrefersReducedMotion.mockReturnValue(false);
+    useFinePointer.mockReturnValue(true);
     useTextSelection.mockReturnValue({
       selectionState: {
         isOpen: false,
@@ -179,6 +194,9 @@ describe('ArticleReader', () => {
 
 describe('keeping a source for life', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
+    resetFirstPaint();
+    listWikiPages.mockResolvedValue([]);
     useTextSelection.mockReturnValue({
       selectionState: { isOpen: false, text: '', rect: null, anchor: null },
       clearSelection: jest.fn()
@@ -256,5 +274,133 @@ describe('keeping a source for life', () => {
   it('is absent where nothing can be kept', () => {
     render(<ArticleReader article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }} highlights={[]} />);
     expect(screen.queryByRole('button', { name: 'Keep for good' })).not.toBeInTheDocument();
+  });
+});
+
+describe('the folio line', () => {
+  const relatedClaim = (extras = {}) => ({
+    _id: extras._id || 'wiki-compute',
+    title: extras.title || 'Compute',
+    updatedAt: extras.updatedAt || '2026-08-01T00:00:00.000Z',
+    evergreen: Boolean(extras.evergreen),
+    sourceRefs: extras.sourceRefs || [{
+      _id: 'src-1',
+      type: 'article',
+      objectId: 'article-1'
+    }],
+    judgment: {
+      currentJudgment: extras.currentJudgment || 'Compute stays scarce.',
+      why: extras.why || []
+    }
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.sessionStorage.clear();
+    resetFirstPaint();
+    listWikiPages.mockResolvedValue([]);
+    usePrefersReducedMotion.mockReturnValue(false);
+    useFinePointer.mockReturnValue(true);
+    useTextSelection.mockReturnValue({
+      selectionState: { isOpen: false, text: '', rect: null, anchor: null },
+      clearSelection: jest.fn()
+    });
+  });
+
+  const renderReader = (props = {}) => render(
+    <ArticleReader
+      article={{
+        _id: 'article-1',
+        title: 'On compute',
+        content: '<p>Capacity still lags demand.</p>'
+      }}
+      highlights={[]}
+      {...props}
+    />
+  );
+
+  it('shows the held sentence and opens that claim', async () => {
+    listWikiPages.mockResolvedValue([relatedClaim({
+      title: 'NVIDIA',
+      currentJudgment: 'Demand still outruns deliverable capacity.'
+    })]);
+    renderReader();
+
+    const folio = await screen.findByTestId('article-folio');
+    expect(folio).toHaveTextContent('Demand still outruns deliverable capacity.');
+    expect(folio).toHaveAttribute('href', '/judgment/wiki-compute');
+    expect(folio).toHaveClass('article-folio');
+  });
+
+  it('is absent on an unrelated source, with no empty state', async () => {
+    listWikiPages.mockResolvedValue([relatedClaim({
+      sourceRefs: [{ _id: 'src-9', type: 'article', objectId: 'article-9' }]
+    })]);
+    renderReader();
+
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalledWith({ limit: 500, summary: 1 }));
+    expect(screen.queryByTestId('article-folio')).not.toBeInTheDocument();
+    expect(screen.queryByText(/what you hold/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no claim/i)).not.toBeInTheDocument();
+  });
+
+  it('stays the opinion sentence when the case is unnamed', async () => {
+    const sentence = 'A written process improves judgment.';
+    listWikiPages.mockResolvedValue([relatedClaim({
+      title: sentence,
+      currentJudgment: sentence
+    })]);
+    renderReader();
+
+    expect(await screen.findByTestId('article-folio')).toHaveTextContent(sentence);
+  });
+
+  it('prefers the claim named on the URL when several cite the source', async () => {
+    listWikiPages.mockResolvedValue([
+      relatedClaim({
+        _id: 'newer',
+        currentJudgment: 'The newer claim.',
+        updatedAt: '2026-08-20T00:00:00.000Z'
+      }),
+      relatedClaim({
+        _id: 'older',
+        currentJudgment: 'The older claim.',
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      })
+    ]);
+    renderReader({ preferredClaimId: 'older' });
+
+    const folio = await screen.findByTestId('article-folio');
+    expect(folio).toHaveTextContent('The older claim.');
+    expect(folio).toHaveAttribute('href', '/judgment/older');
+    expect(screen.queryByText('The newer claim.')).not.toBeInTheDocument();
+  });
+
+  it('arrives with opacity only when motion is reduced', async () => {
+    usePrefersReducedMotion.mockReturnValue(true);
+    listWikiPages.mockResolvedValue([relatedClaim()]);
+    renderReader();
+
+    const folio = await screen.findByTestId('article-folio');
+    expect(folio).toHaveClass('is-arriving');
+    expect(folio).toHaveClass('is-reduced');
+  });
+
+  it('can take the claim from a graph connection when the ledger is silent', async () => {
+    listWikiPages.mockResolvedValue([relatedClaim({
+      _id: 'wiki-graph',
+      currentJudgment: 'Rates still matter.',
+      sourceRefs: []
+    })]);
+    renderReader({
+      graphConnections: {
+        outgoing: [{ toType: 'wiki_page', toId: 'wiki-graph' }],
+        incoming: []
+      }
+    });
+
+    const folio = await screen.findByTestId('article-folio');
+    expect(folio).toHaveTextContent('Rates still matter.');
+    expect(folio).toHaveAttribute('href', '/judgment/wiki-graph');
   });
 });

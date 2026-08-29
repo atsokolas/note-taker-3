@@ -86,6 +86,9 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   margin: 0 auto;
   padding: clamp(48px, 9vh, 104px) 20px clamp(96px, 22vh, 220px);
   color: var(--text-primary, var(--vellum-ink));
+  --judgment-ghost-ink: var(--ink-human, var(--text-primary, var(--vellum-ink)));
+  --judgment-ghost-rest: 0.36;
+  --judgment-ghost-fade: 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* A return is not an arrival. The stagger is a first-paint cue; coming back to
@@ -100,7 +103,23 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   }
 }
 
-/* ---------- the overnight line ---------- */
+/* ---------- a note under the door ---------- */
+
+/* Overnight and the library inbox share one paper edge: slightly offset from
+   the type, a hairline of agent ink, no fill, no glass, no card. Empty
+   overnight is silence — this block is not rendered. */
+.judgment-slip {
+  margin-left: -0.55rem;
+  padding-left: 0.8rem;
+  border-left: 1px solid color-mix(
+    in srgb,
+    var(--ink-agent, color-mix(in srgb, var(--vellum-warm, #b1862e) 26%, var(--vellum-ink))) 40%,
+    transparent
+  );
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
 
 .judgment__proposal {
   display: flex;
@@ -108,19 +127,29 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   align-items: baseline;
   gap: 6px 22px;
   overflow: hidden;
+  max-width: 44ch;
   max-height: 12rem;
-  margin-bottom: 40px;
+  margin-top: 6px;
+  margin-bottom: 10px;
+  padding-top: 1px;
+  padding-bottom: 1px;
   opacity: 1;
   transition:
     max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    margin-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    margin 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .judgment__proposal.is-leaving {
   max-height: 0;
+  margin-top: 0;
   margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
   opacity: 0;
+  border-left-color: transparent;
 }
 
 .judgment__proposal-sentence {
@@ -215,10 +244,23 @@ body.noeis-editorial .judgment .judgment__title:focus,
   border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
 }
 
+/* Ghost of the missing name — italic paper, not a muted form label.
+   Yields on focus and as soon as a name is typed. Same ink as the
+   opinion linger. body.noeis-editorial paints placeholders, so this
+   has to outrank that. */
 body.noeis-editorial .judgment .judgment__title::placeholder,
 .judgment .judgment__title::placeholder {
-  color: var(--text-muted, var(--vellum-subtle)) !important;
-  opacity: 1;
+  color: var(--judgment-ghost-ink) !important;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: inherit;
+  opacity: var(--judgment-ghost-rest);
+  transition: opacity var(--judgment-ghost-fade);
+}
+
+body.noeis-editorial .judgment .judgment__title:focus::placeholder,
+.judgment .judgment__title:focus::placeholder {
+  opacity: 0;
 }
 
 /* The opinion sits under the name, always. Same face as the index's claim
@@ -250,6 +292,32 @@ body.noeis-editorial .judgment .judgment__opinion:focus,
 .judgment .judgment__opinion:focus {
   outline: none;
   border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
+}
+
+/* Shared ghost ink. The missing name uses the title placeholder; the
+   previous hold uses this line. Opacity only — no slide, no height trick —
+   so reduced motion can skip the linger in JS without a second animation. */
+.judgment .judgment__ghost {
+  color: var(--judgment-ghost-ink);
+  font-style: italic;
+  font-weight: 400;
+  pointer-events: none;
+  opacity: var(--judgment-ghost-rest);
+  transition: opacity var(--judgment-ghost-fade);
+}
+
+.judgment .judgment__ghost.is-yielding {
+  opacity: 0;
+}
+
+.judgment .judgment__opinion-ghost {
+  display: block;
+  max-width: 46ch;
+  margin: 8px 0 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.42;
+  text-wrap: pretty;
 }
 
 .judgment__claim-sentence,
@@ -401,11 +469,12 @@ body.noeis-editorial .judgment .judgment-composer input,
 
 /* Quiet lines the library already held, in the composer band. Filing one is
    the same gesture as writing a Why: the rail names the side, the line
-   settles into the log, and the inbox evaporates. */
+   settles into the log, and the inbox evaporates. Same paper edge as
+   overnight — a slip under the rail, not a second tray. */
 .judgment-inbox {
   display: grid;
   gap: 2px;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .judgment-inbox__list {
@@ -717,6 +786,15 @@ button.judgment-inbox__text:focus-visible {
     opacity: 1;
     transition: none;
   }
+
+  .judgment .judgment__title::placeholder,
+  .judgment .judgment__ghost {
+    transition: none;
+  }
+
+  .judgment .judgment__opinion-ghost {
+    display: none;
+  }
 }
 
 /* ---------- quieter rooms under the log ---------- */
@@ -821,10 +899,6 @@ button.judgment-inbox__text:focus-visible {
 .judgment__door-link:disabled {
   cursor: wait;
   opacity: 0.55;
-}
-
-.judgment__door .judgment__proposal {
-  margin-bottom: 0;
 }
 
 .judgment__error {

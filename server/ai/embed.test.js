@@ -39,6 +39,11 @@ const fail = (status) => {
     assert.strictEqual(thrown.status, 429, 'and it keeps its status so the runner recognises it');
     assert.strictEqual(calls, 1, 'exactly one attempt: no waiting out a rate limit');
     assert.ok(elapsed < 1000, `returned promptly, took ${elapsed}ms`);
+    await assert.rejects(
+      () => embedText('another text'),
+      error => error.status === 429 && Number(error?.payload?.retryAfterMs) > 0
+    );
+    assert.strictEqual(calls, 1, 'the cooldown fails closed without touching the upstream again');
   }
 
   // 503: still waited out, because that is a service actually waking up.

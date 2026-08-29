@@ -404,7 +404,27 @@ const buildLegacyContentRouter = ({
     try {
       const { id } = req.params;
       const userId = req.user.id;
-      const article = await Article.findOne({ _id: id, userId: userId }).populate('folder');
+      // The reader has dedicated endpoints for highlights and references. Sending
+      // the whole document here also serialized PDF attachments and the embedded
+      // highlight array, making an ordinary open depend on unrelated payloads.
+      const article = await Article.findOne({ _id: id, userId: userId })
+        .select([
+          '_id',
+          'url',
+          'title',
+          'content',
+          'folder',
+          'author',
+          'publicationDate',
+          'siteName',
+          'importMeta',
+          'evergreen',
+          'evergreenAt',
+          'createdAt',
+          'updatedAt'
+        ].join(' '))
+        .populate('folder', '_id name')
+        .lean();
       if (!article) {
         return res.status(404).json({ error: "Article not found or you do not have permission to view it." });
       }

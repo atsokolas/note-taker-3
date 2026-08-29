@@ -48,6 +48,21 @@ const run = async () => {
     assert.strictEqual(retried.ok, true, 'Expected retry path to eventually succeed.');
     assert.strictEqual(callCount, 2, 'Expected one retry for initial 429 response.');
 
+    let embeddingCalls = 0;
+    global.fetch = async () => {
+      embeddingCalls += 1;
+      return jsonResponse(429, 'Too Many Requests', { 'retry-after': '60' });
+    };
+    await assert.rejects(
+      () => client1.request({ path: '/embed', body: { texts: ['margin of safety'] } }),
+      error => error.status === 429
+    );
+    assert.strictEqual(
+      embeddingCalls,
+      1,
+      'Embedding 429s must reach the durable queue without an inner retry storm.'
+    );
+
     process.env.AI_SERVICE_RETRIES = '0';
     process.env.AI_SERVICE_MAX_CONCURRENT = '1';
 

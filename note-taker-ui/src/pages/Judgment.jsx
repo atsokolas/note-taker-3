@@ -43,7 +43,9 @@ import {
   selectOvernightLine,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
+import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -145,7 +147,7 @@ const AutosaveField = ({ value = '', format, onSave, onIdle, className, ...input
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', onSave, onWriteClaim, onClaimSettled, titleRef }) => {
+const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onClaimSettled, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -169,7 +171,7 @@ const Title = ({ title = '', claim = '', onSave, onWriteClaim, onClaimSettled, t
           id="judgment-title"
           className="judgment__title"
           aria-label="Title"
-          placeholder="Name this"
+          placeholder={ghostOfMissingName(title) || undefined}
           value={title}
           format={asLine}
           onSave={(next) => run(() => onSave?.(next), 'That name could not be saved.')}
@@ -183,6 +185,7 @@ const Title = ({ title = '', claim = '', onSave, onWriteClaim, onClaimSettled, t
           onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
           onIdle={onClaimSettled}
         />
+        <OpinionGhost sentence={claim} identity={pageId} />
       </div>
       {writeError ? <p className="judgment__error" role="alert">{writeError}</p> : null}
     </>
@@ -196,10 +199,9 @@ const BeliefLink = ({ to, title, claim }) => (
   </>
 );
 
-/* The overnight line: one sentence, then two words. Accept resolves in place
-   into the choice of field — the human decides which of the two it is — and the
-   line settles into that field. Dismiss evaporates it. Height eases either way
-   and nothing jumps; there is no toast, because the page itself is the receipt. */
+/* A note under the door: one sentence on the threshold of the claim, then
+   two words. Accept resolves in place into Why or Against; dismiss evaporates
+   it. Height eases either way and nothing jumps. Not a tray, not a toast. */
 const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -212,7 +214,11 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   };
 
   return (
-    <div className={`judgment__proposal${leaving ? ' is-leaving' : ''}`} role="group" aria-label="Overnight agent line">
+    <div
+      className={`judgment-slip judgment__proposal${leaving ? ' is-leaving' : ''}`}
+      role="group"
+      aria-label="Overnight agent line"
+    >
       <p className="judgment__proposal-sentence">{proposal.sentence}</p>
       {choosing ? (
         <KindWords
@@ -608,6 +614,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [pageId]);
 
   useEffect(() => {
+    if (pageId) rememberOpenedJudgment(pageId);
+  }, [pageId]);
+
+  useEffect(() => {
     if (!arrivingId) return undefined;
     const timer = window.setTimeout(() => setArrivingId(''), 800);
     return () => window.clearTimeout(timer);
@@ -972,19 +982,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   return (
     <main className="judgment" aria-labelledby="judgment-claim">
-      {overnight ? (
-        <div className={step(1)}>
-          <OvernightLine
-            proposal={overnight}
-            busy={busy}
-            onAccept={acceptOvernight}
-            onDismiss={dismissOvernight}
-            onHint={setKindHint}
-          />
-        </div>
-      ) : null}
-
-      <div className={`judgment__meta ${step(2)}`}>
+      <div className={`judgment__meta ${step(1)}`}>
         <Link className="judgment__back" to="/judgment">← All judgments</Link>
         <button type="button" className="judgment__print" onClick={printPamphlet} disabled={printing}>
           {printing ? 'Setting it…' : 'Print this as one page'}
@@ -1001,7 +999,21 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       </div>
       {printError ? <p className="judgment__print-error" role="alert">{printError}</p> : null}
 
+      {overnight ? (
+        <div className={step(2)}>
+          <OvernightLine
+            proposal={overnight}
+            busy={busy}
+            onAccept={acceptOvernight}
+            onDismiss={dismissOvernight}
+            onHint={setKindHint}
+          />
+        </div>
+      ) : null}
+
       <Title
+        key={pageId}
+        pageId={pageId}
         title={view.title}
         claim={view.claim}
         onSave={rename}

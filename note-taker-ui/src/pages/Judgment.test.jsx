@@ -378,6 +378,35 @@ describe('Judgment claim', () => {
     expect(title).toHaveAttribute('placeholder', 'Name this');
     expect(screen.getByLabelText('What you hold'))
       .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(title).not.toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('yields the name ghost when a name is typed', async () => {
+    const unnamed = judgmentPage();
+    unnamed.title = unnamed.judgment.currentJudgment;
+    getWikiPage.mockResolvedValue(unnamed);
+
+    renderDetail();
+
+    const title = await screen.findByLabelText('Title');
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: 'Compute' } });
+
+    expect(title).toHaveValue('Compute');
+    expect(screen.queryByDisplayValue('Name this')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('does not ghost Name this on a named case', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+
+    renderDetail();
+
+    const title = await screen.findByLabelText('Title');
+    expect(title).toHaveValue('NVIDIA');
+    expect(title).not.toHaveAttribute('placeholder', 'Name this');
+    expect(screen.queryByDisplayValue('Name this')).not.toBeInTheDocument();
   });
 
   it('names an unnamed case without swallowing the opinion', async () => {
@@ -430,6 +459,50 @@ describe('Judgment claim', () => {
       expect(document.querySelector('.judgment-log__row--did .judgment-log__text'))
         .toHaveTextContent('Changed what I hold: I am bullish NVIDIA compute.');
     });
+    expect(screen.getByTestId('opinion-ghost'))
+      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
+  });
+
+  it('does not ghost the opinion on first paint', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    renderDetail();
+    await screen.findByLabelText('What you hold');
+    expect(screen.queryByTestId('opinion-ghost')).not.toBeInTheDocument();
+  });
+
+  it('ghosts the previous opinion on an unnamed case, not the stuffed title', async () => {
+    const unnamed = judgmentPage();
+    unnamed.title = unnamed.judgment.currentJudgment;
+    getWikiPage.mockResolvedValue(unnamed);
+    updateWikiPage.mockImplementation(async (_id, body) => ({
+      ...unnamed,
+      title: unnamed.title,
+      judgment: body.judgment || unnamed.judgment
+    }));
+
+    renderDetail();
+
+    const opinion = await screen.findByLabelText('What you hold');
+    expect(screen.getByLabelText('Title')).toHaveValue('');
+    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
+    fireEvent.blur(opinion);
+
+    await waitFor(() => expect(screen.getByTestId('opinion-ghost'))
+      .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.'));
+    expect(screen.getByTestId('opinion-ghost'))
+      .not.toHaveTextContent('Name this');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
+  });
+
+  it('does not ghost a blank when the opinion is restored', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: '' } });
+    fireEvent.blur(opinion);
+    expect(opinion).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    expect(screen.queryByTestId('opinion-ghost')).not.toBeInTheDocument();
   });
 
   it('asks the owner to review accepted dossier research without changing the judgment', async () => {
@@ -581,7 +654,7 @@ describe('Judgment claim', () => {
 });
 
 describe('the overnight line', () => {
-  it('sits above the claim and writes into Against when accepted', async () => {
+  it('sits on the threshold of the claim and writes into Against when accepted', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
@@ -589,6 +662,12 @@ describe('the overnight line', () => {
     renderDetail();
 
     expect(await screen.findByText(/Overnight: A 13F filing was posted\./)).toBeInTheDocument();
+    const overnight = screen.getByRole('group', { name: 'Overnight agent line' });
+    const back = screen.getByRole('link', { name: /All judgments/ });
+    const title = screen.getByLabelText('Title');
+    expect(back.compareDocumentPosition(overnight) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overnight.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overnight).toHaveClass('judgment-slip');
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Against' }));
@@ -716,6 +795,19 @@ describe('the overnight line', () => {
     expect(overnightSave[1].judgment.why.map(line => line.text)).not.toContain('A typed why.');
     expect(overnightSave[1].judgment.against.at(-1).reasonId || '').not.toMatch(/^why_/);
     expect(input).toHaveValue('A typed why.');
+  });
+
+  it('is silent when nothing arrived overnight', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    listWikiSourceEvents.mockResolvedValue([]);
+
+    renderDetail();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.queryByRole('group', { name: 'Overnight agent line' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nothing (arrived|waiting|overnight)/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/morning inbox/i)).not.toBeInTheDocument();
   });
 });
 
@@ -914,6 +1006,7 @@ describe('Evidence from the library', () => {
     expect(screen.queryByText('File under')).not.toBeInTheDocument();
     expect(screen.queryByText('On compute · FT')).not.toBeInTheDocument();
     const inbox = screen.getByRole('region', { name: 'From your library' });
+    expect(inbox).toHaveClass('judgment-slip');
     expect(within(inbox).getByRole('button', { name: 'Why' })).toBeInTheDocument();
     expect(within(inbox).getByRole('button', { name: 'Against' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();

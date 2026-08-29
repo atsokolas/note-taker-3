@@ -10,7 +10,10 @@ const stored = {
   userId: USER_ID,
   title: 'A source worth keeping',
   evergreen: false,
-  evergreenAt: null
+  evergreenAt: null,
+  content: '<p>Readable copy.</p>',
+  highlights: [{ _id: 'highlight-1', text: 'Fetched elsewhere.' }],
+  pdfs: [{ name: 'large.pdf', data: 'not-reader-data' }]
 };
 
 const documentFor = () => {
@@ -23,7 +26,12 @@ const documentFor = () => {
     }
   };
   const query = Promise.resolve(doc);
-  query.populate = async () => doc;
+  query.select = () => query;
+  query.populate = () => query;
+  query.lean = async () => {
+    const { highlights, pdfs, ...reader } = doc;
+    return reader;
+  };
   return query;
 };
 
@@ -89,6 +97,9 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual(reloaded.response.status, 200, 'reload must still find the source');
     assert.strictEqual(reloaded.body.evergreen, true, 'Keep must survive reload');
     assert.ok(reloaded.body.evergreenAt);
+    assert.strictEqual(reloaded.body.content, '<p>Readable copy.</p>');
+    assert.strictEqual(reloaded.body.pdfs, undefined, 'reader response must not serialize PDF attachments');
+    assert.strictEqual(reloaded.body.highlights, undefined, 'reader response must not duplicate the highlights endpoint');
 
     console.log('legacy content evergreen persist tests passed');
   } catch (error) {
