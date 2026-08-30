@@ -978,7 +978,7 @@ describe('the agent rail', () => {
     expect(within(rail).getByText('Skeptical partner')).toBeInTheDocument();
     expect(await within(rail).findByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(within(rail).getByText('Nothing to retrieve until you ask.')).toBeInTheDocument();
-    expect(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBeInTheDocument();
+    expect(within(rail).getByPlaceholderText('Bring evidence or counterevidence')).toBeInTheDocument();
     expect(within(rail).getByText('Retrieves. You accept.')).toBeInTheDocument();
   });
 
@@ -1013,7 +1013,7 @@ describe('the agent rail', () => {
     renderDetail();
 
     const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
-    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'what did packaging do' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
