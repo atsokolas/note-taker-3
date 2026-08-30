@@ -1,5 +1,6 @@
 const assert = require('assert');
 const {
+  buildHighlightAggregationPipeline,
   buildMixedLibraryRelevancePage,
   decodeCursor,
   highlightDisplayTitle,
@@ -195,6 +196,27 @@ const run = async () => {
   assert.strictEqual(movementScanLimitFor(3), 12);
   assert.strictEqual(movementScanLimitFor(20), 50);
   assert.strictEqual(movementScanLimitFor(100), 50);
+  const completeHighlightPipeline = buildHighlightAggregationPipeline({
+    match: { userId: USER_ID }
+  });
+  assert.strictEqual(completeHighlightPipeline.some(stage => stage.$sort), false);
+  assert.strictEqual(completeHighlightPipeline.some(stage => stage.$addFields), false);
+  assert.strictEqual(completeHighlightPipeline.some(stage => stage.$limit), false);
+  assert.strictEqual(completeHighlightPipeline[1].$project.highlights, 1);
+  assert.strictEqual(completeHighlightPipeline.at(-1).$project.highlight, '$highlights');
+
+  const recentHighlightPipeline = buildHighlightAggregationPipeline({
+    match: { userId: USER_ID },
+    limit: MIXED_SOURCE_RECENT_SCAN_LIMIT
+  });
+  assert.deepStrictEqual(
+    recentHighlightPipeline.find(stage => stage.$sort)?.$sort,
+    { recentHighlightAt: -1, 'highlights._id': -1 }
+  );
+  assert.strictEqual(
+    recentHighlightPipeline.find(stage => stage.$limit)?.$limit,
+    MIXED_SOURCE_RECENT_SCAN_LIMIT
+  );
   const firstPage = await buildMixedLibraryRelevancePage({
     userId: USER_ID,
     models,
