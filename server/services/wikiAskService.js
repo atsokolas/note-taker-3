@@ -1229,9 +1229,27 @@ const isRepositoryWikiPage = (page = {}) => (
   || /\b(?:repo|repository)\s+wiki\b/i.test(asString(page?.title))
 );
 
+const isInvestmentDossierWikiPage = (page = {}) => (
+  Boolean(page?.investmentDossier?.version)
+  || /\binvestment dossier\b/i.test(asString(page?.title))
+);
+
 const isCompatibleWikiListCandidate = ({ page, candidate, question = '' } = {}) => {
-  if (!isRepositoryWikiPage(candidate) || isRepositoryWikiPage(page)) return true;
-  return /\b(?:codebase|github|repo|repository|software)\b/i.test(asString(question));
+  const prompt = asString(question);
+  if (isRepositoryWikiPage(candidate) && !isRepositoryWikiPage(page)) {
+    return /\b(?:codebase|github|repo|repository|software)\b/i.test(prompt);
+  }
+  if (
+    isInvestmentDossierWikiPage(page)
+    && isInvestmentDossierWikiPage(candidate)
+    && serializeObjectId(page) !== serializeObjectId(candidate)
+  ) {
+    return /\b(?:compar(?:e|ison|ative)|competitor|peer|other compan(?:y|ies))\b/i.test(prompt);
+  }
+  if (/\bmaintenance acceptance\b/i.test(asString(candidate?.title))) {
+    return /\b(?:acceptance|audit|maintenance)\b/i.test(prompt);
+  }
+  return true;
 };
 
 const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
@@ -1419,7 +1437,7 @@ const loadWikiAskCorpus = async ({
     .sort({ updatedAt: -1 })
     .limit(Math.max(1, Math.min(pageScanLimit, pageListRequest ? MAX_WIKI_PAGE_CANDIDATES : pageScanLimit)))
     .select(pageListRequest
-      ? 'title slug pageType plainText updatedAt'
+      ? 'title slug pageType plainText investmentDossier.version updatedAt'
       : 'title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt')
     .lean();
   const recentPages = (Array.isArray(recentPagesRaw) ? recentPagesRaw : []).filter(isWikiPageSurfaceEligible);
