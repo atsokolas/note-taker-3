@@ -536,6 +536,42 @@ describe('wikiAskService', () => {
       expect(corpus.relatedPages.map(page => page.title)).toContain('Opportunity Cost');
     });
 
+    it('answers wiki page-list requests from the visible index without semantic or graph retrieval', async () => {
+      const recentPages = [
+        { _id: 'page-1', title: 'Membership economics', plainText: 'Renewals fund the model.' },
+        { _id: 'page-2', title: 'Retail inventory turns', plainText: 'Turns shape working capital.' },
+        { _id: 'page-3', title: 'Supplier bargaining power', plainText: 'Scale changes terms.' }
+      ];
+      const lean = jest.fn().mockResolvedValue(recentPages);
+      const select = jest.fn(() => ({ lean }));
+      const limit = jest.fn(() => ({ select }));
+      const sort = jest.fn(() => ({ limit }));
+      const find = jest.fn(() => ({ sort }));
+      const findWikiBacklinks = jest.fn();
+
+      const corpus = await loadWikiAskCorpus({
+        page: { _id: 'selected-page', title: 'Costco Wholesale investment dossier' },
+        question: 'Name the Wiki pages most relevant to this dossier. Use page titles, not internal claim IDs. Keep it to three lines.',
+        userId: 'user-1',
+        WikiPage: { find },
+        VectorItem: { aggregate: jest.fn(() => { throw new Error('semantic retrieval must not run'); }) },
+        TagMeta: { find: jest.fn(() => { throw new Error('concept retrieval must not run'); }) },
+        WikiRevision: { find: jest.fn(() => { throw new Error('revision retrieval must not run'); }) },
+        findWikiBacklinks
+      });
+
+      expect(find).toHaveBeenCalledTimes(1);
+      expect(findWikiBacklinks).not.toHaveBeenCalled();
+      expect(corpus.relatedPages.map(page => page.title)).toEqual([
+        'Membership economics',
+        'Retail inventory turns',
+        'Supplier bargaining power'
+      ]);
+      expect(corpus.conceptRecords).toEqual([]);
+      expect(corpus.backlinkRows).toEqual([]);
+      expect(corpus.revisionRows).toEqual([]);
+    });
+
     it('loads revision rows for temporal questions on selected and mentioned pages', async () => {
       const recentPages = [{
         _id: 'page-opp',
