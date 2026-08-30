@@ -32,6 +32,7 @@ const main = async () => {
   if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI is required.');
   const apply = hasFlag('--apply');
   const backupPlan = hasFlag('--backup-plan');
+  const revisionsOnly = hasFlag('--revisions-only');
   if (apply && process.env.APPLY_WIKI_STORAGE_GOVERNOR !== 'YES') {
     throw new Error('Refusing storage retention write. Set APPLY_WIKI_STORAGE_GOVERNOR=YES after reviewing the dry-run.');
   }
@@ -55,7 +56,12 @@ const main = async () => {
   };
   await mongoose.connect(process.env.MONGODB_URI);
   const result = await runWikiStorageGovernor({
-    models: { WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, NoeisReceipt },
+    models: {
+      WikiPage,
+      WikiRevision,
+      NoeisReceipt,
+      ...(revisionsOnly ? {} : { WikiSourceEvent, WikiMaintenanceRun })
+    },
     db: mongoose.connection.db,
     retentionDays: numberArg('--retention-days', process.env.WIKI_STORAGE_RETENTION_DAYS || 45),
     pressureRetentionDays: numberArg('--pressure-retention-days', process.env.WIKI_STORAGE_PRESSURE_RETENTION_DAYS || 14),
@@ -84,7 +90,10 @@ const main = async () => {
       })
       : null
   });
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify({
+    scope: revisionsOnly ? 'revisions_only' : 'revisions_and_operational_history',
+    ...result
+  }, null, 2));
 };
 
 main()
