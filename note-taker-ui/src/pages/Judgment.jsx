@@ -42,7 +42,6 @@ import {
   selectOvernightLine,
   upsertLineIntoJudgment
 } from './judgmentModel';
-import { selectHoldCandidates } from './judgmentHold';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
@@ -92,17 +91,23 @@ const markPendingDossierResearch = (items = [], reviews = []) => {
 /* A line that writes itself after a pause, and refuses to be empty.
    In-flight saves must not clobber the draft while the field still has focus —
    a slow round-trip is not a reason to throw away the next keystroke. */
-const AutosaveField = ({ value = '', format, onSave, onIdle, className, ...inputProps }) => {
+const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, className, ...inputProps }) => {
   const stored = format(value);
   const [draft, setDraft] = useState(stored);
   const timerRef = useRef(0);
   const editingRef = useRef(false);
+  const fieldRef = useRef(null);
 
   useEffect(() => {
     if (editingRef.current) return;
     setDraft(stored);
   }, [stored]);
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
+  useLayoutEffect(() => {
+    if (!multiline || !fieldRef.current) return;
+    fieldRef.current.style.height = 'auto';
+    fieldRef.current.style.height = `${fieldRef.current.scrollHeight}px`;
+  }, [draft, multiline]);
 
   const save = useCallback(async (raw) => {
     const next = format(raw);
@@ -114,11 +119,15 @@ const AutosaveField = ({ value = '', format, onSave, onIdle, className, ...input
     await onSave(next);
   }, [format, onSave, stored]);
 
+  const Field = multiline ? 'textarea' : 'input';
+
   return (
-    <input
+    <Field
       {...inputProps}
+      ref={fieldRef}
       className={className}
       autoComplete="off"
+      {...(multiline ? { rows: 1 } : {})}
       value={draft}
       onFocus={() => { editingRef.current = true; }}
       onChange={(event) => {
@@ -171,6 +180,7 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onCl
           id="judgment-title"
           className="judgment__title"
           aria-label="Title"
+          multiline
           placeholder={ghostOfMissingName(title) || undefined}
           value={title}
           format={asLine}
@@ -180,6 +190,7 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onCl
           id="judgment-opinion"
           className="judgment__opinion"
           aria-label="What you hold"
+          multiline
           value={claim}
           format={oneSentence}
           onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
@@ -702,11 +713,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [pageId, libraryAttempt, systemStatus]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
-  const hold = oneSentence(page?.judgment?.currentJudgment);
-  const inbox = useMemo(
-    () => selectHoldCandidates(libraryCandidates, hold),
-    [libraryCandidates, hold]
-  );
+  /* The API is the single selection boundary. Every client sees the same
+     eligibility gate, quality bar, and honest silence. */
+  const inbox = libraryCandidates;
 
   /* The claim remains the dominant object. Decisions, observed outcomes,
      lessons, and the accepted revision that grounded the latest decision are
@@ -1055,7 +1064,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           inbox={inbox}
           onFile={fileEvidence}
           view={view}
-          claim={hold}
           kin={kin}
           onKin={setKin}
           hintKind={kindHint}

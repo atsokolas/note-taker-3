@@ -990,7 +990,8 @@ describe('Evidence from the library', () => {
     id: 'highlight:a1:h1',
     kind: 'highlight',
     text: 'Deliverable capacity lags demand by roughly two years.',
-    sourceLabel: 'On compute · FT'
+    sourceLabel: 'On compute · FT',
+    whyThisSource: 'Answers 3 of 5 key terms · demand · deliverable · capacity'
   };
 
   beforeEach(() => {
@@ -1246,18 +1247,11 @@ describe('Evidence from the library', () => {
     expect(screen.getByRole('radio', { name: 'Why' })).toHaveAttribute('data-hint', 'true');
   });
 
-  it('shows the claim’s own words on a candidate, and hides a leftover dump', async () => {
+  it('shows why the server selected a candidate', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({
       claim: 'c',
       terms: ['capacity', 'nvidia'],
-      candidates: [
-        {
-          id: 'article:10k',
-          text: 'NVIDIA reported another quarter of data-center growth.',
-          sourceLabel: '10-K'
-        },
-        candidate
-      ]
+      candidates: [candidate]
     });
 
     renderDetail();
@@ -1267,7 +1261,6 @@ describe('Evidence from the library', () => {
     expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('deliverable');
     expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('capacity');
     expect(inbox.querySelector('.judgment-inbox__hold')).not.toHaveTextContent(/score|strongest/i);
-    expect(screen.queryByText(/NVIDIA reported another quarter/)).not.toBeInTheDocument();
   });
 
   it('looks again in the library when the held sentence is revised', async () => {

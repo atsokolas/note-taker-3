@@ -83,6 +83,22 @@ const matchedTerms = (text = '', terms = []) => {
   return terms.filter(term => roots.has(term) || roots.has(stem(term)));
 };
 
+/* A suggestion has to answer the sentence, not merely share a loose word.
+   Short holds need almost complete coverage; longer ones need both multiple
+   matches and enough of the sentence to be recognizable. When nothing clears
+   this bar, the truthful product state is silence. */
+const answersClaim = (matched = [], terms = []) => {
+  if (!terms.length || !matched.length) return false;
+  if (terms.length === 1) return matched.length === 1;
+  if (terms.length <= 3) return matched.length >= 2;
+  return matched.length >= 2 && matched.length / terms.length >= 0.4;
+};
+
+const explainMatch = (matched = [], terms = []) => {
+  if (!answersClaim(matched, terms)) return '';
+  return `Answers ${matched.length} of ${terms.length} key terms · ${matched.join(' · ')}`;
+};
+
 const snippetAround = (text = '', terms = [], budget = SNIPPET_BUDGET) => {
   const body = clean(text);
   if (body.length <= budget) return body;
@@ -138,6 +154,8 @@ const candidatesFromArticle = (article = {}, terms = []) => {
       url: clean(article.url),
       savedAt: highlight?.createdAt || article.createdAt || null,
       matched: hits,
+      coverage: terms.length ? hits.length / terms.length : 0,
+      whyThisSource: explainMatch(hits, terms),
       evergreen: Boolean(article.evergreen),
       score: hits.length * HIGHLIGHT_WEIGHT + (article.evergreen ? EVERGREEN_BONUS : 0)
     });
@@ -159,6 +177,8 @@ const candidatesFromArticle = (article = {}, terms = []) => {
     url: clean(article.url),
     savedAt: article.createdAt || null,
     matched: bodyHits,
+    coverage: terms.length ? bodyHits.length / terms.length : 0,
+    whyThisSource: explainMatch(bodyHits, terms),
     evergreen: Boolean(article.evergreen),
     score: bodyHits.length * BODY_WEIGHT + (article.evergreen ? EVERGREEN_BONUS : 0)
   }];
@@ -166,7 +186,8 @@ const candidatesFromArticle = (article = {}, terms = []) => {
 
 const rankCandidates = (rows = [], limit = DEFAULT_LIMIT) => [...rows]
   .sort((left, right) => (
-    right.score - left.score
+    (Number(right.coverage) || 0) - (Number(left.coverage) || 0)
+    || right.score - left.score
     || (new Date(right.savedAt || 0).getTime() || 0) - (new Date(left.savedAt || 0).getTime() || 0)
     || String(left.id).localeCompare(String(right.id))
   ))
@@ -223,6 +244,7 @@ const findLibraryEvidence = async ({
   const filed = alreadyFiled(judgment);
   const rows = (Array.isArray(articles) ? articles : [])
     .flatMap(article => candidatesFromArticle(article, terms))
+    .filter(candidate => answersClaim(candidate.matched, terms))
     .filter(candidate => !isFiled(candidate, filed));
 
   return { terms, candidates: rankCandidates(rows, limit) };
@@ -234,6 +256,8 @@ module.exports = {
   claimTerms,
   stem,
   matchedTerms,
+  answersClaim,
+  explainMatch,
   snippetAround,
   candidatesFromArticle,
   rankCandidates,

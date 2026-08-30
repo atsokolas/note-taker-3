@@ -2,6 +2,8 @@ const assert = require('node:assert');
 const {
   claimTerms,
   matchedTerms,
+  answersClaim,
+  explainMatch,
   snippetAround,
   candidatesFromArticle,
   rankCandidates,
@@ -17,6 +19,7 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(claimTerms('  '), [], 'an empty claim has no terms');
 assert.deepStrictEqual(claimTerms('Capacity and capacity'), ['capacity'], 'each term once');
+const terms = claimTerms('Demand for compute outruns deliverable capacity');
 
 // matchedTerms: stems, so a plural in the passage still answers a singular claim
 assert.deepStrictEqual(
@@ -25,6 +28,14 @@ assert.deepStrictEqual(
   'matches on the stem'
 );
 assert.deepStrictEqual(matchedTerms('nothing here', ['compute']), [], 'no false positives');
+assert.strictEqual(answersClaim(['capacity'], terms), false, 'one leftover word does not answer a long hold');
+assert.strictEqual(answersClaim(['demand', 'capacity'], terms), true, 'substantive coverage clears the bar');
+assert.strictEqual(answersClaim(['compute'], ['compute', 'scarcity']), false, 'a two-term hold needs both ideas');
+assert.strictEqual(
+  explainMatch(['demand', 'capacity'], terms),
+  'Answers 2 of 5 key terms · demand · capacity',
+  'the selection explains itself in the claim\'s own words'
+);
 
 // snippetAround centres on the match rather than truncating from the start
 const long = `${'filler '.repeat(60)}the capacity constraint is real${' tail'.repeat(60)}`;
@@ -46,13 +57,13 @@ const article = {
     { _id: 'h2', text: 'Unrelated aside about logistics.' }
   ]
 };
-const terms = claimTerms('Demand for compute outruns deliverable capacity');
 const rows = candidatesFromArticle(article, terms);
 assert.strictEqual(rows.length, 1, 'only highlights that actually match are offered');
 assert.strictEqual(rows[0].kind, 'highlight');
 assert.strictEqual(rows[0].highlightId, 'h1');
 assert.strictEqual(rows[0].sourceLabel, 'On compute · FT', 'provenance travels with the line');
 assert.ok(rows[0].matched.includes('capacity'), 'the matched words are reported');
+assert.match(rows[0].whyThisSource, /^Answers 3 of 5 key terms/, 'the reason for selection travels with the passage');
 // Nothing about which side it falls on: term overlap cannot tell support from contradiction.
 assert.strictEqual(rows[0].side, undefined, 'the service never guesses a side');
 
@@ -111,6 +122,15 @@ const fakeArticle = (articles) => ({
     judgment: { why: [{ acceptedFrom: 'highlight:a1:h1' }] }
   });
   assert.deepStrictEqual(alreadyDecided.candidates, [], 'what you already filed is not offered again');
+
+  const leftover = await findLibraryEvidence({
+    Article: fakeArticle([{
+      _id: 'thin', title: 'Capacity note', content: 'Capacity exists.', highlights: []
+    }]),
+    userId: 'u1',
+    claim: 'Demand for compute outruns deliverable capacity'
+  });
+  assert.deepStrictEqual(leftover.candidates, [], 'a single shared word is honest silence, not evidence');
 
   const noModel = await findLibraryEvidence({ userId: 'u1', claim: 'compute capacity' });
   assert.deepStrictEqual(noModel.candidates, [], 'survives a missing model');

@@ -236,6 +236,8 @@ body.noeis-editorial .judgment .judgment__title,
   letter-spacing: inherit;
   line-height: inherit;
   text-wrap: balance;
+  resize: none;
+  overflow: hidden;
 }
 
 body.noeis-editorial .judgment .judgment__title:focus,
@@ -286,6 +288,8 @@ body.noeis-editorial .judgment .judgment__opinion,
   letter-spacing: 0;
   line-height: 1.42 !important;
   text-wrap: pretty;
+  resize: none;
+  overflow: hidden;
 }
 
 body.noeis-editorial .judgment .judgment__opinion:focus,
@@ -491,7 +495,7 @@ body.noeis-editorial .judgment .judgment-composer input,
   gap: 8px 18px;
   align-items: baseline;
   overflow: hidden;
-  max-height: 8.5rem;
+  max-height: 18rem;
   margin: 0;
   padding: 7px 0;
   opacity: 1;
@@ -973,6 +977,17 @@ button.judgment-inbox__text:focus-visible {
 
   .judgment {
     padding: 32px 20px 72px;
+  }
+
+  .judgment-inbox__line {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+    align-items: start;
+    max-height: 24rem;
+  }
+
+  .judgment__kind-words {
+    justify-self: start;
   }
 }
 
