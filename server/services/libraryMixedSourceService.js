@@ -78,6 +78,50 @@ const awaitQuery = async (query, { select, sort, limit } = {}) => {
   return await next;
 };
 
+const HIGHLIGHT_PARENT_PROJECTION = Object.freeze({
+  _id: 1,
+  userId: 1,
+  title: 1,
+  url: 1,
+  author: 1,
+  publicationDate: 1,
+  siteName: 1,
+  importMeta: 1,
+  createdAt: 1
+});
+const buildHighlightAggregationPipeline = ({ match, limit = null }) => {
+  const boundedByRecency = Number.isInteger(limit) && limit > 0;
+  return [
+    { $match: match },
+    // Drop article bodies before unwinding. A single imported article can hold
+    // thousands of highlights, so carrying its body through every row is pure
+    // aggregation cost.
+    { $project: { ...HIGHLIGHT_PARENT_PROJECTION, highlights: 1 } },
+    { $unwind: '$highlights' },
+    { $match: { 'highlights._id': { $exists: true } } },
+    ...(boundedByRecency ? [
+      {
+        $addFields: {
+          recentHighlightAt: {
+            $ifNull: [
+              '$highlights.importMeta.importedAt',
+              { $ifNull: ['$highlights.createdAt', { $ifNull: ['$importMeta.importedAt', '$createdAt'] }] }
+            ]
+          }
+        }
+      },
+      { $sort: { recentHighlightAt: -1, 'highlights._id': -1 } },
+      { $limit: limit }
+    ] : []),
+    {
+      $project: {
+        ...HIGHLIGHT_PARENT_PROJECTION,
+        highlight: '$highlights'
+      }
+    }
+  ];
+};
+
 const conceptRef = concept => ({
   type: 'concept',
   id: id(concept),
@@ -371,44 +415,18 @@ const buildMixedLibraryRelevancePage = async ({
     Article.countDocuments ? Article.countDocuments(visibleQuery) : null,
     NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null,
     boundedHighlights
-      ? Article.aggregate([
-        {
-          $match: includeSuppressed ? { userId: aggregateUserId } : {
-            userId: aggregateUserId,
-            hiddenFromHome: { $ne: true },
-            debugOnly: { $ne: true },
-            archived: { $ne: true }
-          }
+      ? Article.aggregate(buildHighlightAggregationPipeline({
+        match: includeSuppressed ? { userId: aggregateUserId } : {
+          userId: aggregateUserId,
+          hiddenFromHome: { $ne: true },
+          debugOnly: { $ne: true },
+          archived: { $ne: true }
         },
-        { $unwind: '$highlights' },
-        { $match: { 'highlights._id': { $exists: true } } },
-        {
-          $addFields: {
-            recentHighlightAt: {
-              $ifNull: [
-                '$highlights.importMeta.importedAt',
-                { $ifNull: ['$highlights.createdAt', { $ifNull: ['$importMeta.importedAt', '$createdAt'] }] }
-              ]
-            }
-          }
-        },
-        { $sort: { recentHighlightAt: -1, 'highlights._id': -1 } },
-        ...(sourceScanLimit === null ? [] : [{ $limit: sourceScanLimit }]),
-        {
-          $project: {
-            _id: 1,
-            userId: 1,
-            title: 1,
-            url: 1,
-            author: 1,
-            publicationDate: 1,
-            siteName: 1,
-            importMeta: 1,
-            createdAt: 1,
-            highlight: '$highlights'
-          }
-        }
-      ])
+        // Complete review ranking happens after connection signals are joined.
+        // Pre-sorting every highlight cannot change that order and turns a
+        // complete scan into an expensive blocking database sort.
+        limit: exhaustiveReview ? null : sourceScanLimit
+      }))
       : []
   ]);
 
@@ -830,6 +848,7 @@ module.exports = {
   MOVEMENT_SCAN_MINIMUM,
   SOURCE_TYPES,
   VIEW_NAMES,
+  buildHighlightAggregationPipeline,
   buildMixedLibraryRelevancePage,
   decodeCursor,
   encodeCursor,
