@@ -585,6 +585,9 @@ const Library = () => {
   const reviewBacklogCount = reviewFolder
     ? folderCounts[reviewFolder._id]
     : undefined;
+  const reviewBacklogHref = reviewFolder
+    ? `/library?scope=folder&folderId=${encodeURIComponent(reviewFolder._id)}`
+    : '';
 
   const projectedShelfCounts = roomProjectionEnabled && !libraryRoom.error && !libraryRoom.loading
     ? libraryRoom.shelfCounts
@@ -898,6 +901,7 @@ const Library = () => {
       sourceDetailError={sourceDetailState.error}
       relevanceState={roomProjectionEnabled ? libraryRoom : null}
       reviewBacklogCount={reviewBacklogCount}
+      reviewBacklogHref={reviewBacklogHref}
     />
   );
 

@@ -57,7 +57,8 @@ const LibraryMain = ({
   sourceDetailLoading = false,
   sourceDetailError = '',
   relevanceState = null,
-  reviewBacklogCount
+  reviewBacklogCount,
+  reviewBacklogHref = ''
 }) => {
   const relevance = relevanceState || {
     loading: true,
@@ -238,6 +239,8 @@ const LibraryMain = ({
               coverage={relevance.coverage}
               counts={relevance.counts}
               sourceView={sourceView}
+              reviewBacklogCount={reviewBacklogCount}
+              reviewBacklogHref={reviewBacklogHref}
               paginationError={relevance.paginationError}
               filteredOutCount={relevance.filteredOutCount || 0}
               hasMore={relevance.hasMore}
