@@ -20,6 +20,7 @@ const {
 const { checkHealth } = require('./ai/ollamaClient');
 const {
   enqueueArticleEmbedding,
+  deleteArticleEmbeddingState,
   enqueueHighlightEmbedding,
   enqueueNotebookEmbedding,
   enqueueQuestionEmbedding,
@@ -5321,6 +5322,7 @@ app.use(buildLegacyContentRouter({
   normalizePdfs,
   Article,
   enqueueArticleEmbedding,
+  deleteArticleEmbeddingState,
   safeMapEmbedding,
   articleToEmbeddingItems,
   queueEmbeddingUpsert,

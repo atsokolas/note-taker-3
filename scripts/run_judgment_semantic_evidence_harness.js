@@ -5,15 +5,21 @@
  *
  * Scores are labelled fixtures, not the output of a live model. This proves
  * the product boundary without spending credits: only high-confidence owned
- * highlight identities are hydrated, the displayed words are the exact saved
- * passage, topic distractors stay out, and stance remains undecided.
+ * highlight and article-passage identities are hydrated, the displayed words
+ * are exact saved text, topic distractors stay out, and stance remains
+ * undecided.
  */
 
 const assert = require('node:assert');
 const {
   findSemanticHighlightEvidence,
-  SEMANTIC_ATLAS_SCORE_FLOOR
+  findSemanticSourceEvidence,
+  SEMANTIC_ATLAS_SCORE_FLOOR,
+  SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR,
+  SEMANTIC_SOURCE_LEAD_MARGIN
 } = require('../server/services/judgmentEvidenceService');
+const { buildArticlePassages } = require('../server/ai/articlePassages');
+const { contentHashOf } = require('../server/ai/vectorStore');
 
 const scenarios = [
   ['parenting', 'Predictable evening rituals help young children sleep more soundly.', 'A stable bedtime sequence was associated with fewer night wakings among preschool children.'],
@@ -75,12 +81,58 @@ const run = async () => {
     assert.strictEqual(candidates[0].text, scenario.passage, `${scenario.name}: visible text is not the saved passage`);
     assert.strictEqual(candidates[0].highlightId, highlightId, `${scenario.name}: highlight identity was lost`);
     assert.strictEqual(candidates[0].side, undefined, `${scenario.name}: retrieval guessed stance`);
+
+    const sourceArticle = {
+      _id: `${scenario.name}:source`,
+      title: `${scenario.name} complete source`,
+      url: `https://example.test/${scenario.name}/complete`,
+      content: [
+        scenario.passage,
+        ...Array.from({ length: 12 }, (_, index) => `Saved context sentence ${index + 1} preserves the surrounding argument and its limits for later review.`)
+      ].join(' ')
+    };
+    const [passage] = buildArticlePassages(sourceArticle);
+    const sourceCandidates = await findSemanticSourceEvidence({
+      Article: {
+        find: () => {
+          const query = {
+            limit: () => query,
+            maxTimeMS: () => query,
+            lean: async () => [sourceArticle]
+          };
+          return query;
+        }
+      },
+      VectorItem: { available: true },
+      userId: 'owned-account',
+      pageId: `${scenario.name}:page`,
+      claim: scenario.claim,
+      similar: async () => {
+        vectorSearches += 1;
+        return [
+          {
+            objectType: 'article', objectId: sourceArticle._id, subId: passage.subId,
+            contentHash: contentHashOf(passage.text), metadata: passage.metadata,
+            score: SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR + 0.08
+          },
+          {
+            objectType: 'article', objectId: `${scenario.name}:topic-only`, subId: 'passage:v1:0',
+            contentHash: 'distractor',
+            score: SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR + 0.07 - SEMANTIC_SOURCE_LEAD_MARGIN
+          }
+        ];
+      }
+    });
+    assert.strictEqual(sourceCandidates.length, 1, `${scenario.name}: exact source passage was not recovered`);
+    assert.strictEqual(sourceCandidates[0].text, passage.excerpt, `${scenario.name}: article passage changed during hydration`);
+    assert.strictEqual(sourceCandidates[0].id, `article:${sourceArticle._id}`, `${scenario.name}: article identity was lost`);
+    assert.strictEqual(sourceCandidates[0].side, undefined, `${scenario.name}: source retrieval guessed stance`);
   }
 
   console.log(JSON.stringify({
     verdict: 'PASS',
     scenarios: scenarios.length,
-    relevantPassagesRecovered: scenarios.length,
+    relevantPassagesRecovered: scenarios.length * 2,
     topicOnlyDistractorsReturned: 0,
     vectorSearches,
     embeddingCalls: 0,

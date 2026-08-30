@@ -1,8 +1,9 @@
 # Bet 1 — sentence evidence acceptance
 
-This slice makes one held sentence the retrieval boundary in Judgment. The
-deterministic and semantic implementation is merged and deployed. Human review
-of real-account semantic ranking remains open below.
+This work makes one held sentence the retrieval boundary in Judgment. The
+deterministic sentence loop and exact-source compatibility path are deployed.
+The passage-index extension below has its own proof boundary; real-account
+passage coverage remains open until a bounded backfill is explicitly run.
 
 ## Selection contract
 
@@ -93,25 +94,44 @@ covers 1440px, 1320px, and 430px with controlled API responses.
 ## Semantic discovery contract
 
 - **Eligibility:** the accepted held sentence has a current durable vector and
-  an owned saved highlight clears a raw-cosine floor of 0.72. Article-level
-  vectors are excluded because they cannot identify an exact quotation.
-- **Quality bar:** semantic search discovers only the highlight identity. The
-  UI receives the exact saved highlight text and provenance from Mongo; it
-  receives no generated evidence and no inferred support/against stance.
+  either an owned saved highlight clears the highlight floor or an owned saved
+  article passage is the clear leading source above its passage floor. The old
+  article-summary row remains a compatibility fallback while passage coverage
+  is rolled out.
+- **Quality bar:** semantic search discovers identities; it does not author
+  evidence. Highlights rehydrate the exact saved highlight. Passage rows
+  rehydrate the current owned article, regenerate the exact passage, and must
+  match both the full-source hash and passage hash. Passage results also need a
+  0.03 lead over the next distinct article. The UI receives exact source words
+  and provenance, with no generated evidence or inferred Why/Against stance.
 - **Freshness:** the held-sentence content hash must match the stored vector.
-  While a changed sentence is queued for indexing, semantic discovery stays
-  silent rather than searching from the old belief.
+  A changed article invalidates its passage rows until re-indexing finishes.
+  While either side is stale, semantic discovery stays silent rather than
+  searching from an old belief or quoting old source text.
 - **Silence fallback:** a missing, sleeping, stale, or low-confidence vector
   path leaves deterministic lexical retrieval intact and adds nothing.
 
-The offline semantic harness covers eight paraphrased domains, recovers the
-eight labelled exact highlights, rejects all eight below-floor distractors,
-and makes zero embedding or generative-model calls. Run it with
+The offline semantic harness covers eight paraphrased domains, recovers eight
+labelled exact highlights plus eight exact article passages, rejects all 16
+topic-only distractors, preserves human disposition, and makes zero embedding
+or generative-model calls. Run it with
 `npm run judgment:semantic-evidence-harness`.
+
+Passage indexing is additive and storage-bounded: each long article receives at
+most ten overlapping passages, source text is not duplicated in Atlas, and a
+shrinking article removes stale passage identities only inside the exact owner,
+article, and object-type fence. Existing backfill defaults do not include
+passages; `--types article-passages` is an explicit opt-in.
+
+Live saves and manual backfill share one summary/passage builder and one source
+revision identity. Article deletion removes its durable jobs, Atlas summary,
+passages, and embedded highlights; an in-flight worker must fail its pre-write
+fence or erase its own late write.
 
 ## Remaining semantic proof
 
-- The implementation contract is locally proven. Calling a result the
-  *strongest available* still requires a human review against the real account
-  after existing held sentences are backfilled and their background jobs have
-  settled. A bounded live-model judge remains intentionally deferred.
+- The implementation contract is locally proven without model calls. Existing
+  articles do not gain passage coverage until the opt-in backfill is dry-run,
+  bounded, and explicitly authorized for the target account.
+- Calling a result the *strongest available* still requires human review after
+  passage jobs settle. A live-model judge remains intentionally deferred.

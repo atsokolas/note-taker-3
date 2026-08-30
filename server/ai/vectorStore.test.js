@@ -9,6 +9,9 @@ const {
   similarToVectorItem,
   upsertVectorItem,
   isVectorItemCurrent,
+  deleteVectorItemIfContentHash,
+  deleteArticleVectorItems,
+  reconcileVectorSubIds,
   vectorIndexDefinition,
   vectorIndexHealth,
   OBJECT_TYPES,
@@ -194,6 +197,35 @@ const captureAggregate = (rows = []) => {
   assert.strictEqual(writes[0].update.$set.contentHash, contentHashOf('a claim worth indexing'));
   assert.strictEqual(writes[0].update.$set.dimensions, 2);
 
+  const versionedWrites = [];
+  const versionedResult = await upsertVectorItem({
+    VectorItem: {
+      updateOne: async (query, update, options) => {
+        versionedWrites.push({ query, update, options });
+        return versionedWrites.length === 1 ? { matchedCount: 1 } : { matchedCount: 0 };
+      }
+    },
+    userId: OWNER,
+    objectType: 'article',
+    objectId: 'article-versioned',
+    subId: 'passage:v1:0',
+    text: 'an older passage',
+    vector: [0.2, 0.5],
+    metadata: { updatedAt: '2026-08-30T10:00:00.000Z' }
+  });
+  assert.strictEqual(versionedWrites.length, 2, 'versioned rows establish identity before replacing content');
+  assert.strictEqual(versionedWrites[0].options.upsert, true);
+  assert.ok(versionedWrites[0].update.$setOnInsert, 'identity seeding cannot overwrite a newer row');
+  assert.deepStrictEqual(
+    versionedWrites[1].query.$or.at(-1),
+    {
+      'metadata.updatedAt': '2026-08-30T10:00:00.000Z',
+      contentHash: contentHashOf('an older passage')
+    },
+    'equal clocks are accepted only for the identical vector content'
+  );
+  assert.strictEqual(versionedResult.superseded, true, 'a newer stored revision rejects the stale vector');
+
   await assert.rejects(
     () => upsertVectorItem({ VectorItem: writeModel, userId: 'not-an-id', objectType: 'article', objectId: 'x', text: 't', vector: [1] }),
     /valid userId/
@@ -219,6 +251,64 @@ const captureAggregate = (rows = []) => {
     false,
     'a row that does not exist is not current'
   );
+
+  const conditionalDeletes = [];
+  await deleteVectorItemIfContentHash({
+    VectorItem: { deleteOne: async query => { conditionalDeletes.push(query); return { deletedCount: 1 }; } },
+    userId: OWNER,
+    objectType: 'article',
+    objectId: 'article-versioned',
+    subId: 'passage:v1:0',
+    text: 'stale passage text'
+  });
+  assert.strictEqual(String(conditionalDeletes[0].userId), OWNER);
+  assert.strictEqual(conditionalDeletes[0].contentHash, contentHashOf('stale passage text'));
+
+  const articleFamilyDeletes = [];
+  await deleteArticleVectorItems({
+    VectorItem: { deleteMany: async query => { articleFamilyDeletes.push(query); return { deletedCount: 5 }; } },
+    userId: OWNER,
+    articleId: 'article-deleted'
+  });
+  assert.strictEqual(String(articleFamilyDeletes[0].userId), OWNER);
+  assert.deepStrictEqual(articleFamilyDeletes[0].$or, [
+    { objectType: 'article', objectId: 'article-deleted' },
+    { objectType: 'highlight', 'metadata.articleId': 'article-deleted' }
+  ], 'article deletion removes only its Atlas summary, passages, and embedded highlights');
+
+  const reconciliations = [];
+  await reconcileVectorSubIds({
+    VectorItem: { deleteMany: async query => { reconciliations.push(query); return { deletedCount: 2 }; } },
+    userId: OWNER,
+    objectType: 'article',
+    objectId: 'article-1',
+    keepSubIds: ['passage:v1:0', 'passage:v1:1', 'passage:v1:1'],
+    notAfterUpdatedAt: '2026-08-30T10:00:00.000Z',
+    sourceContentHash: 'source-revision-a'
+  });
+  assert.strictEqual(String(reconciliations[0].userId), OWNER, 'passage cleanup is owner-scoped');
+  assert.strictEqual(reconciliations[0].objectType, 'article');
+  assert.strictEqual(reconciliations[0].objectId, 'article-1');
+  assert.deepStrictEqual(
+    reconciliations[0].subId,
+    { $nin: ['', 'passage:v1:0', 'passage:v1:1'] },
+    'the summary and current passage identities survive cleanup'
+  );
+  assert.deepStrictEqual(
+    reconciliations[0].$or[3],
+    {
+      'metadata.updatedAt': '2026-08-30T10:00:00.000Z',
+      'metadata.sourceContentHash': 'source-revision-a'
+    },
+    'equal clocks are cleanup-safe only for the same full-source revision'
+  );
+  const invalidCleanup = await reconcileVectorSubIds({
+    VectorItem: { deleteMany: async () => { throw new Error('must not run'); } },
+    userId: 'not-an-owner',
+    objectType: 'article',
+    objectId: 'article-1'
+  });
+  assert.deepStrictEqual(invalidCleanup, { deletedCount: 0 }, 'an invalid owner cannot widen passage cleanup');
 
   /* ---------------------------------------------------------------- *
    * Health — the signal whose absence let two stores die unnoticed.
