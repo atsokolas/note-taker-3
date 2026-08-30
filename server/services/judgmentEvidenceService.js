@@ -13,7 +13,11 @@
  * belief must not pretend otherwise.
  */
 
-const { similarToVectorItem, rawCosineToAtlasScore } = require('../ai/vectorStore');
+const {
+  similarToVectorItem,
+  rawCosineToAtlasScore,
+  contentHashOf
+} = require('../ai/vectorStore');
 
 const DEFAULT_LIMIT = 8;
 const HIGHLIGHT_SCAN_LIMIT = 32;
@@ -24,6 +28,11 @@ const SNIPPET_BUDGET = 320;
 const SEMANTIC_HIGHLIGHT_LIMIT = 16;
 const SEMANTIC_RAW_COSINE_FLOOR = 0.72;
 const SEMANTIC_ATLAS_SCORE_FLOOR = rawCosineToAtlasScore(SEMANTIC_RAW_COSINE_FLOOR);
+const SEMANTIC_SOURCE_LIMIT = 8;
+const SEMANTIC_COMBINED_LIMIT = 40;
+const SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR = 0.72;
+const SEMANTIC_SOURCE_LEAD_MARGIN = 0.03;
+const SEMANTIC_SOURCE_EXCERPT_BUDGET = 800;
 
 /* Words that match everything and therefore mean nothing. */
 const STOPWORDS = new Set([
@@ -231,6 +240,38 @@ const sourceLabelFor = (article = {}) => {
   return site && !title.toLowerCase().includes(site.toLowerCase()) ? `${title} · ${site}` : title;
 };
 
+/* Article vectors predate the durable queue. The original backfill embedded a
+   normalized 800-character opening; current saves embed a bounded 4,000-byte
+   source record. Accept either known contract, but nothing else: an edited
+   source with a stale vector must be silent until it is indexed again. */
+const articleVectorVariants = (article = {}) => {
+  const title = String(article.title || '');
+  const content = String(article.content || '');
+  const normalizedBody = clean(content.replace(/<[^>]*>/g, ' '));
+  return [
+    {
+      text: [title, content].filter(Boolean).join('\n').slice(0, 4000),
+      excerpt: normalizedBody
+    },
+    {
+      text: clean(`${title}\n${normalizedBody.slice(0, 800)}`),
+      excerpt: normalizedBody.slice(0, 800)
+    }
+  ];
+};
+
+const exactArticleExcerpt = (article = {}, expectedHash = '') => {
+  const variant = articleVectorVariants(article)
+    .find(candidate => contentHashOf(candidate.text) === String(expectedHash || ''));
+  if (!variant) return '';
+  const visible = clean(variant.excerpt);
+  if (!visible) return '';
+  if (visible.length <= SEMANTIC_SOURCE_EXCERPT_BUDGET) return visible;
+  const bounded = visible.slice(0, SEMANTIC_SOURCE_EXCERPT_BUDGET + 1);
+  const sentenceEnd = Math.max(bounded.lastIndexOf('. '), bounded.lastIndexOf('? '), bounded.lastIndexOf('! '));
+  return clean(sentenceEnd >= 240 ? bounded.slice(0, sentenceEnd + 1) : bounded.slice(0, SEMANTIC_SOURCE_EXCERPT_BUDGET));
+};
+
 /*
  * A highlight is worth more than a paragraph of body text, because the reader
  * already decided the highlight mattered. We still consider the source body:
@@ -417,6 +458,107 @@ const findSemanticHighlightEvidence = async ({
   }
 };
 
+/* A saved article can help even when the reader never highlighted it. This is
+   deliberately narrower than generic semantic search: only a clear leading
+   result above the observed production floor qualifies, the stored vector
+   must still match the current source, and the product shows the exact saved
+   opening rather than an authored summary. It is a source to inspect, not a
+   verdict, so support/counter remains unset. */
+const findSemanticSourceEvidence = async ({
+  Article,
+  VectorItem,
+  userId,
+  pageId,
+  claim,
+  similar = similarToVectorItem
+} = {}) => {
+  if (!Article?.find || !VectorItem || !userId || !pageId || !clean(claim)) return [];
+  try {
+    const ranked = (await similar({
+      VectorItem,
+      userId,
+      objectType: 'judgment_claim',
+      objectId: String(pageId),
+      expectedText: claim,
+      limit: SEMANTIC_SOURCE_LIMIT,
+      objectTypes: ['article']
+    }))
+      .filter(row => row?.objectType === 'article' && clean(row.objectId))
+      .sort((left, right) => Number(right.score || 0) - Number(left.score || 0));
+    const lead = ranked[0];
+    const runnerUp = ranked[1];
+    if (!lead || Number(lead.score || 0) < SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR) return [];
+    if (runnerUp && Number(lead.score || 0) - Number(runnerUp.score || 0) < SEMANTIC_SOURCE_LEAD_MARGIN) return [];
+
+    const query = Article.find(
+      { userId, archived: { $ne: true }, _id: lead.objectId },
+      { title: 1, siteName: 1, url: 1, content: 1, createdAt: 1, evergreen: 1 }
+    ).limit(1);
+    if (typeof query.maxTimeMS === 'function') query.maxTimeMS(QUERY_TIMEOUT_MS);
+    const articles = await (query.lean ? query.lean() : query);
+    const article = Array.isArray(articles) ? articles[0] : null;
+    const text = exactArticleExcerpt(article, lead.contentHash);
+    if (!article || !text) return [];
+    const articleId = String(article._id || '');
+    return [{
+      id: `article:${articleId}`,
+      kind: 'source',
+      text,
+      note: '',
+      sourceLabel: sourceLabelFor(article),
+      articleId,
+      highlightId: '',
+      url: clean(article.url),
+      savedAt: article.createdAt || null,
+      matched: matchedTerms(text, claimTerms(claim)),
+      coverage: 0,
+      phraseMatches: 0,
+      density: 0,
+      semanticScore: Number(lead.score || 0),
+      whyThisSource: 'Closest saved source · exact opening excerpt',
+      evergreen: Boolean(article.evergreen),
+      score: Number(lead.score || 0)
+    }];
+  } catch (_error) {
+    return [];
+  }
+};
+
+/* Highlights and source excerpts share the same held-sentence vector. One ANN
+   read is both faster and simpler than asking Atlas the same question twice;
+   the two evidence gates still judge their own identities independently. */
+const findSemanticEvidence = async ({
+  Article,
+  VectorItem,
+  userId,
+  pageId,
+  claim,
+  similar = similarToVectorItem
+} = {}) => {
+  if (!Article?.find || !VectorItem || !userId || !pageId || !clean(claim)) return [];
+  try {
+    const rows = await similar({
+      VectorItem,
+      userId,
+      objectType: 'judgment_claim',
+      objectId: String(pageId),
+      expectedText: claim,
+      limit: SEMANTIC_COMBINED_LIMIT,
+      objectTypes: ['highlight', 'article']
+    });
+    const replay = async ({ objectTypes = [] } = {}) => (
+      (Array.isArray(rows) ? rows : []).filter(row => objectTypes.includes(row?.objectType))
+    );
+    const [highlights, sources] = await Promise.all([
+      findSemanticHighlightEvidence({ Article, VectorItem, userId, pageId, claim, similar: replay }),
+      findSemanticSourceEvidence({ Article, VectorItem, userId, pageId, claim, similar: replay })
+    ]);
+    return [...highlights, ...sources];
+  } catch (_error) {
+    return [];
+  }
+};
+
 /**
  * Find what the library already holds about one claim.
  *
@@ -477,7 +619,7 @@ const findLibraryEvidence = async ({
   const [highlightArticles, bodyArticles, semanticRows] = await Promise.all([
     highlightQuery.lean ? highlightQuery.lean() : highlightQuery,
     bodyQuery.lean ? bodyQuery.lean() : bodyQuery,
-    findSemanticHighlightEvidence({ Article, VectorItem, userId, pageId, claim })
+    findSemanticEvidence({ Article, VectorItem, userId, pageId, claim })
   ]);
   const filed = alreadyFiled(judgment);
   const rows = [
@@ -523,6 +665,14 @@ module.exports = {
   SEMANTIC_HIGHLIGHT_LIMIT,
   SEMANTIC_RAW_COSINE_FLOOR,
   SEMANTIC_ATLAS_SCORE_FLOOR,
+  SEMANTIC_SOURCE_LIMIT,
+  SEMANTIC_COMBINED_LIMIT,
+  SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR,
+  SEMANTIC_SOURCE_LEAD_MARGIN,
+  articleVectorVariants,
+  exactArticleExcerpt,
   findSemanticHighlightEvidence,
+  findSemanticSourceEvidence,
+  findSemanticEvidence,
   findLibraryEvidence
 };

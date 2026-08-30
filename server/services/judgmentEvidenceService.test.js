@@ -13,12 +13,17 @@ const {
   rankCandidates,
   alreadyFiled,
   findSemanticHighlightEvidence,
+  findSemanticSourceEvidence,
+  articleVectorVariants,
+  exactArticleExcerpt,
   findLibraryEvidence,
   HIGHLIGHT_SCAN_LIMIT,
   BODY_SCAN_LIMIT,
   SEARCH_TERM_LIMIT,
   QUERY_TIMEOUT_MS,
   SEMANTIC_ATLAS_SCORE_FLOOR,
+  SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR,
+  SEMANTIC_SOURCE_LEAD_MARGIN,
   searchTermsForClaim,
   searchPatternForClaim
 } = require('./judgmentEvidenceService');
@@ -325,6 +330,90 @@ const fakeArticle = (articles) => ({
     similar: async () => { throw new Error('Atlas is asleep'); }
   });
   assert.deepStrictEqual(semanticFailure, [], 'a sleeping semantic index yields honest silence');
+
+  const sourceArticle = {
+    _id: 'source-article',
+    title: 'A saved serving-economics source',
+    content: '<p>Fast inference changes which accelerator wins a latency-sensitive workload.</p><p>Throughput alone does not describe the customer outcome.</p>',
+    url: 'https://example.com/source',
+    createdAt: '2026-08-22T00:00:00.000Z'
+  };
+  const legacyVariant = articleVectorVariants(sourceArticle)[1];
+  const { contentHashOf } = require('../ai/vectorStore');
+  assert.strictEqual(
+    exactArticleExcerpt(sourceArticle, contentHashOf(legacyVariant.text)),
+    'Fast inference changes which accelerator wins a latency-sensitive workload. Throughput alone does not describe the customer outcome.',
+    'a legacy Atlas row resolves to exact saved source words, never an authored summary'
+  );
+
+  let sourceRequest = null;
+  let sourceRead = null;
+  const sourceModel = {
+    find: (filter, projection) => {
+      sourceRead = { filter, projection, timeout: null };
+      const query = {
+        limit: () => query,
+        maxTimeMS: (timeout) => { sourceRead.timeout = timeout; return query; },
+        lean: async () => [sourceArticle]
+      };
+      return query;
+    }
+  };
+  const semanticSource = await findSemanticSourceEvidence({
+    Article: sourceModel,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'Serving speed can create an accelerator advantage.',
+    similar: async (request) => {
+      sourceRequest = request;
+      return [
+        {
+          objectType: 'article',
+          objectId: 'source-article',
+          contentHash: contentHashOf(legacyVariant.text),
+          score: SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR + 0.02
+        },
+        {
+          objectType: 'article',
+          objectId: 'runner-up',
+          contentHash: 'unused',
+          score: SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR + 0.02 - SEMANTIC_SOURCE_LEAD_MARGIN
+        }
+      ];
+    }
+  });
+  assert.strictEqual(semanticSource.length, 1, 'one clear source-level lead is offered for inspection');
+  assert.strictEqual(semanticSource[0].text, exactArticleExcerpt(sourceArticle, contentHashOf(legacyVariant.text)));
+  assert.strictEqual(semanticSource[0].side, undefined, 'source similarity never guesses support or opposition');
+  assert.deepStrictEqual(sourceRequest.objectTypes, ['article']);
+  assert.strictEqual(sourceRequest.expectedText, 'Serving speed can create an accelerator advantage.');
+  assert.strictEqual(sourceRead.filter.userId, 'owner-1', 'source hydration remains owner-scoped');
+  assert.strictEqual(sourceRead.filter._id, 'source-article');
+  assert.strictEqual(sourceRead.timeout, QUERY_TIMEOUT_MS);
+
+  const ambiguousSource = await findSemanticSourceEvidence({
+    Article: sourceModel,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'A broad claim.',
+    similar: async () => [
+      { objectType: 'article', objectId: 'source-article', contentHash: contentHashOf(legacyVariant.text), score: 0.75 },
+      { objectType: 'article', objectId: 'runner-up', contentHash: 'unused', score: 0.74 }
+    ]
+  });
+  assert.deepStrictEqual(ambiguousSource, [], 'a crowded semantic neighborhood stays silent rather than showing topical filler');
+
+  const staleSource = await findSemanticSourceEvidence({
+    Article: sourceModel,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'A source changed after indexing.',
+    similar: async () => [{ objectType: 'article', objectId: 'source-article', contentHash: 'stale', score: 0.9 }]
+  });
+  assert.deepStrictEqual(staleSource, [], 'a stale article vector cannot produce a quotation');
 
   const hireNote = {
     _id: 'note-1',

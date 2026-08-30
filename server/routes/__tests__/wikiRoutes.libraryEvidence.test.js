@@ -87,7 +87,12 @@ const serve = async () => {
       aggregate: async (pipeline) => {
         vectorSearches += 1;
         assert.strictEqual(String(pipeline[0].$vectorSearch.filter.userId.$eq), OWNER_ID);
-        assert.deepStrictEqual(pipeline[0].$vectorSearch.filter.objectType, { $in: ['highlight'] });
+        const types = pipeline[0].$vectorSearch.filter.objectType;
+        assert.deepStrictEqual(
+          types,
+          { $in: ['highlight', 'article'] },
+          'one semantic read covers only exact highlights and bounded article excerpts'
+        );
         return [{
           objectType: 'highlight',
           objectId: HIGHLIGHT_ID,
@@ -120,7 +125,7 @@ const run = async () => {
     assert.strictEqual(body.candidates[0].id, `highlight:${NOTE_ID}:${HIGHLIGHT_ID}`);
     assert.match(body.candidates[0].whyThisSource, /^Answers 4 of 4 key terms/);
     assert.strictEqual(body.candidates[0].side, undefined, 'the route never guesses Why or Against');
-    assert.strictEqual(vectorSearches, 1, 'the route reuses the stored held-sentence vector');
+    assert.strictEqual(vectorSearches, 1, 'the route reuses one stored held-sentence vector across both exact evidence paths');
     assert.deepStrictEqual(pageReads[0], {
       projection: {
         'judgment.currentJudgment': 1,

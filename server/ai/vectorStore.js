@@ -186,6 +186,7 @@ const searchVectorItems = async ({
         objectType: 1,
         objectId: 1,
         subId: 1,
+        contentHash: 1,
         metadata: 1,
         score: { $meta: 'vectorSearchScore' }
       }
