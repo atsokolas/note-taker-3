@@ -35,7 +35,7 @@ describe('wikiLivingBriefingLine', () => {
           impactSummary: '2 claims touched'
         }
       }
-    })).toBe('NVDA filed a 10-Q. Nvidia dossier. 2 claims touched.');
+    })).toBe('NVDA filed a 10-Q. Nvidia dossier.');
   });
 });
 

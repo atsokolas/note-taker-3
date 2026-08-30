@@ -67,7 +67,7 @@ describe('WikiFrontPage movement return surface', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('mounts the movement surface and lets real movements replace the generic fallback lead', async () => {
+  it('opens operations when a movement is present, without inventing a work-is-ready lead', async () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
     expect(await screen.findByText(/generic fallback briefing/i)).toBeInTheDocument();
@@ -75,12 +75,13 @@ describe('WikiFrontPage movement return surface', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Movement present' }));
 
-    await waitFor(() => expect(screen.queryByText(/generic fallback briefing/i)).not.toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByText('Review and system activity').closest('details')).toHaveAttribute('open');
+    });
+    expect(screen.getByText(/generic fallback briefing/i)).toBeInTheDocument();
+    expect(screen.queryByText(/needs your review/i)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Your living wikis' })).toBeInTheDocument();
-    // The lead is named twice now: once by the Continue line above the index,
-    // once by the index itself, which is complete by definition.
     expect(screen.getAllByRole('link', { name: 'Inference economics' }).length).toBeGreaterThan(0);
-    expect(screen.getByText('Review and system activity').closest('details')).toHaveAttribute('open');
   });
 
   it('keeps the movement return surface visible for an empty Wiki corpus', async () => {
