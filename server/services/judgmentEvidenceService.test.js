@@ -4,6 +4,9 @@ const {
   matchedTerms,
   answersClaim,
   explainMatch,
+  bestEvidencePassage,
+  passageQuality,
+  answersExactPassage,
   snippetAround,
   candidatesFromArticle,
   rankCandidates,
@@ -29,11 +32,21 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(matchedTerms('nothing here', ['compute']), [], 'no false positives');
 assert.strictEqual(answersClaim(['capacity'], terms), false, 'one leftover word does not answer a long hold');
-assert.strictEqual(answersClaim(['demand', 'capacity'], terms), true, 'substantive coverage clears the bar');
+assert.strictEqual(answersClaim(['demand', 'capacity'], terms), false, 'two topic words do not establish a five-term relationship');
+assert.strictEqual(answersClaim(['demand', 'compute', 'capacity'], terms), false, 'three topic words do not clear a five-term relationship');
+assert.strictEqual(answersClaim(['demand', 'compute', 'deliverable', 'capacity'], terms), true, 'two-thirds of a longer sentence clears the bar');
 assert.strictEqual(answersClaim(['compute'], ['compute', 'scarcity']), false, 'a two-term hold needs both ideas');
 assert.strictEqual(
-  explainMatch(['demand', 'capacity'], terms),
-  'Answers 2 of 5 key terms · demand · capacity',
+  answersExactPassage(
+    passageQuality('The onboarding team interviewed customers about the new color palette.', claimTerms('Shorter onboarding improves activation for new customers.')),
+    claimTerms('Shorter onboarding improves activation for new customers.')
+  ),
+  false,
+  'half the nouns without the claim relationship is only a topic match'
+);
+assert.strictEqual(
+  explainMatch(['demand', 'compute', 'deliverable', 'capacity'], terms),
+  'Answers 4 of 5 key terms · demand · compute · deliverable · capacity',
   'the selection explains itself in the claim\'s own words'
 );
 
@@ -50,20 +63,20 @@ const article = {
   title: 'On compute',
   siteName: 'FT',
   url: 'https://example.com/a1',
-  content: '<p>Compute capacity is the binding constraint this cycle.</p>',
+  content: '<p>Compute demand outruns available capacity this cycle.</p>',
   createdAt: '2026-06-01T00:00:00.000Z',
   highlights: [
-    { _id: 'h1', text: 'Deliverable capacity lags demand by two years.', createdAt: '2026-06-02T00:00:00.000Z' },
+    { _id: 'h1', text: 'Deliverable compute capacity lags demand by two years.', createdAt: '2026-06-02T00:00:00.000Z' },
     { _id: 'h2', text: 'Unrelated aside about logistics.' }
   ]
 };
 const rows = candidatesFromArticle(article, terms);
-assert.strictEqual(rows.length, 1, 'only highlights that actually match are offered');
+assert.strictEqual(rows.length, 2, 'an answering highlight and a distinct answering article passage are both eligible');
 assert.strictEqual(rows[0].kind, 'highlight');
 assert.strictEqual(rows[0].highlightId, 'h1');
 assert.strictEqual(rows[0].sourceLabel, 'On compute · FT', 'provenance travels with the line');
 assert.ok(rows[0].matched.includes('capacity'), 'the matched words are reported');
-assert.match(rows[0].whyThisSource, /^Answers 3 of 5 key terms/, 'the reason for selection travels with the passage');
+assert.match(rows[0].whyThisSource, /^Answers 4 of 5 key terms/, 'the reason for selection travels with the passage');
 // Nothing about which side it falls on: term overlap cannot tell support from contradiction.
 assert.strictEqual(rows[0].side, undefined, 'the service never guesses a side');
 
@@ -76,6 +89,40 @@ const irrelevant = candidatesFromArticle(
   terms
 );
 assert.deepStrictEqual(irrelevant, [], 'a source about nothing relevant offers nothing');
+
+const exactPassage = bestEvidencePassage(
+  'The introduction is unrelated. Demand for compute is rising quickly. Deliverable capacity remains constrained.',
+  terms
+);
+assert.strictEqual(
+  exactPassage.text,
+  'Demand for compute is rising quickly. Deliverable capacity remains constrained.',
+  'the visible quotation is the smallest complete passage that clears the bar'
+);
+
+const noteOnly = candidatesFromArticle({
+  _id: 'note-only',
+  title: 'A saved aside',
+  content: 'Nothing about the held sentence.',
+  highlights: [{ _id: 'h-note', text: 'A generic observation.', note: 'Demand compute deliverable capacity.' }]
+}, terms);
+assert.deepStrictEqual(noteOnly, [], 'a note cannot qualify unrelated quoted words');
+
+const titleOnly = candidatesFromArticle({
+  _id: 'title-only',
+  title: 'Demand, compute, and deliverable capacity',
+  content: 'This article body is only about office lunch.',
+  highlights: []
+}, terms);
+assert.deepStrictEqual(titleOnly, [], 'a matching title cannot qualify unrelated body text');
+
+const bodyBeatsHighlight = rankCandidates(candidatesFromArticle({
+  _id: 'body-wins',
+  title: 'Capacity notes',
+  content: 'Demand for compute outruns deliverable capacity across the next two years.',
+  highlights: [{ _id: 'thin-highlight', text: 'Demand and capacity remain linked.' }]
+}, terms), 5);
+assert.strictEqual(bodyBeatsHighlight[0].id, 'article:body-wins', 'a thin highlight cannot hide the stronger article passage');
 
 // rankCandidates
 const ranked = rankCandidates([
@@ -111,8 +158,9 @@ const fakeArticle = (articles) => ({
     userId: 'u1',
     claim: 'Demand for compute outruns deliverable capacity'
   });
-  assert.strictEqual(found.candidates.length, 1);
-  assert.strictEqual(found.candidates[0].highlightId, 'h1');
+  assert.strictEqual(found.candidates.length, 2);
+  assert.ok(found.candidates.some(candidate => candidate.highlightId === 'h1'));
+  assert.strictEqual(found.candidates[0].id, 'article:a1', 'the more complete visible passage ranks first');
   assert.ok(found.terms.includes('capacity'));
 
   const alreadyDecided = await findLibraryEvidence({
@@ -121,7 +169,10 @@ const fakeArticle = (articles) => ({
     claim: 'Demand for compute outruns deliverable capacity',
     judgment: { why: [{ acceptedFrom: 'highlight:a1:h1' }] }
   });
-  assert.deepStrictEqual(alreadyDecided.candidates, [], 'what you already filed is not offered again');
+  assert.ok(
+    alreadyDecided.candidates.every(candidate => candidate.highlightId !== 'h1'),
+    'the exact passage already filed is not offered again'
+  );
 
   const leftover = await findLibraryEvidence({
     Article: fakeArticle([{
@@ -228,25 +279,21 @@ const fakeArticle = (articles) => ({
   const terms2 = claimTerms('Demand for compute outruns deliverable capacity');
   const kept = {
     _id: 'keeper', title: 'The capacity wall', evergreen: true,
-    content: '<p>Capacity is the binding constraint.</p>', highlights: []
+    content: '<p>Demand for compute meets deliverable capacity.</p>', highlights: []
   };
   const passing = {
     _id: 'passing', title: 'A note on capacity and demand', evergreen: false,
-    content: '<p>Capacity and demand and compute and deliverable timelines.</p>', highlights: []
+    content: '<p>Demand for compute outruns deliverable capacity.</p>', highlights: []
   };
 
   const keptRow = candidatesFromArticle(kept, terms2)[0];
   const passingRow = candidatesFromArticle(passing, terms2)[0];
   assert.strictEqual(keptRow.evergreen, true, 'the row says it is evergreen');
   assert.strictEqual(passingRow.evergreen, false);
-  assert.ok(
-    passingRow.score > keptRow.score,
-    'covering the sentence outranks an evergreen leftover'
-  );
   assert.ok(EVERGREEN_BONUS > 0);
 
   const order = rankCandidates([passingRow, keptRow], 5).map(row => row.id);
-  assert.strictEqual(order[0], 'article:passing', 'and the answering source comes back first');
+  assert.strictEqual(order[0], 'article:passing', 'coverage outranks the evergreen whisper');
 
   console.log('evergreen retrieval tests passed');
 }
