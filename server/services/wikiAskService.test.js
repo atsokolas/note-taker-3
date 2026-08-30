@@ -28,7 +28,8 @@ const {
   isSelectedPageOnlyQuestion,
   pageTitleMentionedInQuestion,
   extractMentionedTitleCandidates,
-  rankWikiPageCandidates
+  rankWikiPageCandidates,
+  buildWikiPageListRankingQuestion
 } = __testables;
 
 const buildPage = (overrides = {}) => ({
@@ -538,9 +539,11 @@ describe('wikiAskService', () => {
 
     it('answers wiki page-list requests from the visible index without semantic or graph retrieval', async () => {
       const recentPages = [
+        { _id: 'page-0', title: 'Atsokolas/Note-Taker-3 Repo Wiki', plainText: 'React routes and Mongo services.' },
         { _id: 'page-1', title: 'Membership economics', plainText: 'Renewals fund the model.' },
         { _id: 'page-2', title: 'Retail inventory turns', plainText: 'Turns shape working capital.' },
-        { _id: 'page-3', title: 'Supplier bargaining power', plainText: 'Scale changes terms.' }
+        { _id: 'page-3', title: 'Supplier bargaining power', plainText: 'Purchasing volume changes supplier terms.' },
+        { _id: 'page-4', title: 'This Week in AI', plainText: 'Model scaling and inference research.' }
       ];
       const lean = jest.fn().mockResolvedValue(recentPages);
       const select = jest.fn(() => ({ lean }));
@@ -550,7 +553,11 @@ describe('wikiAskService', () => {
       const findWikiBacklinks = jest.fn();
 
       const corpus = await loadWikiAskCorpus({
-        page: { _id: 'selected-page', title: 'Costco Wholesale investment dossier' },
+        page: {
+          _id: 'selected-page',
+          title: 'Costco Wholesale investment dossier',
+          plainText: 'Member renewal, retail inventory turns, purchasing volume, and supplier terms reinforce the warehouse model.'
+        },
         question: 'Name the Wiki pages most relevant to this dossier. Use page titles, not internal claim IDs. Keep it to three lines.',
         userId: 'user-1',
         WikiPage: { find },
@@ -561,16 +568,30 @@ describe('wikiAskService', () => {
       });
 
       expect(find).toHaveBeenCalledTimes(1);
-      expect(select).toHaveBeenCalledWith('title slug pageType updatedAt');
+      expect(select).toHaveBeenCalledWith('title slug pageType plainText updatedAt');
       expect(findWikiBacklinks).not.toHaveBeenCalled();
-      expect(corpus.relatedPages.map(page => page.title)).toEqual([
-        'Membership economics',
+      expect(corpus.relatedPages.slice(0, 3).map(page => page.title)).toEqual([
         'Retail inventory turns',
-        'Supplier bargaining power'
+        'Supplier bargaining power',
+        'Membership economics'
       ]);
       expect(corpus.conceptRecords).toEqual([]);
       expect(corpus.backlinkRows).toEqual([]);
       expect(corpus.revisionRows).toEqual([]);
+    });
+
+    it('builds a bounded subject vocabulary for deterministic wiki-title ranking', () => {
+      const rankingQuestion = buildWikiPageListRankingQuestion({
+        page: {
+          title: 'Costco Wholesale investment dossier',
+          plainText: 'Member renewal and inventory turns reinforce purchasing volume and supplier terms.'
+        },
+        question: 'Name the Wiki pages most relevant to this dossier.'
+      });
+
+      expect(rankingQuestion).toContain('member renewal');
+      expect(rankingQuestion).toContain('inventory turns');
+      expect(rankingQuestion).not.toMatch(/\binvestment\s+dossier\s+investment\b/i);
     });
 
     it('loads revision rows for temporal questions on selected and mentioned pages', async () => {
