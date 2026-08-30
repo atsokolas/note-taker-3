@@ -42,6 +42,13 @@ describe('answersHeldSentence', () => {
       'Hire Maya as the first engineer.'
     ).ok).toBe(true);
   });
+
+  it('from an unfiled source, leftover soup is still not an answer', () => {
+    expect(answersHeldSentence(
+      'NVIDIA reported another quarter of data-center growth.',
+      CLAIM
+    ).ok).toBe(false);
+  });
 });
 
 describe('selectHoldCandidates', () => {

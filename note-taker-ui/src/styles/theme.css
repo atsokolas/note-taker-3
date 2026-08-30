@@ -1250,16 +1250,61 @@ body.noeis-editorial .palette-list {
   margin-right: 0.55em;
 }
 
-.passage-door:hover,
-.passage-door:focus-visible {
+.passage-door:not(.passage-door--offer):hover,
+.passage-door:not(.passage-door--offer):focus-visible {
   color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 }
 
+/* Unfiled match: Why / Against as words, then the held sentence. */
+.passage-door--offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.passage-door__actions {
+  display: inline-flex;
+  gap: 14px;
+  font-style: normal;
+}
+
+.passage-door__actions button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--muted, var(--text-muted, var(--vellum-subtle)));
+  font-family: var(--font-sans, var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif));
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.passage-door__actions button:hover,
+.passage-door__actions button:focus-visible {
+  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
+  border-bottom-color: currentColor;
+}
+
+.passage-door__actions button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .passage-door {
+  .passage-door,
+  .passage-door--offer,
+  .passage-door__actions button {
     transition: none;
   }
 }

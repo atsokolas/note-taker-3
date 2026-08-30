@@ -1,11 +1,12 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { listWikiPages } from '../../api/wiki';
+import { listWikiPages, updateWikiPage } from '../../api/wiki';
 import LibraryContext from './LibraryContext';
 
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn(async () => [])
+  listWikiPages: jest.fn(async () => []),
+  updateWikiPage: jest.fn(async (id, body) => ({ _id: id, ...body }))
 }));
 
 jest.mock('../references/ReferencePullIn', () => (props) => (
@@ -157,6 +158,8 @@ describe('LibraryContext', () => {
     expect(door).toHaveAttribute('href', '/judgment/wiki-compute');
     expect(door).toHaveTextContent('Why');
     expect(screen.queryByRole('button', { name: /open claim/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Why' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('passage-door-offer')).not.toBeInTheDocument();
   });
 
   it('stays silent on a feed row that was never filed', async () => {
@@ -179,5 +182,67 @@ describe('LibraryContext', () => {
 
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     expect(screen.queryByTestId('passage-door')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('passage-door-offer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Why' })).not.toBeInTheDocument();
+  });
+
+  it('offers Why and Against on an unfiled feed row that covers the hold', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-compute',
+      judgment: {
+        currentJudgment: 'Demand still outruns deliverable capacity.',
+        why: [],
+        against: []
+      }
+    }]);
+
+    renderContext({
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          articleId: 'article-1',
+          text: 'Deliverable capacity lags demand by two years.',
+          tags: []
+        }
+      ]
+    });
+
+    expect(await screen.findByRole('button', { name: 'Why' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Against' })).toBeInTheDocument();
+    expect(screen.getByTestId('passage-door-offer')).toHaveTextContent(
+      'Demand still outruns deliverable capacity.'
+    );
+    expect(screen.queryByTestId('passage-door')).not.toBeInTheDocument();
+  });
+
+  it('files Why from the feed and becomes the whisper', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-compute',
+      judgment: {
+        currentJudgment: 'Demand still outruns deliverable capacity.',
+        why: [],
+        against: []
+      }
+    }]);
+    updateWikiPage.mockImplementation(async (id, body) => ({ _id: id, judgment: body.judgment }));
+
+    renderContext({
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          articleId: 'article-1',
+          text: 'Deliverable capacity lags demand by two years.',
+          tags: []
+        }
+      ]
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Why' }));
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    expect(updateWikiPage.mock.calls[0][0]).toBe('wiki-compute');
+    expect(updateWikiPage.mock.calls[0][1].judgment.why.at(-1).acceptedFrom)
+      .toBe('highlight:article-1:highlight-1');
+    expect(await screen.findByTestId('passage-door')).toHaveTextContent('Why');
+    expect(screen.queryByTestId('passage-door-offer')).not.toBeInTheDocument();
   });
 });
