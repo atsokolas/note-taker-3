@@ -513,6 +513,17 @@ body.noeis-editorial .judgment .judgment-composer input,
   margin: 0;
 }
 
+.judgment-inbox__hold {
+  display: block;
+  margin: 0.15rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
 .judgment-inbox__text {
   display: inline;
   min-width: 0;

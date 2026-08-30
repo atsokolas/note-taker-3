@@ -75,8 +75,8 @@ const judgmentPage = () => ({
 const overnightEvent = () => ({
   _id: 'event-1',
   affectedPageIds: ['wiki-nvidia'],
-  title: 'A 13F filing was posted',
-  summary: 'It doesn’t touch the capacity gap.',
+  title: 'Deliverable capacity still lags demand',
+  summary: 'The filing restates the same gap.',
   createdAt: '2026-08-14T04:00:00.000Z'
 });
 
@@ -661,7 +661,7 @@ describe('the overnight line', () => {
 
     renderDetail();
 
-    expect(await screen.findByText(/Overnight: A 13F filing was posted\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Overnight: Deliverable capacity still lags demand\./)).toBeInTheDocument();
     const overnight = screen.getByRole('group', { name: 'Overnight agent line' });
     const back = screen.getByRole('link', { name: /All judgments/ });
     const title = screen.getByLabelText('Title');
@@ -677,7 +677,7 @@ describe('the overnight line', () => {
     expect(pageId).toBe('wiki-nvidia');
     expect(updates.judgment.against.map(line => line.text)).toEqual([
       'Hyperscalers are designing more in-house silicon.',
-      'A 13F filing was posted. It doesn’t touch the capacity gap.'
+      'Deliverable capacity still lags demand. The filing restates the same gap.'
     ]);
     // The lines already on the page are carried forward untouched.
     expect(updates.judgment.why.map(line => line.text)).toEqual([
@@ -766,7 +766,7 @@ describe('the overnight line', () => {
     listWikiSourceEvents.mockResolvedValue([overnightEvent()]);
 
     renderDetail();
-    await screen.findByText(/Overnight: A 13F filing was posted\./);
+    await screen.findByText(/Overnight: Deliverable capacity still lags demand\./);
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
     const overnight = screen.getByRole('group', { name: 'Overnight agent line' });
@@ -789,7 +789,7 @@ describe('the overnight line', () => {
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
     const overnightSave = updateWikiPage.mock.calls.find(([, body]) => (
-      (body.judgment.against || []).some(line => /13F/.test(line.text))
+      (body.judgment.against || []).some(line => /deliverable capacity still lags demand/i.test(line.text))
     ));
     expect(overnightSave).toBeTruthy();
     expect(overnightSave[1].judgment.why.map(line => line.text)).not.toContain('A typed why.');
@@ -808,6 +808,23 @@ describe('the overnight line', () => {
     expect(screen.queryByText(/Overnight:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/nothing (arrived|waiting|overnight)/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/morning inbox/i)).not.toBeInTheDocument();
+  });
+
+  it('stays silent when overnight arrived but does not answer this sentence', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    listWikiSourceEvents.mockResolvedValue([{
+      _id: 'event-leftover',
+      affectedPageIds: ['wiki-nvidia'],
+      title: 'A 13F filing was posted',
+      summary: 'Positions were rebalanced across the sector.',
+      createdAt: '2026-08-14T04:00:00.000Z'
+    }]);
+
+    renderDetail();
+
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.queryByRole('group', { name: 'Overnight agent line' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/13F/)).not.toBeInTheDocument();
   });
 });
 
@@ -1005,7 +1022,7 @@ describe('Evidence from the library', () => {
     expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
     expect(screen.queryByText('File under')).not.toBeInTheDocument();
     expect(screen.queryByText('On compute · FT')).not.toBeInTheDocument();
-    const inbox = screen.getByRole('region', { name: 'From your library' });
+    const inbox = screen.getByRole('region', { name: 'On this sentence' });
     expect(inbox).toHaveClass('judgment-slip');
     expect(within(inbox).getByRole('button', { name: 'Why' })).toBeInTheDocument();
     expect(within(inbox).getByRole('button', { name: 'Against' })).toBeInTheDocument();
@@ -1017,7 +1034,7 @@ describe('Evidence from the library', () => {
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
 
     renderDetail();
-    const inbox = await screen.findByRole('region', { name: 'From your library' });
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
     fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
@@ -1032,7 +1049,7 @@ describe('Evidence from the library', () => {
     expect(await screen.findByRole('link', { name: 'Source 3: On compute · FT' }))
       .toHaveAttribute('href', '/library?articleId=a1&highlightId=h1');
     await waitFor(() => {
-      expect(screen.queryByRole('region', { name: 'From your library' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
     });
   });
 
@@ -1054,7 +1071,7 @@ describe('Evidence from the library', () => {
 
     try {
       renderDetail();
-      const inbox = await screen.findByRole('region', { name: 'From your library' });
+      const inbox = await screen.findByRole('region', { name: 'On this sentence' });
       fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
 
       await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
@@ -1093,7 +1110,7 @@ describe('Evidence from the library', () => {
     await screen.findByLabelText('Title');
     await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
     expect(screen.queryByText(/Nothing you have saved speaks to this yet/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'From your library' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Look in your library →' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
   });
@@ -1148,22 +1165,22 @@ describe('Evidence from the library', () => {
   it('keeps a long inbox to a few lines, with more…', async () => {
     const many = Array.from({ length: 5 }, (_, index) => ({
       id: `highlight:a1:h${index}`,
-      text: `Passage ${index} about capacity.`,
+      text: `Passage ${index}: deliverable capacity still lags demand.`,
       sourceLabel: 'FT'
     }));
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: many });
 
     renderDetail();
-    expect(await screen.findByText('Passage 0 about capacity.')).toBeInTheDocument();
-    expect(screen.queryByText('Passage 3 about capacity.')).not.toBeInTheDocument();
+    expect(await screen.findByText('Passage 0: deliverable capacity still lags demand.')).toBeInTheDocument();
+    expect(screen.queryByText('Passage 3: deliverable capacity still lags demand.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'more…' }));
-    expect(screen.getByText('Passage 3 about capacity.')).toBeInTheDocument();
+    expect(screen.getByText('Passage 3: deliverable capacity still lags demand.')).toBeInTheDocument();
   });
 
   it('whispers a source that already speaks in the log', async () => {
     const kinCandidate = {
       id: 'highlight:a9:h9',
-      text: 'A later note on the same SemiAnalysis thread.',
+      text: 'Deliverable capacity still lags demand on the SemiAnalysis thread.',
       sourceLabel: 'SemiAnalysis'
     };
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [kinCandidate] });
@@ -1177,14 +1194,14 @@ describe('Evidence from the library', () => {
   it('keeps the arrived log row in the same kinship as [n] hover', async () => {
     const kinCandidate = {
       id: 'highlight:a9:h9',
-      text: 'A later note on the same SemiAnalysis thread.',
+      text: 'Deliverable capacity still lags demand on the SemiAnalysis thread.',
       sourceLabel: 'SemiAnalysis'
     };
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [kinCandidate] });
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
 
     renderDetail();
-    const inbox = await screen.findByRole('region', { name: 'From your library' });
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
     fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
@@ -1218,11 +1235,35 @@ describe('Evidence from the library', () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
 
     renderDetail();
-    const inbox = await screen.findByRole('region', { name: 'From your library' });
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
     fireEvent.click(screen.getByRole('radio', { name: 'Against' }));
     expect(screen.getByRole('radio', { name: 'Against' })).toBeChecked();
     fireEvent.mouseEnter(within(inbox).getByRole('button', { name: 'Why' }));
     expect(screen.getByRole('radio', { name: 'Why' })).toHaveAttribute('data-hint', 'true');
+  });
+
+  it('shows the claim’s own words on a candidate, and hides a leftover dump', async () => {
+    getJudgmentLibraryEvidence.mockResolvedValue({
+      claim: 'c',
+      terms: ['capacity', 'nvidia'],
+      candidates: [
+        {
+          id: 'article:10k',
+          text: 'NVIDIA reported another quarter of data-center growth.',
+          sourceLabel: '10-K'
+        },
+        candidate
+      ]
+    });
+
+    renderDetail();
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
+    expect(within(inbox).getByText(candidate.text)).toBeInTheDocument();
+    expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('demand');
+    expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('deliverable');
+    expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('capacity');
+    expect(inbox.querySelector('.judgment-inbox__hold')).not.toHaveTextContent(/score|strongest/i);
+    expect(screen.queryByText(/NVIDIA reported another quarter/)).not.toBeInTheDocument();
   });
 });
 

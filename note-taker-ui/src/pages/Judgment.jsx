@@ -43,6 +43,7 @@ import {
   selectOvernightLine,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { selectHoldCandidates } from './judgmentHold';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
@@ -594,7 +595,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
   const [pendingId, setPendingId] = useState('');
-  const [inbox, setInbox] = useState([]);
+  const [libraryCandidates, setLibraryCandidates] = useState([]);
   const [kin, setKin] = useState(null);
   const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
@@ -671,7 +672,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   useEffect(() => {
     let cancelled = false;
     let announced = false;
-    setInbox([]);
+    setLibraryCandidates([]);
 
     const timer = window.setTimeout(() => {
       if (cancelled) return;
@@ -692,12 +693,12 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       .then((found) => {
         if (cancelled) return;
         settle();
-        setInbox(Array.isArray(found?.candidates) ? found.candidates : []);
+        setLibraryCandidates(Array.isArray(found?.candidates) ? found.candidates : []);
       })
       .catch(() => {
         if (cancelled) return;
         settle();
-        setInbox([]);
+        setLibraryCandidates([]);
         systemStatus.setRecoverableFailure({
           stage: 'Library evidence',
           message: 'Your library could not be read for this claim.',
@@ -717,6 +718,11 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [pageId, libraryAttempt, systemStatus]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
+  const hold = oneSentence(page?.judgment?.currentJudgment);
+  const inbox = useMemo(
+    () => selectHoldCandidates(libraryCandidates, hold),
+    [libraryCandidates, hold]
+  );
 
   /* The claim remains the dominant object. Decisions, observed outcomes,
      lessons, and the accepted revision that grounded the latest decision are
@@ -1057,6 +1063,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           inbox={inbox}
           onFile={fileEvidence}
           view={view}
+          claim={hold}
           kin={kin}
           onKin={setKin}
           hintKind={kindHint}

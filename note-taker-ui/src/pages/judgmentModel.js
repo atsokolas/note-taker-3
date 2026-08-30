@@ -1,4 +1,5 @@
 import { buildSourceOpenPath, buildSourceOriginPath } from '../utils/sourceRoutes';
+import { answersHeldSentence } from './judgmentHold';
 
 // The Judgment page's read model.
 //
@@ -524,12 +525,15 @@ const filedOvernightOrigins = (judgment = {}) => new Set(
 );
 
 /* The overnight line: one sentence about what arrived while the human was not
-   here. It is a proposal — it sits above the claim until the human accepts it
-   into Why or Against, or dismisses it. It never writes itself in. */
+   here, and only if that sentence answers the hold. A filing tagged to the
+   page is not an answer. It is a proposal — it sits above the claim until the
+   human accepts it into Why or Against, or dismisses it. It never writes
+   itself in. */
 export const selectOvernightLine = (page, events = []) => {
   const pageId = idOf(page);
   if (!pageId) return null;
   const judgment = page?.judgment || {};
+  const claim = clean(judgment.currentJudgment);
   const silenced = new Set(dismissedOvernightIds(judgment));
   const filed = filedOvernightOrigins(judgment);
   const candidates = list(events)
@@ -543,6 +547,7 @@ export const selectOvernightLine = (page, events = []) => {
     }))
     .filter(event => event.id && event.title)
     .filter(event => !silenced.has(event.id) && !filed.has(event.id))
+    .filter(event => answersHeldSentence(`${event.title} ${event.detail}`, claim).ok)
     .sort((left, right) => (time(right.at) || 0) - (time(left.at) || 0));
   const latest = candidates[0];
   if (!latest) return null;

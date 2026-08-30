@@ -5985,6 +5985,7 @@ const buildWikiRouter = ({
   });
 
   /* What the library already holds about the claim on this page.
+     The search is the held sentence — currentJudgment — not the page title.
      The agent retrieves and the human files: every candidate comes back with
      the words that matched and the source it came from, and nothing is written
      into the judgment here. Deciding whether a passage supports the claim or
@@ -5997,7 +5998,7 @@ const buildWikiRouter = ({
       return res.status(400).json({ error: 'Invalid wiki page id.' });
     }
     if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
-    const claim = String(page?.judgment?.currentJudgment || page?.judgment?.governingQuestion || page?.title || '').trim();
+    const claim = String(page?.judgment?.currentJudgment || '').trim();
     if (!claim) {
       return res.status(409).json({ error: 'There is no claim on this page to look for.' });
     }

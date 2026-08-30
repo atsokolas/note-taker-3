@@ -4,6 +4,7 @@ import useCssMagneticLerp from '../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { clearSentenceHandoff, flySentenceInto, handOffSentence, peekSentenceHandoff } from '../motion/columnMotion';
 import { formatLedgerDate, isLibraryHref, newLineId } from './judgmentModel';
+import { holdInk } from './judgmentHold';
 import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sameWeek, sourceKinForCandidate, speaksWith, weekKey } from './judgmentLog';
 
 const AUTOSAVE_PAUSE_MS = 700;
@@ -201,6 +202,7 @@ const KindWords = ({ kind, disabled, onHint, onChoose }) => (
 
 const InboxLine = ({
   candidate,
+  claim,
   kind,
   leaving,
   filing,
@@ -215,6 +217,7 @@ const InboxLine = ({
   const related = speaksWith(match, kin);
   const fileable = FILE_KINDS.has(kind);
   const whisper = match || null;
+  const ink = holdInk(claim, candidate.matched);
 
   return (
     <li
@@ -254,6 +257,7 @@ const InboxLine = ({
             <CitationMark source={match} onKin={onKin} />
           </sup>
         ) : null}
+        {ink ? <span className="judgment-inbox__hold">{ink}</span> : null}
       </p>
       <KindWords
         kind={kind}
@@ -267,6 +271,7 @@ const InboxLine = ({
 
 const MorningInbox = ({
   candidates = [],
+  claim,
   kind,
   view,
   kin,
@@ -310,13 +315,14 @@ const MorningInbox = ({
     <div
       className={`judgment-slip judgment-inbox${listening ? ' is-listening' : ''}`}
       role="region"
-      aria-label="From your library"
+      aria-label="On this sentence"
     >
       <ol className="judgment-inbox__list">
         {visible.map(candidate => (
           <InboxLine
             key={candidate.id}
             candidate={candidate}
+            claim={claim}
             kind={kind}
             leaving={leavingId === candidate.id}
             filing={Boolean(filingId)}
@@ -345,6 +351,7 @@ const UpdateComposer = ({
   inbox = [],
   onFile,
   view,
+  claim,
   kin,
   onKin,
   hintKind,
@@ -459,6 +466,7 @@ const UpdateComposer = ({
       </div>
       <MorningInbox
         candidates={inbox}
+        claim={claim}
         kind={kind}
         view={view}
         kin={kin}
