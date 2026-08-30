@@ -1,4 +1,5 @@
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import { sentenceBoundaryTrim } from '../../utils/editorialText';
 
 const EMPTY_DOC = { type: 'doc', content: [] };
 
@@ -86,12 +87,7 @@ export const cleanWikiPreviewText = (value = '', title = '') => {
 };
 
 export const clampWikiPreview = (value = '', budget = 160) => {
-  if (value.length <= budget) return value;
-  const slice = value.slice(0, budget);
-  const lastStop = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('? '), slice.lastIndexOf('! '));
-  if (lastStop > budget * 0.5) return slice.slice(0, lastStop + 1).trim();
-  const lastSpace = slice.lastIndexOf(' ');
-  return `${slice.slice(0, lastSpace > 0 ? lastSpace : budget).trim()}...`;
+  return sentenceBoundaryTrim(value, { maxLength: budget, fallback: '' });
 };
 
 export const wikiPreviewForPage = (page = {}, budget = 160) => {

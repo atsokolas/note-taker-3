@@ -30,6 +30,7 @@ const {
   fetchUrlForIngest,
   normalizeIngestText
 } = require('../services/import/urlTextIngest');
+const { deriveImportedTitle, isFragmentTitle } = require('../services/importTitleService');
 const {
   ensureNotebookImportFolderPath
 } = require('../services/notebookImportTreeService');
@@ -158,7 +159,6 @@ const buildImportRouter = ({
     sourceLabel = 'Pasted source',
     externalId = ''
   } = {}) => {
-    const safeTitle = toTrimmedString(title) || 'Untitled source';
     const safeContent = normalizeIngestText(content);
     if (!safeContent) {
       const error = new Error('Source text is required.');
@@ -166,6 +166,12 @@ const buildImportRouter = ({
       throw error;
     }
     const safeUrl = toTrimmedString(url) || `import://${provider}/${crypto.randomUUID()}`;
+    const safeTitle = deriveImportedTitle({
+      metadataTitle: title,
+      content: safeContent,
+      sourceType,
+      url: safeUrl
+    });
     let article = await Article.findOne({ userId, url: safeUrl });
     const isNew = !article;
     if (!article) {
@@ -1328,11 +1334,11 @@ const buildImportRouter = ({
           continue;
         }
 
-        const title = toTrimmedString(findRowValue(row, ['Title', 'Book Title', 'Article Title'])) || 'Untitled';
+        const metadataTitle = toTrimmedString(findRowValue(row, ['Title', 'Book Title', 'Article Title']));
         const author = toTrimmedString(findRowValue(row, ['Author']));
         let url = toTrimmedString(findRowValue(row, ['URL', 'Source URL', 'Link']));
         if (!url) {
-          const base = `${slugify(title)}-${slugify(author || 'source')}`;
+          const base = `${slugify(metadataTitle)}-${slugify(author || 'source')}`;
           url = `import://readwise/${base || 'untitled'}`;
         }
 
@@ -1343,6 +1349,14 @@ const buildImportRouter = ({
         const dateValue = findRowValue(row, ['Highlighted at', 'Created at', 'Added', 'Date']);
         const parsedDate = dateValue ? new Date(dateValue) : null;
         const createdAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
+        const title = deriveImportedTitle({
+          metadataTitle,
+          content: highlightText,
+          author,
+          sourceType: /(?:x\.com|twitter\.com)/i.test(url) ? 'social_thread' : 'csv',
+          url,
+          publishedAt: createdAt
+        });
 
         let article = articleCache.get(url);
         if (!article) {
@@ -1363,6 +1377,9 @@ const buildImportRouter = ({
               }
             });
             importedArticles += 1;
+          } else if (isFragmentTitle(article.title)) {
+            article.title = title;
+            dirtyArticles.add(article);
           }
           articleCache.set(url, article);
         }
@@ -1967,15 +1984,26 @@ const buildImportRouter = ({
       const pendingHighlightRefs = [];
 
       for (const row of rows) {
-        const title = toTrimmedString(row.title) || 'Untitled';
+        const metadataTitle = toTrimmedString(row.title);
         const author = toTrimmedString(row.author);
         const sourceUrl = toTrimmedString(row.source_url || row.url || row.readwise_url);
         const externalId = toTrimmedString(row.user_book_id || row.id);
         const sourceLabel = connection.accountLabel || 'Readwise';
-        const url = sourceUrl || `import://readwise/${externalId || slugify(title) || crypto.randomUUID()}`;
+        const url = sourceUrl || `import://readwise/${externalId || slugify(metadataTitle) || crypto.randomUUID()}`;
         const documentTags = Array.isArray(row.book_tags)
           ? row.book_tags.map(tag => toTrimmedString(tag?.name || tag)).filter(Boolean)
           : [];
+        const firstHighlightText = (Array.isArray(row.highlights) ? row.highlights : [])
+          .map(highlight => toTrimmedString(highlight?.text))
+          .find(Boolean) || '';
+        const title = deriveImportedTitle({
+          metadataTitle,
+          content: toTrimmedString(row.summary || row.document_note || firstHighlightText),
+          author,
+          sourceType: /(?:x\.com|twitter\.com)/i.test(sourceUrl) ? 'social_thread' : 'api',
+          url: sourceUrl,
+          publishedAt: row.published_date || row.updated_at || null
+        });
 
         let article = articleCache.get(url);
         if (!article) {
@@ -1998,6 +2026,9 @@ const buildImportRouter = ({
               }
             });
             importedArticles += 1;
+          } else if (isFragmentTitle(article.title)) {
+            article.title = title;
+            dirtyArticles.add(article);
           }
           articleCache.set(url, article);
         }

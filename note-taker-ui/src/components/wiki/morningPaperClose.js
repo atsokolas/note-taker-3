@@ -1,3 +1,5 @@
+import { sentenceBoundaryTrim } from '../../utils/editorialText';
+
 /* AT-414 — Morning Paper is a close or silence.
    /wiki may name something that actually finished. It never invents
    "work is ready" from a review count, a due claim, or an empty Recently updated. */
@@ -8,18 +10,16 @@ export const completeLeadSentence = (value = '', maxLength = 280) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
   if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
-  const limit = Math.max(80, Number(maxLength) || 280);
   const matches = Array.from(text.matchAll(/[.!?](?=\s|$)/g));
   const boundary = matches
     .map(match => match.index + 1)
-    .filter(index => index <= limit)
+    .filter(index => index <= maxLength)
     .pop();
-  if (boundary) return text.slice(0, boundary).trim();
-  const clipped = text.slice(0, limit).replace(/[,:;–—-]+$/g, '').trim();
-  const wordBoundary = clipped.lastIndexOf(' ');
-  const clean = wordBoundary > 80 ? clipped.slice(0, wordBoundary).trim() : clipped;
-  if (!clean) return '';
-  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
+  if (boundary) {
+    return sentenceBoundaryTrim(text.slice(0, boundary), { maxLength, fallback: '' });
+  }
+  if (text.length <= maxLength) return `${text}.`;
+  return sentenceBoundaryTrim(text, { maxLength, fallback: '' });
 };
 
 export const isEditorialBriefing = (value = '') => {

@@ -20,5 +20,6 @@ describe('githubRepoInput', () => {
   it('builds repo wiki titles from the repo slug with original casing', () => {
     expect(buildRepoWikiTitle('note-taker-3')).toBe('note-taker-3 — repo wiki');
     expect(buildRepoWikiTitle('Note-Taker-3')).toBe('Note-Taker-3 — repo wiki');
+    expect(buildRepoWikiTitle('atsokolas/note-taker-3')).toBe('note-taker-3 — repo wiki');
   });
 });

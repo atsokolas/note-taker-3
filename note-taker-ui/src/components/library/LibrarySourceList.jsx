@@ -91,7 +91,8 @@ const LibrarySourceRow = React.memo(({
   onMoveArticle,
   articleById = null,
   selected = false,
-  variant = 'default'
+  variant = 'default',
+  sourceView = 'recent'
 }) => {
   const isRoom = variant === 'room';
   const [activated, setActivated] = useState(false);
@@ -136,6 +137,9 @@ const LibrarySourceRow = React.memo(({
     }
     return 'Not used yet';
   })();
+  const reviewReason = sourceView === 'needs_review'
+    ? String(row?.relevance?.movements?.[0]?.title || 'Material change awaiting your judgment')
+    : '';
 
   const triggerReceipt = () => {
     setActivated(true);
@@ -185,6 +189,11 @@ const LibrarySourceRow = React.memo(({
           {!isRoom ? (
             <div className="library-article-row-meta">
               <span>{connectionSummary}</span>
+            </div>
+          ) : null}
+          {isRoom && reviewReason ? (
+            <div className="library-article-row-meta">
+              <span>{reviewReason}</span>
             </div>
           ) : null}
         </button>
@@ -517,6 +526,7 @@ const LibrarySourceList = ({
           articleById={articleById}
           selected={selected}
           variant={variant}
+          sourceView={sourceView}
         />
       </div>
     );
@@ -619,7 +629,7 @@ const LibrarySourceList = ({
             disabled={loadingMore}
             aria-busy={loadingMore}
           >
-            {loadingMore ? 'Loading more…' : 'Load more sources'}
+            {loadingMore ? 'Loading more…' : sourceView === 'needs_review' ? 'Open full review backlog' : 'Load more sources'}
           </button>
         </div>
       ) : null}

@@ -31,7 +31,7 @@ describe('wikiPresentationGuard', () => {
     expect(buildRepoWikiTitle('note-taker-3')).toBe('note-taker-3 — repo wiki');
     expect(normalizeWikiTitleForPresentation('note-taker-3 — repo wiki')).toBe('note-taker-3 — repo wiki');
     expect(normalizeWikiTitleForPresentation('atsokolas/note-taker-3 repo wiki'))
-      .toBe('atsokolas/note-taker-3 repo wiki');
+      .toBe('note-taker-3 — repo wiki');
     expect(normalizeExistingWikiTitleForPresentation('note-taker-3 — repo wiki'))
       .toBe('note-taker-3 — repo wiki');
     expect(isRepoWikiTitle('note-taker-3 — repo wiki')).toBe(true);
@@ -44,9 +44,15 @@ describe('wikiPresentationGuard', () => {
     expect(sentenceBoundaryTrim(value, { maxLength: 96 })).toBe('The morning paper has a finished lead.');
   });
 
-  it('repairs a sentence when no boundary exists under the limit', () => {
+  it('does not amputate mid-word when no sentence fits the budget', () => {
     const value = 'This lead has no punctuation and would otherwise stop in the middle of a visible phrase';
 
-    expect(sentenceBoundaryTrim(value, { maxLength: 58 })).toMatch(/\.$/);
+    expect(sentenceBoundaryTrim(value, { maxLength: 58, fallback: '' })).toBe('');
+    expect(sentenceBoundaryTrim(value, { maxLength: 58, fallback: '' })).not.toMatch(/…/);
+  });
+
+  it('renders in full when the text already fits', () => {
+    expect(sentenceBoundaryTrim('Hold this belief in full.', { maxLength: 80 }))
+      .toBe('Hold this belief in full.');
   });
 });

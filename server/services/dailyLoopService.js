@@ -5,12 +5,13 @@ const {
   persistWikiBriefingCache,
   DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
 } = require('./wikiBriefingService');
+const { evaluateCheckInEligibility } = require('./checkInEligibility');
+const { buildReviewTriage } = require('./reviewTriageService');
 
 // Paid transcript providers are intentionally excluded from the product while
 // Noeis operates on free authoritative sources only. Historical rows can remain
 // in storage without leaking a permanently misconfigured watcher into Watching.
 const WATCHER_PROVIDERS = ['sec-edgar', 'github-repo', 'reading-feed'];
-const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const MORNING_PAPER_OPEN_REUSE_MS = 2 * 60 * 1000;
 
 const clean = (value = '', limit = 1000) => {
@@ -151,16 +152,15 @@ const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now
     const page = asPlain(pageValue);
     (Array.isArray(page.claims) ? page.claims : []).forEach(claimValue => {
       const claim = asPlain(claimValue);
-      if (!activeClaim(claim) || sourceCount(claim) < 2) return;
-      const lastChecked = new Date(claim.lastCheckedAt || 0).getTime();
-      if (lastChecked && now - lastChecked < FOURTEEN_DAYS_MS) return;
+      const eligibility = evaluateCheckInEligibility({ page, claim, now });
+      if (!eligibility.eligible) return;
       const key = `${id(page)}:${claim.claimId}`;
       const watcherRank = impacted.has(key) ? impacted.get(key) : Number.MAX_SAFE_INTEGER;
       candidates.push({
         pageId: id(page),
         pageTitle: clean(page.title || 'Untitled wiki page', 180),
         claimId: String(claim.claimId),
-        text: clean(claim.text, 500),
+        text: eligibility.text,
         support: String(claim.support || 'unsupported'),
         sourceCount: sourceCount(claim),
         lastCheckedAt: claim.lastCheckedAt || null,
@@ -234,7 +234,7 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
   const [baseBriefing, watcherLeads, pages, visits] = await Promise.all([
     buildWikiBriefing({ userId, models, now: now.getTime(), windowMs }),
     buildWatcherLeads({ userId, models, since: priorOpenedAt }),
-    models.WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title slug claims externalWatches createdAt').lean(),
+    models.WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title slug pageType claims externalWatches createdAt updatedAt createdFrom aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier').lean(),
     models.WikiPageVisit?.find
       ? models.WikiPageVisit.find({ userId }).select('pageId lastVisitedAt').lean()
       : Promise.resolve([])
@@ -247,6 +247,7 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
     watcherLeads,
     lead: watcherLeads[0] || null,
     claimCheckIn: selectDailyClaimCheckIn({ pages: selectionPages, watcherLeads, now: now.getTime() }),
+    reviewTriage: buildReviewTriage({ pages: selectionPages, now: now.getTime() }),
     watching: listWatching(pages),
     checkInStreak: Number(user.morningPaper?.checkInStreak || 0)
   };

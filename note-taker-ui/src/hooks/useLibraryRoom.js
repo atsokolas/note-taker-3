@@ -25,7 +25,7 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
     setState(emptyRoom());
-    getLibraryRoom({ view, limit: 40, showSuppressed })
+    getLibraryRoom({ view, limit: view === 'needs_review' ? 3 : 40, showSuppressed })
       .then(payload => {
         if (requestRef.current !== requestId) return;
         setState({
@@ -60,7 +60,7 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
     try {
-      const payload = await getLibraryRoom({ view, limit: 40, showSuppressed, force: true });
+      const payload = await getLibraryRoom({ view, limit: view === 'needs_review' ? 3 : 40, showSuppressed, force: true });
       if (requestRef.current !== requestId) return;
       setState({
         loading: false,

@@ -383,22 +383,90 @@ const collectRecentlyUpdatedPages = (pages = [], { windowMs = ONE_DAY_MS, now = 
     }));
 };
 
-const collectDriftingPages = (pages = []) => {
+const pendingEventCount = (page = {}) => {
+  const ids = page?.freshness?.pendingSourceEventIds;
+  return Array.isArray(ids) ? ids.filter(Boolean).length : 0;
+};
+
+const collectDriftingPages = (pages = [], { now = Date.now() } = {}) => {
+  // Standing aiState.health is a snapshot, not a rebuild queue. The live
+  // queue is freshness.pendingSourceEventIds — treating health as news is
+  // how "Survivorship Bias with 5" was re-served for 18 days.
   return pages
     .map(page => {
-      const health = page?.aiState?.health || {};
-      const driftSignals = ['newItems', 'unsupportedClaims', 'staleSections', 'contradictions']
-        .reduce((total, key) => total + (Array.isArray(health[key]) ? health[key].length : 0), 0);
-      return { page, driftSignals };
+      const driftSignals = pendingEventCount(page);
+      const lastSourceEventAt = page?.freshness?.lastSourceEventAt || null;
+      const waitingMs = lastSourceEventAt
+        ? Math.max(0, now - new Date(lastSourceEventAt).getTime())
+        : 0;
+      return { page, driftSignals, lastSourceEventAt, waitingDays: Math.floor(waitingMs / ONE_DAY_MS) };
     })
     .filter(entry => entry.driftSignals > 0)
-    .sort((a, b) => b.driftSignals - a.driftSignals)
+    .sort((a, b) => b.driftSignals - a.driftSignals || b.waitingDays - a.waitingDays)
     .slice(0, 8)
     .map(entry => ({
       _id: String(entry.page._id || ''),
       title: truncate(normalizeExistingWikiTitleForPresentation(entry.page.title), 140) || 'Untitled wiki page',
-      driftSignals: entry.driftSignals
+      driftSignals: entry.driftSignals,
+      lastSourceEventAt: entry.lastSourceEventAt,
+      waitingDays: entry.waitingDays,
+      href: `/wiki/workspace?page=${encodeURIComponent(String(entry.page._id || ''))}`
     }));
+};
+
+const alivenessFingerprint = (driftingPages = []) => (
+  driftingPages
+    .map(page => `${page._id}:${page.driftSignals}`)
+    .sort()
+    .join('|')
+);
+
+const buildAliveness = ({
+  driftingPages = [],
+  priorAliveness = null,
+  now = Date.now()
+} = {}) => {
+  const fingerprint = alivenessFingerprint(driftingPages);
+  if (!fingerprint) {
+    return {
+      register: 'quiet',
+      fingerprint: '',
+      firstSeenAt: null,
+      waitingDays: 0,
+      notable: null,
+      copy: ''
+    };
+  }
+  const notable = driftingPages[0];
+  const sameAsLastVisit = Boolean(priorAliveness?.fingerprint && priorAliveness.fingerprint === fingerprint);
+  const firstSeenAt = sameAsLastVisit && priorAliveness.firstSeenAt
+    ? priorAliveness.firstSeenAt
+    : new Date(now).toISOString();
+  const waitingDays = Math.max(
+    Number(notable?.waitingDays || 0),
+    Math.floor((now - new Date(firstSeenAt).getTime()) / ONE_DAY_MS)
+  );
+  const register = sameAsLastVisit || waitingDays >= 2 ? 'aged' : 'new';
+  const days = Math.max(1, waitingDays);
+  const copy = register === 'aged'
+    ? (waitingDays < 1
+      ? `${notable.title} is still waiting on a rebuild — clear it?`
+      : `${notable.title} has been waiting on a rebuild for ${days} day${days === 1 ? '' : 's'} — clear it?`)
+    : '';
+  return {
+    register,
+    fingerprint,
+    firstSeenAt,
+    waitingDays,
+    notable,
+    copy
+  };
+};
+
+const loadPriorBriefingAliveness = async ({ userId, WikiBriefingCache } = {}) => {
+  if (!userId || !WikiBriefingCache) return null;
+  const doc = await safeFindOne(WikiBriefingCache, { userId });
+  return doc?.payload?.aliveness || null;
 };
 
 const normalizeReceiptStatus = (status = '') => {
@@ -554,7 +622,8 @@ const buildFallbackSummary = ({
   driftingPages,
   recentReceipts = [],
   pagesWithNewSourceMaterial = [],
-  answerableQuestions = []
+  answerableQuestions = [],
+  aliveness = null
 }) => {
   const parts = [];
   const receiptPart = buildReceiptSummaryPart(recentReceipts);
@@ -569,10 +638,11 @@ const buildFallbackSummary = ({
   if (recentlyUpdatedPages.length > 0) {
     parts.push(`${recentlyUpdatedPages.length} wiki page${recentlyUpdatedPages.length === 1 ? '' : 's'} updated`);
   }
-  if (driftingPages.length > 0) {
-    parts.push(`${driftingPages.length} page${driftingPages.length === 1 ? '' : 's'} drifting and ready for review`);
+  if (driftingPages.length > 0 && aliveness?.register === 'new') {
+    parts.push(`${driftingPages.length} page${driftingPages.length === 1 ? '' : 's'} queued for rebuild`);
   }
   if (parts.length === 0) {
+    if (aliveness?.register === 'aged' && aliveness.copy) return aliveness.copy;
     return 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.';
   }
   return `${parts.join(' · ')}.`;
@@ -586,8 +656,10 @@ const buildPromptContext = ({
   pagesWithNewSourceMaterial,
   answerableQuestions,
   nextAction,
+  aliveness = null,
   now
 }) => {
+  const newsDrift = aliveness?.register === 'new' ? driftingPages : [];
   return `You are writing a 1-2 sentence editorial summary of what's new in a personal knowledge base over the last 24 hours.
 
 Signal counts:
@@ -607,14 +679,15 @@ ${recentlyUpdatedPages.slice(0, 5).map(page => `  · "${page.title}"`).join('\n'
 ${pagesWithNewSourceMaterial.slice(0, 4).map(page => `  · "${page.title}" gained ${page.addedSourceCount} source${page.addedSourceCount === 1 ? '' : 's'}`).join('\n')}
 - Open questions with newly attached evidence: ${answerableQuestions.length}
 ${answerableQuestions.slice(0, 3).map(question => `  · "${question.text}" via "${question.evidencePageTitle}"`).join('\n')}
-- Wiki pages drifting (signals queued, body not yet rebuilt): ${driftingPages.length}
-${driftingPages.slice(0, 5).map(page => `  · "${page.title}" (${page.driftSignals} signal${page.driftSignals === 1 ? '' : 's'})`).join('\n')}
+- Wiki pages newly queued for rebuild: ${newsDrift.length}
+${newsDrift.slice(0, 5).map(page => `  · "${page.title}" (${page.driftSignals} pending event${page.driftSignals === 1 ? '' : 's'})`).join('\n')}
 - Suggested next action: ${nextAction ? `${nextAction.label} — ${nextAction.reason}` : 'none'}
 
 Constraints:
 - 1 to 2 sentences, max 280 characters total.
 - Plain prose, no markdown, no headings, no trailing "[1, 2]" citations.
 - Tone: a librarian briefing the owner; specific, calm, not breathless.
+- Do not re-report unchanged queued rebuilds as news. Aged waiting state is handled separately.
 - If all counts are zero, return exactly: "Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours."
 - Output the summary text only, no surrounding JSON or quotes.`;
 };
@@ -713,16 +786,18 @@ const buildWikiBriefing = async ({
     models.WikiPage,
     { userId, status: { $ne: 'archived' } },
     600,
-    '_id title status hiddenFromHome debugOnly archived plainText sourceRefs._id aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.lastDraftedAt aiState.health createdAt updatedAt'
+    '_id title status hiddenFromHome debugOnly archived plainText sourceRefs._id aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.lastDraftedAt aiState.health freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.status createdAt updatedAt'
   );
   const pages = rawPages.filter(isWikiPageSurfaceEligible);
-  const [newSources, recentlyUpdatedPages, driftingPages, recentReceipts, recentMaintenanceChanges] = await Promise.all([
+  const [newSources, recentlyUpdatedPages, driftingPages, recentReceipts, recentMaintenanceChanges, priorAliveness] = await Promise.all([
     countNewSources({ userId, models, windowMs, now }),
     Promise.resolve(collectRecentlyUpdatedPages(pages, { windowMs, now })),
-    Promise.resolve(collectDriftingPages(pages)),
+    Promise.resolve(collectDriftingPages(pages, { now })),
     collectRecentImportReceipts({ userId, models, windowMs, now }),
-    collectRecentMaintenanceChanges({ userId, models, windowMs, now })
+    collectRecentMaintenanceChanges({ userId, models, windowMs, now }),
+    loadPriorBriefingAliveness({ userId, WikiBriefingCache: models.WikiBriefingCache })
   ]);
+  const aliveness = buildAliveness({ driftingPages, priorAliveness, now });
   const pagesWithNewSourceMaterial = collectPagesWithNewSourceMaterial(recentMaintenanceChanges);
   const answerableQuestions = await collectAnswerableQuestions({
     userId,
@@ -746,23 +821,25 @@ const buildWikiBriefing = async ({
       driftingPages,
       recentReceipts,
       pagesWithNewSourceMaterial,
-      answerableQuestions
+      answerableQuestions,
+      aliveness
     }),
     { maxLength: 280 }
   );
   let summary = fallbackSummary;
   let model = 'stub';
+  const hasFreshNews = Boolean(
+    newSources
+    || recentlyUpdatedPages.length
+    || recentReceipts.length
+    || pagesWithNewSourceMaterial.length
+    || answerableQuestions.length
+    || (aliveness.register === 'new' && driftingPages.length)
+  );
 
   if (
     canUseTextGeneration(isConfigured)
-    && (
-      newSources
-      || recentlyUpdatedPages.length
-      || driftingPages.length
-      || recentReceipts.length
-      || pagesWithNewSourceMaterial.length
-      || answerableQuestions.length
-    )
+    && hasFreshNews
   ) {
     try {
       const completion = await chat({
@@ -782,6 +859,7 @@ const buildWikiBriefing = async ({
               pagesWithNewSourceMaterial,
               answerableQuestions,
               nextAction,
+              aliveness,
               now
             })
           }
@@ -806,6 +884,7 @@ const buildWikiBriefing = async ({
     generatedAt: new Date(now).toISOString(),
     summary,
     model,
+    aliveness,
     counts: {
       newSources,
       recentlyUpdatedPages: recentlyUpdatedPages.length,
@@ -842,6 +921,7 @@ module.exports = {
     sanitizeBriefingReceipt,
     collectRecentlyUpdatedPages,
     collectDriftingPages,
+    buildAliveness,
     buildFallbackSummary,
     buildPromptContext,
     canUseTextGeneration,

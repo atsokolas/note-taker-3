@@ -3465,44 +3465,6 @@ html[data-ui-theme='dark'] {
   justify-content: flex-start;
 }
 
-/* Same-title fold: one row survives, the rest wait behind a count. */
-.wiki-index__same-title {
-  display: grid;
-  gap: 8px;
-  margin: -6px 0 10px;
-  padding-left: 94px;
-}
-.wiki-index__same-title-toggle {
-  justify-self: start;
-  padding: 0 0 2px;
-  border: 0;
-  border-bottom: 1px solid var(--noeis-rule);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-.wiki-index__same-title-toggle:hover {
-  color: var(--text-primary);
-}
-.wiki-index__same-title-note {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.45;
-}
-.wiki-index__same-title-rows {
-  display: grid;
-  padding-left: 14px;
-  border-left: 1px solid var(--noeis-rule);
-}
-@media (max-width: 900px) {
-  .wiki-index__same-title {
-    padding-left: 0;
-  }
-}
-
 .wiki-index__page-open,
 .wiki-index__page-actions--quality-review .wiki-index__page-delete {
   min-height: 40px;

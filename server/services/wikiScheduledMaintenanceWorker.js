@@ -23,7 +23,8 @@ const duePageQuery = ({ cutoff = new Date(Date.now() - DEFAULT_MAX_AGE_MS) } = {
         { 'aiState.draftStatus': null },
         { 'aiState.draftStatus': { $in: ['idle', 'error'] } }
       ]
-    }
+    },
+    { 'freshness.pendingSourceEventIds.0': { $exists: true } }
   ]
 });
 

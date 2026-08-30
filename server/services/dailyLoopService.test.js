@@ -30,9 +30,20 @@ assert.strictEqual(activeClaim(revision.after.claims[1]), false);
 
 const pages = [{
   _id: 'p1', title: 'Page one', slug: 'page-one', lastVisitedAt: '2026-07-18',
+  pageType: 'concept',
+  judgment: { kind: 'thesis', currentJudgment: 'Eligible claim still holds.' },
   claims: [
     { claimId: 'thin', text: 'Thin', sourceRefIds: ['s1'], checkInStatus: 'unreviewed' },
-    { claimId: 'eligible', text: 'Eligible claim', support: 'partial', sourceRefIds: ['s1', 's2'], checkInStatus: 'unreviewed', createdAt: '2026-01-01' },
+    {
+      claimId: 'eligible',
+      text: 'Eligible claim still holds under review.',
+      support: 'partial',
+      sourceRefIds: ['s1', 's2'],
+      checkInStatus: 'reaffirmed',
+      createdAt: '2026-01-01',
+      lastCheckedAt: '2026-06-01T12:00:00Z',
+      history: [{ actorType: 'user', action: 'reaffirmed' }]
+    },
     { claimId: 'retired', text: 'Retired claim', sourceRefIds: ['s1', 's2'], checkInStatus: 'retired', retiredAt: '2026-07-01' }
   ],
   externalWatches: {
@@ -116,6 +127,7 @@ class FakeRevision {
 
   const cachedBriefing = {
     generatedAt: '2026-07-19T12:00:00.000Z',
+    summary: 'One source changed since the last morning paper.',
     window: {
       since: '2026-07-19T08:00:00.000Z',
       through: '2026-07-19T12:00:00.000Z',

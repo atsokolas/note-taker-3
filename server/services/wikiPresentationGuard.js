@@ -46,7 +46,7 @@ const titleHasCodeIdentifiers = (value = '') => (
 );
 
 const buildRepoWikiTitle = (repoSlug = '') => {
-  const slug = normalizeSpaces(repoSlug);
+  const slug = normalizeSpaces(repoSlug).split('/').filter(Boolean).pop() || '';
   return slug ? `${slug} — repo wiki` : 'repo wiki';
 };
 
@@ -89,7 +89,15 @@ const normalizeWikiTitleForPresentation = (value = '', {
     title = title.replace(/^(?:the|a|an)\s+/, '').trim() || title;
   }
 
-  if (isRepoWikiTitle(title) || titleHasCodeIdentifiers(title)) {
+  if (isRepoWikiTitle(title)) {
+    const repo = title
+      .replace(/\s+(?:—|–|-)\s*repo wiki\s*$/i, '')
+      .replace(/\s+repo wiki\s*$/i, '')
+      .split('/').filter(Boolean).pop();
+    return buildRepoWikiTitle(repo);
+  }
+
+  if (titleHasCodeIdentifiers(title)) {
     return title || 'Untitled Wiki Page';
   }
 
@@ -172,7 +180,7 @@ const sentenceBoundaryTrim = (value = '', {
     .trim();
 
   if (!text) return fallback;
-  if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
+  if (text.length <= maxLength) return text;
 
   const boundaryPattern = /[.!?](?=\s|$)/g;
   let match;
@@ -181,15 +189,8 @@ const sentenceBoundaryTrim = (value = '', {
     if (match.index + 1 <= maxLength) boundary = match.index + 1;
   }
   if (boundary > 0) return text.slice(0, boundary).trim();
-
-  const clipped = text.slice(0, maxLength).trim();
-  const wordBoundary = clipped.lastIndexOf(' ');
-  const clean = (wordBoundary > 80 ? clipped.slice(0, wordBoundary) : clipped)
-    .replace(/[,:;–—-]+$/g, '')
-    .trim();
-
-  if (!clean) return fallback;
-  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
+  // Never amputate mid-word or mid-clause. The selector must pick shorter text.
+  return fallback;
 };
 
 /**

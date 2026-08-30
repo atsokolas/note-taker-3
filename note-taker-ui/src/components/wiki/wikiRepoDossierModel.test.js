@@ -3,6 +3,7 @@ import {
   buildRepoDossierSectionNav,
   buildRepoSectionChangeBadges,
   displayWikiPageTitle,
+  extractRepoDossierOverviewSummary,
   formatGitHubRepoWatchReceipt,
   githubWatchState,
   isRepoDossierPage,
@@ -50,7 +51,7 @@ describe('wikiRepoDossierModel', () => {
 
   it('derives display titles from repo identity without title-casing', () => {
     const page = {
-      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      title: 'note-taker-3 — repo wiki',
       externalWatches: {
         githubRepo: {
           owner: 'atsokolas',
@@ -65,6 +66,16 @@ describe('wikiRepoDossierModel', () => {
 
   it('preserves package path casing in non-repo page titles', () => {
     expect(displayWikiPageTitle({ title: 'Margin of Safety' })).toBe('Margin of Safety');
+  });
+
+  it('keeps dossier summaries whole or silent', () => {
+    const doc = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A complete overview sentence. A second sentence that runs beyond the small test budget.' }] }]
+    };
+    const summary = extractRepoDossierOverviewSummary(doc, {});
+    expect(summary).toBe('A complete overview sentence. A second sentence that runs beyond the small test budget.');
+    expect(summary).not.toMatch(/…|\.\.\.$/);
   });
 
   it('maps repo dossier headings to stable canonical section ids', () => {

@@ -56,6 +56,10 @@ describe('wikiPageMetrics', () => {
     expect(wikiSourceStatusForPage(page)).toBe('Draft scaffold · needs sources');
     expect(wikiPreviewForPage(page, 90).length).toBeLessThanOrEqual(93);
     expect(wikiPreviewForPage(page, 90).startsWith('Sparse Topic')).toBe(false);
+    expect(wikiPreviewForPage({ plainText: 'A complete preview sentence. A second sentence that cannot fit safely.' }, 35))
+      .toBe('A complete preview sentence.');
+    expect(wikiPreviewForPage({ plainText: 'One long unfinished preview with no safe boundary at all' }, 20))
+      .toBe('');
   });
 
   it('builds browse-row meta with reviewed date when sources exist', () => {

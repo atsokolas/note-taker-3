@@ -1,4 +1,5 @@
 import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
+import { sentenceBoundaryTrim } from '../../utils/editorialText';
 
 const normalizeText = (value = '') => String(value || '').trim();
 
@@ -125,8 +126,9 @@ export const repoNameFromPage = (page = {}) => {
  */
 export const displayWikiPageTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
   const repoName = repoNameFromPage(page);
-  if (repoName) return buildRepoWikiTitle(repoName);
-  return normalizeText(page?.title) || fallback;
+  return repoName
+    ? buildRepoWikiTitle(repoName)
+    : (normalizeText(page?.title) || fallback);
 };
 
 export const formatGitHubRepoWatchReceipt = (watch = {}) => {
@@ -307,7 +309,10 @@ const plainDocText = (node) => {
  * @param {Record<string, any>} page
  */
 export const extractRepoDossierOverviewSummary = (doc, page = {}) => {
-  const fallback = normalizeText(page.summary || page.description || page.plainText).slice(0, 420);
+  const fallback = sentenceBoundaryTrim(
+    normalizeText(page.summary || page.description || page.plainText),
+    { maxLength: 420, fallback: '' }
+  );
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) {
     return fallback;
   }
@@ -318,7 +323,7 @@ export const extractRepoDossierOverviewSummary = (doc, page = {}) => {
     .filter(Boolean)
     .join(' ')
     .trim();
-  if (introText) return introText.slice(0, 420);
+  if (introText) return sentenceBoundaryTrim(introText, { maxLength: 420, fallback: '' });
   const overviewBlockIndex = doc.content.findIndex((node) => (
     node?.type === 'heading' && repoSectionIdForHeading(plainDocText(node.content)) === 'overview'
   ));
@@ -330,7 +335,7 @@ export const extractRepoDossierOverviewSummary = (doc, page = {}) => {
     .filter(Boolean)
     .join(' ')
     .trim();
-  return (overviewText || fallback).slice(0, 420);
+  return sentenceBoundaryTrim(overviewText || fallback, { maxLength: 420, fallback: '' });
 };
 
 const deltaClaims = (comparison = null) => {
