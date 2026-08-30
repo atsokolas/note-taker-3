@@ -52,11 +52,13 @@ local implementation proof, not merge, deployment, or production proof.
   review renders. The interface never invents a comparison or default action.
 
 The four actions, exact before/after correction, accepted sentence, settled
-receipt, Skeptical Partner rebinding, and zero-overflow mobile state are rendered
-locally. Service and routed tests cover receipt persistence behavior. A real
-browser write could not be completed because the configured Atlas free-tier
-cluster is at its 512 MB storage quota and rejects writes; no data was deleted
-and no upgrade was attempted.
+receipt, Skeptical Partner rebinding, and zero-overflow mobile state now pass a
+real routed browser, API, and disposable-Mongo round trip. The run filed an exact
+owned Library highlight under Against, proposed and accepted a replacement held
+sentence, reloaded, returned through the citation to the exact Library article,
+and recovered the same sentence, receipt, decision, and provenance. The browser
+used no API interception and made no language-model request. Evidence is under
+`output/playwright/noeis-bet1-persisted-2026-08-30/`.
 
 The accepted-write gesture now carries the Ariadne thread: after Accept returns
 successfully, a one-shot warm-gold line travels from the reviewed replacement
@@ -74,5 +76,7 @@ covers 1440px, 1320px, and 430px with controlled API responses.
   semantic quality of both evidence directions, accept one change, reload, and
   recover the same result. The two directional doors are implemented locally;
   semantic quality remains unclaimed without a model evaluation or human read.
-- The persisted browser round trip must be rerun after storage is restored or a
-  disposable Mongo is supplied.
+- The persisted browser round trip is complete. The remaining semantic gauntlet
+  is intentionally separate: claiming that a passage is the strongest available
+  result across arbitrary sentences requires a later human or live-model quality
+  evaluation. It was not smuggled into this deterministic acceptance.
