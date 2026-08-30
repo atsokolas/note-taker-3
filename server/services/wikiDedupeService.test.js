@@ -30,7 +30,20 @@ describe('wikiDedupeService', () => {
     ])).toEqual([{
       key: 'ai compute changes quickly',
       canonicalClaimId: 'kept',
-      mergedClaimIds: ['merged-1']
+      mergedClaimIds: ['merged-1'],
+      duplicateEntryCount: 1
+    }]);
+  });
+
+  test('reports repeated entries even when they share one stable claim id', () => {
+    expect(buildDuplicateClaimPlan([
+      { claimId: 'kept', text: 'And.' },
+      { claimId: 'kept', text: 'and' }
+    ])).toEqual([{
+      key: 'and',
+      canonicalClaimId: 'kept',
+      mergedClaimIds: [],
+      duplicateEntryCount: 1
     }]);
   });
 
@@ -61,5 +74,36 @@ describe('wikiDedupeService', () => {
     expect(merged.sourceRefs.map(source => String(source._id))).toEqual(['source-a', 'source-b']);
     expect(merged.judgment.why).toHaveLength(2);
     expect(merged.aiState.build.dedupeMigration.mergedPageIds).toEqual(['copy']);
+  });
+
+  test('keeps the existing case canonical during a write-time merge', () => {
+    const existing = {
+      _id: 'existing',
+      title: 'Existing case',
+      claims: [{ claimId: 'kept', text: 'Compute changes quickly.', history: [{ event: 'created' }] }],
+      judgment: { currentJudgment: 'Compute changes quickly.', why: [{ reasonId: 'existing-reason', text: 'Existing reason.' }] }
+    };
+    const duplicate = {
+      _id: 'duplicate',
+      title: 'A richer but redundant page',
+      plainText: 'A much richer page body that must not steal canonical identity.',
+      claims: [{ claimId: 'copy', text: 'COMPUTE changes quickly!', history: [{ event: 'reaffirmed' }] }],
+      judgment: { currentJudgment: 'Compute changes quickly!', why: [{ reasonId: 'new-reason', text: 'New reason.' }] }
+    };
+
+    const merged = mergePageRecords([existing, duplicate], {
+      canonicalPage: existing,
+      mergedAt: new Date('2026-08-30T00:00:00.000Z')
+    });
+
+    expect(merged._id).toBe('existing');
+    expect(merged.claims).toHaveLength(1);
+    expect(merged.claims[0].claimId).toBe('kept');
+    expect(merged.claims[0].history).toHaveLength(2);
+    expect(merged.judgment.why).toHaveLength(2);
+    expect(merged.aiState.build.dedupeMigration).toEqual({
+      mergedPageIds: ['duplicate'],
+      mergedAt: '2026-08-30T00:00:00.000Z'
+    });
   });
 });

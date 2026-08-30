@@ -2882,6 +2882,9 @@ const WikiPageReadView = ({
                   latestPageRef.current = nextPage;
                   setPage(nextPage);
                 }}
+                onCanonicalPage={(canonicalPageId) => {
+                  navigate(wikiPagePath(canonicalPageId), { replace: true });
+                }}
               />
             ) : null}
             {investmentDossierPage ? (

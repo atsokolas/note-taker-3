@@ -3,6 +3,7 @@ const {
   buildMixedLibraryRelevancePage,
   decodeCursor,
   MIXED_SOURCE_RECENT_SCAN_LIMIT,
+  MIXED_SOURCE_REVIEW_SCAN_LIMIT,
   movementScanLimitFor
 } = require('./libraryMixedSourceService');
 
@@ -162,6 +163,7 @@ const movementBuilder = async options => {
 
 const run = async () => {
   assert.strictEqual(MIXED_SOURCE_RECENT_SCAN_LIMIT, 80);
+  assert.strictEqual(MIXED_SOURCE_REVIEW_SCAN_LIMIT, 80);
   assert.strictEqual(movementScanLimitFor(3), 12);
   assert.strictEqual(movementScanLimitFor(20), 50);
   assert.strictEqual(movementScanLimitFor(100), 50);
@@ -252,6 +254,7 @@ const run = async () => {
   );
   assert.strictEqual(needsReview.sources[0].relevance.movements[0].requiresReview, true);
   assert.strictEqual(movementRequests.at(-1).includeRoutineMovements, false);
+  assert.strictEqual(movementRequests.at(-1).reviewRequiredOnly, true);
 
   const unconnected = await buildMixedLibraryRelevancePage({
     userId: USER_ID,

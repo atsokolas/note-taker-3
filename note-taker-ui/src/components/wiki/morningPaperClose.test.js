@@ -37,6 +37,85 @@ describe('wikiLivingBriefingLine', () => {
       }
     })).toBe('NVDA filed a 10-Q. Nvidia dossier.');
   });
+
+  it('names a watcher rebuild against a claim still held, and stays silent without that collision', () => {
+    const lead = {
+      eventId: 'evt-1',
+      title: 'NVDA filed a 10-Q',
+      page: { id: 'wiki-nvda', title: 'Nvidia dossier' },
+      impactSummary: '2 claims touched · 1 contradicted'
+    };
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        lead,
+        watcherLeads: [lead],
+        claimCheckIn: {
+          pageId: 'wiki-nvda',
+          claimId: 'c1',
+          text: 'Integration retains pricing power.',
+          changedSinceLastCheck: true
+        }
+      }
+    })).toBe('NVDA filed a 10-Q. It touched a claim you still hold.');
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        lead,
+        watcherLeads: [lead],
+        claimCheckIn: {
+          pageId: 'wiki-nvda',
+          text: 'Integration retains pricing power.',
+          changedSinceLastCheck: false
+        }
+      }
+    })).toBe('NVDA filed a 10-Q. Nvidia dossier.');
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        claimCheckIn: {
+          pageId: 'wiki-nvda',
+          text: 'Integration retains pricing power.',
+          changedSinceLastCheck: true
+        }
+      }
+    })).toBe('');
+  });
+
+  it('names two wiki closes and does not invent a third from a due claim on another page', () => {
+    const first = {
+      eventId: 'evt-1',
+      title: 'NVDA filed a 10-Q',
+      page: { id: 'wiki-nvda', title: 'Nvidia dossier' }
+    };
+    const second = {
+      eventId: 'evt-2',
+      title: 'Costco restated the gap',
+      page: { id: 'wiki-costco', title: 'Costco' }
+    };
+    expect(wikiLivingBriefingLine({
+      briefing: { lead: first, watcherLeads: [first, second] }
+    })).toBe('NVDA filed a 10-Q. Another close: Costco restated the gap.');
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        lead: first,
+        watcherLeads: [first, second],
+        claimCheckIn: {
+          pageId: 'wiki-other',
+          text: 'A claim elsewhere is due.',
+          changedSinceLastCheck: true
+        }
+      }
+    })).toBe('NVDA filed a 10-Q. Another close: Costco restated the gap.');
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        lead: first,
+        watcherLeads: [first, second],
+        claimCheckIn: {
+          pageId: 'wiki-nvda',
+          text: 'Integration retains pricing power.',
+          changedSinceLastCheck: true
+        }
+      }
+    })).toBe('NVDA filed a 10-Q. It touched a claim you still hold.');
+  });
 });
 
 describe('shelfCount', () => {

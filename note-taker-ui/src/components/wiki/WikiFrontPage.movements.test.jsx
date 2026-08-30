@@ -14,7 +14,6 @@ jest.mock('../../api/knowledgeMovements', () => ({
 jest.mock('../../api/wiki', () => ({ listWikiPages: jest.fn() }));
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
-  recordClaimCheckIn: jest.fn(),
   armReadingWatch: jest.fn(),
   disarmWatcher: jest.fn()
 }));
@@ -26,7 +25,6 @@ jest.mock('./WikiBuildPageComposer', () => () => null);
 jest.mock('./WikiRepoCreateComposer', () => () => null);
 jest.mock('./WikiCompanyDossierComposer', () => () => null);
 jest.mock('./WikiFrontPageGraphMotif', () => () => null);
-jest.mock('./ThisWeekInAIComposer', () => () => null, { virtual: true });
 jest.mock('./decisions/DecisionsIndex', () => () => null);
 jest.mock('../agent/AgentContextShell', () => ({ children }) => <>{children}</>);
 jest.mock('../agent/ThoughtPartnerPanel', () => () => null);

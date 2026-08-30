@@ -160,9 +160,9 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
 
-/* AT-414: Morning Paper is a close or silence — never a second hub, never a
-   due-claim inbox. The living briefing names a finished editorial sentence
-   or it is not there. Overnight already lives on judgment. */
+/* AT-414: Morning Paper is a close or silence. Collision is named on this
+   page when two editorial truths meet; a due claim alone stays silent.
+   Overnight already lives on judgment. */
 const WikiFrontPageShell = ({ children, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
@@ -739,7 +739,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           <RoomShelfList className="wiki-living-nav__primary">
             {[
               ['all', 'All wikis', canonicalPages.length],
-              ['review', 'Needs review', reviewTriage?.promotedCount ?? Math.min(3, exactReviewCount)],
+              ['review', 'Needs review', shelfCount(reviewTriage?.promotedCount ?? Math.min(3, exactReviewCount))],
               ['recent', 'Recently updated', shelfCount(briefing ? recentlyUpdated.length : undefined)]
             ].map(([value, label, count]) => (
               <li key={value}>

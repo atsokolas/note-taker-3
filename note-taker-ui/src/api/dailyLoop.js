@@ -37,11 +37,6 @@ export const armReadingWatch = async (pageId, { feedUrl, label = '' } = {}) => {
   return response.data || {};
 };
 
-export const checkReadingWatch = async (pageId) => {
-  const response = await api.post(`/api/wiki/pages/${safe(pageId)}/reading-watch/check`, {}, getAuthHeaders());
-  return response.data || {};
-};
-
 export const disarmWatcher = async (pageId, type) => {
   const response = await api.post(`/api/daily-loop/watchers/${safe(pageId)}/${safe(type)}/disarm`, {}, getAuthHeaders());
   return response.data || {};
