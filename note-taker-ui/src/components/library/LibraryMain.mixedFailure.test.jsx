@@ -124,6 +124,41 @@ describe('LibraryMain mixed-source failure boundary', () => {
     );
 
     expect(await screen.findByTestId('source-list'))
-      .toHaveTextContent('0 worth your attention · 149 minor');
+      .toHaveTextContent('0 sources');
+    expect(screen.queryByText(/0 worth your attention/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/149/)).not.toBeInTheDocument();
+  });
+
+  it('frames a live review room as triage rather than a backlog', async () => {
+    const relevanceState = {
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      coverage: null,
+      counts: { needs_review: { value: 5, exact: false } },
+      sources: [
+        { source: { type: 'article', id: 'a1', title: 'One' } },
+        { source: { type: 'article', id: 'a2', title: 'Two' } },
+        { source: { type: 'note', id: 'n1', title: 'Three' } }
+      ],
+      nextCursor: null,
+      hasMore: true,
+      filteredOutCount: 0,
+      loadMore: jest.fn()
+    };
+
+    render(
+      <LibraryMain
+        {...baseProps}
+        sourceView="needs_review"
+        reviewBacklogCount={149}
+        relevanceState={relevanceState}
+      />
+    );
+
+    expect(await screen.findByTestId('source-list'))
+      .toHaveTextContent('3 worth your attention · 2 minor');
+    expect(screen.queryByText(/149/)).not.toBeInTheDocument();
   });
 });

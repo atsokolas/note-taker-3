@@ -6,7 +6,7 @@ const {
   DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
 } = require('./wikiBriefingService');
 const { evaluateCheckInEligibility } = require('./checkInEligibility');
-const { buildReviewTriage } = require('./reviewTriageService');
+const { buildReviewTriage, expireLowStakesReviews } = require('./reviewTriageService');
 const { canonicalWikiTitle } = require('./wikiPresentationGuard');
 
 // Paid transcript providers are intentionally excluded from the product while
@@ -252,6 +252,12 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
     watching: listWatching(pages),
     checkInStreak: Number(user.morningPaper?.checkInStreak || 0)
   };
+  await expireLowStakesReviews({
+    WikiPage: models.WikiPage,
+    pages: selectionPages,
+    userId,
+    now: now.getTime()
+  }).catch(() => 0);
   await persistWikiBriefingCache({ userId, WikiBriefingCache: models.WikiBriefingCache, briefing, now: now.getTime(), maxAgeMs });
   if (advanceCursor) {
     await models.User.updateOne({ _id: userId }, { $set: { 'morningPaper.lastOpenedAt': now } }, { timestamps: false });

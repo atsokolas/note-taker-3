@@ -79,14 +79,27 @@ const renderList = (props = {}) => render(
 describe('LibrarySourceList', () => {
   it('keeps the full Needs Review backlog one click behind calm triage', () => {
     renderList({
-      sources: [],
+      sources: mixedSources.slice(0, 3),
       sourceView: 'needs_review',
       reviewBacklogCount: 149,
       reviewBacklogHref: '/library?scope=folder&folderId=review'
     });
 
-    expect(screen.getByRole('link', { name: 'Open all 149 review items' }))
+    expect(screen.getByRole('link', { name: 'The rest of the queue' }))
       .toHaveAttribute('href', '/library?scope=folder&folderId=review');
+    expect(screen.queryByText('149')).not.toBeInTheDocument();
+  });
+
+  it('stays silent when review triage has nothing to promote', () => {
+    renderList({
+      sources: [],
+      sourceView: 'needs_review',
+      reviewBacklogCount: 0,
+      reviewBacklogHref: '/library?scope=folder&folderId=review'
+    });
+
+    expect(screen.queryByRole('link', { name: /queue/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 worth/i)).not.toBeInTheDocument();
   });
 
   it('renders article, highlight, and notebook rows in one canonical list', () => {

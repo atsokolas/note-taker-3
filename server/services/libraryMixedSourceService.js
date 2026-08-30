@@ -1,6 +1,7 @@
 const { buildKnowledgeMovements } = require('./knowledgeMovementService');
 const { isFragmentTitle } = require('./importTitleService');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
+const { isJudgmentPage } = require('./reviewTriageService');
 
 const MIXED_SOURCE_SCAN_LIMIT = 1000;
 // The default Library landing page must stay responsive for large imported
@@ -83,7 +84,8 @@ const wikiPageRef = page => ({
   type: 'wiki_page',
   id: id(page),
   title: clean(page?.title || 'Untitled wiki page'),
-  href: `/wiki/workspace?page=${encodeURIComponent(id(page))}`
+  href: `/wiki/workspace?page=${encodeURIComponent(id(page))}`,
+  judgment: isJudgmentPage(page)
 });
 const wikiClaimRef = (page, claim) => ({
   type: 'wiki_claim',
@@ -183,10 +185,26 @@ const compareTuples = (left, right) => {
   }
   return 0;
 };
-const rowTuple = row => {
-  const time = new Date(row?.createdAt || 0).getTime() || 0;
+const reviewRank = row => {
+  const connected = Array.isArray(row?.relevance?.connected) ? row.relevance.connected : [];
+  const judgment = connected.some(ref => ref?.judgment || ref?.type === 'wiki_claim') ? 0 : 1;
+  const used = Number(row?.relevance?.connectedCount || connected.length) > 0 ? 0 : 1;
+  const drift = Number(row?.relevance?.movementCount || 0);
+  const created = new Date(row?.createdAt || 0).getTime() || 0;
+  return (judgment * 2e15) + (used * 1e14) - (drift * 1e10) - created;
+};
+const rowTuple = (row, view = 'recent') => {
+  const created = new Date(row?.createdAt || 0).getTime() || 0;
+  if (view === 'needs_review') {
+    return [
+      reviewRank(row),
+      TYPE_RANK[row?.source?.type] ?? 99,
+      String(row?.source?.id || ''),
+      String(row?.source?.parentId || '')
+    ];
+  }
   return [
-    -time,
+    -created,
     TYPE_RANK[row?.source?.type] ?? 99,
     String(row?.source?.id || ''),
     String(row?.source?.parentId || '')
@@ -534,7 +552,7 @@ const buildMixedLibraryRelevancePage = async ({
         archived: { $ne: true },
         status: { $ne: 'archived' }
       }), {
-        select: '_id userId title pageType status plainText aiState sourceRefs claims',
+        select: '_id userId title pageType status plainText aiState sourceRefs claims judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier',
         sort: { _id: 1 },
         limit: MIXED_SOURCE_SCAN_LIMIT + 1
       })
@@ -693,28 +711,34 @@ const buildMixedLibraryRelevancePage = async ({
     const key = refKey(row.source.type, row.source.id, row.source.parentId);
     const connected = uniqueRefs(usageByKey.get(key) || []);
     const sourceMovements = movementByKey.get(key) || [];
+    const judgmentAttached = connected.some(ref => ref?.judgment || ref?.type === 'wiki_claim');
     row.relevance = {
       connected,
       movements: sourceMovements,
       connectedCount: connected.length,
-      movementCount: sourceMovements.length
+      movementCount: sourceMovements.length,
+      reviewReason: judgmentAttached
+        ? connected.some(ref => ref?.judgment)
+          ? 'Attached to a judgment page'
+          : 'Supports a claim under review'
+        : sourceMovements[0]?.title || ''
     };
   });
 
   const selectedByView = Object.fromEntries(VIEW_NAMES.map(name => [
     name,
     rows.filter(row => classify(row, name)).sort((left, right) => (
-      compareTuples(rowTuple(left), rowTuple(right))
+      compareTuples(rowTuple(left, name), rowTuple(right, name))
     ))
   ]));
   const selected = selectedByView[view];
   const afterCursor = decodedCursor
-    ? selected.filter(row => compareTuples(rowTuple(row), decodedCursor.tuple) > 0)
+    ? selected.filter(row => compareTuples(rowTuple(row, view), decodedCursor.tuple) > 0)
     : selected;
   const pageRowsSelected = afterCursor.slice(0, limit);
   const hasMore = afterCursor.length > pageRowsSelected.length;
   const nextCursor = hasMore && pageRowsSelected.length
-    ? encodeCursor({ view, tuple: rowTuple(pageRowsSelected[pageRowsSelected.length - 1]) })
+    ? encodeCursor({ view, tuple: rowTuple(pageRowsSelected[pageRowsSelected.length - 1], view) })
     : null;
 
   const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit;

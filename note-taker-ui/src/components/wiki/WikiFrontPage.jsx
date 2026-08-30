@@ -33,6 +33,10 @@ import { canonicalWikiPages } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { shelfCount, wikiLivingBriefingLine } from './morningPaperClose';
 import {
+  buildReviewTriage,
+  formatReviewTriageFrame
+} from './reviewTriageModel';
+import {
   WIKI_KINDS,
   WIKI_KIND_FLAGS,
   WIKI_KIND_LABELS,
@@ -422,21 +426,26 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }, [canonicalPages]);
 
   const reviewTriage = briefing?.reviewTriage || null;
+  const localTriage = useMemo(
+    () => buildReviewTriage({ pages: canonicalPages }),
+    [canonicalPages]
+  );
+  const activeTriage = reviewTriage || localTriage;
   const promotedReviewIds = useMemo(() => new Set(
-    (Array.isArray(reviewTriage?.promoted) ? reviewTriage.promoted : [])
+    (Array.isArray(activeTriage?.promoted) ? activeTriage.promoted : [])
       .map(item => String(item?.pageId || ''))
       .filter(Boolean)
-  ), [reviewTriage]);
+  ), [activeTriage]);
   const reviewReasonById = useMemo(() => new Map(
-    (Array.isArray(reviewTriage?.promoted) ? reviewTriage.promoted : [])
+    (Array.isArray(activeTriage?.promoted) ? activeTriage.promoted : [])
       .map(item => [String(item?.pageId || ''), String(item?.reason || '')])
-      .filter(([id]) => id)
-  ), [reviewTriage]);
+      .filter(([itemId]) => itemId)
+  ), [activeTriage]);
 
   const explorePages = useMemo(() => {
     const query = wikiSearch.trim().toLowerCase();
     let visible = weighted;
-    if (wikiFilter === 'review') visible = reviewTriage
+    if (wikiFilter === 'review') visible = activeTriage
       ? visible.filter(page => promotedReviewIds.has(String(pageId(page))))
       : visible.filter(page => (
         pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
@@ -453,18 +462,18 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       displayWikiPageTitle(page, 'Untitled page').toLowerCase().includes(query)
       || String(page?.summary || page?.description || '').toLowerCase().includes(query)
     ));
-  }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds, reviewTriage, promotedReviewIds]);
+  }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds, activeTriage, promotedReviewIds]);
 
   const exactReviewCount = useMemo(() => canonicalPages.filter(page => (
     pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
   )).length, [canonicalPages, sourceMaterialIds]);
 
-  const briefingReviewCount = briefing?.counts?.driftingPages
-    ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
-  const reviewCount = reviewTriage?.totalCount ?? Math.max(exactReviewCount, briefingReviewCount);
-  const reviewFrame = reviewTriage
-    ? `${reviewTriage.promotedCount} worth your attention · ${reviewTriage.minorCount} minor`
-    : reviewCount ? `${Math.min(3, reviewCount)} worth your attention · ${Math.max(0, reviewCount - 3)} minor` : '';
+  const reviewCount = activeTriage?.totalCount ?? exactReviewCount;
+  const reviewFrame = activeTriage?.frame
+    || formatReviewTriageFrame({
+      promotedCount: Math.min(3, reviewCount),
+      minorCount: Math.max(0, reviewCount - 3)
+    });
 
   const workspaceNav = (
     <nav className="wiki-front-page__secondary-nav" aria-label="Wiki workspace">
@@ -476,9 +485,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           colour inside one article, which meant you found it only if you were
           already reading that page. */}
       <Link to="/wiki/contradictions">Disagreements</Link>
-      <Link to="/wiki/workspace?view=graph">
-        Review{reviewCount ? ` (${reviewCount})` : ''}
-      </Link>
     </nav>
   );
 
@@ -561,8 +567,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           <strong>Review and system activity</strong>
           <small>
             {hasMovements ? 'Changed evidence · ' : ''}
-            {reviewCount ? `${reviewCount} review item${reviewCount === 1 ? '' : 's'} · ` : ''}
-            {watching.length} watcher{watching.length === 1 ? '' : 's'}
+            {watching.length ? `${watching.length} watcher${watching.length === 1 ? '' : 's'}` : ''}
           </small>
         </span>
         <span aria-hidden="true">Open</span>
@@ -739,7 +744,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           <RoomShelfList className="wiki-living-nav__primary">
             {[
               ['all', 'All wikis', canonicalPages.length],
-              ['review', 'Needs review', shelfCount(reviewTriage?.promotedCount ?? Math.min(3, exactReviewCount))],
+              ['review', 'Needs review', shelfCount(activeTriage?.promotedCount ?? Math.min(3, exactReviewCount))],
               ['recent', 'Recently updated', shelfCount(briefing ? recentlyUpdated.length : undefined)]
             ].map(([value, label, count]) => (
               <li key={value}>
@@ -806,7 +811,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             ) : null}
             {wikiFilter === 'review' && reviewFrame ? (
               <p className="wiki-front-page__review-triage">
-                {reviewFrame}. <Link to="/wiki/workspace?view=list&quality=needs_review">Open the full review queue →</Link>
+                {reviewFrame}. <Link to="/wiki/workspace?view=list&quality=needs_review">The rest of the queue</Link>
               </p>
             ) : null}
             {availabilityNotice ? <p className="wiki-front-page__availability" role="status">{availabilityNotice}</p> : null}

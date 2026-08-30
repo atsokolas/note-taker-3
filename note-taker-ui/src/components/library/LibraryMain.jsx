@@ -5,6 +5,7 @@ import LibraryHighlights from './LibraryHighlights';
 import LibraryReadingRoomLead from './LibraryReadingRoomLead';
 import LibrarySourceList from './LibrarySourceList';
 import LibrarySourceTrace from './LibrarySourceTrace';
+import { formatReviewTriageFrame } from '../wiki/reviewTriageModel';
 import '../../styles/library-source-memory.css';
 
 const LibraryMain = ({
@@ -95,12 +96,16 @@ const LibraryMain = ({
         ? 'Unconnected'
         : 'Recently added';
   const surfacedReviewCount = Math.min(3, relevance.sources.length);
+  const mixedReviewTotal = Number(relevance.counts?.needs_review?.value);
   const viewSubtitle = sourceView === 'active'
     ? 'Sources currently supporting, challenging, or changing your work.'
     : sourceView === 'needs_review'
-      ? Number.isFinite(reviewBacklogCount)
-        ? `${surfacedReviewCount} worth your attention · ${Math.max(0, reviewBacklogCount - surfacedReviewCount)} minor. Open the backlog only when you need it.`
-        : 'Up to three sources attached to a material unresolved change.'
+      ? formatReviewTriageFrame({
+        promotedCount: surfacedReviewCount,
+        minorCount: Number.isFinite(mixedReviewTotal)
+          ? Math.max(0, mixedReviewTotal - surfacedReviewCount)
+          : 0
+      })
       : sourceView === 'unconnected'
         ? 'Sources not yet used by a durable thinking object.'
         : 'Sources in the order they entered your Library.';

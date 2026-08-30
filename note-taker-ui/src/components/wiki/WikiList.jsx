@@ -32,6 +32,7 @@ import {
   groupWikiPagesByTitle
 } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { buildReviewTriage } from './reviewTriageModel';
 import useMagneticRow from '../../hooks/useMagneticRow';
 
 const VISIBILITIES = ['all', 'private', 'shared'];
@@ -45,7 +46,7 @@ const WikiPageRowKicker = ({ page, showQualityReview, qualityLabel, blocked }) =
     {String(page.visibility || 'private') === 'shared' ? (
       <span className="library-article-row-tag">Shared</span>
     ) : null}
-    {showQualityReview && qualityLabel ? (
+    {showQualityReview && qualityLabel && qualityLabel !== 'Needs review' ? (
       <span
         className={`wiki-index__quality-badge wiki-index__quality-badge--${blocked ? 'blocked' : 'review'}`}
       >
@@ -61,7 +62,8 @@ const WikiPageRow = ({
   page,
   onDelete,
   onOpen,
-  showQualityReview = false
+  showQualityReview = false,
+  reviewReason = ''
 }) => {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [activated, setActivated] = useState(false);
@@ -111,6 +113,9 @@ const WikiPageRow = ({
       )}
       {showQualityReview && blocked ? (
         <p className="wiki-index__quality-blocked-note">{BLOCKED_SURFACE_EXPLANATION}</p>
+      ) : null}
+      {showQualityReview && reviewReason ? (
+        <p className="wiki-index__review-reason">{reviewReason}</p>
       ) : null}
       {showQualityReview && qualityReasons.length ? (
         <ul className="wiki-index__quality-reasons">
@@ -253,6 +258,33 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     () => groupWikiPagesByTitle(dedupePagesByRepoKey(visiblePages)),
     [visiblePages]
   );
+  const reviewTriage = useMemo(
+    () => buildReviewTriage({
+      pages: displayGroups.map(group => group.canonical),
+      assumeNeedsReview: needsReviewFilter
+    }),
+    [displayGroups, needsReviewFilter]
+  );
+  const promotedGroups = useMemo(() => {
+    if (!needsReviewFilter) return displayGroups;
+    const order = new Map(reviewTriage.promoted.map((item, index) => [item.pageId, index]));
+    return displayGroups
+      .filter(group => order.has(String(group.canonical?._id || group.canonical?.id || '')))
+      .sort((left, right) => (
+        order.get(String(left.canonical?._id || left.canonical?.id || ''))
+        - order.get(String(right.canonical?._id || right.canonical?.id || ''))
+      ));
+  }, [displayGroups, needsReviewFilter, reviewTriage]);
+  const minorGroups = useMemo(() => {
+    if (!needsReviewFilter) return [];
+    const promotedIds = new Set(reviewTriage.promoted.map(item => item.pageId));
+    return displayGroups.filter(group => (
+      !promotedIds.has(String(group.canonical?._id || group.canonical?.id || ''))
+    ));
+  }, [displayGroups, needsReviewFilter, reviewTriage]);
+  const reviewReasonById = useMemo(() => new Map(
+    reviewTriage.promoted.map(item => [item.pageId, item.reason])
+  ), [reviewTriage]);
 
   /* Facets count what the list shows: one page per title, not every copy. */
   const facetCounts = useMemo(
@@ -384,9 +416,9 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         </section>
       ) : null}
 
-      {needsReviewFilter ? (
-        <p className="wiki-index__quality-filter-note">
-          Pages with quality issues, including ones hidden from Explore and retrieval.
+      {needsReviewFilter && reviewTriage.frame ? (
+        <p className="wiki-index__quality-filter-note wiki-index__review-triage">
+          {reviewTriage.frame}
         </p>
       ) : null}
 
@@ -414,7 +446,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         className={`library-article-list wiki-index__list${loading ? ' is-loading' : ''}`}
         aria-label="Wiki pages"
       >
-        {displayGroups.map(group => {
+        {(needsReviewFilter ? promotedGroups : displayGroups).map(group => {
           const page = group.canonical;
           const id = page._id || page.id;
           return (
@@ -423,6 +455,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
               compact={compact}
               page={page}
               showQualityReview={needsReviewFilter}
+              reviewReason={needsReviewFilter ? (reviewReasonById.get(String(id)) || '') : ''}
               deleting={deletingId === id}
               onOpen={() => openPage(id)}
               onDelete={() => handleDelete(page)}
@@ -430,6 +463,28 @@ const WikiList = ({ compact = false, onOpenPage }) => {
           );
         })}
       </section>
+      {needsReviewFilter && minorGroups.length ? (
+        <details className="wiki-index__review-drawer">
+          <summary>The rest of the queue</summary>
+          <section className="library-article-list wiki-index__list" aria-label="Minor review pages">
+            {minorGroups.map(group => {
+              const page = group.canonical;
+              const id = page._id || page.id;
+              return (
+                <WikiPageRow
+                  key={group.key}
+                  compact={compact}
+                  page={page}
+                  showQualityReview
+                  deleting={deletingId === id}
+                  onOpen={() => openPage(id)}
+                  onDelete={() => handleDelete(page)}
+                />
+              );
+            })}
+          </section>
+        </details>
+      ) : null}
     </>
   );
 

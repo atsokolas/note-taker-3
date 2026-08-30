@@ -11,6 +11,7 @@ import {
   WIKI_KIND_LABELS,
   isWikiAllPagesActive
 } from './wikiFacetModel';
+import { reviewFacetCount } from './reviewTriageModel';
 
 const FacetButton = ({
   active = false,
@@ -110,7 +111,7 @@ const WikiFacetRail = ({
         <li>
           <FacetButton
             label="Needs review"
-            count={countsKnown ? counts.needsReview : undefined}
+            count={countsKnown ? reviewFacetCount(counts.needsReview) : undefined}
             active={needsReviewFilter}
             testId="wiki-facet-needs-review"
             onClick={() => onSelectNeedsReview?.()}

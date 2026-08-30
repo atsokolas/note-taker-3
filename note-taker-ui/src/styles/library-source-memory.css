@@ -240,6 +240,27 @@ body.noeis-editorial .library-source-list--room .library-section-head {
   margin-bottom: 8px;
 }
 
+body.noeis-editorial .library-source-list__queue {
+  display: inline-block;
+  margin-top: 8px;
+  color: color-mix(in srgb, var(--vellum-ink) 62%, transparent);
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--vellum-line) 70%, transparent);
+}
+
+body.noeis-editorial .library-source-list__queue:hover {
+  color: var(--vellum-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .library-source-list__queue {
+    transition: none;
+  }
+}
+
 body.noeis-editorial .library-composition .library-article-row-title {
   font-size: clamp(1.12rem, 1.35vw, 1.38rem) !important;
   font-weight: 560 !important;

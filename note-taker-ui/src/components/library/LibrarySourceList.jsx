@@ -138,7 +138,11 @@ const LibrarySourceRow = React.memo(({
     return 'Not used yet';
   })();
   const reviewReason = sourceView === 'needs_review'
-    ? String(row?.relevance?.movements?.[0]?.title || 'Material change awaiting your judgment')
+    ? String(
+      row?.relevance?.reviewReason
+      || row?.relevance?.movements?.[0]?.title
+      || ''
+    )
     : '';
 
   const triggerReceipt = () => {
@@ -621,7 +625,7 @@ const LibrarySourceList = ({
           )}
         </Profiler>
       )}
-      {!loading && !error && hasMore && typeof onLoadMore === 'function' ? (
+      {!loading && !error && hasMore && typeof onLoadMore === 'function' && sourceView !== 'needs_review' ? (
         <div className="library-source-list__more">
           <button
             type="button"
@@ -631,14 +635,18 @@ const LibrarySourceList = ({
             disabled={loadingMore}
             aria-busy={loadingMore}
           >
-            {loadingMore ? 'Loading more…' : sourceView === 'needs_review' ? 'Load more review candidates' : 'Load more sources'}
+            {loadingMore ? 'Loading more…' : 'Load more sources'}
           </button>
         </div>
       ) : null}
-      {!loading && !error && sourceView === 'needs_review' && reviewBacklogHref ? (
+      {!loading && !error && sourceView === 'needs_review' && reviewBacklogHref && (
+        Number.isFinite(reviewBacklogCount)
+          ? reviewBacklogCount > Math.min(3, visibleSources.length)
+          : visibleSources.length > 0
+      ) ? (
         <div className="library-source-list__more">
-          <Link className="library-source-list__more-button" to={reviewBacklogHref}>
-            Open all {Number.isFinite(reviewBacklogCount) ? reviewBacklogCount : ''} review items
+          <Link className="library-source-list__queue" to={reviewBacklogHref}>
+            The rest of the queue
           </Link>
         </div>
       ) : null}

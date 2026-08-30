@@ -257,6 +257,66 @@ describe('WikiList', () => {
     expect(within(card).getByRole('button', { name: /archive complementary machine thing/i })).toBeInTheDocument();
   });
 
+  it('shows three promoted review pages and keeps the rest in a drawer', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        _id: 'wiki-judgment',
+        title: 'Living thesis',
+        pageType: 'concept',
+        status: 'draft',
+        judgment: { kind: 'thesis', currentJudgment: 'A belief.' },
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-05-05T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-visited',
+        title: 'Visited page',
+        pageType: 'topic',
+        status: 'draft',
+        lastVisitedAt: '2026-05-04T12:00:00.000Z',
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-05-04T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-drift',
+        title: 'Drifted page',
+        pageType: 'topic',
+        status: 'draft',
+        freshness: { status: 'needs_review', pendingSourceEventIds: ['a', 'b'] },
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-05-03T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-minor-1',
+        title: 'Edition notes',
+        pageType: 'topic',
+        status: 'draft',
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-05-02T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-minor-2',
+        title: 'Repo chore',
+        pageType: 'repo',
+        status: 'draft',
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-05-01T12:00:00.000Z'
+      }
+    ]);
+
+    renderWikiList('view=list&quality=needs_review');
+
+    expect(await screen.findByText('3 worth your attention · 2 minor')).toBeInTheDocument();
+    expect(screen.getByText('Judgment page · owner decision at stake')).toBeInTheDocument();
+    const promoted = screen.getByLabelText('Wiki pages');
+    expect(within(promoted).getByRole('article', { name: 'Living thesis' })).toBeInTheDocument();
+    expect(within(promoted).queryByRole('article', { name: 'Edition notes' })).not.toBeInTheDocument();
+    expect(screen.getByText('The rest of the queue')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('The rest of the queue'));
+    expect(screen.getByRole('article', { name: 'Edition notes' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Repo chore' })).toBeInTheDocument();
+  });
+
   it('toggles the needs-review filter through the URL query param', async () => {
     renderWikiList();
 
