@@ -1224,6 +1224,14 @@ const PAGE_LIST_RANKING_STOPWORDS = new Set([
   'use', 'wiki'
 ]);
 
+const PAGE_LIST_BODY_BOILERPLATE = new Set([
+  ...PAGE_LIST_RANKING_STOPWORDS,
+  'allocation', 'analysis', 'capital', 'cash', 'cycle', 'earnings', 'evidence',
+  'financial', 'growth', 'margin', 'market', 'model', 'models', 'operating',
+  'price', 'prices', 'process', 'result', 'results', 'return', 'returns', 'risk',
+  'section', 'share', 'shares', 'system', 'thesis', 'value', 'valuation'
+]);
+
 const isRepositoryWikiPage = (page = {}) => (
   asString(page?.pageType).toLowerCase() === 'repo'
   || /\b(?:repo|repository)\s+wiki\b/i.test(asString(page?.title))
@@ -1253,10 +1261,12 @@ const isCompatibleWikiListCandidate = ({ page, candidate, question = '' } = {}) 
 };
 
 const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
-  const pageText = `${asString(page?.title)} ${asString(page?.plainText) || pageBodySentenceText(page)}`;
+  const titleTokens = extractAnswerTokens(page?.title)
+    .filter(token => !PAGE_LIST_RANKING_STOPWORDS.has(token));
+  const pageText = asString(page?.plainText) || pageBodySentenceText(page);
   const tokenCounts = new Map();
   extractAnswerTokens(pageText)
-    .filter(token => !PAGE_LIST_RANKING_STOPWORDS.has(token))
+    .filter(token => !PAGE_LIST_BODY_BOILERPLATE.has(token))
     .forEach((token, position) => {
       const row = tokenCounts.get(token) || { count: 0, position };
       row.count += 1;
@@ -1272,7 +1282,7 @@ const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
     .map(([token]) => token);
   const queryTokens = extractAnswerTokens(question)
     .filter(token => !PAGE_LIST_RANKING_STOPWORDS.has(token));
-  return Array.from(new Set([...queryTokens, ...subjectTokens])).join(' ');
+  return Array.from(new Set([...queryTokens, ...titleTokens, ...subjectTokens])).join(' ');
 };
 
 const rankWikiPageListCandidates = ({
