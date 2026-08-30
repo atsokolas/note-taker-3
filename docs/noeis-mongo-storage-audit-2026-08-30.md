@@ -48,6 +48,11 @@ with 22–24 unpruned revisions and 46–52 MiB of history each.
   exception above, finds 592 compactable snapshots and an estimated 176,769,924
   bytes (168.6 MiB) of before/after payload.
 
+The implemented governor's bounded dry-run targets the seven pages already over
+its count/byte threshold. It returned 115 compactable snapshots totaling
+109,507,829 bytes (104.4 MiB) in the first safe pass. The broader 168.6 MiB
+estimate includes smaller pages that are not yet over that trigger.
+
 Compaction should null only `before` and `after` on unprotected old revisions.
 The revision identity, timestamp, reason, source event, maintenance run,
 promotion status, claim-review receipt, source version, quality result, and
@@ -87,13 +92,19 @@ database with teardown, not repeated manual deletion from production.
 ## Recommended sequence
 
 1. Change the pressure-mode full-snapshot limit from 20 to 5 and add tests that
-   prove every durable exception survives.
+   prove every durable exception survives. Implemented locally; not applied.
 2. Run the governor in dry-run mode and save the exact IDs/counts/byte estimate.
-3. Apply snapshot compaction in small batches; verify accepted Wiki, repo,
+   Completed locally: 115 snapshots / 109,507,829 bytes; first operational batch
+   also found 2,386 reference-free maintenance runs and 1,280 reference-free
+   source events. No writes were made.
+3. Export every targeted revision to a private compressed backup and verify its
+   document count and SHA-256 manifest before enabling any write mode. The
+   existing governor does not yet perform this backup, so apply remains blocked.
+4. Apply snapshot compaction in small batches; verify accepted Wiki, repo,
    dossier, Judgment, and provenance routes after each batch.
-4. Expire reference-free terminal telemetry older than 14 days in batches.
-5. Repair abandoned leases and isolate QA fixtures in a disposable database.
-6. Re-measure logical data plus indexes; target below 350 MiB, leaving at least
+5. Expire reference-free terminal telemetry older than 14 days in batches.
+6. Repair abandoned leases and isolate QA fixtures in a disposable database.
+7. Re-measure logical data plus indexes; target below 350 MiB, leaving at least
    150 MiB of free-tier headroom.
 
 Do not drop collections, prune current pages, remove receipts, remove repo

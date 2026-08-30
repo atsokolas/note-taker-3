@@ -192,7 +192,32 @@ const pruneWikiRevisionHistory = async ({
     recentLimit
   });
   const prunedById = new Map(revisions.map(revision => [cleanId(revision), Boolean(revision.snapshotPrunedAt)]));
+  const revisionObjectIdById = new Map(revisions.map(revision => [cleanId(revision), revision._id]));
   const compactableSnapshotIds = plan.deletedIds.filter(id => !prunedById.get(id));
+  let compactableSnapshotBytes = 0;
+  if (compactableSnapshotIds.length && typeof WikiRevision.aggregate === 'function') {
+    const [snapshotSize] = await WikiRevision.aggregate([
+      {
+        $match: {
+          userId,
+          pageId,
+          _id: { $in: compactableSnapshotIds.map(id => revisionObjectIdById.get(id)).filter(Boolean) }
+        }
+      },
+      {
+        $project: {
+          bytes: {
+            $add: [
+              { $bsonSize: { $ifNull: ['$before', {}] } },
+              { $bsonSize: { $ifNull: ['$after', {}] } }
+            ]
+          }
+        }
+      },
+      { $group: { _id: null, bytes: { $sum: '$bytes' } } }
+    ]);
+    compactableSnapshotBytes = Number(snapshotSize?.bytes || 0);
+  }
 
   if (!dryRun && compactableSnapshotIds.length) {
     await WikiRevision.updateMany(
@@ -200,7 +225,14 @@ const pruneWikiRevisionHistory = async ({
       { $set: { before: null, after: null, snapshotPrunedAt: new Date() } }
     );
   }
-  return { ...plan, compactableSnapshotIds, skipped: false, dryRun, snapshotBytes };
+  return {
+    ...plan,
+    compactableSnapshotIds,
+    compactableSnapshotBytes,
+    skipped: false,
+    dryRun,
+    snapshotBytes
+  };
 };
 
 module.exports = {

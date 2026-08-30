@@ -30,6 +30,8 @@ const main = async () => {
     db: mongoose.connection.db,
     retentionDays: numberArg('--retention-days', process.env.WIKI_STORAGE_RETENTION_DAYS || 45),
     pressureRetentionDays: numberArg('--pressure-retention-days', process.env.WIKI_STORAGE_PRESSURE_RETENTION_DAYS || 14),
+    recentRevisionLimit: numberArg('--recent-revision-limit', process.env.WIKI_STORAGE_RECENT_REVISION_LIMIT || 20),
+    pressureRecentRevisionLimit: numberArg('--pressure-recent-revision-limit', process.env.WIKI_STORAGE_PRESSURE_RECENT_REVISION_LIMIT || 5),
     highWaterBytes: numberArg('--high-water-bytes', process.env.WIKI_STORAGE_HIGH_WATER_BYTES || 420 * 1024 * 1024),
     batchSize: numberArg('--batch-size', process.env.WIKI_STORAGE_GOVERNOR_BATCH_SIZE || 2500),
     revisionPageLimit: numberArg('--revision-page-limit', process.env.WIKI_STORAGE_REVISION_PAGE_LIMIT || 10),

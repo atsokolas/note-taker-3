@@ -38,6 +38,23 @@ assert(plan.keptIds.includes('revision-45'), 'keeps accepted source event');
 assert(plan.keptIds.includes('revision-50'), 'keeps published head');
 assert(plan.deletedIds.length > 0, 'identifies redundant snapshots');
 
+const pressurePlan = buildWikiRevisionRetentionPlan({
+  revisions,
+  protectedRevisionIds: ['revision-40'],
+  acceptedSourceEventIds: ['accepted-event'],
+  publishedHeadSha: 'published-sha',
+  recentLimit: 5
+});
+for (let index = 0; index < 5; index += 1) assert(pressurePlan.keptIds.includes(`revision-${index}`));
+assert(pressurePlan.keptIds.includes('revision-59'), 'pressure mode keeps the original');
+assert(pressurePlan.keptIds.includes('revision-25'), 'pressure mode keeps the newest candidate');
+assert(pressurePlan.keptIds.includes('revision-35'), 'pressure mode keeps the newest rejection');
+assert(pressurePlan.keptIds.includes('revision-40'), 'pressure mode keeps explicit references');
+assert(pressurePlan.keptIds.includes('revision-44'), 'pressure mode keeps human-reviewed revisions');
+assert(pressurePlan.keptIds.includes('revision-45'), 'pressure mode keeps accepted source events');
+assert(pressurePlan.keptIds.includes('revision-50'), 'pressure mode keeps the published repo head');
+assert(pressurePlan.deletedIds.length > plan.deletedIds.length, 'pressure mode compacts more unprotected snapshots');
+
 const references = collectPageRetentionReferences({
   publicProof: { acceptedClocks: [{ revisionId: 'clock-revision', sourceEventId: 'clock-event' }] },
   freshness: { acceptedThrough: { revisionId: 'fresh-revision', sourceEventId: 'fresh-event' } },
@@ -130,6 +147,7 @@ console.log('wikiRevisionRetentionService tests passed');
   assert.strictEqual(result.skipped, false);
   assert.strictEqual(result.deletedIds.length, 2);
   assert.strictEqual(result.compactableSnapshotIds.length, 2);
+  assert.strictEqual(result.compactableSnapshotBytes, 16 * 1024 * 1024);
   assert(result.keptIds.includes('byte-revision-21'));
   assert.strictEqual(updated.length, 1);
   assert.deepStrictEqual(updated[0].update.$set.before, null);

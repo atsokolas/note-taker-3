@@ -85,6 +85,7 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   });
   assert.strictEqual(result.underPressure, true);
   assert.strictEqual(result.effectiveRetentionDays, 14);
+  assert.strictEqual(result.effectiveRecentRevisionLimit, 5);
   assert.deepStrictEqual(deleted.runs, [ids.runDelete]);
   assert.deepStrictEqual(deleted.events, [ids.eventDelete]);
   assert.strictEqual(result.maintenanceRuns.protected, 3);
