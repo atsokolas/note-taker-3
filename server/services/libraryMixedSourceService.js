@@ -277,6 +277,20 @@ const buildMixedLibraryRelevancePage = async ({
     };
   }
 
+  // Movement classification and source projection are independent reads.
+  // Start them together so review-oriented Library views do not pay for two
+  // serial database phases before they can render.
+  const movementsPromise = view !== 'recent' && typeof movementBuilder === 'function'
+    ? movementBuilder({
+      userId,
+      models,
+      since: null,
+      limit: movementScanLimitFor(limit),
+      includeRoutineMovements: view !== 'needs_review',
+      reviewRequiredOnly: view === 'needs_review'
+    })
+    : Promise.resolve([]);
+
   const visibleQuery = includeSuppressed ? { userId } : {
     userId,
     hiddenFromHome: { $ne: true },
@@ -441,6 +455,39 @@ const buildMixedLibraryRelevancePage = async ({
     };
   }
 
+  const movements = await movementsPromise;
+  if (view === 'needs_review' && !movements.length) {
+    const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit;
+    const notesComplete = Number.isFinite(noteTotal) && noteTotal <= sourceScanLimit;
+    const highlightCount = rows.filter(row => row.source.type === 'highlight').length;
+    return {
+      sources: [],
+      counts: {
+        recent: { value: rows.length, exact: articlesComplete && notesComplete },
+        active: { value: null, exact: false },
+        needs_review: { value: 0, exact: false },
+        unconnected: { value: null, exact: false }
+      },
+      nextCursor: null,
+      hasMore: false,
+      coverage: {
+        status: 'partial',
+        sourceTypes: SOURCE_TYPES,
+        scanned: {
+          articles: articles.length,
+          highlights: highlightCount,
+          notes: notes.length
+        },
+        eligible: {
+          articles: Number.isFinite(articleTotal) ? articleTotal : null,
+          highlights: articlesComplete ? highlightCount : null,
+          notes: Number.isFinite(noteTotal) ? noteTotal : null
+        },
+        limitations: ['material_movements_limited_to_50']
+      }
+    };
+  }
+
   const sourceByKey = new Map(rows.map(row => [
     refKey(row.source.type, row.source.id, row.source.parentId),
     row
@@ -460,7 +507,7 @@ const buildMixedLibraryRelevancePage = async ({
     rows.filter(row => row.source.type === type).map(row => row.source.id)
   ]));
 
-  const [conceptRows, pageRows, connectionRows, edgeRows, movements] = await Promise.all([
+  const [conceptRows, pageRows, connectionRows, edgeRows] = await Promise.all([
     TagMeta?.find
       ? awaitQuery(TagMeta.find({
         userId,
@@ -516,16 +563,6 @@ const buildMixedLibraryRelevancePage = async ({
         select: '_id userId sourceType sourceId targetType targetId targetTagName createdAt',
         sort: { _id: 1 },
         limit: MIXED_SOURCE_SCAN_LIMIT + 1
-      })
-      : [],
-    view !== 'recent' && typeof movementBuilder === 'function'
-      ? movementBuilder({
-        userId,
-        models,
-        since: null,
-        limit: movementScanLimitFor(limit),
-        includeRoutineMovements: view !== 'needs_review',
-        reviewRequiredOnly: view === 'needs_review'
       })
       : []
   ]);
