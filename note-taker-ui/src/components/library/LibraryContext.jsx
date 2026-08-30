@@ -1,6 +1,6 @@
 import React, { Profiler, useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
-import PassageDoor from '../reader/PassageDoor';
+import PassageDoor from '../reader/PassageDoorView';
 import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import ReferencePullIn from '../references/ReferencePullIn';
 import { createProfilerLogger } from '../../utils/perf';

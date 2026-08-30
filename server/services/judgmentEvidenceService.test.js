@@ -2,6 +2,8 @@ const assert = require('node:assert');
 const {
   claimTerms,
   matchedTerms,
+  answersClaim,
+  explainMatch,
   snippetAround,
   candidatesFromArticle,
   rankCandidates,
@@ -17,6 +19,7 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(claimTerms('  '), [], 'an empty claim has no terms');
 assert.deepStrictEqual(claimTerms('Capacity and capacity'), ['capacity'], 'each term once');
+const terms = claimTerms('Demand for compute outruns deliverable capacity');
 
 // matchedTerms: stems, so a plural in the passage still answers a singular claim
 assert.deepStrictEqual(
@@ -25,6 +28,14 @@ assert.deepStrictEqual(
   'matches on the stem'
 );
 assert.deepStrictEqual(matchedTerms('nothing here', ['compute']), [], 'no false positives');
+assert.strictEqual(answersClaim(['capacity'], terms), false, 'one leftover word does not answer a long hold');
+assert.strictEqual(answersClaim(['demand', 'capacity'], terms), true, 'substantive coverage clears the bar');
+assert.strictEqual(answersClaim(['compute'], ['compute', 'scarcity']), false, 'a two-term hold needs both ideas');
+assert.strictEqual(
+  explainMatch(['demand', 'capacity'], terms),
+  'Answers 2 of 5 key terms · demand · capacity',
+  'the selection explains itself in the claim\'s own words'
+);
 
 // snippetAround centres on the match rather than truncating from the start
 const long = `${'filler '.repeat(60)}the capacity constraint is real${' tail'.repeat(60)}`;
@@ -46,13 +57,13 @@ const article = {
     { _id: 'h2', text: 'Unrelated aside about logistics.' }
   ]
 };
-const terms = claimTerms('Demand for compute outruns deliverable capacity');
 const rows = candidatesFromArticle(article, terms);
 assert.strictEqual(rows.length, 1, 'only highlights that actually match are offered');
 assert.strictEqual(rows[0].kind, 'highlight');
 assert.strictEqual(rows[0].highlightId, 'h1');
 assert.strictEqual(rows[0].sourceLabel, 'On compute · FT', 'provenance travels with the line');
 assert.ok(rows[0].matched.includes('capacity'), 'the matched words are reported');
+assert.match(rows[0].whyThisSource, /^Answers 3 of 5 key terms/, 'the reason for selection travels with the passage');
 // Nothing about which side it falls on: term overlap cannot tell support from contradiction.
 assert.strictEqual(rows[0].side, undefined, 'the service never guesses a side');
 
@@ -112,6 +123,15 @@ const fakeArticle = (articles) => ({
   });
   assert.deepStrictEqual(alreadyDecided.candidates, [], 'what you already filed is not offered again');
 
+  const leftover = await findLibraryEvidence({
+    Article: fakeArticle([{
+      _id: 'thin', title: 'Capacity note', content: 'Capacity exists.', highlights: []
+    }]),
+    userId: 'u1',
+    claim: 'Demand for compute outruns deliverable capacity'
+  });
+  assert.deepStrictEqual(leftover.candidates, [], 'a single shared word is honest silence, not evidence');
+
   const noModel = await findLibraryEvidence({ userId: 'u1', claim: 'compute capacity' });
   assert.deepStrictEqual(noModel.candidates, [], 'survives a missing model');
 
@@ -141,6 +161,63 @@ const fakeArticle = (articles) => ({
     judgment: { why: [{ acceptedFrom: 'highlight:note-1:h-maya' }] }
   });
   assert.deepStrictEqual(filedHire.candidates, [], 'a Why already filed from that passage is not offered again');
+
+  /* Arbitrary-sentence gauntlet. These are deliberately unrelated domains:
+     the retrieval boundary is the sentence, never a ticker or dossier shape.
+     Each fixture contains a passage on either side. Retrieval must surface
+     both with exact provenance and must not pretend lexical overlap knows
+     which one supports or challenges the hold. */
+  const gauntlet = [
+    {
+      claim: 'Consistent bedtime routines improve children sleep quality.',
+      support: 'Consistent bedtime routines improve children sleep quality across the school week.',
+      counter: 'Consistent bedtime routines did not improve children sleep quality in the trial.'
+    },
+    {
+      claim: 'Shorter onboarding improves activation for new customers.',
+      support: 'Shorter onboarding improves activation for new customers by removing setup work.',
+      counter: 'Shorter onboarding did not improve activation for new customers who needed guidance.'
+    },
+    {
+      claim: 'Maya should be the first engineer hired.',
+      support: 'Maya should be the first engineer hired because she owns the critical systems.',
+      counter: 'Maya should not be the first engineer hired while the product role remains open.'
+    },
+    {
+      claim: 'Debate training reduces reward hacking in language models.',
+      support: 'Debate training reduces reward hacking in language models under adversarial evaluation.',
+      counter: 'Debate training did not reduce reward hacking in language models outside the benchmark.'
+    },
+    {
+      claim: 'Costco membership renewal can remain above ninety percent.',
+      support: 'Costco membership renewal remained above ninety percent in the reported period.',
+      counter: 'Costco membership renewal may fall below ninety percent when household budgets tighten.'
+    }
+  ];
+
+  for (const [index, scenario] of gauntlet.entries()) {
+    const articles = ['support', 'counter'].map((direction) => ({
+      _id: `${direction}-${index}`,
+      title: `${direction} passage ${index}`,
+      url: `https://example.com/${direction}-${index}`,
+      highlights: [{ _id: `${direction}-highlight-${index}`, text: scenario[direction] }]
+    }));
+    const result = await findLibraryEvidence({
+      Article: fakeArticle(articles),
+      userId: 'u1',
+      claim: scenario.claim
+    });
+    assert.deepStrictEqual(
+      new Set(result.candidates.map(candidate => candidate.articleId)),
+      new Set([`support-${index}`, `counter-${index}`]),
+      `both ends of arbitrary sentence ${index + 1} survive the quality bar`
+    );
+    result.candidates.forEach((candidate) => {
+      assert.ok(candidate.highlightId, 'the exact saved passage identity travels with the result');
+      assert.ok(candidate.url, 'the exact source door travels with the result');
+      assert.strictEqual(candidate.side, undefined, 'retrieval leaves semantic disposition to agent plus human');
+    });
+  }
 
   console.log('judgmentEvidenceService tests passed');
 })();

@@ -88,6 +88,7 @@ const run = async () => {
     assert.strictEqual(body.candidates[0].highlightId, HIGHLIGHT_ID);
     assert.strictEqual(body.candidates[0].articleId, NOTE_ID);
     assert.strictEqual(body.candidates[0].id, `highlight:${NOTE_ID}:${HIGHLIGHT_ID}`);
+    assert.match(body.candidates[0].whyThisSource, /^Answers 4 of 4 key terms/);
     assert.strictEqual(body.candidates[0].side, undefined, 'the route never guesses Why or Against');
 
     const noClaim = await fetch(`${base}/api/wiki/pages/${emptyPage._id}/library-evidence`);

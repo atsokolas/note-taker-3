@@ -7,6 +7,7 @@ import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 import { useNoeisSurface } from '../surface/NoeisSurfaceContext';
 import { getAgentThread, streamChatWithAgent } from '../api/agent';
 import {
+  buildAgentEvidenceCandidates,
   buildAgentContext,
   buildAgentMessage,
   mapAgentThreadMessages
@@ -233,7 +234,12 @@ export const AgentRailProvider = ({ children }) => {
         adoptThread(result.thread);
       }
       if (!result?.structureProposal && surfaceRevision.current === revision && typeof handlers.current.onAccept === 'function') {
-        const sentence = String(result?.reply || '').trim();
+        const evidence = buildAgentEvidenceCandidates(result?.relatedItems);
+        const judgmentEvidence = surface.contractId === 'agent-surface.judgment';
+        const primaryEvidence = evidence[0] || null;
+        const sentence = judgmentEvidence
+          ? String(primaryEvidence?.sentence || '').trim()
+          : String(result?.reply || '').trim();
         const allowedFields = (surface.supportedActions || [])
           .filter(action => action.startsWith('accept.'))
           .map(action => action.slice('accept.'.length));
@@ -242,7 +248,11 @@ export const AgentRailProvider = ({ children }) => {
             id: `agent-reply:${Date.now()}`,
             sentence,
             body: sentence,
-            source: (result?.relatedItems || []).map(item => item?.title).filter(Boolean).slice(0, 2).join(' and '),
+            source: primaryEvidence?.source
+              || (result?.relatedItems || []).map(item => item?.title).filter(Boolean).slice(0, 2).join(' and '),
+            sourceLabel: primaryEvidence?.sourceLabel || '',
+            acceptedFrom: primaryEvidence?.acceptedFrom || '',
+            ...(judgmentEvidence && evidence.length > 1 ? { alternatives: evidence.slice(1) } : {}),
             origin: options.origin || '',
             fields: Array.isArray(options.fields) && options.fields.length ? options.fields : allowedFields
           }, revision);

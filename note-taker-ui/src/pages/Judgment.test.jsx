@@ -9,12 +9,15 @@ import { clearSentenceHandoff, peekSentenceHandoff, resetFirstPaint } from '../m
 import { SystemStatusProvider } from '../system/SystemStatusContext';
 import {
   getCompanyDossierJudgmentReview,
+  getJudgmentChangeProposal,
   getJudgmentLibraryEvidence,
   getWikiPage,
   listCompanyDossierJudgmentReviews,
   listWikiPages,
   listWikiSourceEvents,
+  proposeJudgmentChange,
   resolveCompanyDossierJudgmentReview,
+  resolveJudgmentChange,
   updateWikiPage
 } from '../api/wiki';
 import { streamChatWithAgent } from '../api/agent';
@@ -29,12 +32,15 @@ jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
   createWikiPage: jest.fn(),
   getCompanyDossierJudgmentReview: jest.fn(),
+  getJudgmentChangeProposal: jest.fn(),
   getJudgmentLibraryEvidence: jest.fn(),
   getWikiPage: jest.fn(),
   listCompanyDossierJudgmentReviews: jest.fn(),
   listWikiPages: jest.fn(),
   listWikiSourceEvents: jest.fn(),
+  proposeJudgmentChange: jest.fn(),
   resolveCompanyDossierJudgmentReview: jest.fn(),
+  resolveJudgmentChange: jest.fn(),
   updateWikiPage: jest.fn()
 }));
 
@@ -80,6 +86,11 @@ const overnightEvent = () => ({
   createdAt: '2026-08-14T04:00:00.000Z'
 });
 
+const articleReply = (reply, id = 'article-counter-1', title = 'Capacity disclosures') => ({
+  reply,
+  relatedItems: [{ type: 'article', id, title, snippet: reply }]
+});
+
 const dossierResearchReview = () => ({
   id: 'company-dossier-judgment-review:wiki-nvidia:candidate-1',
   kind: 'company_dossier_judgment_review',
@@ -100,6 +111,18 @@ const dossierResearchReview = () => ({
         summary: 'The base case still requires revenue growth above 30%.'
       }
     }
+  }
+});
+
+const judgmentChangeProposal = (after = 'Capacity is easing faster than demand is compounding.') => ({
+  id: 'judgment-change-proposal:wiki-nvidia:proposal-1',
+  kind: 'judgment_change_proposal',
+  status: 'pending',
+  provenance: {
+    pageId: 'wiki-nvidia',
+    proposalId: 'proposal-1',
+    before: 'NVIDIA demand still outruns deliverable capacity.',
+    after
   }
 });
 
@@ -142,6 +165,17 @@ beforeEach(() => {
   listCompanyDossierJudgmentReviews.mockResolvedValue([]);
   listWikiSourceEvents.mockResolvedValue([]);
   getCompanyDossierJudgmentReview.mockResolvedValue(null);
+  getJudgmentChangeProposal.mockResolvedValue(null);
+  proposeJudgmentChange.mockImplementation(async (_pageId, proposed) => judgmentChangeProposal(proposed));
+  resolveJudgmentChange.mockImplementation(async (_pageId, _receiptId, action) => {
+    const proposal = judgmentChangeProposal();
+    return {
+      page: action === 'accept'
+        ? { ...judgmentPage(), judgment: { ...judgmentPage().judgment, currentJudgment: proposal.provenance.after } }
+        : judgmentPage(),
+      proposal: { ...proposal, status: `${action}${action === 'defer' ? 'red' : action.endsWith('e') ? 'd' : 'ed'}` }
+    };
+  });
   resolveCompanyDossierJudgmentReview.mockImplementation(async (_pageId, _receiptId, resolution) => ({
     ...dossierResearchReview(),
     status: 'completed',
@@ -435,29 +469,37 @@ describe('Judgment claim', () => {
     const dated = judgmentPage();
     dated.judgment.why[0].createdAt = '2026-02-14T12:00:00.000Z';
     getWikiPage.mockResolvedValue(dated);
-    updateWikiPage.mockImplementation(async (_id, body) => ({
+    const next = 'I am bullish NVIDIA compute.';
+    const acceptedPage = {
       ...dated,
-      judgment: body.judgment || dated.judgment
-    }));
+      judgment: {
+        ...dated.judgment,
+        currentJudgment: next,
+        decisions: [
+          ...dated.judgment.decisions,
+          { decisionId: 'change-1', summary: `Changed what I hold: ${next}`, status: 'taken', decidedAt: '2026-08-30T13:00:00.000Z' }
+        ]
+      }
+    };
+    resolveJudgmentChange.mockResolvedValue({
+      page: acceptedPage,
+      proposal: { ...judgmentChangeProposal(next), status: 'accepted' }
+    });
 
     renderDetail();
 
     const opinion = await screen.findByLabelText('What you hold');
-    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
+    fireEvent.change(opinion, { target: { value: next } });
     fireEvent.blur(opinion);
 
-    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
-    const [, body] = updateWikiPage.mock.calls[0];
-    expect(body.title).toBeUndefined();
-    expect(body.judgment.currentJudgment).toBe('I am bullish NVIDIA compute.');
-    expect(body.judgment.why[0].createdAt).toBe('2026-02-14T12:00:00.000Z');
-    expect(body.judgment.why.map(line => line.text)).toEqual(dated.judgment.why.map(line => line.text));
-    expect(body.judgment.against).toEqual(dated.judgment.against);
-    expect(body.judgment.decisions.at(-1)).toMatchObject({
-      summary: 'Changed what I hold: I am bullish NVIDIA compute.',
-      status: 'taken'
-    });
-    expect(body.judgment.decisions.at(-1).decidedAt).toEqual(expect.any(String));
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalledWith('wiki-nvidia', next));
+    expect(screen.queryByTestId('ariadne-thread')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What you hold')).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalledWith(
+      'wiki-nvidia', judgmentChangeProposal(next).id, 'accept'
+    ));
+    expect(updateWikiPage).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Title')).toHaveValue('NVIDIA');
     await waitFor(() => {
       expect(document.querySelector('.judgment-log__row--did .judgment-log__text'))
@@ -465,7 +507,47 @@ describe('Judgment claim', () => {
     });
     expect(screen.getByTestId('opinion-ghost'))
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
-    expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
+    expect(screen.getByLabelText('What you hold')).toHaveValue(next);
+    expect(await screen.findByTestId('ariadne-thread')).toBeInTheDocument();
+  });
+
+  it('does not draw provenance when accepting the proposed change fails', async () => {
+    const next = 'I am bullish NVIDIA compute.';
+    getWikiPage.mockResolvedValue(judgmentPage());
+    resolveJudgmentChange.mockRejectedValueOnce(new Error('The write failed.'));
+    renderDetail();
+
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: next } });
+    fireEvent.blur(opinion);
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The write failed.');
+    expect(screen.queryByTestId('ariadne-thread')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
+  });
+
+  it('offers all four human dispositions and restores the receipt after reload', async () => {
+    const proposal = judgmentChangeProposal('Capacity is easing faster than demand is compounding.');
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getJudgmentChangeProposal.mockResolvedValue(proposal);
+
+    const first = renderDetail();
+    const review = await screen.findByRole('region', { name: 'Judgment change review' });
+    ['Accept', 'Preserve', 'Reject', 'Defer'].forEach(label => {
+      expect(within(review).getByRole('button', { name: label })).toBeInTheDocument();
+    });
+    fireEvent.click(within(review).getByRole('button', { name: 'Defer' }));
+    await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalledWith(
+      'wiki-nvidia', proposal.id, 'defer'
+    ));
+    first.unmount();
+
+    getJudgmentChangeProposal.mockResolvedValue({ ...proposal, status: 'deferred' });
+    renderDetail();
+    expect(await screen.findByText('Deferred')).toBeInTheDocument();
+    expect(screen.getByText('Receipt bound to the exact before and after sentences.')).toBeInTheDocument();
   });
 
   it('does not ghost the opinion on first paint', async () => {
@@ -479,24 +561,26 @@ describe('Judgment claim', () => {
     const unnamed = judgmentPage();
     unnamed.title = unnamed.judgment.currentJudgment;
     getWikiPage.mockResolvedValue(unnamed);
-    updateWikiPage.mockImplementation(async (_id, body) => ({
-      ...unnamed,
-      title: unnamed.title,
-      judgment: body.judgment || unnamed.judgment
-    }));
+    const next = 'I am bullish NVIDIA compute.';
+    resolveJudgmentChange.mockResolvedValue({
+      page: { ...unnamed, judgment: { ...unnamed.judgment, currentJudgment: next } },
+      proposal: { ...judgmentChangeProposal(next), status: 'accepted' }
+    });
 
     renderDetail();
 
     const opinion = await screen.findByLabelText('What you hold');
     expect(screen.getByLabelText('Title')).toHaveValue('');
-    fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
+    fireEvent.change(opinion, { target: { value: next } });
     fireEvent.blur(opinion);
+    await screen.findByRole('button', { name: 'Accept' });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
     await waitFor(() => expect(screen.getByTestId('opinion-ghost'))
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.'));
     expect(screen.getByTestId('opinion-ghost'))
       .not.toHaveTextContent('Name this');
-    expect(screen.getByLabelText('What you hold')).toHaveValue('I am bullish NVIDIA compute.');
+    expect(screen.getByLabelText('What you hold')).toHaveValue(next);
   });
 
   it('does not ghost a blank when the opinion is restored', async () => {
@@ -545,10 +629,13 @@ describe('Judgment claim', () => {
   it('resolves a review as revised only after the owner changes the judgment', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     getCompanyDossierJudgmentReview.mockResolvedValue(dossierResearchReview());
-    updateWikiPage.mockImplementation(async (_id, body) => ({
-      ...judgmentPage(),
-      judgment: body.judgment
-    }));
+    resolveJudgmentChange.mockResolvedValue({
+      page: {
+        ...judgmentPage(),
+        judgment: { ...judgmentPage().judgment, currentJudgment: 'Capacity is easing faster than demand is compounding.' }
+      },
+      proposal: { ...judgmentChangeProposal(), status: 'accepted' }
+    });
 
     renderDetail();
 
@@ -560,31 +647,32 @@ describe('Judgment claim', () => {
     fireEvent.change(opinion, { target: { value: 'Capacity is easing faster than demand is compounding.' } });
     fireEvent.blur(opinion);
 
-    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    await screen.findByRole('button', { name: 'Accept' });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalled());
     await waitFor(() => expect(resolveCompanyDossierJudgmentReview).toHaveBeenCalledWith(
       'wiki-nvidia',
       dossierResearchReview().id,
       'revised'
     ));
-    expect(updateWikiPage.mock.invocationCallOrder[0])
+    expect(resolveJudgmentChange.mock.invocationCallOrder[0])
       .toBeLessThan(resolveCompanyDossierJudgmentReview.mock.invocationCallOrder[0]);
   });
 
   it('does not overwrite an opinion still being typed', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     let finishSave;
-    updateWikiPage.mockImplementation(() => new Promise((resolve) => {
-      finishSave = () => resolve({
-        ...judgmentPage(),
-        judgment: { ...judgmentPage().judgment, currentJudgment: 'I am bullish NVIDIA.' }
-      });
+    proposeJudgmentChange.mockImplementation(() => new Promise((resolve) => {
+      finishSave = () => resolve(judgmentChangeProposal('I am bullish NVIDIA.'));
     }));
 
     renderDetail();
     const opinion = await screen.findByLabelText('What you hold');
     fireEvent.focus(opinion);
     fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA.' } });
-    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.focus(opinion);
     fireEvent.change(opinion, { target: { value: 'I am bullish NVIDIA compute.' } });
     await act(async () => { finishSave(); });
     expect(opinion).toHaveValue('I am bullish NVIDIA compute.');
@@ -833,6 +921,24 @@ describe('the overnight line', () => {
 });
 
 describe('the agent rail', () => {
+  it('can inspect the strongest saved passage on either side of the exact sentence', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    streamChatWithAgent.mockResolvedValue(articleReply('Demand has compounded faster than available supply.'));
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage for this' }));
+
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('supports this exact claim'),
+      context: expect.objectContaining({ type: 'wiki_page', id: 'wiki-nvidia', pageId: 'wiki-nvidia' })
+    }), expect.any(Object)));
+
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+    expect(await within(rail).findByText('Demand has compounded faster than available supply.')).toBeInTheDocument();
+    expect(updateWikiPage).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Find the strongest passage against this' })).toBeInTheDocument();
+  });
+
   it('names where a retrieved line came from, and says so when nothing did', async () => {
     // A retrieved sentence with no source is an assertion. The whole contract
     // is that the agent retrieves rather than knows, so provenance is part of
@@ -844,10 +950,10 @@ describe('the agent rail', () => {
     });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
-    expect(await within(rail).findByText('SemiAnalysis')).toBeInTheDocument();
+    expect(await within(rail).findByText('From SemiAnalysis')).toBeInTheDocument();
   });
 
   it('does not invent additional candidates when the durable reply contains one answer', async () => {
@@ -855,7 +961,7 @@ describe('the agent rail', () => {
     streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
@@ -878,12 +984,12 @@ describe('the agent rail', () => {
 
   it('runs the column door in the rail and only writes when the human accepts', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
+    streamChatWithAgent.mockResolvedValue(articleReply('Supply is catching up faster than the thesis assumes.'));
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
@@ -901,7 +1007,7 @@ describe('the agent rail', () => {
 
   it('asks in the human’s own words and lets them choose the field', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue({ reply: 'Packaging capacity is still the binding constraint.' });
+    streamChatWithAgent.mockResolvedValue(articleReply('Packaging capacity is still the binding constraint.'));
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
@@ -928,11 +1034,11 @@ describe('the agent rail', () => {
 
   it('dismisses a retrieved line without writing anything', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue({ reply: 'A line the human does not want.' });
+    streamChatWithAgent.mockResolvedValue(articleReply('A line the human does not want.'));
 
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     await within(rail).findByText('A line the human does not want.');
 
@@ -990,7 +1096,8 @@ describe('Evidence from the library', () => {
     id: 'highlight:a1:h1',
     kind: 'highlight',
     text: 'Deliverable capacity lags demand by roughly two years.',
-    sourceLabel: 'On compute · FT'
+    sourceLabel: 'On compute · FT',
+    whyThisSource: 'Answers 3 of 5 key terms · demand · deliverable · capacity'
   };
 
   beforeEach(() => {
@@ -1246,18 +1353,11 @@ describe('Evidence from the library', () => {
     expect(screen.getByRole('radio', { name: 'Why' })).toHaveAttribute('data-hint', 'true');
   });
 
-  it('shows the claim’s own words on a candidate, and hides a leftover dump', async () => {
+  it('shows why the server selected a candidate', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({
       claim: 'c',
       terms: ['capacity', 'nvidia'],
-      candidates: [
-        {
-          id: 'article:10k',
-          text: 'NVIDIA reported another quarter of data-center growth.',
-          sourceLabel: '10-K'
-        },
-        candidate
-      ]
+      candidates: [candidate]
     });
 
     renderDetail();
@@ -1267,7 +1367,6 @@ describe('Evidence from the library', () => {
     expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('deliverable');
     expect(inbox.querySelector('.judgment-inbox__hold')).toHaveTextContent('capacity');
     expect(inbox.querySelector('.judgment-inbox__hold')).not.toHaveTextContent(/score|strongest/i);
-    expect(screen.queryByText(/NVIDIA reported another quarter/)).not.toBeInTheDocument();
   });
 
   it('looks again in the library when the held sentence is revised', async () => {
@@ -1281,10 +1380,13 @@ describe('Evidence from the library', () => {
     getJudgmentLibraryEvidence
       .mockResolvedValueOnce({ claim: 'c', terms: ['capacity'], candidates: [candidate] })
       .mockResolvedValueOnce({ claim: 'c', terms: ['rates', 'asset'], candidates: [nextCandidate] });
-    updateWikiPage.mockImplementation(async (_id, body) => ({
-      ...judgmentPage(),
-      judgment: body.judgment
-    }));
+    resolveJudgmentChange.mockResolvedValue({
+      page: {
+        ...judgmentPage(),
+        judgment: { ...judgmentPage().judgment, currentJudgment: nextHold }
+      },
+      proposal: { ...judgmentChangeProposal(nextHold), status: 'accepted' }
+    });
 
     renderDetail();
     expect(await screen.findByText(candidate.text)).toBeInTheDocument();
@@ -1293,7 +1395,9 @@ describe('Evidence from the library', () => {
     fireEvent.change(screen.getByLabelText('What you hold'), { target: { value: nextHold } });
     fireEvent.blur(screen.getByLabelText('What you hold'));
 
-    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    await screen.findByRole('button', { name: 'Accept' });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalled());
     await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalledTimes(2));
     expect(await screen.findByText(nextCandidate.text)).toBeInTheDocument();
     expect(screen.queryByText(candidate.text)).not.toBeInTheDocument();

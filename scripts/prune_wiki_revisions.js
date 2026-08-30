@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 require('dotenv').config();
 
-const crypto = require('crypto');
-const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const readline = require('readline');
-const zlib = require('zlib');
 const mongoose = require('mongoose');
 const {
   WikiPage,
@@ -17,6 +14,10 @@ const {
   buildWikiRevisionRetentionPlan,
   collectPageRetentionReferences
 } = require('../server/services/wikiRevisionRetentionService');
+const {
+  verifyMongoBackup,
+  writeVerifiedMongoBackup
+} = require('../server/services/mongoBackupService');
 
 const argValue = (name) => {
   const index = process.argv.indexOf(name);
@@ -33,87 +34,6 @@ const collectObjectIds = (value, found = new Set()) => {
     Object.values(value).forEach((item) => collectObjectIds(item, found));
   }
   return found;
-};
-
-const verifyBackup = async (filename, expectedIds) => {
-  const hash = crypto.createHash('sha256');
-  await new Promise((resolve, reject) => {
-    const input = fs.createReadStream(filename);
-    input.on('data', (chunk) => hash.update(chunk));
-    input.on('end', resolve);
-    input.on('error', reject);
-  });
-  const ids = new Set();
-  let manifest = null;
-  const lines = readline.createInterface({ input: fs.createReadStream(filename).pipe(zlib.createGunzip()) });
-  for await (const line of lines) {
-    const parsed = JSON.parse(line);
-    if (parsed.type === 'manifest') manifest = parsed;
-    if (parsed.type === 'revision') ids.add(String(parsed.document?._id || ''));
-  }
-  const missing = expectedIds.filter((id) => !ids.has(id));
-  if (!manifest || ids.size < expectedIds.length || missing.length) {
-    throw new Error(`Backup verification failed: documents=${ids.size}, missing=${missing.length}.`);
-  }
-  return {
-    filename,
-    documentCount: ids.size,
-    compressedBytes: fs.statSync(filename).size,
-    sha256: hash.digest('hex')
-  };
-};
-
-const writeBackup = async ({ query, manifest, outputDir }) => {
-  fs.mkdirSync(outputDir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = path.join(outputDir, `wiki-revisions-${stamp}.jsonl.gz`);
-  const destination = fs.createWriteStream(filename, { flags: 'wx', mode: 0o600 });
-  const gzip = zlib.createGzip({ level: 9 });
-  const completed = new Promise((resolve, reject) => {
-    destination.on('close', resolve);
-    destination.on('error', reject);
-    gzip.on('error', reject);
-  });
-  gzip.pipe(destination);
-  const writeLine = async (value) => {
-    if (!gzip.write(`${JSON.stringify(value)}\n`)) {
-      await new Promise((resolve) => gzip.once('drain', resolve));
-    }
-  };
-  await writeLine({ type: 'manifest', ...manifest });
-  let documentCount = 0;
-  for await (const revision of WikiRevision.find(query).lean().cursor({ batchSize: 5 })) {
-    await writeLine({ type: 'revision', document: revision });
-    documentCount += 1;
-  }
-  gzip.end();
-  await completed;
-
-  const hash = crypto.createHash('sha256');
-  await new Promise((resolve, reject) => {
-    const input = fs.createReadStream(filename);
-    input.on('data', (chunk) => hash.update(chunk));
-    input.on('end', resolve);
-    input.on('error', reject);
-  });
-
-  let verifiedDocuments = 0;
-  let lineNumber = 0;
-  const lines = readline.createInterface({ input: fs.createReadStream(filename).pipe(zlib.createGunzip()) });
-  for await (const line of lines) {
-    lineNumber += 1;
-    const parsed = JSON.parse(line);
-    if (lineNumber === 1 && parsed.type !== 'manifest') throw new Error('Backup manifest missing.');
-    if (parsed.type === 'revision') verifiedDocuments += 1;
-  }
-  if (verifiedDocuments !== documentCount) throw new Error('Backup verification count mismatch.');
-
-  return {
-    filename,
-    documentCount,
-    compressedBytes: fs.statSync(filename).size,
-    sha256: hash.digest('hex')
-  };
 };
 
 const main = async () => {
@@ -175,10 +95,19 @@ const main = async () => {
   console.log(JSON.stringify(report, null, 2));
   if (!apply || !plan.deletedIds.length) return;
 
-  const outputDir = path.resolve(__dirname, '../output/wiki-revision-prune-2026-07-14');
+  const outputDir = path.resolve(
+    process.env.NOEIS_MONGO_BACKUP_DIR
+      || path.join(os.homedir(), '.codex', 'backups', 'noeis', 'wiki-revisions')
+  );
   const backup = suppliedBackup
-    ? await verifyBackup(path.resolve(suppliedBackup), plan.deletedIds)
-    : await writeBackup({ query, manifest: { ...report, plan }, outputDir });
+    ? await verifyMongoBackup({ filename: path.resolve(suppliedBackup), expectedIds: plan.deletedIds })
+    : await writeVerifiedMongoBackup({
+      Model: WikiRevision,
+      ids: plan.deletedIds,
+      outputDir,
+      prefix: `wiki-revisions-${pageId}`,
+      manifest: { ...report, plan }
+    });
   console.log(JSON.stringify({ backup }, null, 2));
   const deleteResult = await WikiRevision.deleteMany({
     userId: page.userId,

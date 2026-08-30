@@ -17,11 +17,26 @@ const Surface = ({ id, subject, empty, accepted }) => {
     'agent-surface.judgment',
     { objectType: 'claim', objectId: id, subject, empty },
     {
-      onAccept: (proposal, field) => accepted.push({ text: proposal.body, field })
+      onAccept: (proposal, field) => accepted.push({
+        text: proposal.body,
+        field,
+        acceptedFrom: proposal.acceptedFrom
+      })
     }
   );
   return <p>column: {subject}</p>;
 };
+
+const sourceReply = (reply, overrides = {}) => ({
+  reply,
+  relatedItems: [{
+    type: 'article',
+    id: 'article-1',
+    title: 'Grid queues',
+    snippet: reply
+  }],
+  ...overrides
+});
 
 const Column = ({ accepted }) => {
   const [surface, setSurface] = useState('a');
@@ -150,7 +165,7 @@ describe('AgentRail', () => {
   });
 
   it('keeps the conversation but drops page-bound write actions when the column moves on', async () => {
-    streamChatWithAgent.mockResolvedValueOnce({ reply: 'A retrieved line.' });
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('A retrieved line.'));
     const { rail } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
@@ -210,7 +225,7 @@ describe('AgentRail', () => {
   });
 
   it('does not accept a proposal after the column changes during its exit motion', async () => {
-    streamChatWithAgent.mockResolvedValueOnce({ reply: 'A stale line.' });
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('A stale line.'));
     const { rail, accepted } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
@@ -227,7 +242,7 @@ describe('AgentRail', () => {
   });
 
   it('hands an accepted line to the page, with the field the human chose', async () => {
-    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Supply is catching up.' });
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('Supply is catching up.'));
     const { rail, accepted } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
@@ -239,11 +254,62 @@ describe('AgentRail', () => {
     fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
     fireEvent.click(await within(rail()).findByRole('button', { name: 'Against' }));
 
-    await waitFor(() => expect(accepted).toEqual([{ text: 'Supply is catching up.', field: 'against' }]));
+    await waitFor(() => expect(accepted).toEqual([{
+      text: 'Supply is catching up.',
+      field: 'against',
+      acceptedFrom: 'article:article-1'
+    }]));
+  });
+
+  it('keeps agent commentary conversational but files only the saved passage it cites', async () => {
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply(
+      'The model explains why the claim is under pressure.',
+      {
+        relatedItems: [{
+          type: 'article',
+          id: 'article-9',
+          title: 'Capacity disclosures',
+          snippet: 'Signed capacity grew faster than management previously guided.'
+        }]
+      }
+    ));
+    const { rail, accepted } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'challenge this claim' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+
+    expect(await within(rail()).findByText('The model explains why the claim is under pressure.')).toBeInTheDocument();
+    expect(within(rail()).getByText('Signed capacity grew faster than management previously guided.')).toBeInTheDocument();
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(await within(rail()).findByRole('button', { name: 'Against' }));
+
+    await waitFor(() => expect(accepted).toEqual([{
+      text: 'Signed capacity grew faster than management previously guided.',
+      field: 'against',
+      acceptedFrom: 'article:article-9'
+    }]));
+  });
+
+  it('keeps talking but offers no Judgment write when retrieval has no saved article passage', async () => {
+    streamChatWithAgent.mockResolvedValueOnce({
+      reply: 'I found a synthesis, but no exact saved passage.',
+      relatedItems: [{ type: 'wiki_page', id: 'wiki-1', title: 'A Wiki', snippet: 'A synthesis.' }]
+    });
+    const { rail } = renderRail();
+
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+      target: { value: 'challenge this claim' }
+    });
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
+
+    expect(await within(rail()).findByText('I found a synthesis, but no exact saved passage.')).toBeInTheDocument();
+    expect(within(rail()).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
   });
 
   it('fails closed when a proposal asks for an action outside the room contract', async () => {
-    streamChatWithAgent.mockResolvedValueOnce({ reply: 'Publish this without review.' });
+    streamChatWithAgent.mockResolvedValueOnce(sourceReply('Publish this without review.'));
     const { rail, accepted } = renderRail();
 
     fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
@@ -256,7 +322,11 @@ describe('AgentRail', () => {
 
     expect(accepted).toEqual([]);
     await new Promise(resolve => window.setTimeout(resolve, 250));
-    expect(accepted).toEqual([{ text: 'Publish this without review.', field: 'against' }]);
+    expect(accepted).toEqual([{
+      text: 'Publish this without review.',
+      field: 'against',
+      acceptedFrom: 'article:article-1'
+    }]);
   });
 
   it('reports a failed retrieve instead of inventing a line', async () => {

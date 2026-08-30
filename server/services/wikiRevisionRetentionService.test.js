@@ -38,6 +38,23 @@ assert(plan.keptIds.includes('revision-45'), 'keeps accepted source event');
 assert(plan.keptIds.includes('revision-50'), 'keeps published head');
 assert(plan.deletedIds.length > 0, 'identifies redundant snapshots');
 
+const pressurePlan = buildWikiRevisionRetentionPlan({
+  revisions,
+  protectedRevisionIds: ['revision-40'],
+  acceptedSourceEventIds: ['accepted-event'],
+  publishedHeadSha: 'published-sha',
+  recentLimit: 5
+});
+for (let index = 0; index < 5; index += 1) assert(pressurePlan.keptIds.includes(`revision-${index}`));
+assert(pressurePlan.keptIds.includes('revision-59'), 'pressure mode keeps the original');
+assert(pressurePlan.keptIds.includes('revision-25'), 'pressure mode keeps the newest candidate');
+assert(pressurePlan.keptIds.includes('revision-35'), 'pressure mode keeps the newest rejection');
+assert(pressurePlan.keptIds.includes('revision-40'), 'pressure mode keeps explicit references');
+assert(pressurePlan.keptIds.includes('revision-44'), 'pressure mode keeps human-reviewed revisions');
+assert(pressurePlan.keptIds.includes('revision-45'), 'pressure mode keeps accepted source events');
+assert(pressurePlan.keptIds.includes('revision-50'), 'pressure mode keeps the published repo head');
+assert(pressurePlan.deletedIds.length > plan.deletedIds.length, 'pressure mode compacts more unprotected snapshots');
+
 const references = collectPageRetentionReferences({
   publicProof: { acceptedClocks: [{ revisionId: 'clock-revision', sourceEventId: 'clock-event' }] },
   freshness: { acceptedThrough: { revisionId: 'fresh-revision', sourceEventId: 'fresh-event' } },
@@ -120,20 +137,38 @@ console.log('wikiRevisionRetentionService tests passed');
       }
     }
   };
-  const result = await pruneWikiRevisionHistory({
+  await assert.rejects(pruneWikiRevisionHistory({
     WikiRevision,
     userId: 'user-1',
     pageId: 'page-1',
     page: {},
     recentLimit: 20
+  }), /Verified backup required/);
+  assert.strictEqual(updated.length, 0, 'snapshot compaction fails before mutation without a backup');
+
+  const result = await pruneWikiRevisionHistory({
+    WikiRevision,
+    userId: 'user-1',
+    pageId: 'page-1',
+    page: {},
+    recentLimit: 20,
+    beforeCompactSnapshots: async ({ revisionIds }) => ({
+      verified: true,
+      filename: '/tmp/wiki-revisions-test.jsonl.gz',
+      documentCount: revisionIds.length,
+      sha256: 'test-sha256',
+      idFingerprint: 'test-fingerprint'
+    })
   });
   assert.strictEqual(result.skipped, false);
   assert.strictEqual(result.deletedIds.length, 2);
   assert.strictEqual(result.compactableSnapshotIds.length, 2);
+  assert.strictEqual(result.compactableSnapshotBytes, 16 * 1024 * 1024);
   assert(result.keptIds.includes('byte-revision-21'));
   assert.strictEqual(updated.length, 1);
   assert.deepStrictEqual(updated[0].update.$set.before, null);
   assert.deepStrictEqual(updated[0].update.$set.after, null);
+  assert.strictEqual(result.backup.verified, true);
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;
