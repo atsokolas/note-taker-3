@@ -1290,6 +1290,7 @@ const rankWikiPageListCandidates = ({
   const documentFrequency = new Map(subjectTokens.map(token => [token, 0]));
   const rows = pool.map((candidate) => {
     const title = truncate(candidate?.title, 200) || 'Untitled page';
+    const titleHaystack = normalizeComparableText(title);
     const haystack = normalizeComparableText(
       `${title} ${asString(candidate?.plainText) || pageBodySentenceText(candidate)}`
     );
@@ -1297,7 +1298,8 @@ const rankWikiPageListCandidates = ({
     matchedTokens.forEach(token => {
       documentFrequency.set(token, (documentFrequency.get(token) || 0) + 1);
     });
-    return { candidate, title, matchedTokens };
+    const titleMatches = subjectTokens.filter(token => titleHaystack.includes(token));
+    return { candidate, title, matchedTokens, titleMatches };
   });
   const rareFrequencyCeiling = Math.max(2, Math.ceil(pool.length * 0.15));
   return rows
@@ -1305,13 +1307,18 @@ const rankWikiPageListCandidates = ({
       const rareMatches = row.matchedTokens.filter(token => (
         (documentFrequency.get(token) || 0) <= rareFrequencyCeiling
       ));
+      const rareTitleMatches = row.titleMatches.filter(token => rareMatches.includes(token));
       const titleMentioned = pageTitleMentionedInQuestion(row.title, question);
       const score = row.matchedTokens.reduce((total, token) => (
         total + Math.log((pool.length + 1) / ((documentFrequency.get(token) || 0) + 1)) + 1
       ), 0);
-      return { ...row, rareMatches, titleMentioned, score };
+      return { ...row, rareMatches, rareTitleMatches, titleMentioned, score };
     })
-    .filter(row => row.titleMentioned || (row.matchedTokens.length >= 2 && row.rareMatches.length >= 1))
+    .filter(row => row.titleMentioned || (
+      row.matchedTokens.length >= 2
+      && row.rareMatches.length >= 1
+      && row.rareTitleMatches.length >= 1
+    ))
     .sort((left, right) => (
       Number(right.titleMentioned) - Number(left.titleMentioned)
       || right.score - left.score

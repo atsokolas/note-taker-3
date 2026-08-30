@@ -380,7 +380,7 @@ describe('wikiAskService', () => {
         ]
       });
 
-      expect(context.relatedPageContexts.map(candidate => candidate.title)).toEqual(['Circle of Competence']);
+      expect(context.relatedPageContexts).toEqual([]);
     });
 
     it('selects a named related wiki page from the question', () => {
@@ -676,6 +676,7 @@ describe('wikiAskService', () => {
         question: 'Name the Wiki pages most relevant to this dossier.',
         relatedPages: [
           { _id: 'membership', title: 'Membership economics', plainText: 'Membership renewal funds retail pricing.' },
+          { _id: 'generic-body', title: 'Research notes', plainText: 'Membership renewal funds retail pricing.' },
           { _id: 'ai', title: 'AI Infrastructure Market Map', plainText: 'Capital markets and operating investment.' },
           { _id: 'generic', title: 'Business notes', plainText: 'Capital markets and operating investment.' }
         ]
