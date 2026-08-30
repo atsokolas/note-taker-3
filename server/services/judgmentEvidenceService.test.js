@@ -11,7 +11,13 @@ const {
   candidatesFromArticle,
   rankCandidates,
   alreadyFiled,
-  findLibraryEvidence
+  findLibraryEvidence,
+  HIGHLIGHT_SCAN_LIMIT,
+  BODY_SCAN_LIMIT,
+  SEARCH_TERM_LIMIT,
+  QUERY_TIMEOUT_MS,
+  searchTermsForClaim,
+  searchPatternForClaim
 } = require('./judgmentEvidenceService');
 
 // claimTerms
@@ -22,6 +28,17 @@ assert.deepStrictEqual(
 );
 assert.deepStrictEqual(claimTerms('  '), [], 'an empty claim has no terms');
 assert.deepStrictEqual(claimTerms('Capacity and capacity'), ['capacity'], 'each term once');
+assert.deepStrictEqual(
+  searchTermsForClaim(['one', 'extraordinary', 'three', 'discriminating'], 2),
+  ['extraordinary', 'discriminating'],
+  'long claims search with their most discriminating words while preserving sentence order'
+);
+assert.strictEqual(
+  searchTermsForClaim(Array.from({ length: SEARCH_TERM_LIMIT + 5 }, (_, index) => `term-${index}`)).length,
+  SEARCH_TERM_LIMIT,
+  'paragraph-sized judgments cannot create an unbounded text query'
+);
+assert.ok(searchPatternForClaim(['costco', 'owner-value']).test('Owner-value at Costco'), 'search regex is escaped and case-insensitive');
 const terms = claimTerms('Demand for compute outruns deliverable capacity');
 
 // matchedTerms: stems, so a plural in the passage still answers a singular claim
@@ -141,10 +158,23 @@ assert.ok(filed.has('highlight:a1:h1'), 'filed by id');
 assert.ok(filed.has('text:deliverable capacity lags demand by two years.'), 'and by text');
 
 // findLibraryEvidence, against a fake model
+const queryCalls = [];
 const fakeArticle = (articles) => ({
-  find: () => ({
+  find: (filter, projection) => ({
     sort: () => ({
-      limit: () => ({ lean: async () => articles })
+      limit: (limit) => {
+        const query = {
+          maxTimeMS: (timeout) => {
+            queryCalls.push({ filter, projection, limit, timeout });
+            return query;
+          },
+          lean: async () => articles.map((row) => {
+            if (projection.content) return { ...row, highlights: [] };
+            return { ...row, content: undefined };
+          })
+        };
+        return query;
+      }
     })
   })
 });
@@ -162,6 +192,15 @@ const fakeArticle = (articles) => ({
   assert.ok(found.candidates.some(candidate => candidate.highlightId === 'h1'));
   assert.strictEqual(found.candidates[0].id, 'article:a1', 'the more complete visible passage ranks first');
   assert.ok(found.terms.includes('capacity'));
+  const [highlightCall, bodyCall] = queryCalls.slice(-2);
+  assert.strictEqual(highlightCall.limit, HIGHLIGHT_SCAN_LIMIT, 'the saved-passage scan stays bounded');
+  assert.strictEqual(bodyCall.limit, BODY_SCAN_LIMIT, 'the full-body scan stays smaller than the passage scan');
+  assert.strictEqual(highlightCall.timeout, QUERY_TIMEOUT_MS, 'Mongo owns a finite highlight-read deadline');
+  assert.strictEqual(bodyCall.timeout, QUERY_TIMEOUT_MS, 'Mongo owns a finite body-read deadline');
+  assert.ok(highlightCall.projection.highlights.$elemMatch, 'only a matching saved passage is hydrated per source');
+  assert.strictEqual(bodyCall.projection.content, 1, 'the visible article passage survives the bounded body read');
+  assert.ok(highlightCall.filter['highlights.text'].test('deliverable capacity'), 'the passage query carries claim language');
+  assert.ok(bodyCall.filter.content.test('compute demand'), 'the body query carries claim language');
 
   const alreadyDecided = await findLibraryEvidence({
     Article: fakeArticle([article]),
