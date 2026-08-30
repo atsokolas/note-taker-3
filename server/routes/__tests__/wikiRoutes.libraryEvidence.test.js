@@ -6,12 +6,18 @@ const { buildWikiRouter } = require('../wikiRoutes');
    held sentence; a saved passage that answers it comes back with its
    highlight id, and nothing is written until the reader files Why. */
 
+const pageReads = [];
+
 class Query {
   constructor(value) { this.value = value; }
-  select() { return this; }
+  select(projection) { this.projection = projection; return this; }
+  maxTimeMS(timeout) { this.timeout = timeout; return this; }
   sort() { return this; }
   limit() { return this; }
-  lean() { return Promise.resolve(this.value ? JSON.parse(JSON.stringify(this.value)) : null); }
+  lean() {
+    if (this.projection) pageReads.push({ projection: this.projection, timeout: this.timeout });
+    return Promise.resolve(this.value ? JSON.parse(JSON.stringify(this.value)) : null);
+  }
 }
 
 const HIRE_PAGE_ID = '6a5d1c842da7aa36147472ff';
@@ -90,6 +96,14 @@ const run = async () => {
     assert.strictEqual(body.candidates[0].id, `highlight:${NOTE_ID}:${HIGHLIGHT_ID}`);
     assert.match(body.candidates[0].whyThisSource, /^Answers 4 of 4 key terms/);
     assert.strictEqual(body.candidates[0].side, undefined, 'the route never guesses Why or Against');
+    assert.deepStrictEqual(pageReads[0], {
+      projection: {
+        'judgment.currentJudgment': 1,
+        'judgment.why': 1,
+        'judgment.against': 1
+      },
+      timeout: 2000
+    }, 'the evidence route reads only the claim and already-filed passages, under a deadline');
 
     const noClaim = await fetch(`${base}/api/wiki/pages/${emptyPage._id}/library-evidence`);
     assert.strictEqual(noClaim.status, 409);
