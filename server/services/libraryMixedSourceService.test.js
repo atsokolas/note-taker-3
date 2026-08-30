@@ -271,6 +271,18 @@ const run = async () => {
   assert.strictEqual(movementRequests.at(-1).includeRoutineMovements, false);
   assert.strictEqual(movementRequests.at(-1).reviewRequiredOnly, true);
 
+  const quietReview = await buildMixedLibraryRelevancePage({
+    userId: USER_ID,
+    models,
+    view: 'needs_review',
+    limit: 3,
+    movementBuilder: async () => []
+  });
+  assert.deepStrictEqual(quietReview.sources, []);
+  assert.deepStrictEqual(quietReview.counts.needs_review, { value: 0, exact: false });
+  assert.strictEqual(quietReview.nextCursor, null);
+  assert.strictEqual(quietReview.hasMore, false);
+
   const unconnected = await buildMixedLibraryRelevancePage({
     userId: USER_ID,
     models,
