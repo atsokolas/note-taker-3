@@ -6048,9 +6048,23 @@ const buildWikiRouter = ({
   router.get('/api/wiki/pages/:id/library-evidence', wikiAuth, async (req, res) => {
     let page;
     try {
-      page = await findOwnedPage(req).lean();
-    } catch (_error) {
-      return res.status(400).json({ error: 'Invalid wiki page id.' });
+      /* A Wiki page can carry a long article, source ledger, and maintenance
+         history. Evidence retrieval needs only the held sentence and passages
+         already filed beneath it; hydrating the rest made a small sidebar read
+         wait behind the entire dossier. */
+      const pageQuery = findOwnedPage(req).select({
+        'judgment.currentJudgment': 1,
+        'judgment.why': 1,
+        'judgment.against': 1
+      });
+      if (typeof pageQuery.maxTimeMS === 'function') pageQuery.maxTimeMS(2000);
+      page = await pageQuery.lean();
+    } catch (error) {
+      if (error?.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid wiki page id.' });
+      }
+      console.error('Error reading judgment for library evidence:', error);
+      return res.status(500).json({ error: 'Your library could not be searched right now.' });
     }
     if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
     const claim = String(page?.judgment?.currentJudgment || '').trim();
