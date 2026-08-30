@@ -30,7 +30,8 @@ const {
   extractMentionedTitleCandidates,
   rankWikiPageCandidates,
   isCompatibleWikiListCandidate,
-  buildWikiPageListRankingQuestion
+  buildWikiPageListRankingQuestion,
+  rankWikiPageListCandidates
 } = __testables;
 
 const buildPage = (overrides = {}) => ({
@@ -589,8 +590,8 @@ describe('wikiAskService', () => {
       expect(select).toHaveBeenCalledWith('title slug pageType plainText investmentDossier.version updatedAt');
       expect(findWikiBacklinks).not.toHaveBeenCalled();
       expect(corpus.relatedPages.slice(0, 3).map(page => page.title)).toEqual([
-        'Retail inventory turns',
         'Supplier bargaining power',
+        'Retail inventory turns',
         'Membership economics'
       ]);
       expect(corpus.relatedPages.map(page => page.title)).not.toContain('Atsokolas/Note-Taker-3 Repo Wiki');
@@ -663,6 +664,24 @@ describe('wikiAskService', () => {
       expect(isCompatibleWikiListCandidate({ page: selected, candidate: peer, question: 'Which peer company Wiki pages should I compare?' })).toBe(true);
       expect(isCompatibleWikiListCandidate({ page: selected, candidate: acceptance, question: 'Which Wiki pages are relevant?' })).toBe(false);
       expect(isCompatibleWikiListCandidate({ page: selected, candidate: acceptance, question: 'Which maintenance audit is relevant?' })).toBe(true);
+    });
+
+    it('requires multiple subject matches including one rare across the visible wiki corpus', () => {
+      const ranked = rankWikiPageListCandidates({
+        page: {
+          _id: 'costco',
+          title: 'Costco Wholesale investment dossier',
+          plainText: 'Membership renewal and supplier terms reinforce retail inventory turns.'
+        },
+        question: 'Name the Wiki pages most relevant to this dossier.',
+        relatedPages: [
+          { _id: 'membership', title: 'Membership economics', plainText: 'Membership renewal funds retail pricing.' },
+          { _id: 'ai', title: 'AI Infrastructure Market Map', plainText: 'Capital markets and operating investment.' },
+          { _id: 'generic', title: 'Business notes', plainText: 'Capital markets and operating investment.' }
+        ]
+      });
+
+      expect(ranked.map(candidate => candidate.title)).toEqual(['Membership economics']);
     });
 
     it('loads revision rows for temporal questions on selected and mentioned pages', async () => {
