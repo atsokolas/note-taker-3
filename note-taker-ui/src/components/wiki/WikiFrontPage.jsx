@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { listWikiPages, listWikiSourceEvents } from '../../api/wiki';
+import { listWikiPages } from '../../api/wiki';
 import {
   armReadingWatch,
   disarmWatcher,
-  getDailyLoop,
-  recordClaimCheckIn
+  getDailyLoop
 } from '../../api/dailyLoop';
 /* Clicking a page's name means reading it. wikiPagePath goes to the maintenance
    workspace — three panes, a metadata table, an open chat — which is the right
@@ -31,8 +30,8 @@ import {
   filterPagesForTodaysPage
 } from './wikiRepoDedupeModel';
 import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupModel';
-import { buildWeeklyBrief, paperWeekLine } from '../../pages/weeklyBriefModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { shelfCount, wikiLivingBriefingLine } from './morningPaperClose';
 import {
   WIKI_KINDS,
   WIKI_KIND_FLAGS,
@@ -41,7 +40,6 @@ import {
 } from './wikiFacetModel';
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
-import Paper from '../../pages/Paper';
 import WeeklyDigest from './WeeklyDigest';
 import {
   RoomShelf,
@@ -133,30 +131,6 @@ const claimImpactRegister = (impacts = []) => {
   ].filter(([, count]) => count > 0);
 };
 
-const completeLeadSentence = (value = '', maxLength = 280) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  if (!text) return '';
-  if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
-  const limit = Math.max(80, Number(maxLength) || 280);
-  const matches = Array.from(text.matchAll(/[.!?](?=\s|$)/g));
-  const boundary = matches
-    .map(match => match.index + 1)
-    .filter(index => index <= limit)
-    .pop();
-  if (boundary) return text.slice(0, boundary).trim();
-  const clipped = text.slice(0, limit).replace(/[,:;–—-]+$/g, '').trim();
-  const wordBoundary = clipped.lastIndexOf(' ');
-  const clean = wordBoundary > 80 ? clipped.slice(0, wordBoundary).trim() : clipped;
-  if (!clean) return '';
-  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
-};
-
-const isEditorialBriefing = (value = '') => {
-  const text = String(value || '').trim();
-  if (!text) return false;
-  return !/^(user safety|safety|quality(?: gate)?)\s*:/i.test(text);
-};
-
 // The morning-paper lead must always be readable as a complete sentence.
 // The page still has entrance motion, but the content itself does not reveal
 // word-by-word because QA and real users can otherwise catch a dangling phrase.
@@ -172,17 +146,13 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
 
-/* Morning Paper is a broadsheet when something is due, and silence when
-   nothing closed. It is never a collapsed badge that invents readiness. */
-const WikiFrontPageShell = ({ children, lead = null, tail = null, hasMatter = false, ...mainProps }) => (
+/* AT-414: Morning Paper is a close or silence — never a second hub, never a
+   due-claim inbox. The living briefing names a finished editorial sentence
+   or it is not there. Overnight already lives on judgment. */
+const WikiFrontPageShell = ({ children, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
-      {hasMatter ? (
-        <section className="wiki-front-page__broadsheet" aria-label="Morning paper">
-          <Paper compact lead={lead} tail={tail} />
-        </section>
-      ) : null}
       {children}
       <WeeklyDigest />
     </main>
@@ -240,10 +210,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const [hasAnyWikiContent, setHasAnyWikiContent] = useState(() => seed?.hasAnyWikiContent ?? null);
   const [loading, setLoading] = useState(() => !seed);
   const [error, setError] = useState('');
-  const [checkInBusy, setCheckInBusy] = useState(false);
-  const [checkInMessage, setCheckInMessage] = useState('');
-  const [revisionDraft, setRevisionDraft] = useState('');
-  const [showRevisionDraft, setShowRevisionDraft] = useState(false);
   const [readingFeedUrl, setReadingFeedUrl] = useState('');
   const [readingPageId, setReadingPageId] = useState('');
   const [watchingBusy, setWatchingBusy] = useState(false);
@@ -502,19 +468,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     </nav>
   );
 
-  const proposedLeadSentence = completeLeadSentence(briefing?.lead
-    ? [briefing.lead.title, briefing.lead.page?.title, briefing.lead.impactSummary]
-      .filter(Boolean)
-      .join('. ')
-    : briefing?.summary || '');
-  const quietWikiState = reviewCount
-    ? `${reviewCount} page${reviewCount === 1 ? ' is' : 's are'} ready for review.`
-    : 'Your accepted pages are current.';
-  const leadSentence = hasMovements
-    ? 'Something consequential needs your review.'
-    : isEditorialBriefing(proposedLeadSentence)
-      ? proposedLeadSentence
-      : quietWikiState;
+  const leadSentence = wikiLivingBriefingLine({ briefing });
   const briefingNextAction = useMemo(
     () => briefing?.lead?.page?.id ? {
       label: `Open ${briefing.lead.page.title || 'watched page'}`,
@@ -531,125 +485,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     () => selectPrimaryReturnLoopNote(returnLoopNotes),
     [returnLoopNotes]
   );
-  const claimCheckIn = briefing?.claimCheckIn || null;
   const watching = Array.isArray(briefing?.watching) ? briefing.watching : [];
-  /* A claim due for review, or the quiet receipt of a check-in just taken.
-     Anything else is silence — never a badge that invents readiness. */
-  const hasPaperMatter = Boolean(claimCheckIn || checkInMessage);
 
-  /* What grew, what is being watched, and the way to everything you have read.
-     The week belongs on the paper — a standing weekly line under the daily one.
-     Events say which claims have had unread evidence; without them the line
-     could only ever say the week was quiet. */
-  const [weekEvents, setWeekEvents] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const events = await listWikiSourceEvents({ limit: 200 });
-        if (!cancelled) setWeekEvents(Array.isArray(events) ? events : []);
-      } catch (_eventsError) {
-        /* The paper reads fine without them; the line just stays quiet. */
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const week = useMemo(
-    () => buildWeeklyBrief({ pages, events: weekEvents }),
-    [pages, weekEvents]
-  );
-
-  const handleCheckIn = async (action, revisedText = '') => {
-    if (!claimCheckIn || checkInBusy) return;
-    if (action === 'retired' && !window.confirm('Retire this claim? It will remain permanently auditable and can be explicitly restored later.')) return;
-    setCheckInBusy(true);
-    setCheckInMessage('');
-    try {
-      const result = await recordClaimCheckIn({
-        pageId: claimCheckIn.pageId,
-        claimId: claimCheckIn.claimId,
-        action,
-        revisedText
-      });
-      setCheckInMessage(result.acknowledgment || `Claim ${action}.`);
-      setBriefing(previous => ({ ...previous, claimCheckIn: null, checkInStreak: result.streak ?? previous?.checkInStreak }));
-      setShowRevisionDraft(false);
-    } catch (requestError) {
-      setCheckInMessage(requestError?.response?.data?.error || 'Could not record the claim check-in.');
-    } finally {
-      setCheckInBusy(false);
-    }
-  };
-
-  /* The lead is a claim you hold and the four things you can do about it.
-     Opening Noeis should mean being asked whether you still believe something. */
-  const paperLead = (
-    <div className="wfp-lead">
-      <p className="wfp-lead__eyebrow">Morning paper · {mastheadDate()}</p>
-      {claimCheckIn ? (
-        <>
-          <h2 className="wfp-lead__claim">{claimCheckIn.text}</h2>
-          <p className="wfp-lead__where">
-            <Link to={claimCheckIn.href}>{claimCheckIn.pageTitle}</Link>
-            {claimCheckIn.changedSinceLastCheck ? <span> · evidence changed since your last review</span> : null}
-          </p>
-          {showRevisionDraft ? (
-            <div className="wfp-lead__revision">
-              <textarea
-                aria-label="Revised claim"
-                value={revisionDraft}
-                onChange={(event) => setRevisionDraft(event.target.value)}
-                rows={3}
-              />
-              <div className="wfp-lead__verbs">
-                <button type="button" disabled={checkInBusy || !revisionDraft.trim()} onClick={() => handleCheckIn('revised', revisionDraft)}>Save revision</button>
-                <button type="button" disabled={checkInBusy} onClick={() => setShowRevisionDraft(false)}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <div className="wfp-lead__verbs">
-              <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('reaffirmed')}>Still hold</button>
-              <button type="button" disabled={checkInBusy} onClick={() => { setRevisionDraft(claimCheckIn.text); setShowRevisionDraft(true); }}>Revise</button>
-              <button type="button" disabled={checkInBusy} onClick={() => handleCheckIn('retired')}>Retire</button>
-              <Link to={claimCheckIn.href}>Open claim</Link>
-            </div>
-          )}
-        </>
-      ) : (
-        <h2 className="wfp-lead__claim wfp-lead__claim--quiet">
-          {checkInMessage || 'No claim is due for review this morning.'}
-        </h2>
-      )}
-    </div>
-  );
-
-  const paperTail = (
-    <div className="wfp-tail">
-      {canonicalPages.length ? (
-        <>
-          <p className="wfp-tail__cap">Recently grown</p>
-          <ol className="wfp-tail__list">
-            {canonicalPages.slice(0, 3).map(page => (
-              <li key={pageId(page)}>
-                <Link to={wikiReadPath(pageId(page))}>{page.title}</Link>
-              </li>
-            ))}
-          </ol>
-        </>
-      ) : null}
-      {watching.length ? (
-        <p className="wfp-tail__quiet">Watching {watching.length} source{watching.length === 1 ? '' : 's'}.</p>
-      ) : null}
-      <p className="wfp-tail__week">
-        <span>{paperWeekLine(week)}</span>
-        <Link to="/week">Your week →</Link>
-      </p>
-      <p className="wfp-tail__door">
-        <Link to="/wiki/workspace?view=list">See every page in your wiki →</Link>
-      </p>
-    </div>
-  );
   const handleArmReading = async (event) => {
     event.preventDefault();
     if (!readingPageId || !readingFeedUrl || watchingBusy) return;
@@ -754,19 +591,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             <em>{primaryReturnLoopNote.detail}</em>
           </p>
         ) : null}
-        {claimCheckIn || checkInMessage || briefing?.checkInStreak ? (
-          <div className="wiki-front-page__judgment-panel">
-            {/* The claim check-in used to live here, inside "Review and system
-                activity". It is the lead of the paper now — a claim you hold and
-                the four things you can do about it — so it is not also folded
-                away in the operations panel. */}
-
-            {/* What a check-in registered is reported by the lead, which is
-                where the check-in now happens. Saying it twice made the page
-                answer a question nobody asked twice. */}
-            {briefing?.checkInStreak ? <p className="wiki-front-page__streak">{briefing.checkInStreak} consecutive mornings</p> : null}
-          </div>
-        ) : null}
         {showOperations ? (
           <div id="wiki-front-decisions" className="wiki-front-page__decisions">
             <DecisionsIndex embedded initialFilter="upcoming_review" />
@@ -852,7 +676,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   // until a load actually answers. Quiet empty only after that answer.
   if (!loading && hasAnyWikiContent != null && !curatedPages.length) {
     return (
-      <WikiFrontPageShell lead={paperLead} tail={paperTail} hasMatter={hasPaperMatter}>
+      <WikiFrontPageShell>
         <header className="wiki-front-page__top">
           <div className="wiki-front-page__top-row wfp-anim wfp-anim--1">
             <p className="wiki-index__eyebrow wiki-front-page__masthead">
@@ -877,7 +701,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }
 
   return (
-    <WikiFrontPageShell lead={paperLead} tail={paperTail} hasMatter={hasPaperMatter}>
+    <WikiFrontPageShell>
       <div className="wiki-living-shell">
         <RoomShelf
           className={`wiki-living-nav wfp-anim wfp-anim--1${mobileShelfOpen ? ' is-mobile-open' : ''}`}
@@ -902,7 +726,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             {[
               ['all', 'All wikis', canonicalPages.length],
               ['review', 'Needs review', exactReviewCount],
-              ['recent', 'Recently updated', briefing ? recentlyUpdated.length : undefined]
+              ['recent', 'Recently updated', shelfCount(briefing ? recentlyUpdated.length : undefined)]
             ].map(([value, label, count]) => (
               <li key={value}>
                 <RoomShelfButton

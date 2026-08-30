@@ -3,14 +3,9 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
-import { getDailyLoop, recordClaimCheckIn, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
+import { getDailyLoop, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
 
-/* The Paper sits at the top of this page now. It is its own surface with its
-   own suite; here it stands in as a marker, so these tests stay about the
-   wiki and do not drag the reading-loop client in behind them. */
-jest.mock('../../pages/Paper', () => ({ lead = null, tail = null }) => (
-  <div data-testid="paper-on-top">{lead}{tail}</div>
-));
+/* Morning Paper is close-or-silence on this page, not a second hub. */
 jest.mock('./WeeklyDigest', () => () => null);
 
 jest.mock('../../api/knowledgeMovements', () => ({
@@ -26,7 +21,6 @@ jest.mock('../../api/wiki', () => ({
 
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
-  recordClaimCheckIn: jest.fn(),
   armReadingWatch: jest.fn(),
   disarmWatcher: jest.fn()
 }));
@@ -164,7 +158,6 @@ describe('WikiFrontPage (AT-394)', () => {
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
     listWikiPages.mockResolvedValue(pages);
     getDailyLoop.mockResolvedValue({ briefing });
-    recordClaimCheckIn.mockResolvedValue({ acknowledgment: 'reaffirmed · 1st time · held 12 days', streak: 1 });
     armReadingWatch.mockResolvedValue({});
     disarmWatcher.mockResolvedValue({});
   });
@@ -293,9 +286,11 @@ describe('WikiFrontPage (AT-394)', () => {
 
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    const currentBriefing = await screen.findByLabelText('Current Wiki briefing');
-    expect(currentBriefing).toHaveTextContent('4 pages are ready for review.');
-    expect(currentBriefing).not.toHaveTextContent('User Safety');
+    const heading = await screen.findByRole('heading', { name: 'Your living wikis' });
+    expect(heading).toBeInTheDocument();
+    expect(screen.queryByLabelText('Current Wiki briefing')).not.toBeInTheDocument();
+    expect(screen.queryByText(/ready for review/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/needs your review/i)).not.toBeInTheDocument();
   });
 
   it('groups general wikis, repository wikis, and investment dossiers without presenting proposals as accepted knowledge', async () => {
@@ -685,7 +680,7 @@ describe('WikiFrontPage (AT-394)', () => {
     });
   });
 
-  it('leads with a watcher event, renders exact claim impact, and completes a check-in', async () => {
+  it('leads with a watcher close and keeps claim check-in off the front', async () => {
     getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       lead: {
@@ -724,7 +719,7 @@ describe('WikiFrontPage (AT-394)', () => {
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
     expect(await screen.findByText(/NVDA filed a 10-Q/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/2 claims touched · 1 contradicted/i)).toHaveLength(1);
+    expect(screen.getAllByText(/2 claims touched · 1 contradicted/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Open Nvidia dossier →' }))
       .toHaveAttribute('href', '/wiki/read/wiki-first-principles');
     fireEvent.click(screen.getByText('Review and system activity'));
@@ -732,19 +727,14 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByText('partial → conflicted')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Claim impact summary' })).toHaveTextContent('1 conflicted');
     expect(screen.getByText('Inspect 1 claim-level changes')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Integration retains pricing power.' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Integration retains pricing power.' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
     expect(screen.getByText('EDGAR · NVDA')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Disarm' }));
     await waitFor(() => expect(disarmWatcher).toHaveBeenCalledTimes(1));
     expect(disarmWatcher).toHaveBeenCalledWith('wiki-first-principles', 'sec_edgar');
     await waitFor(() => expect(screen.queryByText('EDGAR · NVDA')).not.toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Still hold' }));
-    await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({
-      pageId: 'wiki-first-principles', claimId: 'c1', action: 'reaffirmed', revisedText: ''
-    }));
-    expect(await screen.findByText(/reaffirmed · 1st time/i)).toBeInTheDocument();
   });
 
   it('keeps a dense Watching rail compact until the user expands it', async () => {
@@ -770,12 +760,13 @@ describe('WikiFrontPage (AT-394)', () => {
     await waitFor(() => expect(overflow).toHaveAttribute('open'));
   });
 
-  it('keeps Morning Paper silent when nothing is due, and opens as a broadsheet when a claim is', async () => {
+  it('keeps Morning Paper silent unless an editorial close is already on the page', async () => {
     const { unmount } = render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
     expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__paper-fold')).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('paper-on-top')).not.toBeInTheDocument();
     unmount();
 
     getDailyLoop.mockResolvedValueOnce({ briefing: {
@@ -791,22 +782,21 @@ describe('WikiFrontPage (AT-394)', () => {
     } });
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByText('Integration retains pricing power.')).toBeInTheDocument();
-    const broadsheet = document.querySelector('.wiki-front-page__broadsheet');
-    expect(broadsheet).toBeTruthy();
-    expect(broadsheet).toContainElement(screen.getByTestId('paper-on-top'));
+    expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Integration retains pricing power.' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__paper-fold')).not.toBeInTheDocument();
   });
 
-  /* The morning paper leads with a claim you hold and the four things you can
-     do about it. Those four were already built — Still hold, Revise, Retire,
-     Open claim — but folded inside "Review and system activity", which is a
-     place you go rather than a thing you meet. */
+  /* A due claim is work that exists, not a close. The living briefing may
+     still name a finished editorial sentence; Morning Paper does not open
+     a second inbox over it. */
   describe('the lead', () => {
-    /* The default briefing carries no claim due for review; a lead needs one. */
-    const paint = () => {
+    it('stays silent when a claim is merely due', async () => {
       getDailyLoop.mockResolvedValueOnce({ briefing: {
         ...briefing,
+        summary: '',
         claimCheckIn: {
           pageId: 'wiki-first-principles',
           pageTitle: 'Nvidia dossier',
@@ -816,33 +806,13 @@ describe('WikiFrontPage (AT-394)', () => {
           href: '/wiki/workspace?page=wiki-first-principles&claimId=c1'
         }
       } });
-      return render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
-    };
-
-    it('leads with the claim rather than with what the software noticed', async () => {
-      paint();
-      const claim = await screen.findByText('Integration retains pricing power.', {}, { timeout: 5000 });
-      expect(claim).toHaveClass('wfp-lead__claim');
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(screen.queryByText('Integration retains pricing power.')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Still hold/)).not.toBeInTheDocument();
+      expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
 
-    it('offers the four verbs the lock draws', async () => {
-      paint();
-      await screen.findByText('Integration retains pricing power.', {}, { timeout: 5000 });
-      const verbs = document.querySelector('.wfp-lead__verbs');
-      ['Still hold', 'Revise', 'Retire', 'Open claim'].forEach((verb) => {
-        expect(within(verbs).getByText(verb)).toBeInTheDocument();
-      });
-    });
-
-    it('ends on the way to every page the reading has built', async () => {
-      paint();
-      await screen.findByText('Integration retains pricing power.', {}, { timeout: 5000 });
-      expect(within(document.querySelector('.wfp-tail')).getByRole('link', { name: /See every page in your wiki/ }))
-        .toHaveAttribute('href', '/wiki/workspace?view=list');
-    });
-
-    /* No claim due is silence — not a badge, not a quiet filler sentence that
-       still occupies the Morning Paper plane. */
     it('stays silent when no claim is due', async () => {
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
       expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
@@ -852,50 +822,26 @@ describe('WikiFrontPage (AT-394)', () => {
   });
 });
 
-describe('Recently grown', () => {
+describe('Recently updated', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     listWikiPages.mockReset();
     getDailyLoop.mockReset();
-    getDailyLoop.mockResolvedValue({ briefing: {} });
   });
 
-  /* Shipped listing the same page three times: it read the repo-deduped list
-     rather than the title-folded one, so three copies of one claim arrived as
-     three things that recently grew. */
-  it('lists a page once however many copies of it exist', async () => {
-    const copy = (id) => ({
-      _id: id,
-      title: 'I believe AI compute is scarce',
-      pageType: 'topic',
-      status: 'draft',
-      updatedAt: '2026-08-18T12:00:00.000Z'
-    });
-    listWikiPages.mockResolvedValue([
-      copy('one'), copy('two'), copy('three'), { ...copy('other'), title: 'Reflexivity' }
-    ]);
+  it('does not wear a zero as a work-is-ready badge', async () => {
+    listWikiPages.mockResolvedValue(pages);
     getDailyLoop.mockResolvedValue({
-      briefing: {
-        claimCheckIn: {
-          pageId: 'one',
-          pageTitle: 'I believe AI compute is scarce',
-          claimId: 'c1',
-          text: 'Compute stays scarce.',
-          href: '/wiki/workspace?page=one&claimId=c1'
-        }
-      }
+      briefing: { ...briefing, recentlyUpdatedPages: [], counts: { ...briefing.counts, recentlyUpdatedPages: 0 } }
     });
-    render(
-      <router.MemoryRouter>
-        <WikiFrontPage />
-      </router.MemoryRouter>
-    );
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    const grown = await screen.findByText('Recently grown');
-    const list = grown.parentElement.querySelector('.wfp-tail__list');
-    const titles = [...list.querySelectorAll('li')].map(item => item.textContent);
-    expect(titles).toEqual(['I believe AI compute is scarce', 'Reflexivity']);
+    expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+    const recent = screen.getByRole('button', { name: /^Recently updated$/i });
+    expect(recent).toBeInTheDocument();
+    expect(recent).not.toHaveTextContent('0');
+    expect(screen.queryByText('Recently grown')).not.toBeInTheDocument();
   });
 });

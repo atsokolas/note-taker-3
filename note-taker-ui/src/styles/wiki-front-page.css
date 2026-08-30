@@ -79,68 +79,6 @@ html[data-ui-theme='dark'] .wiki-front-page__graph-motif-nodes circle {
   padding: 34px 30px 72px;
 }
 
-.wiki-front-page__broadsheet {
-  width: min(100%, 760px);
-  margin-inline: auto;
-  padding: 6px 0 10px;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-}
-
-.wiki-front-page__paper-fold {
-  width: min(100%, 760px);
-  margin-inline: auto;
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 72%, transparent);
-}
-
-.wiki-front-page__paper-fold > summary {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 18px;
-  align-items: baseline;
-  padding: 13px 0;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  cursor: pointer;
-  list-style: none;
-}
-
-.wiki-front-page__paper-fold > summary::-webkit-details-marker { display: none; }
-
-.wiki-front-page__paper-fold > summary::before {
-  content: "›";
-  grid-column: 1;
-  grid-row: 1;
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-  transform: rotate(0deg);
-  transform-origin: center;
-  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.wiki-front-page__paper-fold[open] > summary::before { transform: rotate(90deg); }
-
-.wiki-front-page__paper-fold > summary > span:first-child {
-  grid-column: 2;
-  grid-row: 1;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
-
-.wiki-front-page__paper-fold > summary > span:last-child {
-  grid-column: 2;
-  grid-row: 2;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  font-size: 1rem;
-}
-
-.wiki-front-page__paper-fold .paper--compact {
-  margin: 10px 0 0;
-}
-
 html[data-ui-theme='dark'] body.noeis-editorial.wiki-front-page-route,
 html[data-ui-theme='dark'] body.noeis-editorial:has(.wiki-front-page) {
   background: var(--vellum-bg, var(--noeis-canvas)) !important;
@@ -179,16 +117,10 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   align-items: start;
 }
 
-.wiki-front-page__briefing-copy,
-.wiki-front-page__judgment-panel {
+.wiki-front-page__briefing-copy {
   display: grid;
   gap: 16px;
   min-width: 0;
-}
-
-.wiki-front-page__judgment-panel {
-  padding-left: 24px;
-  border-left: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
 }
 
 /* Legible secondary nav — workspace destinations near the door. */
@@ -839,12 +771,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .wiki-front-page__judgment-panel {
-    padding: 18px 0 0;
-    border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 74%, transparent);
-    border-left: 0;
-  }
-
   .wiki-front-page__workspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -864,7 +790,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
 /* Reduced motion: everything appears instantly; nothing is lost. */
 @media (prefers-reduced-motion: reduce) {
-  .wiki-front-page__paper-fold > summary::before { transition: none; }
   .wfp-anim { animation: none; opacity: 1; transform: none; }
   .wiki-front-page .wiki-skeleton { animation: none; }
 }
@@ -1419,36 +1344,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   }
 }
 
-.wiki-front-page__check-in,
-.wiki-front-page__watching {
-  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 45%, transparent);
-  margin-top: 22px;
-  padding-top: 18px;
-}
-
-.wiki-front-page__judgment-panel .wiki-front-page__check-in {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
-.wiki-front-page__check-in h2 {
-  font-family: var(--font-serif, Georgia, serif);
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  line-height: 1.35;
-  margin: 8px 0 6px;
-}
-
-.wiki-front-page__check-in > p,
-.wiki-front-page__check-in-register,
-.wiki-front-page__streak {
-  color: var(--text-muted, #8c867c);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: .75rem;
-}
-
-.wiki-front-page__check-in-actions,
-.wiki-front-page__check-in-revision,
 .wiki-front-page__reading-watch {
   align-items: center;
   display: flex;
@@ -1457,7 +1352,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   margin-top: 12px;
 }
 
-.wiki-front-page__check-in button,
 .wiki-front-page__watching button {
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 62%, transparent);
@@ -1467,15 +1361,9 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   padding: 7px 12px;
 }
 
-.wiki-front-page__check-in button:disabled,
 .wiki-front-page__watching button:disabled {
   cursor: wait;
   opacity: .55;
-}
-
-.wiki-front-page__check-in-revision textarea {
-  flex: 1 1 100%;
-  min-width: 0;
 }
 
 .wiki-front-page__watching {
@@ -1573,8 +1461,7 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
 }
 
 .wiki-front-page__reading-watch input,
-.wiki-front-page__reading-watch select,
-.wiki-front-page__check-in-revision textarea {
+.wiki-front-page__reading-watch select {
   background: color-mix(in srgb, var(--surface, #191918) 86%, transparent);
   border: 1px solid color-mix(in srgb, var(--noeis-rule, #7d7669) 52%, transparent);
   border-radius: 8px;
@@ -1712,11 +1599,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   border-top: 0;
 }
 
-.wiki-front-page__operations-panel .wiki-front-page__judgment-panel {
-  padding-left: 0;
-  border-left: 0;
-}
-
 @keyframes wfp-materialize {
   from { opacity: 0; transform: translate3d(0, -4px, 0) scale(0.98); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
@@ -1743,7 +1625,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   }
 }
 
-.wiki-front-page__check-in button:active,
 .wiki-front-page__watching button:active,
 .wiki-front-page__watching-more > summary:active,
 .wiki-front-page__watching-add summary:active {
@@ -1798,7 +1679,6 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   .wiki-front-page__continue,
   .wiki-front-page__watching-more > summary,
   .wiki-front-page__watching-add summary,
-  .wiki-front-page__check-in button,
   .wiki-front-page__watching button {
     transition: none;
     transform: none;
@@ -1981,33 +1861,6 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
   box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.92rem;
-}
-
-/* The week, under the day. One sentence and a way in. */
-.wfp-tail__week {
-  display: grid;
-  gap: 2px;
-  margin: 22px 0 0;
-}
-
-.wfp-tail__week span {
-  max-width: 46ch;
-  color: var(--text-secondary, var(--vellum-subtle));
-  font-size: 0.96rem;
-  line-height: 1.45;
-}
-
-.wfp-tail__week a {
-  justify-self: start;
-  color: var(--text-muted, var(--vellum-subtle));
-  border-bottom: 1px solid currentColor;
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-  text-decoration: none;
-}
-
-.wfp-tail__week a:hover {
-  color: var(--text-primary, var(--vellum-ink));
 }
 
 /* ---------- the week in your thinking ---------- */

@@ -1,5 +1,5 @@
 export const NOEIS_LOOP_DEFINITIONS = Object.freeze([
-  Object.freeze({ id: 'loop.morning-paper', name: 'Morning Paper', description: 'Surfaces what deserves attention next.' }),
+  Object.freeze({ id: 'loop.morning-paper', name: 'Morning Paper', description: 'Names a close, or stays silent.' }),
   Object.freeze({ id: 'loop.wiki-maintenance', name: 'Wiki maintenance', description: 'Proposes evidence-bound updates to maintained knowledge.' }),
   Object.freeze({ id: 'loop.weekly-ai', name: 'This Week in AI', description: 'Compiles a bounded weekly research edition.' }),
   Object.freeze({ id: 'loop.outcome-review', name: 'Outcome review', description: 'Returns decisions when their outcome clock is due.' })

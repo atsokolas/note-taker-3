@@ -5,8 +5,9 @@
  *
  * Default mode proves the deployed backend/frontend contract is present even
  * for a quiet account. Set REQUIRE_RETURN_LOOP=1 when using a real account that
- * should have recent imports/maintenance so the script fails if Morning Paper
- * only renders quiet-state slots.
+ * should have recent imports/maintenance so the script fails if /wiki only
+ * renders quiet-state slots. Morning Paper is close-or-silence: an empty
+ * briefing is honest, not a missing badge.
  */
 
 const fs = require('fs');
@@ -106,7 +107,7 @@ const main = async () => {
         url: window.location.href,
         h1s: Array.from(document.querySelectorAll('h1')).map(node => node.textContent.trim()).filter(Boolean),
         hasFatalError: /Cannot read|TypeError|Application error|Something went wrong/i.test(text),
-        hasMorningPaper: /MORNING PAPER/i.test(text),
+        hasLivingWikis: /Your living wikis/i.test(text),
         hasReturnLoopLanguage: /Continue reading|Questions with fresh evidence|Pages that gained sources|Overnight maintenance|Review filing suggestions|fresh evidence|gained source/i.test(text),
         bodyTextSample: text.slice(0, 1200)
       };
@@ -122,7 +123,7 @@ const main = async () => {
     }));
     await browser.close();
     if (renderChecks.hasFatalError) throw new Error('Rendered /wiki contains fatal error text.');
-    if (!renderChecks.hasMorningPaper) throw new Error('Rendered /wiki did not show Morning Paper copy.');
+    if (!renderChecks.hasLivingWikis) throw new Error('Rendered /wiki did not show the living wiki index.');
     if (REQUIRE_RETURN_LOOP && !renderChecks.hasReturnLoopLanguage) {
       throw new Error('REQUIRE_RETURN_LOOP=1 but /wiki did not render return-loop language.');
     }
