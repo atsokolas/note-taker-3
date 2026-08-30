@@ -11,6 +11,7 @@ import {
 } from '../../api/organize';
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
+import PassageDoor from '../reader/PassageDoor';
 
 const ITEM_TYPES = [
   { value: 'note', label: 'Note' },
@@ -203,6 +204,10 @@ const HighlightCard = ({
           <div className="highlight-card-collapsed-text">
             {summarize(highlight?.text)}
           </div>
+          <PassageDoor
+            highlightId={highlightId}
+            articleId={highlight?.articleId}
+          />
           <div className="highlight-card-collapsed-meta">
             <span className={`item-type-badge item-type-${String(itemType || 'note').toLowerCase()}`}>
               {formatTypeLabel(itemType)}

@@ -1,4 +1,4 @@
-import { buildSourceOpenPath, buildSourceOriginPath } from '../utils/sourceRoutes';
+import { buildSourceOpenPath, buildSourceOriginPath, isLibraryHref } from '../utils/sourceRoutes';
 import { answersHeldSentence } from './judgmentHold';
 
 // The Judgment page's read model.
@@ -88,7 +88,7 @@ export const namedTitle = (page = {}) => {
 /** What pops up: the name if there is one, otherwise the claim. */
 export const judgmentHeadline = (page = {}) => namedTitle(page) || claimSentence(page);
 
-export const isLibraryHref = (href = '') => /^\/library(\?|$)/.test(clean(href));
+export { isLibraryHref };
 
 const sourceLabel = (ref) => (
   clean(ref?.citationLabel)

@@ -6,6 +6,20 @@ export const isExternalSourceHref = (href = '') => /^https?:\/\//i.test(clean(hr
 
 export const isLibraryHref = (href = '') => /^\/library(\?|$)/.test(clean(href));
 
+/** highlight:article:highlight or article:article — the origin a Why keeps. */
+export const parseSourceOrigin = (origin = '') => {
+  const value = clean(origin);
+  const highlight = value.match(/^highlight:([^:]+):(.+)$/);
+  if (highlight) {
+    return { kind: 'highlight', articleId: highlight[1], highlightId: highlight[2] };
+  }
+  const article = value.match(/^article:(.+)$/);
+  if (article) {
+    return { kind: 'article', articleId: article[1], highlightId: '' };
+  }
+  return { kind: '', articleId: '', highlightId: '' };
+};
+
 export const buildCanonicalArticlePath = (articleId = '') => {
   const id = idOf(articleId);
   return id ? `/library?articleId=${encodeURIComponent(id)}` : '/library';
@@ -72,12 +86,13 @@ export const resolveSourceDoors = (source = {}) => {
 export const buildSourceOpenPath = (source = {}) => resolveSourceDoors(source).openHref;
 
 export const buildSourceOriginPath = (origin = '', fallbackUrl = '') => {
-  const value = clean(origin);
-  const highlight = value.match(/^highlight:([^:]+):(.+)$/);
-  if (highlight) {
-    return buildCanonicalHighlightPath({ articleId: highlight[1], highlightId: highlight[2] });
+  const parsed = parseSourceOrigin(origin);
+  if (parsed.kind === 'highlight') {
+    return buildCanonicalHighlightPath({
+      articleId: parsed.articleId,
+      highlightId: parsed.highlightId
+    });
   }
-  const article = value.match(/^article:(.+)$/);
-  if (article) return buildCanonicalArticlePath(article[1]);
+  if (parsed.kind === 'article') return buildCanonicalArticlePath(parsed.articleId);
   return isExternalSourceHref(fallbackUrl) ? clean(fallbackUrl) : '';
 };

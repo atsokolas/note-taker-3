@@ -4,6 +4,7 @@ import {
   buildSourceOpenPath,
   buildSourceOriginPath,
   isExternalSourceHref,
+  parseSourceOrigin,
   resolveSourceDoors
 } from './sourceRoutes';
 
@@ -68,6 +69,16 @@ describe('sourceRoutes', () => {
   });
 
   it('resolves persisted evidence origins through the same contract', () => {
+    expect(parseSourceOrigin('highlight:a1:h1')).toEqual({
+      kind: 'highlight',
+      articleId: 'a1',
+      highlightId: 'h1'
+    });
+    expect(parseSourceOrigin('article:a1')).toEqual({
+      kind: 'article',
+      articleId: 'a1',
+      highlightId: ''
+    });
     expect(buildSourceOriginPath('highlight:a1:h1')).toBe('/library?articleId=a1&highlightId=h1');
     expect(buildSourceOriginPath('article:a1')).toBe('/library?articleId=a1');
     expect(buildSourceOriginPath('overnight-event', 'https://example.com/source'))
