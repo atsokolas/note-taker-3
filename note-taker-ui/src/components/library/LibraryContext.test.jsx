@@ -51,7 +51,7 @@ describe('LibraryContext', () => {
     listWikiPages.mockResolvedValue([]);
   });
 
-  it('makes the active highlight a source that can be referenced into durable work', () => {
+  it('makes the active highlight a source that can be referenced into durable work', async () => {
     renderContext({
       activeHighlightId: 'highlight-1',
       articleHighlights: [
@@ -70,6 +70,7 @@ describe('LibraryContext', () => {
       ]
     });
 
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     const pullIn = screen.getByTestId('reference-pull-in');
     expect(pullIn).toHaveAttribute('data-target-type', 'highlight');
     expect(pullIn).toHaveAttribute('data-target-id', 'highlight-1');
@@ -79,7 +80,7 @@ describe('LibraryContext', () => {
     expect(pullIn).toHaveAttribute('data-target-title', 'Temperament and concentration are recurring source atoms.');
   });
 
-  it('does not render highlight pull-in controls before a highlight is focused', () => {
+  it('does not render highlight pull-in controls before a highlight is focused', async () => {
     renderContext({
       activeHighlightId: '',
       articleHighlights: [
@@ -91,11 +92,12 @@ describe('LibraryContext', () => {
       ]
     });
 
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     expect(screen.queryByTestId('reference-pull-in')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reference' })).toBeInTheDocument();
   });
 
-  it('exposes every highlight as a referenceable source atom', () => {
+  it('exposes every highlight as a referenceable source atom', async () => {
     const onHighlightClick = jest.fn();
     const onSelectHighlight = jest.fn();
 
@@ -117,6 +119,7 @@ describe('LibraryContext', () => {
       ]
     });
 
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     const referenceButtons = screen.getAllByRole('button', { name: 'Reference' });
     expect(referenceButtons).toHaveLength(2);
 

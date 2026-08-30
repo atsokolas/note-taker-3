@@ -54,14 +54,16 @@ describe('HighlightCard progressive disclosure', () => {
     listWikiPages.mockResolvedValue([]);
   });
 
-  it('defaults to collapsed and keeps the edit panel hidden', () => {
+  it('defaults to collapsed and keeps the edit panel hidden', async () => {
     renderCard();
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     expect(screen.getByText('Expand')).toBeInTheDocument();
     expect(screen.queryByText('Edit / Tag / Link')).not.toBeInTheDocument();
   });
 
-  it('expands and collapses per card', () => {
+  it('expands and collapses per card', async () => {
     renderCard();
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     fireEvent.click(screen.getByText('Expand'));
     expect(screen.getByText('Edit / Tag / Link')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Collapse'));
