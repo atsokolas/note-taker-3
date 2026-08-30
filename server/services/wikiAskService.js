@@ -1216,6 +1216,20 @@ const isWikiPageListRequest = (question = '') => (
   /\b(name|list|which|what)\b[^?]{0,100}\bwiki pages?\b/i.test(asString(question))
 );
 
+const PAGE_LIST_RANKING_STOPWORDS = new Set([
+  ...ANSWER_STOPWORDS,
+  'business', 'company', 'current', 'dossier', 'investment', 'page', 'pages',
+  'source', 'sources', 'wiki'
+]);
+
+const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
+  const pageText = `${asString(page?.title)} ${asString(page?.plainText) || pageBodySentenceText(page)}`;
+  const subjectTokens = Array.from(new Set(extractAnswerTokens(pageText)))
+    .filter(token => !PAGE_LIST_RANKING_STOPWORDS.has(token))
+    .slice(0, 24);
+  return `${asString(question)} ${subjectTokens.join(' ')}`.trim();
+};
+
 const buildWikiPageListAnswer = ({ page, relatedPageContexts = [] } = {}) => {
   const relatedTitles = (Array.isArray(relatedPageContexts) ? relatedPageContexts : [])
     .map(candidate => truncate(candidate?.title, 160))
@@ -1372,9 +1386,9 @@ const loadWikiAskCorpus = async ({
   };
   const recentPagesRaw = await WikiPage.find(visibleWikiPageMatch)
     .sort({ updatedAt: -1 })
-    .limit(Math.max(1, pageScanLimit))
+    .limit(Math.max(1, Math.min(pageScanLimit, pageListRequest ? MAX_WIKI_PAGE_CANDIDATES : pageScanLimit)))
     .select(pageListRequest
-      ? 'title slug pageType updatedAt'
+      ? 'title slug pageType plainText updatedAt'
       : 'title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt')
     .lean();
   const recentPages = (Array.isArray(recentPagesRaw) ? recentPagesRaw : []).filter(isWikiPageSurfaceEligible);
@@ -1407,7 +1421,9 @@ const loadWikiAskCorpus = async ({
   const relatedPages = rankWikiPageCandidates({
     page,
     relatedPages: allPages,
-    question: trimmed,
+    question: pageListRequest
+      ? buildWikiPageListRankingQuestion({ page, question: trimmed })
+      : trimmed,
     selectedPageOnly,
     semanticScores,
     limit: candidateLimit
@@ -1801,6 +1817,7 @@ module.exports = {
     semanticPageScores,
     pickExactPageSentence,
     isWikiPageListRequest,
+    buildWikiPageListRankingQuestion,
     buildWikiPageListAnswer,
     runWithDeadline
   }

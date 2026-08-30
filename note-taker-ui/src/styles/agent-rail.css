@@ -161,6 +161,7 @@
   font-size: 0.84rem;
   line-height: 1.55;
   text-wrap: pretty;
+  white-space: pre-line;
 }
 
 .agent-rail__message--user > p {
