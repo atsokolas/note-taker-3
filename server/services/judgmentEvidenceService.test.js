@@ -115,10 +115,37 @@ const fakeArticle = (articles) => ({
   const noModel = await findLibraryEvidence({ userId: 'u1', claim: 'compute capacity' });
   assert.deepStrictEqual(noModel.candidates, [], 'survives a missing model');
 
+  const hireNote = {
+    _id: 'note-1',
+    title: 'Hiring notes',
+    content: '<p>Unrelated logistics.</p>',
+    createdAt: '2026-08-20T00:00:00.000Z',
+    highlights: [
+      { _id: 'h-maya', text: 'Maya is the engineer I would hire first.', createdAt: '2026-08-21T00:00:00.000Z' }
+    ]
+  };
+  const hired = await findLibraryEvidence({
+    Article: fakeArticle([hireNote]),
+    userId: 'u1',
+    claim: 'Hire Maya as the first engineer.'
+  });
+  assert.strictEqual(hired.candidates.length, 1, 'a hire claim is answered by a saved note, not a ticker');
+  assert.strictEqual(hired.candidates[0].highlightId, 'h-maya');
+  assert.strictEqual(hired.candidates[0].id, 'highlight:note-1:h-maya');
+  assert.ok(!hired.terms.includes('nvidia') && !hired.terms.includes('ticker'));
+
+  const filedHire = await findLibraryEvidence({
+    Article: fakeArticle([hireNote]),
+    userId: 'u1',
+    claim: 'Hire Maya as the first engineer.',
+    judgment: { why: [{ acceptedFrom: 'highlight:note-1:h-maya' }] }
+  });
+  assert.deepStrictEqual(filedHire.candidates, [], 'a Why already filed from that passage is not offered again');
+
   console.log('judgmentEvidenceService tests passed');
 })();
 
-/* Evergreen: what the reader keeps for life answers first. */
+/* Evergreen: a kept source does not beat a passage that answers more of the claim. */
 {
   const { EVERGREEN_BONUS } = require('./judgmentEvidenceService');
   const terms2 = claimTerms('Demand for compute outruns deliverable capacity');
@@ -136,13 +163,13 @@ const fakeArticle = (articles) => ({
   assert.strictEqual(keptRow.evergreen, true, 'the row says it is evergreen');
   assert.strictEqual(passingRow.evergreen, false);
   assert.ok(
-    keptRow.score > passingRow.score,
-    'an evergreen source outranks a better keyword match that is not'
+    passingRow.score > keptRow.score,
+    'covering the sentence outranks an evergreen leftover'
   );
   assert.ok(EVERGREEN_BONUS > 0);
 
   const order = rankCandidates([passingRow, keptRow], 5).map(row => row.id);
-  assert.strictEqual(order[0], 'article:keeper', 'and it comes back first');
+  assert.strictEqual(order[0], 'article:passing', 'and the answering source comes back first');
 
   console.log('evergreen retrieval tests passed');
 }

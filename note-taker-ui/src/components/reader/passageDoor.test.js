@@ -1,0 +1,120 @@
+import { rememberOpenedJudgment } from './folioModel';
+import { pickPassageDoor } from './passageDoor';
+
+const highlightId = 'h1';
+const articleId = 'article-1';
+
+const claim = (id, extras = {}) => ({
+  _id: id,
+  title: extras.title ?? extras.currentJudgment ?? 'A claim.',
+  updatedAt: extras.updatedAt || '2026-08-01T00:00:00.000Z',
+  evergreen: Boolean(extras.evergreen),
+  sourceRefs: extras.sourceRefs || [{
+    _id: `src-${id}`,
+    type: 'article',
+    objectId: extras.objectId || articleId
+  }],
+  judgment: {
+    currentJudgment: extras.currentJudgment || 'Compute stays scarce.',
+    why: extras.why || [],
+    against: extras.against || []
+  }
+});
+
+const filed = (field, extras = {}) => claim(extras.id || 'wiki-compute', {
+  currentJudgment: extras.currentJudgment || 'Demand still outruns deliverable capacity.',
+  updatedAt: extras.updatedAt,
+  evergreen: extras.evergreen,
+  objectId: extras.objectId || 'other',
+  [field]: [{
+    reasonId: `${field}-1`,
+    text: 'A passage from the filing.',
+    acceptedFrom: extras.acceptedFrom || `highlight:${articleId}:${highlightId}`,
+    createdAt: extras.createdAt || '2026-08-20T00:00:00.000Z'
+  }]
+});
+
+describe('pickPassageDoor', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it('opens the claim this passage was filed as Why for', () => {
+    expect(pickPassageDoor([filed('why')], { highlightId, articleId })).toEqual({
+      id: 'wiki-compute',
+      text: 'Demand still outruns deliverable capacity.',
+      href: '/judgment/wiki-compute',
+      stance: 'Why'
+    });
+  });
+
+  it('opens the claim this passage was filed as Against for', () => {
+    expect(pickPassageDoor([filed('against')], { highlightId, articleId })).toEqual({
+      id: 'wiki-compute',
+      text: 'Demand still outruns deliverable capacity.',
+      href: '/judgment/wiki-compute',
+      stance: 'Against'
+    });
+  });
+
+  it('is silent when the passage was never filed, even if the article is on the ledger', () => {
+    expect(pickPassageDoor([claim('p1')], { highlightId, articleId })).toBeNull();
+  });
+
+  it('is silent when a different passage was filed', () => {
+    expect(pickPassageDoor([filed('why', {
+      acceptedFrom: `highlight:${articleId}:h-other`
+    })], { highlightId, articleId })).toBeNull();
+  });
+
+  it('is silent without a passage', () => {
+    expect(pickPassageDoor([filed('why')], { articleId })).toBeNull();
+    expect(pickPassageDoor([filed('why')], { highlightId: '' })).toBeNull();
+  });
+
+  it('is silent when the ledger is soup — a source-ref without a filed origin', () => {
+    const soup = claim('p1', {
+      sourceRefs: [{ _id: 'src-h', type: 'highlight', objectId: highlightId }]
+    });
+    expect(pickPassageDoor([soup], { highlightId, articleId })).toBeNull();
+  });
+
+  it('is one door when several claims filed the same passage', () => {
+    const older = filed('why', {
+      id: 'older',
+      currentJudgment: 'The older claim.',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+    const newer = filed('against', {
+      id: 'newer',
+      currentJudgment: 'The newer claim.',
+      updatedAt: '2026-08-20T00:00:00.000Z'
+    });
+    expect(pickPassageDoor([older, newer], { highlightId, articleId })).toEqual({
+      id: 'newer',
+      text: 'The newer claim.',
+      href: '/judgment/newer',
+      stance: 'Against'
+    });
+    expect(pickPassageDoor([older, newer], {
+      highlightId,
+      articleId,
+      preferredId: 'older'
+    }).href).toBe('/judgment/older');
+  });
+
+  it('prefers the claim that was just open', () => {
+    rememberOpenedJudgment('older');
+    const older = filed('why', {
+      id: 'older',
+      currentJudgment: 'The older claim.',
+      updatedAt: '2026-01-01T00:00:00.000Z'
+    });
+    const newer = filed('why', {
+      id: 'newer',
+      currentJudgment: 'The newer claim.',
+      updatedAt: '2026-08-20T00:00:00.000Z'
+    });
+    expect(pickPassageDoor([newer, older], { highlightId, articleId }).id).toBe('older');
+  });
+});

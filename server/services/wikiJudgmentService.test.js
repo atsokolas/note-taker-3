@@ -76,6 +76,19 @@ const runReasonLists = () => {
   assert.deepStrictEqual(reasoned.why[0].sourceRefIds, ['507f1f77bcf86cd799439011']);
   assert.strictEqual(reasoned.against[0].acceptedFrom, 'event-1');
 
+  const fromLibrary = normalizeJudgment({
+    input: {
+      currentJudgment: 'Hire Maya as the first engineer.',
+      why: [{
+        text: 'Maya is the engineer I would hire first.',
+        sourceLabel: 'Hiring notes',
+        acceptedFrom: 'highlight:note-1:h-maya'
+      }]
+    }
+  });
+  assert.strictEqual(fromLibrary.why[0].sourceLabel, 'Hiring notes');
+  assert.strictEqual(fromLibrary.why[0].acceptedFrom, 'highlight:note-1:h-maya');
+
   const dated = normalizeJudgment({
     input: {
       ...base(),

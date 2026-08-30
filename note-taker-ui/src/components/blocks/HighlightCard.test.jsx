@@ -1,7 +1,12 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { listWikiPages } from '../../api/wiki';
 import HighlightCard from './HighlightCard';
+
+jest.mock('../../api/wiki', () => ({
+  listWikiPages: jest.fn(async () => [])
+}));
 
 jest.mock('../../api/organize', () => ({
   organizeHighlightItem: jest.fn().mockResolvedValue({}),
@@ -45,17 +50,75 @@ const renderCard = (props = {}) => {
 };
 
 describe('HighlightCard progressive disclosure', () => {
-  it('defaults to collapsed and keeps the edit panel hidden', () => {
+  beforeEach(() => {
+    listWikiPages.mockResolvedValue([]);
+  });
+
+  it('defaults to collapsed and keeps the edit panel hidden', async () => {
     renderCard();
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     expect(screen.getByText('Expand')).toBeInTheDocument();
     expect(screen.queryByText('Edit / Tag / Link')).not.toBeInTheDocument();
   });
 
-  it('expands and collapses per card', () => {
+  it('expands and collapses per card', async () => {
     renderCard();
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     fireEvent.click(screen.getByText('Expand'));
     expect(screen.getByText('Edit / Tag / Link')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Collapse'));
     expect(screen.queryByText('Edit / Tag / Link')).not.toBeInTheDocument();
+  });
+});
+
+describe('the reverse door on a highlight card', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    listWikiPages.mockResolvedValue([]);
+  });
+
+  it('whispers Why and opens that claim when this passage was filed', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-compute',
+      judgment: {
+        currentJudgment: 'Demand still outruns deliverable capacity.',
+        why: [{
+          acceptedFrom: 'highlight:article-1:h-1',
+          text: 'Capacity still lags.'
+        }]
+      }
+    }]);
+    renderCard({
+      highlight: {
+        _id: 'h-1',
+        articleId: 'article-1',
+        text: 'Capacity still lags demand.',
+        articleTitle: 'On compute'
+      }
+    });
+
+    const door = await screen.findByTestId('passage-door');
+    expect(door).toHaveTextContent('Why');
+    expect(door).toHaveTextContent('Demand still outruns deliverable capacity.');
+    expect(door).toHaveAttribute('href', '/judgment/wiki-compute');
+  });
+
+  it('stays silent when this passage was never filed', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-compute',
+      sourceRefs: [{ type: 'article', objectId: 'article-1' }],
+      judgment: { currentJudgment: 'Demand still outruns deliverable capacity.', why: [] }
+    }]);
+    renderCard({
+      highlight: {
+        _id: 'h-1',
+        articleId: 'article-1',
+        text: 'An unrelated sentence.',
+        articleTitle: 'On compute'
+      }
+    });
+
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+    expect(screen.queryByTestId('passage-door')).not.toBeInTheDocument();
   });
 });

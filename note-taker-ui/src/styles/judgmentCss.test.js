@@ -26,4 +26,12 @@ describe('overnight as a note under the door', () => {
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.judgment__proposal,[\s\S]*?transition:\s*none/
     );
   });
+
+  it('lets the hold words sit as quiet ink, not a score or chip', () => {
+    const hold = css.match(/\.judgment-inbox__hold\s*\{[^}]*\}/s)?.[0] || '';
+    expect(hold).toMatch(/var\(--text-muted/);
+    expect(hold).not.toMatch(/box-shadow/);
+    expect(hold).not.toMatch(/border-radius/);
+    expect(hold).not.toMatch(/badge|score/i);
+  });
 });

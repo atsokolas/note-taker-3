@@ -38,6 +38,10 @@ body.noeis-editorial .article-folio {
   color: var(--ink-human, var(--vellum-ink));
 }
 
+body.noeis-editorial .passage-door {
+  color: var(--ink-human, var(--vellum-ink));
+}
+
 /* The reading progress is a hairline that fills, not a glass pill on a
    gradient. It reports where you are; it does not announce itself. */
 body.noeis-editorial .magnetic-reading-rail__track {

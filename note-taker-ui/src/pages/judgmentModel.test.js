@@ -156,6 +156,22 @@ describe('judgmentModel', () => {
     expect(sourceHrefFromOrigin('overnight-event')).toBe('');
   });
 
+  it('does not invent a library door when the passage origin was not persisted', () => {
+    const filed = {
+      _id: 'p',
+      title: 'Hire Maya as the first engineer.',
+      judgment: {
+        currentJudgment: 'Hire Maya as the first engineer.',
+        why: [{
+          reasonId: 'r1',
+          text: 'Maya is the engineer I would hire first.',
+          sourceLabel: 'Hiring notes'
+        }]
+      }
+    };
+    expect(projectJudgment(filed).why[0].sources[0].href).toBe('');
+  });
+
   it('opens a library article in the library even when the source also has a web url', () => {
     const filed = {
       _id: 'p',
@@ -258,14 +274,21 @@ describe('judgmentModel', () => {
     expect(provenanceLine({ judgment: {} }, NOW)).toBe('');
   });
 
-  it('selects one overnight line for this page and nothing for other pages', () => {
+  it('selects one overnight line that answers this sentence, not a tagged leftover', () => {
     const events = [
       {
         _id: 'event-1',
         affectedPageIds: ['wiki-nvidia'],
+        title: 'Deliverable capacity still lags demand',
+        summary: 'The filing restates the same gap.',
+        createdAt: '2026-08-14T04:00:00.000Z'
+      },
+      {
+        _id: 'event-leftover',
+        affectedPageIds: ['wiki-nvidia'],
         title: 'A 13F filing was posted',
         summary: 'It does not touch the capacity gap.',
-        createdAt: '2026-08-14T04:00:00.000Z'
+        createdAt: '2026-08-14T05:00:00.000Z'
       },
       {
         _id: 'event-2',
@@ -277,15 +300,20 @@ describe('judgmentModel', () => {
 
     const line = selectOvernightLine(page(), events);
     expect(line.id).toBe('event-1');
-    expect(line.sentence).toBe('Overnight: A 13F filing was posted. It does not touch the capacity gap.');
-    expect(line.body).toBe('A 13F filing was posted. It does not touch the capacity gap.');
+    expect(line.sentence).toBe('Overnight: Deliverable capacity still lags demand. The filing restates the same gap.');
+    expect(line.body).toBe('Deliverable capacity still lags demand. The filing restates the same gap.');
+    expect(selectOvernightLine(page(), [events[1]])).toBeNull();
 
-    const lowercase = selectOvernightLine(page(), [{ ...events[0], title: 'a 13F filing', summary: 'It does not touch the capacity gap.' }]);
+    const lowercase = selectOvernightLine(page(), [{
+      ...events[0],
+      title: 'deliverable capacity still lags demand',
+      summary: 'The filing restates the same gap.'
+    }]);
     // The line above the claim continues "Overnight:"; the line written down
     // has to start a sentence of its own.
-    expect(lowercase.sentence).toBe('Overnight: a 13F filing. It does not touch the capacity gap.');
-    expect(lowercase.body).toBe('A 13F filing. It does not touch the capacity gap.');
-    expect(selectOvernightLine(page(), [events[1]])).toBeNull();
+    expect(lowercase.sentence).toBe('Overnight: deliverable capacity still lags demand. The filing restates the same gap.');
+    expect(lowercase.body).toBe('Deliverable capacity still lags demand. The filing restates the same gap.');
+    expect(selectOvernightLine(page(), [events[2]])).toBeNull();
   });
 
   it('does not resurrect a dismissed overnight line, and still files', () => {
@@ -322,13 +350,13 @@ describe('judgmentModel', () => {
       {
         _id: 'event-new',
         affectedPageIds: ['wiki-nvidia'],
-        title: 'A later filing',
+        title: 'Demand still outruns deliverable capacity this morning',
         createdAt: '2026-08-15T04:00:00.000Z'
       },
       {
         _id: 'event-old',
         affectedPageIds: ['wiki-nvidia'],
-        title: 'An earlier filing',
+        title: 'Deliverable capacity still lags signed demand',
         createdAt: '2026-08-14T04:00:00.000Z'
       }
     ];

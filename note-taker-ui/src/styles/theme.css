@@ -1222,6 +1222,48 @@ body.noeis-editorial .palette-list {
   gap: 6px;
 }
 
+/* From a saved passage back to the claim it was filed on. Not a bar. */
+.passage-door {
+  display: block;
+  max-width: 42rem;
+  margin: 2px 0 0;
+  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.92rem;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.passage-door__stance {
+  font-style: normal;
+  font-family: var(--font-sans, var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif));
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 0.55em;
+}
+
+.passage-door:hover,
+.passage-door:focus-visible {
+  color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passage-door {
+    transition: none;
+  }
+}
+
 .highlight-card-expanded {
   display: grid;
   gap: 10px;

@@ -112,10 +112,9 @@ const sourceLabelFor = (article = {}) => {
  */
 const HIGHLIGHT_WEIGHT = 3;
 const BODY_WEIGHT = 1;
-/* A source the reader keeps for life outranks one they happened to save. This
-   is what "bubbles up" means here: when you ask what your library says about a
-   claim, the things you hold permanently answer first. */
-const EVERGREEN_BONUS = 100;
+/* Evergreen is a whisper, not a ranking. A kept source that barely touches
+   the sentence must not outrank a passage that actually answers it. */
+const EVERGREEN_BONUS = 1;
 
 const candidatesFromArticle = (article = {}, terms = []) => {
   const rows = [];

@@ -1,6 +1,12 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { listWikiPages } from '../../api/wiki';
 import LibraryContext from './LibraryContext';
+
+jest.mock('../../api/wiki', () => ({
+  listWikiPages: jest.fn(async () => [])
+}));
 
 jest.mock('../references/ReferencePullIn', () => (props) => (
   <div
@@ -34,29 +40,37 @@ const baseProps = {
   onDumpToWorkingMemory: jest.fn()
 };
 
-describe('LibraryContext', () => {
-  it('makes the active highlight a source that can be referenced into durable work', () => {
-    render(
-      <LibraryContext
-        {...baseProps}
-        activeHighlightId="highlight-1"
-        articleHighlights={[
-          {
-            _id: 'highlight-1',
-            text: 'Temperament and concentration are recurring source atoms.',
-            tags: ['investing'],
-            createdAt: '2026-05-01T00:00:00Z'
-          },
-          {
-            _id: 'highlight-2',
-            text: 'A second highlight stays quiet until focused.',
-            tags: [],
-            createdAt: '2026-05-02T00:00:00Z'
-          }
-        ]}
-      />
-    );
+const renderContext = (props = {}) => render(
+  <MemoryRouter>
+    <LibraryContext {...baseProps} {...props} />
+  </MemoryRouter>
+);
 
+describe('LibraryContext', () => {
+  beforeEach(() => {
+    listWikiPages.mockResolvedValue([]);
+  });
+
+  it('makes the active highlight a source that can be referenced into durable work', async () => {
+    renderContext({
+      activeHighlightId: 'highlight-1',
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          text: 'Temperament and concentration are recurring source atoms.',
+          tags: ['investing'],
+          createdAt: '2026-05-01T00:00:00Z'
+        },
+        {
+          _id: 'highlight-2',
+          text: 'A second highlight stays quiet until focused.',
+          tags: [],
+          createdAt: '2026-05-02T00:00:00Z'
+        }
+      ]
+    });
+
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     const pullIn = screen.getByTestId('reference-pull-in');
     expect(pullIn).toHaveAttribute('data-target-type', 'highlight');
     expect(pullIn).toHaveAttribute('data-target-id', 'highlight-1');
@@ -66,50 +80,46 @@ describe('LibraryContext', () => {
     expect(pullIn).toHaveAttribute('data-target-title', 'Temperament and concentration are recurring source atoms.');
   });
 
-  it('does not render highlight pull-in controls before a highlight is focused', () => {
-    render(
-      <LibraryContext
-        {...baseProps}
-        activeHighlightId=""
-        articleHighlights={[
-          {
-            _id: 'highlight-1',
-            text: 'Temperament and concentration are recurring source atoms.',
-            tags: ['investing']
-          }
-        ]}
-      />
-    );
+  it('does not render highlight pull-in controls before a highlight is focused', async () => {
+    renderContext({
+      activeHighlightId: '',
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          text: 'Temperament and concentration are recurring source atoms.',
+          tags: ['investing']
+        }
+      ]
+    });
 
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     expect(screen.queryByTestId('reference-pull-in')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reference' })).toBeInTheDocument();
   });
 
-  it('exposes every highlight as a referenceable source atom', () => {
+  it('exposes every highlight as a referenceable source atom', async () => {
     const onHighlightClick = jest.fn();
     const onSelectHighlight = jest.fn();
 
-    render(
-      <LibraryContext
-        {...baseProps}
-        onHighlightClick={onHighlightClick}
-        onSelectHighlight={onSelectHighlight}
-        activeHighlightId=""
-        articleHighlights={[
-          {
-            _id: 'highlight-1',
-            text: 'Temperament and concentration are recurring source atoms.',
-            tags: ['investing']
-          },
-          {
-            _id: 'highlight-2',
-            text: 'A second highlight can become evidence elsewhere.',
-            tags: []
-          }
-        ]}
-      />
-    );
+    renderContext({
+      onHighlightClick,
+      onSelectHighlight,
+      activeHighlightId: '',
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          text: 'Temperament and concentration are recurring source atoms.',
+          tags: ['investing']
+        },
+        {
+          _id: 'highlight-2',
+          text: 'A second highlight can become evidence elsewhere.',
+          tags: []
+        }
+      ]
+    });
 
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
     const referenceButtons = screen.getAllByRole('button', { name: 'Reference' });
     expect(referenceButtons).toHaveLength(2);
 
@@ -120,5 +130,54 @@ describe('LibraryContext', () => {
       _id: 'highlight-2',
       text: 'A second highlight can become evidence elsewhere.'
     }));
+  });
+
+  it('whispers Why back to the claim when this feed row was filed', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-compute',
+      judgment: {
+        currentJudgment: 'Demand still outruns deliverable capacity.',
+        why: [{ acceptedFrom: 'highlight:article-1:highlight-1' }],
+        against: []
+      }
+    }]);
+
+    renderContext({
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          articleId: 'article-1',
+          text: 'Capacity still lags demand.',
+          tags: []
+        }
+      ]
+    });
+
+    const door = await screen.findByTestId('passage-door');
+    expect(door).toHaveAttribute('href', '/judgment/wiki-compute');
+    expect(door).toHaveTextContent('Why');
+    expect(screen.queryByRole('button', { name: /open claim/i })).not.toBeInTheDocument();
+  });
+
+  it('stays silent on a feed row that was never filed', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-compute',
+      sourceRefs: [{ type: 'article', objectId: 'article-1' }],
+      judgment: { currentJudgment: 'Demand still outruns deliverable capacity.', why: [] }
+    }]);
+
+    renderContext({
+      articleHighlights: [
+        {
+          _id: 'highlight-1',
+          articleId: 'article-1',
+          text: 'An unfiled sentence.',
+          tags: []
+        }
+      ]
+    });
+
+    await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+    expect(screen.queryByTestId('passage-door')).not.toBeInTheDocument();
   });
 });

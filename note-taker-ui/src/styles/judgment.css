@@ -513,6 +513,17 @@ body.noeis-editorial .judgment .judgment-composer input,
   margin: 0;
 }
 
+.judgment-inbox__hold {
+  display: block;
+  margin: 0.15rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
 .judgment-inbox__text {
   display: inline;
   min-width: 0;
@@ -973,11 +984,10 @@ button.judgment-inbox__text:focus-visible {
   }
 }
 
-/* ---- Writing one down ----------------------------------------------------
+/* ---- Holding a sentence --------------------------------------------------
  *
- * The index could only ever list judgments that already existed. Its empty
- * state said a judgment starts the day you write down what you think, and then
- * gave you nowhere to write it.
+ * The index is one field. The sentence you type is the claim. Nothing else
+ * sits beside it.
  */
 .judgment__new {
   display: grid;
@@ -985,6 +995,12 @@ button.judgment-inbox__text:focus-visible {
   margin: 0 0 44px;
   padding: 0 0 28px;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+}
+
+.judgment__new.is-alone {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .judgment__new label {
@@ -1043,26 +1059,6 @@ body.noeis-editorial .judgment .judgment__new input,
   font-size: 0.84rem;
 }
 
-.judgment__company-case {
-  margin: -24px 0 44px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
-}
-
-.judgment__company-case .wiki-company-dossier__toggle {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-  border-bottom: 1px solid currentColor;
-}
-
-.judgment__company-case .wiki-company-dossier__form {
-  padding: 22px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
 .judgment__write-state {
   min-width: 3.4rem;
   color: var(--text-muted, var(--vellum-subtle));
@@ -1118,17 +1114,6 @@ body.noeis-editorial .judgment .judgment__new input,
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
-}
-
-.judgment__nothing-door {
-  margin: 10px 0 0;
-}
-
-.judgment__nothing-door a {
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
-  text-decoration: none;
-  border-bottom: 1px solid currentColor;
 }
 
 /* What it taught me, on the claim it came from. */

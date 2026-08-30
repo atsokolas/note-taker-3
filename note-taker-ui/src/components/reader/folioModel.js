@@ -1,4 +1,5 @@
 import { isJudgmentPage, oneSentence } from '../../pages/judgmentModel';
+import { parseSourceOrigin } from '../../utils/sourceRoutes';
 
 // The folio line on a source you are reading.
 //
@@ -58,15 +59,6 @@ export const folioHref = (page) => {
   return id ? `/judgment/${id}` : '';
 };
 
-const originOf = (value = '') => {
-  const origin = clean(value);
-  const highlight = origin.match(/^highlight:([^:]+):(.+)$/);
-  if (highlight) return { articleId: highlight[1], highlightId: highlight[2] };
-  const article = origin.match(/^article:(.+)$/);
-  if (article) return { articleId: article[1], highlightId: '' };
-  return { articleId: '', highlightId: '' };
-};
-
 export const sourceRefTouchesArticle = (ref, articleId, highlightIds = []) => {
   if (!idOf(articleId)) return false;
   if (idsMatch(ref?.objectId, articleId)) return true;
@@ -87,7 +79,7 @@ const reasonLines = (page) => {
 };
 
 const lineTouchesArticle = (line, articleId, highlightIds = []) => {
-  const origin = originOf(line?.acceptedFrom);
+  const origin = parseSourceOrigin(line?.acceptedFrom);
   if (idsMatch(origin.articleId, articleId)) return true;
   if (origin.highlightId && list(highlightIds).some((id) => idsMatch(id, origin.highlightId))) {
     return true;

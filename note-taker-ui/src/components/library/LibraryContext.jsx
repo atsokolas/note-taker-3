@@ -1,5 +1,6 @@
 import React, { Profiler, useEffect, useMemo, useState } from 'react';
 import { QuietButton } from '../ui';
+import PassageDoor from '../reader/PassageDoor';
 import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import ReferencePullIn from '../references/ReferencePullIn';
 import { createProfilerLogger } from '../../utils/perf';
@@ -171,6 +172,10 @@ const LibraryContext = ({
                             {tagLabel ? ` • ${tagLabel}` : ''}
                           </span>
                         </button>
+                        <PassageDoor
+                          highlightId={highlight._id}
+                          articleId={selectedArticleId || highlight.articleId}
+                        />
                         <div className="library-context-feed-item__actions">
                           <QuietButton onClick={() => onSelectHighlight(highlight._id)}>Focus</QuietButton>
                           <QuietButton onClick={() => handleReferenceHighlight(highlight)}>Reference</QuietButton>

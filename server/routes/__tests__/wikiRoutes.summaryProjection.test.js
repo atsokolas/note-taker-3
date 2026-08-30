@@ -94,7 +94,9 @@ assert.ok(Object.isFrozen(WIKI_PAGE_SUMMARY_FIELDS), 'the projection is shared a
 const judgmentFields = new Set(WIKI_JUDGMENT_INDEX_FIELDS);
 ['_id', 'title', 'evergreen', 'evergreenAt',
   'judgment.currentJudgment', 'judgment.governingQuestion',
-  'judgment.why.text', 'judgment.against.text', 'judgment.falsifiers.text',
+  'judgment.why.text', 'judgment.why.sourceLabel', 'judgment.why.acceptedFrom', 'judgment.why.createdAt',
+  'judgment.against.text', 'judgment.against.sourceLabel', 'judgment.against.acceptedFrom', 'judgment.against.createdAt',
+  'judgment.falsifiers.text',
   'judgment.decisions.summary', 'judgment.lessons.text']
   .forEach(field => assert.ok(judgmentFields.has(field), `the Judgment casebook reads ${field}`));
 ['plainText', 'body', 'sourceRefs', 'claims', 'citations', 'aiState']
