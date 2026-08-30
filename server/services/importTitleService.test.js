@@ -18,6 +18,17 @@ describe('importTitleService', () => {
     expect(isFragmentTitle('inception remain the same. What has changed is the world around us.')).toBe(true);
   });
 
+  test('repairs recoverable lowercase metadata without replacing its meaning', () => {
+    expect(deriveImportedTitle({
+      metadataTitle: 'the Endowment Effect',
+      content: 'Unrelated fallback body.'
+    })).toBe('The Endowment Effect');
+    expect(deriveImportedTitle({
+      metadataTitle: 'pilot5.ai | Five Independent AI Models',
+      content: '# The Architect'
+    })).toBe('Pilot5.ai | Five Independent AI Models');
+  });
+
   test('uses the first heading when metadata is a fragment', () => {
     expect(firstHeading('Preface\n# The durable heading\nBody')).toBe('The durable heading');
     expect(deriveImportedTitle({

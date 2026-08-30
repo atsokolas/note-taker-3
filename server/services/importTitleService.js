@@ -45,6 +45,13 @@ const isFragmentTitle = (value = '') => {
   return false;
 };
 
+const repairLeadingTitleCase = (value = '') => {
+  const title = clean(value, 180);
+  if (!title || GENERIC_TITLES.has(title.toLowerCase())) return '';
+  if (!/^[a-z]/.test(title) || /[.!?]\s+\p{L}/u.test(title)) return '';
+  return `${title[0].toUpperCase()}${title.slice(1)}`;
+};
+
 const domainLabel = (value = '') => {
   try {
     return new URL(String(value || '')).hostname
@@ -81,6 +88,8 @@ const deriveImportedTitle = ({
 } = {}) => {
   const explicit = clean(metadataTitle, 180);
   if (explicit && !isFragmentTitle(explicit)) return explicit;
+  const repairedExplicit = repairLeadingTitleCase(explicit);
+  if (repairedExplicit) return repairedExplicit;
 
   const heading = firstHeading(content);
   if (heading && !isFragmentTitle(heading)) return heading;
@@ -99,5 +108,6 @@ module.exports = {
   deriveImportedTitle,
   firstHeading,
   isFragmentTitle,
-  isSocialSource
+  isSocialSource,
+  repairLeadingTitleCase
 };

@@ -106,6 +106,27 @@ describe('WikiLivingThesis', () => {
     })));
   });
 
+  it('opens the canonical case after the server merges a duplicate judgment', async () => {
+    const onCanonicalPage = jest.fn();
+    const onPageUpdate = jest.fn();
+    updateWikiPage.mockResolvedValue({
+      ...thesisPage,
+      _id: 'canonical-thesis',
+      dedupe: { canonicalPageId: 'canonical-thesis', mergedPageId: 'qa-thesis' }
+    });
+    renderThesis({ onCanonicalPage, onPageUpdate });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit thesis' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save thesis' }));
+
+    await waitFor(() => expect(onCanonicalPage).toHaveBeenCalledWith('canonical-thesis'));
+    expect(onPageUpdate).not.toHaveBeenCalled();
+    expect(controls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Duplicate judgment merged',
+      href: '/wiki/workspace?page=canonical-thesis'
+    }));
+  });
+
   it('replaces primary read values in place and moves focus into the editor', async () => {
     renderThesis();
     const editTrigger = screen.getByRole('button', { name: 'Edit thesis' });
