@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
@@ -94,7 +94,6 @@ const Library = () => {
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
-  const readerRef = useRef(null);
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
@@ -237,9 +236,6 @@ const Library = () => {
     if (!requestedHighlightId || !selectedArticleId) return;
     setActiveHighlightId(requestedHighlightId);
     setSourceContextOpen(true);
-    window.setTimeout(() => {
-      readerRef.current?.scrollToHighlight(requestedHighlightId);
-    }, 0);
   }, [requestedHighlightId, selectedArticleId, articleHighlights]);
 
   useEffect(() => {
@@ -449,7 +445,6 @@ const Library = () => {
 
   const handleHighlightClick = useCallback((highlight) => {
     setActiveHighlightId(highlight._id);
-    readerRef.current?.scrollToHighlight(highlight._id);
   }, []);
 
   const handleUpdateHighlight = useCallback(async (highlightId, payload) => {
@@ -854,6 +849,7 @@ const Library = () => {
       selectedArticleId={selectedArticleId}
       selectedArticle={selectedArticle}
       articleHighlights={articleHighlights}
+      focusedHighlightId={activeHighlightId}
       articleGraphConnections={articleGraphConnections}
       articleLoading={articleLoading}
       articleError={articleError}
@@ -863,7 +859,6 @@ const Library = () => {
       articlesError={articlesError}
       scope={scope}
       selectedFolderName={selectedFolderName}
-      readerRef={readerRef}
       onSelectArticle={handleSelectArticle}
       onRetryArticle={retryArticle}
       onOpenSource={handleOpenSource}

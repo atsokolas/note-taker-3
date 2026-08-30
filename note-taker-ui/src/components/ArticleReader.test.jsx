@@ -72,6 +72,72 @@ describe('ArticleReader', () => {
     expect(screen.getByText('mental models')).toBeInTheDocument();
   });
 
+  it('puts a deep-linked saved passage in the reader when the imported body omits it', () => {
+    const previousScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = jest.fn();
+    const { container } = render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Abridged import',
+          content: '<p>The imported body contains only a short summary.</p>'
+        }}
+        highlights={[{
+          _id: 'highlight-1',
+          text: 'The exact cited passage survives in the saved highlight.',
+          note: 'The reader should land here.'
+        }]}
+        focusedHighlightId="highlight-1"
+      />
+    );
+
+    const passage = screen.getByRole('complementary', { name: 'Saved passage' });
+    expect(passage).toHaveTextContent('The exact cited passage survives in the saved highlight.');
+    expect(passage).toHaveTextContent('The reader should land here.');
+    expect(passage).toHaveAttribute('data-highlight-id', 'highlight-highlight-1');
+    expect(container.querySelectorAll('[data-highlight-id="highlight-highlight-1"]')).toHaveLength(1);
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    expect(passage).toHaveClass('is-cited-passage');
+    Element.prototype.scrollIntoView = previousScrollIntoView;
+  });
+
+  it('does not repeat a deep-linked passage already marked in the article body', () => {
+    const { container } = render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Full import',
+          content: '<p>The exact cited passage is already here.</p>'
+        }}
+        highlights={[{
+          _id: 'highlight-1',
+          text: 'The exact cited passage is already here.',
+          anchor: { text: 'The exact cited passage is already here.', startOffsetApprox: 0 }
+        }]}
+        focusedHighlightId="highlight-1"
+      />
+    );
+
+    expect(screen.queryByRole('complementary', { name: 'Saved passage' })).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-highlight-id="highlight-highlight-1"]')).toHaveLength(1);
+  });
+
+  it('does not repeat a deep-linked passage in a highlight-only import', () => {
+    const { container } = render(
+      <ArticleReader
+        article={{ _id: 'article-1', title: 'Highlight-only import', content: '' }}
+        highlights={[{
+          _id: 'highlight-1',
+          text: 'The saved highlight is already the reading body.'
+        }]}
+        focusedHighlightId="highlight-1"
+      />
+    );
+
+    expect(screen.queryByRole('complementary', { name: 'Saved passage' })).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-highlight-id="highlight-highlight-1"]')).toHaveLength(1);
+  });
+
   it('does not render the inline thought partner dock before article content', () => {
     render(
       <ArticleReader
