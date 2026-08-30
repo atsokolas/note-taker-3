@@ -4,13 +4,16 @@ import {
   createWikiPage,
   downloadJudgmentPamphlet,
   getCompanyDossierJudgmentReview,
+  getJudgmentChangeProposal,
   getJudgmentLibraryEvidence,
   getWikiPage,
   setWikiPageEvergreen,
   listCompanyDossierJudgmentReviews,
   listWikiPages,
   listWikiSourceEvents,
+  proposeJudgmentChange,
   resolveCompanyDossierJudgmentReview,
+  resolveJudgmentChange,
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
@@ -32,12 +35,10 @@ import {
   removeDependency,
   restingOn,
   resumeJudgment,
-  reviseCurrentJudgment,
   buildJudgmentIndex,
   createJudgment,
   formatLedgerDate,
   oneSentence,
-  newLineId,
   projectJudgment,
   selectOvernightLine,
   upsertLineIntoJudgment
@@ -91,7 +92,7 @@ const markPendingDossierResearch = (items = [], reviews = []) => {
 /* A line that writes itself after a pause, and refuses to be empty.
    In-flight saves must not clobber the draft while the field still has focus —
    a slow round-trip is not a reason to throw away the next keystroke. */
-const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, className, ...inputProps }) => {
+const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, resetAfterSave = false, className, ...inputProps }) => {
   const stored = format(value);
   const [draft, setDraft] = useState(stored);
   const timerRef = useRef(0);
@@ -133,13 +134,14 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
       onChange={(event) => {
         setDraft(event.target.value);
         window.clearTimeout(timerRef.current);
-        if (format(event.target.value)) {
+        if (!resetAfterSave && format(event.target.value)) {
           timerRef.current = window.setTimeout(() => save(event.target.value), AUTOSAVE_PAUSE_MS);
         }
       }}
       onBlur={() => {
         editingRef.current = false;
         window.clearTimeout(timerRef.current);
+        if (resetAfterSave) setDraft(stored);
         Promise.resolve(save(draft)).finally(() => onIdle?.());
       }}
       onKeyDown={(event) => {
@@ -156,7 +158,7 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onClaimSettled, titleRef }) => {
+const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -194,7 +196,7 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, onCl
           value={claim}
           format={oneSentence}
           onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
-          onIdle={onClaimSettled}
+          resetAfterSave
         />
         <OpinionGhost sentence={claim} identity={pageId} />
       </div>
@@ -244,6 +246,39 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
         </span>
       )}
     </div>
+  );
+};
+
+const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve }) => {
+  if (!proposal?.id) return null;
+  const status = asLine(proposal.status).toLowerCase();
+  const before = asLine(proposal.provenance?.before);
+  const after = asLine(proposal.provenance?.after);
+  const pending = status === 'pending';
+  const label = {
+    accepted: 'Accepted',
+    preserved: 'Preserved',
+    rejected: 'Rejected',
+    deferred: 'Deferred'
+  }[status] || 'Proposed';
+
+  return (
+    <section className={`judgment-change${pending ? ' is-pending' : ' is-settled'}`} aria-label="Judgment change review">
+      <p className="judgment-change__eyebrow">{pending ? 'Before this becomes what you hold' : label}</p>
+      {before ? <p className="judgment-change__before">{before}</p> : null}
+      {after ? <p className="judgment-change__after">{after}</p> : null}
+      {pending ? (
+        <div className="judgment-change__actions" aria-label="Resolve proposed judgment change">
+          <button type="button" disabled={busy} onClick={() => onResolve('accept')}>Accept</button>
+          <button type="button" disabled={busy} onClick={() => onResolve('preserve')}>Preserve</button>
+          <button type="button" disabled={busy} onClick={() => onResolve('reject')}>Reject</button>
+          <button type="button" disabled={busy} onClick={() => onResolve('defer')}>Defer</button>
+        </div>
+      ) : (
+        <p className="judgment-change__receipt">Receipt bound to the exact before and after sentences.</p>
+      )}
+      {error ? <p className="judgment-change__error" role="alert">{error}</p> : null}
+    </section>
   );
 };
 
@@ -593,18 +628,16 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [researchReview, setResearchReview] = useState(null);
   const [researchReviewBusy, setResearchReviewBusy] = useState(false);
   const [researchReviewError, setResearchReviewError] = useState('');
+  const [changeProposal, setChangeProposal] = useState(null);
+  const [changeProposalBusy, setChangeProposalBusy] = useState(false);
+  const [changeProposalError, setChangeProposalError] = useState('');
   const [libraryAttempt, setLibraryAttempt] = useState(0);
   const systemStatus = useSystemStatusControls();
-  const opinionRevisionIdRef = useRef('');
   const pageRef = useRef(page);
 
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
-
-  useEffect(() => {
-    opinionRevisionIdRef.current = '';
-  }, [pageId]);
 
   useEffect(() => {
     if (pageId) rememberOpenedJudgment(pageId);
@@ -634,13 +667,17 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         // rather than opening the daily loop. It does not depend on the page
         // either, so it goes at the same time rather than after it — two round
         // trips in series is twice the wait on a cold API for no reason.
-        const [loaded, events, reviewResult] = await Promise.all([
+        const [loaded, events, reviewResult, changeResult] = await Promise.all([
           getWikiPage(pageId, { reader: 1 }),
           listWikiSourceEvents({ limit: SOURCE_EVENT_LIMIT }).catch(() => []),
           Promise.resolve()
             .then(() => getCompanyDossierJudgmentReview(pageId))
             .then(review => ({ review }))
-            .catch(reviewError => ({ reviewError }))
+            .catch(reviewError => ({ reviewError })),
+          Promise.resolve()
+            .then(() => getJudgmentChangeProposal(pageId))
+            .then(proposal => ({ proposal }))
+            .catch(changeError => ({ changeError }))
         ]);
         if (cancelled) return;
         setPage(loaded);
@@ -648,6 +685,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         setResearchReview(reviewResult.review || null);
         setResearchReviewError(reviewResult.reviewError
           ? 'The accepted-research review could not be loaded. Your judgment was not changed.'
+          : '');
+        setChangeProposal(changeResult.proposal || null);
+        setChangeProposalError(changeResult.changeError
+          ? 'The latest judgment-change receipt could not be loaded. What you hold was not changed.'
           : '');
       } catch (loadError) {
         if (!cancelled) setError(loadError?.response?.data?.error || 'Could not open this judgment.');
@@ -890,31 +931,49 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [pageId, researchReview, researchReviewBusy]);
 
-  /* The opinion is the claim. Writing it leaves the name alone; a judgment
-     without a sentence is not a judgment, so an empty field never saves. A
-     change is dated in the log so a mind-change is not a silent rewrite. */
+  /* Editing the opinion creates a proposal, not accepted knowledge. The field
+     returns to the sentence currently held; the exact before/after pair stays
+     visible until the human resolves it. */
   const writeClaim = useCallback(async (sentence) => {
     const next = oneSentence(sentence);
     if (!next) return;
-    if (!opinionRevisionIdRef.current) opinionRevisionIdRef.current = newLineId('whatIDid');
     const current = pageRef.current;
-    const judgment = reviseCurrentJudgment(current, next, opinionRevisionIdRef.current);
-    if (judgment === (current?.judgment || {})) return;
-    pageRef.current = { ...current, judgment };
-    setLibraryCandidates([]);
+    if (next === oneSentence(current?.judgment?.currentJudgment)) return;
+    setChangeProposalError('');
+    const proposal = await proposeJudgmentChange(pageId, next);
+    setChangeProposal(proposal);
+  }, [pageId]);
+
+  const resolveChangeProposal = useCallback(async (action) => {
+    if (!changeProposal?.id || changeProposalBusy) return;
+    setChangeProposalBusy(true);
+    setChangeProposalError('');
     try {
-      await commit(judgment);
+      const resolved = await resolveJudgmentChange(pageId, changeProposal.id, action);
+      if (resolved.page) {
+        pageRef.current = resolved.page;
+        setPage(resolved.page);
+      }
+      setChangeProposal(resolved.proposal || null);
+      if (action === 'accept') {
+        setLibraryCandidates([]);
+        setLibraryAttempt(currentAttempt => currentAttempt + 1);
+        const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
+        const accepted = oneSentence(resolved.page?.judgment?.currentJudgment || '');
+        if (researchReview?.status === 'awaiting_review' && accepted && accepted !== prior) {
+          await resolveResearchReview('revised');
+        }
+      }
+    } catch (changeError) {
+      setChangeProposalError(
+        changeError?.response?.data?.error
+        || changeError?.message
+        || 'The proposed change could not be resolved. What you hold was not changed.'
+      );
     } finally {
-      /* The library was asked about the previous sentence. Ask again now
-         that this hold is the one on the page — or, if the save failed,
-         about the sentence that is still there. */
-      setLibraryAttempt(currentAttempt => currentAttempt + 1);
+      setChangeProposalBusy(false);
     }
-    const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
-    if (researchReview?.status === 'awaiting_review' && next !== prior) {
-      await resolveResearchReview('revised');
-    }
-  }, [commit, researchReview, resolveResearchReview]);
+  }, [changeProposal, changeProposalBusy, pageId, researchReview, resolveResearchReview]);
 
   /* What the rail is looking at, and what it may do on this page's behalf.
      Asking happens there; this page only supplies the corpus and the write. */
@@ -1025,12 +1084,18 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         claim={view.claim}
         onSave={rename}
         onWriteClaim={writeClaim}
-        onClaimSettled={() => { opinionRevisionIdRef.current = ''; }}
         titleRef={claimRef}
       />
       {view.provenance ? (
         <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
       ) : null}
+
+      <JudgmentChangeReview
+        proposal={changeProposal}
+        busy={changeProposalBusy}
+        error={changeProposalError}
+        onResolve={resolveChangeProposal}
+      />
 
       <DossierResearchReview
         pageId={pageId}

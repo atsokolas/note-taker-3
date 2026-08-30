@@ -35,7 +35,8 @@ const {
   snapshotContentHash,
   snapshotPage
 } = require('../services/wikiRevisionService');
-const { persistNoeisReceipt } = require('../services/noeisReceiptService');
+const { persistNoeisReceipt, serializeStoredReceipt } = require('../services/noeisReceiptService');
+const { buildJudgmentChangeProposalRouter } = require('./judgmentChangeProposalRoutes');
 const {
   buildDossierJudgmentReviewReceipt,
   listDossierJudgmentReviews,
@@ -2596,6 +2597,22 @@ const buildWikiRouter = ({
       return null;
     }
   };
+
+  /* A held-sentence edit is a receipt-bound proposal, not a silent Wiki
+     mutation. Keep that human review boundary in its own small router so the
+     ordinary Wiki reader, generator, and maintenance pipeline stay isolated. */
+  router.use(buildJudgmentChangeProposalRouter({
+    authenticateToken: wikiAuth,
+    WikiPage,
+    WikiRevision,
+    NoeisReceipt,
+    findOwnedPage,
+    serializePage: serializeWikiPage,
+    onPageChanged: async (page, userId) => {
+      publicPageCache.invalidate(serializeId(page._id), page.slug);
+      await syncPageGraph(page, userId);
+    }
+  }));
 
   const refreshPageClaims = (page) => {
     const previousClaims = page.claims?.toObject ? page.claims.toObject() : page.claims || [];

@@ -34,12 +34,34 @@ local implementation proof, not merge, deployment, or production proof.
 - Wiki keeps the same durable thread, exact page identity, and no-write surface
   behavior; this slice does not change ordinary Wiki generation or reading.
 
+## Human change-disposition contract
+
+- **Eligibility:** an owned Judgment page must already hold a non-empty sentence,
+  and the proposed replacement must be non-empty and different.
+- **Quality bar:** the receipt binds the page id and exact normalized before and
+  after sentences. Stale, corrupt, cross-page, and conflicting replays fail
+  closed. An agent token may retrieve and converse, but may not propose or
+  resolve a change to accepted knowledge.
+- **Disposition:** Accept changes the held sentence and records the human change;
+  Preserve, Reject, and Defer leave accepted knowledge untouched. Identical
+  replay is idempotent.
+- **Silence fallback:** with no eligible pending or settled receipt, no change
+  review renders. The interface never invents a comparison or default action.
+
+The four actions, exact before/after correction, accepted sentence, settled
+receipt, Skeptical Partner rebinding, and zero-overflow mobile state are rendered
+locally. Service and routed tests cover receipt persistence behavior. A real
+browser write could not be completed because the configured Atlas free-tier
+cluster is at its 512 MB storage quota and rejects writes; no data was deleted
+and no upgrade was attempted.
+
 ## Not yet Bet 1 complete
 
 - Counterevidence is source-bound and fail-closed locally. Its semantic claim to
   be the *strongest* passage still needs the final arbitrary-sentence gauntlet;
   no live-model quality evaluation was run in this slice.
-- Preserve, reject, and defer need receipt-bound end-to-end disposition proof.
 - The acceptance gesture still needs the brief Ariadne provenance line.
 - The full exit gauntlet must begin from arbitrary sentences, inspect both
   evidence directions, accept one change, reload, and recover the same result.
+- The persisted browser round trip must be rerun after storage is restored or a
+  disposable Mongo is supplied.

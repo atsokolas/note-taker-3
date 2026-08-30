@@ -1720,3 +1720,80 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   color: var(--noeis-warning, #9a4a2d);
   font-size: 0.86rem;
 }
+
+/* A proposed mind-change is set like an editorial correction beneath the
+   sentence it may replace. No card chrome: the two sentences and four quiet
+   verbs are the whole interaction. */
+.judgment-change {
+  margin: clamp(1.4rem, 3vw, 2.6rem) 0;
+  padding: 1rem 0 1.15rem;
+  border-top: 1px solid var(--line, rgba(28, 25, 20, 0.14));
+  border-bottom: 1px solid var(--line, rgba(28, 25, 20, 0.14));
+}
+
+.judgment-change__eyebrow,
+.judgment-change__receipt {
+  margin: 0 0 0.75rem;
+  color: var(--ink-muted, #777066);
+  font: 500 0.68rem/1.35 var(--font-sans, sans-serif);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.judgment-change__before,
+.judgment-change__after {
+  margin: 0;
+  max-width: 44rem;
+  font: 400 clamp(1.02rem, 1.5vw, 1.22rem)/1.48 var(--font-serif, serif);
+}
+
+.judgment-change__before {
+  color: var(--ink-muted, #777066);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.judgment-change__after {
+  margin-top: 0.45rem;
+  color: var(--ink, #2d2922);
+}
+
+.judgment-change__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 1rem;
+}
+
+.judgment-change__actions button {
+  appearance: none;
+  padding: 0.2rem 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--ink-muted, #777066);
+  font: 500 0.75rem/1.4 var(--font-sans, sans-serif);
+  cursor: pointer;
+}
+
+.judgment-change__actions button:first-child {
+  color: var(--ink, #2d2922);
+}
+
+.judgment-change__actions button:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+
+.judgment-change__receipt {
+  margin-top: 0.9rem;
+  margin-bottom: 0;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.judgment-change__error {
+  margin: 0.8rem 0 0;
+  color: var(--danger, #8b3328);
+  font: 400 0.82rem/1.5 var(--font-sans, sans-serif);
+}

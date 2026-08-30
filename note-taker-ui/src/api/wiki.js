@@ -132,6 +132,34 @@ export const resolveCompanyDossierJudgmentReview = async (pageId, receiptId, res
   return res.data?.receipt || null;
 };
 
+export const getJudgmentChangeProposal = async (pageId) => {
+  const res = await api.get(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposal`,
+    getAuthHeaders()
+  );
+  return res.data?.proposal || null;
+};
+
+export const proposeJudgmentChange = async (pageId, proposedJudgment) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposals`,
+    { proposedJudgment },
+    getAuthHeaders()
+  );
+  return res.data?.proposal || null;
+};
+
+export const resolveJudgmentChange = async (pageId, receiptId, action, options = {}) => {
+  const selected = ['accept', 'preserve', 'reject', 'defer'].includes(action) ? action : '';
+  if (!selected) throw new Error('Choose accept, preserve, reject, or defer.');
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposals/${selected}`,
+    { receiptId, ...(options.deferUntil ? { deferUntil: options.deferUntil } : {}) },
+    getAuthHeaders()
+  );
+  return res.data || {};
+};
+
 export const refreshInvestmentValuation = async (pageId, payload = {}) => {
   const res = await api.post(
     `${WIKI_PAGES_PATH}/${safeId(pageId)}/valuation`,
