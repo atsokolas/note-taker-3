@@ -1,8 +1,10 @@
 # Mongo storage audit — 2026-08-30
 
-This is a read-only measurement and backup rehearsal of the database selected
-by the deployed `MONGODB_URI`. No documents, collections, or indexes were
-changed.
+This began as a read-only measurement and backup rehearsal of the database
+selected by the deployed `MONGODB_URI`. After explicit production approval,
+the revision-only stage compacted unprotected historical snapshot payloads.
+No revision identities, current Wiki pages, receipts, repo baselines,
+maintenance runs, source events, collections, or indexes were deleted.
 
 ## Capacity
 
@@ -17,6 +19,11 @@ changed.
 The free-tier write failures are consistent with the logical data plus index
 footprint reaching the 512 MiB quota. MongoDB is still the storage system;
 Atlas is the managed MongoDB host.
+
+After revision compaction, a fresh dry run measured 384,205,843 bytes of
+document data plus 38,064,128 bytes of indexes: 422,269,971 logical bytes
+(402.71 MiB). The database is below the governor's 420 MiB pressure threshold
+with about 109 MiB of free-tier headroom.
 
 ## Where the space is
 
@@ -106,10 +113,19 @@ database with teardown, not repeated manual deletion from production.
    source events. Every archive passed decompression and exact-ID readback, is
    stored outside the repository with mode `0600`, and the rehearsal left
    database metrics byte-for-byte unchanged. The governor now refuses every
-   destructive path unless its matching verified receipt is present. Production
-   apply still requires separate explicit authorization.
+   destructive path unless its matching verified receipt is present. The
+   revision-only apply was explicitly authorized; operational-history cleanup
+   remains separately gated.
 4. Apply snapshot compaction in small batches; verify accepted Wiki, repo,
-   dossier, Judgment, and provenance routes after each batch.
+   dossier, Judgment, and provenance routes after each batch. Completed in the
+   revision-only scope: 42 snapshots across five pages, representing 66,525,170
+   bytes of `before`/`after` payload, were compacted behind fresh verified
+   backups. The first two pressure-mode batches reduced the database below the
+   high-water mark, so the governor automatically returned to its normal
+   20-snapshot policy before the final 12-snapshot batch. A final dry run found
+   zero remaining compactable snapshots. Public repo-page and receipt-bound
+   comparison APIs continued returning HTTP 200. Operational-history deletions
+   remained zero throughout.
 5. Expire reference-free terminal telemetry older than 14 days in batches.
 6. Repair abandoned leases and isolate QA fixtures in a disposable database.
 7. Re-measure logical data plus indexes; target below 350 MiB, leaving at least
