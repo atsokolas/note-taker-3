@@ -235,7 +235,7 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
   const [baseBriefing, watcherLeads, pages, visits] = await Promise.all([
     buildWikiBriefing({ userId, models, now: now.getTime(), windowMs }),
     buildWatcherLeads({ userId, models, since: priorOpenedAt }),
-    models.WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title slug pageType claims externalWatches createdAt updatedAt createdFrom aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier').lean(),
+    models.WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title slug pageType claims externalWatches createdAt updatedAt createdFrom aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier.version').lean(),
     models.WikiPageVisit?.find
       ? models.WikiPageVisit.find({ userId }).select('pageId lastVisitedAt').lean()
       : Promise.resolve([])

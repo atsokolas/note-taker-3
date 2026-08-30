@@ -1,7 +1,11 @@
 const { buildKnowledgeMovements } = require('./knowledgeMovementService');
 const { isFragmentTitle } = require('./importTitleService');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
-const { isJudgmentPage } = require('./reviewTriageService');
+const {
+  isJudgmentPage,
+  needsReview,
+  reviewExpired
+} = require('./reviewTriageService');
 
 const MIXED_SOURCE_SCAN_LIMIT = 1000;
 // The default Library landing page must stay responsive for large imported
@@ -10,7 +14,6 @@ const MIXED_SOURCE_SCAN_LIMIT = 1000;
 // connection-oriented views retain the wider scan because their classification
 // depends on finding durable uses across the corpus.
 const MIXED_SOURCE_RECENT_SCAN_LIMIT = 80;
-const MIXED_SOURCE_REVIEW_SCAN_LIMIT = 80;
 const MOVEMENT_SCAN_MINIMUM = 12;
 const MOVEMENT_SCAN_MAXIMUM = 50;
 const SOURCE_TYPES = Object.freeze(['article', 'highlight', 'note']);
@@ -24,6 +27,7 @@ const clean = (value = '', limit = 240) => {
 };
 const id = value => String(value?._id || value || '');
 const plain = value => value?.toObject ? value.toObject({ virtuals: false }) : value;
+const time = value => new Date(value || 0).getTime() || 0;
 const isoOrNull = value => {
   if (!value) return null;
   const date = new Date(value);
@@ -80,19 +84,28 @@ const conceptRef = concept => ({
   title: clean(concept?.name || 'Untitled concept'),
   href: `/think?tab=concepts&concept=${encodeURIComponent(concept?.name || id(concept))}`
 });
+const reviewSignalForPage = page => ({
+  judgment: isJudgmentPage(page),
+  reviewRequired: needsReview(page) && !reviewExpired(page),
+  lastVisitedAt: page?.lastVisitedAt || null,
+  driftCount: (Array.isArray(page?.freshness?.pendingSourceEventIds)
+    ? page.freshness.pendingSourceEventIds
+    : []).filter(Boolean).length
+});
 const wikiPageRef = page => ({
   type: 'wiki_page',
   id: id(page),
   title: clean(page?.title || 'Untitled wiki page'),
   href: `/wiki/workspace?page=${encodeURIComponent(id(page))}`,
-  judgment: isJudgmentPage(page)
+  ...reviewSignalForPage(page)
 });
 const wikiClaimRef = (page, claim) => ({
   type: 'wiki_claim',
   id: clean(claim?.claimId, 160),
   parentId: id(page),
   title: clean(claim?.text || 'Untitled claim'),
-  href: `/wiki/workspace?page=${encodeURIComponent(id(page))}&claimId=${encodeURIComponent(claim?.claimId || '')}`
+  href: `/wiki/workspace?page=${encodeURIComponent(id(page))}&claimId=${encodeURIComponent(claim?.claimId || '')}`,
+  ...reviewSignalForPage(page)
 });
 
 const provenanceFor = ({ ownImportMeta = {}, parentImportMeta = {}, fallbackProvider = 'saved_source', extra = {} }) => ({
@@ -187,17 +200,24 @@ const compareTuples = (left, right) => {
 };
 const reviewRank = row => {
   const connected = Array.isArray(row?.relevance?.connected) ? row.relevance.connected : [];
-  const judgment = connected.some(ref => ref?.judgment || ref?.type === 'wiki_claim') ? 0 : 1;
-  const used = Number(row?.relevance?.connectedCount || connected.length) > 0 ? 0 : 1;
-  const drift = Number(row?.relevance?.movementCount || 0);
-  const created = new Date(row?.createdAt || 0).getTime() || 0;
-  return (judgment * 2e15) + (used * 1e14) - (drift * 1e10) - created;
+  const judgment = connected.some(ref => ref?.judgment || ref?.type === 'wiki_claim');
+  const lastVisitedAt = Math.max(0, ...connected.map(ref => time(ref?.lastVisitedAt)));
+  const drift = Math.max(
+    Number(row?.relevance?.movementCount || 0),
+    ...connected.map(ref => Number(ref?.driftCount || 0))
+  );
+  return [
+    judgment ? 0 : 1,
+    -lastVisitedAt,
+    -drift,
+    -time(row?.createdAt)
+  ];
 };
 const rowTuple = (row, view = 'recent') => {
   const created = new Date(row?.createdAt || 0).getTime() || 0;
   if (view === 'needs_review') {
     return [
-      reviewRank(row),
+      ...reviewRank(row),
       TYPE_RANK[row?.source?.type] ?? 99,
       String(row?.source?.id || ''),
       String(row?.source?.parentId || '')
@@ -215,19 +235,23 @@ const encodeCursor = ({ view, tuple }) => Buffer.from(JSON.stringify({
   view,
   tuple
 })).toString('base64url');
+const validCursorTuple = tuple => (
+  Array.isArray(tuple)
+    && tuple.length === 4
+    && Number.isFinite(tuple[0])
+    && Number.isInteger(tuple[1])
+    && typeof tuple[2] === 'string'
+    && typeof tuple[3] === 'string'
+);
 const decodeCursor = (value, expectedView) => {
   if (!value) return null;
   try {
+    if (expectedView === 'needs_review') throw new Error('invalid');
     const parsed = JSON.parse(Buffer.from(String(value), 'base64url').toString('utf8'));
     if (
       parsed?.version !== 2
       || parsed?.view !== expectedView
-      || !Array.isArray(parsed?.tuple)
-      || parsed.tuple.length !== 4
-      || !Number.isFinite(parsed.tuple[0])
-      || !Number.isInteger(parsed.tuple[1])
-      || typeof parsed.tuple[2] !== 'string'
-      || typeof parsed.tuple[3] !== 'string'
+      || !validCursorTuple(parsed?.tuple)
     ) throw new Error('invalid');
     return parsed;
   } catch (_error) {
@@ -242,7 +266,7 @@ const classify = (row, view) => {
     return row.relevance.connectedCount > 0 || row.relevance.movementCount > 0;
   }
   if (view === 'needs_review') {
-    return row.relevance.movements.some(movement => movement.requiresReview);
+    return row.relevance.reviewRequired;
   }
   if (view === 'unconnected') {
     return row.relevance.connectedCount === 0 && row.relevance.movementCount === 0;
@@ -266,16 +290,20 @@ const buildMixedLibraryRelevancePage = async ({
 } = {}) => {
   if (!VIEW_NAMES.includes(view)) throw new Error(`Unsupported Library relevance view: ${view}`);
   const decodedCursor = decodeCursor(cursor, view);
-  const sourceScanLimit = view === 'recent'
-    ? MIXED_SOURCE_RECENT_SCAN_LIMIT
-    : view === 'needs_review'
-      ? MIXED_SOURCE_REVIEW_SCAN_LIMIT
+  const exhaustiveReview = view === 'needs_review';
+  // Review triage must choose the best three from the complete lightweight
+  // corpus. Other Library views remain bounded because they support paging.
+  const sourceScanLimit = exhaustiveReview
+    ? null
+    : view === 'recent'
+      ? MIXED_SOURCE_RECENT_SCAN_LIMIT
       : MIXED_SOURCE_SCAN_LIMIT;
   const {
     Article,
     NotebookEntry,
     TagMeta,
     WikiPage,
+    WikiPageVisit,
     Connection,
     ReferenceEdge
   } = models;
@@ -365,7 +393,7 @@ const buildMixedLibraryRelevancePage = async ({
           }
         },
         { $sort: { recentHighlightAt: -1, 'highlights._id': -1 } },
-        { $limit: sourceScanLimit },
+        ...(sourceScanLimit === null ? [] : [{ $limit: sourceScanLimit }]),
         {
           $project: {
             _id: 1,
@@ -474,37 +502,6 @@ const buildMixedLibraryRelevancePage = async ({
   }
 
   const movements = await movementsPromise;
-  if (view === 'needs_review' && !movements.length) {
-    const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit;
-    const notesComplete = Number.isFinite(noteTotal) && noteTotal <= sourceScanLimit;
-    const highlightCount = rows.filter(row => row.source.type === 'highlight').length;
-    return {
-      sources: [],
-      counts: {
-        recent: { value: rows.length, exact: articlesComplete && notesComplete },
-        active: { value: null, exact: false },
-        needs_review: { value: 0, exact: false },
-        unconnected: { value: null, exact: false }
-      },
-      nextCursor: null,
-      hasMore: false,
-      coverage: {
-        status: 'partial',
-        sourceTypes: SOURCE_TYPES,
-        scanned: {
-          articles: articles.length,
-          highlights: highlightCount,
-          notes: notes.length
-        },
-        eligible: {
-          articles: Number.isFinite(articleTotal) ? articleTotal : null,
-          highlights: articlesComplete ? highlightCount : null,
-          notes: Number.isFinite(noteTotal) ? noteTotal : null
-        },
-        limitations: ['material_movements_limited_to_50']
-      }
-    };
-  }
 
   const sourceByKey = new Map(rows.map(row => [
     refKey(row.source.type, row.source.id, row.source.parentId),
@@ -525,8 +522,9 @@ const buildMixedLibraryRelevancePage = async ({
     rows.filter(row => row.source.type === type).map(row => row.source.id)
   ]));
 
+  const relatedQueryLimit = exhaustiveReview ? undefined : MIXED_SOURCE_SCAN_LIMIT + 1;
   const [conceptRows, pageRows, connectionRows, edgeRows] = await Promise.all([
-    TagMeta?.find
+    !exhaustiveReview && TagMeta?.find
       ? awaitQuery(TagMeta.find({
         userId,
         hiddenFromHome: { $ne: true },
@@ -540,7 +538,7 @@ const buildMixedLibraryRelevancePage = async ({
       }), {
         select: '_id userId name pinnedArticleIds pinnedHighlightIds pinnedNoteIds',
         sort: { _id: 1 },
-        limit: MIXED_SOURCE_SCAN_LIMIT + 1
+        limit: relatedQueryLimit
       })
       : [],
     WikiPage?.find
@@ -552,12 +550,12 @@ const buildMixedLibraryRelevancePage = async ({
         archived: { $ne: true },
         status: { $ne: 'archived' }
       }), {
-        select: '_id userId title pageType status plainText aiState sourceRefs claims judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier',
+        select: '_id userId title pageType status plainText sourceRefs claims createdAt updatedAt createdFrom aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.reviewExpiredAt freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier.version',
         sort: { _id: 1 },
-        limit: MIXED_SOURCE_SCAN_LIMIT + 1
+        limit: relatedQueryLimit
       })
       : [],
-    Connection?.find
+    !exhaustiveReview && Connection?.find
       ? awaitQuery(Connection.find({
         userId,
         $or: SOURCE_TYPES.flatMap(type => persistedTypesFor(type).flatMap(persistedType => ([
@@ -567,10 +565,10 @@ const buildMixedLibraryRelevancePage = async ({
       }), {
         select: '_id userId fromType fromId toType toId relationType createdAt',
         sort: { _id: 1 },
-        limit: MIXED_SOURCE_SCAN_LIMIT + 1
+        limit: relatedQueryLimit
       })
       : [],
-    ReferenceEdge?.find
+    !exhaustiveReview && ReferenceEdge?.find
       ? awaitQuery(ReferenceEdge.find({
         userId,
         $or: SOURCE_TYPES.flatMap(type => persistedTypesFor(type).flatMap(persistedType => ([
@@ -580,15 +578,19 @@ const buildMixedLibraryRelevancePage = async ({
       }), {
         select: '_id userId sourceType sourceId targetType targetId targetTagName createdAt',
         sort: { _id: 1 },
-        limit: MIXED_SOURCE_SCAN_LIMIT + 1
+        limit: relatedQueryLimit
       })
       : []
   ]);
 
-  const concepts = (Array.isArray(conceptRows) ? conceptRows : []).slice(0, MIXED_SOURCE_SCAN_LIMIT)
+  const relatedRows = values => {
+    const rows = Array.isArray(values) ? values : [];
+    return exhaustiveReview ? rows : rows.slice(0, MIXED_SOURCE_SCAN_LIMIT);
+  };
+  const concepts = relatedRows(conceptRows)
     .map(plain)
     .filter(value => ownedBy(value, userId) && visible(value));
-  const pages = (Array.isArray(pageRows) ? pageRows : []).slice(0, MIXED_SOURCE_SCAN_LIMIT)
+  const eligiblePages = relatedRows(pageRows)
     .map(plain)
     .filter(value => (
       ownedBy(value, userId)
@@ -596,10 +598,25 @@ const buildMixedLibraryRelevancePage = async ({
       && clean(value?.status, 80).toLowerCase() !== 'archived'
       && isWikiPageSurfaceEligible(value)
     ));
-  const connections = (Array.isArray(connectionRows) ? connectionRows : []).slice(0, MIXED_SOURCE_SCAN_LIMIT)
+  const pageIds = eligiblePages.map(value => id(value)).filter(Boolean);
+  const visitRows = await (
+    WikiPageVisit?.find && pageIds.length
+      ? awaitQuery(WikiPageVisit.find({ userId, pageId: { $in: pageIds } }), {
+        select: 'userId pageId lastVisitedAt',
+        limit: pageIds.length
+      })
+      : []
+  );
+  const visitedAtByPage = new Map((Array.isArray(visitRows) ? visitRows : [])
+    .map(plain)
+    .filter(value => ownedBy(value, userId))
+    .map(value => [id(value.pageId), value.lastVisitedAt || null]));
+  const pages = eligiblePages
+    .map(value => ({ ...value, lastVisitedAt: visitedAtByPage.get(id(value)) || null }));
+  const connections = relatedRows(connectionRows)
     .map(plain)
     .filter(value => ownedBy(value, userId));
-  const edges = (Array.isArray(edgeRows) ? edgeRows : []).slice(0, MIXED_SOURCE_SCAN_LIMIT)
+  const edges = relatedRows(edgeRows)
     .map(plain)
     .filter(value => ownedBy(value, userId));
   const conceptById = new Map(concepts.map(concept => [id(concept), concept]));
@@ -712,16 +729,24 @@ const buildMixedLibraryRelevancePage = async ({
     const connected = uniqueRefs(usageByKey.get(key) || []);
     const sourceMovements = movementByKey.get(key) || [];
     const judgmentAttached = connected.some(ref => ref?.judgment || ref?.type === 'wiki_claim');
+    const lastVisitedAt = Math.max(0, ...connected.map(ref => time(ref?.lastVisitedAt)));
+    const drift = Math.max(0, ...connected.map(ref => Number(ref?.driftCount || 0)));
     row.relevance = {
       connected,
       movements: sourceMovements,
       connectedCount: connected.length,
       movementCount: sourceMovements.length,
+      reviewRequired: connected.some(ref => ref?.reviewRequired)
+        || sourceMovements.some(movement => movement.requiresReview),
       reviewReason: judgmentAttached
         ? connected.some(ref => ref?.judgment)
           ? 'Attached to a judgment page'
           : 'Supports a claim under review'
-        : sourceMovements[0]?.title || ''
+        : lastVisitedAt
+          ? 'Frequently used page · review affects active work'
+          : drift
+            ? `${drift} new source signal${drift === 1 ? '' : 's'}`
+            : sourceMovements[0]?.title || ''
     };
   });
 
@@ -735,30 +760,41 @@ const buildMixedLibraryRelevancePage = async ({
   const afterCursor = decodedCursor
     ? selected.filter(row => compareTuples(rowTuple(row, view), decodedCursor.tuple) > 0)
     : selected;
-  const pageRowsSelected = afterCursor.slice(0, limit);
-  const hasMore = afterCursor.length > pageRowsSelected.length;
+  const resultLimit = view === 'needs_review' ? Math.min(limit, 3) : limit;
+  const pageRowsSelected = afterCursor.slice(0, resultLimit);
+  const hasMore = view !== 'needs_review' && afterCursor.length > pageRowsSelected.length;
   const nextCursor = hasMore && pageRowsSelected.length
     ? encodeCursor({ view, tuple: rowTuple(pageRowsSelected[pageRowsSelected.length - 1], view) })
     : null;
 
-  const articlesComplete = Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit;
-  const notesComplete = Number.isFinite(noteTotal) && noteTotal <= sourceScanLimit;
+  const articlesComplete = sourceScanLimit === null
+    || (Number.isFinite(articleTotal) && articleTotal <= sourceScanLimit);
+  const notesComplete = sourceScanLimit === null
+    || (Number.isFinite(noteTotal) && noteTotal <= sourceScanLimit);
   const completeScan = articlesComplete && notesComplete;
   const limitations = view === 'recent'
     ? ['material_movements_deferred_for_recent_view']
     : ['material_movements_limited_to_50'];
   if (!Number.isFinite(articleTotal)) limitations.push('article_total_unavailable');
   if (!Number.isFinite(noteTotal)) limitations.push('note_total_unavailable');
-  if (Number.isFinite(articleTotal) && articleTotal > sourceScanLimit) {
+  if (sourceScanLimit !== null && Number.isFinite(articleTotal) && articleTotal > sourceScanLimit) {
     limitations.push(`article_scan_limited_to_${sourceScanLimit}`);
   }
-  if (Number.isFinite(noteTotal) && noteTotal > sourceScanLimit) {
+  if (sourceScanLimit !== null && Number.isFinite(noteTotal) && noteTotal > sourceScanLimit) {
     limitations.push(`note_scan_limited_to_${sourceScanLimit}`);
   }
-  if ((conceptRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) limitations.push('concept_scan_limited_to_1000');
-  if ((pageRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) limitations.push('wiki_page_scan_limited_to_1000');
-  if ((connectionRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) limitations.push('connection_scan_limited_to_1000');
-  if ((edgeRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) limitations.push('reference_edge_scan_limited_to_1000');
+  if (!exhaustiveReview && (conceptRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) {
+    limitations.push('concept_scan_limited_to_1000');
+  }
+  if (!exhaustiveReview && (pageRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) {
+    limitations.push('wiki_page_scan_limited_to_1000');
+  }
+  if (!exhaustiveReview && (connectionRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) {
+    limitations.push('connection_scan_limited_to_1000');
+  }
+  if (!exhaustiveReview && (edgeRows?.length || 0) > MIXED_SOURCE_SCAN_LIMIT) {
+    limitations.push('reference_edge_scan_limited_to_1000');
+  }
   const highlightCount = rows.filter(row => row.source.type === 'highlight').length;
 
   return {
@@ -790,7 +826,6 @@ const buildMixedLibraryRelevancePage = async ({
 module.exports = {
   MIXED_SOURCE_SCAN_LIMIT,
   MIXED_SOURCE_RECENT_SCAN_LIMIT,
-  MIXED_SOURCE_REVIEW_SCAN_LIMIT,
   MOVEMENT_SCAN_MAXIMUM,
   MOVEMENT_SCAN_MINIMUM,
   SOURCE_TYPES,

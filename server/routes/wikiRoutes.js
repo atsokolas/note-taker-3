@@ -3598,14 +3598,35 @@ const buildWikiRouter = ({
       }
 
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 100, 500));
-      const scanLimit = (qualityFilter || includeLowQuality)
-        ? limit
-        : Math.min(1000, Math.max(limit * 3, limit));
+      const requestedPagedScan = req.query.scanCursor !== undefined;
+      if (requestedPagedScan && qualityFilter !== 'needs_review') {
+        return res.status(400).json({ error: 'scanCursor is only available for the needs_review queue.' });
+      }
+      const pagedReviewScan = qualityFilter === 'needs_review' && requestedPagedScan;
+      const scanCursor = pagedReviewScan ? String(req.query.scanCursor || '').trim() : '';
+      if (
+        pagedReviewScan
+        && scanCursor !== 'start'
+        && !mongoose.Types.ObjectId.isValid(scanCursor)
+      ) {
+        return res.status(400).json({ error: 'scanCursor must be start or a valid page id.' });
+      }
+      if (pagedReviewScan && scanCursor !== 'start') {
+        query._id = { $lt: new mongoose.Types.ObjectId(scanCursor) };
+      }
+      let scanLimit = limit;
+      if (qualityFilter) scanLimit = pagedReviewScan ? limit : 1000;
+      else if (!includeLowQuality) scanLimit = Math.min(1000, Math.max(limit * 3, limit));
       // Summary mode keeps the same response shape and asks the database only
       // for what a list actually renders. See WIKI_PAGE_SUMMARY_FIELDS for what
       // is in it and why. Callers that want whole pages simply do not pass it.
       const summaryOnly = ['1', 'true', 'yes'].includes(String(req.query.summary || '').toLowerCase());
-      let pagesQuery = WikiPage.find(query).sort({ updatedAt: -1 }).limit(scanLimit);
+      // Review scans use immutable ids rather than mutable updatedAt offsets,
+      // so concurrent maintenance cannot move a page across a batch boundary.
+      let pagesQuery = WikiPage.find(query).sort(
+        pagedReviewScan ? { _id: -1 } : { updatedAt: -1, _id: -1 }
+      );
+      pagesQuery = pagesQuery.limit(scanLimit);
       if (pagesQuery.select) {
         if (projection === 'judgment') {
           pagesQuery = pagesQuery.select(WIKI_JUDGMENT_INDEX_FIELDS.join(' '));
@@ -3614,8 +3635,11 @@ const buildWikiRouter = ({
         }
       }
       const pages = await pagesQuery.lean();
+      const pageIds = pages.map(page => page?._id).filter(Boolean);
       const visits = qualityFilter === 'needs_review' && WikiPageVisit?.find
-        ? await WikiPageVisit.find({ userId: req.user.id }).select('pageId lastVisitedAt').lean()
+        ? await WikiPageVisit.find({ userId: req.user.id, pageId: { $in: pageIds } })
+          .select('pageId lastVisitedAt')
+          .lean()
         : [];
       const visitedAt = new Map((Array.isArray(visits) ? visits : []).map(visit => [
         String(visit?.pageId || ''),
@@ -3637,8 +3661,16 @@ const buildWikiRouter = ({
         qualityFilter === 'needs_review'
           ? { ...value, lastVisitedAt: raw.lastVisitedAt || null }
           : value
-      )).slice(0, limit);
-      res.status(200).json(serialized);
+      ));
+      if (pagedReviewScan) {
+        return res.status(200).json({
+          pages: serialized,
+          nextScanCursor: pages.length === scanLimit
+            ? String(pages[pages.length - 1]?._id || '') || null
+            : null
+        });
+      }
+      res.status(200).json(serialized.slice(0, limit));
     } catch (error) {
       console.error('Error listing wiki pages:', error);
       res.status(500).json({ error: 'Failed to list wiki pages.' });

@@ -255,7 +255,10 @@ describe('WikiList', () => {
     renderWikiList('view=list&quality=needs_review');
 
     await waitFor(() => {
-      expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({ quality: 'needs_review' }));
+      expect(listWikiPages).toHaveBeenCalledWith(expect.objectContaining({
+        quality: 'needs_review',
+        scanAll: true
+      }));
     });
     expect(screen.getByTestId('wiki-facet-needs-review')).toHaveAttribute('aria-pressed', 'true');
   });

@@ -23,19 +23,23 @@ export const isLowStakesPage = (page) => {
     || /(?:repo wiki|this week in ai|system|acceptance|agent process)/i.test(`${page?.title || ''} ${label}`);
 };
 
-const reviewTimestamp = (page) => time(
-  page?.freshness?.lastSourceEventAt
-  || page?.freshness?.lastReviewedAt
-  || page?.updatedAt
-  || page?.createdAt
+const reviewTimestamp = (page) => Math.max(
+  time(page?.freshness?.lastSourceEventAt),
+  time(page?.freshness?.lastReviewedAt),
+  time(page?.updatedAt),
+  time(page?.createdAt)
 );
 
+// The server selector mirrors this lifecycle contract; both suites carry the
+// same revival fixture so an expiry cannot outlive newer source activity.
 export const reviewExpired = (page, now = Date.now()) => {
-  if (page?.lastVisitedAt) return false;
-  if (page?.freshness?.reviewExpiredAt) return true;
+  if (page?.lastVisitedAt || isJudgmentPage(page)) return false;
+  const expiredAt = time(page?.freshness?.reviewExpiredAt);
+  const activityAt = reviewTimestamp(page);
+  if (expiredAt && expiredAt >= activityAt) return true;
   return isLowStakesPage(page)
-    && reviewTimestamp(page) > 0
-    && now - reviewTimestamp(page) >= LOW_STAKES_REVIEW_TTL_DAYS * DAY_MS;
+    && activityAt > 0
+    && now - activityAt >= LOW_STAKES_REVIEW_TTL_DAYS * DAY_MS;
 };
 
 export const needsReview = (page) => {

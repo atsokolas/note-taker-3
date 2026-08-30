@@ -7,6 +7,7 @@ import { getPendingWikiClaimReview } from './wikiPendingClaimReview';
 export { getPendingWikiClaimReview };
 
 const WIKI_PAGES_PATH = '/api/wiki/pages';
+const WIKI_REVIEW_SCAN_BATCH_SIZE = 200;
 const wikiPageListRequests = new Map();
 const wikiPageRequests = new Map();
 
@@ -36,15 +37,50 @@ const shareInFlightRequest = (requests, key, createRequest) => {
   return sharedRequest;
 };
 
-export const listWikiPages = (params = {}) => {
+const requestWikiPageList = (params = {}) => {
   const path = `${WIKI_PAGES_PATH}${buildQueryString(params)}`;
   return shareInFlightRequest(wikiPageListRequests, path, () => (
-    api.get(path, getAuthHeaders()).then((res) => {
-      if (Array.isArray(res.data)) return res.data;
-      if (Array.isArray(res.data?.pages)) return res.data.pages;
-      return [];
-    })
+    api.get(path, getAuthHeaders()).then((res) => res.data)
   ));
+};
+
+const wikiPagesFrom = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.pages)) return payload.pages;
+  return [];
+};
+
+export const listWikiPages = async (params = {}) => {
+  const { scanAll = false, ...requestParams } = params;
+  if (!scanAll) return wikiPagesFrom(await requestWikiPageList(requestParams));
+  if (requestParams.quality !== 'needs_review') {
+    throw new Error('Full Wiki scans are only available for the review queue.');
+  }
+
+  const pagesById = new Map();
+  let scanCursor = 'start';
+  const seenCursors = new Set();
+  // The server walks immutable page ids in descending order. That makes the
+  // scan finite even while page content is being updated; the set rejects a
+  // malformed server cycle instead of hiding a partial queue.
+  while (!seenCursors.has(scanCursor)) {
+    seenCursors.add(scanCursor);
+    const payload = await requestWikiPageList({
+      ...requestParams,
+      limit: WIKI_REVIEW_SCAN_BATCH_SIZE,
+      scanCursor
+    });
+    wikiPagesFrom(payload).forEach(page => {
+      const pageId = String(page?._id || page?.id || '');
+      if (pageId && !pagesById.has(pageId)) pagesById.set(pageId, page);
+    });
+    const nextCursor = String(payload?.nextScanCursor || '');
+    if (!nextCursor) {
+      return Array.from(pagesById.values());
+    }
+    scanCursor = nextCursor;
+  }
+  throw new Error('The Wiki review queue scan did not advance. Try again.');
 };
 
 const apiUrl = (path = '') => {
