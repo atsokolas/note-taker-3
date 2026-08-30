@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 
+const mediaQueryMatches = (query, fallback = false) => {
+  if (typeof window === 'undefined' || !window.matchMedia) return fallback;
+  return Boolean(window.matchMedia(query).matches);
+};
+
 export const usePrefersReducedMotion = () => {
-  const [reduced, setReduced] = useState(false);
+  const [reduced, setReduced] = useState(() => mediaQueryMatches('(prefers-reduced-motion: reduce)'));
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
@@ -16,7 +21,7 @@ export const usePrefersReducedMotion = () => {
 };
 
 export const useFinePointer = () => {
-  const [fine, setFine] = useState(true);
+  const [fine, setFine] = useState(() => mediaQueryMatches('(pointer: fine)', true));
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
