@@ -125,7 +125,7 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     subject,
     lines: normalizeLines(context.lines),
     empty: String(context.empty || 'Nothing to retrieve until you ask.').trim(),
-    askPlaceholder: String(context.askPlaceholder || 'Bring evidence, counterevidence, or what moved overnight').trim(),
+    askPlaceholder: String(context.askPlaceholder || 'Bring evidence or counterevidence').trim(),
     caption: String(context.caption || 'Retrieves. You accept.').trim(),
     supportedActions: [...resolved.actions],
     capabilities: [...resolved.capabilities],

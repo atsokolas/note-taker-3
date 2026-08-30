@@ -103,7 +103,7 @@ describe('AgentRail', () => {
     expect(within(rail()).getByText('Skeptical partner')).toBeInTheDocument();
     expect(within(rail()).getByText(/tests the live judgment/i)).toBeInTheDocument();
     expect(within(rail()).getByText('Retrieves. You accept.')).toBeInTheDocument();
-    expect(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBeInTheDocument();
+    expect(within(rail()).getByPlaceholderText('Bring evidence or counterevidence')).toBeInTheDocument();
     expect(within(rail()).queryByText(/thought partner/i)).not.toBeInTheDocument();
   });
 
@@ -121,7 +121,7 @@ describe('AgentRail', () => {
       </AgentRailProvider>
     );
     const rail = screen.getByRole('complementary', { name: 'Wiki steward' });
-    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'What changed?' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
@@ -136,12 +136,12 @@ describe('AgentRail', () => {
     const { rail } = renderRail();
 
     expect(await within(rail()).findByText('The first claim.')).toBeInTheDocument();
-    const input = within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight');
+    const input = within(rail()).getByPlaceholderText('Bring evidence or counterevidence');
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
 
     // Same DOM node: the rail did not unmount and come back.
-    expect(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight')).toBe(input);
+    expect(within(rail()).getByPlaceholderText('Bring evidence or counterevidence')).toBe(input);
     expect(await within(rail()).findByText('The second claim.')).toBeInTheDocument();
     expect(within(rail()).queryByText('The first claim.')).not.toBeInTheDocument();
   });
@@ -152,7 +152,7 @@ describe('AgentRail', () => {
         <ProjectionToggle />
       </AgentRailProvider>
     );
-    const input = screen.getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight');
+    const input = screen.getByPlaceholderText('Bring evidence or counterevidence');
     fireEvent.change(input, { target: { value: 'unfinished cross-room thought' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
@@ -160,7 +160,7 @@ describe('AgentRail', () => {
     expect(screen.queryByRole('complementary', { name: 'Agent' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Swap projection' }));
-    expect(screen.getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'))
+    expect(screen.getByPlaceholderText('Bring evidence or counterevidence'))
       .toHaveValue('unfinished cross-room thought');
   });
 
@@ -168,7 +168,7 @@ describe('AgentRail', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('A retrieved line.'));
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -185,7 +185,7 @@ describe('AgentRail', () => {
     streamChatWithAgent.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -211,7 +211,7 @@ describe('AgentRail', () => {
     );
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
 
-    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'What changed?' }
     });
     fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
@@ -228,7 +228,7 @@ describe('AgentRail', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('A stale line.'));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -245,7 +245,7 @@ describe('AgentRail', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('Supply is catching up.'));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'what changed' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -275,7 +275,7 @@ describe('AgentRail', () => {
     ));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'challenge this claim' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -299,7 +299,7 @@ describe('AgentRail', () => {
     });
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'challenge this claim' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -312,7 +312,7 @@ describe('AgentRail', () => {
     streamChatWithAgent.mockResolvedValueOnce(sourceReply('Publish this without review.'));
     const { rail, accepted } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'do it' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));
@@ -333,7 +333,7 @@ describe('AgentRail', () => {
     streamChatWithAgent.mockRejectedValueOnce(new Error('The index is offline.'));
     const { rail } = renderRail();
 
-    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence, counterevidence, or what moved overnight'), {
+    fireEvent.change(within(rail()).getByPlaceholderText('Bring evidence or counterevidence'), {
       target: { value: 'anything' }
     });
     fireEvent.click(within(rail()).getByRole('button', { name: 'Ask' }));

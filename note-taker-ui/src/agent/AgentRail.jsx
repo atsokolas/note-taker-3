@@ -10,7 +10,7 @@ import '../styles/agent-rail.css';
 // it is where the agent lives. It retrieves; the human accepts. Nothing it
 // finds is written down until someone says so.
 
-const ASK_PLACEHOLDER = 'Bring evidence, counterevidence, or what moved overnight';
+const ASK_PLACEHOLDER = 'Bring evidence or counterevidence';
 const NOOP_ASYNC = async () => {};
 
 /* One retrieved line, in the state the product is actually about: the sentence,

@@ -10635,8 +10635,8 @@ body.noeis-editorial .topbar__menu-item--mobile-room {
   }
 }
 
-/* The rail's ask must read in full at every width. It was clipped to "Bring
-   evidence, counterevidence, or w…", which turns an instruction into a riddle. */
+/* The rail's short ask must read in full at every width; long instructional
+   copy belongs outside a single-line input. */
 body.noeis-editorial .agent-rail__ask input {
   width: 100%;
   min-width: 0;
