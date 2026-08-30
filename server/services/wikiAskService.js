@@ -1362,6 +1362,7 @@ const loadWikiAskCorpus = async ({
     return { relatedPages: [], conceptRecords: [], backlinkRows: [], revisionRows: [] };
   }
   const trimmed = asString(question);
+  const pageListRequest = isWikiPageListRequest(trimmed);
   const visibleWikiPageMatch = {
     userId,
     status: { $ne: 'archived' },
@@ -1372,11 +1373,12 @@ const loadWikiAskCorpus = async ({
   const recentPagesRaw = await WikiPage.find(visibleWikiPageMatch)
     .sort({ updatedAt: -1 })
     .limit(Math.max(1, pageScanLimit))
-    .select('title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt')
+    .select(pageListRequest
+      ? 'title slug pageType updatedAt'
+      : 'title slug pageType plainText body sourceRefs claims citations freshness aiState updatedAt')
     .lean();
   const recentPages = (Array.isArray(recentPagesRaw) ? recentPagesRaw : []).filter(isWikiPageSurfaceEligible);
   const selectedPageOnly = isSelectedPageOnlyQuestion(trimmed);
-  const pageListRequest = isWikiPageListRequest(trimmed);
   let allPages = recentPages;
   const titleCandidates = selectedPageOnly || pageListRequest
     ? []
