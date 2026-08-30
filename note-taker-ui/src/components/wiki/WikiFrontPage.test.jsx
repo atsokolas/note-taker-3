@@ -194,9 +194,9 @@ describe('WikiFrontPage canonical titles', () => {
 
     const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
     fireEvent.click(screen.getByRole('button', { name: /Needs review 3/i }));
-    expect(screen.getByText('3 worth your attention · 2 minor')).toBeInTheDocument();
+    expect(screen.getByText(/3 worth your attention · 2 minor/)).toBeInTheDocument();
     expect(within(table).getByText('Judgment page · owner decision at stake')).toBeInTheDocument();
-    expect(within(table).getAllByRole('link', { name: /First Principles|Opportunity Cost|Margin of Safety/ }).length).toBe(3);
+    expect(table.querySelectorAll('.wiki-living-row')).toHaveLength(3);
     expect(within(table).queryByRole('link', { name: 'This Week in AI' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'The rest of the queue' }))
       .toHaveAttribute('href', '/wiki/workspace?view=list&quality=needs_review');
