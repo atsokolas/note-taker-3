@@ -27,6 +27,15 @@ describe('overnight as a note under the door', () => {
     );
   });
 
+  it('moves notes with compositor-safe properties inside the 220ms house rhythm', () => {
+    const proposal = css.match(/\.judgment__proposal\s*\{[^}]*\}/s)?.[0] || '';
+    const inboxLine = css.match(/\.judgment-inbox__line\s*\{[^}]*\}/s)?.[0] || '';
+    expect(proposal).not.toMatch(/transition:[^}]*\b(max-height|margin|padding)\b/s);
+    expect(inboxLine).not.toMatch(/transition:[^}]*\b(max-height|margin|padding)\b/s);
+    expect(css).toMatch(/\.judgment-log__row\.is-arriving\s*\{[^}]*220ms/s);
+    expect(css).not.toMatch(/judgment-log-arrive\s+640ms/);
+  });
+
   it('lets the hold words sit as quiet ink, not a score or chip', () => {
     const hold = css.match(/\.judgment-inbox__hold\s*\{[^}]*\}/s)?.[0] || '';
     expect(hold).toMatch(/var\(--text-muted/);

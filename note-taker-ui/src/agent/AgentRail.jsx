@@ -11,6 +11,7 @@ import '../styles/agent-rail.css';
 // finds is written down until someone says so.
 
 const ASK_PLACEHOLDER = 'Bring evidence or counterevidence';
+const NOTE_ARRIVAL_MS = 220;
 const NOOP_ASYNC = async () => {};
 
 /* One retrieved line, in the state the product is actually about: the sentence,
@@ -44,7 +45,7 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
       setArriving(false);
       return undefined;
     }
-    const timer = window.setTimeout(() => setArriving(false), 420);
+    const timer = window.setTimeout(() => setArriving(false), NOTE_ARRIVAL_MS);
     return () => window.clearTimeout(timer);
   }, []);
 

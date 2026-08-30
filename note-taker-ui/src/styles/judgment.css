@@ -86,7 +86,7 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   color: var(--text-primary, var(--vellum-ink));
   --judgment-ghost-ink: var(--ink-human, var(--text-primary, var(--vellum-ink)));
   --judgment-ghost-rest: 0.36;
-  --judgment-ghost-fade: 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  --judgment-ghost-fade: 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* A return is not an arrival. The stagger is a first-paint cue; coming back to
@@ -124,29 +124,23 @@ html[data-ui-theme='dark'] .app-shell-new__body:has(.judgment) {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 22px;
-  overflow: hidden;
   max-width: 44ch;
-  max-height: 12rem;
   margin-top: 6px;
   margin-bottom: 10px;
   padding-top: 1px;
   padding-bottom: 1px;
   opacity: 1;
+  transform: translateY(0);
   transition:
-    max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    margin 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    padding 200ms cubic-bezier(0.16, 1, 0.3, 1),
     opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .judgment__proposal.is-leaving {
-  max-height: 0;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
   opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
   border-left-color: transparent;
 }
 
@@ -375,7 +369,7 @@ body.noeis-editorial .judgment .judgment__opinion:focus,
 }
 
 .judgment__falsifier .is-arriving {
-  animation: judgment-log-arrive 640ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: judgment-log-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ---------- composer + log ---------- */
@@ -493,21 +487,19 @@ body.noeis-editorial .judgment .judgment-composer input,
   gap: 8px 18px;
   align-items: baseline;
   overflow: hidden;
-  max-height: 18rem;
   margin: 0;
   padding: 7px 0;
   opacity: 1;
+  transform: translateY(0);
   transition:
-    max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    padding 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .judgment-inbox__line.is-leaving {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
   opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
 }
 
 .judgment-inbox__passage {
@@ -707,7 +699,7 @@ button.judgment-inbox__text:focus-visible {
 }
 
 .judgment-log__row.is-arriving {
-  animation: judgment-log-arrive 640ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: judgment-log-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes judgment-log-arrive {
@@ -797,6 +789,7 @@ button.judgment-inbox__text:focus-visible {
   .judgment-inbox.is-listening .judgment-inbox__line:not(.is-kin),
   .judgment-inbox__line {
     opacity: 1;
+    transform: none;
     transition: none;
   }
 
@@ -882,38 +875,6 @@ button.judgment-inbox__text:focus-visible {
   background-color: color-mix(in srgb, #f6e27a 46%, transparent);
 }
 
-/* ---------- the other agent door ---------- */
-
-/* No rule above the door. The whitespace already separates it. */
-.judgment__door {
-  display: grid;
-  gap: 22px;
-  margin-top: 64px;
-}
-
-.judgment__door-link {
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  background: transparent;
-  color: var(--text-primary, var(--vellum-ink));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.9rem;
-  line-height: 1.55;
-  cursor: pointer;
-}
-
-.judgment__door-link:hover,
-.judgment__door-link:focus-visible {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
-}
-
-.judgment__door-link:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
 .judgment__error {
   margin: 26px 0 0;
   color: var(--vellum-error, #a54731);
@@ -993,6 +954,7 @@ button.judgment-inbox__text:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .judgment__proposal,
   .judgment-inbox__line {
+    transform: none;
     transition: none;
   }
 }
@@ -1077,21 +1039,6 @@ body.noeis-editorial .judgment .judgment__new input,
   color: var(--text-muted, var(--vellum-subtle));
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.78rem;
-}
-
-/* The agent door says what it is doing, where the click happened. */
-.judgment__door-link:disabled {
-  border-bottom-color: transparent;
-  cursor: default;
-  opacity: 0.7;
-}
-
-.judgment__door-note {
-  margin: 8px 0 0;
-  color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.82rem;
-  line-height: 1.55;
 }
 
 /* The pamphlet door, beside the way back. Quiet: printing a claim is a thing
