@@ -365,6 +365,23 @@ describe('wikiAskService', () => {
       expect(ranked[0].title).toBe('Opportunity Cost');
     });
 
+    it('does not pad a wiki-title answer with zero-relevance pages', () => {
+      const context = buildAskGraphContext({
+        page: {
+          _id: 'page-costco',
+          title: 'Costco Wholesale investment dossier',
+          plainText: 'Membership renewal, inventory turns, and supplier terms support disciplined compounding.'
+        },
+        question: 'Name the Wiki pages most relevant to this dossier. Use page titles, not internal claim IDs. Keep it to three lines.',
+        relatedPages: [
+          { _id: 'page-circle', title: 'Circle of Competence', plainText: 'Disciplined investing and compounding.' },
+          { _id: 'page-ai', title: 'This Week in AI', plainText: 'Inference scaling and model benchmarks.' }
+        ]
+      });
+
+      expect(context.relatedPageContexts.map(candidate => candidate.title)).toEqual(['Circle of Competence']);
+    });
+
     it('selects a named related wiki page from the question', () => {
       const related = buildRelatedPageContexts({
         page: { _id: 'page-loss', title: 'Loss Aversion', plainText: 'Losses feel larger than gains.' },
@@ -593,6 +610,7 @@ describe('wikiAskService', () => {
 
       expect(rankingQuestion).toContain('member renewal');
       expect(rankingQuestion).toContain('inventory turns');
+      expect(rankingQuestion).not.toMatch(/\b(?:relevant|three|titles)\b/);
       expect(rankingQuestion).not.toMatch(/\binvestment\s+dossier\s+investment\b/i);
     });
 
@@ -788,7 +806,10 @@ describe('wikiAskService', () => {
     it('lists related wiki page titles without spending a model call', async () => {
       const chatComplete = jest.fn();
       const out = await askWikiPage({
-        page: buildPage({ title: 'Costco Wholesale investment dossier' }),
+        page: buildPage({
+          title: 'Costco Wholesale investment dossier',
+          plainText: 'Membership renewals, retail inventory turns, supplier bargaining power, and working capital reinforce the model.'
+        }),
         relatedPages: [
           { _id: 'page-1', title: 'Membership economics', plainText: 'Renewals fund the model.' },
           { _id: 'page-2', title: 'Retail inventory turns', plainText: 'Turns shape working capital.' },
@@ -800,9 +821,9 @@ describe('wikiAskService', () => {
       expect(chatComplete).not.toHaveBeenCalled();
       expect(out.model).toBe('deterministic');
       expect(out.answer.content.map(node => node.content?.[0]?.text)).toEqual([
-        'Membership economics',
         'Retail inventory turns',
-        'Supplier bargaining power'
+        'Supplier bargaining power',
+        'Membership economics'
       ]);
     });
 

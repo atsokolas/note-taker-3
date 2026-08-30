@@ -1218,8 +1218,10 @@ const isWikiPageListRequest = (question = '') => (
 
 const PAGE_LIST_RANKING_STOPWORDS = new Set([
   ...ANSWER_STOPWORDS,
-  'business', 'company', 'current', 'dossier', 'investment', 'page', 'pages',
-  'source', 'sources', 'wiki'
+  'business', 'claim', 'claims', 'company', 'current', 'dossier', 'ids',
+  'internal', 'investment', 'keep', 'line', 'lines', 'list', 'most', 'name',
+  'page', 'pages', 'relevant', 'source', 'sources', 'three', 'title', 'titles',
+  'use', 'wiki'
 ]);
 
 const isRepositoryWikiPage = (page = {}) => (
@@ -1250,7 +1252,9 @@ const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
     ))
     .slice(0, 24)
     .map(([token]) => token);
-  return `${asString(question)} ${subjectTokens.join(' ')}`.trim();
+  const queryTokens = extractAnswerTokens(question)
+    .filter(token => !PAGE_LIST_RANKING_STOPWORDS.has(token));
+  return Array.from(new Set([...queryTokens, ...subjectTokens])).join(' ');
 };
 
 const buildWikiPageListAnswer = ({ page, relatedPageContexts = [] } = {}) => {
@@ -1329,19 +1333,23 @@ const buildAskGraphContext = ({
   revisionRows = []
 } = {}) => {
   const selectedPageOnly = isSelectedPageOnlyQuestion(question);
+  const pageListRequest = isWikiPageListRequest(question);
+  const rankingQuestion = pageListRequest
+    ? buildWikiPageListRankingQuestion({ page, question })
+    : question;
   const rankedPages = rankWikiPageCandidates({
     page,
     relatedPages,
-    question,
+    question: rankingQuestion,
     selectedPageOnly,
     limit: MAX_WIKI_PAGE_CANDIDATES
   });
   const relatedPageContexts = buildRelatedPageContexts({
     page,
     relatedPages: rankedPages,
-    question,
+    question: rankingQuestion,
     selectedPageOnly,
-    includeUnscored: isWikiPageListRequest(question)
+    includeUnscored: false
   });
   const highlightContexts = selectedPageOnly
     ? []
