@@ -14,7 +14,10 @@
  */
 
 const DEFAULT_LIMIT = 8;
-const SCAN_LIMIT = 60;
+const HIGHLIGHT_SCAN_LIMIT = 32;
+const BODY_SCAN_LIMIT = 16;
+const SEARCH_TERM_LIMIT = 12;
+const QUERY_TIMEOUT_MS = 4000;
 const SNIPPET_BUDGET = 320;
 
 /* Words that match everything and therefore mean nothing. */
@@ -51,6 +54,26 @@ const claimTerms = (claim = '') => {
       seen.add(word);
       return true;
     });
+};
+
+/* Mongo's text index is shared by the corpus, so sending every noun from a
+   paragraph-sized judgment can turn a small personal-library read into a very
+   broad posting-list scan. Keep short sentences exact; for longer holds, lead
+   with the most discriminating words and let the passage gate below judge the
+   full sentence. This changes recall at the candidate-discovery boundary, not
+   the evidence bar. */
+const searchTermsForClaim = (terms = [], limit = SEARCH_TERM_LIMIT) => [...terms]
+  .map((term, index) => ({ term, index }))
+  .sort((left, right) => right.term.length - left.term.length || left.index - right.index)
+  .slice(0, Math.max(1, limit))
+  .sort((left, right) => left.index - right.index)
+  .map(({ term }) => term);
+
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const searchPatternForClaim = (terms = []) => {
+  const bounded = searchTermsForClaim(terms).map(escapeRegExp).filter(Boolean);
+  return bounded.length ? new RegExp(bounded.join('|'), 'i') : null;
 };
 
 /* Both sides reduce to the same root, so a claim about "capacity" is answered
@@ -208,7 +231,7 @@ const BODY_WEIGHT = 1;
    the sentence must not outrank a passage that actually answers it. */
 const EVERGREEN_BONUS = 1;
 
-const candidatesFromArticle = (article = {}, terms = []) => {
+const candidatesFromArticle = (article = {}, terms = [], { includeBody = true } = {}) => {
   const rows = [];
   const label = sourceLabelFor(article);
   const articleId = String(article._id || '');
@@ -245,11 +268,11 @@ const candidatesFromArticle = (article = {}, terms = []) => {
     });
   });
 
-  const body = clean(String(article.content || '').replace(/<[^>]*>/g, ' '));
+  const body = includeBody ? clean(String(article.content || '').replace(/<[^>]*>/g, ' ')) : '';
   /* The title helps Mongo find a document. It must not make unrelated body
      prose look like evidence. When the body is empty, the title itself is the
      only honest quotation available. */
-  const bodyPassage = bestEvidencePassage(body || clean(article.title), terms);
+  const bodyPassage = includeBody ? bestEvidencePassage(body || clean(article.title), terms) : null;
   if (bodyPassage) {
     rows.push({
       id: `article:${articleId}`,
@@ -328,27 +351,70 @@ const findLibraryEvidence = async ({
   const terms = claimTerms(claim);
   if (!terms.length || !Article || !userId) return { terms, candidates: [] };
 
-  const query = Article.find(
-    { userId, archived: { $ne: true }, $text: { $search: terms.join(' ') } },
-    { score: { $meta: 'textScore' } }
-  )
-    .sort({ score: { $meta: 'textScore' } })
-    .limit(SCAN_LIMIT);
+  const pattern = searchPatternForClaim(terms);
+  if (!pattern) return { terms, candidates: [] };
 
-  const articles = await (query.lean ? query.lean() : query);
+  const base = { userId, archived: { $ne: true } };
+  const highlightQuery = Article.find(
+    { ...base, 'highlights.text': pattern },
+    {
+      title: 1,
+      siteName: 1,
+      url: 1,
+      highlights: { $elemMatch: { text: pattern } },
+      createdAt: 1,
+      evergreen: 1
+    }
+  ).sort({ createdAt: -1, _id: -1 }).limit(HIGHLIGHT_SCAN_LIMIT);
+  const bodyQuery = Article.find(
+    { ...base, content: pattern },
+    {
+      title: 1,
+      siteName: 1,
+      url: 1,
+      content: 1,
+      createdAt: 1,
+      evergreen: 1
+    }
+  ).sort({ createdAt: -1, _id: -1 }).limit(BODY_SCAN_LIMIT);
+
+  /* The old global text-index read could walk postings for every account and
+     then hydrate sixty complete articles. Two user-indexed, projection-tight
+     reads keep the personal corpus boundary first: one matching saved quote
+     per source, and only a small set of complete bodies. */
+  [highlightQuery, bodyQuery].forEach((query) => {
+    if (typeof query.maxTimeMS === 'function') query.maxTimeMS(QUERY_TIMEOUT_MS);
+  });
+
+  const [highlightArticles, bodyArticles] = await Promise.all([
+    highlightQuery.lean ? highlightQuery.lean() : highlightQuery,
+    bodyQuery.lean ? bodyQuery.lean() : bodyQuery
+  ]);
   const filed = alreadyFiled(judgment);
-  const rows = (Array.isArray(articles) ? articles : [])
-    .flatMap(article => candidatesFromArticle(article, terms))
+  const rows = [
+    ...(Array.isArray(highlightArticles) ? highlightArticles : [])
+      .flatMap(article => candidatesFromArticle(article, terms, { includeBody: false })),
+    ...(Array.isArray(bodyArticles) ? bodyArticles : [])
+      .flatMap(article => candidatesFromArticle(article, terms))
+  ]
     .filter(candidate => answersClaim(candidate.matched, terms))
     .filter(candidate => !isFiled(candidate, filed));
 
-  return { terms, candidates: rankCandidates(rows, limit) };
+  const uniqueRows = [...new Map(rows.map(candidate => [candidate.id, candidate])).values()];
+
+  return { terms, candidates: rankCandidates(uniqueRows, limit) };
 };
 
 module.exports = {
   DEFAULT_LIMIT,
   EVERGREEN_BONUS,
+  HIGHLIGHT_SCAN_LIMIT,
+  BODY_SCAN_LIMIT,
+  SEARCH_TERM_LIMIT,
+  QUERY_TIMEOUT_MS,
   claimTerms,
+  searchTermsForClaim,
+  searchPatternForClaim,
   stem,
   matchedTerms,
   answersClaim,
