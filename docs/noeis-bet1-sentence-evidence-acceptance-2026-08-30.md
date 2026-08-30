@@ -1,7 +1,8 @@
 # Bet 1 — sentence evidence acceptance
 
-This slice makes one held sentence the retrieval boundary in Judgment. It is
-local implementation proof, not merge, deployment, or production proof.
+This slice makes one held sentence the retrieval boundary in Judgment. The
+deterministic and semantic implementation is merged and deployed. Human review
+of real-account semantic ranking remains open below.
 
 ## Selection contract
 
@@ -19,9 +20,8 @@ local implementation proof, not merge, deployment, or production proof.
 ## Proven locally
 
 - An eligible passage names why it was selected against the held sentence.
-- The case offers symmetric doors for the strongest saved support and the
-  strongest saved counterpassage. Both run through the durable contextual agent;
-  neither writes until the person accepts the quoted Library passage.
+- Exact saved Library passages arrive in the sentence evidence inbox. The person
+  chooses Why or Against before filing; nothing writes before that acceptance.
 - Filing the passage as support persists the exact article and passage identity.
 - Reload restores the filed line and its provenance link.
 - The citation returns to the exact Library article.
@@ -36,6 +36,14 @@ local implementation proof, not merge, deployment, or production proof.
   create a Judgment write action.
 - Wiki keeps the same durable thread, exact page identity, and no-write surface
   behavior; this slice does not change ordinary Wiki generation or reading.
+
+## Production cleanup
+
+PR #242 removed the two generic agent shortcut buttons beneath the case. They
+duplicated the prefetched sentence evidence inbox, could time out, and could
+return prose unrelated to the exact held sentence. The Skeptical Partner rail
+remains the explicit conversational path. Authenticated production verification
+confirmed the duplicate buttons are absent and the rail remains available.
 
 ## Human change-disposition contract
 
