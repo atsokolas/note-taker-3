@@ -82,9 +82,28 @@ covers 1440px, 1320px, and 430px with controlled API responses.
   Stance remains agent-assisted and human-decided, and no live-model evaluation
   was run.
 
+## Semantic discovery contract
+
+- **Eligibility:** the accepted held sentence has a current durable vector and
+  an owned saved highlight clears a raw-cosine floor of 0.72. Article-level
+  vectors are excluded because they cannot identify an exact quotation.
+- **Quality bar:** semantic search discovers only the highlight identity. The
+  UI receives the exact saved highlight text and provenance from Mongo; it
+  receives no generated evidence and no inferred support/against stance.
+- **Freshness:** the held-sentence content hash must match the stored vector.
+  While a changed sentence is queued for indexing, semantic discovery stays
+  silent rather than searching from the old belief.
+- **Silence fallback:** a missing, sleeping, stale, or low-confidence vector
+  path leaves deterministic lexical retrieval intact and adds nothing.
+
+The offline semantic harness covers eight paraphrased domains, recovers the
+eight labelled exact highlights, rejects all eight below-floor distractors,
+and makes zero embedding or generative-model calls. Run it with
+`npm run judgment:semantic-evidence-harness`.
+
 ## Remaining semantic proof
 
-- Calling a result the *strongest available* across natural paraphrases still
-  requires a later human review of a real Library corpus or a bounded live-model
-  judge. That proof remains intentionally deferred while live-model evaluations
-  are disabled.
+- The implementation contract is locally proven. Calling a result the
+  *strongest available* still requires a human review against the real account
+  after existing held sentences are backfilled and their background jobs have
+  settled. A bounded live-model judge remains intentionally deferred.

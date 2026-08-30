@@ -45,6 +45,7 @@ const COLLECTIONS = {
   articles: 'articles',
   notebook: 'notebook_entries',
   questions: 'questions',
+  judgments: 'judgment_claims',
   claims: 'wiki_claims'
 };
 
@@ -422,12 +423,41 @@ const enqueueWikiClaimEmbeddings = (page) => {
   });
 };
 
+/* One durable vector per held sentence. Page saves may enqueue the same job
+   more than once, but the worker's content hash means the sentence is embedded
+   only when it changes. The page title is deliberately excluded: retrieval is
+   about what the reader holds, not what kind of dossier contains it. */
+const buildJudgmentEmbeddingJob = (page) => {
+  const claim = trimText(page?.judgment?.currentJudgment || '').trim();
+  if (!page?._id || !page?.userId || !claim) return null;
+  return {
+    collection: COLLECTIONS.judgments,
+    id: String(page._id),
+    text: claim,
+    payload: {
+      type: 'judgment_claim',
+      objectId: String(page._id),
+      pageId: String(page._id),
+      title: page.title || '',
+      createdAt: page.updatedAt || page.createdAt || new Date().toISOString(),
+      userId: String(page.userId)
+    }
+  };
+};
+
+const enqueueJudgmentEmbedding = (page) => {
+  const job = buildJudgmentEmbeddingJob(page);
+  return job ? enqueueEmbedding(job) : null;
+};
+
 module.exports = {
   COLLECTIONS,
   drainEmbeddingJobQueue,
   writeVectorItem,
   releaseEmbeddingJob,
   isRateLimitError,
+  buildJudgmentEmbeddingJob,
+  enqueueJudgmentEmbedding,
   enqueueWikiClaimEmbeddings,
   isEmbeddableWikiClaim,
   enqueueHighlightEmbedding,

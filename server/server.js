@@ -5487,6 +5487,7 @@ app.use(buildWikiRouter({
   ImportSession,
   NoeisReceipt,
   Article,
+  VectorItem,
   NotebookEntry,
   TagMeta,
   Question,

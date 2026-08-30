@@ -27,6 +27,7 @@ const OBJECT_TYPES = Object.freeze([
   'highlight',
   'notebook_entry',
   'question',
+  'judgment_claim',
   'wiki_claim',
   'wiki_page'
 ]);
@@ -204,12 +205,17 @@ const similarToVectorItem = async ({
   objectType,
   objectId,
   subId = '',
+  expectedText,
   limit = 10,
   objectTypes = []
 } = {}) => {
   const identity = identityOf({ userId, objectType, objectId, subId });
   if (!identity.userId || !identity.objectId) return [];
-  const source = await VectorItem.findOne(identity).select('embedding').lean();
+  const source = await VectorItem.findOne(identity).select('embedding contentHash').lean();
+  // A page save and its background embedding job are intentionally decoupled.
+  // Never search from yesterday's held sentence while today's vector is still
+  // queued: stale relevance is worse than an honest empty state.
+  if (expectedText !== undefined && source?.contentHash !== contentHashOf(expectedText)) return [];
   const vector = decodeVector(source?.embedding);
   if (!vector.length) return [];
   const rows = await searchVectorItems({

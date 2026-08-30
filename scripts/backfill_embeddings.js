@@ -18,7 +18,7 @@
  *
  *   --user <id>      the user whose corpus to index (or --all-users)
  *   --all-users      every user with content, smallest corpus first
- *   --types a,b      articles,highlights,notebook,questions,claims,pages (default: all)
+ *   --types a,b      articles,highlights,notebook,questions,judgments,claims,pages (default: all)
  *   --limit <n>      stop after n items (default: no limit)
  *   --skip <n>       skip the first n items of each type (for resuming)
  *   --delay <ms>     pause between requests (default: 1200)
@@ -30,7 +30,7 @@ const { embedText } = require('../server/ai/embed');
 const { upsertVectorItem, isVectorItemCurrent } = require('../server/ai/vectorStore');
 const { isEmbeddableWikiClaim } = require('../server/ai/embeddingJobs');
 
-const ALL_TYPES = ['articles', 'highlights', 'notebook', 'questions', 'claims', 'pages'];
+const ALL_TYPES = ['articles', 'highlights', 'notebook', 'questions', 'judgments', 'claims', 'pages'];
 const CONSECUTIVE_FAILURE_LIMIT = 5;
 
 const arg = (name, fallback = null) => {
@@ -121,10 +121,25 @@ const collect = async (models, userId, types) => {
     });
   }
 
-  if (types.includes('claims') || types.includes('pages')) {
+  if (types.includes('judgments') || types.includes('claims') || types.includes('pages')) {
     const pages = await WikiPage.find({ userId, status: { $ne: 'archived' } })
-      .select('_id title claims plainText createdAt updatedAt').lean();
+      .select('_id title judgment.currentJudgment claims plainText createdAt updatedAt').lean();
     pages.forEach(page => {
+      if (types.includes('judgments')) {
+        const text = strip(page?.judgment?.currentJudgment || '');
+        if (text) {
+          items.push({
+            objectType: 'judgment_claim',
+            objectId: String(page._id),
+            text,
+            metadata: {
+              pageId: String(page._id),
+              title: page.title || '',
+              createdAt: page.updatedAt || page.createdAt || new Date().toISOString()
+            }
+          });
+        }
+      }
       if (types.includes('claims')) {
         (page.claims || []).forEach(claim => {
           if (!isEmbeddableWikiClaim(claim)) return;

@@ -954,10 +954,11 @@ wikiPageSchema.pre('validate', function normalizeLegacyWikiPageType(next) {
 wikiPageSchema.post('save', function enqueueClaimEmbeddings(doc) {
   try {
     // eslint-disable-next-line global-require
-    const { enqueueWikiClaimEmbeddings } = require('../ai/embeddingJobs');
+    const { enqueueJudgmentEmbedding, enqueueWikiClaimEmbeddings } = require('../ai/embeddingJobs');
+    enqueueJudgmentEmbedding(doc);
     enqueueWikiClaimEmbeddings(doc);
   } catch (error) {
-    console.error('Failed to enqueue wiki claim embeddings:', error.message);
+    console.error('Failed to enqueue wiki semantic embeddings:', error.message);
   }
 });
 
@@ -2558,7 +2559,7 @@ const vectorItemSchema = new mongoose.Schema({
   objectType: {
     type: String,
     required: true,
-    enum: ['article', 'highlight', 'notebook_entry', 'question', 'wiki_claim', 'wiki_page'],
+    enum: ['article', 'highlight', 'notebook_entry', 'question', 'judgment_claim', 'wiki_claim', 'wiki_page'],
     trim: true
   },
   objectId: { type: String, required: true, trim: true },

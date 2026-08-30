@@ -13,12 +13,17 @@
  * belief must not pretend otherwise.
  */
 
+const { similarToVectorItem, rawCosineToAtlasScore } = require('../ai/vectorStore');
+
 const DEFAULT_LIMIT = 8;
 const HIGHLIGHT_SCAN_LIMIT = 32;
 const BODY_SCAN_LIMIT = 16;
 const SEARCH_TERM_LIMIT = 12;
 const QUERY_TIMEOUT_MS = 4000;
 const SNIPPET_BUDGET = 320;
+const SEMANTIC_HIGHLIGHT_LIMIT = 16;
+const SEMANTIC_RAW_COSINE_FLOOR = 0.72;
+const SEMANTIC_ATLAS_SCORE_FLOOR = rawCosineToAtlasScore(SEMANTIC_RAW_COSINE_FLOOR);
 
 /* Words that match everything and therefore mean nothing. */
 const STOPWORDS = new Set([
@@ -311,6 +316,7 @@ const rankCandidates = (rows = [], limit = DEFAULT_LIMIT) => [...rows]
     || (right.matched?.length || 0) - (left.matched?.length || 0)
     || (Number(right.phraseMatches) || 0) - (Number(left.phraseMatches) || 0)
     || (Number(right.density) || 0) - (Number(left.density) || 0)
+    || (Number(right.semanticScore) || 0) - (Number(left.semanticScore) || 0)
     || right.score - left.score
     || (new Date(right.savedAt || 0).getTime() || 0) - (new Date(left.savedAt || 0).getTime() || 0)
     || String(left.id).localeCompare(String(right.id))
@@ -337,6 +343,80 @@ const isFiled = (candidate, filed) => (
   || filed.has(`text:${clean(candidate.text).toLowerCase().slice(0, 120)}`)
 );
 
+/* Semantic search discovers identities; it never authors evidence. Only
+   saved highlights qualify because each vector maps back to an exact passage
+   the reader chose to keep. Article-level vectors do not identify which words
+   were relevant, so they stay out until passage vectors exist. */
+const findSemanticHighlightEvidence = async ({
+  Article,
+  VectorItem,
+  userId,
+  pageId,
+  claim,
+  similar = similarToVectorItem
+} = {}) => {
+  if (!Article?.find || !VectorItem || !userId || !pageId || !clean(claim)) return [];
+  try {
+    const matches = (await similar({
+      VectorItem,
+      userId,
+      objectType: 'judgment_claim',
+      objectId: String(pageId),
+      expectedText: claim,
+      limit: SEMANTIC_HIGHLIGHT_LIMIT,
+      objectTypes: ['highlight']
+    }))
+      .filter(row => row?.objectType === 'highlight')
+      .filter(row => Number(row.score || 0) >= SEMANTIC_ATLAS_SCORE_FLOOR)
+      .filter(row => clean(row.metadata?.articleId) && clean(row.objectId));
+    if (!matches.length) return [];
+
+    const articleIds = [...new Set(matches.map(row => clean(row.metadata.articleId)))];
+    const scoreByHighlight = new Map(matches.map(row => [clean(row.objectId), Number(row.score || 0)]));
+    const query = Article.find(
+      { userId, archived: { $ne: true }, _id: { $in: articleIds } },
+      { title: 1, siteName: 1, url: 1, highlights: 1, createdAt: 1, evergreen: 1 }
+    ).limit(SEMANTIC_HIGHLIGHT_LIMIT);
+    if (typeof query.maxTimeMS === 'function') query.maxTimeMS(QUERY_TIMEOUT_MS);
+    const articles = await (query.lean ? query.lean() : query);
+
+    return (Array.isArray(articles) ? articles : []).flatMap((article) => {
+      const articleId = String(article?._id || '');
+      const sourceLabel = sourceLabelFor(article);
+      return (Array.isArray(article?.highlights) ? article.highlights : []).flatMap((highlight) => {
+        const highlightId = String(highlight?._id || '');
+        const semanticScore = scoreByHighlight.get(highlightId);
+        const text = clean(highlight?.text);
+        if (!semanticScore || !text) return [];
+        return [{
+          id: `highlight:${articleId}:${highlightId}`,
+          kind: 'highlight',
+          text,
+          note: clean(highlight?.note),
+          sourceLabel,
+          articleId,
+          highlightId,
+          url: clean(article.url),
+          savedAt: highlight?.createdAt || article.createdAt || null,
+          matched: matchedTerms(text, claimTerms(claim)),
+          coverage: 0,
+          phraseMatches: 0,
+          density: 0,
+          semanticScore,
+          whyThisSource: 'Meaning matches the held sentence',
+          evergreen: Boolean(article.evergreen),
+          score: semanticScore
+        }];
+      });
+    });
+  } catch (_error) {
+    // Atlas indexing is additive. A missing, sleeping, or stale vector path
+    // must preserve the deterministic lexical result rather than fail the
+    // Judgment page or quietly broaden the quality bar.
+    return [];
+  }
+};
+
 /**
  * Find what the library already holds about one claim.
  *
@@ -349,7 +429,9 @@ const isFiled = (candidate, filed) => (
  */
 const findLibraryEvidence = async ({
   Article,
+  VectorItem = null,
   userId,
+  pageId = '',
   claim,
   judgment = {},
   limit = DEFAULT_LIMIT
@@ -392,18 +474,23 @@ const findLibraryEvidence = async ({
     if (typeof query.maxTimeMS === 'function') query.maxTimeMS(QUERY_TIMEOUT_MS);
   });
 
-  const [highlightArticles, bodyArticles] = await Promise.all([
+  const [highlightArticles, bodyArticles, semanticRows] = await Promise.all([
     highlightQuery.lean ? highlightQuery.lean() : highlightQuery,
-    bodyQuery.lean ? bodyQuery.lean() : bodyQuery
+    bodyQuery.lean ? bodyQuery.lean() : bodyQuery,
+    findSemanticHighlightEvidence({ Article, VectorItem, userId, pageId, claim })
   ]);
   const filed = alreadyFiled(judgment);
   const rows = [
+    /* Discovery comes first so a deterministic exact-term match with the same
+       identity replaces it below. Semantic recall should fill gaps, never
+       erase the stronger explanation we already know how to prove. */
+    ...(Array.isArray(semanticRows) ? semanticRows : []),
     ...(Array.isArray(highlightArticles) ? highlightArticles : [])
       .flatMap(article => candidatesFromArticle(article, terms, { includeBody: false })),
     ...(Array.isArray(bodyArticles) ? bodyArticles : [])
       .flatMap(article => candidatesFromArticle(article, terms))
   ]
-    .filter(candidate => answersClaim(candidate.matched, terms))
+    .filter(candidate => candidate.semanticScore || answersClaim(candidate.matched, terms))
     .filter(candidate => !isFiled(candidate, filed));
 
   const uniqueRows = [...new Map(rows.map(candidate => [candidate.id, candidate])).values()];
@@ -433,5 +520,9 @@ module.exports = {
   candidatesFromArticle,
   rankCandidates,
   alreadyFiled,
+  SEMANTIC_HIGHLIGHT_LIMIT,
+  SEMANTIC_RAW_COSINE_FLOOR,
+  SEMANTIC_ATLAS_SCORE_FLOOR,
+  findSemanticHighlightEvidence,
   findLibraryEvidence
 };
