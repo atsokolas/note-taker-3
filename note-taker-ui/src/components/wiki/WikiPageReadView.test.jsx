@@ -2476,6 +2476,40 @@ describe('WikiPageReadView', () => {
     expect(within(dialog).getByText('Source snippet')).toBeInTheDocument();
   });
 
+  it('opens the cited passage in Library from the claim popover', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      sourceRefs: [
+        {
+          _id: 'source-highlight',
+          type: 'highlight',
+          objectId: 'highlight-1',
+          parentObjectId: 'article-1',
+          title: 'Memory article',
+          snippet: 'Source snippet'
+        }
+      ],
+      claims: [
+        { claimId: 'claim-1', text: 'Memory compounds with review.', support: 'supported', sourceRefIds: ['source-highlight'] }
+      ]
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-1" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const citation = await screen.findByRole('button', { name: 'Backlink to source 1' });
+    fireEvent.mouseOver(citation);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Claim citations' });
+    expect(within(dialog).getByRole('link', { name: 'Open in Library →' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=highlight-1'
+    );
+  });
+
   it('renders source references and round-trips between claim footnotes and the reference list', async () => {
     render(
       <MemoryRouter>

@@ -14,11 +14,11 @@ const useMagneticRow = () => {
   const follow = fine && !reduced;
 
   const onPointerMove = useCallback((event) => {
+    if (!follow) return;
     const target = event.currentTarget;
     const rect = target.getBoundingClientRect();
     target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
     target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
-    if (!follow) return;
     const mid = rect.left + rect.width / 2;
     const t = (event.clientX - mid) / Math.max(rect.width / 2, 1);
     magnet.setTarget(Math.max(-DRIFT_PX, Math.min(DRIFT_PX, t * DRIFT_PX)));

@@ -2903,7 +2903,7 @@ body.noeis-editorial .palette-list {
 }
 
 .article-folio.is-arriving.is-reduced {
-  animation-name: article-folio-fade;
+  animation: none;
 }
 
 @keyframes article-folio-in {
@@ -2924,7 +2924,7 @@ body.noeis-editorial .palette-list {
 
 @media (prefers-reduced-motion: reduce) {
   .article-folio.is-arriving {
-    animation-name: article-folio-fade;
+    animation: none;
   }
 }
 
@@ -3050,10 +3050,10 @@ body.noeis-editorial .palette-list {
 }
 
 .article-reader-content mark.highlight {
-  background: var(--highlight-color, rgba(11, 116, 255, 0.16)) !important;
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 62%, transparent) !important;
+  border-radius: 2px;
   padding: 0 2px;
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, rgba(11, 116, 255, 0.16)) 72%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
 }
 
 .article-reader-content .is-cited-passage,

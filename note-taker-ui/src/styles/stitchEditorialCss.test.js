@@ -121,6 +121,9 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?translate3d\(var\(--magnetic-x, 0px\), 0, 0\)/);
     expect(css).not.toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic:hover::before[\s\S]*?opacity:\s*1/
+    );
     expect(css).not.toContain('.three-pane--library');
   });
 
@@ -211,5 +214,16 @@ describe('stitch editorial CSS tokens', () => {
     expect(css).toContain('--ink-agent:');
     expect(css).toContain('color: var(--ink-agent, var(--vellum-ink))');
     expect(css).toContain('color: var(--ink-human, var(--vellum-ink))');
+  });
+
+  it('inks the reader highlight warm, and keeps the note in agent ink', () => {
+    const reader = fs.readFileSync(path.join(__dirname, 'reader-editorial.css'), 'utf8');
+    const theme = fs.readFileSync(path.join(__dirname, 'theme.css'), 'utf8');
+    expect(theme).toContain('var(--highlight-color, #f6e27a)');
+    expect(theme).not.toContain('rgba(11, 116, 255');
+    expect(reader).toContain('var(--highlight-color, #f6e27a)');
+    expect(reader).toContain('color: var(--ink-human, var(--vellum-ink))');
+    expect(reader).toContain('color: var(--ink-agent, var(--vellum-ink))');
+    expect(reader).toMatch(/html\[data-ui-theme='dark'\][\s\S]*mark\.highlight/);
   });
 });

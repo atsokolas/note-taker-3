@@ -948,7 +948,7 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(screen.queryByText(/queued signals awaiting a rebuild/i)).not.toBeInTheDocument();
     });
 
-    it('prints the quiet-day line when nothing new arrived', async () => {
+    it('stays silent on a quiet day', async () => {
       getDailyLoop.mockResolvedValueOnce({ briefing: {
         summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
         aliveness: { register: 'quiet' },
@@ -956,8 +956,9 @@ describe('WikiFrontPage (AT-394)', () => {
       } });
       listWikiPages.mockResolvedValue(pages);
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
-      expect(await screen.findByLabelText('Current Wiki briefing'))
-        .toHaveTextContent('Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.');
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Current Wiki briefing')).not.toBeInTheDocument();
+      expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
   });
 });

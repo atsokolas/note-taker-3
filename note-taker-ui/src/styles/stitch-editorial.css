@@ -1349,16 +1349,18 @@ body.noeis-editorial .library-article-row-receipt {
   body.noeis-editorial .library-article-row.is-magnetic::before,
   body.noeis-editorial .library-article-row.is-magnetic::after {
     transition: none;
-    opacity: 0;
   }
 
   body.noeis-editorial .library-article-row.is-magnetic:hover::before,
-  body.noeis-editorial .library-article-row.is-magnetic:focus-within::before,
+  body.noeis-editorial .library-article-row.is-magnetic:focus-within::before {
+    opacity: 1;
+  }
+
   body.noeis-editorial .library-article-row.is-magnetic:hover::after,
   body.noeis-editorial .library-article-row.is-magnetic:focus-within::after,
   body.noeis-editorial .library-article-row.is-magnetic.is-activated::after {
-    opacity: 0;
-    transform: translateX(-3px);
+    opacity: 0.55;
+    transform: translateX(0);
   }
 
   body.noeis-editorial .library-article-row.is-magnetic.is-activated {

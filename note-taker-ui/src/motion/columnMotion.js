@@ -11,7 +11,6 @@
 
 const ENTER_MS = 220;
 const ENTER_CURVE = 'cubic-bezier(0.16, 1, 0.3, 1)';
-const REDUCED_MS = 80;
 
 const staggered = new Set();
 
@@ -76,7 +75,7 @@ export const flySentenceInto = (node, text) => {
   // Claimed: this is the destination. A later paint must not fly it again.
   handoff = null;
   if (prefersReducedMotion()) {
-    node.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: REDUCED_MS, easing: 'linear' });
+    // Instantly in place — no fade, no flight.
     return true;
   }
 

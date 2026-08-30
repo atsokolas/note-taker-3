@@ -7,6 +7,7 @@ import { sentenceBoundaryTrim } from '../../utils/editorialText';
 
 const SAFETY_LEAD = /^(user safety|safety|quality(?: gate)?)\s*:/i;
 const STALE_DRIFT_PRESENT = /queued signals awaiting a rebuild/i;
+const QUIET_FILLER = /quiet today|no new sources, updates, or drift/i;
 
 export const completeLeadSentence = (value = '', maxLength = 280) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -26,6 +27,7 @@ export const isEditorialBriefing = (value = '') => {
   if (!text) return false;
   if (SAFETY_LEAD.test(text)) return false;
   if (STALE_DRIFT_PRESENT.test(text)) return false;
+  if (QUIET_FILLER.test(text)) return false;
   return true;
 };
 
@@ -94,8 +96,9 @@ const paperCollisionLine = (briefing = null) => {
   return '';
 };
 
-/** Name a real editorial close — or a collision of two. Invented review-count copy is silence. */
+/** Name a real editorial close — or a collision of two. A quiet day is silence. */
 export const wikiLivingBriefingLine = ({ briefing } = {}) => {
+  if (String(briefing?.aliveness?.register || '').toLowerCase() === 'quiet') return '';
   const collision = paperCollisionLine(briefing);
   if (collision) return collision;
   const proposed = proposedLeadFromBriefing(briefing);

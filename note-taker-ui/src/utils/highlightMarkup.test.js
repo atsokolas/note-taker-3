@@ -64,6 +64,24 @@ describe('renderArticleContentWithHighlights', () => {
     expect(marks[0].textContent).toBe('beta gamma');
   });
 
+  it('inks a new highlight in the warm pen when no colour was stored', () => {
+    const html = renderArticleContentWithHighlights(
+      {
+        content: '<p>Alpha beta gamma.</p>',
+        url: 'https://example.com/article'
+      },
+      [{
+        _id: 'h-warm',
+        text: 'beta'
+      }]
+    );
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const mark = doc.querySelector('mark[data-highlight-id="highlight-h-warm"]');
+    expect(mark.style.getPropertyValue('--highlight-color')).toBe('#f6e27a');
+    expect(mark.style.backgroundColor).toBe('rgb(246, 226, 122)');
+  });
+
   it('removes imported template syntax while preserving the article body', () => {
     const html = renderArticleContentWithHighlights({
       content: [

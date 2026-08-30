@@ -145,14 +145,18 @@ const LibraryArticleRow = React.memo(({
       {whyItMatters ? (
         <div className="library-article-row-excerpt">{whyItMatters}</div>
       ) : null}
-      <div className="library-article-row-meta">
-        <span>{highlightCount} highlights</span>
-        {conceptNames.length > 0 ? (
-          <span className="library-article-row-concepts">
-            Connected: {conceptNames.slice(0, 3).join(', ')}
-          </span>
-        ) : null}
-      </div>
+      {highlightCount > 0 || conceptNames.length > 0 ? (
+        <div className="library-article-row-meta">
+          {highlightCount > 0 ? (
+            <span>{highlightCount} highlight{highlightCount === 1 ? '' : 's'}</span>
+          ) : null}
+          {conceptNames.length > 0 ? (
+            <span className="library-article-row-concepts">
+              Connected: {conceptNames.slice(0, 3).join(', ')}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </button>
     {onMoveArticle && (
       <button
