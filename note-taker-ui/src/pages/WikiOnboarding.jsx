@@ -14,8 +14,6 @@ import { startWalkthrough } from '../onboarding/walkthroughState';
 import '../styles/wiki-front-page.css';
 import '../styles/wiki-onboarding-column.css';
 
-
-
 // Only what the Connections page can actually deep-link to. Naming a provider we
 // cannot open would put us back where we started: a name that looks clickable and
 // is not.
