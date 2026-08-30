@@ -488,6 +488,8 @@ const LibrarySourceList = ({
   paginationError = '',
   filteredOutCount = 0,
   onLoadMore = null,
+  reviewBacklogCount,
+  reviewBacklogHref = '',
   title = 'Sources',
   subtitle = 'Articles, highlights, and notebook entries in one index.',
   selectedSourceKey = '',
@@ -629,8 +631,15 @@ const LibrarySourceList = ({
             disabled={loadingMore}
             aria-busy={loadingMore}
           >
-            {loadingMore ? 'Loading more…' : sourceView === 'needs_review' ? 'Open full review backlog' : 'Load more sources'}
+            {loadingMore ? 'Loading more…' : sourceView === 'needs_review' ? 'Load more review candidates' : 'Load more sources'}
           </button>
+        </div>
+      ) : null}
+      {!loading && !error && sourceView === 'needs_review' && reviewBacklogHref ? (
+        <div className="library-source-list__more">
+          <Link className="library-source-list__more-button" to={reviewBacklogHref}>
+            Open all {Number.isFinite(reviewBacklogCount) ? reviewBacklogCount : ''} review items
+          </Link>
         </div>
       ) : null}
       {!loading && !error && paginationError ? (

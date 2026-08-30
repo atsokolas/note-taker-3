@@ -283,14 +283,18 @@ const buildMixedLibraryRelevancePage = async ({
     debugOnly: { $ne: true },
     archived: { $ne: true }
   };
-  const boundedRecentHighlights = view === 'recent' && typeof Article.aggregate === 'function';
+  // Review is a ranked triage surface, not a request to hydrate every
+  // highlight nested inside eighty imported articles. Keep both lightweight
+  // Library doors on the same bounded highlight projection.
+  const boundedHighlights = ['recent', 'needs_review'].includes(view)
+    && typeof Article.aggregate === 'function';
   const aggregateUserId = (() => {
     const ObjectId = Article?.db?.base?.Types?.ObjectId;
     return ObjectId?.isValid?.(userId) ? new ObjectId(String(userId)) : userId;
   })();
   const [articleRows, noteRows, articleTotal, noteTotal, highlightRows] = await Promise.all([
     awaitQuery(Article.find(visibleQuery), {
-      select: boundedRecentHighlights
+      select: boundedHighlights
         ? '_id userId title url author publicationDate siteName importMeta hiddenFromHome debugOnly archived createdAt updatedAt'
         : '_id userId title url author publicationDate siteName importMeta highlights._id highlights.text highlights.note highlights.importMeta highlights.createdAt hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
@@ -306,7 +310,7 @@ const buildMixedLibraryRelevancePage = async ({
     }),
     Article.countDocuments ? Article.countDocuments(visibleQuery) : null,
     NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null,
-    boundedRecentHighlights
+    boundedHighlights
       ? Article.aggregate([
         {
           $match: includeSuppressed ? { userId: aggregateUserId } : {
@@ -356,7 +360,7 @@ const buildMixedLibraryRelevancePage = async ({
     .filter(value => ownedBy(value, userId) && (includeSuppressed || visible(value)));
   const rows = [
     ...articles.map(articleRow),
-    ...(boundedRecentHighlights
+    ...(boundedHighlights
       ? (Array.isArray(highlightRows) ? highlightRows : [])
         .map(plain)
         .filter(value => ownedBy(value, userId) && id(value?.highlight))

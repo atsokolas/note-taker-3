@@ -77,6 +77,18 @@ const renderList = (props = {}) => render(
 );
 
 describe('LibrarySourceList', () => {
+  it('keeps the full Needs Review backlog one click behind calm triage', () => {
+    renderList({
+      sources: [],
+      sourceView: 'needs_review',
+      reviewBacklogCount: 149,
+      reviewBacklogHref: '/library?scope=folder&folderId=review'
+    });
+
+    expect(screen.getByRole('link', { name: 'Open all 149 review items' }))
+      .toHaveAttribute('href', '/library?scope=folder&folderId=review');
+  });
+
   it('renders article, highlight, and notebook rows in one canonical list', () => {
     renderList();
     expect(screen.getByTestId('library-source-list')).toBeInTheDocument();
