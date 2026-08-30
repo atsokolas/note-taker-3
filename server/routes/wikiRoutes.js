@@ -178,7 +178,11 @@ const {
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation
 } = require('../services/wikiPresentationGuard');
-const { chooseCanonicalPage, normalizeComparableText } = require('../services/wikiDedupeService');
+const {
+  chooseCanonicalPage,
+  mergePageRecords,
+  normalizeComparableText
+} = require('../services/wikiDedupeService');
 const { reviewExpired } = require('../services/reviewTriageService');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
 const {
@@ -6083,24 +6087,6 @@ const buildWikiRouter = ({
       const normalizedJudgment = req.body?.judgment !== undefined
         ? normalizeJudgment({ input: req.body.judgment, existing: page.judgment, actorType, pageId: String(page._id) })
         : null;
-      const comparableJudgment = normalizeComparableText(normalizedJudgment?.currentJudgment);
-      if (comparableJudgment) {
-        const judgmentPages = await WikiPage.find({
-          userId: req.user.id,
-          _id: { $ne: page._id },
-          status: { $ne: 'archived' },
-          'judgment.currentJudgment': { $exists: true, $ne: '' }
-        }).select('_id title judgment.currentJudgment').limit(500);
-        const existing = (Array.isArray(judgmentPages) ? judgmentPages : [])
-          .find(candidate => normalizeComparableText(candidate?.judgment?.currentJudgment) === comparableJudgment);
-        if (existing) {
-          return res.status(409).json({
-            error: 'This judgment already exists. Open the existing case instead of creating another copy.',
-            existingPageId: serializeId(existing._id),
-            existingPageTitle: existing.title
-          });
-        }
-      }
       const claimUpdates = req.body?.claimUpdates !== undefined
         ? normalizeClaimUpdates(req.body.claimUpdates)
         : [];
@@ -6171,6 +6157,85 @@ const buildWikiRouter = ({
           });
         }
         if (typeof page.markModified === 'function') page.markModified('claims');
+      }
+
+      const comparableJudgment = normalizeComparableText(page?.judgment?.currentJudgment);
+      if (comparableJudgment) {
+        const judgmentPages = await WikiPage.find({
+          userId: req.user.id,
+          _id: { $ne: page._id },
+          status: { $ne: 'archived' },
+          'judgment.currentJudgment': { $exists: true, $ne: '' }
+        }).select('_id title judgment.currentJudgment').limit(500);
+        const match = (Array.isArray(judgmentPages) ? judgmentPages : [])
+          .find(candidate => normalizeComparableText(candidate?.judgment?.currentJudgment) === comparableJudgment);
+        if (match) {
+          const canonicalPage = await WikiPage.findOne({ _id: match._id, userId: req.user.id });
+          if (!canonicalPage) return res.status(409).json({ error: 'The matching judgment could not be reopened.' });
+
+          const canonicalBefore = snapshotPage(canonicalPage);
+          const mergedAt = new Date();
+          const merged = mergePageRecords([canonicalPage, page], { canonicalPage, mergedAt });
+          ['sourceRefs', 'citations', 'claims', 'judgment', 'aiState'].forEach((field) => {
+            canonicalPage[field] = clonePlain(merged[field]);
+            if (typeof canonicalPage.markModified === 'function') canonicalPage.markModified(field);
+          });
+          page.status = 'archived';
+          page.archived = true;
+          page.hiddenFromHome = true;
+          page.aiState = {
+            ...(page.aiState?.toObject ? page.aiState.toObject() : page.aiState || {}),
+            build: {
+              ...(page.aiState?.build?.toObject ? page.aiState.build.toObject() : page.aiState?.build || {}),
+              dedupeRedirect: {
+                canonicalPageId: serializeId(canonicalPage._id),
+                mergedAt: mergedAt.toISOString()
+              }
+            }
+          };
+          if (typeof page.markModified === 'function') page.markModified('aiState');
+
+          const persistMerge = async (session = null) => {
+            await canonicalPage.save(session ? { session } : undefined);
+            await page.save(session ? { session } : undefined);
+          };
+          if (mongoose.connection?.readyState === 1 && typeof mongoose.connection.transaction === 'function') {
+            await mongoose.connection.transaction(persistMerge);
+          } else {
+            await persistMerge();
+          }
+
+          publicPageCache.invalidate(serializeId(canonicalPage._id), canonicalBefore?.slug, canonicalPage.slug);
+          publicPageCache.invalidate(serializeId(page._id), before?.slug, page.slug);
+          await syncPageGraph(canonicalPage, req.user.id);
+          await syncPageGraph(page, req.user.id);
+          await createWikiRevision({
+            WikiRevision,
+            userId: req.user.id,
+            page: canonicalPage,
+            before: canonicalBefore,
+            reason: 'user_edit',
+            actorType,
+            summary: `Merged the redundant judgment page "${page.title}" into this case.`
+          });
+          await createWikiRevision({
+            WikiRevision,
+            userId: req.user.id,
+            page,
+            before,
+            reason: 'archived',
+            actorType,
+            summary: `Merged this redundant judgment into "${canonicalPage.title}".`
+          });
+          return res.status(200).json({
+            ...serializeWikiPage(canonicalPage),
+            dedupe: {
+              canonicalPageId: serializeId(canonicalPage._id),
+              mergedPageId: serializeId(page._id),
+              mergedAt: mergedAt.toISOString()
+            }
+          });
+        }
       }
 
       await page.save();

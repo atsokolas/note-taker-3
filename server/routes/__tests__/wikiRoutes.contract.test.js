@@ -2012,6 +2012,57 @@ const run = async () => {
     assert.strictEqual(patched.body.title, 'Contract Page Updated');
     assert.ok(patched.body.plainText.includes('Updated contract body'));
 
+    const canonicalJudgment = new WikiPage({
+      userId: 'user-1',
+      title: 'Canonical compute case',
+      slug: 'canonical-compute-case',
+      status: 'published',
+      visibility: 'private',
+      claims: [{ claimId: 'canonical-claim', text: 'Compute keeps compounding.', history: [{ event: 'created' }] }],
+      judgment: {
+        kind: 'thesis',
+        governingQuestion: 'How quickly does compute improve?',
+        currentJudgment: 'Compute keeps compounding.',
+        why: [{ reasonId: 'canonical-reason', text: 'The scaling curve remains intact.' }]
+      }
+    });
+    await canonicalJudgment.save();
+    const redundantJudgment = new WikiPage({
+      userId: 'user-1',
+      title: 'Redundant compute notes',
+      slug: 'redundant-compute-notes',
+      status: 'published',
+      visibility: 'private',
+      claims: [{ claimId: 'duplicate-claim', text: 'COMPUTE keeps compounding!', history: [{ event: 'reaffirmed' }] }],
+      judgment: {
+        kind: 'thesis',
+        governingQuestion: 'Will the curve continue?',
+        currentJudgment: 'A temporary duplicate belief.',
+        why: [{ reasonId: 'duplicate-reason', text: 'Demand keeps finding supply.' }]
+      }
+    });
+    await redundantJudgment.save();
+
+    const deduplicatedJudgment = await request(url, `/api/wiki/pages/${redundantJudgment._id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        judgment: {
+          ...redundantJudgment.judgment,
+          currentJudgment: 'COMPUTE keeps compounding!'
+        }
+      })
+    });
+    assert.strictEqual(deduplicatedJudgment.res.status, 200, deduplicatedJudgment.text);
+    assert.strictEqual(String(deduplicatedJudgment.body._id), String(canonicalJudgment._id));
+    assert.strictEqual(deduplicatedJudgment.body.dedupe.canonicalPageId, String(canonicalJudgment._id));
+    const storedCanonical = WikiPage.records.find(record => String(record._id) === String(canonicalJudgment._id));
+    const storedRedundant = WikiPage.records.find(record => String(record._id) === String(redundantJudgment._id));
+    assert.strictEqual(storedCanonical.claims.length, 1);
+    assert.strictEqual(storedCanonical.claims[0].history.length, 2);
+    assert.strictEqual(storedCanonical.judgment.why.length, 2);
+    assert.strictEqual(storedRedundant.status, 'archived');
+    assert.strictEqual(storedRedundant.hiddenFromHome, true);
+
     const patchedLegacySynthesis = await request(url, `/api/wiki/pages/${created.body._id}`, {
       method: 'PATCH',
       body: JSON.stringify({ pageType: 'synthesis' })

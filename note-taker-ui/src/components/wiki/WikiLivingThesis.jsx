@@ -57,7 +57,7 @@ const ReadList = ({ title, items, empty, renderItem, section, activeSection, onE
 
 const Field = ({ label, children }) => <label className="wiki-thesis__field"><span>{label}</span>{children}</label>;
 
-const WikiLivingThesis = ({ page, pageId, onPageUpdate }) => {
+const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
   const systemStatus = useSystemStatusControls();
   const judgment = page?.judgment;
   const [activeSection, setActiveSection] = useState(null);
@@ -197,6 +197,17 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate }) => {
     systemStatus.setBackgroundWork({ label: 'Living thesis', stage: 'Saving judgment contract' });
     try {
       const updated = await updateWikiPage(pageId, { judgment: cleanDraft(), claimUpdates: claimDrafts });
+      const canonicalPageId = updated?.dedupe?.canonicalPageId;
+      if (canonicalPageId && canonicalPageId !== pageId) {
+        systemStatus.setLatestReceipt({
+          title: 'Duplicate judgment merged',
+          summary: 'Evidence and history were preserved in the existing case.',
+          status: 'completed',
+          href: `/wiki/workspace?page=${encodeURIComponent(canonicalPageId)}`
+        });
+        onCanonicalPage?.(canonicalPageId);
+        return;
+      }
       onPageUpdate?.(updated);
       setStatus('Living thesis saved.');
       closeEditor();

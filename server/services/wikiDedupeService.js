@@ -60,11 +60,14 @@ const buildDuplicateClaimPlan = (claims = []) => {
   });
   return Array.from(groups.entries())
     .filter(([, group]) => group.length > 1)
-    .map(([key, group]) => ({
-      key,
-      canonicalClaimId: claimId(group[0]),
-      mergedClaimIds: group.slice(1).map(claimId).filter(Boolean)
-    }));
+    .map(([key, group]) => {
+      const canonicalClaimId = claimId(group[0]);
+      return {
+        key,
+        canonicalClaimId,
+        mergedClaimIds: group.slice(1).map(claimId).filter(value => value && value !== canonicalClaimId)
+      };
+    });
 };
 
 const richness = page => {
@@ -126,8 +129,8 @@ const mergeJudgment = (pages = [], canonical = {}) => {
 
 const listFor = value => Array.isArray(value) ? value : [];
 
-const mergePageRecords = (pages = []) => {
-  const canonical = chooseCanonicalPage(pages);
+const mergePageRecords = (pages = [], { canonicalPage = null, mergedAt = new Date() } = {}) => {
+  const canonical = canonicalPage || chooseCanonicalPage(pages);
   if (!canonical) return null;
   const values = pages.map(plain);
   const base = plain(canonical);
@@ -147,7 +150,7 @@ const mergePageRecords = (pages = []) => {
         ...(base.aiState?.build || {}),
         dedupeMigration: {
           mergedPageIds: values.map(id).filter(value => value !== id(canonical)),
-          mergedAt: new Date().toISOString()
+          mergedAt: mergedAt.toISOString()
         }
       }
     }
