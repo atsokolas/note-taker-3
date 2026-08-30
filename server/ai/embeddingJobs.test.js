@@ -1,5 +1,6 @@
 const assert = require('assert');
 const {
+  buildJudgmentEmbeddingJob,
   drainEmbeddingJobQueue,
   persistEmbeddingJob,
   retryDelayMs
@@ -83,6 +84,21 @@ const createEmbeddingJobModel = (initialJobs = []) => {
 };
 
 const run = async () => {
+  const heldSentence = buildJudgmentEmbeddingJob({
+    _id: 'page-1',
+    userId: '6873e7773cc513750ec17055',
+    title: 'A dossier title that must not affect meaning',
+    judgment: { currentJudgment: '  The held sentence, exactly.  ' },
+    updatedAt: new Date('2026-08-30T12:00:00.000Z')
+  });
+  assert.strictEqual(heldSentence.collection, 'judgment_claims');
+  assert.strictEqual(heldSentence.id, 'page-1');
+  assert.strictEqual(heldSentence.text, 'The held sentence, exactly.');
+  assert.strictEqual(heldSentence.payload.type, 'judgment_claim');
+  assert.strictEqual(heldSentence.payload.objectId, 'page-1');
+  assert.ok(!heldSentence.text.includes('dossier title'), 'the page title cannot steer sentence retrieval');
+  assert.strictEqual(buildJudgmentEmbeddingJob({ _id: 'page-2', userId: 'u', judgment: {} }), null);
+
   assert.ok(retryDelayMs({ attemptCount: 1 }) >= retryDelayMs({ attemptCount: 0 }));
 
   const upsertModel = createEmbeddingJobModel();

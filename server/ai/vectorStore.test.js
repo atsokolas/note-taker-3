@@ -6,6 +6,7 @@ const {
   rawCosineToAtlasScore,
   atlasScoreToRawCosine,
   searchVectorItems,
+  similarToVectorItem,
   upsertVectorItem,
   isVectorItemCurrent,
   vectorIndexDefinition,
@@ -78,7 +79,7 @@ assert.ok(fields.some(field => field.type === 'filter' && field.path === 'object
 
 assert.deepStrictEqual(
   [...OBJECT_TYPES].sort(),
-  ['article', 'highlight', 'notebook_entry', 'question', 'wiki_claim', 'wiki_page'].sort()
+  ['article', 'highlight', 'judgment_claim', 'notebook_entry', 'question', 'wiki_claim', 'wiki_page'].sort()
 );
 
 /* ------------------------------------------------------------------ *
@@ -149,6 +150,26 @@ const captureAggregate = (rows = []) => {
     undefined,
     'no type filter is added when none is asked for'
   );
+
+  const storedVector = encodeVector([0.2, 0.4]);
+  let semanticSearches = 0;
+  const staleSourceModel = {
+    findOne: () => ({ select: () => ({ lean: async () => ({
+      embedding: storedVector,
+      contentHash: contentHashOf('the old held sentence')
+    }) }) }),
+    aggregate: async () => { semanticSearches += 1; return []; }
+  };
+  const staleRows = await similarToVectorItem({
+    VectorItem: staleSourceModel,
+    userId: OWNER,
+    objectType: 'judgment_claim',
+    objectId: 'page-1',
+    expectedText: 'the new held sentence',
+    objectTypes: ['highlight']
+  });
+  assert.deepStrictEqual(staleRows, [], 'a queued sentence update cannot search from the prior vector');
+  assert.strictEqual(semanticSearches, 0, 'stale identity fails before Atlas search');
 
   /* ---------------------------------------------------------------- *
    * Upsert identity — a re-index overwrites, never duplicates.

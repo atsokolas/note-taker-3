@@ -12,11 +12,13 @@ const {
   candidatesFromArticle,
   rankCandidates,
   alreadyFiled,
+  findSemanticHighlightEvidence,
   findLibraryEvidence,
   HIGHLIGHT_SCAN_LIMIT,
   BODY_SCAN_LIMIT,
   SEARCH_TERM_LIMIT,
   QUERY_TIMEOUT_MS,
+  SEMANTIC_ATLAS_SCORE_FLOOR,
   searchTermsForClaim,
   searchPatternForClaim
 } = require('./judgmentEvidenceService');
@@ -258,6 +260,71 @@ const fakeArticle = (articles) => ({
 
   const noModel = await findLibraryEvidence({ userId: 'u1', claim: 'compute capacity' });
   assert.deepStrictEqual(noModel.candidates, [], 'survives a missing model');
+
+  let semanticRequest = null;
+  let semanticRead = null;
+  const semanticArticle = {
+    find: (filter, projection) => {
+      semanticRead = { filter, projection, timeout: null };
+      const query = {
+        limit: () => query,
+        maxTimeMS: (timeout) => { semanticRead.timeout = timeout; return query; },
+        lean: async () => [{
+          _id: 'semantic-article',
+          title: 'An exact saved source',
+          url: 'https://example.com/semantic',
+          highlights: [
+            { _id: 'semantic-highlight', text: 'Tight setup removes the work that kept newcomers from reaching their first useful moment.' },
+            { _id: 'unmatched-highlight', text: 'A different saved passage.' }
+          ]
+        }]
+      };
+      return query;
+    }
+  };
+  const semantic = await findSemanticHighlightEvidence({
+    Article: semanticArticle,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'Shorter onboarding improves activation for new customers.',
+    similar: async (request) => {
+      semanticRequest = request;
+      return [
+        {
+          objectType: 'highlight',
+          objectId: 'semantic-highlight',
+          metadata: { articleId: 'semantic-article' },
+          score: SEMANTIC_ATLAS_SCORE_FLOOR + 0.01
+        },
+        {
+          objectType: 'highlight',
+          objectId: 'unmatched-highlight',
+          metadata: { articleId: 'semantic-article' },
+          score: SEMANTIC_ATLAS_SCORE_FLOOR - 0.01
+        }
+      ];
+    }
+  });
+  assert.strictEqual(semantic.length, 1, 'only the high-confidence semantic passage clears the gate');
+  assert.strictEqual(semantic[0].text, 'Tight setup removes the work that kept newcomers from reaching their first useful moment.');
+  assert.strictEqual(semantic[0].highlightId, 'semantic-highlight', 'the exact saved passage identity survives discovery');
+  assert.strictEqual(semantic[0].side, undefined, 'semantic similarity never guesses support or opposition');
+  assert.deepStrictEqual(semanticRequest.objectTypes, ['highlight'], 'article-level vectors cannot masquerade as exact quotations');
+  assert.strictEqual(semanticRequest.expectedText, 'Shorter onboarding improves activation for new customers.');
+  assert.strictEqual(semanticRead.filter.userId, 'owner-1', 'semantic hydration is owner-scoped');
+  assert.deepStrictEqual(semanticRead.filter._id.$in, ['semantic-article']);
+  assert.strictEqual(semanticRead.timeout, QUERY_TIMEOUT_MS, 'semantic hydration has the same finite read deadline');
+
+  const semanticFailure = await findSemanticHighlightEvidence({
+    Article: semanticArticle,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'A held sentence.',
+    similar: async () => { throw new Error('Atlas is asleep'); }
+  });
+  assert.deepStrictEqual(semanticFailure, [], 'a sleeping semantic index yields honest silence');
 
   const hireNote = {
     _id: 'note-1',

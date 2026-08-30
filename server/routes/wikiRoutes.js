@@ -1726,6 +1726,7 @@ const buildWikiRouter = ({
   ImportSession = null,
   NoeisReceipt = null,
   Article = null,
+  VectorItem = null,
   NotebookEntry = null,
   TagMeta = null,
   Question = null,
@@ -6070,7 +6071,9 @@ const buildWikiRouter = ({
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 8, 25));
       const { terms, candidates } = await findLibraryEvidence({
         Article,
+        VectorItem,
         userId: req.user.id,
+        pageId: page._id,
         claim,
         judgment: page.judgment || {},
         limit

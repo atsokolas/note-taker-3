@@ -17,6 +17,7 @@
     "agent:harness:ci:live": "node scripts/run_agent_harness_regression.js --include-live",
     "agent:bakeoff": "node scripts/run_agent_model_bakeoff.js",
     "judgment:evidence-harness": "node scripts/run_judgment_evidence_quality_harness.js",
+    "judgment:semantic-evidence-harness": "node scripts/run_judgment_semantic_evidence_harness.js",
     "agent:structure-acceptance": "node scripts/run_agent_structure_acceptance.js",
     "wiki:proposal-harness": "node scripts/run_wiki_proposal_quality_harness.js",
     "wiki:intelligence-harness": "node scripts/run_wiki_intelligence_harness.js",

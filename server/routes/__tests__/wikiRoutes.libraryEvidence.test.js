@@ -1,6 +1,7 @@
 const assert = require('assert');
 const express = require('express');
 const { buildWikiRouter } = require('../wikiRoutes');
+const { encodeVector, contentHashOf } = require('../../ai/vectorStore');
 
 /* Library evidence under a claim that is not a company. The search is the
    held sentence; a saved passage that answers it comes back with its
@@ -25,24 +26,26 @@ const NOTE_ID = '6a5d1c842da7aa3614747301';
 const HIGHLIGHT_ID = '6a5d1c842da7aa3614747302';
 const HOLD = 'Hire Maya as the first engineer.';
 const PASSAGE = 'Maya is the engineer I would hire first.';
+const OWNER_ID = '6873e7773cc513750ec17055';
+let vectorSearches = 0;
 
 const hirePage = {
   _id: HIRE_PAGE_ID,
-  userId: 'owner-1',
+  userId: OWNER_ID,
   title: HOLD,
   judgment: { currentJudgment: HOLD, why: [], against: [] }
 };
 
 const emptyPage = {
   _id: '6a49ad6f22f7ad6bbbdf2154',
-  userId: 'owner-1',
+  userId: OWNER_ID,
   title: 'Untitled',
   judgment: { currentJudgment: '', why: [], against: [] }
 };
 
 const hiringNote = {
   _id: NOTE_ID,
-  userId: 'owner-1',
+  userId: OWNER_ID,
   title: 'Hiring notes',
   siteName: '',
   url: 'https://notes.example/maya',
@@ -57,7 +60,7 @@ const hiringNote = {
 const serve = async () => {
   const app = express();
   app.use(buildWikiRouter({
-    authenticateToken: (req, _res, next) => { req.user = { id: 'owner-1' }; next(); },
+    authenticateToken: (req, _res, next) => { req.user = { id: OWNER_ID }; next(); },
     WikiPage: {
       findOne: (query) => new Query(
         [hirePage, emptyPage].find(page => (
@@ -66,11 +69,32 @@ const serve = async () => {
       )
     },
     Article: {
-      find: () => ({
-        sort: () => ({
-          limit: () => ({ lean: async () => [hiringNote] })
-        })
-      })
+      find: () => {
+        const query = {
+          sort: () => query,
+          limit: () => query,
+          maxTimeMS: () => query,
+          lean: async () => [hiringNote]
+        };
+        return query;
+      }
+    },
+    VectorItem: {
+      findOne: () => ({ select: () => ({ lean: async () => ({
+        embedding: encodeVector([0.2, 0.4]),
+        contentHash: contentHashOf(HOLD)
+      }) }) }),
+      aggregate: async (pipeline) => {
+        vectorSearches += 1;
+        assert.strictEqual(String(pipeline[0].$vectorSearch.filter.userId.$eq), OWNER_ID);
+        assert.deepStrictEqual(pipeline[0].$vectorSearch.filter.objectType, { $in: ['highlight'] });
+        return [{
+          objectType: 'highlight',
+          objectId: HIGHLIGHT_ID,
+          metadata: { articleId: NOTE_ID },
+          score: 0.9
+        }];
+      }
     }
   }));
   const server = await new Promise((resolve) => {
@@ -96,6 +120,7 @@ const run = async () => {
     assert.strictEqual(body.candidates[0].id, `highlight:${NOTE_ID}:${HIGHLIGHT_ID}`);
     assert.match(body.candidates[0].whyThisSource, /^Answers 4 of 4 key terms/);
     assert.strictEqual(body.candidates[0].side, undefined, 'the route never guesses Why or Against');
+    assert.strictEqual(vectorSearches, 1, 'the route reuses the stored held-sentence vector');
     assert.deepStrictEqual(pageReads[0], {
       projection: {
         'judgment.currentJudgment': 1,
