@@ -1588,7 +1588,9 @@ describe('The index while it is still loading', () => {
     listWikiSourceEvents.mockResolvedValue([]);
     renderIndex();
     expect(await screen.findByLabelText('Hold a sentence')).toBeInTheDocument();
-    expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
+    });
     expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /company case/i })).not.toBeInTheDocument();
   });
