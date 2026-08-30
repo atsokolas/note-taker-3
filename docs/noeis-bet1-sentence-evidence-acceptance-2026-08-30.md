@@ -8,9 +8,9 @@ local implementation proof, not merge, deployment, or production proof.
 - **Eligibility:** an owned, available Library article must contain a passage
   that answers terms in the exact current judgment sentence.
 - **Quality bar:** a one-term sentence requires that term; a two- or three-term
-  sentence requires two terms; a longer sentence requires at least two terms
-  and 40% term coverage. Empty passages and evidence already filed on the
-  judgment are suppressed.
+  sentence requires two terms; a longer sentence requires at least two-thirds
+  of its key terms in the exact visible passage. Empty passages, title-only or
+  note-only matches, and evidence already filed on the judgment are suppressed.
 - **Ordering:** eligible passages rank by sentence-term coverage before their
   retrieval score.
 - **Silence fallback:** when no passage clears the quality bar, Judgment shows
@@ -67,16 +67,24 @@ failed write draws nothing. Reduced motion removes the traveling line while
 retaining the provenance knot and the durable receipt. Rendered local proof
 covers 1440px, 1320px, and 430px with controlled API responses.
 
-## Not yet Bet 1 complete
+## Deterministic arbitrary-sentence gauntlet
 
-- Counterevidence is source-bound and fail-closed locally. Its semantic claim to
-  be the *strongest* passage still needs the final arbitrary-sentence gauntlet;
-  no live-model quality evaluation was run in this slice.
-- The full exit gauntlet must begin from arbitrary sentences, verify the
-  semantic quality of both evidence directions, accept one change, reload, and
-  recover the same result. The two directional doors are implemented locally;
-  semantic quality remains unclaimed without a model evaluation or human read.
-- The persisted browser round trip is complete. The remaining semantic gauntlet
-  is intentionally separate: claiming that a passage is the strongest available
-  result across arbitrary sentences requires a later human or live-model quality
-  evaluation. It was not smuggled into this deterministic acceptance.
+- Eight hand-labelled domains now recover 16/16 exact support and counterpassages,
+  reject every topic-only distractor, preserve exact provenance, and stay silent
+  on an unrelated library. The harness makes zero model calls and is available
+  as `npm run judgment:evidence-harness`.
+- Passage selection now evaluates the exact quotation shown to the reader rather
+  than scoring a whole document and clipping afterward. A note cannot qualify an
+  unrelated highlight, a title cannot qualify unrelated body prose, and a weak
+  highlight cannot hide a stronger complete passage in the article.
+- This closes deterministic selection quality. It does not claim that lexical
+  retrieval can infer whether a passage supports or challenges the sentence.
+  Stance remains agent-assisted and human-decided, and no live-model evaluation
+  was run.
+
+## Remaining semantic proof
+
+- Calling a result the *strongest available* across natural paraphrases still
+  requires a later human review of a real Library corpus or a bounded live-model
+  judge. That proof remains intentionally deferred while live-model evaluations
+  are disabled.
