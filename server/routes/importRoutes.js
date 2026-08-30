@@ -344,10 +344,10 @@ const buildImportRouter = ({
     warnings: []
   });
 
-  const queueIndexingAttempt = (summary, action, warningLabel) => {
+  const queueIndexingAttempt = async (summary, action, warningLabel) => {
     summary.indexingAttempts += 1;
     try {
-      action();
+      await action();
       summary.indexingQueued += 1;
     } catch (error) {
       summary.indexingFailures += 1;
@@ -1452,12 +1452,18 @@ const buildImportRouter = ({
       });
 
       const indexing = buildIndexingSummary();
-      Array.from(dirtyArticles).forEach((article) => {
-        queueIndexingAttempt(indexing, () => enqueueArticleEmbedding(article), `Article indexing failed for ${article.title || article._id}`);
-      });
-      pendingHighlightRefs.forEach(({ article, highlight }) => {
-        queueIndexingAttempt(indexing, () => enqueueHighlightEmbedding({ highlight, article }), `Highlight indexing failed for ${article.title || article._id}`);
-      });
+      await Promise.all([
+        ...Array.from(dirtyArticles).map(article => queueIndexingAttempt(
+          indexing,
+          () => enqueueArticleEmbedding(article),
+          `Article indexing failed for ${article.title || article._id}`
+        )),
+        ...pendingHighlightRefs.map(({ article, highlight }) => queueIndexingAttempt(
+          indexing,
+          () => enqueueHighlightEmbedding({ highlight, article }),
+          `Highlight indexing failed for ${article.title || article._id}`
+        ))
+      ]);
 
       const parseErrors = parsed.errors ? parsed.errors.length : 0;
       const warningEntries = indexing.warnings.map(message => buildWarning('indexing_failed', message));
@@ -2119,12 +2125,18 @@ const buildImportRouter = ({
       });
 
       const indexing = buildIndexingSummary();
-      Array.from(dirtyArticles).forEach((article) => {
-        queueIndexingAttempt(indexing, () => enqueueArticleEmbedding(article), `Article indexing failed for ${article.title || article._id}`);
-      });
-      pendingHighlightRefs.forEach(({ article, highlight }) => {
-        queueIndexingAttempt(indexing, () => enqueueHighlightEmbedding({ highlight, article }), `Highlight indexing failed for ${article.title || article._id}`);
-      });
+      await Promise.all([
+        ...Array.from(dirtyArticles).map(article => queueIndexingAttempt(
+          indexing,
+          () => enqueueArticleEmbedding(article),
+          `Article indexing failed for ${article.title || article._id}`
+        )),
+        ...pendingHighlightRefs.map(({ article, highlight }) => queueIndexingAttempt(
+          indexing,
+          () => enqueueHighlightEmbedding({ highlight, article }),
+          `Highlight indexing failed for ${article.title || article._id}`
+        ))
+      ]);
 
       const warningSummary = summarizeWarnings(
         indexing.warnings.map(message => buildWarning('indexing_failed', message))
@@ -2612,9 +2624,11 @@ const buildImportRouter = ({
         }
       }
 
-      syncedEntries.forEach((entry) => {
-        queueIndexingAttempt(indexing, () => enqueueNotebookEmbedding(entry), `Notebook indexing failed for ${entry.title || entry._id}`);
-      });
+      await Promise.all(syncedEntries.map(entry => queueIndexingAttempt(
+        indexing,
+        () => enqueueNotebookEmbedding(entry),
+        `Notebook indexing failed for ${entry.title || entry._id}`
+      )));
 
       persistConnectionLastSyncResult(connection, {
         importedNotes,
@@ -3026,9 +3040,11 @@ const buildImportRouter = ({
         importedNotes += 1;
       }
 
-      syncedEntries.forEach((entry) => {
-        queueIndexingAttempt(indexing, () => enqueueNotebookEmbedding(entry), `Notebook indexing failed for ${entry.title || entry._id}`);
-      });
+      await Promise.all(syncedEntries.map(entry => queueIndexingAttempt(
+        indexing,
+        () => enqueueNotebookEmbedding(entry),
+        `Notebook indexing failed for ${entry.title || entry._id}`
+      )));
 
       const warningEntries = indexing.warnings.map(message => buildWarning('indexing_failed', message));
       if (notes.length === 0) {
@@ -3265,7 +3281,11 @@ const buildImportRouter = ({
       }
 
       const indexing = buildIndexingSummary();
-      queueIndexingAttempt(indexing, () => enqueueNotebookEmbedding(entry), `Notebook indexing failed for ${entry.title || entry._id}`);
+      await queueIndexingAttempt(
+        indexing,
+        () => enqueueNotebookEmbedding(entry),
+        `Notebook indexing failed for ${entry.title || entry._id}`
+      );
 
       const status = finalizeSessionStatus(indexing, 0);
       const resultPayload = {

@@ -18,6 +18,10 @@ const {
   rawCosineToAtlasScore,
   contentHashOf
 } = require('../ai/vectorStore');
+const {
+  exactArticlePassage,
+  isArticlePassageSubId
+} = require('../ai/articlePassages');
 
 const DEFAULT_LIMIT = 8;
 const HIGHLIGHT_SCAN_LIMIT = 32;
@@ -28,8 +32,8 @@ const SNIPPET_BUDGET = 320;
 const SEMANTIC_HIGHLIGHT_LIMIT = 16;
 const SEMANTIC_RAW_COSINE_FLOOR = 0.72;
 const SEMANTIC_ATLAS_SCORE_FLOOR = rawCosineToAtlasScore(SEMANTIC_RAW_COSINE_FLOOR);
-const SEMANTIC_SOURCE_LIMIT = 8;
-const SEMANTIC_COMBINED_LIMIT = 40;
+const SEMANTIC_SOURCE_LIMIT = 32;
+const SEMANTIC_COMBINED_LIMIT = 64;
 const SEMANTIC_SOURCE_ATLAS_SCORE_FLOOR = 0.72;
 const SEMANTIC_SOURCE_LEAD_MARGIN = 0.03;
 const SEMANTIC_SOURCE_EXCERPT_BUDGET = 800;
@@ -272,6 +276,12 @@ const exactArticleExcerpt = (article = {}, expectedHash = '') => {
   return clean(sentenceEnd >= 240 ? bounded.slice(0, sentenceEnd + 1) : bounded.slice(0, SEMANTIC_SOURCE_EXCERPT_BUDGET));
 };
 
+const exactSemanticSourceText = (article = {}, row = {}) => (
+  isArticlePassageSubId(row?.subId)
+    ? exactArticlePassage(article, row)
+    : exactArticleExcerpt(article, row?.contentHash)
+);
+
 /*
  * A highlight is worth more than a paragraph of body text, because the reader
  * already decided the highlight mattered. We still consider the source body:
@@ -384,10 +394,9 @@ const isFiled = (candidate, filed) => (
   || filed.has(`text:${clean(candidate.text).toLowerCase().slice(0, 120)}`)
 );
 
-/* Semantic search discovers identities; it never authors evidence. Only
-   saved highlights qualify because each vector maps back to an exact passage
-   the reader chose to keep. Article-level vectors do not identify which words
-   were relevant, so they stay out until passage vectors exist. */
+/* Semantic search discovers identities; it never authors evidence. A saved
+   highlight maps to words the reader chose. An article passage maps back to a
+   deterministic slice of the owned source and must pass its current hash. */
 const findSemanticHighlightEvidence = async ({
   Article,
   VectorItem,
@@ -458,12 +467,10 @@ const findSemanticHighlightEvidence = async ({
   }
 };
 
-/* A saved article can help even when the reader never highlighted it. This is
-   deliberately narrower than generic semantic search: only a clear leading
-   result above the observed production floor qualifies, the stored vector
-   must still match the current source, and the product shows the exact saved
-   opening rather than an authored summary. It is a source to inspect, not a
-   verdict, so support/counter remains unset. */
+/* A saved article can help even when the reader never highlighted it. Passage
+   vectors point to the exact relevant slice; the summary row remains a
+   compatibility fallback for sources indexed before passages shipped. Multiple
+   chunks from one article count as one source when measuring a clear lead. */
 const findSemanticSourceEvidence = async ({
   Article,
   VectorItem,
@@ -474,7 +481,7 @@ const findSemanticSourceEvidence = async ({
 } = {}) => {
   if (!Article?.find || !VectorItem || !userId || !pageId || !clean(claim)) return [];
   try {
-    const ranked = (await similar({
+    const matches = (await similar({
       VectorItem,
       userId,
       objectType: 'judgment_claim',
@@ -483,7 +490,16 @@ const findSemanticSourceEvidence = async ({
       limit: SEMANTIC_SOURCE_LIMIT,
       objectTypes: ['article']
     }))
-      .filter(row => row?.objectType === 'article' && clean(row.objectId))
+      .filter(row => row?.objectType === 'article' && clean(row.objectId));
+    const strongestByArticle = new Map();
+    matches.forEach((row) => {
+      const objectId = clean(row.objectId);
+      const current = strongestByArticle.get(objectId);
+      if (!current || Number(row.score || 0) > Number(current.score || 0)) {
+        strongestByArticle.set(objectId, row);
+      }
+    });
+    const ranked = [...strongestByArticle.values()]
       .sort((left, right) => Number(right.score || 0) - Number(left.score || 0));
     const lead = ranked[0];
     const runnerUp = ranked[1];
@@ -497,7 +513,7 @@ const findSemanticSourceEvidence = async ({
     if (typeof query.maxTimeMS === 'function') query.maxTimeMS(QUERY_TIMEOUT_MS);
     const articles = await (query.lean ? query.lean() : query);
     const article = Array.isArray(articles) ? articles[0] : null;
-    const text = exactArticleExcerpt(article, lead.contentHash);
+    const text = exactSemanticSourceText(article, lead);
     if (!article || !text) return [];
     const articleId = String(article._id || '');
     return [{
@@ -515,7 +531,9 @@ const findSemanticSourceEvidence = async ({
       phraseMatches: 0,
       density: 0,
       semanticScore: Number(lead.score || 0),
-      whyThisSource: 'Closest saved source · exact opening excerpt',
+      whyThisSource: isArticlePassageSubId(lead.subId)
+        ? 'Closest saved passage · exact source words'
+        : 'Closest saved source · exact opening excerpt',
       evergreen: Boolean(article.evergreen),
       score: Number(lead.score || 0)
     }];
@@ -671,6 +689,7 @@ module.exports = {
   SEMANTIC_SOURCE_LEAD_MARGIN,
   articleVectorVariants,
   exactArticleExcerpt,
+  exactSemanticSourceText,
   findSemanticHighlightEvidence,
   findSemanticSourceEvidence,
   findSemanticEvidence,

@@ -18,7 +18,8 @@
  *
  *   --user <id>      the user whose corpus to index (or --all-users)
  *   --all-users      every user with content, smallest corpus first
- *   --types a,b      articles,highlights,notebook,questions,judgments,claims,pages (default: all)
+ *   --types a,b      articles,article-passages,highlights,notebook,questions,judgments,claims,pages
+ *                    (article-passages is opt-in; the existing defaults stay unchanged)
  *   --limit <n>      stop after n items (default: no limit)
  *   --skip <n>       skip the first n items of each type (for resuming)
  *   --delay <ms>     pause between requests (default: 1200)
@@ -27,10 +28,19 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { embedText } = require('../server/ai/embed');
-const { upsertVectorItem, isVectorItemCurrent } = require('../server/ai/vectorStore');
-const { isEmbeddableWikiClaim } = require('../server/ai/embeddingJobs');
+const { upsertVectorItem, isVectorItemCurrent, reconcileVectorSubIds } = require('../server/ai/vectorStore');
+const {
+  isEmbeddableWikiClaim,
+  reconcileArticleEmbeddingJobs
+} = require('../server/ai/embeddingJobs');
+const {
+  buildArticlePassages,
+  buildArticleSummary,
+  isArticlePassageSubId
+} = require('../server/ai/articlePassages');
 
-const ALL_TYPES = ['articles', 'highlights', 'notebook', 'questions', 'judgments', 'claims', 'pages'];
+const ALL_TYPES = ['articles', 'article-passages', 'highlights', 'notebook', 'questions', 'judgments', 'claims', 'pages'];
+const DEFAULT_TYPES = ALL_TYPES.filter(type => type !== 'article-passages');
 const CONSECUTIVE_FAILURE_LIMIT = 5;
 
 const arg = (name, fallback = null) => {
@@ -45,21 +55,39 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const collect = async (models, userId, types) => {
   const items = [];
+  const passageStateByArticle = new Map();
   const { Article, NotebookEntry, Question, WikiPage } = models;
 
-  if (types.includes('articles') || types.includes('highlights')) {
-    const articles = await Article.find({ userId }).select('_id title content createdAt highlights').lean();
+  if (types.includes('articles') || types.includes('article-passages') || types.includes('highlights')) {
+    const articles = await Article.find({ userId }).select('_id title content createdAt updatedAt highlights').lean();
     articles.forEach(article => {
+      const summary = buildArticleSummary(article);
       if (types.includes('articles')) {
-        const text = strip(`${article.title || ''}\n${strip(article.content || '').slice(0, 800)}`);
-        if (text.length >= 20) {
+        if (summary.text.length >= 20) {
           items.push({
             objectType: 'article',
             objectId: String(article._id),
-            text,
-            metadata: { title: article.title || '', createdAt: article.createdAt || new Date().toISOString() }
+            text: summary.text,
+            metadata: summary.metadata
           });
         }
+      }
+      if (types.includes('article-passages')) {
+        const passages = buildArticlePassages(article);
+        passageStateByArticle.set(String(article._id), {
+          subIds: passages.map(passage => passage.subId),
+          updatedAt: article.updatedAt || article.createdAt || null,
+          sourceContentHash: summary.metadata.sourceContentHash
+        });
+        passages.forEach((passage) => {
+          items.push({
+            objectType: 'article',
+            objectId: String(article._id),
+            subId: passage.subId,
+            text: passage.text,
+            metadata: passage.metadata
+          });
+        });
       }
       if (types.includes('highlights')) {
         (article.highlights || []).forEach(highlight => {
@@ -190,11 +218,35 @@ const collect = async (models, userId, types) => {
     });
   }
 
-  return items;
+  return { items, passageStateByArticle };
+};
+
+const selectedPassageCleanupPlan = (
+  all = [],
+  queue = [],
+  { passageStateByArticle = new Map(), includeAllArticles = false } = {}
+) => {
+  const selectedArticleIds = new Set(queue
+    .filter(item => item.objectType === 'article' && isArticlePassageSubId(item.subId))
+    .map(item => String(item.objectId)));
+  if (includeAllArticles) {
+    passageStateByArticle.forEach((_state, objectId) => selectedArticleIds.add(String(objectId)));
+  }
+  return new Map([...selectedArticleIds].map(objectId => [
+    objectId,
+    passageStateByArticle.has(objectId)
+      ? passageStateByArticle.get(objectId)
+      : {
+          subIds: all
+            .filter(item => String(item.objectId) === objectId && isArticlePassageSubId(item.subId))
+            .map(item => item.subId),
+          updatedAt: null
+        }
+  ]));
 };
 
 const runForUser = async ({ models, ownerId, types, limit, skip, delayMs, dryRun }) => {
-  const all = await collect(models, ownerId, types);
+  const { items: all, passageStateByArticle } = await collect(models, ownerId, types);
   const byCollection = all.reduce((acc, item) => {
     acc[item.objectType] = (acc[item.objectType] || 0) + 1;
     return acc;
@@ -207,6 +259,33 @@ const runForUser = async ({ models, ownerId, types, limit, skip, delayMs, dryRun
   if (dryRun) {
     console.log('dry run — nothing called');
     return { indexed: 0, unchanged: 0, failed: 0, total: all.length };
+  }
+
+  if (types.includes('article-passages')) {
+    const expectedByArticle = selectedPassageCleanupPlan(all, queue, {
+      passageStateByArticle,
+      includeAllArticles: skip === 0 && !limit
+    });
+    for (const [objectId, state] of expectedByArticle.entries()) {
+      const keepSubIds = state.subIds || [];
+      await reconcileArticleEmbeddingJobs({
+        model: models.EmbeddingJob,
+        userId: ownerId,
+        articleId: objectId,
+        keepJobIds: [objectId, ...keepSubIds.map(subId => `${objectId}:${subId}`)],
+        notAfterUpdatedAt: state.updatedAt,
+        sourceContentHash: state.sourceContentHash
+      });
+      await reconcileVectorSubIds({
+        VectorItem: models.VectorItem,
+        userId: ownerId,
+        objectType: 'article',
+        objectId,
+        keepSubIds,
+        notAfterUpdatedAt: state.updatedAt,
+        sourceContentHash: state.sourceContentHash
+      });
+    }
   }
 
   let done = 0;
@@ -257,14 +336,14 @@ const runForUser = async ({ models, ownerId, types, limit, skip, delayMs, dryRun
   return { indexed: done, unchanged: skippedUnchanged, failed, total: all.length };
 };
 
-(async () => {
+const main = async () => {
   const singleUser = arg('user');
   const allUsers = arg('all-users', false) === true;
   if ((!singleUser || singleUser === true) && !allUsers) {
     console.error('--user <id> or --all-users is required.');
     process.exit(1);
   }
-  const types = String(arg('types', ALL_TYPES.join(','))).split(',').map(t => t.trim()).filter(Boolean);
+  const types = String(arg('types', DEFAULT_TYPES.join(','))).split(',').map(t => t.trim()).filter(Boolean);
   const unknown = types.filter(t => !ALL_TYPES.includes(t));
   if (unknown.length) {
     console.error(`Unknown types: ${unknown.join(', ')}. Valid: ${ALL_TYPES.join(', ')}`);
@@ -301,4 +380,17 @@ const runForUser = async ({ models, ownerId, types, limit, skip, delayMs, dryRun
     console.log(`\nALL USERS — indexed ${totals.indexed}, unchanged ${totals.unchanged}, failed ${totals.failed}`);
   }
   await mongoose.disconnect();
-})().catch(error => { console.error(error); process.exit(1); });
+};
+
+if (require.main === module) {
+  main().catch(error => { console.error(error); process.exit(1); });
+}
+
+module.exports = {
+  ALL_TYPES,
+  DEFAULT_TYPES,
+  collect,
+  selectedPassageCleanupPlan,
+  runForUser,
+  main
+};

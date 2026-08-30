@@ -2523,6 +2523,8 @@ const embeddingJobSchema = new mongoose.Schema({
   collection: { type: String, required: true, trim: true },
   objectId: { type: String, required: true, trim: true },
   text: { type: String, default: '' },
+  contentHash: { type: String, default: '', trim: true },
+  sourceUpdatedAt: { type: Date, default: null },
   payload: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   status: {
     type: String,
@@ -2533,6 +2535,7 @@ const embeddingJobSchema = new mongoose.Schema({
   attemptCount: { type: Number, default: 0 },
   nextRunAt: { type: Date, default: Date.now, index: true },
   lockedAt: { type: Date, default: null },
+  replayRequired: { type: Boolean, default: false },
   lastAttemptAt: { type: Date, default: null },
   completedAt: { type: Date, default: null },
   lastError: { type: String, default: '', trim: true }

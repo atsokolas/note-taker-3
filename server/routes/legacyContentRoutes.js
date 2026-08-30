@@ -22,6 +22,7 @@ const buildLegacyContentRouter = ({
   normalizePdfs,
   Article,
   enqueueArticleEmbedding,
+  deleteArticleEmbeddingState,
   safeMapEmbedding,
   articleToEmbeddingItems,
   queueEmbeddingUpsert,
@@ -203,7 +204,15 @@ const buildLegacyContentRouter = ({
         new: true,
         setDefaultsOnInsert: true
       });
-      enqueueArticleEmbedding(updatedArticle);
+      const queuedArticleEmbedding = enqueueArticleEmbedding(updatedArticle);
+      if (typeof queuedArticleEmbedding?.catch === 'function') {
+        queuedArticleEmbedding.catch(error => {
+          console.error('Failed queueing article embedding:', error);
+        });
+      }
+      // Keep one summary in the legacy service until Concept Agent's remaining
+      // semantic-search consumer moves to Atlas. Passage rows are Atlas-only;
+      // mirroring them here would duplicate both storage and embedding spend.
       const articleItems = safeMapEmbedding(
         () => articleToEmbeddingItems(updatedArticle, String(userId)),
         'article'
@@ -504,18 +513,28 @@ const buildLegacyContentRouter = ({
       const { id } = req.params;
       const userId = req.user.id;
       const result = await Article.findOneAndDelete({ _id: id, userId: userId });
+      if (result) {
+        const ids = [
+          buildEmbeddingId({ userId: String(userId), objectType: 'article', objectId: String(result._id) }),
+          ...(result.highlights || []).map(h => buildEmbeddingId({
+            userId: String(userId),
+            objectType: 'highlight',
+            objectId: String(h._id)
+          }))
+        ];
+        // Invalidate the temporary legacy mirror while the deleted document
+        // still supplies its highlight ids. Atlas cleanup is awaited below.
+        queueEmbeddingDelete(ids);
+      }
+      if (typeof deleteArticleEmbeddingState !== 'function') {
+        throw new Error('Article embedding cleanup is not configured.');
+      }
+      // Cleanup is idempotent and owner-scoped, so a retry after a partial
+      // delete can safely finish queue and Atlas cleanup before returning 404.
+      await deleteArticleEmbeddingState({ userId, articleId: id });
       if (!result) {
         return res.status(404).json({ error: "Article not found or you do not have permission to delete it." });
       }
-      const ids = [
-        buildEmbeddingId({ userId: String(userId), objectType: 'article', objectId: String(result._id) }),
-        ...(result.highlights || []).map(h => buildEmbeddingId({
-          userId: String(userId),
-          objectType: 'highlight',
-          objectId: String(h._id)
-        }))
-      ];
-      queueEmbeddingDelete(ids);
       res.status(200).json({ message: "Article deleted successfully." });
     } catch (error) {
       console.error("❌ Error deleting article:", error);

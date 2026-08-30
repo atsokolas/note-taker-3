@@ -215,6 +215,7 @@ const run = async () => {
   const importSessions = buildImportSessionStore();
   const connections = buildConnectionStore();
   const NotebookEntry = createNotebookEntryModel();
+  let rejectIndexing = false;
 
   const app = express();
   app.use(express.json());
@@ -254,7 +255,11 @@ const run = async () => {
     syncNotebookReferences: async () => {},
     enqueueArticleEmbedding: () => {},
     enqueueHighlightEmbedding: () => {},
-    enqueueNotebookEmbedding: () => Promise.resolve()
+    enqueueNotebookEmbedding: () => (
+      rejectIndexing
+        ? Promise.reject(new Error('index queue unavailable'))
+        : Promise.resolve()
+    )
   }));
 
   const { server, url } = await listen(app);
@@ -307,6 +312,23 @@ const run = async () => {
     assert.strictEqual(listPayload.connections[0].lastReceipt.source, 'notion');
     assert.strictEqual(listPayload.connections[0].lastReceipt.sourceLabel, 'Product HQ');
     assert.strictEqual(listPayload.connections[0].lastReceipt.metrics.importedNotes, 1);
+
+    rejectIndexing = true;
+    const failedIndexResponse = await fetch(`${url}/api/import/notion/sync`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-import-session-id': importSessions.session._id
+      },
+      body: JSON.stringify({ connectionId: 'notion-1', importSessionId: importSessions.session._id })
+    });
+    const failedIndexPayload = await failedIndexResponse.json();
+    assert.strictEqual(failedIndexResponse.status, 200, `Notion sync with an indexing warning failed: ${JSON.stringify(failedIndexPayload)}`);
+    assert.strictEqual(failedIndexPayload.connection.lastSyncResult.indexingQueued, 0);
+    assert.strictEqual(failedIndexPayload.connection.lastSyncResult.indexingFailures, 1);
+    assert.strictEqual(failedIndexPayload.connection.lastReceipt.status, 'completed_with_warnings');
+    assert.match(failedIndexPayload.connection.lastReceipt.summary, /1 indexing issue/);
+    assert.match(failedIndexPayload.warnings[0], /index queue unavailable/);
 
     console.log('importRoutes.notionSyncPersistence.test.js passed');
   } finally {

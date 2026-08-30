@@ -16,6 +16,7 @@ const {
   findSemanticSourceEvidence,
   articleVectorVariants,
   exactArticleExcerpt,
+  exactSemanticSourceText,
   findLibraryEvidence,
   HIGHLIGHT_SCAN_LIMIT,
   BODY_SCAN_LIMIT,
@@ -391,6 +392,72 @@ const fakeArticle = (articles) => ({
   assert.strictEqual(sourceRead.filter.userId, 'owner-1', 'source hydration remains owner-scoped');
   assert.strictEqual(sourceRead.filter._id, 'source-article');
   assert.strictEqual(sourceRead.timeout, QUERY_TIMEOUT_MS);
+
+  const passageArticle = {
+    ...sourceArticle,
+    content: Array.from(
+      { length: 20 },
+      (_, index) => `Passage sentence ${index + 1} explains why inference latency and deployment economics change accelerator choice.`
+    ).join(' ')
+  };
+  const { buildArticlePassages } = require('../ai/articlePassages');
+  const passageRows = buildArticlePassages(passageArticle);
+  const passageLead = passageRows[1];
+  assert.strictEqual(
+    exactSemanticSourceText(passageArticle, {
+      subId: passageLead.subId,
+      contentHash: contentHashOf(passageLead.text),
+      metadata: passageLead.metadata
+    }),
+    passageLead.excerpt,
+    'a passage vector resolves to the exact current saved words'
+  );
+  const passageModel = {
+    find: (filter) => {
+      const query = {
+        limit: () => query,
+        maxTimeMS: () => query,
+        lean: async () => (filter._id === passageArticle._id ? [passageArticle] : [])
+      };
+      return query;
+    }
+  };
+  const semanticPassage = await findSemanticSourceEvidence({
+    Article: passageModel,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'Lower inference latency changes which accelerator customers choose.',
+    similar: async () => [
+      {
+        objectType: 'article', objectId: passageArticle._id, subId: passageLead.subId,
+        contentHash: contentHashOf(passageLead.text), metadata: passageLead.metadata, score: 0.81
+      },
+      {
+        objectType: 'article', objectId: passageArticle._id, subId: passageRows[0].subId,
+        contentHash: contentHashOf(passageRows[0].text), metadata: passageRows[0].metadata, score: 0.80
+      },
+      { objectType: 'article', objectId: 'other-source', subId: 'passage:v1:0', contentHash: 'other', score: 0.76 }
+    ]
+  });
+  assert.strictEqual(semanticPassage.length, 1, 'multiple chunks from the same source do not create false ambiguity');
+  assert.strictEqual(semanticPassage[0].text, passageLead.excerpt);
+  assert.strictEqual(semanticPassage[0].id, `article:${passageArticle._id}`, 'filing keeps the durable article identity');
+  assert.strictEqual(semanticPassage[0].whyThisSource, 'Closest saved passage · exact source words');
+  assert.strictEqual(semanticPassage[0].side, undefined, 'passage retrieval never infers Why or Against');
+
+  const stalePassage = await findSemanticSourceEvidence({
+    Article: passageModel,
+    VectorItem: { model: true },
+    userId: 'owner-1',
+    pageId: 'page-1',
+    claim: 'The source changed after passage indexing.',
+    similar: async () => [{
+      objectType: 'article', objectId: passageArticle._id, subId: passageLead.subId,
+      contentHash: 'stale', metadata: passageLead.metadata, score: 0.9
+    }]
+  });
+  assert.deepStrictEqual(stalePassage, [], 'a stale passage hash yields silence, not old source text');
 
   const ambiguousSource = await findSemanticSourceEvidence({
     Article: sourceModel,

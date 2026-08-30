@@ -1,6 +1,14 @@
 const { enqueue, registerHandler } = require('./jobQueue');
 const { embedText } = require('./embed');
-const { upsertVectorItem, isVectorItemCurrent } = require('./vectorStore');
+const {
+  contentHashOf,
+  upsertVectorItem,
+  isVectorItemCurrent,
+  deleteArticleVectorItems,
+  deleteVectorItemIfContentHash,
+  reconcileVectorSubIds
+} = require('./vectorStore');
+const { buildArticleVectorUnits } = require('./articlePassages');
 const { EmbeddingJob, VectorItem } = require('../models');
 
 /**
@@ -9,15 +17,8 @@ const { EmbeddingJob, VectorItem } = require('../models');
  * only the destination moved (Qdrant, which was never provisioned in
  * production, to `vectoritems`).
  */
-const writeVectorItem = async ({ text, payload = {}, vector }) => upsertVectorItem({
-  VectorItem,
-  userId: payload.userId,
-  objectType: payload.type,
-  objectId: payload.objectId,
-  subId: payload.subId || '',
-  text,
-  vector,
-  metadata: {
+const writeVectorItem = async ({ text, payload = {}, vector }) => {
+  const metadata = {
     title: payload.title || '',
     articleId: payload.articleId || '',
     articleTitle: payload.articleTitle || '',
@@ -25,8 +26,25 @@ const writeVectorItem = async ({ text, payload = {}, vector }) => upsertVectorIt
     claimId: payload.claimId || '',
     tags: payload.tags || [],
     createdAt: payload.createdAt || new Date().toISOString()
-  }
-});
+  };
+  if (payload.kind) metadata.kind = payload.kind;
+  if (Number.isInteger(payload.passageIndex)) metadata.passageIndex = payload.passageIndex;
+  if (Number.isInteger(payload.charStart)) metadata.charStart = payload.charStart;
+  if (Number.isInteger(payload.charEnd)) metadata.charEnd = payload.charEnd;
+  if (payload.sourceContentHash) metadata.sourceContentHash = payload.sourceContentHash;
+  if (payload.updatedAt) metadata.updatedAt = payload.updatedAt;
+
+  return upsertVectorItem({
+    VectorItem,
+    userId: payload.userId,
+    objectType: payload.type,
+    objectId: payload.objectId,
+    subId: payload.subId || '',
+    text,
+    vector,
+    metadata
+  });
+};
 
 /**
  * A 429 means the upstream is busy, not that the job is bad. Burning attempt
@@ -105,10 +123,6 @@ const buildHighlightText = (highlight) => {
   return trimText([highlight.text, highlight.note].filter(Boolean).join('\n'));
 };
 
-const buildArticleText = (article) => (
-  trimText([article?.title, article?.content].filter(Boolean).join('\n'))
-);
-
 const now = () => new Date();
 
 const persistentQueueEnabled = () => process.env.EMBEDDING_PERSISTENT_QUEUE_DISABLED !== 'true';
@@ -126,28 +140,67 @@ const canPersistEmbeddingJobs = (model = EmbeddingJob) => (
   && typeof model.findOneAndUpdate === 'function'
 );
 
+const validDate = (value) => {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime()) ? date : null;
+};
+
+const isDuplicateKeyError = (error) => Number(error?.code || 0) === 11000;
+
 const persistEmbeddingJob = async ({ collection, id, text, payload, model = EmbeddingJob }) => {
   if (!collection || !id || !canPersistEmbeddingJobs(model)) return null;
   const runAt = now();
+  const jobText = trimText(text, 8000);
+  const contentHash = contentHashOf(jobText);
+  const sourceUpdatedAt = validDate(payload?.updatedAt);
+  const identity = { collection, objectId: String(id) };
+  const row = {
+    collection,
+    objectId: String(id),
+    text: jobText,
+    contentHash,
+    payload: payload || {},
+    status: 'queued',
+    replayRequired: false,
+    nextRunAt: runAt,
+    lockedAt: null,
+    completedAt: null,
+    lastError: '',
+    ...(sourceUpdatedAt ? { sourceUpdatedAt } : {})
+  };
+
+  if (!sourceUpdatedAt || typeof model.updateOne !== 'function') {
+    return model.findOneAndUpdate(
+      identity,
+      { $set: row, $setOnInsert: { attemptCount: 0 } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+
+  // Concurrent saves may finish queue persistence out of order. Establish the
+  // unique identity without replacing it, then accept only a source revision
+  // that is at least as new as the one already queued.
+  try {
+    await model.updateOne(
+      identity,
+      { $setOnInsert: { ...row, attemptCount: 0 } },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+  }
   return model.findOneAndUpdate(
-    { collection, objectId: String(id) },
     {
-      $set: {
-        collection,
-        objectId: String(id),
-        text: trimText(text, 8000),
-        payload: payload || {},
-        status: 'queued',
-        nextRunAt: runAt,
-        lockedAt: null,
-        completedAt: null,
-        lastError: ''
-      },
-      $setOnInsert: {
-        attemptCount: 0
-      }
+      ...identity,
+      $or: [
+        { sourceUpdatedAt: { $exists: false } },
+        { sourceUpdatedAt: null },
+        { sourceUpdatedAt: { $lt: sourceUpdatedAt } },
+        { sourceUpdatedAt, contentHash }
+      ]
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { $set: row },
+    { new: true }
   );
 };
 
@@ -195,6 +248,7 @@ const claimDueEmbeddingJob = async ({
     {
       $set: {
         status: 'running',
+        replayRequired: false,
         lockedAt: at,
         lastAttemptAt: at
       },
@@ -204,13 +258,56 @@ const claimDueEmbeddingJob = async ({
   );
 };
 
+const jobVersionQuery = (job = {}) => ({
+  _id: job._id,
+  contentHash: job._claimedContentHash || job.contentHash || contentHashOf(job.text || '')
+});
+
+const matchedCount = (result = {}) => Number(
+  result.matchedCount ?? result.n ?? result.modifiedCount ?? 0
+);
+
+const embeddingJobStillCurrent = async ({ model = EmbeddingJob, job } = {}) => {
+  if (!model?.findOne || !job?._id) return true;
+  const query = model.findOne({
+    ...jobVersionQuery(job),
+    status: 'running'
+  });
+  const selected = typeof query?.select === 'function' ? query.select('_id') : query;
+  const row = typeof selected?.lean === 'function' ? await selected.lean() : await selected;
+  return Boolean(row);
+};
+
+const ensureEmbeddingJobContentHash = async ({ model = EmbeddingJob, job } = {}) => {
+  if (!model?.updateOne || !job?._id) return job;
+  const contentHash = job.contentHash || contentHashOf(job.text || '');
+  if (!job.contentHash) {
+    const result = await model.updateOne(
+      {
+        _id: job._id,
+        status: 'running',
+        $or: [
+          { contentHash: { $exists: false } },
+          { contentHash: '' },
+          { contentHash: null }
+        ]
+      },
+      { $set: { contentHash } }
+    );
+    if (matchedCount(result) === 0) return null;
+  }
+  const snapshot = typeof job.toObject === 'function' ? job.toObject() : { ...job };
+  return { ...snapshot, _id: job._id, contentHash, _claimedContentHash: contentHash };
+};
+
 const markEmbeddingJobCompleted = async ({ model = EmbeddingJob, job, at = now() } = {}) => {
   if (!model || !job?._id) return null;
-  return model.updateOne(
-    { _id: job._id },
+  const completed = await model.updateOne(
+    { ...jobVersionQuery(job), replayRequired: { $ne: true } },
     {
       $set: {
         status: 'completed',
+        replayRequired: false,
         completedAt: at,
         lockedAt: null,
         nextRunAt: null,
@@ -218,6 +315,38 @@ const markEmbeddingJobCompleted = async ({ model = EmbeddingJob, job, at = now()
       }
     }
   );
+  if (matchedCount(completed) > 0) return { completed: true };
+
+  // A newer save can arrive while the worker is embedding. If the old worker
+  // reached the write boundary, make the current revision replay once rather
+  // than allowing the stale worker to mark the new job complete.
+  await model.updateOne(
+    { _id: job._id, contentHash: { $ne: jobVersionQuery(job).contentHash } },
+    {
+      $set: {
+        status: 'queued',
+        replayRequired: true,
+        lockedAt: null,
+        completedAt: null,
+        nextRunAt: at,
+        lastError: 'A superseded worker reached the write boundary; replaying current text.'
+      }
+    }
+  );
+  await model.updateOne(
+    { ...jobVersionQuery(job), replayRequired: true },
+    {
+      $set: {
+        status: 'queued',
+        replayRequired: false,
+        lockedAt: null,
+        completedAt: null,
+        nextRunAt: at,
+        lastError: 'A newer source revision arrived during embedding; replaying current text.'
+      }
+    }
+  );
+  return { completed: false, superseded: true };
 };
 
 /**
@@ -227,7 +356,7 @@ const markEmbeddingJobCompleted = async ({ model = EmbeddingJob, job, at = now()
 const releaseEmbeddingJob = async ({ model = EmbeddingJob, job, at = now(), cooldownMs = 60 * 1000 } = {}) => {
   if (!model || !job?._id) return null;
   return model.updateOne(
-    { _id: job._id },
+    jobVersionQuery(job),
     {
       $set: {
         status: 'queued',
@@ -253,7 +382,7 @@ const markEmbeddingJobFailed = async ({
   const message = String(error?.message || error || 'Embedding job failed.').slice(0, 1000);
   const nextRunAt = terminal ? null : new Date(at.getTime() + retryDelayMs({ attemptCount: attempts }));
   return model.updateOne(
-    { _id: job._id },
+    jobVersionQuery(job),
     {
       $set: {
         status: terminal ? 'abandoned' : 'failed',
@@ -271,6 +400,7 @@ const drainEmbeddingJobQueue = async ({
   maxAttempts = Number(process.env.EMBEDDING_JOB_MAX_ATTEMPTS || 20),
   embedTextFn = embedText,
   writeVectorFn = writeVectorItem,
+  deleteStaleVectorFn = deleteVectorItemIfContentHash,
   isCurrentFn = isVectorItemCurrent,
   rateLimitBreakAfter = Number(process.env.EMBEDDING_JOB_RATE_LIMIT_BREAK || 3),
   at = now()
@@ -282,7 +412,8 @@ const drainEmbeddingJobQueue = async ({
   let rateLimited = false;
 
   for (let i = 0; i < max; i += 1) {
-    const job = await claimDueEmbeddingJob({ model, at });
+    const claimedJob = await claimDueEmbeddingJob({ model, at });
+    const job = await ensureEmbeddingJobContentHash({ model, job: claimedJob });
     if (!job) break;
     try {
       // Unchanged content needs no embedding call — this is what makes a
@@ -302,9 +433,27 @@ const drainEmbeddingJobQueue = async ({
         continue;
       }
       const vector = await embedTextFn(job.text || '');
+      if (!(await embeddingJobStillCurrent({ model, job }))) {
+        results.push({ jobId: String(job._id), status: 'superseded' });
+        consecutiveRateLimits = 0;
+        continue;
+      }
       await writeVectorFn({ text: job.text || '', payload: job.payload || {}, vector });
-      await markEmbeddingJobCompleted({ model, job, at: now() });
-      results.push({ jobId: String(job._id), status: 'completed' });
+      const completion = await markEmbeddingJobCompleted({ model, job, at: now() });
+      if (completion?.superseded) {
+        await deleteStaleVectorFn({
+          VectorItem,
+          userId: job.payload?.userId,
+          objectType: job.payload?.type,
+          objectId: job.payload?.objectId,
+          subId: job.payload?.subId || '',
+          text: job.text || ''
+        });
+      }
+      results.push({
+        jobId: String(job._id),
+        status: completion?.superseded ? 'superseded' : 'completed'
+      });
       consecutiveRateLimits = 0;
     } catch (error) {
       if (isRateLimitError(error)) {
@@ -349,21 +498,135 @@ const enqueueHighlightEmbedding = ({ highlight, article }) => {
   });
 };
 
-const enqueueArticleEmbedding = (article) => {
-  if (!article) return;
-  enqueueEmbedding({
+const buildArticleEmbeddingJobs = (article, options = {}) => {
+  if (!article?._id || !article?.userId) return [];
+  return buildArticleVectorUnits(article, options).map(item => ({
     collection: COLLECTIONS.articles,
-    id: String(article._id),
-    text: buildArticleText(article),
+    id: item.subId ? `${String(article._id)}:${item.subId}` : String(article._id),
+    text: item.text,
     payload: {
+      ...item.metadata,
       type: 'article',
       objectId: String(article._id),
-      title: article.title || '',
-      tags: [],
-      createdAt: article.createdAt || new Date().toISOString(),
+      subId: item.subId || '',
       userId: String(article.userId)
     }
+  }));
+};
+
+const reconcileArticleEmbeddingJobs = async ({
+  model = EmbeddingJob,
+  userId,
+  articleId,
+  keepJobIds = [],
+  notAfterUpdatedAt = null,
+  sourceContentHash = ''
+} = {}) => {
+  const owner = String(userId || '');
+  const id = String(articleId || '');
+  if (!model?.deleteMany || !owner || !id) return { deletedCount: 0 };
+  const keep = [...new Set((Array.isArray(keepJobIds) ? keepJobIds : [])
+    .map(value => String(value || ''))
+    .filter(Boolean))];
+  const query = {
+    collection: COLLECTIONS.articles,
+    'payload.userId': owner,
+    'payload.type': 'article',
+    'payload.objectId': id,
+    objectId: { $nin: keep }
+  };
+  const cutoff = validDate(notAfterUpdatedAt);
+  if (cutoff) {
+    const olderOrSameRevision = [
+      { sourceUpdatedAt: { $exists: false } },
+      { sourceUpdatedAt: null },
+      { sourceUpdatedAt: { $lt: cutoff } }
+    ];
+    if (sourceContentHash) {
+      olderOrSameRevision.push(
+        { sourceUpdatedAt: cutoff, 'payload.sourceContentHash': sourceContentHash },
+        { sourceUpdatedAt: cutoff, 'payload.sourceContentHash': { $exists: false } },
+        { sourceUpdatedAt: cutoff, 'payload.sourceContentHash': '' }
+      );
+    } else {
+      olderOrSameRevision.push({ sourceUpdatedAt: cutoff });
+    }
+    query.$or = olderOrSameRevision;
+  }
+  return model.deleteMany(query);
+};
+
+/* Article deletion is a tombstone for both the durable queue and Atlas. Jobs
+   are removed first: a worker still inside embedText then fails its pre-write
+   version check, while a worker already past that check erases its own late
+   write at the completion fence. A repeated delete is intentionally safe. */
+const deleteArticleEmbeddingState = async ({
+  model = EmbeddingJob,
+  vectorItemModel = VectorItem,
+  userId,
+  articleId,
+  deleteArticleVectorsFn = deleteArticleVectorItems
+} = {}) => {
+  const owner = String(userId || '');
+  const id = String(articleId || '');
+  if (!owner || !id) return { deletedJobs: 0, deletedVectors: 0 };
+
+  const jobResult = model?.deleteMany
+    ? await model.deleteMany({
+      'payload.userId': owner,
+      $or: [
+        {
+          collection: COLLECTIONS.articles,
+          'payload.type': 'article',
+          'payload.objectId': id
+        },
+        {
+          collection: COLLECTIONS.highlights,
+          'payload.type': 'highlight',
+          'payload.articleId': id
+        }
+      ]
+    })
+    : { deletedCount: 0 };
+  const vectorResult = await deleteArticleVectorsFn({
+    VectorItem: vectorItemModel,
+    userId: owner,
+    articleId: id
   });
+  return {
+    deletedJobs: Number(jobResult?.deletedCount || 0),
+    deletedVectors: Number(vectorResult?.deletedCount || 0)
+  };
+};
+
+const enqueueArticleEmbedding = async (article, options = {}) => {
+  const jobs = buildArticleEmbeddingJobs(article, options);
+  if (!jobs.length) return null;
+  const queued = jobs
+    .map(job => enqueueEmbedding(job))
+    .filter(result => typeof result?.then === 'function');
+  await Promise.all(queued);
+  const articleUpdatedAt = validDate(article.updatedAt || article.createdAt);
+  const sourceContentHash = jobs[0]?.payload?.sourceContentHash || '';
+  const jobCleanup = reconcileArticleEmbeddingJobs({
+    model: EmbeddingJob,
+    userId: article.userId,
+    articleId: article._id,
+    keepJobIds: jobs.map(job => job.id),
+    notAfterUpdatedAt: articleUpdatedAt,
+    sourceContentHash
+  });
+  const keepSubIds = jobs.map(job => job.payload.subId).filter(Boolean);
+  const cleanup = reconcileVectorSubIds({
+    VectorItem,
+    userId: article.userId,
+    objectType: 'article',
+    objectId: article._id,
+    keepSubIds,
+    notAfterUpdatedAt: articleUpdatedAt,
+    sourceContentHash
+  });
+  return Promise.all([jobCleanup, cleanup]);
 };
 
 const enqueueNotebookEmbedding = (entry) => {
@@ -456,6 +719,9 @@ module.exports = {
   writeVectorItem,
   releaseEmbeddingJob,
   isRateLimitError,
+  buildArticleEmbeddingJobs,
+  deleteArticleEmbeddingState,
+  reconcileArticleEmbeddingJobs,
   buildJudgmentEmbeddingJob,
   enqueueJudgmentEmbedding,
   enqueueWikiClaimEmbeddings,

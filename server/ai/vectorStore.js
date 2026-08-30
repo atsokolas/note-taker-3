@@ -82,6 +82,17 @@ const identityOf = ({ userId, objectType, objectId, subId = '' }) => ({
   subId: String(subId || '')
 });
 
+const matchedCount = (result = {}) => Number(
+  result.matchedCount ?? result.n ?? result.modifiedCount ?? 0
+);
+
+const isoDate = (value) => {
+  const date = value ? new Date(value) : null;
+  return date && Number.isFinite(date.getTime()) ? date.toISOString() : '';
+};
+
+const isDuplicateKeyError = (error) => Number(error?.code || 0) === 11000;
+
 /**
  * Upsert one row. Returns `{ skipped: true }` when the text is unchanged, which
  * is what makes re-running the backfill cheap — the embedding call is the
@@ -102,20 +113,41 @@ const upsertVectorItem = async ({
   if (!identity.objectType || !identity.objectId) {
     throw new Error('vectorStore: objectType and objectId are required.');
   }
-  await VectorItem.updateOne(
-    identity,
+  const sourceUpdatedAt = isoDate(metadata?.updatedAt);
+  const row = {
+    embedding: encodeVector(vector),
+    dimensions: vector.length,
+    contentHash: contentHashOf(text),
+    metadata,
+    updatedAt: new Date()
+  };
+
+  if (!sourceUpdatedAt) {
+    await VectorItem.updateOne(identity, { $set: row }, { upsert: true });
+    return { skipped: false };
+  }
+
+  // A slow worker for yesterday's article can finish after today's worker.
+  // Seed the identity once, then replace it only with the same or a newer
+  // source revision. The unique identity index makes the seed race safe.
+  try {
+    await VectorItem.updateOne(identity, { $setOnInsert: row }, { upsert: true });
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+  }
+  const written = await VectorItem.updateOne(
     {
-      $set: {
-        embedding: encodeVector(vector),
-        dimensions: vector.length,
-        contentHash: contentHashOf(text),
-        metadata,
-        updatedAt: new Date()
-      }
+      ...identity,
+      $or: [
+        { 'metadata.updatedAt': { $exists: false } },
+        { 'metadata.updatedAt': '' },
+        { 'metadata.updatedAt': { $lt: sourceUpdatedAt } },
+        { 'metadata.updatedAt': sourceUpdatedAt, contentHash: contentHashOf(text) }
+      ]
     },
-    { upsert: true }
+    { $set: row }
   );
-  return { skipped: false };
+  return { skipped: false, superseded: matchedCount(written) === 0 };
 };
 
 const isVectorItemCurrent = async ({ VectorItem, userId, objectType, objectId, subId = '', text } = {}) => {
@@ -130,6 +162,86 @@ const deleteVectorItemsFor = async ({ VectorItem, userId, objectType, objectId }
   if (objectType) query.objectType = String(objectType);
   if (objectId) query.objectId = String(objectId);
   if (!query.userId) return { deletedCount: 0 };
+  return VectorItem.deleteMany(query);
+};
+
+/* Deleting a Library article also deletes its embedded highlights. Their
+   source rows use different object ids, so the article identity in metadata is
+   the only honest shared fence. Keep this owner-scoped and Atlas-only. */
+const deleteArticleVectorItems = async ({ VectorItem, userId, articleId } = {}) => {
+  const owner = asObjectId(userId);
+  const id = String(articleId || '');
+  if (!VectorItem?.deleteMany || !owner || !id) return { deletedCount: 0 };
+  return VectorItem.deleteMany({
+    userId: owner,
+    $or: [
+      { objectType: 'article', objectId: id },
+      { objectType: 'highlight', 'metadata.articleId': id }
+    ]
+  });
+};
+
+const deleteVectorItemIfContentHash = async ({
+  VectorItem,
+  userId,
+  objectType,
+  objectId,
+  subId = '',
+  text
+} = {}) => {
+  const identity = identityOf({ userId, objectType, objectId, subId });
+  if (!VectorItem?.deleteOne || !identity.userId || !identity.objectType || !identity.objectId) {
+    return { deletedCount: 0 };
+  }
+  return VectorItem.deleteOne({
+    ...identity,
+    contentHash: contentHashOf(text)
+  });
+};
+
+/* Re-indexing an article can leave passage ordinals behind when the source
+   shrinks. Keep the summary row and the exact current passage identities;
+   delete nothing outside this owner + type + article fence. */
+const reconcileVectorSubIds = async ({
+  VectorItem,
+  userId,
+  objectType,
+  objectId,
+  keepSubIds = [],
+  notAfterUpdatedAt = null,
+  sourceContentHash = ''
+} = {}) => {
+  const owner = asObjectId(userId);
+  const type = String(objectType || '');
+  const id = String(objectId || '');
+  if (!VectorItem?.deleteMany || !owner || !type || !id) return { deletedCount: 0 };
+  const keep = [...new Set(['', ...(Array.isArray(keepSubIds) ? keepSubIds : [])]
+    .map(value => String(value || '')))
+  ];
+  const query = {
+    userId: owner,
+    objectType: type,
+    objectId: id,
+    subId: { $nin: keep }
+  };
+  const cutoff = isoDate(notAfterUpdatedAt);
+  if (cutoff) {
+    const olderOrSameRevision = [
+      { 'metadata.updatedAt': { $exists: false } },
+      { 'metadata.updatedAt': '' },
+      { 'metadata.updatedAt': { $lt: cutoff } }
+    ];
+    if (sourceContentHash) {
+      olderOrSameRevision.push(
+        { 'metadata.updatedAt': cutoff, 'metadata.sourceContentHash': sourceContentHash },
+        { 'metadata.updatedAt': cutoff, 'metadata.sourceContentHash': { $exists: false } },
+        { 'metadata.updatedAt': cutoff, 'metadata.sourceContentHash': '' }
+      );
+    } else {
+      olderOrSameRevision.push({ 'metadata.updatedAt': cutoff });
+    }
+    query.$or = olderOrSameRevision;
+  }
   return VectorItem.deleteMany(query);
 };
 
@@ -285,6 +397,9 @@ module.exports = {
   upsertVectorItem,
   isVectorItemCurrent,
   deleteVectorItemsFor,
+  deleteArticleVectorItems,
+  deleteVectorItemIfContentHash,
+  reconcileVectorSubIds,
   searchVectorItems,
   similarToVectorItem,
   vectorIndexHealth,
