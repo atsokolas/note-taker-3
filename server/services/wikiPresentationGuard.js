@@ -139,10 +139,13 @@ const normalizeExistingWikiTitleForPresentation = (value = '', options = {}) => 
  * otherwise the stored title is normalized through the same renderer.
  */
 const canonicalWikiTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
+  const type = String(page?.pageType || '').toLowerCase();
+  const stored = page?.title || fallback;
   const watch = page?.externalWatches?.githubRepo || {};
   const repo = String(watch.repo || '').trim();
-  if (repo) return buildRepoWikiTitle(repo);
-  return normalizeExistingWikiTitleForPresentation(page?.title || fallback) || fallback;
+  const repoWiki = type === 'repo' || isRepoWikiTitle(stored);
+  if (repo && repoWiki) return buildRepoWikiTitle(repo);
+  return normalizeExistingWikiTitleForPresentation(stored) || fallback;
 };
 
 /*

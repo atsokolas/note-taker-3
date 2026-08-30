@@ -42,10 +42,16 @@ describe('wikiPresentationGuard', () => {
   it('renders one canonical repo wiki title from either stored name or watch metadata', () => {
     expect(canonicalWikiTitle({
       title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      pageType: 'repo',
       externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
     })).toBe('note-taker-3 — repo wiki');
     expect(canonicalWikiTitle({ title: 'atsokolas/note-taker-3 repo wiki' }))
       .toBe('note-taker-3 — repo wiki');
+    expect(canonicalWikiTitle({
+      title: 'Contract Page Updated',
+      pageType: 'question',
+      externalWatches: { githubRepo: { owner: 'openai', repo: 'agents-js-watch' } }
+    })).toBe('Contract Page Updated');
     expect(canonicalWikiTitle({ title: 'Margin of Safety' })).toBe('Margin of Safety');
   });
 
