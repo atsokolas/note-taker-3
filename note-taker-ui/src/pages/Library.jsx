@@ -255,6 +255,7 @@ const Library = () => {
     params.delete('folderId');
     params.delete('articleId');
     params.delete('highlightId');
+    params.delete('sourceView');
     clearBrowseSelectionParams(params);
     if (nextScope !== 'highlights') {
       params.delete('hq');
@@ -341,13 +342,25 @@ const Library = () => {
 
   const handleSelectFolder = useCallback((id) => {
     const params = new URLSearchParams(searchParams);
+    const folder = folders.find(candidate => candidate._id === id);
+    if (folder?.name?.trim().toLowerCase() === 'needs review') {
+      params.set('scope', 'all');
+      params.set('sourceView', 'needs_review');
+      params.delete('folderId');
+      params.delete('articleId');
+      params.delete('highlightId');
+      clearBrowseSelectionParams(params);
+      setSearchParams(params);
+      return;
+    }
     params.set('scope', 'folder');
     params.set('folderId', id);
+    params.delete('sourceView');
     params.delete('articleId');
     params.delete('highlightId');
     clearBrowseSelectionParams(params);
     setSearchParams(params);
-  }, [searchParams, setSearchParams]);
+  }, [folders, searchParams, setSearchParams]);
 
   const handleSelectArticle = useCallback((id, options = {}) => {
     const nextId = String(id || '').trim();
@@ -565,6 +578,16 @@ const Library = () => {
     () => ({ ...fallbackCounts, ...countsFromFolders }),
     [fallbackCounts, countsFromFolders]
   );
+  const reviewFolder = useMemo(
+    () => folders.find(folder => folder.name?.trim().toLowerCase() === 'needs review'),
+    [folders]
+  );
+  const reviewBacklogCount = reviewFolder
+    ? folderCounts[reviewFolder._id]
+    : undefined;
+  const reviewBacklogHref = reviewFolder
+    ? `/library?scope=folder&folderId=${encodeURIComponent(reviewFolder._id)}`
+    : '';
 
   const projectedShelfCounts = roomProjectionEnabled && !libraryRoom.error && !libraryRoom.loading
     ? libraryRoom.shelfCounts
@@ -877,6 +900,8 @@ const Library = () => {
       sourceDetailLoading={sourceDetailState.loading}
       sourceDetailError={sourceDetailState.error}
       relevanceState={roomProjectionEnabled ? libraryRoom : null}
+      reviewBacklogCount={reviewBacklogCount}
+      reviewBacklogHref={reviewBacklogHref}
     />
   );
 
@@ -934,6 +959,7 @@ const Library = () => {
         foldersError={foldersError}
         scope={scope}
         folderId={folderId}
+        sourceView={sourceView}
         unfiledCount={unfiledCount}
         keptCount={keptCount}
         query={articleQuery}

@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   buildMixedLibraryRelevancePage,
   decodeCursor,
+  highlightDisplayTitle,
   MIXED_SOURCE_RECENT_SCAN_LIMIT,
   MIXED_SOURCE_REVIEW_SCAN_LIMIT,
   movementScanLimitFor
@@ -162,6 +163,20 @@ const movementBuilder = async options => {
 };
 
 const run = async () => {
+  [
+    'work',
+    'write code. He was a bodyguard.',
+    'inception remain the same. What has changed is the world around us.'
+  ].forEach(text => {
+    assert.strictEqual(
+      highlightDisplayTitle({ title: 'Systems source' }, { text }),
+      'Highlight from Systems source'
+    );
+  });
+  assert.strictEqual(
+    highlightDisplayTitle(articleOne, articleOne.highlights[0]),
+    articleOne.highlights[0].text
+  );
   assert.strictEqual(MIXED_SOURCE_RECENT_SCAN_LIMIT, 80);
   assert.strictEqual(MIXED_SOURCE_REVIEW_SCAN_LIMIT, 80);
   assert.strictEqual(movementScanLimitFor(3), 12);

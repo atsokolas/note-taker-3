@@ -5,7 +5,7 @@ import LibraryMain from './LibraryMain';
 jest.mock('./LibrarySourceList', () => function MockLibrarySourceList(props) {
   return (
     <div data-testid="source-list">
-      {props.sources.length} sources · {props.paginationError || 'ready'}
+      {props.sources.length} sources · {props.paginationError || 'ready'} · {props.subtitle}
     </div>
   );
 });
@@ -97,5 +97,33 @@ describe('LibraryMain mixed-source failure boundary', () => {
     expect(await screen.findByTestId('source-list'))
       .toHaveTextContent('1 sources · Could not load more sources.');
     expect(screen.queryByTestId('article-list')).not.toBeInTheDocument();
+  });
+
+  it('frames Needs Review as a bounded triage over the full backlog', async () => {
+    const relevanceState = {
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      coverage: null,
+      counts: { needs_review: { value: 0, exact: false } },
+      sources: [],
+      nextCursor: null,
+      hasMore: false,
+      filteredOutCount: 0,
+      loadMore: jest.fn()
+    };
+
+    render(
+      <LibraryMain
+        {...baseProps}
+        sourceView="needs_review"
+        reviewBacklogCount={149}
+        relevanceState={relevanceState}
+      />
+    );
+
+    expect(await screen.findByTestId('source-list'))
+      .toHaveTextContent('0 worth your attention · 149 minor');
   });
 });
