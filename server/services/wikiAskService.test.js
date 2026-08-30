@@ -29,6 +29,7 @@ const {
   pageTitleMentionedInQuestion,
   extractMentionedTitleCandidates,
   rankWikiPageCandidates,
+  isCompatibleWikiListCandidate,
   buildWikiPageListRankingQuestion
 } = __testables;
 
@@ -575,6 +576,7 @@ describe('wikiAskService', () => {
         'Supplier bargaining power',
         'Membership economics'
       ]);
+      expect(corpus.relatedPages.map(page => page.title)).not.toContain('Atsokolas/Note-Taker-3 Repo Wiki');
       expect(corpus.conceptRecords).toEqual([]);
       expect(corpus.backlinkRows).toEqual([]);
       expect(corpus.revisionRows).toEqual([]);
@@ -592,6 +594,38 @@ describe('wikiAskService', () => {
       expect(rankingQuestion).toContain('member renewal');
       expect(rankingQuestion).toContain('inventory turns');
       expect(rankingQuestion).not.toMatch(/\binvestment\s+dossier\s+investment\b/i);
+    });
+
+    it('prefers repeated subject language over boilerplate at the start of a long page', () => {
+      const rankingQuestion = buildWikiPageListRankingQuestion({
+        page: {
+          title: 'Retail case',
+          plainText: `${Array.from({ length: 30 }, (_, index) => `preface${index}`).join(' ')} membership renewal membership supplier renewal membership`
+        },
+        question: 'Name the Wiki pages most relevant to this dossier.'
+      });
+
+      expect(rankingQuestion).toMatch(/membership renewal/);
+      expect(rankingQuestion).not.toContain('preface29');
+    });
+
+    it('keeps repository wikis available only when the selected page or question calls for them', () => {
+      const repository = { pageType: 'repo', title: 'Noeis repository wiki' };
+      expect(isCompatibleWikiListCandidate({
+        page: { pageType: 'entity', title: 'Costco dossier' },
+        candidate: repository,
+        question: 'Which Wiki pages are relevant?'
+      })).toBe(false);
+      expect(isCompatibleWikiListCandidate({
+        page: { pageType: 'entity', title: 'Costco dossier' },
+        candidate: repository,
+        question: 'Which repository Wiki pages are relevant?'
+      })).toBe(true);
+      expect(isCompatibleWikiListCandidate({
+        page: { pageType: 'repo', title: 'Another repo wiki' },
+        candidate: repository,
+        question: 'Which Wiki pages are relevant?'
+      })).toBe(true);
     });
 
     it('loads revision rows for temporal questions on selected and mentioned pages', async () => {

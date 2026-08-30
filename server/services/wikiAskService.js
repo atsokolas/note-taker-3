@@ -1222,11 +1222,34 @@ const PAGE_LIST_RANKING_STOPWORDS = new Set([
   'source', 'sources', 'wiki'
 ]);
 
+const isRepositoryWikiPage = (page = {}) => (
+  asString(page?.pageType).toLowerCase() === 'repo'
+  || /\b(?:repo|repository)\s+wiki\b/i.test(asString(page?.title))
+);
+
+const isCompatibleWikiListCandidate = ({ page, candidate, question = '' } = {}) => {
+  if (!isRepositoryWikiPage(candidate) || isRepositoryWikiPage(page)) return true;
+  return /\b(?:codebase|github|repo|repository|software)\b/i.test(asString(question));
+};
+
 const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
   const pageText = `${asString(page?.title)} ${asString(page?.plainText) || pageBodySentenceText(page)}`;
-  const subjectTokens = Array.from(new Set(extractAnswerTokens(pageText)))
+  const tokenCounts = new Map();
+  extractAnswerTokens(pageText)
     .filter(token => !PAGE_LIST_RANKING_STOPWORDS.has(token))
-    .slice(0, 24);
+    .forEach((token, position) => {
+      const row = tokenCounts.get(token) || { count: 0, position };
+      row.count += 1;
+      tokenCounts.set(token, row);
+    });
+  const subjectTokens = [...tokenCounts.entries()]
+    .sort((left, right) => (
+      right[1].count - left[1].count
+      || left[1].position - right[1].position
+      || left[0].localeCompare(right[0])
+    ))
+    .slice(0, 24)
+    .map(([token]) => token);
   return `${asString(question)} ${subjectTokens.join(' ')}`.trim();
 };
 
@@ -1418,9 +1441,16 @@ const loadWikiAskCorpus = async ({
   const semanticScores = selectedPageOnly || pageListRequest
     ? new Map()
     : await semanticPageScores({ userId, question: trimmed, models: { VectorItem } });
+  const rankablePages = pageListRequest
+    ? allPages.filter(candidate => isCompatibleWikiListCandidate({
+      page,
+      candidate,
+      question: trimmed
+    }))
+    : allPages;
   const relatedPages = rankWikiPageCandidates({
     page,
-    relatedPages: allPages,
+    relatedPages: rankablePages,
     question: pageListRequest
       ? buildWikiPageListRankingQuestion({ page, question: trimmed })
       : trimmed,
@@ -1817,6 +1847,7 @@ module.exports = {
     semanticPageScores,
     pickExactPageSentence,
     isWikiPageListRequest,
+    isCompatibleWikiListCandidate,
     buildWikiPageListRankingQuestion,
     buildWikiPageListAnswer,
     runWithDeadline
