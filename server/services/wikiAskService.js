@@ -1376,8 +1376,9 @@ const loadWikiAskCorpus = async ({
     .lean();
   const recentPages = (Array.isArray(recentPagesRaw) ? recentPagesRaw : []).filter(isWikiPageSurfaceEligible);
   const selectedPageOnly = isSelectedPageOnlyQuestion(trimmed);
+  const pageListRequest = isWikiPageListRequest(trimmed);
   let allPages = recentPages;
-  const titleCandidates = selectedPageOnly
+  const titleCandidates = selectedPageOnly || pageListRequest
     ? []
     : extractMentionedTitleCandidates({
       question: trimmed,
@@ -1398,7 +1399,7 @@ const loadWikiAskCorpus = async ({
   // Semantic recall runs alongside the keyword pass, never instead of it. A
   // missing or degraded index yields an empty Map and retrieval falls back to
   // exactly the behaviour that shipped before.
-  const semanticScores = selectedPageOnly
+  const semanticScores = selectedPageOnly || pageListRequest
     ? new Map()
     : await semanticPageScores({ userId, question: trimmed, models: { VectorItem } });
   const relatedPages = rankWikiPageCandidates({
@@ -1409,6 +1410,14 @@ const loadWikiAskCorpus = async ({
     semanticScores,
     limit: candidateLimit
   });
+
+  // A title-list request has a complete deterministic answer once the visible
+  // page index is ranked. Do not pay for embeddings, backlinks, concepts, or
+  // revision history that cannot affect that answer. This also keeps a
+  // degraded AI service from turning a local index lookup into a stalled chat.
+  if (pageListRequest) {
+    return { relatedPages, conceptRecords: [], backlinkRows: [], revisionRows: [] };
+  }
 
   const conceptNames = new Set();
   allPages.forEach((candidate) => {
