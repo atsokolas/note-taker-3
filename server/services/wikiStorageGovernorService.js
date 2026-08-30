@@ -1,4 +1,5 @@
 const { pruneWikiRevisionHistory } = require('./wikiRevisionRetentionService');
+const { assertVerifiedBackup } = require('./mongoBackupService');
 
 const TERMINAL_RUN_STATUSES = ['completed', 'failed', 'needs_review'];
 const TERMINAL_EVENT_STATUSES = ['processed', 'failed', 'ignored'];
@@ -63,7 +64,9 @@ const pruneHeavyRevisionPages = async ({
   pageLimit = 10,
   recentLimit = 20,
   snapshotByteThreshold = 12 * 1024 * 1024,
-  dryRun = false
+  dryRun = false,
+  backupDryRun = false,
+  beforeCompactSnapshots = null
 } = {}) => {
   if (!WikiRevision || !WikiPage || typeof WikiRevision.aggregate !== 'function') return [];
   const groups = await WikiRevision.aggregate([
@@ -105,14 +108,17 @@ const pruneHeavyRevisionPages = async ({
       recentLimit,
       pruneThreshold: 0,
       snapshotByteThreshold: 0,
-      dryRun
+      dryRun,
+      backupDryRun,
+      beforeCompactSnapshots
     });
     results.push({
       pageId: cleanId(group._id.pageId),
       beforeCount: Number(group.count || 0),
       beforeBytes: Number(group.bytes || 0),
       compactableSnapshots: result?.compactableSnapshotIds?.length || 0,
-      compactableSnapshotBytes: Number(result?.compactableSnapshotBytes || 0)
+      compactableSnapshotBytes: Number(result?.compactableSnapshotBytes || 0),
+      backup: result?.backup || null
     });
   }
   return results;
@@ -129,7 +135,10 @@ const runWikiStorageGovernor = async ({
   highWaterBytes = DEFAULT_HIGH_WATER_BYTES,
   batchSize = 2500,
   revisionPageLimit = 10,
-  dryRun = false
+  dryRun = false,
+  backupDryRun = false,
+  backupRevisionSnapshots = null,
+  backupOperationalRows = null
 } = {}) => {
   const {
     WikiRevision,
@@ -158,7 +167,9 @@ const runWikiStorageGovernor = async ({
     WikiPage,
     pageLimit: revisionPageLimit,
     recentLimit: effectiveRecentRevisionLimit,
-    dryRun
+    dryRun,
+    backupDryRun,
+    beforeCompactSnapshots: backupRevisionSnapshots
   });
   const [receipts, pages] = await Promise.all([
     loadRows({ Model: NoeisReceipt, select: 'provenance' }),
@@ -189,6 +200,18 @@ const runWikiStorageGovernor = async ({
     candidates: runCandidates,
     referencedIds: [...durableIds, ...referencedFieldIds(revisionRunRefs, 'maintenanceRunId')]
   });
+  let runBackup = null;
+  if (runPlan.deleteIds.length && (!dryRun || backupDryRun)) {
+    if (typeof backupOperationalRows !== 'function') {
+      throw new Error('Verified backup required before Wiki maintenance-run deletion.');
+    }
+    runBackup = assertVerifiedBackup(await backupOperationalRows({
+      kind: 'wiki-maintenance-runs',
+      Model: WikiMaintenanceRun,
+      ids: runPlan.deleteIds,
+      cutoff
+    }), runPlan.deleteIds.length);
+  }
   if (!dryRun && runPlan.deleteIds.length && WikiMaintenanceRun?.deleteMany) {
     await WikiMaintenanceRun.deleteMany({ _id: { $in: runPlan.deleteIds } });
   }
@@ -224,6 +247,18 @@ const runWikiStorageGovernor = async ({
       ...referencedFieldIds(runEventRefs, 'sourceEventId')
     ]
   });
+  let eventBackup = null;
+  if (eventPlan.deleteIds.length && (!dryRun || backupDryRun)) {
+    if (typeof backupOperationalRows !== 'function') {
+      throw new Error('Verified backup required before Wiki source-event deletion.');
+    }
+    eventBackup = assertVerifiedBackup(await backupOperationalRows({
+      kind: 'wiki-source-events',
+      Model: WikiSourceEvent,
+      ids: eventPlan.deleteIds,
+      cutoff
+    }), eventPlan.deleteIds.length);
+  }
   if (!dryRun && eventPlan.deleteIds.length && WikiSourceEvent?.deleteMany) {
     await WikiSourceEvent.deleteMany({ _id: { $in: eventPlan.deleteIds } });
   }
@@ -231,6 +266,7 @@ const runWikiStorageGovernor = async ({
   const after = dryRun ? before : await readStorageMetrics(database);
   return {
     dryRun,
+    backupDryRun,
     underPressure,
     effectiveRetentionDays,
     effectiveRecentRevisionLimit,
@@ -240,13 +276,15 @@ const runWikiStorageGovernor = async ({
       candidates: runCandidates.length,
       protected: runPlan.protectedIds.length,
       deleted: dryRun ? 0 : runPlan.deleteIds.length,
-      deletable: runPlan.deleteIds.length
+      deletable: runPlan.deleteIds.length,
+      backup: runBackup
     },
     sourceEvents: {
       candidates: eventCandidates.length,
       protected: eventPlan.protectedIds.length,
       deleted: dryRun ? 0 : eventPlan.deleteIds.length,
-      deletable: eventPlan.deleteIds.length
+      deletable: eventPlan.deleteIds.length,
+      backup: eventBackup
     },
     storage: { before, after }
   };

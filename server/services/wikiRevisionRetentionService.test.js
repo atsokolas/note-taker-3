@@ -137,12 +137,28 @@ console.log('wikiRevisionRetentionService tests passed');
       }
     }
   };
-  const result = await pruneWikiRevisionHistory({
+  await assert.rejects(pruneWikiRevisionHistory({
     WikiRevision,
     userId: 'user-1',
     pageId: 'page-1',
     page: {},
     recentLimit: 20
+  }), /Verified backup required/);
+  assert.strictEqual(updated.length, 0, 'snapshot compaction fails before mutation without a backup');
+
+  const result = await pruneWikiRevisionHistory({
+    WikiRevision,
+    userId: 'user-1',
+    pageId: 'page-1',
+    page: {},
+    recentLimit: 20,
+    beforeCompactSnapshots: async ({ revisionIds }) => ({
+      verified: true,
+      filename: '/tmp/wiki-revisions-test.jsonl.gz',
+      documentCount: revisionIds.length,
+      sha256: 'test-sha256',
+      idFingerprint: 'test-fingerprint'
+    })
   });
   assert.strictEqual(result.skipped, false);
   assert.strictEqual(result.deletedIds.length, 2);
@@ -152,6 +168,7 @@ console.log('wikiRevisionRetentionService tests passed');
   assert.strictEqual(updated.length, 1);
   assert.deepStrictEqual(updated[0].update.$set.before, null);
   assert.deepStrictEqual(updated[0].update.$set.after, null);
+  assert.strictEqual(result.backup.verified, true);
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

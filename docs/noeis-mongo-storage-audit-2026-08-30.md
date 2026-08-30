@@ -1,7 +1,8 @@
 # Mongo storage audit — 2026-08-30
 
-This is a read-only measurement of the database selected by the deployed
-`MONGODB_URI`. No documents, collections, or indexes were changed.
+This is a read-only measurement and backup rehearsal of the database selected
+by the deployed `MONGODB_URI`. No documents, collections, or indexes were
+changed.
 
 ## Capacity
 
@@ -98,8 +99,15 @@ database with teardown, not repeated manual deletion from production.
    also found 2,386 reference-free maintenance runs and 1,280 reference-free
    source events. No writes were made.
 3. Export every targeted revision to a private compressed backup and verify its
-   document count and SHA-256 manifest before enabling any write mode. The
-   existing governor does not yet perform this backup, so apply remains blocked.
+   document count, exact identity set, and SHA-256 digest before enabling any
+   write mode. Completed locally: seven revision archives contain all 115
+   targeted snapshots (109,507,829 bytes of compactable payload); separate
+   archives contain all 2,386 candidate maintenance runs and 1,280 candidate
+   source events. Every archive passed decompression and exact-ID readback, is
+   stored outside the repository with mode `0600`, and the rehearsal left
+   database metrics byte-for-byte unchanged. The governor now refuses every
+   destructive path unless its matching verified receipt is present. Production
+   apply still requires separate explicit authorization.
 4. Apply snapshot compaction in small batches; verify accepted Wiki, repo,
    dossier, Judgment, and provenance routes after each batch.
 5. Expire reference-free terminal telemetry older than 14 days in batches.

@@ -1,3 +1,5 @@
+const { assertVerifiedBackup } = require('./mongoBackupService');
+
 const cleanId = (value) => String(value?._id || value || '').trim();
 
 const monthKey = (value) => {
@@ -142,7 +144,9 @@ const pruneWikiRevisionHistory = async ({
   recentLimit = 20,
   pruneThreshold = 24,
   snapshotByteThreshold = 12 * 1024 * 1024,
-  dryRun = false
+  dryRun = false,
+  backupDryRun = false,
+  beforeCompactSnapshots = null
 } = {}) => {
   if (!WikiRevision || !userId || !pageId) return null;
   const count = await WikiRevision.countDocuments({ userId, pageId });
@@ -219,6 +223,19 @@ const pruneWikiRevisionHistory = async ({
     compactableSnapshotBytes = Number(snapshotSize?.bytes || 0);
   }
 
+  let backup = null;
+  if (compactableSnapshotIds.length && (!dryRun || backupDryRun)) {
+    if (typeof beforeCompactSnapshots !== 'function') {
+      throw new Error('Verified backup required before Wiki revision snapshot compaction.');
+    }
+    backup = assertVerifiedBackup(await beforeCompactSnapshots({
+      userId,
+      pageId,
+      revisionIds: compactableSnapshotIds.map(id => revisionObjectIdById.get(id)).filter(Boolean),
+      compactableSnapshotBytes
+    }), compactableSnapshotIds.length);
+  }
+
   if (!dryRun && compactableSnapshotIds.length) {
     await WikiRevision.updateMany(
       { userId, pageId, _id: { $in: compactableSnapshotIds }, snapshotPrunedAt: null },
@@ -231,7 +248,8 @@ const pruneWikiRevisionHistory = async ({
     compactableSnapshotBytes,
     skipped: false,
     dryRun,
-    snapshotBytes
+    snapshotBytes,
+    backup
   };
 };
 

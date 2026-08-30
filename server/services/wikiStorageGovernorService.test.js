@@ -77,11 +77,26 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   const db = {
     command: async () => ({ dataSize: 400 * 1024 * 1024, indexSize: 30 * 1024 * 1024 })
   };
-  const result = await runWikiStorageGovernor({
+  await assert.rejects(runWikiStorageGovernor({
     models: { WikiRevision, WikiMaintenanceRun, WikiSourceEvent, WikiPage, NoeisReceipt },
     db,
     now: new Date('2026-07-18T00:00:00.000Z'),
     dryRun: false
+  }), /Verified backup required/);
+  assert.deepStrictEqual(deleted, { runs: [], events: [] }, 'operational deletion fails before mutation without a backup');
+
+  const result = await runWikiStorageGovernor({
+    models: { WikiRevision, WikiMaintenanceRun, WikiSourceEvent, WikiPage, NoeisReceipt },
+    db,
+    now: new Date('2026-07-18T00:00:00.000Z'),
+    dryRun: false,
+    backupOperationalRows: async ({ ids: backupIds }) => ({
+      verified: true,
+      filename: '/tmp/wiki-storage-test.jsonl.gz',
+      documentCount: backupIds.length,
+      sha256: 'test-sha256',
+      idFingerprint: 'test-fingerprint'
+    })
   });
   assert.strictEqual(result.underPressure, true);
   assert.strictEqual(result.effectiveRetentionDays, 14);
@@ -90,6 +105,8 @@ const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05
   assert.deepStrictEqual(deleted.events, [ids.eventDelete]);
   assert.strictEqual(result.maintenanceRuns.protected, 3);
   assert.strictEqual(result.sourceEvents.protected, 3);
+  assert.strictEqual(result.maintenanceRuns.backup.verified, true);
+  assert.strictEqual(result.sourceEvents.backup.verified, true);
   console.log('wikiStorageGovernorService tests passed');
 })().catch((error) => {
   console.error(error);
