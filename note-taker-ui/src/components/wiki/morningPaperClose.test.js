@@ -23,6 +23,9 @@ describe('wikiLivingBriefingLine', () => {
     expect(line).toBe('');
     expect(line).not.toMatch(/ready for review/i);
     expect(line).not.toMatch(/needs your review/i);
+    expect(wikiLivingBriefingLine({
+      briefing: { summary: 'eight wiki pages have queued signals awaiting a rebuild, most notably Survivorship Bias with 5' }
+    })).toBe('');
   });
 
   it('prefers a watcher close over a generic summary', () => {
@@ -79,6 +82,30 @@ describe('wikiLivingBriefingLine', () => {
     })).toBe('');
   });
 
+  it('prints an honestly aged drift line and stays quiet when nothing new arrived', () => {
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        summary: 'Survivorship Bias has been waiting on a rebuild for 5 days — clear it?',
+        aliveness: {
+          register: 'aged',
+          waitingDays: 5,
+          copy: 'Survivorship Bias has been waiting on a rebuild for 5 days — clear it?'
+        }
+      }
+    })).toBe('Survivorship Bias has been waiting on a rebuild for 5 days — clear it?');
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
+        aliveness: { register: 'quiet' }
+      }
+    })).toBe('Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.');
+    expect(wikiLivingBriefingLine({
+      briefing: {
+        summary: 'eight wiki pages have queued signals awaiting a rebuild, most notably Survivorship Bias with 5'
+      }
+    })).toBe('');
+  });
+
   it('names two wiki closes and does not invent a third from a due claim on another page', () => {
     const first = {
       eventId: 'evt-1',
@@ -131,5 +158,11 @@ describe('completeLeadSentence', () => {
     expect(completeLeadSentence('The filing restated the gap.')).toBe('The filing restated the gap.');
     expect(isEditorialBriefing('User Safety: safe.')).toBe(false);
     expect(isEditorialBriefing('The filing restated the gap.')).toBe(true);
+  });
+
+  it('never amputates mid-word when no sentence fits', () => {
+    const amputated = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries debugging only the v';
+    expect(completeLeadSentence(amputated, 80)).toBe('');
+    expect(completeLeadSentence(amputated, 80)).not.toMatch(/…|\.\.\.|the v$/);
   });
 });

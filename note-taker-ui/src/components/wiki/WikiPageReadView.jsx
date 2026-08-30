@@ -37,7 +37,8 @@ import ReferencePullIn from '../references/ReferencePullIn';
 import {
   countWikiClaims,
   countWikiPageWords,
-  countWikiSources
+  countWikiSources,
+  clampWikiPreview
 } from './wikiPageMetrics';
 import {
   formatQualityReviewReasons,
@@ -489,21 +490,9 @@ const conciseText = (value = '', limit = 180) => {
   return `${truncated || text.slice(0, limit).trim()}...`;
 };
 
-const conciseInfoboxText = (value = '', { maxChars = 140, maxWords = 12 } = {}) => {
-  const text = cleanSourceText(value);
-  if (!text) return '';
-  const words = text.split(/\s+/).filter(Boolean);
-  const wordLimited = words.length > maxWords
-    ? `${words.slice(0, maxWords).join(' ')}...`
-    : text;
-  if (wordLimited.length <= maxChars) return wordLimited;
-  const truncated = wordLimited.slice(0, maxChars).replace(/\s+\S*$/, '').trim();
-  return `${truncated || wordLimited.slice(0, maxChars).trim()}...`;
-};
-
-const conciseScopeText = (value = '') => conciseInfoboxText(value, { maxChars: 140, maxWords: 12 });
-
-const autoInfoboxSummary = (body) => conciseInfoboxText(firstParagraphText(body), { maxChars: 140, maxWords: 12 });
+const editorialInfoboxText = (value = '', budget = 220) => (
+  clampWikiPreview(cleanSourceText(value), budget)
+);
 
 const sourceExcerpt = (source = {}) => (
   cleanSourceText(source.excerpt || source.snippet || source.summary || source.description || source.text || '')
@@ -590,9 +579,10 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
   const meta = pageMeta(value);
   const type = String(value.pageType || 'topic').toLowerCase();
   const firstSource = Array.isArray(value.sourceRefs) ? value.sourceRefs[0] || {} : {};
-  const summaryText = conciseInfoboxText(meta.summary || meta.scope || '') || autoInfoboxSummary(value.body);
+  const summaryText = editorialInfoboxText(meta.summary || meta.scope || '')
+    || editorialInfoboxText(firstParagraphText(value.body));
   const sectionText = sectionTitles(value.body);
-  const scopeText = conciseScopeText(meta.scope || meta.summary || '')
+  const scopeText = editorialInfoboxText(meta.scope || meta.summary || '')
     || (sectionText ? `Covers ${sectionText}.` : 'No explicit scope yet.');
   // Word count moved here from the now-stripped page-header "facts row" so
   // the number survives but stops competing with the title for attention.

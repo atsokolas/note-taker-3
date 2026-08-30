@@ -862,6 +862,56 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(screen.queryByText(/No claim is due for review this morning/)).not.toBeInTheDocument();
       expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
+
+    it('does not serve the observed repo-wiki claim as a check-in', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        ...briefing,
+        summary: '',
+        claimCheckIn: {
+          pageId: 'wiki-repo',
+          pageTitle: 'note-taker-3 — repo wiki',
+          claimId: 'observed-2026-08-29',
+          text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries… WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github… debugging only the v…',
+          changedSinceLastCheck: true,
+          href: '/wiki/workspace?page=wiki-repo&claimId=observed-2026-08-29'
+        }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(screen.queryByText(/WikiRepoCreateComposer/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/debugging only the v/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
+    });
+
+    it('prints an honestly aged rebuild wait instead of present-tense queued signals', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        summary: 'Survivorship Bias has been waiting on a rebuild for 5 days — clear it?',
+        aliveness: {
+          register: 'aged',
+          waitingDays: 5,
+          copy: 'Survivorship Bias has been waiting on a rebuild for 5 days — clear it?'
+        },
+        counts: { newSources: 0, recentlyUpdatedPages: 0, driftingPages: 1 }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByLabelText('Current Wiki briefing'))
+        .toHaveTextContent('Survivorship Bias has been waiting on a rebuild for 5 days — clear it?');
+      expect(screen.queryByText(/queued signals awaiting a rebuild/i)).not.toBeInTheDocument();
+    });
+
+    it('prints the quiet-day line when nothing new arrived', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
+        aliveness: { register: 'quiet' },
+        counts: { newSources: 0, recentlyUpdatedPages: 0, driftingPages: 0 }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByLabelText('Current Wiki briefing'))
+        .toHaveTextContent('Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.');
+    });
   });
 });
 

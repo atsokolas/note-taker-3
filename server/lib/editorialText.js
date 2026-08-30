@@ -2,14 +2,14 @@
  * Shared editorial trimmer (Taste Pass T6).
  *
  * Sentence-boundary trim or full render — never a mid-word / mid-clause
- * ellipsis. Keep in lockstep with server/lib/editorialText.js.
+ * ellipsis. Keep in lockstep with note-taker-ui/src/utils/editorialText.js.
  * If a whole sentence cannot fit, return the fallback and let the selector
  * pick shorter text.
  */
 
 const normalizeSpaces = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
-export const sentenceBoundaryTrim = (value = '', {
+const sentenceBoundaryTrim = (value = '', {
   maxLength = 280,
   fallback = ''
 } = {}) => {
@@ -29,4 +29,9 @@ export const sentenceBoundaryTrim = (value = '', {
   }
   if (boundary > 0) return text.slice(0, boundary).trim();
   return fallback;
+};
+
+module.exports = {
+  normalizeSpaces,
+  sentenceBoundaryTrim
 };

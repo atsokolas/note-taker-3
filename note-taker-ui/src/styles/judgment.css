@@ -40,10 +40,8 @@ body.noeis-editorial.judgment-route .app-shell-new__body:has(.judgment) {
 }
 
 .judgment-shelf .room-shelf__item > span:first-child {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 .judgment-shelf span.room-shelf__item {

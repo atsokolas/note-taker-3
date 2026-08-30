@@ -15,7 +15,7 @@ const MAX_SENTENCES = 2;
 const MIN_WORDS = 4;
 const MIN_CHARS = 24;
 
-const EXCLUDED_PAGE_TYPES = new Set(['repo', 'log']);
+const EXCLUDED_PAGE_TYPES = new Set(['repo', 'log', 'edition']);
 const JUDGMENT_PAGE_TYPES = new Set(['concept']);
 
 const REPO_WIKI_TITLE = /\brepo wiki\b/i;
@@ -24,6 +24,10 @@ const SYSTEM_TITLE = /\bacceptance\b|\bsystem status\b|\bbuild order verificatio
 const CODE_SHAPED = /(?:POST|GET|PUT|PATCH|DELETE)\s+\/api\/|\/api\/[a-z]|Wiki[A-Z][A-Za-z]+|[a-z]+[A-Z][A-Za-z]+From[A-Z]|Composer\b|createRepo/;
 const INSTRUCTION_SHAPED = /^(use|run|install|click|see|refer to|follow|before editing|debugging)\b/i;
 const PROCESS_NOTE = /\bdebugging only\b|\bbefore editing\b|\bcross UI, API\b|\brepo bugs usually\b/i;
+const IMPERATIVE_CLAUSE = /^(use|run|install|click|see|refer to|follow|debug|debugging|open|create|add|update|delete|before editing)\b/i;
+
+/* Observed live 2026-08-29 on the morning paper — must fail every T1 gate. */
+const EXHIBIT_A = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries… WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github… debugging only the v…';
 
 const normalize = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
@@ -32,12 +36,25 @@ const sentenceCount = (text = '') => {
   return Math.max(parts.length, text ? 1 : 0);
 };
 
+const isNaturalBeliefFrame = (text = '') => {
+  const core = normalize(text)
+    .replace(/^[.!?…]+/, '')
+    .replace(/[.!?…]+$/g, '')
+    .replace(/^that\s+/i, '')
+    .trim();
+  if (!core) return false;
+  // "Do you still believe that Use these traces…" is not natural English.
+  if (IMPERATIVE_CLAUSE.test(core)) return false;
+  return true;
+};
+
 const isBeliefShaped = (text = '') => {
   const value = normalize(text);
   if (!value) return false;
   if (CODE_SHAPED.test(value)) return false;
   if (INSTRUCTION_SHAPED.test(value)) return false;
   if (PROCESS_NOTE.test(value)) return false;
+  if (!isNaturalBeliefFrame(value)) return false;
   return true;
 };
 
@@ -106,7 +123,7 @@ const REPO_WIKI_CLAIM_CORPUS = Object.freeze([
     },
     claim: {
       claimId: 'observed-2026-08-29',
-      text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries. WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github debugging only the view layer is never enough.',
+      text: EXHIBIT_A,
       support: 'supported',
       sourceRefIds: ['s1', 's2', 's3'],
       checkInStatus: 'unreviewed',
@@ -146,10 +163,12 @@ const REPO_WIKI_CLAIM_CORPUS = Object.freeze([
 module.exports = {
   FOURTEEN_DAYS_MS,
   MAX_CHARS,
+  EXHIBIT_A,
   evaluateCheckInEligibility,
   isBeliefShaped,
   isJudgmentSurface,
   isFirstPersonOwnable,
   isShortEnough,
+  isNaturalBeliefFrame,
   REPO_WIKI_CLAIM_CORPUS
 };

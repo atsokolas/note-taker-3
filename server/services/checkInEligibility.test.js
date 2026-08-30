@@ -4,6 +4,8 @@ const {
   isBeliefShaped,
   isJudgmentSurface,
   isFirstPersonOwnable,
+  isNaturalBeliefFrame,
+  EXHIBIT_A,
   REPO_WIKI_CLAIM_CORPUS
 } = require('./checkInEligibility');
 const { selectDailyClaimCheckIn } = require('./dailyLoopService');
@@ -31,8 +33,32 @@ const judgmentPage = {
 };
 
 assert.strictEqual(isBeliefShaped(heldBelief.text), true);
+assert.strictEqual(isNaturalBeliefFrame(heldBelief.text), true);
 assert.strictEqual(isJudgmentSurface(judgmentPage), true);
 assert.strictEqual(isFirstPersonOwnable(heldBelief), true);
+
+assert.strictEqual(isBeliefShaped(EXHIBIT_A), false, 'Exhibit A is not a belief');
+assert.strictEqual(isNaturalBeliefFrame(EXHIBIT_A), false);
+
+const exhibitA = evaluateCheckInEligibility({
+  page: {
+    _id: 'repo-wiki',
+    title: 'note-taker-3 — repo wiki',
+    pageType: 'repo'
+  },
+  claim: {
+    claimId: 'exhibit-a',
+    text: EXHIBIT_A,
+    checkInStatus: 'unreviewed',
+    history: [{ actorType: 'agent' }]
+  },
+  now: NOW
+});
+assert.strictEqual(exhibitA.eligible, false);
+assert.ok(exhibitA.reasons.includes('not_belief_shaped'));
+assert.ok(exhibitA.reasons.includes('not_judgment_surface'));
+assert.ok(exhibitA.reasons.includes('too_long'));
+assert.ok(exhibitA.reasons.includes('not_ownable'));
 
 const eligible = evaluateCheckInEligibility({
   page: judgmentPage,
