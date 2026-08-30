@@ -102,4 +102,21 @@ describe('WikiFacetRail', () => {
     expect(screen.getByTestId('wiki-facet-needs-review')).not.toHaveTextContent('0');
     expect(screen.getByTestId('wiki-facet-kind-general')).not.toHaveTextContent('0');
   });
+
+  it('keeps Needs review from shouting an empty zero or a forty-one backlog', () => {
+    const { rerender } = render(
+      <WikiFacetRail
+        facetCounts={{ ...baseCounts, needsReview: 0 }}
+      />
+    );
+    expect(screen.getByTestId('wiki-facet-needs-review')).not.toHaveTextContent('0');
+
+    rerender(
+      <WikiFacetRail
+        facetCounts={{ ...baseCounts, needsReview: 41 }}
+      />
+    );
+    expect(screen.getByTestId('wiki-facet-needs-review')).toHaveTextContent('3');
+    expect(screen.getByTestId('wiki-facet-needs-review')).not.toHaveTextContent('41');
+  });
 });

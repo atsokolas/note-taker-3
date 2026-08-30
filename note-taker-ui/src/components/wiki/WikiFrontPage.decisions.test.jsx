@@ -69,8 +69,9 @@ describe('WikiFrontPage Decisions return surface', () => {
     // once by the index itself, which is complete by definition.
     expect(screen.getAllByRole('link', { name: 'Inference economics' }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('region', { name: 'Decisions index fixture' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Review (2)' }))
-      .toHaveAttribute('href', '/wiki/workspace?view=graph');
+    expect(screen.getByRole('link', { name: 'Needs review' }))
+      .toHaveAttribute('href', '/wiki/workspace?view=list&quality=needs_review');
+    expect(screen.queryByRole('link', { name: /review \(\d+\)/i })).not.toBeInTheDocument();
 
     const toggle = screen.getByText('Review and system activity').closest('summary');
     expect(toggle).not.toBeNull();

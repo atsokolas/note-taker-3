@@ -153,8 +153,54 @@ describe('WikiFrontPage canonical titles', () => {
     const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
     fireEvent.click(screen.getByRole('button', { name: /Needs review 1/i }));
     expect(screen.getAllByText(/worth your attention/i)).toHaveLength(1);
-    expect(within(table).getAllByText('Material proposed change awaiting review').length).toBeGreaterThan(0);
+    expect(within(table).getByText(/Judgment page|Material review|Frequently used/i)).toBeInTheDocument();
     expect(screen.queryByText('Your accepted pages are current.')).not.toBeInTheDocument();
+  });
+
+  it('promotes at most three review pages with rationale and keeps the rest behind a quiet door', async () => {
+    listWikiPages.mockResolvedValueOnce([
+      {
+        ...pages[0],
+        judgment: { kind: 'thesis', currentJudgment: 'Hold cash through the cycle.' },
+        qualityReview: { status: 'needs_review' }
+      },
+      {
+        ...pages[1],
+        lastVisitedAt: '2026-08-29T12:00:00.000Z',
+        qualityReview: { status: 'needs_review' }
+      },
+      {
+        ...pages[2],
+        freshness: { status: 'needs_review', pendingSourceEventIds: ['1', '2'] },
+        qualityReview: { status: 'needs_review' }
+      },
+      {
+        _id: 'wiki-minor-one',
+        title: 'This Week in AI',
+        pageType: 'topic',
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-08-20T12:00:00.000Z'
+      },
+      {
+        _id: 'wiki-minor-two',
+        title: 'Repo notes',
+        pageType: 'topic',
+        qualityReview: { status: 'needs_review' },
+        updatedAt: '2026-08-19T12:00:00.000Z'
+      }
+    ]);
+    getDailyLoop.mockRejectedValueOnce(new Error('briefing unavailable'));
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
+    fireEvent.click(screen.getByRole('button', { name: /Needs review 3/i }));
+    expect(screen.getByText('3 worth your attention · 2 minor')).toBeInTheDocument();
+    expect(within(table).getByText('Judgment page · owner decision at stake')).toBeInTheDocument();
+    expect(within(table).getAllByRole('link', { name: /First Principles|Opportunity Cost|Margin of Safety/ }).length).toBe(3);
+    expect(within(table).queryByRole('link', { name: 'This Week in AI' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'The rest of the queue' }))
+      .toHaveAttribute('href', '/wiki/workspace?view=list&quality=needs_review');
+    expect(screen.queryByText(/Needs review · 5/i)).not.toBeInTheDocument();
   });
 });
 
@@ -275,8 +321,9 @@ describe('WikiFrontPage (AT-394)', () => {
     fireEvent.click(screen.getByText('Review and system activity'));
     const workspaceNav = screen.getByRole('navigation', { name: 'Wiki workspace' });
     expect(workspaceNav).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /review \(4\)/i }))
-      .toHaveAttribute('href', '/wiki/workspace?view=graph');
+    expect(screen.getByRole('link', { name: 'Needs review' }))
+      .toHaveAttribute('href', '/wiki/workspace?view=list&quality=needs_review');
+    expect(screen.queryByRole('link', { name: /review \(\d+\)/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Knowledge map' }).length).toBeGreaterThan(0);
     expect(screen.getByText('Add reading feed')).toBeInTheDocument();
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();

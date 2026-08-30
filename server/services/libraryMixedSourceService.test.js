@@ -268,8 +268,69 @@ const run = async () => {
     [`highlight:${articleOne.highlights[0]._id}`]
   );
   assert.strictEqual(needsReview.sources[0].relevance.movements[0].requiresReview, true);
+  assert.strictEqual(needsReview.sources[0].relevance.reviewReason, 'Supports a claim under review');
   assert.strictEqual(movementRequests.at(-1).includeRoutineMovements, false);
   assert.strictEqual(movementRequests.at(-1).reviewRequiredOnly, true);
+
+  const rankedReview = await buildMixedLibraryRelevancePage({
+    userId: USER_ID,
+    models,
+    view: 'needs_review',
+    limit: 3,
+    movementBuilder: async () => [
+      {
+        id: 'minor-note',
+        kind: 'contradiction',
+        title: 'A stray notebook contradiction',
+        reviewState: 'candidate',
+        evidence: [{ type: 'note', id: noteOne._id }],
+        unresolved: [{ type: 'note', id: noteOne._id }]
+      },
+      {
+        id: 'minor-article',
+        kind: 'contradiction',
+        title: 'Unconnected article drifted twice',
+        reviewState: 'candidate',
+        evidence: [
+          { type: 'article', id: articleTwo._id },
+          { type: 'article', id: articleTwo._id }
+        ],
+        unresolved: [{ type: 'article', id: articleTwo._id }]
+      },
+      {
+        id: 'minor-parent-article',
+        kind: 'contradiction',
+        title: 'Parent article also drifted',
+        reviewState: 'candidate',
+        evidence: [{ type: 'article', id: articleOne._id }],
+        unresolved: [{ type: 'article', id: articleOne._id }]
+      },
+      {
+        id: 'movement-highlight-review',
+        kind: 'contradiction',
+        title: 'New evidence challenges the systems claim',
+        reviewState: 'candidate',
+        evidence: [{
+          type: 'highlight',
+          id: articleOne.highlights[0]._id,
+          parentId: articleOne._id
+        }],
+        unresolved: [{ type: 'wiki_claim', id: 'systems-claim' }]
+      }
+    ]
+  });
+  assert.deepStrictEqual(
+    rankedReview.sources.map(row => `${row.source.type}:${row.source.id}`),
+    [
+      `highlight:${articleOne.highlights[0]._id}`,
+      `article:${articleOne._id}`,
+      `article:${articleTwo._id}`
+    ]
+  );
+  assert.strictEqual(rankedReview.sources.length, 3);
+  assert.strictEqual(rankedReview.counts.needs_review.value, 4);
+  assert.strictEqual(rankedReview.hasMore, true);
+  assert.strictEqual(rankedReview.sources[0].relevance.reviewReason, 'Supports a claim under review');
 
   const quietReview = await buildMixedLibraryRelevancePage({
     userId: USER_ID,

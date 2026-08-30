@@ -3633,7 +3633,11 @@ const buildWikiRouter = ({
         if (qualityFilter === 'blocked') return review.surfaceEligible === false;
         if (includeLowQuality) return true;
         return review.surfaceEligible !== false;
-      }).map(({ value }) => value).slice(0, limit);
+      }).map(({ raw, value }) => (
+        qualityFilter === 'needs_review'
+          ? { ...value, lastVisitedAt: raw.lastVisitedAt || null }
+          : value
+      )).slice(0, limit);
       res.status(200).json(serialized);
     } catch (error) {
       console.error('Error listing wiki pages:', error);

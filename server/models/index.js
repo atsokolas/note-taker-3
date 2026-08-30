@@ -608,6 +608,9 @@ const wikiFreshnessSchema = new mongoose.Schema({
   /* Human acceptance clock for the living index. Distinct from lastMaintainedAt
      when maintenance runs without a signed review; Accept always inks both. */
   lastReviewedAt: { type: Date, default: null },
+  /* Low-stakes reviews (editions, repo wikis, never-visited pages) leave the
+     queue after the triage TTL. This is expiry, not human Accept. */
+  reviewExpiredAt: { type: Date, default: null },
   pendingSourceEventIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   conflictCount: { type: Number, default: 0 },
   staleSectionCount: { type: Number, default: 0 },
