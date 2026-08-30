@@ -19,7 +19,11 @@ const SECTIONS = [
   },
   {
     title: 'Go to (press G then…)',
-    items: NOEIS_GO_TO_SHORTCUTS.map(item => ({ keys: ['G', item.key.toUpperCase()], label: item.label }))
+    items: NOEIS_GO_TO_SHORTCUTS.map(item => ({
+      keys: ['G', item.key.toUpperCase()],
+      label: item.label,
+      sequential: true
+    }))
   },
   {
     title: 'Reading & highlights',
@@ -78,7 +82,11 @@ const KeyboardShortcutOverlay = ({ open, onClose }) => {
                     <span className="kbd-overlay__row-keys">
                       {item.keys.map((k, i) => (
                         <React.Fragment key={`${item.label}-${i}`}>
-                          {i > 0 ? <span className="kbd-overlay__row-sep" aria-hidden="true">+</span> : null}
+                          {i > 0 ? (
+                            <span className="kbd-overlay__row-sep" aria-hidden="true">
+                              {item.sequential ? 'then' : '+'}
+                            </span>
+                          ) : null}
                           <Key>{k}</Key>
                         </React.Fragment>
                       ))}

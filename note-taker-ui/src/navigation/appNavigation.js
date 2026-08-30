@@ -29,19 +29,70 @@ export const getTopBarUtilityNavItems = () => getNoeisNavigationDefinitions('uti
    Their routes all still resolve; they are simply not advertised as places. */
 export const getSecondaryNavItems = () => getNoeisNavigationDefinitions('secondary').map(toNavItem);
 
+/* G then a room letter. One mapper, eight rooms, no second listener.
+   Letters are mnemonic and skip `g` so a second G re-primes instead of
+   inventing a `gg` home chord. `o` is Connections — "other people" —
+   because `c` is already Concepts. */
+export const GO_TO_CHORD_MS = 1000;
+
 export const NOEIS_GO_TO_SHORTCUTS = Object.freeze([
-  Object.freeze({ key: 'h', label: 'Home', to: '/think?tab=home' }),
+  Object.freeze({ key: 'h', label: 'Think home', to: '/think?tab=home' }),
+  Object.freeze({ key: 'n', label: 'Notebook', to: '/think?tab=notebook' }),
+  Object.freeze({ key: 'c', label: 'Concepts', to: '/think?tab=concepts' }),
+  Object.freeze({ key: 'q', label: 'Questions', to: '/think?tab=questions' }),
   Object.freeze({ key: 'l', label: 'Library', to: '/library' }),
-  Object.freeze({ key: 't', label: 'Think', to: '/think?tab=home' }),
-  Object.freeze({ key: 'w', label: 'Wiki', to: '/wiki/workspace?view=graph' }),
+  Object.freeze({ key: 'w', label: 'Wiki', to: '/wiki' }),
   Object.freeze({ key: 'j', label: 'Judgment', to: '/judgment' }),
-  Object.freeze({ key: 'r', label: 'Review', to: '/review' }),
-  Object.freeze({ key: 's', label: 'Settings', to: '/settings' })
+  Object.freeze({ key: 'o', label: 'Connections', to: '/connections' })
 ]);
 
 const SHORTCUT_BY_KEY = new Map(NOEIS_GO_TO_SHORTCUTS.map(item => [item.key, item]));
 
 export const resolveGoToShortcut = (key = '') => SHORTCUT_BY_KEY.get(String(key || '').toLowerCase()) || null;
+
+const TYPING_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable="true"]',
+  '[contenteditable=""]',
+  '.ProseMirror',
+  '.tiptap-editor',
+  '.think-slash-menu'
+].join(', ');
+
+export const isGoToTypingTarget = (target) => {
+  if (!target) return false;
+  const el = target.nodeType === 1 ? target : target.parentElement;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = String(el.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  if (typeof el.closest !== 'function') return false;
+  return Boolean(el.closest(TYPING_SELECTOR));
+};
+
+/* One chord state in, one chord state out. Quiet: no toast, no palette,
+   no motion — reduced-motion users get the same silent navigate.
+   Incomplete sequences fail silently: the prime drops and nothing is announced. */
+export const consumeGoToChord = (state = {}, event = {}, now = Date.now()) => {
+  const primedAt = Number(state.primedAt) || 0;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) {
+    return { primedAt, to: null };
+  }
+  if (isGoToTypingTarget(event.target)) {
+    return { primedAt: 0, to: null };
+  }
+  const key = String(event.key || '').toLowerCase();
+  if (key === 'g') {
+    return { primedAt: now, to: null };
+  }
+  if (!primedAt || (now - primedAt) > GO_TO_CHORD_MS) {
+    return { primedAt: 0, to: null };
+  }
+  const shortcut = resolveGoToShortcut(key);
+  return { primedAt: 0, to: shortcut?.to || null };
+};
 
 const THINK_POSTURE_PARAMS = {
   concepts: 'concept',
