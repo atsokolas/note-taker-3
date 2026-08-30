@@ -17,7 +17,7 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
-import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
+import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
@@ -62,9 +62,6 @@ import '../styles/judgment.css';
 // The retrieving happens in the rail, which is not part of this page — it was
 // already on screen before this column arrived and it will still be there after
 // the column changes. This page only tells it what it is looking at.
-
-const SUPPORT_QUESTION = 'What is the strongest saved passage in my Library that supports this exact claim? Quote the passage and explain what it establishes.';
-const COUNTER_QUESTION = 'What is the strongest saved passage in my Library that argues against this exact claim? Quote the passage and explain the pressure it creates.';
 
 /* What a save has to come back holding. Read off the stored contract rather
    than the projection, because this is checking what the server kept. */
@@ -216,7 +213,7 @@ const BeliefLink = ({ to, title, claim }) => (
 
 /* A note under the door: one sentence on the threshold of the claim, then
    two words. Accept resolves in place into Why or Against; dismiss evaporates
-   it. Height eases either way and nothing jumps. Not a tray, not a toast. */
+   it. Not a tray, not a toast. */
 const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   const [choosing, setChoosing] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -620,7 +617,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const claimRef = useRef(null);
   const changeSentenceRef = useRef(null);
   const flownFor = useRef('');
-  const { ask, busy: asking, error: askError } = useAgentRail();
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
@@ -1195,35 +1191,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
               </p>
             )}
           </section>
-        ) : null}
-      </div>
-
-      {/* The only other agent door. The retrieve runs in the rail; the column
-          changes only if the human accepts what comes back.
-          The door says so itself, because the answer arrives in the rail and a
-          button that looks unchanged after a click reads as a broken one. */}
-      <div className={`judgment__door ${step(5)}`}>
-        <button
-          type="button"
-          className="judgment__door-link"
-          disabled={asking}
-          onClick={() => ask?.(SUPPORT_QUESTION, { fields: ['why'], origin: 'Asked of this claim' })}
-        >
-          {asking ? 'Looking through your library…' : 'Find the strongest passage for this'}
-        </button>
-        <button
-          type="button"
-          className="judgment__door-link"
-          disabled={asking}
-          onClick={() => ask?.(COUNTER_QUESTION, { fields: ['against'], origin: 'Asked of this claim' })}
-        >
-          {asking ? 'Looking through your library…' : 'Find the strongest passage against this'}
-        </button>
-        {asking ? (
-          <p className="judgment__door-note" role="status">Whatever comes back appears in the margin. Nothing is written until you accept it.</p>
-        ) : null}
-        {!asking && askError ? (
-          <p className="judgment__door-note judgment__door-note--error" role="alert">{askError}</p>
         ) : null}
       </div>
 

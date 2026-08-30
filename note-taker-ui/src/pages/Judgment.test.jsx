@@ -921,22 +921,32 @@ describe('the overnight line', () => {
 });
 
 describe('the agent rail', () => {
-  it('can inspect the strongest saved passage on either side of the exact sentence', async () => {
+  const askInRail = async (question) => {
+    const rail = await screen.findByRole('complementary', { name: 'Skeptical partner' });
+    fireEvent.change(within(rail).getByPlaceholderText('Bring evidence or counterevidence'), {
+      target: { value: question }
+    });
+    fireEvent.click(within(rail).getByRole('button', { name: 'Ask' }));
+    return rail;
+  };
+
+  it('keeps exact Library evidence in the column and leaves the rail for explicit questions', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue(articleReply('Demand has compounded faster than available supply.'));
+    getJudgmentLibraryEvidence.mockResolvedValue({
+      claim: 'NVIDIA demand still outruns deliverable capacity.',
+      terms: ['demand', 'capacity'],
+      candidates: [{
+        id: 'highlight:a1:h1',
+        text: 'Demand has compounded faster than available supply.',
+        sourceLabel: 'On compute · FT'
+      }]
+    });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage for this' }));
-
-    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.stringContaining('supports this exact claim'),
-      context: expect.objectContaining({ type: 'wiki_page', id: 'wiki-nvidia', pageId: 'wiki-nvidia' })
-    }), expect.any(Object)));
-
-    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
-    expect(await within(rail).findByText('Demand has compounded faster than available supply.')).toBeInTheDocument();
-    expect(updateWikiPage).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Find the strongest passage against this' })).toBeInTheDocument();
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
+    expect(within(inbox).getByText('Demand has compounded faster than available supply.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Find the strongest passage/ })).not.toBeInTheDocument();
+    expect(streamChatWithAgent).not.toHaveBeenCalled();
   });
 
   it('names where a retrieved line came from, and says so when nothing did', async () => {
@@ -950,9 +960,7 @@ describe('the agent rail', () => {
     });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
-
-    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+    const rail = await askInRail('What cuts against this claim?');
     expect(await within(rail).findByText('From SemiAnalysis')).toBeInTheDocument();
   });
 
@@ -961,9 +969,7 @@ describe('the agent rail', () => {
     streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
-
-    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+    const rail = await askInRail('What cuts against this claim?');
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
     expect(within(rail).queryByRole('button', { name: 'Another' })).not.toBeInTheDocument();
     expect(updateWikiPage).not.toHaveBeenCalled();
@@ -982,21 +988,19 @@ describe('the agent rail', () => {
     expect(within(rail).getByText('Retrieves. You accept.')).toBeInTheDocument();
   });
 
-  it('runs the column door in the rail and only writes when the human accepts', async () => {
+  it('writes a rail answer only when the human accepts it', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
     streamChatWithAgent.mockResolvedValue(articleReply('Supply is catching up faster than the thesis assumes.'));
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
-
-    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+    const rail = await askInRail('What cuts against this claim?');
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
     // The retrieved line is in the rail, not the column, and nothing is saved.
     expect(updateWikiPage).not.toHaveBeenCalled();
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Accept' }));
+    fireEvent.click(await within(rail).findByRole('button', { name: 'Against' }));
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalledTimes(1));
     expect(updateWikiPage.mock.calls[0][1].judgment.against.map(line => line.text)).toEqual([
@@ -1037,9 +1041,7 @@ describe('the agent rail', () => {
     streamChatWithAgent.mockResolvedValue(articleReply('A line the human does not want.'));
 
     renderDetail();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
-    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+    const rail = await askInRail('What cuts against this claim?');
     await within(rail).findByText('A line the human does not want.');
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Dismiss' }));
