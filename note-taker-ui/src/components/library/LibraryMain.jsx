@@ -56,7 +56,8 @@ const LibraryMain = ({
   sourceDetail = null,
   sourceDetailLoading = false,
   sourceDetailError = '',
-  relevanceState = null
+  relevanceState = null,
+  reviewBacklogCount
 }) => {
   const relevance = relevanceState || {
     loading: true,
@@ -92,12 +93,12 @@ const LibraryMain = ({
       : sourceView === 'unconnected'
         ? 'Unconnected'
         : 'Recently added';
-  const reviewTotal = Number(relevance.counts?.needs_review?.value);
+  const surfacedReviewCount = Math.min(3, relevance.sources.length);
   const viewSubtitle = sourceView === 'active'
     ? 'Sources currently supporting, challenging, or changing your work.'
     : sourceView === 'needs_review'
-      ? Number.isFinite(reviewTotal)
-        ? `${Math.min(3, reviewTotal)} worth your attention · ${Math.max(0, reviewTotal - 3)} minor. Open the backlog only when you need it.`
+      ? Number.isFinite(reviewBacklogCount)
+        ? `${surfacedReviewCount} worth your attention · ${Math.max(0, reviewBacklogCount - surfacedReviewCount)} minor. Open the backlog only when you need it.`
         : 'Up to three sources attached to a material unresolved change.'
       : sourceView === 'unconnected'
         ? 'Sources not yet used by a durable thinking object.'

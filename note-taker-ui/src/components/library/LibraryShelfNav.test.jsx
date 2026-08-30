@@ -51,6 +51,22 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Shelf 32' })).toBeInTheDocument();
     });
 
+    it('makes Needs Review the calm door to triage instead of shouting the backlog', () => {
+      const onSelectFolder = jest.fn();
+      renderNav({
+        folders: [{ _id: 'review', name: 'Needs Review' }],
+        folderCounts: { review: 149 },
+        sourceView: 'needs_review',
+        onSelectFolder
+      });
+
+      const review = screen.getByRole('button', { name: 'Needs Review' });
+      expect(review).toHaveAttribute('aria-current', 'true');
+      expect(screen.queryByText('149')).not.toBeInTheDocument();
+      fireEvent.click(review);
+      expect(onSelectFolder).toHaveBeenCalledWith('review');
+    });
+
     it('states whether the cabinet is still loading or failed to load', () => {
       const { rerender } = renderNav({ folders: [], foldersLoading: true });
       expect(screen.getByRole('status')).toHaveTextContent('Loading shelves');

@@ -1,4 +1,5 @@
 const { buildKnowledgeMovements } = require('./knowledgeMovementService');
+const { isFragmentTitle } = require('./importTitleService');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 
 const MIXED_SOURCE_SCAN_LIMIT = 1000;
@@ -120,12 +121,18 @@ const articleRow = article => ({
   })
 });
 
+const highlightDisplayTitle = (article, highlight) => {
+  const title = clean(highlight?.text || highlight?.note);
+  if (title && !isFragmentTitle(title)) return title;
+  return `Highlight from ${clean(article?.title || 'source', 180)}`;
+};
+
 const highlightRow = (article, highlight) => ({
   source: {
     type: 'highlight',
     id: id(highlight),
     parentId: id(article),
-    title: clean(highlight?.text || highlight?.note || `Highlight from ${article?.title || 'source'}`),
+    title: highlightDisplayTitle(article, highlight),
     href: `/library?articleId=${encodeURIComponent(id(article))}&highlightId=${encodeURIComponent(id(highlight))}`,
     sourceUrl: safeSourceUrl(article?.url)
   },
@@ -726,6 +733,7 @@ module.exports = {
   buildMixedLibraryRelevancePage,
   decodeCursor,
   encodeCursor,
+  highlightDisplayTitle,
   movementScanLimitFor,
   rowTuple
 };

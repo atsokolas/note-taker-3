@@ -49,6 +49,7 @@ const LibraryShelfNav = ({
   foldersError = '',
   scope = 'all',
   folderId = '',
+  sourceView = 'recent',
   unfiledCount,
   keptCount,
   query = '',
@@ -151,18 +152,26 @@ const LibraryShelfNav = ({
           ) : null}
           {!foldersLoading && !foldersError && folders.length ? (
             <RoomShelfList className="library-shelf__folders">
-              {folders.map(folder => (
-                <li key={folder._id}>
-                  <RoomShelfButton
-                    active={scope === 'folder' && folderId === folder._id}
-                    nested
-                    onClick={() => onSelectFolder?.(folder._id)}
-                  >
-                    <span>{folder.name}</span>
-                    {folderCounts[folder._id] > 0 ? <RoomShelfMeta>{folderCounts[folder._id]}</RoomShelfMeta> : null}
-                  </RoomShelfButton>
-                </li>
-              ))}
+              {folders.map(folder => {
+                const isNeedsReview = folder.name?.trim().toLowerCase() === 'needs review';
+                const active = isNeedsReview
+                  ? scope === 'all' && sourceView === 'needs_review'
+                  : scope === 'folder' && folderId === folder._id;
+                return (
+                  <li key={folder._id}>
+                    <RoomShelfButton
+                      active={active}
+                      nested
+                      onClick={() => onSelectFolder?.(folder._id)}
+                    >
+                      <span>{folder.name}</span>
+                      {!isNeedsReview && folderCounts[folder._id] > 0 ? (
+                        <RoomShelfMeta>{folderCounts[folder._id]}</RoomShelfMeta>
+                      ) : null}
+                    </RoomShelfButton>
+                  </li>
+                );
+              })}
             </RoomShelfList>
           ) : null}
           {!foldersLoading && !foldersError && !folders.length ? (
