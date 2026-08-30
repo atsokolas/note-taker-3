@@ -110,3 +110,121 @@ export const shelfCount = (count) => {
   const n = Number(count);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 };
+
+/* B2 vs A7: A7 made a quiet day silence — never the deleted stale briefing
+   filler. B2 keeps that silence of news, then prints one crafted sign-off.
+   A close or collision still occupies the lead alone; the sign-off does not
+   sit beside it. */
+
+export const QUIET_SIGNOFFS = Object.freeze([
+  'Quiet night. Your pages held.',
+  'Nothing moved. Read something worth keeping.',
+  'The paper is thin this morning. That’s allowed.',
+  'No close today. The claims you hold still stand.',
+  'Stillness. The corpus did not argue back.',
+  'A quiet morning. The work is in what you already wrote.'
+]);
+
+export const QUIET_SIGNOFF_STORAGE_KEY = 'noeis.wiki.quietSignOff.v1';
+export const PAPER_SETTLE_MS = 400;
+
+const localDay = (now) => {
+  const date = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const previousLocalDay = (now) => {
+  const date = now instanceof Date ? new Date(now.getTime()) : new Date(now);
+  date.setDate(date.getDate() - 1);
+  return localDay(date);
+};
+
+const dayIndex = (day, length) => {
+  let hash = 0;
+  for (let index = 0; index < day.length; index += 1) {
+    hash = ((hash << 5) - hash) + day.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash) % length;
+};
+
+/** One sign-off a quiet morning. No two consecutive calendar days repeat. */
+export const selectQuietSignOff = ({
+  now = new Date(),
+  storage = null,
+  key = QUIET_SIGNOFF_STORAGE_KEY,
+  lines = QUIET_SIGNOFFS
+} = {}) => {
+  const list = Array.isArray(lines) && lines.length ? lines : QUIET_SIGNOFFS;
+  const day = localDay(now);
+  if (!day) return list[0];
+  let lastIndex = -1;
+  let storedDay = '';
+  try {
+    const parsed = JSON.parse(storage?.getItem?.(key) || 'null');
+    if (parsed && Number.isInteger(parsed.index)) {
+      lastIndex = parsed.index;
+      storedDay = String(parsed.day || '');
+    }
+  } catch (_error) {
+    lastIndex = -1;
+  }
+  if (storedDay === day && lastIndex >= 0 && lastIndex < list.length) {
+    return list[lastIndex];
+  }
+  let index = dayIndex(day, list.length);
+  if (storedDay === previousLocalDay(now) && lastIndex >= 0 && index === lastIndex) {
+    index = (index + 1) % list.length;
+  }
+  try {
+    storage?.setItem?.(key, JSON.stringify({ day, index }));
+  } catch (_error) {
+    // Rotation memory is craft, not correctness.
+  }
+  return list[index];
+};
+
+const CODE_SHAPED = /(?:POST|GET|PUT|PATCH|DELETE)\s+\/api\/|Wiki[A-Z]|createRepo|Composer\b/;
+const INSTRUCTION_SHAPED = /^(use|run|install|click|see|refer to|follow|before editing|debugging)\b/i;
+
+/** A Taste-Pass-clean belief, or nothing. Repo dumps never get a tap. */
+export const isPaperCheckIn = (checkIn = null) => {
+  if (!checkIn?.pageId || !checkIn?.claimId) return false;
+  const text = String(checkIn.text || '').replace(/\s+/g, ' ').trim();
+  if (!text || text.length > 220) return false;
+  if (!isEditorialBriefing(text)) return false;
+  if (CODE_SHAPED.test(text) || INSTRUCTION_SHAPED.test(text)) return false;
+  return true;
+};
+
+/**
+ * Scan-for-blue = read-the-day. A close or collision takes the pulse;
+ * otherwise a living check-in. Quiet craft is not alive. Never two.
+ */
+export const morningPulseTarget = ({ briefing } = {}) => {
+  if (wikiLivingBriefingLine({ briefing })) return 'lead';
+  if (isPaperCheckIn(briefing?.claimCheckIn)) return 'check-in';
+  return '';
+};
+
+const ordinal = (value) => {
+  const count = Math.max(1, Number(value) || 1);
+  const rem100 = count % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${count}th`;
+  const rem10 = count % 10;
+  if (rem10 === 1) return `${count}st`;
+  if (rem10 === 2) return `${count}nd`;
+  if (rem10 === 3) return `${count}rd`;
+  return `${count}th`;
+};
+
+export const formatCheckInTally = ({ action = 'reaffirmed', count = 1, heldDays = 0 } = {}) => {
+  const verb = String(action || 'reaffirmed').toLowerCase();
+  const days = Math.max(0, Number(heldDays) || 0);
+  const held = days <= 0 ? 'today' : days === 1 ? '1 day' : `${days} days`;
+  return `${verb} · ${ordinal(count)} · held ${held}`;
+};

@@ -1,6 +1,6 @@
 import { createWikiPage, getWikiPage, updateWikiPage } from '../../../api/wiki';
 import { handOffSentence } from '../../../motion/columnMotion';
-import { createJudgment, writeLineIntoJudgment } from '../../../pages/judgmentModel';
+import { createJudgment, judgmentIdOf, writeLineIntoJudgment } from '../../../pages/judgmentModel';
 
 /* The sentence on this line, minus the /hold or /why token. */
 export const sentenceFromSlashBlock = (editor) => String(
@@ -23,11 +23,11 @@ export const createNotebookClaimSlashItems = ({ claimId = '', navigate, onError 
       const sentence = sentenceFromSlashBlock(editor);
       if (!sentence || !navigate) return;
       try {
-        const id = await createJudgment(sentence, {
+        const held = await createJudgment(sentence, {
           createPage: createWikiPage,
           updatePage: updateWikiPage
         });
-        openClaim(sentence, editor, `/judgment/${id}`, navigate);
+        openClaim(sentence, editor, `/judgment/${judgmentIdOf(held)}`, navigate);
       } catch (error) {
         onError?.(error);
       }
@@ -53,11 +53,11 @@ export const createNotebookClaimSlashItems = ({ claimId = '', navigate, onError 
           openClaim(sentence, editor, `/judgment/${claimId}`, navigate);
           return;
         }
-        const id = await createJudgment(sentence, {
+        const held = await createJudgment(sentence, {
           createPage: createWikiPage,
           updatePage: updateWikiPage
         });
-        openClaim(sentence, editor, `/judgment/${id}`, navigate);
+        openClaim(sentence, editor, `/judgment/${judgmentIdOf(held)}`, navigate);
       } catch (error) {
         onError?.(error);
       }

@@ -96,4 +96,25 @@ export const flySentenceInto = (node, text) => {
   return true;
 };
 
+/**
+ * Retire: the sentence files toward the casebook. Same 220ms curve as
+ * flight; reduced-motion is already in place (the strike is the state).
+ */
+export const fileSentenceAway = (node) => {
+  if (!node) return false;
+  if (prefersReducedMotion()) return true;
+  const rect = node.getBoundingClientRect?.();
+  if (!rect?.width) return false;
+  const dx = Math.min(140, Math.max(48, (typeof window !== 'undefined' ? window.innerWidth : 800) - rect.left - 48));
+  const dy = -Math.max(64, rect.top + 24);
+  node.animate?.(
+    [
+      { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+      { transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.92)`, opacity: 0 }
+    ],
+    { duration: ENTER_MS, easing: ENTER_CURVE, fill: 'both' }
+  );
+  return true;
+};
+
 export const ENTER_DURATION_MS = ENTER_MS;

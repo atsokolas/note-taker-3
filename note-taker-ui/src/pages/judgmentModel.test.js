@@ -3,6 +3,9 @@ import {
   buildJudgmentIndex,
   claimSentence,
   createJudgment,
+  formatHoldAge,
+  heldDaysBetween,
+  judgmentIdOf,
   dismissOvernightLine,
   docText,
   foldJudgmentPages,
@@ -477,20 +480,48 @@ describe('judgmentModel', () => {
       _id: 'existing',
       title: 'Named compute case',
       reusedExisting: true,
-      judgment: { currentJudgment: 'Compute keeps compounding.' }
+      judgment: {
+        currentJudgment: 'Compute keeps compounding.',
+        startedAt: '2026-08-09T12:00:00.000Z'
+      }
     }));
     const updatePage = jest.fn();
-    const id = await createJudgment('COMPUTE keeps compounding!', { createPage, updatePage });
-    expect(id).toBe('existing');
+    const held = await createJudgment('COMPUTE keeps compounding!', {
+      createPage,
+      updatePage,
+      now: Date.parse('2026-08-30T12:00:00.000Z')
+    });
+    expect(held).toEqual({
+      id: 'existing',
+      reused: true,
+      heldDays: 21,
+      sentence: 'COMPUTE keeps compounding!'
+    });
     expect(updatePage).not.toHaveBeenCalled();
   });
 
   it('still writes the claim when the page is new', async () => {
     const createPage = jest.fn(async () => ({ _id: 'wiki-new', title: 'A new hold.' }));
     const updatePage = jest.fn(async () => ({}));
-    await createJudgment('A new hold.', { createPage, updatePage });
-    expect(updatePage).toHaveBeenCalledWith('wiki-new', {
-      judgment: { currentJudgment: 'A new hold.' }
+    const now = new Date('2026-08-30T12:00:00.000Z').getTime();
+    const held = await createJudgment('A new hold.', { createPage, updatePage, now });
+    expect(held).toEqual({
+      id: 'wiki-new',
+      reused: false,
+      heldDays: 0,
+      sentence: 'A new hold.'
     });
+    expect(updatePage).toHaveBeenCalledWith('wiki-new', {
+      judgment: { currentJudgment: 'A new hold.', startedAt: '2026-08-30T12:00:00.000Z' }
+    });
+  });
+
+  it('names a real hold age and reads either a string id or a held object', () => {
+    expect(formatHoldAge(0)).toBe('today');
+    expect(formatHoldAge(1)).toBe('1 day');
+    expect(formatHoldAge(21)).toBe('21 days');
+    expect(heldDaysBetween('2026-08-09T12:00:00.000Z', Date.parse('2026-08-30T12:00:00.000Z'))).toBe(21);
+    expect(judgmentIdOf('wiki-new')).toBe('wiki-new');
+    expect(judgmentIdOf({ id: 'wiki-new' })).toBe('wiki-new');
   });
 });

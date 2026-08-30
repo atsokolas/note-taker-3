@@ -1,5 +1,6 @@
 import {
   clearSentenceHandoff,
+  fileSentenceAway,
   flySentenceInto,
   handOffSentence,
   peekSentenceHandoff,
@@ -98,5 +99,24 @@ describe('the shared sentence', () => {
     expect(flySentenceInto(title, 'A claim sentence.')).toBe(true);
     expect(title.animate).not.toHaveBeenCalled();
     expect(peekSentenceHandoff()).toBeNull();
+  });
+});
+
+describe('filing a sentence toward the casebook', () => {
+  it('uses the same 220ms curve as flight', () => {
+    const slip = nodeAt({ top: 200, left: 40, width: 300 });
+    expect(fileSentenceAway(slip)).toBe(true);
+    expect(slip.animate).toHaveBeenCalledTimes(1);
+    const [, timing] = slip.animate.mock.calls[0];
+    expect(timing.duration).toBe(220);
+  });
+
+  it('is already in place when motion is reduced', () => {
+    window.matchMedia = jest.fn().mockImplementation((query) => ({
+      matches: query === '(prefers-reduced-motion: reduce)'
+    }));
+    const slip = nodeAt({ top: 200, left: 40, width: 300 });
+    expect(fileSentenceAway(slip)).toBe(true);
+    expect(slip.animate).not.toHaveBeenCalled();
   });
 });

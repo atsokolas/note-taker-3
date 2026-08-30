@@ -913,7 +913,28 @@ export const reviseCurrentJudgment = (page, sentence, lineId = '') => {
    there is none; a claim you wrote is not a question, and inventing one you
    never asked would put words on the page. This is the one place that knows
    that, so every surface that starts a judgment starts the same one. */
-export const createJudgment = async (claim, { createPage, updatePage } = {}) => {
+export const judgmentIdOf = (held) => (
+  typeof held === 'string' || typeof held === 'number'
+    ? String(held)
+    : String(held?.id || '')
+);
+
+export const heldDaysBetween = (startedAt, now = Date.now()) => {
+  const start = time(startedAt);
+  if (Number.isNaN(start)) return 0;
+  return Math.max(0, Math.floor((now - start) / DAY));
+};
+
+export const formatHoldAge = (days) => {
+  const count = Math.max(0, Number(days) || 0);
+  if (count <= 0) return 'today';
+  if (count === 1) return '1 day';
+  return `${count} days`;
+};
+
+export const PARTNER_ACK = 'Noted. I’ll look for what cuts against it.';
+
+export const createJudgment = async (claim, { createPage, updatePage, now = Date.now() } = {}) => {
   const sentence = oneSentence(claim);
   if (!sentence) throw new Error('A judgment starts with a sentence.');
   const page = await createPage({ title: sentence, pageType: 'topic' });
@@ -921,8 +942,15 @@ export const createJudgment = async (claim, { createPage, updatePage } = {}) => 
   if (!id) throw new Error('The judgment was not created.');
   const held = normalizeClaimKey(page?.judgment?.currentJudgment);
   const next = normalizeClaimKey(sentence);
-  if (held && held === next) return id;
-  if (page?.reusedExisting && held) return id;
-  await updatePage(id, { judgment: { currentJudgment: sentence } });
-  return id;
+  const reused = Boolean(held && (held === next || page?.reusedExisting));
+  const startedAt = page?.judgment?.startedAt || page?.createdAt || now;
+  const heldDays = heldDaysBetween(startedAt, now);
+  if (reused) return { id, reused: true, heldDays, sentence };
+  await updatePage(id, {
+    judgment: {
+      currentJudgment: sentence,
+      startedAt: new Date(now).toISOString()
+    }
+  });
+  return { id, reused: false, heldDays: 0, sentence };
 };

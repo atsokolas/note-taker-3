@@ -1077,6 +1077,41 @@ describe('the agent rail', () => {
     const [, payload] = updateWikiPage.mock.calls[0];
     expect(payload.judgment.currentJudgment).toBe('Demand still outruns deliverable capacity.');
     expect(payload.judgment.kind).toBeUndefined();
+    expect(await screen.findByRole('link', { name: 'Demand still outruns deliverable capacity.' }))
+      .toHaveAttribute('href', '/judgment/wiki-new');
+    expect(screen.getByText('held · today')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Noted. I’ll look for what cuts against it.');
+    await waitFor(() => expect(screen.getByLabelText('Hold a sentence')).toHaveValue(''));
+  });
+
+  it('slides an existing hold forward instead of writing a second copy', async () => {
+    const { createWikiPage, updateWikiPage } = require('../api/wiki');
+    jest.spyOn(router, 'useParams').mockReturnValue({});
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    createWikiPage.mockResolvedValue({
+      _id: 'wiki-nvidia',
+      reusedExisting: true,
+      judgment: {
+        currentJudgment: 'NVIDIA demand still outruns deliverable capacity.',
+        startedAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    });
+
+    render(<Judgment />);
+    expect(await screen.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Hold a sentence'), {
+      target: { value: 'NVIDIA demand still outruns deliverable capacity.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
+
+    await waitFor(() => expect(createWikiPage).toHaveBeenCalled());
+    expect(updateWikiPage).not.toHaveBeenCalled();
+    const row = screen.getByRole('link', { name: 'NVIDIA' }).closest('li');
+    expect(row).toHaveClass('is-forward');
+    expect(row).toHaveTextContent('You already hold this — 21 days.');
+    expect(screen.queryByText(/Noted\. I’ll look for what cuts against it/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Hold a sentence')).toHaveValue(''));
   });
 
   /* The index needs one sentence and a provenance line per judgment. Asking

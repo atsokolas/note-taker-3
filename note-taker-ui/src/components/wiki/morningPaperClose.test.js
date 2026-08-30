@@ -1,6 +1,11 @@
 import {
   completeLeadSentence,
+  formatCheckInTally,
   isEditorialBriefing,
+  isPaperCheckIn,
+  morningPulseTarget,
+  QUIET_SIGNOFFS,
+  selectQuietSignOff,
   shelfCount,
   wikiLivingBriefingLine
 } from './morningPaperClose';
@@ -164,5 +169,87 @@ describe('completeLeadSentence', () => {
     const amputated = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries debugging only the v';
     expect(completeLeadSentence(amputated, 80)).toBe('');
     expect(completeLeadSentence(amputated, 80)).not.toMatch(/…|\.\.\.|the v$/);
+  });
+});
+
+describe('quiet-day sign-off', () => {
+  const memory = () => {
+    const store = new Map();
+    return {
+      getItem: (key) => (store.has(key) ? store.get(key) : null),
+      setItem: (key, value) => { store.set(key, String(value)); }
+    };
+  };
+
+  it('prints one of the six lines and keeps the same line for the same morning', () => {
+    const storage = memory();
+    const monday = new Date('2026-08-31T09:00:00');
+    const first = selectQuietSignOff({ now: monday, storage });
+    const again = selectQuietSignOff({ now: monday, storage });
+    expect(QUIET_SIGNOFFS).toContain(first);
+    expect(again).toBe(first);
+  });
+
+  it('does not repeat the same line on two consecutive days', () => {
+    const storage = memory();
+    const monday = new Date('2026-08-31T09:00:00');
+    const tuesday = new Date('2026-09-01T09:00:00');
+    const first = selectQuietSignOff({ now: monday, storage });
+    const next = selectQuietSignOff({ now: tuesday, storage });
+    expect(QUIET_SIGNOFFS).toContain(next);
+    expect(next).not.toBe(first);
+  });
+
+  it('is six lines of craft, not the deleted quiet-today filler', () => {
+    expect(QUIET_SIGNOFFS).toHaveLength(6);
+    QUIET_SIGNOFFS.forEach((line) => {
+      expect(line).not.toMatch(/quiet today|no new sources, updates, or drift/i);
+    });
+  });
+});
+
+describe('the one blue thing', () => {
+  const close = {
+    summary: 'NVDA filed a 10-Q.',
+    lead: { title: 'NVDA filed a 10-Q', page: { title: 'Nvidia dossier' } },
+    claimCheckIn: {
+      pageId: 'wiki-nvda',
+      claimId: 'c1',
+      text: 'Integration retains pricing power.'
+    }
+  };
+
+  it('puts the pulse on the lead when there is a close, even if a check-in is due', () => {
+    expect(morningPulseTarget({ briefing: close })).toBe('lead');
+    expect(isPaperCheckIn(close.claimCheckIn)).toBe(true);
+  });
+
+  it('puts the pulse on the check-in when the morning is otherwise quiet', () => {
+    expect(morningPulseTarget({
+      briefing: { aliveness: { register: 'quiet' }, claimCheckIn: close.claimCheckIn }
+    })).toBe('check-in');
+  });
+
+  it('is silent when nothing is alive', () => {
+    expect(morningPulseTarget({
+      briefing: { aliveness: { register: 'quiet' } }
+    })).toBe('');
+  });
+
+  it('does not serve the repo-wiki dump as a check-in', () => {
+    expect(isPaperCheckIn({
+      pageId: 'wiki-repo',
+      claimId: 'observed',
+      text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries… WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github… debugging only the v…'
+    })).toBe(false);
+  });
+});
+
+describe('check-in tally', () => {
+  it('ticks in the mono register without calling it a streak', () => {
+    expect(formatCheckInTally({ action: 'reaffirmed', count: 4, heldDays: 212 }))
+      .toBe('reaffirmed · 4th · held 212 days');
+    expect(formatCheckInTally({ action: 'reaffirmed', count: 4, heldDays: 212 }))
+      .not.toMatch(/strongest|streak|score/i);
   });
 });

@@ -25,6 +25,9 @@ describe('overnight as a note under the door', () => {
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.judgment__proposal,[\s\S]*?transition:\s*none/
     );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.judgment__index li\.is-forward,[\s\S]*?animation:\s*none/s
+    );
   });
 
   it('moves notes with compositor-safe properties inside the 220ms house rhythm', () => {
