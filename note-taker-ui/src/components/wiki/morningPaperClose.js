@@ -11,9 +11,13 @@ const STALE_DRIFT_PRESENT = /queued signals awaiting a rebuild/i;
 export const completeLeadSentence = (value = '', maxLength = 280) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
-  if (text.length <= maxLength) {
-    return /[.!?]$/.test(text) ? text : `${text}.`;
-  }
+  if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
+  const lastStop = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
+  const complete = lastStop >= 0 && lastStop + 1 <= maxLength
+    ? text.slice(0, lastStop + 1).trim()
+    : '';
+  if (complete) return sentenceBoundaryTrim(complete, { maxLength, fallback: complete });
+  if (text.length <= maxLength) return `${text}.`;
   return sentenceBoundaryTrim(text, { maxLength, fallback: '' });
 };
 
