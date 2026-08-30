@@ -18,7 +18,6 @@ import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
-import WikiCompanyDossierComposer from '../components/wiki/WikiCompanyDossierComposer';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
 import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
@@ -283,30 +282,29 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
           belongs at the top of the room that asks the most: this is the
           weather over the claims, not another claim. */}
       <ReadingDrift articles={articles} loading={readingLoading} unreadable={readingUnreadable} />
-      {/* A judgment starts by being written down. Before this the index could
-          only list what already existed, and the empty state told you a
-          judgment begins the day you write one without giving you anywhere to
-          write it. One line, and the sentence you type is the claim. */}
-      <form className={`judgment__new ${enter}`} onSubmit={submitClaim}>
-        <label htmlFor="judgment-new-claim">What do you think is true?</label>
+      {/* One prompt. The verb is hold a sentence — not a company case, not
+          a door back to this morning's paper. The sentence you type is the
+          claim. Company research still lives on Wiki for people who already
+          keep dossiers; it is not a peer of this field. */}
+      <form
+        className={`judgment__new ${enter}${!items.length && !loading ? ' is-alone' : ''}`}
+        onSubmit={submitClaim}
+      >
+        <label htmlFor="judgment-new-claim">Hold a sentence</label>
         <input
           id="judgment-new-claim"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Write the claim as one sentence."
+          placeholder="One sentence you think is true."
           disabled={creating}
         />
         <div className="judgment__new-actions">
           <button type="submit" disabled={creating || !draft.trim()}>
-            {creating ? 'Writing it down…' : 'Write it down'}
+            {creating ? 'Holding it…' : 'Hold it'}
           </button>
           {createError ? <span role="alert">{createError}</span> : null}
         </div>
       </form>
-      <WikiCompanyDossierComposer
-        className={`judgment__company-case ${enter}`}
-        trackInJudgment
-      />
       {items.length ? (
         <>
           <ul className={`judgment__index ${enter}`}>
@@ -361,22 +359,13 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
           </p>
         </>
       ) : loading ? (
-        /* Not "No claims yet". For the seconds this takes, an index that has
-           not arrived is indistinguishable from an index that is empty, and
-           telling a reader with a dozen claims that they have none is the
-           software describing its own latency as a fact about them. */
+        /* The form is already the empty state. For the seconds this takes,
+           an index that has not arrived is indistinguishable from an index
+           that is empty, and telling a reader with a dozen claims that they
+           have none is the software describing its own latency as a fact
+           about them. */
         <p className="judgment__quiet" role="status">Reading back what you hold…</p>
-      ) : (
-        /* A door, not a form. The composer used to be the only thing on an
-           empty index, which made the product look like a text box. The claim
-           usually comes from something you were already reading. */
-        <div className={`judgment__nothing ${enter}`}>
-          <p>No claims yet.</p>
-          <p className="judgment__nothing-door">
-            <Link to="/wiki">Start one from this morning&rsquo;s paper.</Link>
-          </p>
-        </div>
-      )}
+      ) : null}
     </main>
   );
 };
@@ -668,7 +657,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
 
   /* Library evidence is supporting context, never a release gate. Quiet
      mornings stay silent. The topbar speaks only if the read runs long or
-     fails — not a toast, and not an alarm on the case. */
+     fails — not a toast, and not an alarm on the case.
+     The inbox is for this sentence. When the hold is revised and saved,
+     libraryAttempt advances so this read runs again; stale passages for
+     the previous hold must not sit here. */
   useEffect(() => {
     let cancelled = false;
     let announced = false;
@@ -908,7 +900,15 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     const judgment = reviseCurrentJudgment(current, next, opinionRevisionIdRef.current);
     if (judgment === (current?.judgment || {})) return;
     pageRef.current = { ...current, judgment };
-    await commit(judgment);
+    setLibraryCandidates([]);
+    try {
+      await commit(judgment);
+    } finally {
+      /* The library was asked about the previous sentence. Ask again now
+         that this hold is the one on the page — or, if the save failed,
+         about the sentence that is still there. */
+      setLibraryAttempt(currentAttempt => currentAttempt + 1);
+    }
     const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
     if (researchReview?.status === 'awaiting_review' && next !== prior) {
       await resolveResearchReview('revised');

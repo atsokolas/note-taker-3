@@ -155,7 +155,7 @@ describe('Judgment index', () => {
   it('declares the claim-first Judgment index to the persistent shell', async () => {
     renderIndex();
 
-    await screen.findByText('No claims yet.');
+    await screen.findByLabelText('Hold a sentence');
     expect(useNoeisSurface).toHaveBeenCalledWith(expect.objectContaining({
       room: 'judgment',
       objectType: 'judgment_index',
@@ -177,6 +177,7 @@ describe('Judgment index', () => {
     expect(title).toHaveAttribute('href', '/judgment/wiki-nvidia');
     expect(content.getByText('NVIDIA demand still outruns deliverable capacity.')).toBeInTheDocument();
     expect(screen.queryByText('A plain wiki page')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /company case/i })).not.toBeInTheDocument();
   });
 
   it('hands the case headline off when opening a claim, so the title can fly', async () => {
@@ -223,18 +224,21 @@ describe('Judgment index', () => {
     expect(listWikiPages).toHaveBeenNthCalledWith(2, { limit: 200 });
   });
 
-  /* An empty index used to be a composer with a sentence over it, which made
-     the product look like a text box. It is a door now: the claim usually comes
-     from something you were already reading, so it points back at the paper.
-     The composer stays, below. */
-  it('offers a door to the paper when there is nothing yet', async () => {
+  /* The empty index is one prompt: hold a sentence. A company-case composer
+     used to sit beside it, as if this were an investing app. Wiki still has
+     that path for dossiers; Judgment does not peer it here. */
+  it('asks to hold a sentence, and does not offer a company case', async () => {
     listWikiPages.mockResolvedValue([]);
 
     renderIndex();
 
-    expect(await screen.findByText('No claims yet.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Start one from this morning/ }))
-      .toHaveAttribute('href', '/wiki');
+    expect(await screen.findByLabelText('Hold a sentence')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('One sentence you think is true.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hold it' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /company case/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Create a company case/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /morning/i })).not.toBeInTheDocument();
     expect(document.querySelector('.judgment__index')).not.toBeInTheDocument();
   });
 });
@@ -953,10 +957,10 @@ describe('the agent rail', () => {
     render(<Judgment />);
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByLabelText('What do you think is true?'), {
+    fireEvent.change(screen.getByLabelText('Hold a sentence'), {
       target: { value: 'Demand still outruns deliverable capacity.' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Write it down' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hold it' }));
 
     await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
     expect(createWikiPage).toHaveBeenCalledWith(
@@ -1265,6 +1269,37 @@ describe('Evidence from the library', () => {
     expect(inbox.querySelector('.judgment-inbox__hold')).not.toHaveTextContent(/score|strongest/i);
     expect(screen.queryByText(/NVIDIA reported another quarter/)).not.toBeInTheDocument();
   });
+
+  it('looks again in the library when the held sentence is revised', async () => {
+    const nextHold = 'Rates still matter for asset prices.';
+    const nextCandidate = {
+      id: 'highlight:a2:h2',
+      kind: 'highlight',
+      text: 'Rates still matter for long-duration asset prices.',
+      sourceLabel: 'On duration · FT'
+    };
+    getJudgmentLibraryEvidence
+      .mockResolvedValueOnce({ claim: 'c', terms: ['capacity'], candidates: [candidate] })
+      .mockResolvedValueOnce({ claim: 'c', terms: ['rates', 'asset'], candidates: [nextCandidate] });
+    updateWikiPage.mockImplementation(async (_id, body) => ({
+      ...judgmentPage(),
+      judgment: body.judgment
+    }));
+
+    renderDetail();
+    expect(await screen.findByText(candidate.text)).toBeInTheDocument();
+    expect(getJudgmentLibraryEvidence).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByLabelText('What you hold'), { target: { value: nextHold } });
+    fireEvent.blur(screen.getByLabelText('What you hold'));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(nextCandidate.text)).toBeInTheDocument();
+    expect(screen.queryByText(candidate.text)).not.toBeInTheDocument();
+    expect(screen.queryByText(/toast/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'On this sentence' })).toBeInTheDocument();
+  });
 });
 
 describe('Parking a judgment, and the lesson it leaves', () => {
@@ -1540,6 +1575,7 @@ describe('The index while it is still loading', () => {
 
     expect(await screen.findByText('Reading back what you hold…')).toBeInTheDocument();
     expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Hold a sentence')).toBeInTheDocument();
 
     await act(async () => { release([judgmentPage()]); });
     expect(await within(document.querySelector('.judgment-room__content'))
@@ -1547,10 +1583,13 @@ describe('The index while it is still loading', () => {
     expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
   });
 
-  it('still says so once it knows the index really is empty', async () => {
+  it('still offers the hold once it knows the index really is empty', async () => {
     listWikiPages.mockResolvedValue([]);
     listWikiSourceEvents.mockResolvedValue([]);
     renderIndex();
-    expect(await screen.findByText('No claims yet.')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Hold a sentence')).toBeInTheDocument();
+    expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
+    expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /company case/i })).not.toBeInTheDocument();
   });
 });
