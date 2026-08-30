@@ -11,7 +11,7 @@ import {
 } from '../../api/organize';
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
-import PassageDoor from '../reader/PassageDoor';
+import PassageDoor from '../reader/PassageDoorView';
 
 const ITEM_TYPES = [
   { value: 'note', label: 'Note' },

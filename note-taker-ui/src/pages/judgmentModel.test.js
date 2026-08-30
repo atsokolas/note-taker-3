@@ -410,6 +410,21 @@ describe('judgmentModel', () => {
     ]);
   });
 
+  it('keeps a saved passage bound to its exact Library article', () => {
+    const judgment = acceptProposalIntoJudgment(page(), {
+      id: 'agent-reply:temporary',
+      body: 'Signed capacity grew faster than expected.',
+      sourceLabel: 'Capacity disclosures',
+      acceptedFrom: 'article:article-9'
+    }, 'against');
+
+    expect(judgment.against.at(-1)).toEqual(expect.objectContaining({
+      text: 'Signed capacity grew faster than expected.',
+      sourceLabel: 'Capacity disclosures',
+      acceptedFrom: 'article:article-9'
+    }));
+  });
+
   it('carries legacy lines forward when the first accept lands on a dossier page', () => {
     const legacy = {
       _id: 'legacy',

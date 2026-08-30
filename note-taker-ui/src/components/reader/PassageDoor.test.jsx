@@ -2,7 +2,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { listWikiPages, updateWikiPage } from '../../api/wiki';
-import PassageDoor from './PassageDoor';
+import PassageDoor from './PassageDoorView';
 
 jest.mock('../../api/wiki', () => ({
   listWikiPages: jest.fn(async () => []),

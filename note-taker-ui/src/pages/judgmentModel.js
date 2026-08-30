@@ -610,8 +610,8 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
       ...current.map(persistReason),
       stampedReason({
         text: clean(proposal?.body || proposal?.sentence),
-        acceptedFrom: clean(proposal?.id),
-        sourceLabel: clean(proposal?.sourceLabel)
+        acceptedFrom: clean(proposal?.acceptedFrom || proposal?.id),
+        sourceLabel: clean(proposal?.sourceLabel || proposal?.source)
       })
     ]
   };

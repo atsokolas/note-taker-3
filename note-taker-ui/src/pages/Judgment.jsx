@@ -61,7 +61,7 @@ import '../styles/judgment.css';
 // already on screen before this column arrived and it will still be there after
 // the column changes. This page only tells it what it is looking at.
 
-const COUNTER_QUESTION = 'What in my library argues against this claim? Answer in one sentence.';
+const COUNTER_QUESTION = 'What is the strongest saved passage in my Library that argues against this exact claim? Quote the passage and explain the pressure it creates.';
 
 /* What a save has to come back holding. Read off the stored contract rather
    than the projection, because this is checking what the server kept. */
@@ -1131,7 +1131,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           disabled={asking}
           onClick={() => ask?.(COUNTER_QUESTION, { fields: ['against'], origin: 'Asked of this claim' })}
         >
-          {asking ? 'Looking through your library…' : 'Find something that argues against this'}
+          {asking ? 'Looking through your library…' : 'Find the strongest passage against this'}
         </button>
         {asking ? (
           <p className="judgment__door-note" role="status">Whatever comes back appears in the margin. Nothing is written until you accept it.</p>

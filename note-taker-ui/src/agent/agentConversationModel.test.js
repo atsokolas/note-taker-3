@@ -1,10 +1,25 @@
 import {
+  buildAgentEvidenceCandidates,
   buildAgentContext,
   mapAgentThreadMessages,
   sourceLabelForAgentMessage
 } from './agentConversationModel';
 
 describe('agent conversation model', () => {
+  it('turns only exact, Library-openable article excerpts into Judgment evidence', () => {
+    expect(buildAgentEvidenceCandidates([
+      { type: 'article', id: 'article-1', title: 'Grid queues', snippet: 'Interconnection waits still constrain new supply.' },
+      { type: 'wiki_page', id: 'wiki-1', title: 'A synthesis', snippet: 'Agent-written synthesis.' },
+      { type: 'article', id: 'article-2', title: 'Empty excerpt', snippet: '   ' }
+    ])).toEqual([{
+      sentence: 'Interconnection waits still constrain new supply.',
+      body: 'Interconnection waits still constrain new supply.',
+      source: 'Grid queues',
+      sourceLabel: 'Grid queues',
+      acceptedFrom: 'article:article-1'
+    }]);
+  });
+
   it('binds a Wiki and Judgment page to the exact accepted page identity', () => {
     expect(buildAgentContext({
       room: 'wiki',

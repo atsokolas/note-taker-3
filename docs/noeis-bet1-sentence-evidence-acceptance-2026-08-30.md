@@ -25,10 +25,20 @@ local implementation proof, not merge, deployment, or production proof.
 - The sentence, explanation, and filing actions render without clipping at
   1440px, 1320px, and 430px widths.
 - Reduced-motion behavior retains every action without the handoff animation.
+- The durable cross-room agent may explain its answer freely, but Judgment only
+  offers an exact saved article excerpt as an actionable evidence proposal.
+- Accepting that proposal stores `article:<id>` rather than the ephemeral agent
+  reply id, so the filed line can return to its Library source.
+- A reply without a saved article excerpt remains conversation only. It cannot
+  create a Judgment write action.
+- Wiki keeps the same durable thread, exact page identity, and no-write surface
+  behavior; this slice does not change ordinary Wiki generation or reading.
 
 ## Not yet Bet 1 complete
 
-- Counterevidence needs the same exact-sentence selection contract.
+- Counterevidence is source-bound and fail-closed locally. Its semantic claim to
+  be the *strongest* passage still needs the final arbitrary-sentence gauntlet;
+  no live-model quality evaluation was run in this slice.
 - Preserve, reject, and defer need receipt-bound end-to-end disposition proof.
 - The acceptance gesture still needs the brief Ariadne provenance line.
 - The full exit gauntlet must begin from arbitrary sentences, inspect both

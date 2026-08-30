@@ -87,6 +87,29 @@ export const buildAgentMessage = ({ role, text, result = null } = {}) => ({
   modelRoute: result?.modelRoute && typeof result.modelRoute === 'object' ? result.modelRoute : null
 });
 
+/* A Judgment can converse about anything, but it may only file a passage the
+   Library can open again. The agent reply is commentary; the saved article
+   excerpt is evidence. Keeping that distinction here lets every room share
+   one durable conversation without giving prose a back door into a belief. */
+export const buildAgentEvidenceCandidates = (items = []) => (
+  (Array.isArray(items) ? items : [])
+    .map((item = {}) => {
+      const type = clean(item.type).toLowerCase();
+      const id = clean(item.id || item.itemId);
+      const sentence = clean(item.snippet);
+      const source = clean(item.title) || 'Untitled source';
+      if (type !== 'article' || !id || !sentence) return null;
+      return {
+        sentence,
+        body: sentence,
+        source,
+        sourceLabel: source,
+        acceptedFrom: `article:${id}`
+      };
+    })
+    .filter(Boolean)
+);
+
 export const mapAgentStructureProposal = (proposal = {}) => ({
   structureProposalId: clean(proposal?.structureProposalId),
   sourceThreadId: clean(proposal?.sourceThreadId),

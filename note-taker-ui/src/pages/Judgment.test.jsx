@@ -80,6 +80,11 @@ const overnightEvent = () => ({
   createdAt: '2026-08-14T04:00:00.000Z'
 });
 
+const articleReply = (reply, id = 'article-counter-1', title = 'Capacity disclosures') => ({
+  reply,
+  relatedItems: [{ type: 'article', id, title, snippet: reply }]
+});
+
 const dossierResearchReview = () => ({
   id: 'company-dossier-judgment-review:wiki-nvidia:candidate-1',
   kind: 'company_dossier_judgment_review',
@@ -844,10 +849,10 @@ describe('the agent rail', () => {
     });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
-    expect(await within(rail).findByText('SemiAnalysis')).toBeInTheDocument();
+    expect(await within(rail).findByText('From SemiAnalysis')).toBeInTheDocument();
   });
 
   it('does not invent additional candidates when the durable reply contains one answer', async () => {
@@ -855,7 +860,7 @@ describe('the agent rail', () => {
     streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
 
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
@@ -878,12 +883,12 @@ describe('the agent rail', () => {
 
   it('runs the column door in the rail and only writes when the human accepts', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue({ reply: 'Supply is catching up faster than the thesis assumes.' });
+    streamChatWithAgent.mockResolvedValue(articleReply('Supply is catching up faster than the thesis assumes.'));
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
 
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     expect(await within(rail).findByText('Supply is catching up faster than the thesis assumes.')).toBeInTheDocument();
@@ -901,7 +906,7 @@ describe('the agent rail', () => {
 
   it('asks in the human’s own words and lets them choose the field', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue({ reply: 'Packaging capacity is still the binding constraint.' });
+    streamChatWithAgent.mockResolvedValue(articleReply('Packaging capacity is still the binding constraint.'));
     updateWikiPage.mockImplementation(async (_id, updates) => ({ ...judgmentPage(), judgment: updates.judgment }));
 
     renderDetail();
@@ -928,11 +933,11 @@ describe('the agent rail', () => {
 
   it('dismisses a retrieved line without writing anything', async () => {
     getWikiPage.mockResolvedValue(judgmentPage());
-    streamChatWithAgent.mockResolvedValue({ reply: 'A line the human does not want.' });
+    streamChatWithAgent.mockResolvedValue(articleReply('A line the human does not want.'));
 
     renderDetail();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Find something that argues against this' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage against this' }));
     const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
     await within(rail).findByText('A line the human does not want.');
 
