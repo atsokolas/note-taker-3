@@ -628,6 +628,20 @@ describe('wikiAskService', () => {
       expect(rankingQuestion).not.toContain('preface29');
     });
 
+    it('keeps meaningful title terms even when they are generic inside long bodies', () => {
+      const rankingQuestion = buildWikiPageListRankingQuestion({
+        page: {
+          title: 'Capital Allocation',
+          plainText: 'Capital, cash, market, valuation, and returns recur throughout the analysis.'
+        },
+        question: 'Name the relevant Wiki pages.'
+      });
+
+      expect(rankingQuestion).toContain('capital allocation');
+      expect(rankingQuestion).not.toMatch(/\bcash\b/);
+      expect(rankingQuestion).not.toMatch(/\bvaluation\b/);
+    });
+
     it('keeps repository wikis available only when the selected page or question calls for them', () => {
       const repository = { pageType: 'repo', title: 'Noeis repository wiki' };
       expect(isCompatibleWikiListCandidate({
