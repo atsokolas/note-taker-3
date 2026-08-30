@@ -53,8 +53,7 @@ describe('MorningCheckIn', () => {
       claimId: 'c1',
       action: 'reaffirmed'
     }));
-    const hold = screen.getByRole('button', { name: 'Still hold' });
-    expect(hold).toHaveClass('is-inked');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Still hold' })).toHaveClass('is-inked'));
     expect(screen.getByText(/reaffirmed · 4th · held/)).toBeInTheDocument();
     expect(screen.getByLabelText('Morning check-in')).toHaveClass('is-settled');
   });

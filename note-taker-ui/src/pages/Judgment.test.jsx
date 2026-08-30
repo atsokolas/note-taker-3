@@ -1064,6 +1064,7 @@ describe('the agent rail', () => {
 
     render(<Judgment />);
     await waitFor(() => expect(listWikiPages).toHaveBeenCalled());
+    await waitFor(() => expect(document.querySelector('.judgment__new')).toHaveClass('is-alone'));
 
     fireEvent.change(screen.getByLabelText('Hold a sentence'), {
       target: { value: 'Demand still outruns deliverable capacity.' }
@@ -1077,10 +1078,11 @@ describe('the agent rail', () => {
     const [, payload] = updateWikiPage.mock.calls[0];
     expect(payload.judgment.currentJudgment).toBe('Demand still outruns deliverable capacity.');
     expect(payload.judgment.kind).toBeUndefined();
-    expect(await screen.findByRole('link', { name: 'Demand still outruns deliverable capacity.' }))
+    const content = within(document.querySelector('.judgment-room__content'));
+    expect(await content.findByRole('link', { name: 'Demand still outruns deliverable capacity.' }))
       .toHaveAttribute('href', '/judgment/wiki-new');
-    expect(screen.getByText('held · today')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Noted. I’ll look for what cuts against it.');
+    expect(content.getByText('held · today')).toBeInTheDocument();
+    expect(content.getByText('Noted. I’ll look for what cuts against it.')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Hold a sentence')).toHaveValue(''));
   });
 
@@ -1098,7 +1100,8 @@ describe('the agent rail', () => {
     });
 
     render(<Judgment />);
-    expect(await screen.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
+    const content = within(document.querySelector('.judgment-room__content'));
+    expect(await content.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Hold a sentence'), {
       target: { value: 'NVIDIA demand still outruns deliverable capacity.' }
@@ -1107,10 +1110,10 @@ describe('the agent rail', () => {
 
     await waitFor(() => expect(createWikiPage).toHaveBeenCalled());
     expect(updateWikiPage).not.toHaveBeenCalled();
-    const row = screen.getByRole('link', { name: 'NVIDIA' }).closest('li');
-    expect(row).toHaveClass('is-forward');
-    expect(row).toHaveTextContent('You already hold this — 21 days.');
-    expect(screen.queryByText(/Noted\. I’ll look for what cuts against it/)).not.toBeInTheDocument();
+    await waitFor(() => expect(content.getByRole('link', { name: 'NVIDIA' }).closest('li')).toHaveClass('is-forward'));
+    expect(content.getByRole('link', { name: 'NVIDIA' }).closest('li'))
+      .toHaveTextContent('You already hold this — 21 days.');
+    expect(content.queryByText(/Noted\. I’ll look for what cuts against it/)).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Hold a sentence')).toHaveValue(''));
   });
 

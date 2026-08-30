@@ -2,8 +2,9 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
-import { resetFirstPaint } from '../../motion/columnMotion';
+import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
+import { resetFirstPaint } from '../../motion/columnMotion';
 
 /* Morning Paper is close-or-silence on this page, not a second hub. */
 jest.mock('./WeeklyDigest', () => () => null);
