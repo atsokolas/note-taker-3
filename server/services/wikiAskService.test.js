@@ -561,6 +561,7 @@ describe('wikiAskService', () => {
       });
 
       expect(find).toHaveBeenCalledTimes(1);
+      expect(select).toHaveBeenCalledWith('title slug pageType updatedAt');
       expect(findWikiBacklinks).not.toHaveBeenCalled();
       expect(corpus.relatedPages.map(page => page.title)).toEqual([
         'Membership economics',
