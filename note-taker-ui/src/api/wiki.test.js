@@ -4,6 +4,7 @@ import {
   approveWeekendReadingsRevision,
   createRepoWikiFromGitHub,
   getWeekendReadingsStatus,
+  listWikiPages,
   maintainWikiPage,
   publishWeekendReadingsRevision,
   requestWeekendReadingsReview,
@@ -38,6 +39,54 @@ describe('wiki judgment api', () => {
     expect(api.post.mock.calls[0][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot');
     expect(api.post.mock.calls[1][0]).toBe('/api/wiki/pages/page%201/judgment/initial-snapshot/restore');
     expect(getAuthHeaders).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('wiki page list api', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('walks every stable server cursor when the review queue asks for the full corpus', async () => {
+    api.get
+      .mockResolvedValueOnce({
+        data: { pages: [{ _id: 'page-1' }], nextScanCursor: 'cursor-2' }
+      })
+      .mockResolvedValueOnce({
+        data: { pages: [{ _id: 'page-2' }, { _id: 'page-1' }], nextScanCursor: null }
+      });
+
+    await expect(listWikiPages({
+      quality: 'needs_review',
+      summary: 1,
+      scanAll: true
+    })).resolves.toEqual([{ _id: 'page-1' }, { _id: 'page-2' }]);
+
+    expect(api.get.mock.calls.map(([path]) => path)).toEqual([
+      '/api/wiki/pages?quality=needs_review&summary=1&limit=200&scanCursor=start',
+      '/api/wiki/pages?quality=needs_review&summary=1&limit=200&scanCursor=cursor-2'
+    ]);
+  });
+
+  it('fails clearly when a server cursor cycles instead of advancing', async () => {
+    api.get
+      .mockResolvedValueOnce({
+        data: { pages: [{ _id: 'page-1' }], nextScanCursor: 'cursor-2' }
+      })
+      .mockResolvedValueOnce({
+        data: { pages: [{ _id: 'page-2' }], nextScanCursor: 'start' }
+      });
+
+    await expect(listWikiPages({
+      quality: 'needs_review',
+      scanAll: true
+    })).rejects.toThrow('did not advance');
+
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects full scans outside the review queue', async () => {
+    await expect(listWikiPages({ quality: 'ok', scanAll: true }))
+      .rejects.toThrow('only available for the review queue');
+    expect(api.get).not.toHaveBeenCalled();
   });
 });
 

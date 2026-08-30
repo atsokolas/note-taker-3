@@ -41,4 +41,42 @@ describe('reviewTriageModel', () => {
     expect(reviewFacetCount(41)).toBe(3);
     expect(buildReviewTriage({ pages: [], now: NOW }).frame).toBe('');
   });
+
+  it('revives an expired review when newer source activity arrives', () => {
+    const triage = buildReviewTriage({
+      now: NOW,
+      pages: [page('repo', {
+        title: 'note-taker-3 — repo wiki',
+        createdFrom: { type: 'github_repo' },
+        freshness: {
+          status: 'needs_review',
+          pendingSourceEventIds: ['fresh-event'],
+          reviewExpiredAt: new Date(NOW - 2 * 24 * 60 * 60 * 1000),
+          lastSourceEventAt: new Date(NOW - 24 * 60 * 60 * 1000)
+        }
+      })]
+    });
+
+    expect(triage.promoted.map((item) => item.pageId)).toEqual(['repo']);
+    expect(triage.expiredCount).toBe(0);
+  });
+
+  it('never expires a judgment page through the low-stakes policy', () => {
+    const triage = buildReviewTriage({
+      now: NOW,
+      pages: [page('judgment-edition', {
+        title: 'System thesis',
+        createdFrom: { type: 'research_edition' },
+        judgment: { kind: 'investment' },
+        freshness: {
+          status: 'needs_review',
+          reviewExpiredAt: new Date(NOW - 24 * 60 * 60 * 1000),
+          lastReviewedAt: new Date(NOW - 60 * 24 * 60 * 60 * 1000)
+        }
+      })]
+    });
+
+    expect(triage.promoted.map((item) => item.pageId)).toEqual(['judgment-edition']);
+    expect(triage.expiredCount).toBe(0);
+  });
 });

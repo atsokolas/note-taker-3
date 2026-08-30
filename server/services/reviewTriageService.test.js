@@ -52,6 +52,44 @@ describe('reviewTriageService', () => {
     });
   });
 
+  test('revives an expired review when newer source activity arrives', () => {
+    const triage = buildReviewTriage({
+      now: NOW,
+      pages: [page('repo', {
+        title: 'note-taker-3 — repo wiki',
+        createdFrom: { type: 'github_repo' },
+        freshness: {
+          status: 'needs_review',
+          pendingSourceEventIds: ['fresh-event'],
+          reviewExpiredAt: new Date(NOW - 2 * 24 * 60 * 60 * 1000),
+          lastSourceEventAt: new Date(NOW - 24 * 60 * 60 * 1000)
+        }
+      })]
+    });
+
+    expect(triage.promoted.map(item => item.pageId)).toEqual(['repo']);
+    expect(triage.expiredCount).toBe(0);
+  });
+
+  test('never expires a judgment page through the low-stakes policy', () => {
+    const triage = buildReviewTriage({
+      now: NOW,
+      pages: [page('judgment-edition', {
+        title: 'System thesis',
+        createdFrom: { type: 'research_edition' },
+        judgment: { kind: 'investment' },
+        freshness: {
+          status: 'needs_review',
+          reviewExpiredAt: new Date(NOW - 24 * 60 * 60 * 1000),
+          lastReviewedAt: new Date(NOW - 60 * 24 * 60 * 60 * 1000)
+        }
+      })]
+    });
+
+    expect(triage.promoted.map(item => item.pageId)).toEqual(['judgment-edition']);
+    expect(triage.expiredCount).toBe(0);
+  });
+
   test('stays silent when nothing remains to review', () => {
     expect(formatReviewTriageFrame({ promotedCount: 0, minorCount: 0 })).toBe('');
     expect(buildReviewTriage({ pages: [], now: NOW }).frame).toBe('');
@@ -65,8 +103,8 @@ describe('reviewTriageService', () => {
   test('inks expiry on low-stakes pages without accepting them', async () => {
     const updates = [];
     const WikiPage = {
-      updateMany: async (query, update) => {
-        updates.push({ query, update });
+      updateMany: async (query, update, options) => {
+        updates.push({ query, update, options });
         return { acknowledged: true };
       }
     };
@@ -85,5 +123,6 @@ describe('reviewTriageService', () => {
     expect(updates[0].query._id.$in).toEqual(['repo']);
     expect(updates[0].update.$set['freshness.reviewExpiredAt']).toEqual(new Date(NOW));
     expect(updates[0].update.$set.lastReviewedAt).toBeUndefined();
+    expect(updates[0].options).toEqual({ timestamps: false });
   });
 });

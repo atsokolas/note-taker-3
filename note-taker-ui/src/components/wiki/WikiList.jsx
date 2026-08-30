@@ -245,7 +245,10 @@ const WikiList = ({ compact = false, onOpenPage }) => {
     if (pageType !== 'all') params.pageType = pageType;
     if (visibility !== 'all') params.visibility = visibility;
     if (status !== 'all') params.status = status;
-    if (needsReviewFilter) params.quality = 'needs_review';
+    if (needsReviewFilter) {
+      params.quality = 'needs_review';
+      params.scanAll = true;
+    }
     return params;
   }, [needsReviewFilter, pageType, query, status, visibility]);
 

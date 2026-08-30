@@ -20,18 +20,22 @@ const isLowStakesPage = page => {
     || createdType === 'research_edition'
     || /(?:repo wiki|this week in ai|system|acceptance|agent process)/i.test(`${page?.title || ''} ${label}`);
 };
-const reviewTimestamp = page => time(
-  page?.freshness?.lastSourceEventAt
-  || page?.freshness?.lastReviewedAt
-  || page?.updatedAt
-  || page?.createdAt
+const reviewTimestamp = page => Math.max(
+  time(page?.freshness?.lastSourceEventAt),
+  time(page?.freshness?.lastReviewedAt),
+  time(page?.updatedAt),
+  time(page?.createdAt)
 );
+// The browser fallback mirrors this lifecycle contract; both suites carry the
+// same revival fixture so an expiry cannot outlive newer source activity.
 const reviewExpired = (page, now = Date.now()) => {
-  if (page?.lastVisitedAt) return false;
-  if (page?.freshness?.reviewExpiredAt) return true;
+  if (page?.lastVisitedAt || isJudgmentPage(page)) return false;
+  const expiredAt = time(page?.freshness?.reviewExpiredAt);
+  const activityAt = reviewTimestamp(page);
+  if (expiredAt && expiredAt >= activityAt) return true;
   return isLowStakesPage(page)
-    && reviewTimestamp(page) > 0
-    && now - reviewTimestamp(page) >= LOW_STAKES_REVIEW_TTL_DAYS * DAY_MS;
+    && activityAt > 0
+    && now - activityAt >= LOW_STAKES_REVIEW_TTL_DAYS * DAY_MS;
 };
 const needsReview = page => {
   const status = String(page?.qualityReview?.status || page?.freshness?.status || '').toLowerCase();
@@ -119,7 +123,8 @@ const expireLowStakesReviews = async ({
       ...(userId ? { userId } : {}),
       _id: { $in: expiredIds }
     },
-    { $set: { 'freshness.reviewExpiredAt': new Date(now) } }
+    { $set: { 'freshness.reviewExpiredAt': new Date(now) } },
+    { timestamps: false }
   );
   return expiredIds.length;
 };

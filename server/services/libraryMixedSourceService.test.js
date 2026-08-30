@@ -4,7 +4,6 @@ const {
   decodeCursor,
   highlightDisplayTitle,
   MIXED_SOURCE_RECENT_SCAN_LIMIT,
-  MIXED_SOURCE_REVIEW_SCAN_LIMIT,
   movementScanLimitFor
 } = require('./libraryMixedSourceService');
 
@@ -29,6 +28,21 @@ const modelFor = rows => ({
     && row.archived !== true
   )).length
 });
+
+const recordingModelFor = (rows, label, limits) => {
+  const model = modelFor(rows);
+  return {
+    ...model,
+    find: () => {
+      const query = new Query(rows);
+      query.limit = value => {
+        limits.push([label, value]);
+        return query;
+      };
+      return query;
+    }
+  };
+};
 
 const articleOne = {
   _id: '64f100000000000000000011',
@@ -178,7 +192,6 @@ const run = async () => {
     articleOne.highlights[0].text
   );
   assert.strictEqual(MIXED_SOURCE_RECENT_SCAN_LIMIT, 80);
-  assert.strictEqual(MIXED_SOURCE_REVIEW_SCAN_LIMIT, 80);
   assert.strictEqual(movementScanLimitFor(3), 12);
   assert.strictEqual(movementScanLimitFor(20), 50);
   assert.strictEqual(movementScanLimitFor(100), 50);
@@ -276,7 +289,7 @@ const run = async () => {
     userId: USER_ID,
     models,
     view: 'needs_review',
-    limit: 3,
+    limit: 20,
     movementBuilder: async () => [
       {
         id: 'minor-note',
@@ -323,14 +336,104 @@ const run = async () => {
     rankedReview.sources.map(row => `${row.source.type}:${row.source.id}`),
     [
       `highlight:${articleOne.highlights[0]._id}`,
-      `article:${articleOne._id}`,
-      `article:${articleTwo._id}`
+      `article:${articleTwo._id}`,
+      `note:${noteOne._id}`
     ]
   );
   assert.strictEqual(rankedReview.sources.length, 3);
   assert.strictEqual(rankedReview.counts.needs_review.value, 4);
-  assert.strictEqual(rankedReview.hasMore, true);
+  assert.strictEqual(rankedReview.hasMore, false);
+  assert.strictEqual(rankedReview.nextCursor, null);
   assert.strictEqual(rankedReview.sources[0].relevance.reviewReason, 'Supports a claim under review');
+
+  const visitedReviewPage = {
+    _id: '64f100000000000000000053',
+    userId: USER_ID,
+    title: 'Frequently used review page',
+    status: 'published',
+    plainText: 'This maintained page has enough editorial context to remain visible while a fresh source signal waits for review by the owner.',
+    freshness: { status: 'needs_review', pendingSourceEventIds: [] },
+    sourceRefs: [{
+      _id: '64f100000000000000000063',
+      type: 'article',
+      objectId: articleTwo._id
+    }],
+    claims: []
+  };
+  const judgmentReviewPage = {
+    _id: '64f100000000000000000054',
+    userId: USER_ID,
+    title: 'Judgment review page',
+    status: 'published',
+    plainText: 'This maintained judgment page has enough editorial context to remain visible while its owner considers a material source change.',
+    freshness: { status: 'needs_review', pendingSourceEventIds: ['signal-1'] },
+    judgment: { kind: 'investment' },
+    sourceRefs: [{
+      _id: '64f100000000000000000064',
+      type: 'article',
+      objectId: articleOne._id
+    }],
+    claims: []
+  };
+  const visitFindQueries = [];
+  const reviewQueryLimits = [];
+  const pageSignalReview = await buildMixedLibraryRelevancePage({
+    userId: USER_ID,
+    models: {
+      ...models,
+      Article: recordingModelFor(
+        [articleOne, articleTwo, suppressedArticle, foreignArticle],
+        'articles',
+        reviewQueryLimits
+      ),
+      NotebookEntry: recordingModelFor([noteOne], 'notes', reviewQueryLimits),
+      WikiPage: recordingModelFor(
+        [visitedReviewPage, judgmentReviewPage],
+        'wiki-pages',
+        reviewQueryLimits
+      ),
+      WikiPageVisit: {
+        find: query => {
+          visitFindQueries.push(query);
+          return new Query([{
+            userId: USER_ID,
+            pageId: visitedReviewPage._id,
+            lastVisitedAt: '2026-08-29T12:00:00.000Z'
+          }].filter(visit => query.pageId.$in.includes(visit.pageId)));
+        }
+      }
+    },
+    view: 'needs_review',
+    limit: 3,
+    movementBuilder: async () => []
+  });
+  assert.deepStrictEqual(
+    pageSignalReview.sources.map(row => row.source.id),
+    [articleOne._id, articleTwo._id]
+  );
+  assert.strictEqual(
+    pageSignalReview.sources[0].relevance.reviewReason,
+    'Attached to a judgment page'
+  );
+  assert.deepStrictEqual(
+    visitFindQueries[0].pageId.$in.sort(),
+    [visitedReviewPage._id, judgmentReviewPage._id].sort()
+  );
+  assert.deepStrictEqual(reviewQueryLimits, []);
+  assert.deepStrictEqual(
+    pageSignalReview.sources[1].relevance.connected.map(ref => ({
+      id: ref.id,
+      lastVisitedAt: ref.lastVisitedAt
+    })),
+    [{
+      id: visitedReviewPage._id,
+      lastVisitedAt: '2026-08-29T12:00:00.000Z'
+    }]
+  );
+  assert.strictEqual(
+    pageSignalReview.sources[1].relevance.reviewReason,
+    'Frequently used page · review affects active work'
+  );
 
   const quietReview = await buildMixedLibraryRelevancePage({
     userId: USER_ID,

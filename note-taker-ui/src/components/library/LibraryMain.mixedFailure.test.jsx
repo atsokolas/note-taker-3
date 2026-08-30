@@ -106,7 +106,7 @@ describe('LibraryMain mixed-source failure boundary', () => {
       error: '',
       paginationError: '',
       coverage: null,
-      counts: { needs_review: { value: 0, exact: false } },
+      counts: { needs_review: { value: null, exact: false } },
       sources: [],
       nextCursor: null,
       hasMore: false,
@@ -124,9 +124,8 @@ describe('LibraryMain mixed-source failure boundary', () => {
     );
 
     expect(await screen.findByTestId('source-list'))
-      .toHaveTextContent('0 sources');
+      .toHaveTextContent('0 sources · ready · 149 minor');
     expect(screen.queryByText(/0 worth your attention/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/149/)).not.toBeInTheDocument();
   });
 
   it('frames a live review room as triage rather than a backlog', async () => {
@@ -158,7 +157,6 @@ describe('LibraryMain mixed-source failure boundary', () => {
     );
 
     expect(await screen.findByTestId('source-list'))
-      .toHaveTextContent('3 worth your attention · 2 minor');
-    expect(screen.queryByText(/149/)).not.toBeInTheDocument();
+      .toHaveTextContent('3 worth your attention · 146 minor');
   });
 });

@@ -96,14 +96,18 @@ const LibraryMain = ({
         ? 'Unconnected'
         : 'Recently added';
   const surfacedReviewCount = Math.min(3, relevance.sources.length);
-  const mixedReviewTotal = Number(relevance.counts?.needs_review?.value);
+  const rawMixedReviewTotal = relevance.counts?.needs_review?.value;
+  const mixedReviewTotal = rawMixedReviewTotal == null ? NaN : Number(rawMixedReviewTotal);
+  const reviewTotal = Number.isFinite(reviewBacklogCount)
+    ? reviewBacklogCount
+    : mixedReviewTotal;
   const viewSubtitle = sourceView === 'active'
     ? 'Sources currently supporting, challenging, or changing your work.'
     : sourceView === 'needs_review'
       ? formatReviewTriageFrame({
         promotedCount: surfacedReviewCount,
-        minorCount: Number.isFinite(mixedReviewTotal)
-          ? Math.max(0, mixedReviewTotal - surfacedReviewCount)
+        minorCount: Number.isFinite(reviewTotal)
+          ? Math.max(0, reviewTotal - surfacedReviewCount)
           : 0
       })
       : sourceView === 'unconnected'

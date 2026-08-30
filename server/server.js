@@ -5452,6 +5452,7 @@ app.use(buildLibraryRelevanceRouter({
   NotebookEntry,
   TagMeta,
   WikiPage,
+  WikiPageVisit,
   WikiRevision,
   WikiSourceEvent,
   NoeisReceipt,

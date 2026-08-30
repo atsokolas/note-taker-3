@@ -26,6 +26,9 @@ const matches = (record, query = {}) => Object.entries(query).every(([key, value
   if (value && typeof value === 'object' && Array.isArray(value.$in)) {
     return value.$in.map(String).includes(String(recordValue || ''));
   }
+  if (value && typeof value === 'object' && value.$lt !== undefined) {
+    return String(recordValue || '') < String(value.$lt || '');
+  }
   if (value && typeof value === 'object' && value.$not instanceof RegExp) {
     return !value.$not.test(String(recordValue || ''));
   }
@@ -66,11 +69,33 @@ class Query {
     this.value = value;
   }
 
-  sort() {
+  sort(spec = {}) {
+    if (Array.isArray(this.value)) {
+      this.value.sort((left, right) => {
+        for (const [key, rawDirection] of Object.entries(spec)) {
+          const direction = Number(rawDirection) < 0 ? -1 : 1;
+          const leftRaw = valueAtPath(left, key);
+          const rightRaw = valueAtPath(right, key);
+          const leftTime = /At$/.test(key) ? new Date(leftRaw || 0).getTime() : NaN;
+          const rightTime = /At$/.test(key) ? new Date(rightRaw || 0).getTime() : NaN;
+          const leftValue = Number.isFinite(leftTime) ? leftTime : String(leftRaw || '');
+          const rightValue = Number.isFinite(rightTime) ? rightTime : String(rightRaw || '');
+          if (leftValue === rightValue) continue;
+          return leftValue < rightValue ? -direction : direction;
+        }
+        return 0;
+      });
+    }
     return this;
   }
 
-  limit() {
+  skip(value) {
+    if (Array.isArray(this.value)) this.value = this.value.slice(Number(value) || 0);
+    return this;
+  }
+
+  limit(value) {
+    if (Array.isArray(this.value)) this.value = this.value.slice(0, Number(value) || 0);
     return this;
   }
 
@@ -1545,6 +1570,72 @@ const run = async () => {
     assert.strictEqual(reviewQualityList.res.status, 200, reviewQualityList.text);
     assert.ok(reviewQualityList.body.some(page => page.title === 'Sparse Legitimate Draft'));
     assert.ok(reviewQualityList.body.some(page => page.title === 'Complementary Machine Thing'));
+
+    const queueScanTarget = new WikiPage({
+      userId: 'user-1',
+      title: 'Queue scan fixture target',
+      slug: 'queue-scan-fixture-target',
+      pageType: 'topic',
+      status: 'draft',
+      visibility: 'private',
+      plainText: '',
+      updatedAt: new Date('2026-01-01T00:00:00.000Z')
+    });
+    await queueScanTarget.save();
+    const queueScanNoise = Array.from({ length: 101 }, (_, index) => ({
+      userId: 'user-1',
+      title: `Queue scan fixture ordinary ${index + 1}`,
+      slug: `queue-scan-fixture-ordinary-${index + 1}`,
+      pageType: 'topic',
+      status: 'published',
+      visibility: 'private',
+      plainText: 'This maintained page contains enough grounded editorial context to pass the quality gate without entering the review queue. Its only purpose is to prove that post-query filtering does not hide an older eligible review item from a bounded result.',
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z')
+    }));
+    await Promise.all(queueScanNoise.map(page => new WikiPage(page).save()));
+    const deepReviewQualityList = await request(
+      url,
+      '/api/wiki/pages?quality=needs_review&q=Queue%20scan%20fixture&limit=1'
+    );
+    assert.strictEqual(deepReviewQualityList.res.status, 200, deepReviewQualityList.text);
+    assert.deepStrictEqual(
+      deepReviewQualityList.body.map(page => page.title),
+      ['Queue scan fixture target']
+    );
+
+    const queueVolumePages = Array.from({ length: 101 }, (_, index) => ({
+      userId: 'user-1',
+      title: `Queue volume fixture ${index + 1}`,
+      slug: `queue-volume-fixture-${index + 1}`,
+      pageType: 'topic',
+      status: 'draft',
+      visibility: 'private',
+      plainText: ''
+    }));
+    await Promise.all(queueVolumePages.map(page => new WikiPage(page).save()));
+    const reviewQueuePages = [];
+    let reviewScanCursor = 'start';
+    do {
+      const reviewQueueBatch = await request(
+        url,
+        `/api/wiki/pages?quality=needs_review&q=Queue%20volume%20fixture&limit=50&scanCursor=${reviewScanCursor}`
+      );
+      assert.strictEqual(reviewQueueBatch.res.status, 200, reviewQueueBatch.text);
+      reviewQueuePages.push(...reviewQueueBatch.body.pages);
+      reviewScanCursor = reviewQueueBatch.body.nextScanCursor;
+    } while (reviewScanCursor !== null);
+    assert.strictEqual(reviewQueuePages.length, queueVolumePages.length);
+
+    const unsupportedQualityScan = await request(
+      url,
+      '/api/wiki/pages?quality=ok&scanCursor=start'
+    );
+    assert.strictEqual(unsupportedQualityScan.res.status, 400, unsupportedQualityScan.text);
+    assert.strictEqual(
+      unsupportedQualityScan.body.error,
+      'scanCursor is only available for the needs_review queue.'
+    );
 
     const blockedPublicPage = await request(url, '/api/public/wiki/pages/complementary-machine-thing', {
       headers: {}
