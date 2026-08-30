@@ -115,6 +115,33 @@ const fakeArticle = (articles) => ({
   const noModel = await findLibraryEvidence({ userId: 'u1', claim: 'compute capacity' });
   assert.deepStrictEqual(noModel.candidates, [], 'survives a missing model');
 
+  const hireNote = {
+    _id: 'note-1',
+    title: 'Hiring notes',
+    content: '<p>Unrelated logistics.</p>',
+    createdAt: '2026-08-20T00:00:00.000Z',
+    highlights: [
+      { _id: 'h-maya', text: 'Maya is the engineer I would hire first.', createdAt: '2026-08-21T00:00:00.000Z' }
+    ]
+  };
+  const hired = await findLibraryEvidence({
+    Article: fakeArticle([hireNote]),
+    userId: 'u1',
+    claim: 'Hire Maya as the first engineer.'
+  });
+  assert.strictEqual(hired.candidates.length, 1, 'a hire claim is answered by a saved note, not a ticker');
+  assert.strictEqual(hired.candidates[0].highlightId, 'h-maya');
+  assert.strictEqual(hired.candidates[0].id, 'highlight:note-1:h-maya');
+  assert.ok(!hired.terms.includes('nvidia') && !hired.terms.includes('ticker'));
+
+  const filedHire = await findLibraryEvidence({
+    Article: fakeArticle([hireNote]),
+    userId: 'u1',
+    claim: 'Hire Maya as the first engineer.',
+    judgment: { why: [{ acceptedFrom: 'highlight:note-1:h-maya' }] }
+  });
+  assert.deepStrictEqual(filedHire.candidates, [], 'a Why already filed from that passage is not offered again');
+
   console.log('judgmentEvidenceService tests passed');
 })();
 

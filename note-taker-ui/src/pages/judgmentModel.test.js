@@ -156,6 +156,22 @@ describe('judgmentModel', () => {
     expect(sourceHrefFromOrigin('overnight-event')).toBe('');
   });
 
+  it('does not invent a library door when the passage origin was not persisted', () => {
+    const filed = {
+      _id: 'p',
+      title: 'Hire Maya as the first engineer.',
+      judgment: {
+        currentJudgment: 'Hire Maya as the first engineer.',
+        why: [{
+          reasonId: 'r1',
+          text: 'Maya is the engineer I would hire first.',
+          sourceLabel: 'Hiring notes'
+        }]
+      }
+    };
+    expect(projectJudgment(filed).why[0].sources[0].href).toBe('');
+  });
+
   it('opens a library article in the library even when the source also has a web url', () => {
     const filed = {
       _id: 'p',

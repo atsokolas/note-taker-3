@@ -1,0 +1,103 @@
+const assert = require('assert');
+const express = require('express');
+const { buildWikiRouter } = require('../wikiRoutes');
+
+/* Library evidence under a claim that is not a company. The search is the
+   held sentence; a saved passage that answers it comes back with its
+   highlight id, and nothing is written until the reader files Why. */
+
+class Query {
+  constructor(value) { this.value = value; }
+  select() { return this; }
+  sort() { return this; }
+  limit() { return this; }
+  lean() { return Promise.resolve(this.value ? JSON.parse(JSON.stringify(this.value)) : null); }
+}
+
+const HIRE_PAGE_ID = '6a5d1c842da7aa36147472ff';
+const NOTE_ID = '6a5d1c842da7aa3614747301';
+const HIGHLIGHT_ID = '6a5d1c842da7aa3614747302';
+const HOLD = 'Hire Maya as the first engineer.';
+const PASSAGE = 'Maya is the engineer I would hire first.';
+
+const hirePage = {
+  _id: HIRE_PAGE_ID,
+  userId: 'owner-1',
+  title: HOLD,
+  judgment: { currentJudgment: HOLD, why: [], against: [] }
+};
+
+const emptyPage = {
+  _id: '6a49ad6f22f7ad6bbbdf2154',
+  userId: 'owner-1',
+  title: 'Untitled',
+  judgment: { currentJudgment: '', why: [], against: [] }
+};
+
+const hiringNote = {
+  _id: NOTE_ID,
+  userId: 'owner-1',
+  title: 'Hiring notes',
+  siteName: '',
+  url: 'https://notes.example/maya',
+  content: '<p>Unrelated logistics.</p>',
+  archived: false,
+  createdAt: '2026-08-20T00:00:00.000Z',
+  highlights: [
+    { _id: HIGHLIGHT_ID, text: PASSAGE, createdAt: '2026-08-21T00:00:00.000Z' }
+  ]
+};
+
+const serve = async () => {
+  const app = express();
+  app.use(buildWikiRouter({
+    authenticateToken: (req, _res, next) => { req.user = { id: 'owner-1' }; next(); },
+    WikiPage: {
+      findOne: (query) => new Query(
+        [hirePage, emptyPage].find(page => (
+          String(page._id) === String(query._id) && String(page.userId) === String(query.userId)
+        )) || null
+      )
+    },
+    Article: {
+      find: () => ({
+        sort: () => ({
+          limit: () => ({ lean: async () => [hiringNote] })
+        })
+      })
+    }
+  }));
+  const server = await new Promise((resolve) => {
+    const next = app.listen(0, '127.0.0.1', () => resolve(next));
+  });
+  return { server, base: `http://127.0.0.1:${server.address().port}` };
+};
+
+const run = async () => {
+  const { server, base } = await serve();
+  try {
+    const found = await fetch(`${base}/api/wiki/pages/${HIRE_PAGE_ID}/library-evidence`);
+    assert.strictEqual(found.status, 200);
+    const body = await found.json();
+    assert.strictEqual(body.claim, HOLD);
+    assert.ok(body.terms.includes('hire'));
+    assert.ok(body.terms.includes('maya'));
+    assert.strictEqual(body.candidates.length, 1);
+    assert.strictEqual(body.candidates[0].kind, 'highlight');
+    assert.strictEqual(body.candidates[0].text, PASSAGE);
+    assert.strictEqual(body.candidates[0].highlightId, HIGHLIGHT_ID);
+    assert.strictEqual(body.candidates[0].articleId, NOTE_ID);
+    assert.strictEqual(body.candidates[0].id, `highlight:${NOTE_ID}:${HIGHLIGHT_ID}`);
+    assert.strictEqual(body.candidates[0].side, undefined, 'the route never guesses Why or Against');
+
+    const noClaim = await fetch(`${base}/api/wiki/pages/${emptyPage._id}/library-evidence`);
+    assert.strictEqual(noClaim.status, 409);
+    assert.match((await noClaim.json()).error, /no claim on this page/i);
+
+    console.log('ok - library evidence for a non-company hold');
+  } finally {
+    server.close();
+  }
+};
+
+run().catch((error) => { console.error(error); process.exit(1); });

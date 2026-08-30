@@ -1,5 +1,7 @@
 import { fileEvidenceIntoJudgment, projectJudgment, writeLineIntoJudgment } from './judgmentModel';
 
+const { normalizeJudgment } = require('../../../server/services/wikiJudgmentService');
+
 const candidate = {
   id: 'highlight:a1:h1',
   text: 'Deliverable capacity lags demand by two years.',
@@ -64,5 +66,32 @@ describe('fileEvidenceIntoJudgment', () => {
     const next = writeLineIntoJudgment(filed, 'Another reason.', 'why');
     expect(next.why[0].acceptedFrom).toBe('highlight:a1:h1');
     expect(next.why[1]).toMatchObject({ text: 'Another reason.' });
+  });
+
+  it('keeps a non-company Why linked to its library passage through the save', () => {
+    const hold = 'Hire Maya as the first engineer.';
+    const passage = {
+      id: 'highlight:note-1:h-maya',
+      text: 'Maya is the engineer I would hire first.',
+      sourceLabel: 'Hiring notes'
+    };
+    const page = { judgment: { currentJudgment: hold } };
+    const saved = {
+      ...page,
+      judgment: normalizeJudgment({
+        input: fileEvidenceIntoJudgment(page, passage, 'why'),
+        existing: page.judgment
+      })
+    };
+    const view = projectJudgment(saved);
+    expect(view.claim).toBe(hold);
+    expect(view.why[0]).toMatchObject({ text: passage.text, sourceLabel: 'Hiring notes' });
+    expect(view.why[0].sources).toEqual([
+      expect.objectContaining({
+        n: 1,
+        label: 'Hiring notes',
+        href: '/library?articleId=note-1&highlightId=h-maya'
+      })
+    ]);
   });
 });

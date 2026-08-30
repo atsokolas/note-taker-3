@@ -1300,6 +1300,90 @@ describe('Evidence from the library', () => {
     expect(screen.queryByText(/toast/i)).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'On this sentence' })).toBeInTheDocument();
   });
+
+  it('files a library passage as Why on a hold that is not a company, and keeps the passage after reload', async () => {
+    const hold = 'Hire Maya as the first engineer.';
+    const passage = {
+      id: 'highlight:note-1:h-maya',
+      kind: 'highlight',
+      text: 'Maya is the engineer I would hire first.',
+      sourceLabel: 'Hiring notes'
+    };
+    const hirePage = {
+      _id: 'wiki-hire',
+      title: hold,
+      sourceRefs: [],
+      judgment: { currentJudgment: hold, why: [], against: [] }
+    };
+    let saved = hirePage;
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-hire' });
+    getWikiPage.mockImplementation(async () => saved);
+    getJudgmentLibraryEvidence
+      .mockResolvedValueOnce({ claim: hold, terms: ['hire', 'maya', 'first', 'engineer'], candidates: [passage] })
+      .mockResolvedValue({ claim: hold, terms: ['hire', 'maya', 'first', 'engineer'], candidates: [] });
+    updateWikiPage.mockImplementation(async (_id, body) => {
+      saved = { ...hirePage, judgment: body.judgment };
+      return saved;
+    });
+
+    const first = render(withRail(<Judgment />));
+    const inbox = await screen.findByRole('region', { name: 'On this sentence' });
+    expect(within(inbox).getByText(passage.text)).toBeInTheDocument();
+    fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
+
+    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+    const [, body] = updateWikiPage.mock.calls[updateWikiPage.mock.calls.length - 1];
+    expect(body.judgment.why.at(-1)).toMatchObject({
+      text: passage.text,
+      sourceLabel: 'Hiring notes',
+      acceptedFrom: 'highlight:note-1:h-maya'
+    });
+    expect(await screen.findByRole('link', { name: 'Source 1: Hiring notes' }))
+      .toHaveAttribute('href', '/library?articleId=note-1&highlightId=h-maya');
+
+    first.unmount();
+    render(withRail(<Judgment />));
+
+    expect(await screen.findByText(passage.text)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Source 1: Hiring notes' }))
+      .toHaveAttribute('href', '/library?articleId=note-1&highlightId=h-maya');
+    expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/NVIDIA|ticker|10-K/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the passage door on first paint from the casebook list', async () => {
+    const hold = 'Hire Maya as the first engineer.';
+    const listed = {
+      _id: 'wiki-hire',
+      title: hold,
+      judgment: {
+        currentJudgment: hold,
+        why: [{
+          reasonId: 'why_1',
+          text: 'Maya is the engineer I would hire first.',
+          sourceLabel: 'Hiring notes',
+          acceptedFrom: 'highlight:note-1:h-maya',
+          createdAt: '2026-08-29T12:00:00.000Z'
+        }],
+        against: []
+      }
+    };
+    let resolvePage;
+    getWikiPage.mockImplementation(() => new Promise((resolve) => { resolvePage = resolve; }));
+    listWikiPages.mockResolvedValue([listed]);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: hold, terms: [], candidates: [] });
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'wiki-hire' });
+
+    render(withRail(<Judgment />));
+
+    expect(await screen.findByRole('link', { name: 'Source 1: Hiring notes' }))
+      .toHaveAttribute('href', '/library?articleId=note-1&highlightId=h-maya');
+    expect(screen.getByText('Maya is the engineer I would hire first.')).toBeInTheDocument();
+
+    await act(async () => {
+      resolvePage(listed);
+    });
+  });
 });
 
 describe('Parking a judgment, and the lesson it leaves', () => {

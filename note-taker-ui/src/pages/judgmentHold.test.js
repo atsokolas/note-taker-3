@@ -85,6 +85,15 @@ describe('selectHoldCandidates', () => {
   it('is silent when there is no sentence to answer', () => {
     expect(selectHoldCandidates([answering], '')).toEqual([]);
   });
+
+  it('keeps a saved note that answers a hire, not a leftover company dump', () => {
+    const hold = 'Hire Maya as the first engineer.';
+    const rows = selectHoldCandidates([
+      { id: 'article:nvda-10k', text: 'NVIDIA reported another quarter of data-center growth.' },
+      { id: 'highlight:note-1:h-maya', text: 'Maya is the engineer I would hire first.' }
+    ], hold);
+    expect(rows.map(row => row.id)).toEqual(['highlight:note-1:h-maya']);
+  });
 });
 
 describe('holdInk', () => {
