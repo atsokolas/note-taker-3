@@ -1,4 +1,5 @@
 const {
+  buildDuplicateClaimPlan,
   buildDuplicatePagePlan,
   mergePageRecords,
   mergeClaimRecords,
@@ -19,6 +20,18 @@ describe('wikiDedupeService', () => {
     expect(merged[0].claimId).toBe('kept');
     expect(merged[0].sourceRefIds).toEqual(['a', 'b']);
     expect(merged[0].history).toHaveLength(2);
+  });
+
+  test('lists duplicate claim ids for migration receipts', () => {
+    expect(buildDuplicateClaimPlan([
+      { claimId: 'kept', text: 'AI compute changes quickly.' },
+      { claimId: 'merged-1', text: 'AI COMPUTE changes quickly!' },
+      { claimId: 'other', text: 'Demand remains uncertain.' }
+    ])).toEqual([{
+      key: 'ai compute changes quickly',
+      canonicalClaimId: 'kept',
+      mergedClaimIds: ['merged-1']
+    }]);
   });
 
   test('chooses the richest page and lists every duplicate id', () => {

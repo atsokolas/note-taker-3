@@ -11,6 +11,8 @@ const normalizeComparableText = (value = '') => String(value || '')
   .replace(/\s+/g, ' ')
   .trim();
 
+const claimId = value => String(value?.claimId || value?._id || value?.id || '');
+
 const uniqueBy = (values = [], keyFor = id) => {
   const seen = new Set();
   return (Array.isArray(values) ? values : []).filter(value => {
@@ -46,6 +48,23 @@ const mergeClaimRecords = (claims = []) => {
     }
   });
   return Array.from(merged.values());
+};
+
+const buildDuplicateClaimPlan = (claims = []) => {
+  const groups = new Map();
+  (Array.isArray(claims) ? claims : []).forEach(claim => {
+    const key = normalizeComparableText(claim?.text);
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(claim);
+  });
+  return Array.from(groups.entries())
+    .filter(([, group]) => group.length > 1)
+    .map(([key, group]) => ({
+      key,
+      canonicalClaimId: claimId(group[0]),
+      mergedClaimIds: group.slice(1).map(claimId).filter(Boolean)
+    }));
 };
 
 const richness = page => {
@@ -136,6 +155,7 @@ const mergePageRecords = (pages = []) => {
 };
 
 module.exports = {
+  buildDuplicateClaimPlan,
   buildDuplicatePagePlan,
   chooseCanonicalPage,
   mergePageRecords,

@@ -5,7 +5,9 @@ const mongoose = require('mongoose');
 const { Article, WikiPage } = require('../server/models');
 const { deriveImportedTitle, isFragmentTitle } = require('../server/services/importTitleService');
 const {
+  buildDuplicateClaimPlan,
   buildDuplicatePagePlan,
+  mergeClaimRecords,
   mergePageRecords
 } = require('../server/services/wikiDedupeService');
 const {
@@ -68,6 +70,13 @@ const main = async () => {
     }))
   )));
 
+  const duplicateClaimMerges = pages.flatMap(page => (
+    buildDuplicateClaimPlan(page.claims).map(plan => ({
+      pageId: String(page._id),
+      ...plan
+    }))
+  ));
+
   if (apply) {
     if (articleTitleChanges.length) {
       await Article.bulkWrite(articleTitleChanges.map(change => ({
@@ -78,6 +87,12 @@ const main = async () => {
       await WikiPage.bulkWrite(wikiTitleChanges.map(change => ({
         updateOne: { filter: { _id: change.id }, update: { $set: { title: change.after } } }
       })));
+    }
+    const pagesWithDuplicateClaims = new Set(duplicateClaimMerges.map(plan => plan.pageId));
+    for (const page of pages.filter(candidate => pagesWithDuplicateClaims.has(String(candidate._id)))) {
+      await WikiPage.updateOne({ _id: page._id }, {
+        $set: { claims: mergeClaimRecords(page.claims) }
+      });
     }
     for (const plan of duplicatePlans) {
       const merged = mergePageRecords(plan.pages);
@@ -101,6 +116,7 @@ const main = async () => {
     scanned: { articles: articles.length, pages: pages.length },
     articleTitleChanges,
     wikiTitleChanges,
+    duplicateClaimMerges,
     duplicatePageMerges: duplicatePlans.map(plan => ({
       key: plan.key,
       canonicalId: plan.canonicalId,
