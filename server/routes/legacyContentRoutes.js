@@ -1,5 +1,6 @@
 const express = require('express');
 const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
+const { deriveImportedTitle } = require('../services/importTitleService');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 
@@ -161,7 +162,18 @@ const buildLegacyContentRouter = ({
       const { title, url, content, folderId, author, publicationDate, siteName, pdfs } = req.body;
       const userId = req.user.id;
 
-      if (!title || !url) {
+      if (!url) {
+        return res.status(400).json({ error: "Missing required fields: title and url." });
+      }
+      const safeTitle = deriveImportedTitle({
+        metadataTitle: title,
+        content,
+        author,
+        siteName,
+        url,
+        publishedAt: publicationDate
+      });
+      if (!safeTitle) {
         return res.status(400).json({ error: "Missing required fields: title and url." });
       }
 
@@ -175,7 +187,7 @@ const buildLegacyContentRouter = ({
         actualFolderId = folderId;
       }
       const articleData = {
-        title: title,
+        title: safeTitle,
         content: content || '',
         folder: actualFolderId,
         userId: userId,

@@ -14,8 +14,6 @@ import { startWalkthrough } from '../onboarding/walkthroughState';
 import '../styles/wiki-front-page.css';
 import '../styles/wiki-onboarding-column.css';
 
-
-
 // Only what the Connections page can actually deep-link to. Naming a provider we
 // cannot open would put us back where we started: a name that looks clickable and
 // is not.
@@ -39,41 +37,6 @@ const starterFallback = [
     hero: true
   }
 ];
-
-const titleCaseConcept = (value = '') => {
-  const words = String(value || '')
-    .replace(/[“”"]/g, '')
-    .replace(/^(?:the|a|an)\s+/i, '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 8);
-
-  return words
-    .map((word, index) => {
-      const lower = word.toLowerCase();
-      if (index > 0 && index < words.length - 1 && ['and', 'or', 'of', 'the', 'a', 'an', 'to', 'in', 'for'].includes(lower)) return lower;
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join(' ');
-};
-
-const inferConceptTitleFromText = (value = '') => {
-  const firstLine = String(value || '')
-    .replace(/^https?:\/\/\S+/i, '')
-    .split(/\n+/)
-    .map(line => line.trim())
-    .find(Boolean) || '';
-  const cleaned = firstLine
-    .replace(/^[#>\-\s*]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!cleaned) return 'My First Source';
-  const definitionMatch = cleaned.match(/^(.{3,80}?)\s+(?:is|are|refers to|means|describes)\b/i);
-  const phrase = (definitionMatch?.[1] || cleaned.split(/[.:;!?—–-]/)[0] || cleaned)
-    .replace(/\b(?:this|that|these|those)\b/gi, '')
-    .trim();
-  return titleCaseConcept(phrase) || 'My First Source';
-};
 
 /**
  * The evidence gate refuses claims that have no lexical anchor in their sources —
@@ -244,13 +207,12 @@ const WikiOnboarding = () => {
     setError('');
     try {
       const droppedUrl = firstUrlFromText(text);
-      const suggestedTitle = inferConceptTitleFromText(text);
       const imported = droppedUrl
         ? await importPastedUrl({ url: droppedUrl })
-        : await importPastedText({ text, title: suggestedTitle });
+        : await importPastedText({ text });
       const article = imported?.article || {};
       setImportedSource({
-        title: article.title || suggestedTitle,
+        title: article.title || 'Pasted source',
         url: article.url || droppedUrl || ''
       });
       markComplete();
