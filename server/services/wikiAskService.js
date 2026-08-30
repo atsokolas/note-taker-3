@@ -1275,16 +1275,62 @@ const buildWikiPageListRankingQuestion = ({ page, question = '' } = {}) => {
   return Array.from(new Set([...queryTokens, ...subjectTokens])).join(' ');
 };
 
+const rankWikiPageListCandidates = ({
+  page,
+  relatedPages = [],
+  question = '',
+  limit = MAX_WIKI_PAGE_CANDIDATES
+} = {}) => {
+  const pool = (Array.isArray(relatedPages) ? relatedPages : [])
+    .filter(candidate => serializeObjectId(candidate) !== serializeObjectId(page))
+    .filter(candidate => isCompatibleWikiListCandidate({ page, candidate, question }));
+  const subjectTokens = Array.from(new Set(
+    extractAnswerTokens(buildWikiPageListRankingQuestion({ page, question }))
+  ));
+  const documentFrequency = new Map(subjectTokens.map(token => [token, 0]));
+  const rows = pool.map((candidate) => {
+    const title = truncate(candidate?.title, 200) || 'Untitled page';
+    const haystack = normalizeComparableText(
+      `${title} ${asString(candidate?.plainText) || pageBodySentenceText(candidate)}`
+    );
+    const matchedTokens = subjectTokens.filter(token => haystack.includes(token));
+    matchedTokens.forEach(token => {
+      documentFrequency.set(token, (documentFrequency.get(token) || 0) + 1);
+    });
+    return { candidate, title, matchedTokens };
+  });
+  const rareFrequencyCeiling = Math.max(2, Math.ceil(pool.length * 0.15));
+  return rows
+    .map((row) => {
+      const rareMatches = row.matchedTokens.filter(token => (
+        (documentFrequency.get(token) || 0) <= rareFrequencyCeiling
+      ));
+      const titleMentioned = pageTitleMentionedInQuestion(row.title, question);
+      const score = row.matchedTokens.reduce((total, token) => (
+        total + Math.log((pool.length + 1) / ((documentFrequency.get(token) || 0) + 1)) + 1
+      ), 0);
+      return { ...row, rareMatches, titleMentioned, score };
+    })
+    .filter(row => row.titleMentioned || (row.matchedTokens.length >= 2 && row.rareMatches.length >= 1))
+    .sort((left, right) => (
+      Number(right.titleMentioned) - Number(left.titleMentioned)
+      || right.score - left.score
+      || left.title.localeCompare(right.title)
+    ))
+    .slice(0, Math.max(0, limit))
+    .map(row => row.candidate);
+};
+
 const buildWikiPageListAnswer = ({ page, relatedPageContexts = [] } = {}) => {
   const relatedTitles = (Array.isArray(relatedPageContexts) ? relatedPageContexts : [])
     .map(candidate => truncate(candidate?.title, 160))
     .filter(Boolean);
-  const selectedTitle = truncate(page?.title, 160);
-  const titles = Array.from(new Set(relatedTitles.length ? relatedTitles : [selectedTitle]))
+  const titles = Array.from(new Set(relatedTitles))
     .filter(Boolean)
     .slice(0, 3);
   return {
-    paragraphs: titles.map(title => ({ text: title, citationIndexes: [] })),
+    paragraphs: (titles.length ? titles : ['No other Wiki page is clearly relevant yet.'])
+      .map(title => ({ text: title, citationIndexes: [] })),
     citationIndexesUsed: []
   };
 };
@@ -1355,13 +1401,20 @@ const buildAskGraphContext = ({
   const rankingQuestion = pageListRequest
     ? buildWikiPageListRankingQuestion({ page, question })
     : question;
-  const rankedPages = rankWikiPageCandidates({
-    page,
-    relatedPages,
-    question: rankingQuestion,
-    selectedPageOnly,
-    limit: MAX_WIKI_PAGE_CANDIDATES
-  });
+  const rankedPages = pageListRequest
+    ? rankWikiPageListCandidates({
+      page,
+      relatedPages,
+      question,
+      limit: MAX_WIKI_PAGE_CANDIDATES
+    })
+    : rankWikiPageCandidates({
+      page,
+      relatedPages,
+      question: rankingQuestion,
+      selectedPageOnly,
+      limit: MAX_WIKI_PAGE_CANDIDATES
+    });
   const relatedPageContexts = buildRelatedPageContexts({
     page,
     relatedPages: rankedPages,
@@ -1467,23 +1520,21 @@ const loadWikiAskCorpus = async ({
   const semanticScores = selectedPageOnly || pageListRequest
     ? new Map()
     : await semanticPageScores({ userId, question: trimmed, models: { VectorItem } });
-  const rankablePages = pageListRequest
-    ? allPages.filter(candidate => isCompatibleWikiListCandidate({
+  const relatedPages = pageListRequest
+    ? rankWikiPageListCandidates({
       page,
-      candidate,
-      question: trimmed
-    }))
-    : allPages;
-  const relatedPages = rankWikiPageCandidates({
-    page,
-    relatedPages: rankablePages,
-    question: pageListRequest
-      ? buildWikiPageListRankingQuestion({ page, question: trimmed })
-      : trimmed,
-    selectedPageOnly,
-    semanticScores,
-    limit: candidateLimit
-  });
+      relatedPages: allPages,
+      question: trimmed,
+      limit: candidateLimit
+    })
+    : rankWikiPageCandidates({
+      page,
+      relatedPages: allPages,
+      question: trimmed,
+      selectedPageOnly,
+      semanticScores,
+      limit: candidateLimit
+    });
 
   // A title-list request has a complete deterministic answer once the visible
   // page index is ranked. Do not pay for embeddings, backlinks, concepts, or
@@ -1875,6 +1926,7 @@ module.exports = {
     isWikiPageListRequest,
     isCompatibleWikiListCandidate,
     buildWikiPageListRankingQuestion,
+    rankWikiPageListCandidates,
     buildWikiPageListAnswer,
     runWithDeadline
   }
