@@ -26,7 +26,6 @@ const {
   buildReadwisePreviewSummary
 } = require('../services/import/readwiseTransform');
 const {
-  deriveConceptTitleFromText,
   fetchUrlForIngest,
   normalizeIngestText
 } = require('../services/import/urlTextIngest');
@@ -154,6 +153,7 @@ const buildImportRouter = ({
     title,
     content,
     url,
+    author = '',
     provider = 'manual',
     sourceType = 'text',
     sourceLabel = 'Pasted source',
@@ -169,6 +169,8 @@ const buildImportRouter = ({
     const safeTitle = deriveImportedTitle({
       metadataTitle: title,
       content: safeContent,
+      author,
+      siteName: sourceLabel,
       sourceType,
       url: safeUrl
     });
@@ -241,9 +243,10 @@ const buildImportRouter = ({
       if (!text) return res.status(400).json({ error: 'Text is required.' });
       const result = await ingestArticleSource({
         userId,
-        title: req.body?.title || deriveConceptTitleFromText(text, 'Pasted source'),
+        title: req.body?.title,
         content: text,
         url: req.body?.url,
+        author: req.body?.author,
         provider: 'manual',
         sourceType: 'text',
         sourceLabel: 'Pasted text'
@@ -274,6 +277,7 @@ const buildImportRouter = ({
         title: req.body?.title || fetched.title,
         content: fetched.text,
         url: fetched.url,
+        author: req.body?.author,
         provider: 'url',
         sourceType: 'url',
         sourceLabel: 'Pasted URL',

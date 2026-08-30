@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Taste Pass T2 (and T3 title hygiene) — dry-run by default.
+ * Taste Pass T2 — dry-run by default.
  *
- * Prints merge plans and title changes as JSON. Does not write unless
- * `--apply --user-id=<id>` is passed. Do not run --apply against production
- * without listing the merged ids from a dry-run first.
+ * Prints claim/page merge plans and canonical wiki title changes as JSON.
+ * Article fragment titles are T3: `scripts/taste_pass_title_hygiene.js`.
+ * Does not write unless `--apply --user-id=<id>` is passed. Do not run
+ * --apply against production without listing the merged ids from a dry-run first.
  */
 require('dotenv').config();
 
 const mongoose = require('mongoose');
-const { Article, WikiPage } = require('../server/models');
-const { deriveImportedTitle, isFragmentTitle } = require('../server/services/importTitleService');
+const { WikiPage } = require('../server/models');
 const {
   buildDuplicateClaimPlan,
   buildDuplicatePagePlan,
@@ -47,45 +47,14 @@ const main = async () => {
   };
   if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI is required.');
   await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: maxTimeMs });
-  console.error(`[taste-pass] connected; auditing up to ${limit} records per collection`);
+  console.error(`[taste-pass] connected; auditing up to ${limit} wiki pages`);
 
-  const [articleHeads, pages] = await Promise.all([
-    Article.find({ ...scope, archived: { $ne: true } })
-      .select('_id userId title')
-      .limit(limit)
-      .maxTimeMS(maxTimeMs)
-      .lean(),
-    WikiPage.find({ ...scope, status: { $ne: 'archived' } })
-      .select('_id userId title plainText sourceRefs._id claims.claimId claims.text judgment.currentJudgment judgment.why judgment.against judgment.assumptions judgment.unknowns judgment.falsifiers judgment.decisions judgment.lessons judgment.dependsOn aiState.candidateStatus aiState.build externalWatches.githubRepo createdAt updatedAt')
-      .limit(limit)
-      .maxTimeMS(maxTimeMs)
-      .lean()
-  ]);
-  const fragmentArticleIds = articleHeads
-    .filter(article => isFragmentTitle(article.title))
-    .map(article => article._id);
-  const articles = fragmentArticleIds.length
-    ? await Article.find({ _id: { $in: fragmentArticleIds } })
-      .select('_id userId title content author siteName publicationDate url importMeta.sourceType highlights.text createdAt')
-      .maxTimeMS(maxTimeMs)
-      .lean()
-    : [];
-  console.error(`[taste-pass] scanned ${articleHeads.length} article titles and ${pages.length} wiki pages; ${articles.length} article titles need inspection`);
-
-  const articleTitleChanges = articles.filter(article => isFragmentTitle(article.title)).map(article => ({
-    id: String(article._id),
-    userId: String(article.userId || ''),
-    before: article.title,
-    after: deriveImportedTitle({
-      metadataTitle: article.title,
-      content: article.content || article.highlights?.map(highlight => highlight?.text).find(Boolean) || '',
-      author: article.author,
-      siteName: article.siteName,
-      sourceType: article.importMeta?.sourceType,
-      url: article.url,
-      publishedAt: article.publicationDate || article.createdAt
-    })
-  })).filter(change => change.after && change.after !== change.before);
+  const pages = await WikiPage.find({ ...scope, status: { $ne: 'archived' } })
+    .select('_id userId title plainText sourceRefs._id claims.claimId claims.text judgment.currentJudgment judgment.why judgment.against judgment.assumptions judgment.unknowns judgment.falsifiers judgment.decisions judgment.lessons judgment.dependsOn aiState.candidateStatus aiState.build externalWatches.githubRepo createdAt updatedAt')
+    .limit(limit)
+    .maxTimeMS(maxTimeMs)
+    .lean();
+  console.error(`[taste-pass] scanned ${pages.length} wiki pages`);
 
   const wikiTitleChanges = pages.map(page => ({
     id: String(page._id),
@@ -117,11 +86,6 @@ const main = async () => {
   ));
 
   if (apply) {
-    if (articleTitleChanges.length) {
-      await Article.bulkWrite(articleTitleChanges.map(change => ({
-        updateOne: { filter: { _id: change.id }, update: { $set: { title: change.after } } }
-      })));
-    }
     if (wikiTitleChanges.length) {
       await WikiPage.bulkWrite(wikiTitleChanges.map(change => ({
         updateOne: { filter: { _id: change.id }, update: { $set: { title: change.after } } }
@@ -168,8 +132,7 @@ const main = async () => {
   console.log(JSON.stringify({
     mode: apply ? 'apply' : 'dry-run',
     scope: { userId: userId || 'all' },
-    scanned: { articles: articleHeads.length, pages: pages.length },
-    articleTitleChanges,
+    scanned: { pages: pages.length },
     wikiTitleChanges,
     duplicateClaimMerges,
     duplicatePageMerges: duplicatePlans.map(plan => ({

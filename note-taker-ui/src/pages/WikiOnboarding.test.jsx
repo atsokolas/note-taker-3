@@ -132,7 +132,9 @@ describe('WikiOnboarding', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add to my library' }));
 
-    await waitFor(() => expect(importPastedText).toHaveBeenCalled());
+    await waitFor(() => expect(importPastedText).toHaveBeenCalledWith({
+      text: expect.stringContaining('Opportunity cost is the price')
+    }));
     // The whole point of the change: a wiki page is synthesis over accumulated
     // reading, and one pasted link is not that. The evidence gate refused these
     // roughly half the time in production, which made failure a new user's first
