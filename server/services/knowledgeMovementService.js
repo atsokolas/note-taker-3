@@ -1223,7 +1223,8 @@ const buildKnowledgeMovements = async ({
   since = null,
   limit = DEFAULT_LIMIT,
   asOf = new Date(),
-  includeRoutineMovements = true
+  includeRoutineMovements = true,
+  reviewRequiredOnly = false
 } = {}) => {
   if (!userId) throw new Error('buildKnowledgeMovements requires a userId.');
   if (!models.WikiPage?.find) {
@@ -1274,7 +1275,7 @@ const buildKnowledgeMovements = async ({
     'wiki_claim_disposition'
   ];
   const acceptedAtByRevisionId = new Map();
-  if (models.NoeisReceipt?.find) {
+  if (!reviewRequiredOnly && models.NoeisReceipt?.find) {
     const acceptanceQuery = {
       userId,
       status: 'completed',
@@ -1317,11 +1318,41 @@ const buildKnowledgeMovements = async ({
     after: { $ne: null }
   };
   if (since) revisionQuery.createdAt = { $gt: new Date(since) };
-  let revisionsQuery = models.WikiRevision.find(revisionQuery);
-  revisionsQuery = revisionsQuery.sort?.({ createdAt: -1 }) || revisionsQuery;
-  revisionsQuery = revisionsQuery.limit?.(safeLimit * QUERY_MULTIPLIER) || revisionsQuery;
-  revisionsQuery = revisionsQuery.lean?.() || revisionsQuery;
-  const recentRevisions = (await revisionsQuery || []).map(plain);
+  const movementRevisionFields = '_id userId pageId sourceEventId promotionStatus reason actorType claimReview before.claims after.claims after.sourceRefs after.citations createdAt snapshotPrunedAt';
+  let recentRevisions = [];
+  if (reviewRequiredOnly) {
+    let reviewPagesQuery = models.WikiPage.find({
+      userId,
+      status: { $ne: 'archived' },
+      $or: [
+        { 'freshness.status': 'needs_review' },
+        { 'aiState.candidateStatus': { $in: ['awaiting_claim_acceptance', 'unbounded_candidate'] } }
+      ]
+    });
+    reviewPagesQuery = reviewPagesQuery.select?.('_id') || reviewPagesQuery;
+    reviewPagesQuery = reviewPagesQuery.limit?.(safeLimit * QUERY_MULTIPLIER) || reviewPagesQuery;
+    reviewPagesQuery = reviewPagesQuery.lean?.() || reviewPagesQuery;
+    const reviewPageIds = (await reviewPagesQuery || []).map(id).filter(Boolean);
+    if (reviewPageIds.length) {
+      let revisionsQuery = models.WikiRevision.find({
+        ...revisionQuery,
+        pageId: { $in: reviewPageIds },
+        promotionStatus: 'candidate'
+      });
+      revisionsQuery = revisionsQuery.select?.(movementRevisionFields) || revisionsQuery;
+      revisionsQuery = revisionsQuery.sort?.({ pageId: 1, createdAt: -1 }) || revisionsQuery;
+      revisionsQuery = revisionsQuery.limit?.(safeLimit * QUERY_MULTIPLIER) || revisionsQuery;
+      revisionsQuery = revisionsQuery.lean?.() || revisionsQuery;
+      recentRevisions = (await revisionsQuery || []).map(plain);
+    }
+  } else {
+    let revisionsQuery = models.WikiRevision.find(revisionQuery);
+    revisionsQuery = revisionsQuery.select?.(movementRevisionFields) || revisionsQuery;
+    revisionsQuery = revisionsQuery.sort?.({ createdAt: -1 }) || revisionsQuery;
+    revisionsQuery = revisionsQuery.limit?.(safeLimit * QUERY_MULTIPLIER) || revisionsQuery;
+    revisionsQuery = revisionsQuery.lean?.() || revisionsQuery;
+    recentRevisions = (await revisionsQuery || []).map(plain);
+  }
   let acceptedRevisions = [];
   if (acceptedInWindowIds.length) {
     let acceptedRevisionsQuery = models.WikiRevision.find({
@@ -1332,6 +1363,7 @@ const buildKnowledgeMovements = async ({
       before: { $ne: null },
       after: { $ne: null }
     });
+    acceptedRevisionsQuery = acceptedRevisionsQuery.select?.(movementRevisionFields) || acceptedRevisionsQuery;
     acceptedRevisionsQuery = acceptedRevisionsQuery.lean?.() || acceptedRevisionsQuery;
     acceptedRevisions = (await acceptedRevisionsQuery || []).map(plain);
   }

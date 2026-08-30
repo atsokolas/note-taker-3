@@ -8,6 +8,7 @@ const MIXED_SOURCE_SCAN_LIMIT = 1000;
 // connection-oriented views retain the wider scan because their classification
 // depends on finding durable uses across the corpus.
 const MIXED_SOURCE_RECENT_SCAN_LIMIT = 80;
+const MIXED_SOURCE_REVIEW_SCAN_LIMIT = 80;
 const MOVEMENT_SCAN_MINIMUM = 12;
 const MOVEMENT_SCAN_MAXIMUM = 50;
 const SOURCE_TYPES = Object.freeze(['article', 'highlight', 'note']);
@@ -242,7 +243,9 @@ const buildMixedLibraryRelevancePage = async ({
   const decodedCursor = decodeCursor(cursor, view);
   const sourceScanLimit = view === 'recent'
     ? MIXED_SOURCE_RECENT_SCAN_LIMIT
-    : MIXED_SOURCE_SCAN_LIMIT;
+    : view === 'needs_review'
+      ? MIXED_SOURCE_REVIEW_SCAN_LIMIT
+      : MIXED_SOURCE_SCAN_LIMIT;
   const {
     Article,
     NotebookEntry,
@@ -282,7 +285,7 @@ const buildMixedLibraryRelevancePage = async ({
     awaitQuery(Article.find(visibleQuery), {
       select: boundedRecentHighlights
         ? '_id userId title url author publicationDate siteName importMeta hiddenFromHome debugOnly archived createdAt updatedAt'
-        : '_id userId title url author publicationDate siteName importMeta highlights hiddenFromHome debugOnly archived createdAt updatedAt',
+        : '_id userId title url author publicationDate siteName importMeta highlights._id highlights.text highlights.note highlights.importMeta highlights.createdAt hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
       limit: sourceScanLimit
     }),
@@ -510,7 +513,8 @@ const buildMixedLibraryRelevancePage = async ({
         models,
         since: null,
         limit: movementScanLimitFor(limit),
-        includeRoutineMovements: view !== 'needs_review'
+        includeRoutineMovements: view !== 'needs_review',
+        reviewRequiredOnly: view === 'needs_review'
       })
       : []
   ]);
@@ -714,6 +718,7 @@ const buildMixedLibraryRelevancePage = async ({
 module.exports = {
   MIXED_SOURCE_SCAN_LIMIT,
   MIXED_SOURCE_RECENT_SCAN_LIMIT,
+  MIXED_SOURCE_REVIEW_SCAN_LIMIT,
   MOVEMENT_SCAN_MAXIMUM,
   MOVEMENT_SCAN_MINIMUM,
   SOURCE_TYPES,
