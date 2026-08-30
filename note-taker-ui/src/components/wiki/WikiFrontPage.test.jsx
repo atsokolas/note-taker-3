@@ -690,7 +690,7 @@ describe('WikiFrontPage (AT-394)', () => {
     });
   });
 
-  it('leads with a watcher close and keeps claim check-in off the front', async () => {
+  it('names a watcher close against a held claim and keeps Still hold off the front', async () => {
     getDailyLoop.mockResolvedValueOnce({ briefing: {
       ...briefing,
       lead: {
@@ -728,7 +728,8 @@ describe('WikiFrontPage (AT-394)', () => {
 
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByText(/NVDA filed a 10-Q/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText('Current Wiki briefing'))
+      .toHaveTextContent('NVDA filed a 10-Q. It touched a claim you still hold.');
     expect(screen.getAllByText(/2 claims touched · 1 contradicted/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Open Nvidia dossier →' }))
       .toHaveAttribute('href', '/wiki/read/wiki-first-principles');
@@ -768,6 +769,38 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(within(overflow).getAllByRole('button', { name: 'Disarm' })).toHaveLength(2);
     fireEvent.click(summary);
     await waitFor(() => expect(overflow).toHaveAttribute('open'));
+  });
+
+  it('names two wiki closes on the briefing and does not open a second hub', async () => {
+    getDailyLoop.mockResolvedValueOnce({ briefing: {
+      ...briefing,
+      lead: {
+        eventId: 'evt-1',
+        title: 'NVDA filed a 10-Q',
+        page: { id: 'wiki-first-principles', title: 'Nvidia dossier' },
+        href: '/wiki/read/wiki-first-principles'
+      },
+      watcherLeads: [
+        {
+          eventId: 'evt-1',
+          title: 'NVDA filed a 10-Q',
+          page: { id: 'wiki-first-principles', title: 'Nvidia dossier' }
+        },
+        {
+          eventId: 'evt-2',
+          title: 'Costco restated the gap',
+          page: { id: 'wiki-costco', title: 'Costco' }
+        }
+      ]
+    } });
+
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    expect(await screen.findByLabelText('Current Wiki briefing'))
+      .toHaveTextContent('NVDA filed a 10-Q. Another close: Costco restated the gap.');
+    expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
+    expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('paper-on-top')).not.toBeInTheDocument();
   });
 
   it('keeps Morning Paper silent unless an editorial close is already on the page', async () => {
