@@ -1222,7 +1222,8 @@ const buildKnowledgeMovements = async ({
   models = {},
   since = null,
   limit = DEFAULT_LIMIT,
-  asOf = new Date()
+  asOf = new Date(),
+  includeRoutineMovements = true
 } = {}) => {
   if (!userId) throw new Error('buildKnowledgeMovements requires a userId.');
   if (!models.WikiPage?.find) {
@@ -1230,21 +1231,28 @@ const buildKnowledgeMovements = async ({
   }
 
   const safeLimit = Math.max(1, Math.min(Number(limit) || DEFAULT_LIMIT, MAX_LIMIT));
-  const decisionDueMovements = await buildDecisionDueMovements({
-    userId, models, since, limit: safeLimit, asOf
-  });
-  const outcomeDueMovements = await buildOutcomeDueMovements({
-    userId, models, since, limit: safeLimit, asOf
-  });
-  const outcomeReviewedMovements = await buildOutcomeReviewedMovements({
-    userId, models, since, limit: safeLimit, asOf
-  });
-  const questionAnswerableMovements = await buildQuestionAnswerableMovements({
-    userId, models, since, limit: safeLimit
-  });
-  const connectionFormedMovements = await buildConnectionFormedMovements({
-    userId, models, since, limit: safeLimit
-  });
+  let decisionDueMovements = [];
+  let outcomeDueMovements = [];
+  let outcomeReviewedMovements = [];
+  let questionAnswerableMovements = [];
+  let connectionFormedMovements = [];
+  if (includeRoutineMovements) {
+    decisionDueMovements = await buildDecisionDueMovements({
+      userId, models, since, limit: safeLimit, asOf
+    });
+    outcomeDueMovements = await buildOutcomeDueMovements({
+      userId, models, since, limit: safeLimit, asOf
+    });
+    outcomeReviewedMovements = await buildOutcomeReviewedMovements({
+      userId, models, since, limit: safeLimit, asOf
+    });
+    questionAnswerableMovements = await buildQuestionAnswerableMovements({
+      userId, models, since, limit: safeLimit
+    });
+    connectionFormedMovements = await buildConnectionFormedMovements({
+      userId, models, since, limit: safeLimit
+    });
+  }
   const finalize = sourceMovements => mergeDuplicateMovements([
     ...outcomeReviewedMovements,
     ...outcomeDueMovements,

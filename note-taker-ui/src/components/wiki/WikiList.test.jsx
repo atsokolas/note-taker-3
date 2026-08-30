@@ -113,7 +113,7 @@ describe('WikiList', () => {
     expect(screen.queryByLabelText('Page type')).not.toBeInTheDocument();
   });
 
-  it('folds same-title pages into one row and says how many are behind it', async () => {
+  it('folds legacy same-title pages into one canonical row without confessing duplicates', async () => {
     listWikiPages.mockResolvedValueOnce([
       {
         _id: 'wiki-bare',
@@ -141,20 +141,12 @@ describe('WikiList', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent('4 sources');
 
-    const toggle = screen.getByRole('button', { name: '1 more with this title' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(toggle);
-
-    // Nothing was deleted: the other copy is one click away.
-    expect(screen.getAllByRole('article')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'Hide the other 1' })).toBeInTheDocument();
+    expect(screen.queryByText(/more with this title/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/copies?/i)).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Open sovereign debt' })
     ).toHaveAttribute('href', '/wiki/workspace?page=wiki-grounded');
-    expect(
-      screen.getByRole('link', { name: 'Open Sovereign Debt' })
-    ).toHaveAttribute('href', '/wiki/workspace?page=wiki-bare');
+    expect(screen.queryByRole('link', { name: 'Open Sovereign Debt' })).not.toBeInTheDocument();
   });
 
   it('counts facets by what the list shows, not by every copy of a title', async () => {

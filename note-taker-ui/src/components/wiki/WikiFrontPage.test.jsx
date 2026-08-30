@@ -93,7 +93,7 @@ const briefing = {
   totalPages: 3
 };
 
-describe('WikiFrontPage same-title fold', () => {
+describe('WikiFrontPage canonical titles', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
@@ -115,7 +115,7 @@ describe('WikiFrontPage same-title fold', () => {
     pages[2]
   ]);
 
-  it('prints one row per title and says how many copies are behind it', async () => {
+  it('prints only the grounded canonical page for a duplicated title', async () => {
     withDuplicates();
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
@@ -125,13 +125,7 @@ describe('WikiFrontPage same-title fold', () => {
     expect(within(table).getByRole('link', { name: 'Opportunity Cost' }))
       .toHaveAttribute('href', '/wiki/read/wiki-opportunity-cost');
 
-    const toggle = within(table).getByRole('button', { name: '1 more with this title' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(toggle);
-    // Nothing was deleted: the other copy opens from here.
-    expect(within(table).getAllByRole('link', { name: 'Opportunity Cost' })).toHaveLength(2);
-    expect(within(table).getByRole('button', { name: 'Hide the other 1' })).toBeInTheDocument();
+    expect(within(table).queryByText(/more with this title|other copy/i)).not.toBeInTheDocument();
   });
 
   it('counts the wikis it shows, not every copy of a title', async () => {
@@ -145,6 +139,22 @@ describe('WikiFrontPage same-title fold', () => {
     expect(mobileToggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(mobileToggle);
     expect(mobileToggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('keeps review triage honest while the daily briefing is unavailable', async () => {
+    listWikiPages.mockResolvedValueOnce([{
+      ...pages[0],
+      aiState: { candidateStatus: 'awaiting_maintenance_acceptance' },
+      qualityReview: { reasons: [{ code: 'uncited_claim' }] }
+    }, pages[1]]);
+    getDailyLoop.mockRejectedValueOnce(new Error('briefing unavailable'));
+    render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+    const table = await screen.findByRole('table', { name: 'Living Wiki pages' });
+    fireEvent.click(screen.getByRole('button', { name: /Needs review 1/i }));
+    expect(screen.getAllByText(/worth your attention/i)).toHaveLength(1);
+    expect(within(table).getAllByText('Material proposed change awaiting review').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Your accepted pages are current.')).not.toBeInTheDocument();
   });
 });
 

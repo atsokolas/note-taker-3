@@ -23,6 +23,6 @@ export const githubRepoUrl = ({ owner = '', repo = '' } = {}) => (
 );
 
 export const buildRepoWikiTitle = (repoSlug = '') => {
-  const slug = normalizeText(repoSlug);
+  const slug = normalizeText(repoSlug).split('/').filter(Boolean).pop() || '';
   return slug ? `${slug} — repo wiki` : 'repo wiki';
 };

@@ -8,7 +8,7 @@ import {
   passageFileCandidate,
   pickPassageDoor,
   pickUnfiledPassageMatch
-} from './passageDoor';
+} from './passageDoorModel';
 
 const pageId = (value) => String(value?._id || value?.id || '').trim();
 

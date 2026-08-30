@@ -8,6 +8,7 @@ const {
 const {
   collectRecentlyUpdatedPages,
   collectDriftingPages,
+  buildAliveness,
   buildFallbackSummary,
   isFreshBriefingCache,
   isWithin,
@@ -140,39 +141,70 @@ describe('wikiBriefingService', () => {
   });
 
   describe('collectDriftingPages', () => {
-    it('orders by total drift signal count and trims to 8', () => {
+    it('orders by pending rebuild events, not standing health snapshots', () => {
       const heavy = buildPage({
         _id: 'heavy',
         title: 'Heavy',
-        aiState: {
-          lastDraftedAt: null,
-          health: {
-            newItems: [{}, {}, {}],
-            unsupportedClaims: [{}, {}],
-            missingCitations: [],
-            staleSections: [{}],
-            contradictions: [{}],
-            relatedPages: []
-          }
+        freshness: {
+          pendingSourceEventIds: ['e1', 'e2', 'e3', 'e4', 'e5'],
+          lastSourceEventAt: new Date(NOW - 18 * ONE_DAY_MS).toISOString()
         }
       });
       const light = buildPage({
         _id: 'light',
         title: 'Light',
+        freshness: {
+          pendingSourceEventIds: ['e6'],
+          lastSourceEventAt: new Date(NOW - 2 * ONE_DAY_MS).toISOString()
+        }
+      });
+      const healthOnly = buildPage({
+        _id: 'health-only',
+        title: 'Standing health is not a queue',
         aiState: {
           lastDraftedAt: null,
-          health: { ...buildPage().aiState.health, newItems: [{}] }
+          health: {
+            newItems: [{}, {}, {}],
+            unsupportedClaims: [{}, {}],
+            staleSections: [{}],
+            contradictions: [{}]
+          }
         }
       });
       const clean = buildPage({ _id: 'clean', title: 'Clean' });
-      const out = collectDriftingPages([clean, light, heavy]);
+      const out = collectDriftingPages([clean, light, heavy, healthOnly], { now: NOW });
       expect(out.map(p => p._id)).toEqual(['heavy', 'light']);
-      expect(out[0].driftSignals).toBe(7);
+      expect(out[0].driftSignals).toBe(5);
+      expect(out[0].waitingDays).toBe(18);
       expect(out[1].driftSignals).toBe(1);
     });
 
-    it('returns an empty array when no page has drift signals', () => {
-      expect(collectDriftingPages([buildPage(), buildPage()])).toEqual([]);
+    it('returns an empty array when no page has pending rebuild events', () => {
+      expect(collectDriftingPages([buildPage(), buildPage()], { now: NOW })).toEqual([]);
+    });
+  });
+
+  describe('buildAliveness', () => {
+    const survivorship = [{
+      _id: 'survivorship',
+      title: 'Survivorship Bias',
+      driftSignals: 5,
+      waitingDays: 18
+    }];
+
+    it('ages unchanged queued rebuilds instead of reprinting them as news', () => {
+      const first = buildAliveness({ driftingPages: survivorship, now: NOW - 18 * ONE_DAY_MS });
+      const later = buildAliveness({
+        driftingPages: survivorship,
+        priorAliveness: first,
+        now: NOW
+      });
+      expect(later.register).toBe('aged');
+      expect(later.copy).toMatch(/Survivorship Bias has been waiting on a rebuild for 18 days — clear it\?/);
+    });
+
+    it('goes quiet when nothing is queued', () => {
+      expect(buildAliveness({ driftingPages: [], now: NOW }).register).toBe('quiet');
     });
   });
 
@@ -182,15 +214,29 @@ describe('wikiBriefingService', () => {
       expect(out).toMatch(/quiet today/i);
     });
 
+    it('prints an honest aged waiting line instead of re-warming stale drift', () => {
+      const out = buildFallbackSummary({
+        newSources: 0,
+        recentlyUpdatedPages: [],
+        driftingPages: [{ title: 'Survivorship Bias', driftSignals: 5 }],
+        aliveness: {
+          register: 'aged',
+          copy: 'Survivorship Bias has been waiting on a rebuild for 18 days — clear it?'
+        }
+      });
+      expect(out).toBe('Survivorship Bias has been waiting on a rebuild for 18 days — clear it?');
+    });
+
     it('joins the populated parts with separators and pluralizes correctly', () => {
       const out = buildFallbackSummary({
         newSources: 1,
         recentlyUpdatedPages: [{ title: 'A' }, { title: 'B' }],
-        driftingPages: [{ title: 'C' }]
+        driftingPages: [{ title: 'C' }],
+        aliveness: { register: 'new' }
       });
       expect(out).toMatch(/1 new source arrived/);
       expect(out).toMatch(/2 wiki pages updated/);
-      expect(out).toMatch(/1 page drifting/);
+      expect(out).toMatch(/1 page queued for rebuild/);
     });
   });
 
@@ -304,6 +350,10 @@ describe('wikiBriefingService', () => {
       const driftingPage = buildPage({
         _id: 'drift',
         title: 'Drifting page',
+        freshness: {
+          pendingSourceEventIds: ['e1'],
+          lastSourceEventAt: new Date(NOW - 60 * 60 * 1000).toISOString()
+        },
         aiState: { lastDraftedAt: null, health: { ...buildPage().aiState.health, newItems: [{}] } }
       });
       const chat = jest.fn().mockResolvedValue({ text: 'Two pages moved today: Updated and Drifting.', model: 'gpt-test' });

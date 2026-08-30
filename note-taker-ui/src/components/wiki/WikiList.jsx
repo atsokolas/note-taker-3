@@ -29,8 +29,7 @@ import {
 import { dedupePagesByRepoKey } from './wikiRepoDedupeModel';
 import {
   canonicalWikiPages,
-  groupWikiPagesByTitle,
-  sameTitleToggleLabel
+  groupWikiPagesByTitle
 } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import useMagneticRow from '../../hooks/useMagneticRow';
@@ -214,66 +213,6 @@ const WikiPageRow = ({
       )}
       {activated ? <span className="library-article-row-receipt" role="status">Opening</span> : null}
     </div>
-  );
-};
-
-/*
- * One title, one row.
- *
- * The wiki drafts the same page more than once, and the list used to read as
- * though the library held five things where it held one. The row that survives
- * is the one the library grounds — the copies behind it are folded, not
- * deleted, and the count says how many are back there.
- */
-const WikiSameTitleGroup = ({
-  compact,
-  group,
-  deletingId,
-  showQualityReview,
-  onOpen,
-  onDelete
-}) => {
-  const [open, setOpen] = useState(false);
-  const others = group.others || [];
-
-  const rowFor = (page) => (
-    <WikiPageRow
-      key={page._id || page.id}
-      compact={compact}
-      page={page}
-      showQualityReview={showQualityReview}
-      deleting={deletingId === (page._id || page.id)}
-      onOpen={() => onOpen(page._id || page.id)}
-      onDelete={() => onDelete(page)}
-    />
-  );
-
-  return (
-    <>
-      {rowFor(group.canonical)}
-      {others.length ? (
-        <div className="wiki-index__same-title">
-          <button
-            type="button"
-            className="wiki-index__same-title-toggle"
-            aria-expanded={open}
-            onClick={() => setOpen(current => !current)}
-          >
-            {sameTitleToggleLabel(others.length, open)}
-          </button>
-          {open ? (
-            <>
-              <p className="wiki-index__same-title-note">
-                These share a title. The one above is the one your library grounds.
-              </p>
-              <div className="wiki-index__same-title-rows">
-                {others.map(rowFor)}
-              </div>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </>
   );
 };
 
@@ -475,17 +414,21 @@ const WikiList = ({ compact = false, onOpenPage }) => {
         className={`library-article-list wiki-index__list${loading ? ' is-loading' : ''}`}
         aria-label="Wiki pages"
       >
-        {displayGroups.map(group => (
-          <WikiSameTitleGroup
-            key={group.key}
-            compact={compact}
-            group={group}
-            showQualityReview={needsReviewFilter}
-            deletingId={deletingId}
-            onOpen={openPage}
-            onDelete={handleDelete}
-          />
-        ))}
+        {displayGroups.map(group => {
+          const page = group.canonical;
+          const id = page._id || page.id;
+          return (
+            <WikiPageRow
+              key={group.key}
+              compact={compact}
+              page={page}
+              showQualityReview={needsReviewFilter}
+              deleting={deletingId === id}
+              onOpen={() => openPage(id)}
+              onDelete={() => handleDelete(page)}
+            />
+          );
+        })}
       </section>
     </>
   );

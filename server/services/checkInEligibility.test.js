@@ -1,0 +1,119 @@
+const assert = require('assert');
+const {
+  evaluateCheckInEligibility,
+  isBeliefShaped,
+  isJudgmentSurface,
+  isFirstPersonOwnable,
+  REPO_WIKI_CLAIM_CORPUS
+} = require('./checkInEligibility');
+const { selectDailyClaimCheckIn } = require('./dailyLoopService');
+
+const NOW = new Date('2026-08-29T12:00:00Z').getTime();
+
+const heldBelief = {
+  claimId: 'ai-compute',
+  text: 'AI compute is going through orders of magnitude change.',
+  support: 'partial',
+  sourceRefIds: ['s1'],
+  checkInStatus: 'reaffirmed',
+  lastCheckedAt: '2026-07-01T12:00:00Z',
+  createdAt: '2026-01-01T12:00:00Z',
+  history: [{ actorType: 'user', action: 'reaffirmed' }]
+};
+
+const judgmentPage = {
+  _id: 'thesis-1',
+  title: 'AI compute thesis',
+  pageType: 'concept',
+  lastVisitedAt: '2026-08-28',
+  judgment: { kind: 'thesis', currentJudgment: 'Compute keeps compounding.' },
+  claims: [heldBelief]
+};
+
+assert.strictEqual(isBeliefShaped(heldBelief.text), true);
+assert.strictEqual(isJudgmentSurface(judgmentPage), true);
+assert.strictEqual(isFirstPersonOwnable(heldBelief), true);
+
+const eligible = evaluateCheckInEligibility({
+  page: judgmentPage,
+  claim: heldBelief,
+  now: NOW
+});
+assert.strictEqual(eligible.eligible, true, eligible.reasons.join(','));
+
+const selected = selectDailyClaimCheckIn({
+  pages: [judgmentPage],
+  watcherLeads: [],
+  now: NOW
+});
+assert.ok(selected);
+assert.strictEqual(selected.claimId, 'ai-compute');
+assert.strictEqual(selected.text, heldBelief.text);
+assert.ok(!selected.text.includes('…'));
+
+const repoResults = REPO_WIKI_CLAIM_CORPUS.map((row) => evaluateCheckInEligibility({
+  ...row,
+  now: NOW
+}));
+assert.ok(repoResults.every((row) => row.eligible === false));
+assert.ok(repoResults[0].reasons.includes('not_belief_shaped'));
+assert.ok(repoResults[0].reasons.includes('not_judgment_surface'));
+assert.ok(repoResults[0].reasons.includes('too_long'));
+assert.ok(repoResults[0].reasons.includes('not_ownable'));
+
+const noneFromCorpus = selectDailyClaimCheckIn({
+  pages: REPO_WIKI_CLAIM_CORPUS.map((row) => ({
+    ...row.page,
+    claims: [row.claim]
+  })),
+  watcherLeads: [],
+  now: NOW
+});
+assert.strictEqual(noneFromCorpus, null);
+
+const longBelief = {
+  ...heldBelief,
+  claimId: 'long',
+  text: 'I believe the next decade of AI will be decided by who can convert energy into useful tokens at the lowest cost while keeping the resulting systems aligned with human judgment over long horizons, preserving durable institutional memory, and remaining accountable to the people affected by those systems.'
+};
+assert.strictEqual(evaluateCheckInEligibility({
+  page: judgmentPage,
+  claim: longBelief,
+  now: NOW
+}).eligible, false);
+
+const unowned = evaluateCheckInEligibility({
+  page: judgmentPage,
+  claim: {
+    ...heldBelief,
+    checkInStatus: 'unreviewed',
+    history: [{ actorType: 'agent', summary: 'Extracted.' }]
+  },
+  now: NOW
+});
+assert.strictEqual(unowned.eligible, false);
+assert.ok(unowned.reasons.includes('not_ownable'));
+
+const recentlyShown = evaluateCheckInEligibility({
+  page: judgmentPage,
+  claim: { ...heldBelief, lastCheckedAt: '2026-08-20T12:00:00Z' },
+  now: NOW
+});
+assert.strictEqual(recentlyShown.eligible, false);
+assert.ok(recentlyShown.reasons.includes('shown_within_14_days'));
+
+const silence = selectDailyClaimCheckIn({
+  pages: [{
+    ...judgmentPage,
+    claims: [{
+      ...heldBelief,
+      text: 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries.',
+      checkInStatus: 'unreviewed',
+      history: []
+    }]
+  }],
+  now: NOW
+});
+assert.strictEqual(silence, null);
+
+console.log('checkInEligibility tests passed');

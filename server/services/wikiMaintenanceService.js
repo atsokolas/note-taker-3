@@ -2126,6 +2126,31 @@ const normalizeClaimIdentity = (value = '') => (
     .trim()
 );
 
+const mergeUniqueIds = (...lists) => Array.from(new Set(
+  lists.flatMap(value => Array.isArray(value) ? value : []).map(String).filter(Boolean)
+)).slice(0, 12);
+
+const coalesceEquivalentClaims = (claims = []) => {
+  const byIdentity = new Map();
+  (Array.isArray(claims) ? claims : []).forEach(claim => {
+    const identity = normalizeClaimIdentity(claim?.text);
+    if (!identity) return;
+    const existing = byIdentity.get(identity);
+    if (!existing) {
+      byIdentity.set(identity, { ...claim });
+      return;
+    }
+    existing.citationIds = mergeUniqueIds(existing.citationIds, claim.citationIds);
+    existing.sourceRefIds = mergeUniqueIds(existing.sourceRefIds, claim.sourceRefIds);
+    existing.contradictedByCitationIds = mergeUniqueIds(
+      existing.contradictedByCitationIds,
+      claim.contradictedByCitationIds
+    );
+    if (!existing.claimId && claim.claimId) existing.claimId = claim.claimId;
+  });
+  return Array.from(byIdentity.values());
+};
+
 const resolveClaimCitationIds = ({ citationIndexes = [], citations = [], sourceRefs = [] } = {}) => {
   const indexes = normalizeCitationIndexes(citationIndexes);
   const ids = [];
@@ -2261,7 +2286,7 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
   });
 
   const matchedPreviousIds = new Set();
-  const nextClaims = (Array.isArray(claims) ? claims : []).map((claim) => {
+  const nextClaims = coalesceEquivalentClaims(claims).map((claim) => {
     const previousById = claim.claimId ? byId.get(String(claim.claimId)) : null;
     const previousByText = byText.get(normalizeClaimIdentity(claim.text));
     const previous = previousById || previousByText || null;
@@ -4950,6 +4975,7 @@ module.exports = {
     buildSectionMaintenancePlan,
     claimConfidence,
     normalizeClaimIdentity,
+    coalesceEquivalentClaims,
     normalizeSourceIndexesUsed,
     remapRepoArticleCitationIndexes,
     normalizeHealth,

@@ -428,6 +428,7 @@ describe('judgmentModel', () => {
 
     expect(docText(doc)).toBe('Supply is catching up. A second point follows.');
     expect(oneSentence(docText(doc))).toBe('Supply is catching up.');
+    expect(oneSentence('This single unfinished thought keeps running beyond the card budget without giving the renderer a safe sentence boundary to use', 60)).toBe('');
   });
 
   it('lists only pages that carry a judgment', () => {

@@ -8,6 +8,8 @@ const MIXED_SOURCE_SCAN_LIMIT = 1000;
 // connection-oriented views retain the wider scan because their classification
 // depends on finding durable uses across the corpus.
 const MIXED_SOURCE_RECENT_SCAN_LIMIT = 80;
+const MOVEMENT_SCAN_MINIMUM = 12;
+const MOVEMENT_SCAN_MAXIMUM = 50;
 const SOURCE_TYPES = Object.freeze(['article', 'highlight', 'note']);
 const VIEW_NAMES = Object.freeze(['recent', 'active', 'needs_review', 'unconnected']);
 const TYPE_RANK = Object.freeze({ article: 0, highlight: 1, note: 2 });
@@ -221,6 +223,11 @@ const classify = (row, view) => {
   }
   return true;
 };
+
+const movementScanLimitFor = limit => Math.min(
+  MOVEMENT_SCAN_MAXIMUM,
+  Math.max(MOVEMENT_SCAN_MINIMUM, limit * 4)
+);
 
 const buildMixedLibraryRelevancePage = async ({
   userId,
@@ -498,7 +505,13 @@ const buildMixedLibraryRelevancePage = async ({
       })
       : [],
     view !== 'recent' && typeof movementBuilder === 'function'
-      ? movementBuilder({ userId, models, since: null, limit: 50 })
+      ? movementBuilder({
+        userId,
+        models,
+        since: null,
+        limit: movementScanLimitFor(limit),
+        includeRoutineMovements: view !== 'needs_review'
+      })
       : []
   ]);
 
@@ -701,10 +714,13 @@ const buildMixedLibraryRelevancePage = async ({
 module.exports = {
   MIXED_SOURCE_SCAN_LIMIT,
   MIXED_SOURCE_RECENT_SCAN_LIMIT,
+  MOVEMENT_SCAN_MAXIMUM,
+  MOVEMENT_SCAN_MINIMUM,
   SOURCE_TYPES,
   VIEW_NAMES,
   buildMixedLibraryRelevancePage,
   decodeCursor,
   encodeCursor,
+  movementScanLimitFor,
   rowTuple
 };

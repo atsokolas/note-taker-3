@@ -1,5 +1,6 @@
 import { buildSourceOpenPath, buildSourceOriginPath, isLibraryHref } from '../utils/sourceRoutes';
 import { answersHeldSentence } from './judgmentHold';
+import { sentenceBoundaryTrim } from '../utils/editorialText';
 
 // The Judgment page's read model.
 //
@@ -37,9 +38,7 @@ export const oneSentence = (value, maxLength = 240) => {
   if (!text) return '';
   const boundary = text.search(/[.!?](\s|$)/);
   const sentence = boundary >= 0 ? text.slice(0, boundary + 1) : text;
-  if (sentence.length <= maxLength) return sentence;
-  const clipped = sentence.slice(0, maxLength).replace(/[\s,:;–—-]+$/, '');
-  return `${clipped}…`;
+  return sentenceBoundaryTrim(sentence, { maxLength, fallback: '' });
 };
 
 /* A page is a judgment page when it holds a judgment — meaning any of the four
@@ -428,8 +427,8 @@ export const activityNote = ({ state, arrived } = {}) => {
    argued, not whichever was written last.
 
    The same rule as the wiki list: most evidence wins, then most learned from,
-   then most recent. The copies behind it are counted, not hidden, so a
-   duplicate is visible as a duplicate rather than silently disappearing. */
+   then most recent. Write-time dedupe prevents new copies; this fold keeps
+   legacy data from leaking into the index while the migration is pending. */
 const claimKey = (page) => clean(claimSentence(page))
   .toLowerCase()
   .replace(/[.,;:!?'"()[\]]+$/g, '')
@@ -460,15 +459,14 @@ export const foldJudgmentPages = (pages = []) => {
   list(pages).forEach((page, index) => {
     const key = claimKey(page);
     if (!key) {
-      loose.push({ page, others: 0, index });
+      loose.push({ page, index });
       return;
     }
     const existing = byKey.get(key);
     if (!existing) {
-      byKey.set(key, { page, others: 0, index });
+      byKey.set(key, { page, index });
       return;
     }
-    existing.others += 1;
     if (strongerClaim(page, existing.page)) existing.page = page;
   });
   return [...byKey.values(), ...loose].sort((left, right) => left.index - right.index);
@@ -478,13 +476,12 @@ export const foldJudgmentPages = (pages = []) => {
 export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) => foldJudgmentPages(
   list(pages).filter(isJudgmentPage)
 )
-  .map(({ page, others }) => {
+  .map(({ page }) => {
     const activity = judgmentActivity(page, events, now);
     const decisions = list(page?.judgment?.decisions);
     const sentence = claimSentence(page);
     return {
       id: idOf(page),
-      duplicates: others,
       title: namedTitle(page),
       headline: judgmentHeadline(page),
       sentence,

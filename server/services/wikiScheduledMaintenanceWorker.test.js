@@ -74,6 +74,7 @@ const run = async () => {
   const query = duePageQuery({ cutoff: new Date('2026-06-18T00:00:00.000Z') });
   assert.strictEqual(query.status.$ne, 'archived');
   assert.ok(Array.isArray(query.$or));
+  assert.ok(query.$or.some(clause => clause['freshness.pendingSourceEventIds.0']?.$exists === true));
   assert.ok(query['createdFrom.label'].$not.test('weekend-readings:owner:2026-07-01:2026-07-14'));
   assert.ok(query['createdFrom.label'].$not.test('research-ledger:2026-07:thesis-001'));
 

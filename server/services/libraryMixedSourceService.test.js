@@ -2,7 +2,8 @@ const assert = require('assert');
 const {
   buildMixedLibraryRelevancePage,
   decodeCursor,
-  MIXED_SOURCE_RECENT_SCAN_LIMIT
+  MIXED_SOURCE_RECENT_SCAN_LIMIT,
+  movementScanLimitFor
 } = require('./libraryMixedSourceService');
 
 const USER_ID = '64f100000000000000000001';
@@ -132,7 +133,10 @@ const models = {
   ReferenceEdge: modelFor([notebookEdge])
 };
 
-const movementBuilder = async () => [{
+const movementRequests = [];
+const movementBuilder = async options => {
+  movementRequests.push(options);
+  return [{
   id: 'movement-highlight-review',
   kind: 'contradiction',
   occurredAt: '2026-07-30T12:00:00.000Z',
@@ -153,10 +157,14 @@ const movementBuilder = async () => [{
     href: `/library?articleId=${articleOne._id}&highlightId=${articleOne.highlights[0]._id}`
   }],
   unresolved: [{ type: 'wiki_claim', id: 'systems-claim' }]
-}];
+  }];
+};
 
 const run = async () => {
   assert.strictEqual(MIXED_SOURCE_RECENT_SCAN_LIMIT, 80);
+  assert.strictEqual(movementScanLimitFor(3), 12);
+  assert.strictEqual(movementScanLimitFor(20), 50);
+  assert.strictEqual(movementScanLimitFor(100), 50);
   const firstPage = await buildMixedLibraryRelevancePage({
     userId: USER_ID,
     models,
@@ -243,6 +251,7 @@ const run = async () => {
     [`highlight:${articleOne.highlights[0]._id}`]
   );
   assert.strictEqual(needsReview.sources[0].relevance.movements[0].requiresReview, true);
+  assert.strictEqual(movementRequests.at(-1).includeRoutineMovements, false);
 
   const unconnected = await buildMixedLibraryRelevancePage({
     userId: USER_ID,

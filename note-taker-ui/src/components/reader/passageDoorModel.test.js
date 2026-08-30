@@ -3,7 +3,7 @@ import {
   passageFileCandidate,
   pickPassageDoor,
   pickUnfiledPassageMatch
-} from './passageDoor';
+} from './passageDoorModel';
 
 const highlightId = 'h1';
 const articleId = 'article-1';

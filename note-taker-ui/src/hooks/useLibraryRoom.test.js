@@ -55,6 +55,17 @@ describe('useLibraryRoom', () => {
     expect(result.current.shelfCounts.keptArticles).toBe(1);
   });
 
+  it('opens review as a three-item triage before the user requests the backlog', async () => {
+    const { result } = renderHook(() => useLibraryRoom({ view: 'needs_review' }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(getLibraryRoom).toHaveBeenCalledWith({
+      view: 'needs_review',
+      limit: 3,
+      showSuppressed: false
+    });
+  });
+
   it('continues through the bounded relevance cursor without reloading shelves', async () => {
     getLibraryRelevance.mockResolvedValue({
       sources: [{ source: { type: 'note', id: 'note-2', title: 'Second' } }],

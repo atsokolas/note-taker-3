@@ -92,10 +92,13 @@ const LibraryMain = ({
       : sourceView === 'unconnected'
         ? 'Unconnected'
         : 'Recently added';
+  const reviewTotal = Number(relevance.counts?.needs_review?.value);
   const viewSubtitle = sourceView === 'active'
     ? 'Sources currently supporting, challenging, or changing your work.'
     : sourceView === 'needs_review'
-      ? 'Sources attached to a candidate or unresolved change.'
+      ? Number.isFinite(reviewTotal)
+        ? `${Math.min(3, reviewTotal)} worth your attention · ${Math.max(0, reviewTotal - 3)} minor. Open the backlog only when you need it.`
+        : 'Up to three sources attached to a material unresolved change.'
       : sourceView === 'unconnected'
         ? 'Sources not yet used by a durable thinking object.'
         : 'Sources in the order they entered your Library.';

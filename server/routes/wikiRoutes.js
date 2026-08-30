@@ -178,6 +178,8 @@ const {
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation
 } = require('../services/wikiPresentationGuard');
+const { chooseCanonicalPage, normalizeComparableText } = require('../services/wikiDedupeService');
+const { reviewExpired } = require('../services/reviewTriageService');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
 const {
   activeProposalsNeedClusteringRefresh,
@@ -1714,6 +1716,7 @@ const buildWikiRouter = ({
   WikiMaintenanceRun = null,
   WikiRepoBaseline = null,
   WikiBriefingCache = null,
+  WikiPageVisit = null,
   WikiSharedCollection = null,
   WikiSchemaSettings = null,
   Connection = null,
@@ -3593,14 +3596,26 @@ const buildWikiRouter = ({
         }
       }
       const pages = await pagesQuery.lean();
-      const serialized = pages.map(serializeWikiPage).filter((page) => {
+      const visits = qualityFilter === 'needs_review' && WikiPageVisit?.find
+        ? await WikiPageVisit.find({ userId: req.user.id }).select('pageId lastVisitedAt').lean()
+        : [];
+      const visitedAt = new Map((Array.isArray(visits) ? visits : []).map(visit => [
+        String(visit?.pageId || ''),
+        visit?.lastVisitedAt || null
+      ]));
+      const serialized = pages.map(page => ({
+        raw: { ...page, lastVisitedAt: visitedAt.get(String(page?._id || '')) || null },
+        value: serializeWikiPage(page)
+      })).filter(({ raw, value: page }) => {
         const review = page.qualityReview || classifyWikiPageQuality(page);
         if (qualityFilter === 'ok') return review.status === 'ok';
-        if (qualityFilter === 'needs_review') return review.status === 'needs_review';
+        if (qualityFilter === 'needs_review') {
+          return review.status === 'needs_review' && !reviewExpired(raw, Date.now());
+        }
         if (qualityFilter === 'blocked') return review.surfaceEligible === false;
         if (includeLowQuality) return true;
         return review.surfaceEligible !== false;
-      }).slice(0, limit);
+      }).map(({ value }) => value).slice(0, limit);
       res.status(200).json(serialized);
     } catch (error) {
       console.error('Error listing wiki pages:', error);
@@ -3632,6 +3647,23 @@ const buildWikiRouter = ({
       });
       if (initialSourceRefs?.error) return res.status(400).json({ error: initialSourceRefs.error });
       const title = normalizeTitle(req.body?.title || createdFrom.label);
+      const comparableTitle = normalizeComparableText(title);
+      if (comparableTitle) {
+        const possibleCopies = await WikiPage.find({
+          userId: req.user.id,
+          status: { $ne: 'archived' }
+        }).sort({ updatedAt: -1 }).limit(500);
+        const existing = chooseCanonicalPage(
+          (Array.isArray(possibleCopies) ? possibleCopies : [])
+            .filter(candidate => normalizeComparableText(candidate?.title) === comparableTitle)
+        );
+        if (existing) {
+          return res.status(200).json({
+            ...serializeWikiPage(existing),
+            reusedExisting: true
+          });
+        }
+      }
       const ordinaryEvidencePreflight = req.body?.evidencePreflight === true
         && !livingThesisPreset
         && createdFrom.type === 'idea'
@@ -6051,6 +6083,24 @@ const buildWikiRouter = ({
       const normalizedJudgment = req.body?.judgment !== undefined
         ? normalizeJudgment({ input: req.body.judgment, existing: page.judgment, actorType, pageId: String(page._id) })
         : null;
+      const comparableJudgment = normalizeComparableText(normalizedJudgment?.currentJudgment);
+      if (comparableJudgment) {
+        const judgmentPages = await WikiPage.find({
+          userId: req.user.id,
+          _id: { $ne: page._id },
+          status: { $ne: 'archived' },
+          'judgment.currentJudgment': { $exists: true, $ne: '' }
+        }).select('_id title judgment.currentJudgment').limit(500);
+        const existing = (Array.isArray(judgmentPages) ? judgmentPages : [])
+          .find(candidate => normalizeComparableText(candidate?.judgment?.currentJudgment) === comparableJudgment);
+        if (existing) {
+          return res.status(409).json({
+            error: 'This judgment already exists. Open the existing case instead of creating another copy.',
+            existingPageId: serializeId(existing._id),
+            existingPageTitle: existing.title
+          });
+        }
+      }
       const claimUpdates = req.body?.claimUpdates !== undefined
         ? normalizeClaimUpdates(req.body.claimUpdates)
         : [];

@@ -29,7 +29,7 @@ import {
   dedupePagesByRepoKey,
   filterPagesForTodaysPage
 } from './wikiRepoDedupeModel';
-import { groupWikiPagesByTitle, sameTitleToggleLabel } from './wikiTitleGroupModel';
+import { canonicalWikiPages } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import { shelfCount, wikiLivingBriefingLine } from './morningPaperClose';
 import {
@@ -96,6 +96,20 @@ const wikiReviewState = (page = {}, changedByLibrary = false) => {
   if (pendingWikiReview(page)) return { label: 'Review available', tone: 'review' };
   if (changedByLibrary) return { label: 'New evidence', tone: 'evidence' };
   return { label: 'No proposal', tone: 'quiet' };
+};
+
+const wikiReviewReason = (page = {}, changedByLibrary = false) => {
+  if (changedByLibrary) return 'New Library evidence may change this page';
+  if (page?.judgment?.kind || page?.investmentDossier || page?.activeCompanyDossierKey) {
+    return 'Judgment page · owner decision at stake';
+  }
+  const reason = (Array.isArray(page?.qualityReview?.reasons) ? page.qualityReview.reasons : [])
+    .map(value => typeof value === 'string'
+      ? value.trim()
+      : String(value?.message || value?.label || value?.reason || '').trim())
+    .find(Boolean);
+  if (reason) return reason;
+  return 'Material proposed change awaiting review';
 };
 
 const wikiReviewDate = (page = {}) => {
@@ -334,25 +348,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     [pages]
   );
 
-  /* Same title, one row — the rule the workspace list already uses, applied to
-     the index a person actually meets. The agent drafts a page more than once,
-     so this table was printing one wiki as three and counting it as three. The
-     copy that survives is the one the Library grounds; the rest sit behind a
-     count and open with a click. Nothing is deleted. */
-  const titleGroups = useMemo(() => groupWikiPagesByTitle(curatedPages), [curatedPages]);
-  const canonicalPages = useMemo(() => titleGroups.map(group => group.canonical), [titleGroups]);
-  const sameTitleById = useMemo(() => new Map(
-    titleGroups
-      .filter(group => group.others.length)
-      .map(group => [String(pageId(group.canonical)), group.others])
-  ), [titleGroups]);
-  const [openTitleIds, setOpenTitleIds] = useState(() => new Set());
-  const toggleSameTitle = (id) => setOpenTitleIds((current) => {
-    const next = new Set(current);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  });
+  const canonicalPages = useMemo(() => canonicalWikiPages(curatedPages), [curatedPages]);
   // First-run *routing* is owned by FirstRunGate at the app shell, so a new user
   // meets onboarding wherever they land rather than only here. What stays is the
   // part only this page can do: hold a placeholder instead of flashing an empty
@@ -425,12 +421,26 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     return counts;
   }, [canonicalPages]);
 
+  const reviewTriage = briefing?.reviewTriage || null;
+  const promotedReviewIds = useMemo(() => new Set(
+    (Array.isArray(reviewTriage?.promoted) ? reviewTriage.promoted : [])
+      .map(item => String(item?.pageId || ''))
+      .filter(Boolean)
+  ), [reviewTriage]);
+  const reviewReasonById = useMemo(() => new Map(
+    (Array.isArray(reviewTriage?.promoted) ? reviewTriage.promoted : [])
+      .map(item => [String(item?.pageId || ''), String(item?.reason || '')])
+      .filter(([id]) => id)
+  ), [reviewTriage]);
+
   const explorePages = useMemo(() => {
     const query = wikiSearch.trim().toLowerCase();
     let visible = weighted;
-    if (wikiFilter === 'review') visible = visible.filter(page => (
-      pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
-    ));
+    if (wikiFilter === 'review') visible = reviewTriage
+      ? visible.filter(page => promotedReviewIds.has(String(pageId(page))))
+      : visible.filter(page => (
+        pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
+      )).slice(0, 3);
     if (wikiFilter === 'recent') visible = [...visible]
       .filter(page => page.updatedAt)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -443,14 +453,18 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       displayWikiPageTitle(page, 'Untitled page').toLowerCase().includes(query)
       || String(page?.summary || page?.description || '').toLowerCase().includes(query)
     ));
-  }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds]);
+  }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds, reviewTriage, promotedReviewIds]);
 
   const exactReviewCount = useMemo(() => canonicalPages.filter(page => (
     pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
   )).length, [canonicalPages, sourceMaterialIds]);
 
-  const reviewCount = briefing?.counts?.driftingPages
+  const briefingReviewCount = briefing?.counts?.driftingPages
     ?? (Array.isArray(briefing?.driftingPages) ? briefing.driftingPages.length : 0);
+  const reviewCount = reviewTriage?.totalCount ?? Math.max(exactReviewCount, briefingReviewCount);
+  const reviewFrame = reviewTriage
+    ? `${reviewTriage.promotedCount} worth your attention · ${reviewTriage.minorCount} minor`
+    : reviewCount ? `${Math.min(3, reviewCount)} worth your attention · ${Math.max(0, reviewCount - 3)} minor` : '';
 
   const workspaceNav = (
     <nav className="wiki-front-page__secondary-nav" aria-label="Wiki workspace">
@@ -725,7 +739,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           <RoomShelfList className="wiki-living-nav__primary">
             {[
               ['all', 'All wikis', canonicalPages.length],
-              ['review', 'Needs review', exactReviewCount],
+              ['review', 'Needs review', reviewTriage?.promotedCount ?? Math.min(3, exactReviewCount)],
               ['recent', 'Recently updated', shelfCount(briefing ? recentlyUpdated.length : undefined)]
             ].map(([value, label, count]) => (
               <li key={value}>
@@ -785,9 +799,14 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             <p className="wiki-index__eyebrow">Your Wiki · {mastheadDate()}</p>
             <h1 id="wiki-living-title">Your living wikis</h1>
             <p>Maintained with your agent, grounded in your Library.</p>
-            {leadSentence ? (
+            {leadSentence && wikiFilter !== 'review' ? (
               <p className="wiki-living-index__briefing" aria-label="Current Wiki briefing">
                 <WriteIn text={leadSentence} />
+              </p>
+            ) : null}
+            {wikiFilter === 'review' && reviewFrame ? (
+              <p className="wiki-front-page__review-triage">
+                {reviewFrame}. <Link to="/wiki/workspace?view=list&quality=needs_review">Open the full review queue →</Link>
               </p>
             ) : null}
             {availabilityNotice ? <p className="wiki-front-page__availability" role="status">{availabilityNotice}</p> : null}
@@ -819,49 +838,35 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               <span role="columnheader">Last review</span>
               <span role="columnheader">Maintenance state</span>
             </div>
-            {explorePages.length ? explorePages.flatMap((page) => {
-              const id = String(pageId(page));
-              const sameTitle = sameTitleById.get(id) || [];
-              const open = openTitleIds.has(id);
-              const row = (item, folded = false) => {
-                const rowId = String(pageId(item));
-                const changedByLibrary = sourceMaterialIds.has(rowId);
-                const reviewState = wikiReviewState(item, changedByLibrary);
-                return (
-                  <div
-                    key={rowId}
-                    className={`wiki-living-row${changedByLibrary ? ' is-library-changed' : ''}${folded ? ' wiki-living-row--same-title' : ''}`}
-                    role="row"
-                  >
-                    <div className="wiki-living-row__title" role="cell">
-                      <div>
-                        <Link to={wikiReadPath(rowId)}>{displayWikiPageTitle(item, 'Untitled page')}</Link>
-                        <small>{WIKI_KIND_FLAGS[wikiKindForPage(item)]}</small>
-                        {!folded && sameTitle.length ? (
-                          <button
-                            type="button"
-                            className="wiki-living-row__same-title"
-                            aria-expanded={open}
-                            onClick={() => toggleSameTitle(id)}
-                          >
-                            {sameTitleToggleLabel(sameTitle.length, open)}
-                          </button>
-                        ) : null}
-                      </div>
+            {explorePages.length ? explorePages.map((page) => {
+              const rowId = String(pageId(page));
+              const changedByLibrary = sourceMaterialIds.has(rowId);
+              const reviewState = wikiReviewState(page, changedByLibrary);
+              const reviewReason = reviewReasonById.get(rowId) || wikiReviewReason(page, changedByLibrary);
+              return (
+                <div
+                  key={rowId}
+                  className={`wiki-living-row${changedByLibrary ? ' is-library-changed' : ''}`}
+                  role="row"
+                >
+                  <div className="wiki-living-row__title" role="cell">
+                    <div>
+                      <Link to={wikiReadPath(rowId)}>{displayWikiPageTitle(page, 'Untitled page')}</Link>
+                      <small>{WIKI_KIND_FLAGS[wikiKindForPage(page)]}</small>
+                      {wikiFilter === 'review' ? (
+                        <small>{reviewReason}</small>
+                      ) : null}
                     </div>
-                    <span role="cell">{wikiGroundingLabel(item)}</span>
-                    <span role="cell">{wikiReviewDate(item)}</span>
-                    <span className={`wiki-living-row__state is-${reviewState.tone}`} role="cell">
-                      <i aria-hidden="true" />
-                      {reviewState.label}
-                    </span>
-                    <Link className="wiki-living-row__open" to={wikiReadPath(rowId)} aria-label={`Open ${displayWikiPageTitle(item, 'Wiki page')}`}>→</Link>
                   </div>
-                );
-              };
-              return open
-                ? [row(page), ...sameTitle.map(item => row(item, true))]
-                : [row(page)];
+                  <span role="cell">{wikiGroundingLabel(page)}</span>
+                  <span role="cell">{wikiReviewDate(page)}</span>
+                  <span className={`wiki-living-row__state is-${reviewState.tone}`} role="cell">
+                    <i aria-hidden="true" />
+                    {reviewState.label}
+                  </span>
+                  <Link className="wiki-living-row__open" to={wikiReadPath(rowId)} aria-label={`Open ${displayWikiPageTitle(page, 'Wiki page')}`}>→</Link>
+                </div>
+              );
             }) : (
               <p className="wiki-living-table__empty">No Wiki pages match this view.</p>
             )}
