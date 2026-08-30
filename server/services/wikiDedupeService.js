@@ -65,7 +65,11 @@ const buildDuplicateClaimPlan = (claims = []) => {
       return {
         key,
         canonicalClaimId,
-        mergedClaimIds: group.slice(1).map(claimId).filter(value => value && value !== canonicalClaimId)
+        mergedClaimIds: uniqueBy(
+          group.slice(1).map(claimId).filter(value => value && value !== canonicalClaimId),
+          String
+        ),
+        duplicateEntryCount: group.length - 1
       };
     });
 };
