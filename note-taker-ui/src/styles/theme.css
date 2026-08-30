@@ -3020,6 +3020,29 @@ body.noeis-editorial .palette-list {
   font-style: italic;
 }
 
+.article-cited-passage {
+  margin: 0 auto var(--space-5);
+  max-width: 760px;
+  padding: var(--space-4) var(--space-5);
+  border-left: 2px solid var(--wiki-warm-accent, #b08a4f);
+  background: color-mix(in srgb, var(--wiki-warm-accent, #b08a4f) 7%, transparent);
+}
+
+.article-cited-passage blockquote {
+  margin: var(--space-2) 0 0;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.06rem;
+  line-height: 1.65;
+}
+
+.article-cited-passage p {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 .article-reader-content h1,
 .article-reader-content h2,
 .article-reader-content h3 {
@@ -3034,7 +3057,8 @@ body.noeis-editorial .palette-list {
 }
 
 .article-reader-content .is-cited-passage,
-.article-highlight-edition__item.is-cited-passage {
+.article-highlight-edition__item.is-cited-passage,
+.article-cited-passage.is-cited-passage {
   outline: 1px solid color-mix(in srgb, var(--wiki-warm-accent, #b08a4f) 55%, transparent);
   outline-offset: 4px;
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--wiki-warm-accent, #b08a4f) 12%, transparent);
@@ -3043,7 +3067,8 @@ body.noeis-editorial .palette-list {
 
 @media (prefers-reduced-motion: reduce) {
   .article-reader-content .is-cited-passage,
-  .article-highlight-edition__item.is-cited-passage {
+  .article-highlight-edition__item.is-cited-passage,
+  .article-cited-passage.is-cited-passage {
     transition: none;
   }
 }

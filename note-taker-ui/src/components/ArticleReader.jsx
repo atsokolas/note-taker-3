@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
@@ -59,9 +59,10 @@ const ArticleFolioLine = ({ line, articleId }) => {
   );
 };
 
-const ArticleReader = forwardRef(({
+const ArticleReader = ({
   article,
   highlights = [],
+  focusedHighlightId = '',
   graphConnections = null,
   preferredClaimId = '',
   onMove,
@@ -71,7 +72,7 @@ const ArticleReader = forwardRef(({
   onAskLibrarian,
   onToggleEvergreen,
   sourceTrace = null
-}, ref) => {
+}) => {
   const contentRef = useRef(null);
   const readerRootRef = useRef(null);
   const menuRef = useRef(null);
@@ -109,10 +110,18 @@ const ArticleReader = forwardRef(({
     [article, highlights]
   );
   const contentMarkup = useMemo(() => ({ __html: html }), [html]);
+  const focusedHighlight = useMemo(() => (
+    highlights.find((item) => String(item?._id || item?.id || '') === String(focusedHighlightId)) || null
+  ), [focusedHighlightId, highlights]);
+  const focusedPassageIsInArticle = Boolean(focusedHighlightId)
+    && html.includes(`data-highlight-id="highlight-${focusedHighlightId}"`);
   const isHighlightOnlyImport = Boolean(article)
     && !hasReadableContent(article.content)
     && Array.isArray(highlights)
     && highlights.length > 0;
+  const focusedPassage = focusedHighlight && !focusedPassageIsInArticle && !isHighlightOnlyImport
+    ? focusedHighlight
+    : null;
   const { selectionState, clearSelection } = useTextSelection({
     containerRef: contentRef,
     menuRef
@@ -131,16 +140,17 @@ const ArticleReader = forwardRef(({
     setSaveError('');
   }, [selectionKey, selectionState.isOpen]);
 
-  useImperativeHandle(ref, () => ({
-    scrollToHighlight: (highlightId) => {
-      if (!contentRef.current) return;
-      const target = contentRef.current.querySelector(`[data-highlight-id="highlight-${highlightId}"]`);
-      if (!target) return;
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('is-cited-passage');
-      window.setTimeout(() => target.classList.remove('is-cited-passage'), 1600);
-    }
-  }));
+  useEffect(() => {
+    if (!focusedHighlightId || !readerRootRef.current) return undefined;
+    const target = readerRootRef.current.querySelector(
+      `[data-highlight-id="highlight-${focusedHighlightId}"]`
+    );
+    if (!target) return undefined;
+    target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    target.classList.add('is-cited-passage');
+    const timeout = window.setTimeout(() => target.classList.remove('is-cited-passage'), 1600);
+    return () => window.clearTimeout(timeout);
+  }, [focusedHighlightId, focusedPassage, html]);
 
   if (!article) {
     return (
@@ -271,6 +281,17 @@ const ArticleReader = forwardRef(({
           )}
         </div>
       </div>
+      {focusedPassage ? (
+        <aside
+          className="article-cited-passage"
+          data-highlight-id={`highlight-${focusedHighlightId}`}
+          aria-label="Saved passage"
+        >
+          <span className="eyebrow">Saved passage</span>
+          <blockquote>{focusedPassage.text || 'Untitled highlight'}</blockquote>
+          {focusedPassage.note ? <p>{focusedPassage.note}</p> : null}
+        </aside>
+      ) : null}
       {isHighlightOnlyImport ? (
         <div className="article-reader-content reader article-reader-content--highlights" ref={contentRef}>
           <section className="article-highlight-edition" aria-label="Saved highlights">
@@ -321,6 +342,6 @@ const ArticleReader = forwardRef(({
       {saveError && <p className="status-message error-message">{saveError}</p>}
     </div>
   );
-});
+};
 
 export default ArticleReader;

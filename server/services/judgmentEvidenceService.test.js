@@ -5,6 +5,7 @@ const {
   answersClaim,
   explainMatch,
   bestEvidencePassage,
+  passageWindows,
   passageQuality,
   answersExactPassage,
   snippetAround,
@@ -67,12 +68,45 @@ assert.strictEqual(
   'the selection explains itself in the claim\'s own words'
 );
 
-// snippetAround centres on the match rather than truncating from the start
-const long = `${'filler '.repeat(60)}the capacity constraint is real${' tail'.repeat(60)}`;
+// snippetAround selects the complete sentence that best answers the claim.
+const long = `${'Filler '.repeat(30)}ends here. The capacity constraint is real. ${'Tail '.repeat(30)}ends there.`;
 const snippet = snippetAround(long, ['capacity'], 120);
 assert.ok(snippet.includes('capacity'), 'the matched word survives the trim');
-assert.ok(snippet.length <= 130, 'and the snippet stays within budget');
+assert.strictEqual(snippet, 'The capacity constraint is real.', 'and the passage stays whole');
+assert.ok(!snippet.includes('…'), 'it never signals a character clamp with ellipsis');
 assert.strictEqual(snippetAround('short text', ['short'], 120), 'short text', 'short text is untouched');
+
+const damagedExcerpt = '…n\'t be possible under traditional compute constraints. This ability to compute the uncomputable changes what models can do. A trailing fragment about orders of magnitude…';
+assert.strictEqual(
+  snippetAround(damagedExcerpt, ['compute', 'changes'], 80),
+  'This ability to compute the uncomputable changes what models can do.',
+  'stored edge fragments cannot become a filed Judgment line'
+);
+assert.deepStrictEqual(
+  passageWindows(damagedExcerpt),
+  [
+    'This ability to compute the uncomputable changes what models can do.',
+    'This ability to compute the uncomputable changes what models can do. A trailing fragment about orders of magnitude…',
+    'A trailing fragment about orders of magnitude…'
+  ],
+  'a clipped leading edge never enters retrieval candidates'
+);
+assert.deepStrictEqual(
+  passageWindows('Demand for compute will remain strong…'),
+  ['Demand for compute will remain strong…'],
+  'authored sentence-ending ellipses remain valid evidence'
+);
+const oversizedSentence = `Capacity ${'remains constrained '.repeat(40)}.`;
+assert.strictEqual(
+  snippetAround(oversizedSentence, ['capacity'], 120),
+  '',
+  'a sentence too large to preserve whole yields honest silence'
+);
+assert.strictEqual(
+  bestEvidencePassage(oversizedSentence, ['capacity'], 120),
+  null,
+  'oversized evidence cannot differ between acceptance and persistence'
+);
 
 // candidatesFromArticle: the reader's own highlights outrank the body
 const article = {

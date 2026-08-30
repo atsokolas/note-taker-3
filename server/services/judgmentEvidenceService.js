@@ -134,14 +134,17 @@ const explainMatch = (matched = [], terms = []) => {
    the explanation true of the document but false of the words shown to the
    reader. Choose the smallest complete passage that clears the same quality
    bar, then score and explain those exact visible words. */
-const passageWindows = (text = '') => {
-  const body = clean(String(text || '').replace(/<[^>]*>/g, ' '));
-  if (!body) return [];
-  const sentences = body
+const evidenceSentences = (text = '') => (
+  clean(String(text || '').replace(/<[^>]*>/g, ' '))
     .split(/(?<=[.!?])\s+(?=[A-Z0-9"'])|\n+/)
     .map(clean)
-    .filter(Boolean);
-  if (sentences.length <= 1) return [body];
+    .filter(sentence => sentence && !/^(?:…|\.\.\.)(?=[a-z'])/.test(sentence))
+);
+
+const passageWindows = (text = '') => {
+  const sentences = evidenceSentences(text);
+  if (!sentences.length) return [];
+  if (sentences.length === 1) return sentences;
   return sentences.flatMap((sentence, index) => {
     const pair = index < sentences.length - 1 ? clean(`${sentence} ${sentences[index + 1]}`) : '';
     return pair ? [sentence, pair] : [sentence];
@@ -194,24 +197,27 @@ const bestEvidencePassage = (text = '', terms = [], budget = SNIPPET_BUDGET) => 
     if (passage.text.length <= budget) return passage;
     const clipped = snippetAround(passage.text, passage.matched, budget);
     const visible = passageQuality(clipped, terms);
-    return answersExactPassage(visible, terms) ? visible : passage;
+    return answersExactPassage(visible, terms) ? visible : null;
   })
+  .filter(Boolean)
   .sort(comparePassageQuality)[0] || null;
 
 const snippetAround = (text = '', terms = [], budget = SNIPPET_BUDGET) => {
   const body = clean(text);
-  if (body.length <= budget) return body;
-  const lower = body.toLowerCase();
-  let at = -1;
-  terms.some((term) => {
-    const found = lower.indexOf(term);
-    if (found >= 0) at = found;
-    return found >= 0;
-  });
-  if (at < 0) return `${body.slice(0, budget - 1).trim()}…`;
-  const start = Math.max(0, at - Math.floor(budget / 3));
-  const slice = body.slice(start, start + budget).trim();
-  return `${start > 0 ? '…' : ''}${slice}${start + budget < body.length ? '…' : ''}`;
+  const sentences = evidenceSentences(body);
+  if (!sentences.length) return '';
+  if (body.length <= budget && sentences.join(' ') === body) return body;
+  const candidates = sentences.filter(sentence => sentence.length <= budget);
+  if (!candidates.length) return '';
+
+  // Evidence is a sentence, not a character window. A saved excerpt may
+  // itself begin or end halfway through the source; selecting the strongest
+  // complete sentence prevents that damaged edge from entering the casebook.
+  return candidates.reduce((best, sentence) => {
+    const score = matchedTerms(sentence, terms).length;
+    if (!best || score > best.score) return { sentence, score };
+    return best;
+  }, null)?.sentence || body;
 };
 
 const sourceLabelFor = (article = {}) => {

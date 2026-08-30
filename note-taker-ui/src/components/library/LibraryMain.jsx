@@ -11,6 +11,7 @@ const LibraryMain = ({
   selectedArticleId,
   selectedArticle,
   articleHighlights,
+  focusedHighlightId = '',
   articleGraphConnections,
   articleLoading,
   articleError,
@@ -20,7 +21,6 @@ const LibraryMain = ({
   articlesError,
   scope,
   selectedFolderName,
-  readerRef,
   onSelectArticle,
   onRetryArticle = null,
   onOpenSource = null,
@@ -181,9 +181,9 @@ const LibraryMain = ({
         )}
         {hasReadableArticle && (
           <ArticleReader
-            ref={readerRef}
             article={selectedArticle}
             highlights={articleHighlights}
+            focusedHighlightId={focusedHighlightId}
             graphConnections={articleGraphConnections}
             onMove={() => selectedArticle && onMoveArticle(selectedArticle)}
             onHighlightOptimistic={onHighlightOptimistic}
