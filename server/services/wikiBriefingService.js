@@ -154,7 +154,7 @@ const collectRecentMaintenanceChanges = async ({
       const afterHealth = revision.after?.aiState?.health || {};
       return {
         pageId: idString(revision.pageId || revision.after?._id),
-        title: truncate(normalizeExistingWikiTitleForPresentation(revision.after?.title), 140) || 'Untitled wiki page',
+      title: asString(normalizeExistingWikiTitleForPresentation(revision.after?.title)) || 'Untitled wiki page',
         summary: truncate(revision.summary || revision.after?.aiState?.lastMaintenanceSummary || '', 180),
         reason: asString(revision.reason),
         maintenanceRunId: idString(revision.maintenanceRunId),
@@ -378,7 +378,7 @@ const collectRecentlyUpdatedPages = (pages = [], { windowMs = ONE_DAY_MS, now = 
     .slice(0, 8)
     .map(page => ({
       _id: String(page._id || ''),
-      title: truncate(normalizeExistingWikiTitleForPresentation(page.title), 140) || 'Untitled wiki page',
+      title: asString(normalizeExistingWikiTitleForPresentation(page.title)) || 'Untitled wiki page',
       lastDraftedAt: page.aiState?.lastDraftedAt || null
     }));
 };
@@ -406,7 +406,7 @@ const collectDriftingPages = (pages = [], { now = Date.now() } = {}) => {
     .slice(0, 8)
     .map(entry => ({
       _id: String(entry.page._id || ''),
-      title: truncate(normalizeExistingWikiTitleForPresentation(entry.page.title), 140) || 'Untitled wiki page',
+      title: asString(normalizeExistingWikiTitleForPresentation(entry.page.title)) || 'Untitled wiki page',
       driftSignals: entry.driftSignals,
       lastSourceEventAt: entry.lastSourceEventAt,
       waitingDays: entry.waitingDays,
@@ -449,9 +449,12 @@ const buildAliveness = ({
   const register = sameAsLastVisit || waitingDays >= 2 ? 'aged' : 'new';
   const days = Math.max(1, waitingDays);
   const copy = register === 'aged'
-    ? (waitingDays < 1
-      ? `${notable.title} is still waiting on a rebuild — clear it?`
-      : `${notable.title} has been waiting on a rebuild for ${days} day${days === 1 ? '' : 's'} — clear it?`)
+    ? sentenceBoundaryTrim(
+      waitingDays < 1
+        ? `${notable.title} is still waiting on a rebuild — clear it?`
+        : `${notable.title} has been waiting on a rebuild for ${days} day${days === 1 ? '' : 's'} — clear it?`,
+      { maxLength: 280, fallback: '' }
+    )
     : '';
   return {
     register,

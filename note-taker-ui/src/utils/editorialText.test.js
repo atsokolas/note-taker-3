@@ -17,4 +17,10 @@ describe('editorialText', () => {
     expect(sentenceBoundaryTrim(value, { maxLength: 80, fallback: '' })).not.toMatch(/…/);
     expect(sentenceBoundaryTrim(value, { maxLength: 80, fallback: '' })).not.toMatch(/\bv$/);
   });
+
+  it('refuses Exhibit A instead of rendering a mid-word cut', () => {
+    const exhibitA = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries… WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github… debugging only the v…';
+    expect(sentenceBoundaryTrim(exhibitA, { maxLength: 80, fallback: '' })).toBe('');
+    expect(sentenceBoundaryTrim(exhibitA, { maxLength: 80, fallback: '' })).not.toMatch(/the v…$/);
+  });
 });

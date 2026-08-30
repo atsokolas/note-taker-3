@@ -6,19 +6,17 @@ import { sentenceBoundaryTrim } from '../../utils/editorialText';
    stay silent. Never a “work is ready” inbox. */
 
 const SAFETY_LEAD = /^(user safety|safety|quality(?: gate)?)\s*:/i;
+const STALE_DRIFT_PRESENT = /queued signals awaiting a rebuild/i;
 
 export const completeLeadSentence = (value = '', maxLength = 280) => {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
   if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
-  const matches = Array.from(text.matchAll(/[.!?](?=\s|$)/g));
-  const boundary = matches
-    .map(match => match.index + 1)
-    .filter(index => index <= maxLength)
-    .pop();
-  if (boundary) {
-    return sentenceBoundaryTrim(text.slice(0, boundary), { maxLength, fallback: '' });
-  }
+  const lastStop = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
+  const complete = lastStop >= 0 && lastStop + 1 <= maxLength
+    ? text.slice(0, lastStop + 1).trim()
+    : '';
+  if (complete) return sentenceBoundaryTrim(complete, { maxLength, fallback: complete });
   if (text.length <= maxLength) return `${text}.`;
   return sentenceBoundaryTrim(text, { maxLength, fallback: '' });
 };
@@ -26,7 +24,9 @@ export const completeLeadSentence = (value = '', maxLength = 280) => {
 export const isEditorialBriefing = (value = '') => {
   const text = String(value || '').trim();
   if (!text) return false;
-  return !SAFETY_LEAD.test(text);
+  if (SAFETY_LEAD.test(text)) return false;
+  if (STALE_DRIFT_PRESENT.test(text)) return false;
+  return true;
 };
 
 const stripTerminal = (value = '') => String(value || '').replace(/[.!?]+$/g, '').trim();

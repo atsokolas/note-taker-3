@@ -1710,6 +1710,35 @@ describe('WikiPageReadView', () => {
     expect(rail).not.toHaveTextContent('while navigating behavioral pressure and market uncertainty');
   });
 
+  it('does not amputate a dossier summary mid-word', async () => {
+    const amputated = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries while WikiRepoCreateComposer and createRepoWikiFromGitHub keep walking the view layer debugging only the v';
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      pageType: 'repo',
+      metadata: { summary: amputated },
+      body: { type: 'doc', content: [] },
+      externalWatches: {
+        githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', status: 'active' }
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-summary-whole" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    await flushDeferredWikiReadWork();
+    const showContext = within(rail).queryByRole('button', { name: /show context/i });
+    if (showContext) {
+      await act(async () => { fireEvent.click(showContext); });
+    }
+
+    expect(rail).not.toHaveTextContent('debugging only the v');
+    expect(rail).not.toHaveTextContent(/the v\.\.\.$/);
+  });
+
   it('renders infobox numeric counts on load and live source or claim count changes', async () => {
     const { rerender } = render(
       <MemoryRouter>

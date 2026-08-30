@@ -1,3 +1,5 @@
+const { sentenceBoundaryTrim } = require('../lib/editorialText');
+
 const normalizeSpaces = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const LOWERCASE_TITLE_WORDS = new Set([
@@ -168,29 +170,6 @@ const readsAsModelScratchpad = (value = '') => {
   const text = String(value || '').trim();
   if (!text) return false;
   return SCRATCHPAD_PATTERNS.some(pattern => pattern.test(text));
-};
-
-const sentenceBoundaryTrim = (value = '', {
-  maxLength = 280,
-  fallback = ''
-} = {}) => {
-  const text = normalizeSpaces(value)
-    .replace(/^["']|["']$/g, '')
-    .replace(/\s+\[\d+(?:,\s*\d+)*\]\s*$/g, '')
-    .trim();
-
-  if (!text) return fallback;
-  if (text.length <= maxLength) return text;
-
-  const boundaryPattern = /[.!?](?=\s|$)/g;
-  let match;
-  let boundary = -1;
-  while ((match = boundaryPattern.exec(text)) !== null) {
-    if (match.index + 1 <= maxLength) boundary = match.index + 1;
-  }
-  if (boundary > 0) return text.slice(0, boundary).trim();
-  // Never amputate mid-word or mid-clause. The selector must pick shorter text.
-  return fallback;
 };
 
 /**

@@ -206,12 +206,30 @@ describe('wikiBriefingService', () => {
     it('goes quiet when nothing is queued', () => {
       expect(buildAliveness({ driftingPages: [], now: NOW }).register).toBe('quiet');
     });
+
+    it('ages from lastSourceEventAt instead of inventing a present-tense eighteen days', () => {
+      const pages = collectDriftingPages([buildPage({
+        _id: 'survivorship',
+        title: 'Survivorship Bias',
+        freshness: {
+          pendingSourceEventIds: ['e1', 'e2', 'e3', 'e4', 'e5'],
+          lastSourceEventAt: new Date(NOW - 5 * ONE_DAY_MS).toISOString()
+        }
+      })], { now: NOW });
+      expect(pages[0].waitingDays).toBe(5);
+      const alive = buildAliveness({ driftingPages: pages, now: NOW });
+      expect(alive.register).toBe('aged');
+      expect(alive.copy).toBe('Survivorship Bias has been waiting on a rebuild for 5 days — clear it?');
+      expect(alive.copy).not.toMatch(/18/);
+      expect(alive.copy).not.toMatch(/queued signals awaiting/i);
+    });
   });
 
   describe('buildFallbackSummary', () => {
     it('returns the quiet-day sentence when nothing is happening', () => {
       const out = buildFallbackSummary({ newSources: 0, recentlyUpdatedPages: [], driftingPages: [] });
       expect(out).toMatch(/quiet today/i);
+      expect(out).not.toMatch(/queued signals awaiting/i);
     });
 
     it('prints an honest aged waiting line instead of re-warming stale drift', () => {
