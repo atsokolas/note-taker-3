@@ -493,6 +493,7 @@ describe('Judgment claim', () => {
     fireEvent.blur(opinion);
 
     await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalledWith('wiki-nvidia', next));
+    expect(screen.queryByTestId('ariadne-thread')).not.toBeInTheDocument();
     expect(screen.getByLabelText('What you hold')).toHaveValue('NVIDIA demand still outruns deliverable capacity.');
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalledWith(
@@ -507,6 +508,24 @@ describe('Judgment claim', () => {
     expect(screen.getByTestId('opinion-ghost'))
       .toHaveTextContent('NVIDIA demand still outruns deliverable capacity.');
     expect(screen.getByLabelText('What you hold')).toHaveValue(next);
+    expect(await screen.findByTestId('ariadne-thread')).toBeInTheDocument();
+  });
+
+  it('does not draw provenance when accepting the proposed change fails', async () => {
+    const next = 'I am bullish NVIDIA compute.';
+    getWikiPage.mockResolvedValue(judgmentPage());
+    resolveJudgmentChange.mockRejectedValueOnce(new Error('The write failed.'));
+    renderDetail();
+
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: next } });
+    fireEvent.blur(opinion);
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The write failed.');
+    expect(screen.queryByTestId('ariadne-thread')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('What you hold'))
+      .toHaveValue('NVIDIA demand still outruns deliverable capacity.');
   });
 
   it('offers all four human dispositions and restores the receipt after reload', async () => {

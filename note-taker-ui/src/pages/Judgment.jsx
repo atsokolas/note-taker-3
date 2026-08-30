@@ -21,6 +21,7 @@ import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
+import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
 import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
@@ -249,7 +250,7 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   );
 };
 
-const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve }) => {
+const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, sentenceRef }) => {
   if (!proposal?.id) return null;
   const status = asLine(proposal.status).toLowerCase();
   const before = asLine(proposal.provenance?.before);
@@ -266,7 +267,7 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve })
     <section className={`judgment-change${pending ? ' is-pending' : ' is-settled'}`} aria-label="Judgment change review">
       <p className="judgment-change__eyebrow">{pending ? 'Before this becomes what you hold' : label}</p>
       {before ? <p className="judgment-change__before">{before}</p> : null}
-      {after ? <p className="judgment-change__after">{after}</p> : null}
+      {after ? <p className="judgment-change__after" ref={sentenceRef}>{after}</p> : null}
       {pending ? (
         <div className="judgment-change__actions" aria-label="Resolve proposed judgment change">
           <button type="button" disabled={busy} onClick={() => onResolve('accept')}>Accept</button>
@@ -616,6 +617,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(!initialPage);
   const claimRef = useRef(null);
+  const changeSentenceRef = useRef(null);
   const flownFor = useRef('');
   const { ask, busy: asking, error: askError } = useAgentRail();
   const [printing, setPrinting] = useState(false);
@@ -631,6 +633,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [changeProposal, setChangeProposal] = useState(null);
   const [changeProposalBusy, setChangeProposalBusy] = useState(false);
   const [changeProposalError, setChangeProposalError] = useState('');
+  const [acceptedChangeTrace, setAcceptedChangeTrace] = useState(0);
   const [libraryAttempt, setLibraryAttempt] = useState(0);
   const systemStatus = useSystemStatusControls();
   const pageRef = useRef(page);
@@ -956,6 +959,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       }
       setChangeProposal(resolved.proposal || null);
       if (action === 'accept') {
+        // Only a confirmed accepted write earns the thread. The receipt is the
+        // proof; this counter simply lets the next paint show where it landed.
+        setAcceptedChangeTrace(currentTrace => currentTrace + 1);
         setLibraryCandidates([]);
         setLibraryAttempt(currentAttempt => currentAttempt + 1);
         const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
@@ -1095,6 +1101,12 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         busy={changeProposalBusy}
         error={changeProposalError}
         onResolve={resolveChangeProposal}
+        sentenceRef={changeSentenceRef}
+      />
+      <AriadneThread
+        traceId={acceptedChangeTrace}
+        sourceRef={changeSentenceRef}
+        targetRef={claimRef}
       />
 
       <DossierResearchReview

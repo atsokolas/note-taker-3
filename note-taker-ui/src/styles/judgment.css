@@ -1797,3 +1797,67 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   color: var(--danger, #8b3328);
   font: 400 0.82rem/1.5 var(--font-sans, sans-serif);
 }
+
+/* One accepted write, one quiet thread. It lives over the page rather than in
+   layout, so neither the claim nor its receipt moves while provenance arrives. */
+.ariadne-thread {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: block;
+  pointer-events: none;
+}
+
+.ariadne-thread__line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ariadne-thread__line path {
+  fill: none;
+  stroke: var(--noeis-gold, #a77721);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  vector-effect: non-scaling-stroke;
+  animation: ariadne-travel 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards,
+    ariadne-vanish 320ms ease 980ms forwards;
+}
+
+.ariadne-thread__knot {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--noeis-gold, #a77721);
+  border-radius: 50%;
+  background: var(--paper, #f7f3eb);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.7);
+  animation: ariadne-knot 700ms cubic-bezier(0.16, 1, 0.3, 1) 560ms forwards;
+}
+
+.ariadne-thread--reduced .ariadne-thread__knot {
+  animation: ariadne-knot-reduced 600ms linear forwards;
+}
+
+@keyframes ariadne-travel {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ariadne-vanish {
+  to { opacity: 0; }
+}
+
+@keyframes ariadne-knot {
+  30%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.82); }
+}
+
+@keyframes ariadne-knot-reduced {
+  20%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
