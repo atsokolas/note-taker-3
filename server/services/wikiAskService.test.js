@@ -586,7 +586,7 @@ describe('wikiAskService', () => {
       });
 
       expect(find).toHaveBeenCalledTimes(1);
-      expect(select).toHaveBeenCalledWith('title slug pageType plainText updatedAt');
+      expect(select).toHaveBeenCalledWith('title slug pageType plainText investmentDossier.version updatedAt');
       expect(findWikiBacklinks).not.toHaveBeenCalled();
       expect(corpus.relatedPages.slice(0, 3).map(page => page.title)).toEqual([
         'Retail inventory turns',
@@ -644,6 +644,25 @@ describe('wikiAskService', () => {
         candidate: repository,
         question: 'Which Wiki pages are relevant?'
       })).toBe(true);
+    });
+
+    it('keeps company casebooks and maintenance artifacts out of ordinary related-page lists', () => {
+      const selected = {
+        _id: 'costco',
+        title: 'Costco Wholesale investment dossier',
+        investmentDossier: { version: 1 }
+      };
+      const peer = {
+        _id: 'deere',
+        title: 'DEERE & CO investment dossier',
+        investmentDossier: { version: 1 }
+      };
+      const acceptance = { _id: 'alphabet-proof', title: 'Alphabet Maintenance Acceptance — 2026-07-12' };
+
+      expect(isCompatibleWikiListCandidate({ page: selected, candidate: peer, question: 'Which Wiki pages are relevant?' })).toBe(false);
+      expect(isCompatibleWikiListCandidate({ page: selected, candidate: peer, question: 'Which peer company Wiki pages should I compare?' })).toBe(true);
+      expect(isCompatibleWikiListCandidate({ page: selected, candidate: acceptance, question: 'Which Wiki pages are relevant?' })).toBe(false);
+      expect(isCompatibleWikiListCandidate({ page: selected, candidate: acceptance, question: 'Which maintenance audit is relevant?' })).toBe(true);
     });
 
     it('loads revision rows for temporal questions on selected and mentioned pages', async () => {
