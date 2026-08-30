@@ -921,6 +921,24 @@ describe('the overnight line', () => {
 });
 
 describe('the agent rail', () => {
+  it('can inspect the strongest saved passage on either side of the exact sentence', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    streamChatWithAgent.mockResolvedValue(articleReply('Demand has compounded faster than available supply.'));
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Find the strongest passage for this' }));
+
+    await waitFor(() => expect(streamChatWithAgent).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('supports this exact claim'),
+      context: expect.objectContaining({ type: 'wiki_page', id: 'wiki-nvidia', pageId: 'wiki-nvidia' })
+    }), expect.any(Object)));
+
+    const rail = screen.getByRole('complementary', { name: 'Skeptical partner' });
+    expect(await within(rail).findByText('Demand has compounded faster than available supply.')).toBeInTheDocument();
+    expect(updateWikiPage).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Find the strongest passage against this' })).toBeInTheDocument();
+  });
+
   it('names where a retrieved line came from, and says so when nothing did', async () => {
     // A retrieved sentence with no source is an assertion. The whole contract
     // is that the agent retrieves rather than knows, so provenance is part of

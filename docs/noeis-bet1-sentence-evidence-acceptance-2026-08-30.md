@@ -19,6 +19,9 @@ local implementation proof, not merge, deployment, or production proof.
 ## Proven locally
 
 - An eligible passage names why it was selected against the held sentence.
+- The case offers symmetric doors for the strongest saved support and the
+  strongest saved counterpassage. Both run through the durable contextual agent;
+  neither writes until the person accepts the quoted Library passage.
 - Filing the passage as support persists the exact article and passage identity.
 - Reload restores the filed line and its provenance link.
 - The citation returns to the exact Library article.
@@ -67,7 +70,9 @@ covers 1440px, 1320px, and 430px with controlled API responses.
 - Counterevidence is source-bound and fail-closed locally. Its semantic claim to
   be the *strongest* passage still needs the final arbitrary-sentence gauntlet;
   no live-model quality evaluation was run in this slice.
-- The full exit gauntlet must begin from arbitrary sentences, inspect both
-  evidence directions, accept one change, reload, and recover the same result.
+- The full exit gauntlet must begin from arbitrary sentences, verify the
+  semantic quality of both evidence directions, accept one change, reload, and
+  recover the same result. The two directional doors are implemented locally;
+  semantic quality remains unclaimed without a model evaluation or human read.
 - The persisted browser round trip must be rerun after storage is restored or a
   disposable Mongo is supplied.

@@ -162,6 +162,63 @@ const fakeArticle = (articles) => ({
   });
   assert.deepStrictEqual(filedHire.candidates, [], 'a Why already filed from that passage is not offered again');
 
+  /* Arbitrary-sentence gauntlet. These are deliberately unrelated domains:
+     the retrieval boundary is the sentence, never a ticker or dossier shape.
+     Each fixture contains a passage on either side. Retrieval must surface
+     both with exact provenance and must not pretend lexical overlap knows
+     which one supports or challenges the hold. */
+  const gauntlet = [
+    {
+      claim: 'Consistent bedtime routines improve children sleep quality.',
+      support: 'Consistent bedtime routines improve children sleep quality across the school week.',
+      counter: 'Consistent bedtime routines did not improve children sleep quality in the trial.'
+    },
+    {
+      claim: 'Shorter onboarding improves activation for new customers.',
+      support: 'Shorter onboarding improves activation for new customers by removing setup work.',
+      counter: 'Shorter onboarding did not improve activation for new customers who needed guidance.'
+    },
+    {
+      claim: 'Maya should be the first engineer hired.',
+      support: 'Maya should be the first engineer hired because she owns the critical systems.',
+      counter: 'Maya should not be the first engineer hired while the product role remains open.'
+    },
+    {
+      claim: 'Debate training reduces reward hacking in language models.',
+      support: 'Debate training reduces reward hacking in language models under adversarial evaluation.',
+      counter: 'Debate training did not reduce reward hacking in language models outside the benchmark.'
+    },
+    {
+      claim: 'Costco membership renewal can remain above ninety percent.',
+      support: 'Costco membership renewal remained above ninety percent in the reported period.',
+      counter: 'Costco membership renewal may fall below ninety percent when household budgets tighten.'
+    }
+  ];
+
+  for (const [index, scenario] of gauntlet.entries()) {
+    const articles = ['support', 'counter'].map((direction) => ({
+      _id: `${direction}-${index}`,
+      title: `${direction} passage ${index}`,
+      url: `https://example.com/${direction}-${index}`,
+      highlights: [{ _id: `${direction}-highlight-${index}`, text: scenario[direction] }]
+    }));
+    const result = await findLibraryEvidence({
+      Article: fakeArticle(articles),
+      userId: 'u1',
+      claim: scenario.claim
+    });
+    assert.deepStrictEqual(
+      new Set(result.candidates.map(candidate => candidate.articleId)),
+      new Set([`support-${index}`, `counter-${index}`]),
+      `both ends of arbitrary sentence ${index + 1} survive the quality bar`
+    );
+    result.candidates.forEach((candidate) => {
+      assert.ok(candidate.highlightId, 'the exact saved passage identity travels with the result');
+      assert.ok(candidate.url, 'the exact source door travels with the result');
+      assert.strictEqual(candidate.side, undefined, 'retrieval leaves semantic disposition to agent plus human');
+    });
+  }
+
   console.log('judgmentEvidenceService tests passed');
 })();
 
