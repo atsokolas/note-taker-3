@@ -739,7 +739,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           <RoomShelfList className="wiki-living-nav__primary">
             {[
               ['all', 'All wikis', canonicalPages.length],
-              ['review', 'Needs review', reviewTriage?.promotedCount ?? Math.min(3, exactReviewCount)],
+              ['review', 'Needs review', shelfCount(reviewTriage?.promotedCount ?? Math.min(3, exactReviewCount))],
               ['recent', 'Recently updated', shelfCount(briefing ? recentlyUpdated.length : undefined)]
             ].map(([value, label, count]) => (
               <li key={value}>

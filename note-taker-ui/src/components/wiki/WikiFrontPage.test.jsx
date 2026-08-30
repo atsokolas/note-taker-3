@@ -885,6 +885,7 @@ describe('Recently updated', () => {
     const recent = screen.getByRole('button', { name: /^Recently updated$/i });
     expect(recent).toBeInTheDocument();
     expect(recent).not.toHaveTextContent('0');
+    expect(screen.getByRole('button', { name: /^Needs review$/i })).not.toHaveTextContent('0');
     expect(screen.queryByText('Recently grown')).not.toBeInTheDocument();
   });
 });
