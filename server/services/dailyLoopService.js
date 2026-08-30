@@ -7,6 +7,7 @@ const {
 } = require('./wikiBriefingService');
 const { evaluateCheckInEligibility } = require('./checkInEligibility');
 const { buildReviewTriage } = require('./reviewTriageService');
+const { canonicalWikiTitle } = require('./wikiPresentationGuard');
 
 // Paid transcript providers are intentionally excluded from the product while
 // Noeis operates on free authoritative sources only. Historical rows can remain
@@ -158,7 +159,7 @@ const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now
       const watcherRank = impacted.has(key) ? impacted.get(key) : Number.MAX_SAFE_INTEGER;
       candidates.push({
         pageId: id(page),
-        pageTitle: clean(page.title || 'Untitled wiki page', 180),
+        pageTitle: clean(canonicalWikiTitle(page, 'Untitled wiki page'), 180),
         claimId: String(claim.claimId),
         text: eligibility.text,
         support: String(claim.support || 'unsupported'),
@@ -196,7 +197,7 @@ const listWatching = (pages = []) => (Array.isArray(pages) ? pages : []).flatMap
       label,
       detail,
       status: watch.status || 'active',
-      page: { id: id(page), title: clean(page.title || 'Untitled wiki page', 180), slug: String(page.slug || '') },
+      page: { id: id(page), title: clean(canonicalWikiTitle(page, 'Untitled wiki page'), 180), slug: String(page.slug || '') },
       lastCheckedAt: watch.lastCheckedAt || null,
       lastEventAt: lastEventAt || null,
       errorMessage: clean(watch.errorMessage || '', 300)

@@ -176,13 +176,14 @@ const {
 } = require('../services/wikiPageQualityGuard');
 const {
   buildRepoWikiTitle,
-  normalizeExistingWikiTitleForPresentation,
+  canonicalWikiTitle,
   normalizeWikiTitleForPresentation
 } = require('../services/wikiPresentationGuard');
 const {
-  chooseCanonicalPage,
+  findWriteTimeCanonicalPage,
   mergePageRecords,
-  normalizeComparableText
+  normalizeComparableText,
+  pageIsRepoWiki
 } = require('../services/wikiDedupeService');
 const { reviewExpired } = require('../services/reviewTriageService');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
@@ -850,7 +851,7 @@ const serializeWikiPage = (page) => {
   });
   const plainText = raw.plainText || extractPlainText(raw.body || emptyDoc());
   const qualityReview = classifyWikiPageQuality({ ...raw, plainText });
-  const presentationTitle = normalizeExistingWikiTitleForPresentation(raw.title || 'Untitled Wiki Page');
+  const presentationTitle = canonicalWikiTitle(raw);
   return {
     ...raw,
     evergreen: Boolean(raw.evergreen),
@@ -953,12 +954,7 @@ const isRepoWikiPage = (page = {}) => (
   || page.externalWatches?.githubRepo?.status === 'active'
 );
 
-const publicRepoTitle = (page = {}) => {
-  const watch = page.externalWatches?.githubRepo || {};
-  const owner = String(watch.owner || '').trim();
-  const repo = String(watch.repo || '').trim();
-  return owner && repo ? `${owner}/${repo} Repo Wiki` : String(page.title || 'Untitled wiki page');
-};
+const publicRepoTitle = (page = {}) => canonicalWikiTitle(page, 'Untitled wiki page');
 
 const buildPublicRepoEnvelope = (page = {}) => {
   const watch = page.externalWatches?.githubRepo || {};
@@ -3668,22 +3664,18 @@ const buildWikiRouter = ({
       });
       if (initialSourceRefs?.error) return res.status(400).json({ error: initialSourceRefs.error });
       const title = normalizeTitle(req.body?.title || createdFrom.label);
-      const comparableTitle = normalizeComparableText(title);
-      if (comparableTitle) {
-        const possibleCopies = await WikiPage.find({
+      const existing = findWriteTimeCanonicalPage(
+        await WikiPage.find({
           userId: req.user.id,
           status: { $ne: 'archived' }
-        }).sort({ updatedAt: -1 }).limit(500);
-        const existing = chooseCanonicalPage(
-          (Array.isArray(possibleCopies) ? possibleCopies : [])
-            .filter(candidate => normalizeComparableText(candidate?.title) === comparableTitle)
-        );
-        if (existing) {
-          return res.status(200).json({
-            ...serializeWikiPage(existing),
-            reusedExisting: true
-          });
-        }
+        }).sort({ updatedAt: -1 }).limit(500),
+        title
+      );
+      if (existing) {
+        return res.status(200).json({
+          ...serializeWikiPage(existing),
+          reusedExisting: true
+        });
       }
       const ordinaryEvidencePreflight = req.body?.evidencePreflight === true
         && !livingThesisPreset
@@ -6199,7 +6191,10 @@ const buildWikiRouter = ({
           'judgment.currentJudgment': { $exists: true, $ne: '' }
         }).select('_id title judgment.currentJudgment').limit(500);
         const match = (Array.isArray(judgmentPages) ? judgmentPages : [])
-          .find(candidate => normalizeComparableText(candidate?.judgment?.currentJudgment) === comparableJudgment);
+          .find(candidate => (
+            !pageIsRepoWiki(candidate)
+            && normalizeComparableText(candidate?.judgment?.currentJudgment) === comparableJudgment
+          ));
         if (match) {
           const canonicalPage = await WikiPage.findOne({ _id: match._id, userId: req.user.id });
           if (!canonicalPage) return res.status(409).json({ error: 'The matching judgment could not be reopened.' });

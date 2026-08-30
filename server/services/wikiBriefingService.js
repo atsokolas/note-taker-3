@@ -1,8 +1,8 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
 const {
+  canonicalWikiTitle,
   editorialSentence,
-  normalizeExistingWikiTitleForPresentation,
   sentenceBoundaryTrim
 } = require('./wikiPresentationGuard');
 const {
@@ -154,7 +154,7 @@ const collectRecentMaintenanceChanges = async ({
       const afterHealth = revision.after?.aiState?.health || {};
       return {
         pageId: idString(revision.pageId || revision.after?._id),
-      title: asString(normalizeExistingWikiTitleForPresentation(revision.after?.title)) || 'Untitled wiki page',
+      title: asString(canonicalWikiTitle(revision.after)) || 'Untitled wiki page',
         summary: truncate(revision.summary || revision.after?.aiState?.lastMaintenanceSummary || '', 180),
         reason: asString(revision.reason),
         maintenanceRunId: idString(revision.maintenanceRunId),
@@ -378,7 +378,7 @@ const collectRecentlyUpdatedPages = (pages = [], { windowMs = ONE_DAY_MS, now = 
     .slice(0, 8)
     .map(page => ({
       _id: String(page._id || ''),
-      title: asString(normalizeExistingWikiTitleForPresentation(page.title)) || 'Untitled wiki page',
+      title: asString(canonicalWikiTitle(page)) || 'Untitled wiki page',
       lastDraftedAt: page.aiState?.lastDraftedAt || null
     }));
 };
@@ -406,7 +406,7 @@ const collectDriftingPages = (pages = [], { now = Date.now() } = {}) => {
     .slice(0, 8)
     .map(entry => ({
       _id: String(entry.page._id || ''),
-      title: asString(normalizeExistingWikiTitleForPresentation(entry.page.title)) || 'Untitled wiki page',
+      title: asString(canonicalWikiTitle(entry.page)) || 'Untitled wiki page',
       driftSignals: entry.driftSignals,
       lastSourceEventAt: entry.lastSourceEventAt,
       waitingDays: entry.waitingDays,

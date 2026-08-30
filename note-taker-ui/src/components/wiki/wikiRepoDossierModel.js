@@ -122,13 +122,21 @@ export const repoNameFromPage = (page = {}) => {
 
 /**
  * UI title for repo wikis: repo slug casing preserved, not title-cased owner/repo.
- * Falls back to stored page.title for non-repo pages.
+ * Falls back to stored page.title for non-repo pages. Stale stored names
+ * ("Atsokolas/Note-Taker-3 Repo Wiki") still render as the canonical form.
  */
 export const displayWikiPageTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
   const repoName = repoNameFromPage(page);
-  return repoName
-    ? buildRepoWikiTitle(repoName)
-    : (normalizeText(page?.title) || fallback);
+  if (repoName) return buildRepoWikiTitle(repoName);
+  const title = normalizeText(page?.title);
+  if (/\brepo wiki\s*$/i.test(title)) {
+    return buildRepoWikiTitle(
+      title
+        .replace(/\s+(?:—|–|-)\s*repo wiki\s*$/i, '')
+        .replace(/\s+repo wiki\s*$/i, '')
+    );
+  }
+  return title || fallback;
 };
 
 export const formatGitHubRepoWatchReceipt = (watch = {}) => {

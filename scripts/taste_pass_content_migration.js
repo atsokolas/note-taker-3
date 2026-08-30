@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+/**
+ * Taste Pass T2 (and T3 title hygiene) — dry-run by default.
+ *
+ * Prints merge plans and title changes as JSON. Does not write unless
+ * `--apply --user-id=<id>` is passed. Do not run --apply against production
+ * without listing the merged ids from a dry-run first.
+ */
 require('dotenv').config();
 
 const mongoose = require('mongoose');
@@ -11,7 +18,7 @@ const {
   mergePageRecords
 } = require('../server/services/wikiDedupeService');
 const {
-  normalizeExistingWikiTitleForPresentation
+  canonicalWikiTitle
 } = require('../server/services/wikiPresentationGuard');
 
 const limitFrom = argv => {
@@ -49,7 +56,7 @@ const main = async () => {
       .maxTimeMS(maxTimeMs)
       .lean(),
     WikiPage.find({ ...scope, status: { $ne: 'archived' } })
-      .select('_id userId title plainText sourceRefs._id claims.claimId claims.text judgment.currentJudgment judgment.why judgment.against judgment.assumptions judgment.unknowns judgment.falsifiers judgment.decisions judgment.lessons judgment.dependsOn aiState.candidateStatus aiState.build createdAt updatedAt')
+      .select('_id userId title plainText sourceRefs._id claims.claimId claims.text judgment.currentJudgment judgment.why judgment.against judgment.assumptions judgment.unknowns judgment.falsifiers judgment.decisions judgment.lessons judgment.dependsOn aiState.candidateStatus aiState.build externalWatches.githubRepo createdAt updatedAt')
       .limit(limit)
       .maxTimeMS(maxTimeMs)
       .lean()
@@ -84,7 +91,7 @@ const main = async () => {
     id: String(page._id),
     userId: String(page.userId || ''),
     before: page.title,
-    after: normalizeExistingWikiTitleForPresentation(page.title)
+    after: canonicalWikiTitle(page)
   })).filter(change => change.after && change.after !== change.before);
 
   const duplicatePlans = [];
@@ -97,7 +104,7 @@ const main = async () => {
   pagesByUser.forEach((userPages, groupedUserId) => duplicatePlans.push(...buildDuplicatePagePlan(
     userPages.map(page => ({
       ...page,
-      title: normalizeExistingWikiTitleForPresentation(page.title)
+      title: canonicalWikiTitle(page)
     }))
   ).map(plan => ({ ...plan, userId: groupedUserId }))));
 

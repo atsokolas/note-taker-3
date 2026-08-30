@@ -2,7 +2,6 @@ import {
   canonicalWikiPages,
   groupWikiPagesByTitle,
   orderByGrounding,
-  sameTitleToggleLabel,
   titleKeyForPage
 } from './wikiTitleGroupModel';
 
@@ -115,13 +114,5 @@ describe('canonicalWikiPages', () => {
       page({ _id: 'c', title: 'Reflexivity' })
     ];
     expect(canonicalWikiPages(pages).map(item => item._id)).toEqual(['b', 'c']);
-  });
-});
-
-describe('sameTitleToggleLabel', () => {
-  it('names the count when closed and the retreat when open', () => {
-    expect(sameTitleToggleLabel(2)).toBe('2 more with this title');
-    expect(sameTitleToggleLabel(2, true)).toBe('Hide the other 2');
-    expect(sameTitleToggleLabel(0)).toBe('');
   });
 });

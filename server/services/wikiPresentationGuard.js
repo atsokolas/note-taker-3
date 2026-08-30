@@ -130,6 +130,21 @@ const normalizeExistingWikiTitleForPresentation = (value = '', options = {}) => 
   });
 };
 
+/**
+ * One title, every surface.
+ *
+ * Repo wikis used to wear two names at once: the stored/title-cased
+ * "Atsokolas/Note-Taker-3 Repo Wiki" on paper attribution, and
+ * "note-taker-3 — repo wiki" on the wiki table. Watch metadata wins;
+ * otherwise the stored title is normalized through the same renderer.
+ */
+const canonicalWikiTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
+  const watch = page?.externalWatches?.githubRepo || {};
+  const repo = String(watch.repo || '').trim();
+  if (repo) return buildRepoWikiTitle(repo);
+  return normalizeExistingWikiTitleForPresentation(page?.title || fallback) || fallback;
+};
+
 /*
  * A model that answers with its scratchpad instead of its answer.
  *
@@ -189,6 +204,7 @@ module.exports = {
   normalizeSpaces,
   editorialSentence,
   readsAsModelScratchpad,
+  canonicalWikiTitle,
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
   buildRepoWikiTitle,

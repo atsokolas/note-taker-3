@@ -3,7 +3,8 @@ const {
   buildDuplicatePagePlan,
   mergePageRecords,
   mergeClaimRecords,
-  normalizeComparableText
+  normalizeComparableText,
+  findWriteTimeCanonicalPage
 } = require('./wikiDedupeService');
 
 describe('wikiDedupeService', () => {
@@ -105,5 +106,34 @@ describe('wikiDedupeService', () => {
       mergedPageIds: ['duplicate'],
       mergedAt: '2026-08-30T00:00:00.000Z'
     });
+  });
+
+  test('does not reopen a repo wiki because a claim on it happens to match', () => {
+    const repo = {
+      _id: 'repo',
+      pageType: 'repo',
+      title: 'note-taker-3 — repo wiki',
+      claims: [{ claimId: 'repo-claim', text: 'Compute keeps compounding.' }],
+      externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+    };
+    const held = {
+      _id: 'held',
+      title: 'Named compute case',
+      judgment: { currentJudgment: 'Compute keeps compounding.' }
+    };
+    expect(findWriteTimeCanonicalPage([repo], 'COMPUTE keeps compounding!')).toBeNull();
+    expect(findWriteTimeCanonicalPage([repo, held], 'COMPUTE keeps compounding!')._id).toBe('held');
+  });
+
+  test('reopens an existing hold by normalized currentJudgment, not a second copy', () => {
+    const held = {
+      _id: 'held',
+      title: 'Named compute case',
+      judgment: { currentJudgment: 'I believe AI compute is going through orders of magnitude changes.' }
+    };
+    expect(findWriteTimeCanonicalPage(
+      [held],
+      'I believe AI compute is going through orders of magnitude changes!'
+    )._id).toBe('held');
   });
 });

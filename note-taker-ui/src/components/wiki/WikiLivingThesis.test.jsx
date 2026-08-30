@@ -122,7 +122,7 @@ describe('WikiLivingThesis', () => {
     await waitFor(() => expect(onCanonicalPage).toHaveBeenCalledWith('canonical-thesis'));
     expect(onPageUpdate).not.toHaveBeenCalled();
     expect(controls.setLatestReceipt).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Duplicate judgment merged',
+      title: 'Opened the existing case',
       href: '/wiki/workspace?page=canonical-thesis'
     }));
   });

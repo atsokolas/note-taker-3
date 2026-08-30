@@ -20,6 +20,7 @@ const {
 } = require('./investmentDossierProfileService');
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
+const { normalizeComparableText } = require('./wikiDedupeService');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -2118,13 +2119,7 @@ const normalizeClaimSupport = (support = '') => {
     : 'unsupported';
 };
 
-const normalizeClaimIdentity = (value = '') => (
-  cleanWikiText(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-);
+const normalizeClaimIdentity = (value = '') => normalizeComparableText(value);
 
 const mergeUniqueIds = (...lists) => Array.from(new Set(
   lists.flatMap(value => Array.isArray(value) ? value : []).map(String).filter(Boolean)

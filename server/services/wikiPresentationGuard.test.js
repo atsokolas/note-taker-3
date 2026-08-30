@@ -1,5 +1,6 @@
 const {
   buildRepoWikiTitle,
+  canonicalWikiTitle,
   normalizeExistingWikiTitleForPresentation,
   normalizeWikiTitleForPresentation,
   sentenceBoundaryTrim,
@@ -36,6 +37,16 @@ describe('wikiPresentationGuard', () => {
       .toBe('note-taker-3 — repo wiki');
     expect(isRepoWikiTitle('note-taker-3 — repo wiki')).toBe(true);
     expect(titleHasCodeIdentifiers('atsokolas/note-taker-3')).toBe(true);
+  });
+
+  it('renders one canonical repo wiki title from either stored name or watch metadata', () => {
+    expect(canonicalWikiTitle({
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3' } }
+    })).toBe('note-taker-3 — repo wiki');
+    expect(canonicalWikiTitle({ title: 'atsokolas/note-taker-3 repo wiki' }))
+      .toBe('note-taker-3 — repo wiki');
+    expect(canonicalWikiTitle({ title: 'Margin of Safety' })).toBe('Margin of Safety');
   });
 
   it('returns a complete sentence instead of a mid-sentence character clamp', () => {

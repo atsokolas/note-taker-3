@@ -59,6 +59,16 @@ assert.strictEqual(listWatching(pages).length, 2);
 assert.match(listWatching(pages)[0].label, /EDGAR/);
 assert.ok(listWatching(pages).every(row => row.type !== 'earnings_transcript'));
 
+const repoWatching = listWatching([{
+  _id: 'repo',
+  title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+  slug: 'note-taker-3',
+  externalWatches: {
+    githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', status: 'active', lastHeadSha: 'abc1234' }
+  }
+}]);
+assert.strictEqual(repoWatching[0].page.title, 'note-taker-3 — repo wiki');
+
 const retiredPrior = {
   claimId: 'retired-stable',
   text: 'Original retired proposition',

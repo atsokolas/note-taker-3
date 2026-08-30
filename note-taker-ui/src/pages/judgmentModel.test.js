@@ -2,8 +2,10 @@ import {
   acceptProposalIntoJudgment,
   buildJudgmentIndex,
   claimSentence,
+  createJudgment,
   dismissOvernightLine,
   docText,
+  foldJudgmentPages,
   judgmentHeadline,
   namedTitle,
   oneSentence,
@@ -450,5 +452,45 @@ describe('judgmentModel', () => {
     const index = buildJudgmentIndex([page(), { _id: 'plain', title: 'A plain wiki page' }], NOW);
 
     expect(index.map(item => item.id)).toEqual(['wiki-nvidia']);
+  });
+
+  it('folds duplicate holds into the copy that has actually been argued', () => {
+    const thin = {
+      _id: 'thin',
+      title: 'A thin copy',
+      judgment: { currentJudgment: 'AI compute is going through orders of magnitude changes.' }
+    };
+    const rich = {
+      _id: 'rich',
+      title: 'The argued copy',
+      judgment: {
+        currentJudgment: 'AI COMPUTE is going through orders of magnitude changes!',
+        why: [{ reasonId: 'why-1', text: 'The scaling curve remains intact.' }]
+      }
+    };
+    expect(foldJudgmentPages([thin, rich]).map(row => row.page._id)).toEqual(['rich']);
+    expect(buildJudgmentIndex([thin, rich], NOW).map(item => item.id)).toEqual(['rich']);
+  });
+
+  it('merges a duplicate write into the existing hold without a second copy', async () => {
+    const createPage = jest.fn(async () => ({
+      _id: 'existing',
+      title: 'Named compute case',
+      reusedExisting: true,
+      judgment: { currentJudgment: 'Compute keeps compounding.' }
+    }));
+    const updatePage = jest.fn();
+    const id = await createJudgment('COMPUTE keeps compounding!', { createPage, updatePage });
+    expect(id).toBe('existing');
+    expect(updatePage).not.toHaveBeenCalled();
+  });
+
+  it('still writes the claim when the page is new', async () => {
+    const createPage = jest.fn(async () => ({ _id: 'wiki-new', title: 'A new hold.' }));
+    const updatePage = jest.fn(async () => ({}));
+    await createJudgment('A new hold.', { createPage, updatePage });
+    expect(updatePage).toHaveBeenCalledWith('wiki-new', {
+      judgment: { currentJudgment: 'A new hold.' }
+    });
   });
 });

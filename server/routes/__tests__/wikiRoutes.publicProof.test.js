@@ -202,7 +202,7 @@ const run = async () => {
     assert.deepStrictEqual(payload.items[1].proofGrade.criteria.requiredClocks, { secEdgar: true });
     assert.strictEqual(payload.items[2].proofGrade.grade, 'illustrative');
     assert.strictEqual(payload.items[6].proofGrade.grade, 'candidate');
-    assert.strictEqual(payload.items[6].title, 'atsokolas/note-taker-3 Repo Wiki');
+    assert.strictEqual(payload.items[6].title, 'note-taker-3 — repo wiki');
     assert.strictEqual(payload.items[6].proofGrade.comparisonUrl, '/share/wiki/repo/comparison');
     assert.strictEqual(payload.items[6].page.githubRepo, undefined);
     assert.strictEqual(payload.items[7].slot, 'openai-agents-js');

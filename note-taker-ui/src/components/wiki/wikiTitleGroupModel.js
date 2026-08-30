@@ -10,9 +10,9 @@ import { displayWikiPageTitle } from './wikiRepoDossierModel';
  * when it holds one, and the copy the reader lands on is whichever was touched
  * last rather than the one their library actually grounds.
  *
- * This is a reading rule, not a filing one. Nothing is deleted or merged: every
- * page stays exactly where it was, and the ones folded behind the count are one
- * click away.
+ * This is a reading rule, not a filing one. Nothing is deleted or merged here:
+ * every page stays where it was, and the list shows one row. Write-time dedupe
+ * and the merge script are what actually join the copies.
  */
 
 const stripEdges = (value = '') => String(value || '')
@@ -107,9 +107,3 @@ export const groupWikiPagesByTitle = (pages = []) => {
  */
 export const canonicalWikiPages = (pages = []) => groupWikiPagesByTitle(pages)
   .map(group => group.canonical);
-
-export const sameTitleToggleLabel = (count = 0, open = false) => {
-  if (count <= 0) return '';
-  if (open) return `Hide the other ${count}`;
-  return `${count} more with this title`;
-};

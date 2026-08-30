@@ -1732,7 +1732,7 @@ const run = async () => {
 
     const publicRepo = await request(url, '/api/public/wiki/pages/public-repo-page', { headers: {} });
     assert.strictEqual(publicRepo.res.status, 200, publicRepo.text);
-    assert.strictEqual(publicRepo.body.page.title, 'atsokolas/note-taker-3 Repo Wiki');
+    assert.strictEqual(publicRepo.body.page.title, 'note-taker-3 — repo wiki');
     assert.strictEqual(publicRepo.body.page.sourceCount, 1);
     assert.strictEqual(publicRepo.body.page.maintenanceProof.sourceCount, 1);
     assert.deepStrictEqual(publicRepo.body.page.githubRepo, {
@@ -2062,6 +2062,48 @@ const run = async () => {
     assert.strictEqual(storedCanonical.judgment.why.length, 2);
     assert.strictEqual(storedRedundant.status, 'archived');
     assert.strictEqual(storedRedundant.hiddenFromHome, true);
+
+    const repoWikiWithClaim = new WikiPage({
+      userId: 'user-1',
+      title: 'Atsokolas/Note-Taker-3 Repo Wiki',
+      slug: 'note-taker-3-repo-wiki-claim',
+      pageType: 'repo',
+      status: 'published',
+      claims: [{ claimId: 'repo-claim', text: 'Write-time merge should ignore repo claims.' }],
+      externalWatches: { githubRepo: { owner: 'atsokolas', repo: 'note-taker-3', status: 'active' } }
+    });
+    await repoWikiWithClaim.save();
+    const ignoredRepoClaim = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Write-time merge should ignore repo claims.',
+        pageType: 'topic'
+      })
+    });
+    assert.strictEqual(ignoredRepoClaim.res.status, 201, ignoredRepoClaim.text);
+    assert.notStrictEqual(String(ignoredRepoClaim.body._id), String(repoWikiWithClaim._id));
+    assert.ok(!ignoredRepoClaim.body.reusedExisting);
+
+    const existingHold = new WikiPage({
+      userId: 'user-1',
+      title: 'Named compute case',
+      slug: 'named-compute-case',
+      status: 'published',
+      judgment: {
+        currentJudgment: 'I believe AI compute is going through orders of magnitude changes.'
+      }
+    });
+    await existingHold.save();
+    const rememberedHold = await request(url, '/api/wiki/pages', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'I believe AI compute is going through orders of magnitude changes!',
+        pageType: 'topic'
+      })
+    });
+    assert.strictEqual(rememberedHold.res.status, 200, rememberedHold.text);
+    assert.strictEqual(rememberedHold.body.reusedExisting, true);
+    assert.strictEqual(String(rememberedHold.body._id), String(existingHold._id));
 
     const patchedLegacySynthesis = await request(url, `/api/wiki/pages/${created.body._id}`, {
       method: 'PATCH',

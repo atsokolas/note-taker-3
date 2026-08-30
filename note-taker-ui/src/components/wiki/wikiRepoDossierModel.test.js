@@ -62,6 +62,8 @@ describe('wikiRepoDossierModel', () => {
 
     expect(repoNameFromPage(page)).toBe('note-taker-3');
     expect(displayWikiPageTitle(page)).toBe('note-taker-3 — repo wiki');
+    expect(displayWikiPageTitle({ title: 'Atsokolas/Note-Taker-3 Repo Wiki' }))
+      .toBe('Note-Taker-3 — repo wiki');
   });
 
   it('preserves package path casing in non-repo page titles', () => {

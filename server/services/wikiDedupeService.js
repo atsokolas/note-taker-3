@@ -94,6 +94,29 @@ const chooseCanonicalPage = (pages = []) => [...pages].sort((left, right) => (
   || id(left).localeCompare(id(right))
 ))[0] || null;
 
+const pageIsRepoWiki = (page = {}) => {
+  const type = String(page?.pageType || '').toLowerCase();
+  if (type === 'repo' || type === 'project' || type === 'log') return true;
+  const watch = page?.externalWatches?.githubRepo || {};
+  return Boolean(String(watch.owner || '').trim() || String(watch.repo || '').trim());
+};
+
+/* Create-time reuse: same title still reopens the existing page. A matching
+   currentJudgment reopens the existing hold. A claim sitting on a repo wiki
+   is not a hold — that corpus is not relevant to "do you still believe…?". */
+const findWriteTimeCanonicalPage = (pages = [], text = '') => {
+  const key = normalizeComparableText(text);
+  if (!key) return null;
+  const list = Array.isArray(pages) ? pages : [];
+  const titleMatches = list.filter(page => normalizeComparableText(page?.title) === key);
+  if (titleMatches.length) return chooseCanonicalPage(titleMatches);
+  const judgmentMatches = list.filter(page => (
+    !pageIsRepoWiki(page)
+    && normalizeComparableText(page?.judgment?.currentJudgment) === key
+  ));
+  return chooseCanonicalPage(judgmentMatches);
+};
+
 const buildDuplicatePagePlan = (pages = []) => {
   const groups = new Map();
   (Array.isArray(pages) ? pages : []).forEach(page => {
@@ -165,9 +188,11 @@ module.exports = {
   buildDuplicateClaimPlan,
   buildDuplicatePagePlan,
   chooseCanonicalPage,
+  findWriteTimeCanonicalPage,
   mergePageRecords,
   mergeClaimRecords,
   normalizeComparableText,
+  pageIsRepoWiki,
   richness,
   uniqueBy
 };

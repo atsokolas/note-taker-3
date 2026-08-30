@@ -200,8 +200,8 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
       const canonicalPageId = updated?.dedupe?.canonicalPageId;
       if (canonicalPageId && canonicalPageId !== pageId) {
         systemStatus.setLatestReceipt({
-          title: 'Duplicate judgment merged',
-          summary: 'Evidence and history were preserved in the existing case.',
+          title: 'Opened the existing case',
+          summary: 'Evidence and history stayed with it.',
           status: 'completed',
           href: `/wiki/workspace?page=${encodeURIComponent(canonicalPageId)}`
         });

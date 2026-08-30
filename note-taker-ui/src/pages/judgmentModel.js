@@ -63,6 +63,14 @@ export const isJudgmentPage = (page) => {
 
 const sameLine = (left, right) => clean(left).toLowerCase() === clean(right).toLowerCase();
 
+/** Normalized claim identity: case, punctuation, and extra space do not make a second hold. */
+export const normalizeClaimKey = (value = '') => String(value || '')
+  .normalize('NFKC')
+  .toLowerCase()
+  .replace(/[^\p{L}\p{N}]+/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 /** The claim is the sentence. It is the same sentence everywhere it appears. */
 export const claimSentence = (page) => (
   clean(page?.judgment?.currentJudgment)
@@ -429,10 +437,7 @@ export const activityNote = ({ state, arrived } = {}) => {
    The same rule as the wiki list: most evidence wins, then most learned from,
    then most recent. Write-time dedupe prevents new copies; this fold keeps
    legacy data from leaking into the index while the migration is pending. */
-const claimKey = (page) => clean(claimSentence(page))
-  .toLowerCase()
-  .replace(/[.,;:!?'"()[\]]+$/g, '')
-  .trim();
+const claimKey = (page) => normalizeClaimKey(claimSentence(page));
 
 const claimWeight = (page) => {
   const judgment = page?.judgment || {};
@@ -914,6 +919,10 @@ export const createJudgment = async (claim, { createPage, updatePage } = {}) => 
   const page = await createPage({ title: sentence, pageType: 'topic' });
   const id = idOf(page);
   if (!id) throw new Error('The judgment was not created.');
+  const held = normalizeClaimKey(page?.judgment?.currentJudgment);
+  const next = normalizeClaimKey(sentence);
+  if (held && held === next) return id;
+  if (page?.reusedExisting && held) return id;
   await updatePage(id, { judgment: { currentJudgment: sentence } });
   return id;
 };
