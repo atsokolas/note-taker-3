@@ -86,3 +86,24 @@ body.noeis-editorial .magnetic-reading-rail__hint {
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* Two inks, one warm pen. The saved passage is human ink; a note on it
+   is the agent's half-step warmer. Capture itself is one yellow wash,
+   never a crayon box and never the old cool blue. */
+body.noeis-editorial .article-reader-content mark.highlight {
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 62%, transparent) !important;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--highlight-color, #f6e27a) 40%, transparent);
+}
+
+body.noeis-editorial .article-highlight-edition__item blockquote {
+  color: var(--ink-human, var(--vellum-ink));
+}
+
+body.noeis-editorial .article-highlight-edition__note {
+  color: var(--ink-agent, var(--vellum-ink));
+  font-style: italic;
+}
+
+html[data-ui-theme='dark'] body.noeis-editorial .article-reader-content mark.highlight {
+  background: color-mix(in srgb, var(--highlight-color, #f6e27a) 46%, transparent) !important;
+}

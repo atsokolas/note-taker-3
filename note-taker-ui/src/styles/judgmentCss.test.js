@@ -43,4 +43,9 @@ describe('overnight as a note under the door', () => {
     expect(hold).not.toMatch(/border-radius/);
     expect(hold).not.toMatch(/badge|score/i);
   });
+
+  it('prints the Greek colophon on the shelf in both themes', () => {
+    expect(css).toMatch(/\.judgment-shelf::after\s*\{[^}]*μνήμη · κρίσις/s);
+    expect(css).not.toMatch(/html\[data-ui-theme='dark'\][\s\S]*?\.judgment-shelf::after[\s\S]*?display:\s*none/);
+  });
 });

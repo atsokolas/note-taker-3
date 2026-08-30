@@ -88,7 +88,7 @@ describe('the shared sentence', () => {
     expect(title.animate).not.toHaveBeenCalled();
   });
 
-  it('fades in with opacity only when motion is reduced', () => {
+  it('appears in place when motion is reduced', () => {
     window.matchMedia = jest.fn().mockImplementation((query) => ({
       matches: query === '(prefers-reduced-motion: reduce)'
     }));
@@ -96,9 +96,7 @@ describe('the shared sentence', () => {
     const title = nodeAt({ top: 300, left: 100, width: 600 });
 
     expect(flySentenceInto(title, 'A claim sentence.')).toBe(true);
-    expect(title.animate).toHaveBeenCalledWith(
-      [{ opacity: 0 }, { opacity: 1 }],
-      expect.objectContaining({ duration: 80, easing: 'linear' })
-    );
+    expect(title.animate).not.toHaveBeenCalled();
+    expect(peekSentenceHandoff()).toBeNull();
   });
 });

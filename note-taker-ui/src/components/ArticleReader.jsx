@@ -76,6 +76,7 @@ const ArticleReader = ({
   const contentRef = useRef(null);
   const readerRootRef = useRef(null);
   const menuRef = useRef(null);
+  const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   /* Kept lives here rather than being read straight off the prop, so pressing
@@ -146,11 +147,11 @@ const ArticleReader = ({
       `[data-highlight-id="highlight-${focusedHighlightId}"]`
     );
     if (!target) return undefined;
-    target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    target.scrollIntoView?.({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
     target.classList.add('is-cited-passage');
     const timeout = window.setTimeout(() => target.classList.remove('is-cited-passage'), 1600);
     return () => window.clearTimeout(timeout);
-  }, [focusedHighlightId, focusedPassage, html]);
+  }, [focusedHighlightId, focusedPassage, html, reducedMotion]);
 
   if (!article) {
     return (

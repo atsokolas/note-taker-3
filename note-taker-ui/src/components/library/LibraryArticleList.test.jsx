@@ -66,6 +66,34 @@ describe('LibraryArticleList', () => {
     window.matchMedia = realMatchMedia;
   });
 
+  it('does not drift or track the pointer when motion is reduced', () => {
+    const realRaf = window.requestAnimationFrame;
+    const realMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query.includes('prefers-reduced-motion: reduce') || query.includes('pointer: fine'),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {}
+    });
+    window.requestAnimationFrame = (cb) => {
+      cb();
+      return 1;
+    };
+    const { container } = renderList();
+    const row = container.querySelector('.library-article-row.is-magnetic');
+    row.getBoundingClientRect = () => ({
+      top: 50, left: 100, right: 600, bottom: 140, width: 500, height: 90, x: 100, y: 50, toJSON: () => ({})
+    });
+    const move = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(move, 'clientX', { value: 320 });
+    Object.defineProperty(move, 'clientY', { value: 80 });
+    row.dispatchEvent(move);
+    expect(row.style.getPropertyValue('--row-bloom-x')).toBe('');
+    expect(row.style.getPropertyValue('--magnetic-x')).toBe('');
+    window.requestAnimationFrame = realRaf;
+    window.matchMedia = realMatchMedia;
+  });
+
   it('clicking the row body invokes onSelectArticle with id', () => {
     const onSelect = jest.fn();
     renderList({ onSelectArticle: onSelect });
@@ -227,6 +255,7 @@ describe('LibraryArticleList', () => {
 
     expect(screen.queryByText(/Open this source in the reading room/i)).not.toBeInTheDocument();
     expect(container.querySelector('.library-article-row-excerpt')).toBeNull();
+    expect(screen.queryByText(/0 highlights/i)).not.toBeInTheDocument();
   });
 
   it('keeps sparse rows quiet instead of showing boilerplate filler', () => {
@@ -242,6 +271,8 @@ describe('LibraryArticleList', () => {
 
     expect(screen.queryByText(/Open this source in the reading room/i)).not.toBeInTheDocument();
     expect(container.querySelector('.library-article-row-excerpt')).toBeNull();
+    expect(screen.queryByText(/0 highlights/i)).not.toBeInTheDocument();
+    expect(container.querySelector('.library-article-row-meta')).toBeNull();
   });
 
   it('keeps hiddenFromHome saved articles visible in Library browse but filters debug cruft', () => {

@@ -98,7 +98,7 @@ describe('wikiLivingBriefingLine', () => {
         summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
         aliveness: { register: 'quiet' }
       }
-    })).toBe('Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.');
+    })).toBe('');
     expect(wikiLivingBriefingLine({
       briefing: {
         summary: 'eight wiki pages have queued signals awaiting a rebuild, most notably Survivorship Bias with 5'

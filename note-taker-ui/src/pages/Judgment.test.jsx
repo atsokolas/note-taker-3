@@ -1203,6 +1203,34 @@ describe('Evidence from the library', () => {
     }
   });
 
+  it('sets the filed passage in place when motion is reduced', async () => {
+    const originalMatchMedia = window.matchMedia;
+    const animate = jest.fn(() => ({ finished: Promise.resolve() }));
+    Element.prototype.animate = animate;
+    window.matchMedia = jest.fn().mockImplementation((query) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      addEventListener() {},
+      removeEventListener() {}
+    }));
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
+    updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));
+
+    try {
+      renderDetail();
+      const inbox = await screen.findByRole('region', { name: 'On this sentence' });
+      fireEvent.click(within(inbox).getByRole('button', { name: 'Why' }));
+      await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
+      const arrived = [...document.querySelectorAll('.judgment-log__row')]
+        .find(row => row.textContent.includes(candidate.text));
+      expect(arrived).toBeTruthy();
+      expect(animate).not.toHaveBeenCalled();
+    } finally {
+      delete Element.prototype.animate;
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it('files the passage itself once Why is selected on the rail', async () => {
     getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: ['capacity'], candidates: [candidate] });
     updateWikiPage.mockImplementation(async (_id, body) => ({ ...judgmentPage(), judgment: body.judgment }));

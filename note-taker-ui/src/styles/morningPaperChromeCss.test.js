@@ -8,5 +8,6 @@ describe('morning paper chrome on wiki', () => {
     expect(css()).not.toMatch(/paper-fold/);
     expect(css()).not.toMatch(/consecutive mornings/);
     expect(css()).not.toMatch(/wiki-front-page__streak/);
+    expect(css()).not.toMatch(/broadsheet/);
   });
 });

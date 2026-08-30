@@ -76,6 +76,37 @@ describe('WikiList', () => {
     expect(screen.getByTestId('wiki-facet-kind-general')).not.toHaveTextContent('0');
   });
 
+  it('marks rows as magnetic and drives row bloom CSS vars on pointermove', async () => {
+    const realRaf = window.requestAnimationFrame;
+    const realMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query.includes('pointer: fine'),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {}
+    });
+    window.requestAnimationFrame = (cb) => {
+      cb();
+      return 1;
+    };
+    renderWikiList();
+    const row = await screen.findByRole('article');
+    expect(row).toHaveClass('is-magnetic');
+    row.getBoundingClientRect = () => ({
+      top: 50, left: 100, right: 600, bottom: 140, width: 500, height: 90, x: 100, y: 50, toJSON: () => ({})
+    });
+    const move = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(move, 'clientX', { value: 320 });
+    Object.defineProperty(move, 'clientY', { value: 80 });
+    row.dispatchEvent(move);
+    expect(row.style.getPropertyValue('--row-bloom-x')).toBe('220px');
+    expect(row.style.getPropertyValue('--magnetic-x')).not.toBe('');
+    fireEvent.pointerLeave(row);
+    expect(row.style.getPropertyValue('--row-bloom-x')).toBe('');
+    window.requestAnimationFrame = realRaf;
+    window.matchMedia = realMatchMedia;
+  });
+
   it('loads an unfiltered catalog for compact facet counts', async () => {
     listWikiPages.mockResolvedValueOnce([
       {
