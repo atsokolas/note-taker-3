@@ -30,7 +30,20 @@ describe('wikiDedupeService', () => {
     ])).toEqual([{
       key: 'ai compute changes quickly',
       canonicalClaimId: 'kept',
-      mergedClaimIds: ['merged-1']
+      mergedClaimIds: ['merged-1'],
+      duplicateEntryCount: 1
+    }]);
+  });
+
+  test('reports repeated entries even when they share one stable claim id', () => {
+    expect(buildDuplicateClaimPlan([
+      { claimId: 'kept', text: 'And.' },
+      { claimId: 'kept', text: 'and' }
+    ])).toEqual([{
+      key: 'and',
+      canonicalClaimId: 'kept',
+      mergedClaimIds: [],
+      duplicateEntryCount: 1
     }]);
   });
 
