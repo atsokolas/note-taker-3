@@ -1210,6 +1210,10 @@ const wikiRevisionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 wikiRevisionSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
+wikiRevisionSchema.index(
+  { userId: 1, sourceEventId: 1, createdAt: -1 },
+  { name: 'judgment_audit_revision' }
+);
 
 const WikiRevision = mongoose.model('WikiRevision', wikiRevisionSchema);
 
@@ -1258,6 +1262,10 @@ const wikiSourceEventSchema = new mongoose.Schema({
 wikiSourceEventSchema.index({ userId: 1, status: 1, createdAt: -1 });
 wikiSourceEventSchema.index({ userId: 1, status: 1, 'metadata.ingestReviewedAt': -1 });
 wikiSourceEventSchema.index({ userId: 1, sourceType: 1, sourceObjectId: 1, eventType: 1 });
+wikiSourceEventSchema.index(
+  { userId: 1, affectedPageIds: 1, createdAt: -1 },
+  { name: 'judgment_audit_event' }
+);
 
 const WikiSourceEvent = mongoose.model('WikiSourceEvent', wikiSourceEventSchema);
 
@@ -1276,6 +1284,10 @@ const wikiMaintenanceRunSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
+wikiMaintenanceRunSchema.index(
+  { userId: 1, sourceEventId: 1, createdAt: -1 },
+  { name: 'judgment_audit_run' }
+);
 wikiMaintenanceRunSchema.index({ leaseKey: 1 }, { unique: true, sparse: true });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
@@ -2620,6 +2632,7 @@ const noeisReceiptSchema = new mongoose.Schema({
 
 noeisReceiptSchema.index({ userId: 1, completedAt: -1 });
 noeisReceiptSchema.index({ userId: 1, kind: 1, status: 1, completedAt: -1 });
+noeisReceiptSchema.index({ userId: 1, kind: 1, 'provenance.eventId': 1, completedAt: -1 });
 noeisReceiptSchema.index({ userId: 1, receiptId: 1 }, { unique: true });
 
 const NoeisReceipt = mongoose.model('NoeisReceipt', noeisReceiptSchema);
