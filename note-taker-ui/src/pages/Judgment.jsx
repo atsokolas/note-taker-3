@@ -885,21 +885,44 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [page, pageId]);
 
+  const saveFalsifiability = useCallback(({ resolutionCriteria, horizon = null }) => (
+    recordClaimFalsifiability({
+      pageId,
+      claimId: view?.claimId || '',
+      resolutionCriteria: String(resolutionCriteria || '').trim(),
+      horizon
+    })
+  ), [pageId, view?.claimId]);
+
+  /* Two contracts on one call. When the prompt asks for criteria the writer is
+     saving on purpose and must hear a failure. When a line mentions a falsifier
+     the line is already committed, so recording it is enrichment: failing the
+     write would make the composer refuse to settle a sentence already in the
+     log, and the writer would type it a second time. That failure goes where
+     failures belong instead, with a way back to it. */
+  const recordFalsifier = useCallback(async (value) => {
+    const resolutionCriteria = String(value || '').trim();
+    if (!resolutionCriteria) return;
+    try {
+      await saveFalsifiability({ resolutionCriteria });
+    } catch (failure) {
+      systemStatus.setRecoverableFailure({
+        stage: 'Review criteria',
+        message: 'The line was saved. Its review criteria were not recorded.',
+        retryable: true,
+        retry: () => { recordFalsifier(resolutionCriteria); }
+      });
+    }
+  }, [saveFalsifiability, systemStatus]);
+
   const writeAccepted = useCallback(
     async (proposal, field) => {
       await commit(acceptProposalIntoJudgment(page, proposal, field));
       if (field === 'criteria') {
-        const text = String(proposal?.body || proposal?.sentence || '').trim();
-        if (text) {
-          await recordClaimFalsifiability({
-            pageId,
-            claimId: view?.claimId || '',
-            resolutionCriteria: text
-          });
-        }
+        await recordFalsifier(proposal?.body || proposal?.sentence);
       }
     },
-    [commit, page, pageId, view?.claimId]
+    [commit, page, recordFalsifier]
   );
 
   const fileEvidence = useCallback(
@@ -964,23 +987,12 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   /* A line the human typed, into any of the four. The agent is not involved.
      The id is the line's, so typing more of the same sentence rewrites it
      rather than adding another. */
-  const persistCriteria = useCallback(async ({ resolutionCriteria, horizon }) => {
-    await recordClaimFalsifiability({
-      pageId,
-      claimId: view?.claimId || '',
-      resolutionCriteria,
-      horizon
-    });
-  }, [pageId, view?.claimId]);
-
   const writeLine = useCallback(
     async (text, field, lineId) => {
       await commit(upsertLineIntoJudgment(page, text, field, lineId));
-      if (field === 'changeMindIf' && text) {
-        await persistCriteria({ resolutionCriteria: text });
-      }
+      if (field === 'changeMindIf') await recordFalsifier(text);
     },
-    [commit, page, persistCriteria]
+    [commit, page, recordFalsifier]
   );
 
   /* The name is the wiki page's title, not a judgment field. Renaming it
@@ -1224,7 +1236,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <ClaimFalsifiabilityPrompt
           criteria={view.resolutionCriteria || ''}
           horizon={view.horizon || ''}
-          onKeep={persistCriteria}
+          onKeep={saveFalsifiability}
         />
       </div>
       <JudgmentResolution
