@@ -20,6 +20,9 @@ const events = [{
 }, {
   _id: 'event-3', provider: 'market-price', status: 'processed', title: 'Market price moved',
   affectedPageIds: ['page-1'], createdAt: '2026-08-29T08:00:00.000Z'
+}, {
+  _id: 'event-4', provider: 'sec-edgar', status: 'ignored', title: 'Irrelevant filing',
+  affectedPageIds: ['page-1'], createdAt: '2026-08-20T08:00:00.000Z'
 }];
 const revisions = [{
   _id: 'revision-1', sourceEventId: 'event-1', createdAt: '2026-08-31T09:00:00.000Z',
@@ -33,7 +36,7 @@ const receipts = [{
 }];
 
 const rows = buildJudgmentAuditRows({ events, pages, revisions, runs: [], receipts, now });
-assert.strictEqual(rows.length, 3);
+assert.strictEqual(rows.length, 4);
 assert.strictEqual(rows[0].assessment, 'cuts_against');
 assert.strictEqual(rows[0].overdue, false);
 assert.strictEqual(rows[1].assessment, 'unassessed');
@@ -42,6 +45,8 @@ assert.strictEqual(rows[1].stuck, true);
 assert.strictEqual(rows[2].assessment, 'neutral');
 assert.strictEqual(rows[2].disposition, 'preserve');
 assert.strictEqual(rows[2].overdue, false);
+assert.strictEqual(rows[3].assessment, 'unassessed');
+assert.strictEqual(rows[3].overdue, false);
 assert.strictEqual(summarizeJudgmentAudit(rows).status, 'attention');
 assert.strictEqual(summarizeJudgmentAudit(rows).overdueAssessments, 1);
 assert.strictEqual(impactRegister([]), 'neutral');
