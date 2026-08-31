@@ -1,0 +1,56 @@
+{
+  "page": {
+    "_id": "64f500000000000000000010",
+    "judgment": {
+      "currentJudgment": "The cost advantage will persist.",
+      "bornAt": "2026-01-01T12:00:00.000Z",
+      "resolutionHistory": [{
+        "criteria": "Gross margin falls below 40% for two quarters.",
+        "setAt": "2026-08-01T12:00:00.000Z",
+        "claimHash": "claim-hash",
+        "revisionId": "64f500000000000000000101",
+        "receiptId": "criteria-receipt"
+      }],
+      "verdicts": [{
+        "verdictId": "verdict-1",
+        "result": "partly",
+        "recordedAt": "2026-08-31T12:00:00.000Z",
+        "recordHash": "record-hash",
+        "claimHash": "claim-hash",
+        "evidenceSourceRefIds": ["64f500000000000000000020"],
+        "revisionId": "64f500000000000000000102",
+        "receiptId": "verdict-receipt"
+      }]
+    }
+  },
+  "revisions": [{
+    "_id": "64f500000000000000000101",
+    "after": { "judgment": { "resolutionHistory": [{ "receiptId": "criteria-receipt" }] } }
+  }, {
+    "_id": "64f500000000000000000102",
+    "after": { "judgment": { "verdicts": [{ "receiptId": "verdict-receipt" }] } }
+  }],
+  "receipts": [{
+    "receiptId": "criteria-receipt",
+    "kind": "judgment_resolution_set",
+    "provenance": {
+      "revisionId": "64f500000000000000000101",
+      "claimHash": "claim-hash"
+    }
+  }, {
+    "receiptId": "verdict-receipt",
+    "kind": "judgment_verdict_recorded",
+    "provenance": {
+      "revisionId": "64f500000000000000000102",
+      "claimHash": "claim-hash"
+    }
+  }],
+  "mirror": {
+    "metrics": { "verdictRecord": { "partly": 1 } },
+    "verdicts": [{
+      "verdictId": "verdict-1",
+      "pageId": "64f500000000000000000010",
+      "result": "partly"
+    }]
+  }
+}

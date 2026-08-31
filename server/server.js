@@ -5451,7 +5451,9 @@ app.use(buildJudgmentResolutionRouter({
   authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
   WikiRevision,
-  NoeisReceipt
+  NoeisReceipt,
+  WikiSourceEvent,
+  WikiMaintenanceRun
 }));
 
 app.use(buildLibraryRelevanceRouter({

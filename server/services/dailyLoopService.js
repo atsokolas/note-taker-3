@@ -12,11 +12,16 @@ const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
 const { buildReviewTriage, expireLowStakesReviews } = require('./reviewTriageService');
 const { canonicalWikiTitle } = require('./wikiPresentationGuard');
 const { loadConsequenceEvents, selectPaperConsequence } = require('./consequenceRoute');
+const {
+  activeClaim,
+  claimImpactSummary,
+  diffRevisionClaims
+} = require('./wikiClaimImpactService');
+const { WATCHER_PROVIDERS } = require('./watcherPolicy');
 
 // Paid transcript providers are intentionally excluded from the product while
 // Noeis operates on free authoritative sources only. Historical rows can remain
 // in storage without leaking a permanently misconfigured watcher into Watching.
-const WATCHER_PROVIDERS = ['sec-edgar', 'github-repo', 'reading-feed'];
 const ENV_SHAPED_ERROR = /process\.env|[A-Z][A-Z0-9_]{3,}_(?:KEY|TOKEN|SECRET|API)/;
 const MORNING_PAPER_OPEN_REUSE_MS = 2 * 60 * 1000;
 
@@ -38,50 +43,6 @@ const watcherLabel = (provider = '') => ({
   'github-repo': 'GitHub',
   'reading-feed': 'Reading'
 }[provider] || 'Watcher');
-
-const activeClaim = (claim = {}) => claim.checkInStatus !== 'retired' && !claim.retiredAt;
-
-const claimMap = (claims = []) => new Map((Array.isArray(claims) ? claims : [])
-  .filter(claim => claim?.claimId)
-  .map(claim => [String(claim.claimId), claim]));
-
-const diffRevisionClaims = (revision = {}) => {
-  const before = claimMap(revision.before?.claims);
-  const after = claimMap(revision.after?.claims);
-  const changed = [];
-  for (const [claimId, next] of after.entries()) {
-    const previous = before.get(claimId);
-    if (!activeClaim(next)) continue;
-    const beforeSupport = String(previous?.support || 'untracked');
-    const afterSupport = String(next?.support || 'unsupported');
-    const textChanged = previous && clean(previous.text) !== clean(next.text);
-    const evidenceChanged = JSON.stringify((previous?.sourceRefIds || []).map(String).sort())
-      !== JSON.stringify((next?.sourceRefIds || []).map(String).sort());
-    if (!previous || beforeSupport !== afterSupport || textChanged || evidenceChanged) {
-      changed.push({
-        claimId,
-        beforeSupport,
-        afterSupport,
-        textChanged: Boolean(textChanged),
-        evidenceChanged,
-        claimText: clean(next.text, 260)
-      });
-    }
-  }
-  return changed;
-};
-
-const claimImpactSummary = (claimImpacts = []) => {
-  if (!claimImpacts.length) return 'not yet analyzed — queued';
-  const supported = claimImpacts.filter(row => row.afterSupport === 'supported' && row.beforeSupport !== 'supported').length;
-  const contradicted = claimImpacts.filter(row => row.afterSupport === 'conflicted' && row.beforeSupport !== 'conflicted').length;
-  const changed = claimImpacts.length;
-  return [
-    `${changed} claim${changed === 1 ? '' : 's'} touched`,
-    supported ? `${supported} gained support` : '',
-    contradicted ? `${contradicted} contradicted` : ''
-  ].filter(Boolean).join(' · ');
-};
 
 const buildWatcherLeads = async ({ userId, models = {}, since = null, limit = 12 } = {}) => {
   if (!models.WikiSourceEvent?.find || !models.WikiPage?.find) return [];
