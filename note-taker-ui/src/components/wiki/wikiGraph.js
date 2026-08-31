@@ -1,4 +1,5 @@
 import { countWikiSources } from './wikiPageMetrics';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -187,7 +188,7 @@ export const buildWikiGraphData = (pages = [], mapGraph = {}) => {
         return {
           id,
           itemId: id,
-          title: page.title || 'Untitled Wiki Page',
+          title: displayWikiPageTitle(page),
           pageType: page.pageType || 'topic',
           snippet: page.plainText || '',
           updatedAt: page.updatedAt || page.lastModifiedAt || null,

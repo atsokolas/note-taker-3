@@ -859,7 +859,7 @@ const refreshWikiProposals = async ({
 
 const createDraftPageFromProposal = async ({ proposal, WikiPage, buildUniqueSlug }) => {
   if (!proposal || !WikiPage) return null;
-  const title = proposal.title || 'Untitled Wiki Page';
+  const title = proposal.title || 'Untitled wiki page';
   if (isHumanOnlyWikiArtifact({ createdFrom: { label: title } })) {
     throw new Error('Protected research artifacts can only be created through a human-owned publication workflow.');
   }

@@ -324,7 +324,7 @@ const stripLeadingDuplicateTitleHeading = (body = emptyDoc, title = '') => {
 };
 
 const splitTitleAccent = (title = '') => {
-  const text = String(title || '').trim() || 'Untitled Wiki Page';
+  const text = String(title || '').trim() || 'Untitled wiki page';
   const explicitMatch = text.match(/^(.*?)\*([^*]+)\*(.*)$/);
   if (explicitMatch?.[2]?.trim()) {
     return {
@@ -761,7 +761,7 @@ const WikiLinkPreview = ({ preview, onMouseEnter, onMouseLeave }) => {
         left: preview.anchorRect ? `${Math.min(preview.anchorRect.left + window.scrollX, window.innerWidth - 340)}px` : undefined
       }}
     >
-      <h3>{preview.page.title || 'Untitled wiki page'}</h3>
+      <h3>{displayWikiPageTitle(preview.page)}</h3>
       <p>{firstParagraphText(preview.page.body) || 'No summary yet.'}</p>
       <span className="wiki-read-link-preview__meta">{sourceCount} source{sourceCount === 1 ? '' : 's'}</span>
     </aside>
@@ -1084,7 +1084,7 @@ const WikiReadTitle = ({ title = '', plain = false }) => {
   if (plain) {
     return (
       <h1 className="wiki-read__title" data-view-transition-name="wiki-read-title">
-        {String(title || '').trim() || 'Untitled Wiki Page'}
+        {String(title || '').trim() || 'Untitled wiki page'}
       </h1>
     );
   }

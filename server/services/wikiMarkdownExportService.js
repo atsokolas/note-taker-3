@@ -131,7 +131,7 @@ const pageFrontmatter = (page = {}) => {
   const sourceRefs = Array.isArray(page.sourceRefs) ? page.sourceRefs : [];
   return [
     '---',
-    `title: "${yamlString(page.title || 'Untitled Wiki Page')}"`,
+    `title: "${yamlString(page.title || 'Untitled wiki page')}"`,
     `id: "${yamlString(page._id || page.id || '')}"`,
     `slug: "${yamlString(page.slug || sanitizeFilename(page.title))}"`,
     `type: "${yamlString(page.pageType || 'topic')}"`,
@@ -163,7 +163,7 @@ const renderWikiPageMarkdown = (rawPage = {}) => {
 const renderWikiIndexMarkdown = (pages = []) => [
   '# Wiki Export',
   '',
-  ...pages.map(page => `- [${page.title || 'Untitled Wiki Page'}](${sanitizeFilename(page.slug || page.title)}.md)`)
+  ...pages.map(page => `- [${page.title || 'Untitled wiki page'}](${sanitizeFilename(page.slug || page.title)}.md)`)
 ].join('\n') + '\n';
 
 const renderWikiLogMarkdown = ({ pages = [], lintRuns = [] } = {}) => [
@@ -171,7 +171,7 @@ const renderWikiLogMarkdown = ({ pages = [], lintRuns = [] } = {}) => [
   '',
   '## Pages',
   '',
-  ...pages.map(page => `- ${formatDate(page.updatedAt) || 'unknown'} — ${page.title || 'Untitled Wiki Page'} (${page.status || 'draft'})`),
+  ...pages.map(page => `- ${formatDate(page.updatedAt) || 'unknown'} — ${page.title || 'Untitled wiki page'} (${page.status || 'draft'})`),
   '',
   '## Lint Runs',
   '',

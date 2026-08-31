@@ -85,7 +85,7 @@ const findRepeatedPhrases = (pages = [], existingTitles = new Set()) => {
     ))).forEach((phrase) => {
       const entry = counts.get(phrase) || { phrase, count: 0, pages: [] };
       entry.count += 1;
-      entry.pages.push(page.title || 'Untitled Wiki Page');
+      entry.pages.push(page.title || 'Untitled wiki page');
       counts.set(phrase, entry);
     });
   });
@@ -164,7 +164,7 @@ const lintWiki = async ({
   for (const [index, page] of scopedPages.entries()) {
     onProgress?.({
       stage: 'analyzing_page',
-      summary: `Analyzing ${page.title || 'Untitled Wiki Page'}.`,
+      summary: `Analyzing ${page.title || 'Untitled wiki page'}.`,
       pageId: serializeId(page._id || page.id),
       pageTitle: page.title || '',
       index: index + 1,

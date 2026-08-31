@@ -45,6 +45,7 @@ import {
 } from './wikiVisitTracker';
 import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -1535,7 +1536,7 @@ const WikiReferencePalette = ({
     const wikiRows = (pages || []).map(page => ({
       key: `wiki:${page._id || page.id}`,
       kind: 'wiki',
-      title: page.title || 'Untitled wiki page',
+      title: displayWikiPageTitle(page),
       detail: `${labelText(page.pageType || 'wiki page')} · ${Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources`,
       reference: referenceFromWikiPage(page)
     }));
@@ -2866,7 +2867,7 @@ const WikiWorkspaceChat = ({
           <div className="wiki-workspace-chat__palette" aria-label="Wiki page references">
             {showWikiMentions.map(page => (
               <button type="button" key={page._id || page.id} onClick={() => applyWikiMention(page)}>
-                <strong>{page.title || 'Untitled wiki page'}</strong>
+                <strong>{displayWikiPageTitle(page)}</strong>
                 <span>@wiki:{page._id || page.id}</span>
               </button>
             ))}

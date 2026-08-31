@@ -323,7 +323,7 @@ const shouldCreateDraftPageForEvent = (event) => {
 };
 
 const createPageForEvent = async ({ WikiPage, userId, event, buildUniqueSlug }) => {
-  const title = asText(event.title) || 'Untitled Wiki Page';
+  const title = asText(event.title) || 'Untitled wiki page';
   if (isHumanOnlyWikiArtifact({ createdFrom: { label: title } })) {
     throw new Error('Protected research artifacts can only be created through a human-owned publication workflow.');
   }

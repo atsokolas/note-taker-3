@@ -986,7 +986,7 @@ const wikiExternalWatchesSchema = new mongoose.Schema({
 
 const wikiPageSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  title: { type: String, required: true, trim: true, default: 'Untitled Wiki Page' },
+  title: { type: String, required: true, trim: true, default: 'Untitled wiki page' },
   slug: { type: String, required: true, trim: true },
   pageType: { type: String, enum: WIKI_PAGE_TYPES, default: 'topic', set: normalizeWikiPageTypeForModel },
   status: { type: String, enum: WIKI_PAGE_STATUSES, default: 'draft', index: true },

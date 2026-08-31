@@ -39,6 +39,7 @@ import { wikiPagePath } from '../../utils/wikiFeatureFlags';
 import { trackWikiQaPromoted } from '../../utils/wikiAnalytics';
 import { useNoeisSurface } from '../../surface/NoeisSurfaceContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 
@@ -446,7 +447,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
   };
 
   const handleDeletePage = async () => {
-    const title = page?.title || 'Untitled Wiki Page';
+    const title = displayWikiPageTitle(page);
     if (!window.confirm(`Delete "${title}"?`)) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setDeleting(true);
@@ -611,7 +612,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
             className="wiki-editor__title"
             value={page.title || ''}
             onChange={handleTitleChange}
-            placeholder="Untitled Wiki Page"
+            placeholder="Untitled wiki page"
             aria-label="Wiki page title"
           />
           <WikiPageMetaBar page={page} onChange={handleMetaChange} saveStatus={saveStatus} />

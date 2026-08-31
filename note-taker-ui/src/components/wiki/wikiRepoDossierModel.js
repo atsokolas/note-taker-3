@@ -125,7 +125,7 @@ export const repoNameFromPage = (page = {}) => {
  * Falls back to stored page.title for non-repo pages. Stale stored names
  * ("Atsokolas/Note-Taker-3 Repo Wiki") still render as the canonical form.
  */
-export const displayWikiPageTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
+export const displayWikiPageTitle = (page = {}, fallback = 'Untitled wiki page') => {
   const title = normalizeText(page?.title);
   const type = String(page?.pageType || '').toLowerCase();
   const repoWiki = type === 'repo' || /\brepo wiki\s*$/i.test(title);

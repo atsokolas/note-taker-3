@@ -21,6 +21,7 @@ import {
   resolveHighlightsForIntent
 } from '../utils/highlightToThinkingModel';
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
+import { displayWikiPageTitle } from './wiki/wikiRepoDossierModel';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -386,7 +387,7 @@ const CommandPalette = ({ open, onClose }) => {
     try {
       const page = await createWikiPage(buildWikiCreatePayload({
         type: seed ? 'search' : 'wiki_index',
-        title: seed || 'Untitled Wiki Page',
+        title: seed || 'Untitled wiki page',
         text: commandSourceText || seed,
         label: commandSourceText || seed || 'Command palette'
       }));
@@ -880,7 +881,7 @@ const CommandPalette = ({ open, onClose }) => {
         const pageId = page._id || page.id;
         return pageId ? {
           type: 'Wiki',
-          label: page.title || 'Untitled wiki page',
+          label: displayWikiPageTitle(page),
           path: `/wiki/workspace?page=${pageId}`
         } : null;
       })

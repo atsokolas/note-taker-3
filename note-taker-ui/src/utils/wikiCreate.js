@@ -16,7 +16,7 @@ const CREATED_FROM_TYPES = new Set([
 
 const SOURCE_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
 
-const titleFromText = (value = '', fallback = 'Untitled Wiki Page') => {
+const titleFromText = (value = '', fallback = 'Untitled wiki page') => {
   const clean = String(value || '').replace(/\s+/g, ' ').trim();
   return clean ? clean.slice(0, 120) : fallback;
 };

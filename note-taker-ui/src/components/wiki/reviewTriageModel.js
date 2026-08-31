@@ -1,3 +1,4 @@
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 export const REVIEW_PROMOTION_LIMIT = 3;
 export const LOW_STAKES_REVIEW_TTL_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -102,7 +103,7 @@ export const buildReviewTriage = ({
   const active = candidates.filter((page) => !reviewExpired(page, now)).sort(compareRank);
   const promoted = active.slice(0, Math.max(0, limit)).map((page) => ({
     pageId: id(page),
-    title: String(page?.title || 'Untitled wiki page'),
+    title: displayWikiPageTitle(page),
     reason: reviewReason(page),
     href: `/wiki/workspace?page=${encodeURIComponent(id(page))}`
   }));
