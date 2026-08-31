@@ -113,7 +113,8 @@ const judgmentFields = new Set(WIKI_JUDGMENT_INDEX_FIELDS);
   'judgment.why.text', 'judgment.why.sourceLabel', 'judgment.why.acceptedFrom', 'judgment.why.createdAt',
   'judgment.against.text', 'judgment.against.sourceLabel', 'judgment.against.acceptedFrom', 'judgment.against.createdAt',
   'judgment.falsifiers.text',
-  'judgment.decisions.summary', 'judgment.lessons.text']
+  'judgment.decisions.summary', 'judgment.lessons.text',
+  'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.url']
   .forEach(field => assert.ok(judgmentFields.has(field), `the Judgment casebook reads ${field}`));
 ['plainText', 'body', 'sourceRefs', 'claims', 'citations', 'aiState']
   .forEach(field => assert.ok(!judgmentFields.has(field), `the Judgment index never loads ${field}`));

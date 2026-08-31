@@ -1684,6 +1684,11 @@ const WIKI_JUDGMENT_FIELDS = Object.freeze([
 const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
   '_id', 'title', 'updatedAt', 'createdAt',
   'evergreen', 'evergreenAt',
+  // A verdict binds named evidence before it writes. Carry only the source
+  // identity card in the fast casebook projection so the picker is truthful
+  // on first paint and does not flicker with detail hydration.
+  'sourceRefs._id', 'sourceRefs.title', 'sourceRefs.citationLabel',
+  'sourceRefs.provider', 'sourceRefs.url', 'sourceRefs.type', 'sourceRefs.objectId',
   ...WIKI_JUDGMENT_FIELDS
 ]);
 
