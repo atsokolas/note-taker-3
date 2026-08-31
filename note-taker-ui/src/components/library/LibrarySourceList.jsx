@@ -12,6 +12,7 @@ import {
 import { matchesSourceQuery, sourceRowKey } from './librarySourceIdentity';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const SOURCE_ROW_HEIGHT = 168;
 const ROOM_SOURCE_ROW_HEIGHT = 94;
@@ -36,10 +37,7 @@ const sourceTypeLabel = type => {
   return 'Article';
 };
 
-const humanizeSourceLabel = value => String(value || '')
-  .replace(/[_-]+/g, ' ')
-  .replace(/\b\w/g, letter => letter.toUpperCase())
-  .trim();
+const humanizeSourceLabel = value => humanizeLabel(value);
 
 const coverageMessage = ({ coverage, counts, sourceView, hasMore }) => {
   if (coverage?.status !== 'partial') return '';

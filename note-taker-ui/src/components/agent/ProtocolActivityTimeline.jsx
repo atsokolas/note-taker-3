@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { QuietButton, SectionHeader, SurfaceCard } from '../ui';
 import { wordBoundaryTrim } from '../../utils/editorialText';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const clean = (value) => String(value || '').trim();
 const truncate = (value = '', limit = 260) => wordBoundaryTrim(value, { maxLength: limit });
@@ -21,9 +22,7 @@ const toTimestamp = (...values) => {
   return 0;
 };
 
-const humanize = (value = '') => clean(value)
-  .replace(/[._-]+/g, ' ')
-  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const humanize = (value = '') => humanizeLabel(value);
 
 const approvalLifecycleLabel = (approval = {}) => {
   const status = clean(approval?.status).toLowerCase() || 'pending';

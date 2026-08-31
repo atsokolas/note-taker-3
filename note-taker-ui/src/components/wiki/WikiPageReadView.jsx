@@ -93,6 +93,7 @@ import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { wordBoundaryTrim } from '../../utils/editorialText';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -103,9 +104,7 @@ const WikiDiscussions = lazy(() => import('./WikiDiscussions'));
 const emptyDoc = { type: 'doc', content: [{ type: 'paragraph' }] };
 const WIKI_READ_RAIL_OPEN_MIGRATION_KEY = 'noeis.wiki.read.rail_open_v2';
 
-const labelFor = (value = '') => String(value || '')
-  .replace(/_/g, ' ')
-  .replace(/\b\w/g, char => char.toUpperCase());
+const labelFor = (value = '') => humanizeLabel(value);
 
 const normalizeId = (value) => String(value || '').trim();
 const idsMatch = (a, b) => normalizeId(a) && normalizeId(a) === normalizeId(b);

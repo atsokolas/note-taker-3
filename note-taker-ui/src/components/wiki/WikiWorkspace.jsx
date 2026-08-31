@@ -46,6 +46,7 @@ import {
 import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -104,9 +105,7 @@ const scheduleAfterFirstPaint = (callback) => {
 };
 
 const clean = (value = '') => String(value || '').trim();
-const labelText = (value = '') => clean(value)
-  .replace(/[_-]+/g, ' ')
-  .replace(/\b\w/g, character => character.toUpperCase());
+const labelText = (value = '') => humanizeLabel(value);
 
 const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const BUILD_FAILURE_TEXT_RE = /^Failed to build a wiki page (?:for "[^"]+"|from .+)\.$/;

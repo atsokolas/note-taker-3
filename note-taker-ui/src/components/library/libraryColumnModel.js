@@ -1,6 +1,7 @@
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { pickReopenCandidate } from './libraryReadingRoomModel';
 import { getExcerpt } from './LibraryArticleList';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 // The Library column's read model.
 //
@@ -22,7 +23,7 @@ export const sourceLabel = (article) => {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
     const named = host.split('.').filter(Boolean).slice(0, -1).join(' ');
-    return (named || host).replace(/\b\w/g, match => match.toUpperCase());
+    return humanizeLabel(named || host);
   } catch (_error) {
     return '';
   }

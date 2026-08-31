@@ -18,6 +18,7 @@ import {
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -26,12 +27,7 @@ const getSourceLabel = (article) => {
   if (!url) return 'Saved article';
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
-    return host
-      .split('.')
-      .filter(Boolean)
-      .slice(0, -1)
-      .join(' ')
-      .replace(/\b\w/g, (match) => match.toUpperCase()) || host;
+    return humanizeLabel(host.split('.').filter(Boolean).slice(0, -1).join(' ')) || host;
   } catch (error) {
     return 'Saved article';
   }

@@ -1,5 +1,6 @@
 import { countWikiSources } from './wikiPageMetrics';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -7,9 +8,7 @@ export const PAGE_TYPES = ['all', 'concept', 'entity', 'source', 'question', 'co
 export const MODIFIED_WINDOWS = ['24h', '7d', '30d', 'all'];
 export const DRIFT_STATUSES = ['all', 'drifting', 'stable'];
 
-export const labelFor = (value = '') => String(value || '')
-  .replace(/_/g, ' ')
-  .replace(/\b\w/g, char => char.toUpperCase());
+export const labelFor = (value = '') => humanizeLabel(value);
 
 export const formatDate = (value) => {
   if (!value) return '';

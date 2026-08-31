@@ -3,6 +3,7 @@ import { refreshInvestmentValuation } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { Button } from '../ui';
 import '../../styles/wiki-investment-valuation.css';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const clean = value => String(value || '').trim();
 
@@ -32,9 +33,7 @@ const percentLabel = (value, maximumFractionDigits = 1) => {
   return `${numberLabel(number * 100, maximumFractionDigits)}%`;
 };
 
-const metricLabel = value => clean(value)
-  .replace(/_/g, ' ')
-  .replace(/\b\w/g, character => character.toUpperCase());
+const metricLabel = value => humanizeLabel(value);
 
 const sourceId = source => clean(source?._id || source?.id);
 
