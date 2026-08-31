@@ -37,7 +37,6 @@ import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import {
   isPaperCheckIn,
   morningPulseTarget,
-  QUIET_SIGNOFF_STORAGE_KEY,
   selectQuietSignOff,
   shelfCount,
   wikiLivingBriefingLine
@@ -191,7 +190,7 @@ const readFrontPageCache = () => {
   try {
     // A pre-scoping snapshot belongs to whichever account wrote it. Drop it rather
     // than let it seed this one.
-    purgeUnscopedKeys([WIKI_FRONT_PAGE_CACHE_KEY, QUIET_SIGNOFF_STORAGE_KEY]);
+    purgeUnscopedKeys([WIKI_FRONT_PAGE_CACHE_KEY]);
     const raw = window.localStorage?.getItem(frontPageCacheKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw);
@@ -504,10 +503,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   const briefingReady = briefing != null;
   const quietSignOff = useMemo(() => {
     if (!briefingReady || leadSentence || wikiFilter === 'review') return '';
-    return selectQuietSignOff({
-      storage: typeof window !== 'undefined' ? window.localStorage : null,
-      key: scopedKey(QUIET_SIGNOFF_STORAGE_KEY)
-    });
+    return selectQuietSignOff();
   }, [briefingReady, leadSentence, wikiFilter]);
   const paperArriving = useMemo(() => takeFirstPaint('wiki-morning-paper'), []);
   const reducedMotion = usePrefersReducedMotion();

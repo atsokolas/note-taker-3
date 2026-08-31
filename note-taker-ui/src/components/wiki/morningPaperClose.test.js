@@ -173,31 +173,25 @@ describe('completeLeadSentence', () => {
 });
 
 describe('quiet-day sign-off', () => {
-  const memory = () => {
-    const store = new Map();
-    return {
-      getItem: (key) => (store.has(key) ? store.get(key) : null),
-      setItem: (key, value) => { store.set(key, String(value)); }
-    };
-  };
-
   it('prints one of the six lines and keeps the same line for the same morning', () => {
-    const storage = memory();
     const monday = new Date('2026-08-31T09:00:00');
-    const first = selectQuietSignOff({ now: monday, storage });
-    const again = selectQuietSignOff({ now: monday, storage });
+    const first = selectQuietSignOff({ now: monday });
+    const again = selectQuietSignOff({ now: monday });
     expect(QUIET_SIGNOFFS).toContain(first);
     expect(again).toBe(first);
   });
 
-  it('does not repeat the same line on two consecutive days', () => {
-    const storage = memory();
-    const monday = new Date('2026-08-31T09:00:00');
-    const tuesday = new Date('2026-09-01T09:00:00');
-    const first = selectQuietSignOff({ now: monday, storage });
-    const next = selectQuietSignOff({ now: tuesday, storage });
-    expect(QUIET_SIGNOFFS).toContain(next);
-    expect(next).not.toBe(first);
+  it('does not repeat on consecutive days across the rotation', () => {
+    const start = new Date('2026-08-31T09:00:00');
+    const month = Array.from({ length: 31 }, (_, offset) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + offset);
+      return selectQuietSignOff({ now: day });
+    });
+    month.forEach((line, index) => {
+      expect(QUIET_SIGNOFFS).toContain(line);
+      if (index) expect(line).not.toBe(month[index - 1]);
+    });
   });
 
   it('is six lines of craft, not the deleted quiet-today filler', () => {
