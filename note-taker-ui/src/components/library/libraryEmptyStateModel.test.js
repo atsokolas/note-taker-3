@@ -84,12 +84,25 @@ describe('libraryEmptyStateModel', () => {
   });
 
   it('formats corpus totals with singular/plural copy', () => {
-    expect(formatLibraryCorpusCount(1)).toBe('1 source is in Library');
-    expect(formatLibraryCorpusCount(253)).toBe('253 sources are in Library');
+    expect(formatLibraryCorpusCount(1)).toBe('1 source is in Library.');
+    expect(formatLibraryCorpusCount(253)).toBe('253 sources are in Library.');
   });
 
   it('formats suppressed import counts with singular/plural copy', () => {
-    expect(formatLibrarySuppressedCount(1)).toBe('1 review import is hidden from this view');
-    expect(formatLibrarySuppressedCount(3)).toBe('3 review imports are hidden from this view');
+    expect(formatLibrarySuppressedCount(1)).toBe('1 review import is hidden from this view.');
+    expect(formatLibrarySuppressedCount(3)).toBe('3 review imports are hidden from this view.');
+  });
+});
+
+describe('a count nobody has yet', () => {
+  it('is not zero, and is not stated', () => {
+    expect(formatLibraryCorpusCount(undefined)).toBe('');
+    expect(formatLibraryCorpusCount(null)).toBe('');
+    expect(formatLibraryCorpusCount(NaN)).toBe('');
+    expect(formatLibrarySuppressedCount(undefined)).toBe('');
+  });
+
+  it('still says zero when zero is the answer', () => {
+    expect(formatLibraryCorpusCount(0)).toBe('0 sources are in Library.');
   });
 });

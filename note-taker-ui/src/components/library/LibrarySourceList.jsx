@@ -373,8 +373,7 @@ const LibraryEmptyState = ({
           <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
           <h3 className="library-empty-state__title">No sources in this view.</h3>
           <p className="library-empty-state__body">
-            {formatLibraryCorpusCount(model.corpusTotal)}.
-            {model.emptyLabel ? ` ${model.emptyLabel}` : ''}
+            {[formatLibraryCorpusCount(model.corpusTotal), model.emptyLabel].filter(Boolean).join(' ')}
           </p>
         </div>
         <div className="library-empty-state__actions">
@@ -401,7 +400,7 @@ const LibraryEmptyState = ({
           <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
           <h3 className="library-empty-state__title">No visible sources in this view.</h3>
           <p className="library-empty-state__body">
-            {formatLibrarySuppressedCount(model.suppressedCount)}.
+            {formatLibrarySuppressedCount(model.suppressedCount)}
             {model.emptyLabel ? ` ${model.emptyLabel}` : ''}
           </p>
         </div>
@@ -432,7 +431,7 @@ const LibraryEmptyState = ({
           <span className="library-empty-state__eyebrow">Library · Search</span>
           <h3 className="library-empty-state__title">No sources match &ldquo;{model.query}&rdquo;</h3>
           {model.corpusTotal > 0 ? (
-            <p className="library-empty-state__body">{formatLibraryCorpusCount(model.corpusTotal)}.</p>
+            <p className="library-empty-state__body">{formatLibraryCorpusCount(model.corpusTotal)}</p>
           ) : null}
         </div>
         <div className="library-empty-state__actions">
