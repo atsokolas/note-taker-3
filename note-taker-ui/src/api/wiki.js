@@ -261,6 +261,36 @@ export const adoptPublicWikiPage = async (idOrSlug) => {
   return res.data || {};
 };
 
+export const followPublicCasebook = async (idOrSlug) => {
+  const res = await api.post(`/api/public/wiki/pages/${safeId(idOrSlug)}/follow`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const unfollowPublicCasebook = async (idOrSlug) => {
+  const res = await api.delete(`/api/public/wiki/pages/${safeId(idOrSlug)}/follow`, getAuthHeaders());
+  return res.data || {};
+};
+
+export const forkPublicCasebook = async (idOrSlug) => {
+  const res = await api.post(`/api/public/wiki/pages/${safeId(idOrSlug)}/fork`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const exportPublicCasebook = async (idOrSlug) => {
+  const res = await api.get(`/api/public/wiki/pages/${safeId(idOrSlug)}/export`);
+  return res.data || {};
+};
+
+export const verifyPublicCasebook = async (casebook) => {
+  const res = await api.post('/api/public/casebook/verify', { casebook });
+  return res.data || {};
+};
+
+export const getWikiPublicPreview = async (id) => {
+  const res = await api.get(`${WIKI_PAGES_PATH}/${safeId(id)}/public-preview`, getAuthHeaders());
+  return res.data || {};
+};
+
 export const createWikiCollection = async (payload = {}) => {
   const res = await api.post('/api/wiki/collections', payload, getAuthHeaders());
   return res.data || {};
@@ -1076,6 +1106,12 @@ const wikiApi = {
   reviewWikiFirstHeadCandidate,
   getWikiPage,
   getPublicWikiPage,
+  getWikiPublicPreview,
+  followPublicCasebook,
+  unfollowPublicCasebook,
+  forkPublicCasebook,
+  exportPublicCasebook,
+  verifyPublicCasebook,
   getPublicWikiComparison,
   getWikiRepoComparison,
   getWikiPageMarkdown,

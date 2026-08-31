@@ -15,6 +15,8 @@ import { PUBLIC_PROOF_PRIVACY_STATEMENT } from '../utils/maintenanceProof';
 
 jest.mock('../api/wiki', () => ({
   adoptPublicWikiPage: jest.fn(),
+  followPublicCasebook: jest.fn(),
+  forkPublicCasebook: jest.fn(),
   getPublicWikiPage: jest.fn(),
   getPublicWikiComparison: jest.fn()
 }));
@@ -805,5 +807,38 @@ describe('buildSharedWikiSchema', () => {
       'public source references',
       'evidence-backed claims'
     ]));
+  });
+
+  it('renders a sealed public casebook without wiki vanity chrome', async () => {
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        _id: 'wiki-1',
+        title: 'Compute stays scarce',
+        visibility: 'shared',
+        body: { type: 'doc', content: [] }
+      },
+      casebook: {
+        kind: 'casebook',
+        claim: { text: 'Compute stays scarce through 2027.', bornAt: '2026-01-15T12:00:00.000Z' },
+        evidence: [{ title: 'DOE capacity report', url: 'https://example.com/doe-capacity' }],
+        lineage: {
+          origin: { title: 'The first compute case', slug: 'first-compute', action: 'fork' },
+          branches: []
+        },
+        seal: { signature: 'deadbeef', hash: 'abc', signedAt: '2026-08-31T12:00:00.000Z' }
+      }
+    });
+
+    render(<SharedWikiPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Compute stays scarce through 2027.' })).toBeInTheDocument();
+    expect(screen.getByText('Public casebook')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fork' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Adopt' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Adopt shared wiki')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Wiki page metrics')).not.toBeInTheDocument();
+    expect(screen.queryByText(/followers/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'DOE capacity report' })).toHaveAttribute('href', 'https://example.com/doe-capacity');
   });
 });

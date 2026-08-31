@@ -339,13 +339,28 @@ const wikiCreatedFromSchema = new mongoose.Schema({
 
 const wikiAdoptedFromSchema = new mongoose.Schema({
   originType: { type: String, enum: ['page', 'collection', 'starter_pack'], default: 'page' },
+  kind: { type: String, enum: ['adopt', 'fork'], default: 'adopt' },
   originPageId: { type: mongoose.Schema.Types.ObjectId, default: null },
   originCollectionId: { type: String, default: '', trim: true },
   originSlug: { type: String, default: '', trim: true },
   originTitle: { type: String, default: '', trim: true },
+  originHash: { type: String, default: '', trim: true },
   packId: { type: String, default: '', trim: true },
   sample: { type: Boolean, default: false },
   adoptedAt: { type: Date, default: null }
+}, { _id: false });
+
+const casebookShareReceiptSchema = new mongoose.Schema({
+  kind: { type: String, enum: ['published', 'corrected', 'revoked'], required: true },
+  at: { type: Date, required: true },
+  summary: { type: String, default: '', trim: true },
+  hash: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const casebookShareSchema = new mongoose.Schema({
+  publishedAt: { type: Date, default: null },
+  revokedAt: { type: Date, default: null },
+  receipts: { type: [casebookShareReceiptSchema], default: [] }
 }, { _id: false });
 
 const wikiSourceRefSchema = new mongoose.Schema({
@@ -1018,6 +1033,7 @@ const wikiPageSchema = new mongoose.Schema({
   activeCompanyDossierKey: { type: String, trim: true },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   publicProof: { type: wikiPublicProofSchema, default: null },
+  casebookShare: { type: casebookShareSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) },
   externalWatches: { type: wikiExternalWatchesSchema, default: () => ({}) },
@@ -2800,6 +2816,27 @@ sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 
 const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
 
+/**
+ * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
+ * Revoking a share never rewrites originHash, originTitle, or originSlug.
+ */
+const casebookLineageSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  action: { type: String, enum: ['follow', 'fork', 'adopt'], required: true },
+  originPageId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  originSlug: { type: String, default: '', trim: true },
+  originTitle: { type: String, default: '', trim: true },
+  originHash: { type: String, default: '', trim: true },
+  originClaim: { type: String, default: '', trim: true },
+  childPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  revokedAt: { type: Date, default: null },
+  revokedReceiptId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+casebookLineageSchema.index({ userId: 1, originPageId: 1, action: 1, revokedAt: 1 });
+
+const CasebookLineage = mongoose.model('CasebookLineage', casebookLineageSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -2865,5 +2902,6 @@ module.exports = {
   ReadingLoopEdition,
   SharedConcept,
   SharedQuestion,
+  CasebookLineage,
   dropLegacyConnectionIndex
 };

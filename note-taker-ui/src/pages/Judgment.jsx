@@ -26,6 +26,7 @@ import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
 import JudgmentLedger from '../components/judgment/JudgmentLedger';
 import JudgmentResolution from '../components/judgment/JudgmentResolution';
+import { CasebookPreview } from './PublicCasebook';
 import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { useSystemStatusControls } from '../system/SystemStatusContext';
@@ -1245,6 +1246,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           if (next) setPage(current => ({ ...current, judgment: next }));
         }}
       />
+      <CasebookPreview pageId={pageId} />
 
       <div className={step(4)}>
         <UpdateComposer

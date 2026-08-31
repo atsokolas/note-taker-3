@@ -1,0 +1,167 @@
+/* A sealed folio. Ink on paper. No glass, no counts, no feed. */
+
+.public-casebook {
+  display: grid;
+  gap: 1.75rem;
+  color: var(--text-primary, var(--vellum-ink, #1c1915));
+}
+
+.public-casebook__hero {
+  display: grid;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.public-casebook__eyebrow,
+.public-casebook__meta,
+.public-casebook__seal,
+.public-casebook__privacy,
+.public-casebook small,
+.public-casebook__hands p {
+  color: var(--text-muted, var(--vellum-subtle, #6b645c));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.public-casebook h1 {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.85rem, 3.4vw, 2.7rem);
+  font-weight: 400;
+  line-height: 1.18;
+  letter-spacing: -0.016em;
+  text-wrap: balance;
+}
+
+.public-casebook h2 {
+  margin: 0 0 0.7rem;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--vellum-subtle, #6b645c));
+}
+
+.public-casebook ol,
+.public-casebook ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-casebook li,
+.public-casebook__criterion,
+.public-casebook section p {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.public-casebook__clocks li,
+.public-casebook__revisions li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 70%, transparent);
+}
+
+.public-casebook__clocks span {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.78rem;
+  color: var(--text-muted, var(--vellum-subtle, #6b645c));
+}
+
+.public-casebook__seal span {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.public-casebook__tree ul {
+  position: relative;
+  margin-left: 0.35rem;
+  padding-left: 1.15rem;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 80%, transparent);
+}
+
+.public-casebook__tree li {
+  position: relative;
+  padding: 0.35rem 0 0.35rem 0.15rem;
+}
+
+.public-casebook__tree li::before {
+  content: "";
+  position: absolute;
+  left: -1.15rem;
+  top: 0.95em;
+  width: 0.95rem;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 80%, transparent);
+}
+
+.public-casebook__tree .is-origin {
+  font-style: italic;
+}
+
+.public-casebook__tree small {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.public-casebook__hands {
+  padding-top: 1.1rem;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 62%, transparent);
+}
+
+.public-casebook__hands div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.85rem;
+}
+
+.public-casebook__hands button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  padding: 0.1rem 0;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.92rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.public-casebook__hands button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.public-casebook a {
+  color: inherit;
+  text-underline-offset: 0.18em;
+}
+
+.public-casebook-preview {
+  margin: 1.4rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line, #d8d0c4)) 62%, transparent);
+}
+
+.public-casebook-preview summary {
+  cursor: pointer;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  color: var(--text-muted, var(--vellum-subtle, #6b645c));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-casebook,
+  .public-casebook * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
