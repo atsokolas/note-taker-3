@@ -15,7 +15,8 @@ import {
   approvalLine,
   casePath,
   hasRoom,
-  partedLine
+  partedLine,
+  roomMemoryLine
 } from '../../pages/livingTeamModel';
 
 const ROLES = ['observe', 'research', 'propose', 'decide', 'approve', 'publish'];
@@ -113,6 +114,7 @@ const LivingTeam = ({ pageId }) => {
   const brief = team?.brief;
   const approvals = Array.isArray(team?.approvals) ? team.approvals : [];
   const walk = Array.isArray(team?.handoffs) ? team.handoffs[team.handoffs.length - 1] : null;
+  const memory = roomMemoryLine(team);
 
   if (!visible && team) return null;
 
@@ -137,6 +139,7 @@ const LivingTeam = ({ pageId }) => {
       {room && team?.mandate?.exposureLabel ? (
         <p className="living-team__exposure">{team.mandate.exposureLabel}</p>
       ) : null}
+      {memory ? <p className="living-team__memory">{memory}</p> : null}
 
       {positions.length ? (
         <div className="living-team__overlay" aria-label="Authored positions">

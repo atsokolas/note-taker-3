@@ -144,6 +144,9 @@ describe('the living team', () => {
     expect(screen.getByText('Does conversion slip in 2027?')).toBeInTheDocument();
     expect(screen.getByText(/paper has moved/)).toBeInTheDocument();
     expect(screen.getByText(/Departed authorship is intact/)).toBeInTheDocument();
+    expect(screen.getByText(
+      'The room remembers who may sit here, where minds part, which version was approved, and how the case changed hands.'
+    )).toBeInTheDocument();
     expect(screen.getByText(/You may approve this version/)).toBeInTheDocument();
     expect(screen.queryByText(/toast|like|chat|task/i)).not.toBeInTheDocument();
     expect(document.querySelector('.living-team')).toHaveClass('is-still');
