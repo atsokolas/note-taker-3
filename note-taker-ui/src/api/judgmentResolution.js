@@ -119,3 +119,127 @@ export const handOffLivingTeam = async ({ pageId, toUserId = '', toPageId = '', 
   return response.data || {};
 };
 
+export const getCaseLineage = async ({ pageId } = {}) => {
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/lineage`, getAuthHeaders());
+  return response.data?.thread || response.data || null;
+};
+
+export const proposeCaseLineage = async ({
+  pageId, toPageId, kind, object, direction = 'shares', contradiction = false
+} = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lineage`,
+    { requestId: requestId(), toPageId, kind, object, direction, contradiction },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const rejectCaseLineage = async ({ pageId, linkId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lineage/${safe(linkId)}/reject`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const acceptCaseLineage = async ({ pageId, linkId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lineage/${safe(linkId)}/accept`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const getCaseStress = async ({ pageId } = {}) => {
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/stress`, getAuthHeaders());
+  return response.data?.overlay || response.data || null;
+};
+
+export const draftCaseStress = async ({
+  pageId, kind, modifiedAssumptions, proposedPosture = '', uncertainty = ''
+} = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/stress`,
+    { requestId: requestId(), kind, modifiedAssumptions, proposedPosture, uncertainty, generated: true },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const chooseCaseStress = async ({ pageId, scenarioId, choice } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/stress/${safe(scenarioId)}/choose`,
+    { requestId: requestId(), choice },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const getCaseWatch = async ({ pageId } = {}) => {
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/watch`, getAuthHeaders());
+  return response.data || {};
+};
+
+export const openCaseWatch = async ({ pageId, purpose, budget = 3 } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch`,
+    { requestId: requestId(), purpose, budget },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const acceptWatchProposal = async ({ pageId, proposalId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch/${safe(proposalId)}/accept`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const reverseWatchProposal = async ({ pageId, proposalId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch/${safe(proposalId)}/reverse`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const killCaseWatch = async ({ pageId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch/kill`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const exportDecisionMemory = async () => {
+  const response = await api.get('/api/decision-memory/v1/export', getAuthHeaders());
+  return response.data?.bundle || response.data || null;
+};
+
+export const importDecisionMemory = async (bundle) => {
+  const response = await api.post(
+    '/api/decision-memory/v1/import',
+    { bundle, requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const holdDecisionCase = async ({ pageId, kind = 'retention', note = '' } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/hold`,
+    { requestId: requestId(), kind, note },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+

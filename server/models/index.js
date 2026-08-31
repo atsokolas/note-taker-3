@@ -2916,6 +2916,111 @@ caseTeamSchema.index({ 'members.userId': 1, 'members.revokedAt': 1 });
 
 const CaseTeam = mongoose.model('CaseTeam', caseTeamSchema);
 
+/**
+ * Stage 6 — explicit cross-case thread. Never a similarity graph.
+ */
+const crossCaseLinkSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  fromPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  toPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  kind: { type: String, enum: ['assumption', 'evidence', 'decision_pattern', 'consequence'], required: true },
+  object: {
+    kind: { type: String, default: '', trim: true },
+    id: { type: String, default: '', trim: true },
+    text: { type: String, default: '', trim: true }
+  },
+  direction: { type: String, enum: ['rests_on', 'feeds', 'shares', 'contradicts'], default: 'shares' },
+  contradiction: { type: Boolean, default: false },
+  status: { type: String, enum: ['proposed', 'accepted', 'rejected'], default: 'proposed' },
+  proposedBy: { type: String, default: '', trim: true },
+  proposedAt: { type: Date, default: Date.now },
+  acceptedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  requestId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+crossCaseLinkSchema.index({ userId: 1, fromPageId: 1, toPageId: 1, 'object.text': 1 });
+crossCaseLinkSchema.index({ userId: 1, requestId: 1 });
+
+const CrossCaseLink = mongoose.model('CrossCaseLink', crossCaseLinkSchema);
+
+const worldModelScenarioSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  kind: { type: String, enum: ['alternative_future', 'counterevidence', 'base_rate'], required: true },
+  generated: { type: Boolean, default: true },
+  generatedLabel: { type: String, default: '', trim: true },
+  modifiedAssumptions: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  proposedPosture: { type: String, default: '', trim: true },
+  uncertainty: { type: String, default: '', trim: true },
+  provenance: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  choice: { type: String, default: '', trim: true },
+  chosenAt: { type: Date, default: null },
+  liveChanged: { type: Boolean, default: false },
+  requestId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+worldModelScenarioSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
+
+const WorldModelScenario = mongoose.model('WorldModelScenario', worldModelScenarioSchema);
+
+const researchMandateSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  purpose: { type: String, default: '', trim: true },
+  sources: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  budget: {
+    proposals: { type: Number, default: 3 },
+    remaining: { type: Number, default: 3 },
+    spent: { type: Number, default: 0 }
+  },
+  status: { type: String, enum: ['watching', 'silent', 'proposed', 'accepted', 'reversed', 'killed'], default: 'watching' },
+  proposals: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  escalations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  killedAt: { type: Date, default: null },
+  killedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  openedAt: { type: Date, default: Date.now },
+  openedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  requestId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+researchMandateSchema.index({ userId: 1, pageId: 1 }, { unique: true });
+
+const ResearchMandate = mongoose.model('ResearchMandate', researchMandateSchema);
+
+const institutionalHoldSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  kind: { type: String, enum: ['retention', 'legal'], required: true },
+  until: { type: Date, default: null },
+  note: { type: String, default: '', trim: true },
+  placedAt: { type: Date, default: Date.now },
+  placedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  releasedAt: { type: Date, default: null },
+  releasedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+}, { timestamps: true });
+
+institutionalHoldSchema.index({ userId: 1, pageId: 1, releasedAt: 1 });
+
+const InstitutionalHold = mongoose.model('InstitutionalHold', institutionalHoldSchema);
+
+const decisionMemoryEventSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  requestId: { type: String, default: '', trim: true },
+  action: { type: String, default: '', trim: true },
+  kind: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  schemaVersion: { type: String, default: 'decision-memory.v1' },
+  at: { type: Date, required: true }
+}, { timestamps: true });
+
+decisionMemoryEventSchema.index({ userId: 1, at: -1 });
+
+const DecisionMemoryEvent = mongoose.model('DecisionMemoryEvent', decisionMemoryEventSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -2983,5 +3088,10 @@ module.exports = {
   SharedQuestion,
   CasebookLineage,
   CaseTeam,
+  CrossCaseLink,
+  WorldModelScenario,
+  ResearchMandate,
+  InstitutionalHold,
+  DecisionMemoryEvent,
   dropLegacyConnectionIndex
 };

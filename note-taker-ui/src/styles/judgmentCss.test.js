@@ -74,3 +74,14 @@ describe('the living team', () => {
     );
   });
 });
+
+describe('the durable institution', () => {
+  it('keeps the thread and tracing paper as ink, still when motion is reduced', () => {
+    expect(css).toMatch(/\.ariadne-lineage\s*,/);
+    expect(css).toMatch(/\.tracing-paper\s*,/);
+    expect(css).not.toMatch(/leaderboard|toast|gauge/i);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tracing-paper__sheet,[\s\S]*?transition:\s*none/
+    );
+  });
+});

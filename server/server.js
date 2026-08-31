@@ -163,6 +163,11 @@ const {
   SharedQuestion,
   CasebookLineage,
   CaseTeam,
+  CrossCaseLink,
+  WorldModelScenario,
+  ResearchMandate,
+  InstitutionalHold,
+  DecisionMemoryEvent,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -660,6 +665,7 @@ const { buildSystemLoopRouter } = require('./routes/systemLoopRoutes');
 const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
 const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
 const { buildJudgmentResolutionRouter } = require('./routes/judgmentResolutionRoutes');
+const { buildDecisionMemoryRouter } = require('./routes/decisionMemoryRoutes');
 const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
@@ -5457,7 +5463,25 @@ app.use(buildJudgmentResolutionRouter({
   WikiSourceEvent,
   WikiMaintenanceRun,
   CaseTeam,
-  CasebookLineage
+  CasebookLineage,
+  CrossCaseLink,
+  WorldModelScenario,
+  ResearchMandate,
+  InstitutionalHold,
+  DecisionMemoryEvent
+}));
+
+app.use(buildDecisionMemoryRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt,
+  CaseTeam,
+  CrossCaseLink,
+  WorldModelScenario,
+  ResearchMandate,
+  InstitutionalHold,
+  DecisionMemoryEvent
 }));
 
 app.use(buildLibraryRelevanceRouter({

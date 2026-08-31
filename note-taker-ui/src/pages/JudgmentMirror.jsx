@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getJudgmentMirror } from '../api/dailyLoop';
 import { takeFirstPaint } from '../motion/columnMotion';
+import { bandLine } from './institutionModel';
 import '../styles/judgment.css';
 
 const STAT_ORDER = ['held', 'holdTime', 'revisions', 'verdicts', 'counterEvidence'];
@@ -64,6 +65,7 @@ const JudgmentMirror = () => {
   const recorded = Array.isArray(ledger.verdicts) && !ledger.verdicts[0]?.href
     ? ledger.verdicts
     : [];
+  const calibration = ledger.calibration || mirror?.calibration || null;
   const hasDoors = open.length > 0;
   const verdictCount = Object.values(metrics.verdictRecord || {}).reduce(
     (sum, value) => sum + Number(value || 0),
@@ -153,6 +155,19 @@ const JudgmentMirror = () => {
               )) : (
                 <p className="judgment-mirror__silence">No verdicts yet. The Mirror is allowed to be empty.</p>
               )}
+            </section>
+          ) : null}
+
+          {calibration?.private ? (
+            <section className="judgment-mirror__calibration" aria-labelledby="mirror-calibration-title">
+              <h2 id="mirror-calibration-title">How certainty met the later world</h2>
+              <p className="judgment-mirror__selection">{calibration.selection}</p>
+              {Array.isArray(calibration.byConfidence) ? calibration.byConfidence.map((band) => (
+                <p key={band.confidence || 'band'}>{bandLine(band) || band.silence}</p>
+              )) : null}
+              {calibration.overall?.silence && !calibration.overall?.sufficient ? (
+                <p className="judgment-mirror__silence">{calibration.overall.silence}</p>
+              ) : null}
             </section>
           ) : null}
 
