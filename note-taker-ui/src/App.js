@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useState, useEffect, useLayoutEffect, useRef, us
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
+import JudgmentMirror from './pages/JudgmentMirror';
 import WeeklyBrief from './pages/WeeklyBrief';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
@@ -696,6 +697,8 @@ function App() {
             {/* Judgment: the index is a list of claim sentences; opening one
                 is the claim itself. */}
             <Route path="/judgment" element={<Judgment />} />
+            <Route path="/judgment/mirror" element={<JudgmentMirror />} />
+            <Route path="/mirror" element={<Navigate to="/judgment/mirror" replace />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
             {/* The week, gathered from marks the surfaces already carry. */}
             <Route path="/week" element={<WeeklyBrief />} />

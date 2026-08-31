@@ -13,12 +13,62 @@ export const recordWikiPageVisit = async (pageId) => {
   return response.data || {};
 };
 
-export const recordClaimCheckIn = async ({ pageId, claimId, action, note = '', revisedText = '' }) => {
+export const recordClaimCheckIn = async ({
+  pageId,
+  claimId,
+  action,
+  note = '',
+  revisedText = '',
+  resolutionCriteria,
+  horizon
+} = {}) => {
+  const body = { action, note, revisedText };
+  if (resolutionCriteria !== undefined) body.resolutionCriteria = resolutionCriteria;
+  if (horizon !== undefined) body.horizon = horizon;
   const response = await api.post(
     `/api/daily-loop/check-ins/${safe(pageId)}/${safe(claimId)}`,
-    { action, note, revisedText },
+    body,
     getAuthHeaders()
   );
+  return response.data || {};
+};
+
+export const recordClaimFalsifiability = async ({
+  pageId,
+  claimId = '',
+  resolutionCriteria,
+  horizon
+} = {}) => {
+  const path = claimId
+    ? `/api/daily-loop/claims/${safe(pageId)}/${safe(claimId)}/criteria`
+    : `/api/daily-loop/claims/${safe(pageId)}/criteria`;
+  const response = await api.post(
+    path,
+    { claimId, resolutionCriteria, horizon },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const recordClaimVerdict = async ({
+  pageId,
+  claimId,
+  verdict,
+  trigger,
+  sourceEventId = '',
+  note = ''
+} = {}) => {
+  const response = await api.post(
+    `/api/daily-loop/verdicts/${safe(pageId)}/${safe(claimId)}`,
+    { verdict, trigger, sourceEventId, note },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const getJudgmentMirror = async ({ stat = '' } = {}) => {
+  const query = stat ? `?stat=${encodeURIComponent(stat)}` : '';
+  const response = await api.get(`/api/judgment/mirror${query}`, getAuthHeaders());
   return response.data || {};
 };
 

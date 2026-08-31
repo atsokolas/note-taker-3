@@ -20,6 +20,7 @@ import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
+import MorningVerdict from './MorningVerdict';
 import { countWikiClaims, countWikiSources } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
@@ -36,6 +37,7 @@ import { canonicalWikiPages } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import {
   isPaperCheckIn,
+  isPaperVerdict,
   morningPulseTarget,
   selectQuietSignOff,
   shelfCount,
@@ -499,6 +501,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
 
   const leadSentence = wikiLivingBriefingLine({ briefing });
   const paperCheckIn = isPaperCheckIn(briefing?.claimCheckIn) ? briefing.claimCheckIn : null;
+  const paperVerdicts = (Array.isArray(briefing?.claimVerdicts) ? briefing.claimVerdicts : [])
+    .filter(isPaperVerdict);
   const pulseTarget = morningPulseTarget({ briefing });
   const briefingReady = briefing != null;
   const quietSignOff = useMemo(() => {
@@ -934,13 +938,35 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           ) : null}
 
           {wikiFilter !== 'review' ? (
-            <MorningCheckIn
-              checkIn={paperCheckIn}
-              pulse={pulseTarget === 'check-in'}
-              onRetired={() => setBriefing((previous) => (
-                previous ? { ...previous, claimCheckIn: null } : previous
+            <>
+              {paperVerdicts.map((ask, index) => (
+                <MorningVerdict
+                  key={`${ask.pageId}:${ask.claimId}:${ask.trigger}:${ask.sourceEventId || ask.horizon || ''}`}
+                  ask={ask}
+                  pulse={pulseTarget === 'verdict' && index === 0}
+                  onSettled={(settled) => setBriefing((previous) => (
+                    previous
+                      ? {
+                        ...previous,
+                        claimVerdicts: (previous.claimVerdicts || []).filter((row) => (
+                          !(row.pageId === settled.pageId
+                            && row.claimId === settled.claimId
+                            && row.trigger === settled.trigger
+                            && String(row.sourceEventId || '') === String(settled.sourceEventId || ''))
+                        ))
+                      }
+                      : previous
+                  ))}
+                />
               ))}
-            />
+              <MorningCheckIn
+                checkIn={paperCheckIn}
+                pulse={pulseTarget === 'check-in'}
+                onRetired={() => setBriefing((previous) => (
+                  previous ? { ...previous, claimCheckIn: null } : previous
+                ))}
+              />
+            </>
           ) : null}
 
           {/* The Curator was a second agent: a pane of its own, labelled

@@ -15,7 +15,10 @@ jest.mock('../../api/wiki', () => ({ listWikiPages: jest.fn() }));
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
   armReadingWatch: jest.fn(),
-  disarmWatcher: jest.fn()
+  disarmWatcher: jest.fn(),
+  recordClaimCheckIn: jest.fn(),
+  recordClaimFalsifiability: jest.fn(),
+  recordClaimVerdict: jest.fn()
 }));
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,

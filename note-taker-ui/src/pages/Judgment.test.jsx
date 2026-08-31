@@ -49,6 +49,10 @@ jest.mock('../api/agent', () => ({
   streamChatWithAgent: jest.fn()
 }));
 
+jest.mock('../api/dailyLoop', () => ({
+  recordClaimFalsifiability: jest.fn().mockResolvedValue({})
+}));
+
 const judgmentPage = () => ({
   _id: 'wiki-nvidia',
   title: 'NVIDIA',

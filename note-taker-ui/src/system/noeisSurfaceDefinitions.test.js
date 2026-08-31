@@ -24,7 +24,7 @@ describe('Noeis surface definitions', () => {
   it('owns authenticated route prefixes without duplicates', () => {
     const prefixes = getAuthenticatedRoutePrefixes();
     expect(new Set(prefixes).size).toBe(prefixes.length);
-    expect(prefixes).toEqual(expect.arrayContaining(['/library', '/wiki', '/judgment', '/connections']));
+    expect(prefixes).toEqual(expect.arrayContaining(['/library', '/wiki', '/judgment', '/mirror', '/connections']));
     expect(NOEIS_SURFACE_DEFINITIONS.every(item => Object.isFrozen(item))).toBe(true);
   });
 });

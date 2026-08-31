@@ -1,6 +1,7 @@
 import {
   completeLeadSentence,
   formatCheckInTally,
+  formatVerdictTally,
   isEditorialBriefing,
   isPaperCheckIn,
   morningPulseTarget,
@@ -224,6 +225,20 @@ describe('the one blue thing', () => {
     })).toBe('check-in');
   });
 
+  it('puts the pulse on a verdict when the morning is otherwise quiet', () => {
+    expect(morningPulseTarget({
+      briefing: {
+        aliveness: { register: 'quiet' },
+        claimVerdicts: [{
+          pageId: 'wiki-nvda',
+          claimId: 'c1',
+          text: 'Integration retains pricing power.',
+          trigger: 'horizon'
+        }]
+      }
+    })).toBe('verdict');
+  });
+
   it('is silent when nothing is alive', () => {
     expect(morningPulseTarget({
       briefing: { aliveness: { register: 'quiet' } }
@@ -245,5 +260,14 @@ describe('check-in tally', () => {
       .toBe('reaffirmed · 4th · held 212 days');
     expect(formatCheckInTally({ action: 'reaffirmed', count: 4, heldDays: 212 }))
       .not.toMatch(/strongest|streak|score/i);
+  });
+});
+
+describe('verdict tally', () => {
+  it('ticks in the same mono register as a check-in', () => {
+    expect(formatVerdictTally({ verdict: 'held_up', trigger: 'horizon', count: 1 }))
+      .toBe('held up · 1st · horizon');
+    expect(formatVerdictTally({ verdict: 'broke', trigger: 'evidence', count: 2 }))
+      .toBe('broke · 2nd · evidence');
   });
 });

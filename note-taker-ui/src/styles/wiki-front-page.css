@@ -857,6 +857,77 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   letter-spacing: 0.04em;
 }
 
+.wiki-front-page__check-in-reason,
+.wiki-front-page__check-in-criteria {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.claim-falsifiability {
+  margin-top: 4px;
+}
+
+.claim-falsifiability > summary {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.claim-falsifiability__fields {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.claim-falsifiability textarea,
+.claim-falsifiability input[type='date'] {
+  width: 100%;
+  max-width: 46ch;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+
+.claim-falsifiability__when {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.claim-falsifiability__fields button {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.claim-falsifiability__kept {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
 .wiki-front-page__check-in.is-settled {
   opacity: 1;
 }
@@ -1807,7 +1878,10 @@ body.noeis-editorial .wiki-front-page__operations-summary span[aria-hidden] {
 
 body.noeis-editorial .wiki-living-shell .paper-open__masthead,
 body.noeis-editorial .paper-open__sign-off-date,
-body.noeis-editorial .wiki-front-page__check-in-tally {
+body.noeis-editorial .wiki-front-page__check-in-tally,
+body.noeis-editorial .wiki-front-page__check-in-reason,
+body.noeis-editorial .wiki-front-page__check-in-criteria,
+body.noeis-editorial .claim-falsifiability__kept {
   color: var(--text-muted, var(--vellum-subtle)) !important;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace) !important;
   font-size: 0.72rem !important;

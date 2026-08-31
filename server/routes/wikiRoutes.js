@@ -70,6 +70,8 @@ const {
 } = require('../services/investmentDossierMarketSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
 const { applyBornAtToClaims } = require('../services/claimBornAt');
+const { applyFalsifiability } = require('../services/claimFalsifiability');
+const { ensureHeldClaim } = require('../services/heldClaim');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
 const {
@@ -6191,16 +6193,22 @@ const buildWikiRouter = ({
       if (normalizedJudgment) {
         page.judgment = normalizedJudgment;
         if (typeof page.markModified === 'function') page.markModified('judgment');
+        if (actorType === 'user') ensureHeldClaim(page, { now: new Date(), actorType });
       }
       if (claimUpdates.length) {
+        if (actorType === 'user') ensureHeldClaim(page, { now: new Date(), actorType });
         const claimById = new Map((page.claims || []).map(claim => [String(claim.claimId), claim]));
         for (const update of claimUpdates) {
           const claim = claimById.get(update.claimId);
           if (!claim) return res.status(400).json({ error: `Unknown claimId: ${update.claimId}.` });
+          const criteriaChanged = update.resolutionCriteria !== undefined
+            || update.horizon !== undefined;
+          if (criteriaChanged) applyFalsifiability(claim, update);
           const changed = claim.epistemicStatus !== update.epistemicStatus
             || claim.materiality !== update.materiality
             || claim.implication !== update.implication
-            || JSON.stringify(claim.falsifierIds || []) !== JSON.stringify(update.falsifierIds || []);
+            || JSON.stringify(claim.falsifierIds || []) !== JSON.stringify(update.falsifierIds || [])
+            || criteriaChanged;
           if (!changed) continue;
           claim.epistemicStatus = update.epistemicStatus;
           claim.materiality = update.materiality;

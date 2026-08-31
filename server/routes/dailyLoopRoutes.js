@@ -2,9 +2,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const {
   recordClaimCheckIn,
+  recordClaimFalsifiability,
+  recordClaimVerdict,
   listWatching,
   buildDailyLoopBriefing
 } = require('../services/dailyLoopService');
+const { buildJudgmentMirror, STATS } = require('../services/judgmentMirror');
 const {
   armReadingWatchForPage,
   checkReadingWatchForPage
@@ -145,7 +148,9 @@ const buildDailyLoopRouter = ({
         claimId: req.params.claimId,
         action: String(req.body?.action || ''),
         note: req.body?.note || '',
-        revisedText: req.body?.revisedText || ''
+        revisedText: req.body?.revisedText || '',
+        resolutionCriteria: req.body?.resolutionCriteria,
+        horizon: req.body?.horizon
       });
       await WikiBriefingCache.deleteOne({ userId: req.user.id });
       return res.status(200).json({
@@ -156,6 +161,80 @@ const buildDailyLoopRouter = ({
       });
     } catch (error) {
       return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record claim check-in.' });
+    }
+  });
+
+  router.post('/api/daily-loop/claims/:pageId/criteria', auth, requireHumanForProtectedPageMutation, async (req, res) => {
+    try {
+      const result = await recordClaimFalsifiability({
+        models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        claimId: String(req.body?.claimId || req.params.claimId || ''),
+        resolutionCriteria: req.body?.resolutionCriteria,
+        horizon: req.body?.horizon
+      });
+      await WikiBriefingCache.deleteOne({ userId: req.user.id });
+      return res.status(200).json({ claim: result.claim, revisionId: result.revisionId });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record criteria.' });
+    }
+  });
+
+  router.post('/api/daily-loop/claims/:pageId/:claimId/criteria', auth, requireHumanForProtectedPageMutation, async (req, res) => {
+    try {
+      const result = await recordClaimFalsifiability({
+        models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        claimId: req.params.claimId,
+        resolutionCriteria: req.body?.resolutionCriteria,
+        horizon: req.body?.horizon
+      });
+      await WikiBriefingCache.deleteOne({ userId: req.user.id });
+      return res.status(200).json({ claim: result.claim, revisionId: result.revisionId });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record criteria.' });
+    }
+  });
+
+  router.post('/api/daily-loop/verdicts/:pageId/:claimId', auth, requireHumanForProtectedPageMutation, async (req, res) => {
+    try {
+      const result = await recordClaimVerdict({
+        models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        claimId: req.params.claimId,
+        verdict: String(req.body?.verdict || ''),
+        trigger: String(req.body?.trigger || ''),
+        sourceEventId: req.body?.sourceEventId || '',
+        note: req.body?.note || ''
+      });
+      await WikiBriefingCache.deleteOne({ userId: req.user.id });
+      return res.status(200).json({
+        claim: result.claim,
+        verdict: result.verdict,
+        revisionId: result.revisionId
+      });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to record verdict.' });
+    }
+  });
+
+  router.get('/api/judgment/mirror', auth, async (req, res) => {
+    try {
+      const stat = STATS.includes(String(req.query?.stat || '')) ? String(req.query.stat) : '';
+      const pages = await WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
+        .select('_id title pageType claims judgment createdAt')
+        .lean();
+      return res.status(200).json(buildJudgmentMirror({
+        pages: pages || [],
+        now: new Date(),
+        userId: req.user.id,
+        stat
+      }));
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to build the Mirror.' });
     }
   });
 

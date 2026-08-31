@@ -79,7 +79,8 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/judgment',
     navigationGroup: 'primary',
     verb: 'Decide',
-    orientation: 'Make and revisit consequential calls against their evidence.'
+    orientation: 'Make and revisit consequential calls against their evidence.',
+    authenticatedPrefixes: ['/judgment', '/mirror']
   }),
   surface({
     id: 'surface.connections',

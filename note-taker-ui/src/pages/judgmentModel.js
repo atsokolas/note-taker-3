@@ -97,6 +97,16 @@ export const judgmentHeadline = (page = {}) => namedTitle(page) || claimSentence
 
 export { isLibraryHref };
 
+const heldClaimOf = (page = {}) => {
+  const claims = list(page?.claims);
+  const key = normalizeClaimKey(claimSentence(page));
+  if (key) {
+    const match = claims.find((claim) => normalizeClaimKey(claim?.text) === key);
+    if (match) return match;
+  }
+  return claims[0] || null;
+};
+
 const sourceLabel = (ref) => (
   clean(ref?.citationLabel)
   || clean(ref?.provider)
@@ -356,7 +366,10 @@ export const projectJudgment = (page, now = Date.now()) => {
     lessons: lessonLines(judgment),
     parked: clean(judgment.status) === 'parked',
     evergreen: Boolean(page?.evergreen),
-    review: reviewBlock(judgment, now)
+    review: reviewBlock(judgment, now),
+    claimId: clean(heldClaimOf(page)?.claimId),
+    resolutionCriteria: clean(heldClaimOf(page)?.resolutionCriteria),
+    horizon: heldClaimOf(page)?.horizon || null
   };
 };
 
@@ -606,6 +619,10 @@ const stampedReason = (fields = {}) => ({
    origin travels with the new line so the page can always say where the
    sentence came from. */
 export const acceptProposalIntoJudgment = (page, proposal, field) => {
+  const text = clean(proposal?.body || proposal?.sentence);
+  if (field === 'criteria' || field === 'changeMindIf') {
+    return writeLineIntoJudgment(page, text, 'changeMindIf');
+  }
   const judgment = page?.judgment || {};
   const target = field === 'why' ? 'why' : 'against';
   const current = target === 'why' ? whyLines(judgment) : againstLines(judgment);

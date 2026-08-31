@@ -164,12 +164,19 @@ export const isPaperCheckIn = (checkIn = null) => {
   return true;
 };
 
+export const isPaperVerdict = (ask = null) => (
+  isPaperCheckIn(ask) && ['horizon', 'evidence'].includes(String(ask?.trigger || ''))
+);
+
 /**
  * Scan-for-blue = read-the-day. A close or collision takes the pulse;
- * otherwise a living check-in. Quiet craft is not alive. Never two.
+ * otherwise a living verdict, then a check-in. Quiet craft is not alive.
  */
 export const morningPulseTarget = ({ briefing } = {}) => {
   if (wikiLivingBriefingLine({ briefing })) return 'lead';
+  const verdicts = (Array.isArray(briefing?.claimVerdicts) ? briefing.claimVerdicts : [])
+    .filter(isPaperVerdict);
+  if (verdicts.length) return 'verdict';
   if (isPaperCheckIn(briefing?.claimCheckIn)) return 'check-in';
   return '';
 };
@@ -190,4 +197,10 @@ export const formatCheckInTally = ({ action = 'reaffirmed', count = 1, heldDays 
   const days = Math.max(0, Number(heldDays) || 0);
   const held = days <= 0 ? 'today' : days === 1 ? '1 day' : `${days} days`;
   return `${verb} · ${ordinal(count)} · held ${held}`;
+};
+
+export const formatVerdictTally = ({ verdict = 'held_up', trigger = 'horizon', count = 1 } = {}) => {
+  const word = String(verdict || 'held_up').replace('_', ' ');
+  const why = trigger === 'evidence' ? 'evidence' : 'horizon';
+  return `${word} · ${ordinal(count)} · ${why}`;
 };

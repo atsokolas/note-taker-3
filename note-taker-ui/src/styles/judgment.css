@@ -1421,6 +1421,52 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
   color: var(--text-primary, var(--vellum-ink));
 }
 
+/* The Mirror. Typographic, not a dashboard. Every number is a door. */
+.mirror__stats {
+  display: grid;
+  gap: 18px;
+  margin: 0 0 36px;
+  padding: 0;
+  list-style: none;
+}
+
+.mirror__stats a {
+  display: grid;
+  gap: 4px;
+  max-width: 54ch;
+  color: inherit;
+  text-decoration: none;
+}
+
+.mirror__stat-label {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.mirror__stat-value {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.28rem;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+.mirror__stats li.is-open .mirror__stat-value {
+  border-bottom: 1px solid currentColor;
+}
+
+.mirror__stats a:hover .mirror__stat-value {
+  border-bottom: 1px solid currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mirror__stats a {
+    transition: none;
+  }
+}
+
 /* What this rests on. The only structure in the product, and it stays in the
    page's grammar: sentences, a rule, and a word to press. */
 .judgment-depends__list,
@@ -1589,6 +1635,9 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 
 /* The one way in to the week, at the foot of the claims it reports on. */
 .judgment__week-door {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
   margin: 26px 0 0;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.84rem;

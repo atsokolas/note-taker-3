@@ -1,11 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import MorningCheckIn from './MorningCheckIn';
-import { recordClaimCheckIn } from '../../api/dailyLoop';
+import { recordClaimCheckIn, recordClaimFalsifiability } from '../../api/dailyLoop';
 import { fileSentenceAway } from '../../motion/columnMotion';
 
 jest.mock('../../api/dailyLoop', () => ({
-  recordClaimCheckIn: jest.fn()
+  recordClaimCheckIn: jest.fn(),
+  recordClaimFalsifiability: jest.fn()
 }));
 
 jest.mock('../../motion/columnMotion', () => ({
@@ -73,5 +74,32 @@ describe('MorningCheckIn', () => {
     expect(fileSentenceAway).toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByLabelText('Morning check-in')).not.toBeInTheDocument());
     expect(onRetired).toHaveBeenCalled();
+  });
+
+  it('lets you name a test without blocking Still hold', async () => {
+    recordClaimFalsifiability.mockResolvedValue({ claim: { resolutionCriteria: 'Utilisation falls.' } });
+    recordClaimCheckIn.mockResolvedValue({
+      claim: { bornAt: checkIn.adoptedAt, history: [{ action: 'reaffirmed' }] }
+    });
+    render(<MorningCheckIn checkIn={checkIn} />);
+
+    fireEvent.click(screen.getByText('What would change your mind — and by when?'));
+    fireEvent.change(screen.getByPlaceholderText('The test, in a sentence.'), {
+      target: { value: 'Utilisation falls two quarters.' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
+    await waitFor(() => expect(recordClaimFalsifiability).toHaveBeenCalledWith({
+      pageId: 'wiki-nvda',
+      claimId: 'c1',
+      resolutionCriteria: 'Utilisation falls two quarters.',
+      horizon: null
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Still hold' }));
+    await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({
+      pageId: 'wiki-nvda',
+      claimId: 'c1',
+      action: 'reaffirmed'
+    }));
   });
 });

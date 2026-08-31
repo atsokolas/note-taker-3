@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { recordClaimCheckIn } from '../../api/dailyLoop';
+import { recordClaimCheckIn, recordClaimFalsifiability } from '../../api/dailyLoop';
 import { ENTER_DURATION_MS, fileSentenceAway } from '../../motion/columnMotion';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import { formatCheckInTally } from './morningPaperClose';
+import ClaimFalsifiabilityPrompt from './ClaimFalsifiabilityPrompt';
 
 const heldDaysFrom = (iso) => {
   if (!iso) return 0;
@@ -62,6 +63,21 @@ const MorningCheckIn = ({ checkIn, pulse = false, onRetired }) => {
     }
   };
 
+  const keepCriteria = async ({ resolutionCriteria, horizon }) => {
+    if (busy || filing) return;
+    setBusy('criteria');
+    try {
+      await recordClaimFalsifiability({
+        pageId: checkIn.pageId,
+        claimId: checkIn.claimId,
+        resolutionCriteria,
+        horizon
+      });
+    } finally {
+      setBusy('');
+    }
+  };
+
   return (
     <section
       ref={blockRef}
@@ -97,6 +113,12 @@ const MorningCheckIn = ({ checkIn, pulse = false, onRetired }) => {
       {tally ? (
         <p className="wiki-front-page__check-in-tally" aria-live="polite">{tally}</p>
       ) : null}
+      <ClaimFalsifiabilityPrompt
+        criteria={checkIn.resolutionCriteria || ''}
+        horizon={checkIn.horizon || ''}
+        busy={Boolean(busy) || filing}
+        onKeep={keepCriteria}
+      />
     </section>
   );
 };

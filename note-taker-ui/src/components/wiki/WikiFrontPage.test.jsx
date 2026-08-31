@@ -24,7 +24,9 @@ jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
   armReadingWatch: jest.fn(),
   disarmWatcher: jest.fn(),
-  recordClaimCheckIn: jest.fn()
+  recordClaimCheckIn: jest.fn(),
+  recordClaimFalsifiability: jest.fn(),
+  recordClaimVerdict: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -943,6 +945,41 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(screen.queryByText(/debugging only the v/)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
       expect(screen.getByLabelText('Morning sign-off')).toBeInTheDocument();
+    });
+
+    it('asks a horizon verdict and an evidence verdict, and stays quiet without either', async () => {
+      const { unmount } = render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Morning verdict')).not.toBeInTheDocument();
+      unmount();
+
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        ...briefing,
+        summary: '',
+        aliveness: { register: 'quiet' },
+        claimVerdicts: [
+          {
+            pageId: 'wiki-first-principles',
+            claimId: 'c1',
+            text: 'Integration retains pricing power.',
+            trigger: 'horizon',
+            horizon: '2026-08-15T00:00:00.000Z'
+          },
+          {
+            pageId: 'wiki-first-principles',
+            claimId: 'c1',
+            text: 'Integration retains pricing power.',
+            trigger: 'evidence',
+            sourceEventId: 'evt-1'
+          }
+        ]
+      } });
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      const verdicts = await screen.findAllByLabelText('Morning verdict');
+      expect(verdicts).toHaveLength(2);
+      expect(screen.getByText('The horizon you named has arrived.')).toBeInTheDocument();
+      expect(screen.getByText('A watcher landed evidence.')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Held up' })).toHaveLength(2);
     });
 
     it('prints an honestly aged rebuild wait instead of present-tense queued signals', async () => {
