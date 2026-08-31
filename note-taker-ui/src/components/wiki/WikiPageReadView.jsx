@@ -1235,6 +1235,7 @@ const WikiPageReadView = ({
   });
   useNoeisAgentSurface('agent-surface.wiki', wikiSurfaceDescriptor, {
     subject: displayWikiPageTitle(page, 'Wiki page'),
+    boundSources: page ? countWikiSources(page) : null,
     empty: page
       ? 'Nothing to retrieve until you ask against this accepted page.'
       : 'Loading the page before the steward checks it.'

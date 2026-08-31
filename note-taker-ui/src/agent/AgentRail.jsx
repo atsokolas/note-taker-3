@@ -11,6 +11,14 @@ import '../styles/agent-rail.css';
 // finds is written down until someone says so.
 
 const ASK_PLACEHOLDER = 'Bring evidence or counterevidence';
+
+/**
+ * Certainty about where the agent is looking. Zero is not an empty state to
+ * hide — a reader who knows nothing is bound can trust the silence that follows.
+ */
+const describeBoundCorpus = (count) => (
+  count === 0 ? 'no bound sources' : `${count} bound source${count === 1 ? '' : 's'}`
+);
 const NOTE_ARRIVAL_MS = 220;
 const NOOP_ASYNC = async () => {};
 
@@ -201,6 +209,9 @@ const AgentRail = () => {
         <p className="agent-rail__subject" key={surface.id || surface.subject}>
           <span>Now with</span>
           {surface.subject}
+          {surface.boundSources === null ? null : (
+            <small className="agent-rail__envelope">{describeBoundCorpus(surface.boundSources)}</small>
+          )}
         </p>
       ) : null}
 
