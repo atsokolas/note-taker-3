@@ -659,6 +659,26 @@ button.judgment-inbox__text:focus-visible {
   color: var(--text-muted, var(--vellum-subtle));
 }
 
+/* Counterevidence ink.
+   Opposition is not an alarm. A line that cuts against what you hold gets a
+   quieter register and a rule down its left edge — the margin mark an editor
+   makes beside a passage that argues back. No red, no badge, no count. The
+   reader should be able to scan the log and see where the argument is
+   contested without being told to feel anything about it. */
+.judgment-log__row--against {
+  border-left: 2px solid var(--rule-soft, var(--vellum-rule, rgba(120, 120, 120, 0.28)));
+  padding-left: 0.7rem;
+}
+
+.judgment-log__row--against .judgment-log__kind {
+  color: var(--ink-counter, var(--text-muted, var(--vellum-subtle)));
+}
+
+.judgment-log__row--against .judgment-log__text {
+  color: var(--ink-counter, var(--text-secondary, var(--vellum-ink)));
+  font-style: italic;
+}
+
 .judgment-log__text {
   margin: 0;
   color: var(--ink-human, var(--text-primary, var(--vellum-ink)));

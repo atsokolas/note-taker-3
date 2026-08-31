@@ -269,6 +269,7 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, s
   const pending = status === 'pending';
   const label = {
     accepted: 'Accepted',
+    narrowed: 'Narrowed',
     preserved: 'Preserved',
     rejected: 'Rejected',
     deferred: 'Deferred'
@@ -282,6 +283,7 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, s
       {pending ? (
         <div className="judgment-change__actions" aria-label="Resolve proposed judgment change">
           <button type="button" disabled={busy} onClick={() => onResolve('accept')}>Accept</button>
+          <button type="button" disabled={busy} onClick={() => onResolve('narrow')}>Narrow</button>
           <button type="button" disabled={busy} onClick={() => onResolve('preserve')}>Preserve</button>
           <button type="button" disabled={busy} onClick={() => onResolve('reject')}>Reject</button>
           <button type="button" disabled={busy} onClick={() => onResolve('defer')}>Defer</button>
@@ -1067,11 +1069,12 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         setPage(resolved.page);
       }
       setChangeProposal(resolved.proposal || null);
-      if (action === 'accept') {
+      if (action === 'accept' || action === 'narrow') {
         // Only a confirmed accepted write earns the thread. The receipt is the
         // proof; this counter simply lets the next paint show where it landed.
         setAcceptedChangeTrace(currentTrace => currentTrace + 1);
         setLanding(describeLanding({
+          verb: action === 'narrow' ? 'narrowed' : 'accepted',
           revisionId: resolved.revisionId,
           nextReviewAt: resolved.page?.judgment?.nextReviewAt
         }));

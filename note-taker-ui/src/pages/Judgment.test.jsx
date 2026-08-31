@@ -578,6 +578,31 @@ describe('Judgment claim', () => {
       .toHaveTextContent('accepted \u00b7 prior wording preserved \u00b7 review Sep 30'));
   });
 
+  it('narrows the belief instead of replacing it, and says so', async () => {
+    const narrower = 'NVIDIA demand outruns capacity for training silicon.';
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue(base);
+    resolveJudgmentChange.mockResolvedValue({
+      page: { ...base, judgment: { ...base.judgment, currentJudgment: narrower } },
+      proposal: { ...judgmentChangeProposal(narrower), status: 'narrowed' },
+      revisionId: 'rev-2'
+    });
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: narrower } });
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Narrow' }));
+
+    await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalledWith(
+      'wiki-nvidia', judgmentChangeProposal(narrower).id, 'narrow'
+    ));
+    await waitFor(() => expect(document.querySelector('.judgment__landing'))
+      .toHaveTextContent('narrowed \u00b7 prior wording preserved'));
+    expect(screen.getByLabelText('What you hold')).toHaveValue(narrower);
+  });
+
   it('does not promise a preserved prior wording the server did not record', async () => {
     const next = 'I am bullish NVIDIA compute.';
     const base = judgmentPage();

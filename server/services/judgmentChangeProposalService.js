@@ -4,8 +4,13 @@ const {
   serializeStoredReceipt
 } = require('./noeisReceiptService');
 
-const ACTIONS = new Set(['accept', 'preserve', 'reject', 'defer']);
-const TERMINAL = new Set(['accepted', 'preserved', 'rejected']);
+/* `narrow` is not a softer `accept`. Accepting replaces a belief; narrowing
+   keeps it and bounds it. The write is the same sentence either way — what
+   differs is the record, and the record is the point: a year from now the
+   difference between "I changed my mind" and "I kept this but scoped it" is
+   the whole of what the casebook knows. */
+const ACTIONS = new Set(['accept', 'narrow', 'preserve', 'reject', 'defer']);
+const TERMINAL = new Set(['accepted', 'narrowed', 'preserved', 'rejected']);
 
 const clean = (value = '', limit = 8000) => String(value || '')
   .replace(/\s+/g, ' ')
@@ -86,7 +91,7 @@ const assertBinding = ({ receipt, page }) => {
 const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date(), deferUntil = null } = {}) => {
   const selected = clean(action, 24).toLowerCase();
   if (!ACTIONS.has(selected)) {
-    throw new JudgmentChangeProposalError('Choose accept, preserve, reject, or defer.', 400);
+    throw new JudgmentChangeProposalError('Choose accept, narrow, preserve, reject, or defer.', 400);
   }
   const stored = assertBinding({ receipt, page });
   const priorAction = clean(stored.provenance?.disposition, 24);
@@ -109,6 +114,7 @@ const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date()
 
   const status = {
     accept: 'accepted',
+    narrow: 'narrowed',
     preserve: 'preserved',
     reject: 'rejected',
     defer: 'deferred'
@@ -123,13 +129,13 @@ const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date()
   const nextReceipt = {
     ...stored,
     status,
-    summary: selected === 'accept'
-      ? `Accepted: ${after}`
-      : selected === 'preserve'
-        ? `Preserved: ${before}`
-        : selected === 'reject'
-          ? `Rejected: ${after}`
-          : `Deferred: ${after}`,
+    summary: {
+      accept: `Accepted: ${after}`,
+      narrow: `Narrowed: ${after}`,
+      preserve: `Preserved: ${before}`,
+      reject: `Rejected: ${after}`,
+      defer: `Deferred: ${after}`
+    }[selected],
     provenance: {
       ...stored.provenance,
       disposition: selected,
@@ -139,7 +145,8 @@ const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date()
     completedAt: now
   };
 
-  const judgment = selected === 'accept'
+  const writes = selected === 'accept' || selected === 'narrow';
+  const judgment = writes
     ? {
       ...plain(page.judgment),
       currentJudgment: after,
@@ -147,7 +154,9 @@ const planJudgmentChangeDisposition = ({ receipt, page, action, now = new Date()
         ...(Array.isArray(page?.judgment?.decisions) ? page.judgment.decisions.map(plain) : []),
         {
           decisionId: `judgment-change-${clean(stored.provenance.proposalId, 100)}`,
-          summary: `Changed what I hold: ${after}`,
+          summary: selected === 'narrow'
+            ? `Narrowed what I hold: ${after}`
+            : `Changed what I hold: ${after}`,
           decidedAt: now,
           status: 'taken',
           createdBy: 'user'

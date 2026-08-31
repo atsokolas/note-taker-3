@@ -4,6 +4,7 @@ import { formatCalendarDate } from '../utils/calendarDate';
  * The receipt a revised belief leaves behind (Stage 1).
  *
  *   accepted · prior wording preserved · review Sep 30
+ *   narrowed · prior wording preserved · review Sep 30
  *
  * Every clause has to have earned its place. "prior wording preserved" is a
  * claim about durable storage, so it is printed only when the server hands
@@ -15,8 +16,8 @@ import { formatCalendarDate } from '../utils/calendarDate';
  * The receipt is for the landing, not for the record. It reports what was
  * true at the moment the write completed.
  */
-export const describeLanding = ({ revisionId = '', nextReviewAt = null } = {}) => {
-  const parts = ['accepted'];
+export const describeLanding = ({ verb = 'accepted', revisionId = '', nextReviewAt = null } = {}) => {
+  const parts = [verb];
   if (String(revisionId || '').trim()) parts.push('prior wording preserved');
   const review = formatCalendarDate(nextReviewAt);
   if (review) parts.push(`review ${review}`);
