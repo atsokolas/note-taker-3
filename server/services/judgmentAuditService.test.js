@@ -1,5 +1,6 @@
 const assert = require('assert');
 const {
+  buildJudgmentAudit,
   buildJudgmentAuditRows,
   impactRegister,
   summarizeJudgmentAudit
@@ -45,4 +46,34 @@ assert.strictEqual(summarizeJudgmentAudit(rows).status, 'attention');
 assert.strictEqual(summarizeJudgmentAudit(rows).overdueAssessments, 1);
 assert.strictEqual(impactRegister([]), 'neutral');
 
-console.log('judgmentAuditService tests passed');
+const query = rows => ({
+  select() { return this; },
+  sort() { return this; },
+  limit() { return this; },
+  async lean() { return rows; }
+});
+
+const observed = {};
+buildJudgmentAudit({
+  userId: 'owner-1',
+  now,
+  WikiPage: {
+    find(filter) {
+      observed.pageFilter = filter;
+      return query(pages);
+    }
+  },
+  WikiSourceEvent: {
+    find(filter) {
+      observed.eventFilter = filter;
+      return query([]);
+    }
+  }
+}).then(result => {
+  assert.deepStrictEqual(observed.eventFilter.affectedPageIds.$in, ['page-1']);
+  assert.strictEqual(result.summary.status, 'quiet');
+  console.log('judgmentAuditService tests passed');
+}).catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
