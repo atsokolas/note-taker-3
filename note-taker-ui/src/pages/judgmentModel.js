@@ -110,7 +110,10 @@ export const verdictEvidenceOptions = (page = {}) => {
   const seen = new Set();
   return list(page?.sourceRefs).reduce((options, ref) => {
     const id = idOf(ref);
-    const label = sourceLabel(ref);
+    // Reader citations are deliberately compact ("[1]"), but a verdict is a
+    // durable human record. Name the evidence there so the record remains
+    // intelligible after the reader's citation order changes.
+    const label = clean(ref?.title) || sourceLabel(ref) || clean(ref?.url);
     if (!id || !label || seen.has(id)) return options;
     seen.add(id);
     options.push({ id, label, href: buildSourceOpenPath(ref) });

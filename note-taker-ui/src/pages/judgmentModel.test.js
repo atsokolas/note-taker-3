@@ -165,7 +165,7 @@ describe('judgmentModel', () => {
   it('offers each persisted source identity once when recording a verdict', () => {
     const options = verdictEvidenceOptions({
       sourceRefs: [
-        { _id: 'src-1', type: 'external', citationLabel: '10-K', url: 'https://example.com/10-k' },
+        { _id: 'src-1', type: 'external', title: 'Alphabet annual report', citationLabel: '[1]', url: 'https://example.com/10-k' },
         { _id: 'src-1', type: 'external', citationLabel: 'Duplicate', url: 'https://example.com/duplicate' },
         { _id: 'src-2', type: 'article', title: 'Saved note', objectId: 'article-2' },
         { _id: 'src-3' }
@@ -173,7 +173,7 @@ describe('judgmentModel', () => {
     });
 
     expect(options).toEqual([
-      { id: 'src-1', label: '10-K', href: 'https://example.com/10-k' },
+      { id: 'src-1', label: 'Alphabet annual report', href: 'https://example.com/10-k' },
       { id: 'src-2', label: 'Saved note', href: '/library?articleId=article-2' }
     ]);
   });
