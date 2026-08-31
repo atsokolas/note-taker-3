@@ -380,6 +380,10 @@ export const projectJudgment = (page, now = Date.now()) => {
     whySources: uniqueSources(why),
     against,
     againstSources: uniqueSources(against),
+    // Everything the case actually cites, counted once across both sides.
+    // This is what the agent can see when it is asked about this claim, so
+    // it is also the number the rail is allowed to show.
+    boundSourceCount: uniqueSources([...why, ...against]).length,
     changeMindIf: changeMindLines(judgment),
     whatIDid: whatIDidLines(judgment),
     lessons: lessonLines(judgment),
