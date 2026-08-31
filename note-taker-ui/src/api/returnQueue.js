@@ -1,9 +1,11 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
 
-export const listReturnQueue = async ({ filter = 'all' } = {}) => {
+export const listReturnQueue = async ({ filter = 'all', itemType = '', itemId = '' } = {}) => {
   const params = new URLSearchParams();
   params.set('filter', filter || 'all');
+  if (itemType) params.set('itemType', itemType);
+  if (itemId) params.set('itemId', itemId);
   const res = await api.get(`/api/return-queue?${params.toString()}`, getAuthHeaders());
   return Array.isArray(res.data) ? res.data : [];
 };

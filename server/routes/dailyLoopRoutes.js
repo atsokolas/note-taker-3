@@ -88,6 +88,8 @@ const buildDailyLoopRouter = ({
   ImportSession,
   NoeisReceipt,
   Connection,
+  Folder,
+  ReturnQueueEntry,
   env = process.env
 } = {}) => {
   const router = express.Router();
@@ -96,7 +98,8 @@ const buildDailyLoopRouter = ({
   const dailyLoopFlights = new Map();
   const models = {
     User, WikiPage, WikiRevision, WikiSourceEvent, WikiMaintenanceRun, WikiBriefingCache,
-    WikiPageVisit, Article, NotebookEntry, TagMeta, Question, ImportSession, NoeisReceipt, Connection
+    WikiPageVisit, Article, NotebookEntry, TagMeta, Question, ImportSession, NoeisReceipt, Connection,
+    Folder, ReturnQueueEntry
   };
 
   router.get('/api/daily-loop', auth, async (req, res) => {

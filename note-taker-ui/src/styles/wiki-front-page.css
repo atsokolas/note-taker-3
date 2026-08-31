@@ -795,7 +795,77 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 /* Scan-for-blue = read-the-day. Exactly one pulse, and only when something
    is alive this morning. */
 .paper-open .is-morning-pulse,
-.wiki-front-page__check-in.is-morning-pulse {
+.wiki-front-page__check-in.is-morning-pulse,
+.wiki-front-page__asked-back.is-morning-pulse {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
+}
+
+.wiki-front-page__asked-back {
+  display: grid;
+  gap: 6px;
+  max-width: 46ch;
+  margin: 28px 0 0;
+  padding: 4px 0 4px 13px;
+  box-shadow: inset 2px 0 0 var(--noeis-living-sap, var(--noeis-living, #6f7340));
+}
+
+.wiki-front-page__asked-back-eyebrow {
+  margin: 0;
+  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+}
+
+.wiki-front-page__asked-back-sentence,
+.wiki-front-page__asked-back-list a {
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.wiki-front-page__asked-back-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+
+.wiki-front-page__asked-back-list a {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.wiki-front-page__asked-back-list a:hover,
+.wiki-front-page__asked-back-list a:focus-visible {
+  border-bottom-color: currentColor;
+}
+
+.wiki-front-page__asked-back-line {
+  margin: 4px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.wiki-front-page__asked-back-snooze {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.wiki-front-page__asked-back.is-morning-pulse {
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
 }
 

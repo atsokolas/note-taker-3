@@ -1,7 +1,7 @@
 # Later, Set Aside, and Kairos
 
 **Date:** 2026-08-31
-**Status:** Stage 1 shipping — piles, placement, living ink. Kairos and Feed still ahead.
+**Status:** Stage 2 shipping — Kairos (Remind me, asked-back, pulse-on-quiet). Feed still ahead.
 **Slice:** Library articles first. Share stays out.
 
 ## Goal

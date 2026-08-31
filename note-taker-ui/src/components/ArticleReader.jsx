@@ -5,6 +5,7 @@ import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
 import PlacementWord from './PlacementWord';
+import RemindWord from './RemindWord';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
@@ -315,6 +316,7 @@ const ArticleReader = ({
               }}
             />
           ) : null}
+          {article?._id ? <RemindWord articleId={article._id} /> : null}
           {onMove && (
             <QuietButton onClick={onMove}>
               Move

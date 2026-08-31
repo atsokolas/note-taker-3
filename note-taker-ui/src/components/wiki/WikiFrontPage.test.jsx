@@ -1058,6 +1058,60 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(screen.queryByText(/TRANSCRIPT_API_KEY/)).not.toBeInTheDocument();
       expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(1);
     });
+
+    it('prints asked-back on a quiet morning and puts the pulse there alone', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
+        aliveness: { register: 'quiet' },
+        askedBack: [{
+          articleId: 'a1',
+          queueId: 'q1',
+          title: 'The Costco 10-K',
+          href: '/library?articleId=a1',
+          fromPlacement: 'setAside',
+          reason: 'the margin note on returns'
+        }],
+        counts: { newSources: 0, recentlyUpdatedPages: 0, driftingPages: 0 }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByLabelText('Morning sign-off')).toBeInTheDocument();
+      expect(screen.getByLabelText('Asked back')).toHaveTextContent('καιρός');
+      expect(screen.getByLabelText('Asked back')).toHaveTextContent('You asked for this back.');
+      expect(screen.getByRole('link', { name: 'The Costco 10-K' })).toHaveAttribute('href', '/library?articleId=a1');
+      expect(screen.queryByText(/Reminders/i)).not.toBeInTheDocument();
+      expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(1);
+      expect(screen.getByLabelText('Asked back')).toHaveClass('is-morning-pulse');
+      expect(screen.getByLabelText('Morning sign-off')).not.toHaveClass('is-morning-pulse');
+    });
+
+    it('typesets asked-back on a news morning without taking the pulse', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        ...briefing,
+        lead: {
+          title: 'NVDA filed a 10-Q',
+          page: { id: 'wiki-first-principles', title: 'Nvidia dossier' },
+          href: '/wiki/read/wiki-first-principles'
+        },
+        watcherLeads: [{
+          title: 'NVDA filed a 10-Q',
+          page: { id: 'wiki-first-principles', title: 'Nvidia dossier' }
+        }],
+        askedBack: [{
+          articleId: 'a1',
+          queueId: 'q1',
+          title: 'The Costco 10-K',
+          href: '/library?articleId=a1'
+        }]
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByLabelText('Current Wiki briefing')).toBeInTheDocument();
+      expect(screen.getByLabelText('Asked back')).toHaveTextContent('The Costco 10-K');
+      expect(screen.getByLabelText('Asked back')).not.toHaveClass('is-morning-pulse');
+      expect(screen.getByLabelText('Current Wiki briefing')).toHaveClass('is-morning-pulse');
+      expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(1);
+    });
   });
 });
 

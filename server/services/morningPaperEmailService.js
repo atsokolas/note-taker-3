@@ -98,9 +98,24 @@ const renderMovementsSection = ({ movements = [], appBaseUrl }) => {
   return `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">WHAT CHANGED</div>${cards}</div>`;
 };
 
+const renderAskedBackSection = ({ askedBack = [], appBaseUrl }) => {
+  const items = (Array.isArray(askedBack) ? askedBack : []).filter((row) => row?.title && row?.href);
+  if (!items.length) return { html: '', text: '' };
+  const cards = items.map((row) => {
+    const href = absoluteHref(row.href || '/library', appBaseUrl);
+    const detail = [row.fromPlacement === 'later' ? 'later' : row.fromPlacement === 'setAside' ? 'set aside' : '', row.reason].filter(Boolean).join(' · ');
+    return `<div style="margin-top:16px"><p style="font-size:17px;line-height:1.45;margin:6px 0 2px"><a href="${escapeHtml(href)}" style="color:#171714;text-decoration:none">${escapeHtml(row.title)}</a></p>${detail ? `<p style="font-size:14px;line-height:1.5;color:#5f5a50;margin:0">${escapeHtml(detail)}</p>` : ''}</div>`;
+  }).join('');
+  return {
+    html: `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">καιρός</div><p style="font-size:16px;line-height:1.5;margin:8px 0 0">You asked for this back.</p>${cards}</div>`,
+    text: ['καιρός', 'You asked for this back.', ...items.map((row) => `${row.title} — ${absoluteHref(row.href || '/library', appBaseUrl)}`)].join('\n')
+  };
+};
+
 const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl, appBaseUrl = 'https://www.noeis.io' } = {}) => {
   const lead = Array.isArray(briefing.watcherLeads) ? briefing.watcherLeads[0] : null;
   const checkIn = briefing.claimCheckIn || null;
+  const askedBack = renderAskedBackSection({ askedBack: briefing.askedBack, appBaseUrl });
   const returnPath = briefing.nextAction || null;
   const headline = lead?.title || 'Your Morning Paper';
   const leadCopy = lead
@@ -114,7 +129,7 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
     const href = absoluteHref(movement.nextAction?.href || movement.subject?.href || '/wiki', appBaseUrl);
     return `${movementLabel(movement.kind).toUpperCase()}: ${movement.title} — ${href}`;
   });
-  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}${askedBack.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
   const text = [
     'NOEIS · MORNING PAPER',
     headline,
@@ -123,6 +138,7 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
     movementLines.length ? ['WHAT CHANGED:', ...movementLines].join('\n') : '',
     returnPath ? `RETURN PATH: ${returnPath.label || 'Continue'} — ${returnHref}` : '',
     checkIn ? `CLAIM CHECK-IN: ${checkIn.text} (${checkIn.pageTitle}) — ${checkInHref}` : '',
+    askedBack.text,
     `Unsubscribe: ${unsubscribeUrl}`
   ].filter(Boolean).join('\n\n');
   return { subject: clean(`Noeis Morning Paper — ${headline}`, 180), html, text };
@@ -133,6 +149,7 @@ const briefingIsEmpty = (briefing = {}) => {
   return !(Array.isArray(briefing.watcherLeads) && briefing.watcherLeads.length)
     && !briefing.claimCheckIn
     && !briefing.nextAction
+    && !(Array.isArray(briefing.askedBack) && briefing.askedBack.length)
     && !Object.values(counts).some(value => Number(value) > 0);
 };
 

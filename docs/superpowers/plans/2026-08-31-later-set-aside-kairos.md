@@ -9,7 +9,7 @@
 ### Stage 1 — Piles (this execution)
 Placement on articles, Imbox exclusion, Later / Set aside verbs beside Keep, piles at the foot of Library, living ink. No Remind me, no feed screening.
 
-### Stage 2 — Kairos
+### Stage 2 — Kairos (this execution)
 Return-queue cadence, morning-paper `askedBack`, pulse-on-quiet, `καιρός` inscription.
 
 ### Stage 3 — Feed

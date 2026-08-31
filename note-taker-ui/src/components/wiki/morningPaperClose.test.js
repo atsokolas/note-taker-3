@@ -260,6 +260,19 @@ describe('the one blue thing', () => {
     })).toBe('');
   });
 
+  it('puts the pulse on asked-back only when the morning is otherwise quiet', () => {
+    const askedBack = [{ articleId: 'a1', title: 'The Costco 10-K' }];
+    expect(morningPulseTarget({
+      briefing: { aliveness: { register: 'quiet' }, askedBack }
+    })).toBe('asked-back');
+    expect(morningPulseTarget({
+      briefing: { ...close, askedBack }
+    })).toBe('lead');
+    expect(morningPulseTarget({
+      briefing: { aliveness: { register: 'quiet' }, claimCheckIn: close.claimCheckIn, askedBack }
+    })).toBe('check-in');
+  });
+
   it('does not serve the repo-wiki dump as a check-in', () => {
     expect(isPaperCheckIn({
       pageId: 'wiki-repo',

@@ -175,9 +175,14 @@ export const isPaperVerdict = (ask = null) => (
   isPaperCheckIn(ask) && ['horizon', 'evidence'].includes(String(ask?.trigger || ''))
 );
 
+export const isPaperAskedBack = (rows = []) => (
+  (Array.isArray(rows) ? rows : []).some((row) => row?.articleId && String(row.title || '').trim())
+);
+
 /**
  * Scan-for-blue = read-the-day. A qualified consequence takes the pulse;
  * otherwise a close or collision, then a living verdict, then a check-in.
+ * Asked-back may pulse only when the morning is otherwise quiet.
  */
 export const morningPulseTarget = ({ briefing } = {}) => {
   if (isPaperConsequence(briefing?.consequence)) return 'consequence';
@@ -186,6 +191,7 @@ export const morningPulseTarget = ({ briefing } = {}) => {
     .filter(isPaperVerdict);
   if (verdicts.length) return 'verdict';
   if (isPaperCheckIn(briefing?.claimCheckIn)) return 'check-in';
+  if (isPaperAskedBack(briefing?.askedBack)) return 'asked-back';
   return '';
 };
 

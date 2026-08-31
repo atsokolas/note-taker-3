@@ -450,7 +450,9 @@ const runMorningPaperEmailWorker = async () => {
         TagMeta,
         Question,
         ImportSession,
-        Connection
+        Connection,
+        Folder,
+        ReturnQueueEntry
       },
       limit: Number(process.env.MORNING_PAPER_EMAIL_BATCH_SIZE || 50)
     });
@@ -5406,7 +5408,9 @@ app.use(buildDailyLoopRouter({
   Question,
   ImportSession,
   NoeisReceipt,
-  Connection
+  Connection,
+  Folder,
+  ReturnQueueEntry
 }));
 
 app.use(buildKnowledgeMovementRouter({
