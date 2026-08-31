@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { persistNoeisReceipt } = require('./noeisReceiptService');
 const { localDateForTimezone, buildDailyLoopBriefing } = require('./dailyLoopService');
 const { buildKnowledgeMovements, MOVEMENT_KINDS } = require('./knowledgeMovementService');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const MOVEMENT_EMAIL_LABELS = {
   claim_changed: 'A claim changed',
@@ -17,10 +18,7 @@ const MOVEMENT_EMAIL_LABELS = {
 const movementLabel = (kind) => MOVEMENT_EMAIL_LABELS[kind]
   || (MOVEMENT_KINDS.includes(kind) ? 'Changed' : 'Changed');
 
-const clean = (value = '', limit = 2000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 2000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 const escapeHtml = (value = '') => String(value || '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');

@@ -1,3 +1,4 @@
+import { wordBoundaryTrim } from '../utils/editorialText';
 /**
  * Client projection of the Judgment Ledger. The server is the source of
  * clocks, receipts, and reconstruction against revisions. This file only
@@ -34,10 +35,7 @@ const MONTHS = Object.freeze([
   'July', 'August', 'September', 'October', 'November', 'December'
 ]);
 
-const clean = (value = '', limit = 4000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 4000) => wordBoundaryTrim(value, { maxLength: limit });
 const list = (value) => (Array.isArray(value) ? value : []);
 const idOf = (value) => String(value?._id || value?.id || value || '').trim();
 

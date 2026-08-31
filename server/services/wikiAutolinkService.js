@@ -1,3 +1,4 @@
+const { wordBoundaryTrim } = require('../lib/editorialText');
 /**
  * wikiAutolinkService — for a given target wiki page, find every OTHER
  * page in the user's wiki whose title is mentioned in the target's
@@ -58,10 +59,7 @@ const safeFind = async (Model, query = {}, limit = 600, projection = null) => {
   }
 };
 
-const truncate = (value = '', limit = 200) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const truncate = (value = '', limit = 200) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const candidateHasReadableContent = (candidate = {}) => {
   const hasPlainTextField = Object.prototype.hasOwnProperty.call(candidate, 'plainText');

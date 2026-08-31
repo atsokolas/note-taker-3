@@ -49,6 +49,7 @@ const {
 const { createConnectorWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent: defaultProcessWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
 const { persistNoeisReceipt } = require('../services/noeisReceiptService');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const toTrimmedString = (value = '') => String(value || '').trim();
 const normalizeSourcePath = (value = '') => {
@@ -929,11 +930,7 @@ const buildImportRouter = ({
     await connection.save();
   };
 
-  const truncateNotionText = (value = '', limit = 1900) => {
-    const safe = String(value || '').trim().replace(/\s+/g, ' ');
-    if (safe.length <= limit) return safe;
-    return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-  };
+  const truncateNotionText = (value = '', limit = 1900) => wordBoundaryTrim(value, { maxLength: limit });
 
   const textToRichText = (value = '') => {
     const safe = truncateNotionText(value);

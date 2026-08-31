@@ -1,6 +1,7 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { formatWikiSchemaPromptBlock } = require('./wikiSchemaService');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 /**
  * wikiAskService — answers a user's question about a wiki page using the page
@@ -66,10 +67,7 @@ const runWithDeadline = async (task, {
   }
 };
 
-const truncate = (value = '', limit = 1000) => {
-  const text = asString(value).replace(/\s+/g, ' ');
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
-};
+const truncate = (value = '', limit = 1000) => wordBoundaryTrim(asString(value).replace(/\s+/g, ' '), { maxLength: limit });
 
 const splitIntoSentences = (value = '') => {
   const placeholders = new Map();

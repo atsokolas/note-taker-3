@@ -190,6 +190,7 @@ const {
 } = require('../services/wikiDedupeService');
 const { reviewExpired } = require('../services/reviewTriageService');
 const { lintWiki: defaultLintWiki } = require('../services/wikiLintService');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 const {
   activeProposalsNeedClusteringRefresh,
   autoMergeProposalCandidates,
@@ -1340,7 +1341,7 @@ const cleanWikiSummary = (value = '', maxLength = 360) => {
     .replace(/\s+/g, ' ')
     .trim();
   if (!text) return '';
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}…` : text;
+  return wordBoundaryTrim(text, { maxLength });
 };
 
 const serializeSourceRefFromEvent = (event = {}) => ({

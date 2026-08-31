@@ -8,10 +8,7 @@ const FETCH_TIMEOUT_MS = 10000;
 const MAX_REDIRECTS = 3;
 const DEFAULT_READING_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
-const clean = (value = '', limit = 2000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 2000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const decodeEntities = (value = '') => String(value || '')
   .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
@@ -342,3 +339,4 @@ module.exports = {
   __testables: { isPrivateAddress, readBoundedBody, readingExternalId }
 };
 const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
+const { wordBoundaryTrim } = require('../lib/editorialText');

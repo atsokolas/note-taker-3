@@ -1,9 +1,7 @@
+const { wordBoundaryTrim } = require('../lib/editorialText');
 const toText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
-const truncateNotionText = (value = '', limit = 1900) => {
-  const text = toText(value);
-  return text.length <= limit ? text : `${text.slice(0, Math.max(0, limit - 1)).trim()}...`;
-};
+const truncateNotionText = (value = '', limit = 1900) => wordBoundaryTrim(value, { maxLength: limit });
 
 const textToRichText = (value = '') => {
   const text = truncateNotionText(value);

@@ -9,6 +9,7 @@
  */
 
 const crypto = require('crypto');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const CLOCKS = Object.freeze(['evidence', 'expectation', 'decision', 'review', 'outcome']);
 const PRECISION = Object.freeze(['exact', 'day', 'month', 'year', 'unknown']);
@@ -55,10 +56,7 @@ const MONTHS = Object.freeze([
   'July', 'August', 'September', 'October', 'November', 'December'
 ]);
 
-const clean = (value = '', limit = 4000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 4000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 const list = (value) => (Array.isArray(value) ? value : []);
 const idOf = (value) => String(value?._id || value?.id || value || '').trim();
 const plain = (value) => (value?.toObject ? value.toObject({ virtuals: false }) : value);
