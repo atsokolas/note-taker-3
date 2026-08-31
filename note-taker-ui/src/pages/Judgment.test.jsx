@@ -74,6 +74,7 @@ jest.mock('../api/judgmentResolution', () => ({
 // The ledger owns its asynchronous behavior and has a focused test suite.
 // Keep page tests concerned with the Judgment room contract.
 jest.mock('../components/judgment/JudgmentLedger', () => () => null);
+jest.mock('../components/judgment/LivingTeam', () => () => null);
 
 const judgmentPage = () => ({
   _id: 'wiki-nvidia',

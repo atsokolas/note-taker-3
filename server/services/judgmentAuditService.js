@@ -42,6 +42,7 @@ const buildJudgmentAuditRows = ({ events = [], pages = [], revisions = [], runs 
     const occurredAt = event?.sourceUpdatedAt || event?.createdAt || null;
     const occurredMs = time(occurredAt);
     const open = ['pending', 'processing', 'failed'].includes(clean(event?.status));
+    const ignored = clean(event?.status) === 'ignored';
     const leaseExpired = clean(event?.status) === 'processing'
       && time(event?.lockedAt) !== null
       && nowMs - time(event.lockedAt) >= leaseStaleAfterMs();
@@ -54,6 +55,7 @@ const buildJudgmentAuditRows = ({ events = [], pages = [], revisions = [], runs 
     const assessedAt = revision?.createdAt
       || (settledWithoutRevision ? receipt?.completedAt || receipt?.createdAt : null);
     const overdue = !revision
+      && !ignored
       && !settledWithoutRevision
       && !deferred
       && occurredMs !== null
