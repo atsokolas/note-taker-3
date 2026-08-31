@@ -162,12 +162,13 @@ const JudgmentMirror = () => {
             <section className="judgment-mirror__calibration" aria-labelledby="mirror-calibration-title">
               <h2 id="mirror-calibration-title">How certainty met the later world</h2>
               <p className="judgment-mirror__selection">{calibration.selection}</p>
-              {Array.isArray(calibration.byConfidence) ? calibration.byConfidence.map((band) => (
-                <p key={band.confidence || 'band'}>{bandLine(band) || band.silence}</p>
-              )) : null}
-              {calibration.overall?.silence && !calibration.overall?.sufficient ? (
-                <p className="judgment-mirror__silence">{calibration.overall.silence}</p>
-              ) : null}
+              {calibration.overall?.sufficient
+                ? (Array.isArray(calibration.byConfidence) ? calibration.byConfidence.map((band) => (
+                  <p key={band.confidence || 'band'}>{bandLine(band)}</p>
+                )) : null)
+                : (
+                  <p className="judgment-mirror__silence">{calibration.overall?.silence}</p>
+                )}
             </section>
           ) : null}
 
