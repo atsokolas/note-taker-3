@@ -70,3 +70,20 @@ export const hasRoom = (team) => {
     || Boolean(team.mandate?.purpose)
     || (Array.isArray(team.handoffs) && team.handoffs.length > 0);
 };
+
+const joinMemory = (parts) => {
+  if (parts.length < 2) return parts[0] || '';
+  if (parts.length === 2) return parts.join(' and ');
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+};
+
+export const roomMemoryLine = (team) => {
+  if (!hasRoom(team)) return '';
+  const parts = [];
+  if (team.members?.length > 1) parts.push('who may sit here');
+  if (team.dissent?.length) parts.push('where minds part');
+  if (team.approvals?.length) parts.push('which version was approved');
+  if (team.handoffs?.length) parts.push('how the case changed hands');
+  const memory = joinMemory(parts);
+  return memory ? `The room remembers ${memory}.` : '';
+};

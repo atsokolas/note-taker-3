@@ -2297,10 +2297,19 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 
 .living-team__silence,
 .living-team__exposure,
+.living-team__memory,
 .living-team__authority,
 .living-team small {
   font-size: .84rem;
   line-height: 1.5;
+}
+
+.living-team__memory {
+  max-width: 38rem;
+  margin: 1rem 0 0;
+  color: var(--ink, #302a23);
+  font-family: "Newsreader", var(--font-serif, Georgia), serif;
+  font-style: italic;
 }
 
 .living-team__silence button,
