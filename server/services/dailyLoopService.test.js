@@ -58,6 +58,8 @@ assert.strictEqual(selected.claimId, 'eligible');
 assert.strictEqual(listWatching(pages).length, 2);
 assert.match(listWatching(pages)[0].label, /EDGAR/);
 assert.ok(listWatching(pages).every(row => row.type !== 'earnings_transcript'));
+pages[0].externalWatches.edgar.errorMessage = 'process.env.TRANSCRIPT_API_KEY';
+assert.strictEqual(listWatching(pages).find(row => row.type === 'sec_edgar').errorMessage, '');
 
 const repoWatching = listWatching([{
   _id: 'repo',

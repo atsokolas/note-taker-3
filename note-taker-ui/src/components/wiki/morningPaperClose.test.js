@@ -239,6 +239,21 @@ describe('the one blue thing', () => {
     })).toBe('verdict');
   });
 
+  it('puts the pulse on a qualified consequence ahead of lead, verdict, and check-in', () => {
+    const consequence = {
+      eventId: 'evt-1',
+      pageId: 'wiki-nvda',
+      claimId: 'c1',
+      prior: 'NVIDIA demand still outruns deliverable capacity.',
+      proposed: 'NVIDIA demand still outruns deliverable capacity. 2026-08-28: Confirmed signed capacity converts within 90 days.',
+      passage: 'Confirmed signed capacity converts within 90 days.'
+    };
+    expect(morningPulseTarget({
+      briefing: { ...close, consequence }
+    })).toBe('consequence');
+    expect(wikiLivingBriefingLine({ briefing: { ...close, consequence } })).toBe('');
+  });
+
   it('is silent when nothing is alive', () => {
     expect(morningPulseTarget({
       briefing: { aliveness: { register: 'quiet' } }

@@ -11,11 +11,13 @@ const { appendVerdict, selectPaperVerdicts } = require('./claimVerdicts');
 const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
 const { buildReviewTriage, expireLowStakesReviews } = require('./reviewTriageService');
 const { canonicalWikiTitle } = require('./wikiPresentationGuard');
+const { loadConsequenceEvents, selectPaperConsequence } = require('./consequenceRoute');
 
 // Paid transcript providers are intentionally excluded from the product while
 // Noeis operates on free authoritative sources only. Historical rows can remain
 // in storage without leaking a permanently misconfigured watcher into Watching.
 const WATCHER_PROVIDERS = ['sec-edgar', 'github-repo', 'reading-feed'];
+const ENV_SHAPED_ERROR = /process\.env|[A-Z][A-Z0-9_]{3,}_(?:KEY|TOKEN|SECRET|API)/;
 const MORNING_PAPER_OPEN_REUSE_MS = 2 * 60 * 1000;
 
 const clean = (value = '', limit = 1000) => {
@@ -197,6 +199,11 @@ const listWatching = (pages = []) => (Array.isArray(pages) ? pages : []).flatMap
   const rows = [];
   const push = (type, watch, label, detail, lastEventAt) => {
     if (!watch || watch.status === 'idle' || (!watch.status && !detail)) return;
+    if (type === 'earnings_transcript' || /transcript/i.test(label)) return;
+    if (watch.status === 'unconfigured' || watch.configured === false) return;
+    const errorMessage = ENV_SHAPED_ERROR.test(watch.errorMessage || '')
+      ? ''
+      : clean(watch.errorMessage || '', 300);
     rows.push({
       id: `${id(page)}:${type}`,
       type,
@@ -206,7 +213,7 @@ const listWatching = (pages = []) => (Array.isArray(pages) ? pages : []).flatMap
       page: { id: id(page), title: clean(canonicalWikiTitle(page, 'Untitled wiki page'), 180), slug: String(page.slug || '') },
       lastCheckedAt: watch.lastCheckedAt || null,
       lastEventAt: lastEventAt || null,
-      errorMessage: clean(watch.errorMessage || '', 300)
+      errorMessage
     });
   };
   push('sec_edgar', watches.edgar, `EDGAR · ${watches.edgar?.ticker || watches.edgar?.cik || ''}`, watches.edgar?.lastAccessionNumber || 'Awaiting filing', watches.edgar?.lastFilingAt);
@@ -238,16 +245,22 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
   }
   const priorOpenedAt = user.morningPaper?.lastOpenedAt || new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const windowMs = Math.max(60 * 1000, Math.min(now.getTime() - new Date(priorOpenedAt).getTime(), 90 * 24 * 60 * 60 * 1000));
-  const [baseBriefing, watcherLeads, pages, visits] = await Promise.all([
+  const [baseBriefing, watcherLeads, pages, visits, consequenceEvents] = await Promise.all([
     buildWikiBriefing({ userId, models, now: now.getTime(), windowMs }),
     buildWatcherLeads({ userId, models, since: priorOpenedAt }),
-    models.WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title slug pageType claims externalWatches createdAt updatedAt createdFrom aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier.version').lean(),
+    models.WikiPage.find({ userId, status: { $ne: 'archived' } }).select('_id title slug pageType claims externalWatches createdAt updatedAt createdFrom aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment judgment.falsifiers judgment.why judgment.decisions judgment.dependsOn judgment.resolutionCriteria judgment.resolutionHorizonAt judgment.lastReviewedAt activeCompanyDossierKey investmentDossier.version').lean(),
     models.WikiPageVisit?.find
       ? models.WikiPageVisit.find({ userId }).select('pageId lastVisitedAt').lean()
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    loadConsequenceEvents({ userId, models, since: priorOpenedAt })
   ]);
   const visitedAt = new Map((visits || []).map(visit => [String(visit.pageId), visit.lastVisitedAt]));
   const selectionPages = pages.map(page => ({ ...page, lastVisitedAt: visitedAt.get(String(page._id)) || null }));
+  const consequence = selectPaperConsequence({
+    events: consequenceEvents,
+    pages: selectionPages,
+    now
+  });
   const claimVerdicts = selectPaperVerdicts({ pages: selectionPages, watcherLeads, now });
   const verdictKeys = new Set(claimVerdicts.map(row => `${row.pageId}:${row.claimId}`));
   const briefing = {
@@ -255,8 +268,11 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
     window: { since: new Date(priorOpenedAt).toISOString(), through: now.toISOString(), cursorAdvancedBy: advanceCursor ? 'morning_paper_open' : null },
     watcherLeads,
     lead: watcherLeads[0] || null,
-    claimCheckIn: selectDailyClaimCheckIn({ pages: selectionPages, watcherLeads, now: now.getTime(), skipKeys: verdictKeys }),
-    claimVerdicts,
+    consequence,
+    claimCheckIn: consequence
+      ? null
+      : selectDailyClaimCheckIn({ pages: selectionPages, watcherLeads, now: now.getTime(), skipKeys: verdictKeys }),
+    claimVerdicts: consequence ? [] : claimVerdicts,
     reviewTriage: buildReviewTriage({ pages: selectionPages, now: now.getTime() }),
     watching: listWatching(pages),
     checkInStreak: Number(user.morningPaper?.checkInStreak || 0)

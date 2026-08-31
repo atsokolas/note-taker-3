@@ -9,6 +9,10 @@ describe('morning paper chrome on wiki', () => {
     expect(css()).not.toMatch(/consecutive mornings/);
     expect(css()).not.toMatch(/wiki-front-page__streak/);
     expect(css()).not.toMatch(/broadsheet/);
+    expect(css()).toMatch(/consequence-ripple/);
+    expect(css()).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.morning-consequence\.consequence-ripple[\s\S]*?animation:\s*none/s
+    );
   });
 
   it('settles mono readouts inside 400ms and keeps the lead instant', () => {

@@ -20,6 +20,7 @@ import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
+import MorningConsequence from './MorningConsequence';
 import MorningVerdict from './MorningVerdict';
 import { countWikiClaims, countWikiSources } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
@@ -37,6 +38,7 @@ import { canonicalWikiPages } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
 import {
   isPaperCheckIn,
+  isPaperConsequence,
   isPaperVerdict,
   morningPulseTarget,
   selectQuietSignOff,
@@ -500,15 +502,16 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   );
 
   const leadSentence = wikiLivingBriefingLine({ briefing });
+  const paperConsequence = isPaperConsequence(briefing?.consequence) ? briefing.consequence : null;
   const paperCheckIn = isPaperCheckIn(briefing?.claimCheckIn) ? briefing.claimCheckIn : null;
   const paperVerdicts = (Array.isArray(briefing?.claimVerdicts) ? briefing.claimVerdicts : [])
     .filter(isPaperVerdict);
   const pulseTarget = morningPulseTarget({ briefing });
   const briefingReady = briefing != null;
   const quietSignOff = useMemo(() => {
-    if (!briefingReady || leadSentence || wikiFilter === 'review') return '';
+    if (!briefingReady || leadSentence || paperConsequence || wikiFilter === 'review') return '';
     return selectQuietSignOff();
-  }, [briefingReady, leadSentence, wikiFilter]);
+  }, [briefingReady, leadSentence, paperConsequence, wikiFilter]);
   const paperArriving = useMemo(() => takeFirstPaint('wiki-morning-paper'), []);
   const reducedMotion = usePrefersReducedMotion();
   const paperSettling = paperArriving && !reducedMotion;
@@ -528,7 +531,8 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     () => selectPrimaryReturnLoopNote(returnLoopNotes),
     [returnLoopNotes]
   );
-  const watching = Array.isArray(briefing?.watching) ? briefing.watching : [];
+  const watching = (Array.isArray(briefing?.watching) ? briefing.watching : [])
+    .filter((watch) => watch?.type !== 'earnings_transcript' && !/transcript/i.test(watch?.label || ''));
 
   const handleArmReading = async (event) => {
     event.preventDefault();
@@ -598,7 +602,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
       <div className="wiki-front-page__operations-panel">
         {workspaceNav}
         <WikiMovementReturnSurface onPresenceChange={setHasMovements} />
-        {briefing?.lead ? (
+        {briefing?.lead && !paperConsequence ? (
           <section className="wiki-front-page__watcher-contract" aria-label="Watcher lead analysis">
             <span>{briefing.lead.watcherLabel || 'Watcher'} → {briefing.lead.page?.title || 'Affected page'} → {briefing.lead.maintenanceStatus || 'queued'}</span>
             {briefing.lead.claimImpacts?.length ? (
@@ -838,6 +842,15 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 <WriteIn text={leadSentence} />
               </p>
             ) : null}
+            {paperConsequence && wikiFilter !== 'review' ? (
+              <MorningConsequence
+                consequence={paperConsequence}
+                pulse={pulseTarget === 'consequence'}
+                onSettled={() => setBriefing((previous) => (
+                  previous ? { ...previous, consequence: null } : previous
+                ))}
+              />
+            ) : null}
             {quietSignOff ? (
               <p className="wiki-living-index__briefing paper-open__lead" aria-label="Morning sign-off">
                 <WriteIn text={quietSignOff} />
@@ -930,7 +943,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           {/* The return path came off the Curator with it. It is the one thing
               in that pane that was neither a form nor a conversation — it is
               where you were going next — so it stays, as a line. */}
-          {briefingNextAction ? (
+          {briefingNextAction && !paperConsequence ? (
             <p className="wiki-front-page__return-path">
               <Link to={briefingNextAction.href}>{briefingNextAction.label} →</Link>
               {briefingNextAction.reason ? <span>{briefingNextAction.reason}</span> : null}
