@@ -10,12 +10,13 @@ const { evaluateCheckInEligibility } = require('./checkInEligibility');
 const { parseHorizon, asIsoDay } = require('./claimFalsifiability');
 const { findHeldClaim } = require('./heldClaim');
 
-const VERDICTS = Object.freeze(['held_up', 'broke', 'partly', 'unresolvable']);
+const VERDICTS = Object.freeze(['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons']);
 const VERDICT_LABELS = Object.freeze({
   held_up: 'Held up',
   broke: 'Broke',
   partly: 'Partly',
-  unresolvable: 'Unresolvable'
+  unresolvable: 'Unresolvable',
+  right_for_wrong_reasons: 'Right for the wrong reasons'
 });
 const TRIGGERS = Object.freeze(['horizon', 'evidence']);
 
@@ -141,7 +142,7 @@ const appendVerdict = (claim, {
   const nextVerdict = String(verdict || '');
   const nextTrigger = String(trigger || '');
   if (!isVerdict(nextVerdict)) {
-    const error = new Error('verdict must be held_up, broke, partly, or unresolvable.');
+    const error = new Error('verdict must be held_up, broke, partly, unresolvable, or right_for_wrong_reasons.');
     error.statusCode = 400;
     throw error;
   }

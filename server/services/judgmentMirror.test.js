@@ -65,7 +65,8 @@ describe('the Mirror', () => {
       held_up: 1,
       broke: 1,
       partly: 0,
-      unresolvable: 0
+      unresolvable: 0,
+      right_for_wrong_reasons: 0
     });
     expect(mirror.stats.verdicts.display).not.toMatch(/strongest|score|streak/i);
     expect(mirror.stats.counterEvidence.display).toBe('10 days');

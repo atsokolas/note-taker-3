@@ -483,7 +483,10 @@ const judgmentLessonSchema = new mongoose.Schema({
   lessonId: { type: String, required: true, trim: true },
   text: { type: String, required: true, trim: true },
   closedAs: { type: String, enum: ['parked', 'closed', 'retired', 'revised', ''], default: '' },
-  at: { type: Date, default: Date.now }
+  at: { type: Date, default: Date.now },
+  sourcePageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  sourceLessonId: { type: String, default: '', trim: true },
+  outcomeId: { type: String, default: '', trim: true }
 }, { _id: false });
 
 /* What this belief rests on.
@@ -516,12 +519,73 @@ const judgmentResolutionHistorySchema = new mongoose.Schema({
   claimHash: { type: String, required: true, trim: true }
 }, { _id: false });
 
+/* Five clocks. Each fact names its clock, who wrote it, and how precise the
+   time is. A later edit is another fact. The past does not move. */
+const judgmentClockFactSchema = new mongoose.Schema({
+  factId: { type: String, required: true, trim: true },
+  clock: { type: String, enum: ['evidence', 'expectation', 'decision', 'review', 'outcome'], required: true },
+  occurredAt: { type: Date, default: null },
+  recordedAt: { type: Date, required: true },
+  precision: { type: String, enum: ['exact', 'day', 'month', 'year', 'unknown'], default: 'unknown' },
+  authoredBy: { type: String, enum: ['user', 'world', 'system'], default: 'user' },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  sourceLabel: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  causalKind: { type: String, enum: ['evidence', 'inference'], default: 'evidence' },
+  relatedId: { type: String, default: '', trim: true },
+  derived: { type: Boolean, default: false },
+  receiptId: { type: String, default: '', trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  claimHash: { type: String, default: '', trim: true },
+  recordHash: { type: String, default: '', trim: true }
+}, { _id: false });
+
+/* An outcome is what the world did, recorded after the decision. It may create
+   a lesson. It never rewrites the verdict it is bound to. */
+const judgmentCaseOutcomeSchema = new mongoose.Schema({
+  outcomeId: { type: String, required: true, trim: true },
+  result: { type: String, enum: ['held', 'missed', 'mixed', 'silent', 'unknown'], default: 'unknown' },
+  observedAt: { type: Date, default: null },
+  recordedAt: { type: Date, required: true },
+  precision: { type: String, enum: ['exact', 'day', 'month', 'year', 'unknown'], default: 'unknown' },
+  sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  sourceLabel: { type: String, default: '', trim: true },
+  confidence: { type: String, enum: ['certain', 'probable', 'uncertain', ''], default: '' },
+  silence: { type: Boolean, default: false },
+  question: { type: String, default: '', trim: true },
+  answer: { type: String, default: '', trim: true },
+  lesson: { type: String, default: '', trim: true },
+  verdictId: { type: String, default: '', trim: true },
+  verdictSnapshot: { type: String, default: '', trim: true },
+  lessonId: { type: String, default: '', trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  receiptId: { type: String, default: '', trim: true },
+  recordHash: { type: String, default: '', trim: true },
+  recordedBy: { type: String, enum: ['user'], default: 'user' }
+}, { _id: false });
+
+const judgmentLessonApplicationSchema = new mongoose.Schema({
+  applicationId: { type: String, required: true, trim: true },
+  lessonId: { type: String, required: true, trim: true },
+  sourcePageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  sourceText: { type: String, default: '', trim: true },
+  status: { type: String, enum: ['proposed', 'accepted', 'rejected', 'narrowed', 'retired'], default: 'proposed' },
+  proposedAt: { type: Date, default: Date.now },
+  resolvedAt: { type: Date, default: null },
+  narrowedText: { type: String, default: '', trim: true },
+  note: { type: String, default: '', trim: true },
+  relevance: { type: String, default: '', trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', default: null },
+  receiptId: { type: String, default: '', trim: true },
+  claimHash: { type: String, default: '', trim: true }
+}, { _id: false });
+
 /* Verdicts are observations, not state. A later revision does not overwrite
-   the fact that the earlier sentence held, broke, partly held, or could not be
-   resolved. */
+   the fact that the earlier sentence held, broke, partly held, could not be
+   resolved, or was right for the wrong reasons. */
 const judgmentVerdictSchema = new mongoose.Schema({
   verdictId: { type: String, required: true, trim: true },
-  result: { type: String, enum: ['held_up', 'broke', 'partly', 'unresolvable'], required: true },
+  result: { type: String, enum: ['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons'], required: true },
   note: { type: String, default: '', trim: true },
   evidenceSourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
   recordedAt: { type: Date, required: true },
@@ -584,6 +648,9 @@ const wikiJudgmentSchema = new mongoose.Schema({
   resolutionSetAt: { type: Date, default: null },
   resolutionHistory: { type: [judgmentResolutionHistorySchema], default: [] },
   verdicts: { type: [judgmentVerdictSchema], default: [] },
+  clocks: { type: [judgmentClockFactSchema], default: [] },
+  outcomes: { type: [judgmentCaseOutcomeSchema], default: [] },
+  lessonApplications: { type: [judgmentLessonApplicationSchema], default: [] },
   dismissedOvernightEventIds: { type: [String], default: [] }
 }, { _id: false });
 
@@ -624,7 +691,7 @@ const wikiClaimSchema = new mongoose.Schema({
   verdicts: {
     type: [{
       at: { type: Date, default: Date.now },
-      verdict: { type: String, enum: ['held_up', 'broke', 'partly', 'unresolvable'], required: true },
+      verdict: { type: String, enum: ['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons'], required: true },
       trigger: { type: String, enum: ['horizon', 'evidence'], default: 'horizon' },
       sourceEventId: { type: String, default: '', trim: true },
       horizon: { type: Date, default: null },
@@ -644,7 +711,7 @@ const wikiClaimSchema = new mongoose.Schema({
       sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       summary: { type: String, default: '', trim: true },
-      action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored', 'held_up', 'broke', 'partly', 'unresolvable'], default: '' },
+      action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored', 'held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons'], default: '' },
       note: { type: String, default: '', trim: true },
       evidenceDelta: { type: mongoose.Schema.Types.Mixed, default: null },
       confidence: { type: Number, min: 0, max: 1, default: null },

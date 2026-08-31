@@ -32,3 +32,55 @@ export const recordJudgmentVerdict = async ({
   );
   return response.data || {};
 };
+
+export const getJudgmentLedger = async ({ pageId, at = '' } = {}) => {
+  const query = at ? `?at=${encodeURIComponent(at)}` : '';
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/ledger${query}`, getAuthHeaders());
+  return response.data || {};
+};
+
+export const recordJudgmentClock = async ({
+  pageId, expectedClaim, clock, occurredAt = null, precision = '', authoredBy = 'user',
+  sourceRefIds = [], sourceLabel = '', summary = '', causalKind = 'evidence', relatedId = ''
+}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/clocks`,
+    {
+      requestId: requestId(), expectedClaim, clock, occurredAt, precision, authoredBy,
+      sourceRefIds, sourceLabel, summary, causalKind, relatedId
+    },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const recordJudgmentOutcome = async ({
+  pageId, expectedClaim, result = '', observedAt = null, precision = '', sourceRefIds = [],
+  sourceLabel = '', confidence = '', silence = false, answer = '', lesson = '', verdictId = ''
+}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/outcomes`,
+    {
+      requestId: requestId(), expectedClaim, result, observedAt, precision, sourceRefIds,
+      sourceLabel, confidence, silence, answer, lesson, verdictId
+    },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const resolveJudgmentLesson = async ({
+  pageId, expectedClaim, applicationId = '', lessonId, sourcePageId, sourceText = '',
+  status, narrowedText = '', note = '', relevance = ''
+}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lessons`,
+    {
+      requestId: requestId(), expectedClaim, applicationId, lessonId, sourcePageId,
+      sourceText, status, narrowedText, note, relevance
+    },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+

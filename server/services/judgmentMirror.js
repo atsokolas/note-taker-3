@@ -103,7 +103,8 @@ const collect = (pages = {}, now = new Date()) => {
     held_up: [],
     broke: [],
     partly: [],
-    unresolvable: []
+    unresolvable: [],
+    right_for_wrong_reasons: []
   };
   const counter = [];
 
@@ -203,13 +204,17 @@ const buildJudgmentMirror = ({ pages = [], now = new Date(), userId = '', stat =
           held_up: bundle.byVerdict.held_up.length,
           broke: bundle.byVerdict.broke.length,
           partly: bundle.byVerdict.partly.length,
-          unresolvable: bundle.byVerdict.unresolvable.length
+          unresolvable: bundle.byVerdict.unresolvable.length,
+          right_for_wrong_reasons: bundle.byVerdict.right_for_wrong_reasons.length
         },
         display: [
           `${bundle.byVerdict.held_up.length} held up`,
           `${bundle.byVerdict.broke.length} broke`,
           `${bundle.byVerdict.partly.length} partly`,
-          `${bundle.byVerdict.unresolvable.length} unresolvable`
+          `${bundle.byVerdict.unresolvable.length} unresolvable`,
+          ...(bundle.byVerdict.right_for_wrong_reasons.length
+            ? [`${bundle.byVerdict.right_for_wrong_reasons.length} right for the wrong reasons`]
+            : [])
         ].join(' · '),
         href: '/judgment/mirror?stat=verdicts'
       },

@@ -42,9 +42,21 @@ describe('append-only verdicts', () => {
   it('refuses an unknown tap without touching history', () => {
     const claim = { claimId: 'c1', verdicts: [], history: [] };
     expect(() => appendVerdict(claim, { verdict: 'strongest', trigger: 'horizon' }))
-      .toThrow(/held_up, broke, partly, or unresolvable/);
+      .toThrow(/held_up, broke, partly, unresolvable, or right_for_wrong_reasons/);
     expect(claim.verdicts).toHaveLength(0);
     expect(claim.history).toHaveLength(0);
+  });
+
+  it('appends right-for-wrong-reasons without touching earlier verdicts', () => {
+    const claim = { claimId: 'c1', text: 'Compute is scarce.', history: [], verdicts: [] };
+    appendVerdict(claim, { verdict: 'held_up', trigger: 'horizon', now: new Date('2026-09-01') });
+    appendVerdict(claim, {
+      verdict: 'right_for_wrong_reasons',
+      trigger: 'horizon',
+      now: new Date('2026-09-15')
+    });
+    expect(claim.verdicts.map((row) => row.verdict)).toEqual(['held_up', 'right_for_wrong_reasons']);
+    expect(claim.verdicts[0].verdict).toBe('held_up');
   });
 });
 

@@ -52,3 +52,14 @@ describe('overnight as a note under the door', () => {
     expect(css).not.toMatch(/html\[data-ui-theme='dark'\][\s\S]*?\.judgment-shelf::after[\s\S]*?display:\s*none/);
   });
 });
+
+describe('the judgment ledger', () => {
+  it('illuminates replay by opacity and stills itself when motion is reduced', () => {
+    expect(css).toMatch(/\.judgment-replay li\.is-open\s*\{\s*opacity:\s*1/);
+    expect(css).not.toMatch(/judgment-replay[^}]*bounce/i);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.judgment-trace,[\s\S]*?transition:\s*none/
+    );
+    expect(css).not.toMatch(/confetti|toast|gamif/i);
+  });
+});

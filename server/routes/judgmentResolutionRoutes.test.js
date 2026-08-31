@@ -20,7 +20,11 @@ app.use(buildJudgmentResolutionRouter({
     calls.push(['verdict', input]);
     return { page: { _id: PAGE_ID, judgment: { verdicts: [{ result: input.result }] } }, artifact: {}, receipt: {}, idempotent: false };
   },
-  buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; }
+  buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
+  readLedger: async input => { calls.push(['ledger', input]); return { clocks: [], replay: { frames: [] } }; },
+  recordClock: async input => { calls.push(['clock', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
+  recordOutcome: async input => { calls.push(['outcome', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
+  resolveLesson: async input => { calls.push(['lesson', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; }
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {
@@ -42,7 +46,12 @@ const server = app.listen(0, '127.0.0.1', async () => {
     const mirror = await request('/api/judgment/mirror');
     assert.strictEqual(mirror.response.status, 200);
     assert.strictEqual(mirror.body.mirror.metrics.claimsHeld, 1);
-    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'mirror']);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/ledger`)).response.status, 200);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/clocks`, { method: 'POST', body: { clock: 'evidence' } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/outcomes`, { method: 'POST', body: { silence: true } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/lessons`, { method: 'POST', body: { status: 'accepted' } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/clocks`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
+    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'mirror', 'ledger', 'clock', 'outcome', 'lesson']);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);

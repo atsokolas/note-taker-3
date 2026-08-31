@@ -39,7 +39,7 @@ const buildJudgmentMirror = async ({ WikiPage, WikiRevision, userId, now = new D
     title: clean(page?.title)
   })));
   verdicts.sort((left, right) => (time(right.recordedAt) || 0) - (time(left.recordedAt) || 0));
-  const verdictRecord = ['held_up', 'broke', 'partly', 'unresolvable'].reduce((record, result) => ({
+  const verdictRecord = ['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons'].reduce((record, result) => ({
     ...record,
     [result]: verdicts.filter(verdict => verdict.result === result).length
   }), {});

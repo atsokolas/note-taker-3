@@ -9,7 +9,8 @@ const VERDICT_LABEL = {
   held_up: 'held up',
   broke: 'broke',
   partly: 'partly held',
-  unresolvable: 'could not be resolved'
+  unresolvable: 'could not be resolved',
+  right_for_wrong_reasons: 'right for the wrong reasons'
 };
 
 const percent = (value) => (Number.isFinite(Number(value)) ? `${Math.round(Number(value) * 100)}%` : '—');
