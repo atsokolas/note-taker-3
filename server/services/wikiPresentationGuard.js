@@ -78,14 +78,14 @@ const normalizeWikiTitleForPresentation = (value = '', {
   maxLength = 180,
   stripLeadingArticle = true
 } = {}) => {
-  let title = normalizeSpaces(value || 'Untitled Wiki Page')
+  let title = normalizeSpaces(value || 'Untitled wiki page')
     .replace(/[“”"]/g, '')
     .replace(/^[#>\-*•\s]+/g, '')
     .replace(/[.?!:;,\s]+$/g, '')
     .slice(0, maxLength)
     .trim();
 
-  if (!title) return 'Untitled Wiki Page';
+  if (!title) return 'Untitled wiki page';
 
   if (stripLeadingArticle) {
     title = title.replace(/^(?:the|a|an)\s+/, '').trim() || title;
@@ -100,7 +100,7 @@ const normalizeWikiTitleForPresentation = (value = '', {
   }
 
   if (titleHasCodeIdentifiers(title)) {
-    return title || 'Untitled Wiki Page';
+    return title || 'Untitled wiki page';
   }
 
   const words = title.split(/\s+/).filter(Boolean);
@@ -119,11 +119,11 @@ const normalizeWikiTitleForPresentation = (value = '', {
     title = title.charAt(0).toUpperCase() + title.slice(1);
   }
 
-  return title || 'Untitled Wiki Page';
+  return title || 'Untitled wiki page';
 };
 
 const normalizeExistingWikiTitleForPresentation = (value = '', options = {}) => {
-  const raw = normalizeSpaces(value || 'Untitled Wiki Page');
+  const raw = normalizeSpaces(value || 'Untitled wiki page');
   return normalizeWikiTitleForPresentation(raw, {
     ...options,
     stripLeadingArticle: /^(?:the|a|an)\s+/.test(raw)
@@ -138,7 +138,7 @@ const normalizeExistingWikiTitleForPresentation = (value = '', options = {}) => 
  * "note-taker-3 — repo wiki" on the wiki table. Watch metadata wins;
  * otherwise the stored title is normalized through the same renderer.
  */
-const canonicalWikiTitle = (page = {}, fallback = 'Untitled Wiki Page') => {
+const canonicalWikiTitle = (page = {}, fallback = 'Untitled wiki page') => {
   const type = String(page?.pageType || '').toLowerCase();
   const stored = page?.title || fallback;
   const watch = page?.externalWatches?.githubRepo || {};

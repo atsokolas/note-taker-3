@@ -17,6 +17,7 @@ import {
   promoteWorkingMemory,
   splitWorkingMemory
 } from '../api/workingMemory';
+import { wordBoundaryTrim } from '../utils/editorialText';
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -854,7 +855,7 @@ const Notebook = () => {
                       <span key={tag} className="highlight-tag" style={{ marginRight: 6 }}>{tag}</span>
                     )) : <span className="muted small">No tags</span>}
                   </p>
-                  <p className="search-snippet">{h.note ? h.note.slice(0, 100) + (h.note.length > 100 ? '…' : '') : <span className="muted small">No note</span>}</p>
+                  <p className="search-snippet">{h.note ? wordBoundaryTrim(h.note, { maxLength: 100 }) : <span className="muted small">No note</span>}</p>
                 </div>
               ))}
               {filteredHighlights.length === 0 && (

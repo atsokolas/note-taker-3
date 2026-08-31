@@ -142,4 +142,39 @@ const silence = selectDailyClaimCheckIn({
 });
 assert.strictEqual(silence, null);
 
+/*
+ * The gate must rest on structure, not on remembering one bad sentence.
+ * These are process notes nobody has ever observed — the gate has no phrase
+ * of theirs memorised, so it can only reject them for what they are.
+ */
+const UNSEEN_PROCESS_NOTES = [
+  'Run the seed script first so the fixture user exists before the harness starts.',
+  'Open the workspace route and confirm the pane identity survives a reload.',
+  'Update CHANGELOG before tagging, otherwise the release job rejects the build.'
+];
+UNSEEN_PROCESS_NOTES.forEach((text) => {
+  assert.strictEqual(
+    isBeliefShaped(text),
+    false,
+    `unseen process note should fail the belief gate: ${text}`
+  );
+});
+
+/* A belief the gate has never seen must still survive it. */
+const UNSEEN_BELIEFS = [
+  'Concentration only pays inside a circle of competence you have actually earned.',
+  'The market underprices durability because durability is boring to underwrite.'
+];
+UNSEEN_BELIEFS.forEach((text) => {
+  assert.strictEqual(isBeliefShaped(text), true, `unseen belief should pass: ${text}`);
+});
+
+/* Exhibit A must fail for reasons that outlive it. */
+const exhibit = evaluateCheckInEligibility({
+  page: { pageType: 'repo', title: 'note-taker-3 — repo wiki' },
+  claim: { text: EXHIBIT_A, checkInStatus: 'unreviewed', history: [] }
+});
+assert.strictEqual(exhibit.eligible, false);
+assert.ok(exhibit.reasons.length >= 3, 'Exhibit A should fail several independent gates, not one');
+
 console.log('checkInEligibility tests passed');

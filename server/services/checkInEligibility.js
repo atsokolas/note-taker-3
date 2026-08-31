@@ -22,9 +22,12 @@ const REPO_WIKI_TITLE = /\brepo wiki\b/i;
 const EDITION_TITLE = /\bthis week in\b|\bedition\b/i;
 const SYSTEM_TITLE = /\bacceptance\b|\bsystem status\b|\bbuild order verification\b/i;
 const CODE_SHAPED = /(?:POST|GET|PUT|PATCH|DELETE)\s+\/api\/|\/api\/[a-z]|Wiki[A-Z][A-Za-z]+|[a-z]+[A-Z][A-Za-z]+From[A-Z]|Composer\b|createRepo/;
-const INSTRUCTION_SHAPED = /^(use|run|install|click|see|refer to|follow|before editing|debugging)\b/i;
-const PROCESS_NOTE = /\bdebugging only\b|\bbefore editing\b|\bcross UI, API\b|\brepo bugs usually\b/i;
-const IMPERATIVE_CLAUSE = /^(use|run|install|click|see|refer to|follow|debug|debugging|open|create|add|update|delete|before editing)\b/i;
+/**
+ * A belief answers "do you still believe that…?"; an instruction cannot.
+ * One vocabulary, checked once — the earlier pair of overlapping lists let a
+ * memorised denylist of one observed sentence stand in for a real gate.
+ */
+const IMPERATIVE_OPENER = /^(use|run|install|click|see|refer to|follow|debug|debugging|open|create|add|update|delete|before editing)\b/i;
 
 /* Observed live 2026-08-29 on the morning paper — must fail every T1 gate. */
 const EXHIBIT_A = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries… WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github… debugging only the v…';
@@ -44,7 +47,7 @@ const isNaturalBeliefFrame = (text = '') => {
     .trim();
   if (!core) return false;
   // "Do you still believe that Use these traces…" is not natural English.
-  if (IMPERATIVE_CLAUSE.test(core)) return false;
+  if (IMPERATIVE_OPENER.test(core)) return false;
   return true;
 };
 
@@ -52,10 +55,7 @@ const isBeliefShaped = (text = '') => {
   const value = normalize(text);
   if (!value) return false;
   if (CODE_SHAPED.test(value)) return false;
-  if (INSTRUCTION_SHAPED.test(value)) return false;
-  if (PROCESS_NOTE.test(value)) return false;
-  if (!isNaturalBeliefFrame(value)) return false;
-  return true;
+  return isNaturalBeliefFrame(value);
 };
 
 const isJudgmentSurface = (page = {}) => {

@@ -16,6 +16,7 @@ import { getArticles } from '../api/articles';
 import { getAllHighlights } from '../api/highlights';
 import { getNotebookSummaries } from '../api/notebook';
 import { createProfilerLogger, endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
+import { normalizeSpaces } from '../utils/editorialText';
 
 const MIN_CARD_WIDTH = 220;
 const MIN_CARD_HEIGHT = 140;
@@ -28,7 +29,7 @@ const MAP_CELL_HEIGHT = 126;
 const MAP_PADDING = 96;
 
 const toSnippet = (value, limit = 180) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return '';
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
 };

@@ -1,5 +1,6 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { isWikiPageSurfaceEligible } = require('./wikiPageQualityGuard');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 const {
   canonicalWikiTitle,
   editorialSentence,
@@ -26,10 +27,7 @@ const DEFAULT_BRIEFING_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 const asString = (value = '') => String(value || '').trim();
 
-const truncate = (value = '', limit = 200) => {
-  const text = asString(value).replace(/\s+/g, ' ');
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const truncate = (value = '', limit = 200) => wordBoundaryTrim(asString(value).replace(/\s+/g, ' '), { maxLength: limit });
 
 const isWithin = (timestamp, windowMs, now) => {
   if (!timestamp) return false;
@@ -324,7 +322,7 @@ const buildBriefingNextAction = ({
       type: 'rebuild_page',
       label: `Rebuild ${drifting.title}`,
       href: `/wiki/workspace?page=${drifting._id}`,
-      reason: `${drifting.driftSignals} drift signal${drifting.driftSignals === 1 ? '' : 's'} queued`,
+      reason: describeDriftWait(drifting),
       target: { type: 'wiki_page', id: drifting._id, title: drifting.title }
     };
   }
@@ -414,6 +412,22 @@ const collectDriftingPages = (pages = [], { now = Date.now() } = {}) => {
     }));
 };
 
+/** Two days is where a queue stops being news and starts being a debt. */
+const AGED_AFTER_DAYS = 2;
+
+/**
+ * One description of a drift queue, so the return path and the aliveness line
+ * can never tell the reader two different stories about the same page.
+ * A fresh queue leads with the count; an aged one leads with the wait, because
+ * by then the honest fact is the debt, not the news.
+ */
+const describeDriftWait = ({ driftSignals = 0, waitingDays = 0 } = {}) => {
+  const signals = Math.max(0, Number(driftSignals) || 0);
+  const days = Math.max(0, Number(waitingDays) || 0);
+  const queued = `${signals} drift signal${signals === 1 ? '' : 's'} queued`;
+  return days >= AGED_AFTER_DAYS ? `waiting ${days} days · ${queued}` : queued;
+};
+
 const alivenessFingerprint = (driftingPages = []) => (
   driftingPages
     .map(page => `${page._id}:${page.driftSignals}`)
@@ -446,7 +460,7 @@ const buildAliveness = ({
     Number(notable?.waitingDays || 0),
     Math.floor((now - new Date(firstSeenAt).getTime()) / ONE_DAY_MS)
   );
-  const register = sameAsLastVisit || waitingDays >= 2 ? 'aged' : 'new';
+  const register = sameAsLastVisit || waitingDays >= AGED_AFTER_DAYS ? 'aged' : 'new';
   const days = Math.max(1, waitingDays);
   const copy = register === 'aged'
     ? sentenceBoundaryTrim(
@@ -924,6 +938,7 @@ module.exports = {
     sanitizeBriefingReceipt,
     collectRecentlyUpdatedPages,
     collectDriftingPages,
+    describeDriftWait,
     buildAliveness,
     buildFallbackSummary,
     buildPromptContext,

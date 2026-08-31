@@ -1,5 +1,6 @@
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { sentenceBoundaryTrim } from '../../utils/editorialText';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const EMPTY_DOC = { type: 'doc', content: [] };
 
@@ -79,7 +80,7 @@ export const cleanWikiPreviewText = (value = '', title = '') => {
     .replace(/\[\s*\d+(?:\s*[,–-]\s*\d+)*\s*\]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-  const trimmedTitle = String(title || '').replace(/\s+/g, ' ').trim();
+  const trimmedTitle = normalizeSpaces(title);
   if (trimmedTitle && text.toLowerCase().startsWith(trimmedTitle.toLowerCase())) {
     text = text.slice(trimmedTitle.length).replace(/^[\s:–-]+/, '').trim();
   }

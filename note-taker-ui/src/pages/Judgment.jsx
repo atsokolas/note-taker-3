@@ -62,6 +62,7 @@ import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
+import { normalizeSpaces } from '../utils/editorialText';
 
 // Judgment.
 //
@@ -85,7 +86,6 @@ const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((count
 const SOURCE_EVENT_LIMIT = 40;
 const AUTOSAVE_PAUSE_MS = 700;
 const LIBRARY_PREFETCH_BUSY_MS = 1200;
-const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const markPendingDossierResearch = (items = [], reviews = []) => {
   const pendingPageIds = new Set(
@@ -196,7 +196,7 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, titl
           multiline
           placeholder={ghostOfMissingName(title) || undefined}
           value={title}
-          format={asLine}
+          format={normalizeSpaces}
           onSave={(next) => run(() => onSave?.(next), 'That name could not be saved.')}
         />
         <AutosaveField
@@ -262,9 +262,9 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
 
 const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, sentenceRef }) => {
   if (!proposal?.id) return null;
-  const status = asLine(proposal.status).toLowerCase();
-  const before = asLine(proposal.provenance?.before);
-  const after = asLine(proposal.provenance?.after);
+  const status = normalizeSpaces(proposal.status).toLowerCase();
+  const before = normalizeSpaces(proposal.provenance?.before);
+  const after = normalizeSpaces(proposal.provenance?.after);
   const pending = status === 'pending';
   const label = {
     accepted: 'Accepted',
@@ -891,21 +891,44 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     }
   }, [page, pageId]);
 
+  const saveFalsifiability = useCallback(({ resolutionCriteria, horizon = null }) => (
+    recordClaimFalsifiability({
+      pageId,
+      claimId: view?.claimId || '',
+      resolutionCriteria: String(resolutionCriteria || '').trim(),
+      horizon
+    })
+  ), [pageId, view?.claimId]);
+
+  /* Two contracts on one call. When the prompt asks for criteria the writer is
+     saving on purpose and must hear a failure. When a line mentions a falsifier
+     the line is already committed, so recording it is enrichment: failing the
+     write would make the composer refuse to settle a sentence already in the
+     log, and the writer would type it a second time. That failure goes where
+     failures belong instead, with a way back to it. */
+  const recordFalsifier = useCallback(async (value) => {
+    const resolutionCriteria = String(value || '').trim();
+    if (!resolutionCriteria) return;
+    try {
+      await saveFalsifiability({ resolutionCriteria });
+    } catch (failure) {
+      systemStatus.setRecoverableFailure({
+        stage: 'Review criteria',
+        message: 'The line was saved. Its review criteria were not recorded.',
+        retryable: true,
+        retry: () => { recordFalsifier(resolutionCriteria); }
+      });
+    }
+  }, [saveFalsifiability, systemStatus]);
+
   const writeAccepted = useCallback(
     async (proposal, field) => {
       await commit(acceptProposalIntoJudgment(page, proposal, field));
       if (field === 'criteria') {
-        const text = String(proposal?.body || proposal?.sentence || '').trim();
-        if (text) {
-          await recordClaimFalsifiability({
-            pageId,
-            claimId: view?.claimId || '',
-            resolutionCriteria: text
-          });
-        }
+        await recordFalsifier(proposal?.body || proposal?.sentence);
       }
     },
-    [commit, page, pageId, view?.claimId]
+    [commit, page, recordFalsifier]
   );
 
   const fileEvidence = useCallback(
@@ -970,30 +993,19 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   /* A line the human typed, into any of the four. The agent is not involved.
      The id is the line's, so typing more of the same sentence rewrites it
      rather than adding another. */
-  const persistCriteria = useCallback(async ({ resolutionCriteria, horizon }) => {
-    await recordClaimFalsifiability({
-      pageId,
-      claimId: view?.claimId || '',
-      resolutionCriteria,
-      horizon
-    });
-  }, [pageId, view?.claimId]);
-
   const writeLine = useCallback(
     async (text, field, lineId) => {
       await commit(upsertLineIntoJudgment(page, text, field, lineId));
-      if (field === 'changeMindIf' && text) {
-        await persistCriteria({ resolutionCriteria: text });
-      }
+      if (field === 'changeMindIf') await recordFalsifier(text);
     },
-    [commit, page, persistCriteria]
+    [commit, page, recordFalsifier]
   );
 
   /* The name is the wiki page's title, not a judgment field. Renaming it
      does not rewrite the claim, so the case can join the wiki hierarchy
      without changing what is believed. */
   const rename = useCallback(async (nextTitle) => {
-    const title = asLine(nextTitle);
+    const title = normalizeSpaces(nextTitle);
     if (!title) return;
     const previous = page?.title;
     setPage(current => ({ ...current, title }));
@@ -1083,6 +1095,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     view?.claim
       ? {
         subject: view.claim,
+        boundSources: view.boundSourceCount,
         empty: 'Nothing to retrieve until you ask.'
       }
       : {
@@ -1230,7 +1243,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <ClaimFalsifiabilityPrompt
           criteria={view.resolutionCriteria || ''}
           horizon={view.horizon || ''}
-          onKeep={persistCriteria}
+          onKeep={saveFalsifiability}
         />
       </div>
       <JudgmentResolution

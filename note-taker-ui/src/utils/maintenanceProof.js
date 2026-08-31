@@ -1,17 +1,18 @@
+import { normalizeSpaces } from './editorialText';
+
 export const PUBLIC_PROOF_PRIVACY_STATEMENT = (
   'Public article and references are shown. Private highlights, backlinks, notes, library context, and agent state remain private.'
 );
 
 export const NO_ACCEPTED_MAINTENANCE_EVENT_COPY = 'No accepted maintenance event yet';
 
-const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const PUBLIC_PROOF_GRADES = new Set(['proven', 'candidate', 'acceptance_in_progress', 'illustrative']);
 
 export const normalizeProofGrade = (proofGrade = null) => {
   if (!proofGrade || typeof proofGrade !== 'object') return null;
-  const grade = cleanText(proofGrade.grade).toLowerCase();
+  const grade = normalizeSpaces(proofGrade.grade).toLowerCase();
   if (!PUBLIC_PROOF_GRADES.has(grade)) return null;
-  const comparisonUrl = cleanText(proofGrade.comparisonUrl);
+  const comparisonUrl = normalizeSpaces(proofGrade.comparisonUrl);
   const criteria = proofGrade.criteria && typeof proofGrade.criteria === 'object'
     ? proofGrade.criteria
     : {};
@@ -28,8 +29,8 @@ export const normalizeProofGrade = (proofGrade = null) => {
   if (!hasValidAcceptance) return null;
   return {
     grade,
-    label: cleanText(proofGrade.label),
-    reason: cleanText(proofGrade.reason),
+    label: normalizeSpaces(proofGrade.label),
+    reason: normalizeSpaces(proofGrade.reason),
     acceptedAt: grade === 'proven' ? acceptedAt.toISOString() : null,
     comparisonUrl: comparisonUrl.startsWith('/share/wiki/') ? comparisonUrl : '',
     criteria: {
@@ -61,10 +62,10 @@ export const formatMaintenanceDate = (value) => {
 };
 
 export const pagePublicPath = (page = {}, publicUrl = '') => {
-  const direct = cleanText(publicUrl);
+  const direct = normalizeSpaces(publicUrl);
   if (direct.startsWith('/share/wiki/')) return direct;
   if (direct) return `/share/wiki/${direct.replace(/^\/+/, '')}`;
-  const id = cleanText(page?._id || page?.id || page?.slug);
+  const id = normalizeSpaces(page?._id || page?.id || page?.slug);
   return id ? `/share/wiki/${id}` : '';
 };
 
@@ -72,21 +73,21 @@ export const normalizeMaintenanceProof = (proof = null) => {
   if (!proof || typeof proof !== 'object') return null;
   const clock = proof.clock && typeof proof.clock === 'object'
     ? {
-      type: cleanText(proof.clock.type),
-      label: cleanText(proof.clock.label)
+      type: normalizeSpaces(proof.clock.type),
+      label: normalizeSpaces(proof.clock.label)
     }
     : null;
   const currentThrough = proof.currentThrough && typeof proof.currentThrough === 'object'
     ? {
-      label: cleanText(proof.currentThrough.label),
+      label: normalizeSpaces(proof.currentThrough.label),
       at: proof.currentThrough.at || null,
-      ref: cleanText(proof.currentThrough.ref)
+      ref: normalizeSpaces(proof.currentThrough.ref)
     }
     : null;
   const latestMaterialEvent = proof.latestMaterialEvent && typeof proof.latestMaterialEvent === 'object'
     ? {
-      type: cleanText(proof.latestMaterialEvent.type),
-      summary: cleanText(proof.latestMaterialEvent.summary),
+      type: normalizeSpaces(proof.latestMaterialEvent.type),
+      summary: normalizeSpaces(proof.latestMaterialEvent.summary),
       at: proof.latestMaterialEvent.at || null
     }
     : null;
@@ -128,10 +129,10 @@ export const normalizePublicProofItem = (entry = {}) => {
   );
 
   return {
-    slot: cleanText(entry.slot),
-    label: cleanText(entry.label),
-    title: cleanText(page.title || entry.title) || 'Untitled page',
-    description: cleanText(entry.description || page.plainText).slice(0, 220),
+    slot: normalizeSpaces(entry.slot),
+    label: normalizeSpaces(entry.label),
+    title: normalizeSpaces(page.title || entry.title) || 'Untitled page',
+    description: normalizeSpaces(entry.description || page.plainText).slice(0, 220),
     href,
     maintenanceProof,
     sourceCount,
@@ -148,7 +149,7 @@ export const normalizePublicProofRegistry = (payload = {}) => {
   const requestedHomepageCta = payload.homepageCta && typeof payload.homepageCta === 'object'
     ? {
       href: pagePublicPath({}, payload.homepageCta.href || payload.homepageCta.url),
-      title: cleanText(payload.homepageCta.title)
+      title: normalizeSpaces(payload.homepageCta.title)
     }
     : null;
   const promotableItems = items.filter(item => ['proven', 'candidate'].includes(item.proofGrade?.grade));
@@ -157,7 +158,7 @@ export const normalizePublicProofRegistry = (payload = {}) => {
     ? promotableItems.find(item => item.href === requestedHomepageCta.href)
     : null;
   const homepageItem = requestedHomepageItem || provenItems[0] || promotableItems[0] || null;
-  const privacyStatement = cleanText(payload.privacyStatement) || PUBLIC_PROOF_PRIVACY_STATEMENT;
+  const privacyStatement = normalizeSpaces(payload.privacyStatement) || PUBLIC_PROOF_PRIVACY_STATEMENT;
 
   return {
     items,

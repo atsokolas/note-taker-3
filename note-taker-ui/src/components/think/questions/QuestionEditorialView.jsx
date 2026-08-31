@@ -9,8 +9,9 @@ import EditorialRail, { CalmEmptyLine, SidebarSkeletonRows } from '../EditorialR
 import { EditorialSideRailCollapsible } from '../EditorialSideRail';
 import QuestionEditor from './QuestionEditor';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
+import { plainTextFrom } from '../../../utils/editorialText';
 
-const previewText = (value = '') => String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+const previewText = (value = '') => plainTextFrom(value);
 const questionCounterSignalPattern = /\b(counter|contradict|against|but|however|although|risk|tension|weak|problem|trade[-\s]?off|fails?|doubt|uncertain)\b/i;
 const isQuestionCounterSignal = (value = '') => questionCounterSignalPattern.test(String(value || ''));
 const formatQuestionEvidenceSource = (item = {}) => String(

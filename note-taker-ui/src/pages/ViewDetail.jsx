@@ -4,6 +4,7 @@ import api from '../api';
 import { Page, Card, Button, TagChip } from '../components/ui';
 import { Link } from 'react-router-dom';
 import { fetchWithCache } from '../utils/cache';
+import { wordBoundaryTrim } from '../utils/editorialText';
 
 const ViewDetail = () => {
   const { id } = useParams();
@@ -124,7 +125,7 @@ const ViewDetail = () => {
             <span className="article-title-link">{n.title || 'Untitled'}</span>
             <span className="muted small">{new Date(n.updatedAt || n.createdAt).toLocaleDateString()}</span>
           </div>
-          <p className="muted small">{(n.content || '').slice(0,140)}{(n.content || '').length > 140 ? '…' : ''}</p>
+          <p className="muted small">{wordBoundaryTrim(n.content, { maxLength: 140 })}</p>
         </Card>
       ));
     }

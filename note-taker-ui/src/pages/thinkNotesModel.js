@@ -1,3 +1,5 @@
+import { normalizeSpaces } from '../utils/editorialText';
+
 // Which note Think opens, and how it reads.
 //
 // Think is not three rooms with an index in front of them. It is the note you
@@ -7,8 +9,7 @@
 
 const THINK_RECENTS_STORAGE_KEY = 'think.recent.targets';
 
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-const idOf = (entry) => clean(entry?._id || entry?.id);
+const idOf = (entry) => normalizeSpaces(entry?._id || entry?.id);
 const list = (value) => (Array.isArray(value) ? value : []);
 
 const time = (value) => {
@@ -21,9 +22,9 @@ export const readRecentNoteIds = (storage = (typeof window !== 'undefined' ? win
   try {
     const parsed = JSON.parse(storage?.getItem(THINK_RECENTS_STORAGE_KEY) || '[]');
     return list(parsed)
-      .filter(item => clean(item?.type) === 'notebook')
+      .filter(item => normalizeSpaces(item?.type) === 'notebook')
       .sort((left, right) => time(right?.openedAt) - time(left?.openedAt))
-      .map(item => clean(item?.id))
+      .map(item => normalizeSpaces(item?.id))
       .filter(Boolean);
   } catch (_error) {
     return [];
@@ -37,9 +38,9 @@ export const readRecentNoteIds = (storage = (typeof window !== 'undefined' ? win
  */
 export const resolveOpenNoteId = ({ requestedId = '', notes = [], recentIds = [] } = {}) => {
   const known = new Set(list(notes).map(idOf).filter(Boolean));
-  const wanted = clean(requestedId);
+  const wanted = normalizeSpaces(requestedId);
   if (wanted && known.has(wanted)) return wanted;
-  const recent = list(recentIds).map(clean).find(id => known.has(id));
+  const recent = list(recentIds).map(normalizeSpaces).find(id => known.has(id));
   if (recent) return recent;
   const newest = list(notes)
     .filter(idOf)
@@ -50,13 +51,13 @@ export const resolveOpenNoteId = ({ requestedId = '', notes = [], recentIds = []
 
 /** The faint list beside the note: every other note, most recent first. */
 export const buildNoteShelf = ({ notes = [], openId = '', query = '', expanded = false, limit = 18 } = {}) => {
-  const needle = clean(query).toLowerCase();
+  const needle = normalizeSpaces(query).toLowerCase();
   const sorted = list(notes)
   .map(entry => ({
     id: idOf(entry),
-    title: clean(entry?.title) || 'Untitled',
+    title: normalizeSpaces(entry?.title) || 'Untitled',
     updatedAt: entry?.updatedAt || entry?.createdAt || null,
-    isOpen: idOf(entry) === clean(openId)
+    isOpen: idOf(entry) === normalizeSpaces(openId)
   }))
   .filter(item => item.id)
   .filter(item => !needle || item.title.toLowerCase().includes(needle))
@@ -103,11 +104,11 @@ const NOTE_TABS = new Set(['', 'home', 'notebook', 'notes']);
 
 export const namesAThinkObject = (search = '') => {
   const params = new URLSearchParams(search);
-  const tab = clean(params.get('tab')).toLowerCase();
+  const tab = normalizeSpaces(params.get('tab')).toLowerCase();
   if (NOTE_TABS.has(tab)) return false;
   const keys = OBJECT_PARAMS[tab];
   // A posture this module does not know about is left to the legacy surface
   // rather than swallowed.
   if (!keys) return true;
-  return keys.some(key => clean(params.get(key)));
+  return keys.some(key => normalizeSpaces(params.get(key)));
 };

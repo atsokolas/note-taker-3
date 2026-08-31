@@ -1,3 +1,5 @@
+import { normalizeSpaces } from '../utils/editorialText';
+
 /*
  * What you keep.
  *
@@ -11,7 +13,6 @@
  * and a belief you hold.
  */
 
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const idOf = value => String(value?._id || value?.id || value || '');
 const time = value => new Date(value || 0).getTime();
 const list = value => (Array.isArray(value) ? value : []);
@@ -20,16 +21,16 @@ export const EVERGREEN_KINDS = Object.freeze(['source', 'page', 'judgment']);
 
 const isJudgment = (page = {}) => {
   const judgment = page?.judgment || {};
-  return Boolean(clean(judgment.currentJudgment) || clean(judgment.governingQuestion));
+  return Boolean(normalizeSpaces(judgment.currentJudgment) || normalizeSpaces(judgment.governingQuestion));
 };
 
 const sourceEntry = (article = {}) => ({
   id: `source:${idOf(article)}`,
   kind: 'source',
   targetId: idOf(article),
-  title: clean(article.title) || 'Untitled source',
-  detail: clean(article.siteName || article.author),
-  url: clean(article.url),
+  title: normalizeSpaces(article.title) || 'Untitled source',
+  detail: normalizeSpaces(article.siteName || article.author),
+  url: normalizeSpaces(article.url),
   keptAt: article.evergreenAt || article.updatedAt || article.createdAt || null
 });
 
@@ -40,9 +41,9 @@ const pageEntry = (page = {}) => {
     kind: judgment ? 'judgment' : 'page',
     targetId: idOf(page),
     title: judgment
-      ? (clean(page?.judgment?.currentJudgment) || clean(page?.judgment?.governingQuestion) || clean(page.title))
-      : (clean(page.title) || 'Untitled page'),
-    detail: judgment ? clean(page.title) : '',
+      ? (normalizeSpaces(page?.judgment?.currentJudgment) || normalizeSpaces(page?.judgment?.governingQuestion) || normalizeSpaces(page.title))
+      : (normalizeSpaces(page.title) || 'Untitled page'),
+    detail: judgment ? normalizeSpaces(page.title) : '',
     url: '',
     keptAt: page.evergreenAt || page.updatedAt || page.createdAt || null
   };

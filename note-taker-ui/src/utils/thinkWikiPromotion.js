@@ -1,6 +1,6 @@
-const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+import { normalizeSpaces } from './editorialText';
 
-const cleanHtmlText = (value = '') => cleanText(String(value || '')
+const cleanHtmlText = (value = '') => normalizeSpaces(String(value || '')
   .replace(/<br\s*\/?>/gi, ' ')
   .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, ' ')
   .replace(/<[^>]+>/g, ' '));
@@ -9,7 +9,7 @@ const textNode = (text) => ({ type: 'text', text });
 
 const paragraph = (text) => ({
   type: 'paragraph',
-  content: [textNode(cleanText(text) || 'No source text yet.')]
+  content: [textNode(normalizeSpaces(text) || 'No source text yet.')]
 });
 
 const heading = (text, level = 2) => ({
@@ -29,9 +29,9 @@ const bulletList = (items = []) => ({
 });
 
 const thinkSourcePath = ({ sourceType, sourceId, sourceLabel }) => {
-  const type = cleanText(sourceType).toLowerCase();
-  const id = cleanText(sourceId);
-  const label = cleanText(sourceLabel);
+  const type = normalizeSpaces(sourceType).toLowerCase();
+  const id = normalizeSpaces(sourceId);
+  const label = normalizeSpaces(sourceLabel);
   if (type === 'concept' && label) return `/think?tab=concepts&concept=${encodeURIComponent(label)}`;
   if (type === 'question' && id) return `/think?tab=questions&questionId=${encodeURIComponent(id)}`;
   if (type === 'notebook' && id) return `/think?tab=notebook&entryId=${encodeURIComponent(id)}`;
@@ -52,8 +52,8 @@ const normalizePulledSourceRefs = (references = []) => (
   Array.isArray(references)
     ? references
       .map((reference) => {
-        const type = cleanText(reference?.type || reference?.itemType).toLowerCase();
-        const objectId = cleanText(reference?.id || reference?.itemId || reference?.objectId);
+        const type = normalizeSpaces(reference?.type || reference?.itemType).toLowerCase();
+        const objectId = normalizeSpaces(reference?.id || reference?.itemId || reference?.objectId);
         if (!type || !objectId) return null;
         const supportedType = type === 'wiki' || type === 'wiki_page' ? 'external' : type;
         if (!['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external'].includes(supportedType)) return null;
@@ -61,11 +61,11 @@ const normalizePulledSourceRefs = (references = []) => (
         return {
           type: supportedType,
           objectId: isWikiReference ? '' : objectId,
-          parentObjectId: cleanText(reference?.articleId || reference?.parentObjectId),
-          title: cleanText(reference?.title || reference?.label || reference?.url),
-          snippet: cleanText(reference?.snippet || reference?.description || reference?.text),
-          url: cleanText(reference?.url),
-          citationLabel: isWikiReference ? `wiki:${objectId}` : cleanText(reference?.citationLabel),
+          parentObjectId: normalizeSpaces(reference?.articleId || reference?.parentObjectId),
+          title: normalizeSpaces(reference?.title || reference?.label || reference?.url),
+          snippet: normalizeSpaces(reference?.snippet || reference?.description || reference?.text),
+          url: normalizeSpaces(reference?.url),
+          citationLabel: isWikiReference ? `wiki:${objectId}` : normalizeSpaces(reference?.citationLabel),
           addedBy: 'user'
         };
       })
@@ -116,10 +116,10 @@ export const buildThinkWikiPromotionPayload = ({
 } = {}) => {
   const initialSourceRefs = normalizePulledSourceRefs(pulledReferences);
   if (type === 'concept' && concept?._id) {
-    const title = cleanText(concept.name) || 'Untitled concept';
-    const description = cleanText(concept.description);
+    const title = normalizeSpaces(concept.name) || 'Untitled concept';
+    const description = normalizeSpaces(concept.description);
     const openQuestions = (Array.isArray(conceptQuestions) ? conceptQuestions : [])
-      .map((item) => cleanText(item?.text))
+      .map((item) => normalizeSpaces(item?.text))
       .filter(Boolean)
       .slice(0, 5);
     const seedText = description || `${title} is a working concept promoted from Think into the durable wiki.`;
@@ -160,9 +160,9 @@ export const buildThinkWikiPromotionPayload = ({
   }
 
   if (type === 'question' && question?._id) {
-    const title = cleanText(question.text).replace(/[?!.]+$/g, '').split(/\s+/).slice(0, 8).join(' ') || 'Question';
-    const questionText = cleanText(question.text);
-    const linkedConcept = cleanText(question.linkedTagName || question.conceptName);
+    const title = normalizeSpaces(question.text).replace(/[?!.]+$/g, '').split(/\s+/).slice(0, 8).join(' ') || 'Question';
+    const questionText = normalizeSpaces(question.text);
+    const linkedConcept = normalizeSpaces(question.linkedTagName || question.conceptName);
     const seedText = questionText || 'Question promoted from Think into the durable wiki.';
     const sourcePath = thinkSourcePath({ sourceType: 'question', sourceId: question._id, sourceLabel: questionText || title });
     return {
@@ -204,10 +204,10 @@ export const buildThinkWikiPromotionPayload = ({
   }
 
   if (type === 'notebook' && notebook?._id) {
-    const title = cleanText(notebook.title) || 'Notebook page';
+    const title = normalizeSpaces(notebook.title) || 'Notebook page';
     const bodyText = cleanHtmlText(notebook.content || notebook.text || notebook.summary);
     const tags = (Array.isArray(notebook.tags) ? notebook.tags : [])
-      .map(cleanText)
+      .map(normalizeSpaces)
       .filter(Boolean)
       .slice(0, 8);
     const seedText = bodyText || `${title} is a notebook page promoted from Think into the durable wiki.`;

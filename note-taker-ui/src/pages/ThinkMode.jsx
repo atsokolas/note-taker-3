@@ -90,6 +90,7 @@ import {
   filterQuestionsForReturn,
   getWikiOpenQuestionHref
 } from '../components/think/calmIndexModel';
+import { normalizeSpaces } from '../utils/editorialText';
 
 const NotebookFolderTree = lazy(() => import('../components/think/notebook/NotebookFolderTree'));
 const NotebookMoveEntryModal = lazy(() => import('../components/think/notebook/NotebookMoveEntryModal'));
@@ -616,7 +617,7 @@ const ThinkMode = () => {
   };
 
   const normalizeConceptName = useCallback((value = '') => (
-    String(value || '').replace(/\s+/g, ' ').trim()
+    normalizeSpaces(value)
   ), []);
 
   const [conceptComposerOpen, setConceptComposerOpen] = useState(false);

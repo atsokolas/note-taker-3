@@ -365,3 +365,39 @@ describe('hasContextualAgentRail', () => {
   });
 
 });
+
+const BoundCorpus = ({ boundSources }) => {
+  useContextualAgentSurface('agent-surface.wiki', {
+    objectType: 'wiki_page',
+    objectId: 'wiki-bound',
+    subject: 'Margin of Safety',
+    ...(boundSources === undefined ? {} : { boundSources })
+  }, {});
+  return <AgentRail />;
+};
+
+const renderBound = boundSources => render(
+  <AgentRailProvider><BoundCorpus boundSources={boundSources} /></AgentRailProvider>
+);
+
+describe('AgentRail context envelope', () => {
+  it('says what the agent is bound to', () => {
+    renderBound(17);
+    expect(screen.getByText('17 bound sources')).toBeInTheDocument();
+  });
+
+  it('says the uncomfortable zero rather than hiding it', () => {
+    renderBound(0);
+    expect(screen.getByText('no bound sources')).toBeInTheDocument();
+  });
+
+  it('counts one source without pluralising it', () => {
+    renderBound(1);
+    expect(screen.getByText('1 bound source')).toBeInTheDocument();
+  });
+
+  it('stays quiet when a surface has not declared a corpus', () => {
+    renderBound(undefined);
+    expect(screen.queryByText(/bound source/)).not.toBeInTheDocument();
+  });
+});

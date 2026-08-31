@@ -10,6 +10,7 @@ import {
   watchWikiProposal
 } from '../../api/wiki';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const labelForType = (type) => (type === 'bridge_idea' ? 'Bridge idea' : 'Recurring theme');
 
@@ -197,7 +198,7 @@ const WikiEmergingProposals = () => {
                   >
                     <option value="">Merge into...</option>
                     {pages.map(page => (
-                      <option key={page._id} value={page._id}>{page.title || 'Untitled Wiki Page'}</option>
+                      <option key={page._id} value={page._id}>{displayWikiPageTitle(page)}</option>
                     ))}
                   </select>
                   <Button type="button" variant="secondary" onClick={() => handleMerge(proposal)} disabled={busyId === proposal._id || !proposal.mergeTargetId}>

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 /**
  * AT-453 — Source/event contract.
@@ -21,10 +22,7 @@ const PROVIDER_CLASS = Object.freeze({
   'market-price': ACCEPTED_CLASSES.DATED_MARKET_PRICE
 });
 
-const clean = (value = '', limit = 4000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 4000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const asTime = (value) => {
   if (!value) return NaN;

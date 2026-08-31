@@ -38,7 +38,7 @@ const isFailedDraftStub = ({ page, plainText }) => {
 };
 
 const classifyWikiPageQuality = (page = {}) => {
-  const title = normalizeText(page.title || 'Untitled Wiki Page');
+  const title = normalizeText(page.title || 'Untitled wiki page');
   const normalizedTitle = title.toLowerCase();
   const plainText = normalizeText(page.plainText || extractPlainTextFromDoc(page.body));
   const wordCount = countWords(plainText);

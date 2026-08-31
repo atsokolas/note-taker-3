@@ -1,5 +1,6 @@
 import { isJudgmentPage, oneSentence } from '../../pages/judgmentModel';
 import { parseSourceOrigin } from '../../utils/sourceRoutes';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 // The folio line on a source you are reading.
 //
@@ -9,8 +10,7 @@ import { parseSourceOrigin } from '../../utils/sourceRoutes';
 
 const LAST_OPENED_KEY = 'noeis.judgment.lastOpened';
 
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-const idOf = (value) => clean(value?._id || value?.id || value);
+const idOf = (value) => normalizeSpaces(value?._id || value?.id || value);
 const list = (value) => (Array.isArray(value) ? value : []);
 const time = (value) => {
   const parsed = new Date(value || 0).getTime();
@@ -38,7 +38,7 @@ export const rememberOpenedJudgment = (pageId) => {
 export const lastOpenedJudgment = () => {
   if (typeof window === 'undefined') return '';
   try {
-    return clean(window.sessionStorage?.getItem(LAST_OPENED_KEY));
+    return normalizeSpaces(window.sessionStorage?.getItem(LAST_OPENED_KEY));
   } catch (_error) {
     return '';
   }
@@ -48,7 +48,7 @@ export const claimIdFromSearch = (search = '') => {
   const raw = String(search || '');
   const query = raw.startsWith('?') ? raw.slice(1) : raw;
   const params = new URLSearchParams(query);
-  return clean(params.get('judgment') || params.get('claim'));
+  return normalizeSpaces(params.get('judgment') || params.get('claim'));
 };
 
 /** The opinion, never the wiki name. An unnamed case still has a sentence. */
@@ -91,7 +91,7 @@ const lineTouchesArticle = (line, articleId, highlightIds = []) => {
 export const connectedJudgmentIds = (graphConnections = {}) => {
   const ids = [];
   const push = (type, rawId) => {
-    const kind = clean(type).toLowerCase();
+    const kind = normalizeSpaces(type).toLowerCase();
     const id = idOf(rawId);
     if (!id) return;
     if (kind !== 'wiki_page' && kind !== 'wiki' && kind !== 'wiki_claim') return;
@@ -168,8 +168,8 @@ export const buildFolioLine = (page) => {
  * one they kept, then the most recently updated — never a list.
  */
 export const pickFolioLine = (pages, options = {}) => {
-  const preferredId = clean(options.preferredId) || claimIdFromSearch(options.search);
-  const recentlyOpenedId = clean(options.recentlyOpenedId) || lastOpenedJudgment();
+  const preferredId = normalizeSpaces(options.preferredId) || claimIdFromSearch(options.search);
+  const recentlyOpenedId = normalizeSpaces(options.recentlyOpenedId) || lastOpenedJudgment();
   return buildFolioLine(pickFolioPage(pages, {
     ...options,
     preferredId,

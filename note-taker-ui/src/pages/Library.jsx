@@ -829,6 +829,9 @@ const Library = () => {
         article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
         count: corpusTotal
       }),
+      // Unknown stays unknown: corpusTotal is undefined until the shelf is read,
+      // and the rail says nothing rather than claiming a corpus of zero.
+      boundSources: Number.isFinite(corpusTotal) ? corpusTotal : null,
       lines: exactSourceId === 'library'
         ? []
         : [

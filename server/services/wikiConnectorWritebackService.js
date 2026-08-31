@@ -1,9 +1,7 @@
+const { wordBoundaryTrim } = require('../lib/editorialText');
 const toText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
-const truncateNotionText = (value = '', limit = 1900) => {
-  const text = toText(value);
-  return text.length <= limit ? text : `${text.slice(0, Math.max(0, limit - 1)).trim()}...`;
-};
+const truncateNotionText = (value = '', limit = 1900) => wordBoundaryTrim(value, { maxLength: limit });
 
 const textToRichText = (value = '') => {
   const text = truncateNotionText(value);
@@ -174,7 +172,7 @@ const writeWikiPageToConnector = async ({
     let writeMode = 'created';
     if (existingPageId && appendNotionBlockChildren) {
       if (updateNotionPageTitle) {
-        await updateNotionPageTitle({ token, pageId: existingPageId, title: page.title || 'Untitled Wiki Page' });
+        await updateNotionPageTitle({ token, pageId: existingPageId, title: page.title || 'Untitled wiki page' });
       }
       await appendNotionBlockChildren({ token, blockId: existingPageId, children });
       notionPage = { id: existingPageId, url: `https://www.notion.so/${existingPageId.replace(/-/g, '')}` };
@@ -182,7 +180,7 @@ const writeWikiPageToConnector = async ({
     } else {
       notionPage = await createNotionPage({
         token,
-        title: page.title || 'Untitled Wiki Page',
+        title: page.title || 'Untitled wiki page',
         children,
         parentPageId
       });
@@ -200,7 +198,7 @@ const writeWikiPageToConnector = async ({
       status: 'completed',
       targetType: 'wiki_page',
       targetId: String(page._id || ''),
-      summary: `${writeMode === 'updated' ? 'Updated' : 'Wrote'} "${page.title || 'Untitled Wiki Page'}" in Notion.`,
+      summary: `${writeMode === 'updated' ? 'Updated' : 'Wrote'} "${page.title || 'Untitled wiki page'}" in Notion.`,
       metadata: { notionPageId: notionPage?.id || '', notionUrl: notionPage?.url || '', writeMode }
     });
     return {
@@ -210,7 +208,7 @@ const writeWikiPageToConnector = async ({
       page: {
         id: notionPage?.id || '',
         url: notionPage?.url || '',
-        title: page.title || 'Untitled Wiki Page'
+        title: page.title || 'Untitled wiki page'
       }
     };
   } catch (error) {
@@ -222,7 +220,7 @@ const writeWikiPageToConnector = async ({
       status: 'failed',
       targetType: 'wiki_page',
       targetId: String(page._id || ''),
-      summary: `Failed writing "${page.title || 'Untitled Wiki Page'}" to Notion.`,
+      summary: `Failed writing "${page.title || 'Untitled wiki page'}" to Notion.`,
       errorMessage: error.message || 'Notion write-back failed.'
     });
     throw error;

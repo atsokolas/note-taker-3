@@ -1,4 +1,5 @@
 import { wikiPagePath } from './wikiFeatureFlags';
+import { normalizeSpaces } from './editorialText';
 
 const CREATED_FROM_TYPES = new Set([
   'wiki_index',
@@ -16,8 +17,8 @@ const CREATED_FROM_TYPES = new Set([
 
 const SOURCE_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
 
-const titleFromText = (value = '', fallback = 'Untitled Wiki Page') => {
-  const clean = String(value || '').replace(/\s+/g, ' ').trim();
+const titleFromText = (value = '', fallback = 'Untitled wiki page') => {
+  const clean = normalizeSpaces(value);
   return clean ? clean.slice(0, 120) : fallback;
 };
 

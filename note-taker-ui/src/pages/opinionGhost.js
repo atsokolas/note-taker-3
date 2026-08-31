@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { prefersReducedMotion } from '../motion/columnMotion';
 import { oneSentence } from './judgmentModel';
+import { normalizeSpaces } from '../utils/editorialText';
 
 // Ghost ink: a name that is not there yet, and the opinion you just left.
 // Same fade, same italic paper. The missing name is not a form label; the
@@ -12,10 +13,8 @@ export const OPINION_GHOST_FADE_MS = GHOST_FADE_MS;
 export const MISSING_NAME = 'Name this';
 export const GHOST_INK_CLASS = 'judgment__ghost';
 
-const writtenName = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
 /** The ghost of a missing name. Empty once the case is named. Never the claim. */
-export const ghostOfMissingName = (name = '') => (writtenName(name) ? '' : MISSING_NAME);
+export const ghostOfMissingName = (name = '') => (normalizeSpaces(name) ? '' : MISSING_NAME);
 
 /** The previous held sentence, or empty when nothing should linger. */
 export const ghostOfPreviousOpinion = (previous, next) => {

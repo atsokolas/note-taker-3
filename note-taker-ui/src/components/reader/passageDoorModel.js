@@ -2,6 +2,7 @@ import { isJudgmentPage } from '../../pages/judgmentModel';
 import { answersHeldSentence } from '../../pages/judgmentHold';
 import { parseSourceOrigin } from '../../utils/sourceRoutes';
 import { folioHref, folioSentence, lastOpenedJudgment } from './folioModel';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 // The reverse of the folio line: from a saved passage, not from the article.
 //
@@ -12,8 +13,7 @@ import { folioHref, folioSentence, lastOpenedJudgment } from './folioModel';
 // and a source-ref on the ledger are not enough. Silence is the honest answer
 // when it does not match.
 
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-const idOf = (value) => clean(value?._id || value?.id || value);
+const idOf = (value) => normalizeSpaces(value?._id || value?.id || value);
 const list = (value) => (Array.isArray(value) ? value : []);
 
 const time = (value) => {
@@ -31,8 +31,8 @@ const recency = (page) => time(page?.updatedAt || page?.judgment?.lastReviewedAt
 
 /** Same origin the library inbox files, so the whisper can find it after. */
 export const passageOrigin = (articleId, highlightId) => {
-  const article = clean(articleId);
-  const highlight = clean(highlightId);
+  const article = normalizeSpaces(articleId);
+  const highlight = normalizeSpaces(highlightId);
   return article && highlight ? `highlight:${article}:${highlight}` : '';
 };
 
@@ -115,12 +115,12 @@ export const pickPassageDoor = (pages, {
   preferredId = '',
   recentlyOpenedId = ''
 } = {}) => {
-  const id = clean(highlightId);
+  const id = normalizeSpaces(highlightId);
   if (!id) return null;
 
-  const hit = pickHit(filedHits(pages, id, clean(articleId)), {
-    preferredId: clean(preferredId),
-    recentlyOpenedId: clean(recentlyOpenedId) || lastOpenedJudgment()
+  const hit = pickHit(filedHits(pages, id, normalizeSpaces(articleId)), {
+    preferredId: normalizeSpaces(preferredId),
+    recentlyOpenedId: normalizeSpaces(recentlyOpenedId) || lastOpenedJudgment()
   });
   if (!hit) return null;
 
@@ -159,9 +159,9 @@ export const pickUnfiledPassageMatch = (pages, {
   preferredId = '',
   recentlyOpenedId = ''
 } = {}) => {
-  const id = clean(highlightId);
-  const article = clean(articleId);
-  const passage = clean(text);
+  const id = normalizeSpaces(highlightId);
+  const article = normalizeSpaces(articleId);
+  const passage = normalizeSpaces(text);
   const origin = passageOrigin(article, id);
   if (!id || !article || !passage || !origin) return null;
   if (pickPassageDoor(pages, {
@@ -172,8 +172,8 @@ export const pickUnfiledPassageMatch = (pages, {
   })) return null;
 
   const hit = pickHit(unfiledHits(pages, passage), {
-    preferredId: clean(preferredId),
-    recentlyOpenedId: clean(recentlyOpenedId) || lastOpenedJudgment()
+    preferredId: normalizeSpaces(preferredId),
+    recentlyOpenedId: normalizeSpaces(recentlyOpenedId) || lastOpenedJudgment()
   });
   if (!hit) return null;
 

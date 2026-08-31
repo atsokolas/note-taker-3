@@ -1,3 +1,5 @@
+import { normalizeSpaces } from '../utils/editorialText';
+
 /* Client-side sentence matching is only for unsaved overnight events. Library
    evidence is filtered by the API so every client shares one quality bar. */
 const STOPWORDS = new Set([
@@ -11,12 +13,11 @@ const STOPWORDS = new Set([
   'you', 'your'
 ]);
 
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const stem = (word = '') => {
   const lower = String(word || '').toLowerCase();
   return lower.length < 5 ? lower : lower.replace(/(ies|ied|ing|ed|es|s|y)$/, '');
 };
-const tokens = (value = '') => clean(value)
+const tokens = (value = '') => normalizeSpaces(value)
   .toLowerCase()
   .replace(/[^a-z0-9\s'-]/g, ' ')
   .split(/\s+/)

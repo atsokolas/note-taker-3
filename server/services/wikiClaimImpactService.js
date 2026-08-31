@@ -1,7 +1,5 @@
-const clean = (value = '', limit = 1000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const { wordBoundaryTrim } = require('../lib/editorialText');
+const clean = (value = '', limit = 1000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 const list = value => Array.isArray(value) ? value : [];
 const activeClaim = (claim = {}) => claim.checkInStatus !== 'retired' && !claim.retiredAt;
 const claimMap = claims => new Map(list(claims)

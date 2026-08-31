@@ -18,6 +18,7 @@ const {
   diffRevisionClaims
 } = require('./wikiClaimImpactService');
 const { WATCHER_PROVIDERS } = require('./watcherPolicy');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 // Paid transcript providers are intentionally excluded from the product while
 // Noeis operates on free authoritative sources only. Historical rows can remain
@@ -25,10 +26,7 @@ const { WATCHER_PROVIDERS } = require('./watcherPolicy');
 const ENV_SHAPED_ERROR = /process\.env|[A-Z][A-Z0-9_]{3,}_(?:KEY|TOKEN|SECRET|API)/;
 const MORNING_PAPER_OPEN_REUSE_MS = 2 * 60 * 1000;
 
-const clean = (value = '', limit = 1000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 1000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const id = (value) => String(value?._id || value || '');
 const asPlain = (value) => value?.toObject ? value.toObject({ virtuals: false }) : value;

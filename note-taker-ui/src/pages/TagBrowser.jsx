@@ -4,6 +4,7 @@ import api from '../api';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache } from '../utils/cache';
+import { wordBoundaryTrim } from '../utils/editorialText';
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return '';
@@ -273,7 +274,7 @@ const TagBrowser = ({ embedded = false, filters = {} }) => {
                       <TagChip key={tag} to={`/tags/${encodeURIComponent(tag)}`}>{tag}</TagChip>
                     )) : <span className="muted small">No tags</span>}
                   </div>
-                  <p className="search-snippet">{h.note ? h.note.slice(0, 120) + (h.note.length > 120 ? '…' : '') : <span className="muted small">No note</span>}</p>
+                  <p className="search-snippet">{h.note ? wordBoundaryTrim(h.note, { maxLength: 120 }) : <span className="muted small">No note</span>}</p>
                 </div>
               ))}
             </div>

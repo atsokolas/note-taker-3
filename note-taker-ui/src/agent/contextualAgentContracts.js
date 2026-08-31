@@ -123,6 +123,11 @@ export const buildContextualAgentSurface = (contractId, context = {}) => {
     objectType,
     objectId,
     subject,
+    // How much the agent can actually see. null means the surface has not
+    // declared a corpus; 0 is a real answer and must be said out loud.
+    boundSources: Number.isFinite(Number(context.boundSources))
+      ? Math.max(0, Math.trunc(Number(context.boundSources)))
+      : null,
     lines: normalizeLines(context.lines),
     empty: String(context.empty || 'Nothing to retrieve until you ask.').trim(),
     askPlaceholder: String(context.askPlaceholder || 'Bring evidence or counterevidence').trim(),

@@ -7,6 +7,7 @@ const {
 const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptService');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const ACTIONS = Object.freeze(['accept', 'narrow', 'preserve', 'reject', 'defer']);
 const TERMINAL = new Set(['accepted', 'narrowed', 'preserved', 'rejected']);
@@ -24,10 +25,7 @@ const STOPWORDS = new Set([
   'where', 'which', 'while', 'who', 'why', 'will', 'with', 'would', 'you', 'your'
 ]);
 
-const clean = (value = '', limit = 800) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 800) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const id = (value) => String(value?._id || value?.id || value || '');
 const asPlain = (value) => (value?.toObject ? value.toObject({ virtuals: false }) : value);

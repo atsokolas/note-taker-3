@@ -1,6 +1,7 @@
 const { chatComplete, isTextGenerationConfigured } = require('../ai/hfTextClient');
 const { embedText } = require('../ai/embed');
 const { searchVectorItems, rawCosineToAtlasScore } = require('../ai/vectorStore');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 /**
  * readingLoopService — the Reading Loop.
@@ -137,10 +138,7 @@ const META_CLAIM_RE = /\b(the recurring pattern across|the page should|this page
 
 const MECHANICS = Object.freeze(['connection', 'collision', 'resolution', 'convergence', 'thread']);
 
-const clean = (value = '', limit = 1000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 1000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const stripHtml = (value = '') => String(value || '').replace(/<[^>]*>/g, ' ');
 

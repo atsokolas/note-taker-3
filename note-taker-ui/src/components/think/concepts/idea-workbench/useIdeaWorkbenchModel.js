@@ -28,6 +28,7 @@ import {
   mergeConceptChangeDrafts
 } from './conceptChangeDrafts';
 import { cleanSourceTextForDisplay } from '../../../../utils/sourceDisplayText';
+import { wordBoundaryTrim } from '../../../../utils/editorialText';
 
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = 'idea-workbench';
@@ -67,11 +68,7 @@ const textToHtml = (value = '') => {
     .map(block => `<p>${escapeHtml(block).replace(/\n/g, '<br />')}</p>`)
     .join('');
 };
-const truncate = (value, limit = 180) => {
-  const safe = clean(value);
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+const truncate = (value, limit = 180) => wordBoundaryTrim(value, { maxLength: limit });
 const sentenceCase = (value = '') => {
   const safe = clean(value);
   if (!safe) return '';

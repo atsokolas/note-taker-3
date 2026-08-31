@@ -2,10 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { createWikiPage, getWikiIngestRun, undoWikiIngestRun } from '../api/wiki';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import { humanizeLabel } from '../utils/humanizeLabel';
 
-const labelFor = (value = '') => String(value || '')
-  .replace(/_/g, ' ')
-  .replace(/\b\w/g, char => char.toUpperCase());
+const labelFor = (value = '') => humanizeLabel(value);
 
 const formatDateTime = (value) => {
   if (!value) return '';

@@ -3,11 +3,12 @@ import { QuietButton } from '../ui';
 import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
 import RelatedSuggestions from '../retrieval/RelatedSuggestions';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const summarize = (text, max = 180) => {
   const raw = String(text || '');
   const firstLine = raw.split('\n').find(line => line.trim()) || '';
-  const clean = firstLine.replace(/\s+/g, ' ').trim();
+  const clean = normalizeSpaces(firstLine);
   if (!clean) return 'No details yet.';
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max).trim()}…`;

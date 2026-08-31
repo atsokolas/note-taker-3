@@ -1,10 +1,8 @@
 const crypto = require('crypto');
 const { resolveClaimBornAt } = require('./claimBornAt');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
-const clean = (value = '', limit = 800) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 800) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const identity = (value = '') => String(value || '')
   .normalize('NFKC')

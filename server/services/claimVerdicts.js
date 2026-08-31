@@ -9,6 +9,7 @@
 const { evaluateCheckInEligibility } = require('./checkInEligibility');
 const { parseHorizon, asIsoDay } = require('./claimFalsifiability');
 const { findHeldClaim } = require('./heldClaim');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const VERDICTS = Object.freeze(['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons']);
 const VERDICT_LABELS = Object.freeze({
@@ -20,10 +21,7 @@ const VERDICT_LABELS = Object.freeze({
 });
 const TRIGGERS = Object.freeze(['horizon', 'evidence']);
 
-const clean = (value = '', limit = 500) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 500) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const id = (value) => String(value?._id || value || '');
 const asPlain = (value) => (value?.toObject ? value.toObject({ virtuals: false }) : value);
