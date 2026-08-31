@@ -63,7 +63,18 @@ jest.mock('../api/judgmentResolution', () => ({
   recordJudgmentOutcome: jest.fn(),
   resolveJudgmentLesson: jest.fn(),
   recordJudgmentVerdict: jest.fn(),
-  setJudgmentResolution: jest.fn()
+  setJudgmentResolution: jest.fn(),
+  getLivingTeam: jest.fn(() => Promise.resolve({
+    visible: true,
+    members: [],
+    positions: [],
+    dissent: [],
+    brief: { silent: true, sentences: [] },
+    authority: {}
+  })),
+  grantLivingTeamSeat: jest.fn(),
+  approveLivingTeamVersion: jest.fn(),
+  handOffLivingTeam: jest.fn()
 }));
 
 const judgmentPage = () => ({

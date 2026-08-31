@@ -2837,6 +2837,72 @@ casebookLineageSchema.index({ userId: 1, originPageId: 1, action: 1, revokedAt: 
 
 const CasebookLineage = mongoose.model('CasebookLineage', casebookLineageSchema);
 
+/**
+ * CaseTeam — Stage 5 overlay. Roles and mandates sit beside each author's
+ * own page. Claims, evidence, revisions, and verdicts are never copied here.
+ */
+const caseTeamMemberSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
+  label: { type: String, default: '', trim: true },
+  roles: { type: [String], default: ['observe'] },
+  mandate: {
+    exposure: { type: String, enum: ['least', 'authored', 'full'], default: 'least' },
+    allowed: { type: [String], default: [] },
+    denied: { type: [String], default: [] }
+  },
+  grantedAt: { type: Date, default: Date.now },
+  grantedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  revokedAt: { type: Date, default: null }
+}, { _id: false });
+
+const caseTeamApprovalSchema = new mongoose.Schema({
+  receiptId: { type: String, default: '', trim: true },
+  actor: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    label: { type: String, default: '', trim: true }
+  },
+  authority: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  object: {
+    kind: { type: String, default: 'position', trim: true },
+    pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
+    versionHash: { type: String, default: '', trim: true }
+  },
+  conditions: { type: String, default: '', trim: true },
+  at: { type: Date, required: true },
+  supersededBy: { type: String, default: null }
+}, { _id: false });
+
+const caseTeamAuditSchema = new mongoose.Schema({
+  at: { type: Date, required: true },
+  actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  action: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  receiptId: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const caseTeamSchema = new mongoose.Schema({
+  hostPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, unique: true, index: true },
+  hostUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  hostLabel: { type: String, default: '', trim: true },
+  mandate: {
+    purpose: { type: String, default: '', trim: true },
+    exposure: { type: String, enum: ['least', 'authored', 'full'], default: 'least' },
+    allowed: { type: [String], default: [] },
+    denied: { type: [String], default: [] }
+  },
+  members: { type: [caseTeamMemberSchema], default: [] },
+  approvals: { type: [caseTeamApprovalSchema], default: [] },
+  handoffs: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  resolution: { type: mongoose.Schema.Types.Mixed, default: null },
+  audit: { type: [caseTeamAuditSchema], default: [] }
+}, { timestamps: true });
+
+caseTeamSchema.index({ hostUserId: 1, updatedAt: -1 });
+caseTeamSchema.index({ 'members.userId': 1, 'members.revokedAt': 1 });
+
+const CaseTeam = mongoose.model('CaseTeam', caseTeamSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -2903,5 +2969,6 @@ module.exports = {
   SharedConcept,
   SharedQuestion,
   CasebookLineage,
+  CaseTeam,
   dropLegacyConnectionIndex
 };

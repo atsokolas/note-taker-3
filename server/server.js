@@ -162,6 +162,7 @@ const {
   SharedConcept,
   SharedQuestion,
   CasebookLineage,
+  CaseTeam,
   WikiPage,
   WikiProposal,
   WikiRevision,
@@ -5454,7 +5455,9 @@ app.use(buildJudgmentResolutionRouter({
   WikiRevision,
   NoeisReceipt,
   WikiSourceEvent,
-  WikiMaintenanceRun
+  WikiMaintenanceRun,
+  CaseTeam,
+  CasebookLineage
 }));
 
 app.use(buildLibraryRelevanceRouter({

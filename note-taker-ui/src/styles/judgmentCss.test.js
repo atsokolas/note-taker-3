@@ -63,3 +63,14 @@ describe('the judgment ledger', () => {
     expect(css).not.toMatch(/confetti|toast|gamif/i);
   });
 });
+
+describe('the living team', () => {
+  it('keeps the overlay as ink and stills itself when motion is reduced', () => {
+    const room = css.match(/\.living-team\s*\{[^}]*\}/s)?.[0] || '';
+    expect(room).toBeTruthy();
+    expect(room).not.toMatch(/like-count|toast|backdrop-filter/);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.living-team__overlay,[\s\S]*?transition:\s*none/
+    );
+  });
+});

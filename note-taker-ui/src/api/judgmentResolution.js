@@ -84,3 +84,38 @@ export const resolveJudgmentLesson = async ({
   return response.data || {};
 };
 
+export const getLivingTeam = async ({ pageId, since = '' } = {}) => {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '';
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/team${query}`, getAuthHeaders());
+  return response.data?.team || response.data || null;
+};
+
+export const grantLivingTeamSeat = async ({
+  pageId, userId = '', memberPageId = '', roles = ['observe'], label = ''
+} = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/team/members`,
+    { requestId: requestId(), userId, memberPageId, pageId: memberPageId, roles, label },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const approveLivingTeamVersion = async ({ pageId, conditions = '' } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/team/approve`,
+    { requestId: requestId(), conditions },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const handOffLivingTeam = async ({ pageId, toUserId = '', toPageId = '', toLabel = '' } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/team/handoff`,
+    { requestId: requestId(), toUserId, toPageId, toLabel },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+

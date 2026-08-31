@@ -14,6 +14,15 @@ const {
   recordOutcome: persistOutcome,
   resolveLesson: persistLesson
 } = require('../services/judgmentLedgerService');
+const {
+  LivingTeamError,
+  approveVersion: persistApprove,
+  grantSeat: persistGrant,
+  handOffCase: persistHandoff,
+  readTeam: persistReadTeam,
+  revokeSeat: persistRevoke,
+  setMandate: persistMandate
+} = require('../services/livingTeamService');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
 
 const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
@@ -24,7 +33,11 @@ const requireHumanOwner = (req, res, next) => {
   return next();
 };
 const sendError = (res, error) => {
-  if (error instanceof JudgmentResolutionError || error instanceof JudgmentLedgerError) {
+  if (
+    error instanceof JudgmentResolutionError
+    || error instanceof JudgmentLedgerError
+    || error instanceof LivingTeamError
+  ) {
     return res.status(error.status).json({ error: error.message, code: error.code });
   }
   console.error('Error resolving Judgment:', error);
@@ -48,6 +61,12 @@ const buildJudgmentResolutionRouter = ({
   recordClock = persistClock,
   recordOutcome = persistOutcome,
   resolveLesson = persistLesson,
+  readTeam = persistReadTeam,
+  grantSeat = persistGrant,
+  revokeSeat = persistRevoke,
+  approveVersion = persistApprove,
+  handOffCase = persistHandoff,
+  setMandate = persistMandate,
   ...models
 } = {}) => {
   const router = express.Router();
@@ -213,6 +232,109 @@ const buildJudgmentResolutionRouter = ({
         relevance: req.body?.relevance
       });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.get('/api/judgment/pages/:pageId/team', authenticateToken, requireAuthenticatedUser, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const team = await readTeam({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        since: req.query?.since || null
+      });
+      return res.status(200).json({ team });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/team/members', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await grantSeat({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        requestId: req.body?.requestId,
+        memberUserId: req.body?.userId || req.body?.memberUserId,
+        memberPageId: req.body?.pageId || req.body?.memberPageId,
+        roles: req.body?.roles,
+        label: req.body?.label
+      });
+      return res.status(201).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/team/members/:memberUserId/revoke', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await revokeSeat({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        memberUserId: req.params.memberUserId,
+        requestId: req.body?.requestId
+      });
+      return res.status(200).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/team/mandate', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await setMandate({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        requestId: req.body?.requestId,
+        purpose: req.body?.purpose,
+        exposure: req.body?.exposure,
+        allowed: req.body?.allowed,
+        denied: req.body?.denied
+      });
+      return res.status(200).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/team/approve', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await approveVersion({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        requestId: req.body?.requestId,
+        conditions: req.body?.conditions
+      });
+      return res.status(result?.approval ? 201 : 200).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/team/handoff', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await handOffCase({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        requestId: req.body?.requestId,
+        toUserId: req.body?.toUserId || req.body?.userId,
+        toPageId: req.body?.toPageId || req.body?.pageId,
+        toLabel: req.body?.toLabel || req.body?.label
+      });
+      return res.status(201).json(result);
     } catch (error) {
       return sendError(res, error);
     }
