@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { Link } from 'react-router-dom';
 import useCssMagneticLerp from '../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
-import { clearSentenceHandoff, flySentenceInto, handOffSentence, peekSentenceHandoff } from '../motion/columnMotion';
+import { clearSentenceHandoff, flySentenceInto, handOffSentence } from '../motion/columnMotion';
 import { formatLedgerDate, isLibraryHref, newLineId } from './judgmentModel';
 import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sameWeek, sourceKinForCandidate, speaksWith, weekKey } from './judgmentLog';
+import { useFlightDecision } from '../motion/useFlightDecision';
 
 const AUTOSAVE_PAUSE_MS = 700;
 const KIND_MARK = 22;
@@ -79,7 +80,7 @@ const LogRow = ({ entry, kin, arriving, onKin }) => {
   const related = kin?.week
     ? sameWeek(entry.at, kin)
     : entry.sources.some(source => speaksWith(source, kin));
-  const willFly = arriving && peekSentenceHandoff()?.sentence === String(entry.text || '').replace(/\s+/g, ' ').trim();
+  const willFly = useFlightDecision(arriving, entry.text);
   const when = formatLedgerDate(entry.at);
   const week = weekKey(entry.at);
 

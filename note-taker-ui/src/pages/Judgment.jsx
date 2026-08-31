@@ -1089,12 +1089,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     view?.claim
       ? {
         subject: view.claim,
-        /* Not declaring boundSources here yet, deliberately. The count is
-           correct (view.boundSourceCount) but it changes exactly when a line
-           lands, and re-rendering the surface at that moment consumes the
-           one-shot sentence handoff that LogRow reads during render — the
-           flight degrades to a plain arrival. The latch belongs in LogRow,
-           not in a workaround here. */
+        boundSources: view.boundSourceCount,
         empty: 'Nothing to retrieve until you ask.'
       }
       : {
