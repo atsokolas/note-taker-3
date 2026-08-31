@@ -2,6 +2,7 @@ const assert = require('assert');
 const mongoose = require('mongoose');
 const {
   JudgmentResolutionError,
+  fileJudgmentEvidence,
   recordVerdict,
   setResolutionCriteria
 } = require('./judgmentResolutionService');
@@ -9,6 +10,8 @@ const {
 const USER_ID = '64f500000000000000000001';
 const PAGE_ID = '64f500000000000000000010';
 const SOURCE_ID = '64f500000000000000000020';
+const ARTICLE_ID = '64f500000000000000000030';
+const HIGHLIGHT_ID = '64f500000000000000000040';
 const CLAIM = 'The cost advantage will persist.';
 const receipts = new Map();
 const revisions = [];
@@ -34,7 +37,10 @@ const page = {
     resolutionHorizonAt: null,
     resolutionSetAt: null,
     resolutionHistory: [],
-    verdicts: []
+    verdicts: [],
+    why: [],
+    against: [],
+    evidenceResponses: []
   },
   markModified() {},
   async save() { return this; },
@@ -54,6 +60,25 @@ const WikiPage = {
   db: { startSession: async () => session },
   findOne: query => new Query(String(query._id) === PAGE_ID && String(query.userId) === USER_ID ? page : null)
 };
+const article = {
+  _id: ARTICLE_ID,
+  userId: USER_ID,
+  title: 'Capacity notes',
+  highlights: [{
+    _id: HIGHLIGHT_ID,
+    text: 'Deliverable capacity still lags demand.',
+    createdAt: new Date('2026-08-30T12:00:00.000Z')
+  }]
+};
+const Article = {
+  findOne: query => new Query(
+    String(query._id) === ARTICLE_ID
+    && String(query.userId) === USER_ID
+    && String(query['highlights._id']) === HIGHLIGHT_ID
+      ? article
+      : null
+  )
+};
 const NoeisReceipt = {
   findOne: query => new Query(receipts.get(query.receiptId) || null),
   findOneAndUpdate: async (query, update) => {
@@ -62,7 +87,7 @@ const NoeisReceipt = {
     return stored;
   }
 };
-const models = { WikiPage, WikiRevision, NoeisReceipt };
+const models = { WikiPage, WikiRevision, NoeisReceipt, Article };
 
 (async () => {
   const clock = () => new Date('2026-08-31T12:00:00.000Z');
@@ -131,6 +156,38 @@ const models = { WikiPage, WikiRevision, NoeisReceipt };
       result: 'partly', note: 'Margins compressed, but not below the threshold.', evidenceSourceRefIds: [SOURCE_ID], now: clock
     }),
     error => error instanceof JudgmentResolutionError && error.code === 'receipt_integrity_failed'
+  );
+
+  const evidence = await fileJudgmentEvidence({
+    ...models, userId: USER_ID, pageId: PAGE_ID, requestId: 'evidence-1', expectedClaim: CLAIM,
+    field: 'against', articleId: ARTICLE_ID, highlightId: HIGHLIGHT_ID, now: clock
+  });
+  assert.strictEqual(evidence.idempotent, false);
+  assert.strictEqual(page.judgment.against.length, 1);
+  assert.deepStrictEqual(page.judgment.against[0], {
+    reasonId: page.judgment.evidenceResponses[0].reasonId,
+    text: 'Deliverable capacity still lags demand.',
+    sourceRefIds: [],
+    sourceLabel: 'Capacity notes',
+    acceptedFrom: `highlight:${ARTICLE_ID}:${HIGHLIGHT_ID}`,
+    createdAt: clock()
+  });
+  assert.strictEqual(page.judgment.evidenceResponses[0].sourceArrivedAt.toISOString(), '2026-08-30T12:00:00.000Z');
+  assert.strictEqual(page.judgment.evidenceResponses[0].claimHash, evidence.artifact.claimHash);
+
+  const evidenceReplay = await fileJudgmentEvidence({
+    ...models, userId: USER_ID, pageId: PAGE_ID, requestId: 'evidence-1', expectedClaim: CLAIM,
+    field: 'against', articleId: ARTICLE_ID, highlightId: HIGHLIGHT_ID, now: clock
+  });
+  assert.strictEqual(evidenceReplay.idempotent, true);
+  assert.strictEqual(page.judgment.against.length, 1);
+
+  await assert.rejects(
+    () => fileJudgmentEvidence({
+      ...models, userId: USER_ID, pageId: PAGE_ID, requestId: 'evidence-2', expectedClaim: CLAIM,
+      field: 'why', articleId: ARTICLE_ID, highlightId: HIGHLIGHT_ID, now: clock
+    }),
+    error => error instanceof JudgmentResolutionError && error.code === 'evidence_already_filed'
   );
 
   console.log('judgmentResolutionService tests passed');

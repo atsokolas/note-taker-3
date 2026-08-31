@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   JudgmentResolutionError,
+  fileJudgmentEvidence: persistEvidence,
   recordVerdict: persistVerdict,
   setResolutionCriteria: persistCriteria
 } = require('../services/judgmentResolutionService');
@@ -54,6 +55,7 @@ const serialize = result => ({
 const buildJudgmentResolutionRouter = ({
   authenticateToken,
   setResolutionCriteria = persistCriteria,
+  fileJudgmentEvidence = persistEvidence,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
   buildJudgmentAudit = readAudit,
@@ -86,7 +88,8 @@ const buildJudgmentResolutionRouter = ({
         pages: pages || [],
         now: new Date(),
         userId: req.user.id,
-        stat
+        stat,
+        counterevidence: pageMirror.counterevidence
       });
       return res.status(200).json({
         ...claimMirror,
@@ -140,6 +143,25 @@ const buildJudgmentResolutionRouter = ({
         result: req.body?.result,
         note: req.body?.note,
         evidenceSourceRefIds: req.body?.evidenceSourceRefIds
+      });
+      return res.status(result.idempotent ? 200 : 201).json(serialize(result));
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/evidence', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await fileJudgmentEvidence({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        requestId: req.body?.requestId,
+        expectedClaim: req.body?.expectedClaim,
+        field: req.body?.field,
+        articleId: req.body?.articleId,
+        highlightId: req.body?.highlightId
       });
       return res.status(result.idempotent ? 200 : 201).json(serialize(result));
     } catch (error) {

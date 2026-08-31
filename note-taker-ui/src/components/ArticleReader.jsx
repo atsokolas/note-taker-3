@@ -8,6 +8,7 @@ import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
 import MagneticReadingRail from './reader/MagneticReadingRail';
+import PassageDoor from './reader/PassageDoorView';
 import {
   connectedJudgmentIds,
   pickFolioLine,
@@ -135,6 +136,20 @@ const ArticleReader = ({
     preferredId: preferredClaimId,
     search: typeof window === 'undefined' ? '' : window.location.search
   }), [article?._id, folioPages, graphConnections, highlights, preferredClaimId]);
+  const passageDoorFor = (highlight, index) => {
+    const highlightId = highlight?._id || highlight?.id || '';
+    if (!highlightId) return null;
+    return (
+      <PassageDoor
+        key={`passage-door-${highlightId}-${index}`}
+        articleId={article?._id || ''}
+        highlightId={highlightId}
+        pages={folioPages}
+        preferredId={preferredClaimId}
+        text={highlight?.text || ''}
+      />
+    );
+  };
 
   useEffect(() => {
     if (!selectionState.isOpen) return;
@@ -324,6 +339,7 @@ const ArticleReader = ({
                     {highlight?.note && (
                       <p className="article-highlight-edition__note">{highlight.note}</p>
                     )}
+                    {passageDoorFor(highlight, index)}
                   </li>
                 );
               })}
@@ -331,7 +347,12 @@ const ArticleReader = ({
           </section>
         </div>
       ) : (
-        <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+        <>
+          <div className="article-reader-content reader" ref={contentRef} dangerouslySetInnerHTML={contentMarkup} />
+          <div className="article-passage-threads" aria-label="Connections to held judgments">
+            {highlights.map(passageDoorFor)}
+          </div>
+        </>
       )}
       {/* The source record — who wrote it, when it was saved, where else it is
           used — sat between the headline and the first paragraph, so every

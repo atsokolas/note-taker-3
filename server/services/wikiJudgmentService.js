@@ -304,6 +304,7 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
     clocks: Array.isArray(prior.clocks) ? prior.clocks : [],
     outcomes: Array.isArray(prior.outcomes) ? prior.outcomes : [],
     lessonApplications: Array.isArray(prior.lessonApplications) ? prior.lessonApplications : [],
+    evidenceResponses: Array.isArray(prior.evidenceResponses) ? prior.evidenceResponses : [],
     /* Per-case overnight silence. Not an event ignore — the same filing may
        still matter to another claim. */
     dismissedOvernightEventIds: cleanList(next.dismissedOvernightEventIds, 80)

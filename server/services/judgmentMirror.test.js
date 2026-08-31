@@ -10,6 +10,13 @@ const page = ({ userId = 'user-a', claims = [], judgment = {} } = {}) => ({
 
 describe('the Mirror', () => {
   const now = new Date('2026-09-01T12:00:00.000Z');
+  const counterevidence = [{
+    pageId: 'page-user-a-held-2',
+    claimId: 'held-2',
+    text: 'Demand stays lumpy.',
+    href: '/judgment/page-user-a-held-2',
+    days: 10
+  }];
 
   const corpus = [
     page({
@@ -55,7 +62,7 @@ describe('the Mirror', () => {
   ];
 
   it('aggregates this user’s claims and traces every stat to its rows', () => {
-    const mirror = buildJudgmentMirror({ pages: corpus, now, userId: 'user-a' });
+    const mirror = buildJudgmentMirror({ pages: corpus, now, userId: 'user-a', counterevidence });
     expect(mirror.userId).toBe('user-a');
     expect(mirror.stats.held.value).toBe(2);
     expect(mirror.stats.held.href).toBe('/judgment/mirror?stat=held');
@@ -78,7 +85,9 @@ describe('the Mirror', () => {
     expect(held.claims.map((row) => row.claimId).sort()).toEqual(['held-1', 'held-2']);
     expect(held.claims[0].href).toMatch(/^\/judgment\//);
 
-    const lag = buildJudgmentMirror({ pages: corpus, now, userId: 'user-a', stat: 'counter-evidence' });
+    const lag = buildJudgmentMirror({
+      pages: corpus, now, userId: 'user-a', stat: 'counter-evidence', counterevidence
+    });
     expect(lag.claims).toEqual([expect.objectContaining({ claimId: 'held-2', days: 10 })]);
 
     const verdicts = buildJudgmentMirror({ pages: corpus, now, userId: 'user-a', stat: 'verdicts' });
