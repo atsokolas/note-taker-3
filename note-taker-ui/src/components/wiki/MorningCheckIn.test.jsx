@@ -94,6 +94,7 @@ describe('MorningCheckIn', () => {
       resolutionCriteria: 'Utilisation falls two quarters.',
       horizon: null
     }));
+    expect(await screen.findByText('Noted.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Still hold' }));
     await waitFor(() => expect(recordClaimCheckIn).toHaveBeenCalledWith({

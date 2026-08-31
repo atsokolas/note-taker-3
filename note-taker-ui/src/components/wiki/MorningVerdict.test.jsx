@@ -46,7 +46,7 @@ describe('MorningVerdict', () => {
       trigger: 'horizon',
       sourceEventId: ''
     }));
-    expect(screen.getByRole('button', { name: 'Held up' })).toHaveClass('is-inked');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Held up' })).toHaveClass('is-inked'));
     expect(screen.getByText(/held up · 1st · horizon/)).toBeInTheDocument();
   });
 

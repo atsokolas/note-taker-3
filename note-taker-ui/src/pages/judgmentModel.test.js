@@ -345,7 +345,11 @@ describe('judgmentModel', () => {
       { id: 'suggest-1', body: 'Signed capacity slips two quarters.' },
       'criteria'
     );
-    expect(filed.falsifiers.map((row) => row.text)).toEqual(['Signed capacity slips two quarters.']);
+    expect(filed.falsifiers.map((row) => row.text)).toEqual([
+      'Confirmed signed capacity converts within 90 days.',
+      'A retired condition.',
+      'Signed capacity slips two quarters.'
+    ]);
     expect(filed.why).toEqual(page().judgment.why);
   });
 
