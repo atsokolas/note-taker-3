@@ -1,10 +1,10 @@
 import { getCached, setCached } from '../utils/cache';
-import { setArticleEvergreen } from './articles';
+import { getArticleEvergreen, setArticleEvergreen } from './articles';
 import api from '../api';
 
 jest.mock('../api', () => ({
   __esModule: true,
-  default: { patch: jest.fn() }
+  default: { get: jest.fn(), patch: jest.fn() }
 }));
 
 jest.mock('../hooks/useAuthHeaders', () => ({
@@ -12,6 +12,21 @@ jest.mock('../hooks/useAuthHeaders', () => ({
 }));
 
 describe('setArticleEvergreen', () => {
+  beforeEach(() => {
+    api.get.mockReset();
+    api.patch.mockReset();
+  });
+
+  it('reads the narrow owner-scoped Keep projection once', async () => {
+    api.get.mockResolvedValue({
+      data: { _id: 'a1', evergreen: true, evergreenAt: '2026-08-29T12:00:00.000Z' }
+    });
+
+    const state = await getArticleEvergreen('a1');
+    expect(state.evergreen).toBe(true);
+    expect(api.get).toHaveBeenCalledWith('/articles/a1/evergreen', expect.anything());
+  });
+
   it('clears article and library room caches so Keep still reads after reload', async () => {
     api.patch.mockResolvedValue({
       data: { _id: 'a1', evergreen: true, evergreenAt: '2026-08-29T12:00:00.000Z' }

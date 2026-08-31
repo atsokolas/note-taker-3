@@ -19,6 +19,8 @@ export const resolveNotebookSource = (entry) => {
   if (articleId) {
     return {
       kind: 'library',
+      articleId,
+      highlightId,
       label: clean(sourceBlock?.articleTitle) || 'the saved source',
       href: buildCanonicalHighlightPath({ articleId, highlightId }),
       eyebrow: 'Ariadne thread · Library',

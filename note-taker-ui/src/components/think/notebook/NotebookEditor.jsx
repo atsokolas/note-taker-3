@@ -10,6 +10,7 @@ import ReturnLaterControl from '../../return-queue/ReturnLaterControl';
 import InsertHighlightModal from './InsertHighlightModal';
 import InsertReferenceModal from './InsertReferenceModal';
 import AgentSkillDock from '../../agent/AgentSkillDock';
+import EvergreenToggle from '../../EvergreenToggle';
 import EditorDraftShell from '../editor/EditorDraftShell';
 import useSlashCommands from '../editor/useSlashCommands';
 import useThinkWritingActivity from '../editor/useThinkWritingActivity';
@@ -25,6 +26,7 @@ import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/org
 import { listWikiPages } from '../../../api/wiki';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import { resolveNotebookSource } from './notebookSourceModel';
+import useNotebookSourceEvergreen from './useNotebookSourceEvergreen';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -294,8 +296,11 @@ const NotebookEditor = ({
   showInlineAgentDock = true,
   agentContextType = 'notebook',
   agentContextId = '',
-  agentContextTitle = ''
+  agentContextTitle = '',
+  sourceEvergreen = null
 }) => {
+  const liveSourceEvergreen = useNotebookSourceEvergreen(entry);
+  const resolvedSourceEvergreen = sourceEvergreen || liveSourceEvergreen;
   const slashSurfaceRef = useRef(null);
   const slashKeyDownRef = useRef(() => false);
   const referenceTriggerRef = useRef(null);
@@ -864,6 +869,13 @@ const NotebookEditor = ({
                 <a className="ui-quiet-button think-notebook-editor-provenance__link" href={notebookSourceMeta.href}>
                   {notebookSourceMeta.action}
                 </a>
+              ) : resolvedSourceEvergreen?.status === 'ready' ? (
+                <EvergreenToggle
+                  className="think-notebook-editor-provenance__keep"
+                  evergreen={resolvedSourceEvergreen.evergreen}
+                  label={resolvedSourceEvergreen.evergreen ? 'Kept in Library' : 'Keep source'}
+                  onChange={resolvedSourceEvergreen.setEvergreen}
+                />
               ) : null}
             </div>
           </div>

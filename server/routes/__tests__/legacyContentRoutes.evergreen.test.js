@@ -36,11 +36,14 @@ const documentFor = () => {
 };
 
 const Article = {
-  findOne: ({ _id, userId }) => (
-    String(_id) === ARTICLE_ID && String(userId) === USER_ID
-      ? documentFor()
-      : Promise.resolve(null)
-  ),
+  findOne: ({ _id, userId }) => {
+    if (String(_id) === ARTICLE_ID && String(userId) === USER_ID) return documentFor();
+    const query = Promise.resolve(null);
+    query.select = () => query;
+    query.populate = () => query;
+    query.lean = async () => null;
+    return query;
+  },
   updateOne: async () => ({})
 };
 
@@ -100,6 +103,14 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual(reloaded.body.content, '<p>Readable copy.</p>');
     assert.strictEqual(reloaded.body.pdfs, undefined, 'reader response must not serialize PDF attachments');
     assert.strictEqual(reloaded.body.highlights, undefined, 'reader response must not duplicate the highlights endpoint');
+
+    const keptState = await request(`/articles/${ARTICLE_ID}/evergreen`);
+    assert.strictEqual(keptState.response.status, 200, 'Think may read the owner-scoped Keep state');
+    assert.deepStrictEqual(Object.keys(keptState.body).sort(), ['_id', 'evergreen', 'evergreenAt']);
+    assert.strictEqual(keptState.body.evergreen, true);
+
+    const foreignState = await request('/articles/64f100000000000000000099/evergreen');
+    assert.strictEqual(foreignState.response.status, 404, 'foreign or absent sources fail closed');
 
     console.log('legacy content evergreen persist tests passed');
   } catch (error) {

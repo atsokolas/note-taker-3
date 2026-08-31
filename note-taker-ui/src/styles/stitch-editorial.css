@@ -9419,6 +9419,11 @@ body.noeis-editorial .think-notebook-editor-provenance__link {
   align-self: center;
 }
 
+body.noeis-editorial .think-notebook-editor-provenance__keep {
+  align-self: center;
+  white-space: nowrap;
+}
+
 body.noeis-editorial .references-panel__group {
   display: grid;
   gap: 8px;
