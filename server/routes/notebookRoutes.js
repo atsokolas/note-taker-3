@@ -498,8 +498,13 @@ const buildNotebookRouter = ({
           id: createBlockId(),
           type: 'highlight_embed',
           text: highlight.text || '',
-          highlightId
+          highlightId,
+          articleId: highlight.articleId || null,
+          articleTitle: highlight.articleTitle || ''
         });
+      }
+      if (!entry.linkedArticleId && highlight.articleId) {
+        entry.linkedArticleId = highlight.articleId;
       }
       entry.linkedHighlightIds = entry.linkedHighlightIds || [];
       if (!entry.linkedHighlightIds.some(id => String(id) === String(highlightId))) {

@@ -33,6 +33,17 @@ export const recordJudgmentVerdict = async ({
   return response.data || {};
 };
 
+export const fileJudgmentEvidence = async ({
+  pageId, expectedClaim, field, articleId, highlightId
+}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/evidence`,
+    { requestId: requestId(), expectedClaim, field, articleId, highlightId },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
 export const getJudgmentLedger = async ({ pageId, at = '' } = {}) => {
   const query = at ? `?at=${encodeURIComponent(at)}` : '';
   const response = await api.get(`/api/judgment/pages/${safe(pageId)}/ledger${query}`, getAuthHeaders());
@@ -83,7 +94,6 @@ export const resolveJudgmentLesson = async ({
   );
   return response.data || {};
 };
-
 export const getLivingTeam = async ({ pageId, since = '' } = {}) => {
   const query = since ? `?since=${encodeURIComponent(since)}` : '';
   const response = await api.get(`/api/judgment/pages/${safe(pageId)}/team${query}`, getAuthHeaders());
@@ -118,4 +128,3 @@ export const handOffLivingTeam = async ({ pageId, toUserId = '', toPageId = '', 
   );
   return response.data || {};
 };
-

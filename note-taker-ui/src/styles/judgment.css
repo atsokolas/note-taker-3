@@ -2215,7 +2215,6 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   color: var(--danger, #8b3328);
   font: 400 0.82rem/1.5 var(--font-sans, sans-serif);
 }
-
 /* One accepted write, one quiet thread. It lives over the page rather than in
    layout, so neither the claim nor its receipt moves while provenance arrives. */
 .ariadne-thread {

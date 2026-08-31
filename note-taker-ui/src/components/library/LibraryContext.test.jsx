@@ -1,13 +1,14 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { listWikiPages, updateWikiPage } from '../../api/wiki';
+import { listWikiPages } from '../../api/wiki';
+import { fileJudgmentEvidence } from '../../api/judgmentResolution';
 import LibraryContext from './LibraryContext';
 
 jest.mock('../../api/wiki', () => ({
-  listWikiPages: jest.fn(async () => []),
-  updateWikiPage: jest.fn(async (id, body) => ({ _id: id, ...body }))
+  listWikiPages: jest.fn(async () => [])
 }));
+jest.mock('../../api/judgmentResolution', () => ({ fileJudgmentEvidence: jest.fn() }));
 
 jest.mock('../references/ReferencePullIn', () => (props) => (
   <div
@@ -224,7 +225,13 @@ describe('LibraryContext', () => {
         against: []
       }
     }]);
-    updateWikiPage.mockImplementation(async (id, body) => ({ _id: id, judgment: body.judgment }));
+    fileJudgmentEvidence.mockResolvedValue({
+      judgment: {
+        currentJudgment: 'Demand still outruns deliverable capacity.',
+        why: [{ acceptedFrom: 'highlight:article-1:highlight-1' }],
+        against: []
+      }
+    });
 
     renderContext({
       articleHighlights: [
@@ -238,10 +245,13 @@ describe('LibraryContext', () => {
     });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Why' }));
-    await waitFor(() => expect(updateWikiPage).toHaveBeenCalled());
-    expect(updateWikiPage.mock.calls[0][0]).toBe('wiki-compute');
-    expect(updateWikiPage.mock.calls[0][1].judgment.why.at(-1).acceptedFrom)
-      .toBe('highlight:article-1:highlight-1');
+    await waitFor(() => expect(fileJudgmentEvidence).toHaveBeenCalled());
+    expect(fileJudgmentEvidence.mock.calls[0][0]).toMatchObject({
+      pageId: 'wiki-compute',
+      field: 'why',
+      articleId: 'article-1',
+      highlightId: 'highlight-1'
+    });
     expect(await screen.findByTestId('passage-door')).toHaveTextContent('Why');
     expect(screen.queryByTestId('passage-door-offer')).not.toBeInTheDocument();
   });

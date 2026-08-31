@@ -67,23 +67,6 @@ const daysBetween = (from, to) => {
   return Math.max(0, (end - start) / DAY);
 };
 
-const firstConflictedAt = (claim) => {
-  const hit = historyOf(claim).find((row) => String(row?.support) === 'conflicted');
-  if (hit?.at) return hit.at;
-  const evidence = verdictsOf(claim).find((row) => row.trigger === 'evidence');
-  return evidence?.at || null;
-};
-
-const firstRevisionAfter = (claim, after) => {
-  const start = time(after);
-  if (Number.isNaN(start)) return null;
-  const hit = historyOf(claim).find((row) => (
-    String(row?.action || row?.event) === 'revised'
-    && time(row?.at) >= start
-  ));
-  return hit?.at || null;
-};
-
 const latestVerdict = (claim) => {
   const rows = verdictsOf(claim);
   if (!rows.length) return null;
@@ -106,7 +89,6 @@ const collect = (pages = {}, now = new Date()) => {
     unresolvable: [],
     right_for_wrong_reasons: []
   };
-  const counter = [];
 
   walkClaims(pages, (page, claim) => {
     if (!claim?.claimId) return;
@@ -129,15 +111,9 @@ const collect = (pages = {}, now = new Date()) => {
         at: last.at
       }));
     }
-    const conflictedAt = firstConflictedAt(claim);
-    const revisedAt = firstRevisionAfter(claim, conflictedAt);
-    const lag = daysBetween(conflictedAt, revisedAt);
-    if (lag != null) {
-      counter.push(claimRow(page, claim, { days: roundDays(lag), conflictedAt, revisedAt }));
-    }
   });
 
-  return { held, holdTimes, revised, checked, byVerdict, counter };
+  return { held, holdTimes, revised, checked, byVerdict };
 };
 
 const formatDays = (value) => {
@@ -153,14 +129,16 @@ const CLAIMS_FOR_STAT = {
   'hold-time': (bundle) => bundle.held,
   revisions: (bundle) => bundle.revised,
   verdicts: (bundle) => Object.values(bundle.byVerdict).flat(),
-  'counter-evidence': (bundle) => bundle.counter
+  'counter-evidence': (_bundle, exactCounterevidence = []) => exactCounterevidence
 };
 
 /**
  * @param {{ pages: object[], now?: Date|number, userId?: string, stat?: string }} options
  * userId is recorded so the caller cannot forget whose ledger this is.
  */
-const buildJudgmentMirror = ({ pages = [], now = new Date(), userId = '', stat = '' } = {}) => {
+const buildJudgmentMirror = ({
+  pages = [], now = new Date(), userId = '', stat = '', counterevidence = []
+} = {}) => {
   const at = now instanceof Date ? now : new Date(now);
   const bundle = collect(pages, at);
   const checkedCount = bundle.checked.length;
@@ -168,9 +146,10 @@ const buildJudgmentMirror = ({ pages = [], now = new Date(), userId = '', stat =
     ? bundle.revised.length / checkedCount
     : null;
   const avgHold = mean(bundle.holdTimes);
-  const avgLag = mean(bundle.counter.map((row) => row.days));
+  const exactCounterevidence = Array.isArray(counterevidence) ? counterevidence : [];
+  const avgLag = mean(exactCounterevidence.map((row) => Number(row?.days)));
   const wanted = STATS.includes(String(stat)) ? String(stat) : '';
-  const claims = wanted ? CLAIMS_FOR_STAT[wanted](bundle) : [];
+  const claims = wanted ? CLAIMS_FOR_STAT[wanted](bundle, exactCounterevidence) : [];
 
   return {
     userId: String(userId || ''),
@@ -220,9 +199,9 @@ const buildJudgmentMirror = ({ pages = [], now = new Date(), userId = '', stat =
       },
       counterEvidence: {
         id: 'counter-evidence',
-        label: 'Time from counter-evidence to revision',
+        label: 'Time from counter-evidence to response',
         value: roundDays(avgLag),
-        display: bundle.counter.length ? formatDays(avgLag) : '—',
+        display: exactCounterevidence.length ? formatDays(avgLag) : '—',
         href: '/judgment/mirror?stat=counter-evidence'
       }
     },

@@ -208,7 +208,6 @@ const HighlightCard = ({
             highlightId={highlightId}
             articleId={highlight?.articleId}
             text={highlight?.text}
-            sourceLabel={highlight?.articleTitle}
           />
           <div className="highlight-card-collapsed-meta">
             <span className={`item-type-badge item-type-${String(itemType || 'note').toLowerCase()}`}>

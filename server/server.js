@@ -5451,6 +5451,7 @@ app.use(buildDecisionMutationRouter({
 
 app.use(buildJudgmentResolutionRouter({
   authenticateToken: authenticateUserOrAgentToken,
+  Article,
   WikiPage,
   WikiRevision,
   NoeisReceipt,

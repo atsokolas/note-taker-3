@@ -32,10 +32,20 @@ const LibraryNotebookModal = ({ open, highlight, onClose, onSend }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data?._id) {
-        onSend(highlight, res.data._id);
+        await onSend(highlight, res.data._id);
       }
     } catch (err) {
       console.error('Error creating notebook entry:', err);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!selectedId || creating) return;
+    setCreating(true);
+    try {
+      await onSend(highlight, selectedId);
     } finally {
       setCreating(false);
     }
@@ -78,8 +88,8 @@ const LibraryNotebookModal = ({ open, highlight, onClose, onSend }) => {
           <Button variant="secondary" onClick={handleCreate} disabled={creating || !query.trim()}>
             {creating ? 'Creating…' : 'Create new'}
           </Button>
-          <Button onClick={() => onSend(highlight, selectedId)} disabled={!selectedId}>
-            Send
+          <Button onClick={handleSend} disabled={!selectedId || creating}>
+            {creating ? 'Opening…' : 'Send and open'}
           </Button>
         </div>
       </div>

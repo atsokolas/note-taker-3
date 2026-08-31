@@ -1,52 +1,42 @@
 import React, { useMemo } from 'react';
 import { SectionHeader, TagChip } from '../../ui';
 import ReferencesPanel from '../../ReferencesPanel';
+import { listNotebookHighlightReferences, resolveNotebookSource } from './notebookSourceModel';
 
 const NotebookContext = ({ entry }) => {
-  const conceptSource = useMemo(() => {
-    const sourceType = String(entry?.importMeta?.sourceType || '').trim().toLowerCase();
-    if (sourceType !== 'concept') return null;
-    const sourceLabel = String(entry?.importMeta?.sourceLabel || '').trim() || 'Source concept';
-    const sourceUrl = String(entry?.importMeta?.sourceUrl || '').trim()
-      || `/think?tab=concepts&concept=${encodeURIComponent(sourceLabel)}`;
-    const draftTemplateLabel = String(entry?.importMeta?.draftTemplateLabel || '').trim();
-    const importedAt = entry?.importMeta?.importedAt ? new Date(entry.importMeta.importedAt) : null;
-    return {
-      label: sourceLabel,
-      href: sourceUrl,
-      draftTemplateLabel,
-      importedAt: importedAt && !Number.isNaN(importedAt.getTime())
-        ? importedAt.toLocaleDateString()
-        : ''
-    };
-  }, [entry]);
-  const highlightRefs = useMemo(() => {
-    if (!entry?.blocks) return [];
-    return entry.blocks.filter(block => (
-      block.type === 'highlight-ref' || block.type === 'highlight_embed'
-    )).slice(0, 6);
-  }, [entry]);
+  const notebookSource = useMemo(() => resolveNotebookSource(entry), [entry]);
+  const highlightRefs = useMemo(() => listNotebookHighlightReferences(entry), [entry]);
 
   return (
     <>
       <section className="editorial-side-rail__section notebook-context__section">
         <SectionHeader title="Notebook source" subtitle="Where this draft started." />
-        {conceptSource ? (
-          <div className="notebook-context__source">
-            <span className="notebook-context__source-kicker">
-              {conceptSource.draftTemplateLabel
-                ? `Concept handoff · ${conceptSource.draftTemplateLabel}`
-                : 'Concept handoff'}
-            </span>
-            <a className="notebook-context__source-link" href={conceptSource.href}>
-              Continue from {conceptSource.label}
+        {notebookSource?.kind === 'library' ? (
+          <div className="notebook-context__source notebook-context__source--library">
+            <span className="notebook-context__source-kicker">{notebookSource.eyebrow}</span>
+            <a className="notebook-context__source-link" href={notebookSource.href}>
+              Return to {notebookSource.label}
             </a>
             <p className="muted small">
-              {conceptSource.draftTemplateLabel
-                ? `${conceptSource.draftTemplateLabel} spun out from the concept. `
+              This thread returns to the exact saved passage that entered the page.
+            </p>
+          </div>
+        ) : notebookSource?.kind === 'concept' ? (
+          <div className="notebook-context__source">
+            <span className="notebook-context__source-kicker">
+              {notebookSource.draftTemplateLabel
+                ? `Concept handoff · ${notebookSource.draftTemplateLabel}`
+                : 'Concept handoff'}
+            </span>
+            <a className="notebook-context__source-link" href={notebookSource.href}>
+              Continue from {notebookSource.label}
+            </a>
+            <p className="muted small">
+              {notebookSource.draftTemplateLabel
+                ? `${notebookSource.draftTemplateLabel} spun out from the concept. `
                 : ''}
               Bring the draft forward here, then return to the concept when the underlying idea changes.
-              {conceptSource.importedAt ? ` Started from the concept on ${conceptSource.importedAt}.` : ''}
+              {notebookSource.importedAt ? ` Started from the concept on ${notebookSource.importedAt}.` : ''}
             </p>
           </div>
         ) : (

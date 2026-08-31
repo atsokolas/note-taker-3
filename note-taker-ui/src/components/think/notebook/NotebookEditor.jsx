@@ -24,6 +24,7 @@ import { buildDocFromBlocks, ensureBlockIds, serializeBlocksFromDoc } from '../.
 import { getNotebookClaimEvidence, searchNotebookClaims } from '../../../api/organize';
 import { listWikiPages } from '../../../api/wiki';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
+import { resolveNotebookSource } from './notebookSourceModel';
 import '../../../styles/think-writing.css';
 
 const AUTOSAVE_DELAY_MS = 850;
@@ -40,13 +41,6 @@ const ITEM_TYPES = [
 ];
 
 const EMPTY_CLAIM_CANDIDATES = [];
-
-const formatImportedDate = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString();
-};
 
 const ListIndentExtension = Extension.create({
   name: 'listIndent',
@@ -599,18 +593,7 @@ const NotebookEditor = ({
     };
   }, [organizeOpen, claimEvidenceOpen, entryType, entry?._id, entry?.type]);
 
-  const notebookSourceMeta = useMemo(() => {
-    const sourceType = String(entry?.importMeta?.sourceType || '').trim().toLowerCase();
-    if (sourceType !== 'concept') return null;
-    const sourceLabel = String(entry?.importMeta?.sourceLabel || '').trim() || 'Source concept';
-    return {
-      label: sourceLabel,
-      draftTemplateLabel: String(entry?.importMeta?.draftTemplateLabel || '').trim(),
-      href: String(entry?.importMeta?.sourceUrl || '').trim()
-        || `/think?tab=concepts&concept=${encodeURIComponent(sourceLabel)}`,
-      importedAt: formatImportedDate(entry?.importMeta?.importedAt)
-    };
-  }, [entry]);
+  const notebookSourceMeta = useMemo(() => resolveNotebookSource(entry), [entry]);
 
   const addTag = () => {
     const nextTag = tagInput.trim();
@@ -852,26 +835,36 @@ const NotebookEditor = ({
           </p>
         </div>
         {notebookSourceMeta && (
-          <div className="think-notebook-editor-provenance">
+          <div className={`think-notebook-editor-provenance think-notebook-editor-provenance--${notebookSourceMeta.kind}`}>
             <span className="think-notebook-editor-provenance__eyebrow">
-              {notebookSourceMeta.draftTemplateLabel
-                ? `Derived from concept · ${notebookSourceMeta.draftTemplateLabel}`
-                : 'Derived from concept'}
+              {notebookSourceMeta.eyebrow}
             </span>
             <div className="think-notebook-editor-provenance__body">
               <div>
-                <a href={notebookSourceMeta.href}>{notebookSourceMeta.label}</a>
+                <a href={notebookSourceMeta.href}>
+                  {notebookSourceMeta.kind === 'library'
+                    ? `Return to ${notebookSourceMeta.label}`
+                    : notebookSourceMeta.label}
+                </a>
                 <p>
-                  {notebookSourceMeta.draftTemplateLabel
-                    ? `${notebookSourceMeta.draftTemplateLabel} spun out from the concept. `
-                    : ''}
-                  Keep drafting here. Return to the concept when the underlying idea shifts, new support appears, or the tension changes.
-                  {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
+                  {notebookSourceMeta.kind === 'library' ? (
+                    'This page keeps the exact passage that started the thought. Follow the thread back without losing your place.'
+                  ) : (
+                    <>
+                      {notebookSourceMeta.draftTemplateLabel
+                        ? `${notebookSourceMeta.draftTemplateLabel} spun out from the concept. `
+                        : ''}
+                      Keep drafting here. Return to the concept when the underlying idea shifts, new support appears, or the tension changes.
+                      {notebookSourceMeta.importedAt ? ` Started here on ${notebookSourceMeta.importedAt}.` : ''}
+                    </>
+                  )}
                 </p>
               </div>
-              <a className="ui-quiet-button think-notebook-editor-provenance__link" href={notebookSourceMeta.href}>
-                Open concept
-              </a>
+              {notebookSourceMeta.kind === 'concept' ? (
+                <a className="ui-quiet-button think-notebook-editor-provenance__link" href={notebookSourceMeta.href}>
+                  {notebookSourceMeta.action}
+                </a>
+              ) : null}
             </div>
           </div>
         )}

@@ -407,6 +407,23 @@ const judgmentReasonSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { _id: false });
 
+/* A passage can become part of a judgment without pretending that its arrival
+   was observed. The response clock is therefore optional, but when present it
+   remains bound to the exact held sentence, revision, and receipt that filed
+   it. Mirror metrics only read complete records. */
+const judgmentEvidenceResponseSchema = new mongoose.Schema({
+  responseId: { type: String, required: true, trim: true },
+  reasonId: { type: String, required: true, trim: true },
+  field: { type: String, enum: ['why', 'against'], required: true },
+  articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', required: true },
+  highlightId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  sourceArrivedAt: { type: Date, default: null },
+  respondedAt: { type: Date, required: true },
+  claimHash: { type: String, required: true, trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  receiptId: { type: String, required: true, trim: true }
+}, { _id: false });
+
 const judgmentAssumptionSchema = new mongoose.Schema({
   assumptionId: { type: String, required: true, trim: true },
   text: { type: String, required: true, trim: true },
@@ -652,6 +669,7 @@ const wikiJudgmentSchema = new mongoose.Schema({
   },
   why: { type: [judgmentReasonSchema], default: [] },
   against: { type: [judgmentReasonSchema], default: [] },
+  evidenceResponses: { type: [judgmentEvidenceResponseSchema], default: [] },
   assumptions: { type: [judgmentAssumptionSchema], default: [] },
   unknowns: { type: [judgmentUnknownSchema], default: [] },
   falsifiers: { type: [judgmentFalsifierSchema], default: [] },

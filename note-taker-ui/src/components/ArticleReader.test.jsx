@@ -196,6 +196,39 @@ describe('ArticleReader', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
+  it('lets a saved passage answer a held judgment from the direct article reader', async () => {
+    listWikiPages.mockResolvedValue([{
+      _id: 'judgment-1',
+      title: 'Capacity judgment',
+      judgment: {
+        currentJudgment: 'Deliverable capacity still lags demand.',
+        why: [],
+        against: []
+      }
+    }]);
+
+    render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Capacity field notes',
+          content: '<p>Deliverable capacity lags demand by two years.</p>'
+        }}
+        highlights={[{
+          _id: 'highlight-1',
+          text: 'Deliverable capacity lags demand by two years.'
+        }]}
+      />
+    );
+
+    expect(await screen.findByTestId('passage-door-offer')).toHaveTextContent(
+      'Deliverable capacity still lags demand.'
+    );
+    expect(screen.getByRole('button', { name: 'Why' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Against' })).toBeInTheDocument();
+    expect(listWikiPages).toHaveBeenCalledTimes(1);
+  });
+
   /* Asking about a sentence saves it first, so the answer has something to
      point at. Asking about one you already kept must not keep it twice. */
   it('reuses an exact saved highlight before opening the agent', async () => {
