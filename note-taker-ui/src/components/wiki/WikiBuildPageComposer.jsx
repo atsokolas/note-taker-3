@@ -10,12 +10,12 @@ import { Button } from '../ui';
 import AgentTicker from '../agent/AgentTicker';
 import { repoWikiReceiptTitle, repoWikiSystemReceipt, displayWikiPageTitle } from './wikiRepoDossierModel';
 import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
+import { normalizeSpaces } from '../../utils/editorialText';
 
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-const cleanTopic = (value = '') => clean(value).replace(/^["“']+|["”']+$/g, '').trim();
+const cleanTopic = (value = '') => normalizeSpaces(value).replace(/^["“']+|["”']+$/g, '').trim();
 
 export const wikiBuildTopicFromPrompt = (value = '') => {
-  const prompt = clean(value);
+  const prompt = normalizeSpaces(value);
   if (!prompt) return '';
   const titled = prompt.match(/\btitled\s+["“']?(.+?)(?:[.!?]["”']?(?:\s|$)|$)/i);
   if (titled?.[1]) return cleanTopic(titled[1]);
@@ -115,7 +115,7 @@ const WikiBuildPageComposer = ({ className = '', compact = false, onBuilt, onBus
       const response = _error?.response?.data || {};
       const evidenceMissing = response.code === 'WIKI_BUILD_EVIDENCE_MISSING';
       const suggestions = Array.isArray(response.suggestions)
-        ? response.suggestions.map(item => clean(item?.title)).filter(Boolean).slice(0, 2)
+        ? response.suggestions.map(item => normalizeSpaces(item?.title)).filter(Boolean).slice(0, 2)
         : [];
       setTickerLines([
         repo ? `repo wiki failed · ${repo.fullName}` : evidenceMissing ? `no direct evidence · ${topic}` : `build failed · ${topic}`,

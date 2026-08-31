@@ -1,4 +1,4 @@
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const dateLabel = (value, fallback = 'Not dated') => {
   if (!value) return fallback;
@@ -8,7 +8,7 @@ const dateLabel = (value, fallback = 'Not dated') => {
 };
 
 const researchState = (page = {}) => {
-  const candidateStatus = clean(page?.aiState?.candidateStatus).toLowerCase();
+  const candidateStatus = normalizeSpaces(page?.aiState?.candidateStatus).toLowerCase();
   if (candidateStatus === 'awaiting_first_head_acceptance') {
     return {
       value: 'First head awaiting review',
@@ -26,14 +26,14 @@ const researchState = (page = {}) => {
   if (page?.aiState?.errorCode === 'WIKI_DOSSIER_EVIDENCE_INCOMPLETE') {
     return {
       value: 'Evidence incomplete',
-      detail: clean(page?.aiState?.lastError) || 'More source coverage is required before drafting.',
+      detail: normalizeSpaces(page?.aiState?.lastError) || 'More source coverage is required before drafting.',
       action: 'maintain'
     };
   }
   if (page?.aiState?.draftStatus === 'error' || page?.aiState?.errorCode === 'WIKI_CANDIDATE_REJECTED') {
     return {
       value: 'Research needs attention',
-      detail: clean(page?.aiState?.lastCandidateSummary || page?.aiState?.lastError) || 'The last research pass did not settle.',
+      detail: normalizeSpaces(page?.aiState?.lastCandidateSummary || page?.aiState?.lastError) || 'The last research pass did not settle.',
       action: 'maintain'
     };
   }
@@ -62,7 +62,7 @@ const lastMaterialChange = (page = {}) => {
   const comparison = page?.investmentDossier?.lastMaintenanceComparison || {};
   if (comparison.version) {
     return {
-      value: clean(comparison.headline) || 'Accepted research changed',
+      value: normalizeSpaces(comparison.headline) || 'Accepted research changed',
       detail: dateLabel(comparison.generatedAt, 'Accepted change; date unavailable')
     };
   }
@@ -77,15 +77,15 @@ const lastMaterialChange = (page = {}) => {
 
 const expectedFiling = (page = {}) => {
   const watch = page?.externalWatches?.edgar || {};
-  const status = clean(watch.status).toLowerCase();
+  const status = normalizeSpaces(watch.status).toLowerCase();
   if (status === 'error') {
     return {
       value: 'SEC watch needs attention',
-      detail: clean(watch.lastError) || 'The watcher is configured but its latest check failed.'
+      detail: normalizeSpaces(watch.lastError) || 'The watcher is configured but its latest check failed.'
     };
   }
   const active = status === 'active'
-    || Boolean(clean(watch.ticker || watch.cik));
+    || Boolean(normalizeSpaces(watch.ticker || watch.cik));
   if (!active) {
     return {
       value: 'Not watched',
@@ -93,7 +93,7 @@ const expectedFiling = (page = {}) => {
     };
   }
   const forms = Array.isArray(watch.forms) && watch.forms.length
-    ? watch.forms.map(form => clean(form).toUpperCase()).filter(Boolean)
+    ? watch.forms.map(form => normalizeSpaces(form).toUpperCase()).filter(Boolean)
     : ['10-Q', '10-K'];
   const primaryForms = forms.filter(form => ['10-Q', '10-K', '20-F', '6-K'].includes(form));
   const label = (primaryForms.length ? primaryForms : forms).slice(0, 2).join(' or ');
@@ -112,7 +112,7 @@ export const buildDossierCaseCover = ({ page = {}, shareBlocked = false } = {}) 
   const valuation = page?.investmentDossier?.valuation || {};
   const valuationDate = valuation.asOf || valuation.priceAsOf;
   const tracked = Boolean(page?.judgment?.kind);
-  const shared = clean(page?.visibility).toLowerCase() === 'shared';
+  const shared = normalizeSpaces(page?.visibility).toLowerCase() === 'shared';
   const materialChange = lastMaterialChange(page);
   const filing = expectedFiling(page);
 

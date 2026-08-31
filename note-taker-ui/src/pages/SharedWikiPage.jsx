@@ -29,6 +29,7 @@ import {
 } from '../utils/maintenanceProof';
 import '../styles/maintenance-proof-stamp.css';
 import '../styles/shared-page-column.css';
+import { normalizeSpaces } from '../utils/editorialText';
 
 const reviewedDateFor = (page = {}) => reviewedDateForPublicPage(page);
 
@@ -117,8 +118,6 @@ const hasAuthToken = () => {
   return Boolean(localStorage.getItem('token') || localStorage.getItem('authToken'));
 };
 
-const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
 const publicNodeText = (node = {}) => [
   node?.text || '',
   ...((node?.content || []).map(publicNodeText))
@@ -127,7 +126,7 @@ const publicNodeText = (node = {}) => [
 export const splitPublicCompanyBrief = (body = null) => {
   const content = Array.isArray(body?.content) ? body.content : [];
   const start = content.findIndex(node => (
-    node?.type === 'heading' && cleanText(publicNodeText(node)).toLowerCase() === 'investor brief'
+    node?.type === 'heading' && normalizeSpaces(publicNodeText(node)).toLowerCase() === 'investor brief'
   ));
   if (start < 0) return null;
   const level = Number(content[start]?.attrs?.level || 2);
@@ -142,9 +141,9 @@ export const splitPublicCompanyBrief = (body = null) => {
 };
 
 const buildSharedWikiDescription = (page, intro = '') => {
-  const fromIntro = cleanText(intro).slice(0, 220);
+  const fromIntro = normalizeSpaces(intro).slice(0, 220);
   if (fromIntro) return fromIntro;
-  const title = cleanText(page?.title) || 'Shared wiki';
+  const title = normalizeSpaces(page?.title) || 'Shared wiki';
   return `${title} is a public Noeis wiki page with static references and private workspace context withheld.`;
 };
 
@@ -156,13 +155,13 @@ export const buildSharedWikiSchema = ({
   sourceCount = 0,
   claimCount = 0
 } = {}) => {
-  const title = cleanText(page?.title) || 'Shared wiki page';
+  const title = normalizeSpaces(page?.title) || 'Shared wiki page';
   const canonicalUrl = buildCanonicalUrl(canonicalPath);
   const citations = Array.isArray(page?.sourceRefs)
     ? page.sourceRefs
       .slice(0, 24)
       .map((source) => {
-        const name = cleanText(source?.title || source?.url || source?.type || 'Source');
+        const name = normalizeSpaces(source?.title || source?.url || source?.type || 'Source');
         if (!name) return null;
         return {
           '@type': 'CreativeWork',
@@ -189,7 +188,7 @@ export const buildSharedWikiSchema = ({
     ...(page?.authorLabel ? {
       author: {
         '@type': 'Person',
-        name: cleanText(page.authorLabel)
+        name: normalizeSpaces(page.authorLabel)
       }
     } : {}),
     publisher: {

@@ -1,5 +1,5 @@
 import { buildRepoWikiTitle } from '../../utils/githubRepoInput';
-import { sentenceBoundaryTrim } from '../../utils/editorialText';
+import { normalizeSpaces, sentenceBoundaryTrim } from '../../utils/editorialText';
 
 const normalizeText = (value = '') => String(value || '').trim();
 
@@ -329,7 +329,7 @@ export const extractRepoDossierOverviewSummary = (doc, page = {}) => {
   const firstHeadingIndex = doc.content.findIndex(node => node?.type === 'heading');
   const introBlocks = firstHeadingIndex === -1 ? doc.content : doc.content.slice(0, firstHeadingIndex);
   const introText = introBlocks
-    .map(node => plainDocText(node).replace(/\s+/g, ' ').trim())
+    .map(node => normalizeSpaces(plainDocText(node)))
     .filter(Boolean)
     .join(' ')
     .trim();
@@ -341,7 +341,7 @@ export const extractRepoDossierOverviewSummary = (doc, page = {}) => {
   const nextBlocks = doc.content.slice(overviewBlockIndex + 1, overviewBlockIndex + 4);
   const overviewText = nextBlocks
     .filter(node => node?.type === 'paragraph')
-    .map(node => plainDocText(node.content).replace(/\s+/g, ' ').trim())
+    .map(node => normalizeSpaces(plainDocText(node.content)))
     .filter(Boolean)
     .join(' ')
     .trim();

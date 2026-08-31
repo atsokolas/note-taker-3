@@ -1,4 +1,4 @@
-import { sentenceBoundaryTrim } from '../../utils/editorialText';
+import { normalizeSpaces, sentenceBoundaryTrim } from '../../utils/editorialText';
 
 /* AT-414 — Morning Paper is a close or silence.
    Collision is the leftover truth of that surface: when two editorial
@@ -10,7 +10,7 @@ const STALE_DRIFT_PRESENT = /queued signals awaiting a rebuild/i;
 const QUIET_FILLER = /quiet today|no new sources, updates, or drift/i;
 
 export const completeLeadSentence = (value = '', maxLength = 280) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return '';
   if (text.length <= maxLength && /[.!?]$/.test(text)) return text;
   const lastStop = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
@@ -96,11 +96,9 @@ const paperCollisionLine = (briefing = null) => {
   return '';
 };
 
-const cleanFold = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
 export const isPaperConsequence = (row = null) => {
   if (!row?.eventId || !row?.pageId || !row?.claimId) return false;
-  if (!cleanFold(row.prior) || !cleanFold(row.proposed) || !cleanFold(row.passage)) return false;
+  if (!normalizeSpaces(row.prior) || !normalizeSpaces(row.proposed) || !normalizeSpaces(row.passage)) return false;
   return true;
 };
 
@@ -166,7 +164,7 @@ const INSTRUCTION_SHAPED = /^(use|run|install|click|see|refer to|follow|before e
 /** A Taste-Pass-clean belief, or nothing. Repo dumps never get a tap. */
 export const isPaperCheckIn = (checkIn = null) => {
   if (!checkIn?.pageId || !checkIn?.claimId) return false;
-  const text = String(checkIn.text || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(checkIn.text);
   if (!text || text.length > 220) return false;
   if (!isEditorialBriefing(text)) return false;
   if (CODE_SHAPED.test(text) || INSTRUCTION_SHAPED.test(text)) return false;

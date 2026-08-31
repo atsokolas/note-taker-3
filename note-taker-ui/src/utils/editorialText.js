@@ -8,7 +8,10 @@
  *     text will not fit, the selector picks shorter text; the renderer never
  *     amputates.
  *
- *   wordBoundaryTrim — list and utility surfaces (previews, labels, snippets)
+ *   plainTextFrom — markup in, prose out, for anything that has to preview
+     stored HTML.
+
+   wordBoundaryTrim — list and utility surfaces (previews, labels, snippets)
  *     where an ellipsis is honest. Breaks on a whole word, and prefers a
  *     clause boundary when one falls late in the budget, so the trim reads
  *     like a pause the writer chose rather than an accident.
@@ -25,6 +28,12 @@ const CLAUSE_BOUNDARY = /[,;:—–](?=\s|$)/g;
 const CLAUSE_MIN_RATIO = 0.7;
 
 export const normalizeSpaces = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+/**
+ * Markup out, prose in. Tags collapse to a space rather than to nothing, so
+ * `<p>one</p><p>two</p>` reads as two words and not as one invented one.
+ */
+export const plainTextFrom = (value = '') => normalizeSpaces(String(value || '').replace(/<[^>]*>/g, ' '));
 
 export const sentenceBoundaryTrim = (value = '', {
   maxLength = 280,

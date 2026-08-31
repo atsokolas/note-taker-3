@@ -8,9 +8,9 @@
 // count. Nothing is inferred: a line without a date is not given one.
 
 import { sourceHrefFromOrigin } from './judgmentModel';
+import { normalizeSpaces } from '../utils/editorialText';
 
 const list = (value) => (Array.isArray(value) ? value : []);
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const time = (value) => {
   if (!value) return NaN;
@@ -150,7 +150,7 @@ export const omitEntry = (groups = [], id = '') => {
    log uses — so hovering it is the same gesture as hovering a citation. */
 export const sourceKinForCandidate = (view = {}, candidate = {}) => {
   const href = sourceHrefFromOrigin(candidate?.id, candidate?.url);
-  const label = clean(candidate?.sourceLabel);
+  const label = normalizeSpaces(candidate?.sourceLabel);
   const sources = [...list(view.why), ...list(view.against)]
     .flatMap(line => list(line.sources));
   const match = sources.find(source => (

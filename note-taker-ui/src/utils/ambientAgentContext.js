@@ -1,15 +1,14 @@
-import { wordBoundaryTrim } from './editorialText';
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+import { normalizeSpaces, plainTextFrom, wordBoundaryTrim } from './editorialText';
 
 export const stripAmbientMarkup = (value = '') => (
-  String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  plainTextFrom(value)
 );
 
 export const truncateAmbientText = (value = '', limit = 280) => wordBoundaryTrim(value, { maxLength: limit });
 
 export const collectAmbientBlockText = (blocks = [], limit = 8) => (
   (Array.isArray(blocks) ? blocks : [])
-    .map((block) => clean(block?.text))
+    .map((block) => normalizeSpaces(block?.text))
     .filter(Boolean)
     .slice(0, limit)
     .join(' ')
@@ -21,11 +20,11 @@ export const makeAmbientRelatedItem = ({
   title = '',
   snippet = ''
 } = {}) => {
-  const safeTitle = clean(title);
-  const safeId = clean(id);
+  const safeTitle = normalizeSpaces(title);
+  const safeId = normalizeSpaces(id);
   if (!safeTitle && !safeId) return null;
   return {
-    type: clean(type),
+    type: normalizeSpaces(type),
     id: safeId,
     title: safeTitle,
     snippet: truncateAmbientText(snippet, 180)
@@ -39,7 +38,7 @@ const dedupeRelatedItems = (items = [], limit = 8) => {
     if (!item) continue;
     const normalized = makeAmbientRelatedItem(item);
     if (!normalized) continue;
-    const key = `${clean(normalized.type).toLowerCase()}:${clean(normalized.id).toLowerCase() || clean(normalized.title).toLowerCase()}`;
+    const key = `${normalizeSpaces(normalized.type).toLowerCase()}:${normalizeSpaces(normalized.id).toLowerCase() || normalizeSpaces(normalized.title).toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     output.push(normalized);
@@ -65,11 +64,11 @@ const dedupeLines = (values = [], limit = 6) => {
 const extractQuestionLikeLines = (values = [], limit = 6) => {
   const candidates = [];
   (Array.isArray(values) ? values : []).forEach((value) => {
-    const safe = clean(value);
+    const safe = normalizeSpaces(value);
     if (!safe) return;
     safe
       .split(/(?<=[?])\s+|\n+/)
-      .map((line) => clean(line))
+      .map((line) => normalizeSpaces(line))
       .filter(Boolean)
       .forEach((line) => {
         if (line.includes('?')) candidates.push(line);
@@ -79,10 +78,10 @@ const extractQuestionLikeLines = (values = [], limit = 6) => {
 };
 
 const getUrlHostLabel = (url = '') => {
-  const safe = clean(url);
+  const safe = normalizeSpaces(url);
   if (!safe) return '';
   try {
-    return clean(new URL(safe).hostname.replace(/^www\./i, ''));
+    return normalizeSpaces(new URL(safe).hostname.replace(/^www\./i, ''));
   } catch (_error) {
     return '';
   }
@@ -92,7 +91,7 @@ const collectTags = (article = {}) => {
   const seen = new Set();
   const output = [];
   const push = (value) => {
-    const safe = clean(value);
+    const safe = normalizeSpaces(value);
     const key = safe.toLowerCase();
     if (!safe || seen.has(key)) return;
     seen.add(key);
@@ -113,7 +112,7 @@ const buildArticleRelatedItems = (article = {}) => {
       type: 'highlight',
       id: highlight?._id,
       title: truncateAmbientText(highlight?.text || 'Highlight', 72),
-      snippet: clean(highlight?.note)
+      snippet: normalizeSpaces(highlight?.note)
         || (Array.isArray(highlight?.tags) && highlight.tags.length > 0 ? highlight.tags.join(' · ') : '')
     })),
     ...tags.slice(0, 3).map((tag) => ({
@@ -127,18 +126,18 @@ const buildArticleRelatedItems = (article = {}) => {
 
 const normalizeGraphConnectionItem = (row = {}, direction = 'outgoing') => {
   const itemType = direction === 'incoming'
-    ? clean(row?.fromType || row?.source?.type || row?.source?.itemType)
-    : clean(row?.toType || row?.target?.type || row?.target?.itemType);
+    ? normalizeSpaces(row?.fromType || row?.source?.type || row?.source?.itemType)
+    : normalizeSpaces(row?.toType || row?.target?.type || row?.target?.itemType);
   const itemId = direction === 'incoming'
-    ? clean(row?.fromId || row?.source?.id || row?.source?.itemId)
-    : clean(row?.toId || row?.target?.id || row?.target?.itemId);
+    ? normalizeSpaces(row?.fromId || row?.source?.id || row?.source?.itemId)
+    : normalizeSpaces(row?.toId || row?.target?.id || row?.target?.itemId);
   const item = direction === 'incoming' ? row?.source : row?.target;
-  const title = clean(item?.title || row?.sourceTitle || row?.targetTitle || itemType);
-  const relationType = clean(row?.relationType);
+  const title = normalizeSpaces(item?.title || row?.sourceTitle || row?.targetTitle || itemType);
+  const relationType = normalizeSpaces(row?.relationType);
   const snippet = truncateAmbientText([
     direction === 'incoming' ? 'Uses this source' : 'Referenced from this source',
     relationType ? `relation: ${relationType}` : '',
-    clean(item?.snippet || row?.snippet)
+    normalizeSpaces(item?.snippet || row?.snippet)
   ].filter(Boolean).join(' · '), 180);
   return makeAmbientRelatedItem({
     type: itemType,
@@ -175,7 +174,7 @@ export const buildArticleAmbientContext = ({
   graphConnections = null,
   selectionText = ''
 } = {}) => {
-  const safeSelection = clean(selectionText);
+  const safeSelection = normalizeSpaces(selectionText);
   const sourceArticle = {
     ...(article || {}),
     highlights: Array.isArray(highlightsOverride)
@@ -258,7 +257,7 @@ export const buildNotebookAmbientContext = ({
 } = {}) => {
   const highlightRefs = extractNotebookHighlightRefs(entry);
   const questionRefs = extractNotebookQuestionRefs(entry);
-  const tags = Array.isArray(entry?.tags) ? entry.tags.map((tag) => clean(tag)).filter(Boolean) : [];
+  const tags = Array.isArray(entry?.tags) ? entry.tags.map((tag) => normalizeSpaces(tag)).filter(Boolean) : [];
   const primaryText = collectAmbientBlockText(entry?.blocks || [], 8) || stripAmbientMarkup(entry?.content || '');
   return {
     summary: truncateAmbientText(entry?.title || 'Notebook note', 220),
@@ -306,10 +305,10 @@ export const buildQuestionAmbientContext = ({
   openQuestions: dedupeLines([question?.text], 4),
   nextActions: [],
   relatedItems: dedupeRelatedItems([
-    clean(question?.linkedTagName) ? {
+    normalizeSpaces(question?.linkedTagName) ? {
       type: 'concept',
-      id: clean(question.linkedTagName),
-      title: clean(question.linkedTagName),
+      id: normalizeSpaces(question.linkedTagName),
+      title: normalizeSpaces(question.linkedTagName),
       snippet: 'Linked concept'
     } : null,
     ...(Array.isArray(questionRelated?.concepts) ? questionRelated.concepts : []).slice(0, 4).map((item) => ({

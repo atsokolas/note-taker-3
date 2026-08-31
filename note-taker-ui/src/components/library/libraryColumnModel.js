@@ -2,6 +2,7 @@ import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { pickReopenCandidate } from './libraryReadingRoomModel';
 import { getExcerpt } from './LibraryArticleList';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 // The Library column's read model.
 //
@@ -9,16 +10,15 @@ import { humanizeLabel } from '../../utils/humanizeLabel';
 // have. Not a cabinet, not a dashboard of counts — a shelf you can read down.
 // Everything here is a projection of the articles the API already returned.
 
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-const idOf = (article) => clean(article?._id || article?.id);
+const idOf = (article) => normalizeSpaces(article?._id || article?.id);
 
 /** The publication, as a person would name it: "SemiAnalysis", not a hostname. */
 export const sourceLabel = (article) => {
-  const explicit = clean(article?.source || article?.publication || article?.publisher || article?.siteName);
+  const explicit = normalizeSpaces(article?.source || article?.publication || article?.publisher || article?.siteName);
   if (explicit) return explicit;
-  const author = clean(article?.author);
+  const author = normalizeSpaces(article?.author);
   if (author) return author;
-  const url = clean(article?.url);
+  const url = normalizeSpaces(article?.url);
   if (!url) return '';
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
@@ -33,7 +33,7 @@ const savedAt = (article) => article?.updatedAt || article?.createdAt || null;
 
 const row = (article) => ({
   id: idOf(article),
-  title: clean(article?.title) || 'Untitled',
+  title: normalizeSpaces(article?.title) || 'Untitled',
   source: sourceLabel(article),
   date: savedAt(article)
 });
@@ -58,7 +58,7 @@ export const buildLibraryColumn = ({ articles = [], allArticles = [] } = {}) => 
 
   return {
     continueItem: continueId
-      ? { ...row(candidate), dek: clean(getExcerpt(candidate)) }
+      ? { ...row(candidate), dek: normalizeSpaces(getExcerpt(candidate)) }
       : null,
     rows: pool
       .filter(article => idOf(article) !== continueId)
@@ -69,7 +69,7 @@ export const buildLibraryColumn = ({ articles = [], allArticles = [] } = {}) => 
 
 /** What the agent rail is looking at while the human is in the Library. */
 export const librarySubject = ({ article = null, count = 0 } = {}) => {
-  const title = clean(article?.title);
+  const title = normalizeSpaces(article?.title);
   if (title) return title;
   if (count > 0) return `${count} source${count === 1 ? '' : 's'} on the shelf.`;
   return 'Your library.';

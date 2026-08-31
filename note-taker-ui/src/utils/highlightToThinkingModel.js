@@ -1,13 +1,12 @@
 import { buildWikiCreatePayload } from './wikiCreate';
+import { normalizeSpaces } from './editorialText';
 
 export const HIGHLIGHT_ACTION_CONTEXT_KEY = 'noeis.highlightActionContext';
 
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
-
-const cleanTopic = (value = '') => clean(value).replace(/[.?!]+$/g, '').trim();
+const cleanTopic = (value = '') => normalizeSpaces(value).replace(/[.?!]+$/g, '').trim();
 
 export const parseHighlightToQuestionIntent = (value = '') => {
-  const text = clean(value);
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     {
@@ -45,7 +44,7 @@ export const parseHighlightToQuestionIntent = (value = '') => {
 };
 
 export const parseHighlightToWikiSectionIntent = (value = '') => {
-  const text = clean(value);
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     {
@@ -132,8 +131,8 @@ export const scoreHighlightMatch = (item = {}, topic = '') => {
     item.title,
     ...(Array.isArray(item.tags) ? item.tags : [])
   ].filter(Boolean).join(' ');
-  const normalizedLabel = clean(label).toLowerCase();
-  const normalizedQuery = clean(topic).toLowerCase();
+  const normalizedLabel = normalizeSpaces(label).toLowerCase();
+  const normalizedQuery = normalizeSpaces(topic).toLowerCase();
   if (!normalizedLabel || !normalizedQuery) return 0;
   if (normalizedLabel.includes(normalizedQuery)) return 100;
   const topicWords = normalizedQuery.split(/\s+/).filter(Boolean);
@@ -188,7 +187,7 @@ export const deriveQuestionDraftText = ({ highlights = [], topic = '' } = {}) =>
       : `What should I conclude about ${safeTopic}?`;
   }
   if (count === 1) {
-    const snippet = clean(highlights[0]?.text || '');
+    const snippet = normalizeSpaces(highlights[0]?.text || '');
     if (snippet.length >= 12 && snippet.length <= 180) {
       return snippet.endsWith('?') ? snippet : `What does this imply: ${snippet.slice(0, 140)}?`;
     }
@@ -202,7 +201,7 @@ export const deriveWikiSectionTitle = ({ highlights = [], topic = '' } = {}) => 
   if (safeTopic) return safeTopic.slice(0, 120);
   const firstTag = highlights.flatMap(item => item.tags || []).find(Boolean);
   if (firstTag) return String(firstTag).slice(0, 120);
-  const firstText = clean(highlights[0]?.text || '');
+  const firstText = normalizeSpaces(highlights[0]?.text || '');
   if (firstText) {
     return firstText.split(/\s+/).slice(0, 8).join(' ').slice(0, 120);
   }
@@ -218,7 +217,7 @@ export const buildQuestionPayloadFromHighlights = ({
   const normalized = highlights.map(normalizeHighlightRecord).filter(Boolean);
   const linkedHighlightIds = normalized.map(item => item._id);
   const text = deriveQuestionDraftText({ highlights: normalized, topic });
-  const resolvedConcept = clean(conceptName)
+  const resolvedConcept = normalizeSpaces(conceptName)
     || normalized.flatMap(item => item.tags || []).find(Boolean)
     || '';
   const blocks = [
@@ -247,7 +246,7 @@ export const buildWikiSectionPayloadFromHighlights = ({
   const highlightIds = normalized.map(item => item._id);
   const title = deriveWikiSectionTitle({ highlights: normalized, topic });
   const combinedText = normalized
-    .map(item => clean(item.text))
+    .map(item => normalizeSpaces(item.text))
     .filter(Boolean)
     .join(' ')
     .slice(0, 800);

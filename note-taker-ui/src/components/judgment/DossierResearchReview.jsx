@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { normalizeSpaces } from '../../utils/editorialText';
 
-const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
+const clean = value => normalizeSpaces(value);
 
 const DossierResearchReview = ({ pageId, review, busy = false, error = '', onKeep, onRevise }) => {
   if (!review || review.status !== 'awaiting_review') return null;

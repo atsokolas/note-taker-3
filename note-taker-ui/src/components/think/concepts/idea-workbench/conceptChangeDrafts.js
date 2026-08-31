@@ -1,4 +1,4 @@
-import { wordBoundaryTrim } from '../../../../utils/editorialText';
+import { normalizeSpaces, wordBoundaryTrim } from '../../../../utils/editorialText';
 const clean = (value = '') => String(value || '').trim();
 
 const createId = (prefix = 'change-draft') => (
@@ -123,7 +123,7 @@ export const buildConceptChangeDraft = ({
     sourceKeys: safeCards.map((card) => clean(card?.sourceKey)).filter(Boolean),
     signature,
     createdAt: new Date().toISOString(),
-    applyMessage: `Applied ${meta.applyLabel === 'support' ? 'the' : ''} ${meta.applyLabel} draft to the concept.`.replace(/\s+/g, ' ').trim()
+    applyMessage: normalizeSpaces(`Applied ${meta.applyLabel === 'support' ? 'the' : ''} ${meta.applyLabel} draft to the concept.`)
   };
 };
 

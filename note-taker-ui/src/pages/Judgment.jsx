@@ -56,6 +56,7 @@ import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
+import { normalizeSpaces } from '../utils/editorialText';
 
 // Judgment.
 //
@@ -79,7 +80,6 @@ const countJudgmentLines = (judgment = {}) => JUDGMENT_LINE_FIELDS.reduce((count
 const SOURCE_EVENT_LIMIT = 40;
 const AUTOSAVE_PAUSE_MS = 700;
 const LIBRARY_PREFETCH_BUSY_MS = 1200;
-const asLine = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const markPendingDossierResearch = (items = [], reviews = []) => {
   const pendingPageIds = new Set(
@@ -190,7 +190,7 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, titl
           multiline
           placeholder={ghostOfMissingName(title) || undefined}
           value={title}
-          format={asLine}
+          format={normalizeSpaces}
           onSave={(next) => run(() => onSave?.(next), 'That name could not be saved.')}
         />
         <AutosaveField
@@ -256,9 +256,9 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
 
 const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, sentenceRef }) => {
   if (!proposal?.id) return null;
-  const status = asLine(proposal.status).toLowerCase();
-  const before = asLine(proposal.provenance?.before);
-  const after = asLine(proposal.provenance?.after);
+  const status = normalizeSpaces(proposal.status).toLowerCase();
+  const before = normalizeSpaces(proposal.provenance?.before);
+  const after = normalizeSpaces(proposal.provenance?.after);
   const pending = status === 'pending';
   const label = {
     accepted: 'Accepted',
@@ -999,7 +999,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      does not rewrite the claim, so the case can join the wiki hierarchy
      without changing what is believed. */
   const rename = useCallback(async (nextTitle) => {
-    const title = asLine(nextTitle);
+    const title = normalizeSpaces(nextTitle);
     if (!title) return;
     const previous = page?.title;
     setPage(current => ({ ...current, title }));

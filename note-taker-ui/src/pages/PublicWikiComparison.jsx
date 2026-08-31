@@ -5,11 +5,10 @@ import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
 import { PUBLIC_PROOF_PRIVACY_STATEMENT, normalizePublicProofRegistry } from '../utils/maintenanceProof';
 import '../styles/public-wiki-comparison.css';
-
-const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+import { normalizeSpaces } from '../utils/editorialText';
 
 export const shortSha = (sha = '') => {
-  const value = cleanText(sha);
+  const value = normalizeSpaces(sha);
   if (!value) return '';
   return value.length > 7 ? value.slice(0, 7) : value;
 };
@@ -27,9 +26,9 @@ export const formatComparisonDate = (value) => {
 
 /** Visible evidence link label: title first, then path, then URL. Never blank. */
 export const evidenceRefLabel = (ref = {}) => {
-  const title = cleanText(ref?.title);
-  const path = cleanText(ref?.path);
-  const url = cleanText(ref?.url);
+  const title = normalizeSpaces(ref?.title);
+  const path = normalizeSpaces(ref?.path);
+  const url = normalizeSpaces(ref?.url);
   return title || path || url || 'GitHub reference';
 };
 
@@ -38,7 +37,7 @@ export const evidenceRefLabel = (ref = {}) => {
  * Examples: "Create", "repo wiki", leading-colon continuations.
  */
 export const isMalformedClaimText = (text = '') => {
-  const value = cleanText(text);
+  const value = normalizeSpaces(text);
   if (!value) return true;
   if (value.startsWith(':')) return true;
   const words = value.split(/\s+/).filter(Boolean);
@@ -100,7 +99,7 @@ export const ACCEPTANCE_BLOCKER_LABELS = Object.freeze({
 });
 
 export const describeAcceptanceBlocker = (blocker = '') => {
-  const key = cleanText(blocker);
+  const key = normalizeSpaces(blocker);
   return ACCEPTANCE_BLOCKER_LABELS[key] || key.replace(/_/g, ' ') || 'Acceptance requirements unmet.';
 };
 
@@ -110,12 +109,12 @@ export const describeAcceptanceBlocker = (blocker = '') => {
  */
 export const normalizeProofPulse = (proofPulse = null) => {
   if (!proofPulse || typeof proofPulse !== 'object') return null;
-  const stateRaw = cleanText(proofPulse.state).toLowerCase().replace(/[\s-]+/g, '_');
+  const stateRaw = normalizeSpaces(proofPulse.state).toLowerCase().replace(/[\s-]+/g, '_');
   const state = PROOF_PULSE_STATES.includes(stateRaw) ? stateRaw : 'current';
-  const headline = cleanText(proofPulse.headline);
+  const headline = normalizeSpaces(proofPulse.headline);
   if (!headline) return null;
   const facts = (Array.isArray(proofPulse.facts) ? proofPulse.facts : [])
-    .map((fact) => cleanText(fact))
+    .map((fact) => normalizeSpaces(fact))
     .filter(Boolean)
     .slice(0, 12);
   const acceptanceRaw = proofPulse.acceptance && typeof proofPulse.acceptance === 'object'
@@ -129,7 +128,7 @@ export const normalizeProofPulse = (proofPulse = null) => {
       preservedClaims: Number(acceptanceRaw.preservedClaims) || 0,
       blockingEditorialRisks: Number(acceptanceRaw.blockingEditorialRisks) || 0,
       blockers: (Array.isArray(acceptanceRaw.blockers) ? acceptanceRaw.blockers : [])
-        .map((item) => cleanText(item))
+        .map((item) => normalizeSpaces(item))
         .filter(Boolean)
     }
     : null;
@@ -138,9 +137,9 @@ export const normalizeProofPulse = (proofPulse = null) => {
     headline,
     facts,
     acceptance,
-    baselineVersion: cleanText(proofPulse.baselineVersion),
-    observedVersion: cleanText(proofPulse.observedVersion),
-    publishedVersion: cleanText(proofPulse.publishedVersion)
+    baselineVersion: normalizeSpaces(proofPulse.baselineVersion),
+    observedVersion: normalizeSpaces(proofPulse.observedVersion),
+    publishedVersion: normalizeSpaces(proofPulse.publishedVersion)
   };
 };
 
@@ -196,7 +195,7 @@ export const uniqueRejectedCandidateBuilds = (rejectedCandidates = []) => {
   const unique = [];
   list.forEach((item) => {
     if (!item || typeof item !== 'object') return;
-    const disposition = cleanText(item.disposition || 'rejected').toLowerCase() || 'rejected';
+    const disposition = normalizeSpaces(item.disposition || 'rejected').toLowerCase() || 'rejected';
     if (disposition === 'held' || disposition === 'held_for_review') return;
     const counts = item.counts && typeof item.counts === 'object' ? item.counts : {};
     const countSignature = Object.keys(counts)
@@ -205,7 +204,7 @@ export const uniqueRejectedCandidateBuilds = (rejectedCandidates = []) => {
       .join('|');
     const signature = [
       disposition,
-      cleanText(item.candidateHeadSha),
+      normalizeSpaces(item.candidateHeadSha),
       countSignature
     ].join('::');
     if (seen.has(signature)) return;
@@ -218,7 +217,7 @@ export const uniqueRejectedCandidateBuilds = (rejectedCandidates = []) => {
 export const currentlyHeldCandidateBuilds = (rejectedCandidates = []) => {
   const list = Array.isArray(rejectedCandidates) ? rejectedCandidates : [];
   return list.filter((item) => {
-    const disposition = cleanText(item?.disposition).toLowerCase();
+    const disposition = normalizeSpaces(item?.disposition).toLowerCase();
     return disposition === 'held' || disposition === 'held_for_review';
   });
 };
@@ -310,7 +309,7 @@ export const summarizeAcceptanceFailure = (comparison = {}, proofPulse = null) =
         eligible: Boolean(comparison.acceptance.eligible),
         blockers: (Array.isArray(comparison.acceptance.blockers)
           ? comparison.acceptance.blockers
-          : []).map(cleanText).filter(Boolean)
+          : []).map(normalizeSpaces).filter(Boolean)
       }
       : null);
   if (!acceptance || acceptance.eligible) return null;
@@ -333,7 +332,7 @@ const evidenceFor = (row = {}) => {
   return ref
     ? {
       label: evidenceRefLabel(ref),
-      url: cleanText(ref.url)
+      url: normalizeSpaces(ref.url)
     }
     : null;
 };
@@ -347,8 +346,8 @@ export const materialExamples = (comparison = {}, limit = 5) => {
   let omittedMalformedCount = 0;
 
   const pushRow = (group, row) => {
-    const before = cleanText(row.before?.text);
-    const after = cleanText(row.after?.text);
+    const before = normalizeSpaces(row.before?.text);
+    const after = normalizeSpaces(row.after?.text);
     const primaryText = after || before;
     if (primaryText && isMalformedClaimText(primaryText) && (!before || isMalformedClaimText(before))) {
       omittedMalformedCount += 1;
@@ -358,10 +357,10 @@ export const materialExamples = (comparison = {}, limit = 5) => {
       omittedMalformedCount += 1;
       return;
     }
-    const beforeSupport = cleanText(row.before?.support);
-    const afterSupport = cleanText(row.after?.support);
-    const beforeSection = cleanText(row.before?.section);
-    const afterSection = cleanText(row.after?.section);
+    const beforeSupport = normalizeSpaces(row.before?.support);
+    const afterSupport = normalizeSpaces(row.after?.support);
+    const beforeSection = normalizeSpaces(row.before?.section);
+    const afterSection = normalizeSpaces(row.after?.section);
     const evidence = evidenceFor(row);
     const textChanged = before !== after;
     const supportChanged = beforeSupport !== afterSupport;
@@ -422,7 +421,7 @@ export const materialExamples = (comparison = {}, limit = 5) => {
   });
 
   (comparison.staticWikiErrors || []).forEach((row) => {
-    const stale = cleanText(row.staleClaim);
+    const stale = normalizeSpaces(row.staleClaim);
     if (!stale || isMalformedClaimText(stale)) {
       if (stale) omittedMalformedCount += 1;
       return;
@@ -431,11 +430,11 @@ export const materialExamples = (comparison = {}, limit = 5) => {
     examples.push({
       type: 'Static-wiki risk',
       before: stale,
-      after: cleanText(row.reason) || 'The supporting repository source changed.',
+      after: normalizeSpaces(row.reason) || 'The supporting repository source changed.',
       evidence: ref
         ? {
           label: evidenceRefLabel(ref),
-          url: cleanText(ref.url)
+          url: normalizeSpaces(ref.url)
         }
         : null,
       disposition: 'Demonstrably stale baseline claim'
@@ -463,7 +462,7 @@ const publicEvidenceRefsFor = (row = {}) => {
     ...(Array.isArray(claim.sourceRefs) ? claim.sourceRefs : []),
     ...(Array.isArray(claim.evidenceRefs) ? claim.evidenceRefs : [])
   ].filter((ref) => {
-    const key = cleanText(ref?.url || ref?.path || ref?.title);
+    const key = normalizeSpaces(ref?.url || ref?.path || ref?.title);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -507,24 +506,24 @@ export const explainMaterialChanges = (comparison = {}, limit = 5) => {
     const rows = comparison?.claimComparison?.deltas?.[group] || [];
     rows.forEach((row, rowIndex) => {
       if (narratives.length >= limit) return;
-      const before = cleanText(row?.before?.text);
-      const after = cleanText(row?.after?.text);
-      const section = cleanText(row?.after?.section || row?.before?.section);
+      const before = normalizeSpaces(row?.before?.text);
+      const after = normalizeSpaces(row?.after?.text);
+      const section = normalizeSpaces(row?.after?.section || row?.before?.section);
       if ((!before && !after) || (isMalformedClaimText(before) && isMalformedClaimText(after))) return;
       const refs = publicEvidenceRefsFor(row);
-      const paths = refs.map(ref => cleanText(ref.path || ref.title)).filter(Boolean);
+      const paths = refs.map(ref => normalizeSpaces(ref.path || ref.title)).filter(Boolean);
       const combined = `${before} ${after}`;
       const structuredRisk = (comparison?.editorialReview?.risks || []).find(risk => (
-        cleanText(risk?.group) === group && Number(risk?.index) === rowIndex
+        normalizeSpaces(risk?.group) === group && Number(risk?.index) === rowIndex
       ));
       let narrative;
 
       if (structuredRisk) {
         narrative = {
-          title: cleanText(structuredRisk.title) || 'This rewrite requires editorial correction',
-          explanation: cleanText(structuredRisk.explanation) || 'The structured editorial review found a material regression in this rewrite.',
-          impact: cleanText(structuredRisk.impact) || 'This comparison cannot pass public-proof acceptance until the rewrite is corrected.',
-          tone: cleanText(structuredRisk.severity) === 'blocking' ? 'concern' : 'neutral'
+          title: normalizeSpaces(structuredRisk.title) || 'This rewrite requires editorial correction',
+          explanation: normalizeSpaces(structuredRisk.explanation) || 'The structured editorial review found a material regression in this rewrite.',
+          impact: normalizeSpaces(structuredRisk.impact) || 'This comparison cannot pass public-proof acceptance until the rewrite is corrected.',
+          tone: normalizeSpaces(structuredRisk.severity) === 'blocking' ? 'concern' : 'neutral'
         };
       } else if (paths.some(path => /(?:^|\/)\.env\.example$/i.test(path))
         && /PUBLIC_PROOF_/i.test(after)
@@ -557,8 +556,8 @@ export const explainMaterialChanges = (comparison = {}, limit = 5) => {
         narrative = genericChangeNarrative({ before, after, section, paths });
       }
 
-      const beforeSupport = cleanText(row?.before?.support);
-      const afterSupport = cleanText(row?.after?.support);
+      const beforeSupport = normalizeSpaces(row?.before?.support);
+      const afterSupport = normalizeSpaces(row?.after?.support);
       if (group === 'gainedSupport' || (beforeSupport && afterSupport && beforeSupport !== afterSupport)) {
         narrative.explanation += ` Evidence status moved from ${beforeSupport || 'unrated'} to ${afterSupport || 'unrated'}.`;
       }
@@ -665,7 +664,7 @@ const usePublicShareScrollSurface = () => {
 
 const ClaimRow = ({ row }) => {
   const claim = row?.after || row?.before || {};
-  const text = cleanText(claim.text);
+  const text = normalizeSpaces(claim.text);
   if (!text || isMalformedClaimText(text)) return null;
   return (
     <li>
@@ -1336,7 +1335,7 @@ const PublicWikiComparison = () => {
               </p>
             ) : (
               staticErrors.map((item, index) => {
-                const stale = cleanText(item.staleClaim);
+                const stale = normalizeSpaces(item.staleClaim);
                 if (!stale || isMalformedClaimText(stale)) return null;
                 return (
                   <div
@@ -1346,7 +1345,7 @@ const PublicWikiComparison = () => {
                   >
                     <p>{stale}</p>
                     <p className="public-wiki-comparison__claim-meta">
-                      {cleanText(item.reason) || 'Supporting repository source drifted.'}
+                      {normalizeSpaces(item.reason) || 'Supporting repository source drifted.'}
                     </p>
                     {Array.isArray(item.refs) && item.refs.length > 0 ? (
                       <ul className="public-wiki-comparison__list">

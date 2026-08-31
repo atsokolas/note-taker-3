@@ -5,6 +5,7 @@ import {
   isSuppressedFromReturnView
 } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
+import { plainTextFrom } from '../../utils/editorialText';
 
 export {
   composeCruftSuppressionNotice,
@@ -224,7 +225,7 @@ export const toNotebookThread = (entry = {}) => ({
   type: 'notebook',
   id: entry._id,
   title: entry.title || 'Untitled',
-  description: String(entry.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180),
+  description: plainTextFrom(entry.content).slice(0, 180),
   stale: false,
   touchedAt: entry?.updatedAt || entry?.createdAt,
   status: '',

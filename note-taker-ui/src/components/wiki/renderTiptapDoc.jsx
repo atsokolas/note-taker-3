@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { wikiPagePath } from '../../utils/wikiFeatureFlags';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 /**
  * renderTiptapDoc — minimal read-only renderer that walks a TipTap JSON
@@ -207,7 +208,7 @@ export const extractTocItems = (doc) => {
 export const firstParagraphText = (doc) => {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) return '';
   const paragraph = doc.content.find(node => node?.type === 'paragraph' && plainText(node.content).trim());
-  return paragraph ? plainText(paragraph.content).replace(/\s+/g, ' ').trim() : '';
+  return paragraph ? normalizeSpaces(plainText(paragraph.content)) : '';
 };
 
 const renderTextNode = (node, key, options = {}) => {

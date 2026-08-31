@@ -1,6 +1,6 @@
+import { normalizeSpaces, sentenceBoundaryTrim } from '../utils/editorialText';
 import { buildSourceOpenPath, buildSourceOriginPath, isLibraryHref } from '../utils/sourceRoutes';
 import { answersHeldSentence } from './judgmentHold';
-import { sentenceBoundaryTrim } from '../utils/editorialText';
 
 // The Judgment page's read model.
 //
@@ -11,9 +11,8 @@ import { sentenceBoundaryTrim } from '../utils/editorialText';
 // the wiki page's judgment contract. Nothing is inferred, nothing is filled in
 // to keep a section from being empty: an empty section is absent, not a box.
 
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 const list = (value) => (Array.isArray(value) ? value : []);
-const idOf = (value) => clean(value?._id || value?.id || value);
+const idOf = (value) => normalizeSpaces(value?._id || value?.id || value);
 
 const time = (value) => {
   if (!value) return NaN;
@@ -24,17 +23,17 @@ const time = (value) => {
 /** Tiptap answers arrive as a doc; the page only ever renders one sentence. */
 export const docText = (node) => {
   if (!node) return '';
-  if (typeof node === 'string') return clean(node);
-  if (Array.isArray(node)) return clean(node.map(docText).filter(Boolean).join(' '));
+  if (typeof node === 'string') return normalizeSpaces(node);
+  if (Array.isArray(node)) return normalizeSpaces(node.map(docText).filter(Boolean).join(' '));
   if (typeof node !== 'object') return '';
   const own = typeof node.text === 'string' ? node.text : '';
   const child = Array.isArray(node.content) ? docText(node.content) : '';
-  return clean([own, child].filter(Boolean).join(' '));
+  return normalizeSpaces([own, child].filter(Boolean).join(' '));
 };
 
 /** One sentence, ending where the first sentence ends. */
 export const oneSentence = (value, maxLength = 240) => {
-  const text = clean(value);
+  const text = normalizeSpaces(value);
   if (!text) return '';
   const boundary = text.search(/[.!?](\s|$)/);
   const sentence = boundary >= 0 ? text.slice(0, boundary + 1) : text;
@@ -52,8 +51,8 @@ export const oneSentence = (value, maxLength = 240) => {
 export const isJudgmentPage = (page) => {
   const judgment = page?.judgment || {};
   return Boolean(
-    clean(judgment.currentJudgment)
-    || clean(judgment.kind)
+    normalizeSpaces(judgment.currentJudgment)
+    || normalizeSpaces(judgment.kind)
     || whyLines(judgment).length
     || againstLines(judgment).length
     || changeMindLines(judgment).length
@@ -61,7 +60,7 @@ export const isJudgmentPage = (page) => {
   );
 };
 
-const sameLine = (left, right) => clean(left).toLowerCase() === clean(right).toLowerCase();
+const sameLine = (left, right) => normalizeSpaces(left).toLowerCase() === normalizeSpaces(right).toLowerCase();
 
 /** Normalized claim identity: case, punctuation, and extra space do not make a second hold. */
 export const normalizeClaimKey = (value = '') => String(value || '')
@@ -73,9 +72,9 @@ export const normalizeClaimKey = (value = '') => String(value || '')
 
 /** The claim is the sentence. It is the same sentence everywhere it appears. */
 export const claimSentence = (page) => (
-  clean(page?.judgment?.currentJudgment)
-  || clean(page?.judgment?.governingQuestion)
-  || clean(page?.title)
+  normalizeSpaces(page?.judgment?.currentJudgment)
+  || normalizeSpaces(page?.judgment?.governingQuestion)
+  || normalizeSpaces(page?.title)
 );
 
 /* The wiki name, when it is actually a name.
@@ -86,7 +85,7 @@ export const claimSentence = (page) => (
    That copy is not a name yet. Naming the page is what lets the case join
    the wiki hierarchy without rewriting what you think. */
 export const namedTitle = (page = {}) => {
-  const title = clean(page?.title);
+  const title = normalizeSpaces(page?.title);
   const claim = claimSentence(page);
   if (!title || (claim && sameLine(title, claim))) return '';
   return title;
@@ -108,9 +107,9 @@ const heldClaimOf = (page = {}) => {
 };
 
 const sourceLabel = (ref) => (
-  clean(ref?.citationLabel)
-  || clean(ref?.provider)
-  || clean(ref?.title)
+  normalizeSpaces(ref?.citationLabel)
+  || normalizeSpaces(ref?.provider)
+  || normalizeSpaces(ref?.title)
 );
 
 /** Sources a human can bind to a verdict. Keep this projection beside the
@@ -123,7 +122,7 @@ export const verdictEvidenceOptions = (page = {}) => {
     // Reader citations are deliberately compact ("[1]"), but a verdict is a
     // durable human record. Name the evidence there so the record remains
     // intelligible after the reader's citation order changes.
-    const label = clean(ref?.title) || sourceLabel(ref) || clean(ref?.url);
+    const label = normalizeSpaces(ref?.title) || sourceLabel(ref) || normalizeSpaces(ref?.url);
     if (!id || !label || seen.has(id)) return options;
     seen.add(id);
     options.push({ id, label, href: buildSourceOpenPath(ref) });
@@ -170,7 +169,7 @@ const sourcesForLine = (page, line = {}) => {
     if (!ref || !label) return;
     add({ id: refId, label, href: buildSourceOpenPath(ref) });
   });
-  const literal = clean(line.sourceLabel);
+  const literal = normalizeSpaces(line.sourceLabel);
   if (literal) {
     add({
       id: `label:${literal}`,
@@ -210,11 +209,11 @@ const uniqueSources = (lines = []) => {
 
 const reasonLines = (items = [], prefix) => list(items)
   .map((item, index) => ({
-    id: clean(item?.reasonId) || `${prefix}:${index}`,
-    text: clean(item?.text),
+    id: normalizeSpaces(item?.reasonId) || `${prefix}:${index}`,
+    text: normalizeSpaces(item?.text),
     sourceRefIds: list(item?.sourceRefIds),
-    sourceLabel: clean(item?.sourceLabel),
-    acceptedFrom: clean(item?.acceptedFrom),
+    sourceLabel: normalizeSpaces(item?.sourceLabel),
+    acceptedFrom: normalizeSpaces(item?.acceptedFrom),
     at: item?.at || item?.createdAt || null
   }))
   .filter(line => line.text);
@@ -227,10 +226,10 @@ const whyLines = (judgment = {}) => {
   const own = reasonLines(judgment.why, 'why');
   if (own.length) return own;
   return list(judgment.assumptions)
-    .filter(item => clean(item?.status) !== 'failed')
+    .filter(item => normalizeSpaces(item?.status) !== 'failed')
     .map((item, index) => ({
-      id: clean(item?.assumptionId) || `assumption:${index}`,
-      text: clean(item?.text),
+      id: normalizeSpaces(item?.assumptionId) || `assumption:${index}`,
+      text: normalizeSpaces(item?.text),
       sourceRefIds: list(item?.sourceRefIds),
       sourceLabel: '',
       acceptedFrom: '',
@@ -242,7 +241,7 @@ const whyLines = (judgment = {}) => {
 const againstLines = (judgment = {}) => {
   const own = reasonLines(judgment.against, 'against');
   if (own.length) return own;
-  const counter = clean(judgment.strongestCounterargument);
+  const counter = normalizeSpaces(judgment.strongestCounterargument);
   return counter ? [{
     id: 'strongest-counterargument',
     text: counter,
@@ -254,10 +253,10 @@ const againstLines = (judgment = {}) => {
 };
 
 const changeMindLines = (judgment = {}) => list(judgment.falsifiers)
-  .filter(item => clean(item?.status) !== 'retired')
+  .filter(item => normalizeSpaces(item?.status) !== 'retired')
   .map((item, index) => ({
-    id: clean(item?.falsifierId) || `falsifier:${index}`,
-    text: clean(item?.text)
+    id: normalizeSpaces(item?.falsifierId) || `falsifier:${index}`,
+    text: normalizeSpaces(item?.text)
   }))
   .filter(line => line.text);
 
@@ -266,10 +265,10 @@ const changeMindLines = (judgment = {}) => list(judgment.falsifiers)
    decided, because that is what happened. */
 const whatIDidLines = (judgment = {}) => list(judgment.decisions)
   .map((item, index) => ({
-    id: clean(item?.decisionId) || `decision:${index}`,
-    text: clean(item?.summary),
+    id: normalizeSpaces(item?.decisionId) || `decision:${index}`,
+    text: normalizeSpaces(item?.summary),
     at: item?.decidedAt || item?.createdAt || null,
-    status: clean(item?.status) || 'planned',
+    status: normalizeSpaces(item?.status) || 'planned',
     order: index
   }))
   .filter(line => line.text)
@@ -284,8 +283,8 @@ const whatIDidLines = (judgment = {}) => list(judgment.decisions)
 const reviewBlock = (judgment = {}, now = Date.now()) => {
   const dated = list(judgment.decisions)
     .map(item => ({
-      id: clean(item?.decisionId),
-      summary: clean(item?.summary),
+      id: normalizeSpaces(item?.decisionId),
+      summary: normalizeSpaces(item?.summary),
       reviewAt: item?.reviewAt || null,
       outcome: item?.outcome || {}
     }))
@@ -301,8 +300,8 @@ const reviewBlock = (judgment = {}, now = Date.now()) => {
       state: 'observed',
       decisionId: latest.id,
       at: observedAt,
-      summary: clean(latest.outcome.summary),
-      lesson: clean(latest.outcome.lesson)
+      summary: normalizeSpaces(latest.outcome.summary),
+      lesson: normalizeSpaces(latest.outcome.lesson)
     };
   }
   const due = time(latest.reviewAt);
@@ -374,7 +373,7 @@ export const projectJudgment = (page, now = Date.now()) => {
     claim: claimSentence(page),
     title: namedTitle(page),
     headline: judgmentHeadline(page),
-    pageTitle: clean(page?.title),
+    pageTitle: normalizeSpaces(page?.title),
     provenance: provenanceLine(page, now),
     why,
     whySources: uniqueSources(why),
@@ -387,18 +386,18 @@ export const projectJudgment = (page, now = Date.now()) => {
     changeMindIf: changeMindLines(judgment),
     whatIDid: whatIDidLines(judgment),
     lessons: lessonLines(judgment),
-    parked: clean(judgment.status) === 'parked',
+    parked: normalizeSpaces(judgment.status) === 'parked',
     evergreen: Boolean(page?.evergreen),
     review: reviewBlock(judgment, now),
     resolution: {
       bornAt: judgment.bornAt || judgment.startedAt || page?.createdAt || null,
-      criteria: clean(judgment.resolutionCriteria),
+      criteria: normalizeSpaces(judgment.resolutionCriteria),
       horizonAt: judgment.resolutionHorizonAt || null,
       setAt: judgment.resolutionSetAt || null,
       verdicts: list(judgment.verdicts)
     },
-    claimId: clean(heldClaimOf(page)?.claimId),
-    resolutionCriteria: clean(heldClaimOf(page)?.resolutionCriteria || judgment.resolutionCriteria),
+    claimId: normalizeSpaces(heldClaimOf(page)?.claimId),
+    resolutionCriteria: normalizeSpaces(heldClaimOf(page)?.resolutionCriteria || judgment.resolutionCriteria),
     horizon: heldClaimOf(page)?.horizon || judgment.resolutionHorizonAt || null
   };
 };
@@ -427,7 +426,7 @@ const DAY = 24 * 60 * 60 * 1000;
 export const judgmentActivity = (page, events = [], now = Date.now()) => {
   const judgment = page?.judgment || {};
   const pageId = idOf(page);
-  if (clean(judgment.status) === 'parked') return { state: 'parked', arrived: 0, newestAt: null };
+  if (normalizeSpaces(judgment.status) === 'parked') return { state: 'parked', arrived: 0, newestAt: null };
   /* Evergreen outranks the clock entirely. The reader said this one is
      permanent, so it is never quiet, never avoided, and never told it lacks a
      falsifier — those are all ways of saying "you have neglected this", and
@@ -439,7 +438,7 @@ export const judgmentActivity = (page, events = [], now = Date.now()) => {
 
   const arrivals = list(events)
     .filter(event => list(event?.affectedPageIds).map(idOf).includes(pageId))
-    .filter(event => clean(event?.status) !== 'ignored')
+    .filter(event => normalizeSpaces(event?.status) !== 'ignored')
     .map(event => time(event?.sourceUpdatedAt || event?.createdAt || null))
     .filter(at => !Number.isNaN(at) && at > touchedAt)
     .sort((left, right) => right - left);
@@ -555,7 +554,7 @@ export const buildJudgmentIndex = (pages = [], events = [], now = Date.now()) =>
 const dismissedOvernightIds = (judgment = {}) => {
   const seen = new Set();
   return list(judgment.dismissedOvernightEventIds)
-    .map(value => idOf(value) || clean(value))
+    .map(value => idOf(value) || normalizeSpaces(value))
     .filter((id) => {
       if (!id || seen.has(id)) return false;
       seen.add(id);
@@ -565,7 +564,7 @@ const dismissedOvernightIds = (judgment = {}) => {
 
 const filedOvernightOrigins = (judgment = {}) => new Set(
   [...whyLines(judgment), ...againstLines(judgment)]
-    .map(line => clean(line.acceptedFrom))
+    .map(line => normalizeSpaces(line.acceptedFrom))
     .filter(Boolean)
 );
 
@@ -578,12 +577,12 @@ export const selectOvernightLine = (page, events = []) => {
   const pageId = idOf(page);
   if (!pageId) return null;
   const judgment = page?.judgment || {};
-  const claim = clean(judgment.currentJudgment);
+  const claim = normalizeSpaces(judgment.currentJudgment);
   const silenced = new Set(dismissedOvernightIds(judgment));
   const filed = filedOvernightOrigins(judgment);
   const candidates = list(events)
     .filter(event => list(event?.affectedPageIds).map(idOf).includes(pageId))
-    .filter(event => clean(event?.status) !== 'ignored')
+    .filter(event => normalizeSpaces(event?.status) !== 'ignored')
     .map(event => ({
       id: idOf(event),
       at: event?.sourceUpdatedAt || event?.createdAt || null,
@@ -632,7 +631,7 @@ const persistReason = (line = {}) => {
     sourceRefIds: line.sourceRefIds,
     sourceLabel: line.sourceLabel
   };
-  const origin = clean(line.acceptedFrom);
+  const origin = normalizeSpaces(line.acceptedFrom);
   if (origin) next.acceptedFrom = origin;
   const when = line.createdAt || line.at;
   if (when) next.createdAt = when;
@@ -649,7 +648,7 @@ const stampedReason = (fields = {}) => ({
    origin travels with the new line so the page can always say where the
    sentence came from. */
 export const acceptProposalIntoJudgment = (page, proposal, field) => {
-  const text = clean(proposal?.body || proposal?.sentence);
+  const text = normalizeSpaces(proposal?.body || proposal?.sentence);
   if (field === 'criteria' || field === 'changeMindIf') {
     return writeLineIntoJudgment(page, text, 'changeMindIf');
   }
@@ -661,9 +660,9 @@ export const acceptProposalIntoJudgment = (page, proposal, field) => {
     [target]: [
       ...current.map(persistReason),
       stampedReason({
-        text: clean(proposal?.body || proposal?.sentence),
-        acceptedFrom: clean(proposal?.acceptedFrom || proposal?.id),
-        sourceLabel: clean(proposal?.sourceLabel || proposal?.source)
+        text: normalizeSpaces(proposal?.body || proposal?.sentence),
+        acceptedFrom: normalizeSpaces(proposal?.acceptedFrom || proposal?.id),
+        sourceLabel: normalizeSpaces(proposal?.sourceLabel || proposal?.source)
       })
     ]
   };
@@ -683,13 +682,13 @@ export const dependencyLines = (judgment = {}, pagesById = new Map()) => list(ju
     const pageId = idOf(item?.pageId);
     const page = pagesById.get(String(pageId)) || null;
     return {
-      id: clean(item?.dependencyId) || `dependency:${index}`,
+      id: normalizeSpaces(item?.dependencyId) || `dependency:${index}`,
       pageId,
       title: page ? namedTitle(page) : '',
       headline: page ? judgmentHeadline(page) : '',
       claim: page ? claimSentence(page) : '',
-      note: clean(item?.note),
-      proposedBy: clean(item?.proposedBy) || 'user'
+      note: normalizeSpaces(item?.note),
+      proposedBy: normalizeSpaces(item?.proposedBy) || 'user'
     };
   })
   .filter(line => line.pageId);
@@ -705,7 +704,7 @@ export const restingOn = (pageId, pages = []) => {
       title: namedTitle(page),
       headline: judgmentHeadline(page),
       claim: claimSentence(page),
-      note: clean(
+      note: normalizeSpaces(
         list(page?.judgment?.dependsOn).find(item => String(idOf(item?.pageId)) === target)?.note
       )
     }))
@@ -720,16 +719,16 @@ export const addDependency = (page, dependsOnPageId, note = '') => {
   if (existing.some(item => String(idOf(item?.pageId)) === target)) return judgment;
   return {
     ...judgment,
-    dependsOn: [...existing, { pageId: target, note: clean(note), proposedBy: 'user' }]
+    dependsOn: [...existing, { pageId: target, note: normalizeSpaces(note), proposedBy: 'user' }]
   };
 };
 
 export const removeDependency = (page, dependencyId) => {
   const judgment = page?.judgment || {};
-  const id = clean(dependencyId);
+  const id = normalizeSpaces(dependencyId);
   return {
     ...judgment,
-    dependsOn: list(judgment.dependsOn).filter(item => clean(item?.dependencyId) !== id)
+    dependsOn: list(judgment.dependsOn).filter(item => normalizeSpaces(item?.dependencyId) !== id)
   };
 };
 
@@ -744,7 +743,7 @@ export const removeDependency = (page, dependencyId) => {
    Park says nothing about whether the claim is true. And the moment of
    parking or closing is where the durable thing gets made: not the claim,
    but what holding it taught you. */
-export const isParked = (page) => clean(page?.judgment?.status) === 'parked';
+export const isParked = (page) => normalizeSpaces(page?.judgment?.status) === 'parked';
 
 export const parkJudgment = (page, lessonText = '') => {
   const judgment = page?.judgment || {};
@@ -761,7 +760,7 @@ export const resumeJudgment = (page) => {
 };
 
 const appendLesson = (judgment = {}, text = '', closedAs = '') => {
-  const lesson = clean(text);
+  const lesson = normalizeSpaces(text);
   const existing = list(judgment.lessons);
   if (!lesson) return existing;
   return [...existing, { text: lesson, closedAs, at: new Date().toISOString() }];
@@ -777,9 +776,9 @@ export const writeLessonIntoJudgment = (page, text) => {
 
 export const lessonLines = (judgment = {}) => list(judgment.lessons)
   .map((item, index) => ({
-    id: clean(item?.lessonId) || `lesson:${index}`,
-    text: clean(item?.text),
-    closedAs: clean(item?.closedAs),
+    id: normalizeSpaces(item?.lessonId) || `lesson:${index}`,
+    text: normalizeSpaces(item?.text),
+    closedAs: normalizeSpaces(item?.closedAs),
     at: item?.at || null
   }))
   .filter(line => line.text);
@@ -804,7 +803,7 @@ export const buildLessonsIndex = (pages = []) => list(pages)
    article is not in it. */
 export const fileEvidenceIntoJudgment = (page, candidate, field) => {
   const judgment = page?.judgment || {};
-  const text = clean(candidate?.text);
+  const text = normalizeSpaces(candidate?.text);
   if (!text) return judgment;
   const target = field === 'against' ? 'against' : 'why';
   const current = target === 'why' ? whyLines(judgment) : againstLines(judgment);
@@ -815,8 +814,8 @@ export const fileEvidenceIntoJudgment = (page, candidate, field) => {
       stampedReason({
         reasonId: newLineId(target),
         text,
-        sourceLabel: clean(candidate?.sourceLabel),
-        acceptedFrom: clean(candidate?.id)
+        sourceLabel: normalizeSpaces(candidate?.sourceLabel),
+        acceptedFrom: normalizeSpaces(candidate?.id)
       })
     ]
   };
@@ -830,7 +829,7 @@ export const fileEvidenceIntoJudgment = (page, candidate, field) => {
    untouched, and the new line goes last. */
 export const writeLineIntoJudgment = (page, text, field) => {
   const judgment = page?.judgment || {};
-  const line = clean(text);
+  const line = normalizeSpaces(text);
   if (!line) return judgment;
 
   if (field === 'why' || field === 'against') {
@@ -880,14 +879,14 @@ export const newLineId = (prefix) => {
 
 const upsertById = (items, idKey, lineId, make, update) => {
   const list_ = list(items);
-  const index = list_.findIndex(item => clean(item?.[idKey]) === lineId);
+  const index = list_.findIndex(item => normalizeSpaces(item?.[idKey]) === lineId);
   if (index < 0) return [...list_, make()];
   return list_.map((item, at) => (at === index ? update(item) : item));
 };
 
 export const upsertLineIntoJudgment = (page, text, field, lineId) => {
   const judgment = page?.judgment || {};
-  const line = clean(text);
+  const line = normalizeSpaces(text);
   if (!line || !lineId) return judgment;
 
   if (field === 'why' || field === 'against') {

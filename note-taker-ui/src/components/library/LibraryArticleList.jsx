@@ -19,6 +19,7 @@ import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -34,7 +35,7 @@ const getSourceLabel = (article) => {
 };
 
 const trimExcerpt = (text) => {
-  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  const normalized = normalizeSpaces(text);
   if (!normalized) return '';
   if (normalized.length <= 180) return normalized;
   return `${normalized.slice(0, 177)}...`;
