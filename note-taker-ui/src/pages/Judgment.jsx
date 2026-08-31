@@ -24,6 +24,7 @@ import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
+import JudgmentLedger from '../components/judgment/JudgmentLedger';
 import JudgmentResolution from '../components/judgment/JudgmentResolution';
 import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
@@ -41,7 +42,6 @@ import {
   buildJudgmentIndex,
   createJudgment,
   formatHoldAge,
-  formatLedgerDate,
   oneSentence,
   PARTNER_ACK,
   projectJudgment,
@@ -1232,8 +1232,17 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         claim={view.claim}
         judgment={page.judgment}
         evidenceOptions={verdictEvidenceOptions(page)}
-        onSaved={(judgment) => {
-          if (judgment) setPage(current => ({ ...current, judgment }));
+        onSaved={(next) => {
+          if (next) setPage(current => ({ ...current, judgment: next }));
+        }}
+      />
+      <JudgmentLedger
+        pageId={pageId}
+        claim={view.claim}
+        page={page}
+        judgment={page.judgment}
+        onSaved={(next) => {
+          if (next) setPage(current => ({ ...current, judgment: next }));
         }}
       />
 
@@ -1268,7 +1277,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
               {view.lessons.map(lesson => (
                 <li key={lesson.id}>
                   <span>{lesson.text}</span>
-                  {formatLedgerDate(lesson.at) ? <small>{formatLedgerDate(lesson.at)}</small> : null}
                 </li>
               ))}
             </ul>

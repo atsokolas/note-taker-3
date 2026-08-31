@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 const { createWikiRevision, snapshotPage } = require('./wikiRevisionService');
 const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptService');
+const { clockFact } = require('./judgmentLedger');
 
-const RESULTS = new Set(['held_up', 'broke', 'partly', 'unresolvable']);
+const RESULTS = new Set(['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons']);
 
 class JudgmentResolutionError extends Error {
   constructor(message, status = 400, code = 'invalid_request') {
@@ -207,6 +208,21 @@ const setResolutionCriteria = async ({
       page.judgment.resolutionHorizonAt = safeHorizon;
       page.judgment.resolutionSetAt = actedAt;
       page.judgment.resolutionHistory.push(artifact);
+      if (!Array.isArray(page.judgment.clocks)) page.judgment.clocks = [];
+      page.judgment.clocks.push({
+        ...clockFact({
+          clock: 'expectation',
+          occurredAt: safeHorizon,
+          recordedAt: actedAt,
+          precision: safeHorizon ? 'day' : 'unknown',
+          authoredBy: 'user',
+          summary: safeCriteria,
+          relatedId: key,
+          receiptId: key,
+          revisionId,
+          claimHash: hash
+        })
+      });
       return artifact;
     }
   });
@@ -217,7 +233,7 @@ const recordVerdict = async ({
   WikiPage, WikiRevision, NoeisReceipt, now = () => new Date()
 } = {}) => {
   const safeResult = clean(result, 40);
-  if (!RESULTS.has(safeResult)) throw new JudgmentResolutionError('Choose held up, broke, partly, or unresolvable.');
+  if (!RESULTS.has(safeResult)) throw new JudgmentResolutionError('Choose held up, broke, partly, unresolvable, or right for the wrong reasons.');
   const safeNote = clean(note, 4000);
   const payload = { result: safeResult, note: safeNote, evidenceSourceRefIds: unique(evidenceSourceRefIds).sort() };
   return persistMutation({
@@ -237,6 +253,37 @@ const recordVerdict = async ({
         ...core, recordHash: digest(core), revisionId, receiptId: key, recordedBy: 'user'
       };
       page.judgment.verdicts.push(artifact);
+      if (!Array.isArray(page.judgment.clocks)) page.judgment.clocks = [];
+      page.judgment.clocks.push({
+        ...clockFact({
+          clock: 'review',
+          occurredAt: actedAt,
+          recordedAt: actedAt,
+          authoredBy: 'user',
+          sourceRefIds: evidenceIds,
+          summary: safeResult.replace(/_/g, ' '),
+          relatedId: verdictId,
+          receiptId: key,
+          revisionId,
+          claimHash: hash
+        })
+      });
+      evidenceIds.forEach((sourceId) => {
+        page.judgment.clocks.push({
+          ...clockFact({
+            clock: 'evidence',
+            occurredAt: actedAt,
+            recordedAt: actedAt,
+            authoredBy: 'user',
+            sourceRefIds: [sourceId],
+            summary: 'Named as evidence for this verdict.',
+            relatedId: `${verdictId}:${sourceId}`,
+            receiptId: key,
+            revisionId,
+            claimHash: hash
+          })
+        });
+      });
       return artifact;
     }
   });

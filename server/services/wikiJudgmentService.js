@@ -190,7 +190,10 @@ const normalizeLessons = (items = [], priorItems = []) => {
       lessonId: stableId('lesson', item.lessonId),
       text,
       closedAs: enumValue('lesson.closedAs', item.closedAs, VALUES.lessonClosedAs, ''),
-      at: dateValue('lesson.at', item.at, null) || new Date()
+      at: dateValue('lesson.at', item.at, null) || new Date(),
+      sourcePageId: clean(item.sourcePageId, 120) || null,
+      sourceLessonId: clean(item.sourceLessonId, 120),
+      outcomeId: clean(item.outcomeId, 120)
     };
     keptIds.add(lesson.lessonId);
     kept.push(lesson);
@@ -298,6 +301,9 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
     resolutionSetAt: dateValue('judgment.resolutionSetAt', prior.resolutionSetAt, null),
     resolutionHistory: Array.isArray(prior.resolutionHistory) ? prior.resolutionHistory : [],
     verdicts: Array.isArray(prior.verdicts) ? prior.verdicts : [],
+    clocks: Array.isArray(prior.clocks) ? prior.clocks : [],
+    outcomes: Array.isArray(prior.outcomes) ? prior.outcomes : [],
+    lessonApplications: Array.isArray(prior.lessonApplications) ? prior.lessonApplications : [],
     /* Per-case overnight silence. Not an event ignore — the same filing may
        still matter to another claim. */
     dismissedOvernightEventIds: cleanList(next.dismissedOvernightEventIds, 80)

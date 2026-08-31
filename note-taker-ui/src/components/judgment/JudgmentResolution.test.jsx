@@ -21,7 +21,7 @@ test('sets a human test against the exact held sentence', async () => {
   expect(saved).toHaveBeenCalled();
 });
 
-test('records one of four verdicts and shows the inked result', async () => {
+test('records one of five verdicts, including right for the wrong reasons', async () => {
   recordJudgmentVerdict.mockResolvedValue({
     artifact: { verdictId: 'verdict-1' },
     judgment: {
@@ -36,6 +36,7 @@ test('records one of four verdicts and shows the inked result', async () => {
     evidenceOptions={[{ id: 'source-1', label: 'Annual report' }]}
   />);
   fireEvent.click(screen.getByRole('button', { name: /record what happened/i }));
+  expect(screen.getByRole('button', { name: 'Right for the wrong reasons' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Partly' }));
   fireEvent.click(screen.getByRole('checkbox', { name: 'Annual report' }));
   fireEvent.click(screen.getByRole('button', { name: /record it/i }));

@@ -283,5 +283,38 @@ module.exports = { run };
   });
   assert.strictEqual(carried.dependsOn.length, 1, 'dependencies survive the normalizer');
 
+  const clocked = {
+    currentJudgment: 'Compute is scarce.',
+    clocks: [{
+      factId: 'clock_1',
+      clock: 'evidence',
+      recordedAt: new Date('2026-03-01T12:00:00.000Z'),
+      precision: 'day',
+      authoredBy: 'world',
+      summary: 'The 10-K landed.',
+      recordHash: 'abc'
+    }],
+    outcomes: [{
+      outcomeId: 'out_1',
+      result: 'held',
+      recordedAt: new Date('2026-08-01T12:00:00.000Z'),
+      verdictSnapshot: 'held_up',
+      answer: 'Power, not silicon.'
+    }],
+    lessonApplications: [{
+      applicationId: 'apply_1',
+      lessonId: 'l1',
+      status: 'rejected',
+      sourceText: 'Watch conversion.'
+    }]
+  };
+  const preserved = normalizeJudgment({
+    existing: clocked,
+    input: { currentJudgment: 'Compute is scarce.', clocks: [], outcomes: [], lessonApplications: [] }
+  });
+  assert.strictEqual(preserved.clocks[0].summary, 'The 10-K landed.', 'clocks survive a generic edit');
+  assert.strictEqual(preserved.outcomes[0].verdictSnapshot, 'held_up');
+  assert.strictEqual(preserved.lessonApplications[0].status, 'rejected');
+
   console.log('judgment dependency tests passed');
 }

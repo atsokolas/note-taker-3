@@ -156,12 +156,17 @@ const buildDuplicatePagePlan = (pages = []) => {
 
 const mergeJudgment = (pages = [], canonical = {}) => {
   const base = { ...(plain(canonical).judgment || {}) };
-  ['why', 'against', 'assumptions', 'unknowns', 'falsifiers', 'decisions', 'lessons', 'dependsOn']
+  ['why', 'against', 'assumptions', 'unknowns', 'falsifiers', 'decisions', 'lessons', 'dependsOn', 'clocks', 'outcomes', 'lessonApplications']
     .forEach(key => {
       const combined = pages.flatMap(page => listFor(plain(page)?.judgment?.[key]));
       if (!combined.length) return;
       base[key] = uniqueBy(combined.map(plain), entry => (
         id(entry)
+        || String(entry?.factId || '')
+        || String(entry?.outcomeId || '')
+        || String(entry?.applicationId || '')
+        || String(entry?.lessonId || '')
+        || String(entry?.verdictId || '')
         || normalizeComparableText(entry?.text || entry?.summary || entry?.note)
       ));
     });

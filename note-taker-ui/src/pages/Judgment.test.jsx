@@ -53,6 +53,19 @@ jest.mock('../api/dailyLoop', () => ({
   recordClaimFalsifiability: jest.fn().mockResolvedValue({})
 }));
 
+jest.mock('../api/judgmentResolution', () => ({
+  getJudgmentLedger: jest.fn(() => Promise.resolve({
+    clocks: [],
+    moments: [],
+    replay: { frames: [] },
+    proposals: []
+  })),
+  recordJudgmentOutcome: jest.fn(),
+  resolveJudgmentLesson: jest.fn(),
+  recordJudgmentVerdict: jest.fn(),
+  setJudgmentResolution: jest.fn()
+}));
+
 const judgmentPage = () => ({
   _id: 'wiki-nvidia',
   title: 'NVIDIA',

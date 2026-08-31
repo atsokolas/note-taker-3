@@ -944,6 +944,164 @@ button.judgment-inbox__text:focus-visible {
 
 .judgment-resolution__error { color: var(--danger, #8b3d32); }
 
+/* Tracing paper, five clocks, a flipbook. No bounce. Pivotal frames
+   simply come forward in opacity. */
+.judgment-ledger {
+  margin: 2.4rem 0 1rem;
+  color: var(--ink-muted, #6f695f);
+}
+
+.judgment-ledger h2,
+.judgment-ledger h3 {
+  margin: 0 0 1rem;
+  color: var(--ink, #302a23);
+  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.judgment-clocks {
+  display: grid;
+  gap: .85rem;
+  margin: 0 0 1.8rem;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-clock {
+  display: grid;
+  gap: .15rem;
+}
+
+.judgment-clock__name {
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.judgment-clock__when {
+  color: var(--ink, #302a23);
+  font: 400 1.15rem/1.3 "Newsreader", var(--font-serif, Georgia), serif;
+}
+
+.judgment-clock__summary {
+  font-family: "Newsreader", var(--font-serif, Georgia), serif;
+  line-height: 1.45;
+}
+
+.judgment-clock small {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: .78rem;
+}
+
+.judgment-time {
+  display: grid;
+  gap: .45rem;
+  margin: 0 0 1.6rem;
+}
+
+.judgment-time input[type='range'] {
+  width: min(100%, 28rem);
+  accent-color: var(--ink, #302a23);
+}
+
+.judgment-time__caption {
+  margin: 0;
+  font-style: italic;
+}
+
+.judgment-trace {
+  position: relative;
+  margin: 0 0 2rem;
+  padding: 1.4rem 1.2rem 1.6rem;
+  background: color-mix(in srgb, var(--paper, #f7f3eb) 78%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 42%, transparent);
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.judgment-trace__claim {
+  margin: 0 0 .8rem;
+  color: var(--ink, #302a23);
+  font: 400 1.35rem/1.25 "Newsreader", var(--font-serif, Georgia), serif;
+}
+
+.judgment-trace__posture,
+.judgment-trace p span {
+  display: block;
+  margin-bottom: .2rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
+}
+
+.judgment-trace small.is-absent {
+  font-style: italic;
+}
+
+.judgment-replay ol {
+  display: grid;
+  gap: .4rem;
+  margin: .8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.judgment-replay li {
+  opacity: .42;
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.judgment-replay li.is-pivotal { opacity: .72; }
+.judgment-replay li.is-open { opacity: 1; }
+
+.judgment-replay button {
+  display: grid;
+  gap: .15rem;
+  width: 100%;
+  padding: .35rem 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.judgment-replay button span:first-child {
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
+}
+
+.judgment-postmortem,
+.judgment-lessons-forward,
+.judgment-outcomes {
+  display: grid;
+  gap: .8rem;
+  margin: 1.8rem 0 0;
+}
+
+.judgment-lessons-forward article,
+.judgment-outcomes li {
+  display: grid;
+  gap: .3rem;
+}
+
+.judgment-lessons-forward input,
+.judgment-postmortem textarea {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--ink, #302a23);
+  font: inherit;
+}
+
+.judgment-ledger.is-still .judgment-trace,
+.judgment-ledger.is-still .judgment-replay li {
+  transition: none;
+}
+
 .judgment-mirror {
   width: min(100% - 3rem, 52rem);
   margin: 0 auto;
@@ -984,6 +1142,10 @@ button.judgment-inbox__text:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .judgment-resolution__latest.is-new .judgment-resolution__seal { animation: none; }
+  .judgment-trace,
+  .judgment-replay li {
+    transition: none;
+  }
 }
 
 @media (max-width: 640px) {
@@ -997,8 +1159,13 @@ button.judgment-inbox__text:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .judgment-composer__kinds::after {
-    display: none;
+  .judgment-replay li {
+    opacity: 1;
+    transition: none;
+  }
+
+  .judgment-trace {
+    transition: none;
   }
 
   .judgment-composer__kinds button.is-active,

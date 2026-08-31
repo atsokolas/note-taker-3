@@ -16,7 +16,8 @@ const verdictLabel = {
   held_up: 'Held up',
   broke: 'Broke',
   partly: 'Partly',
-  unresolvable: 'Unresolvable'
+  unresolvable: 'Unresolvable',
+  right_for_wrong_reasons: 'Right for the wrong reasons'
 };
 
 /* The test and the verdict share one quiet threshold. This is deliberately not
