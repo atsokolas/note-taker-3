@@ -23,6 +23,7 @@ import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
+import JudgmentResolution from '../components/judgment/JudgmentResolution';
 import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { useSystemStatusControls } from '../system/SystemStatusContext';
@@ -1190,6 +1191,15 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           ))}
         </p>
       ) : null}
+
+      <JudgmentResolution
+        pageId={pageId}
+        claim={view.claim}
+        judgment={page.judgment}
+        onSaved={(judgment) => {
+          if (judgment) setPage(current => ({ ...current, judgment }));
+        }}
+      />
 
       <div className={step(4)}>
         <UpdateComposer

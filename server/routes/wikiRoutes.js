@@ -1675,7 +1675,10 @@ const WIKI_JUDGMENT_FIELDS = Object.freeze([
   'judgment.lessons.lessonId', 'judgment.lessons.text',
   'judgment.lessons.closedAs', 'judgment.lessons.at',
   'judgment.dependsOn.dependencyId', 'judgment.dependsOn.pageId',
-  'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy'
+  'judgment.dependsOn.note', 'judgment.dependsOn.proposedBy',
+  'judgment.bornAt', 'judgment.resolutionCriteria',
+  'judgment.resolutionHorizonAt', 'judgment.resolutionSetAt',
+  'judgment.resolutionHistory', 'judgment.verdicts'
 ]);
 
 const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
