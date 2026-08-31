@@ -45,6 +45,7 @@ import {
   PARTNER_ACK,
   projectJudgment,
   selectOvernightLine,
+  verdictEvidenceOptions,
   upsertLineIntoJudgment
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
@@ -1196,6 +1197,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         pageId={pageId}
         claim={view.claim}
         judgment={page.judgment}
+        evidenceOptions={verdictEvidenceOptions(page)}
         onSaved={(judgment) => {
           if (judgment) setPage(current => ({ ...current, judgment }));
         }}

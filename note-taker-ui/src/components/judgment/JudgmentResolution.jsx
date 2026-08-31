@@ -22,13 +22,14 @@ const verdictLabel = {
 /* The test and the verdict share one quiet threshold. This is deliberately not
    a form card: a belief meeting reality should feel like writing in the margin
    of the case, not configuring a workflow. */
-const JudgmentResolution = ({ pageId, claim, judgment = {}, onSaved }) => {
+const JudgmentResolution = ({ pageId, claim, judgment = {}, evidenceOptions = [], onSaved }) => {
   const [settingTest, setSettingTest] = useState(false);
   const [criteria, setCriteria] = useState(judgment.resolutionCriteria || '');
   const [horizon, setHorizon] = useState(dateInput(judgment.resolutionHorizonAt));
   const [choosingVerdict, setChoosingVerdict] = useState(false);
   const [result, setResult] = useState('');
   const [note, setNote] = useState('');
+  const [evidenceIds, setEvidenceIds] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [newVerdictId, setNewVerdictId] = useState('');
@@ -75,13 +76,23 @@ const JudgmentResolution = ({ pageId, claim, judgment = {}, onSaved }) => {
       pageId,
       expectedClaim: claim,
       result,
-      note
+      note,
+      evidenceSourceRefIds: evidenceIds
     }));
     if (!response) return;
     setNewVerdictId(response.artifact?.verdictId || 'new');
     setChoosingVerdict(false);
     setResult('');
     setNote('');
+    setEvidenceIds([]);
+  };
+
+  const toggleEvidence = (sourceId) => {
+    setEvidenceIds(current => (
+      current.includes(sourceId)
+        ? current.filter(id => id !== sourceId)
+        : [...current, sourceId]
+    ));
   };
 
   return (
@@ -139,6 +150,21 @@ const JudgmentResolution = ({ pageId, claim, judgment = {}, onSaved }) => {
               <button key={value} type="button" aria-pressed={result === value} onClick={() => setResult(value)}>{label}</button>
             ))}
           </div>
+          {evidenceOptions.length ? (
+            <fieldset className="judgment-resolution__evidence">
+              <legend>Evidence used</legend>
+              {evidenceOptions.map(source => (
+                <label key={source.id}>
+                  <input
+                    type="checkbox"
+                    checked={evidenceIds.includes(source.id)}
+                    onChange={() => toggleEvidence(source.id)}
+                  />
+                  <span>{source.label}</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <textarea rows={2} value={note} onChange={event => setNote(event.target.value)} placeholder="What did you observe? (optional)" />
           <div className="judgment-resolution__actions">
             <button type="button" disabled={busy || !result} onClick={saveVerdict}>{busy ? 'Inking…' : 'Record it'}</button>
