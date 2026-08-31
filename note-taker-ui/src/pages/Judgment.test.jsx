@@ -68,7 +68,22 @@ jest.mock('../api/judgmentResolution', () => ({
   })),
   grantLivingTeamSeat: jest.fn(),
   approveLivingTeamVersion: jest.fn(),
-  handOffLivingTeam: jest.fn()
+  handOffLivingTeam: jest.fn(),
+  getCaseLineage: jest.fn(() => Promise.resolve({ silent: true, knots: [], cut: [], contradictions: [] })),
+  proposeCaseLineage: jest.fn(),
+  rejectCaseLineage: jest.fn(),
+  acceptCaseLineage: jest.fn(),
+  getCaseStress: jest.fn(() => Promise.resolve({ silent: true, sheets: [], live: {} })),
+  draftCaseStress: jest.fn(),
+  chooseCaseStress: jest.fn(),
+  getCaseWatch: jest.fn(() => Promise.resolve({ silent: true, note: '' })),
+  openCaseWatch: jest.fn(),
+  acceptWatchProposal: jest.fn(),
+  reverseWatchProposal: jest.fn(),
+  killCaseWatch: jest.fn(),
+  exportDecisionMemory: jest.fn(),
+  importDecisionMemory: jest.fn(),
+  holdDecisionCase: jest.fn()
 }));
 
 // The ledger owns its asynchronous behavior and has a focused test suite.

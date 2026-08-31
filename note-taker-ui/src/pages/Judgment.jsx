@@ -27,6 +27,10 @@ import DossierResearchReview from '../components/judgment/DossierResearchReview'
 import JudgmentLedger from '../components/judgment/JudgmentLedger';
 import JudgmentResolution from '../components/judgment/JudgmentResolution';
 import LivingTeam from '../components/judgment/LivingTeam';
+import AriadneLineage from '../components/judgment/AriadneLineage';
+import TracingPaper from '../components/judgment/TracingPaper';
+import NightWatch from '../components/judgment/NightWatch';
+import TakeThePaper from '../components/judgment/TakeThePaper';
 import { CasebookPreview } from './PublicCasebook';
 import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
@@ -1248,7 +1252,11 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         }}
       />
       <LivingTeam pageId={pageId} />
+      <AriadneLineage pageId={pageId} />
+      <TracingPaper pageId={pageId} />
+      <NightWatch pageId={pageId} />
       <CasebookPreview pageId={pageId} />
+      <TakeThePaper pageId={pageId} />
 
       <div className={step(4)}>
         <UpdateComposer
