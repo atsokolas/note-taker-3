@@ -96,8 +96,17 @@ const paperCollisionLine = (briefing = null) => {
   return '';
 };
 
+const cleanFold = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+
+export const isPaperConsequence = (row = null) => {
+  if (!row?.eventId || !row?.pageId || !row?.claimId) return false;
+  if (!cleanFold(row.prior) || !cleanFold(row.proposed) || !cleanFold(row.passage)) return false;
+  return true;
+};
+
 /** Name a real editorial close — or a collision of two. A quiet day is silence. */
 export const wikiLivingBriefingLine = ({ briefing } = {}) => {
+  if (isPaperConsequence(briefing?.consequence)) return '';
   if (String(briefing?.aliveness?.register || '').toLowerCase() === 'quiet') return '';
   const collision = paperCollisionLine(briefing);
   if (collision) return collision;
@@ -169,10 +178,11 @@ export const isPaperVerdict = (ask = null) => (
 );
 
 /**
- * Scan-for-blue = read-the-day. A close or collision takes the pulse;
- * otherwise a living verdict, then a check-in. Quiet craft is not alive.
+ * Scan-for-blue = read-the-day. A qualified consequence takes the pulse;
+ * otherwise a close or collision, then a living verdict, then a check-in.
  */
 export const morningPulseTarget = ({ briefing } = {}) => {
+  if (isPaperConsequence(briefing?.consequence)) return 'consequence';
   if (wikiLivingBriefingLine({ briefing })) return 'lead';
   const verdicts = (Array.isArray(briefing?.claimVerdicts) ? briefing.claimVerdicts : [])
     .filter(isPaperVerdict);

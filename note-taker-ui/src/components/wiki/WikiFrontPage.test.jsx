@@ -26,7 +26,8 @@ jest.mock('../../api/dailyLoop', () => ({
   disarmWatcher: jest.fn(),
   recordClaimCheckIn: jest.fn(),
   recordClaimFalsifiability: jest.fn(),
-  recordClaimVerdict: jest.fn()
+  recordClaimVerdict: jest.fn(),
+  disposeConsequence: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -1017,6 +1018,45 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(document.querySelector('.paper-open__masthead')).toBeInTheDocument();
       expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(0);
       expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
+    });
+
+    it('carries at most one qualified consequence as the one blue thing', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        aliveness: { register: 'quiet' },
+        consequence: {
+          eventId: 'evt-sec-1',
+          pageId: 'page-nvda',
+          claimId: 'claim-nvda',
+          whatChanged: 'NVIDIA 10-Q',
+          whatItAffects: 'NVIDIA demand still outruns deliverable capacity.',
+          whatINeed: 'Accept, narrow, preserve, reject, or defer.',
+          prior: 'NVIDIA demand still outruns deliverable capacity.',
+          proposed: 'NVIDIA demand still outruns deliverable capacity. 2026-08-28: Confirmed signed capacity converts within 90 days.',
+          passage: 'Confirmed signed capacity converts within 90 days.',
+          passageHref: 'https://www.sec.gov/Archives/edgar/nvda.htm'
+        },
+        claimCheckIn: {
+          pageId: 'wiki-nvda',
+          claimId: 'c1',
+          text: 'Integration retains pricing power.'
+        },
+        watching: [{
+          id: 'p1:earnings_transcript',
+          type: 'earnings_transcript',
+          label: 'Transcripts',
+          detail: 'TRANSCRIPT_API_KEY missing'
+        }]
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByLabelText('Morning consequence')).toBeInTheDocument();
+      expect(screen.getByText('What changed')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'The passage' })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Morning sign-off')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Morning verdict')).not.toBeInTheDocument();
+      expect(screen.queryByText('Transcripts')).not.toBeInTheDocument();
+      expect(screen.queryByText(/TRANSCRIPT_API_KEY/)).not.toBeInTheDocument();
+      expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(1);
     });
   });
 });

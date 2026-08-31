@@ -7,6 +7,7 @@ const {
   listWatching,
   buildDailyLoopBriefing
 } = require('../services/dailyLoopService');
+const { disposeConsequence } = require('../services/consequenceRoute');
 const {
   armReadingWatchForPage,
   checkReadingWatchForPage
@@ -313,6 +314,32 @@ const buildDailyLoopRouter = ({
       return res.status(200).json({ page: plain(result.page), events: result.events.map(plain) });
     } catch (error) {
       return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to check reading watch.' });
+    }
+  });
+
+  router.post('/api/daily-loop/consequences/:eventId', auth, async (req, res) => {
+    if (req.agentToken || req.authInfo?.tokenSource === 'agent-token' || req.personalAgent) {
+      return res.status(403).json({ error: 'Only the human owner can settle a consequence.' });
+    }
+    try {
+      const result = await disposeConsequence({
+        models,
+        userId: req.user.id,
+        preview: {
+          ...(req.body?.preview || {}),
+          eventId: req.params.eventId || req.body?.preview?.eventId
+        },
+        action: String(req.body?.action || ''),
+        narrowedText: req.body?.narrowedText || ''
+      });
+      await WikiBriefingCache.deleteOne({ userId: req.user.id });
+      return res.status(200).json({
+        receipt: result.receipt,
+        preview: result.preview,
+        replay: Boolean(result.replay)
+      });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to settle the consequence.' });
     }
   });
 

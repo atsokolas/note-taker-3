@@ -74,6 +74,16 @@ export const getJudgmentMirror = async ({ stat = '' } = {}) => {
   return data.mirror || {};
 };
 
+export const disposeConsequence = async ({ preview, action, narrowedText = '' } = {}) => {
+  const eventId = encodeURIComponent(String(preview?.eventId || '').trim());
+  const response = await api.post(
+    `/api/daily-loop/consequences/${eventId}`,
+    { preview, action, narrowedText },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
 export const getMorningPaperSettings = async () => {
   const response = await api.get('/api/morning-paper/settings', getAuthHeaders());
   return response.data?.settings || {};

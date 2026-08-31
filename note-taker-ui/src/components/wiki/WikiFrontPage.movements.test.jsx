@@ -18,7 +18,8 @@ jest.mock('../../api/dailyLoop', () => ({
   disarmWatcher: jest.fn(),
   recordClaimCheckIn: jest.fn(),
   recordClaimFalsifiability: jest.fn(),
-  recordClaimVerdict: jest.fn()
+  recordClaimVerdict: jest.fn(),
+  disposeConsequence: jest.fn()
 }));
 jest.mock('../../utils/wikiFeatureFlags', () => ({
   wikiPagePath: pageId => `/wiki/workspace?page=${pageId}`,
