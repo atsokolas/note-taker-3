@@ -553,6 +553,52 @@ describe('Judgment claim', () => {
     expect(await screen.findByTestId('ariadne-thread')).toBeInTheDocument();
   });
 
+  it('leaves a receipt that only promises what the write actually did', async () => {
+    const next = 'I am bullish NVIDIA compute.';
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue(base);
+    const acceptedPage = {
+      ...base,
+      judgment: { ...base.judgment, currentJudgment: next, nextReviewAt: '2026-09-30T00:00:00.000Z' }
+    };
+    resolveJudgmentChange.mockResolvedValue({
+      page: acceptedPage,
+      proposal: { ...judgmentChangeProposal(next), status: 'accepted' },
+      revisionId: 'rev-1'
+    });
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: next } });
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(document.querySelector('.judgment__landing'))
+      .toHaveTextContent('accepted \u00b7 prior wording preserved \u00b7 review Sep 30'));
+  });
+
+  it('does not promise a preserved prior wording the server did not record', async () => {
+    const next = 'I am bullish NVIDIA compute.';
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue(base);
+    resolveJudgmentChange.mockResolvedValue({
+      page: { ...base, judgment: { ...base.judgment, currentJudgment: next } },
+      proposal: { ...judgmentChangeProposal(next), status: 'accepted' }
+    });
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: next } });
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(document.querySelector('.judgment__landing')).toHaveTextContent('accepted'));
+    expect(document.querySelector('.judgment__landing')).not.toHaveTextContent('preserved');
+    expect(document.querySelector('.judgment__landing')).not.toHaveTextContent('review');
+  });
+
   it('does not draw provenance when accepting the proposed change fails', async () => {
     const next = 'I am bullish NVIDIA compute.';
     getWikiPage.mockResolvedValue(judgmentPage());

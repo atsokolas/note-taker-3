@@ -59,6 +59,7 @@ import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import ClaimFalsifiabilityPrompt from '../components/wiki/ClaimFalsifiabilityPrompt';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
+import { describeLanding } from './landingReceipt';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -704,6 +705,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [changeProposalBusy, setChangeProposalBusy] = useState(false);
   const [changeProposalError, setChangeProposalError] = useState('');
   const [acceptedChangeTrace, setAcceptedChangeTrace] = useState(0);
+  const [landing, setLanding] = useState('');
   const [libraryAttempt, setLibraryAttempt] = useState(0);
   const systemStatus = useSystemStatusControls();
   const pageRef = useRef(page);
@@ -1049,6 +1051,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     const current = pageRef.current;
     if (next === oneSentence(current?.judgment?.currentJudgment)) return;
     setChangeProposalError('');
+    setLanding('');
     const proposal = await proposeJudgmentChange(pageId, next);
     setChangeProposal(proposal);
   }, [pageId]);
@@ -1068,6 +1071,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         // Only a confirmed accepted write earns the thread. The receipt is the
         // proof; this counter simply lets the next paint show where it landed.
         setAcceptedChangeTrace(currentTrace => currentTrace + 1);
+        setLanding(describeLanding({
+          revisionId: resolved.revisionId,
+          nextReviewAt: resolved.page?.judgment?.nextReviewAt
+        }));
         setLibraryCandidates([]);
         setLibraryAttempt(currentAttempt => currentAttempt + 1);
         const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
@@ -1215,6 +1222,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         sourceRef={changeSentenceRef}
         targetRef={claimRef}
       />
+      {landing ? (
+        <p className="judgment__landing" role="status">{landing}</p>
+      ) : null}
 
       <DossierResearchReview
         pageId={pageId}

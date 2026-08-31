@@ -2589,3 +2589,13 @@ body.noeis-editorial .judgment .judgment-depends__add select,
     transition: none;
   }
 }
+
+/* The receipt a revised belief leaves behind. Mono, quiet, and only ever
+   printing clauses that were true at the moment the write completed. */
+.judgment__landing {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}

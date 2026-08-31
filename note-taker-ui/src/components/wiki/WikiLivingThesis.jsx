@@ -6,6 +6,7 @@ import {
 } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import { formatCalendarDate } from '../../utils/calendarDate';
 
 const clone = value => JSON.parse(JSON.stringify(value || {}));
 const labelFor = value => humanizeLabel(value);
@@ -14,11 +15,9 @@ const dateInput = value => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
 };
-const dateLabel = (value, fallback) => {
-  if (!value) return fallback;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? fallback : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
+/* Review dates and horizons are days the reader picked, so they are read back
+   as calendar days. Local formatting moved them one day west of UTC. */
+const dateLabel = (value, fallback) => formatCalendarDate(value, { year: true }) || fallback;
 const confidenceLabel = value => (value == null || value === '' ? 'Not set' : `${Math.round(Number(value) * 100)}%`);
 
 const emptyItem = kind => ({

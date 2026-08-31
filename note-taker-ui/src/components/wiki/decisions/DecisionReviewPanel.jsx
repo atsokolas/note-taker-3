@@ -6,6 +6,7 @@ import {
   transitionWikiDecision
 } from '../../../api/decisions';
 import '../../../styles/wiki-decisions.css';
+import { formatCalendarDate } from '../../../utils/calendarDate';
 
 const RESULT_OPTIONS = ['positive', 'negative', 'mixed'];
 
@@ -491,7 +492,7 @@ const DecisionReviewPanel = ({
                 <p className="wiki-decisions__eyebrow">02 · Review clock</p>
                 <h5 id={`decision-review-${item.identity?.decisionId}`}>Return when evidence can settle it</h5>
                 <p className="wiki-decisions__meta">
-                  Review {formatDate(item?.decision?.reviewAt) || 'not scheduled'}
+                  Review {formatCalendarDate(item?.decision?.reviewAt) || 'not scheduled'}
                   {item?.decision?.outcomeDueAt
                     ? ` · Outcome due ${formatDate(item.decision.outcomeDueAt)}`
                     : ''}
