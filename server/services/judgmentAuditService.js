@@ -107,27 +107,45 @@ const buildJudgmentAudit = async ({
     return { generatedAt: now.toISOString(), summary: summarizeJudgmentAudit([]), events: [] };
   }
   const since = new Date(now.getTime() - Math.max(1, Number(lookbackDays) || 90) * 24 * HOUR);
-  let eventQuery = WikiSourceEvent.find({ userId, createdAt: { $gte: since } });
+  let pageQuery = WikiPage.find({
+    userId,
+    status: { $ne: 'archived' },
+    'judgment.currentJudgment': { $type: 'string', $ne: '' }
+  });
+  pageQuery = pageQuery.select?.('_id') || pageQuery;
+  const pages = list(await exec(pageQuery));
+  const pageIds = pages.map(page => page._id);
+  if (!pageIds.length) return { generatedAt: now.toISOString(), summary: summarizeJudgmentAudit([]), events: [] };
+
+  let eventQuery = WikiSourceEvent.find({
+    userId,
+    affectedPageIds: { $in: pageIds },
+    createdAt: { $gte: since }
+  });
   eventQuery = eventQuery.sort?.({ createdAt: -1 }) || eventQuery;
   eventQuery = eventQuery.limit?.(500) || eventQuery;
   const events = list(await exec(eventQuery)).filter(event => contractEvent(event, { now }).accepted);
-  const pageIds = Array.from(new Set(events.flatMap(event => list(event?.affectedPageIds).map(id))));
-  if (!pageIds.length) return { generatedAt: now.toISOString(), summary: summarizeJudgmentAudit([]), events: [] };
+  if (!events.length) return { generatedAt: now.toISOString(), summary: summarizeJudgmentAudit([]), events: [] };
 
-  const [pages, revisions, runs, receipts] = await Promise.all([
-    exec(WikiPage.find({
-      userId,
-      _id: { $in: pageIds },
-      status: { $ne: 'archived' },
-      'judgment.currentJudgment': { $type: 'string', $ne: '' }
-    })),
-    WikiRevision?.find ? exec(WikiRevision.find({ userId, sourceEventId: { $in: events.map(event => event._id) } })) : [],
-    WikiMaintenanceRun?.find ? exec(WikiMaintenanceRun.find({ userId, sourceEventId: { $in: events.map(event => event._id) } })) : [],
-    NoeisReceipt?.find ? exec(NoeisReceipt.find({
+  const eventIds = events.map(event => event._id);
+  let revisionQuery = WikiRevision?.find
+    ? WikiRevision.find({ userId, sourceEventId: { $in: eventIds } })
+    : [];
+  revisionQuery = revisionQuery.select?.('sourceEventId createdAt before.claims after.claims') || revisionQuery;
+  let runQuery = WikiMaintenanceRun?.find
+    ? WikiMaintenanceRun.find({ userId, sourceEventId: { $in: eventIds } })
+    : [];
+  runQuery = runQuery.select?.('sourceEventId status createdAt errorMessage') || runQuery;
+  let receiptQuery = NoeisReceipt?.find ? NoeisReceipt.find({
       userId,
       kind: 'consequence_disposition',
-      'provenance.eventId': { $in: events.map(event => event._id) }
-    })) : []
+      'provenance.eventId': { $in: eventIds }
+    }) : [];
+  receiptQuery = receiptQuery.select?.('provenance completedAt createdAt') || receiptQuery;
+  const [revisions, runs, receipts] = await Promise.all([
+    exec(revisionQuery),
+    exec(runQuery),
+    exec(receiptQuery)
   ]);
   const rows = buildJudgmentAuditRows({ events, pages, revisions, runs, receipts, now });
   return { generatedAt: now.toISOString(), summary: summarizeJudgmentAudit(rows), events: rows };
