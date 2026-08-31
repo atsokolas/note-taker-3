@@ -869,6 +869,40 @@ button.judgment-inbox__text:focus-visible {
   text-underline-offset: .25rem;
 }
 
+.judgment-resolution__evidence {
+  display: grid;
+  gap: .45rem;
+  margin: .25rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.judgment-resolution__evidence legend {
+  margin-bottom: .35rem;
+  color: var(--ink-muted, #6f695f);
+  font: 600 .68rem/1.2 var(--font-sans, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.judgment-resolution__evidence label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .55rem;
+  align-items: start;
+  color: var(--ink-secondary, #514a41);
+  font: 400 .82rem/1.35 var(--font-sans, sans-serif);
+  cursor: pointer;
+}
+
+.judgment-resolution__evidence input {
+  width: auto;
+  margin: .15rem 0 0;
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent, #a56a12);
+}
+
 .judgment-resolution__actions {
   justify-content: flex-start;
 }

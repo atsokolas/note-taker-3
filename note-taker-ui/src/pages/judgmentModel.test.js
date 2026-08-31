@@ -17,6 +17,7 @@ import {
   reviseCurrentJudgment,
   selectOvernightLine,
   sourceHrefFromOrigin,
+  verdictEvidenceOptions,
   writeLineIntoJudgment
 } from './judgmentModel';
 
@@ -159,6 +160,22 @@ describe('judgmentModel', () => {
     expect(sourceHrefFromOrigin('article:a1')).toBe('/library?articleId=a1');
     expect(sourceHrefFromOrigin('', 'https://ft.com/compute')).toBe('https://ft.com/compute');
     expect(sourceHrefFromOrigin('overnight-event')).toBe('');
+  });
+
+  it('offers each persisted source identity once when recording a verdict', () => {
+    const options = verdictEvidenceOptions({
+      sourceRefs: [
+        { _id: 'src-1', type: 'external', citationLabel: '10-K', url: 'https://example.com/10-k' },
+        { _id: 'src-1', type: 'external', citationLabel: 'Duplicate', url: 'https://example.com/duplicate' },
+        { _id: 'src-2', type: 'article', title: 'Saved note', objectId: 'article-2' },
+        { _id: 'src-3' }
+      ]
+    });
+
+    expect(options).toEqual([
+      { id: 'src-1', label: '10-K', href: 'https://example.com/10-k' },
+      { id: 'src-2', label: 'Saved note', href: '/library?articleId=article-2' }
+    ]);
   });
 
   it('does not invent a library door when the passage origin was not persisted', () => {

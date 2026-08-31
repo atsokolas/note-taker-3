@@ -103,6 +103,21 @@ const sourceLabel = (ref) => (
   || clean(ref?.title)
 );
 
+/** Sources a human can bind to a verdict. Keep this projection beside the
+ * other Judgment provenance helpers so the resolution UI never invents a
+ * second naming scheme for the same Library evidence. */
+export const verdictEvidenceOptions = (page = {}) => {
+  const seen = new Set();
+  return list(page?.sourceRefs).reduce((options, ref) => {
+    const id = idOf(ref);
+    const label = sourceLabel(ref);
+    if (!id || !label || seen.has(id)) return options;
+    seen.add(id);
+    options.push({ id, label, href: buildSourceOpenPath(ref) });
+    return options;
+  }, []);
+};
+
 /* Library evidence arrives as highlight:article:highlight or article:article.
    Wiki already opens those in the library rather than reprinting the title;
    Why and Against should do the same. */

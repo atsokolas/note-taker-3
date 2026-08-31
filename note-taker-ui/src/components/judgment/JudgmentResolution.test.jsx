@@ -33,12 +33,14 @@ test('records one of four verdicts and shows the inked result', async () => {
     pageId="page-1"
     claim="The claim."
     judgment={{ resolutionCriteria: 'Revenue falls.', verdicts: [] }}
+    evidenceOptions={[{ id: 'source-1', label: 'Annual report' }]}
   />);
   fireEvent.click(screen.getByRole('button', { name: /record what happened/i }));
   fireEvent.click(screen.getByRole('button', { name: 'Partly' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Annual report' }));
   fireEvent.click(screen.getByRole('button', { name: /record it/i }));
   await waitFor(() => expect(recordJudgmentVerdict).toHaveBeenCalledWith(expect.objectContaining({
-    expectedClaim: 'The claim.', result: 'partly'
+    expectedClaim: 'The claim.', result: 'partly', evidenceSourceRefIds: ['source-1']
   })));
   rerender(<JudgmentResolution
     pageId="page-1"
