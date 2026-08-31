@@ -1,3 +1,5 @@
+const { resolveClaimBornAt, stampClaimBornAt } = require('./claimBornAt');
+
 const plain = value => value?.toObject ? value.toObject({ virtuals: false }) : value || {};
 const id = value => {
   if (value && typeof value === 'object') return String(value._id || value.id || '');
@@ -30,7 +32,7 @@ const mergeClaimRecords = (claims = []) => {
     if (!key) return;
     const existing = merged.get(key);
     if (!existing) {
-      merged.set(key, { ...claim });
+      merged.set(key, stampClaimBornAt({ ...claim }));
       return;
     }
     existing.citationIds = uniqueBy([...(existing.citationIds || []), ...(claim.citationIds || [])], String);
@@ -46,6 +48,12 @@ const mergeClaimRecords = (claims = []) => {
       existing.lastCheckedAt = claim.lastCheckedAt;
       existing.checkInStatus = claim.checkInStatus;
     }
+    existing.createdAt = existing.createdAt || claim.createdAt;
+    existing.bornAt = resolveClaimBornAt({
+      ...existing,
+      bornAt: existing.bornAt || claim.bornAt,
+      createdAt: existing.createdAt || claim.createdAt
+    });
   });
   return Array.from(merged.values());
 };

@@ -37,6 +37,22 @@ assert.strictEqual(serializeWikiPage({ title: 'Loose' }).evergreen, false);
 assert.strictEqual(serializeWikiPage({ title: 'Repo', pageType: 'repo' }).wikiKind, 'repository');
 assert.strictEqual(serializeWikiPage({ title: 'Dossier', investmentDossier: { version: 1 } }).wikiKind, 'investment');
 
+const stamped = serializeWikiPage({
+  title: 'Topic',
+  createdAt: new Date('2025-11-01T12:00:00.000Z'),
+  claims: [{
+    claimId: 'from-history',
+    text: 'A held sentence.',
+    history: [{ at: new Date('2026-01-15T12:00:00.000Z'), event: 'created' }]
+  }]
+});
+assert.strictEqual(
+  new Date(stamped.claims[0].bornAt).toISOString(),
+  '2026-01-15T12:00:00.000Z',
+  'GET stamps bornAt from history so no surface prints Unknown'
+);
+assert.ok(!JSON.stringify(stamped).includes('Born: Unknown'));
+
 // The row preview reads summary || scope || description || plainText || body.
 // None of the first three exist on the schema and body is too expensive to
 // send, so plainText is the only thing standing between a list and rows that

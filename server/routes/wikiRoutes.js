@@ -69,6 +69,7 @@ const {
   acquireMarketSnapshotSource: defaultAcquireMarketSnapshotSource
 } = require('../services/investmentDossierMarketSourceService');
 const { compareClaimLedgers } = require('../services/wikiClaimComparisonService');
+const { applyBornAtToClaims } = require('../services/claimBornAt');
 const { buildWeekendReadingsRouter } = require('./weekendReadingsRoutes');
 const { buildResearchOperatingLedgerRouter } = require('./researchOperatingLedgerRoutes');
 const {
@@ -863,7 +864,7 @@ const serializeWikiPage = (page) => {
     createdFrom: raw.createdFrom || { type: 'wiki_index', objectIds: [], text: '', label: '' },
     plainText,
     sourceRefs,
-    claims,
+    claims: applyBornAtToClaims(claims, { pageCreatedAt: raw.createdAt }),
     citations,
     sourceCount: sourceIds.size,
     claimCount: claimIds.size,

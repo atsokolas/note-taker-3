@@ -576,6 +576,9 @@ const wikiClaimSchema = new mongoose.Schema({
   lastCheckedAt: { type: Date, default: null },
   retiredAt: { type: Date, default: null },
   restoredAt: { type: Date, default: null },
+  /* The day this belief entered the ledger. Backfilled from createdAt or the
+     oldest history.at — never left blank for the UI to print Unknown. */
+  bornAt: { type: Date, default: null },
   history: {
     type: [{
       at: { type: Date, default: Date.now },

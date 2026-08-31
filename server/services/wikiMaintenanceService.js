@@ -21,6 +21,7 @@ const {
 const { evaluateInvestmentDossierQuality } = require('./investmentDossierQualityService');
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
 const { normalizeComparableText } = require('./wikiDedupeService');
+const { resolveClaimBornAt } = require('./claimBornAt');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -2287,12 +2288,14 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
     const previous = previousById || previousByText || null;
     if (previous?.claimId) matchedPreviousIds.add(String(previous.claimId));
     if (previous?.checkInStatus === 'retired' || previous?.retiredAt) {
-      return {
+      const retired = {
         ...previous,
         checkInStatus: 'retired',
         retiredAt: previous.retiredAt || previous.lastCheckedAt || now,
         history: normalizeClaimHistory(previous.history)
       };
+      retired.bornAt = resolveClaimBornAt(retired, { now });
+      return retired;
     }
     const support = normalizeClaimSupport(claim.support);
     const citationIds = Array.isArray(claim.citationIds) ? claim.citationIds.filter(Boolean).slice(0, 12) : [];
@@ -2327,7 +2330,8 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
       lastCheckedAt: previous?.lastCheckedAt || null,
       retiredAt: previous?.retiredAt || null,
       restoredAt: previous?.restoredAt || null,
-      createdAt: previous?.createdAt || claim.createdAt || now
+      createdAt: previous?.createdAt || claim.createdAt || now,
+      bornAt: previous?.bornAt || claim.bornAt || null
     };
     const history = normalizeClaimHistory(previous?.history);
     if (!previous) {
@@ -2353,6 +2357,7 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
       }));
     }
     next.history = history;
+    next.bornAt = resolveClaimBornAt(next, { now });
     return next;
   });
   (Array.isArray(previousClaims) ? previousClaims : []).forEach((claim) => {
@@ -2360,12 +2365,14 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
     const claimId = String(previous?.claimId || '');
     if (!claimId || matchedPreviousIds.has(claimId)) return;
     if (previous?.checkInStatus !== 'retired' && !previous?.retiredAt) return;
-    nextClaims.push({
+    const retired = {
       ...previous,
       checkInStatus: 'retired',
       retiredAt: previous.retiredAt || previous.lastCheckedAt || now,
       history: normalizeClaimHistory(previous.history)
-    });
+    };
+    retired.bornAt = resolveClaimBornAt(retired, { now });
+    nextClaims.push(retired);
   });
   return nextClaims;
 };

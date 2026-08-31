@@ -3010,6 +3010,7 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
     expect(claims[0].confidence).toBeGreaterThanOrEqual(0.8);
     expect(claims[0].lastReviewedAt).toEqual(now);
     expect(claims[0].lastVerifiedAt).toEqual(now);
+    expect(claims[0].bornAt).toEqual(now);
     expect(claims[0].history[0].event).toBe('created');
   });
 
@@ -3165,8 +3166,36 @@ describe('wikiMaintenanceService — claim marks in docFromArticle', () => {
 
     expect(claims[0].claimId).not.toBe('old-claim-id');
     expect(claims[0].createdAt).toEqual(createdAt);
+    expect(claims[0].bornAt).toEqual(createdAt);
     expect(claims[0].history.map(entry => entry.event)).toEqual(['created', 'updated']);
     expect(claims[0].history[1].support).toBe('supported');
+  });
+
+  it('backfills bornAt from history when createdAt is missing', () => {
+    const bornAt = new Date('2026-04-02T00:00:00.000Z');
+    const now = new Date('2026-05-09T12:00:00.000Z');
+    const doc = docFromArticle({
+      title: 'X',
+      article: {
+        summary: { text: 'An undated claim.', citationIndexes: [1] }
+      }
+    });
+    const claims = deriveClaimsFromDoc({
+      body: doc,
+      citations: [{ _id: 'citation-a', sourceRefId: 'source-a' }],
+      sourceRefs: [{ _id: 'source-a' }],
+      previousClaims: [{
+        claimId: 'old-claim-id',
+        text: 'An undated claim.',
+        support: 'supported',
+        citationIds: ['citation-a'],
+        sourceRefIds: ['source-a'],
+        history: [{ at: bornAt, event: 'created', text: 'An undated claim.' }]
+      }],
+      now
+    });
+    expect(claims[0].bornAt).toEqual(bornAt);
+    expect(claims[0].bornAt).not.toEqual(now);
   });
 
   it('builds section-level maintenance state from the claim ledger and health signals', () => {

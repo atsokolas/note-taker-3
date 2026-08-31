@@ -657,6 +657,14 @@ const buildInfoboxRows = ({ page = {}, sourceCount = 0, claimCount = 0, wordCoun
   ];
 };
 
+const visibleInfoboxRows = (rows = []) => (
+  (Array.isArray(rows) ? rows : []).filter((row) => {
+    if (row.label !== 'Born') return true;
+    const value = row.value;
+    return value !== null && value !== undefined && String(value).trim() !== '';
+  })
+);
+
 const WIKI_LINK_PREVIEW_SHOW_DELAY_MS = 250;
 const WIKI_LINK_PREVIEW_DISMISS_GRACE_MS = 100;
 const PAGE_TRANSITION_DURATION_MS = 200;
@@ -765,6 +773,9 @@ const WikiLinkPreview = ({ preview, onMouseEnter, onMouseLeave }) => {
 const InfoboxValue = ({ value, pageId, label }) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return <AnimatedNumber value={value} resetKey={`${pageId}:${label}`} />;
+  }
+  if (label === 'Born' && (value === null || value === undefined || value === '')) {
+    return null;
   }
   return value === null || value === undefined || value === '' ? 'Unknown' : value;
 };
@@ -2359,7 +2370,7 @@ const WikiPageReadView = ({
     () => (nonCriticalReady ? claimHealthCounts(page?.claims) : { supported: 0, partial: 0, unsupported: 0, conflicted: 0 }),
     [nonCriticalReady, page?.claims]
   );
-  const infoboxRows = buildInfoboxRows({
+  const infoboxRows = visibleInfoboxRows(buildInfoboxRows({
     page,
     sourceCount: countPageSources(page),
     claimCount: countPageClaims(page),
@@ -2370,7 +2381,7 @@ const WikiPageReadView = ({
       || page?.lastReviewedAt
       || page?.updatedAt
     )
-  });
+  }));
   const activeLedgerClaim = activeClaim ? claimLedgerById.get(activeClaim.claimId) : null;
   const displayedActiveTocId = activeTocId || tocItems[0]?.id || '';
   const discussionCount = (page?.discussions || []).length;

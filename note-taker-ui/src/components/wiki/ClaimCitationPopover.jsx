@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { resolveSourceDoors } from '../../utils/sourceRoutes';
+import { formatClaimBornAt } from '../../utils/claimBornAt';
 
 /**
  * ClaimCitationPopover — Wikipedia-style footnote popover for an inline
@@ -124,6 +125,7 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
   const [position, setPosition] = useState(null);
   const confidence = formatConfidence(claim?.confidence);
   const verified = formatDate(claim?.lastVerifiedAt);
+  const born = formatClaimBornAt(claim);
   const historyCount = Array.isArray(claim?.history) ? claim.history.length : 0;
   const supportingSources = sources.filter(source => source.evidenceRole !== 'contradicts');
   const contradictingSources = sources.filter(source => source.evidenceRole === 'contradicts');
@@ -196,6 +198,12 @@ const ClaimCitationPopover = ({ anchorRect, support, sources, claim, onClose, on
       <p className="wiki-claim-popover__blurb">{SUPPORT_BLURB[support] || SUPPORT_BLURB.supported}</p>
       {claim ? (
         <dl className="wiki-claim-popover__ledger" aria-label="Claim ledger">
+          {born ? (
+            <div>
+              <dt>Born</dt>
+              <dd>{born}</dd>
+            </div>
+          ) : null}
           {confidence ? (
             <div>
               <dt>Confidence</dt>

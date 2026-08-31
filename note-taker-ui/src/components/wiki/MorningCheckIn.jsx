@@ -19,7 +19,7 @@ const tallyFrom = (result, checkIn, action) => {
   return formatCheckInTally({
     action,
     count: count || 1,
-    heldDays: heldDaysFrom(checkIn?.adoptedAt || result?.claim?.createdAt)
+    heldDays: heldDaysFrom(result?.claim?.bornAt || checkIn?.adoptedAt || result?.claim?.createdAt)
   });
 };
 
