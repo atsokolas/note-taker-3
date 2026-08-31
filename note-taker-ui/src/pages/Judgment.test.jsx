@@ -578,6 +578,29 @@ describe('Judgment claim', () => {
       .toHaveTextContent('accepted \u00b7 prior wording preserved \u00b7 review Sep 30'));
   });
 
+  it('admits it searched and found nothing, rather than vanishing', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [] });
+
+    renderDetail();
+
+    expect(await screen.findByText('Searched your library. Nothing in it bears on this sentence.'))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing at all when the library could not be read', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getJudgmentLibraryEvidence.mockRejectedValue(new Error('unreachable'));
+
+    renderDetail();
+
+    await screen.findByLabelText('What you hold');
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
+    // A failed read is not an empty library, and must never be reported as one.
+    expect(screen.queryByText(/Nothing in it bears on this sentence/)).not.toBeInTheDocument();
+  });
+
   it('narrows the belief instead of replacing it, and says so', async () => {
     const narrower = 'NVIDIA demand outruns capacity for training silicon.';
     const base = judgmentPage();

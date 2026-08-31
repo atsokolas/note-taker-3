@@ -2619,3 +2619,15 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
+
+/* The skeptic reporting an empty search. Same paper edge as the inbox it
+   replaces, so the slot does not move when a finding becomes no finding. */
+.judgment-inbox__nothing {
+  margin: 0;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--rule-soft, var(--vellum-rule, rgba(120, 120, 120, 0.22)));
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}

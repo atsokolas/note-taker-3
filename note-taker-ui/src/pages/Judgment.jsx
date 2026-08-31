@@ -697,7 +697,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
   const [pendingId, setPendingId] = useState('');
-  const [libraryCandidates, setLibraryCandidates] = useState([]);
+  /* null until the library has been searched for this claim. An empty array
+     means the search ran and found nothing — a finding the skeptic reports —
+     and null means we cannot say either way yet. */
+  const [libraryCandidates, setLibraryCandidates] = useState(null);
   const [kin, setKin] = useState(null);
   const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
@@ -785,7 +788,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   useEffect(() => {
     let cancelled = false;
     let announced = false;
-    setLibraryCandidates([]);
+    // A search in flight knows nothing yet. Stale passages for the previous
+    // hold must not sit here, but neither must a premature "found nothing".
+    setLibraryCandidates(null);
 
     const timer = window.setTimeout(() => {
       if (cancelled) return;
@@ -811,7 +816,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       .catch(() => {
         if (cancelled) return;
         settle();
-        setLibraryCandidates([]);
+        // The read failed. That is not the same as an empty library, and the
+        // skeptic must not report a finding it never made.
+        setLibraryCandidates(null);
         systemStatus.setRecoverableFailure({
           stage: 'Library evidence',
           message: 'Your library could not be read for this claim.',
@@ -1078,7 +1085,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           revisionId: resolved.revisionId,
           nextReviewAt: resolved.page?.judgment?.nextReviewAt
         }));
-        setLibraryCandidates([]);
+        setLibraryCandidates(null);
         setLibraryAttempt(currentAttempt => currentAttempt + 1);
         const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
         const accepted = oneSentence(resolved.page?.judgment?.currentJudgment || '');
