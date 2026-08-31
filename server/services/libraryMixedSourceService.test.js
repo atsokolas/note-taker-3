@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   buildHighlightAggregationPipeline,
+  buildTargetedHighlightAggregationPipeline,
   buildMixedLibraryRelevancePage,
   decodeCursor,
   highlightDisplayTitle,
@@ -30,11 +31,12 @@ const modelFor = rows => ({
   )).length
 });
 
-const recordingModelFor = (rows, label, limits) => {
+const recordingModelFor = (rows, label, limits, queries = []) => {
   const model = modelFor(rows);
   return {
     ...model,
-    find: () => {
+    find: queryValue => {
+      queries.push([label, queryValue]);
       const query = new Query(rows);
       query.limit = value => {
         limits.push([label, value]);
@@ -217,6 +219,19 @@ const run = async () => {
     recentHighlightPipeline.find(stage => stage.$limit)?.$limit,
     MIXED_SOURCE_RECENT_SCAN_LIMIT
   );
+  const targetedHighlightPipeline = buildTargetedHighlightAggregationPipeline({
+    match: { userId: USER_ID },
+    highlightIds: [articleOne.highlights[0]._id]
+  });
+  assert.deepStrictEqual(
+    targetedHighlightPipeline[0].$match['highlights._id'].$in,
+    [articleOne.highlights[0]._id]
+  );
+  assert.deepStrictEqual(
+    targetedHighlightPipeline[1].$project.highlights.$filter.cond.$in,
+    ['$$highlight._id', [articleOne.highlights[0]._id]]
+  );
+  assert.strictEqual(targetedHighlightPipeline.some(stage => stage.$sort), false);
   const firstPage = await buildMixedLibraryRelevancePage({
     userId: USER_ID,
     models,
@@ -399,6 +414,7 @@ const run = async () => {
   };
   const visitFindQueries = [];
   const reviewQueryLimits = [];
+  const reviewFindQueries = [];
   const pageSignalReview = await buildMixedLibraryRelevancePage({
     userId: USER_ID,
     models: {
@@ -406,13 +422,15 @@ const run = async () => {
       Article: recordingModelFor(
         [articleOne, articleTwo, suppressedArticle, foreignArticle],
         'articles',
-        reviewQueryLimits
+        reviewQueryLimits,
+        reviewFindQueries
       ),
-      NotebookEntry: recordingModelFor([noteOne], 'notes', reviewQueryLimits),
+      NotebookEntry: recordingModelFor([noteOne], 'notes', reviewQueryLimits, reviewFindQueries),
       WikiPage: recordingModelFor(
         [visitedReviewPage, judgmentReviewPage],
         'wiki-pages',
-        reviewQueryLimits
+        reviewQueryLimits,
+        reviewFindQueries
       ),
       WikiPageVisit: {
         find: query => {
@@ -442,6 +460,15 @@ const run = async () => {
     [visitedReviewPage._id, judgmentReviewPage._id].sort()
   );
   assert.deepStrictEqual(reviewQueryLimits, []);
+  const reviewPageFind = reviewFindQueries.find(([label]) => label === 'wiki-pages')?.[1];
+  assert.ok(reviewPageFind.$or.some(clause => clause['freshness.status']));
+  assert.ok(reviewPageFind.$or.some(clause => clause['freshness.pendingSourceEventIds.0']));
+  const reviewArticleFind = reviewFindQueries.find(([label]) => label === 'articles')?.[1];
+  assert.deepStrictEqual(
+    reviewArticleFind.$or.find(clause => clause._id)?._id.$in.sort(),
+    [articleOne._id, articleTwo._id].sort()
+  );
+  assert.strictEqual(reviewFindQueries.some(([label]) => label === 'notes'), false);
   assert.deepStrictEqual(
     pageSignalReview.sources[1].relevance.connected.map(ref => ({
       id: ref.id,
