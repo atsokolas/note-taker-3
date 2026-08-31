@@ -152,6 +152,39 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('button', { name: 'Question block' })).toBeInTheDocument();
   });
 
+  it('keeps the exact Library passage visible beside a derived notebook page', () => {
+    render(
+      <NotebookEditor
+        entry={{
+          _id: 'note-library',
+          title: 'A thought from reading',
+          content: '<p>Draft</p>',
+          blocks: [{
+            id: 'block-1',
+            type: 'highlight_embed',
+            articleId: 'article-1',
+            articleTitle: 'A beautiful source',
+            highlightId: 'highlight-1',
+            text: 'The exact passage'
+          }],
+          type: 'note',
+          tags: []
+        }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Ariadne thread · Library')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Return to A beautiful source' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=highlight-1'
+    );
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
   it('routes toolbar actions through the editor commands', () => {
     render(
       <NotebookEditor

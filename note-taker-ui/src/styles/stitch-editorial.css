@@ -18,6 +18,7 @@ body.noeis-editorial {
   --vellum-accent: var(--noeis-ink-muted);
   --vellum-accent-dim: var(--noeis-ink-subtle);
   --vellum-warm: var(--noeis-thread-strong);
+  --vellum-gold: var(--noeis-thread-strong);
   --vellum-cyan: #1d8fa2;
   --vellum-error: var(--noeis-danger);
   --wiki-graph-node-concept: var(--wiki-warm-accent, #b1862e);
@@ -9301,6 +9302,43 @@ body.noeis-editorial .notebook-context__source {
   gap: 8px;
 }
 
+body.noeis-editorial .notebook-context__source--library {
+  position: relative;
+  padding-left: 14px;
+}
+
+body.noeis-editorial .notebook-context__source--library::before {
+  content: "";
+  position: absolute;
+  inset: 2px auto 2px 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--vellum-gold) 18%, var(--vellum-gold) 82%, transparent);
+  transform-origin: top;
+  animation: notebook-ariadne-arrival 520ms var(--noeis-ease-standard) both;
+}
+
+body.noeis-editorial .notebook-context__source--library::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--vellum-gold);
+}
+
+@keyframes notebook-ariadne-arrival {
+  from { opacity: 0; transform: scaleY(0.12); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .notebook-context__source--library::before {
+    animation: none;
+  }
+}
+
 body.noeis-editorial .notebook-context__source-kicker {
   font-family: var(--noeis-ui-font);
   font-size: 0.62rem;
@@ -9324,11 +9362,34 @@ body.noeis-editorial .think-notebook-editor-provenance__body a:hover {
 }
 
 body.noeis-editorial .think-notebook-editor-provenance {
+  position: relative;
   display: grid;
   gap: 8px;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--vellum-line);
+}
+
+body.noeis-editorial .think-notebook-editor-provenance--library {
+  padding-left: 18px;
+}
+
+body.noeis-editorial .think-notebook-editor-provenance--library::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--vellum-gold);
+  transform-origin: top;
+  animation: notebook-ariadne-arrival 520ms var(--noeis-ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.noeis-editorial .think-notebook-editor-provenance--library::before {
+    animation: none;
+  }
 }
 
 body.noeis-editorial .think-notebook-editor-provenance__eyebrow {
