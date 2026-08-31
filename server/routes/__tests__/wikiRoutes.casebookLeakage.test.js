@@ -35,7 +35,7 @@ const stuffed = {
   }],
   claims: [{ claimId: 'c1', text: 'UNPUBLISHED_WIKI_CLAIM', confidence: 0.9 }],
   discussions: [{ question: 'PRIVATE_DISCUSSION_Q', answer: 'PRIVATE_DISCUSSION_A' }],
-  aiState: { lastError: 'PRIVATE_AGENT_ERROR', lastCandidateSummary: 'UNPUBLISHED_CANDIDATE' },
+  aiState: { model: 'PRIVATE_AGENT_ERROR', lastCandidateSummary: 'UNPUBLISHED_CANDIDATE' },
   judgment: {
     currentJudgment: 'Compute stays scarce through 2027.',
     bornAt: '2026-01-15T12:00:00.000Z',

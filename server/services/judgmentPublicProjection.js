@@ -210,19 +210,20 @@ const publicReceipt = (receipt = {}) => {
   };
 };
 
-const publicLineage = (lineage = {}) => {
-  const origin = lineage.origin && clean(lineage.origin.title || lineage.origin.slug)
+const publicLineage = (lineage) => {
+  const tree = lineage && typeof lineage === 'object' ? lineage : {};
+  const origin = tree.origin && clean(tree.origin.title || tree.origin.slug)
     ? {
-      title: clean(lineage.origin.title, 240),
-      slug: clean(lineage.origin.slug, 180),
-      hash: clean(lineage.origin.hash, 128),
-      revoked: Boolean(lineage.origin.revoked),
-      action: ['fork', 'adopt'].includes(String(lineage.origin.action || ''))
-        ? lineage.origin.action
+      title: clean(tree.origin.title, 240),
+      slug: clean(tree.origin.slug, 180),
+      hash: clean(tree.origin.hash, 128),
+      revoked: Boolean(tree.origin.revoked),
+      action: ['fork', 'adopt'].includes(String(tree.origin.action || ''))
+        ? tree.origin.action
         : 'fork'
     }
     : null;
-  const branches = list(lineage.branches).map((branch) => {
+  const branches = list(tree.branches).map((branch) => {
     const title = clean(branch.title || branch.slug, 240);
     const slug = clean(branch.slug, 180);
     if (!title && !slug) return null;
@@ -251,7 +252,7 @@ const heldClaim = (page = {}) => {
 const serializePublicCasebook = ({
   page,
   revisions = [],
-  lineage = null,
+  lineage = {},
   receipts = []
 } = {}) => {
   const raw = plain(page);

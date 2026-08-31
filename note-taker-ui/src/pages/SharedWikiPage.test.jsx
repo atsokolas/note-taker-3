@@ -808,6 +808,28 @@ describe('buildSharedWikiSchema', () => {
       'evidence-backed claims'
     ]));
   });
+});
+
+describe('public casebook share', () => {
+  let navigate;
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    localStorage.clear();
+    navigate = jest.fn();
+    getPublicWikiPage.mockReset();
+    getPublicWikiComparison.mockReset();
+    getPublicWikiComparison.mockRejectedValue({ response: { status: 404 } });
+    mockParams('compute-stays-scarce');
+    jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
+    jest.spyOn(router, 'useLocation').mockReturnValue({
+      pathname: '/share/wiki/compute-stays-scarce',
+      search: '',
+      hash: '',
+      state: null,
+      key: 'test'
+    });
+  });
 
   it('renders a sealed public casebook without wiki vanity chrome', async () => {
     getPublicWikiPage.mockResolvedValue({

@@ -114,7 +114,7 @@ describe('PublicCasebook', () => {
       </MemoryRouter>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
-    await waitFor(() => expect(followPublicCasebook).toHaveBeenCalledWith('compute-stays-scarce'));
-    expect(screen.getByRole('status')).toHaveTextContent(/no list of followers/i);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/no list of followers/i));
+    expect(followPublicCasebook).toHaveBeenCalledWith('compute-stays-scarce');
   });
 });
