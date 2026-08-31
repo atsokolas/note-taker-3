@@ -125,9 +125,6 @@ export const QUIET_SIGNOFFS = Object.freeze([
   'A quiet morning. The work is in what you already wrote.'
 ]);
 
-export const QUIET_SIGNOFF_STORAGE_KEY = 'noeis.wiki.quietSignOff.v1';
-export const PAPER_SETTLE_MS = 400;
-
 const localDay = (now) => {
   const date = now instanceof Date ? now : new Date(now);
   if (Number.isNaN(date.getTime())) return '';
@@ -137,55 +134,21 @@ const localDay = (now) => {
   return `${year}-${month}-${day}`;
 };
 
-const previousLocalDay = (now) => {
-  const date = now instanceof Date ? new Date(now.getTime()) : new Date(now);
-  date.setDate(date.getDate() - 1);
-  return localDay(date);
-};
-
 const dayIndex = (day, length) => {
-  let hash = 0;
-  for (let index = 0; index < day.length; index += 1) {
-    hash = ((hash << 5) - hash) + day.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash) % length;
+  const [year, month, date] = day.split('-').map(Number);
+  const ordinal = Math.floor(Date.UTC(year, month - 1, date) / (24 * 60 * 60 * 1000));
+  return Math.abs(ordinal) % length;
 };
 
 /** One sign-off a quiet morning. No two consecutive calendar days repeat. */
 export const selectQuietSignOff = ({
   now = new Date(),
-  storage = null,
-  key = QUIET_SIGNOFF_STORAGE_KEY,
   lines = QUIET_SIGNOFFS
 } = {}) => {
   const list = Array.isArray(lines) && lines.length ? lines : QUIET_SIGNOFFS;
   const day = localDay(now);
   if (!day) return list[0];
-  let lastIndex = -1;
-  let storedDay = '';
-  try {
-    const parsed = JSON.parse(storage?.getItem?.(key) || 'null');
-    if (parsed && Number.isInteger(parsed.index)) {
-      lastIndex = parsed.index;
-      storedDay = String(parsed.day || '');
-    }
-  } catch (_error) {
-    lastIndex = -1;
-  }
-  if (storedDay === day && lastIndex >= 0 && lastIndex < list.length) {
-    return list[lastIndex];
-  }
-  let index = dayIndex(day, list.length);
-  if (storedDay === previousLocalDay(now) && lastIndex >= 0 && index === lastIndex) {
-    index = (index + 1) % list.length;
-  }
-  try {
-    storage?.setItem?.(key, JSON.stringify({ day, index }));
-  } catch (_error) {
-    // Rotation memory is craft, not correctness.
-  }
-  return list[index];
+  return list[dayIndex(day, list.length)];
 };
 
 const CODE_SHAPED = /(?:POST|GET|PUT|PATCH|DELETE)\s+\/api\/|Wiki[A-Z]|createRepo|Composer\b/;
