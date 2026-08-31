@@ -122,6 +122,24 @@ const buildHighlightAggregationPipeline = ({ match, limit = null }) => {
   ];
 };
 
+const buildTargetedHighlightAggregationPipeline = ({ match, highlightIds }) => [
+  { $match: { ...match, 'highlights._id': { $in: highlightIds } } },
+  {
+    $project: {
+      ...HIGHLIGHT_PARENT_PROJECTION,
+      highlights: {
+        $filter: {
+          input: '$highlights',
+          as: 'highlight',
+          cond: { $in: ['$$highlight._id', highlightIds] }
+        }
+      }
+    }
+  },
+  { $unwind: '$highlights' },
+  { $project: { ...HIGHLIGHT_PARENT_PROJECTION, highlight: '$highlights' } }
+];
+
 const conceptRef = concept => ({
   type: 'concept',
   id: id(concept),
@@ -381,6 +399,143 @@ const buildMixedLibraryRelevancePage = async ({
     })
     : Promise.resolve([]);
 
+  // Review is an inverted join: begin with pages and movements that actually
+  // need attention, then hydrate only their referenced Library sources. This
+  // keeps the result exhaustive without walking every imported highlight.
+  let reviewMovements = null;
+  let reviewPages = null;
+  let reviewIdsByType = null;
+  if (exhaustiveReview) {
+    const reviewPageSelect = '_id userId title pageType status sourceRefs._id sourceRefs.type sourceRefs.objectId sourceRefs.parentObjectId claims.claimId claims.text claims.sourceRefIds createdAt updatedAt createdFrom.type createdFrom.label aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.candidateStatus freshness.status freshness.pendingSourceEventIds freshness.reviewExpiredAt freshness.lastSourceEventAt freshness.lastReviewedAt judgment.kind judgment.currentJudgment activeCompanyDossierKey investmentDossier.version';
+    reviewMovements = await movementsPromise;
+    const contextualPageIds = [...new Set((Array.isArray(reviewMovements) ? reviewMovements : [])
+      .map(movement => id(movement?.subject?.parentId))
+      .filter(Boolean))];
+    const contextualSourceIds = [...new Set((Array.isArray(reviewMovements) ? reviewMovements : [])
+      .flatMap(movement => Array.isArray(movement?.evidence) ? movement.evidence : [])
+      .map(evidence => id(evidence?.id))
+      .filter(Boolean))];
+    const pageQuery = {
+      userId,
+      ...(includeSuppressed ? {} : {
+        hiddenFromHome: { $ne: true },
+        debugOnly: { $ne: true },
+        archived: { $ne: true }
+      }),
+      status: { $ne: 'archived' },
+      plainText: { $not: /\bfailed to build\b|\bmissed quality gates\b/i },
+      $or: [
+        { 'freshness.pendingSourceEventIds.0': { $exists: true } },
+        { 'freshness.status': { $in: ['needs_review', 'conflicted'] } },
+        { 'aiState.candidateStatus': /^awaiting_/ },
+        ...(contextualPageIds.length ? [{ _id: { $in: contextualPageIds } }] : []),
+        ...(contextualSourceIds.length
+          ? [{ 'sourceRefs.objectId': { $in: contextualSourceIds } }]
+          : [])
+      ]
+    };
+    const rawPages = WikiPage?.find
+      ? await awaitQuery(WikiPage.find(pageQuery), {
+        select: reviewPageSelect,
+        sort: { _id: 1 }
+      })
+      : [];
+    const contextualPage = page => (
+      contextualPageIds.includes(id(page))
+      || (Array.isArray(page?.sourceRefs) ? page.sourceRefs : [])
+        .some(ref => contextualSourceIds.includes(id(ref?.objectId)))
+    );
+    const candidatePages = (Array.isArray(rawPages) ? rawPages : [])
+      .map(plain)
+      .filter(page => (
+        ownedBy(page, userId)
+        && (includeSuppressed || visible(page))
+        && clean(page?.status, 80).toLowerCase() !== 'archived'
+        && (needsReview(page) || contextualPage(page))
+        && isWikiPageSurfaceEligible(page)
+      ));
+    const candidatePageIds = candidatePages.map(page => id(page)).filter(Boolean);
+    const visits = WikiPageVisit?.find && candidatePageIds.length
+      ? await awaitQuery(WikiPageVisit.find({ userId, pageId: { $in: candidatePageIds } }), {
+        select: 'userId pageId lastVisitedAt',
+        limit: candidatePageIds.length
+      })
+      : [];
+    const visitedAtByPage = new Map((Array.isArray(visits) ? visits : [])
+      .map(plain)
+      .filter(visit => ownedBy(visit, userId))
+      .map(visit => [id(visit.pageId), visit.lastVisitedAt || null]));
+    reviewPages = candidatePages
+      .map(page => ({ ...page, lastVisitedAt: visitedAtByPage.get(id(page)) || null }))
+      .filter(page => contextualPage(page) || !reviewExpired(page));
+    const pageRefs = reviewPages.flatMap(page => Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
+      .map(ref => ({
+        type: normalizeType(ref?.type),
+        id: id(ref?.objectId),
+        parentId: id(ref?.parentObjectId)
+      }));
+    const movementRefs = (Array.isArray(reviewMovements) ? reviewMovements : [])
+      .flatMap(movement => Array.isArray(movement?.evidence) ? movement.evidence : [])
+      .map(ref => ({
+        type: normalizeType(ref?.type),
+        id: id(ref?.id),
+        parentId: id(ref?.parentId)
+      }));
+    const refs = [...pageRefs, ...movementRefs]
+      .filter(ref => SOURCE_TYPES.includes(ref.type) && ref.id);
+    reviewIdsByType = Object.fromEntries(SOURCE_TYPES.map(type => [
+      type,
+      [...new Set(refs.filter(ref => ref.type === type).map(ref => ref.id))]
+    ]));
+    reviewIdsByType.highlightParent = [...new Set(refs
+      .filter(ref => ref.type === 'highlight' && ref.parentId)
+      .map(ref => ref.parentId))];
+
+    // Ranking considers every maintained page that uses a selected source,
+    // not only the page that put it in review. Expand context after the small
+    // source set is known so visit and judgment ordering remains unchanged.
+    const reviewSourceIds = SOURCE_TYPES.flatMap(type => reviewIdsByType[type]);
+    if (WikiPage?.find && reviewSourceIds.length) {
+      const relatedPages = await awaitQuery(WikiPage.find({
+        userId,
+        'sourceRefs.objectId': { $in: reviewSourceIds },
+        ...(includeSuppressed ? {} : {
+          hiddenFromHome: { $ne: true },
+          debugOnly: { $ne: true },
+          archived: { $ne: true }
+        }),
+        status: { $ne: 'archived' },
+        plainText: { $not: /\bfailed to build\b|\bmissed quality gates\b/i }
+      }), {
+        select: reviewPageSelect,
+        sort: { _id: 1 }
+      });
+      const eligibleRelatedPages = (Array.isArray(relatedPages) ? relatedPages : [])
+        .map(plain)
+        .filter(page => (
+          ownedBy(page, userId)
+          && (includeSuppressed || visible(page))
+          && clean(page?.status, 80).toLowerCase() !== 'archived'
+          && isWikiPageSurfaceEligible(page)
+        ));
+      const relatedPageIds = eligibleRelatedPages.map(page => id(page)).filter(Boolean);
+      const relatedVisits = WikiPageVisit?.find && relatedPageIds.length
+        ? await awaitQuery(WikiPageVisit.find({ userId, pageId: { $in: relatedPageIds } }), {
+          select: 'userId pageId lastVisitedAt',
+          limit: relatedPageIds.length
+        })
+        : [];
+      const relatedVisitedAt = new Map((Array.isArray(relatedVisits) ? relatedVisits : [])
+        .map(plain)
+        .filter(visit => ownedBy(visit, userId))
+        .map(visit => [id(visit.pageId), visit.lastVisitedAt || null]));
+      reviewPages = eligibleRelatedPages.map(page => ({
+        ...page,
+        lastVisitedAt: relatedVisitedAt.get(id(page)) || null
+      }));
+    }
+  }
+
   const visibleQuery = includeSuppressed ? { userId } : {
     userId,
     hiddenFromHome: { $ne: true },
@@ -396,27 +551,57 @@ const buildMixedLibraryRelevancePage = async ({
     const ObjectId = Article?.db?.base?.Types?.ObjectId;
     return ObjectId?.isValid?.(userId) ? new ObjectId(String(userId)) : userId;
   })();
+  const persistedHighlightIds = (reviewIdsByType?.highlight || []).map(value => {
+    const ObjectId = Article?.db?.base?.Types?.ObjectId;
+    return ObjectId?.isValid?.(value) ? new ObjectId(String(value)) : value;
+  });
+  const articleQuery = exhaustiveReview ? {
+    ...visibleQuery,
+    $or: [
+      ...(reviewIdsByType.article.length ? [{ _id: { $in: reviewIdsByType.article } }] : []),
+      ...(reviewIdsByType.highlight.length
+        ? [{ 'highlights._id': { $in: reviewIdsByType.highlight } }]
+        : [])
+    ]
+  } : visibleQuery;
+  const noteQuery = exhaustiveReview
+    ? { ...visibleQuery, _id: { $in: reviewIdsByType.note } }
+    : visibleQuery;
+  const hasReviewArticles = !exhaustiveReview
+    || reviewIdsByType.article.length > 0
+    || reviewIdsByType.highlight.length > 0;
+  const hasReviewNotes = !exhaustiveReview || reviewIdsByType.note.length > 0;
   const [articleRows, noteRows, articleTotal, noteTotal, highlightRows] = await Promise.all([
-    awaitQuery(Article.find(visibleQuery), {
+    hasReviewArticles ? awaitQuery(Article.find(articleQuery), {
       select: boundedHighlights
         ? '_id userId title url author publicationDate siteName importMeta hiddenFromHome debugOnly archived createdAt updatedAt'
         : '_id userId title url author publicationDate siteName importMeta highlights._id highlights.text highlights.note highlights.importMeta highlights.createdAt hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
       limit: sourceScanLimit
-    }),
-    awaitQuery(NotebookEntry.find(visibleQuery), {
+    }) : [],
+    hasReviewNotes ? awaitQuery(NotebookEntry.find(noteQuery), {
       // List composition never renders note bodies. Pulling 80 full notebook
       // documents made one large imported note capable of delaying the whole
       // Library room by seconds.
       select: '_id userId title type importMeta hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
       limit: sourceScanLimit
-    }),
-    Article.countDocuments ? Article.countDocuments(visibleQuery) : null,
-    NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null,
-    boundedHighlights
-      ? Article.aggregate(buildHighlightAggregationPipeline({
-        match: includeSuppressed ? { userId: aggregateUserId } : {
+    }) : [],
+    exhaustiveReview ? null : Article.countDocuments ? Article.countDocuments(visibleQuery) : null,
+    exhaustiveReview ? null : NotebookEntry.countDocuments ? NotebookEntry.countDocuments(visibleQuery) : null,
+    boundedHighlights && persistedHighlightIds.length
+      ? Article.aggregate((exhaustiveReview
+        ? buildTargetedHighlightAggregationPipeline({
+          match: includeSuppressed ? { userId: aggregateUserId } : {
+            userId: aggregateUserId,
+            hiddenFromHome: { $ne: true },
+            debugOnly: { $ne: true },
+            archived: { $ne: true }
+          },
+          highlightIds: persistedHighlightIds
+        })
+        : buildHighlightAggregationPipeline({
+          match: includeSuppressed ? { userId: aggregateUserId } : {
           userId: aggregateUserId,
           hiddenFromHome: { $ne: true },
           debugOnly: { $ne: true },
@@ -425,23 +610,41 @@ const buildMixedLibraryRelevancePage = async ({
         // Complete review ranking happens after connection signals are joined.
         // Pre-sorting every highlight cannot change that order and turns a
         // complete scan into an expensive blocking database sort.
-        limit: exhaustiveReview ? null : sourceScanLimit
-      }))
+          limit: sourceScanLimit
+        })))
       : []
   ]);
 
   const articles = (Array.isArray(articleRows) ? articleRows : [])
     .map(plain)
-    .filter(value => ownedBy(value, userId) && (includeSuppressed || visible(value)));
+    .filter(value => (
+      ownedBy(value, userId)
+      && (includeSuppressed || visible(value))
+      && (!exhaustiveReview
+        || reviewIdsByType.article.includes(id(value))
+        || reviewIdsByType.highlightParent.includes(id(value))
+        || (Array.isArray(value?.highlights) ? value.highlights : [])
+          .some(highlight => reviewIdsByType.highlight.includes(id(highlight))))
+    ));
   const notes = (Array.isArray(noteRows) ? noteRows : [])
     .map(plain)
-    .filter(value => ownedBy(value, userId) && (includeSuppressed || visible(value)));
+    .filter(value => (
+      ownedBy(value, userId)
+      && (includeSuppressed || visible(value))
+      && (!exhaustiveReview || reviewIdsByType.note.includes(id(value)))
+    ));
   const rows = [
-    ...articles.map(articleRow),
+    ...articles
+      .filter(article => !exhaustiveReview || reviewIdsByType.article.includes(id(article)))
+      .map(articleRow),
     ...(boundedHighlights
       ? (Array.isArray(highlightRows) ? highlightRows : [])
         .map(plain)
-        .filter(value => ownedBy(value, userId) && id(value?.highlight))
+        .filter(value => (
+          ownedBy(value, userId)
+          && id(value?.highlight)
+          && (!exhaustiveReview || reviewIdsByType.highlight.includes(id(value.highlight)))
+        ))
         .map(value => highlightRow(value, plain(value.highlight)))
       : articles.flatMap(article => (
         (Array.isArray(article?.highlights) ? article.highlights : [])
@@ -519,7 +722,7 @@ const buildMixedLibraryRelevancePage = async ({
     };
   }
 
-  const movements = await movementsPromise;
+  const movements = reviewMovements || await movementsPromise;
 
   const sourceByKey = new Map(rows.map(row => [
     refKey(row.source.type, row.source.id, row.source.parentId),
@@ -559,7 +762,9 @@ const buildMixedLibraryRelevancePage = async ({
         limit: relatedQueryLimit
       })
       : [],
-    WikiPage?.find
+    exhaustiveReview
+      ? reviewPages
+      : WikiPage?.find
       ? awaitQuery(WikiPage.find({
         userId,
         'sourceRefs.objectId': { $in: [...idsByType.article, ...idsByType.highlight, ...idsByType.note] },
@@ -618,7 +823,7 @@ const buildMixedLibraryRelevancePage = async ({
     ));
   const pageIds = eligiblePages.map(value => id(value)).filter(Boolean);
   const visitRows = await (
-    WikiPageVisit?.find && pageIds.length
+    !exhaustiveReview && WikiPageVisit?.find && pageIds.length
       ? awaitQuery(WikiPageVisit.find({ userId, pageId: { $in: pageIds } }), {
         select: 'userId pageId lastVisitedAt',
         limit: pageIds.length
@@ -630,7 +835,10 @@ const buildMixedLibraryRelevancePage = async ({
     .filter(value => ownedBy(value, userId))
     .map(value => [id(value.pageId), value.lastVisitedAt || null]));
   const pages = eligiblePages
-    .map(value => ({ ...value, lastVisitedAt: visitedAtByPage.get(id(value)) || null }));
+    .map(value => ({
+      ...value,
+      lastVisitedAt: visitedAtByPage.get(id(value)) || value.lastVisitedAt || null
+    }));
   const connections = relatedRows(connectionRows)
     .map(plain)
     .filter(value => ownedBy(value, userId));
@@ -849,6 +1057,7 @@ module.exports = {
   SOURCE_TYPES,
   VIEW_NAMES,
   buildHighlightAggregationPipeline,
+  buildTargetedHighlightAggregationPipeline,
   buildMixedLibraryRelevancePage,
   decodeCursor,
   encodeCursor,
