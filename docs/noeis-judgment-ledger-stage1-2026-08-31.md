@@ -26,6 +26,9 @@ turning Judgment into a scorecard.
 - Rendered QA passes at 1440px, 1320px, and a fresh-loaded 430px viewport.
 - The mocked browser journey records a `partly` verdict and renders the Mirror.
 - Birth-date backfill is dry-run by default.
+- `npm run judgment:ledger-acceptance` verifies that the birth clock, criteria,
+  retained revisions, receipts, evidence-bound verdict, and Mirror count agree.
+  Pass `--input=<snapshot.json>` to audit a captured journey.
 
 Rendered artifacts live in
 `output/playwright/judgment-stage1-2026-08-31/`.

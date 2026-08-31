@@ -20,7 +20,8 @@ app.use(buildJudgmentResolutionRouter({
     calls.push(['verdict', input]);
     return { page: { _id: PAGE_ID, judgment: { verdicts: [{ result: input.result }] } }, artifact: {}, receipt: {}, idempotent: false };
   },
-  buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; }
+  buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
+  buildJudgmentAudit: async input => { calls.push(['audit', input]); return { summary: { status: 'quiet' }, events: [] }; }
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {
@@ -42,7 +43,10 @@ const server = app.listen(0, '127.0.0.1', async () => {
     const mirror = await request('/api/judgment/mirror');
     assert.strictEqual(mirror.response.status, 200);
     assert.strictEqual(mirror.body.mirror.metrics.claimsHeld, 1);
-    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'mirror']);
+    const audit = await request('/api/judgment/audit');
+    assert.strictEqual(audit.response.status, 200);
+    assert.strictEqual(audit.body.audit.summary.status, 'quiet');
+    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'mirror', 'audit']);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);

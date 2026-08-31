@@ -6,6 +6,7 @@ const {
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
 const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
+const { buildJudgmentAudit: readAudit } = require('../services/judgmentAuditService');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
 
 const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
@@ -35,6 +36,7 @@ const buildJudgmentResolutionRouter = ({
   setResolutionCriteria = persistCriteria,
   recordVerdict = persistVerdict,
   buildJudgmentMirror = readMirror,
+  buildJudgmentAudit = readAudit,
   ...models
 } = {}) => {
   const router = express.Router();
@@ -64,6 +66,15 @@ const buildJudgmentResolutionRouter = ({
           claims: claimMirror.claims
         }
       });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.get('/api/judgment/audit', authenticateToken, requireAuthenticatedUser, async (req, res) => {
+    try {
+      const audit = await buildJudgmentAudit({ ...models, userId: req.user.id });
+      return res.status(200).json({ audit });
     } catch (error) {
       return sendError(res, error);
     }
