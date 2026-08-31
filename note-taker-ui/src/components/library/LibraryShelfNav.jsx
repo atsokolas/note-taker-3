@@ -52,6 +52,8 @@ const LibraryShelfNav = ({
   sourceView = 'recent',
   unfiledCount,
   keptCount,
+  laterCount,
+  setAsideCount,
   query = '',
   onQueryChange,
   onSelectScope,
@@ -110,6 +112,28 @@ const LibraryShelfNav = ({
             ) : null}
           </RoomShelfButton>
         </li>
+        {laterCount > 0 ? (
+          <li className="library-shelf__later">
+            <RoomShelfButton
+              active={scope === 'later'}
+              onClick={() => onSelectScope?.('later')}
+            >
+              <span>Later</span>
+              <RoomShelfMeta>{laterCount}</RoomShelfMeta>
+            </RoomShelfButton>
+          </li>
+        ) : null}
+        {setAsideCount > 0 ? (
+          <li className="library-shelf__set-aside">
+            <RoomShelfButton
+              active={scope === 'set-aside'}
+              onClick={() => onSelectScope?.('set-aside')}
+            >
+              <span>Set aside</span>
+              <RoomShelfMeta>{setAsideCount}</RoomShelfMeta>
+            </RoomShelfButton>
+          </li>
+        ) : null}
         <li>
           <RoomShelfButton
             active={scope === 'unfiled'}

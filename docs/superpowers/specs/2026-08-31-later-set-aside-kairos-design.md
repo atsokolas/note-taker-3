@@ -1,7 +1,7 @@
 # Later, Set Aside, and Kairos
 
 **Date:** 2026-08-31
-**Status:** design, awaiting implementation plan
+**Status:** Stage 1 shipping — piles, placement, living ink. Kairos and Feed still ahead.
 **Slice:** Library articles first. Share stays out.
 
 ## Goal
@@ -165,7 +165,7 @@ Pressing an active Later or Set aside returns the source **home**.
 
 **Remind me** opens a small date strip, not a modal: Tomorrow, Next week, In a month, Every Monday, or a day. Confirm upserts the return-queue row. You can remind from Imbox, Feed, Later, or Set aside. “Set aside until Tuesday” is one breath: placement `setAside` plus `dueAt`.
 
-### Motion and phone
+## Motion and phone
 
 Set aside / Later: the row leaves the shelf and lands on the pile (sentence-flight). The pile’s edge warms. Fan expands downward; titles stagger.
 

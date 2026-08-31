@@ -2918,6 +2918,14 @@ body.noeis-editorial .palette-list {
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 76%, #1d4ed8);
 }
 
+.article-reader-decisions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 18px;
+  flex: 0 1 auto;
+}
+
 .article-reader-title {
   margin: 0;
   font-size: clamp(1.48rem, 1.35rem + 0.5vw, 1.86rem);

@@ -58,6 +58,18 @@ describe('libraryReadingRoomModel', () => {
       .toBe('Take a simple idea and take it seriously.');
   });
 
+  it('never continues a parked source', () => {
+    const parked = {
+      _id: 'parked',
+      title: 'Owed a move',
+      highlightCount: 99,
+      placement: 'later',
+      createdAt: '2026-08-20T00:00:00Z'
+    };
+    expect(pickReopenCandidate([parked, ...articles])?._id).toBe('a2');
+    expect(pickReopenCandidate([parked])?._id).toBeUndefined();
+  });
+
   it('excludes suppressed articles from reopen candidate ranking', () => {
     const withCruft = [
       ...articles,

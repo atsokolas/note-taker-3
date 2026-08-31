@@ -1,4 +1,5 @@
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
+import { isImboxArticle } from '../../pages/placementModel';
 import { pickReopenCandidate } from './libraryReadingRoomModel';
 import { getExcerpt } from './LibraryArticleList';
 
@@ -51,7 +52,9 @@ const time = (value) => {
  */
 export const buildLibraryColumn = ({ articles = [], allArticles = [] } = {}) => {
   const source = (Array.isArray(allArticles) && allArticles.length) ? allArticles : articles;
-  const pool = filterLibraryBrowseItems(Array.isArray(source) ? source : []).filter(idOf);
+  const pool = filterLibraryBrowseItems(Array.isArray(source) ? source : [])
+    .filter(idOf)
+    .filter(isImboxArticle);
   const candidate = pickReopenCandidate(pool);
   const continueId = idOf(candidate);
 

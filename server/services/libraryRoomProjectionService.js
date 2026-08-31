@@ -17,6 +17,20 @@ const count = async (Article, query) => (
     : 0
 );
 
+const PILE_SELECT = '_id title url author siteName placement placementAt createdAt updatedAt evergreen evergreenAt';
+
+const findPile = async (Article, query, direction) => {
+  if (typeof Article?.find !== 'function') return [];
+  let cursor = Article.find(query);
+  if (cursor.select) cursor = cursor.select(PILE_SELECT);
+  if (cursor.sort) cursor = cursor.sort({ placementAt: direction, createdAt: direction });
+  if (cursor.lean) cursor = cursor.lean();
+  const rows = await cursor;
+  return (Array.isArray(rows) ? rows : []).map((row) => (
+    row?.toObject ? row.toObject({ virtuals: false }) : row
+  ));
+};
+
 const buildLibraryRoomProjection = async ({
   userId,
   models = {},
@@ -29,7 +43,12 @@ const buildLibraryRoomProjection = async ({
   const visibleQuery = visibleArticleQuery(userId, includeSuppressed);
   const ordinaryVisibleQuery = visibleArticleQuery(userId, false);
 
-  const [relevance, folders, rawArticles, visibleArticles, unfiledArticles, keptArticles] = await Promise.all([
+  const imboxQuery = { ...visibleQuery, placement: { $nin: ['later', 'setAside'] } };
+
+  const laterQuery = { ...visibleQuery, placement: 'later' };
+  const setAsideQuery = { ...visibleQuery, placement: 'setAside' };
+
+  const [relevance, folders, rawArticles, visibleArticles, unfiledArticles, keptArticles, laterArticles, setAsideArticles, laterPile, setAsidePile] = await Promise.all([
     buildMixedLibraryRelevancePage({
       userId,
       models,
@@ -39,12 +58,16 @@ const buildLibraryRoomProjection = async ({
     }),
     typeof getFoldersWithCounts === 'function' ? getFoldersWithCounts(userId) : [],
     count(Article, { userId }),
-    count(Article, visibleQuery),
+    count(Article, imboxQuery),
     count(Article, {
-      ...visibleQuery,
+      ...imboxQuery,
       $or: [{ folder: null }, { folder: { $exists: false } }]
     }),
-    count(Article, { ...visibleQuery, evergreen: true })
+    count(Article, { ...visibleQuery, evergreen: true }),
+    count(Article, laterQuery),
+    count(Article, setAsideQuery),
+    findPile(Article, laterQuery, 1),
+    findPile(Article, setAsideQuery, -1)
   ]);
 
   const ordinaryVisibleArticles = includeSuppressed
@@ -60,7 +83,13 @@ const buildLibraryRoomProjection = async ({
         rawArticles,
         unfiledArticles,
         keptArticles,
+        laterArticles,
+        setAsideArticles,
         suppressedArticles: Math.max(0, rawArticles - ordinaryVisibleArticles)
+      },
+      piles: {
+        later: laterPile,
+        setAside: setAsidePile
       }
     }
   };

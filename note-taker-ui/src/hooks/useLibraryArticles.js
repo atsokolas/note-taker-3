@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getArticles } from '../api/articles';
+import { isImboxArticle, isLaterArticle, isSetAsideArticle } from '../pages/placementModel';
 import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
  * @typedef {Object} LibraryArticlesParams
- * @property {'all'|'unfiled'|'folder'|'kept'} scope
+ * @property {'all'|'unfiled'|'folder'|'kept'|'later'|'set-aside'} scope
  * @property {string} [folderId]
  * @property {string} [query]
  * @property {'recent'|'oldest'|'most-highlighted'} [sort]
@@ -71,6 +72,10 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
          because the reason to keep a reading is to reach it again from the
          place you reach everything else you have read. */
       next = next.filter(article => article.evergreen);
+    } else if (scope === 'later') {
+      next = next.filter(isLaterArticle);
+    } else if (scope === 'set-aside') {
+      next = next.filter(isSetAsideArticle);
     } else if (scope === 'folder' && folderId) {
       next = next.filter(article => article.folder?._id === folderId);
     }
@@ -81,6 +86,10 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
         const haystack = searchableArticleText(article);
         return terms.every(term => haystack.includes(term));
       });
+    } else if (scope === 'all' || scope === 'unfiled' || scope === 'folder') {
+      /* Parked sources live in their pile. Find still reaches them; the
+         ordinary shelf does not, or Later and Set aside would be starring. */
+      next = next.filter(isImboxArticle);
     }
     if (sort === 'oldest') {
       next = [...next].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));

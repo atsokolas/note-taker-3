@@ -13,6 +13,14 @@ const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}
   };
 };
 
+const ARTICLE_PLACEMENTS = new Set(['stream', 'later', 'setAside']);
+
+const normalizeArticlePlacement = (value) => {
+  const candidate = String(value || '').trim();
+  if (!candidate) return 'stream';
+  return ARTICLE_PLACEMENTS.has(candidate) ? candidate : '';
+};
+
 const buildLegacyContentRouter = ({
   authenticateToken,
   mongoose,
@@ -376,6 +384,9 @@ const buildLegacyContentRouter = ({
                explicit $project drops whatever it does not name. */
             evergreen: 1,
             evergreenAt: 1,
+            placement: 1,
+            placementAt: 1,
+            placementReason: 1,
             tags: 1,
             highlightCount: { $size: { $ifNull: ['$highlights', []] } }
           }
@@ -441,6 +452,9 @@ const buildLegacyContentRouter = ({
           'importMeta',
           'evergreen',
           'evergreenAt',
+          'placement',
+          'placementAt',
+          'placementReason',
           'createdAt',
           'updatedAt'
         ].join(' '))
@@ -630,6 +644,72 @@ const buildLegacyContentRouter = ({
         return res.status(400).json({ error: 'Invalid article ID format.' });
       }
       console.error('Error marking article evergreen:', error);
+      return res.status(500).json({ error: 'Failed to update this source.' });
+    }
+  });
+
+  router.get('/articles/:id/placement', authenticateToken, async (req, res) => {
+    try {
+      const article = await Article.findOne({ _id: req.params.id, userId: req.user.id })
+        .select('_id placement placementAt placementReason evergreen evergreenAt')
+        .lean();
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found or you do not have permission to view it.' });
+      }
+      return res.status(200).json({
+        _id: String(article._id),
+        placement: normalizeArticlePlacement(article.placement) || 'stream',
+        placementAt: article.placementAt || null,
+        placementReason: String(article.placementReason || ''),
+        evergreen: Boolean(article.evergreen),
+        evergreenAt: article.evergreenAt || null
+      });
+    } catch (error) {
+      if (error.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid article ID format.' });
+      }
+      console.error('Error reading article placement:', error);
+      return res.status(500).json({ error: 'Failed to read this source.' });
+    }
+  });
+
+  router.patch('/articles/:id/placement', authenticateToken, async (req, res) => {
+    try {
+      const placement = normalizeArticlePlacement(req.body?.placement);
+      if (!placement) {
+        return res.status(400).json({ error: 'placement must be stream, later, or setAside.' });
+      }
+      const article = await Article.findOne({ _id: req.params.id, userId: req.user.id });
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found or you do not have permission to modify it.' });
+      }
+      const previous = normalizeArticlePlacement(article.placement) || 'stream';
+      article.placement = placement;
+      if (placement === 'stream') {
+        article.placementAt = null;
+        article.placementReason = '';
+      } else if (previous !== placement) {
+        article.placementAt = new Date();
+        if (req.body?.reason !== undefined) {
+          article.placementReason = String(req.body.reason || '').trim().slice(0, 280);
+        }
+      } else if (req.body?.reason !== undefined) {
+        article.placementReason = String(req.body.reason || '').trim().slice(0, 280);
+      }
+      await article.save();
+      return res.status(200).json({
+        _id: String(article._id),
+        placement: article.placement,
+        placementAt: article.placementAt,
+        placementReason: article.placementReason || '',
+        evergreen: Boolean(article.evergreen),
+        evergreenAt: article.evergreenAt || null
+      });
+    } catch (error) {
+      if (error.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid article ID format.' });
+      }
+      console.error('Error marking article placement:', error);
       return res.status(500).json({ error: 'Failed to update this source.' });
     }
   });

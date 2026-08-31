@@ -1,10 +1,12 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import ArticleReader from '../ArticleReader';
 import LibraryArticleList from './LibraryArticleList';
 import LibraryHighlights from './LibraryHighlights';
+import LibraryPiles from './LibraryPiles';
 import LibraryReadingRoomLead from './LibraryReadingRoomLead';
 import LibrarySourceList from './LibrarySourceList';
 import LibrarySourceTrace from './LibrarySourceTrace';
+import { articlesById, isImboxSource, mergeArticles } from '../../pages/placementModel';
 import { formatReviewTriageFrame } from '../wiki/reviewTriageModel';
 import '../../styles/library-source-memory.css';
 
@@ -33,6 +35,7 @@ const LibraryMain = ({
   onOpenQuestion,
   onAskLibrarian,
   onToggleEvergreen,
+  onTogglePlacement,
   folderOptions,
   articleOptions,
   articleQuery,
@@ -58,6 +61,7 @@ const LibraryMain = ({
   sourceDetailLoading = false,
   sourceDetailError = '',
   relevanceState = null,
+  pileArticles = [],
   reviewBacklogCount,
   reviewBacklogHref = ''
 }) => {
@@ -76,6 +80,27 @@ const LibraryMain = ({
   };
   const showReadingRoomLead = scope === 'unfiled';
   const isMixedBrowse = scope === 'all';
+  const knownArticles = useMemo(
+    () => mergeArticles(allArticles, pileArticles, selectedArticle ? [selectedArticle] : []),
+    [allArticles, pileArticles, selectedArticle]
+  );
+  const knownById = useMemo(() => articlesById(knownArticles), [knownArticles]);
+  const searching = Boolean(String(articleQuery || '').trim());
+  const imboxSources = useMemo(() => {
+    const sources = Array.isArray(relevance.sources) ? relevance.sources : [];
+    if (searching) return sources;
+    return sources.filter((row) => isImboxSource(row.source || row, knownById));
+  }, [knownById, relevance.sources, searching]);
+  const handlePileDone = useCallback((articleId) => {
+    onTogglePlacement?.(articleId, 'stream');
+  }, [onTogglePlacement]);
+  const piles = (
+    <LibraryPiles
+      articles={knownArticles}
+      onSelect={onSelectArticle}
+      onDone={handlePileDone}
+    />
+  );
   const handleOpenSource = useCallback((source) => {
     if (onOpenSource) {
       onOpenSource(source);
@@ -95,7 +120,7 @@ const LibraryMain = ({
       : sourceView === 'unconnected'
         ? 'Unconnected'
         : 'Recently added';
-  const surfacedReviewCount = Math.min(3, relevance.sources.length);
+  const surfacedReviewCount = Math.min(3, imboxSources.length);
   const rawMixedReviewTotal = relevance.counts?.needs_review?.value;
   const mixedReviewTotal = rawMixedReviewTotal == null ? NaN : Number(rawMixedReviewTotal);
   const reviewTotal = Number.isFinite(reviewBacklogCount)
@@ -200,6 +225,7 @@ const LibraryMain = ({
             onHighlightRemove={onHighlightRemove}
             onAskLibrarian={onAskLibrarian}
             onToggleEvergreen={onToggleEvergreen}
+            onTogglePlacement={onTogglePlacement}
             sourceTrace={(
               <LibrarySourceTrace
                 source={sourceDetail}
@@ -223,7 +249,7 @@ const LibraryMain = ({
         <div className="library-composition__list">
           {!relevanceFailed ? (
             <LibrarySourceList
-              sources={relevance.sources}
+              sources={imboxSources}
               loading={relevancePending}
               loadingMore={relevance.loadingMore}
               error={articlesError}
@@ -282,6 +308,7 @@ const LibraryMain = ({
             />
           )}
         </div>
+        {piles}
       </div>
     );
   }
@@ -325,6 +352,7 @@ const LibraryMain = ({
         title="Articles"
         subtitle="Saved reads and source material."
       />
+      {piles}
     </div>
   );
 };

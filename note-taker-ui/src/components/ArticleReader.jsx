@@ -4,6 +4,7 @@ import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
+import PlacementWord from './PlacementWord';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
@@ -17,6 +18,7 @@ import {
 import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
+import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
 
@@ -72,6 +74,7 @@ const ArticleReader = ({
   onHighlightRemove,
   onAskLibrarian,
   onToggleEvergreen,
+  onTogglePlacement,
   sourceTrace = null
 }) => {
   const contentRef = useRef(null);
@@ -84,8 +87,10 @@ const ArticleReader = ({
      it settles immediately instead of waiting for the article list to refetch.
      It resets when a different source is opened. */
   const [kept, setKept] = useState(Boolean(article?.evergreen));
+  const [placement, setPlacement] = useState(() => placementOf(article));
   const [folioPages, setFolioPages] = useState([]);
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
+  useEffect(() => { setPlacement(placementOf(article)); }, [article?._id, article?.placement]);
   useEffect(() => {
     const articleId = article?._id;
     const replacePages = (next) => {
@@ -279,7 +284,27 @@ const ArticleReader = ({
             grey word between a date and a link, reading as another label
             rather than an action — findable only if you already knew it was
             there. */}
-        <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+        <div className="article-reader-decisions">
+          {onTogglePlacement ? (
+            <PlacementWord
+              placement="later"
+              active={placement === 'later'}
+              onChange={async (next) => {
+                const saved = await onTogglePlacement(article._id, next);
+                setPlacement(placementOf({ placement: saved?.placement ?? next }));
+              }}
+            />
+          ) : null}
+          {onTogglePlacement ? (
+            <PlacementWord
+              placement="setAside"
+              active={placement === 'setAside'}
+              onChange={async (next) => {
+                const saved = await onTogglePlacement(article._id, next);
+                setPlacement(placementOf({ placement: saved?.placement ?? next }));
+              }}
+            />
+          ) : null}
           {onToggleEvergreen ? (
             <EvergreenToggle
               evergreen={kept}
