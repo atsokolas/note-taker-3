@@ -483,7 +483,8 @@ describe('WikiPageEditor', () => {
         contradictedByCitationIds: ['citation-conflict'],
         confidence: 0.84,
         lastVerifiedAt: '2026-05-09T12:00:00.000Z',
-        history: [{ event: 'created' }, { event: 'updated' }]
+        createdAt: '2026-01-15T12:00:00.000Z',
+        history: [{ at: '2026-01-15T12:00:00.000Z', event: 'created' }, { event: 'updated' }]
       }]
     });
     mockEditor.renderTestContent = (
@@ -512,6 +513,8 @@ describe('WikiPageEditor', () => {
     expect(within(popover).getByText('84% confidence')).toBeInTheDocument();
     expect(within(popover).getByText('Evidence')).toBeInTheDocument();
     expect(within(popover).getByText('2 events')).toBeInTheDocument();
+    expect(within(popover).getByText('Born')).toBeInTheDocument();
+    expect(within(popover).queryByText('Unknown')).not.toBeInTheDocument();
     const supportGroup = within(popover).getByRole('heading', { name: 'Supporting sources' }).closest('section');
     const contradictionGroup = within(popover).getByRole('heading', { name: 'Contradicting sources' }).closest('section');
     expect(within(supportGroup).getByText('Ledger source')).toBeInTheDocument();

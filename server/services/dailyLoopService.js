@@ -165,7 +165,7 @@ const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now
         support: String(claim.support || 'unsupported'),
         sourceCount: sourceCount(claim),
         lastCheckedAt: claim.lastCheckedAt || null,
-        adoptedAt: claim.createdAt || page.createdAt || null,
+        adoptedAt: claim.bornAt || claim.createdAt || page.createdAt || null,
         changedSinceLastCheck: watcherRank !== Number.MAX_SAFE_INTEGER,
         href: `/wiki/workspace?page=${encodeURIComponent(id(page))}&claimId=${encodeURIComponent(claim.claimId)}`,
         _watcherRank: watcherRank,
@@ -358,7 +358,8 @@ const recordClaimCheckIn = async ({ models = {}, userId, pageId, claimId, action
       await user.save({ timestamps: false });
     }
   }
-  const heldDays = Math.max(0, Math.floor((now.getTime() - new Date(claim.createdAt || now).getTime()) / (24 * 60 * 60 * 1000)));
+  const bornAt = claim.bornAt || claim.createdAt || now;
+  const heldDays = Math.max(0, Math.floor((now.getTime() - new Date(bornAt).getTime()) / (24 * 60 * 60 * 1000)));
   const actionCount = claim.history.filter(row => ['reaffirmed', 'revised'].includes(String(row.action || row.event))).length;
   return {
     page,

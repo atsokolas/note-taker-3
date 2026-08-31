@@ -1677,6 +1677,30 @@ describe('WikiPageReadView', () => {
     }
   });
 
+  it('never prints Born: Unknown when an entity has no birth date', async () => {
+    getWikiPage.mockResolvedValueOnce({
+      ...page,
+      pageType: 'entity',
+      metadata: { role: 'Research lab' }
+    });
+
+    render(
+      <MemoryRouter>
+        <WikiPageReadView pageId="wiki-entity" onEdit={jest.fn()} />
+      </MemoryRouter>
+    );
+
+    const rail = await screen.findByRole('complementary', { name: 'Page context' });
+    await flushDeferredWikiReadWork();
+    const showContext = within(rail).queryByRole('button', { name: /show context/i });
+    if (showContext) {
+      await act(async () => { fireEvent.click(showContext); });
+    }
+    expect(rail.querySelector('[data-infobox-row="born"]')).not.toBeInTheDocument();
+    expect(rail.textContent).not.toMatch(/Born:\s*Unknown/);
+    expect(within(rail).queryByText('Unknown')).not.toBeInTheDocument();
+  });
+
   it('caps the right-rail scope summary instead of dumping the whole lead paragraph', async () => {
     const longLead = 'Investing is the disciplined allocation of capital to assets that are expected to generate cash flows exceeding their purchase price over a horizon that matches the investor time preference while navigating behavioral pressure and market uncertainty.';
     getWikiPage.mockResolvedValueOnce({

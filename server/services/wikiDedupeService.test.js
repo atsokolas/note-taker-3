@@ -21,6 +21,7 @@ describe('wikiDedupeService', () => {
     expect(merged[0].claimId).toBe('kept');
     expect(merged[0].sourceRefIds).toEqual(['a', 'b']);
     expect(merged[0].history).toHaveLength(2);
+    expect(merged[0].bornAt).toEqual(new Date('2026-01-01'));
   });
 
   test('lists duplicate claim ids for migration receipts', () => {
