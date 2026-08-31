@@ -40,7 +40,9 @@ const {
   rejectLineage: persistRejectLineage,
   reverseWatchProposal: persistReverseWatch,
   routeWatchProposal: persistRouteWatch,
-  transferCase: persistTransfer
+  transferCase: persistTransfer,
+  forgetInstitutionCase: persistForget,
+  correctInstitutionCase: persistCorrect
 } = require('../services/institutionService');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
 
@@ -103,6 +105,8 @@ const buildJudgmentResolutionRouter = ({
   killWatch = persistKillWatch,
   holdCase = persistHold,
   transferCase = persistTransfer,
+  forgetCase = persistForget,
+  correctCase = persistCorrect,
   ...models
 } = {}) => {
   const router = express.Router();
@@ -605,6 +609,35 @@ const buildJudgmentResolutionRouter = ({
         userId: req.user.id,
         pageId: req.params.pageId,
         toUserId: req.body?.toUserId
+      });
+      return res.status(200).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/forget', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await forgetCase({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId
+      });
+      return res.status(200).json(result);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  });
+
+  router.post('/api/judgment/pages/:pageId/correct', authenticateToken, requireAuthenticatedUser, requireHumanOwner, async (req, res) => {
+    if (!isObjectId(req.params.pageId)) return res.status(400).json({ error: 'pageId must be a valid object id.' });
+    try {
+      const result = await correctCase({
+        ...models,
+        userId: req.user.id,
+        pageId: req.params.pageId,
+        summary: req.body?.summary
       });
       return res.status(200).json(result);
     } catch (error) {

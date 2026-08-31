@@ -59,16 +59,15 @@ class InstitutionError extends Error {
 }
 
 const wrap = (error) => {
+  if (error instanceof InstitutionError) return error;
   if (
-    error instanceof InstitutionError
-    || error instanceof CrossCaseLineageError
+    error instanceof CrossCaseLineageError
     || error instanceof WorldModelStressError
     || error instanceof GovernedResearchError
     || error instanceof DecisionMemoryError
     || error instanceof PortabilityError
   ) {
-    if (!error.status) error.status = 400;
-    return error;
+    return new InstitutionError(error.message, error.status || 400, error.code);
   }
   return error;
 };
