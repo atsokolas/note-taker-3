@@ -55,6 +55,24 @@ describe('buildLibraryColumn', () => {
     expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
   });
 
+  it('hides parked articles from Continue and the shelf', () => {
+    const { continueItem, rows } = buildLibraryColumn({
+      articles: [
+        ...articles,
+        article({
+          _id: 'parked',
+          title: 'Owed a move',
+          placement: 'later',
+          highlights: [{ _id: 'h-parked' }],
+          updatedAt: '2026-08-20T00:00:00.000Z'
+        })
+      ]
+    });
+
+    expect(continueItem.id).toBe('a1');
+    expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
+  });
+
   it('has nothing to continue on an empty shelf', () => {
     expect(buildLibraryColumn({ articles: [] })).toEqual({ continueItem: null, rows: [] });
   });

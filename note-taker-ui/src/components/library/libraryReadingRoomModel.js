@@ -3,6 +3,7 @@ import {
   countSuppressedInCollection,
   filterReturnViewItems
 } from '../../utils/cruftSuppression';
+import { isImboxArticle } from '../../pages/placementModel';
 
 const normalizeName = (value) => String(value || '').trim();
 
@@ -52,7 +53,7 @@ export const scoreReopenCandidate = (article) => {
 };
 
 export const pickReopenCandidate = (articles = []) => {
-  const pool = filterReturnViewItems(Array.isArray(articles) ? articles : []);
+  const pool = filterReturnViewItems(Array.isArray(articles) ? articles : []).filter(isImboxArticle);
   const candidates = pool.filter((article) => article?._id && getHighlightCount(article) > 0);
   if (candidates.length === 0) {
     return pool.find((article) => article?._id) || null;

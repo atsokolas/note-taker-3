@@ -42,4 +42,20 @@ describe('useLibraryArticles', () => {
       includeSuppressed: true
     }));
   });
+
+  it('keeps parked sources out of the Imbox and on their own shelves', async () => {
+    getArticles.mockResolvedValue([
+      { _id: 'open', title: 'In the stream', createdAt: '2026-08-20T00:00:00.000Z' },
+      { _id: 'later', title: 'Owed', placement: 'later', createdAt: '2026-08-19T00:00:00.000Z' },
+      { _id: 'aside', title: 'At hand', placement: 'setAside', createdAt: '2026-08-18T00:00:00.000Z' }
+    ]);
+
+    const later = renderHook(() => useLibraryArticles({ scope: 'later' }));
+    const imbox = renderHook(() => useLibraryArticles({ scope: 'all' }));
+    const aside = renderHook(() => useLibraryArticles({ scope: 'set-aside' }));
+
+    await waitFor(() => expect(later.result.current.articles.map((item) => item._id)).toEqual(['later']));
+    expect(imbox.result.current.articles.map((item) => item._id)).toEqual(['open']);
+    expect(aside.result.current.articles.map((item) => item._id)).toEqual(['aside']);
+  });
 });

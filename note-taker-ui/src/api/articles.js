@@ -86,3 +86,15 @@ export const setArticleEvergreen = async (articleId, evergreen) => {
   clearCachedPrefix('library-relevance:');
   return res.data;
 };
+
+export const setArticlePlacement = async (articleId, placement, reason = '') => {
+  const res = await api.patch(
+    `/articles/${articleId}/placement`,
+    { placement, ...(reason ? { reason } : {}) },
+    getAuthHeaders()
+  );
+  clearCachedPrefix('articles:');
+  clearCachedPrefix('library-room:');
+  clearCachedPrefix('library-relevance:');
+  return res.data;
+};

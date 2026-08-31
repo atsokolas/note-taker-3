@@ -99,6 +99,36 @@ describe('LibraryMain mixed-source failure boundary', () => {
     expect(screen.queryByTestId('article-list')).not.toBeInTheDocument();
   });
 
+  it('hides a parked article from the Imbox list and still shows the pile', async () => {
+    const relevanceState = {
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      coverage: null,
+      counts: { recent: { value: 2, exact: true } },
+      sources: [
+        { source: { type: 'article', id: 'article-1', title: 'Saved article' } },
+        { source: { type: 'article', id: 'parked', title: 'Owed a move' } }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      filteredOutCount: 0,
+      loadMore: jest.fn()
+    };
+    render(
+      <LibraryMain
+        {...baseProps}
+        pileArticles={[{ _id: 'parked', title: 'Owed a move', placement: 'later', placementAt: '2026-08-20T00:00:00.000Z' }]}
+        relevanceState={relevanceState}
+      />
+    );
+
+    expect(await screen.findByTestId('source-list')).toHaveTextContent('1 sources');
+    expect(screen.getByTestId('library-piles')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Owed a move' })).toBeInTheDocument();
+  });
+
   it('frames Needs Review as a bounded triage over the full backlog', async () => {
     const relevanceState = {
       loading: false,

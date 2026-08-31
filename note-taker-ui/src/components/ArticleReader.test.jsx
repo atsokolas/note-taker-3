@@ -376,6 +376,58 @@ describe('keeping a source for life', () => {
   });
 });
 
+describe('Later and Set aside', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    resetFirstPaint();
+    listWikiPages.mockResolvedValue([]);
+    useTextSelection.mockReturnValue({
+      selectionState: { isOpen: false, text: '', rect: null, anchor: null },
+      clearSelection: jest.fn()
+    });
+  });
+
+  it('sit beside Keep as two different words, and swap rather than stack', async () => {
+    const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'later' });
+    render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
+        highlights={[]}
+        onToggleEvergreen={jest.fn()}
+        onTogglePlacement={onTogglePlacement}
+      />
+    );
+
+    const later = screen.getByRole('button', { name: 'Later' });
+    const aside = screen.getByRole('button', { name: 'Set aside' });
+    const keep = screen.getByRole('button', { name: 'Keep for good' });
+    expect(later.parentElement).toBe(keep.parentElement);
+    expect(aside.parentElement).toBe(keep.parentElement);
+    expect(later.parentElement).toHaveClass('article-reader-decisions');
+
+    fireEvent.click(later);
+    await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Later' })).toHaveAttribute('aria-pressed', 'true'));
+    expect(screen.getByRole('button', { name: 'Set aside' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('returns home when the active word is pressed again', async () => {
+    const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'stream' });
+    render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', placement: 'setAside' }}
+        highlights={[]}
+        onTogglePlacement={onTogglePlacement}
+      />
+    );
+
+    const aside = screen.getByRole('button', { name: 'Set aside' });
+    expect(aside).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(aside);
+    await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream'));
+  });
+});
+
 describe('the folio line', () => {
   const relatedClaim = (extras = {}) => ({
     _id: extras._id || 'wiki-compute',

@@ -30,6 +30,10 @@ body.noeis-editorial .article-reader-meta {
   font-size: 0.84rem;
 }
 
+body.noeis-editorial .article-reader-decisions {
+  margin-top: 10px;
+}
+
 body.noeis-editorial .article-folio {
   margin-top: 10px;
   max-width: 38rem;

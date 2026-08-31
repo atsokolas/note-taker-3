@@ -23,6 +23,9 @@ html[data-noeis-theme='theme.editorial.light'] {
   --noeis-thread: #b1862e;
   --noeis-thread-strong: #8b5f1d;
   --noeis-success: #6f7340;
+  --noeis-living: var(--noeis-success);
+  --noeis-living-seed: color-mix(in srgb, var(--noeis-living) 62%, var(--noeis-paper));
+  --noeis-living-sap: color-mix(in srgb, var(--noeis-living) 82%, var(--noeis-ink));
   --noeis-warning: #9a6a2d;
   --noeis-danger: #9b5a46;
   --noeis-danger-soft: color-mix(in srgb, var(--noeis-danger) 12%, var(--noeis-paper));

@@ -15,8 +15,20 @@ class Query {
   then(resolve, reject) { return Promise.resolve(this.value).then(resolve, reject); }
 }
 const modelFor = value => ({
-  find: () => new Query(value),
-  countDocuments: async () => value.length
+  find: (query = {}) => {
+    const rows = Array.isArray(value) ? value : [];
+    if (typeof query?.placement === 'string') {
+      return new Query(rows.filter(row => row.placement === query.placement));
+    }
+    return new Query(rows);
+  },
+  countDocuments: async (query = {}) => {
+    const rows = Array.isArray(value) ? value : [];
+    if (typeof query?.placement === 'string') {
+      return rows.filter(row => row.placement === query.placement).length;
+    }
+    return rows.length;
+  }
 });
 
 const USER_ID = '64f100000000000000000001';
@@ -115,8 +127,11 @@ const server = app.listen(0, '127.0.0.1', async () => {
       rawArticles: 1,
       unfiledArticles: 1,
       keptArticles: 1,
+      laterArticles: 0,
+      setAsideArticles: 0,
       suppressedArticles: 0
     });
+    assert.deepStrictEqual(room.body.shelves.piles, { later: [], setAside: [] });
 
     const invalidCursor = await request(
       '/api/library/relevance?view=recent&sourceScope=mixed&cursor=not-a-cursor'
