@@ -113,4 +113,31 @@ describe('JudgmentMirror', () => {
     expect(screen.getByText('No verdicts yet. The Mirror is allowed to be empty.')).toBeInTheDocument();
     expect(screen.getByText(/counterevidence response time stays blank/i)).toBeInTheDocument();
   });
+
+  it('shows private calibration copy without a leaderboard', async () => {
+    getJudgmentMirror.mockResolvedValue({
+      metrics: { claimsHeld: 1, verdictRecord: {} },
+      coverage: { storedBirthDates: 1, totalClaims: 1, responseTimeClaims: 0 },
+      due: [],
+      verdicts: [],
+      calibration: {
+        private: true,
+        selection: 'These are the cases you chose to keep and later named an outcome. They are not a sample of everything you thought.',
+        overall: { sufficient: false, silence: 'Too few named outcomes (1) to speak. Silence until 8.' },
+        byConfidence: [{
+          confidence: 'certain',
+          sufficient: false,
+          silence: 'Too few named outcomes (1) to speak. Silence until 8.'
+        }]
+      }
+    });
+    render(
+      <router.MemoryRouter>
+        <JudgmentMirror />
+      </router.MemoryRouter>
+    );
+    expect(await screen.findByText(/not a sample of everything you thought/)).toBeInTheDocument();
+    expect(screen.getByText(/Too few named outcomes/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/leaderboard|rank|shame/i);
+  });
 });

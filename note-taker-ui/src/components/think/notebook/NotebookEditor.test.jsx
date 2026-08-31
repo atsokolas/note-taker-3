@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import NotebookEditor from './NotebookEditor';
 import { listWikiPages } from '../../../api/wiki';
+import { getArticleEvergreen } from '../../../api/articles';
 import { THINK_WRITING_IDLE_MS } from '../editor/useThinkWritingActivity';
 
 const mockUseEditor = jest.fn();
@@ -82,6 +83,11 @@ jest.mock('../../../api/wiki', () => ({
   listWikiPages: jest.fn(async () => [])
 }));
 
+jest.mock('../../../api/articles', () => ({
+  getArticleEvergreen: jest.fn(),
+  setArticleEvergreen: jest.fn()
+}));
+
 jest.mock('../../../hooks/useCssMagneticLerp', () => () => ({
   elRef: { current: null },
   setTarget: jest.fn(),
@@ -96,6 +102,9 @@ jest.mock('../../../hooks/useMotionPreferences', () => ({
 describe('NotebookEditor', () => {
   beforeEach(() => {
     listWikiPages.mockResolvedValue([]);
+    // Keep this component suite at the rendering boundary. The hook has its
+    // own async contract tests, and a pending read avoids post-assertion state.
+    getArticleEvergreen.mockReturnValue(new Promise(() => {}));
     mockUseEditor.mockReturnValue(mockEditor);
     mockEditor.chain.mockReturnValue(mockChain);
     mockEditor.isActive.mockImplementation(() => false);
@@ -150,6 +159,70 @@ describe('NotebookEditor', () => {
     expect(screen.getByRole('button', { name: 'Evidence block' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Concept block' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Question block' })).toBeInTheDocument();
+  });
+
+  it('keeps the exact Library passage visible beside a derived notebook page', () => {
+    render(
+      <NotebookEditor
+        entry={{
+          _id: 'note-library',
+          title: 'A thought from reading',
+          content: '<p>Draft</p>',
+          blocks: [{
+            id: 'block-1',
+            type: 'highlight_embed',
+            articleId: 'article-1',
+            articleTitle: 'A beautiful source',
+            highlightId: 'highlight-1',
+            text: 'The exact passage'
+          }],
+          type: 'note',
+          tags: []
+        }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Ariadne thread · Library')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Return to A beautiful source' })).toHaveAttribute(
+      'href',
+      '/library?articleId=article-1&highlightId=highlight-1'
+    );
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('keeps the Library source from the note with the shared human-only control', async () => {
+    const setEvergreen = jest.fn().mockResolvedValue({ evergreen: true });
+    render(
+      <NotebookEditor
+        entry={{
+          _id: 'note-library',
+          title: 'A thought from reading',
+          content: '<p>Draft</p>',
+          blocks: [{
+            id: 'block-1',
+            type: 'highlight_embed',
+            articleId: 'article-1',
+            articleTitle: 'A beautiful source',
+            highlightId: 'highlight-1',
+            text: 'The exact passage'
+          }],
+          type: 'note',
+          tags: []
+        }}
+        saving={false}
+        error=""
+        onSave={jest.fn()}
+        onDelete={jest.fn()}
+        sourceEvergreen={{ status: 'ready', evergreen: false, setEvergreen }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep source' }));
+    await waitFor(() => expect(setEvergreen).toHaveBeenCalledWith(true));
   });
 
   it('routes toolbar actions through the editor commands', () => {

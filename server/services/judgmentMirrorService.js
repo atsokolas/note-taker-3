@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const DAY = 24 * 60 * 60 * 1000;
 
 const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
@@ -8,13 +10,16 @@ const time = value => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 const bornAtFor = page => page?.judgment?.bornAt || page?.judgment?.startedAt || page?.createdAt || null;
+const claimHash = claim => crypto.createHash('sha256')
+  .update(JSON.stringify({ claim: clean(claim) }))
+  .digest('hex');
 
 const buildJudgmentMirror = async ({ WikiPage, WikiRevision, userId, now = new Date() } = {}) => {
   const pagesQuery = WikiPage.find({
     userId,
     status: { $ne: 'archived' },
     'judgment.currentJudgment': { $type: 'string', $ne: '' }
-  }).select('_id title createdAt judgment.currentJudgment judgment.status judgment.bornAt judgment.startedAt judgment.resolutionCriteria judgment.resolutionHorizonAt judgment.resolutionSetAt judgment.verdicts').sort({ 'judgment.bornAt': 1, createdAt: 1 });
+  }).select('_id title createdAt judgment.currentJudgment judgment.status judgment.bornAt judgment.startedAt judgment.resolutionCriteria judgment.resolutionHorizonAt judgment.resolutionSetAt judgment.verdicts judgment.evidenceResponses').sort({ 'judgment.bornAt': 1, createdAt: 1 });
   const pages = await (pagesQuery.lean ? pagesQuery.lean() : pagesQuery);
   const pageIds = list(pages).map(page => page._id).filter(Boolean);
   const revisionsQuery = pageIds.length && WikiRevision?.find
@@ -52,6 +57,38 @@ const buildJudgmentMirror = async ({ WikiPage, WikiRevision, userId, now = new D
     pageId: id(page), title: clean(page.title), claim: clean(page.judgment.currentJudgment),
     criteria: clean(page.judgment.resolutionCriteria), horizonAt: page.judgment.resolutionHorizonAt
   }));
+  const responseClocks = list(pages).flatMap(page => {
+    const bornAt = time(bornAtFor(page));
+    const expectedHash = claimHash(page?.judgment?.currentJudgment);
+    return list(page?.judgment?.evidenceResponses)
+      .filter(response => response?.field === 'against' && clean(response?.claimHash) === expectedHash)
+      .map(response => ({
+        pageId: id(page),
+        arrivedAt: time(response?.sourceArrivedAt),
+        respondedAt: time(response?.respondedAt),
+        bornAt
+      }))
+      .filter(response => response.arrivedAt !== null
+        && response.respondedAt !== null
+        && response.bornAt !== null
+        && response.arrivedAt >= response.bornAt
+        && response.respondedAt >= response.arrivedAt);
+  });
+  const responseDays = responseClocks.length
+    ? responseClocks.reduce((sum, response) => sum + (response.respondedAt - response.arrivedAt), 0)
+      / responseClocks.length / DAY
+    : null;
+  const counterevidence = responseClocks.map(response => {
+    const page = list(pages).find(candidate => id(candidate) === response.pageId);
+    return {
+      pageId: response.pageId,
+      text: clean(page?.judgment?.currentJudgment),
+      href: `/judgment/${encodeURIComponent(response.pageId)}`,
+      days: Number(((response.respondedAt - response.arrivedAt) / DAY).toFixed(1)),
+      sourceArrivedAt: new Date(response.arrivedAt).toISOString(),
+      respondedAt: new Date(response.respondedAt).toISOString()
+    };
+  });
 
   return {
     generatedAt: now.toISOString(),
@@ -60,16 +97,17 @@ const buildJudgmentMirror = async ({ WikiPage, WikiRevision, userId, now = new D
       averageHoldDays: ages.length ? Math.round((ages.reduce((sum, value) => sum + value, 0) / ages.length) / DAY) : null,
       revisionRate: pages.length ? Number((revised.size / pages.length).toFixed(2)) : null,
       verdictRecord,
-      counterevidenceResponseDays: null
+      counterevidenceResponseDays: responseDays === null ? null : Number(responseDays.toFixed(1))
     },
     coverage: {
       totalClaims: pages.length,
       storedBirthDates: pages.filter(page => time(page?.judgment?.bornAt) !== null).length,
       resolutionCriteria: pages.filter(page => clean(page?.judgment?.resolutionCriteria)).length,
       claimsWithVerdicts: pages.filter(page => list(page?.judgment?.verdicts).length).length,
-      responseTimeClaims: 0
+      responseTimeClaims: new Set(responseClocks.map(response => response.pageId)).size
     },
     due,
+    counterevidence,
     verdicts: verdicts.slice(0, 100)
   };
 };

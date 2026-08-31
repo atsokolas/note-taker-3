@@ -4,6 +4,27 @@ const { persistNoeisReceipt, serializeStoredReceipt } = require('./noeisReceiptS
 const { clockFact } = require('./judgmentLedger');
 
 const RESULTS = new Set(['held_up', 'broke', 'partly', 'unresolvable', 'right_for_wrong_reasons']);
+const EVIDENCE_FIELDS = new Set(['why', 'against']);
+const ACTIONS = {
+  criteria: {
+    collection: 'resolutionHistory',
+    kind: 'judgment_resolution_set',
+    summary: 'Resolution test set by the owner.',
+    title: 'A belief got a test'
+  },
+  verdict: {
+    collection: 'verdicts',
+    kind: 'judgment_verdict_recorded',
+    summary: 'Claim verdict recorded by the owner.',
+    title: 'A belief met the world'
+  },
+  evidence: {
+    collection: 'evidenceResponses',
+    kind: 'judgment_evidence_filed',
+    summary: 'A saved passage was filed on a held sentence.',
+    title: 'Reading talked back'
+  }
+};
 
 class JudgmentResolutionError extends Error {
   constructor(message, status = 400, code = 'invalid_request') {
@@ -45,6 +66,12 @@ const requireModels = ({ WikiPage, WikiRevision, NoeisReceipt }) => {
 const claimHash = claim => digest({ claim: clean(claim, 8000) });
 const payloadHash = payload => digest(payload);
 const receiptId = ({ pageId, requestId, action }) => `judgment-resolution:v1:${pageId}:${action}:${requestId}`;
+const objectId = value => /^[a-f\d]{24}$/i.test(id(value));
+const actionContract = action => {
+  const contract = ACTIONS[action];
+  if (!contract) throw new JudgmentResolutionError('Unknown judgment mutation.', 500, 'unknown_action');
+  return contract;
+};
 
 const loadReceipt = async ({ NoeisReceipt, userId, receiptId: key, session }) => (
   resolveQuery(queryInSession(NoeisReceipt.findOne({ userId, receiptId: key }), session))
@@ -54,19 +81,15 @@ const assertReplay = ({ stored, page, revision, requestId, action, expectedClaim
   const raw = plain(stored);
   const provenance = plain(raw?.provenance) || {};
   const key = receiptId({ pageId: id(page), requestId, action });
-  const history = list(page?.judgment?.resolutionHistory);
-  const verdicts = list(page?.judgment?.verdicts);
-  const artifact = action === 'criteria'
-    ? history.find(entry => clean(entry?.receiptId, 300) === key)
-    : verdicts.find(entry => clean(entry?.receiptId, 300) === key);
+  const contract = actionContract(action);
+  const artifact = list(page?.judgment?.[contract.collection])
+    .find(entry => clean(entry?.receiptId, 300) === key);
   const revisionJudgment = plain(revision?.after?.judgment) || {};
-  const revisionArtifacts = action === 'criteria'
-    ? list(revisionJudgment.resolutionHistory)
-    : list(revisionJudgment.verdicts);
+  const revisionArtifacts = list(revisionJudgment[contract.collection]);
   const revisionArtifact = revisionArtifacts.find(entry => clean(entry?.receiptId, 300) === key);
   if (!raw
     || clean(raw.receiptId || raw.id, 300) !== key
-    || clean(raw.kind, 100) !== (action === 'criteria' ? 'judgment_resolution_set' : 'judgment_verdict_recorded')
+    || clean(raw.kind, 100) !== contract.kind
     || clean(raw.source, 40) !== 'wiki'
     || clean(raw.status, 40) !== 'completed'
     || clean(provenance.action, 40) !== action
@@ -152,22 +175,23 @@ const persistMutation = async ({
       const before = snapshotPage(page);
       const revisionId = safeObjectId(WikiRevision);
       if (!page.judgment.bornAt) page.judgment.bornAt = page.createdAt || actedAt;
-      const artifact = mutate({ page, held, hash, actedAt, revisionId, receiptId: key });
+      const artifact = await mutate({ page, held, hash, actedAt, revisionId, receiptId: key, session });
       page.markModified?.('judgment');
       await page.save({ session });
+      const contract = actionContract(action);
       const revision = await createWikiRevision({
         WikiRevision, revisionId, userId, page, before, reason: 'user_edit', actorType: 'user',
-        summary: action === 'criteria' ? 'Resolution test set by the owner.' : 'Claim verdict recorded by the owner.',
+        summary: contract.summary,
         session
       });
       const receipt = await persistNoeisReceipt({
         NoeisReceipt, userId, session,
         receipt: {
           id: key,
-          kind: action === 'criteria' ? 'judgment_resolution_set' : 'judgment_verdict_recorded',
+          kind: contract.kind,
           source: 'wiki', sourceLabel: 'Judgment', status: 'completed', completedAt: actedAt,
-          title: action === 'criteria' ? 'A belief got a test' : 'A belief met the world',
-          summary: action === 'criteria' ? payload.criteria : payload.note,
+          title: contract.title,
+          summary: action === 'criteria' ? payload.criteria : action === 'verdict' ? payload.note : artifact.text,
           touched: [
             { type: 'wiki_page', id: safePageId, title: page.title },
             { type: 'wiki_revision', id: id(revision), title: action }
@@ -289,10 +313,82 @@ const recordVerdict = async ({
   });
 };
 
+const fileJudgmentEvidence = async ({
+  userId, pageId, requestId, expectedClaim, field, articleId, highlightId,
+  WikiPage, WikiRevision, NoeisReceipt, Article, now = () => new Date()
+} = {}) => {
+  const safeField = clean(field, 20);
+  const safeArticleId = id(articleId);
+  const safeHighlightId = id(highlightId);
+  if (!EVIDENCE_FIELDS.has(safeField)) {
+    throw new JudgmentResolutionError('Choose Why or Against for this passage.');
+  }
+  if (!objectId(safeArticleId) || !objectId(safeHighlightId)) {
+    throw new JudgmentResolutionError('articleId and highlightId must be valid object ids.');
+  }
+  if (!Article?.findOne) {
+    throw new JudgmentResolutionError('Library evidence is unavailable.', 503, 'unavailable');
+  }
+  const payload = { field: safeField, articleId: safeArticleId, highlightId: safeHighlightId };
+  return persistMutation({
+    action: 'evidence', userId, pageId, requestId, expectedClaim, payload,
+    WikiPage, WikiRevision, NoeisReceipt, now,
+    mutate: async ({ page, hash, actedAt, revisionId, receiptId: key, session }) => {
+      const article = await resolveQuery(queryInSession(Article.findOne({
+        _id: safeArticleId,
+        userId,
+        'highlights._id': safeHighlightId
+      }), session));
+      const highlight = list(article?.highlights)
+        .find(candidate => id(candidate) === safeHighlightId);
+      const text = clean(highlight?.text, 8000);
+      if (!article || !highlight || !text) {
+        throw new JudgmentResolutionError('That saved passage no longer resolves in your Library.', 409, 'unresolved_evidence');
+      }
+      const origin = `highlight:${safeArticleId}:${safeHighlightId}`;
+      const reasons = [...list(page?.judgment?.why), ...list(page?.judgment?.against)];
+      if (reasons.some(reason => clean(reason?.acceptedFrom, 300) === origin)) {
+        throw new JudgmentResolutionError('That passage is already filed on this judgment.', 409, 'evidence_already_filed');
+      }
+      const responseId = `evidence_${digest(`${userId}:${pageId}:${requestId}`).slice(0, 24)}`;
+      const reasonId = `reason_${digest(`${responseId}:${safeField}`).slice(0, 24)}`;
+      page.judgment[safeField] = list(page.judgment[safeField]);
+      page.judgment[safeField].push({
+        reasonId,
+        text,
+        sourceRefIds: [],
+        sourceLabel: clean(article.title, 500),
+        acceptedFrom: origin,
+        createdAt: actedAt
+      });
+      const arrivedAt = highlight.createdAt ? new Date(highlight.createdAt) : null;
+      const sourceArrivedAt = arrivedAt && !Number.isNaN(arrivedAt.getTime()) ? arrivedAt : null;
+      const artifact = {
+        responseId,
+        reasonId,
+        field: safeField,
+        articleId: safeArticleId,
+        highlightId: safeHighlightId,
+        sourceArrivedAt,
+        respondedAt: actedAt,
+        claimHash: hash,
+        revisionId,
+        receiptId: key,
+        text
+      };
+      page.judgment.evidenceResponses = list(page.judgment.evidenceResponses);
+      page.judgment.evidenceResponses.push(artifact);
+      return artifact;
+    }
+  });
+};
+
 module.exports = {
   JudgmentResolutionError,
+  EVIDENCE_FIELDS,
   RESULTS,
   claimHash,
+  fileJudgmentEvidence,
   recordVerdict,
   setResolutionCriteria
 };

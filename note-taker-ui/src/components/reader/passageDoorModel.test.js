@@ -1,6 +1,5 @@
 import { rememberOpenedJudgment } from './folioModel';
 import {
-  passageFileCandidate,
   pickPassageDoor,
   pickUnfiledPassageMatch
 } from './passageDoorModel';
@@ -205,25 +204,5 @@ describe('pickUnfiledPassageMatch', () => {
       articleId,
       text: MATCHING
     }).id).toBe('older');
-  });
-});
-
-describe('passageFileCandidate', () => {
-  it('keeps the same origin the inbox files, so Why can become the whisper', () => {
-    expect(passageFileCandidate({
-      articleId,
-      highlightId,
-      text: MATCHING,
-      sourceLabel: 'On compute'
-    })).toEqual({
-      id: `highlight:${articleId}:${highlightId}`,
-      text: MATCHING,
-      sourceLabel: 'On compute'
-    });
-  });
-
-  it('refuses a candidate that cannot be filed back', () => {
-    expect(passageFileCandidate({ highlightId, text: MATCHING })).toBeNull();
-    expect(passageFileCandidate({ articleId, highlightId, text: '  ' })).toBeNull();
   });
 });

@@ -170,6 +170,18 @@ const runReasonLists = () => {
   });
   assert.deepStrictEqual(keptSilence.dismissedOvernightEventIds, ['event-1', 'event-2']);
 
+  const response = {
+    responseId: 'evidence-1',
+    reasonId: 'against-1',
+    field: 'against',
+    claimHash: 'held-sentence-hash'
+  };
+  const keptResponse = normalizeJudgment({
+    existing: { ...reasoned, evidenceResponses: [response] },
+    input: { ...base(), evidenceResponses: [{ responseId: 'invented' }] }
+  });
+  assert.deepStrictEqual(keptResponse.evidenceResponses, [response]);
+
   // A blank line is a mistake, not a record.
   assert.throws(
     () => normalizeJudgment({ input: { ...base(), why: [{ text: '   ' }] } }),

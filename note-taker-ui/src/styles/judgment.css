@@ -2215,7 +2215,6 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   color: var(--danger, #8b3328);
   font: 400 0.82rem/1.5 var(--font-sans, sans-serif);
 }
-
 /* One accepted write, one quiet thread. It lives over the page rather than in
    layout, so neither the claim nor its receipt moves while provenance arrives. */
 .ariadne-thread {
@@ -2278,4 +2277,315 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 @keyframes ariadne-knot-reduced {
   20%, 70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   to { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Stage 5 — the room. Overlay, not a merge. Ink on paper. No glass,
+   no member counts, no chat, no likes. */
+.living-team {
+  margin: 2.6rem 0 1.2rem;
+  color: var(--ink-muted, #6f695f);
+}
+
+.living-team h2,
+.living-team h3 {
+  margin: 0 0 .85rem;
+  color: var(--ink, #302a23);
+  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.living-team__silence,
+.living-team__exposure,
+.living-team__memory,
+.living-team__authority,
+.living-team small {
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+.living-team__memory {
+  max-width: 38rem;
+  margin: 1rem 0 0;
+  color: var(--ink, #302a23);
+  font-family: "Newsreader", var(--font-serif, Georgia), serif;
+  font-style: italic;
+}
+
+.living-team__silence button,
+.living-team button {
+  margin-left: .6rem;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--ink, #302a23);
+  font: inherit;
+  cursor: pointer;
+}
+
+.living-team__mandate,
+.living-team__claim {
+  margin: 0 0 .8rem;
+  color: var(--ink, #302a23);
+  font: 400 1.25rem/1.35 "Newsreader", var(--font-serif, Georgia), serif;
+}
+
+.living-team__overlay {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.4rem 2rem;
+  margin: 1.2rem 0 2rem;
+}
+
+.living-team__position {
+  display: grid;
+  gap: .35rem;
+}
+
+.living-team__who,
+.living-team__posture,
+.living-team__confidence,
+.living-team__position span,
+.living-team__brief span,
+.living-team__walk span {
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
+}
+
+.living-team__who a,
+.living-team__brief a,
+.living-team__dissent a,
+.living-team__walk a {
+  color: var(--ink, #302a23);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
+}
+
+.living-team__dissent ol,
+.living-team__brief ol,
+.living-team__approvals ol,
+.living-team__walk ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.living-team__dissent li,
+.living-team__brief li,
+.living-team__approvals li,
+.living-team__walk li {
+  display: grid;
+  gap: .2rem;
+  padding: .7rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
+}
+
+.living-team__approvals li.is-superseded {
+  opacity: .62;
+}
+
+.living-team__grant,
+.living-team__handoff,
+.living-team__approve {
+  display: grid;
+  gap: .7rem;
+  margin: 1.8rem 0 0;
+  max-width: 28rem;
+}
+
+.living-team label {
+  display: grid;
+  gap: .25rem;
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.living-team input,
+.living-team select {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--ink, #302a23);
+  font: 400 1.05rem/1.4 "Newsreader", var(--font-serif, Georgia), serif;
+}
+
+.living-team__error { color: var(--danger, #8b3d32); }
+
+.living-team__overlay,
+.living-team__dissent,
+.living-team__brief {
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.living-team.is-still .living-team__overlay,
+.living-team.is-still .living-team__dissent,
+.living-team.is-still .living-team__brief {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .living-team__overlay,
+  .living-team__dissent,
+  .living-team__brief {
+    transition: none;
+  }
+}
+
+/* Stage 6 — quiet thread, tracing paper, night watch. Ink on paper. */
+.ariadne-lineage,
+.tracing-paper,
+.night-watch,
+.take-the-paper {
+  margin: 2.4rem 0 1rem;
+  color: var(--ink-muted, #6f695f);
+}
+
+.ariadne-lineage h2,
+.tracing-paper h2,
+.night-watch h2,
+.take-the-paper h2,
+.judgment-mirror__calibration h2 {
+  margin: 0 0 .85rem;
+  color: var(--ink, #302a23);
+  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.ariadne-lineage ol,
+.tracing-paper ol,
+.night-watch ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ariadne-lineage li,
+.tracing-paper__sheet,
+.night-watch article {
+  padding: .75rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
+}
+
+.ariadne-lineage p,
+.tracing-paper p,
+.night-watch p,
+.take-the-paper p,
+.judgment-mirror__calibration p,
+.judgment-mirror__selection {
+  margin: 0 0 .45rem;
+  font: 400 1.05rem/1.45 "Newsreader", var(--font-serif, Georgia), serif;
+  color: var(--ink, #302a23);
+}
+
+.ariadne-lineage__silence,
+.night-watch__silence,
+.tracing-paper__uncertainty,
+.take-the-paper small,
+.tracing-paper small,
+.night-watch small {
+  color: var(--ink-muted, #6f695f);
+  font-size: .84rem;
+  font-style: italic;
+}
+
+.ariadne-lineage a,
+.tracing-paper a {
+  color: var(--ink, #302a23);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 55%, transparent);
+}
+
+.ariadne-lineage button,
+.tracing-paper button,
+.night-watch button,
+.take-the-paper button,
+.ariadne-lineage__quiet,
+.tracing-paper__quiet,
+.night-watch__quiet,
+.take-the-paper__quiet {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--ink, #302a23);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ariadne-lineage__form,
+.tracing-paper__form,
+.night-watch form,
+.take-the-paper label {
+  display: grid;
+  gap: .7rem;
+  margin: 1.4rem 0 0;
+  max-width: 28rem;
+}
+
+.ariadne-lineage label,
+.tracing-paper label,
+.night-watch label,
+.take-the-paper label {
+  display: grid;
+  gap: .25rem;
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.ariadne-lineage input,
+.tracing-paper input,
+.night-watch input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 70%, transparent);
+  background: transparent;
+  color: var(--ink, #302a23);
+  font: 400 1.05rem/1.4 "Newsreader", var(--font-serif, Georgia), serif;
+}
+
+.tracing-paper__live {
+  font: 400 1.25rem/1.35 "Newsreader", var(--font-serif, Georgia), serif;
+}
+
+.tracing-paper__kind,
+.ariadne-lineage__part {
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font: 500 .68rem/1.3 var(--font-sans, sans-serif) !important;
+}
+
+.tracing-paper__sheet,
+.ariadne-lineage li,
+.night-watch article {
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ariadne-lineage.is-still .ariadne-lineage li,
+.tracing-paper.is-still .tracing-paper__sheet {
+  transition: none;
+}
+
+.ariadne-lineage__error,
+.tracing-paper__error,
+.night-watch__error,
+.take-the-paper__error {
+  color: var(--danger, #8b3d32);
+}
+
+.judgment-mirror__calibration {
+  margin: 0 0 4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tracing-paper__sheet,
+  .ariadne-lineage li,
+  .night-watch article {
+    transition: none;
+  }
 }

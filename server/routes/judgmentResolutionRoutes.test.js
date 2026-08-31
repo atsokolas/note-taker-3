@@ -20,12 +20,22 @@ app.use(buildJudgmentResolutionRouter({
     calls.push(['verdict', input]);
     return { page: { _id: PAGE_ID, judgment: { verdicts: [{ result: input.result }] } }, artifact: {}, receipt: {}, idempotent: false };
   },
+  fileJudgmentEvidence: async input => {
+    calls.push(['evidence', input]);
+    return { page: { _id: PAGE_ID, judgment: { against: [{ acceptedFrom: input.highlightId }] } }, artifact: {}, receipt: {}, idempotent: false };
+  },
   buildJudgmentMirror: async input => { calls.push(['mirror', input]); return { metrics: { claimsHeld: 1 } }; },
   buildJudgmentAudit: async input => { calls.push(['audit', input]); return { summary: { status: 'quiet' }, events: [] }; },
   readLedger: async input => { calls.push(['ledger', input]); return { clocks: [], replay: { frames: [] } }; },
   recordClock: async input => { calls.push(['clock', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
   recordOutcome: async input => { calls.push(['outcome', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
-  resolveLesson: async input => { calls.push(['lesson', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; }
+  resolveLesson: async input => { calls.push(['lesson', input]); return { page: { _id: PAGE_ID, judgment: {} }, artifact: {}, receipt: {}, idempotent: false }; },
+  readTeam: async input => { calls.push(['team', input]); return { visible: true, members: [], positions: [], brief: { silent: true, sentences: [] } }; },
+  grantSeat: async input => { calls.push(['grant', input]); return { team: { visible: true }, receipt: {}, seat: { roles: input.roles } }; },
+  revokeSeat: async input => { calls.push(['revoke', input]); return { team: { visible: true }, receipt: {} }; },
+  setMandate: async input => { calls.push(['mandate', input]); return { team: { mandate: { purpose: input.purpose } }, receipt: {} }; },
+  approveVersion: async input => { calls.push(['approve', input]); return { team: { visible: true }, approval: { receiptId: 'a1' }, receipt: {} }; },
+  handOffCase: async input => { calls.push(['handoff', input]); return { team: { visible: true }, walk: { fromAuthorshipIntact: true }, receipt: {} }; }
 }));
 
 const server = app.listen(0, '127.0.0.1', async () => {
@@ -44,6 +54,11 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual((await request('/api/judgment/pages/bad/resolution', { method: 'POST', body: {} })).response.status, 400);
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/resolution`, { method: 'POST', body: { criteria: 'x' } })).response.status, 201);
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/verdicts`, { method: 'POST', body: { result: 'held_up' } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/evidence`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/evidence`, {
+      method: 'POST',
+      body: { field: 'against', articleId: '64f500000000000000000030', highlightId: '64f500000000000000000040' }
+    })).response.status, 201);
     const mirror = await request('/api/judgment/mirror');
     assert.strictEqual(mirror.response.status, 200);
     assert.strictEqual(mirror.body.mirror.metrics.claimsHeld, 1);
@@ -55,7 +70,16 @@ const server = app.listen(0, '127.0.0.1', async () => {
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/outcomes`, { method: 'POST', body: { silence: true } })).response.status, 201);
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/lessons`, { method: 'POST', body: { status: 'accepted' } })).response.status, 201);
     assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/clocks`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
-    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'mirror', 'audit', 'ledger', 'clock', 'outcome', 'lesson']);
+    const team = await request(`/api/judgment/pages/${PAGE_ID}/team`);
+    assert.strictEqual(team.response.status, 200);
+    assert.strictEqual(team.body.team.visible, true);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/members`, { method: 'POST', body: { userId: 'user-2', roles: ['observe'] } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/members/user-2/revoke`, { method: 'POST', body: {} })).response.status, 200);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/mandate`, { method: 'POST', body: { purpose: 'Hold until prices speak.' } })).response.status, 200);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/approve`, { method: 'POST', body: { conditions: 'If conversion holds.' } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/handoff`, { method: 'POST', body: { toUserId: 'user-2' } })).response.status, 201);
+    assert.strictEqual((await request(`/api/judgment/pages/${PAGE_ID}/team/approve`, { method: 'POST', body: {}, token: 'agent' })).response.status, 403);
+    assert.deepStrictEqual(calls.map(call => call[0]), ['criteria', 'verdict', 'evidence', 'mirror', 'audit', 'ledger', 'clock', 'outcome', 'lesson', 'team', 'grant', 'revoke', 'mandate', 'approve', 'handoff']);
     console.log('judgmentResolutionRoutes tests passed');
   } catch (error) {
     console.error(error);

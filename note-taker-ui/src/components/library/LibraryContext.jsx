@@ -177,7 +177,6 @@ const LibraryContext = ({
                           highlightId={highlight._id}
                           articleId={selectedArticleId || highlight.articleId}
                           text={highlight.text}
-                          sourceLabel={highlight.articleTitle}
                         />
                         <div className="library-context-feed-item__actions">
                           <QuietButton onClick={() => onSelectHighlight(highlight._id)}>Focus</QuietButton>

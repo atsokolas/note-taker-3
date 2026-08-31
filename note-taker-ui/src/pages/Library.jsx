@@ -546,9 +546,17 @@ const Library = () => {
   }, [navigate]);
 
   const handleSendToNotebook = useCallback(async (highlight, entryId) => {
-    await api.post(`/api/notebook/${entryId}/append-highlight`, { highlightId: highlight._id }, getAuthHeaders());
+    const response = await api.post(
+      `/api/notebook/${entryId}/append-highlight`,
+      { highlightId: highlight._id },
+      getAuthHeaders()
+    );
     setNotebookModal({ open: false, highlight: null });
-  }, []);
+    const notebookId = String(response?.data?._id || entryId || '').trim();
+    if (notebookId) {
+      navigate(`/think?tab=notebook&entryId=${encodeURIComponent(notebookId)}`);
+    }
+  }, [navigate]);
 
   const fallbackCounts = useMemo(() => {
     const counts = {};
@@ -671,8 +679,9 @@ const Library = () => {
   }, [retainHighlightInLibraryHistory]);
 
   const handleOpenNotebookModal = useCallback((highlight) => {
+    retainHighlightInLibraryHistory(highlight);
     setNotebookModal({ open: true, highlight });
-  }, []);
+  }, [retainHighlightInLibraryHistory]);
 
   const handleOpenQuestionModal = useCallback((highlight) => {
     retainHighlightInLibraryHistory(highlight);

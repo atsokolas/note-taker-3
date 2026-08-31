@@ -101,4 +101,51 @@ Fast-moving (weekly releases), well-documented (so pages are good), high-recogni
 
 ## The line
 The gallery makes the invisible visible: a stranger should be able to watch a Noeis page stay true while the world changes under it — a stock's filings, a repo's releases — and understand in 20 seconds why "maintained" beats "generated." Filings and releases are the two loudest public clocks in the world; put Noeis's receipts on both.
+
+---
+
+## Stage 4 gate preflight — 2026-08-31
+
+**Gate:** AT-467 — inspectable public proof with zero private leakage
+
+**Status:** **Blocked; reader observation has not started.** AT-430, the Stage 3 gate, remains open, and the live registry says that no object meets the flagship bar yet.
+
+### Candidate inspected
+
+- Object: [`note-taker-3 — repo wiki`](https://www.noeis.io/share/wiki/6a49ad6f22f7ad6bbbdf2154)
+- Comparison: [`regeneration stability under review`](https://www.noeis.io/share/wiki/6a49ad6f22f7ad6bbbdf2154/comparison)
+- Published proof head: `828286c`
+- Repository head at preflight: `8c19193d`
+- Disqualifying evidence: the registry labels the object a candidate, not a flagship; two material claim rewrites failed editorial acceptance; the public object is behind the current repository head.
+
+The candidate already demonstrates useful mechanics: a reader can see what was accepted, preserved, or rejected and can open exact GitHub source doors. Those mechanics are **preflight evidence only**. They do not substitute for a flagship object, an independent human reader, or voluntary recurrence.
+
+### Predeclared independent-reader protocol
+
+The observation window begins only after AT-430 passes and the registry promotes the exact object under test to flagship status.
+
+| Field | Predeclared rule |
+| --- | --- |
+| Cohort | Three non-founder readers who have not received an explanation of the object or the Noeis product thesis. Record only opaque reader codes. |
+| Object freeze | Record the public URL, accepted-through revision, maintenance timestamp, and comparison URL before the first reader opens it. All readers receive the same version. |
+| First-read task | Without owner guidance, each reader states the maintained case in their own words, identifies one material change and its disposition, opens the exact supporting source, and names what remains unknown. |
+| Comprehension threshold | At least two of three readers accurately reconstruct the central case and the material change. All claimed source-door opens must resolve to the cited evidence. |
+| Privacy threshold | Zero private notes, highlights, backlinks, Library content, agent state, credentials, or private identifiers appear in any reader session. One leak fails the gate. |
+| Recurrence window | Fourteen calendar days from the first cold read. At least one reader must voluntarily return, follow, fork, or adopt the object. A prompted return does not count. |
+| Maintenance proof | During or before the window, one correction or revocation must produce a valid public receipt, and the maintained object must continue to resolve afterward. |
+| Failure rule | No flagship, owner explanation, prompted answers, a private leak, a broken or stale source door, failed comprehension, no voluntary recurrence, or an unreceipted correction leaves AT-467 open. Silence is preferable to weakening the gate. |
+
+### Evidence ledger
+
+Complete this table only with observed behavior; never infer a reader's understanding or record personally identifying information.
+
+| Reader | Cold read date | Case reconstructed | Material change + disposition identified | Exact source opened | Unknown named | Voluntary return in 14 days | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| R1 | — | — | — | — | — | — | Not started |
+| R2 | — | — | — | — | — | — | Not started |
+| R3 | — | — | — | — | — | — | Not started |
+
+### Advancement receipt
+
+AT-467 may move only when the frozen object/version, reader ledger, zero-leak test receipt, correction or revocation receipt, and voluntary-return evidence are linked together. Passing local tests, rendering the public surface, or publishing a candidate is necessary evidence, but none is the Stage 4 outcome by itself.
 </content>

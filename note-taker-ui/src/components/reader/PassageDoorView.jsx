@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listWikiPages, updateWikiPage } from '../../api/wiki';
-import { fileEvidenceIntoJudgment } from '../../pages/judgmentModel';
+import { listWikiPages } from '../../api/wiki';
+import { fileJudgmentEvidence } from '../../api/judgmentResolution';
+import AriadneThread from '../judgment/AriadneThread';
 import { handOffSentence } from '../../motion/columnMotion';
 import { rememberOpenedJudgment } from './folioModel';
 import {
-  passageFileCandidate,
   pickPassageDoor,
   pickUnfiledPassageMatch
 } from './passageDoorModel';
@@ -16,17 +16,25 @@ const PassageDoor = ({
   highlightId,
   articleId = '',
   preferredId = '',
+  pages: suppliedPages = null,
   text = '',
-  sourceLabel = ''
 }) => {
   const [pages, setPages] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [threadTrace, setThreadTrace] = useState('');
   const filingRef = useRef(false);
+  const stanceRef = useRef(null);
+  const holdRef = useRef(null);
 
   useEffect(() => {
     const id = String(highlightId || '').trim();
     if (!id) {
       setPages([]);
+      return undefined;
+    }
+    if (Array.isArray(suppliedPages)) {
+      setPages(suppliedPages);
       return undefined;
     }
     let cancelled = false;
@@ -38,7 +46,7 @@ const PassageDoor = ({
         if (!cancelled) setPages([]);
       });
     return () => { cancelled = true; };
-  }, [highlightId]);
+  }, [highlightId, suppliedPages]);
 
   const door = useMemo(
     () => pickPassageDoor(pages, { highlightId, articleId, preferredId }),
@@ -56,54 +64,54 @@ const PassageDoor = ({
 
   const file = useCallback(async (field) => {
     if (filingRef.current || !offer) return;
-    const candidate = passageFileCandidate({
-      articleId,
-      highlightId,
-      text,
-      sourceLabel
-    });
     const page = pages.find((item) => pageId(item) === offer.id);
-    if (!candidate || !page) return;
+    if (!page) return;
 
-    const previous = pages;
-    const judgment = fileEvidenceIntoJudgment(page, candidate, field);
     filingRef.current = true;
     setBusy(true);
-    setPages((current) => current.map((item) => (
-      pageId(item) === offer.id ? { ...item, judgment } : item
-    )));
+    setError('');
     try {
-      const saved = await updateWikiPage(offer.id, { judgment });
+      const saved = await fileJudgmentEvidence({
+        pageId: offer.id,
+        expectedClaim: offer.text,
+        field,
+        articleId,
+        highlightId
+      });
       if (saved?.judgment) {
         setPages((current) => current.map((item) => (
           pageId(item) === offer.id
-            ? { ...item, ...saved, judgment: { ...judgment, ...saved.judgment } }
+            ? { ...item, judgment: saved.judgment }
             : item
         )));
       }
+      setThreadTrace(String(saved?.receipt?.id || saved?.artifact?.receiptId || Date.now()));
     } catch (_error) {
-      setPages(previous);
+      setError('That thread did not land. Try once more.');
     } finally {
       filingRef.current = false;
       setBusy(false);
     }
-  }, [articleId, highlightId, offer, pages, sourceLabel, text]);
+  }, [articleId, highlightId, offer, pages]);
 
   if (door) {
     return (
-      <Link
-        to={door.href}
-        className="passage-door"
-        data-testid="passage-door"
-        aria-label={`${door.stance} for ${door.text}`}
-        onClick={(event) => {
-          rememberOpenedJudgment(door.id);
-          handOffSentence(door.text, event.currentTarget);
-        }}
-      >
-        <span className="passage-door__stance">{door.stance}</span>
-        <span className="passage-door__hold">{door.text}</span>
-      </Link>
+      <>
+        <Link
+          to={door.href}
+          className="passage-door"
+          data-testid="passage-door"
+          aria-label={`${door.stance} for ${door.text}`}
+          onClick={(event) => {
+            rememberOpenedJudgment(door.id);
+            handOffSentence(door.text, event.currentTarget);
+          }}
+        >
+          <span ref={stanceRef} className="passage-door__stance">{door.stance}</span>
+          <span ref={holdRef} className="passage-door__hold">{door.text}</span>
+        </Link>
+        <AriadneThread traceId={threadTrace} sourceRef={stanceRef} targetRef={holdRef} />
+      </>
     );
   }
 
@@ -121,6 +129,7 @@ const PassageDoor = ({
         <button type="button" disabled={busy} onClick={() => file('against')}>Against</button>
       </span>
       <span className="passage-door__hold">{offer.text}</span>
+      {error ? <span className="passage-door__error" role="status">{error}</span> : null}
     </div>
   );
 };

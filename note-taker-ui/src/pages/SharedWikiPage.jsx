@@ -27,6 +27,7 @@ import {
   PUBLIC_PROOF_PRIVACY_STATEMENT,
   reviewedDateForPublicPage
 } from '../utils/maintenanceProof';
+import PublicCasebook from './PublicCasebook';
 import '../styles/maintenance-proof-stamp.css';
 import '../styles/shared-page-column.css';
 import { normalizeSpaces } from '../utils/editorialText';
@@ -222,6 +223,7 @@ const SharedWikiPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [page, setPage] = useState(null);
+  const [casebook, setCasebook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [adopting, setAdopting] = useState(false);
@@ -235,12 +237,14 @@ const SharedWikiPage = () => {
     setLoading(true);
     setError('');
     setPage(null);
+    setCasebook(null);
     setComparisonAvailable(false);
     setPublicComparison(null);
     getPublicWikiPage(idOrSlug)
       .then((payload) => {
         if (cancelled) return;
         setPage(payload?.page || null);
+        setCasebook(payload?.casebook || null);
         setLoading(false);
       })
       .catch((err) => {
@@ -466,7 +470,7 @@ const SharedWikiPage = () => {
   }, []);
 
   return (
-    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${companyDossierMode ? ' is-company-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}`}>
+    <main className={`shared-wiki-page${repoDossierMode ? ' is-repo-dossier' : ''}${companyDossierMode ? ' is-company-dossier' : ''}${weekendReadingsMode ? ' is-weekend-readings' : ''}${casebook ? ' is-casebook' : ''}`}>
       <nav className="shared-wiki-page__topbar" aria-label="Shared wiki navigation">
         <Link to="/" className="shared-wiki-page__brand">Noeis</Link>
         <Link to="/" className="shared-wiki-page__home">Open Noeis</Link>
@@ -479,6 +483,8 @@ const SharedWikiPage = () => {
           <h1>Shared page unavailable</h1>
           <p>{error}</p>
         </section>
+      ) : casebook ? (
+        <PublicCasebook casebook={casebook} idOrSlug={idOrSlug} location={location} />
       ) : page ? (
         <article className="shared-wiki-page__article" onClick={handleCitationClick}>
           <header className="shared-wiki-page__hero">

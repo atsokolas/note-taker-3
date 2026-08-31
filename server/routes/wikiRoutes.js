@@ -160,6 +160,20 @@ const {
   createPublicComparisonCache
 } = require('../services/publicComparisonCache');
 const {
+  appendShareReceipt,
+  serializePublicCasebook,
+  signCasebook,
+  verifyCasebook
+} = require('../services/judgmentPublicProjection');
+const {
+  CasebookLineageError,
+  followCasebook,
+  folioHash,
+  originSnapshot,
+  publicLineageTree,
+  unfollowCasebook
+} = require('../services/casebookLineageService');
+const {
   rebuildWikiGraphConnections,
   syncWikiPageGraphConnections
 } = require('../services/wikiGraphConnectionService');
@@ -1719,6 +1733,25 @@ const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   'createdAt', 'updatedAt'
 ]);
 
+const PUBLIC_WIKI_PAGE_SELECT = [
+  '_id', 'userId', 'title', 'slug', 'pageType', 'status', 'visibility', 'createdFrom',
+  'body', 'plainText',
+  'sourceRefs._id', 'sourceRefs.type', 'sourceRefs.sourceType', 'sourceRefs.title',
+  'sourceRefs.url', 'sourceRefs.snippet', 'sourceRefs.quote', 'sourceRefs.excerpt',
+  'claims._id', 'claims.claimId', 'citations._id', 'citations.sourceRefId', 'citations.claimId',
+  'freshness', 'externalWatches', 'publicProof', 'lastReviewedAt', 'adoptedFrom', 'casebookShare',
+  'aiState.draftStatus', 'aiState.lastError', 'aiState.errorCode',
+  'aiState.quality.ok', 'aiState.quality.status', 'aiState.quality.checkedAt',
+  'aiState.lastDraftedAt', 'aiState.maintenanceSummary',
+  'aiState.changeLog.type', 'aiState.changeLog.text', 'aiState.changeLog.title',
+  'aiState.changeLog.createdAt',
+  'judgment.currentJudgment', 'judgment.bornAt', 'judgment.startedAt', 'judgment.status',
+  'judgment.verdicts', 'judgment.clocks', 'judgment.outcomes',
+  'judgment.resolutionCriteria', 'judgment.resolutionHorizonAt', 'judgment.resolutionSetAt',
+  'judgment.lastReviewedAt',
+  'createdAt', 'updatedAt'
+].join(' ');
+
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
@@ -1731,6 +1764,7 @@ const buildWikiRouter = ({
   WikiBriefingCache = null,
   WikiPageVisit = null,
   WikiSharedCollection = null,
+  CasebookLineage = null,
   WikiSchemaSettings = null,
   Connection = null,
   ConnectorActionLog = null,
@@ -2088,12 +2122,14 @@ const buildWikiRouter = ({
         },
         adoptedFrom: {
           originType,
+          kind: snapshot.origin.kind || 'adopt',
           originPageId: mongoose.Types.ObjectId.isValid(snapshot.origin.originPageId)
             ? snapshot.origin.originPageId
             : null,
           originCollectionId,
           originSlug: snapshot.origin.originSlug || '',
           originTitle: snapshot.origin.originTitle || snapshot.page.title,
+          originHash: snapshot.origin.originHash || '',
           packId,
           sample,
           adoptedAt: new Date()
@@ -2155,6 +2191,51 @@ const buildWikiRouter = ({
   };
 
   const findOwnedPage = (req) => WikiPage.findOne({ _id: req.params.id, userId: req.user.id });
+
+  const sharedWikiQuery = (idOrSlug) => {
+    const query = {
+      visibility: 'shared',
+      status: { $ne: 'archived' },
+      'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
+    };
+    if (mongoose.Types.ObjectId.isValid(idOrSlug)) query._id = idOrSlug;
+    else query.slug = idOrSlug;
+    return query;
+  };
+
+  const loadSharedWikiPage = async (idOrSlug) => {
+    let pageQuery = WikiPage.findOne(sharedWikiQuery(idOrSlug));
+    if (pageQuery?.select) pageQuery = pageQuery.select(PUBLIC_WIKI_PAGE_SELECT);
+    return pageQuery?.lean ? pageQuery.lean() : pageQuery;
+  };
+
+  const loadCasebookRevisions = async (pageId) => {
+    if (!WikiRevision?.find) return [];
+    let query = WikiRevision.find({
+      pageId,
+      promotionStatus: { $nin: ['candidate', 'rejected', 'deferred'] }
+    });
+    if (query.select) query = query.select('summary reason createdAt promotionStatus');
+    if (query.sort) query = query.sort({ createdAt: 1 });
+    if (query.limit) query = query.limit(80);
+    const rows = query.lean ? await query.lean() : await query;
+    return Array.isArray(rows) ? rows : [];
+  };
+
+  const loadPublicCasebook = async (page) => {
+    if (!page || !String(page?.judgment?.currentJudgment || '').trim()) return null;
+    const revisions = await loadCasebookRevisions(page._id);
+    const lineage = await publicLineageTree({ CasebookLineage, WikiPage, page });
+    return serializePublicCasebook({ page, revisions, lineage });
+  };
+
+  const sendLineageError = (res, error) => {
+    if (error instanceof CasebookLineageError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    console.error('Casebook lineage error:', error);
+    return res.status(500).json({ error: 'Failed to record lineage.' });
+  };
 
   const refreshWikiProposals = async ({ userId, force = false } = {}) => {
     if (!WikiProposal) return { proposals: [], generated: false };
@@ -5501,29 +5582,17 @@ const buildWikiRouter = ({
         res.setHeader('X-Noeis-Public-Page-Cache', 'HIT');
         return res.status(200).json(cachedPayload);
       }
-      const query = {
-        visibility: 'shared',
-        status: { $ne: 'archived' },
-        'createdFrom.label': { $not: RESEARCH_LEDGER_LABEL_PATTERN }
-      };
-      if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
-        query._id = idOrSlug;
-      } else {
-        query.slug = idOrSlug;
-      }
-      let pageQuery = WikiPage.findOne(query);
-      if (pageQuery?.select) {
-        pageQuery = pageQuery.select('_id userId title slug pageType status visibility createdFrom body plainText sourceRefs._id sourceRefs.type sourceRefs.sourceType sourceRefs.title sourceRefs.url sourceRefs.snippet sourceRefs.quote sourceRefs.excerpt claims._id claims.claimId citations._id citations.sourceRefId citations.claimId freshness externalWatches publicProof lastReviewedAt aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality.ok aiState.quality.status aiState.quality.checkedAt aiState.lastDraftedAt aiState.maintenanceSummary aiState.changeLog.type aiState.changeLog.text aiState.changeLog.title aiState.changeLog.createdAt createdAt updatedAt');
-      }
-      const page = pageQuery?.lean ? await pageQuery.lean() : await pageQuery;
+      const page = await loadSharedWikiPage(idOrSlug);
       if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
       const researchEditionPage = isResearchEditionPage(page);
       const publicPage = researchEditionPage
         ? await loadPublishedWeekendReadingsArtifact({ NoeisReceipt, page, ownerUserId: page.userId })
         : serializePublicWikiPage(page);
       if (!publicPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      const casebook = researchEditionPage ? null : await loadPublicCasebook(page);
       const payload = {
         page: publicPage,
+        ...(casebook ? { casebook } : {}),
         sharedAt: page.updatedAt || page.createdAt || null
       };
       publicPageCache.set(idOrSlug, payload);
@@ -5805,6 +5874,10 @@ const buildWikiRouter = ({
 
       const adoptable = buildAdoptableWikiPageSnapshot(originPage);
       if (!adoptable?.page) return res.status(422).json({ error: 'Shared wiki page could not be adopted.' });
+      if (adoptable.origin) {
+        adoptable.origin.originHash = folioHash(originPage);
+        adoptable.origin.kind = 'adopt';
+      }
       const result = await createAdoptedWikiPages({
         userId: req.user.id,
         snapshots: [adoptable],
@@ -5812,6 +5885,14 @@ const buildWikiRouter = ({
       });
       const adopted = result.pages[0] || {};
       const page = adopted.page;
+      if (CasebookLineage && page && String(originPage?.judgment?.currentJudgment || '').trim()) {
+        await CasebookLineage.create({
+          userId: req.user.id,
+          action: 'adopt',
+          ...originSnapshot(originPage, folioHash(originPage)),
+          childPageId: page._id
+        });
+      }
       trackWikiEvent(req, EVENT_NAMES.WIKI_SHARED_ADOPTED, {
         originType: 'page',
         originPageId: serializeId(originPage._id),
@@ -5829,6 +5910,176 @@ const buildWikiRouter = ({
     } catch (error) {
       console.error('Error adopting shared wiki page:', error);
       res.status(500).json({ error: 'Failed to adopt shared wiki page.' });
+    }
+  });
+
+  router.get('/api/wiki/pages/:id/public-preview', wikiAuth, async (req, res) => {
+    try {
+      const page = await findOwnedPage(req);
+      if (!page) return res.status(404).json({ error: 'Wiki page not found.' });
+      const raw = typeof page.toObject === 'function' ? page.toObject({ virtuals: false }) : page;
+      const casebook = await loadPublicCasebook(raw);
+      return res.status(200).json({
+        page: serializePublicWikiPage(raw),
+        casebook,
+        preview: true
+      });
+    } catch (error) {
+      console.error('Error building public casebook preview:', error);
+      return res.status(500).json({ error: 'Failed to preview the public folio.' });
+    }
+  });
+
+  router.get('/api/public/wiki/pages/:idOrSlug/export', async (req, res) => {
+    try {
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      if (!idOrSlug) return res.status(400).json({ error: 'Wiki page id or slug is required.' });
+      const page = await loadSharedWikiPage(idOrSlug);
+      if (!page) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      const casebook = await loadPublicCasebook(page);
+      if (!casebook) return res.status(404).json({ error: 'This page has no public casebook.' });
+      const sealed = signCasebook(casebook);
+      return res.status(200).json({ casebook: sealed });
+    } catch (error) {
+      if (error.code === 'export_secret_missing') {
+        return res.status(503).json({ error: error.message, code: error.code });
+      }
+      console.error('Error exporting public casebook:', error);
+      return res.status(500).json({ error: 'Failed to export the public folio.' });
+    }
+  });
+
+  router.post('/api/public/casebook/verify', async (req, res) => {
+    try {
+      const result = verifyCasebook(req.body?.casebook || req.body);
+      return res.status(result.ok ? 200 : 409).json(result);
+    } catch (error) {
+      console.error('Error verifying casebook seal:', error);
+      return res.status(500).json({ error: 'Failed to verify the folio.' });
+    }
+  });
+
+  router.post('/api/public/wiki/pages/:idOrSlug/follow', wikiAuth, async (req, res) => {
+    try {
+      const originPage = await loadSharedWikiPage(String(req.params.idOrSlug || '').trim());
+      if (!originPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      const result = await followCasebook({ CasebookLineage, userId: req.user.id, originPage });
+      return res.status(result.idempotent ? 200 : 201).json({
+        action: 'follow',
+        origin: {
+          title: result.lineage.originTitle,
+          slug: result.lineage.originSlug,
+          hash: result.lineage.originHash
+        }
+      });
+    } catch (error) {
+      return sendLineageError(res, error);
+    }
+  });
+
+  router.delete('/api/public/wiki/pages/:idOrSlug/follow', wikiAuth, async (req, res) => {
+    try {
+      const idOrSlug = String(req.params.idOrSlug || '').trim();
+      const originPage = await loadSharedWikiPage(idOrSlug);
+      let originPageId = originPage?._id || null;
+      if (!originPageId && CasebookLineage?.findOne) {
+        const existing = await CasebookLineage.findOne({
+          userId: req.user.id,
+          action: 'follow',
+          revokedAt: null,
+          $or: mongoose.Types.ObjectId.isValid(idOrSlug)
+            ? [{ originPageId: idOrSlug }, { originSlug: idOrSlug }]
+            : [{ originSlug: idOrSlug }]
+        });
+        originPageId = existing?.originPageId || null;
+      }
+      if (!originPageId) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      const result = await unfollowCasebook({
+        CasebookLineage,
+        userId: req.user.id,
+        originPageId
+      });
+      return res.status(200).json({
+        action: 'unfollow',
+        origin: {
+          title: result.lineage.originTitle,
+          slug: result.lineage.originSlug,
+          hash: result.lineage.originHash
+        }
+      });
+    } catch (error) {
+      return sendLineageError(res, error);
+    }
+  });
+
+  router.post('/api/public/wiki/pages/:idOrSlug/fork', wikiAuth, async (req, res) => {
+    try {
+      const originPage = await loadSharedWikiPage(String(req.params.idOrSlug || '').trim());
+      if (!originPage) return res.status(404).json({ error: 'Shared wiki page not found.' });
+      const claim = String(originPage?.judgment?.currentJudgment || '').trim();
+      if (!claim) return res.status(422).json({ error: 'There is no public claim to fork.' });
+      const hash = folioHash(originPage);
+      const publicPage = serializePublicWikiPage(originPage);
+      const title = publicPage?.title || originPage.title || claim;
+      const page = new WikiPage({
+        userId: req.user.id,
+        title,
+        slug: await buildUniqueSlug(req.user.id, title),
+        pageType: normalizePageType(originPage.pageType || 'topic'),
+        status: 'draft',
+        visibility: 'private',
+        sourceScope: 'selected_sources',
+        createdFrom: {
+          type: 'wiki_index',
+          text: claim,
+          label: title
+        },
+        adoptedFrom: {
+          originType: 'page',
+          kind: 'fork',
+          originPageId: mongoose.Types.ObjectId.isValid(originPage._id) ? originPage._id : null,
+          originSlug: originPage.slug || '',
+          originTitle: title,
+          originHash: hash,
+          adoptedAt: new Date()
+        },
+        judgment: {
+          currentJudgment: claim,
+          status: 'framing',
+          bornAt: new Date()
+        },
+        sourceRefs: sanitizeSharedWikiSourceRefsForAdoption(publicPage?.sourceRefs || [])
+      });
+      await page.save();
+      if (CasebookLineage) {
+        await CasebookLineage.create({
+          userId: req.user.id,
+          action: 'fork',
+          ...originSnapshot(originPage, hash),
+          childPageId: page._id
+        });
+      }
+      if (WikiRevision) {
+        await createWikiRevision({
+          WikiRevision,
+          userId: req.user.id,
+          page,
+          reason: 'created',
+          actorType: 'user',
+          summary: `Forked from ${title}.`
+        });
+      }
+      return res.status(201).json({
+        action: 'fork',
+        page: serializeWikiPage(page),
+        origin: {
+          title,
+          slug: originPage.slug || '',
+          hash
+        }
+      });
+    } catch (error) {
+      return sendLineageError(res, error);
     }
   });
 
@@ -6237,6 +6488,17 @@ const buildWikiRouter = ({
           });
         }
         if (typeof page.markModified === 'function') page.markModified('claims');
+      }
+
+      const wasShared = String(before?.visibility || '') === 'shared';
+      const nowShared = String(page.visibility || '') === 'shared';
+      const held = String(page?.judgment?.currentJudgment || '').trim();
+      if (held) {
+        if (!wasShared && nowShared) appendShareReceipt(page, 'published', folioHash(page));
+        else if (wasShared && !nowShared) appendShareReceipt(page, 'revoked', folioHash(page));
+        else if (wasShared && nowShared && req.body?.judgment !== undefined) {
+          appendShareReceipt(page, 'corrected', folioHash(page));
+        }
       }
 
       const comparableJudgment = normalizeComparableText(page?.judgment?.currentJudgment);
@@ -8725,6 +8987,7 @@ module.exports = {
   normalizeCreatedFrom,
   normalizeSourceRef,
   rejectAgentReservedWeekendReadingsCreation,
+  serializePublicCasebook,
   serializePublicWikiPage,
   serializeWikiPage,
   slugify,

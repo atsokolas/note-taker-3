@@ -54,17 +54,42 @@ jest.mock('../api/dailyLoop', () => ({
 }));
 
 jest.mock('../api/judgmentResolution', () => ({
-  getJudgmentLedger: jest.fn(() => Promise.resolve({
-    clocks: [],
-    moments: [],
-    replay: { frames: [] },
-    proposals: []
-  })),
   recordJudgmentOutcome: jest.fn(),
   resolveJudgmentLesson: jest.fn(),
   recordJudgmentVerdict: jest.fn(),
-  setJudgmentResolution: jest.fn()
+  setJudgmentResolution: jest.fn(),
+  getLivingTeam: jest.fn(() => Promise.resolve({
+    visible: true,
+    members: [],
+    positions: [],
+    dissent: [],
+    brief: { silent: true, sentences: [] },
+    authority: {}
+  })),
+  grantLivingTeamSeat: jest.fn(),
+  approveLivingTeamVersion: jest.fn(),
+  handOffLivingTeam: jest.fn(),
+  getCaseLineage: jest.fn(() => Promise.resolve({ silent: true, knots: [], cut: [], contradictions: [] })),
+  proposeCaseLineage: jest.fn(),
+  rejectCaseLineage: jest.fn(),
+  acceptCaseLineage: jest.fn(),
+  getCaseStress: jest.fn(() => Promise.resolve({ silent: true, sheets: [], live: {} })),
+  draftCaseStress: jest.fn(),
+  chooseCaseStress: jest.fn(),
+  getCaseWatch: jest.fn(() => Promise.resolve({ silent: true, note: '' })),
+  openCaseWatch: jest.fn(),
+  acceptWatchProposal: jest.fn(),
+  reverseWatchProposal: jest.fn(),
+  killCaseWatch: jest.fn(),
+  exportDecisionMemory: jest.fn(),
+  importDecisionMemory: jest.fn(),
+  holdDecisionCase: jest.fn()
 }));
+
+// The ledger owns its asynchronous behavior and has a focused test suite.
+// Keep page tests concerned with the Judgment room contract.
+jest.mock('../components/judgment/JudgmentLedger', () => () => null);
+jest.mock('../components/judgment/LivingTeam', () => () => null);
 
 const judgmentPage = () => ({
   _id: 'wiki-nvidia',

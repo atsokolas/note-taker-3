@@ -339,13 +339,28 @@ const wikiCreatedFromSchema = new mongoose.Schema({
 
 const wikiAdoptedFromSchema = new mongoose.Schema({
   originType: { type: String, enum: ['page', 'collection', 'starter_pack'], default: 'page' },
+  kind: { type: String, enum: ['adopt', 'fork'], default: 'adopt' },
   originPageId: { type: mongoose.Schema.Types.ObjectId, default: null },
   originCollectionId: { type: String, default: '', trim: true },
   originSlug: { type: String, default: '', trim: true },
   originTitle: { type: String, default: '', trim: true },
+  originHash: { type: String, default: '', trim: true },
   packId: { type: String, default: '', trim: true },
   sample: { type: Boolean, default: false },
   adoptedAt: { type: Date, default: null }
+}, { _id: false });
+
+const casebookShareReceiptSchema = new mongoose.Schema({
+  kind: { type: String, enum: ['published', 'corrected', 'revoked'], required: true },
+  at: { type: Date, required: true },
+  summary: { type: String, default: '', trim: true },
+  hash: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const casebookShareSchema = new mongoose.Schema({
+  publishedAt: { type: Date, default: null },
+  revokedAt: { type: Date, default: null },
+  receipts: { type: [casebookShareReceiptSchema], default: [] }
 }, { _id: false });
 
 const wikiSourceRefSchema = new mongoose.Schema({
@@ -390,6 +405,23 @@ const judgmentReasonSchema = new mongoose.Schema({
   sourceLabel: { type: String, default: '', trim: true },
   acceptedFrom: { type: String, default: '', trim: true },
   createdAt: { type: Date, default: Date.now }
+}, { _id: false });
+
+/* A passage can become part of a judgment without pretending that its arrival
+   was observed. The response clock is therefore optional, but when present it
+   remains bound to the exact held sentence, revision, and receipt that filed
+   it. Mirror metrics only read complete records. */
+const judgmentEvidenceResponseSchema = new mongoose.Schema({
+  responseId: { type: String, required: true, trim: true },
+  reasonId: { type: String, required: true, trim: true },
+  field: { type: String, enum: ['why', 'against'], required: true },
+  articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', required: true },
+  highlightId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  sourceArrivedAt: { type: Date, default: null },
+  respondedAt: { type: Date, required: true },
+  claimHash: { type: String, required: true, trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  receiptId: { type: String, required: true, trim: true }
 }, { _id: false });
 
 const judgmentAssumptionSchema = new mongoose.Schema({
@@ -637,6 +669,7 @@ const wikiJudgmentSchema = new mongoose.Schema({
   },
   why: { type: [judgmentReasonSchema], default: [] },
   against: { type: [judgmentReasonSchema], default: [] },
+  evidenceResponses: { type: [judgmentEvidenceResponseSchema], default: [] },
   assumptions: { type: [judgmentAssumptionSchema], default: [] },
   unknowns: { type: [judgmentUnknownSchema], default: [] },
   falsifiers: { type: [judgmentFalsifierSchema], default: [] },
@@ -1018,6 +1051,7 @@ const wikiPageSchema = new mongoose.Schema({
   activeCompanyDossierKey: { type: String, trim: true },
   freshness: { type: wikiFreshnessSchema, default: () => ({}) },
   publicProof: { type: wikiPublicProofSchema, default: null },
+  casebookShare: { type: casebookShareSchema, default: null },
   discussions: { type: [wikiDiscussionSchema], default: [] },
   aiState: { type: wikiAiStateSchema, default: () => ({}) },
   externalWatches: { type: wikiExternalWatchesSchema, default: () => ({}) },
@@ -1194,6 +1228,10 @@ const wikiRevisionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 wikiRevisionSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
+wikiRevisionSchema.index(
+  { userId: 1, sourceEventId: 1, createdAt: -1 },
+  { name: 'judgment_audit_revision' }
+);
 
 const WikiRevision = mongoose.model('WikiRevision', wikiRevisionSchema);
 
@@ -1242,6 +1280,10 @@ const wikiSourceEventSchema = new mongoose.Schema({
 wikiSourceEventSchema.index({ userId: 1, status: 1, createdAt: -1 });
 wikiSourceEventSchema.index({ userId: 1, status: 1, 'metadata.ingestReviewedAt': -1 });
 wikiSourceEventSchema.index({ userId: 1, sourceType: 1, sourceObjectId: 1, eventType: 1 });
+wikiSourceEventSchema.index(
+  { userId: 1, affectedPageIds: 1, createdAt: -1 },
+  { name: 'judgment_audit_event' }
+);
 
 const WikiSourceEvent = mongoose.model('WikiSourceEvent', wikiSourceEventSchema);
 
@@ -1260,6 +1302,10 @@ const wikiMaintenanceRunSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 wikiMaintenanceRunSchema.index({ userId: 1, status: 1, createdAt: -1 });
+wikiMaintenanceRunSchema.index(
+  { userId: 1, sourceEventId: 1, createdAt: -1 },
+  { name: 'judgment_audit_run' }
+);
 wikiMaintenanceRunSchema.index({ leaseKey: 1 }, { unique: true, sparse: true });
 
 const WikiMaintenanceRun = mongoose.model('WikiMaintenanceRun', wikiMaintenanceRunSchema);
@@ -2604,6 +2650,7 @@ const noeisReceiptSchema = new mongoose.Schema({
 
 noeisReceiptSchema.index({ userId: 1, completedAt: -1 });
 noeisReceiptSchema.index({ userId: 1, kind: 1, status: 1, completedAt: -1 });
+noeisReceiptSchema.index({ userId: 1, kind: 1, 'provenance.eventId': 1, completedAt: -1 });
 noeisReceiptSchema.index({ userId: 1, receiptId: 1 }, { unique: true });
 
 const NoeisReceipt = mongoose.model('NoeisReceipt', noeisReceiptSchema);
@@ -2800,6 +2847,198 @@ sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 
 const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
 
+/**
+ * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
+ * Revoking a share never rewrites originHash, originTitle, or originSlug.
+ */
+const casebookLineageSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  action: { type: String, enum: ['follow', 'fork', 'adopt'], required: true },
+  originPageId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  originSlug: { type: String, default: '', trim: true },
+  originTitle: { type: String, default: '', trim: true },
+  originHash: { type: String, default: '', trim: true },
+  originClaim: { type: String, default: '', trim: true },
+  childPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  revokedAt: { type: Date, default: null },
+  revokedReceiptId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+casebookLineageSchema.index({ userId: 1, originPageId: 1, action: 1, revokedAt: 1 });
+
+const CasebookLineage = mongoose.model('CasebookLineage', casebookLineageSchema);
+
+/**
+ * CaseTeam — Stage 5 overlay. Roles and mandates sit beside each author's
+ * own page. Claims, evidence, revisions, and verdicts are never copied here.
+ */
+const caseTeamMemberSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
+  label: { type: String, default: '', trim: true },
+  roles: { type: [String], default: ['observe'] },
+  mandate: {
+    exposure: { type: String, enum: ['least', 'authored', 'full'], default: 'least' },
+    allowed: { type: [String], default: [] },
+    denied: { type: [String], default: [] }
+  },
+  grantedAt: { type: Date, default: Date.now },
+  grantedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  revokedAt: { type: Date, default: null }
+}, { _id: false });
+
+const caseTeamApprovalSchema = new mongoose.Schema({
+  receiptId: { type: String, default: '', trim: true },
+  actor: {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    label: { type: String, default: '', trim: true }
+  },
+  authority: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  object: {
+    kind: { type: String, default: 'position', trim: true },
+    pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null },
+    versionHash: { type: String, default: '', trim: true }
+  },
+  conditions: { type: String, default: '', trim: true },
+  at: { type: Date, required: true },
+  supersededBy: { type: String, default: null }
+}, { _id: false });
+
+const caseTeamAuditSchema = new mongoose.Schema({
+  at: { type: Date, required: true },
+  actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  action: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  receiptId: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const caseTeamSchema = new mongoose.Schema({
+  hostPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, unique: true, index: true },
+  hostUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  hostLabel: { type: String, default: '', trim: true },
+  mandate: {
+    purpose: { type: String, default: '', trim: true },
+    exposure: { type: String, enum: ['least', 'authored', 'full'], default: 'least' },
+    allowed: { type: [String], default: [] },
+    denied: { type: [String], default: [] }
+  },
+  members: { type: [caseTeamMemberSchema], default: [] },
+  approvals: { type: [caseTeamApprovalSchema], default: [] },
+  handoffs: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  resolution: { type: mongoose.Schema.Types.Mixed, default: null },
+  audit: { type: [caseTeamAuditSchema], default: [] }
+}, { timestamps: true });
+
+caseTeamSchema.index({ hostUserId: 1, updatedAt: -1 });
+caseTeamSchema.index({ 'members.userId': 1, 'members.revokedAt': 1 });
+
+const CaseTeam = mongoose.model('CaseTeam', caseTeamSchema);
+
+/**
+ * Stage 6 — explicit cross-case thread. Never a similarity graph.
+ */
+const crossCaseLinkSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  fromPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  toPageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  kind: { type: String, enum: ['assumption', 'evidence', 'decision_pattern', 'consequence'], required: true },
+  object: {
+    kind: { type: String, default: '', trim: true },
+    id: { type: String, default: '', trim: true },
+    text: { type: String, default: '', trim: true }
+  },
+  direction: { type: String, enum: ['rests_on', 'feeds', 'shares', 'contradicts'], default: 'shares' },
+  contradiction: { type: Boolean, default: false },
+  status: { type: String, enum: ['proposed', 'accepted', 'rejected'], default: 'proposed' },
+  proposedBy: { type: String, default: '', trim: true },
+  proposedAt: { type: Date, default: Date.now },
+  acceptedAt: { type: Date, default: null },
+  rejectedAt: { type: Date, default: null },
+  rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  requestId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+crossCaseLinkSchema.index({ userId: 1, fromPageId: 1, toPageId: 1, 'object.text': 1 });
+crossCaseLinkSchema.index({ userId: 1, requestId: 1 });
+
+const CrossCaseLink = mongoose.model('CrossCaseLink', crossCaseLinkSchema);
+
+const worldModelScenarioSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  kind: { type: String, enum: ['alternative_future', 'counterevidence', 'base_rate'], required: true },
+  generated: { type: Boolean, default: true },
+  generatedLabel: { type: String, default: '', trim: true },
+  modifiedAssumptions: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  proposedPosture: { type: String, default: '', trim: true },
+  uncertainty: { type: String, default: '', trim: true },
+  provenance: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+  choice: { type: String, default: '', trim: true },
+  chosenAt: { type: Date, default: null },
+  liveChanged: { type: Boolean, default: false },
+  requestId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+worldModelScenarioSchema.index({ userId: 1, pageId: 1, createdAt: -1 });
+
+const WorldModelScenario = mongoose.model('WorldModelScenario', worldModelScenarioSchema);
+
+const researchMandateSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  purpose: { type: String, default: '', trim: true },
+  sources: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  budget: {
+    proposals: { type: Number, default: 3 },
+    remaining: { type: Number, default: 3 },
+    spent: { type: Number, default: 0 }
+  },
+  status: { type: String, enum: ['watching', 'silent', 'proposed', 'accepted', 'reversed', 'killed'], default: 'watching' },
+  proposals: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  escalations: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  killedAt: { type: Date, default: null },
+  killedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  openedAt: { type: Date, default: Date.now },
+  openedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  requestId: { type: String, default: '', trim: true }
+}, { timestamps: true });
+
+researchMandateSchema.index({ userId: 1, pageId: 1 }, { unique: true });
+
+const ResearchMandate = mongoose.model('ResearchMandate', researchMandateSchema);
+
+const institutionalHoldSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', required: true, index: true },
+  kind: { type: String, enum: ['retention', 'legal'], required: true },
+  until: { type: Date, default: null },
+  note: { type: String, default: '', trim: true },
+  placedAt: { type: Date, default: Date.now },
+  placedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  releasedAt: { type: Date, default: null },
+  releasedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+}, { timestamps: true });
+
+institutionalHoldSchema.index({ userId: 1, pageId: 1, releasedAt: 1 });
+
+const InstitutionalHold = mongoose.model('InstitutionalHold', institutionalHoldSchema);
+
+const decisionMemoryEventSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  pageId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiPage', default: null, index: true },
+  requestId: { type: String, default: '', trim: true },
+  action: { type: String, default: '', trim: true },
+  kind: { type: String, default: '', trim: true },
+  summary: { type: String, default: '', trim: true },
+  schemaVersion: { type: String, default: 'decision-memory.v1' },
+  at: { type: Date, required: true }
+}, { timestamps: true });
+
+decisionMemoryEventSchema.index({ userId: 1, at: -1 });
+
+const DecisionMemoryEvent = mongoose.model('DecisionMemoryEvent', decisionMemoryEventSchema);
+
 module.exports = {
   User,
   Feedback,
@@ -2865,5 +3104,12 @@ module.exports = {
   ReadingLoopEdition,
   SharedConcept,
   SharedQuestion,
+  CasebookLineage,
+  CaseTeam,
+  CrossCaseLink,
+  WorldModelScenario,
+  ResearchMandate,
+  InstitutionalHold,
+  DecisionMemoryEvent,
   dropLegacyConnectionIndex
 };

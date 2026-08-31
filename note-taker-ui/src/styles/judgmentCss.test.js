@@ -63,3 +63,25 @@ describe('the judgment ledger', () => {
     expect(css).not.toMatch(/confetti|toast|gamif/i);
   });
 });
+
+describe('the living team', () => {
+  it('keeps the overlay as ink and stills itself when motion is reduced', () => {
+    const room = css.match(/\.living-team\s*\{[^}]*\}/s)?.[0] || '';
+    expect(room).toBeTruthy();
+    expect(room).not.toMatch(/like-count|toast|backdrop-filter/);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.living-team__overlay,[\s\S]*?transition:\s*none/
+    );
+  });
+});
+
+describe('the durable institution', () => {
+  it('keeps the thread and tracing paper as ink, still when motion is reduced', () => {
+    expect(css).toMatch(/\.ariadne-lineage\s*,/);
+    expect(css).toMatch(/\.tracing-paper\s*,/);
+    expect(css).not.toMatch(/leaderboard|toast|gauge/i);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tracing-paper__sheet,[\s\S]*?transition:\s*none/
+    );
+  });
+});

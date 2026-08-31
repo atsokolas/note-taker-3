@@ -33,6 +33,17 @@ export const recordJudgmentVerdict = async ({
   return response.data || {};
 };
 
+export const fileJudgmentEvidence = async ({
+  pageId, expectedClaim, field, articleId, highlightId
+}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/evidence`,
+    { requestId: requestId(), expectedClaim, field, articleId, highlightId },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
 export const getJudgmentLedger = async ({ pageId, at = '' } = {}) => {
   const query = at ? `?at=${encodeURIComponent(at)}` : '';
   const response = await api.get(`/api/judgment/pages/${safe(pageId)}/ledger${query}`, getAuthHeaders());
@@ -83,4 +94,160 @@ export const resolveJudgmentLesson = async ({
   );
   return response.data || {};
 };
+export const getLivingTeam = async ({ pageId, since = '' } = {}) => {
+  const query = since ? `?since=${encodeURIComponent(since)}` : '';
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/team${query}`, getAuthHeaders());
+  return response.data?.team || response.data || null;
+};
 
+export const grantLivingTeamSeat = async ({
+  pageId, userId = '', memberPageId = '', roles = ['observe'], label = ''
+} = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/team/members`,
+    { requestId: requestId(), userId, memberPageId, pageId: memberPageId, roles, label },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const approveLivingTeamVersion = async ({ pageId, conditions = '' } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/team/approve`,
+    { requestId: requestId(), conditions },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const handOffLivingTeam = async ({ pageId, toUserId = '', toPageId = '', toLabel = '' } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/team/handoff`,
+    { requestId: requestId(), toUserId, toPageId, toLabel },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const getCaseLineage = async ({ pageId } = {}) => {
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/lineage`, getAuthHeaders());
+  return response.data?.thread || response.data || null;
+};
+
+export const proposeCaseLineage = async ({
+  pageId, toPageId, kind, object, direction = 'shares', contradiction = false
+} = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lineage`,
+    { requestId: requestId(), toPageId, kind, object, direction, contradiction },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const rejectCaseLineage = async ({ pageId, linkId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lineage/${safe(linkId)}/reject`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const acceptCaseLineage = async ({ pageId, linkId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/lineage/${safe(linkId)}/accept`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const getCaseStress = async ({ pageId } = {}) => {
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/stress`, getAuthHeaders());
+  return response.data?.overlay || response.data || null;
+};
+
+export const draftCaseStress = async ({
+  pageId, kind, modifiedAssumptions, proposedPosture = '', uncertainty = ''
+} = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/stress`,
+    { requestId: requestId(), kind, modifiedAssumptions, proposedPosture, uncertainty, generated: true },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const chooseCaseStress = async ({ pageId, scenarioId, choice } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/stress/${safe(scenarioId)}/choose`,
+    { requestId: requestId(), choice },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const getCaseWatch = async ({ pageId } = {}) => {
+  const response = await api.get(`/api/judgment/pages/${safe(pageId)}/watch`, getAuthHeaders());
+  return response.data || {};
+};
+
+export const openCaseWatch = async ({ pageId, purpose, budget = 3 } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch`,
+    { requestId: requestId(), purpose, budget },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const acceptWatchProposal = async ({ pageId, proposalId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch/${safe(proposalId)}/accept`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const reverseWatchProposal = async ({ pageId, proposalId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch/${safe(proposalId)}/reverse`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const killCaseWatch = async ({ pageId } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/watch/kill`,
+    { requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const exportDecisionMemory = async () => {
+  const response = await api.get('/api/decision-memory/v1/export', getAuthHeaders());
+  return response.data?.bundle || response.data || null;
+};
+
+export const importDecisionMemory = async (bundle) => {
+  const response = await api.post(
+    '/api/decision-memory/v1/import',
+    { bundle, requestId: requestId() },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};
+
+export const holdDecisionCase = async ({ pageId, kind = 'retention', note = '' } = {}) => {
+  const response = await api.post(
+    `/api/judgment/pages/${safe(pageId)}/hold`,
+    { requestId: requestId(), kind, note },
+    getAuthHeaders()
+  );
+  return response.data || {};
+};

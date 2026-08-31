@@ -36,22 +36,6 @@ export const passageOrigin = (articleId, highlightId) => {
   return article && highlight ? `highlight:${article}:${highlight}` : '';
 };
 
-export const passageFileCandidate = ({
-  articleId = '',
-  highlightId = '',
-  text = '',
-  sourceLabel = ''
-} = {}) => {
-  const origin = passageOrigin(articleId, highlightId);
-  const passage = normalizeSpaces(text);
-  if (!origin || !passage) return null;
-  return {
-    id: origin,
-    text: passage,
-    sourceLabel: normalizeSpaces(sourceLabel)
-  };
-};
-
 const STANCE = {
   why: 'Why',
   against: 'Against'
