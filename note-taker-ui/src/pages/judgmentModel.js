@@ -295,7 +295,8 @@ const sameLocalDay = (a, b) => (
 export const provenanceLine = (page, now = Date.now()) => {
   const judgment = page?.judgment || {};
   const parts = [];
-  const startedAt = judgment.startedAt
+  const startedAt = judgment.bornAt
+    || judgment.startedAt
     || whatIDidLines(judgment)[0]?.at
     || null;
   const started = time(startedAt);
@@ -356,7 +357,14 @@ export const projectJudgment = (page, now = Date.now()) => {
     lessons: lessonLines(judgment),
     parked: clean(judgment.status) === 'parked',
     evergreen: Boolean(page?.evergreen),
-    review: reviewBlock(judgment, now)
+    review: reviewBlock(judgment, now),
+    resolution: {
+      bornAt: judgment.bornAt || judgment.startedAt || page?.createdAt || null,
+      criteria: clean(judgment.resolutionCriteria),
+      horizonAt: judgment.resolutionHorizonAt || null,
+      setAt: judgment.resolutionSetAt || null,
+      verdicts: list(judgment.verdicts)
+    }
   };
 };
 

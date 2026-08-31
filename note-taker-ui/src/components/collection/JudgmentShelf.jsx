@@ -67,6 +67,7 @@ const JudgmentShelf = ({ items = [], activeId = '' }) => {
       <RoomShelfSection label="Casebook">
         <RoomShelfList>
           <li><Link className={roomShelfItemClass()} to="/judgment"><span>Claims</span>{items.length ? <RoomShelfMeta>{items.length}</RoomShelfMeta> : null}</Link></li>
+          <li><Link className={roomShelfItemClass()} to="/judgment/mirror"><span>The Mirror</span></Link></li>
           {counts.decisions ? (
             <li><span className={roomShelfItemClass()}><span>Decisions</span><RoomShelfMeta>{counts.decisions}</RoomShelfMeta></span></li>
           ) : null}

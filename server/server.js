@@ -657,6 +657,7 @@ const { buildKnowledgeMovementRouter } = require('./routes/knowledgeMovementRout
 const { buildSystemLoopRouter } = require('./routes/systemLoopRoutes');
 const { buildDecisionIndexRouter } = require('./routes/decisionIndexRoutes');
 const { buildDecisionMutationRouter } = require('./routes/decisionMutationRoutes');
+const { buildJudgmentResolutionRouter } = require('./routes/judgmentResolutionRoutes');
 const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes');
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
@@ -5444,6 +5445,13 @@ app.use(buildDecisionMutationRouter({
   NotebookEntry,
   Question,
   TagMeta
+}));
+
+app.use(buildJudgmentResolutionRouter({
+  authenticateToken: authenticateUserOrAgentToken,
+  WikiPage,
+  WikiRevision,
+  NoeisReceipt
 }));
 
 app.use(buildLibraryRelevanceRouter({

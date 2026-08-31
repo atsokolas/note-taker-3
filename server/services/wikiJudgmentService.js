@@ -254,6 +254,7 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
   if (kind && !governingQuestion) throw new JudgmentValidationError('A governing question is required for judgment pages.');
   const status = enumValue('judgment.status', next.status, VALUES.status, 'framing');
   const currentJudgment = clean(next.currentJudgment, 8000);
+  const previousJudgment = clean(prior.currentJudgment, 8000);
   if (['decision_ready', 'monitoring', 'closed'].includes(status) && !currentJudgment) {
     throw new JudgmentValidationError(`${status} requires a current judgment.`);
   }
@@ -266,6 +267,11 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
     status,
     decisionPosture: enumValue('judgment.decisionPosture', next.decisionPosture, VALUES.decisionPosture, 'investigate'),
     ownerLabel: clean(next.ownerLabel, 200),
+    /* Resolution records are transactional human artifacts. Generic page
+       edits may carry them through, but may never rewrite them. */
+    bornAt: currentJudgment && currentJudgment !== previousJudgment
+      ? new Date()
+      : dateValue('judgment.bornAt', prior.bornAt || next.bornAt, null),
     startedAt: dateValue('judgment.startedAt', next.startedAt, null),
     lastReviewedAt: dateValue('judgment.lastReviewedAt', next.lastReviewedAt, null),
     nextReviewAt: dateValue('judgment.nextReviewAt', next.nextReviewAt, null),
@@ -286,6 +292,11 @@ const normalizeJudgment = ({ input, existing = null, actorType = 'user', pageId 
       : null,
     lessons: normalizeLessons(next.lessons || [], prior.lessons || []),
     dependsOn: normalizeDependencies(next.dependsOn || [], actorType, pageId),
+    resolutionCriteria: clean(prior.resolutionCriteria, 2000),
+    resolutionHorizonAt: dateValue('judgment.resolutionHorizonAt', prior.resolutionHorizonAt, null),
+    resolutionSetAt: dateValue('judgment.resolutionSetAt', prior.resolutionSetAt, null),
+    resolutionHistory: Array.isArray(prior.resolutionHistory) ? prior.resolutionHistory : [],
+    verdicts: Array.isArray(prior.verdicts) ? prior.verdicts : [],
     /* Per-case overnight silence. Not an event ignore — the same filing may
        still matter to another claim. */
     dismissedOvernightEventIds: cleanList(next.dismissedOvernightEventIds, 80)

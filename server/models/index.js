@@ -504,6 +504,36 @@ const judgmentDependencySchema = new mongoose.Schema({
   acceptedAt: { type: Date, default: Date.now }
 }, { _id: false });
 
+/* A belief earns a clock only when the human chooses the test. Criteria are
+   mutable, but their history is not: each change is bound to the revision and
+   receipt that made it part of the case. */
+const judgmentResolutionHistorySchema = new mongoose.Schema({
+  criteria: { type: String, default: '', trim: true },
+  horizonAt: { type: Date, default: null },
+  setAt: { type: Date, required: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  receiptId: { type: String, required: true, trim: true },
+  claimHash: { type: String, required: true, trim: true }
+}, { _id: false });
+
+/* Verdicts are observations, not state. A later revision does not overwrite
+   the fact that the earlier sentence held, broke, partly held, or could not be
+   resolved. */
+const judgmentVerdictSchema = new mongoose.Schema({
+  verdictId: { type: String, required: true, trim: true },
+  result: { type: String, enum: ['held_up', 'broke', 'partly', 'unresolvable'], required: true },
+  note: { type: String, default: '', trim: true },
+  evidenceSourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+  recordedAt: { type: Date, required: true },
+  criteriaSnapshot: { type: String, default: '', trim: true },
+  horizonAtSnapshot: { type: Date, default: null },
+  claimHash: { type: String, required: true, trim: true },
+  recordHash: { type: String, required: true, trim: true },
+  revisionId: { type: mongoose.Schema.Types.ObjectId, ref: 'WikiRevision', required: true },
+  receiptId: { type: String, required: true, trim: true },
+  recordedBy: { type: String, enum: ['user'], default: 'user' }
+}, { _id: false });
+
 const wikiJudgmentSchema = new mongoose.Schema({
   /* Not required. A judgment page is one that carries a judgment, and in the
      reading language that is a claim with reasons — no framed question above
@@ -528,6 +558,9 @@ const wikiJudgmentSchema = new mongoose.Schema({
   parkedAt: { type: Date, default: null },
   decisionPosture: { type: String, enum: ['investigate', 'watch', 'act', 'avoid', 'no_action', 'closed'], default: 'investigate' },
   ownerLabel: { type: String, default: '', trim: true },
+  /* `bornAt` is the first moment this exact held sentence entered Judgment.
+     `startedAt` remains as a legacy case clock; new code reads bornAt first. */
+  bornAt: { type: Date, default: null },
   startedAt: { type: Date, default: null },
   lastReviewedAt: { type: Date, default: null },
   nextReviewAt: { type: Date, default: null },
@@ -546,6 +579,11 @@ const wikiJudgmentSchema = new mongoose.Schema({
   decisions: { type: [judgmentDecisionSchema], default: [] },
   lessons: { type: [judgmentLessonSchema], default: [] },
   dependsOn: { type: [judgmentDependencySchema], default: [] },
+  resolutionCriteria: { type: String, default: '', trim: true },
+  resolutionHorizonAt: { type: Date, default: null },
+  resolutionSetAt: { type: Date, default: null },
+  resolutionHistory: { type: [judgmentResolutionHistorySchema], default: [] },
+  verdicts: { type: [judgmentVerdictSchema], default: [] },
   dismissedOvernightEventIds: { type: [String], default: [] }
 }, { _id: false });
 

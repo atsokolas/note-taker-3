@@ -758,6 +758,200 @@ button.judgment-inbox__text:focus-visible {
   margin-top: 52px;
 }
 
+/* Resolution is a margin ritual, not a workflow card. The only ornament is a
+   small ink diamond after a verdict lands; motion disappears for readers who
+   ask it to. */
+.judgment-resolution {
+  margin: clamp(2.6rem, 6vw, 5.5rem) 0 1rem;
+  padding: 1.35rem 0;
+  border-block: 1px solid var(--hairline, rgba(38, 32, 24, .15));
+  color: var(--ink-muted, #6f695f);
+}
+
+.judgment-resolution__heading,
+.judgment-resolution__actions {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.judgment-resolution h2,
+.judgment-mirror h2 {
+  margin: 0;
+  color: var(--ink, #302a23);
+  font: 500 .72rem/1.2 var(--font-sans, sans-serif);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.judgment-resolution button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.judgment-resolution button:hover,
+.judgment-resolution button:focus-visible {
+  color: var(--ink, #302a23);
+}
+
+.judgment-resolution__invitation,
+.judgment-resolution__verdict-door {
+  margin-top: 1rem;
+  border-bottom: 1px solid currentColor !important;
+}
+
+.judgment-resolution__verdict-door.is-due {
+  color: var(--accent, #a56a12);
+}
+
+.judgment-resolution__test,
+.judgment-resolution__verdict-form {
+  display: grid;
+  gap: .9rem;
+  margin-top: 1.1rem;
+}
+
+.judgment-resolution textarea,
+.judgment-resolution input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--hairline, rgba(38, 32, 24, .2));
+  border-radius: 0;
+  padding: .45rem 0;
+  background: transparent;
+  color: var(--ink, #302a23);
+  font: 400 1rem/1.55 var(--font-serif, serif);
+  resize: none;
+}
+
+.judgment-resolution textarea:focus,
+.judgment-resolution input:focus {
+  outline: 0;
+  border-color: var(--accent, #a56a12);
+}
+
+.judgment-resolution__date {
+  display: flex;
+  align-items: baseline;
+  gap: .65rem;
+  max-width: 18rem;
+}
+
+.judgment-resolution__criteria {
+  margin: 1rem 0 0;
+  color: var(--ink, #302a23);
+  font: 400 1.15rem/1.55 var(--font-serif, serif);
+}
+
+.judgment-resolution__criteria small,
+.judgment-resolution__latest small {
+  display: block;
+  margin-top: .25rem;
+  color: var(--ink-muted, #6f695f);
+  font: 400 .75rem/1.4 var(--font-sans, sans-serif);
+}
+
+.judgment-resolution__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem 1.1rem;
+}
+
+.judgment-resolution__choices button[aria-pressed="true"] {
+  color: var(--ink, #302a23);
+  text-decoration: underline;
+  text-underline-offset: .25rem;
+}
+
+.judgment-resolution__actions {
+  justify-content: flex-start;
+}
+
+.judgment-resolution__actions button:first-child {
+  color: var(--ink, #302a23);
+  border-bottom: 1px solid currentColor;
+}
+
+.judgment-resolution__latest {
+  position: relative;
+  margin: 1.3rem 0 0;
+  padding-left: 1.35rem;
+  color: var(--ink, #302a23);
+}
+
+.judgment-resolution__latest > span:not(.judgment-resolution__seal) {
+  display: block;
+  margin-top: .25rem;
+  color: var(--ink-muted, #6f695f);
+}
+
+.judgment-resolution__seal {
+  position: absolute;
+  left: 0;
+  top: .08rem;
+  color: var(--accent, #a56a12);
+  font-size: .62rem;
+}
+
+.judgment-resolution__latest.is-new .judgment-resolution__seal {
+  animation: judgment-ink-settle 680ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes judgment-ink-settle {
+  from { opacity: 0; transform: scale(2.2) rotate(45deg); filter: blur(3px); }
+  to { opacity: 1; transform: scale(1) rotate(0); filter: blur(0); }
+}
+
+.judgment-resolution__error { color: var(--danger, #8b3d32); }
+
+.judgment-mirror {
+  width: min(100% - 3rem, 52rem);
+  margin: 0 auto;
+  padding: clamp(3rem, 8vw, 7rem) 0;
+  color: var(--ink-muted, #6f695f);
+}
+
+.judgment-mirror header { margin: 3rem 0 4rem; }
+.judgment-mirror header > p:first-child { letter-spacing: .12em; text-transform: uppercase; font-size: .72rem; }
+.judgment-mirror h1 { margin: .4rem 0; color: var(--ink, #302a23); font: 400 clamp(3.5rem, 8vw, 7rem)/.9 var(--font-serif, serif); }
+
+.judgment-mirror__measure {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin: 0 0 5rem;
+  border-block: 1px solid var(--hairline, rgba(38, 32, 24, .15));
+}
+
+.judgment-mirror__measure div { padding: 1.3rem 1rem 1.3rem 0; }
+.judgment-mirror__measure dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; }
+.judgment-mirror__measure dd { margin: .4rem 0 0; color: var(--ink, #302a23); font: 400 1.6rem/1 var(--font-serif, serif); }
+
+.judgment-mirror__due,
+.judgment-mirror__record { margin: 0 0 4rem; }
+.judgment-mirror__due > a,
+.judgment-mirror__record article { display: grid; grid-template-columns: 1fr auto; gap: .2rem 1rem; padding: 1.1rem 0; border-bottom: 1px solid var(--hairline, rgba(38, 32, 24, .12)); color: inherit; text-decoration: none; }
+.judgment-mirror__due span,
+.judgment-mirror__record a { color: var(--ink, #302a23); font: 400 1.05rem/1.4 var(--font-serif, serif); }
+.judgment-mirror__record p { grid-column: 1; margin: 0; }
+.judgment-mirror__record time { grid-column: 2; grid-row: 1 / span 2; font-size: .75rem; }
+.judgment-mirror__silence { margin-top: 1.5rem; font-style: italic; }
+.judgment-mirror footer { font-size: .76rem; line-height: 1.6; }
+
+@media (max-width: 700px) {
+  .judgment-mirror__measure { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judgment-resolution__latest.is-new .judgment-resolution__seal { animation: none; }
+}
+
 @media (max-width: 640px) {
   .judgment-log__row {
     grid-template-columns: 4.2rem minmax(0, 1fr);
