@@ -407,8 +407,8 @@ describe('Later and Set aside', () => {
 
     fireEvent.click(later);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
-    expect(later).toHaveAttribute('aria-pressed', 'true');
-    expect(aside).toHaveAttribute('aria-pressed', 'false');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Later' })).toHaveAttribute('aria-pressed', 'true'));
+    expect(screen.getByRole('button', { name: 'Set aside' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('returns home when the active word is pressed again', async () => {
