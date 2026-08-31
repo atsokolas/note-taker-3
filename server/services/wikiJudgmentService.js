@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { parseHorizon } = require('./claimFalsifiability');
 
 const VALUES = Object.freeze({
   kind: ['thesis', 'decision', 'prediction'],
@@ -314,7 +315,9 @@ const normalizeClaimUpdates = (updates = []) => {
       epistemicStatus: enumValue('claim.epistemicStatus', item.epistemicStatus, VALUES.epistemicStatus, 'plausible_hypothesis'),
       materiality: enumValue('claim.materiality', item.materiality, VALUES.materiality, 'supporting'),
       implication: clean(item.implication, 4000),
-      falsifierIds: normalizeRefs(item.falsifierIds)
+      falsifierIds: normalizeRefs(item.falsifierIds),
+      resolutionCriteria: item.resolutionCriteria === undefined ? undefined : clean(item.resolutionCriteria, 800),
+      horizon: item.horizon === undefined ? undefined : parseHorizon(item.horizon)
     };
   });
 };

@@ -2331,7 +2331,12 @@ const buildClaimLedger = ({ claims = [], previousClaims = [], now = new Date() }
       retiredAt: previous?.retiredAt || null,
       restoredAt: previous?.restoredAt || null,
       createdAt: previous?.createdAt || claim.createdAt || now,
-      bornAt: previous?.bornAt || claim.bornAt || null
+      bornAt: previous?.bornAt || claim.bornAt || null,
+      resolutionCriteria: previous?.resolutionCriteria || claim.resolutionCriteria || '',
+      horizon: previous?.horizon || claim.horizon || null,
+      verdicts: Array.isArray(previous?.verdicts) && previous.verdicts.length
+        ? previous.verdicts
+        : Array.isArray(claim.verdicts) ? claim.verdicts : []
     };
     const history = normalizeClaimHistory(previous?.history);
     if (!previous) {

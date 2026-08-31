@@ -54,6 +54,12 @@ const mergeClaimRecords = (claims = []) => {
       bornAt: existing.bornAt || claim.bornAt,
       createdAt: existing.createdAt || claim.createdAt
     });
+    existing.resolutionCriteria = existing.resolutionCriteria || claim.resolutionCriteria || '';
+    existing.horizon = existing.horizon || claim.horizon || null;
+    existing.verdicts = uniqueBy(
+      [...(existing.verdicts || []), ...(claim.verdicts || [])],
+      entry => `${entry?.at || ''}:${entry?.verdict || ''}:${entry?.trigger || ''}:${entry?.sourceEventId || ''}`
+    );
   });
   return Array.from(merged.values());
 };

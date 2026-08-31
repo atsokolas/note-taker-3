@@ -356,6 +356,20 @@ describe('judgmentModel', () => {
     expect(filed.why.at(-1).text).toBe('A later reason.');
   });
 
+  it('files a partner criteria suggestion as change-my-mind, not as a silent write', () => {
+    const filed = acceptProposalIntoJudgment(
+      page(),
+      { id: 'suggest-1', body: 'Signed capacity slips two quarters.' },
+      'criteria'
+    );
+    expect(filed.falsifiers.map((row) => row.text)).toEqual([
+      'Confirmed signed capacity converts within 90 days.',
+      'A retired condition.',
+      'Signed capacity slips two quarters.'
+    ]);
+    expect(filed.why).toEqual(page().judgment.why);
+  });
+
   it('skips an overnight line already filed under Why or Against', () => {
     const events = [{
       _id: 'event-1',

@@ -6,6 +6,9 @@ const {
   DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
 } = require('./wikiBriefingService');
 const { evaluateCheckInEligibility } = require('./checkInEligibility');
+const { applyFalsifiability } = require('./claimFalsifiability');
+const { appendVerdict, selectPaperVerdicts } = require('./claimVerdicts');
+const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
 const { buildReviewTriage, expireLowStakesReviews } = require('./reviewTriageService');
 const { canonicalWikiTitle } = require('./wikiPresentationGuard');
 
@@ -143,7 +146,7 @@ const sourceCount = (claim = {}) => Math.max(
   Array.isArray(claim.citationIds) ? claim.citationIds.length : 0
 );
 
-const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now() } = {}) => {
+const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now(), skipKeys = new Set() } = {}) => {
   const impacted = new Map();
   watcherLeads.forEach((lead, leadIndex) => lead.claimImpacts.forEach(impact => {
     impacted.set(`${lead.page.id}:${impact.claimId}`, leadIndex);
@@ -156,6 +159,7 @@ const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now
       const eligibility = evaluateCheckInEligibility({ page, claim, now });
       if (!eligibility.eligible) return;
       const key = `${id(page)}:${claim.claimId}`;
+      if (skipKeys.has(key)) return;
       const watcherRank = impacted.has(key) ? impacted.get(key) : Number.MAX_SAFE_INTEGER;
       candidates.push({
         pageId: id(page),
@@ -166,6 +170,8 @@ const selectDailyClaimCheckIn = ({ pages = [], watcherLeads = [], now = Date.now
         sourceCount: sourceCount(claim),
         lastCheckedAt: claim.lastCheckedAt || null,
         adoptedAt: claim.bornAt || claim.createdAt || page.createdAt || null,
+        resolutionCriteria: clean(claim.resolutionCriteria, 800),
+        horizon: claim.horizon || null,
         changedSinceLastCheck: watcherRank !== Number.MAX_SAFE_INTEGER,
         href: `/wiki/workspace?page=${encodeURIComponent(id(page))}&claimId=${encodeURIComponent(claim.claimId)}`,
         _watcherRank: watcherRank,
@@ -242,12 +248,15 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
   ]);
   const visitedAt = new Map((visits || []).map(visit => [String(visit.pageId), visit.lastVisitedAt]));
   const selectionPages = pages.map(page => ({ ...page, lastVisitedAt: visitedAt.get(String(page._id)) || null }));
+  const claimVerdicts = selectPaperVerdicts({ pages: selectionPages, watcherLeads, now });
+  const verdictKeys = new Set(claimVerdicts.map(row => `${row.pageId}:${row.claimId}`));
   const briefing = {
     ...baseBriefing,
     window: { since: new Date(priorOpenedAt).toISOString(), through: now.toISOString(), cursorAdvancedBy: advanceCursor ? 'morning_paper_open' : null },
     watcherLeads,
     lead: watcherLeads[0] || null,
-    claimCheckIn: selectDailyClaimCheckIn({ pages: selectionPages, watcherLeads, now: now.getTime() }),
+    claimCheckIn: selectDailyClaimCheckIn({ pages: selectionPages, watcherLeads, now: now.getTime(), skipKeys: verdictKeys }),
+    claimVerdicts,
     reviewTriage: buildReviewTriage({ pages: selectionPages, now: now.getTime() }),
     watching: listWatching(pages),
     checkInStreak: Number(user.morningPaper?.checkInStreak || 0)
@@ -279,7 +288,18 @@ const previousLocalDate = (localDate) => {
   return value.toISOString().slice(0, 10);
 };
 
-const recordClaimCheckIn = async ({ models = {}, userId, pageId, claimId, action, note = '', revisedText = '', now = new Date() } = {}) => {
+const recordClaimCheckIn = async ({
+  models = {},
+  userId,
+  pageId,
+  claimId,
+  action,
+  note = '',
+  revisedText = '',
+  resolutionCriteria,
+  horizon,
+  now = new Date()
+} = {}) => {
   const allowed = new Set(['reaffirmed', 'revised', 'retired', 'restored']);
   if (!allowed.has(action)) {
     const error = new Error('action must be reaffirmed, revised, retired, or restored.');
@@ -311,6 +331,7 @@ const recordClaimCheckIn = async ({ models = {}, userId, pageId, claimId, action
   }
   const before = snapshotPage(page);
   if (action === 'revised' && clean(revisedText)) claim.text = clean(revisedText, 800);
+  applyFalsifiability(claim, { resolutionCriteria, horizon });
   claim.checkInStatus = action === 'restored' ? 'unreviewed' : action;
   claim.lastCheckedAt = now;
   if (action === 'retired') claim.retiredAt = now;
@@ -332,6 +353,7 @@ const recordClaimCheckIn = async ({ models = {}, userId, pageId, claimId, action
     contradictedByCitationIds: claim.contradictedByCitationIds || [],
     summary: action === 'restored' ? 'Claim explicitly restored by the owner.' : `Claim ${action} by the owner.`
   });
+  if (typeof page.markModified === 'function') page.markModified('claims');
   await page.save();
   const revision = await createWikiRevision({
     WikiRevision: models.WikiRevision,
@@ -370,11 +392,96 @@ const recordClaimCheckIn = async ({ models = {}, userId, pageId, claimId, action
   };
 };
 
+const loadOwnedPage = async ({ models, userId, pageId }) => {
+  const page = await models.WikiPage.findOne({ _id: pageId, userId });
+  if (!page) {
+    const error = new Error('Wiki page not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+  return page;
+};
+
+const recordClaimFalsifiability = async ({
+  models = {},
+  userId,
+  pageId,
+  claimId = '',
+  resolutionCriteria,
+  horizon,
+  now = new Date()
+} = {}) => {
+  const page = await loadOwnedPage({ models, userId, pageId });
+  const before = snapshotPage(page);
+  const claim = findHeldClaim(page, claimId) || ensureHeldClaim(page, { now, actorType: 'user', claimId });
+  if (!claim) {
+    const error = new Error('Claim not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+  applyFalsifiability(claim, { resolutionCriteria, horizon });
+  if (typeof page.markModified === 'function') page.markModified('claims');
+  await page.save();
+  const revision = await createWikiRevision({
+    WikiRevision: models.WikiRevision,
+    userId,
+    page,
+    before,
+    reason: 'user_edit',
+    actorType: 'user',
+    summary: `Claim ${claim.claimId} falsifiability updated.`
+  });
+  return { page, claim: asPlain(claim), revisionId: id(revision) };
+};
+
+const recordClaimVerdict = async ({
+  models = {},
+  userId,
+  pageId,
+  claimId,
+  verdict,
+  trigger,
+  sourceEventId = '',
+  note = '',
+  now = new Date()
+} = {}) => {
+  const page = await loadOwnedPage({ models, userId, pageId });
+  const claim = page.claims.find((row) => String(row.claimId) === String(claimId));
+  if (!claim) {
+    const error = new Error('Claim not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+  const before = snapshotPage(page);
+  const entry = appendVerdict(claim, {
+    verdict,
+    trigger,
+    sourceEventId,
+    horizon: claim.horizon,
+    note,
+    now
+  });
+  if (typeof page.markModified === 'function') page.markModified('claims');
+  await page.save();
+  const revision = await createWikiRevision({
+    WikiRevision: models.WikiRevision,
+    userId,
+    page,
+    before,
+    reason: 'user_edit',
+    actorType: 'user',
+    summary: `Claim ${claim.claimId} verdict ${entry.verdict}.`
+  });
+  return { page, claim: asPlain(claim), verdict: entry, revisionId: id(revision) };
+};
+
 module.exports = {
   buildWatcherLeads,
   diffRevisionClaims,
   selectDailyClaimCheckIn,
   recordClaimCheckIn,
+  recordClaimFalsifiability,
+  recordClaimVerdict,
   listWatching,
   buildDailyLoopBriefing,
   localDateForTimezone,

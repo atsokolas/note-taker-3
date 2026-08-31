@@ -17,6 +17,7 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
+import { recordClaimFalsifiability } from '../api/dailyLoop';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
 import ReadingDrift from '../components/ReadingDrift';
@@ -50,6 +51,7 @@ import {
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
+import ClaimFalsifiabilityPrompt from '../components/wiki/ClaimFalsifiabilityPrompt';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
@@ -457,6 +459,7 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
               already folded into a room you can reach. */}
           <p className={`judgment__week-door ${enter}`}>
             <Link to="/week">Your week →</Link>
+            <Link to="/judgment/mirror">The Mirror →</Link>
           </p>
         </>
       ) : loading ? (
@@ -883,8 +886,20 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [page, pageId]);
 
   const writeAccepted = useCallback(
-    (proposal, field) => commit(acceptProposalIntoJudgment(page, proposal, field)),
-    [commit, page]
+    async (proposal, field) => {
+      await commit(acceptProposalIntoJudgment(page, proposal, field));
+      if (field === 'criteria') {
+        const text = String(proposal?.body || proposal?.sentence || '').trim();
+        if (text) {
+          await recordClaimFalsifiability({
+            pageId,
+            claimId: view?.claimId || '',
+            resolutionCriteria: text
+          });
+        }
+      }
+    },
+    [commit, page, pageId, view?.claimId]
   );
 
   const fileEvidence = useCallback(
@@ -949,11 +964,23 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   /* A line the human typed, into any of the four. The agent is not involved.
      The id is the line's, so typing more of the same sentence rewrites it
      rather than adding another. */
+  const persistCriteria = useCallback(async ({ resolutionCriteria, horizon }) => {
+    await recordClaimFalsifiability({
+      pageId,
+      claimId: view?.claimId || '',
+      resolutionCriteria,
+      horizon
+    });
+  }, [pageId, view?.claimId]);
+
   const writeLine = useCallback(
     async (text, field, lineId) => {
       await commit(upsertLineIntoJudgment(page, text, field, lineId));
+      if (field === 'changeMindIf' && text) {
+        await persistCriteria({ resolutionCriteria: text });
+      }
     },
-    [commit, page]
+    [commit, page, persistCriteria]
   );
 
   /* The name is the wiki page's title, not a judgment field. Renaming it
@@ -1193,6 +1220,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         </p>
       ) : null}
 
+      <div className={step(3)}>
+        <ClaimFalsifiabilityPrompt
+          criteria={view.resolutionCriteria || ''}
+          horizon={view.horizon || ''}
+          onKeep={persistCriteria}
+        />
+      </div>
       <JudgmentResolution
         pageId={pageId}
         claim={view.claim}

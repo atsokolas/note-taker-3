@@ -5,6 +5,7 @@ const {
   setResolutionCriteria: persistCriteria
 } = require('../services/judgmentResolutionService');
 const { buildJudgmentMirror: readMirror } = require('../services/judgmentMirrorService');
+const { buildJudgmentMirror: buildClaimMirror, STATS } = require('../services/judgmentMirror');
 const { requireAuthenticatedUser } = require('./conceptRouteGuards');
 
 const isObjectId = value => /^[a-f\d]{24}$/i.test(String(value || '').trim());
@@ -40,8 +41,29 @@ const buildJudgmentResolutionRouter = ({
 
   router.get('/api/judgment/mirror', authenticateToken, requireAuthenticatedUser, async (req, res) => {
     try {
-      const mirror = await buildJudgmentMirror({ ...models, userId: req.user.id });
-      return res.status(200).json({ mirror });
+      const stat = STATS.includes(String(req.query?.stat || '')) ? String(req.query.stat) : '';
+      const pageMirror = await buildJudgmentMirror({ ...models, userId: req.user.id });
+      const pagesQuery = models.WikiPage?.find
+        ? models.WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
+          .select('_id title pageType claims judgment createdAt')
+        : null;
+      const pages = pagesQuery
+        ? await (pagesQuery.lean ? pagesQuery.lean() : pagesQuery)
+        : [];
+      const claimMirror = buildClaimMirror({
+        pages: pages || [],
+        now: new Date(),
+        userId: req.user.id,
+        stat
+      });
+      return res.status(200).json({
+        ...claimMirror,
+        mirror: {
+          ...pageMirror,
+          stats: claimMirror.stats,
+          claims: claimMirror.claims
+        }
+      });
     } catch (error) {
       return sendError(res, error);
     }

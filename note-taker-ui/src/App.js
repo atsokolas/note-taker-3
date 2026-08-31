@@ -698,6 +698,7 @@ function App() {
                 is the claim itself. */}
             <Route path="/judgment" element={<Judgment />} />
             <Route path="/judgment/mirror" element={<JudgmentMirror />} />
+            <Route path="/mirror" element={<Navigate to="/judgment/mirror" replace />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
             {/* The week, gathered from marks the surfaces already carry. */}
             <Route path="/week" element={<WeeklyBrief />} />

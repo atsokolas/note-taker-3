@@ -7,9 +7,10 @@ const requestId = () => (
   || `judgment-${Date.now()}-${Math.random().toString(16).slice(2)}`
 );
 
-export const getJudgmentMirror = async () => {
-  const response = await api.get('/api/judgment/mirror', getAuthHeaders());
-  return response.data?.mirror || null;
+export const getJudgmentMirror = async ({ stat = '' } = {}) => {
+  const query = stat ? `?stat=${encodeURIComponent(stat)}` : '';
+  const response = await api.get(`/api/judgment/mirror${query}`, getAuthHeaders());
+  return response.data?.mirror || response.data || null;
 };
 
 export const setJudgmentResolution = async ({ pageId, expectedClaim, criteria, horizonAt = null }) => {

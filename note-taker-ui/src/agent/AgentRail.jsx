@@ -14,6 +14,13 @@ const ASK_PLACEHOLDER = 'Bring evidence or counterevidence';
 const NOTE_ARRIVAL_MS = 220;
 const NOOP_ASYNC = async () => {};
 
+const fieldLabel = (field) => {
+  if (field === 'why') return 'Why';
+  if (field === 'against') return 'Against';
+  if (field === 'criteria') return 'Change';
+  return field;
+};
+
 /* One retrieved line, in the state the product is actually about: the sentence,
    where it came from, and what the human can do with it.
  *
@@ -78,7 +85,7 @@ const RailProposal = ({ proposal, busy, onAccept, onDismiss }) => {
               disabled={busy}
               onClick={() => leave(() => acceptShown(field))}
             >
-              {fields.length === 1 ? 'Accept' : field === 'why' ? 'Why' : 'Against'}
+              {fields.length === 1 ? 'Accept' : fieldLabel(field)}
             </button>
           ))
         ) : (

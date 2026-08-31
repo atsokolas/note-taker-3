@@ -617,6 +617,22 @@ const wikiClaimSchema = new mongoose.Schema({
   /* The day this belief entered the ledger. Backfilled from createdAt or the
      oldest history.at — never left blank for the UI to print Unknown. */
   bornAt: { type: Date, default: null },
+  /* AT-427. Optional. What would change your mind, and by when. Never required. */
+  resolutionCriteria: { type: String, default: '', trim: true },
+  horizon: { type: Date, default: null },
+  /* AT-428. Append-only verdicts. The paper asks; the owner taps; history grows. */
+  verdicts: {
+    type: [{
+      at: { type: Date, default: Date.now },
+      verdict: { type: String, enum: ['held_up', 'broke', 'partly', 'unresolvable'], required: true },
+      trigger: { type: String, enum: ['horizon', 'evidence'], default: 'horizon' },
+      sourceEventId: { type: String, default: '', trim: true },
+      horizon: { type: Date, default: null },
+      note: { type: String, default: '', trim: true },
+      actorType: { type: String, enum: ['user'], default: 'user' }
+    }],
+    default: []
+  },
   history: {
     type: [{
       at: { type: Date, default: Date.now },
@@ -628,7 +644,7 @@ const wikiClaimSchema = new mongoose.Schema({
       sourceRefIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       contradictedByCitationIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
       summary: { type: String, default: '', trim: true },
-      action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored'], default: '' },
+      action: { type: String, enum: ['', 'reaffirmed', 'revised', 'retired', 'restored', 'held_up', 'broke', 'partly', 'unresolvable'], default: '' },
       note: { type: String, default: '', trim: true },
       evidenceDelta: { type: mongoose.Schema.Types.Mixed, default: null },
       confidence: { type: Number, min: 0, max: 1, default: null },

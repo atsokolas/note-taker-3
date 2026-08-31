@@ -86,7 +86,7 @@ export const CONTEXTUAL_AGENT_CONTRACTS = Object.freeze([
     roleLabel: 'Skeptical partner',
     roleDescription: 'Tests the live judgment against support, counterevidence, and unknowns.',
     capabilities: ['capability.library.retrieve', 'capability.judgment.review'],
-    actions: ['retrieve', 'accept.why', 'accept.against'],
+    actions: ['retrieve', 'accept.why', 'accept.against', 'accept.criteria'],
     match: ({ pathname }) => String(pathname || '').startsWith('/judgment')
   })
 ]);
