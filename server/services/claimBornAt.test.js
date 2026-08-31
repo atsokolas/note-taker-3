@@ -44,7 +44,7 @@ assert.deepEqual(
     history: [{ at: historyAt }]
   }, { pageCreatedAt: pageCreated, now }),
   historyAt,
-  'bornAt is the earliest instant, not the latest stamp'
+  'bornAt is the earliest claim instant, not the page or the latest stamp'
 );
 
 assert.equal(

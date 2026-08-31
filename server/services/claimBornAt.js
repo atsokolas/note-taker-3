@@ -25,15 +25,15 @@ const earliestHistoryAt = (history = []) => (
   earliestDate(...(Array.isArray(history) ? history.map(entry => entry?.at) : []))
 );
 
-const resolveClaimBornAt = (claim = {}, { pageCreatedAt, now } = {}) => (
-  earliestDate(
+const resolveClaimBornAt = (claim = {}, { pageCreatedAt, now } = {}) => {
+  const fromClaim = earliestDate(
     claim?.bornAt,
     claim?.createdAt,
-    earliestHistoryAt(claim?.history),
-    pageCreatedAt,
-    now
-  )
-);
+    earliestHistoryAt(claim?.history)
+  );
+  if (fromClaim) return fromClaim;
+  return earliestDate(pageCreatedAt, now);
+};
 
 const stampClaimBornAt = (claim = {}, options = {}) => {
   const bornAt = resolveClaimBornAt(claim, options);
