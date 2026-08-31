@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { wordBoundaryTrim } from '../../utils/editorialText';
 
 /**
  * WikiChangesSinceLastVisit — top-of-page banner that surfaces what
@@ -19,10 +20,7 @@ import React, { useMemo, useState } from 'react';
 const PREVIEW_COUNT = 3;
 const PREVIEW_LENGTH = 160;
 
-const truncate = (value = '') => {
-  const text = String(value || '').trim();
-  return text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH - 1).trim()}…` : text;
-};
+const truncate = (value = '') => wordBoundaryTrim(value, { maxLength: PREVIEW_LENGTH });
 
 const formatRelative = (iso) => {
   if (!iso) return '';

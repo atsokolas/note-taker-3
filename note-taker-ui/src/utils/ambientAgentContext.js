@@ -1,14 +1,11 @@
+import { wordBoundaryTrim } from './editorialText';
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 export const stripAmbientMarkup = (value = '') => (
   String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 );
 
-export const truncateAmbientText = (value = '', limit = 280) => {
-  const safe = clean(value);
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+export const truncateAmbientText = (value = '', limit = 280) => wordBoundaryTrim(value, { maxLength: limit });
 
 export const collectAmbientBlockText = (blocks = [], limit = 8) => (
   (Array.isArray(blocks) ? blocks : [])

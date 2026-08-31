@@ -1,12 +1,9 @@
 import React, { useMemo } from 'react';
 import { QuietButton, SectionHeader, SurfaceCard } from '../ui';
+import { wordBoundaryTrim } from '../../utils/editorialText';
 
 const clean = (value) => String(value || '').trim();
-const truncate = (value = '', limit = 260) => {
-  const safe = clean(value);
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+const truncate = (value = '', limit = 260) => wordBoundaryTrim(value, { maxLength: limit });
 
 const formatWorkerRole = (planner = null, fallback = '') => {
   const label = clean(planner?.activeWorkerLabel);

@@ -6,6 +6,7 @@ import { createWikiPage } from '../api/wiki';
 import { Page, Card, TagChip, Button } from '../components/ui';
 import EmptyState, { ErrorState } from '../components/EmptyState';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
+import { wordBoundaryTrim } from '../utils/editorialText';
 
 const stripHtml = (input = '') => {
   if (!input) return '';
@@ -19,7 +20,7 @@ const snippet = (text = '', q = '') => {
   if (!clean) return '';
   const lower = clean.toLowerCase();
   const idx = q ? lower.indexOf(q.toLowerCase()) : -1;
-  if (idx === -1) return clean.slice(0, 160) + (clean.length > 160 ? '…' : '');
+  if (idx === -1) return wordBoundaryTrim(clean, { maxLength: 160 });
   const start = Math.max(0, idx - 60);
   const end = Math.min(clean.length, idx + q.length + 80);
   const prefix = start > 0 ? '…' : '';

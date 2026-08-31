@@ -92,6 +92,7 @@ import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigati
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
+import { wordBoundaryTrim } from '../../utils/editorialText';
 
 const WikiAskComposer = lazy(() => import('./WikiAskComposer'));
 const WikiAutolinkSuggestions = lazy(() => import('./WikiAutolinkSuggestions'));
@@ -483,12 +484,9 @@ const normalizeFocusedClaimId = value => {
   return claimId;
 };
 
-const conciseText = (value = '', limit = 180) => {
-  const text = cleanSourceText(value);
-  if (text.length <= limit) return text;
-  const truncated = text.slice(0, limit).replace(/\s+\S*$/, '').trim();
-  return `${truncated || text.slice(0, limit).trim()}...`;
-};
+const conciseText = (value = '', limit = 180) => (
+  wordBoundaryTrim(cleanSourceText(value), { maxLength: limit })
+);
 
 const editorialInfoboxText = (value = '', budget = 220) => (
   clampWikiPreview(cleanSourceText(value), budget)

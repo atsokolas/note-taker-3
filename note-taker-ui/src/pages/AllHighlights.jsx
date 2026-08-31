@@ -7,6 +7,7 @@ import { SkeletonCard } from '../components/Skeleton';
 import { fetchWithCache, setCached } from '../utils/cache';
 import ReferencesPanel from '../components/ReferencesPanel';
 import EmptyState, { ErrorState } from '../components/EmptyState';
+import { wordBoundaryTrim } from '../utils/editorialText';
 
 const PAGE_SIZE = 20;
 
@@ -48,7 +49,7 @@ const HighlightListItem = React.memo(({
         )) : <span className="muted small">No tags</span>}
       </div>
       <p className="feedback-message">
-        {highlight.note ? `${highlight.note.slice(0, 100)}${highlight.note.length > 100 ? '…' : ''}` : <span className="muted small">No note</span>}
+        {highlight.note ? wordBoundaryTrim(highlight.note, { maxLength: 100 }) : <span className="muted small">No note</span>}
       </p>
       <div style={{ marginTop: 6 }}>
         <ReferencesPanel targetType="highlight" targetId={highlight._id} label="Used in" />

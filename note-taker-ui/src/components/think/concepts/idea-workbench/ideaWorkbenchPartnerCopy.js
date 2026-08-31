@@ -1,3 +1,5 @@
+import { wordBoundaryTrim } from '../../../../utils/editorialText';
+
 const clean = (value = '') => String(value || '').trim();
 
 const normalizeSentence = (value = '', terminal = '.') => {
@@ -7,14 +9,7 @@ const normalizeSentence = (value = '', terminal = '.') => {
   return `${safe}${terminal}`;
 };
 
-const shortenLabel = (value = '', limit = 60) => {
-  const safe = clean(value);
-  if (!safe) return '';
-  if (safe.length <= limit) return safe;
-  const sliced = safe.slice(0, limit).trimEnd();
-  const boundary = sliced.lastIndexOf(' ');
-  return clean(boundary > 24 ? sliced.slice(0, boundary) : sliced);
-};
+const shortenLabel = (value = '', limit = 60) => wordBoundaryTrim(value, { maxLength: limit });
 
 const splitSentences = (value = '') => (
   clean(value)
