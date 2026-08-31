@@ -25,15 +25,31 @@ turning Judgment into a scorecard.
   Judgment evidence, and the production frontend build.
 - Rendered QA passes at 1440px, 1320px, and a fresh-loaded 430px viewport.
 - The mocked browser journey records a `partly` verdict and renders the Mirror.
-- Birth-date backfill is dry-run by default. No user data was changed.
+- Birth-date backfill is dry-run by default.
 
 Rendered artifacts live in
 `output/playwright/judgment-stage1-2026-08-31/`.
 
-## Formal acceptance still required
+## Production acceptance
 
-Local and mocked-browser proof does not establish production truth. Stage 1
-closes only after an authorized release and one real owner-held claim travels
-through criteria, evidence, verdict, and the live Mirror with its persisted
-revision and receipt verified. Applying the legacy birth-date backfill is a
-separate, explicit data operation.
+Stage 1 closed on August 31, 2026 after the authorized release and a real
+owner-held Industrial Electrification claim traveled through the complete
+production loop:
+
+- the owner set an exact resolution criterion;
+- the verdict selected three named, persisted sources (DOE, NREL, and Sandvik);
+- the owner recorded `unresolvable` with an explicit evidence-gap observation;
+- the live Mirror rendered the verdict and exact observation;
+- direct persistence verification matched both mutations to the held-sentence
+  hash, retained Wiki revisions, completed Noeis receipts, and the same page
+  and owner identities.
+
+The legacy Judgment birth-date migration ran separately after a dry-run. Eight
+account-held judgments received dates from retained history (three from
+`startedAt`, five from their first retained revision); the verification dry-run
+then returned zero remaining rows.
+
+Release chain: PR #254 (ledger and Mirror), PR #255 (evidence-bound verdicts),
+PR #257 (durable evidence names), and PR #258 (stable first-paint source
+identity). Local, merged, deployed, rendered-production, and persisted-production
+proof are recorded as separate gates; no live model evaluation was used.
