@@ -54,12 +54,6 @@ jest.mock('../api/dailyLoop', () => ({
 }));
 
 jest.mock('../api/judgmentResolution', () => ({
-  getJudgmentLedger: jest.fn(() => Promise.resolve({
-    clocks: [],
-    moments: [],
-    replay: { frames: [] },
-    proposals: []
-  })),
   recordJudgmentOutcome: jest.fn(),
   resolveJudgmentLesson: jest.fn(),
   recordJudgmentVerdict: jest.fn(),
@@ -76,6 +70,10 @@ jest.mock('../api/judgmentResolution', () => ({
   approveLivingTeamVersion: jest.fn(),
   handOffLivingTeam: jest.fn()
 }));
+
+// The ledger owns its asynchronous behavior and has a focused test suite.
+// Keep page tests concerned with the Judgment room contract.
+jest.mock('../components/judgment/JudgmentLedger', () => () => null);
 
 const judgmentPage = () => ({
   _id: 'wiki-nvidia',

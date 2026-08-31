@@ -197,6 +197,27 @@ describe('judgment public projection', () => {
     expect(folio.corrections[0].kind).toBe('published');
   });
 
+  it('keeps maintenance quiet without an accepted edition and folds same-day autosaves', () => {
+    const page = {
+      ...stuffed,
+      freshness: {},
+      publicProof: {},
+      lastReviewedAt: null
+    };
+    const repeated = {
+      ...publishedRevision,
+      createdAt: '2026-08-02T16:00:00.000Z'
+    };
+    const folio = serializePublicCasebook({
+      page,
+      revisions: [publishedRevision, repeated]
+    });
+
+    expect(folio.acceptedThrough).toBeNull();
+    expect(folio.deltas).toEqual([]);
+    expect(folio.revisions).toHaveLength(1);
+  });
+
   it('leaks nothing private under adversarial stuffing', () => {
     const folio = serializePublicCasebook({
       page: stuffed,

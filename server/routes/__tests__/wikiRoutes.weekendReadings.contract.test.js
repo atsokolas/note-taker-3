@@ -14,7 +14,8 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'wikiRoutes.js'), 'utf
 assert.match(source, /buildWeekendReadingsRouter/);
 assert.match(source, /router\.use\(buildWeekendReadingsRouter\(\{/);
 assert.match(source, /invalidatePublicPageCache:\s*\(\.\.\.keys\)\s*=>\s*publicPageCache\.invalidate\(keys\)/);
-assert.match(source, /pageQuery\.select\('_id userId title slug pageType status visibility createdFrom/);
+assert.match(source, /const PUBLIC_WIKI_PAGE_SELECT = \[[\s\S]*?'_id', 'userId', 'title', 'slug', 'pageType', 'status', 'visibility', 'createdFrom'/);
+assert.match(source, /pageQuery = pageQuery\.select\(PUBLIC_WIKI_PAGE_SELECT\)/);
 assert.match(source, /loadPublishedWeekendReadingsArtifact\(\{ NoeisReceipt, page, ownerUserId: page\.userId \}\)/);
 assert.match(source, /Weekend Readings must be reviewed, approved, and published through its revision-bound publication controls/);
 assert.match(source, /Protected research artifacts cannot be adopted into a private mutable copy/);

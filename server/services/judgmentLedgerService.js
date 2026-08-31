@@ -376,12 +376,11 @@ const resolveLesson = async ({
       if (stillOriginal.length !== originalLessons.length) {
         throw new JudgmentLedgerError('A lesson resolution may not rewrite the originals.', 409, 'history_rewrite');
       }
-      originalLessons.forEach((prior, index) => {
+      originalLessons.forEach((prior) => {
         const kept = page.judgment.lessons.find((row) => clean(row.lessonId) === clean(prior.lessonId));
         if (clean(kept?.text) !== clean(prior.text)) {
           throw new JudgmentLedgerError('A lesson resolution may not rewrite the originals.', 409, 'history_rewrite');
         }
-        void index;
       });
       return artifact;
     }

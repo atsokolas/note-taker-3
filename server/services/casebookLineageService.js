@@ -160,26 +160,11 @@ const publicLineageTree = async ({ CasebookLineage, WikiPage, page }) => ({
   branches: await publicBranches({ CasebookLineage, WikiPage, originPageId: id(page) })
 });
 
-const stampAdoptedFrom = ({ page, originPage, hash, kind, now }) => {
-  page.adoptedFrom = {
-    ...(plain(page.adoptedFrom) || {}),
-    originType: 'page',
-    kind,
-    originPageId: id(originPage),
-    originSlug: clean(originPage.slug, 180),
-    originTitle: clean(originPage.title, 240),
-    originHash: clean(hash, 128),
-    adoptedAt: now
-  };
-  page.markModified?.('adoptedFrom');
-};
-
 module.exports = {
   CasebookLineageError,
   followCasebook,
   folioHash,
   originSnapshot,
   publicLineageTree,
-  stampAdoptedFrom,
   unfollowCasebook
 };

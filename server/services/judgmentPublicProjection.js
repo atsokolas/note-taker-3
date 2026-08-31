@@ -34,8 +34,6 @@ const iso = (value) => {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
-const looksLikeEmail = (value) => /@/.test(String(value || ''));
-
 const exportSecret = () => (
   process.env.CASEBOOK_EXPORT_SECRET
   || process.env.JWT_SECRET
@@ -168,6 +166,18 @@ const publicRevision = (revision = {}) => {
   };
 };
 
+const publicRevisions = (revisions = []) => {
+  const seen = new Set();
+  return list(revisions).map(publicRevision).filter(Boolean).filter((revision) => {
+    // The public surface renders day precision. Repeated autosaves with the
+    // same public summary on that day are one visible movement, not a feed.
+    const key = `${revision.at.slice(0, 10)}\u0000${revision.summary}\u0000${revision.reason}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const acceptedThrough = (page = {}) => {
   const raw = plain(page) || {};
   const accepted = plain(raw.freshness?.acceptedThrough) || {};
@@ -185,12 +195,10 @@ const acceptedThrough = (page = {}) => {
 };
 
 const maintenanceDeltas = (revisions = [], accepted = null) => {
-  const since = accepted?.at ? new Date(accepted.at).getTime() : 0;
-  return list(revisions)
-    .map(publicRevision)
-    .filter(Boolean)
+  if (!accepted?.at) return [];
+  const since = new Date(accepted.at).getTime();
+  return publicRevisions(revisions)
     .filter((row) => {
-      if (!since) return true;
       return new Date(row.at).getTime() > since;
     })
     .map((row) => ({
@@ -272,7 +280,7 @@ const serializePublicCasebook = ({
     clocks: list(judgment.clocks).map(publicClock).filter(Boolean),
     verdicts: list(judgment.verdicts).map((row) => publicVerdict(raw, row)).filter(Boolean),
     postmortems: list(judgment.outcomes).map(publicPostmortem).filter(Boolean),
-    revisions: list(revisions).map(publicRevision).filter(Boolean),
+    revisions: publicRevisions(revisions),
     evidence: publicSources(raw),
     acceptedThrough: accepted,
     deltas: maintenanceDeltas(revisions, accepted),
@@ -351,20 +359,9 @@ const appendShareReceipt = (page, kind, hash, at = new Date()) => {
   return receipt;
 };
 
-const ownerPreviewLabel = (page = {}) => {
-  const label = clean(plain(page)?.judgment?.ownerLabel, 80);
-  if (!label || looksLikeEmail(label)) return '';
-  return label;
-};
-
 module.exports = {
-  ALGORITHM,
-  SHARE_KINDS,
-  SHARE_SUMMARY,
   appendShareReceipt,
-  canonicalize,
   digest,
-  ownerPreviewLabel,
   serializePublicCasebook,
   signCasebook,
   verifyCasebook
