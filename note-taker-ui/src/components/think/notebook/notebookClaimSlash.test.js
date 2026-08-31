@@ -15,7 +15,8 @@ jest.mock('../../../motion/columnMotion', () => ({
 
 jest.mock('../../../pages/judgmentModel', () => ({
   createJudgment: jest.fn(),
-  writeLineIntoJudgment: jest.fn()
+  writeLineIntoJudgment: jest.fn(),
+  judgmentIdOf: (held) => (typeof held === 'string' || typeof held === 'number' ? String(held) : String(held?.id || ''))
 }));
 
 const editorWith = (text) => ({

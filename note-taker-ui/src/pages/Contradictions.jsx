@@ -107,10 +107,11 @@ const Contradictions = () => {
     setDecidingId(key);
     setDecideError(current => ({ ...current, [key]: '' }));
     try {
-      const judgmentId = await createJudgment(item.claimText, {
+      const held = await createJudgment(item.claimText, {
         createPage: createWikiPage,
         updatePage: updateWikiPage
       });
+      const judgmentId = held?.id || held;
       await updateWikiPage(judgmentId, {
         judgment: {
           currentJudgment: item.claimText,

@@ -4,6 +4,7 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
+import { resetFirstPaint } from '../../motion/columnMotion';
 
 /* Morning Paper is close-or-silence on this page, not a second hub. */
 jest.mock('./WeeklyDigest', () => () => null);
@@ -22,7 +23,8 @@ jest.mock('../../api/wiki', () => ({
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
   armReadingWatch: jest.fn(),
-  disarmWatcher: jest.fn()
+  disarmWatcher: jest.fn(),
+  recordClaimCheckIn: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -786,7 +788,11 @@ describe('WikiFrontPage (AT-394)', () => {
     expect(screen.getByRole('group', { name: 'Claim impact summary' })).toHaveTextContent('1 conflicted');
     expect(screen.getByText('Inspect 1 claim-level changes')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Integration retains pricing power.' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Still hold' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Morning sign-off')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(1);
+    expect(screen.getByLabelText('Current Wiki briefing')).toHaveClass('is-morning-pulse');
+    expect(screen.getByLabelText('Morning check-in')).not.toHaveClass('is-morning-pulse');
     expect(screen.getByText('EDGAR · NVDA')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Disarm' }));
@@ -845,6 +851,7 @@ describe('WikiFrontPage (AT-394)', () => {
 
     expect(await screen.findByLabelText('Current Wiki briefing'))
       .toHaveTextContent('NVDA filed a 10-Q. Another close: Costco restated the gap.');
+    expect(screen.queryByLabelText('Morning sign-off')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     expect(screen.queryByTestId('paper-on-top')).not.toBeInTheDocument();
@@ -874,7 +881,7 @@ describe('WikiFrontPage (AT-394)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Integration retains pricing power.' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Still hold' })).toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-front-page__paper-fold')).not.toBeInTheDocument();
   });
@@ -883,6 +890,10 @@ describe('WikiFrontPage (AT-394)', () => {
      still name a finished editorial sentence; Morning Paper does not open
      a second inbox over it. */
   describe('the lead', () => {
+    beforeEach(() => {
+      resetFirstPaint();
+    });
+
     it('stays silent when a claim is merely due', async () => {
       getDailyLoop.mockResolvedValueOnce({ briefing: {
         ...briefing,
@@ -898,8 +909,10 @@ describe('WikiFrontPage (AT-394)', () => {
       } });
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
       expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
-      expect(screen.queryByText('Integration retains pricing power.')).not.toBeInTheDocument();
-      expect(screen.queryByText(/Still hold/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Current Wiki briefing')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Morning sign-off')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Still hold' })).toBeInTheDocument();
+      expect(screen.getByText('Integration retains pricing power.')).toBeInTheDocument();
       expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
 
@@ -929,6 +942,7 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(screen.queryByText(/WikiRepoCreateComposer/)).not.toBeInTheDocument();
       expect(screen.queryByText(/debugging only the v/)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Still hold' })).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Morning sign-off')).toBeInTheDocument();
     });
 
     it('prints an honestly aged rebuild wait instead of present-tense queued signals', async () => {
@@ -945,6 +959,8 @@ describe('WikiFrontPage (AT-394)', () => {
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
       expect(await screen.findByLabelText('Current Wiki briefing'))
         .toHaveTextContent('Survivorship Bias has been waiting on a rebuild for 5 days — clear it?');
+      expect(screen.queryByLabelText('Morning sign-off')).not.toBeInTheDocument();
+      expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(1);
       expect(screen.queryByText(/queued signals awaiting a rebuild/i)).not.toBeInTheDocument();
     });
 
@@ -958,6 +974,11 @@ describe('WikiFrontPage (AT-394)', () => {
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
       expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
       expect(screen.queryByLabelText('Current Wiki briefing')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Morning sign-off')).toBeInTheDocument();
+      expect(document.querySelector('.paper-open')).toHaveClass('is-settling');
+      expect(document.querySelector('.paper-open__lead')).toBeInTheDocument();
+      expect(document.querySelector('.paper-open__masthead')).toBeInTheDocument();
+      expect(document.querySelectorAll('.is-morning-pulse')).toHaveLength(0);
       expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
   });

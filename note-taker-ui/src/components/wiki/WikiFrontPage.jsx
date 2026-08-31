@@ -13,10 +13,13 @@ import {
 import { wikiPagePath, wikiReadPath } from '../../utils/wikiFeatureFlags';
 import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onboarding/onboardingState';
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
+import { takeFirstPaint } from '../../motion/columnMotion';
+import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import WikiCreationComposer from './WikiCreationComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
+import MorningCheckIn from './MorningCheckIn';
 import { countWikiClaims, countWikiSources } from './wikiPageMetrics';
 import { filterReturnViewItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
@@ -31,7 +34,14 @@ import {
 } from './wikiRepoDedupeModel';
 import { canonicalWikiPages } from './wikiTitleGroupModel';
 import { displayWikiPageTitle } from './wikiRepoDossierModel';
-import { shelfCount, wikiLivingBriefingLine } from './morningPaperClose';
+import {
+  isPaperCheckIn,
+  morningPulseTarget,
+  QUIET_SIGNOFF_STORAGE_KEY,
+  selectQuietSignOff,
+  shelfCount,
+  wikiLivingBriefingLine
+} from './morningPaperClose';
 import {
   buildReviewTriage,
   formatReviewTriageFrame
@@ -181,7 +191,7 @@ const readFrontPageCache = () => {
   try {
     // A pre-scoping snapshot belongs to whichever account wrote it. Drop it rather
     // than let it seed this one.
-    purgeUnscopedKeys([WIKI_FRONT_PAGE_CACHE_KEY]);
+    purgeUnscopedKeys([WIKI_FRONT_PAGE_CACHE_KEY, QUIET_SIGNOFF_STORAGE_KEY]);
     const raw = window.localStorage?.getItem(frontPageCacheKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw);
@@ -489,6 +499,19 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   );
 
   const leadSentence = wikiLivingBriefingLine({ briefing });
+  const paperCheckIn = isPaperCheckIn(briefing?.claimCheckIn) ? briefing.claimCheckIn : null;
+  const pulseTarget = morningPulseTarget({ briefing });
+  const briefingReady = briefing != null;
+  const quietSignOff = useMemo(() => {
+    if (!briefingReady || leadSentence || wikiFilter === 'review') return '';
+    return selectQuietSignOff({
+      storage: typeof window !== 'undefined' ? window.localStorage : null,
+      key: scopedKey(QUIET_SIGNOFF_STORAGE_KEY)
+    });
+  }, [briefingReady, leadSentence, wikiFilter]);
+  const paperArriving = useMemo(() => takeFirstPaint('wiki-morning-paper'), []);
+  const reducedMotion = usePrefersReducedMotion();
+  const paperSettling = paperArriving && !reducedMotion;
   const briefingNextAction = useMemo(
     () => briefing?.lead?.page?.id ? {
       label: `Open ${briefing.lead.page.title || 'watched page'}`,
@@ -723,7 +746,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     <WikiFrontPageShell>
       <div className="wiki-living-shell">
         <RoomShelf
-          className={`wiki-living-nav wfp-anim wfp-anim--1${mobileShelfOpen ? ' is-mobile-open' : ''}`}
+          className={`wiki-living-nav${mobileShelfOpen ? ' is-mobile-open' : ''}`}
           aria-label="Wiki views"
           label="Wiki"
           count={canonicalPages.length || undefined}
@@ -799,14 +822,26 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           </RoomShelfSection>
         </RoomShelf>
 
-        <section className="wiki-living-index wfp-anim wfp-anim--2" aria-labelledby="wiki-living-title">
+        <section
+          className={`wiki-living-index paper-open${paperSettling ? ' is-settling' : ''}`}
+          aria-labelledby="wiki-living-title"
+        >
           <header className="wiki-living-index__header">
-            <p className="wiki-index__eyebrow">Your Wiki · {mastheadDate()}</p>
+            <p className="wiki-index__eyebrow paper-open__masthead">Your Wiki · {mastheadDate()}</p>
             <h1 id="wiki-living-title">Your living wikis</h1>
             <p>Maintained with your agent, grounded in your Library.</p>
             {leadSentence && wikiFilter !== 'review' ? (
-              <p className="wiki-living-index__briefing" aria-label="Current Wiki briefing">
+              <p
+                className={`wiki-living-index__briefing paper-open__lead${pulseTarget === 'lead' ? ' is-morning-pulse' : ''}`}
+                aria-label="Current Wiki briefing"
+              >
                 <WriteIn text={leadSentence} />
+              </p>
+            ) : null}
+            {quietSignOff ? (
+              <p className="wiki-living-index__briefing paper-open__lead" aria-label="Morning sign-off">
+                <WriteIn text={quietSignOff} />
+                <span className="paper-open__sign-off-date">{mastheadDate()}</span>
               </p>
             ) : null}
             {wikiFilter === 'review' && reviewFrame ? (
@@ -818,11 +853,9 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           </header>
 
           {/* Where you were. The lead page the agent worked on last, or the
-              strongest page in the corpus — one line above the list, because
-              the first useful thing this page can do is put you back where you
-              were rather than make you find it in a table. */}
+              page the corpus would open to — one line above the list. */}
           {todaysPage ? (
-            <p className="wiki-front-page__continue">
+            <p className="wiki-front-page__continue paper-open__mono">
               <span>Continue</span>
               <Link to={wikiReadPath(pageId(todaysPage))}>
                 {displayWikiPageTitle(todaysPage, 'Your living page')}
@@ -898,10 +931,20 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               in that pane that was neither a form nor a conversation — it is
               where you were going next — so it stays, as a line. */}
           {briefingNextAction ? (
-            <p className="wiki-front-page__return-path wfp-anim wfp-anim--4">
+            <p className="wiki-front-page__return-path">
               <Link to={briefingNextAction.href}>{briefingNextAction.label} →</Link>
               {briefingNextAction.reason ? <span>{briefingNextAction.reason}</span> : null}
             </p>
+          ) : null}
+
+          {wikiFilter !== 'review' ? (
+            <MorningCheckIn
+              checkIn={paperCheckIn}
+              pulse={pulseTarget === 'check-in'}
+              onRetired={() => setBriefing((previous) => (
+                previous ? { ...previous, claimCheckIn: null } : previous
+              ))}
+            />
           ) : null}
 
           {/* The Curator was a second agent: a pane of its own, labelled
@@ -915,7 +958,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               conversation, so they come into the column as verbs — behind one
               disclosure, because making a page is not the face of the page
               that lists what you already made. */}
-          <details className="wiki-front-page__making wfp-anim wfp-anim--4">
+          <details className="wiki-front-page__making">
             <summary>Build a wiki</summary>
             <div className="wiki-front-page__creation-tools">
               <WikiCreationComposer />

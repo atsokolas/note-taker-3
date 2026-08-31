@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   createWikiPage,
   downloadJudgmentPamphlet,
@@ -23,7 +23,7 @@ import ReadingDrift from '../components/ReadingDrift';
 import JudgmentShelf from '../components/collection/JudgmentShelf';
 import AriadneThread from '../components/judgment/AriadneThread';
 import DossierResearchReview from '../components/judgment/DossierResearchReview';
-import { flySentenceInto, handOffSentence, takeFirstPaint } from '../motion/columnMotion';
+import { flySentenceInto, handOffSentence, takeFirstPaint, ENTER_DURATION_MS, prefersReducedMotion } from '../motion/columnMotion';
 import { usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { useSystemStatusControls } from '../system/SystemStatusContext';
 import {
@@ -38,8 +38,10 @@ import {
   resumeJudgment,
   buildJudgmentIndex,
   createJudgment,
+  formatHoldAge,
   formatLedgerDate,
   oneSentence,
+  PARTNER_ACK,
   projectJudgment,
   selectOvernightLine,
   upsertLineIntoJudgment
@@ -281,37 +283,86 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, s
   );
 };
 
-const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnreadable }) => {
+const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnreadable, onHeld }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
-  const navigate = useNavigate();
   const [draft, setDraft] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [arrivingId, setArrivingId] = useState('');
+  const [arrivingSentence, setArrivingSentence] = useState('');
+  const [partnerNote, setPartnerNote] = useState('');
+  const [forwardId, setForwardId] = useState('');
+  const inputRef = useRef(null);
+  const rowRefs = useRef(new Map());
+  const pendingClearRef = useRef(0);
+
+  useEffect(() => () => window.clearTimeout(pendingClearRef.current), []);
+
+  useLayoutEffect(() => {
+    if (!arrivingId || !arrivingSentence) return undefined;
+    const node = rowRefs.current.get(arrivingId);
+    const flown = node ? flySentenceInto(node, arrivingSentence) : false;
+    const wait = prefersReducedMotion() || !flown ? 0 : ENTER_DURATION_MS;
+    pendingClearRef.current = window.setTimeout(() => {
+      setDraft('');
+      setCreating(false);
+    }, wait);
+    return undefined;
+  }, [arrivingId, arrivingSentence]);
 
   /* The claim is the page. A judgment is a wiki page carrying a judgment
      contract, so writing one down creates that page and puts the sentence in
-     it — then opens it, because the next thing you want is to say why. */
+     it. The sentence lifts into the casebook; the input lets go after it lands. */
   const submitClaim = useCallback(async (event) => {
     event?.preventDefault?.();
     const sentence = oneSentence(draft);
     if (!sentence || creating) return;
     setCreating(true);
     setCreateError('');
+    setPartnerNote('');
+    setForwardId('');
     try {
-      const id = await createJudgment(sentence, {
+      const held = await createJudgment(sentence, {
         createPage: createWikiPage,
         updatePage: updateWikiPage
       });
-      setDraft('');
-      navigate(`/judgment/${id}`);
+      const item = {
+        id: held.id,
+        title: '',
+        headline: sentence,
+        sentence,
+        provenance: '',
+        state: 'quiet',
+        note: '',
+        heldMark: held.reused
+          ? `You already hold this — ${formatHoldAge(held.heldDays)}.`
+          : 'held · today',
+        evergreen: false,
+        lessons: [],
+        pendingDossierResearch: false
+      };
+      onHeld?.(item);
+      if (held.reused) {
+        setForwardId(held.id);
+        const wait = prefersReducedMotion() ? 0 : ENTER_DURATION_MS;
+        pendingClearRef.current = window.setTimeout(() => {
+          setDraft('');
+          setCreating(false);
+        }, wait);
+        return;
+      }
+      const origin = inputRef.current;
+      if (origin) handOffSentence(sentence, origin);
+      setArrivingSentence(sentence);
+      setArrivingId(held.id);
+      setPartnerNote(PARTNER_ACK);
     } catch (error) {
       setCreateError(error?.message || 'The judgment could not be created.');
-    } finally {
       setCreating(false);
     }
-  }, [creating, draft, navigate]);
+  }, [creating, draft, onHeld]);
 
   // The index is a title column, not a thing to interrogate. The rail
   // stays where it is and waits for one of them to be opened.
@@ -338,6 +389,7 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
         <label htmlFor="judgment-new-claim">Hold a sentence</label>
         <input
           id="judgment-new-claim"
+          ref={inputRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="One sentence you think is true."
@@ -349,14 +401,25 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
           </button>
           {createError ? <span role="alert">{createError}</span> : null}
         </div>
+        {partnerNote ? (
+          <p className="judgment__partner-note" role="status">{partnerNote}</p>
+        ) : null}
       </form>
       {items.length ? (
         <>
           <ul className={`judgment__index ${enter}`}>
             {items.map(item => (
-              <li key={item.id} data-state={item.state}>
+              <li
+                key={item.id}
+                data-state={item.state}
+                className={forwardId === item.id ? 'is-forward' : ''}
+              >
                 <Link
                   to={`/judgment/${item.id}`}
+                  ref={(node) => {
+                    if (node) rowRefs.current.set(item.id, node);
+                    else rowRefs.current.delete(item.id);
+                  }}
                   onClick={(event) => handOffSentence(item.headline, event.currentTarget)}
                 >
                   {item.headline}
@@ -364,10 +427,9 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
                 {/* The claim stays, quieter, once the case has a name of its
                     own. A title that is still the claim is not repeated. */}
                 {item.title ? <p className="judgment__index-claim">{item.sentence}</p> : null}
-                {/* Only two states say anything. A claim nothing has arrived
-                    for is not a problem, and a claim you have been reading
-                    about does not need to be announced — so the index is
-                    allowed to be completely silent, which is the point. */}
+                {item.heldMark ? (
+                  <span className="judgment__index-birth">{item.heldMark}</span>
+                ) : null}
                 {item.note ? <span className="judgment__index-note">{item.note}</span> : null}
                 {item.pendingDossierResearch ? (
                   <span className="judgment__index-note judgment__index-research-review">
@@ -1315,6 +1377,17 @@ const Judgment = () => {
                 loading={indexLoading}
                 readingLoading={readingLoading}
                 readingUnreadable={readingUnreadable}
+                onHeld={(item) => setItems((current) => {
+                  const rest = current.filter((row) => String(row.id) !== String(item.id));
+                  const prior = current.find((row) => String(row.id) === String(item.id));
+                  return [{
+                    ...prior,
+                    ...item,
+                    title: prior?.title || item.title,
+                    headline: prior?.headline || item.headline,
+                    lessons: prior?.lessons || item.lessons || []
+                  }, ...rest];
+                })}
               />
               {indexError ? <p className="judgment__error" role="alert">{indexError}</p> : null}
             </>
