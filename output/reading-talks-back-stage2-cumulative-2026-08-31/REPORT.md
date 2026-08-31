@@ -1,0 +1,17 @@
+# Reading talks back — Stage 2 cumulative acceptance
+
+- Status: **PASS**
+- Database: noeis_rtba_accept_mthrrmki
+- Model calls: 0
+- Cleanup: disposable database dropped; zero collections remain
+
+## Checks
+
+- The real notebook routes created a thought and attached the exact owned highlight.
+- Reload preserved the thought, article, highlight, and exact passage as one identity chain.
+- The persisted thought reconstructs the exact return door: /library?articleId=6a95f67ee66c47079cf6688c&highlightId=6a95f67ee66c47079cf6688d
+- Human Keep survived a cache-cold owner-scoped read from the source record.
+- Foreign thought and Keep reads failed closed without revealing state.
+- The complete loop produced one source and one thought—no duplicate object or model call.
+
+This is disposable local persisted acceptance. It is not merge, deploy, production, or real-account proof.

@@ -92,13 +92,25 @@ structure, or agent authority.
   mobile evidence is stored under
   `output/playwright/reading-talks-back-stage2-keep-2026-08-31/`.
 
-This is local implementation evidence. It is not merge, deployment, production,
-or full Stage 2 exit evidence.
+Slices 2A–2C are merged. Slice 2C is deployed: Vercel reports success for merge
+`44aa6c82`, and the Render owner-scoped Keep route returns the expected
+authentication boundary in production. This does not substitute for an
+authenticated real-account product test.
 
-## Remaining Stage 2 work
+## Slice 2D — cumulative disposable loop
 
-1. Repeat the complete persisted source → thought → source round trip on
-   disposable Mongo so the acceptance can be replayed without touching the
-   configured QA database.
-2. Close Stage 2 only after that single cumulative loop proves exact passage,
-   thought identity, human Keep, return navigation, and cleanup together.
+- `npm run reading:talks-back-acceptance` refuses any database whose name does
+  not begin `noeis_rtba_accept_` and rejects names beyond Atlas's 38-byte cap.
+- A real routed run created one thought, appended one exact owned highlight,
+  reloaded the article/highlight identity chain, reconstructed the exact Library
+  return door, kept the source, and read the durable Keep state back.
+- Foreign-user thought and Keep reads returned no object state.
+- The run made zero model calls, created no duplicate source or thought, dropped
+  the disposable database, and verified zero collections remained.
+- Evidence is stored under
+  `output/reading-talks-back-stage2-cumulative-2026-08-31/`.
+
+**Stage 2 exit: PASS locally.** Source → thought → source now works in both
+directions without losing identity or state. The next roadmap bet is Bet 3: one
+maintenance loop. Stage 2D itself remains local until its small harness and
+ledger commit is reviewed and landed.
