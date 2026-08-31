@@ -43,6 +43,22 @@ structure, or agent authority.
 - The thread arrives with one restrained gold stroke. Reduced-motion users get
   the static provenance mark with no animation.
 
+## Slice 2C — Keep follows the thought home
+
+- A Library-derived notebook page reads Keep through a narrow, owner-scoped
+  article projection. It does not fetch article content or introduce a second
+  source-of-truth cache.
+- The existing Ariadne thread owns the control: `Keep source` becomes `Kept in
+  Library` after the human chooses it. The agent cannot make that choice.
+- The mutation reuses Library's existing Keep contract and clears the same
+  article, room, and relevance caches. Reload therefore reads durable server
+  state rather than optimistic notebook state.
+- Returning through the exact article and highlight shows the same kept state,
+  and the source appears in Library's Kept shelf. Missing, foreign, or
+  unreadable source identities stay quiet instead of inventing a status.
+- The source-state hook lives with the notebook provenance surface that renders
+  it. A redundant parent-shell handoff found during browser QA was removed.
+
 ## Local proof
 
 - Focused service and route tests cover ownership, exact identities, duplicate
@@ -67,15 +83,22 @@ structure, or agent authority.
   remained first in the rail.
 - The Slice 2B note, two ignored source events, and its queued embedding job
   were removed after acceptance; it produced no vector or Wiki revision.
+- Slice 2C's route contract, 27 focused frontend tests, 84 adjacent Library,
+  Think, and article-reader tests, and the optimized frontend build pass. The
+  rendered flow issued no model request.
+- An authenticated browser kept the exact source from its notebook thread,
+  survived reload, returned to the exact article and highlighted passage, and
+  found the source in Library's Kept shelf. Desktop, Safari-sidebar width, and
+  mobile evidence is stored under
+  `output/playwright/reading-talks-back-stage2-keep-2026-08-31/`.
 
 This is local implementation evidence. It is not merge, deployment, production,
 or full Stage 2 exit evidence.
 
 ## Remaining Stage 2 work
 
-1. Repeat the persisted evidence round trip on disposable Mongo so the browser
-   proof can be replayed without leaving QA records in the configured database.
-2. Verify Keep survives reload and appears at the expected Library and Think
-   return surfaces.
-3. Run the complete source → thought → source acceptance loop before declaring
-   Stage 2 closed.
+1. Repeat the complete persisted source → thought → source round trip on
+   disposable Mongo so the acceptance can be replayed without touching the
+   configured QA database.
+2. Close Stage 2 only after that single cumulative loop proves exact passage,
+   thought identity, human Keep, return navigation, and cleanup together.

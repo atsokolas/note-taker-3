@@ -583,6 +583,28 @@ const buildLegacyContentRouter = ({
      Everything else in the product is measured against a clock. Some reading
      is not — it is held for life, and it should stay reachable and never be
      counted as neglected. */
+  router.get('/articles/:id/evergreen', authenticateToken, async (req, res) => {
+    try {
+      const article = await Article.findOne({ _id: req.params.id, userId: req.user.id })
+        .select('_id evergreen evergreenAt')
+        .lean();
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found or you do not have permission to view it.' });
+      }
+      return res.status(200).json({
+        _id: String(article._id),
+        evergreen: Boolean(article.evergreen),
+        evergreenAt: article.evergreenAt || null
+      });
+    } catch (error) {
+      if (error.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid article ID format.' });
+      }
+      console.error('Error reading article evergreen state:', error);
+      return res.status(500).json({ error: 'Failed to read this source.' });
+    }
+  });
+
   router.patch('/articles/:id/evergreen', authenticateToken, async (req, res) => {
     try {
       if (typeof req.body?.evergreen !== 'boolean') {

@@ -61,6 +61,14 @@ export const moveArticleToFolder = async (articleId, folderId) => {
   return res.data;
 };
 
+/* A note needs only the reader's Keep decision, not the source body. Keeping
+   this projection separate prevents Think from downloading an article merely
+   to draw one quiet provenance word. */
+export const getArticleEvergreen = async (articleId) => {
+  const res = await api.get(`/articles/${articleId}/evergreen`, getAuthHeaders());
+  return res.data || null;
+};
+
 /* Evergreen: a source the reader keeps for life. It stops being measured
    against any clock, it answers first when a judgment asks the library what it
    holds, and it reads back on its own at /evergreen. The cache is cleared
