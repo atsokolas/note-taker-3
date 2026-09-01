@@ -65,7 +65,9 @@
   scrollbar-width: thin;
 }
 
-.library-shelf__kept.is-empty button {
+.library-shelf__kept.is-empty button,
+.library-shelf__later.is-empty button,
+.library-shelf__set-aside.is-empty button {
   color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 62%, transparent);
 }
 
@@ -298,6 +300,8 @@
 
 .library-column__continue-link {
   margin-top: 6px;
+  margin-left: 0;
+  margin-right: auto;
   padding: 0;
   border: 0;
   border-bottom: 1px solid currentColor;
@@ -1025,9 +1029,33 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   text-align: left;
 }
 
-.library-column__continue-link {
-  margin-left: 0;
-  margin-right: auto;
+/* Temporary: Later, Set aside, Kept, and screened names live at the top until
+   they have a permanent weave. Empty doors stay named so they can be found. */
+.library-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: baseline;
+  margin: 0 0 18px;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+}
+
+.library-places a {
+  color: var(--text-secondary, var(--vellum-muted));
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.library-places a:hover,
+.library-places a:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: currentColor;
+  outline: none;
+}
+
+.library-places a.is-living {
+  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
 }
 
 /* A screened topic is an unrolled scroll. The left measure is a 1px meander —

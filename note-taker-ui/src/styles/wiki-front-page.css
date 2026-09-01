@@ -1160,6 +1160,12 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 78%, transparent);
 }
 
+.wiki-living-index__header .library-places,
+.wiki-front-page__top .library-places,
+.wiki-front-page > .library-places {
+  margin: 4px 0 2px;
+}
+
 .wiki-living-index__header h1 {
   margin: 0;
   color: var(--text-primary);

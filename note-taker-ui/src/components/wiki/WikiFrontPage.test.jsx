@@ -4,6 +4,7 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
+import { getLibraryRoom } from '../../api/libraryRelevance';
 import { resetFirstPaint } from '../../motion/columnMotion';
 
 /* Morning Paper is close-or-silence on this page, not a second hub. */
@@ -28,6 +29,11 @@ jest.mock('../../api/dailyLoop', () => ({
   recordClaimFalsifiability: jest.fn(),
   recordClaimVerdict: jest.fn(),
   disposeConsequence: jest.fn()
+}));
+
+jest.mock('../../api/libraryRelevance', () => ({
+  getLibraryRoom: jest.fn(),
+  getLibraryRelevance: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -98,11 +104,30 @@ const briefing = {
   totalPages: 3
 };
 
+const libraryRoomPayload = (feedTopics = []) => ({
+  sources: [],
+  counts: {},
+  coverage: {},
+  hasMore: false,
+  nextCursor: null,
+  shelves: {
+    folders: [],
+    counts: {},
+    piles: { later: [], setAside: [] },
+    feedTopics
+  }
+});
+
+const stubLibraryRoom = (feedTopics = []) => {
+  getLibraryRoom.mockImplementation(() => Promise.resolve(libraryRoomPayload(feedTopics)));
+};
+
 describe('WikiFrontPage canonical titles', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    stubLibraryRoom();
     getDailyLoop.mockResolvedValue({ briefing: { ...briefing, recentlyUpdatedPages: [] } });
   });
 
@@ -221,6 +246,7 @@ describe('WikiFrontPage (AT-394)', () => {
     getDailyLoop.mockResolvedValue({ briefing });
     armReadingWatch.mockResolvedValue({});
     disarmWatcher.mockResolvedValue({});
+    stubLibraryRoom();
   });
 
   it('names the loading work before the paper arrives', () => {
@@ -1020,6 +1046,44 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
 
+    it('puts Later, Set aside, Kept, and a screened name at the top of a quiet paper', async () => {
+      stubLibraryRoom([{ id: 'news', name: 'Newsletters' }]);
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
+        aliveness: { register: 'quiet' },
+        counts: { newSources: 0, recentlyUpdatedPages: 0, driftingPages: 0 }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(document.querySelector('.library-places')).not.toBeNull();
+      expect(screen.getByRole('navigation', { name: 'Library places' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Later' })).toHaveAttribute('href', '/library?scope=later');
+      expect(screen.getByRole('link', { name: 'Set aside' })).toHaveAttribute('href', '/library?scope=set-aside');
+      expect(screen.getByRole('link', { name: 'Kept' })).toHaveAttribute('href', '/library?scope=kept');
+      expect(await screen.findByRole('link', { name: 'Newsletters' }))
+        .toHaveAttribute('href', '/library?scope=feed&topic=news');
+      expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
+    });
+
+    it('still offers a check-in on a quiet morning when a claim qualifies', async () => {
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        aliveness: { register: 'quiet' },
+        claimCheckIn: {
+          pageId: 'wiki-first-principles',
+          claimId: 'c1',
+          text: 'Integration retains pricing power.'
+        },
+        counts: { newSources: 0, recentlyUpdatedPages: 0, driftingPages: 0 }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByLabelText('Morning check-in'))
+        .toHaveTextContent('Integration retains pricing power.');
+      expect(screen.getByRole('button', { name: 'Still hold' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Morning sign-off')).toBeInTheDocument();
+    });
+
     it('carries at most one qualified consequence as the one blue thing', async () => {
       getDailyLoop.mockResolvedValueOnce({ briefing: {
         aliveness: { register: 'quiet' },
@@ -1120,6 +1184,7 @@ describe('Recently updated', () => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    stubLibraryRoom();
     listWikiPages.mockReset();
     getDailyLoop.mockReset();
   });
