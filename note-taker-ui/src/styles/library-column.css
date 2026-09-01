@@ -1216,3 +1216,71 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   letter-spacing: 0.04em;
   font-variant-numeric: lining-nums tabular-nums;
 }
+
+/* The cabinet is a tree: hairline indent guides, and a disclosure that only
+   appears under a cursor. At rest the tree is names and numbers. */
+.library-shelf__branch {
+  padding-left: calc(var(--depth, 0) * 0.85rem);
+  position: relative;
+}
+
+.library-shelf__branch[style*="--depth: 0"] { padding-left: 0; }
+
+.library-shelf__disclose {
+  display: inline-block;
+  width: 0.9rem;
+  margin-left: -0.9rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.62rem;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.library-shelf__branch:hover .library-shelf__disclose,
+.library-shelf__branch:focus-within .library-shelf__disclose { opacity: 1; }
+
+/* Living ink marks the exact folder that was screened, and never its parent. */
+.library-shelf__branch.is-living > * > span:not(.library-shelf__disclose) {
+  color: var(--ink-sap, #6f7f4a);
+}
+
+/* Procedural shelves: one mono line under the cabinet, not drawers in it. */
+.library-shelf__procedural {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 0.5rem 0 0;
+}
+
+.library-shelf__procedural button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.library-shelf__procedural button[aria-current="true"] {
+  color: var(--text-primary, var(--vellum-ink));
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-shelf__disclose { transition: none; opacity: 1; }
+}
+
+/* Past five, the edges stop being countable and start being texture, so the
+   stack says so in mono rather than drawing a sixth nobody could read. */
+.library-pile__more {
+  margin-left: 0.3rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: lining-nums tabular-nums;
+}

@@ -55,6 +55,10 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Shelf 32' })).toBeInTheDocument();
     });
 
+    /* Still the calm door, in its new place. Needs Review is a queue the
+       product keeps rather than a drawer the reader filled, so it leaves the
+       cabinet and becomes one mono line under it — filed among their own
+       folders it read as one of theirs. The backlog still never shouts. */
     it('makes Needs Review the calm door to triage instead of shouting the backlog', () => {
       const onSelectFolder = jest.fn();
       renderNav({
@@ -66,6 +70,8 @@ describe('LibraryShelfNav', () => {
 
       const review = screen.getByRole('button', { name: 'Needs Review' });
       expect(review).toHaveAttribute('aria-current', 'true');
+      expect(review.closest('.library-shelf__procedural')).not.toBeNull();
+      expect(review.closest('.library-shelf__folders')).toBeNull();
       expect(screen.queryByText('149')).not.toBeInTheDocument();
       fireEvent.click(review);
       expect(onSelectFolder).toHaveBeenCalledWith('review');
@@ -277,5 +283,56 @@ describe('screened topics on a narrow viewport', () => {
     renderNav({ feedTopics: [{ id: 't1', name: '' }, { id: '', name: 'Nameless' }] });
 
     expect(screen.queryByRole('button', { name: /Nameless/ })).toBeNull();
+  });
+});
+
+/* The cabinet is a tree. */
+describe('the cabinet', () => {
+  const nested = [
+    { _id: 'investing', name: 'Investing' },
+    { _id: 'costco', name: 'Costco', parentFolderId: 'investing', asFeed: true },
+    { _id: 'macro', name: 'Macro' }
+  ];
+
+  it('hangs a folder inside the drawer it belongs to', () => {
+    renderNav({ folders: nested, folderCounts: { costco: 5, macro: 2 } });
+    const costco = screen.getByRole('button', { name: /Costco/ }).closest('li');
+    expect(costco).toHaveStyle('--depth: 1');
+  });
+
+  const branchNamed = (name) => [...document.querySelectorAll('.library-shelf__branch')]
+    .find(row => row.querySelector('.room-shelf__item')?.textContent.includes(name));
+
+  it('rolls counts up the tree', () => {
+    renderNav({ folders: nested, folderCounts: { investing: 2, costco: 5 } });
+    // Investing holds two of its own and five in Costco.
+    expect(branchNamed('Investing')).toHaveTextContent('7');
+  });
+
+  it('does not glow a parent because a child is screened', () => {
+    renderNav({ folders: nested, folderCounts: {} });
+    expect(branchNamed('Costco')).toHaveClass('is-living');
+    expect(branchNamed('Investing')).not.toHaveClass('is-living');
+  });
+
+  it('folds a drawer away and brings it back', () => {
+    renderNav({ folders: nested, folderCounts: {} });
+    expect(screen.getByRole('button', { name: /Costco/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fold Investing' }));
+    expect(screen.queryByRole('button', { name: /Costco/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Unfold Investing' }));
+    expect(screen.getByRole('button', { name: /Costco/ })).toBeInTheDocument();
+  });
+
+  it('opens showing everything it holds, rather than making you hunt', () => {
+    renderNav({ folders: nested, folderCounts: {} });
+    expect(screen.getByRole('button', { name: /Costco/ })).toBeInTheDocument();
+  });
+
+  it('offers a disclosure only where there is something to disclose', () => {
+    renderNav({ folders: nested, folderCounts: {} });
+    expect(screen.queryByRole('button', { name: /Fold Macro/ })).toBeNull();
   });
 });
