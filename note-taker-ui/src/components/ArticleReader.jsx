@@ -83,20 +83,19 @@ const ArticleReader = ({
   const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  const articleId = article?._id;
+  const articlePlacement = article?.placement;
   /* Kept lives here rather than being read straight off the prop, so pressing
      it settles immediately instead of waiting for the article list to refetch.
      It resets when a different source is opened. */
   const [kept, setKept] = useState(Boolean(article?.evergreen));
-  /* placementOf reads nothing but article.placement, so the placement the
-     source arrived with is the effect's real dependency — naming it here says
-     that plainly, and spares the effect a second call to work it out. */
-  const openPlacement = placementOf(article);
-  const [placement, setPlacement] = useState(openPlacement);
+  const [placement, setPlacement] = useState(() => placementOf(article));
   const [folioPages, setFolioPages] = useState([]);
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
-  useEffect(() => { setPlacement(openPlacement); }, [article?._id, openPlacement]);
   useEffect(() => {
-    const articleId = article?._id;
+    setPlacement(placementOf({ placement: articlePlacement }));
+  }, [articleId, articlePlacement]);
+  useEffect(() => {
     const replacePages = (next) => {
       setFolioPages((current) => (current.length || next.length ? next : current));
     };
@@ -114,7 +113,7 @@ const ArticleReader = ({
         if (!cancelled) replacePages([]);
       });
     return () => { cancelled = true; };
-  }, [article?._id]);
+  }, [articleId]);
   const fireTourSignal = useTourSignal();
   const html = useMemo(
     () => renderArticleContentWithHighlights(article, highlights),
