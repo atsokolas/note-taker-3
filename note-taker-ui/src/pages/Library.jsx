@@ -1141,7 +1141,6 @@ const Library = () => {
               onSelectArticle={handleSelectArticle}
               onScreen={handleScreenFolder}
               onPileDone={(articleId) => handleTogglePlacement(articleId, 'stream')}
-              entering={columnEntering}
             />
           ) : isDedicatedShelf ? (
             <LibraryColumn
@@ -1161,6 +1160,7 @@ const Library = () => {
                 <div className="library-folder-screen">
                   <ScreenWord
                     asFeed={Boolean(screenableFolder.asFeed)}
+                    sentence={screenableFolder.name}
                     onScreen={handleScreenFolder}
                   />
                 </div>

@@ -28,7 +28,7 @@ const MorningAskedBack = ({ askedBack, pulse = false }) => {
 
   return (
     <section
-      className={['wiki-front-page__asked-back', pulse ? 'is-morning-pulse' : ''].filter(Boolean).join(' ')}
+      className={['wiki-front-page__asked-back', 'noeis-meander', pulse ? 'is-morning-pulse' : ''].filter(Boolean).join(' ')}
       aria-label="Asked back"
     >
       <p className="wiki-front-page__asked-back-eyebrow">{KAIROS_EYEBROW}</p>

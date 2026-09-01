@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { feedEmptyLine, feedFolios } from '../../pages/feedModel';
+import { flySentenceInto } from '../../motion/columnMotion';
 import LibraryPiles from './LibraryPiles';
 import ScreenWord from './ScreenWord';
 import '../../styles/library-column.css';
@@ -7,6 +8,7 @@ import '../../styles/library-column.css';
 /*
  * An unrolled scroll for a topic you screened. Newest folio on top: title,
  * source, first graph. Clicking opens the full reader. Piles stay at the foot.
+ * The name flies here when the rail is gone; otherwise the rail claims it.
  */
 
 const LibraryFeedColumn = ({
@@ -17,19 +19,22 @@ const LibraryFeedColumn = ({
   error = '',
   onSelectArticle,
   onScreen,
-  onPileDone,
-  entering = true
+  onPileDone
 }) => {
+  const nameRef = useRef(null);
   const folios = useMemo(() => feedFolios(articles), [articles]);
   const name = folder?.name || 'This shelf';
-  const step = (n) => (entering ? `wfp-anim wfp-anim--${n}` : 'library-column__return');
+
+  useLayoutEffect(() => {
+    flySentenceInto(nameRef.current, name);
+  }, [name]);
 
   return (
-    <main className="library-feed" aria-labelledby="library-feed-title">
-      <header className={`library-feed__masthead ${step(1)}`}>
-        <p className="library-column__eyebrow">{name}</p>
+    <main className="library-feed noeis-meander" aria-labelledby="library-feed-title">
+      <header className="library-feed__masthead">
+        <p ref={nameRef} className="library-column__eyebrow">{name}</p>
         <h1 className="sr-only" id="library-feed-title">{name}</h1>
-        <ScreenWord asFeed={Boolean(folder?.asFeed)} onScreen={onScreen} />
+        <ScreenWord asFeed={Boolean(folder?.asFeed)} sentence={name} onScreen={onScreen} />
       </header>
 
       {error ? <p className="library-column__error" role="alert">{error}</p> : null}
@@ -39,7 +44,7 @@ const LibraryFeedColumn = ({
       ) : null}
 
       {folios.length ? (
-        <div className={`library-feed__folios ${step(2)}`}>
+        <div className="library-feed__folios">
           {folios.map((folio) => (
             <article key={folio.id} className="library-feed__folio">
               <h2>
@@ -59,7 +64,7 @@ const LibraryFeedColumn = ({
       ) : null}
 
       {!loading && !folios.length ? (
-        <p className={`library-column__quiet ${step(2)}`}>{feedEmptyLine(name)}</p>
+        <p className="library-column__quiet">{feedEmptyLine(name)}</p>
       ) : null}
 
       <LibraryPiles

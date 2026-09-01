@@ -794,9 +794,8 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
 
 /* Scan-for-blue = read-the-day. Exactly one pulse, and only when something
    is alive this morning. */
-.paper-open .is-morning-pulse,
-.wiki-front-page__check-in.is-morning-pulse,
-.wiki-front-page__asked-back.is-morning-pulse {
+.paper-open .is-morning-pulse:not(.wiki-front-page__asked-back),
+.wiki-front-page__check-in.is-morning-pulse {
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
 }
 
@@ -806,7 +805,10 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   max-width: 46ch;
   margin: 28px 0 0;
   padding: 4px 0 4px 13px;
-  box-shadow: inset 2px 0 0 var(--noeis-living-sap, var(--noeis-living, #6f7340));
+}
+
+.wiki-front-page__asked-back.is-morning-pulse::before {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
 }
 
 .wiki-front-page__asked-back-eyebrow {
@@ -863,10 +865,6 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
   font-size: 0.82rem;
   cursor: pointer;
-}
-
-.wiki-front-page__asked-back.is-morning-pulse {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
 }
 
 .wiki-front-page__check-in {

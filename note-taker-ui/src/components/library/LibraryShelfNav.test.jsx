@@ -1,5 +1,9 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import {
+  clearSentenceHandoff,
+  handOffSentence
+} from '../../motion/columnMotion';
 import LibraryShelfNav from './LibraryShelfNav';
 
 const FOLDERS = ['Investing', 'Macro', 'Biology'].map((name, index) => ({ _id: `f${index}`, name }));
@@ -200,6 +204,23 @@ describe('LibraryShelfNav', () => {
       renderNav({ feedTopics: [{ id: 'news', name: 'Newsletters' }] });
       expect(screen.queryByRole('button', { name: 'Newsletters' })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
+    });
+
+    it('flies the screened name onto the rail', () => {
+      const origin = {
+        getBoundingClientRect: () => ({ top: 20, left: 40, width: 120, height: 20 })
+      };
+      jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        top: 80, left: 12, width: 160, height: 22, right: 172, bottom: 102
+      });
+      HTMLElement.prototype.animate = jest.fn(() => ({ finished: Promise.resolve() }));
+      handOffSentence('Newsletters', origin);
+      renderNav({ feedTopics: [{ id: 'news', name: 'Newsletters' }] });
+      const label = screen.getByRole('button', { name: 'Newsletters' }).querySelector('span');
+      expect(label.animate).toHaveBeenCalledTimes(1);
+      clearSentenceHandoff();
+      delete HTMLElement.prototype.animate;
+      jest.restoreAllMocks();
     });
   });
 });

@@ -1,5 +1,9 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import {
+  clearSentenceHandoff,
+  handOffSentence
+} from '../../motion/columnMotion';
 import LibraryFeedColumn from './LibraryFeedColumn';
 
 const letter = (overrides = {}) => ({
@@ -24,7 +28,6 @@ describe('LibraryFeedColumn', () => {
           letter({ _id: 'parked', title: 'Parked', placement: 'later', updatedAt: '2026-08-31T00:00:00.000Z' })
         ]}
         onSelectArticle={onSelect}
-        entering={false}
       />
     );
 
@@ -34,6 +37,8 @@ describe('LibraryFeedColumn', () => {
     expect(screen.getAllByText('Stratechery').length).toBeGreaterThan(0);
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
     expect(screen.queryByText(/Feed/i)).not.toBeInTheDocument();
+    expect(document.querySelector('.library-feed')).toHaveClass('noeis-meander');
+    expect(document.querySelector('.wfp-anim')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /August letter/ }));
     expect(onSelect).toHaveBeenCalledWith('new');
@@ -44,7 +49,6 @@ describe('LibraryFeedColumn', () => {
       <LibraryFeedColumn
         folder={{ _id: 'news', name: 'Newsletters', asFeed: true }}
         articles={[]}
-        entering={false}
       />
     );
     expect(screen.getByRole('heading', { name: 'Newsletters' })).toBeInTheDocument();
@@ -59,10 +63,31 @@ describe('LibraryFeedColumn', () => {
         folder={{ _id: 'news', name: 'Newsletters', asFeed: true }}
         articles={[letter()]}
         onScreen={onScreen}
-        entering={false}
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Keep in Library' }));
     expect(onScreen).toHaveBeenCalledWith(false);
+  });
+
+  it('flies the topic name into the masthead', () => {
+    const origin = {
+      getBoundingClientRect: () => ({ top: 20, left: 40, width: 120, height: 20 })
+    };
+    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 90, left: 24, width: 200, height: 22, right: 224, bottom: 112
+    });
+    HTMLElement.prototype.animate = jest.fn(() => ({ finished: Promise.resolve() }));
+    handOffSentence('Newsletters', origin);
+    render(
+      <LibraryFeedColumn
+        folder={{ _id: 'news', name: 'Newsletters', asFeed: true }}
+        articles={[]}
+      />
+    );
+    const name = document.querySelector('.library-column__eyebrow');
+    expect(name.animate).toHaveBeenCalledTimes(1);
+    clearSentenceHandoff();
+    delete HTMLElement.prototype.animate;
+    jest.restoreAllMocks();
   });
 });
