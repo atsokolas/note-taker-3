@@ -97,3 +97,58 @@ test('identical replay is idempotent while conflicting replay fails closed', () 
     /already resolved differently/
   );
 });
+
+test('narrow writes the same sentence as accept but records a bounded belief', () => {
+  const current = page();
+  const receipt = buildJudgmentChangeProposal({
+    page: current,
+    proposedJudgment: 'AI compute remains scarce for training runs above 10^26 FLOPs.'
+  });
+  const planned = planJudgmentChangeDisposition({
+    receipt,
+    page: current,
+    action: 'narrow',
+    now: new Date('2026-08-30T12:00:00.000Z')
+  });
+
+  assert.equal(planned.receipt.status, 'narrowed');
+  assert.equal(
+    planned.receipt.summary,
+    'Narrowed: AI compute remains scarce for training runs above 10^26 FLOPs.'
+  );
+  assert.equal(planned.receipt.provenance.disposition, 'narrow');
+  // The write is identical to accept — the belief moves.
+  assert.equal(
+    planned.judgment.currentJudgment,
+    'AI compute remains scarce for training runs above 10^26 FLOPs.'
+  );
+  // The record is not — a year from now this is what tells the two apart.
+  assert.equal(
+    planned.judgment.decisions.at(-1).summary,
+    'Narrowed what I hold: AI compute remains scarce for training runs above 10^26 FLOPs.'
+  );
+});
+
+test('narrow is terminal, and replaying it is not an error', () => {
+  const current = page();
+  const receipt = buildJudgmentChangeProposal({ page: current, proposedJudgment: 'A narrower claim.' });
+  const first = planJudgmentChangeDisposition({ receipt, page: current, action: 'narrow' });
+
+  const replay = planJudgmentChangeDisposition({ receipt: first.receipt, page: current, action: 'narrow' });
+  assert.equal(replay.replay, true);
+  assert.equal(replay.judgment, null);
+
+  assert.throws(
+    () => planJudgmentChangeDisposition({ receipt: first.receipt, page: current, action: 'reject' }),
+    JudgmentChangeProposalError
+  );
+});
+
+test('an unknown disposition names every one that is offered', () => {
+  const current = page();
+  const receipt = buildJudgmentChangeProposal({ page: current, proposedJudgment: 'Something else.' });
+  assert.throws(
+    () => planJudgmentChangeDisposition({ receipt, page: current, action: 'shrug' }),
+    /accept, narrow, preserve, reject, or defer/
+  );
+});

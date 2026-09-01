@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDecisions } from '../../../api/decisions';
 import '../../../styles/wiki-decisions-index.css';
+import { formatCalendarDate } from '../../../utils/calendarDate';
 
 const FILTERS = [
   { id: 'upcoming_review', label: 'Upcoming review' },
@@ -147,7 +148,7 @@ const DecisionRow = ({ item }) => {
         </section>
         <section>
           <p className="wiki-decisions__eyebrow">Review clock</p>
-          <p className="wiki-decisions__meta">Review {formatDate(item?.decision?.reviewAt)}</p>
+          <p className="wiki-decisions__meta">Review {formatCalendarDate(item?.decision?.reviewAt)}</p>
         </section>
         <section className={item?.outcome?.state === 'observed' ? 'is-observed' : ''}>
           <p className="wiki-decisions__eyebrow">What happened later</p>

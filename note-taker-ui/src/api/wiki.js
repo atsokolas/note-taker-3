@@ -186,8 +186,8 @@ export const proposeJudgmentChange = async (pageId, proposedJudgment) => {
 };
 
 export const resolveJudgmentChange = async (pageId, receiptId, action, options = {}) => {
-  const selected = ['accept', 'preserve', 'reject', 'defer'].includes(action) ? action : '';
-  if (!selected) throw new Error('Choose accept, preserve, reject, or defer.');
+  const selected = ['accept', 'narrow', 'preserve', 'reject', 'defer'].includes(action) ? action : '';
+  if (!selected) throw new Error('Choose accept, narrow, preserve, reject, or defer.');
   const res = await api.post(
     `${WIKI_PAGES_PATH}/${safeId(pageId)}/judgment-change-proposals/${selected}`,
     { receiptId, ...(options.deferUntil ? { deferUntil: options.deferUntil } : {}) },

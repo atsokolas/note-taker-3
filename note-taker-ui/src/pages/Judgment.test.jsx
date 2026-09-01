@@ -553,6 +553,100 @@ describe('Judgment claim', () => {
     expect(await screen.findByTestId('ariadne-thread')).toBeInTheDocument();
   });
 
+  it('leaves a receipt that only promises what the write actually did', async () => {
+    const next = 'I am bullish NVIDIA compute.';
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue(base);
+    const acceptedPage = {
+      ...base,
+      judgment: { ...base.judgment, currentJudgment: next, nextReviewAt: '2026-09-30T00:00:00.000Z' }
+    };
+    resolveJudgmentChange.mockResolvedValue({
+      page: acceptedPage,
+      proposal: { ...judgmentChangeProposal(next), status: 'accepted' },
+      revisionId: 'rev-1'
+    });
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: next } });
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(document.querySelector('.judgment__landing'))
+      .toHaveTextContent('accepted \u00b7 prior wording preserved \u00b7 review Sep 30'));
+  });
+
+  it('admits it searched and found nothing, rather than vanishing', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: 'c', terms: [], candidates: [] });
+
+    renderDetail();
+
+    expect(await screen.findByText('Searched your library. Nothing in it bears on this sentence.'))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'On this sentence' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing at all when the library could not be read', async () => {
+    getWikiPage.mockResolvedValue(judgmentPage());
+    getJudgmentLibraryEvidence.mockRejectedValue(new Error('unreachable'));
+
+    renderDetail();
+
+    await screen.findByLabelText('What you hold');
+    await waitFor(() => expect(getJudgmentLibraryEvidence).toHaveBeenCalled());
+    // A failed read is not an empty library, and must never be reported as one.
+    expect(screen.queryByText(/Nothing in it bears on this sentence/)).not.toBeInTheDocument();
+  });
+
+  it('narrows the belief instead of replacing it, and says so', async () => {
+    const narrower = 'NVIDIA demand outruns capacity for training silicon.';
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue(base);
+    resolveJudgmentChange.mockResolvedValue({
+      page: { ...base, judgment: { ...base.judgment, currentJudgment: narrower } },
+      proposal: { ...judgmentChangeProposal(narrower), status: 'narrowed' },
+      revisionId: 'rev-2'
+    });
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: narrower } });
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Narrow' }));
+
+    await waitFor(() => expect(resolveJudgmentChange).toHaveBeenCalledWith(
+      'wiki-nvidia', judgmentChangeProposal(narrower).id, 'narrow'
+    ));
+    await waitFor(() => expect(document.querySelector('.judgment__landing'))
+      .toHaveTextContent('narrowed \u00b7 prior wording preserved'));
+    expect(screen.getByLabelText('What you hold')).toHaveValue(narrower);
+  });
+
+  it('does not promise a preserved prior wording the server did not record', async () => {
+    const next = 'I am bullish NVIDIA compute.';
+    const base = judgmentPage();
+    getWikiPage.mockResolvedValue(base);
+    resolveJudgmentChange.mockResolvedValue({
+      page: { ...base, judgment: { ...base.judgment, currentJudgment: next } },
+      proposal: { ...judgmentChangeProposal(next), status: 'accepted' }
+    });
+
+    renderDetail();
+    const opinion = await screen.findByLabelText('What you hold');
+    fireEvent.change(opinion, { target: { value: next } });
+    fireEvent.blur(opinion);
+    await waitFor(() => expect(proposeJudgmentChange).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(document.querySelector('.judgment__landing')).toHaveTextContent('accepted'));
+    expect(document.querySelector('.judgment__landing')).not.toHaveTextContent('preserved');
+    expect(document.querySelector('.judgment__landing')).not.toHaveTextContent('review');
+  });
+
   it('does not draw provenance when accepting the proposed change fails', async () => {
     const next = 'I am bullish NVIDIA compute.';
     getWikiPage.mockResolvedValue(judgmentPage());

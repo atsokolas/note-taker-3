@@ -59,6 +59,7 @@ import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import ClaimFalsifiabilityPrompt from '../components/wiki/ClaimFalsifiabilityPrompt';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
+import { describeLanding } from './landingReceipt';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -268,6 +269,7 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, s
   const pending = status === 'pending';
   const label = {
     accepted: 'Accepted',
+    narrowed: 'Narrowed',
     preserved: 'Preserved',
     rejected: 'Rejected',
     deferred: 'Deferred'
@@ -281,6 +283,7 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, s
       {pending ? (
         <div className="judgment-change__actions" aria-label="Resolve proposed judgment change">
           <button type="button" disabled={busy} onClick={() => onResolve('accept')}>Accept</button>
+          <button type="button" disabled={busy} onClick={() => onResolve('narrow')}>Narrow</button>
           <button type="button" disabled={busy} onClick={() => onResolve('preserve')}>Preserve</button>
           <button type="button" disabled={busy} onClick={() => onResolve('reject')}>Reject</button>
           <button type="button" disabled={busy} onClick={() => onResolve('defer')}>Defer</button>
@@ -694,7 +697,10 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [printError, setPrintError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
   const [pendingId, setPendingId] = useState('');
-  const [libraryCandidates, setLibraryCandidates] = useState([]);
+  /* null until the library has been searched for this claim. An empty array
+     means the search ran and found nothing — a finding the skeptic reports —
+     and null means we cannot say either way yet. */
+  const [libraryCandidates, setLibraryCandidates] = useState(null);
   const [kin, setKin] = useState(null);
   const [kindHint, setKindHint] = useState('');
   const [researchReview, setResearchReview] = useState(null);
@@ -704,6 +710,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   const [changeProposalBusy, setChangeProposalBusy] = useState(false);
   const [changeProposalError, setChangeProposalError] = useState('');
   const [acceptedChangeTrace, setAcceptedChangeTrace] = useState(0);
+  const [landing, setLanding] = useState('');
   const [libraryAttempt, setLibraryAttempt] = useState(0);
   const systemStatus = useSystemStatusControls();
   const pageRef = useRef(page);
@@ -781,7 +788,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   useEffect(() => {
     let cancelled = false;
     let announced = false;
-    setLibraryCandidates([]);
+    // A search in flight knows nothing yet. Stale passages for the previous
+    // hold must not sit here, but neither must a premature "found nothing".
+    setLibraryCandidates(null);
 
     const timer = window.setTimeout(() => {
       if (cancelled) return;
@@ -807,7 +816,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       .catch(() => {
         if (cancelled) return;
         settle();
-        setLibraryCandidates([]);
+        // The read failed. That is not the same as an empty library, and the
+        // skeptic must not report a finding it never made.
+        setLibraryCandidates(null);
         systemStatus.setRecoverableFailure({
           stage: 'Library evidence',
           message: 'Your library could not be read for this claim.',
@@ -1049,6 +1060,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
     const current = pageRef.current;
     if (next === oneSentence(current?.judgment?.currentJudgment)) return;
     setChangeProposalError('');
+    setLanding('');
     const proposal = await proposeJudgmentChange(pageId, next);
     setChangeProposal(proposal);
   }, [pageId]);
@@ -1064,11 +1076,16 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         setPage(resolved.page);
       }
       setChangeProposal(resolved.proposal || null);
-      if (action === 'accept') {
+      if (action === 'accept' || action === 'narrow') {
         // Only a confirmed accepted write earns the thread. The receipt is the
         // proof; this counter simply lets the next paint show where it landed.
         setAcceptedChangeTrace(currentTrace => currentTrace + 1);
-        setLibraryCandidates([]);
+        setLanding(describeLanding({
+          verb: action === 'narrow' ? 'narrowed' : 'accepted',
+          revisionId: resolved.revisionId,
+          nextReviewAt: resolved.page?.judgment?.nextReviewAt
+        }));
+        setLibraryCandidates(null);
         setLibraryAttempt(currentAttempt => currentAttempt + 1);
         const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
         const accepted = oneSentence(resolved.page?.judgment?.currentJudgment || '');
@@ -1215,6 +1232,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         sourceRef={changeSentenceRef}
         targetRef={claimRef}
       />
+      {landing ? (
+        <p className="judgment__landing" role="status">{landing}</p>
+      ) : null}
 
       <DossierResearchReview
         pageId={pageId}

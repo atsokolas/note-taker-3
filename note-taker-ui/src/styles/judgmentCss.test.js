@@ -85,3 +85,19 @@ describe('the durable institution', () => {
     );
   });
 });
+
+describe('counterevidence ink', () => {
+  it('marks the margin beside a line that argues back', () => {
+    expect(css).toMatch(/\.judgment-log__row--against\s*\{[^}]*border-left:\s*2px solid/s);
+  });
+
+  it('gives opposition its own quieter register', () => {
+    expect(css).toMatch(/\.judgment-log__row--against \.judgment-log__text\s*\{[^}]*font-style:\s*italic/s);
+  });
+
+  it('never turns disagreement into an alarm', () => {
+    const block = css.slice(css.indexOf('.judgment-log__row--against'));
+    const rules = block.slice(0, block.indexOf('\n}\n\n.judgment-log__text'));
+    expect(rules).not.toMatch(/red|crimson|#c0392b|#e74c3c|danger|alert/i);
+  });
+});

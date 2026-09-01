@@ -268,8 +268,13 @@ const InboxLine = ({
   );
 };
 
+/* `candidates` is null until the library has actually been searched, and an
+   array afterwards — an empty one when the search genuinely found nothing.
+   The distinction is the whole feature: a skeptic that goes quiet because it
+   has not looked yet reads exactly like one that looked and found nothing,
+   and only one of those is worth saying out loud. */
 const MorningInbox = ({
-  candidates = [],
+  candidates = null,
   kind,
   view,
   kin,
@@ -282,7 +287,12 @@ const MorningInbox = ({
   const [filingId, setFilingId] = useState('');
   const [dismissed, setDismissed] = useState([]);
   const reduced = usePrefersReducedMotion();
-  const remaining = candidates.filter(candidate => !dismissed.includes(candidate.id));
+  // Null means the search has not run. Everything below derives from what was
+  // actually found, so an unrun search behaves like an empty one until the
+  // returns below tell the two apart.
+  const searched = Array.isArray(candidates);
+  const found = searched ? candidates : [];
+  const remaining = found.filter(candidate => !dismissed.includes(candidate.id));
   const visible = open ? remaining : remaining.slice(0, INBOX_OPEN);
   const hidden = Math.max(0, remaining.length - visible.length);
   const listening = kin != null && kin.n != null;
@@ -307,6 +317,20 @@ const MorningInbox = ({
     }
   };
 
+  // Not searched yet. Nothing truthful to say, so nothing is said.
+  if (!searched) return null;
+
+  /* Searched, and the library had nothing bearing on this sentence. That is a
+     finding, and the skeptic reports it. Dismissing your way down to an empty
+     list is not the same event, so it stays quiet — the search did find
+     something, you just dealt with it. */
+  if (!found.length) {
+    return (
+      <p className="judgment-inbox__nothing" role="status">
+        Searched your library. Nothing in it bears on this sentence.
+      </p>
+    );
+  }
   if (!remaining.length) return null;
 
   return (
@@ -345,7 +369,7 @@ const UpdateComposer = ({
   onWrite,
   onPending,
   onSettle,
-  inbox = [],
+  inbox = null,
   onFile,
   view,
   kin,

@@ -659,6 +659,26 @@ button.judgment-inbox__text:focus-visible {
   color: var(--text-muted, var(--vellum-subtle));
 }
 
+/* Counterevidence ink.
+   Opposition is not an alarm. A line that cuts against what you hold gets a
+   quieter register and a rule down its left edge — the margin mark an editor
+   makes beside a passage that argues back. No red, no badge, no count. The
+   reader should be able to scan the log and see where the argument is
+   contested without being told to feel anything about it. */
+.judgment-log__row--against {
+  border-left: 2px solid var(--rule-soft, var(--vellum-rule, rgba(120, 120, 120, 0.28)));
+  padding-left: 0.7rem;
+}
+
+.judgment-log__row--against .judgment-log__kind {
+  color: var(--ink-counter, var(--text-muted, var(--vellum-subtle)));
+}
+
+.judgment-log__row--against .judgment-log__text {
+  color: var(--ink-counter, var(--text-secondary, var(--vellum-ink)));
+  font-style: italic;
+}
+
 .judgment-log__text {
   margin: 0;
   color: var(--ink-human, var(--text-primary, var(--vellum-ink)));
@@ -2588,4 +2608,26 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   .night-watch article {
     transition: none;
   }
+}
+
+/* The receipt a revised belief leaves behind. Mono, quiet, and only ever
+   printing clauses that were true at the moment the write completed. */
+.judgment__landing {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+/* The skeptic reporting an empty search. Same paper edge as the inbox it
+   replaces, so the slot does not move when a finding becomes no finding. */
+.judgment-inbox__nothing {
+  margin: 0;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--rule-soft, var(--vellum-rule, rgba(120, 120, 120, 0.22)));
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
 }

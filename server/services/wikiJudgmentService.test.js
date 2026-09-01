@@ -330,3 +330,37 @@ module.exports = { run };
 
   console.log('judgment dependency tests passed');
 }
+
+/* Stage 1 graph proof, server half.
+
+   The client proof round-trips a filed Library highlight through JSON and
+   shows both edges survive. That only means something if the save path keeps
+   what the edges are made of. `acceptedFrom` is the whole reverse edge — the
+   reader parses it to decide whether a case speaks to the article in front of
+   you — so if normalization dropped or rewrote it, the folio line would go
+   quiet on save and nothing would fail loudly. */
+{
+  const filed = normalizeJudgment({
+    input: {
+      currentJudgment: 'Costco membership economics survive a consumer downturn.',
+      why: [{
+        reasonId: 'why_1',
+        text: 'Warehouse membership renewals held above ninety percent through the cycle.',
+        sourceLabel: 'Costco FY25 10-K',
+        acceptedFrom: 'highlight:article-99:highlight-7',
+        sourceRefIds: []
+      }],
+      against: []
+    },
+    actorType: 'user',
+    pageId: 'case-1'
+  });
+  const [line] = filed.why;
+  assert.strictEqual(line.acceptedFrom, 'highlight:article-99:highlight-7', 'the reverse edge survives the save');
+  assert.strictEqual(line.sourceLabel, 'Costco FY25 10-K');
+  assert.strictEqual(
+    line.text,
+    'Warehouse membership renewals held above ninety percent through the cycle.'
+  );
+  console.log('graph proof (server half) passed');
+}
