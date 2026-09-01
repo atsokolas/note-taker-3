@@ -827,8 +827,12 @@ export const getWikiAutolinkSuggestions = async (id) => {
   return res.data;
 };
 
-export const getWikiBriefing = async () => {
-  const res = await api.get('/api/wiki/briefing', getAuthHeaders());
+export const getWikiBriefing = async ({ windowDays } = {}) => {
+  const boundedDays = Number.isFinite(Number(windowDays))
+    ? Math.max(1, Math.min(Math.floor(Number(windowDays)), 7))
+    : null;
+  const query = boundedDays ? `?windowDays=${boundedDays}` : '';
+  const res = await api.get(`/api/wiki/briefing${query}`, getAuthHeaders());
   return res.data;
 };
 

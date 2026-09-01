@@ -8167,16 +8167,23 @@ const buildWikiRouter = ({
   router.get('/api/wiki/briefing', wikiAuth, async (req, res) => {
     try {
       const now = Date.now();
+      const requestedWindowDays = Number(req.query.windowDays);
+      const windowDays = Number.isFinite(requestedWindowDays)
+        ? Math.max(1, Math.min(Math.floor(requestedWindowDays), 7))
+        : 1;
+      const usesDailyCache = windowDays === 1;
       const maxAgeMs = Math.max(
         60 * 1000,
         Number(process.env.WIKI_BRIEFING_CACHE_MAX_AGE_MS || DEFAULT_BRIEFING_CACHE_MAX_AGE_MS)
       );
-      const cachedBriefing = await loadCachedWikiBriefing({
-        userId: req.user.id,
-        WikiBriefingCache,
-        now,
-        maxAgeMs
-      });
+      const cachedBriefing = usesDailyCache
+        ? await loadCachedWikiBriefing({
+          userId: req.user.id,
+          WikiBriefingCache,
+          now,
+          maxAgeMs
+        })
+        : null;
       if (cachedBriefing) {
         res.setHeader('X-Noeis-Briefing-Cache', 'HIT');
         return res.status(200).json(cachedBriefing);
@@ -8195,15 +8202,19 @@ const buildWikiRouter = ({
           WikiMaintenanceRun,
           WikiSourceEvent,
           Connection
-        }
-      });
-      await persistWikiBriefingCache({
-        userId: req.user.id,
-        WikiBriefingCache,
-        briefing,
+        },
         now,
-        maxAgeMs
+        windowMs: windowDays * 24 * 60 * 60 * 1000
       });
+      if (usesDailyCache) {
+        await persistWikiBriefingCache({
+          userId: req.user.id,
+          WikiBriefingCache,
+          briefing,
+          now,
+          maxAgeMs
+        });
+      }
       res.setHeader('X-Noeis-Briefing-Cache', 'MISS');
       res.status(200).json(briefing);
     } catch (error) {

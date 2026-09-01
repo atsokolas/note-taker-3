@@ -32,6 +32,41 @@ const within = (value, since) => {
   return !Number.isNaN(at) && at >= since;
 };
 
+const MAINTENANCE_RETURN_KINDS = new Set([
+  'company_dossier_judgment_review',
+  'company_dossier_maintenance_accepted'
+]);
+
+/*
+ * A weekly return is not an activity feed. It is one completed, human-bound
+ * consequence with a durable door back to the object that changed. Drafts,
+ * pending reviews, malformed receipts, and generic import activity stay quiet.
+ */
+const maintenanceReturn = (receipts = []) => list(receipts)
+  .filter(receipt => MAINTENANCE_RETURN_KINDS.has(receipt?.kind))
+  .filter(receipt => receipt?.status === 'completed')
+  .map(receipt => {
+    const touched = list(receipt?.touched).find(item => item?.type === 'wiki_page' && idOf(item));
+    if (!touched || !normalizeSpaces(receipt?.summary)) return null;
+    const reviewed = receipt.kind === 'company_dossier_judgment_review';
+    return {
+      id: idOf(receipt),
+      pageId: idOf(touched),
+      title: normalizeSpaces(touched.title) || 'Maintained dossier',
+      summary: normalizeSpaces(receipt.summary),
+      label: reviewed ? 'Judgment reviewed' : 'Research accepted',
+      linkLabel: reviewed ? 'See the decision →' : 'See what changed →',
+      href: reviewed ? `/judgment/${idOf(touched)}` : `/wiki/workspace?page=${idOf(touched)}`,
+      completedAt: receipt.completedAt || null,
+      priority: reviewed ? 2 : 1
+    };
+  })
+  .filter(Boolean)
+  .sort((left, right) => (
+    right.priority - left.priority
+    || time(right.completedAt) - time(left.completedAt)
+  ))[0] || null;
+
 const row = (page, activity) => ({
   id: idOf(page),
   claim: claimSentence(page),
@@ -45,9 +80,10 @@ const row = (page, activity) => ({
  * @param {Array} params.pages wiki pages, summary projection is enough
  * @param {Array} params.articles sources saved, for the reading count
  * @param {Array} params.events wiki source events
+ * @param {Array} params.receipts receipt-bound maintenance outcomes
  * @param {number} [params.now]
  */
-export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now = Date.now() } = {}) => {
+export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], receipts = [], now = Date.now() } = {}) => {
   const since = now - WEEK;
 
   const read = list(articles).filter(article => within(article?.createdAt || article?.savedAt, since));
@@ -84,13 +120,18 @@ export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now =
     unfalsifiable: byState('unfalsifiable'),
     kept: list(pages).filter(page => page?.evergreen).length
       + list(articles).filter(article => article?.evergreen).length,
-    learned
+    learned,
+    maintenanceReturn: maintenanceReturn(receipts)
   };
 
   /* A week is quiet when nothing arrived, nothing was learned, and nothing is
      being avoided. Saying so is the honest answer, and it is also what makes
      the brief worth opening on the weeks it does have something. */
-  brief.isQuiet = !brief.read && !brief.boreOnBeliefs && !brief.learned.length && !brief.avoided.length;
+  brief.isQuiet = !brief.read
+    && !brief.boreOnBeliefs
+    && !brief.learned.length
+    && !brief.avoided.length
+    && !brief.maintenanceReturn;
   return brief;
 };
 

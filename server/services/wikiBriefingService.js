@@ -806,11 +806,12 @@ const buildWikiBriefing = async ({
     '_id title status hiddenFromHome debugOnly archived plainText sourceRefs._id aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.lastDraftedAt aiState.health freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.status createdAt updatedAt'
   );
   const pages = rawPages.filter(isWikiPageSurfaceEligible);
+  const receiptLimit = Math.min(20, Math.max(4, Math.ceil(windowMs / ONE_DAY_MS) * 4));
   const [newSources, recentlyUpdatedPages, driftingPages, recentReceipts, recentMaintenanceChanges, priorAliveness] = await Promise.all([
     countNewSources({ userId, models, windowMs, now }),
     Promise.resolve(collectRecentlyUpdatedPages(pages, { windowMs, now })),
     Promise.resolve(collectDriftingPages(pages, { now })),
-    collectRecentImportReceipts({ userId, models, windowMs, now }),
+    collectRecentImportReceipts({ userId, models, windowMs, now, limit: receiptLimit }),
     collectRecentMaintenanceChanges({ userId, models, windowMs, now }),
     loadPriorBriefingAliveness({ userId, WikiBriefingCache: models.WikiBriefingCache })
   ]);

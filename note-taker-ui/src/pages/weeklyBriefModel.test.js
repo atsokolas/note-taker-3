@@ -89,6 +89,51 @@ describe('buildWeeklyBrief', () => {
     expect(brief.working).toEqual([]);
     expect(brief.isQuiet).toBe(true);
   });
+
+  it('returns one completed owner-reviewed maintenance consequence', () => {
+    const brief = buildWeeklyBrief({
+      receipts: [
+        {
+          id: 'accepted',
+          kind: 'company_dossier_maintenance_accepted',
+          status: 'completed',
+          summary: 'Research changed the utilization claim.',
+          completedAt: daysAgo(2),
+          touched: [{ type: 'wiki_page', id: 'dossier', title: 'CoreWeave' }]
+        },
+        {
+          id: 'reviewed',
+          kind: 'company_dossier_judgment_review',
+          status: 'completed',
+          summary: 'Reviewed the accepted research and kept the current judgment.',
+          completedAt: daysAgo(3),
+          touched: [{ type: 'wiki_page', id: 'dossier', title: 'CoreWeave' }]
+        }
+      ],
+      now: NOW
+    });
+
+    expect(brief.maintenanceReturn).toMatchObject({
+      id: 'reviewed',
+      label: 'Judgment reviewed',
+      href: '/judgment/dossier'
+    });
+    expect(brief.isQuiet).toBe(false);
+  });
+
+  it('stays silent for pending, generic, or malformed receipt activity', () => {
+    const brief = buildWeeklyBrief({
+      receipts: [
+        { id: 'pending', kind: 'company_dossier_judgment_review', status: 'awaiting_review' },
+        { id: 'import', kind: 'readwise_import', status: 'completed', summary: 'Imported 20 things.' },
+        { id: 'thin', kind: 'company_dossier_maintenance_accepted', status: 'completed', summary: '' }
+      ],
+      now: NOW
+    });
+
+    expect(brief.maintenanceReturn).toBeNull();
+    expect(brief.isQuiet).toBe(true);
+  });
 });
 
 describe('briefOpening', () => {
