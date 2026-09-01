@@ -1,5 +1,13 @@
-import { PLACEMENT_LATER, PLACEMENT_SET_ASIDE, PLACEMENT_STREAM, normalizePlacement } from './placementModel';
-import { timeWord } from '../utils/timeWord';
+import { PLACEMENT_LATER, PLACEMENT_SET_ASIDE, PLACEMENT_STREAM, normalizePlacement } from './placementModel.js';
+import { timeWord } from '../utils/timeWord.js';
+
+/*
+ * The two imports above carry their .js extensions on purpose. Webpack does
+ * not care either way, but a browser loading this file as a plain ES module
+ * does — and the save card in the extension loads exactly this file, with no
+ * build step between them. The extension is why the rules here are shared
+ * rather than written twice.
+ */
 
 /**
  * The switch: one fact with three values.

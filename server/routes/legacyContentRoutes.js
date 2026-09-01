@@ -170,7 +170,7 @@ const buildLegacyContentRouter = ({
 
   router.post('/save-article', authenticateToken, async (req, res) => {
     try {
-      const { title, url, content, folderId, author, publicationDate, siteName, pdfs } = req.body;
+      const { title, url, content, folderId, author, publicationDate, siteName, pdfs, placement } = req.body;
       const userId = req.user.id;
 
       if (!url) {
@@ -206,6 +206,13 @@ const buildLegacyContentRouter = ({
         publicationDate: publicationDate || '',
         siteName: siteName || '',
         ...(pdfs !== undefined ? { pdfs: normalizePdfs(pdfs) } : {}),
+        /* A placement chosen on the save card. Three decisions, one card:
+           the piece arrives already filed and already placed, so it never
+           touches the Imbox as triage. Absent means home, which is what a
+           save has always meant. */
+        ...(normalizeArticlePlacement(placement) && normalizeArticlePlacement(placement) !== 'stream'
+          ? { placement: normalizeArticlePlacement(placement), placementAt: new Date() }
+          : {}),
         $setOnInsert: { highlights: [] }
       };
 

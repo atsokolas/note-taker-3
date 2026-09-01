@@ -3,6 +3,7 @@
 <head>
     <title>Note Taker</title>
     <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="note-taker-ui/src/styles/placement-switch.css">
 </head>
 <body>
 
@@ -68,6 +69,7 @@
         <div class="form-group">
             <label for="folderSelect">Choose a Folder:</label>
             <p id="filingSuggestion" class="filing-suggestion"></p>
+        <div id="placementMount" class="save-card__place"></div>
         <select id="folderSelect">
                 <option value="">Uncategorized</option>
             </select>
@@ -86,6 +88,6 @@
         <div id="statusMessage"></div>
     </div>
 
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js"></script>
 </body>
 </html>

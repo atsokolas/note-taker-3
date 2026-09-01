@@ -1,3 +1,5 @@
+import { mountSaveCardSwitch } from './save-card-switch.js';
+
 document.addEventListener("DOMContentLoaded", () => {
     const PASSWORD_MIN_LENGTH = 8;
 
@@ -48,6 +50,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveButton = document.getElementById("saveArticleButton");
     const statusMessage = document.getElementById("statusMessage");
     const folderSelect = document.getElementById("folderSelect");
+    /* The same switch the reader's app draws, from the same model and the
+       same stylesheet — three decisions on one card, so a saved piece never
+       touches the Imbox as triage. */
+    const placementSwitch = mountSaveCardSwitch(document.getElementById('placementMount'));
     const newFolderNameInput = document.getElementById("newFolderName");
     const createFolderButton = document.getElementById("createFolderButton");
     const logoutButton = document.getElementById("logoutButton");
@@ -417,7 +423,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 author: articleResponse.article.author,
                 publicationDate: articleResponse.article.publicationDate,
                 siteName: articleResponse.article.siteName,
-                folderId: folderSelect.value
+                folderId: folderSelect.value,
+                placement: placementSwitch.placement
             };
             // --- END MODIFIED PAYLOAD ---
             
