@@ -1,13 +1,4 @@
-import {
-  addDays,
-  askedBackLine,
-  KAIROS_EYEBROW,
-  KAIROS_SENTENCE,
-  nextMonday,
-  paperAskedBack,
-  pendingRemindOf,
-  remindPresets
-} from './kairosModel';
+import { KAIROS_EYEBROW, KAIROS_SENTENCE, addDays, askedBackLine, kairosSentence, nextMonday, paperAskedBack, pendingRemindOf, remindPresets } from './kairosModel';
 
 const NOW = new Date('2026-08-31T15:00:00');
 
@@ -54,5 +45,24 @@ describe('kairos', () => {
       { status: 'pending', itemType: 'article', itemId: 'a1', _id: 'q1' }
     ], 'a1')._id).toBe('q1');
     expect(pendingRemindOf([], 'a1')).toBeNull();
+  });
+});
+
+/* A promise that recurs remembers that it has fired before. Saying "You asked
+   for this back." every Tuesday for a year turns a kept promise into a
+   notification. */
+describe('a recurring promise', () => {
+  it('says it plainly the first time', () => {
+    expect(kairosSentence({ fired: 0 })).toBe('You asked for this back.');
+    expect(kairosSentence({})).toBe('You asked for this back.');
+  });
+
+  it('acknowledges the repeat from the second firing on', () => {
+    expect(kairosSentence({ fired: 1, recurring: true })).toBe('Again, as you asked.');
+    expect(kairosSentence({ fired: 9, recurring: true })).toBe('Again, as you asked.');
+  });
+
+  it('does not call a one-off a repeat, however many times it was rescheduled', () => {
+    expect(kairosSentence({ fired: 3, recurring: false })).toBe('You asked for this back.');
   });
 });

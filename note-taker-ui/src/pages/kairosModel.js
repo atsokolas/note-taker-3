@@ -9,6 +9,17 @@ const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 export const KAIROS_EYEBROW = 'καιρός';
 export const KAIROS_SENTENCE = 'You asked for this back.';
+
+/* The second firing of a weekly promise is not news, and pretending it is
+   turns a kept promise into a notification. The paper acknowledges the repeat
+   instead: same promise, still kept, and it knows you have seen it before.
+   A one-off stays "You asked for this back." however often it was pushed —
+   rescheduling is not recurrence. */
+export const KAIROS_AGAIN = 'Again, as you asked.';
+
+export const kairosSentence = ({ fired = 0, recurring = false } = {}) => (
+  recurring && Number(fired) > 0 ? KAIROS_AGAIN : KAIROS_SENTENCE
+);
 export const REMIND_WORD = 'Remind me';
 
 const atLocalHour = (date, hours = 9) => {

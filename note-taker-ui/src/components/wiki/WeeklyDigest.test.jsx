@@ -55,7 +55,7 @@ test('the week renders grouped by the page it happened to', async () => {
   });
   await renderDigest();
 
-  expect(await screen.findByRole('heading', { name: 'The week in your thinking' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'The weekend' })).toBeInTheDocument();
   expect(screen.getByText('Nvidia dossier')).toBeInTheDocument();
   expect(screen.getByText('A filing contradicted the margin claim.')).toBeInTheDocument();
   expect(screen.getByText('Transcript supports the pricing claim.')).toBeInTheDocument();

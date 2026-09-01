@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
-import WeeklyBrief from './pages/WeeklyBrief';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
@@ -700,7 +699,6 @@ function App() {
             <Route path="/mirror" element={<Navigate to="/judgment/mirror" replace />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
             {/* The week, gathered from marks the surfaces already carry. */}
-            <Route path="/week" element={<WeeklyBrief />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
             <Route path="/wiki/dossiers" element={<WikiFrontPage initialKind="investment" />} />
             {/* Contradiction as a view, not a tag: where the library

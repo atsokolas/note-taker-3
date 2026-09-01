@@ -118,6 +118,11 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
   const askedBack = renderAskedBackSection({ askedBack: briefing.askedBack, appBaseUrl });
   const returnPath = briefing.nextAction || null;
   const headline = lead?.title || 'Your Morning Paper';
+  /* The subject is the lead's first six words, or "Quiet night." on a morning
+     with no lead. A subject line that always reads the same is a subject line
+     nobody reads, and one that says "Your Morning Paper" says nothing about
+     this morning in particular. */
+  const subjectLine = emailSubject(lead?.title);
   const leadCopy = lead
     ? `${lead.page?.title || 'A watched page'} · ${lead.impactSummary || 'not yet analyzed — queued'}`
     : clean(briefing.summary || 'Your wiki is quiet today.');
@@ -141,7 +146,13 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
     askedBack.text,
     `Unsubscribe: ${unsubscribeUrl}`
   ].filter(Boolean).join('\n\n');
-  return { subject: clean(`Noeis Morning Paper — ${headline}`, 180), html, text };
+  return { subject: clean(subjectLine, 180), html, text };
+};
+
+/** The lead's first six words, or the quiet-night sign-off. */
+const emailSubject = (leadTitle = '') => {
+  const words = String(leadTitle || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  return words.length ? words.slice(0, 6).join(' ') : 'Quiet night.';
 };
 
 const briefingIsEmpty = (briefing = {}) => {
@@ -324,6 +335,7 @@ module.exports = {
   emailConfigurationStatus,
   signUnsubscribeToken,
   verifyUnsubscribeToken,
+  emailSubject,
   renderMorningPaperEmail,
   briefingIsEmpty,
   sendMorningPaperForUser,

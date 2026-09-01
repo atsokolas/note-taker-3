@@ -69,7 +69,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     verb: 'Keep',
     orientation: 'Read and maintain knowledge you have chosen to keep.',
     activePrefixes: ['/', '/wiki', '/paper'],
-    authenticatedPrefixes: ['/wiki', '/paper', '/today', '/week', '/onboarding'],
+    authenticatedPrefixes: ['/wiki', '/paper', '/today', '/onboarding'],
     match: ({ pathname = '' } = {}) => pathname === '/' || prefixMatch(pathname, ['/wiki', '/paper'])
   }),
   surface({
