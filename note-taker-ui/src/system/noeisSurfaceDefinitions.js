@@ -48,7 +48,7 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     navigationGroup: 'primary',
     verb: 'Read',
     orientation: 'Recover source material and understand where it came from.',
-    authenticatedPrefixes: ['/library', '/articles', '/all-highlights', '/tags', '/collections', '/views', '/search', '/trending', '/export']
+    authenticatedPrefixes: ['/library', '/articles', '/all-highlights', '/tags', '/collections', '/views', '/search', '/export']
   }),
   surface({
     id: 'surface.think',

@@ -1126,3 +1126,45 @@ body.noeis-editorial .library-page-shell .library-folder-name,
     animation: none;
   }
 }
+
+/* ── The shelf: the canon ──────────────────────────────────────────────────
+   A source you read, a page you built and a belief you hold stand as peers,
+   so the only thing distinguishing them is a mono eyebrow naming the kind.
+   Mono operates, serif reads: the kind and the dates are readouts, the title
+   is the thing itself. */
+
+.library-column__row-kind {
+  display: block;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Errata. The belief is struck, not removed, and never colored: retiring
+   something you held is a fact about the record, not an alarm. */
+.library-column__shelf li.is-retired .library-column__row-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.library-column__row-retired {
+  display: block;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+/* The canon signs itself. Memory and judgment, the two things a shelf is made
+   of — set quietly at the foot, never on a control. */
+.library-column__colophon {
+  margin: 1.6rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  text-align: center;
+}

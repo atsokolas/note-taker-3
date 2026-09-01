@@ -155,40 +155,6 @@ const buildAuthDiscoveryRouter = ({
     }
   });
 
-  router.get('/api/trending', authenticateToken, async (req, res) => {
-    try {
-      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-      const recommended = await Recommendation.aggregate([
-        { $match: { createdAt: { $gte: cutoff } } },
-        { $group: {
-          _id: "$articleUrl",
-          recommendationCount: { $sum: 1 },
-          articleTitle: { $first: "$articleTitle" }
-        } },
-        { $sort: { recommendationCount: -1 } },
-        { $limit: 10 }
-      ]);
-
-      const highlighted = await Article.aggregate([
-        { $unwind: '$highlights' },
-        { $match: { 'highlights.createdAt': { $gte: cutoff } } },
-        { $group: {
-          _id: '$_id',
-          title: { $first: '$title' },
-          count: { $sum: 1 }
-        } },
-        { $sort: { count: -1, title: 1 } },
-        { $limit: 10 }
-      ]);
-
-      res.status(200).json({ recommended, highlighted });
-    } catch (error) {
-      console.error("❌ Error fetching trending data:", error);
-      res.status(500).json({ error: "Failed to fetch trending." });
-    }
-  });
-
   return router;
 };
 

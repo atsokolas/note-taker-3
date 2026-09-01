@@ -6,6 +6,7 @@ import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder, setArticleEvergreen, setArticlePlacement } from '../api/articles';
 import { setFolderAsFeed } from '../api/folders';
 import { createQuestion } from '../api/questions';
+import { listWikiPages } from '../api/wiki';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -102,6 +103,10 @@ const Library = () => {
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
+  /* Kept pages and beliefs for the canon, or null until they have been read.
+     Null travels all the way to the shelf so it can stay silent rather than
+     announce an empty canon it has not looked at. */
+  const [keptPages, setKeptPages] = useState(null);
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
@@ -908,6 +913,25 @@ const Library = () => {
     if (!folder || isProceduralShelf(folder.name)) return null;
     return folder;
   }, [folderId, folders, scope]);
+  /* The canon is the only shelf that reaches outside the article store, so it
+     is the only one that fetches — and only while it is the shelf on screen. */
+  useEffect(() => {
+    if (scope !== 'kept') return undefined;
+    let cancelled = false;
+    setKeptPages(null);
+    listWikiPages({ scope: 'all' })
+      .then((pages) => {
+        if (cancelled) return;
+        setKeptPages((Array.isArray(pages) ? pages : []).filter(page => page?.evergreen));
+      })
+      .catch(() => {
+        // A shelf we could not read is not an empty shelf, so it keeps saying
+        // nothing rather than reporting a canon of none.
+        if (!cancelled) setKeptPages(null);
+      });
+    return () => { cancelled = true; };
+  }, [scope]);
+
   const keptCount = useMemo(
     () => libraryTotalsReady
       ? projectedShelfCounts?.keptArticles
@@ -1156,6 +1180,7 @@ const Library = () => {
               query={articleQuery}
               onQueryChange={handleArticleQueryChange}
               onSelectArticle={handleSelectArticle}
+              keptPages={keptPages}
               entering={columnEntering}
             />
           ) : (

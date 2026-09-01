@@ -84,7 +84,11 @@ const LibraryShelfNav = ({
      folders there is no cabinet to fold, and folding one would take the filing
      with it — the one thing that would give you folders in the first place. */
   const showCabinet = !narrow || cabinetOpen || scope === 'folder' || !folders.length;
-  const topics = narrow ? [] : (Array.isArray(feedTopics) ? feedTopics : []).filter((topic) => topic?.id && topic?.name);
+  /* Screened topics ride in the places strip at every width. Under 900px the
+     cabinet folds away, so blanking them here left a scroll with no door on a
+     phone — the strip is the only way in, which is exactly when it must
+     carry them. A topic with no id or no name is not a door and is dropped. */
+  const topics = (Array.isArray(feedTopics) ? feedTopics : []).filter((topic) => topic?.id && topic?.name);
 
   return (
     <RoomShelf

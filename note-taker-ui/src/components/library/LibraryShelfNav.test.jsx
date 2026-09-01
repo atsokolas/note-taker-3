@@ -207,10 +207,15 @@ describe('LibraryShelfNav', () => {
       expect(screen.queryByText(/Feed \(0\)/)).not.toBeInTheDocument();
     });
 
-    it('does not add topic rows above the reading on a phone', () => {
+    /* Reversed deliberately. This once asserted that a phone showed no topic
+       rows, on the reasoning that the strip should stay short. But under 900px
+       the cabinet folds away and the strip is the only door into a screened
+       folder, so the old rule left a scroll unreachable on a phone — short and
+       useless. The strip carries them at every width now. */
+    it('carries a screened topic on a phone, where it is the only door in', () => {
       setViewport(true);
       renderNav({ feedTopics: [{ id: 'news', name: 'Newsletters' }] });
-      expect(screen.queryByRole('button', { name: 'Newsletters' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Newsletters' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
     });
 
@@ -230,5 +235,47 @@ describe('LibraryShelfNav', () => {
       delete HTMLElement.prototype.animate;
       jest.restoreAllMocks();
     });
+  });
+});
+
+/* Under 900px the cabinet folds away, and the places strip at the top of the
+   Library column becomes the only door into a screened folder. Blanking the
+   topics there left a scroll with no way in on a phone. */
+describe('screened topics on a narrow viewport', () => {
+  const realMatchMedia = window.matchMedia;
+  afterEach(() => { window.matchMedia = realMatchMedia; });
+
+  const TOPICS = [
+    { id: 't1', name: 'Costco' },
+    { id: 't2', name: 'Macro' }
+  ];
+
+  it('carries screened topics in the places strip when the cabinet has folded', () => {
+    setViewport(true);
+    renderNav({ feedTopics: TOPICS });
+
+    expect(screen.getByRole('button', { name: /Costco/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Macro/ })).toBeInTheDocument();
+  });
+
+  it('keeps carrying them on a wide viewport, where they always worked', () => {
+    setViewport(false);
+    renderNav({ feedTopics: TOPICS });
+
+    expect(screen.getByRole('button', { name: /Costco/ })).toBeInTheDocument();
+  });
+
+  it('adds nothing to the strip when no folder is screened', () => {
+    setViewport(true);
+    renderNav({ feedTopics: [] });
+
+    expect(screen.queryByRole('button', { name: /Costco/ })).toBeNull();
+  });
+
+  it('ignores a topic with nothing to name it, rather than printing a blank door', () => {
+    setViewport(true);
+    renderNav({ feedTopics: [{ id: 't1', name: '' }, { id: '', name: 'Nameless' }] });
+
+    expect(screen.queryByRole('button', { name: /Nameless/ })).toBeNull();
   });
 });

@@ -59,7 +59,6 @@ import './styles/stitch-editorial.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
 
-const Trending = lazy(() => import('./pages/Trending'));
 const AllHighlights = lazy(() => import('./pages/AllHighlights'));
 const Search = lazy(() => import('./pages/Search'));
 const TagBrowser = lazy(() => import('./pages/TagBrowser'));
@@ -783,7 +782,6 @@ function App() {
             <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
-            <Route path="/trending" element={<Trending />} />
             <Route path="/export" element={<Export />} />
             {/* Redirect authenticated users away from auth pages */}
             <Route path="/login" element={<Navigate to="/" replace />} />
