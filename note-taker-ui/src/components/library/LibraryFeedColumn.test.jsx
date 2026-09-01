@@ -91,3 +91,29 @@ describe('LibraryFeedColumn', () => {
     jest.restoreAllMocks();
   });
 });
+
+/* Screening is a decision, so it leaves a date — Pass 1's item 8, which was
+   blocked until the cabinet's schema was in scope. */
+describe('the screening receipt', () => {
+  it('says the day this folder became a scroll', () => {
+    render(
+      <LibraryFeedColumn
+        folder={{ _id: 'f1', name: 'Costco', asFeed: true, asFeedAt: '2026-08-03T12:00:00.000Z' }}
+        folios={[]}
+        onScreen={jest.fn()}
+      />
+    );
+    expect(screen.getByText(/screened Aug 3/)).toBeInTheDocument();
+  });
+
+  it('says nothing for a folder screened before the product started recording it', () => {
+    render(
+      <LibraryFeedColumn
+        folder={{ _id: 'f1', name: 'Costco', asFeed: true, asFeedAt: null }}
+        folios={[]}
+        onScreen={jest.fn()}
+      />
+    );
+    expect(screen.queryByText(/screened/)).toBeNull();
+  });
+});

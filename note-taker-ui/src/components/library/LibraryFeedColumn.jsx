@@ -4,6 +4,7 @@ import { flySentenceInto } from '../../motion/columnMotion';
 import LibraryPiles from './LibraryPiles';
 import ScreenWord from './ScreenWord';
 import '../../styles/library-column.css';
+import { formatSurfaceDate } from '../../utils/dateDisplay';
 
 /*
  * An unrolled scroll for a topic you screened. Newest folio on top: title,
@@ -35,6 +36,13 @@ const LibraryFeedColumn = ({
         <p ref={nameRef} className="library-column__eyebrow">{name}</p>
         <h1 className="sr-only" id="library-feed-title">{name}</h1>
         <ScreenWord asFeed={Boolean(folder?.asFeed)} sentence={name} onScreen={onScreen} />
+        {/* Screening leaves a receipt: the day you decided this folder reads
+            as a scroll. Absent until there is a date, because a folder that
+            was screened before the product started recording it has no
+            honest day to show. */}
+        {folder?.asFeedAt ? (
+          <p className="library-feed__screened">{`screened ${formatSurfaceDate(folder.asFeedAt)}`}</p>
+        ) : null}
       </header>
 
       {error ? <p className="library-column__error" role="alert">{error}</p> : null}

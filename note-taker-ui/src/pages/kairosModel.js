@@ -20,7 +20,6 @@ export const KAIROS_AGAIN = 'Again, as you asked.';
 export const kairosSentence = ({ fired = 0, recurring = false } = {}) => (
   recurring && Number(fired) > 0 ? KAIROS_AGAIN : KAIROS_SENTENCE
 );
-export const REMIND_WORD = 'Remind me';
 
 const atLocalHour = (date, hours = 9) => {
   const next = new Date(date);

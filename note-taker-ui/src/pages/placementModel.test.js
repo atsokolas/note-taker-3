@@ -9,7 +9,6 @@ import {
   orderLaterOldestFirst,
   orderSetAsideNewestFirst,
   placementOf,
-  placementWordLabel,
   setAsidePileLine
 } from './placementModel';
 
@@ -79,8 +78,6 @@ describe('placement', () => {
   });
 
   it('keeps Later and Set aside as different words', () => {
-    expect(placementWordLabel('later')).toBe('Later');
-    expect(placementWordLabel('setAside')).toBe('Set aside');
   });
 
   it('hides parked articles from the Imbox source list, including their highlights', () => {

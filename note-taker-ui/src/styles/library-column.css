@@ -1205,3 +1205,14 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   text-underline-offset: 0.2em;
   cursor: pointer;
 }
+
+/* The screening receipt: the day this folder became a scroll. Mono, quiet,
+   and absent when there is no honest day to print. */
+.library-feed__screened {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: lining-nums tabular-nums;
+}

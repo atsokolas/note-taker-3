@@ -122,11 +122,21 @@ const Recommendation = mongoose.model('Recommendation', recommendationSchema);
 const folderSchema = new mongoose.Schema({
   name: { type: String, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  asFeed: { type: Boolean, default: false }
+  /* The cabinet is a tree. Null is a top-level drawer, which is what every
+     folder was until now — the field is additive and every existing folder
+     keeps its place without a migration. Same shape notebookFolderSchema has
+     used since it was written. */
+  parentFolderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null },
+  asFeed: { type: Boolean, default: false },
+  /* When this folder was screened, so the masthead of a scroll can leave a
+     receipt. updatedAt is last-touched and would date the receipt from an
+     unrelated rename; a decision needs the day the decision was made. */
+  asFeedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 folderSchema.index({ name: 1, userId: 1 }, { unique: true });
 folderSchema.index({ userId: 1, name: 1 });
+folderSchema.index({ userId: 1, parentFolderId: 1, name: 1 });
 
 const Folder = mongoose.model('Folder', folderSchema);
 

@@ -334,11 +334,16 @@ const buildLegacyContentRouter = ({
         return res.status(400).json({ error: 'A filing tray cannot be a feed.' });
       }
       folder.asFeed = asFeed;
+      /* Screening is a decision, so it leaves a date. Unscreening clears it
+         rather than leaving a stale one behind — a folder that is no longer a
+         scroll has no screening to date. */
+      folder.asFeedAt = asFeed ? new Date() : null;
       await folder.save();
       return res.status(200).json({
         _id: String(folder._id),
         name: folder.name,
-        asFeed: Boolean(folder.asFeed)
+        asFeed: Boolean(folder.asFeed),
+        asFeedAt: folder.asFeedAt ? folder.asFeedAt.toISOString() : null
       });
     } catch (error) {
       if (error.name === 'CastError') {
