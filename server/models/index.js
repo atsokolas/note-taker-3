@@ -1792,11 +1792,23 @@ tourStateSchema.index({ userId: 1 }, { unique: true });
 
 const TourState = mongoose.model('TourState', tourStateSchema);
 
+const returnQueueFiredSchema = new mongoose.Schema({
+  title: { type: String, default: '', trim: true },
+  href: { type: String, default: '', trim: true },
+  reason: { type: String, default: '', trim: true },
+  fromPlacement: { type: String, default: '', trim: true },
+  home: { type: String, default: 'imbox', trim: true },
+  fromAt: { type: Date, default: null }
+}, { _id: false });
+
 const returnQueueEntrySchema = new mongoose.Schema({
   itemType: { type: String, required: true, trim: true },
   itemId: { type: String, required: true, trim: true },
   reason: { type: String, default: '', trim: true },
   dueAt: { type: Date, default: null },
+  cadence: { type: String, enum: ['weekly', 'monthly'], default: null },
+  lastFiredOn: { type: String, default: '', trim: true },
+  fired: { type: returnQueueFiredSchema, default: null },
   status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
   completedAt: { type: Date, default: null },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }

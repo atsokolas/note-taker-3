@@ -105,6 +105,59 @@
   color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
 }
 
+.source-decision--remind.is-active {
+  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
+}
+
+.remind-word {
+  display: contents;
+}
+
+.remind-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  flex-basis: 100%;
+}
+
+.remind-strip__choice,
+.remind-strip__day {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.remind-strip__choice:hover,
+.remind-strip__choice:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.remind-strip__day {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  border-bottom: 0;
+  cursor: default;
+}
+
+.remind-strip__day input[type="date"] {
+  min-width: 11ch;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
 .source-decision.is-filing,
 .evergreen-toggle.is-filing {
   animation: evergreen-file 520ms cubic-bezier(0.16, 1, 0.3, 1);

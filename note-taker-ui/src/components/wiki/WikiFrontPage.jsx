@@ -20,6 +20,7 @@ import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
+import MorningAskedBack from './MorningAskedBack';
 import MorningConsequence from './MorningConsequence';
 import MorningVerdict from './MorningVerdict';
 import { countWikiClaims, countWikiSources } from './wikiPageMetrics';
@@ -979,6 +980,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 onRetired={() => setBriefing((previous) => (
                   previous ? { ...previous, claimCheckIn: null } : previous
                 ))}
+              />
+              <MorningAskedBack
+                askedBack={briefing?.askedBack}
+                pulse={pulseTarget === 'asked-back'}
               />
             </>
           ) : null}

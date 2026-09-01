@@ -30,6 +30,25 @@ assert.match(rendered.html, /Unsubscribe instantly/i);
 assert.match(rendered.text, /CLAIM CHECK-IN/);
 assert.strictEqual(briefingIsEmpty({ counts: {} }), true);
 assert.strictEqual(briefingIsEmpty(briefing), false);
+assert.strictEqual(briefingIsEmpty({
+  askedBack: [{ title: 'The Costco 10-K', href: '/library?articleId=a1' }]
+}), false);
+const askedBackMail = renderMorningPaperEmail({
+  briefing: {
+    askedBack: [{
+      title: 'The Costco 10-K',
+      href: '/library?articleId=a1',
+      fromPlacement: 'setAside',
+      reason: 'the margin note on returns'
+    }]
+  },
+  unsubscribeUrl: 'https://www.noeis.io/api/morning-paper/unsubscribe?token=x'
+});
+assert.match(askedBackMail.html, /καιρός/);
+assert.match(askedBackMail.html, /You asked for this back/);
+assert.match(askedBackMail.html, /The Costco 10-K/);
+assert.doesNotMatch(askedBackMail.html, /Reminders/);
+assert.match(askedBackMail.text, /You asked for this back/);
 
 const movement = {
   id: 'contradiction:p1:c1:e1',

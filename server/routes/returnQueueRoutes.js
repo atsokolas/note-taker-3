@@ -1,4 +1,5 @@
 const express = require('express');
+const { normalizeCadence } = require('../services/kairosFireService');
 
 const buildReturnQueueRouter = ({
   mongoose,
@@ -20,13 +21,20 @@ const buildReturnQueueRouter = ({
         itemType = '',
         itemId = '',
         reason = '',
-        dueAt = null
+        dueAt = null,
+        cadence = null
       } = req.body || {};
       const safeItemType = normalizeReturnQueueItemType(itemType);
       const safeItemId = String(itemId || '').trim();
       const safeReason = String(reason || '').trim().slice(0, 280);
       if (!safeItemType || !safeItemId) {
         return res.status(400).json({ error: 'itemType and itemId are required.' });
+      }
+      let safeCadence = null;
+      try {
+        safeCadence = normalizeCadence(cadence);
+      } catch (cadenceError) {
+        return res.status(cadenceError.statusCode || 400).json({ error: cadenceError.message });
       }
       const parsedDueAt = parseDueAt(dueAt);
       if (dueAt !== null && dueAt !== undefined && dueAt !== '' && !parsedDueAt) {
@@ -36,11 +44,43 @@ const buildReturnQueueRouter = ({
       if (!item) {
         return res.status(404).json({ error: 'Item not found for this user.' });
       }
+      if (safeItemType === 'article') {
+        const pending = await ReturnQueueEntry.findOne({
+          userId,
+          itemType: 'article',
+          itemId: safeItemId,
+          status: 'pending'
+        });
+        if (pending) {
+          pending.reason = safeReason;
+          pending.dueAt = parsedDueAt;
+          pending.cadence = safeCadence;
+          pending.lastFiredOn = '';
+          pending.fired = null;
+          pending.completedAt = null;
+          await pending.save();
+          trackEvent({
+            event: EVENT_NAMES.REVISIT_SCHEDULED,
+            userId,
+            requestId: req.requestId,
+            properties: {
+              itemType: safeItemType,
+              itemId: safeItemId,
+              dueAt: parsedDueAt ? parsedDueAt.toISOString() : '',
+              reason: safeReason,
+              cadence: safeCadence || ''
+            }
+          });
+          return res.status(200).json({ ...pending.toObject(), item });
+        }
+      }
       const created = await ReturnQueueEntry.create({
         itemType: safeItemType,
         itemId: safeItemId,
         reason: safeReason,
         dueAt: parsedDueAt,
+        cadence: safeCadence,
+        lastFiredOn: '',
         status: 'pending',
         userId
       });
@@ -52,7 +92,8 @@ const buildReturnQueueRouter = ({
           itemType: safeItemType,
           itemId: safeItemId,
           dueAt: parsedDueAt ? parsedDueAt.toISOString() : '',
-          reason: safeReason
+          reason: safeReason,
+          cadence: safeCadence || ''
         }
       });
       res.status(201).json({ ...created.toObject(), item });
@@ -71,6 +112,12 @@ const buildReturnQueueRouter = ({
       }
       const now = new Date();
       const query = { userId };
+      const itemType = normalizeReturnQueueItemType(req.query.itemType);
+      const itemId = String(req.query.itemId || '').trim();
+      if (itemType && itemId) {
+        query.itemType = itemType;
+        query.itemId = itemId;
+      }
       if (filter === 'due') {
         query.status = 'pending';
         query.$or = [{ dueAt: null }, { dueAt: { $lte: now } }];

@@ -22,6 +22,9 @@ jest.mock('../hooks/useMotionPreferences', () => ({
   usePrefersReducedMotion: jest.fn(() => false),
   useFinePointer: jest.fn(() => true)
 }));
+jest.mock('./RemindWord', () => ({ articleId }) => (
+  articleId ? <button type="button">Remind me</button> : null
+));
 
 describe('ArticleReader', () => {
   beforeEach(() => {
@@ -425,6 +428,20 @@ describe('Later and Set aside', () => {
     expect(aside).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(aside);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream'));
+  });
+
+  it('sits Remind me in the same cluster as Keep', async () => {
+    render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
+        highlights={[]}
+        onToggleEvergreen={jest.fn()}
+        onTogglePlacement={jest.fn()}
+      />
+    );
+    const remind = await screen.findByRole('button', { name: 'Remind me' });
+    const keep = screen.getByRole('button', { name: 'Keep for good' });
+    expect(remind.closest('.article-reader-decisions')).toBe(keep.parentElement);
   });
 });
 
