@@ -1,6 +1,6 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import LibraryColumn from './LibraryColumn';
 
 /* The shelf reaches outside the article store, so every render here says what
@@ -139,5 +139,43 @@ describe('the canon', () => {
     shelf({ articles, pages: null, loading: false });
     expect(titlesOf()).toHaveLength(3);
     expect(screen.queryByText(/things you decided to keep/)).toBeNull();
+  });
+});
+
+/* Letting go is a decision, not a dialog. */
+describe('the let-go receipt', () => {
+  const receipt = { id: 'a1', title: 'The Bitter Lesson', at: '2026-09-01T12:00:00.000Z' };
+
+  it('names what went, and keeps the way back in reach', () => {
+    shelf({ articles, letGo: receipt, onUndoLetGo: () => {} });
+    expect(screen.getByText('You let go of The Bitter Lesson.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep it again' })).toBeInTheDocument();
+  });
+
+  it('asks nothing before letting go — there is no dialog to dismiss', () => {
+    shelf({ articles, letGo: receipt, onUndoLetGo: () => {} });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('button', { name: /are you sure/i })).toBeNull();
+  });
+
+  it('hands the way back the thing that went', () => {
+    const undo = jest.fn();
+    shelf({ articles, letGo: receipt, onUndoLetGo: undo });
+    fireEvent.click(screen.getByRole('button', { name: 'Keep it again' }));
+    expect(undo).toHaveBeenCalledWith(receipt);
+  });
+
+  it('says nothing when nothing has been let go', () => {
+    shelf({ articles });
+    expect(screen.queryByText(/You let go of/)).toBeNull();
+  });
+
+  it('belongs to the shelf, not to every list', () => {
+    render(
+      <MemoryRouter>
+        <LibraryColumn shelf="all" articles={articles} allArticles={articles} letGo={receipt} entering={false} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText(/You let go of/)).toBeNull();
   });
 });

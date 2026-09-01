@@ -1178,3 +1178,27 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
+
+/* The let-go receipt: a sentence and the word back, at the foot of the shelf.
+   Mono, because it is a receipt, and quiet, because nothing has gone wrong. */
+.library-column__let-go {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  margin: 1.2rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.library-column__let-go button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}

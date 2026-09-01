@@ -7,6 +7,7 @@ import { moveArticleToFolder, setArticleEvergreen, setArticlePlacement } from '.
 import { setFolderAsFeed } from '../api/folders';
 import { createQuestion } from '../api/questions';
 import { listWikiPages } from '../api/wiki';
+import { forgetLetGo, readLetGo, rememberLetGo } from './letGoReceipt';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -107,6 +108,8 @@ const Library = () => {
      Null travels all the way to the shelf so it can stay silent rather than
      announce an empty canon it has not looked at. */
   const [keptPages, setKeptPages] = useState(null);
+  /* The last thing let go of, while the way back is still open. */
+  const [letGo, setLetGo] = useState(() => readLetGo());
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
@@ -729,6 +732,7 @@ const Library = () => {
      and the reader's own list has to reflect it without a refetch, because the
      control settles the moment it is pressed. */
   const handleToggleEvergreen = useCallback(async (articleId, evergreen) => {
+    const before = allArticles.find(item => String(item._id) === String(articleId));
     const saved = await setArticleEvergreen(articleId, evergreen);
     const next = Boolean(saved?.evergreen ?? evergreen);
     setAllArticles(current => current.map(item => (
@@ -736,8 +740,24 @@ const Library = () => {
     )));
     libraryRoom.adjustShelfCount?.('keptArticles', next ? 1 : -1);
     libraryRoom.refresh?.();
+    /* Letting go of a vow leaves a receipt rather than a dialog. Keeping
+       something again clears it — the shelf should not narrate a decision the
+       reader has already taken back. */
+    if (!next) {
+      const receipt = { id: String(articleId), title: before?.title || '', at: new Date().toISOString() };
+      rememberLetGo(receipt);
+      setLetGo(readLetGo());
+    } else {
+      forgetLetGo();
+      setLetGo(null);
+    }
     return saved;
-  }, [libraryRoom, setAllArticles]);
+  }, [allArticles, libraryRoom, setAllArticles]);
+
+  const handleUndoLetGo = useCallback(async (receipt) => {
+    if (!receipt?.id) return;
+    await handleToggleEvergreen(receipt.id, true);
+  }, [handleToggleEvergreen]);
 
   const handleTogglePlacement = useCallback(async (articleId, placement) => {
     const known = mergeArticles(
@@ -1181,6 +1201,8 @@ const Library = () => {
               onQueryChange={handleArticleQueryChange}
               onSelectArticle={handleSelectArticle}
               keptPages={keptPages}
+              letGo={letGo}
+              onUndoLetGo={handleUndoLetGo}
               entering={columnEntering}
             />
           ) : (

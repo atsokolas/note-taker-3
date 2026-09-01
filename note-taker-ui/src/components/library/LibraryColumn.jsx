@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { describeLetGo } from '../../pages/letGoReceipt';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { buildLibraryColumn } from './libraryColumnModel';
 import {
@@ -67,6 +68,9 @@ const LibraryColumn = ({
      arrives tells the reader their canon is empty when we simply had not
      looked. */
   keptPages = null,
+  /* What you let go of in the last seven days, and the word back. */
+  letGo = null,
+  onUndoLetGo,
   entering = true
 }) => {
   const { continueItem, rows } = useMemo(
@@ -197,6 +201,17 @@ const LibraryColumn = ({
 
       {/* The canon signs itself, and only when it holds something. Memory and
           judgment — the two things the shelf is made of. */}
+      {/* A vow undone says so, and stays undoable, for seven days. No dialog
+          asked whether you were sure: you had already decided. */}
+      {dedicated?.canon && letGo ? (
+        <p className="library-column__let-go" role="status">
+          <span>{describeLetGo(letGo)}</span>
+          {onUndoLetGo ? (
+            <button type="button" onClick={() => onUndoLetGo(letGo)}>Keep it again</button>
+          ) : null}
+        </p>
+      ) : null}
+
       {dedicated?.canon && shelfRows.length ? (
         <p className="library-column__colophon" aria-hidden="true">μνήμη · κρίσις</p>
       ) : null}
