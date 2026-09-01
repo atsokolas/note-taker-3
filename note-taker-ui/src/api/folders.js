@@ -1,6 +1,6 @@
 import api from '../api';
 import { getAuthHeaders } from '../hooks/useAuthHeaders';
-import { clearCached, fetchWithCache } from '../utils/cache';
+import { clearCached, clearCachedPrefix, fetchWithCache } from '../utils/cache';
 
 /**
  * @typedef {Object} Folder
@@ -8,6 +8,7 @@ import { clearCached, fetchWithCache } from '../utils/cache';
  * @property {string} name
  * @property {string} [createdAt]
  * @property {string} [updatedAt]
+ * @property {boolean} [asFeed]
  * @property {string | null} [parentFolderId]
  * @property {number} [sortOrder]
  * @property {number} [articleCount]
@@ -26,3 +27,17 @@ export const getFolders = async ({ force = false } = {}) => fetchWithCache(
   },
   { force, ttlMs: FOLDERS_CACHE_TTL_MS }
 );
+
+export const setFolderAsFeed = async (folderId, asFeed) => {
+  const res = await api.patch(
+    `/folders/${folderId}/feed`,
+    { asFeed: Boolean(asFeed) },
+    getAuthHeaders()
+  );
+  clearFoldersCache();
+  clearCachedPrefix('articles:');
+  clearCachedPrefix('library-room:');
+  clearCachedPrefix('library-relevance:');
+  return res.data;
+};
+

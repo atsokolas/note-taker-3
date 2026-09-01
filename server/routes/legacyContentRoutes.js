@@ -3,6 +3,8 @@ const { serializeHighlightWithArticle } = require('../utils/highlightUtils');
 const { deriveImportedTitle } = require('../services/importTitleService');
 const { createWikiSourceEvent } = require('../services/wikiSourceEventService');
 const { processWikiSourceEvent } = require('../services/wikiMaintenanceOrchestrator');
+const { isProceduralShelf } = require('../lib/proceduralShelf');
+const { firstGraphOf } = require('../lib/feedHome');
 
 const applyDefaultArticleVisibility = (match, { includeSuppressed = false } = {}) => {
   if (includeSuppressed) return match;
@@ -318,6 +320,35 @@ const buildLegacyContentRouter = ({
     }
   });
 
+  router.patch('/folders/:id/feed', authenticateToken, async (req, res) => {
+    try {
+      const asFeed = req.body?.asFeed;
+      if (typeof asFeed !== 'boolean') {
+        return res.status(400).json({ error: 'asFeed must be true or false.' });
+      }
+      const folder = await Folder.findOne({ _id: req.params.id, userId: req.user.id });
+      if (!folder) {
+        return res.status(404).json({ error: 'Folder not found or you do not have permission to update it.' });
+      }
+      if (asFeed && isProceduralShelf(folder.name)) {
+        return res.status(400).json({ error: 'A filing tray cannot be a feed.' });
+      }
+      folder.asFeed = asFeed;
+      await folder.save();
+      return res.status(200).json({
+        _id: String(folder._id),
+        name: folder.name,
+        asFeed: Boolean(folder.asFeed)
+      });
+    } catch (error) {
+      if (error.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid folder ID format.' });
+      }
+      console.error('Error screening folder as feed:', error);
+      return res.status(500).json({ error: 'Failed to update this shelf.' });
+    }
+  });
+
   router.get('/get-articles', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;
@@ -342,7 +373,8 @@ const buildLegacyContentRouter = ({
         query = '',
         sort = 'recent',
         limit,
-        includeSuppressed = ''
+        includeSuppressed = '',
+        includePreview = ''
       } = req.query;
       let match = { userId };
       const normalizedScope = String(scope || 'all').trim();
@@ -363,6 +395,7 @@ const buildLegacyContentRouter = ({
       match = applyDefaultArticleVisibility(match, {
         includeSuppressed: String(includeSuppressed).toLowerCase() === 'true'
       });
+      const preview = String(includePreview).toLowerCase() === 'true';
 
       const rows = await Article.aggregate([
         { $match: match },
@@ -388,7 +421,8 @@ const buildLegacyContentRouter = ({
             placementAt: 1,
             placementReason: 1,
             tags: 1,
-            highlightCount: { $size: { $ifNull: ['$highlights', []] } }
+            highlightCount: { $size: { $ifNull: ['$highlights', []] } },
+            ...(preview ? { content: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, 4000] } } : {})
           }
         },
         { $sort: buildArticleSort(sort) },
@@ -412,6 +446,7 @@ const buildLegacyContentRouter = ({
                     {
                       _id: '$$folder._id',
                       name: '$$folder.name',
+                      asFeed: { $eq: ['$$folder.asFeed', true] },
                       createdAt: '$$folder.createdAt',
                       updatedAt: '$$folder.updatedAt'
                     },
@@ -425,7 +460,15 @@ const buildLegacyContentRouter = ({
         { $project: { folderDoc: 0 } }
       ]);
 
-      res.json(rows);
+      const payload = preview
+        ? rows.map((row) => {
+          const firstGraph = firstGraphOf(row.content);
+          const { content, ...rest } = row;
+          return { ...rest, firstGraph };
+        })
+        : rows;
+
+      res.json(payload);
     } catch (err) {
       console.error("❌ Failed to fetch article summaries:", err);
       res.status(500).json({ error: "Failed to fetch articles" });
@@ -458,7 +501,7 @@ const buildLegacyContentRouter = ({
           'createdAt',
           'updatedAt'
         ].join(' '))
-        .populate('folder', '_id name')
+        .populate('folder', '_id name asFeed')
         .lean();
       if (!article) {
         return res.status(404).json({ error: "Article not found or you do not have permission to view it." });

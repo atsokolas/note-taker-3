@@ -54,6 +54,7 @@ const LibraryShelfNav = ({
   keptCount,
   laterCount,
   setAsideCount,
+  feedTopics = [],
   query = '',
   onQueryChange,
   onSelectScope,
@@ -68,6 +69,7 @@ const LibraryShelfNav = ({
      folders there is no cabinet to fold, and folding one would take the filing
      with it — the one thing that would give you folders in the first place. */
   const showCabinet = !narrow || cabinetOpen || scope === 'folder' || !folders.length;
+  const topics = narrow ? [] : (Array.isArray(feedTopics) ? feedTopics : []).filter((topic) => topic?.id && topic?.name);
 
   return (
     <RoomShelf
@@ -91,6 +93,16 @@ const LibraryShelfNav = ({
             {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>
+        {topics.map((topic) => (
+          <li key={topic.id} className="library-shelf__feed">
+            <RoomShelfButton
+              active={scope === 'feed' && folderId === topic.id}
+              onClick={() => onSelectFolder?.(topic.id)}
+            >
+              <span>{topic.name}</span>
+            </RoomShelfButton>
+          </li>
+        ))}
         {/* Directly under everything, because it is a cut of everything and
             not a folder among folders: what you decided to hold for life.
 
@@ -180,7 +192,8 @@ const LibraryShelfNav = ({
                 const isNeedsReview = folder.name?.trim().toLowerCase() === 'needs review';
                 const active = isNeedsReview
                   ? scope === 'all' && sourceView === 'needs_review'
-                  : scope === 'folder' && folderId === folder._id;
+              : (scope === 'folder' && folderId === folder._id)
+                || (scope === 'feed' && folderId === folder._id);
                 return (
                   <li key={folder._id}>
                     <RoomShelfButton

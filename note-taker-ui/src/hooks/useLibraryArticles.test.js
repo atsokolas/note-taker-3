@@ -58,4 +58,26 @@ describe('useLibraryArticles', () => {
     expect(imbox.result.current.articles.map((item) => item._id)).toEqual(['open']);
     expect(aside.result.current.articles.map((item) => item._id)).toEqual(['aside']);
   });
+
+  it('keeps feed-home sources out of the Imbox and on their own scroll', async () => {
+    getArticles.mockResolvedValue([
+      { _id: 'open', title: 'In the stream', createdAt: '2026-08-20T00:00:00.000Z' },
+      {
+        _id: 'letter',
+        title: 'Weekly letter',
+        folder: { _id: 'news', name: 'Newsletters', asFeed: true },
+        createdAt: '2026-08-19T00:00:00.000Z',
+        firstGraph: 'A finished sentence about power.'
+      }
+    ]);
+
+    const imbox = renderHook(() => useLibraryArticles({ scope: 'all' }));
+    const feed = renderHook(() => useLibraryArticles({ scope: 'feed', folderId: 'news' }));
+
+    await waitFor(() => expect(imbox.result.current.articles.map((item) => item._id)).toEqual(['open']));
+    expect(feed.result.current.articles.map((item) => item._id)).toEqual(['letter']);
+    expect(getArticles).toHaveBeenCalledWith(expect.objectContaining({
+      includePreview: true
+    }));
+  });
 });

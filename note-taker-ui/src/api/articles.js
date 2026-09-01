@@ -29,7 +29,8 @@ export const getArticles = async ({
   sort = 'recent',
   cursor,
   limit,
-  includeSuppressed = false
+  includeSuppressed = false,
+  includePreview = false
 } = {}) => {
   const params = new URLSearchParams();
   if (scope) params.set('scope', scope);
@@ -39,6 +40,7 @@ export const getArticles = async ({
   if (cursor) params.set('cursor', cursor);
   if (limit) params.set('limit', String(limit));
   if (includeSuppressed) params.set('includeSuppressed', 'true');
+  if (includePreview) params.set('includePreview', 'true');
   const suffix = params.toString();
   const path = `/api/articles${suffix ? `?${suffix}` : ''}`;
   return fetchWithCache(

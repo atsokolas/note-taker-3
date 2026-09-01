@@ -132,6 +132,7 @@ const server = app.listen(0, '127.0.0.1', async () => {
       suppressedArticles: 0
     });
     assert.deepStrictEqual(room.body.shelves.piles, { later: [], setAside: [] });
+    assert.deepStrictEqual(room.body.shelves.feedTopics, []);
 
     const invalidCursor = await request(
       '/api/library/relevance?view=recent&sourceScope=mixed&cursor=not-a-cursor'

@@ -1,4 +1,5 @@
 import {
+  isFeedArticle,
   isImboxArticle,
   isImboxSource,
   isParked,
@@ -23,6 +24,28 @@ describe('placement', () => {
     expect(isParked({ placement: 'later' })).toBe(true);
     expect(isImboxArticle({ placement: 'setAside' })).toBe(false);
     expect(isImboxArticle({ title: 'In the Imbox' })).toBe(true);
+  });
+
+  it('treats an unparked source in a screened folder as feed-home, not Imbox', () => {
+    const newsletter = {
+      title: 'Weekly letter',
+      folder: { _id: 'news', name: 'Newsletters', asFeed: true }
+    };
+    expect(isFeedArticle(newsletter)).toBe(true);
+    expect(isImboxArticle(newsletter)).toBe(false);
+    expect(isImboxArticle({
+      ...newsletter,
+      placement: 'later'
+    })).toBe(false);
+    expect(isFeedArticle({
+      ...newsletter,
+      placement: 'later'
+    })).toBe(false);
+    expect(isImboxArticle({
+      title: 'Costco filed as work',
+      folder: { _id: 'work', name: 'Costco', asFeed: false }
+    })).toBe(true);
+    expect(isFeedArticle({ title: 'Unfiled' })).toBe(false);
   });
 
   it('orders Later oldest owed first, Set aside newest on top', () => {
@@ -69,6 +92,16 @@ describe('placement', () => {
     expect(isImboxSource({ type: 'article', id: 'parked' }, articlesById)).toBe(false);
     expect(isImboxSource({ type: 'highlight', id: 'h1', parentId: 'parked' }, articlesById)).toBe(false);
     expect(isImboxSource({ type: 'note', id: 'n1' }, articlesById)).toBe(true);
+  });
+
+  it('hides feed-home articles from the Imbox source list, including their highlights', () => {
+    const articlesById = new Map([
+      ['feed', { _id: 'feed', folder: { asFeed: true } }],
+      ['open', { _id: 'open', folder: { asFeed: false } }]
+    ]);
+    expect(isImboxSource({ type: 'article', id: 'open' }, articlesById)).toBe(true);
+    expect(isImboxSource({ type: 'article', id: 'feed' }, articlesById)).toBe(false);
+    expect(isImboxSource({ type: 'highlight', id: 'h1', parentId: 'feed' }, articlesById)).toBe(false);
   });
 
   it('merges pile members onto known articles without duplicating them', () => {

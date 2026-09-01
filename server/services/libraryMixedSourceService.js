@@ -6,6 +6,7 @@ const {
   needsReview,
   reviewExpired
 } = require('./reviewTriageService');
+const { feedFolderIdsFrom } = require('../lib/feedHome');
 
 const MIXED_SOURCE_SCAN_LIMIT = 1000;
 // The default Library landing page must stay responsive for large imported
@@ -367,7 +368,8 @@ const buildMixedLibraryRelevancePage = async ({
     WikiPage,
     WikiPageVisit,
     Connection,
-    ReferenceEdge
+    ReferenceEdge,
+    Folder
   } = models;
   if (!Article?.find || !NotebookEntry?.find) {
     return {
@@ -542,6 +544,12 @@ const buildMixedLibraryRelevancePage = async ({
     debugOnly: { $ne: true },
     archived: { $ne: true }
   };
+  const feedFolders = Folder?.find
+    ? await awaitQuery(Folder.find({ userId, asFeed: true }), { select: '_id name asFeed' })
+    : [];
+  const feedFolderIds = feedFolderIdsFrom((Array.isArray(feedFolders) ? feedFolders : []).map(plain));
+  const notFeedFolder = feedFolderIds.length ? { folder: { $nin: feedFolderIds } } : {};
+  const feedFolderIdSet = new Set(feedFolderIds.map(id));
   // Review is a ranked triage surface, not a request to hydrate every
   // highlight nested inside eighty imported articles. Keep both lightweight
   // Library doors on the same bounded highlight projection.
@@ -557,13 +565,14 @@ const buildMixedLibraryRelevancePage = async ({
   });
   const articleQuery = exhaustiveReview ? {
     ...visibleQuery,
+    ...notFeedFolder,
     $or: [
       ...(reviewIdsByType.article.length ? [{ _id: { $in: reviewIdsByType.article } }] : []),
       ...(reviewIdsByType.highlight.length
         ? [{ 'highlights._id': { $in: reviewIdsByType.highlight } }]
         : [])
     ]
-  } : visibleQuery;
+  } : { ...visibleQuery, ...notFeedFolder };
   const noteQuery = exhaustiveReview
     ? { ...visibleQuery, _id: { $in: reviewIdsByType.note } }
     : visibleQuery;
@@ -574,8 +583,8 @@ const buildMixedLibraryRelevancePage = async ({
   const [articleRows, noteRows, articleTotal, noteTotal, highlightRows] = await Promise.all([
     hasReviewArticles ? awaitQuery(Article.find(articleQuery), {
       select: boundedHighlights
-        ? '_id userId title url author publicationDate siteName importMeta hiddenFromHome debugOnly archived createdAt updatedAt'
-        : '_id userId title url author publicationDate siteName importMeta highlights._id highlights.text highlights.note highlights.importMeta highlights.createdAt hiddenFromHome debugOnly archived createdAt updatedAt',
+        ? '_id userId title url author publicationDate siteName importMeta folder hiddenFromHome debugOnly archived createdAt updatedAt'
+        : '_id userId title url author publicationDate siteName importMeta folder highlights._id highlights.text highlights.note highlights.importMeta highlights.createdAt hiddenFromHome debugOnly archived createdAt updatedAt',
       sort: { createdAt: -1, _id: -1 },
       limit: sourceScanLimit
     }) : [],
@@ -592,20 +601,26 @@ const buildMixedLibraryRelevancePage = async ({
     boundedHighlights && persistedHighlightIds.length
       ? Article.aggregate((exhaustiveReview
         ? buildTargetedHighlightAggregationPipeline({
-          match: includeSuppressed ? { userId: aggregateUserId } : {
-            userId: aggregateUserId,
-            hiddenFromHome: { $ne: true },
-            debugOnly: { $ne: true },
-            archived: { $ne: true }
+          match: {
+            ...(includeSuppressed ? { userId: aggregateUserId } : {
+              userId: aggregateUserId,
+              hiddenFromHome: { $ne: true },
+              debugOnly: { $ne: true },
+              archived: { $ne: true }
+            }),
+            ...notFeedFolder
           },
           highlightIds: persistedHighlightIds
         })
         : buildHighlightAggregationPipeline({
-          match: includeSuppressed ? { userId: aggregateUserId } : {
+          match: {
+            ...(includeSuppressed ? { userId: aggregateUserId } : {
           userId: aggregateUserId,
           hiddenFromHome: { $ne: true },
           debugOnly: { $ne: true },
           archived: { $ne: true }
+            }),
+            ...notFeedFolder
         },
         // Complete review ranking happens after connection signals are joined.
         // Pre-sorting every highlight cannot change that order and turns a
@@ -620,6 +635,7 @@ const buildMixedLibraryRelevancePage = async ({
     .filter(value => (
       ownedBy(value, userId)
       && (includeSuppressed || visible(value))
+      && !feedFolderIdSet.has(id(value.folder))
       && (!exhaustiveReview
         || reviewIdsByType.article.includes(id(value))
         || reviewIdsByType.highlightParent.includes(id(value))

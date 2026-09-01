@@ -65,7 +65,8 @@ describe('Library relevance API', () => {
           setAsideArticles: 0,
           suppressedArticles: 1
         },
-        piles: { later: [], setAside: [] }
+        piles: { later: [], setAside: [] },
+        feedTopics: []
       }
     };
     api.get.mockResolvedValue({ data: payload });
@@ -102,6 +103,29 @@ describe('Library relevance API', () => {
             setAsideArticles: 0,
             suppressedArticles: 0
           }
+        }
+      }
+    });
+    await expect(getLibraryRoom()).rejects.toThrow(/room response is malformed/i);
+  });
+
+  it('rejects a room response without feed topics', async () => {
+    api.get.mockResolvedValue({
+      data: {
+        ...mixedPage(),
+        room: 'library',
+        shelves: {
+          folders: [],
+          counts: {
+            articles: 0,
+            rawArticles: 0,
+            unfiledArticles: 0,
+            keptArticles: 0,
+            laterArticles: 0,
+            setAsideArticles: 0,
+            suppressedArticles: 0
+          },
+          piles: { later: [], setAside: [] }
         }
       }
     });
