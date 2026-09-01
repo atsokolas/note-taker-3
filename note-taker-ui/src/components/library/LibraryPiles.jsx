@@ -43,7 +43,9 @@ const usePileLanding = (articles, listRef) => {
     if (!pile) return undefined;
     const timer = window.setTimeout(() => pile.classList.remove('is-warm'), WARM_MS);
     return () => window.clearTimeout(timer);
-  }, [articles]);
+    // listRef arrives as an argument rather than from useRef here, so the hook
+    // rules cannot know it is stable. Naming it is both true and free.
+  }, [articles, listRef]);
 };
 
 const PileRow = ({ article, onSelect, onDone }) => {
