@@ -7,6 +7,7 @@ const http = require('http');
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 
 const {
   Article,
@@ -74,6 +75,19 @@ const listen = (app) => new Promise((resolve) => {
 const close = (server) => new Promise((resolve, reject) => {
   server.close((error) => (error ? reject(error) : resolve()));
 });
+
+const dropAndVerifyDatabase = async (mongoUri) => {
+  await mongoose.disconnect();
+  const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 10000 });
+  try {
+    await client.connect();
+    const database = client.db();
+    await database.dropDatabase();
+    return (await database.listCollections({}, { nameOnly: true }).toArray()).length;
+  } finally {
+    await client.close();
+  }
+};
 
 const authenticate = ({ ownerId, foreignId }) => (req, res, next) => {
   const token = clean(req.headers.authorization).replace(/^Bearer\s+/i, '');
@@ -285,9 +299,7 @@ const runAcceptance = async ({ mongoUri, outputDir = OUTPUT_DIR } = {}) => {
     };
   } finally {
     if (server) await close(server);
-    await mongoose.connection.db.dropDatabase();
-    const remainingCollections = (await mongoose.connection.db.listCollections().toArray()).length;
-    await mongoose.disconnect();
+    const remainingCollections = await dropAndVerifyDatabase(mongoUri);
     report.cleanup = remainingCollections === 0
       ? 'disposable database dropped; zero collections remain'
       : `${remainingCollections} collection(s) remain`;
@@ -328,6 +340,7 @@ module.exports = {
   DATABASE_PREFIX,
   assertDisposableDatabaseUri,
   buildExactLibraryPath,
+  dropAndVerifyDatabase,
   databaseNameFromUri,
   parseArgs,
   runAcceptance
