@@ -244,6 +244,53 @@ describe('Library agent rail', () => {
     expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
   });
 
+  it('puts Later, Set aside, and Kept at the top of the Library column', () => {
+    renderLibrary();
+
+    const places = screen.getByRole('navigation', { name: 'Library places' });
+    expect(within(places).getByRole('link', { name: 'Later' }))
+      .toHaveAttribute('href', '/library?scope=later');
+    expect(within(places).getByRole('link', { name: 'Set aside' }))
+      .toHaveAttribute('href', '/library?scope=set-aside');
+    expect(within(places).getByRole('link', { name: 'Kept' }))
+      .toHaveAttribute('href', '/library?scope=kept');
+    expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Feed \(0\)/)).not.toBeInTheDocument();
+  });
+
+  it('names a screened topic in the Library places, never the word Feed', () => {
+    useLibraryRoom.mockReturnValue({
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      sources: [],
+      coverage: null,
+      counts: {},
+      folders: [],
+      shelfCounts: {
+        articles: 2,
+        rawArticles: 2,
+        unfiledArticles: 2,
+        keptArticles: 0,
+        laterArticles: 0,
+        setAsideArticles: 0,
+        suppressedArticles: 0
+      },
+      piles: { later: [], setAside: [] },
+      feedTopics: [{ id: 'news', name: 'Newsletters' }],
+      nextCursor: null,
+      hasMore: false,
+      loadMore: jest.fn()
+    });
+
+    renderLibrary();
+
+    expect(screen.getByRole('link', { name: 'Newsletters' }))
+      .toHaveAttribute('href', '/library?scope=feed&topic=news');
+    expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
+  });
+
   it('starts the filing classification flow from the reading room lead action', async () => {
     renderLibrary();
 

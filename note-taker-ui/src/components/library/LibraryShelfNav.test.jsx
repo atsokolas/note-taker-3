@@ -124,6 +124,13 @@ describe('LibraryShelfNav', () => {
       expect(screen.queryByRole('button', { name: /shelves$/ })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
     });
+
+    it('keeps Later and Set aside findable even when they are empty', () => {
+      renderNav({ laterCount: 0, setAsideCount: 0, keptCount: 0 });
+      expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Set aside' })).toBeInTheDocument();
+      expect(screen.queryByText(/Later \(0\)/)).not.toBeInTheDocument();
+    });
   });
 
   describe('the kept shelf', () => {

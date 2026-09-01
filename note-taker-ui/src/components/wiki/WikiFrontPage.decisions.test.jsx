@@ -12,6 +12,21 @@ jest.mock('../../api/knowledgeMovements', () => ({
   getWeeklyMovements: jest.fn().mockResolvedValue({ groups: [], quiet: true })
 }));
 jest.mock('../../api/wiki', () => ({ listWikiPages: jest.fn() }));
+jest.mock('../../api/libraryRelevance', () => ({
+  getLibraryRoom: jest.fn().mockResolvedValue({
+    sources: [],
+    counts: {},
+    coverage: {},
+    hasMore: false,
+    nextCursor: null,
+    shelves: {
+      folders: [],
+      counts: {},
+      piles: { later: [], setAside: [] },
+      feedTopics: []
+    }
+  })
+}));
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
   armReadingWatch: jest.fn(),
