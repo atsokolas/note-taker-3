@@ -4,6 +4,7 @@ import PassageDoor from '../reader/PassageDoorView';
 import SemanticRelatedPanel from '../retrieval/SemanticRelatedPanel';
 import ReferencePullIn from '../references/ReferencePullIn';
 import { createProfilerLogger } from '../../utils/perf';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const FEED_EXPANDED_KEY = 'library.context.highlightsFeed.expanded';
 const RELATED_EXPANDED_KEY = 'library.context.moreContext.expanded';
@@ -62,7 +63,7 @@ const LibraryContext = ({
   };
 
   const summarizeHighlight = (highlight) => {
-    const text = String(highlight?.text || '').replace(/\s+/g, ' ').trim();
+    const text = normalizeSpaces(highlight?.text);
     if (text.length <= 130) return text;
     return `${text.slice(0, 127)}...`;
   };

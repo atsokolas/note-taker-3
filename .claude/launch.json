@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "noeis-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "note-taker-ui",
+      "port": 3000,
+      "env": { "BROWSER": "none", "REACT_APP_API_BASE_URL": "https://note-taker-3-unrg.onrender.com" }
+    }
+  ]
+}

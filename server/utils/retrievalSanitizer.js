@@ -1,3 +1,4 @@
+const { wordBoundaryTrim } = require('../lib/editorialText');
 const TRACKING_URL_RE = /https?:\/\/[^\s]+(?:\?|&)(?:utm_[^\s&]+|ref=[^\s&]+)/gi;
 const TRACKING_HOST_RE = /https?:\/\/(?:www\.)?(?:substack\.com|beehiiv\.com|convertkit\.com)\/[^\s]+/gi;
 
@@ -35,7 +36,7 @@ const sanitizeRetrievalSnippet = (value = '', { maxLength = 220 } = {}) => {
   const cleaned = stripTrackingUrls(String(value || '').replace(/<[^>]*>/g, ' '));
   if (!cleaned || isBoilerplateRetrievalSentence(cleaned)) return '';
   const limit = Math.max(40, Number(maxLength) || 220);
-  return cleaned.length > limit ? `${cleaned.slice(0, limit - 1).trim()}…` : cleaned;
+  return wordBoundaryTrim(cleaned, { maxLength: limit });
 };
 
 const pickSubstantiveSentence = (value = '') => {

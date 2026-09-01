@@ -8,13 +8,10 @@ import { formatEditorialEvidenceHtml } from './formatEditorialEvidenceHtml';
 import { AGENT_DISPLAY_NAME } from '../../../constants/agentIdentity';
 import AgentTicker from '../../agent/AgentTicker';
 import { EditorialSideRailCollapsible } from '../EditorialSideRail';
+import { wordBoundaryTrim } from '../../../utils/editorialText';
 
 const clean = (value) => String(value || '').trim();
-const truncate = (value = '', limit = 220) => {
-  const safe = clean(value);
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+const truncate = (value = '', limit = 220) => wordBoundaryTrim(value, { maxLength: limit });
 const stripHtml = (value = '') => clean(String(value || '').replace(/<[^>]+>/g, ' '));
 const formatStreamMessage = (message) => {
   const role = clean(message?.role);

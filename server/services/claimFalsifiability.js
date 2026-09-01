@@ -1,3 +1,4 @@
+const { wordBoundaryTrim } = require('../lib/editorialText');
 /**
  * AT-427 — optional falsifiability on a claim.
  *
@@ -6,10 +7,7 @@
  * The Skeptical Partner may propose criteria; proposing is not a write.
  */
 
-const clean = (value = '', limit = 800) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 800) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const parseHorizon = (value) => {
   if (value === undefined || value === null || value === '') return null;

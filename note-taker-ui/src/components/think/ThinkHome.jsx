@@ -6,6 +6,7 @@ import { AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import AgentTicker from '../agent/AgentTicker';
 import AgentPresence from '../agent/AgentPresence';
 import { searchConnectableItems } from '../../api/connections';
+import { displayWikiPageTitle } from '../wiki/wikiRepoDossierModel';
 
 const formatRelativeTime = (value) => {
   if (!value) return '';
@@ -404,7 +405,7 @@ const buildPulseRows = ({
       action: 'wiki',
       pageId: page._id || page.id || '',
       label: 'Wiki page',
-      title: page.title || 'Untitled wiki page',
+      title: displayWikiPageTitle(page),
       meta: page.updatedAt || page.lastReviewedAt
         ? `settled ${formatRelativeTime(page.updatedAt || page.lastReviewedAt)}`
         : 'available as settled knowledge'

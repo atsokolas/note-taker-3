@@ -45,6 +45,8 @@ import {
 } from './wikiVisitTracker';
 import { collectWikiText, countWikiSources, countWikiWords } from './wikiPageMetrics';
 import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const LAST_PAGE_KEY = 'noeis.wiki.workspace.last_page_id';
 const CHAT_WIDTH_KEY = 'noeis.wiki.workspace.chat_width';
@@ -103,9 +105,7 @@ const scheduleAfterFirstPaint = (callback) => {
 };
 
 const clean = (value = '') => String(value || '').trim();
-const labelText = (value = '') => clean(value)
-  .replace(/[_-]+/g, ' ')
-  .replace(/\b\w/g, character => character.toUpperCase());
+const labelText = (value = '') => humanizeLabel(value);
 
 const messageId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const BUILD_FAILURE_TEXT_RE = /^Failed to build a wiki page (?:for "[^"]+"|from .+)\.$/;
@@ -1535,7 +1535,7 @@ const WikiReferencePalette = ({
     const wikiRows = (pages || []).map(page => ({
       key: `wiki:${page._id || page.id}`,
       kind: 'wiki',
-      title: page.title || 'Untitled wiki page',
+      title: displayWikiPageTitle(page),
       detail: `${labelText(page.pageType || 'wiki page')} · ${Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources`,
       reference: referenceFromWikiPage(page)
     }));
@@ -2866,7 +2866,7 @@ const WikiWorkspaceChat = ({
           <div className="wiki-workspace-chat__palette" aria-label="Wiki page references">
             {showWikiMentions.map(page => (
               <button type="button" key={page._id || page.id} onClick={() => applyWikiMention(page)}>
-                <strong>{page.title || 'Untitled wiki page'}</strong>
+                <strong>{displayWikiPageTitle(page)}</strong>
                 <span>@wiki:{page._id || page.id}</span>
               </button>
             ))}

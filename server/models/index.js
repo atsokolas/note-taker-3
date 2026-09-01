@@ -186,6 +186,12 @@ const articleSchema = new mongoose.Schema({
      the human sets and no agent may. */
   evergreen: { type: Boolean, default: false },
   evergreenAt: { type: Date, default: null },
+  /* Placement is the Hey pile. Keep is forever and orthogonal. Later is owed
+     a move; set aside is at hand this week; stream is home. The agent may not
+     write this. */
+  placement: { type: String, enum: ['stream', 'later', 'setAside'], default: 'stream', index: true },
+  placementAt: { type: Date, default: null },
+  placementReason: { type: String, default: '', trim: true },
   hiddenFromHome: { type: Boolean, default: false },
   debugOnly: { type: Boolean, default: false },
   archived: { type: Boolean, default: false }
@@ -193,6 +199,7 @@ const articleSchema = new mongoose.Schema({
 
 articleSchema.index({ url: 1, userId: 1 }, { unique: true });
 articleSchema.index({ userId: 1, evergreen: 1, updatedAt: -1 });
+articleSchema.index({ userId: 1, placement: 1, placementAt: -1 });
 articleSchema.index({ userId: 1, createdAt: -1 });
 articleSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 articleSchema.index({ userId: 1, updatedAt: -1 });
@@ -1019,7 +1026,7 @@ const wikiExternalWatchesSchema = new mongoose.Schema({
 
 const wikiPageSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  title: { type: String, required: true, trim: true, default: 'Untitled Wiki Page' },
+  title: { type: String, required: true, trim: true, default: 'Untitled wiki page' },
   slug: { type: String, required: true, trim: true },
   pageType: { type: String, enum: WIKI_PAGE_TYPES, default: 'topic', set: normalizeWikiPageTypeForModel },
   status: { type: String, enum: WIKI_PAGE_STATUSES, default: 'draft', index: true },

@@ -1,3 +1,4 @@
+const { wordBoundaryTrim } = require('../lib/editorialText');
 /**
  * wikiBacklinkService — for a given target wiki page, find every other
  * page in the user's wiki that mentions the target's title and return
@@ -39,10 +40,7 @@ const safeFind = async (Model, query = {}, limit = 600) => {
   }
 };
 
-const truncate = (value = '', limit = 200) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const truncate = (value = '', limit = 200) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 /**
  * Build the regex used for matching the target title in candidate

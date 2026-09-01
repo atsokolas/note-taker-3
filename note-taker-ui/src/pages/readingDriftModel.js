@@ -1,3 +1,5 @@
+import { normalizeSpaces } from '../utils/editorialText';
+
 /*
  * Where your reading is going.
  *
@@ -34,11 +36,10 @@ const PROCEDURAL_SHELVES = [
 ];
 
 export const isProceduralShelf = (name = '') => {
-  const value = clean(name).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const value = normalizeSpaces(name).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   return PROCEDURAL_SHELVES.includes(value);
 };
 
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const list = value => (Array.isArray(value) ? value : []);
 const time = value => new Date(value || 0).getTime();
 
@@ -52,10 +53,10 @@ const time = value => new Date(value || 0).getTime();
  */
 export const topicsOf = (article = {}) => {
   const topics = [];
-  const folder = clean(article?.folder?.name);
+  const folder = normalizeSpaces(article?.folder?.name);
   if (folder && !isProceduralShelf(folder)) topics.push(folder);
   list(article?.tags).forEach((tag) => {
-    const name = clean(tag?.name || tag);
+    const name = normalizeSpaces(tag?.name || tag);
     if (!name || isProceduralShelf(name)) return;
     if (!topics.some(item => item.toLowerCase() === name.toLowerCase())) topics.push(name);
   });
@@ -79,11 +80,11 @@ const periodFor = (index, now) => {
 };
 
 const workOf = (article = {}) => ({
-  id: clean(article?._id),
-  title: clean(article?.title) || 'Untitled source',
-  author: clean(article?.author),
-  publication: clean(article?.siteName),
-  url: clean(article?.url),
+  id: normalizeSpaces(article?._id),
+  title: normalizeSpaces(article?.title) || 'Untitled source',
+  author: normalizeSpaces(article?.author),
+  publication: normalizeSpaces(article?.siteName),
+  url: normalizeSpaces(article?.url),
   savedAt: article?.createdAt || article?.savedAt || null
 });
 

@@ -4,8 +4,13 @@ import { MemoryRouter } from 'react-router-dom';
 import * as router from 'react-router-dom';
 import Judgment from './Judgment';
 import { getCompanyDossierJudgmentReview, getJudgmentLibraryEvidence, getWikiPage, listWikiSourceEvents, updateWikiPage } from '../api/wiki';
+import { recordClaimFalsifiability } from '../api/dailyLoop';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
+
+jest.mock('../api/dailyLoop', () => ({
+  recordClaimFalsifiability: jest.fn(() => Promise.resolve({}))
+}));
 
 jest.mock('../api/wiki', () => ({
   askWikiPage: jest.fn(),
@@ -161,5 +166,32 @@ describe('a line that does not land', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/was not saved/);
     expect(screen.getByRole('radio', { name: 'Why' })).toBeChecked();
     expect(input).toHaveValue('Process still loses half the bets twice.');
+  });
+});
+
+describe('a saved line is never held hostage', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(router, 'useParams').mockReturnValue({ pageId: 'p1' });
+    getWikiPage.mockResolvedValue(page());
+    listWikiSourceEvents.mockResolvedValue([]);
+    getCompanyDossierJudgmentReview.mockResolvedValue(null);
+    getJudgmentLibraryEvidence.mockResolvedValue({ claim: '', terms: [], candidates: [] });
+  });
+
+  it('settles the line even when recording its criteria fails', async () => {
+    updateWikiPage.mockImplementation(async (_id, updates) => ({ ...page(), judgment: updates.judgment }));
+    recordClaimFalsifiability.mockRejectedValue(new Error('offline'));
+    renderCase();
+    await screen.findByLabelText('Title');
+    choose('Change');
+    const input = screen.getByLabelText('What would change your mind?');
+    fireEvent.change(input, { target: { value: 'Two quarters of falling margin.' } });
+    fireEvent.blur(input);
+
+    // The sentence is committed, so the composer must let go of it.
+    await waitFor(() => expect(input).toHaveValue(''));
+    expect(await screen.findByText('Two quarters of falling margin.')).toBeInTheDocument();
+    expect(recordClaimFalsifiability).toHaveBeenCalled();
   });
 });

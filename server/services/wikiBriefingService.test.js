@@ -8,6 +8,7 @@ const {
 const {
   collectRecentlyUpdatedPages,
   collectDriftingPages,
+  describeDriftWait,
   buildAliveness,
   buildFallbackSummary,
   isFreshBriefingCache,
@@ -918,5 +919,27 @@ describe('wikiBriefingService', () => {
       await expect(buildWikiBriefing({ models: { WikiPage: fakeModel([]) }, now: NOW }))
         .rejects.toThrow(/userId/);
     });
+  });
+});
+
+describe('describeDriftWait', () => {
+  it('leads with the count while the queue is still news', () => {
+    expect(describeDriftWait({ driftSignals: 5, waitingDays: 0 })).toBe('5 drift signals queued');
+    expect(describeDriftWait({ driftSignals: 1, waitingDays: 1 })).toBe('1 drift signal queued');
+  });
+
+  it('leads with the wait once the queue is a debt', () => {
+    expect(describeDriftWait({ driftSignals: 5, waitingDays: 18 }))
+      .toBe('waiting 18 days · 5 drift signals queued');
+  });
+
+  it('turns over exactly at the aged threshold', () => {
+    expect(describeDriftWait({ driftSignals: 2, waitingDays: 1 })).toBe('2 drift signals queued');
+    expect(describeDriftWait({ driftSignals: 2, waitingDays: 2 })).toBe('waiting 2 days · 2 drift signals queued');
+  });
+
+  it('survives missing and malformed input', () => {
+    expect(describeDriftWait()).toBe('0 drift signals queued');
+    expect(describeDriftWait({ driftSignals: -3, waitingDays: 'x' })).toBe('0 drift signals queued');
   });
 });

@@ -21,6 +21,7 @@ import {
   resolveOpenNoteId
 } from './thinkNotesModel';
 import '../styles/think-notes.css';
+import { plainTextFrom } from '../utils/editorialText';
 
 // Think.
 //
@@ -118,7 +119,7 @@ const ThinkNotes = () => {
     const blocks = Array.isArray(entry?.blocks)
       ? entry.blocks.map(block => String(block?.text || '').trim()).filter(Boolean).join(' ')
       : '';
-    return blocks || String(entry?.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return blocks || plainTextFrom(entry?.content);
   }, [entry]);
 
   const saveEntry = useCallback(async (payload) => {

@@ -21,6 +21,8 @@ import {
   resolveHighlightsForIntent
 } from '../utils/highlightToThinkingModel';
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
+import { displayWikiPageTitle } from './wiki/wikiRepoDossierModel';
+import { normalizeSpaces } from '../utils/editorialText';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -57,7 +59,7 @@ const scoreLocalMatch = (label = '', query = '') => {
 };
 
 export const parseWikiBuildCommand = (value = '') => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     /^turn\s+(?:my\s+)?highlights?\s+(?:on|about)\s+(.+?)\s+into\s+(?:a\s+)?wiki\s+page\.?$/i,
@@ -79,7 +81,7 @@ export const parseWikiBuildCommand = (value = '') => {
 };
 
 export const parseHighlightRetrieveIntent = (value = '') => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     /^find(?:\s+the)?\s+highlight\s+I\s+saved\s+(?:about|on)\s+(.+?)\.?$/i,
@@ -104,7 +106,7 @@ export const parseHighlightRetrieveIntent = (value = '') => {
 };
 
 export const parseLibraryFilingReviewIntent = (value = '') => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     /^review(?:\s+my)?\s+filing\s+suggestions?\.?$/i,
@@ -133,7 +135,7 @@ const cleanCompareTopic = (value = '') => String(value || '')
   .trim();
 
 export const parseWikiCompareCommand = (value = '') => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     /^compare(?:\s+my)?\s+(?:notes|pages|wiki\s+pages|wikis|thinking)\s+(?:on|about)\s+(.+?)\s+(?:and|with|vs\.?|versus)\s+(.+?)\.?$/i,
@@ -157,7 +159,7 @@ export const parseWikiCompareCommand = (value = '') => {
 };
 
 export const parseWikiTemporalCommand = (value = '') => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const text = normalizeSpaces(value);
   if (!text) return null;
   const patterns = [
     /^what\s+changed\s+(?:in\s+my\s+thinking\s+)?(?:on|about)\s+(.+?)(?:\s+(?:over|in|during)\s+the\s+last\s+(.+?))?\.?$/i,
@@ -386,7 +388,7 @@ const CommandPalette = ({ open, onClose }) => {
     try {
       const page = await createWikiPage(buildWikiCreatePayload({
         type: seed ? 'search' : 'wiki_index',
-        title: seed || 'Untitled Wiki Page',
+        title: seed || 'Untitled wiki page',
         text: commandSourceText || seed,
         label: commandSourceText || seed || 'Command palette'
       }));
@@ -880,7 +882,7 @@ const CommandPalette = ({ open, onClose }) => {
         const pageId = page._id || page.id;
         return pageId ? {
           type: 'Wiki',
-          label: page.title || 'Untitled wiki page',
+          label: displayWikiPageTitle(page),
           path: `/wiki/workspace?page=${pageId}`
         } : null;
       })

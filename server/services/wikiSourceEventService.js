@@ -1,12 +1,10 @@
 const mongoose = require('mongoose');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const SOURCE_TYPES = new Set(['article', 'highlight', 'notebook', 'concept', 'question', 'memory', 'external']);
 const EVENT_TYPES = new Set(['created', 'updated', 'deleted', 'imported', 'synced']);
 
-const trim = (value = '', limit = 1000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
-};
+const trim = (value = '', limit = 1000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const normalizeObjectId = (value) => {
   const id = String(value || '').trim();

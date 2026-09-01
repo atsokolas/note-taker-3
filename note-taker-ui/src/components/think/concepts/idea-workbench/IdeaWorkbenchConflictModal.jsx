@@ -1,16 +1,13 @@
 import React from 'react';
 import { Button, QuietButton, SectionHeader, SurfaceCard, TagChip } from '../../../../components/ui';
+import { wordBoundaryTrim } from '../../../../utils/editorialText';
 
 const stripHtml = (value = '') => String(value || '')
   .replace(/<[^>]+>/g, ' ')
   .replace(/\s+/g, ' ')
   .trim();
 
-const truncate = (value = '', limit = 180) => {
-  const safe = String(value || '').trim();
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+const truncate = (value = '', limit = 180) => wordBoundaryTrim(value, { maxLength: limit });
 
 const countByZone = (cards = [], zone) => cards.filter(card => card.zone === zone).length;
 

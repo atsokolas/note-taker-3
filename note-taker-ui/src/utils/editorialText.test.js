@@ -1,4 +1,4 @@
-import { sentenceBoundaryTrim } from './editorialText';
+import { sentenceBoundaryTrim, wordBoundaryTrim } from './editorialText';
 
 describe('editorialText', () => {
   it('keeps a complete sentence under the budget', () => {
@@ -22,5 +22,44 @@ describe('editorialText', () => {
     const exhibitA = 'Use these traces before editing because repo bugs usually cross UI, API, service, persistence, and render boundaries… WikiRepoCreateComposer, createRepoWikiFromGitHub, POST /api/wiki/pages/from-github… debugging only the v…';
     expect(sentenceBoundaryTrim(exhibitA, { maxLength: 80, fallback: '' })).toBe('');
     expect(sentenceBoundaryTrim(exhibitA, { maxLength: 80, fallback: '' })).not.toMatch(/the v…$/);
+  });
+
+  describe('wordBoundaryTrim', () => {
+    it('never splits a word — the defect T6 exists to kill', () => {
+      const trimmed = wordBoundaryTrim('debugging only the very last boundary case', { maxLength: 22 });
+      expect(trimmed).toBe('debugging only the…');
+      expect(trimmed).not.toMatch(/\bv…$/);
+    });
+
+    it('lands on a clause boundary when one falls late in the budget', () => {
+      expect(wordBoundaryTrim('CoreWeave is a leveraged time-to-capacity business, converting scarce accelerators', { maxLength: 60 }))
+        .toBe('CoreWeave is a leveraged time-to-capacity business…');
+    });
+
+    it('ignores a clause boundary that would throw away most of the budget', () => {
+      expect(wordBoundaryTrim('Yes, the rest of this sentence carries all of the meaning worth keeping', { maxLength: 40 }))
+        .toBe('Yes, the rest of this sentence carries…');
+    });
+
+    it('renders in full when the text already fits', () => {
+      expect(wordBoundaryTrim('short enough', { maxLength: 40 })).toBe('short enough');
+    });
+
+    it('keeps a whole word that ends exactly on the budget', () => {
+      expect(wordBoundaryTrim('alpha beta gamma', { maxLength: 10 })).toBe('alpha beta…');
+    });
+
+    it('collapses whitespace before measuring', () => {
+      expect(wordBoundaryTrim('  alpha   beta   gamma  ', { maxLength: 10 })).toBe('alpha beta…');
+    });
+
+    it('hard-cuts only an unbroken token with no boundary to find', () => {
+      expect(wordBoundaryTrim('supercalifragilisticexpialidocious', { maxLength: 10 })).toBe('supercalif…');
+    });
+
+    it('returns empty for empty input', () => {
+      expect(wordBoundaryTrim('', { maxLength: 10 })).toBe('');
+      expect(wordBoundaryTrim(null, { maxLength: 10 })).toBe('');
+    });
   });
 });

@@ -12,6 +12,7 @@ import {
 import { DEFAULT_HIGHLIGHT_COLOR, HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
 import PassageDoor from '../reader/PassageDoorView';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const ITEM_TYPES = [
   { value: 'note', label: 'Note' },
@@ -22,7 +23,7 @@ const ITEM_TYPES = [
 const summarize = (text, max = 170) => {
   const raw = String(text || '');
   const firstLine = raw.split('\n').find(line => line.trim()) || '';
-  const clean = firstLine.replace(/\s+/g, ' ').trim();
+  const clean = normalizeSpaces(firstLine);
   if (!clean) return 'No text';
   if (clean.length <= max) return clean;
   return `${clean.slice(0, max).trim()}…`;

@@ -8,10 +8,7 @@ const DEFAULT_EDGAR_FORMS = ['10-K', '10-Q', '8-K', '13F-HR'];
 const DEFAULT_SEC_USER_AGENT = 'Noeis research maintenance contact@noeis.io';
 const DEFAULT_EDGAR_WATCH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
-const trim = (value = '', limit = 1000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
-};
+const trim = (value = '', limit = 1000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const normalizeTicker = (value = '') => String(value || '')
   .trim()
@@ -574,3 +571,4 @@ module.exports = {
   armEdgarWatchForPage
 };
 const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
+const { wordBoundaryTrim } = require('../lib/editorialText');

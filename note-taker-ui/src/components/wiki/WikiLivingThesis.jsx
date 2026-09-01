@@ -5,9 +5,10 @@ import {
   updateWikiPage
 } from '../../api/wiki';
 import { useSystemStatusControls } from '../../system/SystemStatusContext';
+import { humanizeLabel } from '../../utils/humanizeLabel';
 
 const clone = value => JSON.parse(JSON.stringify(value || {}));
-const labelFor = value => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+const labelFor = value => humanizeLabel(value);
 const dateInput = value => {
   if (!value) return '';
   const date = new Date(value);

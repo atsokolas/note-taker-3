@@ -9,6 +9,8 @@
 //   2. When a sentence leads somewhere, it is the same sentence when it gets
 //      there — it moves, it is not replaced by a copy of itself.
 
+import { normalizeSpaces } from '../utils/editorialText';
+
 const ENTER_MS = 220;
 const ENTER_CURVE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
@@ -39,7 +41,7 @@ export const resetFirstPaint = () => staggered.clear();
 let handoff = null;
 
 export const handOffSentence = (text, element) => {
-  const sentence = String(text || '').replace(/\s+/g, ' ').trim();
+  const sentence = normalizeSpaces(text);
   if (!sentence || !element?.getBoundingClientRect) return;
   const rect = element.getBoundingClientRect();
   handoff = {
@@ -64,7 +66,7 @@ export const clearSentenceHandoff = () => { handoff = null; };
 export const flySentenceInto = (node, text) => {
   const claimed = handoff;
   if (!node || !claimed) return false;
-  const sentence = String(text || '').replace(/\s+/g, ' ').trim();
+  const sentence = normalizeSpaces(text);
   if (!sentence || sentence !== claimed.sentence) return false;
   // A handoff older than a moment belongs to a navigation that already
   // happened; flying from a stale rect would look like a glitch.

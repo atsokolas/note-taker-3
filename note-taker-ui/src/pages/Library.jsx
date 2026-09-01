@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
-import { moveArticleToFolder, setArticleEvergreen } from '../api/articles';
+import { moveArticleToFolder, setArticleEvergreen, setArticlePlacement } from '../api/articles';
 import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
@@ -28,6 +28,7 @@ import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
 import { librarySubject } from '../components/library/libraryColumnModel';
+import { mergeArticles, placementOf } from './placementModel';
 import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryColumn from '../components/library/LibraryColumn';
@@ -710,6 +711,43 @@ const Library = () => {
     return saved;
   }, [libraryRoom, setAllArticles]);
 
+  const handleTogglePlacement = useCallback(async (articleId, placement) => {
+    const known = mergeArticles(
+      allArticles,
+      libraryRoom.piles?.later,
+      libraryRoom.piles?.setAside,
+      selectedArticle ? [selectedArticle] : []
+    );
+    const previousArticle = known.find((item) => String(item._id || item.id) === String(articleId)) || {};
+    const previous = placementOf(previousArticle);
+    const saved = await setArticlePlacement(articleId, placement);
+    const next = saved?.placement || placement;
+    const stamp = Object.prototype.hasOwnProperty.call(saved || {}, 'placementAt')
+      ? saved.placementAt
+      : (next === 'stream' ? null : new Date().toISOString());
+    const updated = {
+      ...previousArticle,
+      _id: articleId,
+      placement: next,
+      placementAt: stamp,
+      placementReason: saved?.placementReason ?? ''
+    };
+    setAllArticles((current) => {
+      const found = current.some((item) => String(item._id) === String(articleId));
+      if (!found) return current.concat(updated);
+      return current.map((item) => (String(item._id) === String(articleId) ? { ...item, ...updated } : item));
+    });
+    libraryRoom.upsertPileArticle?.(updated, next);
+    if (previous === 'stream' && next !== 'stream') libraryRoom.adjustShelfCount?.('articles', -1);
+    if (previous !== 'stream' && next === 'stream') libraryRoom.adjustShelfCount?.('articles', 1);
+    if (previous === 'later') libraryRoom.adjustShelfCount?.('laterArticles', -1);
+    if (next === 'later') libraryRoom.adjustShelfCount?.('laterArticles', 1);
+    if (previous === 'setAside') libraryRoom.adjustShelfCount?.('setAsideArticles', -1);
+    if (next === 'setAside') libraryRoom.adjustShelfCount?.('setAsideArticles', 1);
+    libraryRoom.refresh?.();
+    return saved;
+  }, [allArticles, libraryRoom, selectedArticle, setAllArticles]);
+
   const handleAskLibrarian = useCallback((highlight) => {
     const prompt = buildLibrarianSelectionPrompt(highlight);
     if (!prompt) return;
@@ -808,13 +846,31 @@ const Library = () => {
      highlight scopes still open the older cabinet views — behind the reading
      rather than in front of it. */
   /* Kept reads like the shelf, because it is the shelf — a narrower one. */
-  const isKeptShelf = !isReadingView && scope === 'kept';
+  const isDedicatedShelf = !isReadingView && ['kept', 'later', 'set-aside'].includes(scope);
   const keptCount = useMemo(
     () => libraryTotalsReady
       ? projectedShelfCounts?.keptArticles
         ?? allArticles.filter(item => item?.evergreen).length
       : undefined,
     [allArticles, libraryTotalsReady, projectedShelfCounts]
+  );
+  const laterCount = useMemo(
+    () => libraryTotalsReady
+      ? projectedShelfCounts?.laterArticles
+        ?? allArticles.filter(item => placementOf(item) === 'later').length
+      : undefined,
+    [allArticles, libraryTotalsReady, projectedShelfCounts]
+  );
+  const setAsideCount = useMemo(
+    () => libraryTotalsReady
+      ? projectedShelfCounts?.setAsideArticles
+        ?? allArticles.filter(item => placementOf(item) === 'setAside').length
+      : undefined,
+    [allArticles, libraryTotalsReady, projectedShelfCounts]
+  );
+  const pileArticles = useMemo(
+    () => mergeArticles(allArticles, libraryRoom.piles?.later, libraryRoom.piles?.setAside),
+    [allArticles, libraryRoom.piles]
   );
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
@@ -829,6 +885,9 @@ const Library = () => {
         article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
         count: corpusTotal
       }),
+      // Unknown stays unknown: corpusTotal is undefined until the shelf is read,
+      // and the rail says nothing rather than claiming a corpus of zero.
+      boundSources: Number.isFinite(corpusTotal) ? corpusTotal : null,
       lines: exactSourceId === 'library'
         ? []
         : [
@@ -879,6 +938,7 @@ const Library = () => {
       onOpenQuestion={handleOpenQuestionModal}
       onAskLibrarian={handleAskLibrarian}
       onToggleEvergreen={handleToggleEvergreen}
+      onTogglePlacement={handleTogglePlacement}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       articleQuery={articleQuery}
@@ -904,6 +964,7 @@ const Library = () => {
       sourceDetailLoading={sourceDetailState.loading}
       sourceDetailError={sourceDetailState.error}
       relevanceState={roomProjectionEnabled ? libraryRoom : null}
+      pileArticles={pileArticles}
       reviewBacklogCount={reviewBacklogCount}
       reviewBacklogHref={reviewBacklogHref}
     />
@@ -966,6 +1027,8 @@ const Library = () => {
         sourceView={sourceView}
         unfiledCount={unfiledCount}
         keptCount={keptCount}
+        laterCount={laterCount}
+        setAsideCount={setAsideCount}
         query={articleQuery}
         onQueryChange={handleArticleQueryChange}
         onSelectScope={handleSelectScope}
@@ -1004,12 +1067,12 @@ const Library = () => {
             other scope — folders, unfiled, highlights — because those are its
             own views and the lock does not redraw them. */}
         <div
-          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isKeptShelf ? 'is-shelf' : ''}`}
+          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isDedicatedShelf ? 'is-shelf' : ''}`}
           data-testid="library-main"
         >
-          {isKeptShelf ? (
+          {isDedicatedShelf ? (
             <LibraryColumn
-              shelf="kept"
+              shelf={scope}
               articles={articles}
               allArticles={allArticles}
               loading={articlesLoading}

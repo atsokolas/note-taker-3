@@ -7,10 +7,7 @@ const DEFAULT_DOC_PATH_LIMIT = 48;
 const DEFAULT_REPO_COMMIT_LIMIT = 8;
 const DEFAULT_BLOB_TEXT_LIMIT = 7000;
 
-const trim = (value = '', limit = 1000) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
-};
+const trim = (value = '', limit = 1000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const normalizeOwnerOrRepo = (value = '') => String(value || '')
   .trim()
@@ -904,3 +901,4 @@ module.exports = {
   selectRepoEvidenceEntries
 };
 const { HUMAN_ONLY_WIKI_LABEL_PATTERN, isHumanOnlyWikiArtifact } = require('./wikiProtectedArtifactService');
+const { wordBoundaryTrim } = require('../lib/editorialText');

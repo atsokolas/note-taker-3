@@ -1,6 +1,5 @@
 import { isRepoDossierPage, pageMeta } from './wikiRepoDossierModel';
-
-const normalizeText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const ROOT_CWD = 'repository root';
 
@@ -9,7 +8,7 @@ const pickMeta = (meta = {}, keys = []) => {
     const value = meta[key];
     if (value == null) continue;
     if (typeof value === 'string') {
-      const text = normalizeText(value);
+      const text = normalizeSpaces(value);
       if (text) return text;
     }
   }
@@ -20,11 +19,11 @@ const listMeta = (meta = {}, keys = [], limit = 8) => {
   for (const key of keys) {
     const value = meta[key];
     if (Array.isArray(value)) {
-      return value.map(item => normalizeText(item)).filter(Boolean).slice(0, limit);
+      return value.map(item => normalizeSpaces(item)).filter(Boolean).slice(0, limit);
     }
-    const text = normalizeText(value);
+    const text = normalizeSpaces(value);
     if (!text) continue;
-    return text.split(/[,;|]/).map(item => normalizeText(item)).filter(Boolean).slice(0, limit);
+    return text.split(/[,;|]/).map(item => normalizeSpaces(item)).filter(Boolean).slice(0, limit);
   }
   return [];
 };
@@ -32,7 +31,7 @@ const listMeta = (meta = {}, keys = [], limit = 8) => {
 const unique = (items = []) => {
   const seen = new Set();
   return items.filter((item) => {
-    const key = normalizeText(item).toLowerCase();
+    const key = normalizeSpaces(item).toLowerCase();
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -43,14 +42,14 @@ const firstMatch = (text = '', patterns = []) => {
   const haystack = String(text || '');
   for (const pattern of patterns) {
     const match = haystack.match(pattern);
-    if (match?.[1]) return normalizeText(match[1]);
-    if (match?.[0]) return normalizeText(match[0]);
+    if (match?.[1]) return normalizeSpaces(match[1]);
+    if (match?.[0]) return normalizeSpaces(match[0]);
   }
   return '';
 };
 
 const sectionText = (text = '', headings = []) => {
-  const normalizedHeadings = headings.map(value => normalizeText(value).toLowerCase());
+  const normalizedHeadings = headings.map(value => normalizeSpaces(value).toLowerCase());
   if (!normalizedHeadings.length) return '';
   const lines = String(text || '').split('\n').map(line => line.trim());
   for (let index = 0; index < lines.length; index += 1) {
@@ -84,7 +83,7 @@ const boundedSectionText = (text = '', headings = [], stopHeadings = []) => {
   const structured = sectionText(text, headings);
   if (structured) return structured;
 
-  const source = normalizeText(text);
+  const source = normalizeSpaces(text);
   if (!source) return '';
   const headingPattern = headings
     .map(heading => heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -96,7 +95,7 @@ const boundedSectionText = (text = '', headings = [], stopHeadings = []) => {
   const pattern = stopPattern
     ? new RegExp(`\\b(?:${headingPattern})\\b\\s*[:—-]?\\s*(.+?)(?=\\s+\\b(?:${stopPattern})\\b\\s*[:—-]?|$)`, 'i')
     : new RegExp(`\\b(?:${headingPattern})\\b\\s*[:—-]?\\s*(.+)$`, 'i');
-  return normalizeText(source.match(pattern)?.[1] || '');
+  return normalizeSpaces(source.match(pattern)?.[1] || '');
 };
 
 const collectCorpus = (page = {}) => {
@@ -117,19 +116,19 @@ const collectCorpus = (page = {}) => {
 };
 
 const normalizeCwd = (value = '') => {
-  const cwd = normalizeText(value);
+  const cwd = normalizeSpaces(value);
   if (!cwd || cwd === '.' || cwd === './') return ROOT_CWD;
   return cwd.replace(/\/$/, '');
 };
 
 const isLongPackageExpansion = (value = '') => {
-  const expansion = normalizeText(value);
+  const expansion = normalizeSpaces(value);
   if (!expansion) return false;
   return expansion.length > 72 || /\s&&\s/.test(expansion) || expansion.endsWith('...');
 };
 
 const splitCommandDetail = (text = '') => {
-  const trimmed = normalizeText(text);
+  const trimmed = normalizeSpaces(text);
   const dashIndex = trimmed.indexOf(' - ');
   if (dashIndex === -1) {
     return { named: trimmed, expansion: '' };
@@ -146,7 +145,7 @@ const looksLikeRunnableCommand = (value = '') => (
 );
 
 const parseNamedCommandLine = (line = '') => {
-  const stripped = normalizeText(line)
+  const stripped = normalizeSpaces(line)
     .replace(/^(?:Run|UI|Test|Build|Wiki proof|Proof|Frontend build|Backend|Install(?: UI)?)\s*:\s*/i, '');
   if (!stripped) return null;
 
@@ -164,7 +163,7 @@ const parseNamedCommandLine = (line = '') => {
     return nested ? {
       ...nested,
       cwd: nested.cwd === ROOT_CWD ? cwd : nested.cwd,
-      entrypoint: executes?.[1] ? normalizeText(executes[1]) : nested.entrypoint,
+      entrypoint: executes?.[1] ? normalizeSpaces(executes[1]) : nested.entrypoint,
       sourceFile: cwd === ROOT_CWD ? 'package.json' : `${cwd}/package.json`
     } : null;
   }
@@ -177,7 +176,7 @@ const parseNamedCommandLine = (line = '') => {
       ? sourceFile.replace(/\/package\.json$/i, '')
       : ROOT_CWD;
     return {
-      command: normalizeText(fromMatch[1]),
+      command: normalizeSpaces(fromMatch[1]),
       cwd: normalizeCwd(cwd),
       entrypoint: isLongPackageExpansion(expansion) ? '' : expansion,
       sourceFile
@@ -187,7 +186,7 @@ const parseNamedCommandLine = (line = '') => {
   const cdMatch = named.match(/^cd\s+([^&]+)\s*&&\s*(.+)$/i);
   if (cdMatch) {
     return {
-      command: normalizeText(cdMatch[2]),
+      command: normalizeSpaces(cdMatch[2]),
       cwd: normalizeCwd(cdMatch[1]),
       entrypoint: isLongPackageExpansion(expansion) ? '' : expansion,
       sourceFile: ''
@@ -208,13 +207,13 @@ const coerceQuickstartCommand = (value) => {
     return parseNamedCommandLine(value);
   }
   if (typeof value === 'object') {
-    const command = normalizeText(value.command);
+    const command = normalizeSpaces(value.command);
     if (!command) return null;
     return {
       command,
       cwd: normalizeCwd(value.cwd || ROOT_CWD),
-      entrypoint: normalizeText(value.entrypoint),
-      sourceFile: normalizeText(value.sourceFile)
+      entrypoint: normalizeSpaces(value.entrypoint),
+      sourceFile: normalizeSpaces(value.sourceFile)
     };
   }
   return null;
@@ -243,7 +242,7 @@ const readStructuredQuickstart = (meta = {}) => {
 };
 
 const classifyCommandLine = (line = '') => {
-  const normalized = normalizeText(line).toLowerCase();
+  const normalized = normalizeSpaces(line).toLowerCase();
   if (/^install ui|cd note-taker-ui && npm install/i.test(normalized)) return 'installUi';
   if (/^install|npm install/i.test(normalized) && !/note-taker-ui/.test(normalized)) return 'install';
   if (/^ui:|from note-taker-ui\/package\.json.*start|react-scripts start/i.test(normalized)) return 'uiRun';
@@ -263,7 +262,7 @@ const extractCommandsFromSection = (sectionTextValue = '') => {
   };
   if (!sectionTextValue) return result;
 
-  const flattenedSource = normalizeText(sectionTextValue);
+  const flattenedSource = normalizeSpaces(sectionTextValue);
   const flattenedContract = !String(sectionTextValue).includes('\n')
     && /\bRun\s*:/i.test(flattenedSource)
     && /\b(?:UI|Test|Build|Key paths)\b/i.test(flattenedSource);
@@ -332,7 +331,7 @@ const extractCommandsFromSection = (sectionTextValue = '') => {
 
   // Wiki plainText is intentionally whitespace-normalized. Recover the
   // generated handoff contract by using its stable labels as delimiters.
-  const flattened = normalizeText(sectionTextValue)
+  const flattened = normalizeSpaces(sectionTextValue)
     .replace(/\b(Test|Build|Key paths)\s+(?=(?:repository root|note-taker-ui|CI\s*=\s*true|npm|pnpm|yarn|node|npx|server\/|note-taker-ui\/|package\.json)\b)/gi, '$1: ');
   const labeledCommand = (label, nextLabels) => firstMatch(flattened, [
     new RegExp(`\\b${label}:\\s*(.+?)(?=\\s+(?:${nextLabels.join('|')}):)`, 'i')
@@ -377,7 +376,7 @@ const extractEnvVars = ({ meta = {}, corpus = '' } = {}) => {
       envSection
         .replace(/\btext generation uses\b.*$/i, '')
         .split(/,\s+| and /i)
-        .map(item => normalizeText(item))
+        .map(item => normalizeSpaces(item))
         .filter(item => /^[A-Z][A-Z0-9_]+$/.test(item))
     );
   }
@@ -413,7 +412,7 @@ const extractLocalUrls = ({ meta = {}, corpus = '' } = {}) => {
 };
 
 const splitDeployTargets = (text = '') => {
-  const normalized = normalizeText(text);
+  const normalized = normalizeSpaces(text);
   if (!normalized) return null;
   const frontend = firstMatch(normalized, [
     /frontend\s*[:—-]\s*([^·|]+)/i,
@@ -428,8 +427,8 @@ const splitDeployTargets = (text = '') => {
   if (frontend || api) {
     return {
       summary: normalized,
-      frontend: normalizeText(frontend),
-      api: normalizeText(api)
+      frontend: normalizeSpaces(frontend),
+      api: normalizeSpaces(api)
     };
   }
   return { summary: normalized, frontend: '', api: '' };
@@ -456,7 +455,7 @@ const extractDeploy = ({ meta = {}, corpus = '' } = {}) => {
 const extractKeyPaths = ({ page = {}, meta = {}, corpus = '' } = {}) => {
   const fromMeta = listMeta(meta, ['keyPaths', 'keyRepoPaths', 'repoPaths', 'paths', 'directories']);
   const fromRefs = (Array.isArray(page.sourceRefs) ? page.sourceRefs : [])
-    .map(ref => normalizeText(ref.metadata?.path || ref.path))
+    .map(ref => normalizeSpaces(ref.metadata?.path || ref.path))
     .filter(path => path && !/^readme/i.test(path));
   const section = sectionText(corpus, [
     'Key paths',
@@ -468,17 +467,17 @@ const extractKeyPaths = ({ page = {}, meta = {}, corpus = '' } = {}) => {
   const fromSection = section
     ? section.split('\n')
       .flatMap(line => line.replace(/^[-*•]\s*/, '').split(/[,;|]/))
-      .map(item => normalizeText(item))
+      .map(item => normalizeSpaces(item))
       .filter(path => path && (/^(?:[a-z0-9._-]+\/)+$/i.test(path) || /^[\w./-]+\.[jt]sx?$/i.test(path)))
     : [];
   const inlineList = firstMatch(corpus, [
     /Key paths:\s*([^\n]+)/i,
     /Key repo paths:\s*([^\n]+)/i
-  ]).split(/[,;|]/).map(item => normalizeText(item)).filter(path => (
+  ]).split(/[,;|]/).map(item => normalizeSpaces(item)).filter(path => (
     path && (/^(?:[a-z0-9._-]+\/)+$/i.test(path) || /^[\w./-]+\.[a-z0-9]+$/i.test(path))
   ));
   const inlinePaths = [...corpus.matchAll(/`([a-z0-9][a-z0-9._/-]{1,80}(?:\/|\.[jt]sx?))`/gi)]
-    .map(match => normalizeText(match[1]))
+    .map(match => normalizeSpaces(match[1]))
     .filter(path => /^(note-taker-ui|server|scripts|docs|packages|src|app|lib)\//i.test(path));
   return unique([...fromMeta, ...fromSection, ...inlineList, ...inlinePaths, ...fromRefs]).slice(0, 6);
 };

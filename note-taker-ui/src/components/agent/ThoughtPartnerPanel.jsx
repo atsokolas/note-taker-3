@@ -27,15 +27,12 @@ import useAgentReviewState from './useAgentReviewState';
 import { AGENT_DEFAULT_PLACEHOLDER, AGENT_DISPLAY_NAME } from '../../constants/agentIdentity';
 import AgentTicker from './AgentTicker';
 import AgentPresence from './AgentPresence';
+import { wordBoundaryTrim } from '../../utils/editorialText';
 
 const clean = (value) => String(value || '').trim();
 const isAbortError = error => error?.name === 'AbortError' || error?.code === 'ERR_CANCELED';
 const friendlyContextLabel = (type = '') => clean(type).replace(/_/g, ' ') || 'current thought';
-const truncate = (value, limit = 320) => {
-  const safe = clean(value);
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+const truncate = (value, limit = 320) => wordBoundaryTrim(value, { maxLength: limit });
 
 const formatComparisonKey = (key = '') => {
   const parts = clean(key).split('|').map(clean).filter(Boolean);

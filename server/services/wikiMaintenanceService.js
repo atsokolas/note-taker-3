@@ -22,6 +22,7 @@ const { evaluateInvestmentDossierQuality } = require('./investmentDossierQuality
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
 const { normalizeComparableText } = require('./wikiDedupeService');
 const { resolveClaimBornAt } = require('./claimBornAt');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 const {
   sourceFamilyKey,
   evaluateOwnedSourceUtilization,
@@ -254,15 +255,9 @@ const cleanWikiText = (value = '') => {
   return lines.join(' ').replace(/\s+/g, ' ').trim();
 };
 
-const truncate = (value = '', limit = 1000) => {
-  const text = cleanWikiText(value).replace(/\s+/g, ' ');
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
-};
+const truncate = (value = '', limit = 1000) => wordBoundaryTrim(cleanWikiText(value).replace(/\s+/g, ' '), { maxLength: limit });
 
-const truncateRaw = (value = '', limit = 1000) => {
-  const text = asString(value).replace(/\s+/g, ' ');
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}...` : text;
-};
+const truncateRaw = (value = '', limit = 1000) => wordBoundaryTrim(asString(value).replace(/\s+/g, ' '), { maxLength: limit });
 
 const toPlainText = (node) => {
   if (!node) return '';

@@ -556,3 +556,31 @@ describe('judgmentModel', () => {
     expect(judgmentIdOf({ id: 'wiki-new' })).toBe('wiki-new');
   });
 });
+
+describe('what the agent can see on a case', () => {
+  // Sources are counted only once they resolve to something openable, so the
+  // fixture carries the refs the reasons point at.
+  const withReasons = (why = [], against = []) => ({
+    _id: 'p1',
+    title: 'A held claim.',
+    sourceRefs: [
+      { _id: 's1', title: 'First source', type: 'article', objectId: 'a1' },
+      { _id: 's2', title: 'Second source', type: 'article', objectId: 'a2' },
+      { _id: 's3', title: 'Third source', type: 'article', objectId: 'a3' }
+    ],
+    judgment: { currentJudgment: 'A held claim.', why, against, falsifiers: [], decisions: [] }
+  });
+
+  it('counts every cited source once, across both sides', () => {
+    const view = projectJudgment(withReasons(
+      [{ reasonId: 'r1', text: 'Because.', sourceRefIds: ['s1', 's2'] }],
+      [{ reasonId: 'r2', text: 'But.', sourceRefIds: ['s2', 's3'] }]
+    ));
+    expect(view.boundSourceCount).toBe(3);
+  });
+
+  it('is zero when the case cites nothing, and says so rather than guessing', () => {
+    const view = projectJudgment(withReasons([{ reasonId: 'r1', text: 'A hunch.', sourceRefIds: [] }]));
+    expect(view.boundSourceCount).toBe(0);
+  });
+});

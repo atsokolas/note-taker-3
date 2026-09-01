@@ -154,6 +154,17 @@ describe('LibraryShelfNav', () => {
       expect(labels).toEqual(['All sources', 'Kept2', 'Unfiled6', 'Highlights']);
     });
 
+    it('names Later and Set aside only when something lives there', () => {
+      const { unmount } = renderNav({ keptCount: 0, laterCount: 0, setAsideCount: 0 });
+      expect(screen.queryByRole('button', { name: /Later/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Set aside/ })).not.toBeInTheDocument();
+      unmount();
+
+      renderNav({ laterCount: 2, setAsideCount: 1 });
+      const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
+      expect(labels).toEqual(['All sources', 'Kept', 'Later2', 'Set aside1', 'Unfiled6', 'Highlights']);
+    });
+
     it('is a way of moving, so it stays out on a phone', () => {
       setViewport(true);
       renderNav({ keptCount: 2 });

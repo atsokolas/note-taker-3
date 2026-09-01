@@ -7,14 +7,12 @@
  */
 
 const { parseHorizon } = require('./claimFalsifiability');
+const { wordBoundaryTrim } = require('../lib/editorialText');
 
 const DAY = 24 * 60 * 60 * 1000;
 const STATS = Object.freeze(['held', 'hold-time', 'revisions', 'verdicts', 'counter-evidence']);
 
-const clean = (value = '', limit = 280) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
-};
+const clean = (value = '', limit = 280) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
 
 const asPlain = (value) => (value?.toObject ? value.toObject({ virtuals: false }) : value);
 const id = (value) => String(value?._id || value?.id || value || '');

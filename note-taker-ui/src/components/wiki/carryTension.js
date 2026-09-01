@@ -1,4 +1,5 @@
 import { oneSentence } from '../../pages/judgmentModel';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 // Carrying a tension into a judgment.
 //
@@ -7,8 +8,6 @@ import { oneSentence } from '../../pages/judgmentModel';
 // page wore, with nothing to do about it. The only useful thing to do with a
 // disagreement is to decide what you think, which is what a judgment page is
 // for, so this carries the claim and both sides of it across.
-
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
 export const contradicts = (source) => source?.evidenceRole === 'contradicts';
 
@@ -19,14 +18,14 @@ export const isTension = (sources = []) => (Array.isArray(sources) ? sources : [
    the source actually said; its title is who said it. Nothing is written that
    the library did not already contain. */
 const reasonFrom = (source) => {
-  const label = clean(source?.title);
-  const text = oneSentence(clean(source?.snippet)) || label;
+  const label = normalizeSpaces(source?.title);
+  const text = oneSentence(normalizeSpaces(source?.snippet)) || label;
   return text ? { text, sourceLabel: label } : null;
 };
 
 /** The claim, and the two sides of it, in the shape a judgment holds. */
 export const tensionSeed = ({ claim, sources = [], fallbackSentence = '' } = {}) => {
-  const sentence = oneSentence(clean(claim?.text) || clean(fallbackSentence));
+  const sentence = oneSentence(normalizeSpaces(claim?.text) || normalizeSpaces(fallbackSentence));
   if (!sentence || !isTension(sources)) return null;
   return {
     sentence,

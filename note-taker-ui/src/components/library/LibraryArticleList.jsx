@@ -18,6 +18,8 @@ import {
 import { filterLibraryBrowseItems } from '../../utils/cruftSuppression';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
+import { humanizeLabel } from '../../utils/humanizeLabel';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -26,19 +28,14 @@ const getSourceLabel = (article) => {
   if (!url) return 'Saved article';
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
-    return host
-      .split('.')
-      .filter(Boolean)
-      .slice(0, -1)
-      .join(' ')
-      .replace(/\b\w/g, (match) => match.toUpperCase()) || host;
+    return humanizeLabel(host.split('.').filter(Boolean).slice(0, -1).join(' ')) || host;
   } catch (error) {
     return 'Saved article';
   }
 };
 
 const trimExcerpt = (text) => {
-  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  const normalized = normalizeSpaces(text);
   if (!normalized) return '';
   if (normalized.length <= 180) return normalized;
   return `${normalized.slice(0, 177)}...`;
@@ -250,8 +247,7 @@ const LibraryEmptyState = ({
           <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
           <h3 className="library-empty-state__title">{scopeLine}</h3>
           <p className="library-empty-state__body">
-            {formatLibraryCorpusCount(model.corpusTotal)}.
-            {model.emptyLabel ? ` ${model.emptyLabel}` : ''}
+            {[formatLibraryCorpusCount(model.corpusTotal), model.emptyLabel].filter(Boolean).join(' ')}
           </p>
         </div>
         <div className="library-empty-state__actions">
@@ -278,7 +274,7 @@ const LibraryEmptyState = ({
           <span className="library-empty-state__eyebrow">Library · {model.scopeLabel}</span>
           <h3 className="library-empty-state__title">No visible sources in this view.</h3>
           <p className="library-empty-state__body">
-            {formatLibrarySuppressedCount(model.suppressedCount)}.
+            {formatLibrarySuppressedCount(model.suppressedCount)}
             {model.emptyLabel ? ` ${model.emptyLabel}` : ''}
           </p>
         </div>
@@ -312,7 +308,7 @@ const LibraryEmptyState = ({
           <span className="library-empty-state__eyebrow">Library · Search</span>
           <h3 className="library-empty-state__title">No sources match &ldquo;{model.query}&rdquo;</h3>
           {model.corpusTotal > 0 ? (
-            <p className="library-empty-state__body">{formatLibraryCorpusCount(model.corpusTotal)}.</p>
+            <p className="library-empty-state__body">{formatLibraryCorpusCount(model.corpusTotal)}</p>
           ) : null}
         </div>
         <div className="library-empty-state__actions">

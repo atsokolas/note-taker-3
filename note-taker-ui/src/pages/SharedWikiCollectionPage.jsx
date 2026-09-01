@@ -7,6 +7,7 @@ import { wikiPagePath } from '../utils/wikiFeatureFlags';
 import { buildSharePreviewReceipt } from '../utils/connectionMagicMoment';
 import useSeoMetadata from '../hooks/useSeoMetadata';
 import { CANONICAL_HOST, SITE_NAME, buildCanonicalUrl } from '../seo/siteMetadata';
+import { normalizeSpaces } from '../utils/editorialText';
 
 const hasAuthToken = () => {
   if (typeof window === 'undefined') return false;
@@ -25,8 +26,6 @@ const usePublicShareScrollSurface = () => {
 };
 
 const pageIdFor = (page = {}) => page?._id || page?.id || '';
-
-const cleanText = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -56,12 +55,12 @@ export const buildSharedWikiCollectionSchema = ({
   canonicalPath = '/',
   description = ''
 } = {}) => {
-  const title = cleanText(collection?.name || collection?.title) || 'Shared wiki collection';
+  const title = normalizeSpaces(collection?.name || collection?.title) || 'Shared wiki collection';
   const canonicalUrl = buildCanonicalUrl(canonicalPath);
   const itemList = (Array.isArray(pages) ? pages : []).slice(0, 24).map((page, index) => ({
     '@type': 'ListItem',
     position: index + 1,
-    name: cleanText(page?.title) || `Wiki page ${index + 1}`
+    name: normalizeSpaces(page?.title) || `Wiki page ${index + 1}`
   }));
 
   return {
@@ -189,7 +188,7 @@ const SharedWikiCollectionPage = () => {
   const reviewedAt = formatDate(newestReviewedDate(pages));
   const canonicalPath = location.pathname || `/share/wiki/collection/${idOrSlug}`;
   const seoTitle = collection ? `${title} · Shared Wiki Collection · Noeis` : 'Shared Wiki Collection · Noeis';
-  const seoDescription = cleanText(description).slice(0, 220) || 'A shared Noeis wiki you can copy into your own workspace.';
+  const seoDescription = normalizeSpaces(description).slice(0, 220) || 'A shared Noeis wiki you can copy into your own workspace.';
   const seoSchema = useMemo(
     () => buildSharedWikiCollectionSchema({
       collection,

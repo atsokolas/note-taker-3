@@ -68,6 +68,7 @@ import {
 } from '../collection/RoomShelf';
 import '../../styles/wiki-critical.css';
 import '../../styles/wiki-front-page.css';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 // AT-394 — the wiki front page. Opening Noeis lands here: a newspaper-shaped
 // reading surface. Alive the way a newspaper on the doorstep is alive — new
@@ -166,7 +167,7 @@ const claimImpactRegister = (impacts = []) => {
 // The page still has entrance motion, but the content itself does not reveal
 // word-by-word because QA and real users can otherwise catch a dangling phrase.
 const WriteIn = ({ text = '' }) => {
-  const fullText = useMemo(() => String(text || '').replace(/\s+/g, ' ').trim(), [text]);
+  const fullText = useMemo(() => normalizeSpaces(text), [text]);
 
   return (
     <span className="wiki-front-page__lead-text">{fullText}</span>

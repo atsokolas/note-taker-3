@@ -12,6 +12,7 @@ const emptyRoom = () => ({
   counts: {},
   folders: [],
   shelfCounts: {},
+  piles: { later: [], setAside: [] },
   nextCursor: null,
   hasMore: false
 });
@@ -38,6 +39,10 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
           counts: payload.counts,
           folders: payload.shelves.folders,
           shelfCounts: payload.shelves.counts,
+          piles: {
+            later: payload.shelves.piles?.later || [],
+            setAside: payload.shelves.piles?.setAside || []
+          },
           nextCursor: payload.nextCursor,
           hasMore: payload.hasMore
         });
@@ -72,6 +77,10 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
         counts: payload.counts,
         folders: payload.shelves.folders,
         shelfCounts: payload.shelves.counts,
+        piles: {
+          later: payload.shelves.piles?.later || [],
+          setAside: payload.shelves.piles?.setAside || []
+        },
         nextCursor: payload.nextCursor,
         hasMore: payload.hasMore
       });
@@ -94,6 +103,23 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
           ...previous.shelfCounts,
           [key]: Math.max(0, current + delta)
         }
+      };
+    });
+  }, []);
+
+  const upsertPileArticle = useCallback((article, placement) => {
+    const id = String(article?._id || article?.id || '').trim();
+    if (!id) return;
+    setState((previous) => {
+      const without = (list = []) => list.filter((item) => String(item._id || item.id) !== id);
+      const later = without(previous.piles?.later);
+      const setAside = without(previous.piles?.setAside);
+      const row = { ...article, _id: id, placement };
+      if (placement === 'later') later.push(row);
+      if (placement === 'setAside') setAside.unshift(row);
+      return {
+        ...previous,
+        piles: { later, setAside }
       };
     });
   }, []);
@@ -130,7 +156,7 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
     }
   }, [enabled, showSuppressed, state.hasMore, state.loadingMore, state.nextCursor, view]);
 
-  return { ...state, loadMore, refresh, adjustShelfCount };
+  return { ...state, loadMore, refresh, adjustShelfCount, upsertPileArticle };
 };
 
 export default useLibraryRoom;

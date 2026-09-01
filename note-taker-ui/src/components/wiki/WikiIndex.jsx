@@ -26,6 +26,8 @@ import {
   wikiGraphLabelColor,
   wikiGraphNodeColor
 } from './wikiGraphPalette';
+import { wordBoundaryTrim } from '../../utils/editorialText';
+import { displayWikiPageTitle } from './wikiRepoDossierModel';
 
 const GRAPH_RELATION_TYPES = ['related', 'needs_review', 'supports', 'contradicts', 'extends'];
 const GRAPH_CORPUS_ITEM_TYPES = ['wiki_page', 'wiki_claim', 'concept', 'question', 'notebook', 'article', 'highlight'];
@@ -176,7 +178,7 @@ const buildMapNextMoves = ({ graph = {}, pages = [], graphSummary = {}, graphSyn
     moves.push({
       key: 'fresh-source-gap',
       eyebrow: 'Fresh source gap',
-      label: driftPage.title || 'Untitled Wiki Page',
+      label: displayWikiPageTitle(driftPage),
       detail: staleSections[0]?.section
         ? `${staleSections[0].section} needs review; add one recent source or run maintenance from the page.`
         : `${pageSourceCount(driftPage)} source${pageSourceCount(driftPage) === 1 ? '' : 's'} attached; add evidence before relying on this page.`,
@@ -206,10 +208,9 @@ const buildMapNextMoves = ({ graph = {}, pages = [], graphSummary = {}, graphSyn
     .slice(0, 4);
 };
 
-const truncateGraphLabel = (value = '', maxChars = 34) => {
-  const text = String(value || 'Untitled Wiki Page').replace(/\s+/g, ' ').trim();
-  return text.length > maxChars ? `${text.slice(0, maxChars - 1).trim()}…` : text;
-};
+const truncateGraphLabel = (value = '', maxChars = 34) => (
+  wordBoundaryTrim(value || 'Untitled wiki page', { maxLength: maxChars })
+);
 
 const linkEndpointTitle = (endpoint) => (
   typeof endpoint === 'object' && endpoint
@@ -341,7 +342,7 @@ const WikiSparsePages = ({ pages = [], onOpenPage, onOpenWorkspace, onBuildPage,
         {pages.slice(0, 9).map(page => (
           <li key={page._id || page.id}>
             <button type="button" onClick={() => onOpenPage?.(page._id || page.id)}>
-              <strong>{page.title || 'Untitled Wiki Page'}</strong>
+              <strong>{displayWikiPageTitle(page)}</strong>
               <span>{labelFor(page.pageType || 'topic')} · {Array.isArray(page.sourceRefs) ? page.sourceRefs.length : 0} sources</span>
             </button>
           </li>

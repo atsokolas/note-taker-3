@@ -89,14 +89,26 @@ export const resolveLibraryEmptyState = ({
   };
 };
 
-export const formatLibraryCorpusCount = (count = 0) => {
-  const total = Number(count) || 0;
-  const label = total === 1 ? 'source is' : 'sources are';
-  return `${total} ${label} in Library`;
+/*
+ * A count nobody has yet is not zero. These refuse to state one — an unknown
+ * total returns nothing at all, so a Library that is merely still reading can
+ * never announce "0 sources are in Library" over a shelf that is full. The
+ * sentence carries its own full stop, because punctuation belongs to the
+ * phrase that knows whether there is a phrase.
+ */
+const countSentence = (count, one, many) => {
+  // Number(null) is 0, which is how "we have not looked yet" becomes a
+  // confident "none". Absence is checked before arithmetic gets a say.
+  if (count === null || count === undefined || count === '') return '';
+  const total = Number(count);
+  if (!Number.isFinite(total)) return '';
+  return `${total} ${total === 1 ? one : many}.`;
 };
 
-export const formatLibrarySuppressedCount = (count = 0) => {
-  const total = Number(count) || 0;
-  const label = total === 1 ? 'import is' : 'imports are';
-  return `${total} review ${label} hidden from this view`;
-};
+export const formatLibraryCorpusCount = count => (
+  countSentence(count, 'source is in Library', 'sources are in Library')
+);
+
+export const formatLibrarySuppressedCount = count => (
+  countSentence(count, 'review import is hidden from this view', 'review imports are hidden from this view')
+);

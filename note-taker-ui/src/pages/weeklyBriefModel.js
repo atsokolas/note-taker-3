@@ -6,6 +6,7 @@ import {
   judgmentActivity,
   lessonLines
 } from './judgmentModel';
+import { normalizeSpaces } from '../utils/editorialText';
 
 /*
  * The week, in five lines.
@@ -23,7 +24,6 @@ import {
 const DAY = 24 * 60 * 60 * 1000;
 export const WEEK = 7 * DAY;
 
-const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 const idOf = value => String(value?._id || value?.id || value || '');
 const time = value => new Date(value || 0).getTime();
 const list = value => (Array.isArray(value) ? value : []);
@@ -61,7 +61,7 @@ export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now =
      reading to a belief. */
   const boreOnBeliefs = new Set(
     list(events)
-      .filter(event => clean(event?.status) !== 'ignored')
+      .filter(event => normalizeSpaces(event?.status) !== 'ignored')
       .filter(event => within(event?.sourceUpdatedAt || event?.createdAt, since))
       .flatMap(event => list(event?.affectedPageIds).map(idOf))
       .filter(Boolean)

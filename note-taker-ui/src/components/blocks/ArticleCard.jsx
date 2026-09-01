@@ -4,9 +4,10 @@ import ReturnLaterControl from '../return-queue/ReturnLaterControl';
 import ConnectionBuilder from '../connections/ConnectionBuilder';
 import RelatedSuggestions from '../retrieval/RelatedSuggestions';
 import { buildCanonicalArticlePath } from '../../utils/sourceRoutes';
+import { normalizeSpaces } from '../../utils/editorialText';
 
 const summarize = (text, max = 170) => {
-  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  const raw = normalizeSpaces(text);
   if (!raw) return 'No summary yet.';
   if (raw.length <= max) return raw;
   return `${raw.slice(0, max).trim()}...`;

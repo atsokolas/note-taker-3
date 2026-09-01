@@ -1,3 +1,4 @@
+import { normalizeSpaces, wordBoundaryTrim } from '../../../../utils/editorialText';
 const clean = (value = '') => String(value || '').trim();
 
 const createId = (prefix = 'change-draft') => (
@@ -13,11 +14,7 @@ const toTimestamp = (value) => {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 };
 
-const truncate = (value = '', limit = 96) => {
-  const safe = clean(value);
-  if (safe.length <= limit) return safe;
-  return `${safe.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
-};
+const truncate = (value = '', limit = 96) => wordBoundaryTrim(value, { maxLength: limit });
 
 const summarizeCount = (count, noun) => {
   if (count === 1) return `1 ${noun}`;
@@ -126,7 +123,7 @@ export const buildConceptChangeDraft = ({
     sourceKeys: safeCards.map((card) => clean(card?.sourceKey)).filter(Boolean),
     signature,
     createdAt: new Date().toISOString(),
-    applyMessage: `Applied ${meta.applyLabel === 'support' ? 'the' : ''} ${meta.applyLabel} draft to the concept.`.replace(/\s+/g, ' ').trim()
+    applyMessage: normalizeSpaces(`Applied ${meta.applyLabel === 'support' ? 'the' : ''} ${meta.applyLabel} draft to the concept.`)
   };
 };
 
