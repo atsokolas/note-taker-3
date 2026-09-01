@@ -2695,3 +2695,34 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
+
+/* The research anniversary.
+   Once a year, and never announced twice. It is set in the reading serif
+   rather than the mono readouts, because this is the one line on the page
+   that is not a measurement — it is the product remembering something with
+   you. The rule to its left is the same one the delta and the empty search
+   use, so a memory arrives in the margin where everything else does.
+
+   The ink settles rather than appears: a memory that popped would read as a
+   notification, and this is not one. Reduced motion gets the line instantly,
+   fully inked, which is the same fact without the flourish. */
+.judgment__anniversary {
+  margin: 0.5rem 0 0;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border-subtle, rgba(120, 120, 120, 0.22));
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.92rem;
+  font-style: italic;
+  line-height: 1.5;
+  animation: judgment-anniversary-settle 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes judgment-anniversary-settle {
+  from { opacity: 0; letter-spacing: 0.04em; }
+  to { opacity: 1; letter-spacing: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judgment__anniversary { animation: none; }
+}

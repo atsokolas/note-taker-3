@@ -60,6 +60,7 @@ import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import ClaimFalsifiabilityPrompt from '../components/wiki/ClaimFalsifiabilityPrompt';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { describeLanding, describePreview } from './judgmentWrite';
+import { describeAnniversary } from './researchAnniversary';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -867,6 +868,13 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
   }, [pageId, libraryAttempt, systemStatus]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
+  /* Almost always ''. On the one day a year it is not, it is the only thing
+     on this page nobody asked for. */
+  const anniversary = useMemo(() => describeAnniversary({
+    bornAt: view?.resolution?.bornAt,
+    decisions: page?.judgment?.decisions,
+    claim: view?.claim
+  }), [view?.resolution?.bornAt, view?.claim, page?.judgment?.decisions]);
   /* The API is the single selection boundary. Every client sees the same
      eligibility gate, quality bar, and honest silence. */
   const inbox = libraryCandidates;
@@ -1247,6 +1255,9 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       />
       {view.provenance ? (
         <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
+      ) : null}
+      {anniversary ? (
+        <p className="judgment__anniversary" role="note">{anniversary}</p>
       ) : null}
 
       <JudgmentChangeReview
