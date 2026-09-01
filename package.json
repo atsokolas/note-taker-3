@@ -24,6 +24,7 @@
     "judgment:team": "npx jest server/services/livingTeam.test.js server/services/livingTeamService.test.js --runInBand && node server/routes/judgmentResolutionRoutes.test.js",
     "judgment:institution": "npx jest server/services/domainAdapter.test.js server/services/crossCaseLineage.test.js server/services/calibrationInstrument.test.js server/services/worldModelStress.test.js server/services/governedResearch.test.js server/services/decisionMemory.test.js server/services/institutionalPortability.test.js server/services/institutionService.test.js --runInBand && node server/routes/decisionMemoryRoutes.test.js && node server/routes/judgmentResolutionRoutes.test.js",
     "agent:structure-acceptance": "node scripts/run_agent_structure_acceptance.js",
+    "reading:talks-back-acceptance": "node scripts/run_reading_talks_back_acceptance.js",
     "wiki:proposal-harness": "node scripts/run_wiki_proposal_quality_harness.js",
     "wiki:intelligence-harness": "node scripts/run_wiki_intelligence_harness.js",
     "wiki:intelligence-harness:judge": "node scripts/run_wiki_intelligence_harness.js --judge-live --require-judge --fixture=rich_learning_loop_page_passes_live_judge",
