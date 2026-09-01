@@ -58,7 +58,7 @@ const WeeklyBrief = () => {
             pages,
             articles,
             events,
-            receipts: wikiBriefing?.recentReceipts
+            maintenanceReturn: wikiBriefing?.consequentialReturn || null
           }));
         }
       } catch (_loadError) {

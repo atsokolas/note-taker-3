@@ -1,5 +1,11 @@
 const assert = require('assert');
-const { createWikiRevision, restorePageSnapshot, snapshotPage } = require('./wikiRevisionService');
+const {
+  createWikiRevision,
+  matchesTrustedRevisionHead,
+  restorePageSnapshot,
+  snapshotContentHash,
+  snapshotPage
+} = require('./wikiRevisionService');
 
 const page = {
   _id: 'page-1',
@@ -36,6 +42,26 @@ const snapshot = snapshotPage(page);
 assert.deepStrictEqual(snapshot.publicProof, page.publicProof);
 assert.deepStrictEqual(snapshot.judgment, page.judgment);
 assert.deepStrictEqual(snapshot.investmentDossier, page.investmentDossier);
+
+const reorderedJudgment = Object.fromEntries(Object.entries(snapshot.judgment).reverse());
+const reorderedSnapshot = { ...snapshot, judgment: reorderedJudgment };
+assert(matchesTrustedRevisionHead({
+  current: reorderedSnapshot,
+  revision: {
+    before: snapshot,
+    sourceVersion: { trustedHeadHash: snapshotContentHash(snapshot) }
+  }
+}));
+assert(!matchesTrustedRevisionHead({
+  current: {
+    ...reorderedSnapshot,
+    judgment: { ...reorderedJudgment, currentJudgment: 'Materially changed.' }
+  },
+  revision: {
+    before: snapshot,
+    sourceVersion: { trustedHeadHash: snapshotContentHash(snapshot) }
+  }
+}));
 
 const target = {
   judgment: { kind: 'thesis', initialRevisionId: 'initial-revision', currentJudgment: 'Changed' },

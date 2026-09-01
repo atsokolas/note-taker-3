@@ -83,14 +83,15 @@ describe('WeeklyBrief', () => {
 
   it('shows one receipt-bound judgment consequence with its way back', async () => {
     getWikiBriefing.mockResolvedValue({
-      recentReceipts: [{
+      consequentialReturn: {
         id: 'reviewed',
-        kind: 'company_dossier_judgment_review',
-        status: 'completed',
+        pageId: 'coreweave',
+        title: 'CoreWeave',
         summary: 'Reviewed the accepted research and revised the current judgment.',
-        completedAt: new Date().toISOString(),
-        touched: [{ type: 'wiki_page', id: 'coreweave', title: 'CoreWeave' }]
-      }]
+        label: 'Judgment reviewed',
+        linkLabel: 'See the decision →',
+        href: '/judgment/coreweave'
+      }
     });
 
     render(<WeeklyBrief />);

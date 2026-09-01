@@ -31,6 +31,7 @@ const {
 } = require('../services/wikiSchemaService');
 const {
   createWikiRevision,
+  matchesTrustedRevisionHead,
   restorePageSnapshot,
   snapshotContentHash,
   snapshotPage
@@ -4385,8 +4386,7 @@ const buildWikiRouter = ({
       });
       if (!revision?.after) return res.status(404).json({ error: 'The first-head candidate is unavailable.' });
       const before = snapshotPage(page);
-      const expectedTrustedHeadHash = String(revision.sourceVersion?.trustedHeadHash || '');
-      if (!expectedTrustedHeadHash || snapshotContentHash(before) !== expectedTrustedHeadHash) {
+      if (!matchesTrustedRevisionHead({ current: before, revision })) {
         return res.status(409).json({
           code: 'WIKI_RESEARCH_CANDIDATE_STALE',
           error: 'The trusted page changed after this candidate was generated. Rebuild the candidate before accepting it.'
