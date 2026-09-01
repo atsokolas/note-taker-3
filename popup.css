@@ -217,3 +217,17 @@ button:active {
     background-color: rgba(0, 122, 255, 0.15);
     color: var(--accent-color);
 }
+
+/* The filing habit, offered rather than imposed. Three saves from one site
+   into one folder is a habit; two is a coincidence, and a suggestion made on
+   two is a guess wearing confidence. Empty until there is one, so the card
+   does not reserve a line for advice it has not got. */
+.filing-suggestion:empty { display: none; }
+
+.filing-suggestion {
+  margin: 0 0 4px;
+  color: #6d685e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}

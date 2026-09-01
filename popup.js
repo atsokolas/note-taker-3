@@ -233,16 +233,67 @@ document.addEventListener("DOMContentLoaded", () => {
                  throw new Error(errorData?.error || `Error ${response.status}`);
             }
             const folders = await readJsonSafe(response) || [];
-            populateFoldersDropdown(folders);
+            /* The suggestion is about this page, so the card has to know which
+               page it is looking at before it can offer one. */
+            let here = '';
+            try {
+                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                here = tab?.url || '';
+            } catch (_noTab) {
+                here = '';
+            }
+            populateFoldersDropdown(folders, here);
         } catch (error) {
             setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Failed to fetch folders:", error);
         }
     };
     
-    // Populates the folder dropdown menu.
-    const populateFoldersDropdown = (folders) => {
-        folderSelect.innerHTML = '<option value="">Uncategorized</option>'; 
+    /* Where this domain has been filed before.
+     *
+     * Three saves from one site into one folder is not a coincidence, it is a
+     * habit, and the card should offer the habit rather than make the reader
+     * repeat it. Kept in the extension's own storage: it is a convenience for
+     * the person at this browser and has no business on a server.
+     *
+     * Below three it suggests nothing at all. Two saves is not a pattern, and
+     * a suggestion made on two is a guess wearing confidence. */
+    const FILING_MEMORY = 'noeis.filing.byDomain';
+    const HABIT = 3;
+
+    const domainOf = (url) => {
+        try { return new URL(url).hostname.replace(/^www\./, ''); }
+        catch (_notAUrl) { return ''; }
+    };
+
+    const readFilingMemory = () => {
+        try { return JSON.parse(localStorage.getItem(FILING_MEMORY) || '{}') || {}; }
+        catch (_unreadable) { return {}; }
+    };
+
+    const rememberFiling = (url, folderId) => {
+        const domain = domainOf(url);
+        if (!domain || !folderId) return;
+        try {
+            const memory = readFilingMemory();
+            const seen = memory[domain] || {};
+            seen[folderId] = (seen[folderId] || 0) + 1;
+            memory[domain] = seen;
+            localStorage.setItem(FILING_MEMORY, JSON.stringify(memory));
+        } catch (_unwritable) {
+            // A habit we cannot remember is a suggestion we do not make.
+        }
+    };
+
+    const suggestedFolderFor = (url) => {
+        const seen = readFilingMemory()[domainOf(url)] || {};
+        const [best] = Object.entries(seen).sort((left, right) => right[1] - left[1]);
+        return best && best[1] >= HABIT ? best[0] : '';
+    };
+
+    // Populates the folder dropdown menu, with the habit already selected.
+    const populateFoldersDropdown = (folders, url = '') => {
+        folderSelect.innerHTML = '<option value="">Uncategorized</option>';
         [...folders]
             .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
             .forEach(folder => {
@@ -251,6 +302,14 @@ document.addEventListener("DOMContentLoaded", () => {
             option.textContent = folder.name;
             folderSelect.appendChild(option);
         });
+
+        const suggested = suggestedFolderFor(url);
+        if (suggested && folderSelect.querySelector(`option[value="${suggested}"]`)) {
+            folderSelect.value = suggested;
+            const domain = domainOf(url);
+            const note = document.getElementById('filingSuggestion');
+            if (note && domain) note.textContent = `Always file ${domain} here.`;
+        }
     };
 
     // --- Event Listeners ---
@@ -368,7 +427,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(backgroundResponse?.error || "Background service failed.");
             }
 
-            setStatus("Article saved.", 'success');
+            /* A save is the evidence a habit is made of, so it is only counted
+               once the save actually landed. */
+            rememberFiling(tab.url, folderSelect.value);
+            setStatus("Arrives on the desk, filed and promised.", 'success');
         } catch (error) {
             setStatus(error.message, 'error');
             console.error("[ERROR - Popup.js] Error saving article:", error);
