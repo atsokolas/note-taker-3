@@ -358,3 +358,84 @@
     min-height: 44px;
   }
 }
+
+/* ── The above-fold delta, and the Consequence Ripple ──────────────────────
+   Stage 2 asks for one restrained gold thread running from the change into
+   the beliefs it reached. Restrained is the whole instruction: one thread,
+   one accent, drawn once. It is a thread and not a highlight because the
+   point is direction — this reached that — and a highlight only shouts. */
+
+.knowledge-movement__delta {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.7rem 0 0;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border-subtle, rgba(120, 120, 120, 0.22));
+}
+
+.knowledge-movement__delta-label {
+  margin: 0 0 0.2rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.knowledge-movement__affects ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.knowledge-movement__affects li {
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.knowledge-movement__affects-rest,
+.knowledge-movement__asks-line {
+  color: var(--text-muted, var(--vellum-subtle));
+}
+
+.knowledge-movement__asks-line {
+  margin: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.92rem;
+}
+
+/* The thread. It grows down the rule the delta already stands on, so nothing
+   moves and no space is reserved for an effect — if it never runs, the layout
+   is the layout. */
+.knowledge-movement__delta.is-rippling {
+  position: relative;
+}
+
+.knowledge-movement__delta.is-rippling::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 1px;
+  height: 100%;
+  background: var(--accent-primary, var(--ink-agent, #b8862b));
+  transform-origin: top;
+  animation: knowledge-movement-ripple 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes knowledge-movement-ripple {
+  from { transform: scaleY(0); opacity: 0.9; }
+  to { transform: scaleY(1); opacity: 0.55; }
+}
+
+/* Reduced motion: the thread is a fact about the change, so it stays. Only
+   the drawing of it goes. */
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-movement__delta.is-rippling::before {
+    animation: none;
+    opacity: 0.55;
+  }
+}
