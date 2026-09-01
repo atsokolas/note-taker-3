@@ -1183,6 +1183,9 @@ body.noeis-editorial .library-page-shell .library-folder-name,
    Mono, because it is a receipt, and quiet, because nothing has gone wrong. */
 .library-column__let-go {
   display: flex;
+  /* A long title plus the word back does not fit a phone on one line, and a
+     receipt that pushes the shelf sideways is worse than one that wraps. */
+  flex-wrap: wrap;
   gap: 0.6rem;
   align-items: baseline;
   margin: 1.2rem 0 0;
