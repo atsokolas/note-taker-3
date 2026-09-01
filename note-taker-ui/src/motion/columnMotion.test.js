@@ -120,3 +120,31 @@ describe('filing a sentence toward the casebook', () => {
     expect(slip.animate).not.toHaveBeenCalled();
   });
 });
+
+/* Motion is a crossing: a hand-off that names a journey inside one place is
+   refused, so the vocabulary cannot quietly spread to every change. */
+describe('handing off only across places', () => {
+  const somewhere = { getBoundingClientRect: () => ({ top: 10, left: 20, width: 300, height: 40 }) };
+
+  afterEach(clearSentenceHandoff);
+
+  it('hands off across a named crossing', () => {
+    handOffSentence('A sentence.', somewhere, { from: 'reader', to: 'pile' });
+    expect(peekSentenceHandoff()?.sentence).toBe('A sentence.');
+  });
+
+  it('refuses a journey that never leaves its place', () => {
+    handOffSentence('A sentence.', somewhere, { from: 'imbox', to: 'imbox' });
+    expect(peekSentenceHandoff()).toBeNull();
+  });
+
+  it('refuses two places the design never joined', () => {
+    handOffSentence('A sentence.', somewhere, { from: 'scroll', to: 'pile' });
+    expect(peekSentenceHandoff()).toBeNull();
+  });
+
+  it('leaves callers written before the rule exactly as they were', () => {
+    handOffSentence('A sentence.', somewhere);
+    expect(peekSentenceHandoff()?.sentence).toBe('A sentence.');
+  });
+});

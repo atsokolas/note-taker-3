@@ -1284,3 +1284,34 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   letter-spacing: 0.06em;
   font-variant-numeric: lining-nums tabular-nums;
 }
+
+/* ── Pass 4: living ink dries in ──────────────────────────────────────────
+
+   Screening a folder turns its name from black to olive, and the change takes
+   250ms rather than happening between frames. Ink drying is the metaphor the
+   whole product runs on — a decision that lands instantly reads as a toggle,
+   and screening is not a toggle, it is a decision about how a folder will be
+   read from now on.
+
+   It reverses on unscreening, at the same rate, because taking a decision back
+   is the same size of act as making it. */
+.library-shelf__branch > * > span:not(.library-shelf__disclose) {
+  transition: color 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The destination flashes when something lands in it: the folder's name inks
+   living-green for a quarter second, so the eye is told where the thing went
+   rather than left to find out. */
+@keyframes noeis-destination-flash {
+  from { color: var(--ink-sap, #6f7f4a); }
+  to   { color: inherit; }
+}
+
+.library-shelf__branch.is-landing > * > span:not(.library-shelf__disclose) {
+  animation: noeis-destination-flash 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-shelf__branch > * > span:not(.library-shelf__disclose) { transition: none; }
+  .library-shelf__branch.is-landing > * > span:not(.library-shelf__disclose) { animation: none; }
+}

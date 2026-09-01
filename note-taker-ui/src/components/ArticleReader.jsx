@@ -16,6 +16,7 @@ import {
   rememberOpenedJudgment
 } from './reader/folioModel';
 import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
+import { PLACES } from '../motion/crossings';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
@@ -150,7 +151,14 @@ const ArticleReader = ({
   const park = async (next) => {
     if (next === 'later' || next === 'setAside') {
       const origin = titleRef.current;
-      if (origin) handOffSentence(article.title || 'Untitled source', origin);
+      /* A source leaving the reading for a pile: the first of the four
+         crossings, and the one a reader makes most often. */
+      if (origin) {
+        handOffSentence(article.title || 'Untitled source', origin, {
+          from: PLACES.READER,
+          to: PLACES.PILE
+        });
+      }
     }
     const saved = await onTogglePlacement(article._id, next);
     setPlacement(placementOf({ placement: saved?.placement ?? next }));
