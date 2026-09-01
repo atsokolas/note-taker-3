@@ -952,6 +952,15 @@ const buildWikiBriefing = async ({
        resets, so it is read from the account itself rather than counted from
        anything the reader could delete. */
     beganAt: beganAt ? new Date(beganAt).toISOString() : null,
+    /* The drift runs on the corpus's clock: fourteen-day buckets counted from
+       the day the account began, so the close lands on the same weekday
+       forever and the masthead can print which day that is. */
+    driftClosesAt: beganAt
+      ? new Date(
+        new Date(beganAt).getTime()
+        + (Math.floor((now - new Date(beganAt).getTime()) / (14 * ONE_DAY_MS)) + 1) * 14 * ONE_DAY_MS
+      ).toISOString()
+      : null,
     summary,
     model,
     aliveness,

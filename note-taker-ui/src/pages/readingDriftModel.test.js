@@ -2,6 +2,7 @@ import {
   BUCKET_DAYS,
   buildDrift,
   directionOf,
+  driftClosesAt,
   driftSentence,
   driftShortfall,
   topicsOf
@@ -144,5 +145,30 @@ describe('procedural shelves', () => {
   it('so a source filed only in a tray counts as unfiled, not as a topic', () => {
     const drift = buildDrift([source('Needs Review', 2), source('Needs Review', 4)], NOW);
     expect(drift.filed).toBe(0);
+  });
+});
+
+/* The paper prints the drift on its own fortnight — the sentence, not the
+   surface — and only when the corpus is big enough for it to mean anything. */
+describe('the drift on the paper', () => {
+  const filed = (n, topic, at) => Array.from({ length: n }, (_, i) => ({
+    _id: `${topic}-${i}`,
+    tags: [topic],
+    createdAt: at
+  }));
+
+  it('closes a bucket every fourteen days, and says which day that is', () => {
+    const closes = driftClosesAt({ beganAt: '2026-08-01T00:00:00.000Z', now: new Date('2026-09-01T00:00:00.000Z').getTime() });
+    expect(new Date(closes).toISOString()).toBe('2026-09-12T00:00:00.000Z');
+  });
+
+  it('says nothing about a close it cannot date', () => {
+    expect(driftClosesAt({ beganAt: null })).toBeNull();
+    expect(driftClosesAt({ beganAt: 'someday' })).toBeNull();
+  });
+
+  it('prints nothing below the minimum, however interesting the shape', () => {
+    const thin = buildDrift(filed(3, 'macro', '2026-08-20T00:00:00.000Z'));
+    expect(driftSentence(thin)).toBe('');
   });
 });
