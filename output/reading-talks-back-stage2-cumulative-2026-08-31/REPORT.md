@@ -1,7 +1,7 @@
 # Reading talks back — Stage 2 cumulative acceptance
 
 - Status: **PASS**
-- Database: noeis_rtba_accept_1788222718
+- Database: noeis_rtba_accept_1788222735
 - Model calls: 0
 - Cleanup: disposable database dropped; zero collections remain
 
@@ -9,7 +9,7 @@
 
 - The real notebook routes created a thought and attached the exact owned highlight.
 - Reload preserved the thought, article, highlight, and exact passage as one identity chain.
-- The persisted thought reconstructs the exact return door: /library?articleId=6a961cff5131e45fb055c99e&highlightId=6a961cff5131e45fb055c99f
+- The persisted thought reconstructs the exact return door: /library?articleId=6a961d0f40e21e3769c39857&highlightId=6a961d0f40e21e3769c39858
 - Human Keep survived a cache-cold owner-scoped read from the source record.
 - Foreign thought and Keep reads failed closed without revealing state.
 - The complete loop produced one source and one thought—no duplicate object or model call.
