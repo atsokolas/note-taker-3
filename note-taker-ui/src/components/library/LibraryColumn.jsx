@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { buildLibraryColumn } from './libraryColumnModel';
 import { keptShelfLine, orderKeptOldestFirst } from '../../pages/evergreenModel';
+import {
+  laterPileLine,
+  orderLaterOldestFirst,
+  orderSetAsideNewestFirst,
+  setAsidePileLine
+} from '../../pages/placementModel';
 import '../../styles/library-column.css';
 
 // The face of the Library: one thing to continue, then the shelf.
@@ -12,6 +18,33 @@ import '../../styles/library-column.css';
 // person looking for something types; they do not open a drawer first.
 
 const CHROME_STORE_LINK = 'https://chromewebstore.google.com/detail/noeis/kjhhcmgbhbeoglbhcjcpcjljcaimalkg';
+
+const DEDICATED = {
+  kept: {
+    eyebrow: 'Kept',
+    empty: 'Nothing kept yet. Open a source and press Keep for good when it is worth returning to for years rather than days.',
+    fallback: 'Held for life, and never counted as neglected.',
+    line: keptShelfLine,
+    order: orderKeptOldestFirst,
+    dateOf: (article) => article.evergreenAt || article.createdAt || null
+  },
+  later: {
+    eyebrow: 'Later',
+    empty: 'Nothing owed a move. Open a source and press Later when it still wants a move, just not now.',
+    fallback: 'Owed a move, oldest first.',
+    line: laterPileLine,
+    order: orderLaterOldestFirst,
+    dateOf: (article) => article.placementAt || article.createdAt || null
+  },
+  'set-aside': {
+    eyebrow: 'Set aside',
+    empty: 'Nothing at hand. Open a source and press Set aside when you want it close this week.',
+    fallback: 'At hand this week, newest on top.',
+    line: setAsidePileLine,
+    order: orderSetAsideNewestFirst,
+    dateOf: (article) => article.placementAt || article.createdAt || null
+  }
+};
 
 const LibraryColumn = ({
   shelf = 'all',
@@ -28,39 +61,36 @@ const LibraryColumn = ({
     () => buildLibraryColumn({ articles, allArticles }),
     [allArticles, articles]
   );
-  /* The kept shelf is the one shelf that is not about what is new, so it does
-     not lead with something to continue — it is a list you came looking for.
-
-     It also reads the other way round. Everything else here is newest first,
-     because everything else is about what changed; the canon leads with what
-     you have held longest and leaves the newest arrival at the foot, waiting
-     to earn its place. */
-  const kept = shelf === 'kept';
-  const keptRows = useMemo(() => (kept
-    ? orderKeptOldestFirst(articles).map(article => ({
+  /* Dedicated shelves are lists you came looking for, so they do not lead
+     with something to continue. Later is oldest owed; Set aside is newest
+     at hand; Kept is the canon, oldest decision first. */
+  const dedicated = DEDICATED[shelf] || null;
+  const dedicatedRows = useMemo(() => (dedicated
+    ? dedicated.order(articles).map(article => ({
       id: String(article._id || article.id || ''),
       title: article.title || 'Untitled source',
       source: article.siteName || article.author || '',
-      /* The date that matters on this shelf is when you decided to keep it,
-         not when you happened to save it. */
-      date: article.evergreenAt || article.createdAt || null
+      date: dedicated.dateOf(article)
     }))
-    : []), [kept, articles]);
-  const keptLine = useMemo(() => (kept ? keptShelfLine(articles) : ''), [kept, articles]);
-  const shelfRows = kept ? keptRows : rows;
+    : []), [articles, dedicated]);
+  const dedicatedLine = useMemo(
+    () => (dedicated ? dedicated.line(articles) : ''),
+    [articles, dedicated]
+  );
+  const shelfRows = dedicated ? dedicatedRows : rows;
   const step = (n) => (entering ? `wfp-anim wfp-anim--${n}` : 'library-column__return');
 
   return (
     <main className="library-column" aria-labelledby="library-column-title">
       <h1 className="sr-only" id="library-column-title">Library</h1>
-      <p className={`library-column__eyebrow ${step(1)}`}>{kept ? 'Kept' : 'Library'}</p>
-      {kept ? (
+      <p className={`library-column__eyebrow ${step(1)}`}>{dedicated?.eyebrow || 'Library'}</p>
+      {dedicated ? (
         <p className={`library-column__shelf-note ${step(1)}`}>
-          {keptLine || 'Held for life, and never counted as neglected.'}
+          {dedicatedLine || dedicated.fallback}
         </p>
       ) : null}
 
-      {continueItem && !kept ? (
+      {continueItem && !dedicated ? (
         <section className={`library-column__continue ${step(2)}`} aria-labelledby="library-continue-title">
           <p className="library-column__kicker">Continue</p>
           <h2 id="library-continue-title">
@@ -100,7 +130,7 @@ const LibraryColumn = ({
 
       {error ? <p className="library-column__error" role="alert">{error}</p> : null}
 
-      {loading && !rows.length ? (
+      {loading && !shelfRows.length ? (
         <p className="library-column__quiet" role="status">Opening the shelf…</p>
       ) : null}
 
@@ -125,8 +155,8 @@ const LibraryColumn = ({
         <p className={`library-column__quiet ${step(4)}`}>
           {query
             ? `Nothing in your library matches “${query}”.`
-            : kept
-              ? 'Nothing kept yet. Open a source and press Keep for good when it is worth returning to for years rather than days.'
+            : dedicated
+              ? dedicated.empty
               : <>Nothing saved yet. <Link to="/connections#sources">Connect a source</Link> or install the saver and read something.</>}
         </p>
       ) : null}

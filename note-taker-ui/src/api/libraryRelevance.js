@@ -70,8 +70,11 @@ const requireLibraryRoom = (data, { view }) => {
     || !isPlainObject(data?.shelves)
     || !Array.isArray(data.shelves.folders)
     || !isPlainObject(data.shelves.counts)
-    || ['articles', 'rawArticles', 'unfiledArticles', 'keptArticles', 'suppressedArticles']
+    || ['articles', 'rawArticles', 'unfiledArticles', 'keptArticles', 'laterArticles', 'setAsideArticles', 'suppressedArticles']
       .some(key => !Number.isFinite(data.shelves.counts[key]) || data.shelves.counts[key] < 0)
+    || !isPlainObject(data.shelves.piles)
+    || !Array.isArray(data.shelves.piles.later)
+    || !Array.isArray(data.shelves.piles.setAside)
   ) {
     throw new Error('Library room response is malformed.');
   }
