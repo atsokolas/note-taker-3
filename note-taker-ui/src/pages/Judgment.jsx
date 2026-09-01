@@ -59,7 +59,7 @@ import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import ClaimFalsifiabilityPrompt from '../components/wiki/ClaimFalsifiabilityPrompt';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
-import { describeLanding } from './landingReceipt';
+import { describeLanding, describePreview } from './judgmentWrite';
 import { buildJudgmentSurfaceDescriptor } from './judgmentSurfaceModel';
 import '../styles/wiki-front-page.css';
 import '../styles/judgment.css';
@@ -261,12 +261,29 @@ const OvernightLine = ({ proposal, busy, onAccept, onDismiss, onHint }) => {
   );
 };
 
-const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, sentenceRef }) => {
+const CHANGE_ACTIONS = [
+  ['accept', 'Accept'],
+  ['narrow', 'Narrow'],
+  ['preserve', 'Preserve'],
+  ['reject', 'Reject'],
+  ['defer', 'Defer']
+];
+
+const JudgmentChangeReview = ({
+  proposal, busy = false, error = '', onResolve, sentenceRef, boundSources = null, nextReviewAt = null
+}) => {
+  /* Above the early return: a hook may not be reached conditionally, and this
+     component returns nothing at all when there is no proposal to review. */
+  const [previewing, setPreviewing] = useState('');
   if (!proposal?.id) return null;
   const status = normalizeSpaces(proposal.status).toLowerCase();
   const before = normalizeSpaces(proposal.provenance?.before);
   const after = normalizeSpaces(proposal.provenance?.after);
   const pending = status === 'pending';
+  /* Nothing has been written yet. Hovering or focusing a disposition says what
+     pressing it would do — the consequence preview Stage 2 asks for, which is
+     only honest while the state is still unchanged. */
+  const preview = pending ? describePreview({ verb: previewing, boundSources, nextReviewAt }) : '';
   const label = {
     accepted: 'Accepted',
     narrowed: 'Narrowed',
@@ -281,13 +298,25 @@ const JudgmentChangeReview = ({ proposal, busy = false, error = '', onResolve, s
       {before ? <p className="judgment-change__before">{before}</p> : null}
       {after ? <p className="judgment-change__after" ref={sentenceRef}>{after}</p> : null}
       {pending ? (
-        <div className="judgment-change__actions" aria-label="Resolve proposed judgment change">
-          <button type="button" disabled={busy} onClick={() => onResolve('accept')}>Accept</button>
-          <button type="button" disabled={busy} onClick={() => onResolve('narrow')}>Narrow</button>
-          <button type="button" disabled={busy} onClick={() => onResolve('preserve')}>Preserve</button>
-          <button type="button" disabled={busy} onClick={() => onResolve('reject')}>Reject</button>
-          <button type="button" disabled={busy} onClick={() => onResolve('defer')}>Defer</button>
-        </div>
+        <>
+          <div className="judgment-change__actions" aria-label="Resolve proposed judgment change">
+            {CHANGE_ACTIONS.map(([action, label]) => (
+              <button
+                key={action}
+                type="button"
+                disabled={busy}
+                onClick={() => onResolve(action)}
+                onMouseEnter={() => setPreviewing(action)}
+                onMouseLeave={() => setPreviewing('')}
+                onFocus={() => setPreviewing(action)}
+                onBlur={() => setPreviewing('')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="judgment-change__preview" role="status">{preview}</p>
+        </>
       ) : (
         <p className="judgment-change__receipt">Receipt bound to the exact before and after sentences.</p>
       )}
@@ -1226,6 +1255,8 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         error={changeProposalError}
         onResolve={resolveChangeProposal}
         sentenceRef={changeSentenceRef}
+        boundSources={view.boundSourceCount}
+        nextReviewAt={page?.judgment?.nextReviewAt || null}
       />
       <AriadneThread
         traceId={acceptedChangeTrace}
