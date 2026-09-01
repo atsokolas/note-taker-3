@@ -73,6 +73,24 @@ describe('buildLibraryColumn', () => {
     expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
   });
 
+  it('forgets a screened folder from Continue and the shelf', () => {
+    const { continueItem, rows } = buildLibraryColumn({
+      articles: [
+        ...articles,
+        article({
+          _id: 'newsletter',
+          title: 'A weekly letter',
+          highlights: [{ _id: 'h-feed' }],
+          folder: { _id: 'news', name: 'Newsletters', asFeed: true },
+          updatedAt: '2026-08-20T00:00:00.000Z'
+        })
+      ]
+    });
+
+    expect(continueItem.id).toBe('a1');
+    expect(rows.map(row => row.id)).toEqual(['a2', 'a3']);
+  });
+
   it('has nothing to continue on an empty shelf', () => {
     expect(buildLibraryColumn({ articles: [] })).toEqual({ continueItem: null, rows: [] });
   });

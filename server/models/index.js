@@ -121,7 +121,8 @@ const Recommendation = mongoose.model('Recommendation', recommendationSchema);
 // Folder Schema and Model - MODIFIED TO INCLUDE userId
 const folderSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  asFeed: { type: Boolean, default: false }
 }, { timestamps: true });
 
 folderSchema.index({ name: 1, userId: 1 }, { unique: true });

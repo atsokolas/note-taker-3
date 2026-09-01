@@ -183,6 +183,7 @@ describe('Library agent rail', () => {
         suppressedArticles: 0
       },
       piles: { later: [], setAside: [] },
+      feedTopics: [],
       nextCursor: null,
       hasMore: false,
       loadMore: jest.fn()

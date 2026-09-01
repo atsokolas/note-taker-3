@@ -7,6 +7,7 @@ const mergeFolderCounts = (folders, counts) => {
   return folders.map(folder => ({
     _id: folder._id,
     name: folder.name,
+    asFeed: Boolean(folder.asFeed),
     parentFolderId: folder.parentFolderId || null,
     sortOrder: folder.sortOrder || 0,
     articleCount: countMap.get(String(folder._id)) || 0

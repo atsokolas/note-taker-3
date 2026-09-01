@@ -16,6 +16,7 @@ const run = () => {
   assert.deepStrictEqual(Object.keys(result[0]).sort(), [
     '_id',
     'articleCount',
+    'asFeed',
     'name',
     'parentFolderId',
     'sortOrder'

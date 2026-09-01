@@ -4,6 +4,7 @@ import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder, setArticleEvergreen, setArticlePlacement } from '../api/articles';
+import { setFolderAsFeed } from '../api/folders';
 import { createQuestion } from '../api/questions';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
@@ -28,11 +29,14 @@ import { getLibrarySourceDetail } from '../api/libraryRelevance';
 import { sourceRowKey } from '../components/library/librarySourceIdentity';
 import { buildLibrarianSelectionPrompt, buildLibraryThinkHref } from '../utils/libraryThinkSeam';
 import { librarySubject } from '../components/library/libraryColumnModel';
-import { mergeArticles, placementOf } from './placementModel';
+import { isImboxArticle, mergeArticles, placementOf } from './placementModel';
+import { isProceduralShelf } from './readingDriftModel';
 import { useAgentRail, useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryColumn from '../components/library/LibraryColumn';
+import LibraryFeedColumn from '../components/library/LibraryFeedColumn';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
+import ScreenWord from '../components/library/ScreenWord';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
 
@@ -53,6 +57,8 @@ const Library = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope = searchParams.get('scope') || 'all';
   const folderId = searchParams.get('folderId') || '';
+  const topicId = searchParams.get('topic') || '';
+  const shelfFolderId = scope === 'feed' ? topicId : folderId;
   const requestedArticleId = searchParams.get('articleId') || '';
   const requestedHighlightId = searchParams.get('highlightId') || '';
   const shouldOpenReferencePullIn = searchParams.get('pull') === '1';
@@ -101,7 +107,7 @@ const Library = () => {
   // The room projection belongs to Library, not merely its index. Keep it
   // alive while a source is open so shelves and counts do not disappear and
   // the legacy full-corpus loaders do not return behind the reader.
-  const roomProjectionEnabled = scope === 'all';
+  const roomProjectionEnabled = scope === 'all' || scope === 'feed';
   const libraryRoom = useLibraryRoom({
     view: sourceView,
     showSuppressed: showSuppressedItems,
@@ -123,14 +129,15 @@ const Library = () => {
     loading: articlesLoading,
     error: articlesError,
     resolved: articlesResolved,
+    refresh: refreshArticles,
     setAllArticles
   } = useLibraryArticles({
     scope,
-    folderId,
+    folderId: shelfFolderId,
     query: articleQuery,
     sort: 'recent',
     includeSuppressed: showSuppressedItems,
-    enabled: !roomProjectionEnabled || Boolean(libraryRoom.error)
+    enabled: !roomProjectionEnabled || Boolean(libraryRoom.error) || scope === 'feed'
   });
   const {
     article: selectedArticle,
@@ -250,6 +257,7 @@ const Library = () => {
     const params = new URLSearchParams(searchParams);
     params.set('scope', nextScope);
     params.delete('folderId');
+    params.delete('topic');
     params.delete('articleId');
     params.delete('highlightId');
     params.delete('sourceView');
@@ -344,6 +352,19 @@ const Library = () => {
       params.set('scope', 'all');
       params.set('sourceView', 'needs_review');
       params.delete('folderId');
+      params.delete('topic');
+      params.delete('articleId');
+      params.delete('highlightId');
+      clearBrowseSelectionParams(params);
+      setSearchParams(params);
+      return;
+    }
+    const fromRail = (libraryRoom.feedTopics || []).some((topic) => topic.id === id);
+    if (folder?.asFeed || fromRail) {
+      params.set('scope', 'feed');
+      params.set('topic', id);
+      params.delete('folderId');
+      params.delete('sourceView');
       params.delete('articleId');
       params.delete('highlightId');
       clearBrowseSelectionParams(params);
@@ -352,12 +373,13 @@ const Library = () => {
     }
     params.set('scope', 'folder');
     params.set('folderId', id);
+    params.delete('topic');
     params.delete('sourceView');
     params.delete('articleId');
     params.delete('highlightId');
     clearBrowseSelectionParams(params);
     setSearchParams(params);
-  }, [folders, searchParams, setSearchParams]);
+  }, [folders, libraryRoom.feedTopics, searchParams, setSearchParams]);
 
   const handleSelectArticle = useCallback((id, options = {}) => {
     const nextId = String(id || '').trim();
@@ -738,8 +760,10 @@ const Library = () => {
       return current.map((item) => (String(item._id) === String(articleId) ? { ...item, ...updated } : item));
     });
     libraryRoom.upsertPileArticle?.(updated, next);
-    if (previous === 'stream' && next !== 'stream') libraryRoom.adjustShelfCount?.('articles', -1);
-    if (previous !== 'stream' && next === 'stream') libraryRoom.adjustShelfCount?.('articles', 1);
+    const wasImbox = isImboxArticle(previousArticle);
+    const homeIsImbox = isImboxArticle({ ...updated, placement: 'stream' });
+    if (wasImbox && next !== 'stream') libraryRoom.adjustShelfCount?.('articles', -1);
+    if (!wasImbox && next === 'stream' && homeIsImbox) libraryRoom.adjustShelfCount?.('articles', 1);
     if (previous === 'later') libraryRoom.adjustShelfCount?.('laterArticles', -1);
     if (next === 'later') libraryRoom.adjustShelfCount?.('laterArticles', 1);
     if (previous === 'setAside') libraryRoom.adjustShelfCount?.('setAsideArticles', -1);
@@ -747,6 +771,28 @@ const Library = () => {
     libraryRoom.refresh?.();
     return saved;
   }, [allArticles, libraryRoom, selectedArticle, setAllArticles]);
+
+  const handleScreenFolder = useCallback(async (asFeed) => {
+    const id = String(shelfFolderId || '').trim();
+    if (!id) return;
+    const saved = await setFolderAsFeed(id, asFeed);
+    await Promise.all([libraryRoom.refresh?.(), refreshArticles?.({ force: true })]);
+    const params = new URLSearchParams(searchParams);
+    if (saved?.asFeed) {
+      params.set('scope', 'feed');
+      params.set('topic', id);
+      params.delete('folderId');
+    } else {
+      params.set('scope', 'all');
+      params.delete('topic');
+      params.delete('folderId');
+    }
+    params.delete('articleId');
+    params.delete('highlightId');
+    clearBrowseSelectionParams(params);
+    setSearchParams(params);
+    return saved;
+  }, [libraryRoom, refreshArticles, searchParams, setSearchParams, shelfFolderId]);
 
   const handleAskLibrarian = useCallback((highlight) => {
     const prompt = buildLibrarianSelectionPrompt(highlight);
@@ -811,10 +857,10 @@ const Library = () => {
   }, [handleDumpToWorkingMemory]);
 
   const selectedFolderName = useMemo(() => {
-    if (scope !== 'folder') return '';
-    const folder = folders.find(item => item._id === folderId);
+    if (scope !== 'folder' && scope !== 'feed') return '';
+    const folder = folders.find(item => item._id === shelfFolderId);
     return folder ? folder.name : '';
-  }, [folders, folderId, scope]);
+  }, [folders, scope, shelfFolderId]);
 
 
   const isReadingView = Boolean(selectedArticleId);
@@ -847,6 +893,20 @@ const Library = () => {
      rather than in front of it. */
   /* Kept reads like the shelf, because it is the shelf — a narrower one. */
   const isDedicatedShelf = !isReadingView && ['kept', 'later', 'set-aside'].includes(scope);
+  const isFeedColumn = !isReadingView && scope === 'feed';
+  const feedFolder = useMemo(() => {
+    if (scope !== 'feed') return null;
+    const fromCabinet = folders.find((item) => item._id === topicId);
+    if (fromCabinet) return fromCabinet;
+    const fromRail = (libraryRoom.feedTopics || []).find((topic) => topic.id === topicId);
+    return fromRail ? { _id: fromRail.id, name: fromRail.name, asFeed: true } : { _id: topicId, name: '', asFeed: true };
+  }, [folders, libraryRoom.feedTopics, scope, topicId]);
+  const screenableFolder = useMemo(() => {
+    if (scope !== 'folder' || !folderId) return null;
+    const folder = folders.find((item) => item._id === folderId);
+    if (!folder || isProceduralShelf(folder.name)) return null;
+    return folder;
+  }, [folderId, folders, scope]);
   const keptCount = useMemo(
     () => libraryTotalsReady
       ? projectedShelfCounts?.keptArticles
@@ -1023,12 +1083,13 @@ const Library = () => {
         foldersLoading={foldersLoading}
         foldersError={foldersError}
         scope={scope}
-        folderId={folderId}
+        folderId={shelfFolderId}
         sourceView={sourceView}
         unfiledCount={unfiledCount}
         keptCount={keptCount}
         laterCount={laterCount}
         setAsideCount={setAsideCount}
+        feedTopics={libraryRoom.feedTopics}
         query={articleQuery}
         onQueryChange={handleArticleQueryChange}
         onSelectScope={handleSelectScope}
@@ -1067,10 +1128,22 @@ const Library = () => {
             other scope — folders, unfiled, highlights — because those are its
             own views and the lock does not redraw them. */}
         <div
-          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isDedicatedShelf ? 'is-shelf' : ''}`}
+          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isDedicatedShelf || isFeedColumn ? 'is-shelf' : ''}`}
           data-testid="library-main"
         >
-          {isDedicatedShelf ? (
+          {isFeedColumn ? (
+            <LibraryFeedColumn
+              folder={feedFolder}
+              articles={articles}
+              pileArticles={pileArticles}
+              loading={articlesLoading}
+              error={articlesError}
+              onSelectArticle={handleSelectArticle}
+              onScreen={handleScreenFolder}
+              onPileDone={(articleId) => handleTogglePlacement(articleId, 'stream')}
+              entering={columnEntering}
+            />
+          ) : isDedicatedShelf ? (
             <LibraryColumn
               shelf={scope}
               articles={articles}
@@ -1084,6 +1157,14 @@ const Library = () => {
             />
           ) : (
             <>
+              {screenableFolder ? (
+                <div className="library-folder-screen">
+                  <ScreenWord
+                    asFeed={Boolean(screenableFolder.asFeed)}
+                    onScreen={handleScreenFolder}
+                  />
+                </div>
+              ) : null}
               {mainPanel}
               {readingContext}
             </>

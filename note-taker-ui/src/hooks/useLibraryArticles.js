@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getArticles } from '../api/articles';
-import { isImboxArticle, isLaterArticle, isSetAsideArticle } from '../pages/placementModel';
+import { isFeedArticle, isImboxArticle, isLaterArticle, isSetAsideArticle } from '../pages/placementModel';
 import { endPerfTimer, logPerf, startPerfTimer } from '../utils/perf';
 
 /**
  * @typedef {Object} LibraryArticlesParams
- * @property {'all'|'unfiled'|'folder'|'kept'|'later'|'set-aside'} scope
+ * @property {'all'|'unfiled'|'folder'|'kept'|'later'|'set-aside'|'feed'} scope
  * @property {string} [folderId]
  * @property {string} [query]
  * @property {'recent'|'oldest'|'most-highlighted'} [sort]
@@ -24,7 +24,11 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
     setLoading(true);
     setError('');
     try {
-      const data = await getArticles({ scope: 'all', includeSuppressed });
+      const data = await getArticles({
+        scope: scope === 'feed' ? 'folder' : 'all',
+        ...(scope === 'feed' ? { folderId, includePreview: true } : {}),
+        includeSuppressed
+      });
       const next = data || [];
       setAllArticles(next);
       logPerf('library.list.load', {
@@ -37,7 +41,7 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
       setLoading(false);
       setResolved(true);
     }
-  }, [enabled, includeSuppressed]);
+  }, [enabled, folderId, includeSuppressed, scope]);
 
   useEffect(() => {
     fetchArticles();
@@ -62,8 +66,11 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
         ? article.concepts.map(item => item?.name || item?.tag || item)
         : [])
     ].filter(Boolean).join(' ').toLowerCase();
+    const normalizedQuery = query.trim().toLowerCase();
     let next = allArticles;
     if (scope === 'folder' && !folderId) {
+      next = [];
+    } else if (scope === 'feed' && !folderId) {
       next = [];
     } else if (scope === 'unfiled') {
       next = next.filter(article => !article.folder);
@@ -76,10 +83,12 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
       next = next.filter(isLaterArticle);
     } else if (scope === 'set-aside') {
       next = next.filter(isSetAsideArticle);
+    } else if (scope === 'feed' && folderId) {
+      next = next.filter(article => article.folder?._id === folderId);
+      if (!normalizedQuery) next = next.filter(isFeedArticle);
     } else if (scope === 'folder' && folderId) {
       next = next.filter(article => article.folder?._id === folderId);
     }
-    const normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery) {
       const terms = normalizedQuery.split(/\s+/).filter(Boolean);
       next = next.filter(article => {
@@ -87,8 +96,8 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
         return terms.every(term => haystack.includes(term));
       });
     } else if (scope === 'all' || scope === 'unfiled' || scope === 'folder') {
-      /* Parked sources live in their pile. Find still reaches them; the
-         ordinary shelf does not, or Later and Set aside would be starring. */
+      /* Parked sources live in their pile. Feed-home lives on its scroll.
+         Find still reaches them; the ordinary shelf does not. */
       next = next.filter(isImboxArticle);
     }
     if (sort === 'oldest') {

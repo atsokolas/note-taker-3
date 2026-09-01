@@ -75,6 +75,7 @@ const requireLibraryRoom = (data, { view }) => {
     || !isPlainObject(data.shelves.piles)
     || !Array.isArray(data.shelves.piles.later)
     || !Array.isArray(data.shelves.piles.setAside)
+    || !Array.isArray(data.shelves.feedTopics)
   ) {
     throw new Error('Library room response is malformed.');
   }

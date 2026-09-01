@@ -171,4 +171,35 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Kept 2' })).toBeInTheDocument();
     });
   });
+
+  describe('screened topics', () => {
+    beforeEach(() => setViewport(false));
+
+    it('prints the folder name in living ink under All sources, never the word Feed', () => {
+      const onSelectFolder = jest.fn();
+      renderNav({
+        feedTopics: [{ id: 'news', name: 'Newsletters' }],
+        onSelectFolder
+      });
+      const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
+      expect(labels[0]).toBe('All sources');
+      expect(labels[1]).toBe('Newsletters');
+      expect(screen.queryByText(/^Feed/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Newsletters' }));
+      expect(onSelectFolder).toHaveBeenCalledWith('news');
+    });
+
+    it('is silent when nothing is screened', () => {
+      renderNav({ feedTopics: [] });
+      expect(screen.queryByRole('button', { name: 'Newsletters' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Feed \(0\)/)).not.toBeInTheDocument();
+    });
+
+    it('does not add topic rows above the reading on a phone', () => {
+      setViewport(true);
+      renderNav({ feedTopics: [{ id: 'news', name: 'Newsletters' }] });
+      expect(screen.queryByRole('button', { name: 'Newsletters' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
+    });
+  });
 });

@@ -13,6 +13,7 @@ const emptyRoom = () => ({
   folders: [],
   shelfCounts: {},
   piles: { later: [], setAside: [] },
+  feedTopics: [],
   nextCursor: null,
   hasMore: false
 });
@@ -43,6 +44,7 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
             later: payload.shelves.piles?.later || [],
             setAside: payload.shelves.piles?.setAside || []
           },
+          feedTopics: payload.shelves.feedTopics || [],
           nextCursor: payload.nextCursor,
           hasMore: payload.hasMore
         });
@@ -81,6 +83,7 @@ const useLibraryRoom = ({ view = 'recent', showSuppressed = false, enabled = tru
           later: payload.shelves.piles?.later || [],
           setAside: payload.shelves.piles?.setAside || []
         },
+        feedTopics: payload.shelves.feedTopics || [],
         nextCursor: payload.nextCursor,
         hasMore: payload.hasMore
       });

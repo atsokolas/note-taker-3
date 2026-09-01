@@ -22,7 +22,8 @@ const roomPayload = {
       setAsideArticles: 0,
       suppressedArticles: 0
     },
-    piles: { later: [], setAside: [] }
+    piles: { later: [], setAside: [] },
+    feedTopics: [{ id: 'news', name: 'Newsletters', arrivedAt: '2026-08-20T00:00:00.000Z' }]
   },
   nextCursor: 'next-1',
   hasMore: true
@@ -46,6 +47,7 @@ describe('useLibraryRoom', () => {
     expect(result.current.sources).toHaveLength(1);
     expect(result.current.folders[0].name).toBe('AI');
     expect(result.current.shelfCounts.articles).toBe(2);
+    expect(result.current.feedTopics[0].name).toBe('Newsletters');
   });
 
   it('lets Keep bump the shelf count before the room refetches', async () => {

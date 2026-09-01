@@ -129,6 +129,41 @@ describe('LibraryMain mixed-source failure boundary', () => {
     expect(screen.getByRole('button', { name: 'Owed a move' })).toBeInTheDocument();
   });
 
+  it('hides a feed-home article from the Imbox list', async () => {
+    const relevanceState = {
+      loading: false,
+      loadingMore: false,
+      error: '',
+      paginationError: '',
+      coverage: null,
+      counts: { recent: { value: 2, exact: true } },
+      sources: [
+        { source: { type: 'article', id: 'article-1', title: 'Saved article' } },
+        { source: { type: 'article', id: 'letter', title: 'Weekly letter' } }
+      ],
+      nextCursor: null,
+      hasMore: false,
+      filteredOutCount: 0,
+      loadMore: jest.fn()
+    };
+    render(
+      <LibraryMain
+        {...baseProps}
+        allArticles={[
+          { _id: 'article-1', title: 'Saved article' },
+          {
+            _id: 'letter',
+            title: 'Weekly letter',
+            folder: { _id: 'news', name: 'Newsletters', asFeed: true }
+          }
+        ]}
+        relevanceState={relevanceState}
+      />
+    );
+
+    expect(await screen.findByTestId('source-list')).toHaveTextContent('1 sources');
+  });
+
   it('frames Needs Review as a bounded triage over the full backlog', async () => {
     const relevanceState = {
       loading: false,

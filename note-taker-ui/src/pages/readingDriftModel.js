@@ -28,7 +28,9 @@ const TOP_TOPICS = 5;
 /* Shelves that are a stage of work rather than a subject. "You have drifted
    away from Needs Review" is not an observation about your reading, it is the
    product mistaking its own filing tray for a topic. Matched loosely, because
-   these are names people type. */
+   these are names people type.
+
+   Keep in lockstep with server/lib/proceduralShelf.js. */
 const PROCEDURAL_SHELVES = [
   'needs review', 'review', 'inbox', 'unsorted', 'uncategorized', 'unfiled',
   'to read', 'read later', 'reading list', 'saved', 'misc', 'miscellaneous',

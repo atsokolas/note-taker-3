@@ -1,4 +1,5 @@
 const { buildMixedLibraryRelevancePage } = require('./libraryMixedSourceService');
+const { feedFolderIdsFrom, rankFeedTopics } = require('../lib/feedHome');
 
 const visibleArticleQuery = (userId, includeSuppressed) => (
   includeSuppressed
@@ -31,6 +32,26 @@ const findPile = async (Article, query, direction) => {
   ));
 };
 
+const feedArrivals = async (Article, query, feedFolderIds) => {
+  if (!feedFolderIds.length || typeof Article?.aggregate !== 'function') return [];
+  return Article.aggregate([
+    {
+      $match: {
+        ...query,
+        folder: { $in: feedFolderIds },
+        placement: { $nin: ['later', 'setAside'] }
+      }
+    },
+    {
+      $group: {
+        _id: '$folder',
+        count: { $sum: 1 },
+        arrivedAt: { $max: { $ifNull: ['$updatedAt', '$createdAt'] } }
+      }
+    }
+  ]);
+};
+
 const buildLibraryRoomProjection = async ({
   userId,
   models = {},
@@ -43,12 +64,18 @@ const buildLibraryRoomProjection = async ({
   const visibleQuery = visibleArticleQuery(userId, includeSuppressed);
   const ordinaryVisibleQuery = visibleArticleQuery(userId, false);
 
-  const imboxQuery = { ...visibleQuery, placement: { $nin: ['later', 'setAside'] } };
+  const folders = typeof getFoldersWithCounts === 'function' ? await getFoldersWithCounts(userId) : [];
+  const feedFolderIds = feedFolderIdsFrom(folders);
+  const imboxQuery = {
+    ...visibleQuery,
+    placement: { $nin: ['later', 'setAside'] },
+    ...(feedFolderIds.length ? { folder: { $nin: feedFolderIds } } : {})
+  };
 
   const laterQuery = { ...visibleQuery, placement: 'later' };
   const setAsideQuery = { ...visibleQuery, placement: 'setAside' };
 
-  const [relevance, folders, rawArticles, visibleArticles, unfiledArticles, keptArticles, laterArticles, setAsideArticles, laterPile, setAsidePile] = await Promise.all([
+  const [relevance, rawArticles, visibleArticles, unfiledArticles, keptArticles, laterArticles, setAsideArticles, laterPile, setAsidePile, arrivals, ordinaryVisibleArticles] = await Promise.all([
     buildMixedLibraryRelevancePage({
       userId,
       models,
@@ -56,7 +83,6 @@ const buildLibraryRoomProjection = async ({
       limit,
       includeSuppressed
     }),
-    typeof getFoldersWithCounts === 'function' ? getFoldersWithCounts(userId) : [],
     count(Article, { userId }),
     count(Article, imboxQuery),
     count(Article, {
@@ -67,12 +93,10 @@ const buildLibraryRoomProjection = async ({
     count(Article, laterQuery),
     count(Article, setAsideQuery),
     findPile(Article, laterQuery, 1),
-    findPile(Article, setAsideQuery, -1)
+    findPile(Article, setAsideQuery, -1),
+    feedArrivals(Article, visibleQuery, feedFolderIds),
+    count(Article, ordinaryVisibleQuery)
   ]);
-
-  const ordinaryVisibleArticles = includeSuppressed
-    ? await count(Article, ordinaryVisibleQuery)
-    : visibleArticles;
 
   return {
     ...relevance,
@@ -90,7 +114,8 @@ const buildLibraryRoomProjection = async ({
       piles: {
         later: laterPile,
         setAside: setAsidePile
-      }
+      },
+      feedTopics: rankFeedTopics(folders, arrivals)
     }
   };
 };

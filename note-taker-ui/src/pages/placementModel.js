@@ -29,7 +29,11 @@ export const isParked = (article = {}) => {
   return placement === PLACEMENT_LATER || placement === PLACEMENT_SET_ASIDE;
 };
 
-export const isImboxArticle = (article = {}) => !isParked(article);
+const folderAsFeed = (article = {}) => article?.folder?.asFeed === true;
+
+export const isFeedArticle = (article = {}) => !isParked(article) && folderAsFeed(article);
+
+export const isImboxArticle = (article = {}) => !isParked(article) && !folderAsFeed(article);
 
 export const isLaterArticle = (article = {}) => placementOf(article) === PLACEMENT_LATER;
 export const isSetAsideArticle = (article = {}) => placementOf(article) === PLACEMENT_SET_ASIDE;

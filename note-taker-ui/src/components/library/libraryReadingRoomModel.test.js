@@ -70,6 +70,18 @@ describe('libraryReadingRoomModel', () => {
     expect(pickReopenCandidate([parked])?._id).toBeUndefined();
   });
 
+  it('never continues a feed-home source', () => {
+    const newsletter = {
+      _id: 'newsletter',
+      title: 'A weekly letter',
+      highlightCount: 99,
+      folder: { _id: 'news', name: 'Newsletters', asFeed: true },
+      createdAt: '2026-08-20T00:00:00Z'
+    };
+    expect(pickReopenCandidate([newsletter, ...articles])?._id).toBe('a2');
+    expect(pickReopenCandidate([newsletter])?._id).toBeUndefined();
+  });
+
   it('excludes suppressed articles from reopen candidate ranking', () => {
     const withCruft = [
       ...articles,

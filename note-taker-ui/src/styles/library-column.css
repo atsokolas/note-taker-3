@@ -64,6 +64,10 @@
   color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
 }
 
+.library-shelf__feed button {
+  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
+}
+
 .library-shelf__kept .room-shelf__item-meta.is-ticking {
   animation: library-kept-tick 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -925,4 +929,73 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 .library-column__continue-link {
   margin-left: 0;
   margin-right: auto;
+}
+
+/* A screened topic is an unrolled scroll. The left measure is a sap hairline —
+   a margin, not a pile's edge. Full meander polish is a later pass. */
+.library-feed {
+  padding: 8px 0 48px;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-living-sap, #6f7340) 55%, transparent);
+  padding-left: clamp(16px, 2vw, 28px);
+}
+
+.library-feed__masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.library-screen-word,
+.library-folder-screen .library-screen-word {
+  border-bottom: 1px solid currentColor;
+  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.86rem;
+}
+
+.library-folder-screen {
+  margin: 0 0 18px;
+}
+
+.library-feed__folios {
+  display: grid;
+  gap: 32px;
+}
+
+.library-feed__folio h2 {
+  margin: 0;
+}
+
+.library-feed__title {
+  color: inherit;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: clamp(1.35rem, 2.1vw, 1.7rem);
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.library-feed__source {
+  margin: 6px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.82rem;
+}
+
+.library-feed__graph {
+  margin: 12px 0 0;
+  max-width: 38rem;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-feed,
+  .library-feed__folio {
+    transition: none;
+  }
 }
