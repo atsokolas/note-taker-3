@@ -492,7 +492,7 @@ const LibrarySourceList = ({
   reviewBacklogCount,
   reviewBacklogHref = '',
   title = 'Sources',
-  subtitle = 'Articles, highlights, and notebook entries in one index.',
+  subtitle = 'Articles, highlights, and notes in one index.',
   selectedSourceKey = '',
   variant = 'default'
 }) => {

@@ -221,7 +221,7 @@ const AllHighlights = ({ embedded = false, filters = {} }) => {
       setEditing(null);
     } catch (err) {
       console.error('Error saving highlight:', err);
-      setError(err.response?.data?.error || 'Could not save highlight.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

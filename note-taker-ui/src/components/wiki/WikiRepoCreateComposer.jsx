@@ -129,7 +129,7 @@ const WikiRepoCreateComposer = ({ className = '', compact = false, onCreated, on
         `repo wiki failed · ${input}`,
         'waiting for a retry'
       ]);
-      setError(submitError?.message || 'Failed to create repo wiki.');
+      setError(submitError?.message || 'That did not save.');
     } finally {
       setBusy(false);
       onBusyChange?.(false);

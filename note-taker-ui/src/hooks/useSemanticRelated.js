@@ -106,7 +106,7 @@ const useSemanticRelated = ({
       setMeta(payload.meta);
     } catch (err) {
       if (requestVersion !== requestVersionRef.current) return;
-      setError(err?.response?.data?.error || 'Failed to load semantic related items.');
+      setError(err?.response?.data?.error || 'That did not load.');
       setResults([]);
       setMeta({ sourceType: safeSourceType, sourceId: safeSourceId, modelAvailable: true, explanationVersion: 'v1' });
     } finally {

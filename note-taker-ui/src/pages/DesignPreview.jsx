@@ -14,7 +14,7 @@ const SCREENS = [
     ],
     changes: [
       'Promote the current thread into a full-width lead surface.',
-      'Demote dashboard fragments into a single active queue block.',
+      'Demote scattered readouts into a single active queue block.',
       'Shrink the right rail into provenance, support, and next move.'
     ]
   },

@@ -76,7 +76,7 @@ const useConceptWorkspace = (conceptId, options = {}) => {
       setWorkspace(saved);
       return saved;
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save workspace.');
+      setError(err.response?.data?.error || 'That did not save.');
       throw err;
     } finally {
       setSaving(false);
@@ -101,7 +101,7 @@ const useConceptWorkspace = (conceptId, options = {}) => {
       if (optimisticWorkspace) {
         setWorkspace(previous);
       }
-      setError(err.response?.data?.error || 'Failed to update workspace.');
+      setError(err.response?.data?.error || 'That did not save.');
       throw err;
     } finally {
       setSaving(false);

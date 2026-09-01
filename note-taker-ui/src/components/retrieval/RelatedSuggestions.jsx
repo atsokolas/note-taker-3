@@ -83,7 +83,7 @@ const RelatedSuggestions = ({
         setItems(Array.isArray(response?.items) ? response.items : []);
       } catch (err) {
         if (!cancelled) {
-          setError(err?.response?.data?.error || 'Failed to load related items.');
+          setError(err?.response?.data?.error || 'That did not load.');
         }
       } finally {
         if (!cancelled) {

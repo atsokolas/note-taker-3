@@ -553,7 +553,7 @@ const getActivationCopy = ({ state, session, scheduleTarget }) => {
       recommendationText: seeds.length
         ? `Start with one concept that organizes ${seeds.join(' · ')} into a clearer idea.`
         : 'Start with one concept that organizes the pages or databases you just imported into a clearer idea.',
-      conceptLabel: 'Create a concept from pages or database content',
+      conceptLabel: 'Create a concept from pages or database rows',
       conceptPlaceholder: seeds[0] ? `e.g. ${seeds[0]}` : 'e.g. Product operating system',
       closeLoopLabel: 'Keep the workspace alive',
       closeLoopText: scheduleTarget
@@ -1052,7 +1052,7 @@ const DataIntegrations = () => {
     const blocks = buildBlocksFromText(cleanText);
     const content = buildHtmlFromText(cleanText);
     if (!content || blocks.length === 0) {
-      throw new Error('Could not parse text into notebook content.');
+      throw new Error('That text could not be read as a note.');
     }
     const response = await api.post('/api/notebook', {
       title: String(title || '').trim() || 'Untitled',
@@ -1217,7 +1217,7 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Readwise import failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to import Readwise CSV.', 'error');
+      setStatus(error.response?.data?.error || 'That did not save.', 'error');
       systemStatus.setRecoverableFailure({
         stage: 'Readwise CSV import',
         message: error.response?.data?.error || 'Failed to import Readwise CSV.',
@@ -1284,7 +1284,7 @@ const DataIntegrations = () => {
     }
     setPreviewing((previous) => ({ ...previous, readwise: true }));
     setImportStats(null);
-    setStatus('Previewing Readwise content...');
+    setStatus('Previewing what Readwise holds...');
     try {
       const session = await ensureSessionForSource({
         provider: 'readwise',
@@ -1309,7 +1309,7 @@ const DataIntegrations = () => {
       setStatus('Readwise preview ready. Review the sample before syncing.', 'success');
     } catch (error) {
       console.error('Readwise preview failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to preview Readwise content.', 'error');
+      setStatus(error.response?.data?.error || 'That did not load.', 'error');
     } finally {
       setPreviewing((previous) => ({ ...previous, readwise: false }));
     }
@@ -1412,10 +1412,10 @@ const DataIntegrations = () => {
         }
       }
       if ((summary.importedArticles || 0) === 0 && (summary.importedHighlights || 0) === 0) {
-        setStatus('Readwise sync completed. No new items were imported.', 'success');
+        setStatus('Readwise sync finished. Nothing new arrived.', 'success');
         publishSystemReceipt(data?.receipt || data?.connection?.lastReceipt, {
           title: 'Readwise synced',
-          summary: 'No new items to import.',
+          summary: 'Nothing new to import.',
           status: 'completed'
         });
       } else {
@@ -1426,7 +1426,7 @@ const DataIntegrations = () => {
         if (summary.importedHighlights) parts.push(`${summary.importedHighlights} highlight${summary.importedHighlights === 1 ? '' : 's'}`);
         publishSystemReceipt(data?.receipt || data?.connection?.lastReceipt, {
           title: 'Readwise synced',
-          summary: `${parts.join(' · ') || 'New items imported'}${hasWarnings ? ` (${summary.indexingFailures} indexing warning${summary.indexingFailures === 1 ? '' : 's'})` : ''}.`,
+          summary: `${parts.join(' · ') || 'Newly imported'}${hasWarnings ? ` (${summary.indexingFailures} indexing warning${summary.indexingFailures === 1 ? '' : 's'})` : ''}.`,
           status: hasWarnings ? 'completed_with_warnings' : 'completed'
         });
       }
@@ -1486,7 +1486,7 @@ const DataIntegrations = () => {
     }
     setPreviewing((previous) => ({ ...previous, notion: true }));
     setImportStats(null);
-    setStatus('Previewing Notion content...');
+    setStatus('Previewing what Notion holds...');
     try {
       const session = await ensureSessionForSource({
         provider: 'notion',
@@ -1507,7 +1507,7 @@ const DataIntegrations = () => {
       setStatus('Notion preview ready. Review the sample before syncing.', 'success');
     } catch (error) {
       console.error('Notion preview failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to preview Notion content.', 'error');
+      setStatus(error.response?.data?.error || 'That did not load.', 'error');
     } finally {
       setPreviewing((previous) => ({ ...previous, notion: false }));
     }
@@ -1731,7 +1731,7 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('File import failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to import file.', 'error');
+      setStatus(error.response?.data?.error || 'That did not save.', 'error');
     } finally {
       setImporting((previous) => ({ ...previous, md: false }));
       event.target.value = '';
@@ -1871,7 +1871,7 @@ const DataIntegrations = () => {
       setEvernoteFile(null);
     } catch (error) {
       console.error('Evernote import failed:', error);
-      setStatus(error.response?.data?.error || 'Failed to import Evernote ENEX.', 'error');
+      setStatus(error.response?.data?.error || 'That did not save.', 'error');
       systemStatus.setRecoverableFailure({
         stage: 'Evernote import',
         message: error.response?.data?.error || 'Failed to import Evernote ENEX.',
@@ -1958,7 +1958,7 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Manual note creation failed:', error);
-      setStatus(error.response?.data?.error || error.message || 'Failed to create note.', 'error');
+      setStatus(error.response?.data?.error || error.message || 'That did not save.', 'error');
       if (session?.id) {
         await patchSession(session.id, {
           status: 'failed',
@@ -1985,7 +1985,7 @@ const DataIntegrations = () => {
         return;
       }
       setPasteContent(text);
-      setStatus('Clipboard content pasted. Choose mode and import.', 'success');
+      setStatus('Pasted. Choose a mode and import.', 'success');
     } catch (error) {
       console.error('Clipboard read failed:', error);
       setStatus('Clipboard permission denied. Paste manually into the text box.', 'error');
@@ -1997,13 +1997,13 @@ const DataIntegrations = () => {
     const raw = String(pasteContent || '');
     const text = raw.trim();
     if (!text) {
-      setStatus('Paste content before importing.', 'error');
+      setStatus('Paste something before importing.', 'error');
       return;
     }
 
     setImporting((previous) => ({ ...previous, paste: true }));
     setImportStats(null);
-    setStatus('Importing pasted content...');
+    setStatus('Importing what you pasted...');
     let session = null;
     try {
       const resolvedMode = pasteMode === 'auto' ? detectPasteMode(text) : pasteMode;
@@ -2096,14 +2096,14 @@ const DataIntegrations = () => {
       }
     } catch (error) {
       console.error('Paste import failed:', error);
-      setStatus(error.response?.data?.error || error.message || 'Failed to import pasted content.', 'error');
+      setStatus(error.response?.data?.error || error.message || 'That did not save.', 'error');
       if (session?.id) {
         await patchSession(session.id, {
           status: 'failed',
           progress: {
             stage: 'failed'
           },
-          lastError: error.response?.data?.error || error.message || 'Failed to import pasted content.'
+          lastError: error.response?.data?.error || error.message || 'That did not save.'
         });
       }
     } finally {
@@ -2240,7 +2240,7 @@ const DataIntegrations = () => {
       );
     } catch (error) {
       console.error('Failed to export current item to Notion:', error);
-      setStatus(error.response?.data?.error || 'Failed to export to Notion.', 'error');
+      setStatus(error.response?.data?.error || 'That did not save.', 'error');
     } finally {
       setNotionExporting(false);
     }
@@ -3065,7 +3065,7 @@ const DataIntegrations = () => {
                   Paste from clipboard
                 </Button>
                 <Button type="submit" disabled={busy}>
-                  {importing.paste ? 'Importing…' : 'Import pasted content'}
+                  {importing.paste ? 'Importing…' : 'Import what you pasted'}
                 </Button>
               </div>
             </form>

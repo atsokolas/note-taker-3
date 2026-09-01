@@ -776,7 +776,7 @@ describe('WikiPageReadView', () => {
     expect(await screen.findByRole('heading', { name: 'Enterprise AI Memory' })).toBeInTheDocument();
     const shareRegion = screen.getByRole('region', { name: 'Share this wiki page' });
     expect(shareRegion).toHaveTextContent('Needs review before sharing');
-    expect(shareRegion).toHaveTextContent('hidden from public sharing until the review items are fixed or archived');
+    expect(shareRegion).toHaveTextContent('hidden from public sharing until the open reviews are fixed or archived');
     expect(shareRegion).toHaveTextContent('Page title matches a known malformed QA fixture.');
     expect(shareRegion).toHaveTextContent('Public copy locked until review clears');
     expect(within(shareRegion).queryByRole('link', { name: 'Open public page' })).not.toBeInTheDocument();

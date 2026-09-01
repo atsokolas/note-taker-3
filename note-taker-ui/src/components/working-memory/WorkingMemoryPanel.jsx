@@ -403,7 +403,7 @@ const WorkingMemoryPanel = ({
             <div className="working-memory-list">
               {items.length === 0 ? (
                 <p className="muted small">
-                  {isArchivedView ? 'No archived blocks yet.' : 'No dumped items yet.'}
+                  {isArchivedView ? 'No archived blocks yet.' : 'Nothing here yet.'}
                 </p>
               ) : (
                 <>

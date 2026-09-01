@@ -553,7 +553,7 @@ const formatShareReviewSummary = (page = {}) => {
   const reasons = formatQualityReviewReasons(review);
   if (reasons.length === 1) return reasons[0];
   if (reasons.length > 1) return `${reasons.length} review items need attention before this can be public.`;
-  return 'Review items need attention before this can be public.';
+  return 'Reviews need attention before this can be public.';
 };
 
 const countPageSources = (page = {}) => countWikiSources(page);
@@ -1723,7 +1723,7 @@ const WikiPageReadView = ({
     const publicUrl = buildPublicWikiShareUrl(currentPage);
     if (!currentPage || !publicUrl) return;
     if (isPageQualityBlocked(currentPage)) {
-      setShareStatus('Fix or archive the review items before sharing this page publicly.');
+      setShareStatus('Fix or archive the open reviews before sharing this page publicly.');
       return;
     }
     setShareBusy(true);
@@ -1838,7 +1838,7 @@ const WikiPageReadView = ({
       });
       if (createdPage?._id) navigate(wikiPagePath(createdPage._id));
     } catch (_error) {
-      setError('Failed to create Wiki page from discussion.');
+      setError('That did not save.');
     } finally {
       setPromotingDiscussionId('');
     }
@@ -2565,7 +2565,7 @@ const WikiPageReadView = ({
         </span>
         <p>
           {shareBlocked
-            ? 'This page is hidden from public sharing until the review items are fixed or archived. Your private workspace copy is unchanged.'
+            ? 'This page is hidden from public sharing until the open reviews are fixed or archived. Your private workspace copy is unchanged.'
             : publicShareReady
               ? 'Shared readers see this article and references only. Backlinks, highlights, source notes, and agent work stay private.'
               : 'Create a safe public page with the article and references only. Your backlinks, highlights, source notes, and agent work stay private.'}

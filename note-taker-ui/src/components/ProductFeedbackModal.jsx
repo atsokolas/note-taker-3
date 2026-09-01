@@ -55,7 +55,7 @@ const ProductFeedbackModal = ({ open, onClose }) => {
       setMessage('');
       setEmail('');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send feedback.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

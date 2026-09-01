@@ -135,7 +135,7 @@ const ThinkNotes = () => {
       clearNotebookCache();
       return res.data;
     } catch (saveError) {
-      setError(saveError?.response?.data?.error || 'Failed to save note.');
+      setError(saveError?.response?.data?.error || 'That did not save.');
       throw saveError;
     } finally {
       setSaving(false);

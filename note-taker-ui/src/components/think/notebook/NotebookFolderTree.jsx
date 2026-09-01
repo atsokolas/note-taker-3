@@ -204,7 +204,7 @@ const NotebookFolderTree = ({
   folders = [],
   entries = [],
   activeEntryId = '',
-  emptyMessage = 'No notebook entries yet.',
+  emptyMessage = 'Nothing here yet.',
   movingEntryId = '',
   onSelectEntry = () => {},
   onRequestMoveEntry = null,

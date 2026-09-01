@@ -254,7 +254,7 @@ const ArticleReader = ({
       }
     } catch (err) {
       onHighlightRemove?.(tempId);
-      setSaveError(err.response?.data?.error || 'Failed to save highlight.');
+      setSaveError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

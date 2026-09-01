@@ -715,7 +715,7 @@ const ThoughtPartnerPanel = ({
         setArtifactDrafts(prev => prev.map((entry) => (entry.draftId === nextDraft.draftId ? nextDraft : entry)));
       }
     } catch (promoteError) {
-      setError(promoteError.response?.data?.error || 'Failed to promote draft.');
+      setError(promoteError.response?.data?.error || 'That did not save.');
     } finally {
       setArtifactDraftLoadingId('');
     }
@@ -776,7 +776,7 @@ const ThoughtPartnerPanel = ({
         handleCancelEditDraft();
       }
     } catch (updateError) {
-      setError(updateError.response?.data?.error || 'Failed to update draft.');
+      setError(updateError.response?.data?.error || 'That did not save.');
     } finally {
       setArtifactDraftLoadingId('');
     }
@@ -836,7 +836,7 @@ const ThoughtPartnerPanel = ({
         handleCancelEditProposedChange();
       }
     } catch (updateError) {
-      setError(updateError.response?.data?.error || 'Failed to update proposed change.');
+      setError(updateError.response?.data?.error || 'That did not save.');
     } finally {
       setProposedChangeLoadingId('');
     }

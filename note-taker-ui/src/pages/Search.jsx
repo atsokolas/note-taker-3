@@ -260,7 +260,7 @@ const Search = () => {
       }));
       openWikiDraft({ navigate, pageId: page._id });
     } catch (err) {
-      setError(formatApiError(err, 'Failed to create Wiki page.'));
+      setError(formatApiError(err, 'That did not save.'));
     } finally {
       setWikiCreatingId('');
     }

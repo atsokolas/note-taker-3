@@ -242,7 +242,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Not connected')).toBeInTheDocument();
@@ -451,7 +451,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Connected, nothing imported yet')).toBeInTheDocument();
@@ -497,11 +497,11 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
-    expect(within(receipt).getByText(/Imported pages are available as notebook entries/i)).toBeInTheDocument();
+    expect(within(receipt).getByText(/Imported pages are available as notes/i)).toBeInTheDocument();
     expect(screen.getByText(/Where it lands: Library search, Think retrieval, and Morning Paper source maintenance/i)).toBeInTheDocument();
     expect(within(receipt).getByText('Synced 3 pages · 2 skipped · 1 indexing.')).toBeInTheDocument();
   });
@@ -537,7 +537,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
 
     const receipt = await screen.findByTestId('notion-sync-receipt');
     expect(within(receipt).getByText('Synced into Noeis')).toBeInTheDocument();
@@ -976,7 +976,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
     fireEvent.click(await screen.findByRole('button', { name: 'Export current note to Notion' }));
 
     await waitFor(() => expect(exportToNotionPage).toHaveBeenCalledWith({
@@ -1214,7 +1214,7 @@ describe('DataIntegrations first insight workflow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database row content/s }));
+    fireEvent.click(await screen.findByRole('button', { name: /Notion.*Import pages plus database rows/s }));
 
     const status = await screen.findByTestId('notion-sync-receipt-status');
     expect(status).toHaveAttribute('role', 'status');

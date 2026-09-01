@@ -1231,7 +1231,7 @@ const ThinkMode = () => {
         });
       } catch (err) {
         if (!cancelled) {
-          setQuestionRelatedError(formatAiError(err, 'Failed to load related items.'));
+          setQuestionRelatedError(formatAiError(err, 'That did not load.'));
         }
       } finally {
         if (!cancelled) setQuestionRelatedLoading(false);
@@ -2574,7 +2574,7 @@ const ThinkMode = () => {
   ), [handleOpenQuestion]);
 
   const renderNotebookFolderList = useCallback((items, {
-    emptyMessage = 'No notebook entries yet.',
+    emptyMessage = 'Nothing here yet.',
     skeletonRows = 8
   } = {}) => {
     if (notebookLoadingList || notebookFoldersLoading) {
@@ -2777,7 +2777,7 @@ const ThinkMode = () => {
               filteredNotebookEntries.map((entry) => renderNotebookRow(entry))
             )}
             {!notebookLoadingList && filteredNotebookEntries.length === 0 && (
-              <CalmEmptyLine>No notebook entries match.</CalmEmptyLine>
+              <CalmEmptyLine>You went looking — here is why it’s empty.</CalmEmptyLine>
             )}
           </div>
         )}
@@ -4220,7 +4220,7 @@ const ThinkMode = () => {
             <SurfaceCard className="think-concepts-empty-state">
               <SectionHeader
                 title="Concept identity mismatch"
-                subtitle="This movement points to a different exact Concept than the one selected by name. No investigation or workbench content was opened."
+                subtitle="This movement points to a different exact Concept than the one selected by name. No investigation or workbench was opened."
               />
               <QuietButton onClick={closeInvestigation}>Open the Concept normally</QuietButton>
             </SurfaceCard>

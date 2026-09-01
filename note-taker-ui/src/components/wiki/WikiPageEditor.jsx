@@ -129,7 +129,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       setPage(saved);
       setSaveStatus('saved');
     } catch (_error) {
-      setError('Failed to save Wiki page.');
+      setError('That did not save.');
       setSaveStatus('failed');
     } finally {
     }
@@ -387,7 +387,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       latestPageRef.current = updated;
       setPage(updated);
     } catch (_error) {
-      setError('Failed to attach source.');
+      setError('That did not save.');
     }
   };
 
@@ -398,7 +398,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       latestPageRef.current = updated;
       setPage(updated);
     } catch (_error) {
-      setError('Failed to remove source.');
+      setError('That did not save.');
     }
   };
 
@@ -421,7 +421,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       latestPageRef.current = updated;
       setPage(updated);
     } catch (_error) {
-      setError('Failed to remove discussion.');
+      setError('That did not save.');
     }
   };
 
@@ -440,7 +440,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       });
       if (createdPage?._id) navigate(wikiPagePath(createdPage._id));
     } catch (_error) {
-      setError('Failed to create Wiki page from discussion.');
+      setError('That did not save.');
     } finally {
       setPromotingDiscussionId('');
     }
@@ -456,7 +456,7 @@ const WikiPageEditor = ({ pageId, onDoneEditing, workspaceMode = false }) => {
       await deleteWikiPage(pageId);
       navigate('/wiki');
     } catch (_error) {
-      setError('Failed to delete Wiki page.');
+      setError('That did not save.');
       setDeleting(false);
     }
   };

@@ -350,7 +350,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       if (onOpenPage && page?._id) onOpenPage(page._id);
       else openWikiDraft({ navigate, pageId: page._id });
     } catch (_error) {
-      setError('Failed to create Wiki page.');
+      setError('That did not save.');
       setCreating(false);
     }
   };
@@ -366,7 +366,7 @@ const WikiList = ({ compact = false, onOpenPage }) => {
       setPages(current => current.filter(item => item._id !== page._id));
       setCatalogPages(current => current.filter(item => item._id !== page._id));
     } catch (_error) {
-      setError('Failed to archive Wiki page.');
+      setError('That did not save.');
     } finally {
       setDeletingId('');
     }

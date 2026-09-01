@@ -1103,7 +1103,7 @@ const WorkspaceSchema = () => {
       setSnapshots(Array.isArray(result?.snapshots) ? result.snapshots : []);
       setStatus('Schema saved.');
     } catch (_error) {
-      setStatus('Failed to save schema.');
+      setStatus('That did not save.');
     } finally {
       setBusy('');
     }

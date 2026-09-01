@@ -247,7 +247,7 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
       onPageUpdate?.(result.page);
       setStatus('Initial judgment restored and recorded in revision history.');
     } catch (restoreError) {
-      setError(restoreError?.response?.data?.error || 'Could not restore the initial judgment.');
+      setError(restoreError?.response?.data?.error || 'That did not save.');
     } finally { setBusy(false); }
   };
 

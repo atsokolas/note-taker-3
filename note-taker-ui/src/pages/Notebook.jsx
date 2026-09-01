@@ -254,7 +254,7 @@ const Notebook = () => {
             setSelectedFolder(res.data[0].folder || 'all');
           }
       } catch (err) {
-        console.error('Error loading notebook entries:', err);
+        console.error('That did not load:', err);
         setError(err.response?.data?.error || 'Failed to load notebook.');
       } finally {
         setLoading(false);
@@ -535,7 +535,7 @@ const Notebook = () => {
       setStatus('New entry created');
     } catch (err) {
       console.error('Error creating entry:', err);
-      setError(err.response?.data?.error || 'Failed to create entry.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }
@@ -553,7 +553,7 @@ const Notebook = () => {
       setStatus('Folder created');
     } catch (err) {
       console.error('Error creating folder:', err);
-      setError(err.response?.data?.error || 'Failed to create folder.');
+      setError(err.response?.data?.error || 'That did not save.');
     }
   };
 
@@ -580,7 +580,7 @@ const Notebook = () => {
       setStatus('Saved');
     } catch (err) {
       console.error('Error saving entry:', err);
-      setError(err.response?.data?.error || 'Failed to save entry.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }
@@ -607,7 +607,7 @@ const Notebook = () => {
       setStatus('Entry deleted');
     } catch (err) {
       console.error('Error deleting entry:', err);
-      setError(err.response?.data?.error || 'Failed to delete entry.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

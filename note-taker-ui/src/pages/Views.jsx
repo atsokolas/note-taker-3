@@ -98,7 +98,7 @@ const Views = ({ embedded = false, filters = {}, onSelectView }) => {
       setShowModal(false);
       setForm({ name: '', description: '', targetType: 'highlights', tags: [], textQuery: '', dateFrom: '', dateTo: '', folders: [] });
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create view.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

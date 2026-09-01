@@ -57,7 +57,7 @@ const Collections = ({ embedded = false, filters = {} }) => {
       navigate(`/collections/${res.data.slug}`);
     } catch (err) {
       console.error('Error creating collection:', err);
-      setError(err.response?.data?.error || 'Failed to create collection.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }
