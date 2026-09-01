@@ -110,6 +110,10 @@ const Library = () => {
   const [keptPages, setKeptPages] = useState(null);
   /* The last thing let go of, while the way back is still open. */
   const [letGo, setLetGo] = useState(() => readLetGo());
+  /* The folder something just landed in, for a quarter of a second. Filing is
+     the one move whose destination is off-screen from where you made it, so
+     the cabinet says where the thing went rather than leaving you to look. */
+  const [landedFolderId, setLandedFolderId] = useState('');
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
@@ -462,6 +466,11 @@ const Library = () => {
         );
       }
       closeMoveModal();
+      // Only a landing that actually happened flashes.
+      if (nextFolderId) {
+        setLandedFolderId(nextFolderId);
+        window.setTimeout(() => setLandedFolderId(''), 250);
+      }
       if (scope === 'folder' && nextFolderId !== folderId && selectedArticleId === articleToMove._id) {
         setSelectedArticleId('');
       }
@@ -1122,6 +1131,7 @@ const Library = () => {
           Highlights is a shelf like any other; choosing it puts you in your
           highlights with the same folders alongside. */}
       <LibraryShelfNav
+        landedFolderId={landedFolderId}
         count={corpusTotal}
         folders={folders}
         folderCounts={folderCounts}

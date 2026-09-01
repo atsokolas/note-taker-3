@@ -7,7 +7,7 @@ import {
   RoomShelfSection
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
-import { buildFolderTree } from '../../pages/folderTreeModel';
+import { buildFolderTree, folderCountPhrase } from '../../pages/folderTreeModel';
 import { isProceduralShelf } from '../../pages/readingDriftModel';
 
 // The cabinet, in the column's language.
@@ -77,6 +77,8 @@ const LibraryShelfNav = ({
   onSelectScope,
   onSelectFolder,
   onReviewFiling,
+  /* The folder something just landed in, for 250ms. */
+  landedFolderId = '',
   filingLaunching = false,
   className = ''
 }) => {
@@ -244,7 +246,11 @@ const LibraryShelfNav = ({
                 return (
                   <li
                     key={node.id}
-                    className={`library-shelf__branch${node.asFeed ? ' is-living' : ''}`}
+                    className={[
+                      'library-shelf__branch',
+                      node.asFeed ? 'is-living' : '',
+                      node.id === landedFolderId ? 'is-landing' : ''
+                    ].filter(Boolean).join(' ')}
                     style={{ '--depth': node.depth }}
                   >
                     <RoomShelfButton
@@ -276,7 +282,12 @@ const LibraryShelfNav = ({
                       <span>{node.name}</span>
                       {/* Counts roll up the tree; a drawer holding nothing
                           says nothing rather than nought. */}
-                      {node.total > 0 ? <RoomShelfMeta>{node.total}</RoomShelfMeta> : null}
+                      {/* The number is scannable; the sentence is on the
+                          tooltip, where a reader who wants to know can find
+                          it. No number without a noun and a time. */}
+                      {node.total > 0 ? (
+                        <RoomShelfMeta title={folderCountPhrase(node)}>{node.total}</RoomShelfMeta>
+                      ) : null}
                     </RoomShelfButton>
                   </li>
                 );

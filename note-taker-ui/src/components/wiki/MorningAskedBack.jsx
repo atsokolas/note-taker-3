@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { updateReturnQueueEntry } from '../../api/returnQueue';
-import { addDays, askedBackLine, KAIROS_EYEBROW, KAIROS_SENTENCE, paperAskedBack } from '../../pages/kairosModel';
+import { addDays, askedBackLine, kairosSentence, KAIROS_EYEBROW, paperAskedBack } from '../../pages/kairosModel';
 
 const MorningAskedBack = ({ askedBack, pulse = false }) => {
   const [gone, setGone] = useState(() => new Set());
@@ -32,7 +32,15 @@ const MorningAskedBack = ({ askedBack, pulse = false }) => {
       aria-label="Asked back"
     >
       <p className="wiki-front-page__asked-back-eyebrow">{KAIROS_EYEBROW}</p>
-      <p className="wiki-front-page__asked-back-sentence">{KAIROS_SENTENCE}</p>
+      {/* A recurring promise on its second firing knows you have seen it.
+          Saying "You asked for this back." every Tuesday for a year turns a
+          kept promise into a notification. */}
+      <p className="wiki-front-page__asked-back-sentence">
+        {kairosSentence({
+          fired: items[0]?.fired,
+          recurring: Boolean(items[0]?.cadence)
+        })}
+      </p>
       <ol className="wiki-front-page__asked-back-list">
         {items.map((item) => {
           const line = askedBackLine(item);

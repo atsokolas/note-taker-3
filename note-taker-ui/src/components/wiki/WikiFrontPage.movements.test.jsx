@@ -124,7 +124,7 @@ describe('WikiFrontPage movement return surface', () => {
 
     render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: /Nothing here yet/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /No news yet/i })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'What changed return surface' })).toBeInTheDocument();
   });
 });

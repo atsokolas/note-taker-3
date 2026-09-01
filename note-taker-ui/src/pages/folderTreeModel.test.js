@@ -1,5 +1,6 @@
 import {
   buildFolderTree,
+  folderCountPhrase,
   flattenFolderTree,
   isLivingFolder,
   topLevelAncestor
@@ -88,5 +89,27 @@ describe('what the drift reads', () => {
       { _id: 'b', name: 'B', parentFolderId: 'a' }
     ];
     expect(topLevelAncestor(looped, 'a')).not.toBeNull();
+  });
+});
+
+describe('what a cabinet count means', () => {
+  it('never shows a number without a noun', () => {
+    expect(folderCountPhrase({ name: 'Macro', own: 3, total: 3 }))
+      .toBe('3 sources filed in Macro');
+  });
+
+  it('speaks of one thing in the singular', () => {
+    expect(folderCountPhrase({ name: 'Macro', own: 1, total: 1 }))
+      .toBe('1 source filed in Macro');
+  });
+
+  it('separates what a drawer holds from what its drawers hold', () => {
+    expect(folderCountPhrase({ name: 'Investing', own: 2, total: 7 }))
+      .toBe('7 sources in Investing — 2 filed here, 5 in the drawers inside it');
+  });
+
+  it('says nothing about a drawer holding nothing', () => {
+    expect(folderCountPhrase({ name: 'Empty', own: 0, total: 0 })).toBe('');
+    expect(folderCountPhrase({})).toBe('');
   });
 });

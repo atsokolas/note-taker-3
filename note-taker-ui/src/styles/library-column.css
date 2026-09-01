@@ -1315,3 +1315,14 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   .library-shelf__branch > * > span:not(.library-shelf__disclose) { transition: none; }
   .library-shelf__branch.is-landing > * > span:not(.library-shelf__disclose) { animation: none; }
 }
+
+/* The row keys, shown only while ? is held. Mono, faint, and gone the moment
+   the key is released — a hint the reader asked for rather than a legend the
+   product insists on. */
+.library-pile__keys {
+  margin-left: 0.5rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+}

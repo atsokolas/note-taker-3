@@ -500,8 +500,8 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: /start your wiki/i }))
-      .toHaveTextContent(/start your wiki/i);
+    expect(await screen.findByRole('heading', { level: 1, name: /No news yet/i }))
+      .toHaveTextContent(/No news yet/i);
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByRole('region', { name: 'Create a wiki' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Investment dossier' })).toBeInTheDocument();
@@ -517,8 +517,8 @@ describe('WikiFrontPage (AT-394)', () => {
       </router.MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { level: 1, name: /start your wiki/i }))
-      .toHaveTextContent(/start your wiki/i);
+    expect(await screen.findByRole('heading', { level: 1, name: /No news yet/i }))
+      .toHaveTextContent(/No news yet/i);
     expect(navigate).not.toHaveBeenCalled();
   });
 

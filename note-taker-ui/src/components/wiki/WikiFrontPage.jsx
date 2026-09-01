@@ -22,6 +22,7 @@ import {
   editionNumber,
   editionsLine,
   END_OF_PAPER,
+  firstMorningLead,
   printedTime
 } from '../../pages/paperEditions';
 import WikiCreationComposer from './WikiCreationComposer';
@@ -773,14 +774,13 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               Your Wiki · {mastheadDate()}
             </p>
           </div>
-          <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
+          <LibraryPlaces feedTopics={libraryRoom.feedTopics} firstMorning />
         </header>
         <section className="wiki-front-page__empty wfp-anim wfp-anim--3" aria-labelledby="wfp-empty-title">
-          <h1 id="wfp-empty-title">Nothing here yet — let&rsquo;s start your wiki.</h1>
-          <p>
-            Begin with a thought, or bring in something you saved in Library. Nothing becomes
-            accepted knowledge until you choose it.
-          </p>
+          {/* Day one prints one line and asks for nothing. A first morning
+              that opened with a queue would be teaching the wrong thing on
+              the wrong day. */}
+          <h1 id="wfp-empty-title">{firstMorningLead()}</h1>
         </section>
         <section className="wiki-front-page__composer wfp-anim wfp-anim--4" aria-label="Build a wiki page">
           <WikiCreationComposer />

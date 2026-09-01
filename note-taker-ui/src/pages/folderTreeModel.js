@@ -107,3 +107,26 @@ export const flattenFolderTree = (nodes = [], depth = 0) => (
     ...flattenFolderTree(node.children, depth + 1)
   ])
 );
+
+/**
+ * What a cabinet count means, spelled out.
+ *
+ * The number in the tree is scannable and says nothing: 7 of what, since when.
+ * The rule is that no number appears without a noun and a time, so the number
+ * stays where the eye wants it and the sentence lives on the tooltip, where
+ * the reader who actually wants to know can find it.
+ *
+ * A drawer with children says what it holds directly and what it holds in
+ * total, because those are different facts and a parent showing only the
+ * total looks empty when it is not.
+ */
+export const folderCountPhrase = (node = {}) => {
+  const total = Number(node?.total || 0);
+  if (!total) return '';
+  const things = total === 1 ? '1 source' : `${total} sources`;
+  const own = Number(node?.own || 0);
+  const nested = total - own;
+  return nested > 0
+    ? `${things} in ${node.name} — ${own} filed here, ${nested} in the drawers inside it`
+    : `${things} filed in ${node.name}`;
+};

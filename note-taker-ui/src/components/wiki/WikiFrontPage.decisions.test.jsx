@@ -132,7 +132,7 @@ describe('WikiFrontPage Decisions return surface', () => {
 
     expect(await screen.findByRole('heading', {
       level: 1,
-      name: /Nothing here yet/
+      name: /No news yet/
     })).toBeInTheDocument();
     const toggle = screen.getByText('Review and system activity').closest('summary');
     expect(toggle).not.toBeNull();
