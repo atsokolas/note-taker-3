@@ -32,31 +32,8 @@ jest.mock('../../api/dailyLoop', () => ({
 }));
 
 jest.mock('../../api/libraryRelevance', () => ({
-  getLibraryRoom: jest.fn().mockResolvedValue({
-    room: 'library',
-    view: 'recent',
-    sourceScope: 'mixed',
-    generatedAt: '2026-09-01T00:00:00.000Z',
-    sources: [],
-    counts: {},
-    coverage: {},
-    hasMore: false,
-    nextCursor: null,
-    shelves: {
-      folders: [],
-      counts: {
-        articles: 0,
-        rawArticles: 0,
-        unfiledArticles: 0,
-        keptArticles: 0,
-        laterArticles: 0,
-        setAsideArticles: 0,
-        suppressedArticles: 0
-      },
-      piles: { later: [], setAside: [] },
-      feedTopics: []
-    }
-  })
+  getLibraryRoom: jest.fn(),
+  getLibraryRelevance: jest.fn()
 }));
 
 jest.mock('./WikiCreationComposer', () => () => (
@@ -128,10 +105,6 @@ const briefing = {
 };
 
 const libraryRoomPayload = (feedTopics = []) => ({
-  room: 'library',
-  view: 'recent',
-  sourceScope: 'mixed',
-  generatedAt: '2026-09-01T00:00:00.000Z',
   sources: [],
   counts: {},
   coverage: {},
@@ -139,25 +112,22 @@ const libraryRoomPayload = (feedTopics = []) => ({
   nextCursor: null,
   shelves: {
     folders: [],
-    counts: {
-      articles: 0,
-      rawArticles: 0,
-      unfiledArticles: 0,
-      keptArticles: 0,
-      laterArticles: 0,
-      setAsideArticles: 0,
-      suppressedArticles: 0
-    },
+    counts: {},
     piles: { later: [], setAside: [] },
     feedTopics
   }
 });
+
+const stubLibraryRoom = (feedTopics = []) => {
+  getLibraryRoom.mockImplementation(() => Promise.resolve(libraryRoomPayload(feedTopics)));
+};
 
 describe('WikiFrontPage canonical titles', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    stubLibraryRoom();
     getDailyLoop.mockResolvedValue({ briefing: { ...briefing, recentlyUpdatedPages: [] } });
   });
 
@@ -276,7 +246,7 @@ describe('WikiFrontPage (AT-394)', () => {
     getDailyLoop.mockResolvedValue({ briefing });
     armReadingWatch.mockResolvedValue({});
     disarmWatcher.mockResolvedValue({});
-    getLibraryRoom.mockResolvedValue(libraryRoomPayload());
+    stubLibraryRoom();
   });
 
   it('names the loading work before the paper arrives', () => {
@@ -1077,7 +1047,7 @@ describe('WikiFrontPage (AT-394)', () => {
     });
 
     it('puts Later, Set aside, Kept, and a screened name at the top of a quiet paper', async () => {
-      getLibraryRoom.mockResolvedValue(libraryRoomPayload([{ id: 'news', name: 'Newsletters' }]));
+      stubLibraryRoom([{ id: 'news', name: 'Newsletters' }]);
       getDailyLoop.mockResolvedValueOnce({ briefing: {
         summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
         aliveness: { register: 'quiet' },
@@ -1085,7 +1055,9 @@ describe('WikiFrontPage (AT-394)', () => {
       } });
       listWikiPages.mockResolvedValue(pages);
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
-      expect(await screen.findByRole('navigation', { name: 'Library places' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(document.querySelector('.library-places')).not.toBeNull();
+      expect(screen.getByRole('navigation', { name: 'Library places' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Later' })).toHaveAttribute('href', '/library?scope=later');
       expect(screen.getByRole('link', { name: 'Set aside' })).toHaveAttribute('href', '/library?scope=set-aside');
       expect(screen.getByRole('link', { name: 'Kept' })).toHaveAttribute('href', '/library?scope=kept');
@@ -1212,6 +1184,7 @@ describe('Recently updated', () => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    stubLibraryRoom();
     listWikiPages.mockReset();
     getDailyLoop.mockReset();
   });

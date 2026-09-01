@@ -162,13 +162,14 @@ describe('LibraryShelfNav', () => {
     it('sits directly under All sources, above the ways of narrowing', () => {
       renderNav({ keptCount: 2 });
       const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'Kept2', 'Unfiled6', 'Highlights']);
+      expect(labels).toEqual(['All sources', 'Kept2', 'Later', 'Set aside', 'Unfiled6', 'Highlights']);
     });
 
-    it('names Later and Set aside only when something lives there', () => {
+    it('keeps Later and Set aside named even when empty, and counts once something is there', () => {
       const { unmount } = renderNav({ keptCount: 0, laterCount: 0, setAsideCount: 0 });
-      expect(screen.queryByRole('button', { name: /Later/ })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Set aside/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Set aside' })).toBeInTheDocument();
+      expect(screen.queryByText(/Later \(0\)/)).not.toBeInTheDocument();
       unmount();
 
       renderNav({ laterCount: 2, setAsideCount: 1 });
