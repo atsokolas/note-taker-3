@@ -83,6 +83,8 @@ const ArticleReader = ({
   const reducedMotion = usePrefersReducedMotion();
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  const articleId = article?._id;
+  const articlePlacement = article?.placement;
   /* Kept lives here rather than being read straight off the prop, so pressing
      it settles immediately instead of waiting for the article list to refetch.
      It resets when a different source is opened. */
@@ -90,9 +92,10 @@ const ArticleReader = ({
   const [placement, setPlacement] = useState(() => placementOf(article));
   const [folioPages, setFolioPages] = useState([]);
   useEffect(() => { setKept(Boolean(article?.evergreen)); }, [article?._id, article?.evergreen]);
-  useEffect(() => { setPlacement(placementOf(article)); }, [article?._id, article?.placement]);
   useEffect(() => {
-    const articleId = article?._id;
+    setPlacement(placementOf({ placement: articlePlacement }));
+  }, [articleId, articlePlacement]);
+  useEffect(() => {
     const replacePages = (next) => {
       setFolioPages((current) => (current.length || next.length ? next : current));
     };
@@ -110,7 +113,7 @@ const ArticleReader = ({
         if (!cancelled) replacePages([]);
       });
     return () => { cancelled = true; };
-  }, [article?._id]);
+  }, [articleId]);
   const fireTourSignal = useTourSignal();
   const html = useMemo(
     () => renderArticleContentWithHighlights(article, highlights),
