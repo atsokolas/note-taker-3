@@ -33,6 +33,17 @@ const snapshotCanonicalContentHash = (snapshot = {}) => crypto
   .update(JSON.stringify(canonicalize(contentProjection(snapshot))))
   .digest('hex');
 
+const matchesTrustedRevisionHead = ({ current, revision } = {}) => {
+  const recordedHash = String(revision?.sourceVersion?.trustedHeadHash || '');
+  if (!recordedHash || !revision?.before) return false;
+  const recordedSnapshotHashes = new Set([
+    snapshotContentHash(revision.before),
+    snapshotCanonicalContentHash(revision.before)
+  ]);
+  return recordedSnapshotHashes.has(recordedHash)
+    && snapshotCanonicalContentHash(current) === snapshotCanonicalContentHash(revision.before);
+};
+
 const snapshotPage = (page) => {
   if (!page) return null;
   const raw = typeof page.toObject === 'function' ? page.toObject({ virtuals: false }) : { ...page };
@@ -145,6 +156,7 @@ const createWikiRevision = async ({
 module.exports = {
   createWikiRevision,
   restorePageSnapshot,
+  matchesTrustedRevisionHead,
   snapshotCanonicalContentHash,
   snapshotContentHash,
   snapshotPage

@@ -1025,6 +1025,14 @@ const run = async () => {
     assert.strictEqual(cachedBriefing.res.headers.get('x-noeis-briefing-cache'), 'HIT');
     assert.strictEqual(cachedBriefing.body.summary, briefing.body.summary);
 
+    const weeklyBriefing = await request(url, '/api/wiki/briefing?windowDays=7');
+    assert.strictEqual(weeklyBriefing.res.status, 200, weeklyBriefing.text);
+    assert.strictEqual(
+      weeklyBriefing.res.headers.get('x-noeis-briefing-cache'),
+      'MISS',
+      'The weekly return must not reuse the daily briefing cache.'
+    );
+
     const unsupportedCreate = await request(url, '/api/wiki/pages', {
       method: 'POST',
       body: JSON.stringify({

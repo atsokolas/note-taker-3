@@ -89,6 +89,25 @@ describe('buildWeeklyBrief', () => {
     expect(brief.working).toEqual([]);
     expect(brief.isQuiet).toBe(true);
   });
+
+  it('returns one completed owner-reviewed maintenance consequence', () => {
+    const brief = buildWeeklyBrief({
+      maintenanceReturn: {
+        id: 'reviewed',
+        label: 'Judgment reviewed',
+        href: '/judgment/dossier'
+      },
+      now: NOW
+    });
+
+    expect(brief.maintenanceReturn).toMatchObject({
+      id: 'reviewed',
+      label: 'Judgment reviewed',
+      href: '/judgment/dossier'
+    });
+    expect(brief.isQuiet).toBe(false);
+  });
+
 });
 
 describe('briefOpening', () => {

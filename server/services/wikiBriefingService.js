@@ -608,6 +608,40 @@ const collectRecentImportReceipts = async ({
     .slice(0, limit);
 };
 
+const CONSEQUENTIAL_RETURN_KINDS = new Set([
+  'company_dossier_judgment_review',
+  'company_dossier_maintenance_accepted'
+]);
+
+/* One completed, owner-bound consequence—not an activity feed. */
+const buildConsequentialReturn = (receipts = []) => toArray(receipts)
+  .filter(receipt => CONSEQUENTIAL_RETURN_KINDS.has(receipt?.kind))
+  .filter(receipt => receipt?.status === 'completed')
+  .map(receipt => {
+    const touched = toArray(receipt?.touched)
+      .find(item => item?.type === 'wiki_page' && idString(item?.id));
+    const summary = truncate(receipt?.summary, 220);
+    if (!touched || !summary) return null;
+    const reviewed = receipt.kind === 'company_dossier_judgment_review';
+    const pageId = idString(touched.id);
+    return {
+      id: idString(receipt.id),
+      pageId,
+      title: truncate(touched.title || 'Maintained dossier', 120),
+      summary,
+      label: reviewed ? 'Judgment reviewed' : 'Research accepted',
+      linkLabel: reviewed ? 'See the decision →' : 'See what changed →',
+      href: reviewed ? `/judgment/${pageId}` : `/wiki/workspace?page=${pageId}`,
+      completedAt: receipt.completedAt || null,
+      priority: reviewed ? 2 : 1
+    };
+  })
+  .filter(Boolean)
+  .sort((left, right) => (
+    right.priority - left.priority
+    || new Date(right.completedAt || 0).getTime() - new Date(left.completedAt || 0).getTime()
+  ))[0] || null;
+
 const buildReceiptSummaryPart = (receipts = []) => {
   const successful = receipts.find(receipt => (
     receipt.status === 'completed'
@@ -806,15 +840,17 @@ const buildWikiBriefing = async ({
     '_id title status hiddenFromHome debugOnly archived plainText sourceRefs._id aiState.draftStatus aiState.lastError aiState.errorCode aiState.quality aiState.lastDraftedAt aiState.health freshness.pendingSourceEventIds freshness.lastSourceEventAt freshness.status createdAt updatedAt'
   );
   const pages = rawPages.filter(isWikiPageSurfaceEligible);
+  const receiptLimit = Math.min(20, Math.max(4, Math.ceil(windowMs / ONE_DAY_MS) * 4));
   const [newSources, recentlyUpdatedPages, driftingPages, recentReceipts, recentMaintenanceChanges, priorAliveness] = await Promise.all([
     countNewSources({ userId, models, windowMs, now }),
     Promise.resolve(collectRecentlyUpdatedPages(pages, { windowMs, now })),
     Promise.resolve(collectDriftingPages(pages, { now })),
-    collectRecentImportReceipts({ userId, models, windowMs, now }),
+    collectRecentImportReceipts({ userId, models, windowMs, now, limit: receiptLimit }),
     collectRecentMaintenanceChanges({ userId, models, windowMs, now }),
     loadPriorBriefingAliveness({ userId, WikiBriefingCache: models.WikiBriefingCache })
   ]);
   const aliveness = buildAliveness({ driftingPages, priorAliveness, now });
+  const consequentialReturn = buildConsequentialReturn(recentReceipts);
   const pagesWithNewSourceMaterial = collectPagesWithNewSourceMaterial(recentMaintenanceChanges);
   const answerableQuestions = await collectAnswerableQuestions({
     userId,
@@ -912,6 +948,7 @@ const buildWikiBriefing = async ({
       answerableQuestions: answerableQuestions.length
     },
     recentReceipts,
+    consequentialReturn,
     recentMaintenanceChanges,
     pagesWithNewSourceMaterial,
     answerableQuestions,
@@ -935,6 +972,7 @@ module.exports = {
     collectPagesWithNewSourceMaterial,
     collectAnswerableQuestions,
     buildBriefingNextAction,
+    buildConsequentialReturn,
     sanitizeBriefingReceipt,
     collectRecentlyUpdatedPages,
     collectDriftingPages,

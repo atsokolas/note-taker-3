@@ -1755,6 +1755,58 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
   gap: 34px;
 }
 
+.brief__return {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  max-width: 58ch;
+  padding: 4px 0 4px 20px;
+}
+
+.brief__return::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 1px;
+  background: var(--wiki-warm-accent, var(--vellum-warm, #b1862e));
+  content: '';
+}
+
+.brief__return-label {
+  margin: 0;
+  color: var(--wiki-warm-accent, var(--vellum-warm, #b1862e));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.brief__return h2,
+.brief__return p {
+  margin: 0;
+}
+
+.brief__return h2 {
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.brief__return p:not(.brief__return-label) {
+  color: var(--text-secondary, var(--vellum-subtle));
+  line-height: 1.5;
+}
+
+.brief__return a {
+  justify-self: start;
+  margin-top: 6px;
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom: 1px solid currentColor;
+  text-decoration: none;
+}
+
 .brief__section h2 {
   margin: 0 0 4px;
   color: var(--text-muted, var(--vellum-subtle));

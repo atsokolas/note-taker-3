@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getArticles } from '../api/articles';
-import { listWikiPages, listWikiSourceEvents } from '../api/wiki';
+import { getWikiBriefing, listWikiPages, listWikiSourceEvents } from '../api/wiki';
 import { briefOpening, buildWeeklyBrief } from './weeklyBriefModel';
 import { takeFirstPaint } from '../motion/columnMotion';
 import '../styles/judgment.css';
@@ -47,12 +47,20 @@ const WeeklyBrief = () => {
     let cancelled = false;
     (async () => {
       try {
-        const [pages, articles, events] = await Promise.all([
+        const [pages, articles, events, wikiBriefing] = await Promise.all([
           listWikiPages({ summary: 1, limit: 500 }),
           getArticles().catch(() => []),
-          listWikiSourceEvents({ limit: 400 }).catch(() => [])
+          listWikiSourceEvents({ limit: 400 }).catch(() => []),
+          getWikiBriefing({ windowDays: 7 }).catch(() => ({ recentReceipts: [] }))
         ]);
-        if (!cancelled) setBrief(buildWeeklyBrief({ pages, articles, events }));
+        if (!cancelled) {
+          setBrief(buildWeeklyBrief({
+            pages,
+            articles,
+            events,
+            maintenanceReturn: wikiBriefing?.consequentialReturn || null
+          }));
+        }
       } catch (_loadError) {
         if (!cancelled) setError('Could not put this week together.');
       } finally {
@@ -77,6 +85,15 @@ const WeeklyBrief = () => {
       {brief ? (
         <div className={`brief__body ${step(2)}`}>
           <p className="brief__opening">{briefOpening(brief)}</p>
+
+          {brief.maintenanceReturn ? (
+            <section className="brief__return" aria-labelledby="weekly-return-title">
+              <p className="brief__return-label">{brief.maintenanceReturn.label}</p>
+              <h2 id="weekly-return-title">{brief.maintenanceReturn.title}</h2>
+              <p>{brief.maintenanceReturn.summary}</p>
+              <Link to={brief.maintenanceReturn.href}>{brief.maintenanceReturn.linkLabel}</Link>
+            </section>
+          ) : null}
 
           {/* Only this one asks anything, and it asks quietly. */}
           <Section

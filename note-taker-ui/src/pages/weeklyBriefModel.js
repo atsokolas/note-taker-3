@@ -45,9 +45,10 @@ const row = (page, activity) => ({
  * @param {Array} params.pages wiki pages, summary projection is enough
  * @param {Array} params.articles sources saved, for the reading count
  * @param {Array} params.events wiki source events
+ * @param {object|null} params.maintenanceReturn server-selected maintenance outcome
  * @param {number} [params.now]
  */
-export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now = Date.now() } = {}) => {
+export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], maintenanceReturn = null, now = Date.now() } = {}) => {
   const since = now - WEEK;
 
   const read = list(articles).filter(article => within(article?.createdAt || article?.savedAt, since));
@@ -84,13 +85,18 @@ export const buildWeeklyBrief = ({ pages = [], articles = [], events = [], now =
     unfalsifiable: byState('unfalsifiable'),
     kept: list(pages).filter(page => page?.evergreen).length
       + list(articles).filter(article => article?.evergreen).length,
-    learned
+    learned,
+    maintenanceReturn
   };
 
   /* A week is quiet when nothing arrived, nothing was learned, and nothing is
      being avoided. Saying so is the honest answer, and it is also what makes
      the brief worth opening on the weeks it does have something. */
-  brief.isQuiet = !brief.read && !brief.boreOnBeliefs && !brief.learned.length && !brief.avoided.length;
+  brief.isQuiet = !brief.read
+    && !brief.boreOnBeliefs
+    && !brief.learned.length
+    && !brief.avoided.length
+    && !brief.maintenanceReturn;
   return brief;
 };
 

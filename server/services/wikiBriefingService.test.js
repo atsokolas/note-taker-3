@@ -19,6 +19,7 @@ const {
   collectPagesWithNewSourceMaterial,
   collectAnswerableQuestions,
   buildBriefingNextAction,
+  buildConsequentialReturn,
   idString
 } = __testables;
 
@@ -590,6 +591,38 @@ describe('wikiBriefingService', () => {
         acceptedPages: 1,
         directSourceClaimMatches: 1
       });
+    });
+
+    it('selects one completed owner-reviewed consequence and rejects activity noise', () => {
+      const selected = buildConsequentialReturn([
+        {
+          id: 'accepted',
+          kind: 'company_dossier_maintenance_accepted',
+          status: 'completed',
+          summary: 'Research changed the utilization claim.',
+          completedAt: new Date('2026-07-11T19:00:00.000Z'),
+          touched: [{ type: 'wiki_page', id: 'dossier', title: 'CoreWeave' }]
+        },
+        {
+          id: 'reviewed',
+          kind: 'company_dossier_judgment_review',
+          status: 'completed',
+          summary: 'Reviewed the accepted research and kept the current judgment.',
+          completedAt: new Date('2026-07-11T18:00:00.000Z'),
+          touched: [{ type: 'wiki_page', id: 'dossier', title: 'CoreWeave' }]
+        },
+        { id: 'import', kind: 'readwise_import', status: 'completed', summary: 'Imported 20 things.' }
+      ]);
+
+      expect(selected).toMatchObject({
+        id: 'reviewed',
+        label: 'Judgment reviewed',
+        href: '/judgment/dossier'
+      });
+      expect(buildConsequentialReturn([
+        { id: 'pending', kind: 'company_dossier_judgment_review', status: 'awaiting_review' },
+        { id: 'thin', kind: 'company_dossier_maintenance_accepted', status: 'completed', summary: '' }
+      ])).toBeNull();
     });
 
     it('keeps receipt-backed briefing alive when model configuration throws', async () => {
