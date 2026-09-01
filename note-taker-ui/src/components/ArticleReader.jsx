@@ -79,6 +79,7 @@ const ArticleReader = ({
   sourceTrace = null
 }) => {
   const contentRef = useRef(null);
+  const titleRef = useRef(null);
   const readerRootRef = useRef(null);
   const menuRef = useRef(null);
   const reducedMotion = usePrefersReducedMotion();
@@ -142,6 +143,16 @@ const ArticleReader = ({
     preferredId: preferredClaimId,
     search: typeof window === 'undefined' ? '' : window.location.search
   }), [article?._id, folioPages, graphConnections, highlights, preferredClaimId]);
+
+  const park = async (next) => {
+    if (next === 'later' || next === 'setAside') {
+      const origin = titleRef.current;
+      if (origin) handOffSentence(article.title || 'Untitled source', origin);
+    }
+    const saved = await onTogglePlacement(article._id, next);
+    setPlacement(placementOf({ placement: saved?.placement ?? next }));
+  };
+
   const passageDoorFor = (highlight, index) => {
     const highlightId = highlight?._id || highlight?.id || '';
     if (!highlightId) return null;
@@ -271,7 +282,7 @@ const ArticleReader = ({
       )}
       <div className="article-reader-header">
         <div>
-          <h1 className="article-reader-title">{article.title || 'Untitled article'}</h1>
+          <h1 ref={titleRef} className="article-reader-title">{article.title || 'Untitled article'}</h1>
           <div className="article-reader-meta">
             {article.createdAt && <span>{formatDate(article.createdAt)}</span>}
             {article.url && (
@@ -290,20 +301,14 @@ const ArticleReader = ({
             <PlacementWord
               placement="later"
               active={placement === 'later'}
-              onChange={async (next) => {
-                const saved = await onTogglePlacement(article._id, next);
-                setPlacement(placementOf({ placement: saved?.placement ?? next }));
-              }}
+              onChange={park}
             />
           ) : null}
           {onTogglePlacement ? (
             <PlacementWord
               placement="setAside"
               active={placement === 'setAside'}
-              onChange={async (next) => {
-                const saved = await onTogglePlacement(article._id, next);
-                setPlacement(placementOf({ placement: saved?.placement ?? next }));
-              }}
+              onChange={park}
             />
           ) : null}
           {onToggleEvergreen ? (

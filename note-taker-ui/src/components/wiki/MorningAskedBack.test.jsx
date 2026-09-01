@@ -33,7 +33,7 @@ describe('MorningAskedBack', () => {
     expect(screen.getByLabelText('Asked back')).toHaveTextContent('You asked for this back.');
     expect(screen.getByRole('link', { name: 'The Costco 10-K' }))
       .toHaveAttribute('href', '/library?articleId=a1');
-    expect(screen.getByLabelText('Asked back')).toHaveClass('is-morning-pulse');
+    expect(screen.getByLabelText('Asked back')).toHaveClass('is-morning-pulse', 'noeis-meander');
     expect(screen.queryByText(/Reminders/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\(0\)/)).not.toBeInTheDocument();
   });

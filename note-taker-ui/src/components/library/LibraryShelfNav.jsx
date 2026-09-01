@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -6,6 +6,7 @@ import {
   RoomShelfMeta,
   RoomShelfSection
 } from '../collection/RoomShelf';
+import { flySentenceInto } from '../../motion/columnMotion';
 
 // The cabinet, in the column's language.
 //
@@ -39,6 +40,20 @@ const useNarrowShelf = () => {
   }, []);
 
   return narrow;
+};
+
+const FeedTopic = ({ topic, active, onSelect }) => {
+  const labelRef = useRef(null);
+  useLayoutEffect(() => {
+    flySentenceInto(labelRef.current, topic.name);
+  }, [topic.name]);
+  return (
+    <li className="library-shelf__feed">
+      <RoomShelfButton active={active} onClick={() => onSelect?.(topic.id)}>
+        <span ref={labelRef}>{topic.name}</span>
+      </RoomShelfButton>
+    </li>
+  );
 };
 
 const LibraryShelfNav = ({
@@ -94,14 +109,12 @@ const LibraryShelfNav = ({
           </RoomShelfButton>
         </li>
         {topics.map((topic) => (
-          <li key={topic.id} className="library-shelf__feed">
-            <RoomShelfButton
-              active={scope === 'feed' && folderId === topic.id}
-              onClick={() => onSelectFolder?.(topic.id)}
-            >
-              <span>{topic.name}</span>
-            </RoomShelfButton>
-          </li>
+          <FeedTopic
+            key={topic.id}
+            topic={topic}
+            active={scope === 'feed' && folderId === topic.id}
+            onSelect={onSelectFolder}
+          />
         ))}
         {/* Directly under everything, because it is a cut of everything and
             not a folder among folders: what you decided to hold for life.

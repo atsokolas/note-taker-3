@@ -3,7 +3,7 @@ import ArticleReader from './ArticleReader';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import useTextSelection from './reader/useTextSelection';
-import { resetFirstPaint } from '../motion/columnMotion';
+import { handOffSentence, resetFirstPaint } from '../motion/columnMotion';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 
 jest.mock('../api/highlights', () => ({
@@ -25,6 +25,13 @@ jest.mock('../hooks/useMotionPreferences', () => ({
 jest.mock('./RemindWord', () => ({ articleId }) => (
   articleId ? <button type="button">Remind me</button> : null
 ));
+jest.mock('../motion/columnMotion', () => {
+  const actual = jest.requireActual('../motion/columnMotion');
+  return {
+    ...actual,
+    handOffSentence: jest.fn((...args) => actual.handOffSentence(...args))
+  };
+});
 
 describe('ArticleReader', () => {
   beforeEach(() => {
@@ -412,6 +419,10 @@ describe('Later and Set aside', () => {
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Later' })).toHaveAttribute('aria-pressed', 'true'));
     expect(screen.getByRole('button', { name: 'Set aside' })).toHaveAttribute('aria-pressed', 'false');
+    expect(handOffSentence).toHaveBeenCalledWith(
+      'A source',
+      expect.objectContaining({ textContent: 'A source' })
+    );
   });
 
   it('returns home when the active word is pressed again', async () => {
