@@ -1756,6 +1756,8 @@ const PUBLIC_WIKI_PAGE_SELECT = [
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
+  /* Only for the masthead's edition number: the day the account began. */
+  User = null,
   WikiProposal = null,
   WikiRevision = null,
   WikiLintRun = null,
@@ -8201,7 +8203,9 @@ const buildWikiRouter = ({
           WikiRevision,
           WikiMaintenanceRun,
           WikiSourceEvent,
-          Connection
+          Connection,
+          // The masthead numbers the morning from the day the account began.
+          User
         },
         now,
         windowMs: windowDays * 24 * 60 * 60 * 1000

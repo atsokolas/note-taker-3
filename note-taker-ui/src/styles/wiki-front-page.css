@@ -2292,3 +2292,126 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
     gap: 2px;
   }
 }
+
+/* ── The editions ─────────────────────────────────────────────────────────
+   A paper teaches its cadence by printing it. The masthead now says which
+   morning this is, the hour it went to press, and the four clocks it prints
+   on, with the current one underlined. All of it mono: these are readouts,
+   and a control or a readout never wears serif. */
+
+.paper-open__edition-no {
+  margin-left: 0.6rem;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.paper-open__printed,
+.paper-open__editions,
+.paper-open__milestone,
+.paper-open__end {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  /* Lining tabular figures in every mono receipt: numbers that line up when
+     they stack, which is what a receipt is for. */
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.paper-open__editions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+/* The edition you are holding, underlined. Not colored: the pulse is the one
+   blue thing on the page and it belongs to whatever is alive, not to a label. */
+.paper-open__editions .is-current {
+  color: var(--text-primary, var(--vellum-ink));
+  text-decoration: underline;
+  text-underline-offset: 0.35em;
+  text-decoration-thickness: 1px;
+}
+
+/* Three rules, three meanings. Double for the masthead, because an edition
+   boundary is the strongest line on the page. */
+.paper-open__editions {
+  padding-bottom: 0.7rem;
+  border-bottom: 3px double var(--border-subtle, rgba(120, 120, 120, 0.3));
+}
+
+/* Hairlines at half a pixel where the screen can draw one. */
+.wiki-front-page hr,
+.wiki-living-index__header {
+  border-width: thin;
+}
+
+.paper-open__end {
+  margin-top: 2.4rem;
+  text-align: center;
+  letter-spacing: 0.14em;
+}
+
+/* Old-style figures in serif running text: numbers that sit in the line
+   rather than shouting over it. Mono keeps its lining figures, above. */
+.wiki-front-page p,
+.wiki-front-page h1,
+.wiki-front-page h2 {
+  font-variant-numeric: oldstyle-nums;
+}
+
+.wiki-front-page .paper-open__printed,
+.wiki-front-page .paper-open__editions,
+.wiki-front-page .paper-open__end,
+.wiki-front-page .library-places__line {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* The desk line reads as a sentence; the doors underneath stay findable. */
+.library-places__line {
+  margin: 0 0 0.35rem;
+  color: var(--text-secondary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* ── ⌘P yields a real paper ───────────────────────────────────────────────
+   Not a screenshot of an app: one column, black on white, no navigation, no
+   controls, and the rules that carry meaning kept. */
+@media print {
+  .wiki-front-page {
+    max-width: 34em;
+    margin: 0 auto;
+    color: #000;
+    background: #fff;
+    font-size: 11pt;
+  }
+
+  /* Controls do not print. A button on paper is a lie about what paper does. */
+  .wiki-front-page button,
+  .library-places__doors,
+  .wiki-front-page__graph-motif,
+  nav {
+    display: none !important;
+  }
+
+  .wiki-front-page a {
+    color: #000;
+    text-decoration: none;
+  }
+
+  .paper-open__editions {
+    border-bottom: 3px double #000;
+  }
+
+  /* The pulse is a screen idea. On paper there is no today to point at. */
+  .is-morning-pulse {
+    animation: none !important;
+    color: #000 !important;
+  }
+
+  .paper-open__end {
+    margin-top: 2rem;
+  }
+}

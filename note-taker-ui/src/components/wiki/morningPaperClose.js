@@ -180,12 +180,24 @@ export const isPaperAskedBack = (rows = []) => (
 );
 
 /**
- * Scan-for-blue = read-the-day. A qualified consequence takes the pulse;
- * otherwise a close or collision, then a living verdict, then a check-in.
- * Asked-back may pulse only when the morning is otherwise quiet.
+ * Scan-for-blue = read-the-day. One pulse across every section, in this order:
+ * consequence, then the weekend lead on the day it prints, then the daily
+ * close, then a living verdict, then the check-in. Asked-back may pulse only
+ * when the morning is otherwise quiet. The drift never pulses at all.
  */
+/** A weekend lead is one the corpus earned: a headline, and quotes checked. */
+export const isPaperWeekendLead = (lead = null) => (
+  Boolean(normalizeSpaces(lead?.headline)) && lead?.verified === true
+);
+
 export const morningPulseTarget = ({ briefing } = {}) => {
   if (isPaperConsequence(briefing?.consequence)) return 'consequence';
+  /* The weekend outranks the day on the day it prints: it is the corpus's own
+     clock rather than the world's, and it only appears when it has something
+     verified to say. The drift is deliberately absent from this order at any
+     rank — it reports, it asks nothing, and the pulse marks the one thing
+     alive rather than the one thing newest. */
+  if (isPaperWeekendLead(briefing?.weekendLead)) return 'weekend';
   if (wikiLivingBriefingLine({ briefing })) return 'lead';
   const verdicts = (Array.isArray(briefing?.claimVerdicts) ? briefing.claimVerdicts : [])
     .filter(isPaperVerdict);

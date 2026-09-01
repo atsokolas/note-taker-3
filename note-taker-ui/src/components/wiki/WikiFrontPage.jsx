@@ -17,6 +17,13 @@ import { takeFirstPaint } from '../../motion/columnMotion';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import useLibraryRoom from '../../hooks/useLibraryRoom';
 import LibraryPlaces from '../library/LibraryPlaces';
+import {
+  day120Line,
+  editionNumber,
+  editionsLine,
+  END_OF_PAPER,
+  printedTime
+} from '../../pages/paperEditions';
 import WikiCreationComposer from './WikiCreationComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
@@ -181,6 +188,35 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
   weekday: 'long', month: 'long', day: 'numeric'
 });
 
+/**
+ * The masthead: which number this morning is, when it went to press, and the
+ * cadences it prints on with the current one underlined. Each part is absent
+ * when it is not known — an unnumbered paper is better than one numbered No. 0.
+ */
+const PaperMasthead = ({ beganAt = null, printedAt = null, driftClosesAt = null, keptCount = null, edition = 'today' }) => {
+  const number = editionNumber({ beganAt });
+  const printed = printedTime(printedAt);
+  const cadences = editionsLine({ driftClosesAt, keptCount, edition });
+  const milestone = day120Line({ edition: number });
+
+  return (
+    <>
+      <p className="wiki-index__eyebrow paper-open__masthead">
+        Your Wiki · {mastheadDate()}
+        {number ? <span className="paper-open__edition-no">No. {number}</span> : null}
+      </p>
+      {printed ? <p className="paper-open__printed">{printed}</p> : null}
+      <p className="paper-open__editions">
+        {cadences.map(part => (
+          <span key={part.label} className={part.current ? 'is-current' : undefined}>{part.label}</span>
+        ))}
+      </p>
+      {/* Once, on the morning the buckets are old enough to mean anything. */}
+      {milestone ? <p className="paper-open__milestone">{milestone}</p> : null}
+    </>
+  );
+};
+
 /* AT-414: Morning Paper is a close or silence. Collision is named on this
    page when two editorial truths meet; a due claim alone stays silent.
    Overnight already lives on judgment. */
@@ -190,6 +226,8 @@ const WikiFrontPageShell = ({ children, ...mainProps }) => (
     <main className="wiki-page wiki-front-page" {...mainProps}>
       {children}
       <WeeklyDigest />
+      {/* A paper ends. A feed does not, which is the whole difference. */}
+      <p className="paper-open__end" aria-hidden="true">{END_OF_PAPER}</p>
     </main>
   </>
 );
@@ -838,8 +876,18 @@ const WikiFrontPage = ({ initialKind = '' }) => {
           aria-labelledby="wiki-living-title"
         >
           <header className="wiki-living-index__header">
-            <p className="wiki-index__eyebrow paper-open__masthead">Your Wiki · {mastheadDate()}</p>
-            <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
+            <PaperMasthead
+              beganAt={briefing?.beganAt}
+              printedAt={briefing?.generatedAt}
+              driftClosesAt={briefing?.driftClosesAt}
+              keptCount={libraryRoom.shelfCounts?.keptArticles}
+            />
+            <LibraryPlaces
+              feedTopics={libraryRoom.feedTopics}
+              later={libraryRoom.shelfCounts?.laterArticles}
+              setAside={libraryRoom.shelfCounts?.setAsideArticles}
+              kept={libraryRoom.shelfCounts?.keptArticles}
+            />
             <h1 id="wiki-living-title">Your living wikis</h1>
             <p>Maintained with your agent, grounded in your Library.</p>
             {leadSentence && wikiFilter !== 'review' ? (

@@ -833,6 +833,19 @@ const buildWikiBriefing = async ({
   if (!userId) {
     throw new Error('buildWikiBriefing requires a userId.');
   }
+  /* The day this account began, for the edition number. Read defensively:
+     a paper that cannot number itself simply does not, which is better than
+     one numbered from a guess. */
+  let beganAt = null;
+  try {
+    const account = models.User?.findById
+      ? await models.User.findById(userId).select('createdAt').lean()
+      : null;
+    beganAt = account?.createdAt || null;
+  } catch (_unreadable) {
+    beganAt = null;
+  }
+
   const rawPages = await safeFind(
     models.WikiPage,
     { userId, status: { $ne: 'archived' } },
@@ -935,6 +948,10 @@ const buildWikiBriefing = async ({
 
   return {
     generatedAt: new Date(now).toISOString(),
+    /* When this account began, so the masthead can number the morning. Never
+       resets, so it is read from the account itself rather than counted from
+       anything the reader could delete. */
+    beganAt: beganAt ? new Date(beganAt).toISOString() : null,
     summary,
     model,
     aliveness,
