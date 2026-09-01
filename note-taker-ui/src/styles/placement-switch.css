@@ -60,21 +60,29 @@
   inset: -6px -0.35rem;
 }
 
-/* HOME at full ink when current: the resting state reads with no fill. */
+/* Only a parked position fills. The spec is explicit that the resting state
+   reads with no fill at all, and my first pass inverted HOME to a dark block
+   — which made "at home" the loudest thing on the row, when at home is the
+   state a piece is in most of the time and the one that should say least. */
 .placement-switch__position.is-active {
-  color: var(--paper, #fff);
-  background: var(--ink-seed, #4d5b3c);
+  color: var(--text-primary, var(--vellum-ink, #1c1a17));
 }
 
 /* Seed for Later, sap for Set aside — the two parked inks, flat, no gradient,
    no shadow, no glow. */
-.placement-switch__position:nth-child(2).is-active { background: var(--ink-seed, #4d5b3c); }
-.placement-switch__position:nth-child(3).is-active { background: var(--ink-sap, #6f7f4a); }
-
-/* Home is a position, not a parked ink: it inverts to the page's own ink. */
-.placement-switch__position:first-child.is-active {
+.placement-switch__position:nth-child(2).is-active {
   color: var(--paper, #fff);
-  background: var(--text-primary, var(--vellum-ink, #1c1a17));
+  background: var(--ink-seed, #4d5b3c);
+}
+
+.placement-switch__position:nth-child(3).is-active {
+  color: var(--paper, #fff);
+  background: var(--ink-sap, #6f7f4a);
+}
+
+/* Home carries no fill, only full ink, so a piece at rest looks at rest. */
+.placement-switch__position:first-child.is-active {
+  background: none;
 }
 
 /* The only gold on the control is a promise that has actually been made. */

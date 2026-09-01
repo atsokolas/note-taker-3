@@ -382,11 +382,15 @@
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
+/* A canon row is a Link and an ordinary shelf row is a button, so every rule
+   below has to reach both. It used to name only the button, which left the
+   canon's rows with no grid at all — title, source and date ran together in
+   one line. Found by looking at it; no test can see a missing gap. */
 .library-column__shelf li {
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
 }
 
-.library-column__shelf button {
+.library-column__shelf :is(button, a) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.34fr) auto;
   align-items: baseline;
@@ -402,8 +406,8 @@
   transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.library-column__shelf button:hover,
-.library-column__shelf button:focus-visible {
+.library-column__shelf :is(button, a):hover,
+.library-column__shelf :is(button, a):focus-visible {
   transform: translate3d(3px, 0, 0);
 }
 
@@ -414,8 +418,8 @@
   line-height: 1.35;
 }
 
-.library-column__shelf button:hover .library-column__row-title,
-.library-column__shelf button:focus-visible .library-column__row-title {
+.library-column__shelf :is(button, a):hover .library-column__row-title,
+.library-column__shelf :is(button, a):focus-visible .library-column__row-title {
   color: var(--wiki-warm-accent, var(--vellum-warm));
 }
 
@@ -699,7 +703,7 @@
     padding: 28px 20px 72px;
   }
 
-  .library-column__shelf button {
+  .library-column__shelf :is(button, a) {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
   }
@@ -710,7 +714,7 @@
     animation: wfp-fade-in 80ms linear;
   }
 
-  .library-column__shelf button {
+  .library-column__shelf :is(button, a) {
     transition: none;
     transform: none;
   }
@@ -1041,6 +1045,16 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   font-size: 0.86rem;
 }
 
+/* The doors sit inside their own row beneath the sentence, so the gap has to
+   live on that row: the nav's gap now separates the sentence from the doors,
+   not the doors from each other. They ran together as one word without it. */
+.library-places__doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: baseline;
+}
+
 .library-places a {
   color: var(--text-secondary, var(--vellum-muted));
   text-decoration: none;
@@ -1125,6 +1139,16 @@ body.noeis-editorial .library-page-shell .library-folder-name,
     transition: none;
     animation: none;
   }
+}
+
+/* The canon adds two lines the ordinary shelf does not have — the kind above
+   the title and, on a retired belief, the day it went. Both belong across the
+   whole row rather than in a column: dropped into the three-column grid they
+   stole the title's width and left it wrapping into a gutter of empty space.
+   Seen by looking; a test can read the text in any column. */
+.library-column__shelf .library-column__row-kind,
+.library-column__shelf .library-column__row-retired {
+  grid-column: 1 / -1;
 }
 
 /* ── The shelf: the canon ──────────────────────────────────────────────────
@@ -1220,16 +1244,23 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 /* The cabinet is a tree: hairline indent guides, and a disclosure that only
    appears under a cursor. At rest the tree is names and numbers. */
 .library-shelf__branch {
-  padding-left: calc(var(--depth, 0) * 0.85rem);
   position: relative;
+  padding-left: calc(var(--depth, 0) * 0.85rem + 0.9rem);
 }
 
 .library-shelf__branch[style*="--depth: 0"] { padding-left: 0; }
 
+/* The disclosure sits outside the row's layout entirely. As a third flex
+   child it competed for space, and the row's space-between pushed the folder
+   name into the middle — so a drawer with children sat centred while its
+   children sat left. Absolutely positioned, it marks the row without being
+   part of it. */
 .library-shelf__disclose {
-  display: inline-block;
+  position: absolute;
+  left: -0.15rem;
+  top: 50%;
+  transform: translateY(-50%);
   width: 0.9rem;
-  margin-left: -0.9rem;
   color: var(--text-muted, var(--vellum-subtle));
   font-size: 0.62rem;
   opacity: 0;
