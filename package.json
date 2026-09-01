@@ -36,7 +36,7 @@
     "wiki:qa:live": "npm run wiki:qa && npm run wiki:intelligence-harness:judge && npm run wiki:maintenance-harness:live",
     "return-loop:verify:live": "node scripts/verify_return_loop_live.js",
     "proof:alphabet:verify": "node scripts/verify_alphabet_public_proof.js",
-    "proof:alphabet:test": "node server/services/alphabetProofAcceptanceService.test.js && node server/services/wikiPublicProofAcceptanceService.test.js && node server/services/wikiRevisionService.test.js && node server/services/wikiRevisionRetentionService.test.js && node server/services/publicProofService.test.js && node server/routes/__tests__/wikiRoutes.publicProofAcceptance.test.js && node server/routes/__tests__/wikiRoutes.publicProof.test.js",
+    "proof:alphabet:test": "node server/services/alphabetProofAcceptanceService.test.js && node server/services/wikiPublicProofAcceptanceService.test.js && node server/services/wikiRevisionService.test.js && node server/services/wikiRevisionRetentionService.test.js && node server/services/publicProofService.test.js && node server/routes/__tests__/wikiRoutes.publicProofAcceptance.test.js && node server/routes/__tests__/wikiRoutes.publicProof.test.js && node server/services/judgmentPublicProjection.leak.test.js",
     "proof:alphabet:run": "node scripts/run_alphabet_filing_acceptance.js",
     "wiki:storage": "node scripts/run_wiki_storage_governor.js",
     "wiki:storage:test": "node server/services/mongoBackupService.test.js && node server/services/wikiRevisionRetentionService.test.js && node server/services/wikiStorageGovernorService.test.js",

@@ -1,6 +1,6 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import Landing from './Landing';
 import { getPublicProofRegistry } from '../api/wiki';
@@ -52,12 +52,13 @@ describe('Landing', () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => expect(getPublicProofRegistry).toHaveBeenCalledTimes(1));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    // Waiting on the call only proves the request went out. The href arrives a
+    // microtask later, and clicking in between sent the reader to the fallback
+    // - which is what made this test fail about one run in four.
+    const cta = await screen.findByRole('button', { name: 'Open a living dossier' });
+    await waitFor(() => expect(cta).toHaveAttribute('data-target', '/share/wiki/alphabet-berkshire-2-0'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open a living dossier' }));
+    fireEvent.click(cta);
 
     expect(trackMarketingCta).toHaveBeenCalledWith(expect.objectContaining({
       page: 'home',

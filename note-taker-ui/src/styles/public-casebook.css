@@ -165,3 +165,21 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Living proof, for the reader.
+   What is new to this particular visitor since they were last here. The
+   count is mono, like every other readout that is a measurement; the mark on
+   a row is a single accent rule, because "new to you" is a fact about the
+   reader and not a claim about importance. A first-time reader sees neither. */
+.public-casebook__returned {
+  margin: 0 0 0.6rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.public-casebook li.is-new-to-you {
+  border-left: 2px solid var(--accent-primary, var(--ink-agent, #b8862b));
+  padding-left: 0.7rem;
+}

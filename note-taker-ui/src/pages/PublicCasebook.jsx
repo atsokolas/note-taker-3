@@ -8,6 +8,7 @@ import {
 } from '../api/wiki';
 import { CLOCK_LABEL, VERDICT_LABEL } from './judgmentLedgerClient';
 import { wikiPagePath } from '../utils/wikiFeatureFlags';
+import { describeReturn, readLastSeen, rememberSeen } from './publicReturn';
 import '../styles/public-casebook.css';
 
 const months = Object.freeze([
@@ -101,8 +102,22 @@ const PublicCasebook = ({
   preview = false
 }) => {
   const navigate = useNavigate();
+  /* What this reader had already seen when they arrived. Read once, before
+     the visit is recorded, or the page would always be reporting itself as
+     already read. Null means we have never met them, and the page then says
+     nothing about it. */
+  const [seenOnArrival] = useState(() => readLastSeen(idOrSlug));
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
+
+  /* Record the visit after the page has been read, never before it is shown.
+     A preview is the owner looking at their own work and is not a visit, so
+     it must not consume the reader's next "since you were last here".
+     Everything here stays in this browser: no account, no beacon, no write. */
+  useEffect(() => {
+    if (preview) return;
+    rememberSeen(idOrSlug, casebook?.deltas);
+  }, [idOrSlug, casebook, preview]);
 
   const goAuth = useCallback((intent) => {
     if (onNeedAuth) onNeedAuth(intent);
@@ -140,6 +155,8 @@ const PublicCasebook = ({
   const revisions = Array.isArray(casebook.revisions) ? casebook.revisions : [];
   const evidence = Array.isArray(casebook.evidence) ? casebook.evidence : [];
   const deltas = Array.isArray(casebook.deltas) ? casebook.deltas : [];
+  const returned = describeReturn({ deltas, lastSeen: seenOnArrival });
+  const freshToReader = new Set(returned.ids);
   const corrections = Array.isArray(casebook.corrections) ? casebook.corrections : [];
 
   return (
@@ -221,9 +238,12 @@ const PublicCasebook = ({
       {deltas.length ? (
         <section aria-label="Since the last accepted edition">
           <h2>Since the last accepted edition</h2>
+          {returned.line ? (
+            <p className="public-casebook__returned" role="status">{returned.line}</p>
+          ) : null}
           <ol>
             {deltas.map((row) => (
-              <li key={row.at}>
+              <li key={row.at} className={freshToReader.has(row.at) ? 'is-new-to-you' : undefined}>
                 <time dateTime={row.at}>{formatDay(row.at)}</time>
                 <span>{row.summary}</span>
               </li>
