@@ -1,0 +1,143 @@
+/* The switch.
+ *
+ * One capsule, machined once, shared product-wide. The craft rules are the
+ * design's, and they are all here rather than scattered: 28px optical height
+ * (22px compact), 3px radius, one hairline, interior dividers a shade lighter
+ * than the frame. It sits on the title's baseline and never wraps.
+ *
+ * The resting state is legible with no fill at all — HOME in full ink, the
+ * parked positions faded — so a piece at home needs no decoration to say so.
+ */
+
+.placement-switch {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.placement-switch__capsule {
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
+  border: 1px solid var(--noeis-hairline, var(--border-subtle, rgba(120, 120, 120, 0.35)));
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.placement-switch.is-compact .placement-switch__capsule { height: 22px; }
+
+.placement-switch__position,
+.placement-switch__cap {
+  position: relative;
+  padding: 0 0.7rem;
+  border: 0;
+  background: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  /* Mono operates. A control never wears serif. */
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.13em;
+  white-space: nowrap;
+  cursor: pointer;
+  /* The fill slides between positions rather than blinking on. */
+  transition: background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Interior dividers, one shade lighter than the frame. */
+.placement-switch__position + .placement-switch__position,
+.placement-switch__cap {
+  border-left: 1px solid var(--border-subtle, rgba(120, 120, 120, 0.2));
+}
+
+/* Hit areas extend past the optical edge, without moving the optics. */
+.placement-switch__position::after,
+.placement-switch__cap::after {
+  content: "";
+  position: absolute;
+  inset: -6px -0.35rem;
+}
+
+/* HOME at full ink when current: the resting state reads with no fill. */
+.placement-switch__position.is-active {
+  color: var(--paper, #fff);
+  background: var(--ink-seed, #4d5b3c);
+}
+
+/* Seed for Later, sap for Set aside — the two parked inks, flat, no gradient,
+   no shadow, no glow. */
+.placement-switch__position:nth-child(2).is-active { background: var(--ink-seed, #4d5b3c); }
+.placement-switch__position:nth-child(3).is-active { background: var(--ink-sap, #6f7f4a); }
+
+/* Home is a position, not a parked ink: it inverts to the page's own ink. */
+.placement-switch__position:first-child.is-active {
+  color: var(--paper, #fff);
+  background: var(--text-primary, var(--vellum-ink, #1c1a17));
+}
+
+/* The only gold on the control is a promise that has actually been made. */
+.placement-switch__cap.is-promised { color: var(--ink-gold, #b8862b); }
+
+.placement-switch__position:focus-visible,
+.placement-switch__cap:focus-visible {
+  outline: 1px solid var(--ink-gold, #b8862b);
+  outline-offset: 2px;
+}
+
+/* The strip unfolds beneath the cap. */
+.placement-switch__strip {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 20;
+  min-width: 15rem;
+  margin: 0;
+  padding: 0.3rem 0;
+  list-style: none;
+  border: 1px solid var(--noeis-hairline, var(--border-subtle, rgba(120, 120, 120, 0.35)));
+  border-radius: 3px;
+  background: var(--paper, #fff);
+  animation: placement-strip-unfold 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top;
+}
+
+@keyframes placement-strip-unfold {
+  from { opacity: 0; transform: scaleY(0.92); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+.placement-switch__strip button,
+.placement-switch__date {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.35rem 0.8rem;
+  border: 0;
+  background: none;
+  color: var(--text-secondary, var(--vellum-ink));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.placement-switch__strip button:hover {
+  background: var(--surface-soft, rgba(120, 120, 120, 0.08));
+}
+
+.placement-switch__error {
+  margin-top: 0.3rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+}
+
+/* Every state instant, and nothing merely disappears. */
+@media (prefers-reduced-motion: reduce) {
+  .placement-switch__position,
+  .placement-switch__cap { transition: none; }
+  .placement-switch__strip { animation: none; }
+}

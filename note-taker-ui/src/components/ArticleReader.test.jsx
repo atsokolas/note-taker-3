@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import ArticleReader from './ArticleReader';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
@@ -22,9 +22,6 @@ jest.mock('../hooks/useMotionPreferences', () => ({
   usePrefersReducedMotion: jest.fn(() => false),
   useFinePointer: jest.fn(() => true)
 }));
-jest.mock('./RemindWord', () => ({ articleId }) => (
-  articleId ? <button type="button">Remind me</button> : null
-));
 jest.mock('../motion/columnMotion', () => {
   const actual = jest.requireActual('../motion/columnMotion');
   return {
@@ -397,7 +394,12 @@ describe('Later and Set aside', () => {
     });
   });
 
-  it('sit beside Keep as two different words, and swap rather than stack', async () => {
+  /* Rewritten for the switch. These three used to assert two separate words
+     and a Remind me beside them; the fact they were protecting — exclusivity,
+     pressing the active position sends it home, and the vow sits outside the
+     mechanics — is what is asserted here instead. */
+
+  it('is one instrument with three positions, and lights exactly one', async () => {
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'later' });
     render(
       <ArticleReader
@@ -408,24 +410,33 @@ describe('Later and Set aside', () => {
       />
     );
 
-    const later = screen.getByRole('button', { name: 'Later' });
-    const aside = screen.getByRole('button', { name: 'Set aside' });
-    const keep = screen.getByRole('button', { name: 'Keep for good' });
-    expect(later.parentElement).toBe(keep.parentElement);
-    expect(aside.parentElement).toBe(keep.parentElement);
-    expect(later.parentElement).toHaveClass('article-reader-decisions');
+    const group = screen.getByRole('radiogroup', { name: 'Where this sits' });
+    const later = within(group).getByRole('radio', { name: 'LATER' });
+    expect(within(group).getAllByRole('radio')).toHaveLength(3);
+    // Home is the resting position and reads with no fill at all.
+    expect(within(group).getByRole('radio', { name: 'IMBOX' })).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(later);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Later' })).toHaveAttribute('aria-pressed', 'true'));
-    expect(screen.getByRole('button', { name: 'Set aside' })).toHaveAttribute('aria-pressed', 'false');
-    expect(handOffSentence).toHaveBeenCalledWith(
-      'A source',
-      expect.objectContaining({ textContent: 'A source' })
-    );
   });
 
-  it('returns home when the active word is pressed again', async () => {
+  it('keeps the vow outside the switch, because a vow is not a position', () => {
+    render(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
+        highlights={[]}
+        onToggleEvergreen={jest.fn()}
+        onTogglePlacement={jest.fn()}
+      />
+    );
+
+    const keep = screen.getByRole('button', { name: 'Keep for good' });
+    const group = screen.getByRole('radiogroup', { name: 'Where this sits' });
+    expect(group.contains(keep)).toBe(false);
+    expect(keep.closest('.article-reader-decisions')).toBeTruthy();
+  });
+
+  it('returns home when the position it already sits in is pressed again', async () => {
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'stream' });
     render(
       <ArticleReader
@@ -435,24 +446,30 @@ describe('Later and Set aside', () => {
       />
     );
 
-    const aside = screen.getByRole('button', { name: 'Set aside' });
-    expect(aside).toHaveAttribute('aria-pressed', 'true');
+    const aside = screen.getByRole('radio', { name: 'SET ASIDE' });
+    expect(aside).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(aside);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream'));
   });
 
-  it('sits Remind me in the same cluster as Keep', async () => {
-    render(
+  it('grows a clock cap only once something is parked', () => {
+    const { rerender } = render(
       <ArticleReader
         article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>' }}
         highlights={[]}
-        onToggleEvergreen={jest.fn()}
         onTogglePlacement={jest.fn()}
       />
     );
-    const remind = await screen.findByRole('button', { name: 'Remind me' });
-    const keep = screen.getByRole('button', { name: 'Keep for good' });
-    expect(remind.closest('.article-reader-decisions')).toBe(keep.parentElement);
+    expect(document.querySelector('.placement-switch__cap')).toBeNull();
+
+    rerender(
+      <ArticleReader
+        article={{ _id: 'a1', title: 'A source', content: '<p>Text.</p>', placement: 'later' }}
+        highlights={[]}
+        onTogglePlacement={jest.fn()}
+      />
+    );
+    expect(document.querySelector('.placement-switch__cap')).not.toBeNull();
   });
 });
 

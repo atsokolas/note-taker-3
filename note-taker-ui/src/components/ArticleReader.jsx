@@ -4,8 +4,7 @@ import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
-import PlacementWord from './PlacementWord';
-import RemindWord from './RemindWord';
+import PlacementSwitch from './PlacementSwitch';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
@@ -300,17 +299,15 @@ const ArticleReader = ({
             rather than an action — findable only if you already knew it was
             there. */}
         <div className="article-reader-decisions">
+          {/* One instrument for one fact. Two words and a separate reminder
+              became a switch with a clock cap: park and promise in one
+              gesture, which is why Remind me is gone. */}
           {onTogglePlacement ? (
-            <PlacementWord
-              placement="later"
-              active={placement === 'later'}
-              onChange={park}
-            />
-          ) : null}
-          {onTogglePlacement ? (
-            <PlacementWord
-              placement="setAside"
-              active={placement === 'setAside'}
+            <PlacementSwitch
+              articleId={article?._id}
+              placement={placement}
+              folderName={article?.folder?.name}
+              asFeed={Boolean(article?.folder?.asFeed)}
               onChange={park}
             />
           ) : null}
@@ -324,7 +321,6 @@ const ArticleReader = ({
               }}
             />
           ) : null}
-          {article?._id ? <RemindWord articleId={article._id} /> : null}
           {onMove && (
             <QuietButton onClick={onMove}>
               Move
