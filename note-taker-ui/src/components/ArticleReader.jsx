@@ -21,6 +21,7 @@ import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
+import { sourceLabel } from './library/libraryColumnModel';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -284,6 +285,12 @@ const ArticleReader = ({
       )}
       <div className="article-reader-header">
         <div>
+          {/* Provenance as typography: where a piece came from sits above its
+              title in small caps, the way a masthead names its paper. It was
+              buried in the meta row below, reading as one more link. */}
+          {sourceLabel(article) ? (
+            <p className="article-reader-provenance">{sourceLabel(article)}</p>
+          ) : null}
           <h1 ref={titleRef} className="article-reader-title">{article.title || 'Untitled article'}</h1>
           <div className="article-reader-meta">
             {article.createdAt && <span>{formatDate(article.createdAt)}</span>}

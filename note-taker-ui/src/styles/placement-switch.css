@@ -141,3 +141,15 @@
   .placement-switch__cap { transition: none; }
   .placement-switch__strip { animation: none; }
 }
+
+/* Provenance as typography. The publication's name above the title, in small
+   caps — the way a masthead names its paper, rather than one more link in a
+   row of metadata. */
+.article-reader-provenance {
+  margin: 0 0 0.2rem;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+}

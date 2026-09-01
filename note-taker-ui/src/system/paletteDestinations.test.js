@@ -1,4 +1,4 @@
-import { buildPaletteDestinations } from './paletteDestinations';
+import { buildPaletteDestinations, placementCommands } from './paletteDestinations';
 
 const labels = (rows) => rows.map(row => row.label);
 const pathOf = (rows, label) => rows.find(row => row.label === label)?.path;
@@ -72,5 +72,26 @@ describe('the palette index', () => {
     const rows = buildPaletteDestinations();
     // Judgment was missing from the hand-written list this replaces.
     expect(pathOf(rows, 'Judgment')).toBe('/judgment');
+  });
+});
+
+describe('positions as commands', () => {
+  const subject = { _id: 'a1', title: 'the Costco 10-K' };
+
+  it('reads as a sentence, not as a verb list', () => {
+    const [later] = placementCommands({ subject });
+    expect(later.label).toBe('Later: the Costco 10-K');
+    expect(later.hint).toBe('parks it, oldest-owed first');
+  });
+
+  it('offers all three positions on the object in hand', () => {
+    expect(placementCommands({ subject }).map(row => row.placement))
+      .toEqual(['later', 'setAside', 'stream']);
+  });
+
+  it('offers nothing when there is nothing to place', () => {
+    expect(placementCommands({})).toEqual([]);
+    expect(placementCommands({ subject: { _id: 'a1' } })).toEqual([]);
+    expect(placementCommands({ subject: { title: 'Nameless' } })).toEqual([]);
   });
 });

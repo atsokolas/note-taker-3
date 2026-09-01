@@ -34,6 +34,46 @@ const PLACES = Object.freeze([
   { id: 'place.kept', label: 'Kept', path: KEPT_HREF }
 ]);
 
+/**
+ * Positions as commands, on the object the reader is looking at.
+ *
+ * Rows read as sentences — "Later: the Costco 10-K — parks it, oldest-owed
+ * first" — because a command list that reads as verbs makes the reader
+ * translate. Offered only when there is an object to act on: a position with
+ * nothing to place is not a command, it is a menu item.
+ */
+export const placementCommands = ({ subject = null } = {}) => {
+  const title = clean(subject?.title);
+  const id = clean(subject?._id || subject?.id);
+  if (!title || !id) return [];
+  return [
+    {
+      id: `place.later.${id}`,
+      label: `Later: ${title}`,
+      hint: 'parks it, oldest-owed first',
+      placement: 'later',
+      targetId: id,
+      kind: 'command'
+    },
+    {
+      id: `place.set-aside.${id}`,
+      label: `Set aside: ${title}`,
+      hint: 'keeps it at hand this week',
+      placement: 'setAside',
+      targetId: id,
+      kind: 'command'
+    },
+    {
+      id: `place.home.${id}`,
+      label: `Home: ${title}`,
+      hint: 'sends it back where it lives',
+      placement: 'stream',
+      targetId: id,
+      kind: 'command'
+    }
+  ];
+};
+
 export const buildPaletteDestinations = ({ folders = [], articles = [] } = {}) => {
   const surfaces = NOEIS_SURFACE_DEFINITIONS
     .map(definition => ({
