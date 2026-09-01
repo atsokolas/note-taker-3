@@ -137,28 +137,28 @@ const LibraryShelfNav = ({
             ) : null}
           </RoomShelfButton>
         </li>
-        {laterCount > 0 ? (
-          <li className="library-shelf__later">
-            <RoomShelfButton
-              active={scope === 'later'}
-              onClick={() => onSelectScope?.('later')}
-            >
-              <span>Later</span>
+        <li className={`library-shelf__later${laterCount === 0 ? ' is-empty' : ''}`}>
+          <RoomShelfButton
+            active={scope === 'later'}
+            onClick={() => onSelectScope?.('later')}
+          >
+            <span>Later</span>
+            {Number.isFinite(laterCount) && laterCount > 0 ? (
               <RoomShelfMeta>{laterCount}</RoomShelfMeta>
-            </RoomShelfButton>
-          </li>
-        ) : null}
-        {setAsideCount > 0 ? (
-          <li className="library-shelf__set-aside">
-            <RoomShelfButton
-              active={scope === 'set-aside'}
-              onClick={() => onSelectScope?.('set-aside')}
-            >
-              <span>Set aside</span>
+            ) : null}
+          </RoomShelfButton>
+        </li>
+        <li className={`library-shelf__set-aside${setAsideCount === 0 ? ' is-empty' : ''}`}>
+          <RoomShelfButton
+            active={scope === 'set-aside'}
+            onClick={() => onSelectScope?.('set-aside')}
+          >
+            <span>Set aside</span>
+            {Number.isFinite(setAsideCount) && setAsideCount > 0 ? (
               <RoomShelfMeta>{setAsideCount}</RoomShelfMeta>
-            </RoomShelfButton>
-          </li>
-        ) : null}
+            ) : null}
+          </RoomShelfButton>
+        </li>
         <li>
           <RoomShelfButton
             active={scope === 'unfiled'}

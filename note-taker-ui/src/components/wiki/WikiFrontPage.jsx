@@ -15,6 +15,8 @@ import { isWikiOnboardingComplete, markWikiOnboardingComplete } from '../../onbo
 import { purgeUnscopedKeys, scopedKey } from '../../utils/browserScope';
 import { takeFirstPaint } from '../../motion/columnMotion';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
+import useLibraryRoom from '../../hooks/useLibraryRoom';
+import LibraryPlaces from '../library/LibraryPlaces';
 import WikiCreationComposer from './WikiCreationComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
 import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
@@ -236,6 +238,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     subject: 'Your Wiki.',
     empty: 'Open a page before asking against exact accepted knowledge.'
   }, {});
+  const libraryRoom = useLibraryRoom({ view: 'recent' });
   const pageIndexRequestRef = useRef(null);
   const [seed] = useState(() => readFrontPageCache());
   const [pages, setPages] = useState(() => seed?.pages || []);
@@ -692,6 +695,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         <p className="wiki-index__eyebrow wiki-front-page__masthead">
           Your Wiki · {mastheadDate()}
         </p>
+        <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
         <p className="wiki-front-page__loading-copy" role="status">
           Opening your living knowledge…
         </p>
@@ -731,6 +735,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               Your Wiki · {mastheadDate()}
             </p>
           </div>
+          <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
         </header>
         <section className="wiki-front-page__empty wfp-anim wfp-anim--3" aria-labelledby="wfp-empty-title">
           <h1 id="wfp-empty-title">Nothing here yet — let&rsquo;s start your wiki.</h1>
@@ -834,6 +839,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         >
           <header className="wiki-living-index__header">
             <p className="wiki-index__eyebrow paper-open__masthead">Your Wiki · {mastheadDate()}</p>
+            <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
             <h1 id="wiki-living-title">Your living wikis</h1>
             <p>Maintained with your agent, grounded in your Library.</p>
             {leadSentence && wikiFilter !== 'review' ? (

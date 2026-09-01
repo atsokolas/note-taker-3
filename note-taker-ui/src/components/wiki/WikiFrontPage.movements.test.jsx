@@ -4,6 +4,7 @@ import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop } from '../../api/dailyLoop';
+import useLibraryRoom from '../../hooks/useLibraryRoom';
 
 /* Movement return stays behind operations. Morning Paper is not a second hub. */
 jest.mock('./WeeklyDigest', () => () => null);
@@ -12,6 +13,23 @@ jest.mock('../../api/knowledgeMovements', () => ({
   getWeeklyMovements: jest.fn().mockResolvedValue({ groups: [], quiet: true })
 }));
 jest.mock('../../api/wiki', () => ({ listWikiPages: jest.fn() }));
+jest.mock('../../hooks/useLibraryRoom', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    loading: false,
+    error: '',
+    feedTopics: [],
+    folders: [],
+    shelfCounts: {},
+    piles: { later: [], setAside: [] },
+    sources: [],
+    coverage: null,
+    counts: {},
+    nextCursor: null,
+    hasMore: false,
+    refresh: jest.fn()
+  }))
+}));
 jest.mock('../../api/dailyLoop', () => ({
   getDailyLoop: jest.fn(),
   armReadingWatch: jest.fn(),
@@ -54,6 +72,20 @@ describe('WikiFrontPage movement return surface', () => {
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
+    useLibraryRoom.mockReturnValue({
+      loading: false,
+      error: '',
+      feedTopics: [],
+      folders: [],
+      shelfCounts: {},
+      piles: { later: [], setAside: [] },
+      sources: [],
+      coverage: null,
+      counts: {},
+      nextCursor: null,
+      hasMore: false,
+      refresh: jest.fn()
+    });
     listWikiPages.mockResolvedValue([page]);
     getDailyLoop.mockResolvedValue({
       briefing: {

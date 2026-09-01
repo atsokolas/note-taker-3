@@ -36,6 +36,7 @@ import { takeFirstPaint } from '../motion/columnMotion';
 import LibraryColumn from '../components/library/LibraryColumn';
 import LibraryFeedColumn from '../components/library/LibraryFeedColumn';
 import LibraryShelfNav from '../components/library/LibraryShelfNav';
+import LibraryPlaces from '../components/library/LibraryPlaces';
 import ScreenWord from '../components/library/ScreenWord';
 import '../styles/library-column.css';
 import '../styles/reader-editorial.css';
@@ -1099,6 +1100,9 @@ const Library = () => {
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
       />
       <div className="library-page-shell__column">
+        {!isReadingView ? (
+          <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
+        ) : null}
         <div className="library-page-shell__column-head">
           {isReadingView ? (
             <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>
