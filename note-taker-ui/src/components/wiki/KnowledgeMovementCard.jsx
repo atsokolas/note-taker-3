@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import '../../styles/knowledge-movements.css';
+import { describeAffectedRest, describeConsequenceDelta } from './consequenceDelta';
 
 const KINDS = new Set([
   'claim_changed', 'new_evidence', 'contradiction', 'question_answerable',
@@ -150,6 +151,40 @@ const KnowledgeRefList = ({ label, items }) => {
   );
 };
 
+/* The delta, above the fold and in the order the reader needs it: what
+   changed, what it touches of theirs, and what is being asked. The lead card
+   sends one restrained thread down the affected list — the Consequence
+   Ripple — so the eye follows the change into the beliefs it reached. */
+const ConsequenceDelta = ({ delta, dominant = false }) => {
+  if (!delta.affects.length && !delta.asks) return null;
+  const rest = describeAffectedRest(delta.affectedRest);
+  return (
+    <div className={`knowledge-movement__delta${dominant ? ' is-rippling' : ''}`}>
+      {delta.affects.length ? (
+        <div className="knowledge-movement__affects">
+          <p className="knowledge-movement__delta-label">What it affects</p>
+          <ul>
+            {delta.affects.map(ref => (
+              <li key={ref.id}>
+                {ref.external
+                  ? <a href={ref.href} target="_blank" rel="noreferrer">{ref.title}</a>
+                  : <Link to={ref.href}>{ref.title}</Link>}
+              </li>
+            ))}
+            {rest ? <li className="knowledge-movement__affects-rest">{rest}</li> : null}
+          </ul>
+        </div>
+      ) : null}
+      {delta.asks ? (
+        <div className="knowledge-movement__asks">
+          <p className="knowledge-movement__delta-label">What I need from you</p>
+          <p className="knowledge-movement__asks-line">{delta.asks}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const KnowledgeMovementCard = ({ movement, dominant = false }) => {
   const item = normalizeKnowledgeMovement(movement);
   const navigate = useNavigate();
@@ -204,6 +239,7 @@ const KnowledgeMovementCard = ({ movement, dominant = false }) => {
           : <Link to={item.subject.href}>{item.title}</Link>}
       </h3>
       <p className="knowledge-movement__why">{item.whyItMatters}</p>
+      <ConsequenceDelta delta={describeConsequenceDelta(item)} dominant={dominant} />
       {item.reviewedOutcome ? (
         <section className="knowledge-movement__reviewed-outcome" aria-label="Reviewed outcome">
           <p className="knowledge-movement__outcome-question">Did the judgment hold?</p>
@@ -227,11 +263,10 @@ const KnowledgeMovementCard = ({ movement, dominant = false }) => {
           Review the decision you set. Noeis has not inferred an outcome.
         </p>
       ) : null}
+      {/* The affected count moved into the delta above, which names them
+          instead. What stays here is what the delta does not say. */}
       <div className="knowledge-movement__counts" aria-label="Movement scope">
         <span>{countLabel(item.evidence.length, 'evidence source')}</span>
-        {item.subjects.length
-          ? <span>{countLabel(item.subjects.length, 'affected claim')}</span>
-          : <span>{countLabel(item.affected.length, 'affected object')}</span>}
         {item.unresolved.length ? <span>{countLabel(item.unresolved.length, 'unresolved item')}</span> : null}
       </div>
       <div className="knowledge-movement__footer">
@@ -250,12 +285,14 @@ const KnowledgeMovementCard = ({ movement, dominant = false }) => {
           </Link>
         ) : null}
         {startError ? <p className="knowledge-movement__action-error" role="status">{startError}</p> : null}
-        {item.facts.length || item.evidence.length || item.affected.length || item.unresolved.length ? (
+        {item.facts.length || item.evidence.length || item.unresolved.length ? (
           <details className="knowledge-movement__facts">
             <summary>Sources and provenance</summary>
+            {/* What a change affected is consequence, not provenance, and it
+                is named above the fold now. This disclosure keeps what the
+                delta does not say: where the change came from, and what it
+                left open. */}
             <KnowledgeRefList label="Evidence" items={item.evidence} />
-            <KnowledgeRefList label="Affected" items={item.affected} />
-            <KnowledgeRefList label="Affected claims" items={item.subjects} />
             <KnowledgeRefList label="Unresolved" items={item.unresolved} />
             {item.facts.length ? (
               <div className="knowledge-movement__ref-group">

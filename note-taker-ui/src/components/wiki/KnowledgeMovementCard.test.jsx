@@ -61,7 +61,10 @@ describe('KnowledgeMovementCard', () => {
     expect(screen.getByText('Review required')).toBeInTheDocument();
     expect(screen.getByText(/accepted view has not changed/i)).toBeInTheDocument();
     expect(screen.getByText('1 evidence source')).toBeInTheDocument();
-    expect(screen.getByText('2 affected objects')).toBeInTheDocument();
+    // Affected objects are named under "What it affects" now, not counted.
+    expect(screen.getByText('What it affects')).toBeInTheDocument();
+    const affects = screen.getByText('What it affects').closest('.knowledge-movement__affects');
+    expect(within(affects).getAllByRole('link', { name: 'Inference economics' })).toHaveLength(2);
     expect(screen.getByText('1 unresolved item')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review proposed change/i }))
       .toHaveAttribute('href', '/think?tab=concepts&concept=Inference%20economics');
@@ -70,8 +73,9 @@ describe('KnowledgeMovementCard', () => {
     expect(within(details).getByText('Revision state: candidate')).toBeInTheDocument();
     expect(within(details).getByRole('link', { name: 'Source one' }))
       .toHaveAttribute('href', '/library?articleId=source-1');
-    expect(within(details).getAllByRole('link', { name: 'Inference economics' }))
-      .toHaveLength(2);
+    // Affected objects are consequence, not provenance — they are named in
+    // the delta above the fold and no longer repeated in here.
+    expect(within(details).queryByRole('link', { name: 'Inference economics' })).toBeNull();
     expect(within(details).getByRole('link', { name: 'Claim one' }))
       .toHaveAttribute('href', '/wiki/workspace?page=page-1&claimId=claim-1');
   });
@@ -140,7 +144,9 @@ describe('KnowledgeMovementCard', () => {
     render(<MemoryRouter><KnowledgeMovementLead movements={[episode]} /></MemoryRouter>);
 
     expect(screen.getByRole('heading', { name: /recent evidence was connected/i })).toBeInTheDocument();
-    expect(screen.getByText('Affected claims')).toBeInTheDocument();
+    // Named above the fold under "What it affects" rather than buried in the
+    // provenance disclosure, and named once.
+    expect(screen.getByText('What it affects')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'First claim' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Second claim' })).toBeInTheDocument();
   });
