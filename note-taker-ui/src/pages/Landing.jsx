@@ -100,6 +100,12 @@ const Landing = () => {
                 trackMarketingCta({ page: 'home', cta: 'living-dossier', target: livingDossierHref, pageType: 'home' });
                 navigate(livingDossierHref);
               }}
+              /* The target is resolved from the proof registry after paint, so
+                 until it lands this button points at the gallery fallback.
+                 Saying where it currently goes makes that settling observable
+                 instead of invisible - to a reader inspecting the page, and to
+                 a test that would otherwise have to guess when to click. */
+              data-target={livingDossierHref}
             >
               Open a living dossier
             </Button>
