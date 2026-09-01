@@ -79,3 +79,40 @@ describe('weekKey', () => {
     expect(sameWeek('2026-02-14T12:00:00.000Z', { week: weekKey('2026-08-14T12:00:00.000Z') })).toBe(false);
   });
 });
+
+
+describe('the month boundary', () => {
+  // A month boundary is a fact about the calendar, not about your thinking.
+  const openEntriesOf = (groups) => groups.find(group => group.id === 'now')?.entries || [];
+
+  it('does not fold away yesterday just because the month rolled over', () => {
+    const view = {
+      why: [{ id: 'w1', text: 'Written yesterday.', at: '2026-08-31T12:00:00.000Z' }],
+      against: [{ id: 'a1', text: 'Written in spring.', at: '2026-03-04T12:00:00.000Z' }]
+    };
+    const log = buildJudgmentLog(view, new Date('2026-09-01T09:00:00.000Z').getTime());
+    const open = openEntriesOf(log).map(entry => entry.text);
+
+    expect(open).toContain('Written yesterday.');
+    expect(open).not.toContain('Written in spring.');
+    expect(log.find(group => group.id === '2026-03')?.open).toBe(false);
+  });
+
+  it('still folds a month once it is genuinely behind you', () => {
+    const view = { why: [{ id: 'w1', text: 'Written in August.', at: '2026-08-31T12:00:00.000Z' }] };
+    const log = buildJudgmentLog(view, new Date('2026-11-02T09:00:00.000Z').getTime());
+
+    // Nothing is open on its own merits, so the existing fallback opens the
+    // newest group rather than showing an empty log — but it is no longer the
+    // 'now' band, which is the distinction that matters.
+    expect(openEntriesOf(log)).toHaveLength(0);
+    expect(log.find(group => group.id === '2026-08')).toBeTruthy();
+  });
+
+  it('crosses a year boundary without losing December', () => {
+    const view = { why: [{ id: 'w1', text: 'Written in December.', at: '2026-12-30T12:00:00.000Z' }] };
+    const log = buildJudgmentLog(view, new Date('2027-01-02T09:00:00.000Z').getTime());
+
+    expect(openEntriesOf(log).map(entry => entry.text)).toContain('Written in December.');
+  });
+});

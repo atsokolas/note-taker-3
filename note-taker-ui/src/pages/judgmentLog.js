@@ -20,6 +20,13 @@ const time = (value) => {
 
 export const LOG_FILTERS = ['all', 'why', 'against'];
 
+/** The month before this one, as a key: '2026-09' → '2026-08'. */
+const previousMonthKey = (now) => {
+  const at = new Date(time(now));
+  if (Number.isNaN(at.getTime())) return '';
+  return monthKey(new Date(at.getFullYear(), at.getMonth() - 1, 1));
+};
+
 const monthKey = (at) => {
   const atMs = time(at);
   if (Number.isNaN(atMs)) return 'undated';
@@ -86,13 +93,28 @@ export const matchesLogFilter = (entry, filter) => {
 
 /** Groups for the log. The open band is this month plus anything undated. */
 export const buildJudgmentLog = (view = {}, now = Date.now()) => {
+  const entries = entriesFrom(view);
   const current = currentMonthKey(now);
+
+  /* The log opens on what you did recently, not on what the calendar calls
+     this month.
+     Opening only the current calendar month meant that at midnight on the
+     first, everything you had written — including yesterday — folded itself
+     behind a disclosure, and a case you were in the middle of looked
+     abandoned. A month boundary is a fact about the calendar, not about your
+     thinking, so last month stays open alongside this one and the boundary
+     stops being a cliff. The band is a month wide rather than N days because
+     the log is grouped by month — a rule at the same grain as the thing it
+     governs has no ragged edge to fall off. Anything older still collapses;
+     that part was always right. */
+  const previous = previousMonthKey(now);
+
   const open = [];
   const earlier = new Map();
 
-  entriesFrom(view).forEach((entry) => {
+  entries.forEach((entry) => {
     const key = monthKey(entry.at);
-    if (key === 'undated' || key === current) {
+    if (key === 'undated' || key === current || key === previous) {
       open.push(entry);
       return;
     }

@@ -2683,3 +2683,15 @@ body.noeis-editorial .judgment .judgment-depends__add select,
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
+
+/* What pressing a disposition would do, said before it is pressed. It holds
+   its line whether or not anything is being previewed, so the buttons never
+   move under the cursor that is reading about them. */
+.judgment-change__preview {
+  min-height: 1.05rem;
+  margin: 0.4rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
