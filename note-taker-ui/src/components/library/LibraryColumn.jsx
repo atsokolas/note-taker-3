@@ -121,6 +121,9 @@ const LibraryColumn = ({
             </button>
           </h2>
           {continueItem.source ? <p className="library-column__source">{continueItem.source}</p> : null}
+          {/* Where you left off, when we know. A reading position nobody wrote
+              down is one we do not have, and the line is simply absent. */}
+          {continueItem.place ? <p className="library-column__place">{continueItem.place}</p> : null}
           {continueItem.dek ? <p className="library-column__dek">{continueItem.dek}</p> : null}
           <button
             type="button"

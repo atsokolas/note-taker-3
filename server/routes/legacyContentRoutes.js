@@ -422,6 +422,30 @@ const buildLegacyContentRouter = ({
             placementReason: 1,
             tags: 1,
             highlightCount: { $size: { $ifNull: ['$highlights', []] } },
+            /* Where the reader left off, derived rather than stored: the
+               furthest point they marked, over the length of the piece, and
+               the day they last marked anything. The content itself never
+               leaves the server — only the ratio does. A piece with no
+               highlights, or no content to measure against, reports null,
+               and the column then says nothing rather than "0% through". */
+            lastPlace: {
+              at: { $max: '$highlights.createdAt' },
+              ratio: {
+                $let: {
+                  vars: {
+                    furthest: { $max: '$highlights.anchor.startOffsetApprox' },
+                    len: { $strLenCP: { $ifNull: ['$content', ''] } }
+                  },
+                  in: {
+                    $cond: [
+                      { $and: [{ $gt: ['$$len', 0] }, { $gt: ['$$furthest', 0] }] },
+                      { $divide: ['$$furthest', '$$len'] },
+                      null
+                    ]
+                  }
+                }
+              }
+            },
             ...(preview ? { content: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, 4000] } } : {})
           }
         },

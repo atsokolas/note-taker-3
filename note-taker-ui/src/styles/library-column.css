@@ -1168,3 +1168,13 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   letter-spacing: 0.18em;
   text-align: center;
 }
+
+/* Where you left off. A readout, so mono — and absent whenever the place is
+   unknown, which is most pieces most of the time. */
+.library-column__place {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}

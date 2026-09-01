@@ -23,6 +23,8 @@ import {
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 import { displayWikiPageTitle } from './wiki/wikiRepoDossierModel';
 import { normalizeSpaces } from '../utils/editorialText';
+import { buildPaletteDestinations } from '../system/paletteDestinations';
+import { getFolders } from '../api/folders';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -247,6 +249,11 @@ const CommandPalette = ({ open, onClose }) => {
   const capabilityModel = useNoeisCapabilities();
   const [query, setQuery] = useState('');
   const [articles, setArticles] = useState([]);
+  /* The folders and their open pieces, only so the palette can name a screened
+     folder. Screened topics come from rankFeedTopics, the same reading the
+     rail does — the palette does not get its own idea of what is open. */
+  const [folders, setFolders] = useState([]);
+  const [shelfArticles, setShelfArticles] = useState([]);
   const [searchGroups, setSearchGroups] = useState(EMPTY_GROUPS);
   const [notebook, setNotebook] = useState([]);
   const [collections, setCollections] = useState([]);
@@ -260,15 +267,13 @@ const CommandPalette = ({ open, onClose }) => {
     search: currentLocationSearch()
   });
 
-  const pages = useMemo(() => ([
-    { label: 'Library', path: '/library' },
-    { label: 'Think', path: '/think' },
-    { label: 'Review', path: '/review' },
-    { label: 'Map', path: '/map' },
-    { label: 'Marketing Analytics', path: '/marketing-analytics' },
-    { label: 'Search Console Opportunities', path: '/search-console-opportunities' },
-    { label: 'Settings', path: '/settings' }
-  ]), []);
+  /* Generated, never listed. The list this replaces still offered Review and
+     Map — two dissolved rooms — and had never heard of Judgment, the three
+     places on the desk, or a single screened folder. */
+  const pages = useMemo(
+    () => buildPaletteDestinations({ folders, articles: shelfArticles }),
+    [folders, shelfArticles]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -281,16 +286,20 @@ const CommandPalette = ({ open, onClose }) => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [notebookRows, colRes, tagRes, wikiRows] = await Promise.allSettled([
+        const [notebookRows, colRes, tagRes, wikiRows, folderRows, shelfRes] = await Promise.allSettled([
           getNotebookSummaries(),
           api.get('/api/collections', { headers }),
           api.get('/api/tags', { headers }),
-          listWikiPages({ limit: 12, summary: 1 })
+          listWikiPages({ limit: 12, summary: 1 }),
+          getFolders(),
+          api.get('/api/articles', { headers })
         ]);
         setNotebook(notebookRows.status === 'fulfilled' ? notebookRows.value || [] : []);
         setCollections(colRes.status === 'fulfilled' ? colRes.value?.data || [] : []);
         setConcepts(tagRes.status === 'fulfilled' ? tagRes.value?.data || [] : []);
         setWikiPages(wikiRows.status === 'fulfilled' && Array.isArray(wikiRows.value) ? wikiRows.value : []);
+        setFolders(folderRows.status === 'fulfilled' && Array.isArray(folderRows.value) ? folderRows.value : []);
+        setShelfArticles(shelfRes.status === 'fulfilled' && Array.isArray(shelfRes.value?.data) ? shelfRes.value.data : []);
       } catch (err) {
         console.error('Palette preload failed', err);
       }
