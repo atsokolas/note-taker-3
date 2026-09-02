@@ -1683,10 +1683,14 @@ body.noeis-editorial .think-notebook-editor-body {
   color: var(--vellum-ink) !important;
 }
 
-body.noeis-editorial .notebook-ref-card,
+/* A quotation set into a note is set in the same way a source is: a rule down
+   the left and a change of register, on the same paper. This painted both with
+   a panel fill, which is what made an inserted piece read as an attachment
+   stuck onto the page rather than something written into it. */
 body.noeis-editorial .highlight-ref-node {
-  padding: 18px;
-  background: var(--vellum-panel);
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid color-mix(in srgb, var(--vellum-ink, #1c1a17) 24%, transparent);
+  background: none;
 }
 
 body.noeis-editorial .think-index__row,
