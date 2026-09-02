@@ -6,7 +6,7 @@ import {
   LATER_HREF,
   SET_ASIDE_HREF
 } from '../../pages/libraryPlacesModel';
-import { deskLine, firstMorningDeskLine } from '../../pages/paperEditions';
+import { deskClauses, firstMorningDeskLine, shelfClause } from '../../pages/paperEditions';
 import '../../styles/library-column.css';
 
 /*
@@ -27,14 +27,12 @@ import '../../styles/library-column.css';
 
 const LibraryPlaces = ({ feedTopics = [], later = null, setAside = null, kept = null, firstMorning = false, scope = '' }) => {
   const topics = feedPlaces(feedTopics);
-  const sentence = firstMorning
-    ? firstMorningDeskLine()
-    : deskLine({
-      later,
-      setAside,
-      kept,
-      topics: topics.map(topic => ({ name: topic.name, open: topic.open }))
-    });
+  const clauses = firstMorning ? [] : deskClauses({
+    later,
+    setAside,
+    topics: topics.map(topic => ({ id: topic.id, name: topic.name, open: topic.open, href: topic.href }))
+  });
+  const shelf = firstMorning ? null : shelfClause(kept);
 
   /* Empty is absent applies to the sentence, not to the doors. A desk with
      nothing on it says nothing — no row of noughts — but Later, Set aside and
@@ -62,7 +60,27 @@ const LibraryPlaces = ({ feedTopics = [], later = null, setAside = null, kept = 
           <Link key={topic.id} className="is-living" to={topic.href}>{topic.name}</Link>
         ))}
       </span>
-      {sentence ? <p className="library-places__line">{sentence}</p> : null}
+      {firstMorning ? (
+        <p className="library-places__line">{firstMorningDeskLine()}</p>
+      ) : clauses.length || shelf ? (
+        /* The report is the same sentence it always was; every count in it is
+           now the way to the pile it counts. */
+        <p className="library-places__line">
+          {clauses.length ? (
+            <>
+              On your desk —{' '}
+              {clauses.map((clause, index) => (
+                <React.Fragment key={clause.key}>
+                  {index ? ', ' : null}
+                  {clause.href ? <Link to={clause.href}>{clause.text}</Link> : clause.text}
+                </React.Fragment>
+              ))}
+              .{' '}
+            </>
+          ) : null}
+          {shelf ? <><Link to={shelf.href}>{shelf.text}</Link>.</> : null}
+        </p>
+      ) : null}
     </nav>
   );
 };

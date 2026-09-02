@@ -5,6 +5,7 @@ import WikiFrontPage from './WikiFrontPage';
 import { listWikiPages } from '../../api/wiki';
 import { getDailyLoop, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
 import { getLibraryRoom } from '../../api/libraryRelevance';
+import { getArticles } from '../../api/articles';
 import { resetFirstPaint } from '../../motion/columnMotion';
 
 /* Morning Paper is close-or-silence on this page, not a second hub. */
@@ -29,6 +30,10 @@ jest.mock('../../api/dailyLoop', () => ({
   recordClaimFalsifiability: jest.fn(),
   recordClaimVerdict: jest.fn(),
   disposeConsequence: jest.fn()
+}));
+
+jest.mock('../../api/articles', () => ({
+  getArticles: jest.fn()
 }));
 
 jest.mock('../../api/libraryRelevance', () => ({
@@ -104,7 +109,7 @@ const briefing = {
   totalPages: 3
 };
 
-const libraryRoomPayload = (feedTopics = []) => ({
+const libraryRoomPayload = (feedTopics = [], counts = {}) => ({
   sources: [],
   counts: {},
   coverage: {},
@@ -112,19 +117,20 @@ const libraryRoomPayload = (feedTopics = []) => ({
   nextCursor: null,
   shelves: {
     folders: [],
-    counts: {},
+    counts,
     piles: { later: [], setAside: [] },
     feedTopics
   }
 });
 
-const stubLibraryRoom = (feedTopics = []) => {
-  getLibraryRoom.mockImplementation(() => Promise.resolve(libraryRoomPayload(feedTopics)));
+const stubLibraryRoom = (feedTopics = [], counts = {}) => {
+  getLibraryRoom.mockImplementation(() => Promise.resolve(libraryRoomPayload(feedTopics, counts)));
 };
 
 describe('WikiFrontPage canonical titles', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getArticles.mockResolvedValue([]);
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     stubLibraryRoom();
@@ -239,6 +245,7 @@ describe('WikiFrontPage (AT-394)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getArticles.mockResolvedValue([]);
     localStorage.clear();
     navigate = jest.fn();
     jest.spyOn(router, 'useNavigate').mockReturnValue(navigate);
@@ -1046,8 +1053,15 @@ describe('WikiFrontPage (AT-394)', () => {
       expect(document.querySelector('.wiki-front-page__broadsheet')).not.toBeInTheDocument();
     });
 
-    it('puts Later, Set aside, Kept, and a screened name at the top of a quiet paper', async () => {
-      stubLibraryRoom([{ id: 'news', name: 'Newsletters' }]);
+    /* The paper used to open with the three place names and a count of each —
+       true, and not a door: you could read that one thing was owed a move and
+       have no way to reach it. The places strip belongs to the Library, where
+       those places are the room. Here the paper hands back where you were. */
+    it('hands the desk back as doors, and leaves the places strip to the Library', async () => {
+      stubLibraryRoom(
+        [{ id: 'news', name: 'Newsletters', open: 2, href: '/library?scope=feed&topic=news' }],
+        { laterArticles: 1, setAsideArticles: 2, keptArticles: 7 }
+      );
       getDailyLoop.mockResolvedValueOnce({ briefing: {
         summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
         aliveness: { register: 'quiet' },
@@ -1056,14 +1070,32 @@ describe('WikiFrontPage (AT-394)', () => {
       listWikiPages.mockResolvedValue(pages);
       render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
       expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
-      expect(document.querySelector('.library-places')).not.toBeNull();
-      expect(screen.getByRole('navigation', { name: 'Library places' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Later' })).toHaveAttribute('href', '/library?scope=later');
-      expect(screen.getByRole('link', { name: 'Set aside' })).toHaveAttribute('href', '/library?scope=set-aside');
-      expect(screen.getByRole('link', { name: 'Kept' })).toHaveAttribute('href', '/library?scope=kept');
-      expect(await screen.findByRole('link', { name: 'Newsletters' }))
+
+      expect(document.querySelector('.library-places')).toBeNull();
+      expect(screen.queryByRole('navigation', { name: 'Library places' })).not.toBeInTheDocument();
+
+      const desk = await screen.findByLabelText('Where you left off');
+      expect(desk).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '1 owed a move' })).toHaveAttribute('href', '/library?scope=later');
+      expect(screen.getByRole('link', { name: '2 at hand' })).toHaveAttribute('href', '/library?scope=set-aside');
+      expect(screen.getByRole('link', { name: 'The shelf holds 7' })).toHaveAttribute('href', '/library?scope=kept');
+      expect(screen.getByRole('link', { name: 'Newsletters has 2 new folios' }))
         .toHaveAttribute('href', '/library?scope=feed&topic=news');
       expect(screen.queryByText(/^Feed$/)).not.toBeInTheDocument();
+    });
+
+    /* The masthead printed an edition number and the hour it went to press.
+       Both were true; neither was anything the reader could act on. */
+    it('does not print an edition number or a press hour', async () => {
+      stubLibraryRoom();
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+      expect(await screen.findByRole('heading', { name: 'Your living wikis' })).toBeInTheDocument();
+      expect(document.querySelector('.paper-open__masthead')).toBeInTheDocument();
+      expect(document.querySelector('.paper-open__printed')).toBeNull();
+      expect(document.querySelector('.paper-open__edition-no')).toBeNull();
+      expect(screen.queryByText(/^No\. \d+$/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^printed /)).not.toBeInTheDocument();
     });
 
     it('still offers a check-in on a quiet morning when a claim qualifies', async () => {
@@ -1182,6 +1214,7 @@ describe('WikiFrontPage (AT-394)', () => {
 describe('Recently updated', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getArticles.mockResolvedValue([]);
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());
     stubLibraryRoom();

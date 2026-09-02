@@ -394,6 +394,12 @@ const buildLegacyContentRouter = ({
         match.$or = [{ folder: null }, { folder: { $exists: false } }];
       } else if (normalizedScope === 'folder' && folderId) {
         match.folder = new mongoose.Types.ObjectId(folderId);
+      } else if (normalizedScope === 'kept') {
+        /* The shelf. `{ userId, evergreen, updatedAt }` has been on this
+           collection the whole time with nothing asking for it — every reader
+           of the canon so far has pulled the entire library down and filtered
+           in the browser. */
+        match.evergreen = true;
       }
 
       const normalizedQuery = String(q || query || '').trim();
