@@ -2,6 +2,21 @@
 
 body.noeis-editorial {
   --noeis-ui-font: var(--noeis-font-ui);
+  /* The bar is fixed, so the page underneath has to reserve room for it. That
+     reservation was 84px against a bar that renders at 87, so every page in
+     the product began three pixels beneath the bar — invisible until the
+     Library's first line became large serif and the bar started shaving the
+     tops off its ascenders.
+
+     The bar sizes itself from its contents, so nothing can derive this
+     number; it is a reservation, and it is deliberately larger than the bar
+     has ever been. The air below it is why a pixel of drift stops mattering:
+     a first line that clears the bar by a hair is still crowded by it. */
+  /* Where the pointer is. The one cool value in a warm palette, so it can
+     never be read as ink or as thread. */
+  --noeis-pointer: #6f87ff;
+  --noeis-topbar-height: 88px;
+  --noeis-topbar-air: 20px;
   --vellum-bg: var(--noeis-canvas);
   --vellum-panel: var(--noeis-paper);
   --vellum-panel-strong: var(--noeis-paper-muted);
@@ -529,7 +544,9 @@ body.noeis-editorial .app-shell-new--stitch .app-shell-new__body {
   min-height: 100vh;
   max-width: 1500px;
   margin: 0 auto;
-  padding: 84px 40px 40px;
+  /* The bar's own height, and then air. A first line that clears the bar by a
+     hair is still a first line crowded by it. */
+  padding: calc(var(--noeis-topbar-height) + var(--noeis-topbar-air)) 40px 40px;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1346,62 +1363,31 @@ body.noeis-editorial .library-article-row {
     box-shadow 180ms ease-out;
 }
 
+/* A row under the cursor takes a blue ring.
+
+   It was a warm wash that followed the pointer — gold, then ink. Neither
+   worked: a colour spilled across a row reads as a stain on the paper, and
+   the cursor is not staining anything. A ring is the honest shape, because
+   what is being said is "this one", not "this one is different".
+
+   Blue because it is the one cool value in a warm palette, so it cannot be
+   mistaken for ink or thread, and because --noeis-focus is already drawn from
+   it: the keyboard and the pointer now point in the same colour. It is
+   written out rather than taken from --noeis-action, which the wiki rooms
+   deliberately redefine to gold — a pointer that changes colour depending on
+   which room you are standing in is not a pointer.
+
+   The bloom is gone with the wash. Two things drawing the same attention is
+   one of them too many. */
 body.noeis-editorial .library-article-row.is-magnetic {
   --magnetic-x: 0px;
   transform: translate3d(var(--magnetic-x, 0px), 0, 0)
     rotate(calc(var(--magnetic-x, 0px) * 0.12deg));
-  transition:
-    border-color 180ms ease-out,
-    background 180ms ease-out,
-    box-shadow 180ms ease-out;
-}
-
-/* Cursor-following row bloom — wiki index + library browse rows.
-   Pairs with --row-bloom-x/y from LibraryArticleList / WikiList. */
-body.noeis-editorial .library-article-row.is-magnetic::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(
-    180px circle at var(--row-bloom-x, 50%) var(--row-bloom-y, 50%),
-    color-mix(in srgb, var(--vellum-ink, #1c1a17) 6%, transparent),
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 220ms ease-out;
-}
-
-body.noeis-editorial .library-article-row.is-magnetic::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  background: var(--vellum-ink, #1c1a17);
-  border-radius: 2px;
-  opacity: 0;
-  transform: translateX(-3px);
-  transition: opacity 220ms ease-out, transform 220ms ease-out;
-}
-
-body.noeis-editorial .library-article-row.is-magnetic:hover::before,
-body.noeis-editorial .library-article-row.is-magnetic:focus-within::before {
-  opacity: 1;
-}
-
-body.noeis-editorial .library-article-row.is-magnetic:hover::after,
-body.noeis-editorial .library-article-row.is-magnetic:focus-within::after,
-body.noeis-editorial .library-article-row.is-magnetic.is-activated::after {
-  opacity: 0.55;
-  transform: translateX(0);
+  transition: box-shadow 180ms ease-out;
 }
 
 body.noeis-editorial .library-article-row.is-magnetic.is-activated {
-  border-color: color-mix(in srgb, var(--vellum-ink, #1c1a17) 32%, var(--vellum-line));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--vellum-ink, #1c1a17) 8%, transparent);
+  border-color: transparent;
 }
 
 body.noeis-editorial .library-article-row-receipt {
@@ -1413,37 +1399,14 @@ body.noeis-editorial .library-article-row-receipt {
   text-transform: uppercase;
 }
 
+/* The ring appears rather than travels, so reduced motion only has the
+   pointer-follow to take away. The bloom needed a coarse-pointer opt-out
+   because a wash that follows a cursor is meaningless on a finger; a ring on
+   the row you are touching is not. */
 @media (prefers-reduced-motion: reduce) {
   body.noeis-editorial .library-article-row {
     transform: none;
     transition: none;
-  }
-
-  body.noeis-editorial .library-article-row.is-magnetic::before,
-  body.noeis-editorial .library-article-row.is-magnetic::after {
-    transition: none;
-  }
-
-  body.noeis-editorial .library-article-row.is-magnetic:hover::before,
-  body.noeis-editorial .library-article-row.is-magnetic:focus-within::before {
-    opacity: 1;
-  }
-
-  body.noeis-editorial .library-article-row.is-magnetic:hover::after,
-  body.noeis-editorial .library-article-row.is-magnetic:focus-within::after,
-  body.noeis-editorial .library-article-row.is-magnetic.is-activated::after {
-    opacity: 0.55;
-    transform: translateX(0);
-  }
-
-  body.noeis-editorial .library-article-row.is-magnetic.is-activated {
-    box-shadow: none;
-  }
-}
-
-@media (pointer: coarse) {
-  body.noeis-editorial .library-article-row.is-magnetic::before {
-    display: none;
   }
 }
 
@@ -7993,14 +7956,23 @@ body.noeis-editorial .wiki-index__list .library-article-row {
   box-shadow: none !important;
 }
 
+/* The row under the pointer takes the ring. This rule used to strip every
+   shadow from these states, because what a row grew on hover was a lifted
+   card and a lifted card is the wrong idea. A ring is not a lift — it says
+   "this one" without pretending the row rose off the page — so the rule that
+   was removing the wrong thing now draws the right one, rather than a second
+   rule arriving to argue with it. */
 body.noeis-editorial .library-page-shell .library-article-row:hover,
+body.noeis-editorial .library-page-shell .library-article-row:focus-within,
 body.noeis-editorial .library-page-shell .library-article-row.is-active,
 body.noeis-editorial .library-page-shell .library-article-row.is-activated,
 body.noeis-editorial .wiki-index__list .library-article-row:hover,
+body.noeis-editorial .wiki-index__list .library-article-row:focus-within,
 body.noeis-editorial .wiki-index__list .library-article-row.is-active,
 body.noeis-editorial .wiki-index__list .library-article-row.is-activated {
   background: transparent !important;
-  box-shadow: none !important;
+  border-radius: 3px !important;
+  box-shadow: 0 0 0 2px var(--noeis-pointer) !important;
 }
 
 body.noeis-editorial .library-page-shell .library-article-row-title,

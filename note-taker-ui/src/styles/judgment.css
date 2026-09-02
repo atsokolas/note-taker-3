@@ -2880,3 +2880,36 @@ body.noeis-editorial .judgment .judgment-depends__add select,
     transition: none;
   }
 }
+
+
+/* The invitation, when the room already holds something.
+
+   The form used to stand open above the cases, so a reader with five live
+   judgments met a blank field demanding a sixth every time they walked in. It
+   is a line you press now, and it reads as one — the same weight as the case
+   names under it, because starting a new one is not a louder act than
+   returning to an old one. */
+.judgment__hold-door {
+  justify-self: start;
+  margin: 0 0 26px;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
+  background: none;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.06rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.judgment__hold-door:hover,
+.judgment__hold-door:focus-visible {
+  outline: none;
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: var(--vellum-ink, #1c1a17);
+}
+
+.judgment__new-actions .is-quiet {
+  color: var(--text-muted, var(--vellum-subtle));
+}

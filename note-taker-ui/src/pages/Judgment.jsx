@@ -330,6 +330,8 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
   const [draft, setDraft] = useState('');
+  /* Opened by pressing the invitation, and again by having nothing held. */
+  const [holding, setHolding] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [arrivingId, setArrivingId] = useState('');
@@ -357,6 +359,10 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
   /* The claim is the page. A judgment is a wiki page carrying a judgment
      contract, so writing one down creates that page and puts the sentence in
      it. The sentence lifts into the casebook; the input lets go after it lands. */
+  /* Nothing held yet: the room has nothing to interrupt, so it asks. */
+  const alone = !items.length && !loading;
+  const holdingOpen = holding || alone;
+
   const submitClaim = useCallback(async (event) => {
     event?.preventDefault?.();
     const sentence = oneSentence(draft);
@@ -365,6 +371,10 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
     setCreateError('');
     setPartnerNote('');
     setForwardId('');
+    /* The first sentence held turns an empty room into a full one, which would
+       otherwise fold the field away mid-thought — and take the line confirming
+       what just happened with it. */
+    setHolding(true);
     try {
       const held = await createJudgment(sentence, {
         createPage: createWikiPage,
@@ -424,29 +434,54 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
           a door back to this morning's paper. The sentence you type is the
           claim. Company research still lives on Wiki for people who already
           keep dossiers; it is not a peer of this field. */}
-      <form
-        className={`judgment__new ${enter}${!items.length && !loading ? ' is-alone' : ''}`}
-        onSubmit={submitClaim}
-      >
-        <label htmlFor="judgment-new-claim">Hold a sentence</label>
-        <input
-          id="judgment-new-claim"
-          ref={inputRef}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="One sentence you think is true."
-          disabled={creating}
-        />
-        <div className="judgment__new-actions">
-          <button type="submit" disabled={creating || !draft.trim()}>
-            {creating ? 'Holding it…' : 'Hold it'}
-          </button>
-          {createError ? <span role="alert">{createError}</span> : null}
-        </div>
-        {partnerNote ? (
-          <p className="judgment__partner-note" role="status">{partnerNote}</p>
-        ) : null}
-      </form>
+      {/* An empty room asks; a full one waits to be asked.
+
+          The form stood open above the cases, so the first thing a reader with
+          five live judgments met every visit was a blank field demanding a
+          sixth. On a shelf that already has something on it the invitation is
+          a line you press, and the field arrives when you have decided to
+          write. With nothing held yet there is nothing to be interrupted and
+          the prompt is the whole point, so it opens itself. */}
+      {holdingOpen ? (
+        <form
+          className={`judgment__new ${enter}${alone ? ' is-alone' : ''}`}
+          onSubmit={submitClaim}
+        >
+          <label htmlFor="judgment-new-claim">Hold a sentence</label>
+          <input
+            id="judgment-new-claim"
+            ref={inputRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="One sentence you think is true."
+            disabled={creating}
+            autoFocus={!alone}
+          />
+          <div className="judgment__new-actions">
+            <button type="submit" disabled={creating || !draft.trim()}>
+              {creating ? 'Holding it…' : 'Hold it'}
+            </button>
+            {!alone ? (
+              <button
+                type="button"
+                className="is-quiet"
+                disabled={creating}
+                onClick={() => { setDraft(''); setHolding(false); }}
+              >
+                Not now
+              </button>
+            ) : null}
+            {createError ? <span role="alert">{createError}</span> : null}
+          </div>
+          {partnerNote ? (
+            <p className="judgment__partner-note" role="status">{partnerNote}</p>
+          ) : null}
+        </form>
+      ) : (
+        <button type="button" className={`judgment__hold-door ${enter}`} onClick={() => setHolding(true)}>
+          Hold a sentence
+        </button>
+      )}
       {items.length ? (
         <>
           <ul className={`judgment__index ${enter}`}>

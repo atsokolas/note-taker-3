@@ -4,7 +4,11 @@ import { useFinePointer, usePrefersReducedMotion } from './useMotionPreferences'
 
 /* Library, wiki, and source rows share one magnetic system: the same lerp
    KindRail uses, driving `--magnetic-x` a few pixels toward the pointer.
-   Bloom position is a CSS variable on the same move, not a second tracker. */
+
+   It also used to publish the pointer's position into `--row-bloom-x/y` for a
+   wash that followed the cursor across the row. The wash is gone — a row under
+   the pointer takes a ring now, and a ring does not care where inside the row
+   the pointer is — so two style writes on every pointer move went with it. */
 const DRIFT_PX = 5;
 
 const useMagneticRow = () => {
@@ -17,17 +21,12 @@ const useMagneticRow = () => {
     if (!follow) return;
     const target = event.currentTarget;
     const rect = target.getBoundingClientRect();
-    target.style.setProperty('--row-bloom-x', `${event.clientX - rect.left}px`);
-    target.style.setProperty('--row-bloom-y', `${event.clientY - rect.top}px`);
     const mid = rect.left + rect.width / 2;
     const t = (event.clientX - mid) / Math.max(rect.width / 2, 1);
     magnet.setTarget(Math.max(-DRIFT_PX, Math.min(DRIFT_PX, t * DRIFT_PX)));
   }, [follow, magnet]);
 
-  const onPointerLeave = useCallback((event) => {
-    const target = event.currentTarget;
-    target.style.removeProperty('--row-bloom-x');
-    target.style.removeProperty('--row-bloom-y');
+  const onPointerLeave = useCallback(() => {
     if (follow) magnet.setTarget(0);
   }, [follow, magnet]);
 

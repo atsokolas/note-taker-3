@@ -32,7 +32,7 @@ describe('LibraryArticleList', () => {
     expect(screen.getByText('Restraint reads as confidence; motion rewards intent.')).toBeInTheDocument();
   });
 
-  it('marks rows as magnetic and drives row bloom CSS vars on pointermove', () => {
+  it('marks rows as magnetic and drifts them toward the pointer', () => {
     const realRaf = window.requestAnimationFrame;
     const realMatchMedia = window.matchMedia;
     window.matchMedia = (query) => ({
@@ -55,13 +55,9 @@ describe('LibraryArticleList', () => {
     Object.defineProperty(move, 'clientX', { value: 320 });
     Object.defineProperty(move, 'clientY', { value: 80 });
     row.dispatchEvent(move);
-    expect(row.style.getPropertyValue('--row-bloom-x')).toBe('220px');
-    expect(row.style.getPropertyValue('--row-bloom-y')).toBe('30px');
     expect(row.style.getPropertyValue('--magnetic-x')).not.toBe('');
 
     fireEvent.pointerLeave(row);
-    expect(row.style.getPropertyValue('--row-bloom-x')).toBe('');
-    expect(row.style.getPropertyValue('--row-bloom-y')).toBe('');
     window.requestAnimationFrame = realRaf;
     window.matchMedia = realMatchMedia;
   });
@@ -88,7 +84,6 @@ describe('LibraryArticleList', () => {
     Object.defineProperty(move, 'clientX', { value: 320 });
     Object.defineProperty(move, 'clientY', { value: 80 });
     row.dispatchEvent(move);
-    expect(row.style.getPropertyValue('--row-bloom-x')).toBe('');
     expect(row.style.getPropertyValue('--magnetic-x')).toBe('');
     window.requestAnimationFrame = realRaf;
     window.matchMedia = realMatchMedia;

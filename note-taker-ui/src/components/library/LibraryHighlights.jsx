@@ -425,7 +425,11 @@ const LibraryHighlights = ({
           ))}
         </select>
         <select value={tag} onChange={(event) => setTag(event.target.value)}>
-          <option value="">All concepts</option>
+          {/* These are the tags on your highlights — /api/tags aggregates
+              `highlights.tags` and has nothing to do with the Concept model.
+              Calling them concepts hid the tag filter from the person looking
+              for it. */}
+          <option value="">All tags</option>
           {tags.map(t => (
             <option key={t.tag} value={t.tag}>{t.tag}</option>
           ))}
