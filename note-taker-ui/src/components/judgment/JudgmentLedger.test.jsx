@@ -38,11 +38,11 @@ const page = {
         summary: 'A February filing.',
         explained: {
           label: 'When the world spoke',
-          when: 'February 1, 2026',
+          when: 'Feb 1, 2026',
           author: 'The world',
           late: true,
-          lateNote: 'Written down August 20, 2026.',
-          precisionNote: 'The day is known; the hour is not.'
+          lateNote: 'Written down Aug 20, 2026.',
+          precisionNote: ''
         }
       },
       {
@@ -52,7 +52,7 @@ const page = {
         recordedAt: '2026-01-15T12:00:00.000Z',
         summary: 'Held the claim.',
         causalKind: 'inference',
-        explained: { label: 'When you decided', when: 'January 15, 2026', author: 'You' }
+        explained: { label: 'When you decided', when: 'Jan 15, 2026', author: 'You' }
       }
     ],
     verdicts: [{ verdictId: 'v1', result: 'held_up', recordedAt: '2026-08-01T12:00:00.000Z' }],

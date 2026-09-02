@@ -952,22 +952,37 @@ body.noeis-editorial .three-pane--left-collapsed.three-pane--right-collapsed {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Panels embedded in the page have no chrome — the page is the surface, and a
+   card drawn around something already sitting on paper is a box around a box.
+
+   This does not extend to anything that floats. A command palette and a modal
+   are ui-cards too, and flattened they showed the page straight through their
+   own contents: the palette's rows were unreadable over the article title
+   behind them, and the Insert Article dialog put its dark ink on the dark
+   scrim, which is why its own title could not be read. Both of them already
+   declare a paper background; they were being overruled by a rule about
+   something else. A surface that floats keeps its surface. */
 body.noeis-editorial .three-pane__left,
 body.noeis-editorial .three-pane__main,
 body.noeis-editorial .right-drawer__panel,
-body.noeis-editorial .ui-card,
+body.noeis-editorial .ui-card:not(.palette-card),
 body.noeis-editorial .ui-surface-card,
 body.noeis-editorial .article-reader,
 body.noeis-editorial .working-memory-panel,
 body.noeis-editorial .think-notebook-list,
 body.noeis-editorial .think-notebook-editor,
 body.noeis-editorial .library-article-list,
-body.noeis-editorial .library-highlights-surface,
-body.noeis-editorial .modal-content {
+body.noeis-editorial .library-highlights-surface {
   background: transparent !important;
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+}
+
+/* The scrim behind a dialog is ink on paper, not stage black. */
+body.noeis-editorial .modal-overlay {
+  background-color: color-mix(in srgb, var(--vellum-ink, #1c1a17) 22%, transparent);
+  backdrop-filter: blur(2px);
 }
 
 body.noeis-editorial .three-pane__left {
@@ -1222,6 +1237,44 @@ body.noeis-editorial .working-memory-panel {
   padding: 18px;
 }
 
+/* A field is a ruled line you write on.
+
+   This used to paint every input in the product as a filled panel with no
+   edge — a block dropped onto the page rather than something the page was
+   ruled for. Fifteen surfaces then wrote the same four declarations by hand
+   to escape it, each with a comment apologising for this rule, and each an
+   exact copy of the others. The product knew what a field was; it lost it
+   here, at the tag selector, and paid for it fifteen times.
+
+   So the line is the default, and the fifteen copies are gone. A field in
+   running prose now threads into the measure instead of interrupting it,
+   which is the whole reason the reading column is set the way it is.
+
+   The controls that are not writing surfaces — a checkbox, a radio, the
+   ledger's time cursor — keep their own shapes. A tick box ruled like a
+   sentence is not a tick box. */
+body.noeis-editorial textarea,
+body.noeis-editorial select,
+body.noeis-editorial input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']) {
+  border: 0 !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--vellum-ink) !important;
+}
+
+/* The line inks while you are writing on it. */
+body.noeis-editorial textarea:focus,
+body.noeis-editorial select:focus,
+body.noeis-editorial input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):focus {
+  outline: none;
+  border-bottom-color: var(--vellum-ink) !important;
+}
+
+/* A field standing in chrome is a box, because chrome is where controls live
+   and a lone rule in a rail has nothing to thread into. These are the
+   surfaces that asked for it. */
 body.noeis-editorial .feedback-field input,
 body.noeis-editorial .think-index__filter select,
 body.noeis-editorial .think-index__search input,
@@ -1233,14 +1286,25 @@ body.noeis-editorial .idea-workbench-head__prompt,
 body.noeis-editorial .idea-workbench-head__meta-item--select select,
 body.noeis-editorial .idea-workbench-rail__composer textarea,
 body.noeis-editorial .working-memory-input,
-body.noeis-editorial textarea,
-body.noeis-editorial select,
-body.noeis-editorial input {
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+body.noeis-editorial .room-shelf__search input {
+  border: 1px solid transparent !important;
+  border-radius: 2px !important;
   background: var(--vellum-panel-strong) !important;
-  color: var(--vellum-ink) !important;
+}
+
+body.noeis-editorial .feedback-field input:focus,
+body.noeis-editorial .think-index__filter select:focus,
+body.noeis-editorial .think-index__search input:focus,
+body.noeis-editorial .think-notebook-title-input:focus,
+body.noeis-editorial .notebook-organize-panel input:focus,
+body.noeis-editorial .notebook-organize-panel select:focus,
+body.noeis-editorial .idea-workbench-head__title:focus,
+body.noeis-editorial .idea-workbench-head__prompt:focus,
+body.noeis-editorial .idea-workbench-head__meta-item--select select:focus,
+body.noeis-editorial .idea-workbench-rail__composer textarea:focus,
+body.noeis-editorial .working-memory-input:focus,
+body.noeis-editorial .room-shelf__search input:focus {
+  border-color: var(--wiki-warm-accent, var(--vellum-warm)) !important;
 }
 
 body.noeis-editorial .think-index__search input,
@@ -1294,7 +1358,7 @@ body.noeis-editorial .library-article-row.is-magnetic::before {
   z-index: -1;
   background: radial-gradient(
     180px circle at var(--row-bloom-x, 50%) var(--row-bloom-y, 50%),
-    color-mix(in srgb, var(--vellum-warm, var(--accent-primary)) 14%, transparent),
+    color-mix(in srgb, var(--vellum-ink, #1c1a17) 6%, transparent),
     transparent 70%
   );
   opacity: 0;
@@ -1308,7 +1372,7 @@ body.noeis-editorial .library-article-row.is-magnetic::after {
   top: 6px;
   bottom: 6px;
   width: 2px;
-  background: var(--vellum-warm, var(--accent-primary));
+  background: var(--vellum-ink, #1c1a17);
   border-radius: 2px;
   opacity: 0;
   transform: translateX(-3px);
@@ -1328,8 +1392,8 @@ body.noeis-editorial .library-article-row.is-magnetic.is-activated::after {
 }
 
 body.noeis-editorial .library-article-row.is-magnetic.is-activated {
-  border-color: color-mix(in srgb, var(--vellum-warm, var(--accent-primary)) 54%, var(--vellum-line));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--vellum-warm, var(--accent-primary)) 10%, transparent);
+  border-color: color-mix(in srgb, var(--vellum-ink, #1c1a17) 32%, var(--vellum-line));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--vellum-ink, #1c1a17) 8%, transparent);
 }
 
 body.noeis-editorial .library-article-row-receipt {

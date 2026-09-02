@@ -345,11 +345,6 @@
   flex: 1 1 auto;
   min-width: 0;
   padding: 6px 0;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
   font: inherit;
   font-size: 0.88rem;
@@ -868,11 +863,6 @@ body.noeis-editorial .library-page-shell .library-cabinet-nested .library-cabine
 body.noeis-editorial .library-page-shell .library-article-search input,
 .library-page-shell .library-article-search input {
   padding: 8px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.94rem;
 }

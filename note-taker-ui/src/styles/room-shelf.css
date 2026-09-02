@@ -112,16 +112,26 @@ body.noeis-editorial .room-shelf__search input:focus {
 }
 
 .room-shelf__item:is(:hover, :focus-visible),
+/* Where you are is ink, not gold.
+
+   Gold is the thread — it means two things are connected. Spending it on
+   "your cursor is here" gave it a second meaning, and the wash it left over
+   cream was the muddy tan nobody liked: a warm brown at 10% does not read as
+   a highlight, it reads as a stain on the paper.
+
+   Ink at the same weight reads as attention instead, because it is the only
+   value in this palette that differs from the paper by darkness rather than
+   by hue. The command palette has always selected rows this way. */
 .room-shelf__item.is-active {
   color: var(--text-primary, var(--vellum-ink));
 }
 
 .room-shelf__item:is(:hover, :focus-visible) {
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 5%, transparent);
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 3%, transparent);
 }
 
 .room-shelf__item.is-active {
-  background: color-mix(in srgb, var(--wiki-warm-accent, var(--vellum-warm)) 10%, transparent);
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 5%, transparent);
 }
 
 .room-shelf__item.is-active::before {
@@ -129,7 +139,7 @@ body.noeis-editorial .room-shelf__search input:focus {
   position: absolute;
   inset: 0 auto 0 0;
   width: 2px;
-  background: var(--wiki-warm-accent, var(--vellum-warm));
+  background: var(--vellum-ink, #1c1a17);
 }
 
 .room-shelf__item.is-nested {

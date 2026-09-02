@@ -57,7 +57,6 @@ import {
 } from './judgmentModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
-import ClaimFalsifiabilityPrompt from '../components/wiki/ClaimFalsifiabilityPrompt';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
 import { describeLanding, describePreview } from './judgmentWrite';
 import { describeAnniversary } from './researchAnniversary';
@@ -1289,50 +1288,25 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         <p className="judgment-research-review__error" role="alert">{researchReviewError}</p>
       ) : null}
 
-      {view.changeMindIf.length ? (
-        <p className={`judgment__falsifier ${step(3)}`}>
-          <span>I’d change my mind if</span>
-          {view.changeMindIf.map(line => (
-            <span key={line.id} className={line.id === arrivingId ? 'is-arriving' : ''}>
-              {line.text}
-            </span>
-          ))}
-        </p>
-      ) : null}
-
       <div className={step(3)}>
-        <ClaimFalsifiabilityPrompt
-          criteria={view.resolutionCriteria || ''}
-          horizon={view.horizon || ''}
-          onKeep={saveFalsifiability}
+        <JudgmentResolution
+          pageId={pageId}
+          claim={view.claim}
+          judgment={page.judgment}
+          evidenceOptions={verdictEvidenceOptions(page)}
+          changeMindIf={view.changeMindIf}
+          arrivingId={arrivingId}
+          onSaved={(next) => {
+            if (next) setPage(current => ({ ...current, judgment: next }));
+          }}
         />
       </div>
-      <JudgmentResolution
-        pageId={pageId}
-        claim={view.claim}
-        judgment={page.judgment}
-        evidenceOptions={verdictEvidenceOptions(page)}
-        onSaved={(next) => {
-          if (next) setPage(current => ({ ...current, judgment: next }));
-        }}
-      />
-      <JudgmentLedger
-        pageId={pageId}
-        claim={view.claim}
-        page={page}
-        judgment={page.judgment}
-        onSaved={(next) => {
-          if (next) setPage(current => ({ ...current, judgment: next }));
-        }}
-      />
-      <LivingTeam pageId={pageId} />
-      <AriadneLineage pageId={pageId} />
-      <TracingPaper pageId={pageId} />
-      <NightWatch pageId={pageId} />
-      <CasebookPreview pageId={pageId} />
-      <TakeThePaper pageId={pageId} />
 
-      <div className={step(4)}>
+      {/* Why you hold it, and what argues against — the substance of a belief,
+          and for a long time it sat below the ledger, the lineage, the night
+          watch and four other panels. A reader scrolling for the reasons met
+          the machinery first. The reasons come before the record of them. */}
+      <div className={step(3)}>
         <UpdateComposer
           key={pageId}
           onWrite={writeLine}
@@ -1354,6 +1328,22 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           onKin={setKin}
         />
       </div>
+
+      <JudgmentLedger
+        pageId={pageId}
+        claim={view.claim}
+        page={page}
+        judgment={page.judgment}
+        onSaved={(next) => {
+          if (next) setPage(current => ({ ...current, judgment: next }));
+        }}
+      />
+      <LivingTeam pageId={pageId} />
+      <AriadneLineage pageId={pageId} />
+      <TracingPaper pageId={pageId} />
+      <NightWatch pageId={pageId} />
+      <CasebookPreview pageId={pageId} />
+      <TakeThePaper pageId={pageId} />
 
       <div className={`judgment__after ${step(4)}`}>
         {view.lessons.length ? (

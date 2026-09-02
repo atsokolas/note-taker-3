@@ -101,11 +101,6 @@
 
 .wiki-workspace .wiki-workspace__mobile-agent input {
   padding: 7px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.92rem;
 }
@@ -290,11 +285,6 @@
 .wiki-index .wiki-index__composer-row input {
   min-height: 0;
   padding: 7px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.92rem;
@@ -492,11 +482,6 @@
    the same shape the Library and the page list already use. */
 .wiki-workspace .wiki-workspace-sources > input {
   padding: 8px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.92rem;
 }
@@ -982,11 +967,6 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 
 .wiki-workspace .wiki-meta-bar select {
   padding: 5px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.88rem;
 }
@@ -1034,11 +1014,6 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 .wiki-workspace .reference-pull-in input,
 .wiki-workspace .reference-pull-in textarea {
   padding: 7px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.9rem;
 }
@@ -1143,11 +1118,6 @@ body.noeis-editorial .wiki-index .library-article-row-title,
 
 .wiki-workspace-chat .wiki-workspace-chat__composer-field > textarea {
   padding: 8px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.94rem;

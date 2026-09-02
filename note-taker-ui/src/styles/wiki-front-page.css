@@ -2043,11 +2043,6 @@ body.noeis-editorial .wiki-living-index__briefing {
 body.noeis-editorial .wiki-living-index__search input,
 body.noeis-editorial .wiki-living-shell input[type='search'] {
   padding: 8px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.94rem;
 }
@@ -2183,11 +2178,6 @@ body.noeis-editorial .wiki-front-page__making input,
 body.noeis-editorial .wiki-front-page__making textarea,
 body.noeis-editorial .wiki-front-page__operations-panel input {
   padding: 7px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.92rem;
 }

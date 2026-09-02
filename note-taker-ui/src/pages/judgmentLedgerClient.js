@@ -1,4 +1,5 @@
 import { wordBoundaryTrim } from '../utils/editorialText';
+import { formatCalendarDate } from '../utils/calendarDate';
 /**
  * Client projection of the Judgment Ledger. The server is the source of
  * clocks, receipts, and reconstruction against revisions. This file only
@@ -30,11 +31,6 @@ export const VERDICT_LABEL = Object.freeze({
   right_for_wrong_reasons: 'Right for the wrong reasons'
 });
 
-const MONTHS = Object.freeze([
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-]);
-
 const clean = (value = '', limit = 4000) => wordBoundaryTrim(value, { maxLength: limit });
 const list = (value) => (Array.isArray(value) ? value : []);
 const idOf = (value) => String(value?._id || value?.id || value || '').trim();
@@ -60,14 +56,28 @@ export const inferPrecision = (value) => {
   return 'exact';
 };
 
+/**
+ * The ledger prints days.
+ *
+ * It used to print `2026-08-18 14:20:36 UTC` for anything recorded to the
+ * second, which made the machine's timestamp the loudest thing in a row whose
+ * point is the sentence underneath it. Nobody reads a ledger to find out what
+ * happened at 14:20:36. They read it to find out what happened, and roughly
+ * when — and the day is the honest unit for that.
+ *
+ * The month and year forms stay, because a record that only knows the month
+ * must not be printed as though it knows the day. That is the one distinction
+ * a date here is carrying.
+ */
 const formatByPrecision = (value, precision) => {
   const date = asDate(value);
   const kind = precision || inferPrecision(value);
   if (!date || kind === 'unknown') return '';
   if (kind === 'year') return String(date.getUTCFullYear());
-  if (kind === 'month') return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-  if (kind === 'day') return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
-  return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
+  if (kind === 'month') {
+    return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+  }
+  return formatCalendarDate(date, { year: true });
 };
 
 export const explainDate = (fact = {}) => {
@@ -79,13 +89,13 @@ export const explainDate = (fact = {}) => {
     label: CLOCK_LABEL[clock] || '',
     when: formatByPrecision(fact.occurredAt, precision),
     precision,
+    // A note only earns its place when the day itself is in doubt. "The hour
+    // is not known" explained a missing hour back when other rows showed one.
     precisionNote: precision === 'unknown'
       ? 'The day is not known.'
       : precision === 'month'
         ? 'The month is known; the day is not.'
-        : precision === 'day'
-          ? 'The day is known; the hour is not.'
-          : '',
+        : '',
     author: AUTHOR_LABEL[fact.authoredBy] || AUTHOR_LABEL.system,
     late,
     lateNote: late ? `Written down ${formatByPrecision(fact.recordedAt, inferPrecision(fact.recordedAt))}.` : '',
