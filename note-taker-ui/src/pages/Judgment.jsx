@@ -1040,8 +1040,8 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      The id is the line's, so typing more of the same sentence rewrites it
      rather than adding another. */
   const writeLine = useCallback(
-    async (text, field, lineId) => {
-      await commit(upsertLineIntoJudgment(page, text, field, lineId));
+    async (text, field, lineId, source = null) => {
+      await commit(upsertLineIntoJudgment(page, text, field, lineId, source));
       if (field === 'changeMindIf') await recordFalsifier(text);
     },
     [commit, page, recordFalsifier]
@@ -1309,6 +1309,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       <div className={step(3)}>
         <UpdateComposer
           key={pageId}
+          boundSources={verdictEvidenceOptions(page)}
           onWrite={writeLine}
           onPending={setPendingId}
           onSettle={setArrivingId}

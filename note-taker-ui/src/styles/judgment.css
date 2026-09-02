@@ -2740,3 +2740,143 @@ body.noeis-editorial .judgment .judgment-depends__add select,
 @media (prefers-reduced-motion: reduce) {
   .judgment__anniversary { animation: none; }
 }
+
+
+/* ---------- reaching for a source ----------
+
+   Why and Against are where a belief is formed, and until now the only way a
+   source reached one was to accept something an agent had already brought you.
+   `@` is the reach — the same mark the note editor uses, so it is one gesture
+   in two places rather than two to learn. */
+
+.judgment-sources {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 0;
+  margin-top: 6px;
+  max-width: 46ch;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent);
+  border-radius: 3px;
+  background: var(--noeis-paper, var(--vellum-bg, #fffdf8));
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--vellum-ink, #1c1a17) 10%, transparent);
+  overflow: hidden;
+}
+
+.judgment-sources__option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 48%, transparent);
+  background: none;
+  color: var(--text-primary, var(--vellum-ink));
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.judgment-sources__option:last-of-type {
+  border-bottom: 0;
+}
+
+/* Ink on the one you are about to take, the way every other chosen thing in
+   this product marks itself. */
+.judgment-sources__option:hover,
+.judgment-sources__option:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 5%, transparent);
+  box-shadow: inset 2px 0 0 0 var(--vellum-ink, #1c1a17);
+}
+
+.judgment-sources__label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+/* The address, shown only where a name repeats inside this very list. Mono,
+   because it is the record operating rather than the record speaking. */
+.judgment-sources__detail {
+  flex: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+}
+
+/* Said once, on the sources already bound to this case, so the reader can see
+   why those are at the top without a heading over them. */
+.judgment-sources__where,
+.judgment-sources__quiet,
+.judgment-sources__close {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.judgment-sources__quiet {
+  margin: 0;
+  padding: 10px 12px;
+  white-space: normal;
+}
+
+.judgment-sources__close {
+  padding: 8px 12px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 48%, transparent);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* What the line will rest on, shown while it is still a draft. */
+.judgment-composer__source {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.76rem;
+}
+
+.judgment-composer__source-name {
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.94rem;
+}
+
+.judgment-composer__source button,
+.judgment-composer__find {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  font: inherit;
+  cursor: pointer;
+}
+
+.judgment-composer__source button:hover,
+.judgment-composer__find:hover,
+.judgment-composer__find:focus-visible {
+  outline: none;
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judgment-sources__option {
+    transition: none;
+  }
+}

@@ -6,6 +6,8 @@ import { clearSentenceHandoff, flySentenceInto, handOffSentence } from '../motio
 import { formatLedgerDate, isLibraryHref, newLineId } from './judgmentModel';
 import { LOG_FILTERS, buildJudgmentLog, filterLog, omitEntry, sameWeek, sourceKinForCandidate, speaksWith, weekKey } from './judgmentLog';
 import { useFlightDecision } from '../motion/useFlightDecision';
+import { clearMention, readMention } from './sourceMention';
+import SourcePicker from '../components/judgment/SourcePicker';
 
 const AUTOSAVE_PAUSE_MS = 700;
 const KIND_MARK = 22;
@@ -375,15 +377,23 @@ const UpdateComposer = ({
   kin,
   onKin,
   hintKind,
-  onHint
+  onHint,
+  /* Sources already bound to this case, offered before the library is asked. */
+  boundSources = []
 }) => {
   const [kind, setKind] = useState('why');
   const [draft, setDraft] = useState('');
   const [state, setState] = useState('idle');
   const [writeError, setWriteError] = useState('');
+  /* The source pinned to the line being written, if the writer reached for
+     one. A reason and the thing it rests on are written in one gesture. */
+  const [source, setSource] = useState(null);
+  const [mention, setMention] = useState(null);
+  const inputRef = useRef(null);
   const lineIdRef = useRef('');
   const timerRef = useRef(0);
   const prompt = KINDS.find(option => option.field === kind)?.prompt || 'Write an update…';
+  const citing = kind === 'why' || kind === 'against';
 
   const save = useCallback(async (text) => {
     const line = text.trim();
@@ -395,7 +405,7 @@ const UpdateComposer = ({
     setState('saving');
     setWriteError('');
     try {
-      await onWrite(line, kind, lineIdRef.current);
+      await onWrite(line, kind, lineIdRef.current, source);
       setState('saved');
       return lineIdRef.current;
     } catch (failure) {
@@ -407,7 +417,7 @@ const UpdateComposer = ({
       );
       return '';
     }
-  }, [kind, onPending, onWrite]);
+  }, [kind, onPending, onWrite, source]);
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
@@ -420,6 +430,8 @@ const UpdateComposer = ({
     onPending?.('');
     lineIdRef.current = '';
     setDraft('');
+    setSource(null);
+    setMention(null);
     setState('idle');
     return true;
   };
@@ -461,27 +473,85 @@ const UpdateComposer = ({
       <label className="sr-only" htmlFor="judgment-update">{prompt}</label>
       <input
         id="judgment-update"
+        ref={inputRef}
         value={draft}
         onChange={(event) => {
           const value = event.target.value;
           setDraft(value);
           setState(value.trim() ? 'typing' : 'idle');
+          const reach = citing ? readMention(value, event.target.selectionStart) : null;
+          setMention(reach);
           window.clearTimeout(timerRef.current);
-          if (value.trim()) timerRef.current = window.setTimeout(() => save(value), AUTOSAVE_PAUSE_MS);
+          /* Reaching for a source is not writing a sentence. Autosave would
+             otherwise settle "Lead times @semi" — or a bare "@" — as a reason
+             while the picker was still open. */
+          if (value.trim() && !reach) timerRef.current = window.setTimeout(() => save(value), AUTOSAVE_PAUSE_MS);
         }}
-        onBlur={finish}
+        /* The picker takes the click before the blur lands, so letting blur
+           finish the line here would settle the sentence out from under the
+           source the writer was reaching for. */
+        onBlur={() => { if (!mention) finish(); }}
         onKeyDown={(event) => {
+          if (event.key === 'Escape' && mention) {
+            event.preventDefault();
+            setMention(null);
+            return;
+          }
           if (event.key !== 'Enter') return;
           event.preventDefault();
+          if (mention) { setMention(null); return; }
           finish();
         }}
         placeholder={prompt}
         autoComplete="off"
       />
+
+      {/* What this line will rest on. Written in one gesture with the line, so
+          the case knows where the sentence came from at the moment it is made
+          rather than never. */}
+      {source ? (
+        <p className="judgment-composer__source">
+          <span>on</span>
+          <span className="judgment-composer__source-name">{source.label}</span>
+          <button type="button" onClick={() => setSource(null)} aria-label={`Unbind ${source.label}`}>
+            take it off
+          </button>
+        </p>
+      ) : null}
+
+      {mention && citing ? (
+        <SourcePicker
+          bound={boundSources}
+          query={mention.query}
+          onDismiss={() => setMention(null)}
+          onChoose={(chosen) => {
+            setDraft((current) => clearMention(current, mention));
+            setSource(chosen);
+            setMention(null);
+            inputRef.current?.focus();
+          }}
+        />
+      ) : null}
+
       <div className="judgment-composer__meta">
         <span className="judgment__write-state" aria-live="polite">
           {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : ''}
         </span>
+        {/* The way in for anyone who does not know the mark exists. */}
+        {citing && !source && !mention ? (
+          <button
+            type="button"
+            className="judgment-composer__find"
+            onClick={() => {
+              const next = draft && !draft.endsWith(' ') ? `${draft} @` : `${draft}@`;
+              setDraft(next);
+              setMention(readMention(next, next.length));
+              inputRef.current?.focus();
+            }}
+          >
+            Find a source
+          </button>
+        ) : null}
         {writeError ? <span role="alert">{writeError}</span> : null}
       </div>
       <MorningInbox
