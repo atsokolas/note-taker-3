@@ -1,46 +1,13 @@
 import {
-  day120Line,
-  deskLine,
-  editionNumber,
+  deskClauses,
   editionsLine,
   END_OF_PAPER,
   firstMorningDeskLine,
   firstMorningLead,
-  printedTime
+  shelfClause
 } from './paperEditions';
 
 const at = (iso) => new Date(iso).getTime();
-
-describe('the edition number', () => {
-  it('counts the mornings since the account began, today included', () => {
-    expect(editionNumber({ beganAt: '2025-08-01T09:00:00.000Z', now: at('2025-08-01T09:30:00.000Z') })).toBe(1);
-    expect(editionNumber({ beganAt: '2025-08-01T09:00:00.000Z', now: at('2025-08-02T06:00:00.000Z') })).toBe(2);
-  });
-
-  it('never resets, however long the account has run', () => {
-    expect(editionNumber({ beganAt: '2025-08-01T12:00:00.000Z', now: at('2026-09-15T12:00:00.000Z') })).toBe(411);
-  });
-
-  it('says nothing when it does not know when the account began', () => {
-    expect(editionNumber({ beganAt: null, now: at('2026-09-01T09:00:00.000Z') })).toBeNull();
-    expect(editionNumber({ beganAt: 'someday', now: at('2026-09-01T09:00:00.000Z') })).toBeNull();
-  });
-
-  it('refuses to number a morning before the account existed', () => {
-    expect(editionNumber({ beganAt: '2026-09-05T12:00:00.000Z', now: at('2026-09-01T12:00:00.000Z') })).toBeNull();
-  });
-});
-
-describe('the print time', () => {
-  it('says when the paper printed, not when you opened it', () => {
-    expect(printedTime('2026-09-01T06:02:00.000Z', 'UTC')).toBe('printed 6:02');
-  });
-
-  it('says nothing about a time it does not have', () => {
-    expect(printedTime(null)).toBe('');
-    expect(printedTime('whenever')).toBe('');
-  });
-});
 
 describe('the editions line', () => {
   const base = {
@@ -83,40 +50,57 @@ describe('the editions line', () => {
   });
 });
 
-describe('the desk line', () => {
-  it('composes one sentence out of the places that have something to say', () => {
-    expect(deskLine({
-      later: 3, setAside: 1, kept: 7,
+describe('the desk clauses', () => {
+  const textOf = (clauses) => clauses.map(clause => clause.text);
+
+  it('gives one clause per place that has something to say', () => {
+    expect(textOf(deskClauses({
+      later: 3, setAside: 1,
       topics: [{ name: 'Costco', open: 2 }]
-    })).toBe('On your desk — 3 owed a move, 1 at hand, Costco has 2 new folios. The shelf holds 7.');
+    }))).toEqual(['3 owed a move', '1 at hand', 'Costco has 2 new folios']);
+  });
+
+  /* The sentence was a finished string, so the one thing a reader wanted to do
+     with a count — go to the pile it counts — was the one thing it could not
+     support. */
+  it('carries the way to each pile', () => {
+    const [later, setAside] = deskClauses({ later: 1, setAside: 1 });
+    expect(later.href).toBe('/library?scope=later');
+    expect(setAside.href).toBe('/library?scope=set-aside');
   });
 
   it('only lets a place speak when it has something on it', () => {
-    expect(deskLine({ later: 0, setAside: 2, kept: 7, topics: [] }))
-      .toBe('On your desk — 2 at hand. The shelf holds 7.');
+    expect(textOf(deskClauses({ later: 0, setAside: 2 }))).toEqual(['2 at hand']);
   });
 
   it('names folders, never the word feed', () => {
-    const line = deskLine({ later: 0, setAside: 0, kept: 4, topics: [{ name: 'Macro', open: 1 }] });
-    expect(line).toContain('Macro has 1 new folio');
-    expect(line.toLowerCase()).not.toContain('feed');
-  });
-
-  it('says the shelf even when the desk is clear, because the canon always speaks', () => {
-    expect(deskLine({ later: 0, setAside: 0, kept: 7, topics: [] })).toBe('The shelf holds 7.');
+    const [topic] = deskClauses({ topics: [{ name: 'Macro', open: 1, href: '/library?scope=feed&topic=m' }] });
+    expect(topic.text).toBe('Macro has 1 new folio');
+    expect(topic.text.toLowerCase()).not.toContain('feed');
+    expect(topic.href).toBe('/library?scope=feed&topic=m');
   });
 
   it('says nothing at all rather than a row of noughts', () => {
-    expect(deskLine({ later: 0, setAside: 0, kept: 0, topics: [] })).toBe('');
+    expect(deskClauses({ later: 0, setAside: 0, topics: [] })).toEqual([]);
   });
 
   it('will not report a desk it has not read', () => {
-    expect(deskLine({ later: null, setAside: null, kept: null, topics: [] })).toBe('');
+    expect(deskClauses({ later: null, setAside: null })).toEqual([]);
   });
 
   it('counts only what it knows, and stays silent about the rest', () => {
-    expect(deskLine({ later: 3, setAside: null, kept: null, topics: [] }))
-      .toBe('On your desk — 3 owed a move.');
+    expect(textOf(deskClauses({ later: 3, setAside: null }))).toEqual(['3 owed a move']);
+  });
+});
+
+describe('the shelf clause', () => {
+  it('says what the canon holds, and how to reach it', () => {
+    expect(shelfClause(7)).toEqual({ key: 'kept', text: 'The shelf holds 7', href: '/library?scope=kept' });
+  });
+
+  it('stays quiet about a canon holding nothing, or one nobody has counted', () => {
+    expect(shelfClause(0)).toBeNull();
+    expect(shelfClause(null)).toBeNull();
   });
 });
 
@@ -124,13 +108,6 @@ describe('the first mornings', () => {
   it('prints one line on day one, and asks for nothing', () => {
     expect(firstMorningLead()).toBe('No news yet. Save something worth keeping — I’ll print it when it moves.');
     expect(firstMorningDeskLine()).toBe('Your desk is empty. The shelf holds nothing yet.');
-  });
-
-  it('says the corpus can talk back, once, on the hundred and twentieth morning', () => {
-    expect(day120Line({ edition: 120 })).toBe('The corpus is old enough to talk back.');
-    expect(day120Line({ edition: 119 })).toBe('');
-    expect(day120Line({ edition: 121 })).toBe('');
-    expect(day120Line({ edition: null })).toBe('');
   });
 });
 

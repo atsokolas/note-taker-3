@@ -18,12 +18,9 @@ import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import useLibraryRoom from '../../hooks/useLibraryRoom';
 import LibraryPlaces from '../library/LibraryPlaces';
 import {
-  day120Line,
-  editionNumber,
   editionsLine,
   END_OF_PAPER,
-  firstMorningLead,
-  printedTime
+  firstMorningLead
 } from '../../pages/paperEditions';
 import WikiCreationComposer from './WikiCreationComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
@@ -31,6 +28,9 @@ import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
 import MorningAskedBack from './MorningAskedBack';
+import PaperDesk from './PaperDesk';
+import { lastWorked, openCase, shelfPick } from '../../pages/paperDesk';
+import { getArticles } from '../../api/articles';
 import MorningConsequence from './MorningConsequence';
 import MorningVerdict from './MorningVerdict';
 import { countWikiClaims, countWikiSources } from './wikiPageMetrics';
@@ -194,29 +194,22 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
  * cadences it prints on with the current one underlined. Each part is absent
  * when it is not known — an unnumbered paper is better than one numbered No. 0.
  */
-const PaperMasthead = ({ beganAt = null, printedAt = null, driftClosesAt = null, keptCount = null, edition = 'today' }) => {
-  const number = editionNumber({ beganAt });
-  const printed = printedTime(printedAt);
-  const cadences = editionsLine({ driftClosesAt, keptCount, edition });
-  const milestone = day120Line({ edition: number });
+/* The date, and which edition you are holding.
 
-  return (
-    <>
-      <p className="wiki-index__eyebrow paper-open__masthead">
-        Your Wiki · {mastheadDate()}
-        {number ? <span className="paper-open__edition-no">No. {number}</span> : null}
-      </p>
-      {printed ? <p className="paper-open__printed">{printed}</p> : null}
-      <p className="paper-open__editions">
-        {cadences.map(part => (
-          <span key={part.label} className={part.current ? 'is-current' : undefined}>{part.label}</span>
-        ))}
-      </p>
-      {/* Once, on the morning the buckets are old enough to mean anything. */}
-      {milestone ? <p className="paper-open__milestone">{milestone}</p> : null}
-    </>
-  );
-};
+   This also carried an edition number, the hour it went to press, and a
+   once-ever milestone keyed off that number. Three true things that told the
+   reader nothing they could act on, sitting above a headline. A masthead is a
+   date and a way through; the rest was the paper admiring itself. */
+const PaperMasthead = ({ driftClosesAt = null, keptCount = null, edition = 'today' }) => (
+  <>
+    <p className="wiki-index__eyebrow paper-open__masthead">Your Wiki · {mastheadDate()}</p>
+    <p className="paper-open__editions">
+      {editionsLine({ driftClosesAt, keptCount, edition }).map(part => (
+        <span key={part.label} className={part.current ? 'is-current' : undefined}>{part.label}</span>
+      ))}
+    </p>
+  </>
+);
 
 /* AT-414: Morning Paper is a close or silence. Collision is named on this
    page when two editorial truths meet; a due claim alone stays silent.
@@ -567,6 +560,33 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     } : normalizeBriefingNextAction(briefing),
     [briefing]
   );
+  /* The page you were in and the case still running are already on this
+     screen — the index projection carries the judgment subtree, so both are a
+     read of the pages already on screen rather than two more round trips at
+     the top of a paper that has to open fast.
+
+     They read the curated list, not the raw one. Whatever the hero and Explore
+     refuse to show is not a thing the reader was "last in" either — handing
+     back a generated QA page as your morning's work is worse than handing back
+     nothing. */
+  const lastWorkedPage = useMemo(() => lastWorked(curatedPages), [curatedPages]);
+  const liveCase = useMemo(() => openCase(curatedPages), [curatedPages]);
+
+  /* The shelf is the one thing the paper cannot already see. It is fetched
+     after the paper is on screen and never blocks it: a morning that opens
+     without its card is a morning missing one line, not a morning that waited.
+     A shelf we could not read stays null, and null prints nothing — the same
+     rule everywhere else. */
+  const [shelf, setShelf] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getArticles({ scope: 'kept', limit: 200 })
+      .then((rows) => { if (!cancelled) setShelf(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setShelf(null); });
+    return () => { cancelled = true; };
+  }, []);
+  const todaysShelfPick = useMemo(() => (shelf ? shelfPick(shelf) : null), [shelf]);
+
   const returnLoopNotes = useMemo(
     () => selectBriefingReturnLoopNotes(briefing),
     [briefing]
@@ -877,19 +897,19 @@ const WikiFrontPage = ({ initialKind = '' }) => {
         >
           <header className="wiki-living-index__header">
             <PaperMasthead
-              beganAt={briefing?.beganAt}
-              printedAt={briefing?.generatedAt}
               driftClosesAt={briefing?.driftClosesAt}
               keptCount={libraryRoom.shelfCounts?.keptArticles}
             />
-            <LibraryPlaces
-              feedTopics={libraryRoom.feedTopics}
+            <h1 id="wiki-living-title">Your living wikis</h1>
+            <PaperDesk
+              lastWorked={lastWorkedPage}
+              openCase={liveCase}
               later={libraryRoom.shelfCounts?.laterArticles}
               setAside={libraryRoom.shelfCounts?.setAsideArticles}
               kept={libraryRoom.shelfCounts?.keptArticles}
+              topics={libraryRoom.feedTopics}
+              shelfPick={todaysShelfPick}
             />
-            <h1 id="wiki-living-title">Your living wikis</h1>
-            <p>Maintained with your agent, grounded in your Library.</p>
             {leadSentence && wikiFilter !== 'review' ? (
               <p
                 className={`wiki-living-index__briefing paper-open__lead${pulseTarget === 'lead' ? ' is-morning-pulse' : ''}`}

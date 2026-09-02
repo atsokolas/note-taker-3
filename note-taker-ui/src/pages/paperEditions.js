@@ -14,8 +14,6 @@
  * rather than reporting a clear desk to someone whose desk we never looked at.
  */
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const time = (value) => {
   if (value === null || value === undefined || value === '') return NaN;
   const at = new Date(value);
@@ -27,45 +25,6 @@ const counted = (value) => {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : null;
-};
-
-/** Calendar days apart, so an edition turns at midnight rather than at a clock hour. */
-const middayOf = (ms) => {
-  const at = new Date(ms);
-  return new Date(at.getFullYear(), at.getMonth(), at.getDate(), 12).getTime();
-};
-
-/**
- * Mornings since the account began, today included. Never resets — the number
- * is the only thing on the page that says how long you have been doing this,
- * and a counter that goes back to one every year would be saying the opposite.
- */
-export const editionNumber = ({ beganAt = null, now = Date.now() } = {}) => {
-  const began = time(beganAt);
-  if (Number.isNaN(began)) return null;
-  const days = Math.round((middayOf(now) - middayOf(began)) / DAY_MS);
-  // A morning before the account existed is not an edition, it is a clock
-  // that is wrong. Say nothing rather than print No. 0 or a negative.
-  return days >= 0 ? days + 1 : null;
-};
-
-/**
- * When the paper printed, not when the reader opened it. The difference is the
- * whole point: a paper has an hour, and a page that says "now" is a screen.
- */
-export const printedTime = (at = null, timeZone = undefined) => {
-  const ms = time(at);
-  if (Number.isNaN(ms)) return '';
-  /* No meridiem. A masthead saying "printed 6:02 AM" is a receipt; a paper
-     says the hour it went to press. Twenty-four hour without a leading zero
-     reads the same at six in the morning and is unambiguous at six at night. */
-  const clock = new Date(ms).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    ...(timeZone ? { timeZone } : {})
-  }).replace(/^0/, '');
-  return `printed ${clock}`;
 };
 
 /* A bucket closes on a scheduled day, not at an instant, so its weekday is
@@ -102,43 +61,50 @@ export const editionsLine = ({
 };
 
 const PLACES = [
-  { key: 'later', one: 'owed a move', many: 'owed a move' },
-  { key: 'setAside', one: 'at hand', many: 'at hand' }
+  { key: 'later', word: 'owed a move', href: '/library?scope=later' },
+  { key: 'setAside', word: 'at hand', href: '/library?scope=set-aside' }
 ];
 
 /**
- * The desk, as one sentence.
+ * The desk, as a sentence you can walk through.
  *
  *   On your desk — 3 owed a move, 1 at hand, Costco has 2 new folios.
- *   The shelf holds 7.
  *
- * Four links became a sentence because four links are a navigation bar and a
- * sentence is a report. Only places with something on them speak; the feed
- * clause names the folder and never the word feed, because the reader screened
- * *Costco*, not "a feed"; and the shelf gets its own sentence, since the canon
- * is not on the desk.
+ * This used to return a finished string, which meant the one thing the reader
+ * most wanted to do with it — go there — was the one thing it could not
+ * support. So it returns its clauses instead and lets the page decide how a
+ * door looks. Same sentence, same rules, and every count is now the way in.
+ *
+ * Only places holding something speak. The feed clause names the folder the
+ * reader screened and never the word "feed", because they screened *Costco*.
  */
-export const deskLine = ({ later = null, setAside = null, kept = null, topics = [] } = {}) => {
+export const deskClauses = ({ later = null, setAside = null, topics = [] } = {}) => {
   const clauses = [];
 
-  PLACES.forEach(({ key, one, many }) => {
+  PLACES.forEach(({ key, word, href }) => {
     const n = counted(key === 'later' ? later : setAside);
     if (!n) return;
-    clauses.push(`${n} ${n === 1 ? one : many}`);
+    clauses.push({ key, text: `${n} ${word}`, href });
   });
 
   (Array.isArray(topics) ? topics : []).forEach((topic) => {
     const name = String(topic?.name || '').replace(/\s+/g, ' ').trim();
     const open = counted(topic?.open);
     if (!name || !open) return;
-    clauses.push(`${name} has ${open} new folio${open === 1 ? '' : 's'}`);
+    clauses.push({
+      key: `topic:${topic.id || name}`,
+      text: `${name} has ${open} new folio${open === 1 ? '' : 's'}`,
+      href: topic.href || ''
+    });
   });
 
-  const shelf = counted(kept);
-  const desk = clauses.length ? `On your desk — ${clauses.join(', ')}.` : '';
-  const canon = shelf ? `The shelf holds ${shelf}.` : '';
+  return clauses;
+};
 
-  return [desk, canon].filter(Boolean).join(' ');
+/** What the canon holds, when anyone has counted it. */
+export const shelfClause = (kept = null) => {
+  const n = counted(kept);
+  return n ? { key: 'kept', text: `The shelf holds ${n}`, href: '/library?scope=kept' } : null;
 };
 
 /* Day one. One line, and it asks for nothing — a first morning that opened
@@ -148,15 +114,6 @@ export const firstMorningLead = () => (
 );
 
 export const firstMorningDeskLine = () => 'Your desk is empty. The shelf holds nothing yet.';
-
-/**
- * Printed once, on the hundred and twentieth morning: the day the corpus is
- * old enough for the drift's buckets to mean something. Once, because a
- * milestone that recurs is a badge.
- */
-export const day120Line = ({ edition = null } = {}) => (
-  counted(edition) === 120 ? 'The corpus is old enough to talk back.' : ''
-);
 
 /** A paper ends. A feed does not, which is the difference. */
 export const END_OF_PAPER = '— end of the paper —';

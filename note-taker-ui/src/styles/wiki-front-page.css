@@ -2436,3 +2436,56 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
     box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent, #3b82f6) 82%, #1d4ed8);
   }
 }
+
+
+/* ---------- the top of the paper ----------
+
+   Where you were, and one thing you kept. This replaced a masthead that
+   printed an edition number, a press hour, three place names and a count of
+   each — all true, none of it a door. Every line here goes somewhere. */
+
+.paper-desk {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 26px;
+  max-width: 62ch;
+}
+
+.paper-desk__eyebrow {
+  margin: 0 0 2px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.paper-desk__line {
+  margin: 0;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* The canon has no clock, so its one line a morning sits a little apart from
+   the desk's business rather than in the middle of it. */
+.paper-desk__line--shelf {
+  margin-top: 6px;
+}
+
+/* A door is the sentence it sits in, underlined on approach. Not a colour —
+   the reading face carries one ink, and a link that recolours a serif line
+   turns a report into a set of buttons. */
+.paper-desk__door {
+  color: var(--text-primary, var(--vellum-ink));
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 88%, transparent);
+}
+
+.paper-desk__door:hover,
+.paper-desk__door:focus-visible {
+  outline: none;
+  border-bottom-color: var(--vellum-ink, #1c1a17);
+}
