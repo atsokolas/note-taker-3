@@ -1239,6 +1239,8 @@ describe('the agent rail', () => {
     const content = within(document.querySelector('.judgment-room__content'));
     expect(await content.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
 
+    /* A room that already holds something waits to be asked. */
+    fireEvent.click(screen.getByRole('button', { name: 'Hold a sentence' }));
     fireEvent.change(screen.getByLabelText('Hold a sentence'), {
       target: { value: 'NVIDIA demand still outruns deliverable capacity.' }
     });
@@ -1967,12 +1969,34 @@ describe('The index while it is still loading', () => {
 
     expect(await screen.findByText('Reading back what you hold…')).toBeInTheDocument();
     expect(screen.queryByText('No claims yet.')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Hold a sentence')).toBeInTheDocument();
+    /* The way to hold one is there the whole time. It is the invitation rather
+       than the open field, because a room still being read is not yet known to
+       be empty, and only an empty room asks. */
+    expect(screen.getByRole('button', { name: 'Hold a sentence' })).toBeInTheDocument();
 
     await act(async () => { release([judgmentPage()]); });
     expect(await within(document.querySelector('.judgment-room__content'))
       .findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
     expect(screen.queryByText('Reading back what you hold…')).not.toBeInTheDocument();
+  });
+
+  /* The form stood open above the cases, so a reader with five live judgments
+     met a blank field demanding a sixth every time they walked in. */
+  it('waits to be asked when the room already holds something', async () => {
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    listWikiSourceEvents.mockResolvedValue([]);
+    renderIndex();
+
+    const content = within(document.querySelector('.judgment-room__content'));
+    expect(await content.findByRole('link', { name: 'NVIDIA' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hold a sentence')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hold a sentence' }));
+    expect(screen.getByLabelText('Hold a sentence')).toBeInTheDocument();
+
+    /* Opened by hand, so it can be closed by hand. */
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByLabelText('Hold a sentence')).not.toBeInTheDocument();
   });
 
   it('still offers the hold once it knows the index really is empty', async () => {

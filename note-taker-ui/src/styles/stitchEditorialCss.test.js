@@ -112,18 +112,19 @@ describe('stitch editorial CSS tokens', () => {
     expect(documentScrollBlock).toContain('overflow-y: auto;');
   });
 
-  it('wires editorial magnetic row bloom to --row-bloom vars with reduced-motion off', () => {
+  it('rings the row under the pointer rather than washing it', () => {
     const css = fs.readFileSync(path.join(__dirname, 'stitch-editorial.css'), 'utf8');
 
-    expect(css).toContain('body.noeis-editorial .library-article-row.is-magnetic::before');
-    expect(css).toContain('var(--row-bloom-x, 50%) var(--row-bloom-y, 50%)');
+    expect(css).toContain('box-shadow: 0 0 0 2px var(--noeis-pointer) !important;');
+    expect(css).toContain('--noeis-pointer: #6f87ff;');
+    /* The wash and the cursor-following bloom it needed are gone. */
+    expect(css).not.toContain('--row-bloom-x');
+    expect(css).not.toContain('library-article-row.is-magnetic::before');
+    expect(css).not.toContain('library-article-row.is-magnetic::after');
+    /* The pointer-follow drift stays, and stays off when motion is reduced. */
     expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?--magnetic-x: 0px;/);
     expect(css).toMatch(/library-article-row\.is-magnetic \{[\s\S]*?translate3d\(var\(--magnetic-x, 0px\), 0, 0\)/);
-    expect(css).not.toMatch(/library-article-row\.is-magnetic:hover,[\s\S]*?transform: translate3d\(4px, -2px, 0\);/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic::before/);
-    expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row\.is-magnetic:hover::before[\s\S]*?opacity:\s*1/
-    );
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?library-article-row \{[\s\S]*?transform: none;/);
     expect(css).not.toContain('.three-pane--library');
   });
 
