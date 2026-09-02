@@ -2,6 +2,8 @@ import {
   buildEvergreenIndex,
   evergreenHref,
   evergreenToggleLabel,
+  keptShelfLine,
+  orderKeptOldestFirst,
   EVERGREEN_KIND_LABEL
 } from './evergreenModel';
 
@@ -94,5 +96,91 @@ describe('the kept shelf', () => {
 
   it('says nothing at all when nothing is kept', () => {
     expect(keptShelfLine([], NOW)).toBe('');
+  });
+});
+
+/* The shelf reads oldest first, across all three kinds, and its dates are the
+   day you decided — never the day you last touched the thing. */
+describe('the shelf order', () => {
+  const index = () => buildEvergreenIndex({
+    articles: [{ _id: 'a1', title: 'Read in March', evergreen: true, evergreenAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-08-30T00:00:00.000Z' }],
+    pages: [
+      { _id: 'p1', title: 'Built in June', evergreen: true, evergreenAt: '2026-06-01T00:00:00.000Z' },
+      // Midday, so the month is the same month in every timezone a reader sits in.
+      { _id: 'p2', title: 'Held', evergreen: true, evergreenAt: '2026-01-15T12:00:00.000Z', judgment: { currentJudgment: 'Compute stays scarce.' } }
+    ]
+  });
+
+  it('leads with the thing held longest, whatever kind it is', () => {
+    expect(orderKeptOldestFirst(index()).map(entry => entry.targetId)).toEqual(['p2', 'a1', 'p1']);
+  });
+
+  it('orders by the decision, not by the last touch', () => {
+    const ordered = orderKeptOldestFirst(index());
+    // a1 was touched in August and still sits second, on its March decision.
+    expect(ordered[1].targetId).toBe('a1');
+  });
+
+  it('still orders a plain list of articles, which is how the piles call it', () => {
+    const ordered = orderKeptOldestFirst([
+      { _id: 'late', evergreen: true, evergreenAt: '2026-08-01T00:00:00.000Z' },
+      { _id: 'early', evergreen: true, evergreenAt: '2026-02-01T00:00:00.000Z' },
+      { _id: 'never', evergreen: false, evergreenAt: '2026-01-01T00:00:00.000Z' }
+    ]);
+    expect(ordered.map(item => item._id)).toEqual(['early', 'late']);
+  });
+
+  it('says what the shelf holds, counting every kind', () => {
+    const line = keptShelfLine(orderKeptOldestFirst(index()), new Date('2026-10-01T00:00:00.000Z').getTime());
+    expect(line).toBe('3 things you decided to keep. The oldest since January 2026.');
+  });
+
+  it('says nothing at all about an empty shelf', () => {
+    expect(keptShelfLine([])).toBe('');
+  });
+});
+
+/* Errata: a belief you retired is still a thing you decided to keep. */
+describe('the shelf errata', () => {
+  const retiredPage = {
+    _id: 'p9',
+    title: 'Compute',
+    evergreen: true,
+    evergreenAt: '2026-02-01T00:00:00.000Z',
+    judgment: { currentJudgment: 'Compute stays scarce.' },
+    claims: [
+      { claimId: 'c1', text: 'Compute stays scarce.', checkInStatus: 'retired', retiredAt: '2026-09-06T00:00:00.000Z' }
+    ]
+  };
+
+  it('keeps a retired belief on the shelf and stamps when it went', () => {
+    const [entry] = buildEvergreenIndex({ pages: [retiredPage] });
+    expect(entry.kind).toBe('judgment');
+    expect(entry.retiredAt).toBe('2026-09-06T00:00:00.000Z');
+  });
+
+  it('does not retire a belief while any claim on it still stands', () => {
+    const [entry] = buildEvergreenIndex({
+      pages: [{
+        ...retiredPage,
+        claims: [
+          { claimId: 'c1', checkInStatus: 'retired', retiredAt: '2026-09-06T00:00:00.000Z' },
+          { claimId: 'c2', checkInStatus: 'reaffirmed' }
+        ]
+      }]
+    });
+    expect(entry.retiredAt).toBeNull();
+  });
+
+  it('leaves a belief with nothing to check in alone', () => {
+    const [entry] = buildEvergreenIndex({ pages: [{ ...retiredPage, claims: [] }] });
+    expect(entry.retiredAt).toBeNull();
+  });
+
+  it('never marks a source retired — an article has no check-in', () => {
+    const [entry] = buildEvergreenIndex({
+      articles: [{ _id: 'a1', title: 'A read', evergreen: true, evergreenAt: '2026-01-01T00:00:00.000Z' }]
+    });
+    expect(entry.retiredAt).toBeNull();
   });
 });

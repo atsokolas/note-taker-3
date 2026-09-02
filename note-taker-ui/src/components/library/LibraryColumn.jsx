@@ -1,8 +1,15 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { describeLetGo } from '../../pages/letGoReceipt';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { buildLibraryColumn } from './libraryColumnModel';
-import { keptShelfLine, orderKeptOldestFirst } from '../../pages/evergreenModel';
+import {
+  buildEvergreenIndex,
+  evergreenHref,
+  keptShelfLine,
+  orderKeptOldestFirst,
+  EVERGREEN_KIND_LABEL
+} from '../../pages/evergreenModel';
 import {
   laterPileLine,
   orderLaterOldestFirst,
@@ -26,7 +33,8 @@ const DEDICATED = {
     fallback: 'Held for life, and never counted as neglected.',
     line: keptShelfLine,
     order: orderKeptOldestFirst,
-    dateOf: (article) => article.evergreenAt || article.createdAt || null
+    dateOf: (entry) => entry.keptAt || null,
+    canon: true
   },
   later: {
     eyebrow: 'Later',
@@ -55,6 +63,14 @@ const LibraryColumn = ({
   query = '',
   onQueryChange,
   onSelectArticle,
+  /* Kept pages and beliefs, or null until the shelf has actually been read.
+     Null is not an empty shelf: rendering "nothing kept" before the answer
+     arrives tells the reader their canon is empty when we simply had not
+     looked. */
+  keptPages = null,
+  /* What you let go of in the last seven days, and the word back. */
+  letGo = null,
+  onUndoLetGo,
   entering = true
 }) => {
   const { continueItem, rows } = useMemo(
@@ -65,17 +81,27 @@ const LibraryColumn = ({
      with something to continue. Later is oldest owed; Set aside is newest
      at hand; Kept is the canon, oldest decision first. */
   const dedicated = DEDICATED[shelf] || null;
+  /* The canon is the one shelf that is not a list of articles. A source you
+     read, a page you built and a belief you hold stand on it as peers, so it
+     reads the cross-kind index rather than the article query. */
+  const canonRead = !dedicated?.canon || Array.isArray(keptPages);
+  const shelfItems = useMemo(() => (dedicated?.canon
+    ? buildEvergreenIndex({ articles, pages: keptPages || [] })
+    : articles), [articles, dedicated, keptPages]);
   const dedicatedRows = useMemo(() => (dedicated
-    ? dedicated.order(articles).map(article => ({
-      id: String(article._id || article.id || ''),
-      title: article.title || 'Untitled source',
-      source: article.siteName || article.author || '',
-      date: dedicated.dateOf(article)
+    ? dedicated.order(shelfItems).map(item => ({
+      id: String(item.targetId || item._id || item.id || ''),
+      title: item.title || 'Untitled source',
+      source: item.detail ?? (item.siteName || item.author || ''),
+      date: dedicated.dateOf(item),
+      kind: item.kind || '',
+      href: item.kind ? evergreenHref(item) : '',
+      retiredAt: item.retiredAt || null
     }))
-    : []), [articles, dedicated]);
+    : []), [dedicated, shelfItems]);
   const dedicatedLine = useMemo(
-    () => (dedicated ? dedicated.line(articles) : ''),
-    [articles, dedicated]
+    () => (dedicated && canonRead ? dedicated.line(shelfItems) : ''),
+    [canonRead, dedicated, shelfItems]
   );
   const shelfRows = dedicated ? dedicatedRows : rows;
   const step = (n) => (entering ? `wfp-anim wfp-anim--${n}` : 'library-column__return');
@@ -84,7 +110,7 @@ const LibraryColumn = ({
     <main className="library-column" aria-labelledby="library-column-title">
       <h1 className="sr-only" id="library-column-title">Library</h1>
       <p className={`library-column__eyebrow ${step(1)}`}>{dedicated?.eyebrow || 'Library'}</p>
-      {dedicated ? (
+      {dedicated && canonRead ? (
         <p className={`library-column__shelf-note ${step(1)}`}>
           {dedicatedLine || dedicated.fallback}
         </p>
@@ -99,6 +125,9 @@ const LibraryColumn = ({
             </button>
           </h2>
           {continueItem.source ? <p className="library-column__source">{continueItem.source}</p> : null}
+          {/* Where you left off, when we know. A reading position nobody wrote
+              down is one we do not have, and the line is simply absent. */}
+          {continueItem.place ? <p className="library-column__place">{continueItem.place}</p> : null}
           {continueItem.dek ? <p className="library-column__dek">{continueItem.dek}</p> : null}
           <button
             type="button"
@@ -137,21 +166,58 @@ const LibraryColumn = ({
       {shelfRows.length ? (
         <ul className={`library-column__shelf ${step(4)}`}>
           {shelfRows.map(item => (
-            <li key={item.id}>
-              <button type="button" onClick={() => onSelectArticle?.(item.id)}>
-                <span className="library-column__row-title">{item.title}</span>
-                <span className="library-column__row-source">{item.source}</span>
-                <span className="library-column__row-date">
-                  {formatSurfaceDate(item.date, { includeYear: true })}
-                </span>
-              </button>
+            <li key={item.id} className={item.retiredAt ? 'is-retired' : undefined}>
+              {item.href ? (
+                <Link to={item.href}>
+                  {item.kind ? (
+                    <span className="library-column__row-kind">{EVERGREEN_KIND_LABEL[item.kind]}</span>
+                  ) : null}
+                  <span className="library-column__row-title">{item.title}</span>
+                  {item.source ? <span className="library-column__row-source">{item.source}</span> : null}
+                  <span className="library-column__row-date">
+                    {formatSurfaceDate(item.date, { includeYear: true })}
+                  </span>
+                  {/* Errata, not a warning: it says when the belief went, and
+                      keeps it where it has always stood. */}
+                  {item.retiredAt ? (
+                    <span className="library-column__row-retired">
+                      {`retired ${formatSurfaceDate(item.retiredAt)}`}
+                    </span>
+                  ) : null}
+                </Link>
+              ) : (
+                <button type="button" onClick={() => onSelectArticle?.(item.id)}>
+                  <span className="library-column__row-title">{item.title}</span>
+                  <span className="library-column__row-source">{item.source}</span>
+                  <span className="library-column__row-date">
+                    {formatSurfaceDate(item.date, { includeYear: true })}
+                  </span>
+                </button>
+              )}
             </li>
           ))}
         </ul>
       ) : null}
 
+      {/* The canon signs itself, and only when it holds something. Memory and
+          judgment — the two things the shelf is made of. */}
+      {/* A vow undone says so, and stays undoable, for seven days. No dialog
+          asked whether you were sure: you had already decided. */}
+      {dedicated?.canon && letGo ? (
+        <p className="library-column__let-go" role="status">
+          <span>{describeLetGo(letGo)}</span>
+          {onUndoLetGo ? (
+            <button type="button" onClick={() => onUndoLetGo(letGo)}>Keep it again</button>
+          ) : null}
+        </p>
+      ) : null}
+
+      {dedicated?.canon && shelfRows.length ? (
+        <p className="library-column__colophon" aria-hidden="true">μνήμη · κρίσις</p>
+      ) : null}
+
       {/* Nothing saved yet is a sentence, not a dashboard of zeroes. */}
-      {!loading && !shelfRows.length && !continueItem ? (
+      {!loading && canonRead && !shelfRows.length && !continueItem ? (
         <p className={`library-column__quiet ${step(4)}`}>
           {query
             ? `Nothing in your library matches “${query}”.`

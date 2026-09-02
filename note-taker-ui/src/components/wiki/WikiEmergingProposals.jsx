@@ -76,7 +76,7 @@ const WikiEmergingProposals = () => {
       const pageId = result?.page?._id;
       if (pageId) navigate(wikiPagePath(pageId));
     } catch (_error) {
-      setError('Failed to create wiki from proposal.');
+      setError('That did not save.');
     } finally {
       setBusyId('');
     }

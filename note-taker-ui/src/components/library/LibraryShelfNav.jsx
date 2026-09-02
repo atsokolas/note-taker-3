@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -7,6 +7,8 @@ import {
   RoomShelfSection
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
+import { buildFolderTree, folderCountPhrase } from '../../pages/folderTreeModel';
+import { isProceduralShelf } from '../../pages/readingDriftModel';
 
 // The cabinet, in the column's language.
 //
@@ -75,16 +77,51 @@ const LibraryShelfNav = ({
   onSelectScope,
   onSelectFolder,
   onReviewFiling,
+  /* The folder something just landed in, for 250ms. */
+  landedFolderId = '',
   filingLaunching = false,
   className = ''
 }) => {
   const narrow = useNarrowShelf();
   const [cabinetOpen, setCabinetOpen] = useState(false);
+  /* Which drawers are shut. Folded rather than opened, so a cabinet opens
+     showing everything it holds — a tree that starts closed makes the reader
+     hunt for what they already own. */
+  const [folded, setFolded] = useState(() => new Set());
+  const toggleFold = (id) => setFolded((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  /* The cabinet is a tree, and the rows are its visible branches: a drawer
+     that is folded hides what is inside it, and procedural shelves never
+     appear at all. */
+  const cabinet = useMemo(() => {
+    const visible = (nodes, depth = 0) => nodes.flatMap(node => [
+      { ...node, depth },
+      ...(folded.has(node.id) ? [] : visible(node.children, depth + 1))
+    ]);
+    return visible(buildFolderTree(folders, folderCounts));
+  }, [folded, folders, folderCounts]);
+
+  /* Procedural shelves are machinery, not places, so they leave the cabinet
+     and become one quiet line under it. Needs Review is a queue the product
+     keeps, not a drawer the reader filled — filed among their own folders it
+     read as one of theirs, and its backlog shouted. */
+  const procedural = useMemo(
+    () => (Array.isArray(folders) ? folders : []).filter(folder => isProceduralShelf(folder?.name)),
+    [folders]
+  );
   /* Being on a folder means the cabinet is already where you are. With no
      folders there is no cabinet to fold, and folding one would take the filing
      with it — the one thing that would give you folders in the first place. */
   const showCabinet = !narrow || cabinetOpen || scope === 'folder' || !folders.length;
-  const topics = narrow ? [] : (Array.isArray(feedTopics) ? feedTopics : []).filter((topic) => topic?.id && topic?.name);
+  /* Screened topics ride in the places strip at every width. Under 900px the
+     cabinet folds away, so blanking them here left a scroll with no door on a
+     phone — the strip is the only way in, which is exactly when it must
+     carry them. A topic with no id or no name is not a door and is dropped. */
+  const topics = (Array.isArray(feedTopics) ? feedTopics : []).filter((topic) => topic?.id && topic?.name);
 
   return (
     <RoomShelf
@@ -199,24 +236,57 @@ const LibraryShelfNav = ({
           {foldersError ? (
             <p className="library-shelf__status is-error" role="alert">{foldersError}</p>
           ) : null}
-          {!foldersLoading && !foldersError && folders.length ? (
+          {!foldersLoading && !foldersError && cabinet.length ? (
             <RoomShelfList className="library-shelf__folders">
-              {folders.map(folder => {
-                const isNeedsReview = folder.name?.trim().toLowerCase() === 'needs review';
-                const active = isNeedsReview
-                  ? scope === 'all' && sourceView === 'needs_review'
-              : (scope === 'folder' && folderId === folder._id)
-                || (scope === 'feed' && folderId === folder._id);
+              {cabinet.map(node => {
+                const active = (scope === 'folder' && folderId === node.id)
+                  || (scope === 'feed' && folderId === node.id);
+                const openable = node.children.length > 0;
+                const unfolded = openable && !folded.has(node.id);
                 return (
-                  <li key={folder._id}>
+                  <li
+                    key={node.id}
+                    className={[
+                      'library-shelf__branch',
+                      node.asFeed ? 'is-living' : '',
+                      node.id === landedFolderId ? 'is-landing' : ''
+                    ].filter(Boolean).join(' ')}
+                    style={{ '--depth': node.depth }}
+                  >
                     <RoomShelfButton
                       active={active}
                       nested
-                      onClick={() => onSelectFolder?.(folder._id)}
+                      onClick={() => onSelectFolder?.(node.id)}
                     >
-                      <span>{folder.name}</span>
-                      {!isNeedsReview && folderCounts[folder._id] > 0 ? (
-                        <RoomShelfMeta>{folderCounts[folder._id]}</RoomShelfMeta>
+                      {/* A disclosure only where there is something to
+                          disclose, and only under a cursor: at rest the tree
+                          is names and numbers. */}
+                      {openable ? (
+                        <span
+                          className="library-shelf__disclose"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={unfolded ? `Fold ${node.name}` : `Unfold ${node.name}`}
+                          aria-expanded={unfolded}
+                          onClick={(event) => { event.stopPropagation(); toggleFold(node.id); }}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            toggleFold(node.id);
+                          }}
+                        >
+                          {unfolded ? '▾' : '▸'}
+                        </span>
+                      ) : null}
+                      <span>{node.name}</span>
+                      {/* Counts roll up the tree; a drawer holding nothing
+                          says nothing rather than nought. */}
+                      {/* The number is scannable; the sentence is on the
+                          tooltip, where a reader who wants to know can find
+                          it. No number without a noun and a time. */}
+                      {node.total > 0 ? (
+                        <RoomShelfMeta title={folderCountPhrase(node)}>{node.total}</RoomShelfMeta>
                       ) : null}
                     </RoomShelfButton>
                   </li>
@@ -224,8 +294,23 @@ const LibraryShelfNav = ({
               })}
             </RoomShelfList>
           ) : null}
-          {!foldersLoading && !foldersError && !folders.length ? (
+          {!foldersLoading && !foldersError && !cabinet.length && !procedural.length ? (
             <p className="library-shelf__status">No shelves yet.</p>
+          ) : null}
+
+          {procedural.length ? (
+            <p className="library-shelf__procedural">
+              {procedural.map(folder => (
+                <button
+                  key={folder._id}
+                  type="button"
+                  aria-current={sourceView === 'needs_review' && scope === 'all' ? 'true' : undefined}
+                  onClick={() => onSelectFolder?.(folder._id)}
+                >
+                  {folder.name}
+                </button>
+              ))}
+            </p>
           ) : null}
 
           {/* Filing is the cabinet's own work, so it lives with the cabinet. */}

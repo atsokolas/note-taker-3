@@ -10,6 +10,7 @@
 //      there — it moves, it is not replaced by a copy of itself.
 
 import { normalizeSpaces } from '../utils/editorialText';
+import { isCrossing } from './crossings';
 
 const ENTER_MS = 220;
 const ENTER_CURVE = 'cubic-bezier(0.16, 1, 0.3, 1)';
@@ -40,7 +41,20 @@ export const resetFirstPaint = () => staggered.clear();
 // anything older than a navigation is stale and dropped.
 let handoff = null;
 
-export const handOffSentence = (text, element) => {
+/**
+ * Hand a sentence off, but only if it is actually going somewhere.
+ *
+ * `from` and `to` name the places. Movement within a place is instant, and a
+ * caller that names no journey gets none — the rule lives here rather than in
+ * each caller so that it cannot be forgotten by the next one, which is how
+ * animation vocabularies stop meaning anything.
+ *
+ * Callers that pass no places at all keep the old behaviour: they were written
+ * before the rule and each is a genuine crossing already. New callers should
+ * say where they are going.
+ */
+export const handOffSentence = (text, element, journey = null) => {
+  if (journey && !isCrossing(journey)) return;
   const sentence = normalizeSpaces(text);
   if (!sentence || !element?.getBoundingClientRect) return;
   const rect = element.getBoundingClientRect();

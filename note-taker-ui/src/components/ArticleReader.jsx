@@ -4,8 +4,7 @@ import { QuietButton } from './ui';
 import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
-import PlacementWord from './PlacementWord';
-import RemindWord from './RemindWord';
+import PlacementSwitch from './PlacementSwitch';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
@@ -17,11 +16,13 @@ import {
   rememberOpenedJudgment
 } from './reader/folioModel';
 import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
+import { PLACES } from '../motion/crossings';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
 import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
+import { sourceLabel } from './library/libraryColumnModel';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -150,7 +151,14 @@ const ArticleReader = ({
   const park = async (next) => {
     if (next === 'later' || next === 'setAside') {
       const origin = titleRef.current;
-      if (origin) handOffSentence(article.title || 'Untitled source', origin);
+      /* A source leaving the reading for a pile: the first of the four
+         crossings, and the one a reader makes most often. */
+      if (origin) {
+        handOffSentence(article.title || 'Untitled source', origin, {
+          from: PLACES.READER,
+          to: PLACES.PILE
+        });
+      }
     }
     const saved = await onTogglePlacement(article._id, next);
     setPlacement(placementOf({ placement: saved?.placement ?? next }));
@@ -254,7 +262,7 @@ const ArticleReader = ({
       }
     } catch (err) {
       onHighlightRemove?.(tempId);
-      setSaveError(err.response?.data?.error || 'Failed to save highlight.');
+      setSaveError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }
@@ -285,6 +293,12 @@ const ArticleReader = ({
       )}
       <div className="article-reader-header">
         <div>
+          {/* Provenance as typography: where a piece came from sits above its
+              title in small caps, the way a masthead names its paper. It was
+              buried in the meta row below, reading as one more link. */}
+          {sourceLabel(article) ? (
+            <p className="article-reader-provenance">{sourceLabel(article)}</p>
+          ) : null}
           <h1 ref={titleRef} className="article-reader-title">{article.title || 'Untitled article'}</h1>
           <div className="article-reader-meta">
             {article.createdAt && <span>{formatDate(article.createdAt)}</span>}
@@ -300,17 +314,15 @@ const ArticleReader = ({
             rather than an action — findable only if you already knew it was
             there. */}
         <div className="article-reader-decisions">
+          {/* One instrument for one fact. Two words and a separate reminder
+              became a switch with a clock cap: park and promise in one
+              gesture, which is why Remind me is gone. */}
           {onTogglePlacement ? (
-            <PlacementWord
-              placement="later"
-              active={placement === 'later'}
-              onChange={park}
-            />
-          ) : null}
-          {onTogglePlacement ? (
-            <PlacementWord
-              placement="setAside"
-              active={placement === 'setAside'}
+            <PlacementSwitch
+              articleId={article?._id}
+              placement={placement}
+              folderName={article?.folder?.name}
+              asFeed={Boolean(article?.folder?.asFeed)}
               onChange={park}
             />
           ) : null}
@@ -324,7 +336,6 @@ const ArticleReader = ({
               }}
             />
           ) : null}
-          {article?._id ? <RemindWord articleId={article._id} /> : null}
           {onMove && (
             <QuietButton onClick={onMove}>
               Move

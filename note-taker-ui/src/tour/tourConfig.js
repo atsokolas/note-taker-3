@@ -36,7 +36,7 @@ export const TOUR_STEPS = [
   {
     id: 'organize_workspace',
     title: 'Organize in the concept workspace',
-    body: 'Open Think → Concepts and attach or move items in the workspace stages (Inbox, Working, Draft, Archive).',
+    body: 'Open Think → Concepts and attach or move notes through the workspace stages (Inbox, Working, Draft, Archive).',
     route: '/think?tab=concepts',
     targetSelector: '[data-testid="concept-add-material-button"], [data-testid="think-concepts-empty-create-button"]',
     placement: 'bottom',

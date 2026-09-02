@@ -150,7 +150,7 @@ export const buildNotionConnectionReceipt = ({
       tone: 'neutral',
       headline: `Import in progress — ${stage.replace(/_/g, ' ')}.`,
       summary: '',
-      detail: 'Pages and database rows are being saved as notebook entries. This can take a minute for large workspaces.',
+      detail: 'Pages and database rows are being saved as notes. This can take a minute for large workspaces.',
       nextAction: { label: 'Sync from Notion' },
       isLive: true,
       liveMessage: `Syncing Notion — ${stage.replace(/_/g, ' ')}`
@@ -205,7 +205,7 @@ export const buildNotionConnectionReceipt = ({
       tone: completedWithWarnings || withWarnings(result) ? 'warning' : 'success',
       headline: `Last synced ${formatLoopDate(connection.lastSyncAt)}${pageSuffix}.`,
       summary,
-      detail: 'Imported pages are available as notebook entries and source material for Library search, Think retrieval, and Morning Paper maintenance.',
+      detail: 'Imported pages are available as notes and source material for Library search, Think retrieval, and Morning Paper maintenance.',
       nextAction: { label: 'Sync again' },
       isLive: false
     };

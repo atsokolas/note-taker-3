@@ -709,7 +709,7 @@ const WikiIndex = ({ onOpenPage, onOpenList, onBuildPage, onOpenSources }) => {
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (_error) {
-      setError('Failed to export wiki.');
+      setError('That did not save.');
     }
   };
 

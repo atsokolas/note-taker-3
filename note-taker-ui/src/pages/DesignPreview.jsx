@@ -14,7 +14,7 @@ const SCREENS = [
     ],
     changes: [
       'Promote the current thread into a full-width lead surface.',
-      'Demote dashboard fragments into a single active queue block.',
+      'Demote scattered readouts into a single active queue block.',
       'Shrink the right rail into provenance, support, and next move.'
     ]
   },
@@ -90,7 +90,6 @@ const SCREENS = [
 const PLATFORM_FILES = [
   'src/layout/AppShell.jsx',
   'src/layout/ThreePaneLayout.jsx',
-  'src/layout/LeftNav.jsx',
   'src/layout/TopBar.jsx',
   'src/styles/theme.css',
   'src/styles/think-home-polish.css',

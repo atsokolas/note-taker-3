@@ -255,7 +255,7 @@ export const buildMarketingFunnelViewModel = (snapshot = {}) => {
         : 'Lean into source-backed wiki activation proof.'
   } : {
     title: 'Wait for activation-quality data',
-    action: 'Do not create another content page from clicks alone. Paste GSC data, then compare it against activated-user quality here.',
+    action: 'Do not create another page from clicks alone. Paste GSC data, then compare it against activated-user quality here.',
     evidence: 'No entry page has attributed completed signups in this window.',
     cta: 'Prioritize instrumentation and Search Console exports.'
   };

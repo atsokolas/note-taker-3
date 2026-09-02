@@ -99,7 +99,7 @@ const NotebookEditorialView = ({
                 label: 'Working notebook',
                 flush: true,
                 content: renderNotebookFolderList(notebookList, {
-                  emptyMessage: 'No notebook entries match.',
+                  emptyMessage: 'You went looking — here is why it’s empty.',
                   skeletonRows: 8
                 })
               },
@@ -117,7 +117,7 @@ const NotebookEditorialView = ({
                   label: 'Working notebook',
                   flush: true,
                   content: renderNotebookFolderList(notebookEntries, {
-                    emptyMessage: 'No notebook entries yet.',
+                    emptyMessage: 'Nothing here yet.',
                     skeletonRows: 6
                   })
                 },
@@ -148,7 +148,7 @@ const NotebookEditorialView = ({
                     label: 'Working notebook',
                     flush: true,
                     content: renderNotebookFolderList(notebookList, {
-                      emptyMessage: 'No notebook entries match.',
+                      emptyMessage: 'You went looking — here is why it’s empty.',
                       skeletonRows: 8
                     })
                   },

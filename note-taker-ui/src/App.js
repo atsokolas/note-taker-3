@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import WikiFrontPage from './components/wiki/WikiFrontPage';
 import Judgment from './pages/Judgment';
 import JudgmentMirror from './pages/JudgmentMirror';
-import WeeklyBrief from './pages/WeeklyBrief';
 import NotFound from './pages/NotFound';
 import { isAppRoute, rememberReturnPath } from './navigation/appRoutes';
 import { Analytics } from '@vercel/analytics/react';
@@ -59,7 +58,6 @@ import './styles/stitch-editorial.css';
 import './surface/surface-frame.css';
 import './styles/semantic-theme.css';
 
-const Trending = lazy(() => import('./pages/Trending'));
 const AllHighlights = lazy(() => import('./pages/AllHighlights'));
 const Search = lazy(() => import('./pages/Search'));
 const TagBrowser = lazy(() => import('./pages/TagBrowser'));
@@ -701,7 +699,6 @@ function App() {
             <Route path="/mirror" element={<Navigate to="/judgment/mirror" replace />} />
             <Route path="/judgment/:pageId" element={<Judgment />} />
             {/* The week, gathered from marks the surfaces already carry. */}
-            <Route path="/week" element={<WeeklyBrief />} />
             <Route path="/wiki" element={<WikiFrontPage />} />
             <Route path="/wiki/dossiers" element={<WikiFrontPage initialKind="investment" />} />
             {/* Contradiction as a view, not a tag: where the library
@@ -783,7 +780,6 @@ function App() {
             <Route path="/boards" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/boards/*" element={<Navigate to="/think?tab=concepts" replace />} />
             <Route path="/articles/:id" element={<LegacyArticleRedirect />} />
-            <Route path="/trending" element={<Trending />} />
             <Route path="/export" element={<Export />} />
             {/* Redirect authenticated users away from auth pages */}
             <Route path="/login" element={<Navigate to="/" replace />} />

@@ -170,7 +170,7 @@ const buildLegacyContentRouter = ({
 
   router.post('/save-article', authenticateToken, async (req, res) => {
     try {
-      const { title, url, content, folderId, author, publicationDate, siteName, pdfs } = req.body;
+      const { title, url, content, folderId, author, publicationDate, siteName, pdfs, placement } = req.body;
       const userId = req.user.id;
 
       if (!url) {
@@ -206,6 +206,13 @@ const buildLegacyContentRouter = ({
         publicationDate: publicationDate || '',
         siteName: siteName || '',
         ...(pdfs !== undefined ? { pdfs: normalizePdfs(pdfs) } : {}),
+        /* A placement chosen on the save card. Three decisions, one card:
+           the piece arrives already filed and already placed, so it never
+           touches the Imbox as triage. Absent means home, which is what a
+           save has always meant. */
+        ...(normalizeArticlePlacement(placement) && normalizeArticlePlacement(placement) !== 'stream'
+          ? { placement: normalizeArticlePlacement(placement), placementAt: new Date() }
+          : {}),
         $setOnInsert: { highlights: [] }
       };
 
@@ -334,11 +341,16 @@ const buildLegacyContentRouter = ({
         return res.status(400).json({ error: 'A filing tray cannot be a feed.' });
       }
       folder.asFeed = asFeed;
+      /* Screening is a decision, so it leaves a date. Unscreening clears it
+         rather than leaving a stale one behind — a folder that is no longer a
+         scroll has no screening to date. */
+      folder.asFeedAt = asFeed ? new Date() : null;
       await folder.save();
       return res.status(200).json({
         _id: String(folder._id),
         name: folder.name,
-        asFeed: Boolean(folder.asFeed)
+        asFeed: Boolean(folder.asFeed),
+        asFeedAt: folder.asFeedAt ? folder.asFeedAt.toISOString() : null
       });
     } catch (error) {
       if (error.name === 'CastError') {
@@ -422,6 +434,30 @@ const buildLegacyContentRouter = ({
             placementReason: 1,
             tags: 1,
             highlightCount: { $size: { $ifNull: ['$highlights', []] } },
+            /* Where the reader left off, derived rather than stored: the
+               furthest point they marked, over the length of the piece, and
+               the day they last marked anything. The content itself never
+               leaves the server — only the ratio does. A piece with no
+               highlights, or no content to measure against, reports null,
+               and the column then says nothing rather than "0% through". */
+            lastPlace: {
+              at: { $max: '$highlights.createdAt' },
+              ratio: {
+                $let: {
+                  vars: {
+                    furthest: { $max: '$highlights.anchor.startOffsetApprox' },
+                    len: { $strLenCP: { $ifNull: ['$content', ''] } }
+                  },
+                  in: {
+                    $cond: [
+                      { $and: [{ $gt: ['$$len', 0] }, { $gt: ['$$furthest', 0] }] },
+                      { $divide: ['$$furthest', '$$len'] },
+                      null
+                    ]
+                  }
+                }
+              }
+            },
             ...(preview ? { content: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, 4000] } } : {})
           }
         },

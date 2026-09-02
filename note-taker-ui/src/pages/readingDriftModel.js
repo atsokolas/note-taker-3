@@ -190,6 +190,23 @@ const joinNames = (names = []) => {
 };
 
 /**
+ * When the current fortnight closes.
+ *
+ * The drift runs on the corpus's own clock rather than the world's: buckets
+ * are fourteen days wide, counted from the day the account began, so the close
+ * lands on the same weekday forever and the masthead can print it. A paper
+ * that said "the drift closes soon" would be a paper guessing.
+ */
+export const driftClosesAt = ({ beganAt = null, now = Date.now() } = {}) => {
+  const began = beganAt ? new Date(beganAt).getTime() : NaN;
+  if (Number.isNaN(began)) return null;
+  const elapsed = now - began;
+  if (elapsed < 0) return null;
+  const buckets = Math.floor(elapsed / (BUCKET_DAYS * DAY)) + 1;
+  return new Date(began + buckets * BUCKET_DAYS * DAY).toISOString();
+};
+
+/**
  * The product noticing out loud. One sentence, and it only speaks when
  * something actually moved.
  */

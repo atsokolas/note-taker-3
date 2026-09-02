@@ -109,7 +109,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
         if (!cancelled) setSearchResults(Array.isArray(items) ? items : []);
       } catch (err) {
         if (!cancelled) {
-          setError(err.response?.data?.error || 'Failed to search items.');
+          setError(err.response?.data?.error || 'That did not load.');
         }
       } finally {
         if (!cancelled) setSearchLoading(false);
@@ -166,7 +166,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
       setQuery('');
       setSearchResults([]);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create connection.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }
@@ -181,7 +181,7 @@ const ConnectionBuilder = ({ itemType, itemId, scopeType = '', scopeId = '', ite
         [direction]: (prev[direction] || []).filter(row => String(row._id) !== String(connectionId))
       }));
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete connection.');
+      setError(err.response?.data?.error || 'That did not save.');
     }
   };
 

@@ -13,7 +13,9 @@ describe('library places', () => {
       { id: '  ', name: 'Ghost' },
       { id: 'macro', name: '  ' }
     ])).toEqual([
-      { id: 'news', name: 'Newsletters', href: '/library?scope=feed&topic=news' }
+      // open is null when nobody counted; the desk line then says nothing
+      // about this folder rather than claiming it holds none.
+      { id: 'news', name: 'Newsletters', open: null, href: '/library?scope=feed&topic=news' }
     ]);
     expect(feedPlaceHref('news')).toBe('/library?scope=feed&topic=news');
     expect(feedPlaces([])).toEqual([]);

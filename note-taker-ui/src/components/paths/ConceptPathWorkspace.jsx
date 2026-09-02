@@ -119,7 +119,7 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
         if (!cancelled) setSearchResults(rows);
       } catch (error) {
         if (!cancelled) {
-          setActionError(error.response?.data?.error || 'Failed to search items.');
+          setActionError(error.response?.data?.error || 'That did not load.');
         }
       } finally {
         if (!cancelled) setSearchLoading(false);
@@ -309,7 +309,7 @@ const ConceptPathWorkspace = ({ selectedPathId = '', onSelectPath }) => {
       const updated = await reorderConceptPathItems(activePath._id, ids);
       setPathAndRefreshSummary(updated);
     } catch (error) {
-      setActionError(error.response?.data?.error || 'Failed to reorder items.');
+      setActionError(error.response?.data?.error || 'That did not save.');
     } finally {
       setWorking(false);
     }

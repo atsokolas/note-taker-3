@@ -35,7 +35,7 @@ const MorningPaperEmailSettingsCard = ({ Card, Button }) => {
       setDraft({ email: next.email || '', timezone: next.timezone || 'UTC', sendHourLocal: next.sendHourLocal ?? 7 });
       setMessage(success);
     } catch (requestError) {
-      setError(requestError?.response?.data?.error || 'Failed to update Morning Paper delivery settings.');
+      setError(requestError?.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

@@ -3,11 +3,14 @@ import {
   laterPileLine,
   orderLaterOldestFirst,
   orderSetAsideNewestFirst,
+  placementOf,
   setAsidePileLine
 } from '../../pages/placementModel';
 import { flySentenceInto, peekSentenceHandoff } from '../../motion/columnMotion';
 import { normalizeSpaces } from '../../utils/editorialText';
 import '../../styles/library-column.css';
+import PlacementSwitch from '../PlacementSwitch';
+import { rowKeyAction } from '../../pages/placementSwitchModel';
 
 /*
  * Hey keeps both piles at the foot of the Imbox. We steal that.
@@ -48,13 +51,36 @@ const usePileLanding = (articles, listRef) => {
   }, [articles, listRef]);
 };
 
-const PileRow = ({ article, onSelect, onDone }) => {
+/* One switch travels. On a row it is compact and wears no vow — Keep belongs
+   where you are reading a thing, not where you are sorting a pile — and single
+   letters work on a focused row: h home, l later, s set aside. */
+const PileRow = ({ article, onSelect, onDone, onPlace, hinting = false }) => {
   const id = idOf(article);
+  const keys = (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const action = rowKeyAction(event.key);
+    if (!action || action.kind !== 'place' || !onPlace) return;
+    event.preventDefault();
+    onPlace(id, action.placement);
+  };
+
   return (
-    <li>
+    <li onKeyDown={keys}>
       <button type="button" className="library-pile__title" onClick={() => onSelect?.(id)}>
         {titleOf(article)}
       </button>
+      {/* Hints only while holding ?. A row that always showed its keys would
+          be teaching every reader something most of them never asked for; a
+          row that never showed them would be a secret. */}
+      {hinting ? <span className="library-pile__keys" aria-hidden="true">h l s k</span> : null}
+      {onPlace ? (
+        <PlacementSwitch
+          articleId={id}
+          placement={placementOf(article)}
+          compact
+          onChange={(next) => onPlace(id, next)}
+        />
+      ) : null}
       {onDone ? (
         <button
           type="button"
@@ -68,7 +94,7 @@ const PileRow = ({ article, onSelect, onDone }) => {
   );
 };
 
-const LaterPile = ({ articles, onSelect, onDone }) => {
+const LaterPile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const listRef = useRef(null);
   const line = laterPileLine(articles);
   usePileLanding(articles, listRef);
@@ -79,14 +105,14 @@ const LaterPile = ({ articles, onSelect, onDone }) => {
       {line ? <p className="library-pile__line">{line}</p> : null}
       <ul ref={listRef} className="library-pile__list">
         {articles.map((article) => (
-          <PileRow key={idOf(article)} article={article} onSelect={onSelect} onDone={onDone} />
+          <PileRow onPlace={onPlace} hinting={hinting} key={idOf(article)} article={article} onSelect={onSelect} onDone={onDone} />
         ))}
       </ul>
     </section>
   );
 };
 
-const SetAsidePile = ({ articles, onSelect, onDone }) => {
+const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const listRef = useRef(null);
   const [open, setOpen] = useState(() => awaitingSentence(articles));
   const line = setAsidePileLine(articles);
@@ -97,7 +123,13 @@ const SetAsidePile = ({ articles, onSelect, onDone }) => {
   }, [articles]);
 
   if (!articles.length) return null;
-  const leaves = Math.min(3, articles.length);
+  /* The stack counts materially: one drawn folio edge per piece, up to five.
+     Beyond five the edges stop being countable at a glance and start being
+     texture, so the fifth is followed by 5+ rather than a sixth edge nobody
+     could read. A pile that looks the same at six as at sixty is a pile
+     lying about its weight. */
+  const leaves = Math.min(5, articles.length);
+  const overflowed = articles.length > 5;
   return (
     <section
       className={`library-pile library-pile--setAside noeis-meander${open ? ' is-open' : ''}`}
@@ -124,7 +156,7 @@ const SetAsidePile = ({ articles, onSelect, onDone }) => {
             </button>
             <ul ref={listRef} className="library-pile__list">
               {articles.map((article) => (
-                <PileRow key={idOf(article)} article={article} onSelect={onSelect} onDone={onDone} />
+                <PileRow onPlace={onPlace} hinting={hinting} key={idOf(article)} article={article} onSelect={onSelect} onDone={onDone} />
               ))}
             </ul>
           </div>
@@ -140,6 +172,7 @@ const SetAsidePile = ({ articles, onSelect, onDone }) => {
             {Array.from({ length: leaves }, (_, index) => (
               <span key={index} className="library-pile__leaf" />
             ))}
+            {overflowed ? <span className="library-pile__more">5+</span> : null}
           </span>
           <span>Open the stack</span>
         </button>
@@ -148,14 +181,28 @@ const SetAsidePile = ({ articles, onSelect, onDone }) => {
   );
 };
 
-const LibraryPiles = ({ articles = [], onSelect, onDone }) => {
+const LibraryPiles = ({ articles = [], onSelect, onDone, onPlace }) => {
+  /* Holding ? shows what the letters do. Released, they go away again —
+     the keys are for the reader who already wants them, and the hint is for
+     the one who suspects they exist. */
+  const [hinting, setHinting] = useState(false);
+  useEffect(() => {
+    const down = (event) => { if (event.key === '?') setHinting(true); };
+    const up = (event) => { if (event.key === '?') setHinting(false); };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
   const later = orderLaterOldestFirst(articles);
   const aside = orderSetAsideNewestFirst(articles);
   if (!later.length && !aside.length) return null;
   return (
     <div className="library-piles" data-testid="library-piles">
-      <LaterPile articles={later} onSelect={onSelect} onDone={onDone} />
-      <SetAsidePile articles={aside} onSelect={onSelect} onDone={onDone} />
+      <LaterPile onPlace={onPlace} hinting={hinting} articles={later} onSelect={onSelect} onDone={onDone} />
+      <SetAsidePile onPlace={onPlace} hinting={hinting} articles={aside} onSelect={onSelect} onDone={onDone} />
     </div>
   );
 };

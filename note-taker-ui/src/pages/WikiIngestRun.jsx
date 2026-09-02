@@ -59,7 +59,7 @@ const WikiIngestRun = () => {
       });
       setStatus(`Created "${page.title || run.suggestedCreatePage.title}".`);
     } catch (_error) {
-      setError('Failed to create wiki page from this source.');
+      setError('That did not save.');
     } finally {
       setActing(false);
     }

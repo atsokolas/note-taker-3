@@ -597,7 +597,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
       setSoftDeleteError(
         deletionsResult.reason?.response?.data?.error
         || deletionsResult.reason?.message
-        || 'Failed to load deleted items.'
+        || 'That did not load.'
       );
     }
 
@@ -1062,7 +1062,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
 
     const rowsToAdd = safeRows.filter((row) => !attachedIdsByType[row.type]?.has(String(row.id)));
     if (rowsToAdd.length === 0) {
-      setToast({ message: 'All selected items are already attached.', tone: 'success' });
+      setToast({ message: 'Everything selected is already attached.', tone: 'success' });
       return;
     }
 
@@ -1289,7 +1289,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
       <div className="ui-surface-card concept-outline__workspace">
         <SectionHeader
           title="Workspace"
-          subtitle="Attached material only. Build a readable outline by moving items through stages."
+          subtitle="Attached material only. Build a readable outline by moving notes through stages."
           action={(
             <div className="concept-outline__workspace-actions">
               <Button
@@ -1850,7 +1850,7 @@ const ConceptNotebook = ({ concept, autoScoutToken = 0 }) => {
                       ? 'Adding…'
                       : selectedRows.length > 0
                         ? `Add selected (${selectedRows.length})`
-                        : 'Select items to add'}
+                        : 'Select what to add'}
                   </Button>
                 </div>
 

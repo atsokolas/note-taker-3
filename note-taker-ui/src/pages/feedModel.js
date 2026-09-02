@@ -63,6 +63,9 @@ export const rankFeedTopics = (folders = [], articles = []) => {
       return {
         id: String(folder._id),
         name: normalizeSpaces(folder.name),
+        // Already counted to decide whether this folder speaks at all; the
+        // desk line needs the same number, so it stops being thrown away.
+        open: open.length,
         arrivedAt: arrivedAt(newest)
       };
     })

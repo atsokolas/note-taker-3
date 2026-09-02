@@ -48,7 +48,7 @@ const AgentLaunchLinkCard = ({ compact = false }) => {
       });
       setCreated(data);
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to create agent launch link.');
+      setError(err?.response?.data?.error || 'That did not save.');
     } finally {
       setCreating(false);
     }

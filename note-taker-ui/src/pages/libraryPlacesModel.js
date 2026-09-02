@@ -16,6 +16,7 @@ export const feedPlaces = (topics = []) => (Array.isArray(topics) ? topics : [])
   .map((topic) => ({
     id: String(topic?.id || '').trim(),
     name: String(topic?.name || '').replace(/\s+/g, ' ').trim(),
+    open: Number.isFinite(Number(topic?.open)) ? Number(topic.open) : null,
     href: feedPlaceHref(topic?.id)
   }))
   .filter((topic) => topic.id && topic.name);

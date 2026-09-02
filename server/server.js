@@ -5440,6 +5440,7 @@ app.use(buildSystemLoopRouter({
 app.use(buildDecisionIndexRouter({
   authenticateToken: authenticateUserOrAgentToken,
   WikiPage,
+  User,
   Article,
   NotebookEntry,
   Question,

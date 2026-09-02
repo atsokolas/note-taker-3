@@ -187,7 +187,7 @@ const WikiOnboarding = () => {
       markComplete();
       setStep('hook');
     } catch (err) {
-      setError(err?.message || 'Could not add that starter pack.');
+      setError(err?.message || 'That did not save.');
       setStep('feed');
     } finally {
       setBusy(false);

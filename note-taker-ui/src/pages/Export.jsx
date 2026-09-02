@@ -27,7 +27,7 @@ const Export = ({ embedded = false }) => {
       setStatus('PDF bundle downloaded.');
     } catch (err) {
       console.error('PDF export failed:', err);
-      setError(err.response?.data?.error || 'Failed to export PDF bundle.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ const Export = ({ embedded = false }) => {
       setStatus('Export downloaded.');
     } catch (err) {
       console.error('Export failed:', err);
-      setError(err.response?.data?.error || 'Failed to export data.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setLoading(false);
     }

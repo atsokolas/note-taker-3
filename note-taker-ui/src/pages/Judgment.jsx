@@ -497,7 +497,6 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
               this time: the week is the only one of the three that is not
               already folded into a room you can reach. */}
           <p className={`judgment__week-door ${enter}`}>
-            <Link to="/week">Your week →</Link>
             <Link to="/judgment/mirror">The Mirror →</Link>
           </p>
         </>

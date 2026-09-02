@@ -74,7 +74,7 @@ const ReturnQueue = () => {
       const updated = await updateReturnQueueEntry(id, payload);
       setEntries(prev => prev.map(entry => (entry._id === id ? updated : entry)));
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update return queue entry.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(id, false);
     }
@@ -145,7 +145,7 @@ const ReturnQueue = () => {
       <PageTitle
         eyebrow="Queue"
         title="Return Queue"
-        subtitle="Defer items and revisit them when they are due."
+        subtitle="Defer a piece and revisit it when it is due."
       />
       <div className="return-queue-toolbar">
         <QuietButton onClick={loadEntries} disabled={loading}>
@@ -153,9 +153,9 @@ const ReturnQueue = () => {
         </QuietButton>
       </div>
       {error && <p className="status-message error-message">{error}</p>}
-      {renderSection('Due now', 'Items ready to revisit.', dueNow)}
+      {renderSection('Due now', 'Ready to revisit.', dueNow)}
       {renderSection('Upcoming', 'Scheduled for later.', upcoming)}
-      {renderSection('Completed', 'Finished queue entries.', completed, false)}
+      {renderSection('Completed', 'Finished.', completed, false)}
     </div>
   );
 };

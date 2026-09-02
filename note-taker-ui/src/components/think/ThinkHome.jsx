@@ -1041,12 +1041,12 @@ const ThinkHome = ({
 
       <div className="think-home__split-grid think-home-editorial__split-grid">
         <section className="think-home__panel think-home-editorial__section">
-          <SectionHeader title="Return queue" subtitle="Items due for re-encounter." />
+          <SectionHeader title="Return queue" subtitle="Due for re-encounter." />
           <div className="think-home__list think-home__list--scannable think-home-editorial-list">
             {queueLoading ? (
               <HomeSkeleton />
             ) : returnQueue.length === 0 ? (
-              <Empty text="No return queue items." />
+              <Empty text="Nothing here yet." />
             ) : (
               returnQueue.map((entry) => (
                 <HomeRow

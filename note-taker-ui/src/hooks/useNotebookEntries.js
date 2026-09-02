@@ -14,7 +14,7 @@ const useNotebookEntries = ({ enabled = true } = {}) => {
       const data = await getNotebookSummaries({ force });
       setEntries(data || []);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load notebook entries.');
+      setError(err.response?.data?.error || 'That did not load.');
     } finally {
       setLoading(false);
     }

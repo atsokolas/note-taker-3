@@ -84,12 +84,6 @@ export const setAsidePileLine = (articles = [], now = Date.now()) => {
   return since ? `${count} at hand · ${since}` : `${count} at hand.`;
 };
 
-export const placementWordLabel = (placement) => {
-  if (placement === PLACEMENT_LATER) return 'Later';
-  if (placement === PLACEMENT_SET_ASIDE) return 'Set aside';
-  return '';
-};
-
 export const articleIdOfSource = (source = {}) => {
   const type = String(source?.type || source?.source?.type || '');
   const row = source?.source || source;

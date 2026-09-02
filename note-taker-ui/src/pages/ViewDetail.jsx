@@ -98,7 +98,7 @@ const ViewDetail = () => {
       setEditMode(false);
       await load();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save view.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

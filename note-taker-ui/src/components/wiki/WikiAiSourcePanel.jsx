@@ -5,7 +5,7 @@ import { buildSourceOpenPath } from '../../utils/sourceRoutes';
 const sourceScopeCopy = {
   entire_library: 'Maintenance uses your entire library.',
   current_item: 'Maintenance will expand beyond the seed item when relevant.',
-  selected_sources: 'Maintenance uses attached sources and relevant library items.'
+  selected_sources: 'Maintenance uses attached sources and relevant sources from Library.'
 };
 
 const statusCopy = {
@@ -24,7 +24,7 @@ const suggestionCopy = {
 };
 
 const healthCopy = {
-  newItems: 'New items affecting this page',
+  newItems: 'New sources affecting this page',
   unsupportedClaims: 'Unsupported claims',
   missingCitations: 'Missing citations',
   staleSections: 'Stale sections',

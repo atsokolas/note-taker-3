@@ -26,7 +26,7 @@ const QuestionModal = ({ open, onClose, onCreated, defaults = {} }) => {
       onCreated?.(res.data);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create question.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }

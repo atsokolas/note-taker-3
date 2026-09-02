@@ -109,7 +109,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
       const data = await mintConceptShare(conceptName);
       setState({ shared: true, slug: data.slug, createdAt: data.createdAt });
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to create share link.');
+      setError(err?.response?.data?.error || 'That did not save.');
     } finally {
       setBusy(false);
     }
@@ -123,7 +123,7 @@ const ConceptShareModal = ({ open, conceptName, onClose }) => {
       await revokeConceptShare(conceptName);
       setState({ shared: false });
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to revoke share.');
+      setError(err?.response?.data?.error || 'That did not save.');
     } finally {
       setBusy(false);
     }

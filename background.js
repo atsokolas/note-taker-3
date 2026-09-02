@@ -31,7 +31,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // Add the new fields here
             author: request.author,
             publicationDate: request.publicationDate,
-            siteName: request.siteName
+            siteName: request.siteName,
+            // Where the reader put it on the card, so it arrives placed.
+            placement: request.placement
           }),
         });
         // --- END MODIFIED FETCH REQUEST ---

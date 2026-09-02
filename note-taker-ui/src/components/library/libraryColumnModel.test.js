@@ -1,4 +1,4 @@
-import { buildLibraryColumn, librarySubject, sourceLabel } from './libraryColumnModel';
+import { buildLibraryColumn, continueLine, librarySubject, sourceLabel } from './libraryColumnModel';
 
 const article = (overrides = {}) => ({
   _id: 'a1',
@@ -106,5 +106,42 @@ describe('librarySubject', () => {
     expect(librarySubject({ count: 12 })).toBe('12 sources on the shelf.');
     expect(librarySubject({ count: 1 })).toBe('1 source on the shelf.');
     expect(librarySubject({ count: 0 })).toBe('Your library.');
+  });
+});
+
+/* Continue remembers the exact place.
+   The furthest point you marked in a piece, and the day you marked it —
+   both derived from highlights that already exist, never a new store. */
+describe('where you left off', () => {
+  const at = '2026-09-01T12:00:00.000Z';
+
+  it('says how far through you were and when', () => {
+    expect(continueLine({ lastPlace: { ratio: 0.4, at } }, new Date('2026-09-03T12:00:00.000Z')))
+      .toBe('You were 40% through, Tuesday.');
+  });
+
+  it('names a day beyond the week by its date, not a stale weekday', () => {
+    expect(continueLine({ lastPlace: { ratio: 0.4, at: '2026-07-02T12:00:00.000Z' } }, new Date('2026-09-03T12:00:00.000Z')))
+      .toBe('You were 40% through, Jul 2.');
+  });
+
+  it('rounds to a number a person would say', () => {
+    expect(continueLine({ lastPlace: { ratio: 0.4444, at } }, new Date('2026-09-03T12:00:00.000Z')))
+      .toContain('44% through');
+  });
+
+  it('says nothing when the place is unknown, rather than nought percent', () => {
+    expect(continueLine({ lastPlace: { ratio: null, at } })).toBe('');
+    expect(continueLine({ lastPlace: null })).toBe('');
+    expect(continueLine({})).toBe('');
+  });
+
+  it('says nothing when you have not marked anything yet', () => {
+    expect(continueLine({ lastPlace: { ratio: 0.4, at: null } })).toBe('');
+  });
+
+  it('never claims you were nowhere, or all the way through', () => {
+    expect(continueLine({ lastPlace: { ratio: 0, at } })).toBe('');
+    expect(continueLine({ lastPlace: { ratio: 1, at } })).toBe('');
   });
 });

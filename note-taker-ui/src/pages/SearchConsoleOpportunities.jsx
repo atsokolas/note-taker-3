@@ -484,7 +484,7 @@ export const buildSearchOpportunityExecutionBrief = (report = {}) => {
       `Source: ${report.source || DEFAULT_SOURCE_LABEL}`,
       report.dateRange ? `Date range: ${report.dateRange}` : '',
       '',
-      'No improve/create opportunity cleared the current threshold. Do not create content from this export yet.',
+      'No improve/create opportunity cleared the current threshold. Do not create anything from this export yet.',
       'Next action: wait for more Google Search Console data or paste a broader query/page export.'
     ].filter(Boolean).join('\n');
   }

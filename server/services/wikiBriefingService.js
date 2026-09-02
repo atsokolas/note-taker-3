@@ -833,6 +833,19 @@ const buildWikiBriefing = async ({
   if (!userId) {
     throw new Error('buildWikiBriefing requires a userId.');
   }
+  /* The day this account began, for the edition number. Read defensively:
+     a paper that cannot number itself simply does not, which is better than
+     one numbered from a guess. */
+  let beganAt = null;
+  try {
+    const account = models.User?.findById
+      ? await models.User.findById(userId).select('createdAt').lean()
+      : null;
+    beganAt = account?.createdAt || null;
+  } catch (_unreadable) {
+    beganAt = null;
+  }
+
   const rawPages = await safeFind(
     models.WikiPage,
     { userId, status: { $ne: 'archived' } },
@@ -935,6 +948,19 @@ const buildWikiBriefing = async ({
 
   return {
     generatedAt: new Date(now).toISOString(),
+    /* When this account began, so the masthead can number the morning. Never
+       resets, so it is read from the account itself rather than counted from
+       anything the reader could delete. */
+    beganAt: beganAt ? new Date(beganAt).toISOString() : null,
+    /* The drift runs on the corpus's clock: fourteen-day buckets counted from
+       the day the account began, so the close lands on the same weekday
+       forever and the masthead can print which day that is. */
+    driftClosesAt: beganAt
+      ? new Date(
+        new Date(beganAt).getTime()
+        + (Math.floor((now - new Date(beganAt).getTime()) / (14 * ONE_DAY_MS)) + 1) * 14 * ONE_DAY_MS
+      ).toISOString()
+      : null,
     summary,
     model,
     aliveness,

@@ -6,6 +6,8 @@ import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder, setArticleEvergreen, setArticlePlacement } from '../api/articles';
 import { setFolderAsFeed } from '../api/folders';
 import { createQuestion } from '../api/questions';
+import { listWikiPages } from '../api/wiki';
+import { forgetLetGo, readLetGo, rememberLetGo } from './letGoReceipt';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -102,6 +104,16 @@ const Library = () => {
   const [organizeLaunching, setOrganizeLaunching] = useState(false);
   const [filingLaunching, setFilingLaunching] = useState(false);
   const [filingReceipt, setFilingReceipt] = useState(null);
+  /* Kept pages and beliefs for the canon, or null until they have been read.
+     Null travels all the way to the shelf so it can stay silent rather than
+     announce an empty canon it has not looked at. */
+  const [keptPages, setKeptPages] = useState(null);
+  /* The last thing let go of, while the way back is still open. */
+  const [letGo, setLetGo] = useState(() => readLetGo());
+  /* The folder something just landed in, for a quarter of a second. Filing is
+     the one move whose destination is off-screen from where you made it, so
+     the cabinet says where the thing went rather than leaving you to look. */
+  const [landedFolderId, setLandedFolderId] = useState('');
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
@@ -454,6 +466,11 @@ const Library = () => {
         );
       }
       closeMoveModal();
+      // Only a landing that actually happened flashes.
+      if (nextFolderId) {
+        setLandedFolderId(nextFolderId);
+        window.setTimeout(() => setLandedFolderId(''), 250);
+      }
       if (scope === 'folder' && nextFolderId !== folderId && selectedArticleId === articleToMove._id) {
         setSelectedArticleId('');
       }
@@ -724,6 +741,7 @@ const Library = () => {
      and the reader's own list has to reflect it without a refetch, because the
      control settles the moment it is pressed. */
   const handleToggleEvergreen = useCallback(async (articleId, evergreen) => {
+    const before = allArticles.find(item => String(item._id) === String(articleId));
     const saved = await setArticleEvergreen(articleId, evergreen);
     const next = Boolean(saved?.evergreen ?? evergreen);
     setAllArticles(current => current.map(item => (
@@ -731,8 +749,24 @@ const Library = () => {
     )));
     libraryRoom.adjustShelfCount?.('keptArticles', next ? 1 : -1);
     libraryRoom.refresh?.();
+    /* Letting go of a vow leaves a receipt rather than a dialog. Keeping
+       something again clears it — the shelf should not narrate a decision the
+       reader has already taken back. */
+    if (!next) {
+      const receipt = { id: String(articleId), title: before?.title || '', at: new Date().toISOString() };
+      rememberLetGo(receipt);
+      setLetGo(readLetGo());
+    } else {
+      forgetLetGo();
+      setLetGo(null);
+    }
     return saved;
-  }, [libraryRoom, setAllArticles]);
+  }, [allArticles, libraryRoom, setAllArticles]);
+
+  const handleUndoLetGo = useCallback(async (receipt) => {
+    if (!receipt?.id) return;
+    await handleToggleEvergreen(receipt.id, true);
+  }, [handleToggleEvergreen]);
 
   const handleTogglePlacement = useCallback(async (articleId, placement) => {
     const known = mergeArticles(
@@ -908,6 +942,34 @@ const Library = () => {
     if (!folder || isProceduralShelf(folder.name)) return null;
     return folder;
   }, [folderId, folders, scope]);
+  /* The canon is the only shelf that reaches outside the article store, so it
+     is the only one that fetches — and only while it is the shelf on screen. */
+  useEffect(() => {
+    if (scope !== 'kept') return undefined;
+    let cancelled = false;
+    setKeptPages(null);
+    /* Only the kept, and only the fields a shelf row renders. Asking for the
+       whole corpus and filtering in the browser was a full scan the server
+       has an index to avoid. */
+    /* Only the kept, and only the fields a shelf row renders. Asking for the
+       whole corpus and filtering in the browser was a full scan the server
+       has an index to avoid — it hung for forty-five seconds on a real one.
+       summary rides along so this is still cheap against a server that has
+       not learned `projection=canon` yet: the canon then renders sources
+       alone and stays quiet about the total, rather than hanging. */
+    listWikiPages({ evergreen: 1, projection: 'canon', summary: 1, limit: 200 })
+      .then((pages) => {
+        if (cancelled) return;
+        setKeptPages((Array.isArray(pages) ? pages : []).filter(page => page?.evergreen));
+      })
+      .catch(() => {
+        // A shelf we could not read is not an empty shelf, so it keeps saying
+        // nothing rather than reporting a canon of none.
+        if (!cancelled) setKeptPages(null);
+      });
+    return () => { cancelled = true; };
+  }, [scope]);
+
   const keptCount = useMemo(
     () => libraryTotalsReady
       ? projectedShelfCounts?.keptArticles
@@ -1078,6 +1140,7 @@ const Library = () => {
           Highlights is a shelf like any other; choosing it puts you in your
           highlights with the same folders alongside. */}
       <LibraryShelfNav
+        landedFolderId={landedFolderId}
         count={corpusTotal}
         folders={folders}
         folderCounts={folderCounts}
@@ -1156,6 +1219,9 @@ const Library = () => {
               query={articleQuery}
               onQueryChange={handleArticleQueryChange}
               onSelectArticle={handleSelectArticle}
+              keptPages={keptPages}
+              letGo={letGo}
+              onUndoLetGo={handleUndoLetGo}
               entering={columnEntering}
             />
           ) : (

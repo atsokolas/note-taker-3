@@ -138,3 +138,35 @@ describe('sentence-flight onto the piles', () => {
     expect(title.closest('.library-pile')).toHaveClass('is-warm');
   });
 });
+
+/* The stack counts materially: one drawn folio edge per piece up to five,
+   then 5+, because a pile that looks the same at six as at sixty is lying
+   about its weight. */
+describe('the Set aside stack', () => {
+  const parked = (n) => Array.from({ length: n }, (_, i) => ({
+    _id: `s${i}`,
+    title: `Piece ${i}`,
+    placement: 'setAside',
+    placementAt: `2026-09-0${(i % 9) + 1}T12:00:00.000Z`
+  }));
+
+  const edges = () => document.querySelectorAll('.library-pile__leaf').length;
+
+  it('draws one edge per piece', () => {
+    render(<LibraryPiles articles={parked(3)} />);
+    expect(edges()).toBe(3);
+    expect(screen.queryByText('5+')).toBeNull();
+  });
+
+  it('stops drawing at five and says how it stopped', () => {
+    render(<LibraryPiles articles={parked(9)} />);
+    expect(edges()).toBe(5);
+    expect(screen.getByText('5+')).toBeInTheDocument();
+  });
+
+  it('does not say 5+ at exactly five', () => {
+    render(<LibraryPiles articles={parked(5)} />);
+    expect(edges()).toBe(5);
+    expect(screen.queryByText('5+')).toBeNull();
+  });
+});

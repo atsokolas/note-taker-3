@@ -1710,6 +1710,20 @@ const WIKI_JUDGMENT_INDEX_FIELDS = Object.freeze([
   ...WIKI_JUDGMENT_FIELDS
 ]);
 
+/* Exactly what a row on the canon renders, and nothing else.
+   A kept thing on the shelf is a title, the day it was kept, the belief if it
+   holds one, and enough of its claims to know whether that belief was retired
+   in a check-in. The summary projection carries none of the judgment, so a
+   kept belief came back looking like an ordinary page and lost its claim; the
+   judgment projection carries source refs the shelf never shows. A surface
+   with its own needs gets its own projection rather than widening one that
+   other surfaces are already paying for. */
+const WIKI_CANON_FIELDS = Object.freeze([
+  '_id', 'slug', 'title', 'evergreen', 'evergreenAt', 'createdAt', 'updatedAt',
+  'judgment.currentJudgment', 'judgment.governingQuestion',
+  'claims.claimId', 'claims.checkInStatus', 'claims.retiredAt'
+]);
+
 const WIKI_PAGE_SUMMARY_FIELDS = Object.freeze([
   '_id', 'slug', 'title', 'pageType', 'status', 'visibility', 'createdFrom',
   'plainText', 'freshness', 'publicProof', 'lastReviewedAt', 'hiddenFromHome',
@@ -1756,6 +1770,8 @@ const PUBLIC_WIKI_PAGE_SELECT = [
 const buildWikiRouter = ({
   authenticateToken,
   WikiPage,
+  /* Only for the masthead's edition number: the day the account began. */
+  User = null,
   WikiProposal = null,
   WikiRevision = null,
   WikiLintRun = null,
@@ -3677,8 +3693,18 @@ const buildWikiRouter = ({
       }
       const includeLowQuality = ['1', 'true', 'yes'].includes(String(req.query.includeLowQuality || '').toLowerCase());
       const projection = String(req.query.projection || '').trim().toLowerCase();
-      if (projection && projection !== 'judgment') {
-        return res.status(400).json({ error: 'projection must be judgment when provided.' });
+      /* The gate has to know every projection the selection below offers, or a
+         surface asking for its own fields is refused before it reaches them —
+         which is exactly what the canon got on its first live request. */
+      if (projection && !['judgment', 'canon'].includes(projection)) {
+        return res.status(400).json({ error: 'projection must be judgment or canon when provided.' });
+      }
+      /* The canon asks only for what was kept. wikiPageSchema already carries
+         { userId, evergreen, updatedAt } for exactly this, and without the
+         filter the shelf was pulling every page the account has ever had —
+         a full scan that took long enough on a real corpus to never finish. */
+      if (['1', 'true', 'yes'].includes(String(req.query.evergreen || '').toLowerCase())) {
+        query.evergreen = true;
       }
       if (status?.value) query.status = status.value;
       else query.status = { $ne: 'archived' };
@@ -3722,7 +3748,9 @@ const buildWikiRouter = ({
       );
       pagesQuery = pagesQuery.limit(scanLimit);
       if (pagesQuery.select) {
-        if (projection === 'judgment') {
+        if (projection === 'canon') {
+          pagesQuery = pagesQuery.select(WIKI_CANON_FIELDS.join(' '));
+        } else if (projection === 'judgment') {
           pagesQuery = pagesQuery.select(WIKI_JUDGMENT_INDEX_FIELDS.join(' '));
         } else if (summaryOnly) {
           pagesQuery = pagesQuery.select(WIKI_PAGE_SUMMARY_FIELDS.join(' '));
@@ -8201,7 +8229,9 @@ const buildWikiRouter = ({
           WikiRevision,
           WikiMaintenanceRun,
           WikiSourceEvent,
-          Connection
+          Connection,
+          // The masthead numbers the morning from the day the account began.
+          User
         },
         now,
         windowMs: windowDays * 24 * 60 * 60 * 1000

@@ -58,7 +58,7 @@ const CollectionDetail = () => {
       await load();
     } catch (err) {
       console.error('Error updating collection:', err);
-      setError(err.response?.data?.error || 'Failed to update collection.');
+      setError(err.response?.data?.error || 'That did not save.');
     } finally {
       setSaving(false);
     }
@@ -100,7 +100,7 @@ const CollectionDetail = () => {
       navigate('/collections');
     } catch (err) {
       console.error('Error deleting collection:', err);
-      setError(err.response?.data?.error || 'Failed to delete.');
+      setError(err.response?.data?.error || 'That did not save.');
     }
   };
 

@@ -299,3 +299,38 @@ describe('verdict tally', () => {
       .toBe('broke · 2nd · evidence');
   });
 });
+
+/* One pulse across all sections, in the order the brief sets:
+   consequence → weekend lead → daily lead → verdict → check-in → asked-back.
+   The drift never takes it, because the drift asks nothing of anyone. */
+describe('the one pulse', () => {
+  const withWeekend = { weekendLead: { headline: 'Two ends met.', verified: true } };
+
+  it('gives the weekend the pulse over the day, on the day it prints', () => {
+    expect(morningPulseTarget({ briefing: withWeekend })).toBe('weekend');
+  });
+
+  it('still lets a consequence outrank the weekend', () => {
+    expect(morningPulseTarget({
+      briefing: {
+        ...withWeekend,
+        consequence: {
+          eventId: 'e1', pageId: 'p1', claimId: 'c1',
+          prior: 'Compute stays scarce.',
+          proposed: 'Compute stays scarce for training silicon.',
+          passage: 'Capacity additions slipped a quarter.'
+        }
+      }
+    })).toBe('consequence');
+  });
+
+  it('never gives the pulse to the drift, which asks nothing', () => {
+    expect(morningPulseTarget({
+      briefing: { drift: { sentence: 'You have been reading east.', sources: 40 } }
+    })).toBe('');
+  });
+
+  it('leaves a quiet morning unlit rather than lighting something to have a light', () => {
+    expect(morningPulseTarget({ briefing: {} })).toBe('');
+  });
+});

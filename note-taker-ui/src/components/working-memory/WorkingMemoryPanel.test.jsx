@@ -32,7 +32,7 @@ describe('WorkingMemoryPanel', () => {
     await waitFor(() => expect(getConcepts).toHaveBeenCalled());
 
     expect(screen.getByPlaceholderText(/Scratch freely/i)).toBeInTheDocument();
-    expect(screen.getByText('No dumped items yet.')).toBeInTheDocument();
+    expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Collapse Working Memory/i }));
     expect(screen.queryByPlaceholderText(/Scratch freely/i)).not.toBeInTheDocument();
