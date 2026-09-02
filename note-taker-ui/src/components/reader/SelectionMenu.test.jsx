@@ -63,8 +63,8 @@ describe('SelectionMenu', () => {
   });
 
   /* Two things you can do to a sentence: keep it, or ask about it. There were
-     four buttons and a tag field, which asked you to decide what kind of thing
-     the sentence was before you had finished reading the paragraph. */
+     once four buttons and a tag field, which asked you to decide what kind of
+     thing the sentence was before you had finished reading the paragraph. */
   it('positions itself above the selection and offers keeping it or asking about it', () => {
     render(<SelectionMenu {...baseProps} />);
     const menu = screen.getByRole('menu');
@@ -73,9 +73,31 @@ describe('SelectionMenu', () => {
     expect(menu.style.left).toBe('440px');
     expect(screen.getByRole('button', { name: 'Highlight' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ask about this' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(2);
     expect(screen.queryByPlaceholderText(/Tags/i)).toBeNull();
-    expect(screen.queryByRole('button', { name: /Highlight in /i })).toBeNull();
+  });
+
+  /* The inks are for a reader who keeps a taxonomy of their own. They come
+     after the two actions, because choosing a colour is the rarer thing. */
+  it('offers five inks, and keeps in the default when none is chosen', () => {
+    const onHighlight = jest.fn();
+    render(<SelectionMenu {...baseProps} onHighlight={onHighlight} />);
+
+    const inks = screen.getAllByRole('button', { name: /^Highlight in / });
+    expect(inks).toHaveLength(5);
+    expect(inks.map(ink => ink.getAttribute('title')))
+      .toEqual(['Yellow', 'Peach', 'Sage', 'Sky', 'Lilac']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight' }));
+    expect(onHighlight).toHaveBeenCalledWith();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Highlight in sage' }));
+    expect(onHighlight).toHaveBeenLastCalledWith('#cfe3b4');
+  });
+
+  it('will not offer an ink while a save is already in flight', () => {
+    render(<SelectionMenu {...baseProps} saving />);
+    screen.getAllByRole('button', { name: /^Highlight in / })
+      .forEach(ink => expect(ink).toBeDisabled());
   });
 
   it('drives --selection-menu-x toward the pointer when motion is allowed', () => {

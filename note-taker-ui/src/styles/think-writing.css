@@ -1,3 +1,10 @@
+/* One state, two causes.
+
+   The rails go away while you are writing, and they go away while focus mode
+   is held. Those are different reasons and the same result, so the stylesheet
+   knows one class and the page decides when to wear it — rather than every
+   rule below being written twice, once per reason. */
+
 /* The notebook is a document, not a form inside a card. Keep this contract
    beside the shared editor so every Think route gets the same writing feel. */
 body.noeis-editorial .think-notebook-editor-pane,
@@ -137,21 +144,21 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    body.think-writing-active .think-notes {
+    body.think-rails-away .think-notes {
       grid-template-columns: 30px minmax(420px, 1fr) 30px;
       gap: 18px;
     }
 
-    body.think-writing-active .think-notes__note {
+    body.think-rails-away .think-notes__note {
       width: 100%;
       justify-self: center;
     }
 
-    body.think-writing-active .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+    body.think-rails-away .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
       grid-template-columns: minmax(180px, 220px) minmax(420px, 1fr) 30px;
     }
 
-    body.think-writing-active .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+    body.think-rails-away .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
       grid-template-columns: 30px minmax(420px, 1fr) minmax(230px, 280px);
     }
   }
@@ -165,16 +172,16 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    body.think-writing-active .notebook-editorial-shell {
+    body.think-rails-away .notebook-editorial-shell {
       grid-template-columns: 30px minmax(0, 1fr) 30px;
       gap: 18px;
     }
 
-    body.think-writing-active .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+    body.think-rails-away .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
       grid-template-columns: 250px minmax(0, 1fr) 30px;
     }
 
-    body.think-writing-active .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+    body.think-rails-away .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
       grid-template-columns: 30px minmax(0, 1fr) 300px;
     }
   }
@@ -199,14 +206,14 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     transition-delay: 48ms;
   }
 
-  body.think-writing-active [data-writing-rail] {
+  body.think-rails-away [data-writing-rail] {
     position: relative;
     overflow: hidden;
     cursor: pointer;
   }
 
   /* Writing / fade-out: slightly quicker, ease-in-out so hide does not snap. */
-  body.think-writing-active [data-writing-rail] > * {
+  body.think-rails-away [data-writing-rail] > * {
     opacity: 0;
     transition:
       opacity 540ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -214,20 +221,20 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    body.think-writing-active [data-writing-rail] > * {
+    body.think-rails-away [data-writing-rail] > * {
       transform: translateX(var(--think-rail-retreat));
     }
   }
 
-  body.think-writing-active [data-writing-rail='left'] {
+  body.think-rails-away [data-writing-rail='left'] {
     --think-rail-retreat: -4px;
   }
 
-  body.think-writing-active [data-writing-rail='right'] {
+  body.think-rails-away [data-writing-rail='right'] {
     --think-rail-retreat: 4px;
   }
 
-  body.think-writing-active [data-writing-rail]::after {
+  body.think-rails-away [data-writing-rail]::after {
     position: absolute;
     top: min(30vh, 240px);
     display: block;
@@ -245,32 +252,32 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
     transition: opacity 540ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  body.think-writing-active [data-writing-rail='left']::after {
+  body.think-rails-away [data-writing-rail='left']::after {
     right: 3px;
     transform: rotate(180deg);
   }
 
-  body.think-writing-active [data-writing-rail='right']::after {
+  body.think-rails-away [data-writing-rail='right']::after {
     left: 3px;
   }
 
-  body.think-writing-active [data-writing-rail='right'] > *,
-  body.think-writing-active [data-writing-rail='right']::after {
+  body.think-rails-away [data-writing-rail='right'] > *,
+  body.think-rails-away [data-writing-rail='right']::after {
     transition-delay: 48ms;
   }
 
-  body.think-writing-active [data-writing-rail]:is(:hover, :focus-within) {
+  body.think-rails-away [data-writing-rail]:is(:hover, :focus-within) {
     overflow: visible;
     cursor: default;
   }
 
-  body.think-writing-active [data-writing-rail]:is(:hover, :focus-within) > * {
+  body.think-rails-away [data-writing-rail]:is(:hover, :focus-within) > * {
     opacity: 1;
     transform: none;
     transition-delay: 0ms;
   }
 
-  body.think-writing-active [data-writing-rail]:is(:hover, :focus-within)::after {
+  body.think-rails-away [data-writing-rail]:is(:hover, :focus-within)::after {
     opacity: 0;
     transition-delay: 0ms;
   }
@@ -290,13 +297,13 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   }
 
   [data-writing-rail] > *,
-  body.think-writing-active [data-writing-rail] > * {
+  body.think-rails-away [data-writing-rail] > * {
     transform: none;
     transition: opacity 80ms ease;
   }
 
   [data-writing-rail]::after,
-  body.think-writing-active [data-writing-rail]::after {
+  body.think-rails-away [data-writing-rail]::after {
     transition: opacity 80ms ease;
   }
 
@@ -309,4 +316,35 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
   .think-notebook-editor__body::after {
     display: none;
   }
+}
+
+
+/* The hold, above the room's own name. Quiet at rest and plainly on when it
+   is on, because a mode you cannot tell is running is a mode you will forget
+   you turned on. */
+.think-focus-mode {
+  justify-self: start;
+  margin: 0 0 14px;
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.think-focus-mode:hover,
+.think-focus-mode:focus-visible {
+  outline: none;
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: currentColor;
+}
+
+.think-focus-mode.is-held {
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: var(--noeis-pointer, #6f87ff);
 }

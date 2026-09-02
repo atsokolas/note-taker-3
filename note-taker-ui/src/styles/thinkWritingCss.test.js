@@ -13,7 +13,7 @@ describe('Think writing focus mode', () => {
 
   it('fades rails in and out instead of snapping them away', () => {
     expect(css).toMatch(/\[data-writing-rail\] > \*[\s\S]*?transition:[\s\S]*?opacity 680ms cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
-    expect(css).toMatch(/body\.think-writing-active \[data-writing-rail\] > \*[\s\S]*?opacity: 0;[\s\S]*?opacity 540ms cubic-bezier\(0\.4, 0, 0\.2, 1\)/);
+    expect(css).toMatch(/body\.think-rails-away \[data-writing-rail\] > \*[\s\S]*?opacity: 0;[\s\S]*?opacity 540ms cubic-bezier\(0\.4, 0, 0\.2, 1\)/);
     expect(css).toMatch(/grid-template-columns 720ms var\(--noeis-ease-standard/);
     expect(css).toContain('--think-rail-retreat: -4px;');
     expect(css).toContain('--think-rail-retreat: 4px;');
@@ -23,11 +23,11 @@ describe('Think writing focus mode', () => {
 
   it('staggers the two rails so they do not dissolve as one slab', () => {
     expect(css).toMatch(/\[data-writing-rail='right'\] > \*[\s\S]*?transition-delay: 48ms;/);
-    expect(css).toMatch(/body\.think-writing-active \[data-writing-rail\]:is\(:hover, :focus-within\) > \*[\s\S]*?transition-delay: 0ms;/);
+    expect(css).toMatch(/body\.think-rails-away \[data-writing-rail\]:is\(:hover, :focus-within\) > \*[\s\S]*?transition-delay: 0ms;/);
   });
 
   it('keeps a short opacity fade under reduced motion and skips rail retreat motion', () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body\.think-writing-active \[data-writing-rail\]::after/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*body\.think-rails-away \[data-writing-rail\]::after/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: opacity 80ms/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*transform: none/);
   });

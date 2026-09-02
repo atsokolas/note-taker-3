@@ -452,7 +452,8 @@ const NotebookEditor = ({
     window.requestAnimationFrame?.(() => editor?.commands.focus('end'));
   };
 
-  useThinkWritingActivity(editor, { enabled: editingBody });
+  /* A picker open is still writing — see the hook. */
+  useThinkWritingActivity(editor, { enabled: editingBody, reaching: Boolean(insertMode) });
 
   const slashCommands = useSlashCommands({
     editor,

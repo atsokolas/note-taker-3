@@ -1,7 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import useThinkWritingActivity, { THINK_WRITING_IDLE_MS } from './useThinkWritingActivity';
 
-const WRITING_CLASS = 'think-writing-active';
+const WRITING_CLASS = 'think-rails-away';
 
 const createEditor = () => {
   const handlers = {};

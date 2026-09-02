@@ -929,6 +929,11 @@ const Library = () => {
   /* Kept reads like the shelf, because it is the shelf — a narrower one. */
   const isDedicatedShelf = !isReadingView && ['kept', 'later', 'set-aside'].includes(scope);
   const isFeedColumn = !isReadingView && scope === 'feed';
+  /* 720px is a reading measure — the line length prose wants. Highlights is
+     not prose: it is a filter bar and a grid of cards, and inside the measure
+     it sat two hundred pixels narrower than the room it was in, indented from
+     both edges for no reason anyone could see. A list gets the room. */
+  const isListView = !isReadingView && scope === 'highlights';
   const feedFolder = useMemo(() => {
     if (scope !== 'feed') return null;
     const fromCabinet = folders.find((item) => item._id === topicId);
@@ -1198,7 +1203,7 @@ const Library = () => {
             other scope — folders, unfiled, highlights — because those are its
             own views and the lock does not redraw them. */}
         <div
-          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isDedicatedShelf || isFeedColumn ? 'is-shelf' : ''}`}
+          className={`library-reader ${readingEntering ? 'wfp-anim wfp-anim--1' : ''} ${isDedicatedShelf || isFeedColumn || isListView ? 'is-shelf' : ''}`}
           data-testid="library-main"
         >
           {isFeedColumn ? (

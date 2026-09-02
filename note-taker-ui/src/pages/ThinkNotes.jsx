@@ -5,6 +5,7 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
 import { clearNotebookCache, getNotebookShelf } from '../api/notebook';
 import NotebookEditor from '../components/think/notebook/NotebookEditor';
 import ThoughtPartnerPanel from '../components/agent/ThoughtPartnerPanel';
+import FocusMode from '../components/think/FocusMode';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -171,6 +172,7 @@ const ThinkNotes = () => {
         data-writing-rail="left"
         data-writing-rail-label="Notes"
         label="Think"
+        masthead={<FocusMode />}
         count={loading ? undefined : notes.length}
         search={shelfQuery}
         searchLabel="Find a note"

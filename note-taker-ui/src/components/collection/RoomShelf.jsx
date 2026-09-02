@@ -12,12 +12,16 @@ export const RoomShelf = ({
   searchLabel,
   searchPlaceholder,
   searchTestId,
+  masthead,
   onSearchChange,
   className = '',
   children,
   ...props
 }) => (
   <Element className={join('room-shelf', className)} {...props}>
+    {/* Above the room's own name: anything that acts on the room rather than
+        living in it. */}
+    {masthead || null}
     <div className="room-shelf__heading">
       <p className="room-shelf__eyebrow">{label}</p>
       {Number.isFinite(count) ? <span className="room-shelf__count">{count}</span> : null}
