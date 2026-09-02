@@ -24,9 +24,15 @@ const useLibraryArticles = ({ scope, folderId, query = '', sort = 'recent', incl
     setLoading(true);
     setError('');
     try {
+      /* The piles read as a feed, and a feed row shows enough of the piece to
+         decide by — so those shelves ask for the opening the way the screened
+         folder already did. Nothing else does: the body of every source in a
+         three-hundred-source library is not a page load, it is a download. */
+      const wantsPreview = scope === 'feed' || scope === 'later' || scope === 'set-aside';
       const data = await getArticles({
         scope: scope === 'feed' ? 'folder' : 'all',
-        ...(scope === 'feed' ? { folderId, includePreview: true } : {}),
+        ...(scope === 'feed' ? { folderId } : {}),
+        ...(wantsPreview ? { includePreview: true } : {}),
         includeSuppressed
       });
       const next = data || [];

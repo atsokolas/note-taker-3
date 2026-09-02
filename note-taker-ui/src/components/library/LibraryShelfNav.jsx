@@ -68,9 +68,6 @@ const LibraryShelfNav = ({
   folderId = '',
   sourceView = 'recent',
   unfiledCount,
-  keptCount,
-  laterCount,
-  setAsideCount,
   feedTopics = [],
   query = '',
   onQueryChange,
@@ -153,49 +150,6 @@ const LibraryShelfNav = ({
             onSelect={onSelectFolder}
           />
         ))}
-        {/* Directly under everything, because it is a cut of everything and
-            not a folder among folders: what you decided to hold for life.
-
-            It is here even when it is empty. Hiding it until something was
-            kept meant the shelf could only be found by someone who had already
-            used a control they could not find either — the section taught
-            nobody it existed, and the empty shelf is where it explains
-            itself. */}
-        <li className={`library-shelf__kept${keptCount === 0 ? ' is-empty' : ''}`}>
-          <RoomShelfButton
-            active={scope === 'kept'}
-            onClick={() => onSelectScope?.('kept')}
-          >
-            <span>Kept</span>
-            {Number.isFinite(keptCount) ? (
-              <RoomShelfMeta className={keptCount > 0 ? 'is-ticking' : undefined} key={keptCount}>
-                {keptCount}
-              </RoomShelfMeta>
-            ) : null}
-          </RoomShelfButton>
-        </li>
-        <li className={`library-shelf__later${laterCount === 0 ? ' is-empty' : ''}`}>
-          <RoomShelfButton
-            active={scope === 'later'}
-            onClick={() => onSelectScope?.('later')}
-          >
-            <span>Later</span>
-            {Number.isFinite(laterCount) && laterCount > 0 ? (
-              <RoomShelfMeta>{laterCount}</RoomShelfMeta>
-            ) : null}
-          </RoomShelfButton>
-        </li>
-        <li className={`library-shelf__set-aside${setAsideCount === 0 ? ' is-empty' : ''}`}>
-          <RoomShelfButton
-            active={scope === 'set-aside'}
-            onClick={() => onSelectScope?.('set-aside')}
-          >
-            <span>Set aside</span>
-            {Number.isFinite(setAsideCount) && setAsideCount > 0 ? (
-              <RoomShelfMeta>{setAsideCount}</RoomShelfMeta>
-            ) : null}
-          </RoomShelfButton>
-        </li>
         <li>
           <RoomShelfButton
             active={scope === 'unfiled'}

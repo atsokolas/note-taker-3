@@ -5841,12 +5841,25 @@ a.notebook-ref-title:focus-visible {
   gap: 8px;
 }
 
+/* Choosing something to bring in is choosing a line from a list.
+
+   These were grey rounded cards stacked inside a cream dialog, drawn with the
+   pre-editorial greys the rest of the product stopped using — so the thing you
+   were picking from looked like it came from a different application than the
+   page you were picking it into. The command palette next door has always
+   drawn this exact list as rows on paper with a little ink on the one you are
+   on. Same job, same drawing. */
 .modal-content--insert .modal-highlight-item {
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-  border-radius: 12px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  transition: border-color 180ms ease-out, background-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle)) 70%, transparent);
+  border-radius: 0;
+  background: none;
+  transition: background-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.modal-content--insert .modal-highlight-item:last-child {
+  border-bottom: 0;
 }
 
 .modal-content--insert .modal-highlight-item.is-clickable {
@@ -5856,10 +5869,8 @@ a.notebook-ref-title:focus-visible {
 
 .modal-content--insert .modal-highlight-item.is-clickable:hover,
 .modal-content--insert .modal-highlight-item.is-clickable:focus-visible {
-  border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--accent) 18%);
-  background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 8%);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(28, 24, 18, 0.10);
+  background: color-mix(in srgb, var(--noeis-ink, #1c1a17) 5%, transparent);
+  box-shadow: inset 2px 0 0 0 var(--noeis-ink, #1c1a17);
   outline: none;
 }
 

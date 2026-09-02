@@ -48,11 +48,33 @@ describe('five clocks are facts, not a log', () => {
     expect(fact.recordHash).toMatch(/^[a-f0-9]{64}$/);
     const explained = explainDate(fact);
     expect(explained.label).toBe('When the world spoke');
-    expect(explained.when).toBe('March 1, 2026');
+    expect(explained.when).toBe('Mar 1, 2026');
     expect(explained.when).not.toMatch(/12:00/);
     expect(explained.late).toBe(true);
     expect(explained.lateNote).toMatch(/Written down/);
-    expect(explained.precisionNote).toMatch(/hour is not/);
+    // No row shows an hour any more, so there is no missing hour to explain.
+    expect(explained.precisionNote).toBe('');
+  });
+
+  it('prints a second-precise record as a day, without the clock face', () => {
+    const explained = explainDate({
+      clock: 'decision',
+      occurredAt: new Date('2026-08-18T14:20:36.000Z'),
+      authoredBy: 'user'
+    });
+    expect(explained.precision).toBe('exact');
+    expect(explained.when).toBe('Aug 18, 2026');
+    expect(explained.when).not.toMatch(/UTC|:/);
+  });
+
+  it('still refuses to print a day it does not have', () => {
+    const month = explainDate({
+      clock: 'evidence',
+      occurredAt: new Date('2026-03-01T12:00:00.000Z'),
+      precision: 'month'
+    });
+    expect(month.when).toBe('Mar 2026');
+    expect(month.precisionNote).toBe('The month is known; the day is not.');
   });
 
   it('refuses a fabricated hour when the day is unknown', () => {

@@ -1150,9 +1150,6 @@ const Library = () => {
         folderId={shelfFolderId}
         sourceView={sourceView}
         unfiledCount={unfiledCount}
-        keptCount={keptCount}
-        laterCount={laterCount}
-        setAsideCount={setAsideCount}
         feedTopics={libraryRoom.feedTopics}
         query={articleQuery}
         onQueryChange={handleArticleQueryChange}
@@ -1164,7 +1161,13 @@ const Library = () => {
       />
       <div className="library-page-shell__column">
         {!isReadingView ? (
-          <LibraryPlaces feedTopics={libraryRoom.feedTopics} />
+          <LibraryPlaces
+            feedTopics={libraryRoom.feedTopics}
+            later={laterCount}
+            setAside={setAsideCount}
+            kept={keptCount}
+            scope={scope}
+          />
         ) : null}
         <div className="library-page-shell__column-head">
           {isReadingView ? (

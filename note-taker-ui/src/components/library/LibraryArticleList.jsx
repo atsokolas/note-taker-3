@@ -48,6 +48,23 @@ const getHighlightExcerpt = (article) => {
   return trimExcerpt(first.text || first.quote || first.content || '');
 };
 
+/**
+ * Enough of a piece to judge it by.
+ *
+ * A line the reader marked themselves comes first, because they already told
+ * us what mattered in the piece. Failing that, its opening sentence.
+ *
+ * This read five fields for a stored summary and nothing else, and an article
+ * carries none of them — not on the schema, not in the projection. So for
+ * every source without a highlight it returned nothing at all, silently, which
+ * is why the Library's rows had no previews and the Continue card had no
+ * standfirst. The opening has been travelling the whole time, on a field named
+ * `firstGraph`: the server cuts it at a sentence boundary and drops the body,
+ * so the reading itself never leaves. Nobody was reading it.
+ *
+ * It only arrives when the caller asked for a preview, so a surface that does
+ * not show one does not pay for one.
+ */
 export const getExcerpt = (article) => {
   const raw = article?.summary || article?.description || article?.excerpt || article?.previewText || article?.snippet || '';
   const fromFields = trimExcerpt(raw);
@@ -56,11 +73,7 @@ export const getExcerpt = (article) => {
   const fromHighlight = getHighlightExcerpt(article);
   if (fromHighlight) return fromHighlight;
 
-  if (getHighlightCount(article) > 0 || getArticleTags(article).length > 0) {
-    return '';
-  }
-
-  return '';
+  return trimExcerpt(article?.firstGraph || '');
 };
 
 /**

@@ -979,10 +979,15 @@ body.noeis-editorial .library-highlights-surface {
   box-shadow: none !important;
 }
 
-/* The scrim behind a dialog is ink on paper, not stage black. */
+/* The scrim behind a dialog is ink on paper, not stage black — and so is the
+   shadow it casts. */
 body.noeis-editorial .modal-overlay {
   background-color: color-mix(in srgb, var(--vellum-ink, #1c1a17) 22%, transparent);
   backdrop-filter: blur(2px);
+}
+
+body.noeis-editorial .modal-content {
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--vellum-ink, #1c1a17) 12%, transparent);
 }
 
 body.noeis-editorial .three-pane__left {
@@ -1250,12 +1255,15 @@ body.noeis-editorial .working-memory-panel {
    running prose now threads into the measure instead of interrupting it,
    which is the whole reason the reading column is set the way it is.
 
+   Wrapped in :where() so the exclusions cost no specificity — a bare chain
+   of :not() outranks the named chrome rule below it and quietly wins.
+
    The controls that are not writing surfaces — a checkbox, a radio, the
    ledger's time cursor — keep their own shapes. A tick box ruled like a
    sentence is not a tick box. */
 body.noeis-editorial textarea,
 body.noeis-editorial select,
-body.noeis-editorial input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']) {
+body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'])) {
   border: 0 !important;
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
   border-radius: 0 !important;
@@ -1267,7 +1275,7 @@ body.noeis-editorial input:not([type='checkbox']):not([type='radio']):not([type=
 /* The line inks while you are writing on it. */
 body.noeis-editorial textarea:focus,
 body.noeis-editorial select:focus,
-body.noeis-editorial input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):focus {
+body.noeis-editorial input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'])):focus {
   outline: none;
   border-bottom-color: var(--vellum-ink) !important;
 }

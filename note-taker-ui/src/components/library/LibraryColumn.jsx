@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { describeLetGo } from '../../pages/letGoReceipt';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import { buildLibraryColumn } from './libraryColumnModel';
+import { getExcerpt } from './LibraryArticleList';
+import { normalizeSpaces } from '../../utils/editorialText';
 import {
   buildEvergreenIndex,
   evergreenHref,
@@ -26,6 +28,21 @@ import '../../styles/library-column.css';
 
 const CHROME_STORE_LINK = 'https://chromewebstore.google.com/detail/noeis/kjhhcmgbhbeoglbhcjcpcjljcaimalkg';
 
+/*
+ * Two shapes, because the piles and the canon are read for different reasons.
+ *
+ * Later and Set aside are a queue: you are deciding what to do next, and the
+ * question is "is this still worth my morning?" — which you cannot answer from
+ * a title. They read as a feed: the title at reading size and enough of the
+ * piece to judge it by, one after another down the column.
+ *
+ * Kept is not a queue. Nothing on it is owed anything; it is the standing
+ * collection, and you come to it to look across rather than down. It reads as
+ * a gallery, where the whole shelf is in view at once.
+ *
+ * Everything else — a folder, all sources, a search — stays a list, because a
+ * list is what you want when you are looking for one known thing.
+ */
 const DEDICATED = {
   kept: {
     eyebrow: 'Kept',
@@ -34,6 +51,7 @@ const DEDICATED = {
     line: keptShelfLine,
     order: orderKeptOldestFirst,
     dateOf: (entry) => entry.keptAt || null,
+    shape: 'gallery',
     canon: true
   },
   later: {
@@ -42,7 +60,8 @@ const DEDICATED = {
     fallback: 'Owed a move, oldest first.',
     line: laterPileLine,
     order: orderLaterOldestFirst,
-    dateOf: (article) => article.placementAt || article.createdAt || null
+    dateOf: (article) => article.placementAt || article.createdAt || null,
+    shape: 'feed'
   },
   'set-aside': {
     eyebrow: 'Set aside',
@@ -50,7 +69,8 @@ const DEDICATED = {
     fallback: 'At hand this week, newest on top.',
     line: setAsidePileLine,
     order: orderSetAsideNewestFirst,
-    dateOf: (article) => article.placementAt || article.createdAt || null
+    dateOf: (article) => article.placementAt || article.createdAt || null,
+    shape: 'feed'
   }
 };
 
@@ -96,7 +116,10 @@ const LibraryColumn = ({
       date: dedicated.dateOf(item),
       kind: item.kind || '',
       href: item.kind ? evergreenHref(item) : '',
-      retiredAt: item.retiredAt || null
+      retiredAt: item.retiredAt || null,
+      /* Only the feed prints one. A gallery card with a paragraph in it is a
+         feed with the rows laid sideways. */
+      dek: dedicated.shape === 'feed' ? normalizeSpaces(getExcerpt(item)) : ''
     }))
     : []), [dedicated, shelfItems]);
   const dedicatedLine = useMemo(
@@ -105,6 +128,33 @@ const LibraryColumn = ({
   );
   const shelfRows = dedicated ? dedicatedRows : rows;
   const step = (n) => (entering ? `wfp-anim wfp-anim--${n}` : 'library-column__return');
+  /* A list unless the shelf asked to be read another way. */
+  const shape = dedicated?.shape || 'list';
+
+  /* One row body for every shape. The link and the button used to carry two
+     copies of it and the copies had already drifted: only the link showed the
+     kind and the errata, so the same entry said different things depending on
+     whether it happened to be reachable by href. */
+  const body = (item) => (
+    <>
+      {item.kind ? (
+        <span className="library-column__row-kind">{EVERGREEN_KIND_LABEL[item.kind]}</span>
+      ) : null}
+      <span className="library-column__row-title">{item.title}</span>
+      {item.source ? <span className="library-column__row-source">{item.source}</span> : null}
+      {item.dek ? <span className="library-column__row-dek">{item.dek}</span> : null}
+      <span className="library-column__row-date">
+        {formatSurfaceDate(item.date, { includeYear: true })}
+      </span>
+      {/* Errata, not a warning: it says when the belief went, and keeps it
+          where it has always stood. */}
+      {item.retiredAt ? (
+        <span className="library-column__row-retired">
+          {`retired ${formatSurfaceDate(item.retiredAt)}`}
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <main className="library-column" aria-labelledby="library-column-title">
@@ -164,35 +214,13 @@ const LibraryColumn = ({
       ) : null}
 
       {shelfRows.length ? (
-        <ul className={`library-column__shelf ${step(4)}`}>
+        <ul className={`library-column__shelf library-column__shelf--${shape} ${step(4)}`}>
           {shelfRows.map(item => (
             <li key={item.id} className={item.retiredAt ? 'is-retired' : undefined}>
               {item.href ? (
-                <Link to={item.href}>
-                  {item.kind ? (
-                    <span className="library-column__row-kind">{EVERGREEN_KIND_LABEL[item.kind]}</span>
-                  ) : null}
-                  <span className="library-column__row-title">{item.title}</span>
-                  {item.source ? <span className="library-column__row-source">{item.source}</span> : null}
-                  <span className="library-column__row-date">
-                    {formatSurfaceDate(item.date, { includeYear: true })}
-                  </span>
-                  {/* Errata, not a warning: it says when the belief went, and
-                      keeps it where it has always stood. */}
-                  {item.retiredAt ? (
-                    <span className="library-column__row-retired">
-                      {`retired ${formatSurfaceDate(item.retiredAt)}`}
-                    </span>
-                  ) : null}
-                </Link>
+                <Link to={item.href}>{body(item)}</Link>
               ) : (
-                <button type="button" onClick={() => onSelectArticle?.(item.id)}>
-                  <span className="library-column__row-title">{item.title}</span>
-                  <span className="library-column__row-source">{item.source}</span>
-                  <span className="library-column__row-date">
-                    {formatSurfaceDate(item.date, { includeYear: true })}
-                  </span>
-                </button>
+                <button type="button" onClick={() => onSelectArticle?.(item.id)}>{body(item)}</button>
               )}
             </li>
           ))}

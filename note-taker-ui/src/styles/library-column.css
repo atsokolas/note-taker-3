@@ -65,37 +65,8 @@
   scrollbar-width: thin;
 }
 
-.library-shelf__kept.is-empty button,
-.library-shelf__later.is-empty button,
-.library-shelf__set-aside.is-empty button {
-  color: color-mix(in srgb, var(--text-muted, var(--vellum-subtle)) 62%, transparent);
-}
-
-.library-shelf__later button {
-  color: var(--noeis-living-seed, var(--noeis-living, #6f7340));
-}
-
-.library-shelf__set-aside button {
-  color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
-}
-
 .library-shelf__feed button {
   color: var(--noeis-living-sap, var(--noeis-living, #6f7340));
-}
-
-.library-shelf__kept .room-shelf__item-meta.is-ticking {
-  animation: library-kept-tick 420ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes library-kept-tick {
-  0% { transform: translateY(3px); opacity: 0.4; }
-  100% { transform: translateY(0); opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .library-shelf__kept .room-shelf__item-meta.is-ticking {
-    animation: none;
-  }
 }
 
 /* Groups are separated by air and a label, not by rules. The rules were three
@@ -413,9 +384,11 @@
   line-height: 1.35;
 }
 
+/* Ink, not gold — gold is the thread, and a title under the cursor is not
+   threaded to anything. */
 .library-column__shelf :is(button, a):hover .library-column__row-title,
 .library-column__shelf :is(button, a):focus-visible .library-column__row-title {
-  color: var(--wiki-warm-accent, var(--vellum-warm));
+  color: var(--vellum-ink, #1c1a17);
 }
 
 .library-column__row-source,
@@ -427,6 +400,107 @@
 
 .library-column__row-date {
   white-space: nowrap;
+}
+
+.library-column__row-dek {
+  display: none;
+}
+
+/* ---------- the piles, as a feed ----------
+
+   Later and Set aside are a queue you are deciding your way down, and the
+   question at every row is whether the piece is still worth a morning. A
+   title cannot answer that. So the row opens out: the title at the size you
+   would actually read it, the publication above it, and enough of the opening
+   to judge by. One column, one thing after another. */
+
+.library-column__shelf--feed :is(button, a) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 22px 0 24px;
+}
+
+.library-column__shelf--feed .library-column__row-source {
+  order: -1;
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.library-column__shelf--feed .library-column__row-title {
+  font-size: clamp(1.24rem, 1.5vw, 1.46rem);
+  line-height: 1.24;
+  letter-spacing: -0.008em;
+  text-wrap: pretty;
+}
+
+.library-column__shelf--feed .library-column__row-dek {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 62ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+/* ---------- the canon, as a gallery ----------
+
+   Nothing on this shelf is owed anything, so there is no queue to work down.
+   You come to the canon to look across it — which is a different posture, and
+   it wants the whole shelf in view rather than the next thing in it. */
+
+.library-column__shelf--gallery {
+  display: grid;
+  /* Capped rather than 1fr: a shelf holding one thing should show one card,
+     not one card stretched across the room. */
+  grid-template-columns: repeat(auto-fill, minmax(min(232px, 100%), 320px));
+  justify-content: start;
+  gap: 14px;
+  border-top: 0;
+}
+
+/* Each card carries its own hairline. The seams were drawn by painting the
+   grid and letting a 1px gap show through, which is neat until the row is not
+   full — then every track the shelf did not fill showed up as a blank grey
+   card, and a shelf of one looked like a shelf of four with three missing. */
+.library-column__shelf--gallery li {
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+}
+
+.library-column__shelf--gallery :is(button, a) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 8px;
+  height: 100%;
+  padding: 18px 18px 20px;
+  transition: background-color 160ms ease-out;
+}
+
+/* A card lifts by inking rather than by moving: in a grid, one tile sliding
+   sideways breaks the rules its neighbours are drawn on. */
+.library-column__shelf--gallery :is(button, a):hover,
+.library-column__shelf--gallery :is(button, a):focus-visible {
+  transform: none;
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 4%, transparent);
+}
+
+.library-column__shelf--gallery .library-column__row-title {
+  font-size: 1.14rem;
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+.library-column__shelf--gallery .library-column__row-date {
+  align-self: end;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
 }
 
 .library-column__quiet {
@@ -1026,23 +1100,37 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 /* Temporary: Later, Set aside, Kept, and screened names live at the top until
    they have a permanent weave. Empty doors stay named so they can be found. */
 .library-places {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  align-items: baseline;
-  margin: 0 0 18px;
+  display: grid;
+  gap: 10px;
+  margin: 0 0 26px;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.86rem;
 }
 
-/* The doors sit inside their own row beneath the sentence, so the gap has to
-   live on that row: the nav's gap now separates the sentence from the doors,
-   not the doors from each other. They ran together as one word without it. */
+/* The doors lead and the report follows, because the doors are now the way
+   into the three places rather than a footnote under a sentence about them. */
 .library-places__doors {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
+  gap: 6px 26px;
   align-items: baseline;
+}
+
+.library-places__line {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text-secondary, var(--vellum-muted));
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.library-places__doors a {
+  padding-bottom: 3px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif;
+  font-size: 1.24rem;
+  line-height: 1.2;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
 }
 
 .library-places a {
@@ -1056,6 +1144,13 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   color: var(--text-primary, var(--vellum-ink));
   border-bottom-color: currentColor;
   outline: none;
+}
+
+/* The room you are standing in is at full weight and underlined. Everything
+   else is a door you have not opened. */
+.library-places__doors a.is-here {
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: var(--vellum-ink, #1c1a17);
 }
 
 .library-places a.is-living {
