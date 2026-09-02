@@ -18,7 +18,7 @@ import {
 import { handOffSentence, takeFirstPaint } from '../motion/columnMotion';
 import { PLACES } from '../motion/crossings';
 import { useFinePointer, usePrefersReducedMotion } from '../hooks/useMotionPreferences';
-import { DEFAULT_HIGHLIGHT_COLOR } from '../constants/highlightColors';
+import { knownHighlightColor } from '../constants/highlightColors';
 import { placementOf } from '../pages/placementModel';
 import { renderArticleContentWithHighlights } from '../utils/highlightMarkup';
 import { findExistingHighlightForSelection } from '../utils/libraryThinkSeam';
@@ -204,7 +204,7 @@ const ArticleReader = ({
     );
   }
 
-  const persistHighlight = async (afterSave) => {
+  const persistHighlight = async (afterSave, inkChoice) => {
     /* This used to return in silence. Pressing Highlight then did nothing at
        all: the menu stayed open, no request was made, and the console stayed
        empty — which is indistinguishable from a dead button. Whatever the
@@ -227,12 +227,14 @@ const ArticleReader = ({
     }
     setSaveError('');
     setSaving(true);
+    /* A colour the reader picked, or the default. Never one from nowhere. */
+    const ink = knownHighlightColor(inkChoice);
     const tempId = `temp-${Date.now()}`;
     const optimisticHighlight = {
       _id: tempId,
       text: highlightText,
       tags: [],
-      color: DEFAULT_HIGHLIGHT_COLOR,
+      color: ink,
       articleId: article._id,
       articleTitle: article.title,
       createdAt: new Date().toISOString(),
@@ -246,7 +248,7 @@ const ArticleReader = ({
         text: highlightText,
         tags: [],
         anchor: highlightAnchor,
-        color: DEFAULT_HIGHLIGHT_COLOR
+        color: ink
       });
       if (created?._id) {
         const normalizedCreated = {
@@ -268,8 +270,8 @@ const ArticleReader = ({
     }
   };
 
-  const handleCreateHighlight = async () => {
-    await persistHighlight();
+  const handleCreateHighlight = async (ink) => {
+    await persistHighlight(undefined, ink);
   };
 
   const handleSaveAndOpen = async (callback, fallbackError) => {

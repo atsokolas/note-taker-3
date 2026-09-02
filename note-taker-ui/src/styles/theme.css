@@ -3386,12 +3386,13 @@ body.noeis-editorial .palette-list {
   background: var(--surface);
 }
 
+/* The page already scrolls. Capping this at 70vh put a second scrollbar
+   inside the first, so a shelf of highlights was read through a letterbox
+   while the room around it sat empty — and reaching the end of the list meant
+   noticing which of two scrollbars you were meant to be using. */
 .library-highlights-list {
   display: grid;
   gap: 12px;
-  max-height: 70vh;
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .library-highlight-row {
@@ -9256,4 +9257,56 @@ textarea.noeis-form-control {
 
 .noeis-form-control::placeholder {
   color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+}
+
+
+/* ---------- the inks on the selection menu ----------
+
+   Highlight keeps the sentence in the default ink, so a reader who just wants
+   the sentence never meets a decision. These are for the reader who keeps a
+   taxonomy of their own. They sit after "Ask about this" because choosing a
+   colour is the rarer act, and the rarer act goes last. */
+
+.selection-menu__inks {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 62%, transparent);
+}
+
+.selection-menu__ink {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--noeis-ink, #332f29) 22%, transparent);
+  border-radius: 50%;
+  background: var(--ink);
+  cursor: pointer;
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out;
+}
+
+/* The pointer's own blue, the same ring every other row takes. */
+.selection-menu__ink:hover,
+.selection-menu__ink:focus-visible {
+  outline: none;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px var(--noeis-pointer, #6f87ff);
+}
+
+.selection-menu__ink:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-menu__ink {
+    transition: none;
+  }
+
+  .selection-menu__ink:hover,
+  .selection-menu__ink:focus-visible {
+    transform: none;
+  }
 }

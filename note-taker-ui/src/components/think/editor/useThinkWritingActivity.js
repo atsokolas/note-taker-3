@@ -1,9 +1,20 @@
 import { useEffect } from 'react';
 
-export const THINK_WRITING_CLASS = 'think-writing-active';
+/* The stylesheet knows one state — rails away — and two things can cause it:
+   writing, and focus mode held on purpose. */
+export const THINK_WRITING_CLASS = 'think-rails-away';
 export const THINK_WRITING_IDLE_MS = 1600;
 
-const useThinkWritingActivity = (editor, { enabled = true } = {}) => {
+/**
+ * Writing hides the rails; stopping brings them back.
+ *
+ * `reaching` is the exception. Pressing `@` for a source moves focus into the
+ * picker, the editor blurs, and the rails came flooding back mid-sentence —
+ * which is the one moment the writer is most clearly still writing. Reaching
+ * for a source is part of writing, not the end of it, so blur does not end
+ * anything while a picker is open.
+ */
+const useThinkWritingActivity = (editor, { enabled = true, reaching = false } = {}) => {
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
@@ -11,6 +22,13 @@ const useThinkWritingActivity = (editor, { enabled = true } = {}) => {
 
     if (!editor || !enabled) {
       end();
+      return undefined;
+    }
+
+    /* Held open for as long as the reach lasts. The idle timer is what would
+       otherwise close it: the writer is not typing while they read a list. */
+    if (reaching) {
+      document.body.classList.add(THINK_WRITING_CLASS);
       return undefined;
     }
 
@@ -45,7 +63,7 @@ const useThinkWritingActivity = (editor, { enabled = true } = {}) => {
       clearIdle();
       end();
     };
-  }, [editor, enabled]);
+  }, [editor, enabled, reaching]);
 };
 
 export default useThinkWritingActivity;

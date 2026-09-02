@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import useCssMagneticLerp from '../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
+import { HIGHLIGHT_COLOR_OPTIONS } from '../../constants/highlightColors';
 
 /* Clear of the line, not sitting on it. Eight pixels put the menu's bottom
    edge into the sentence you had selected; eighteen still landed it in the
@@ -98,15 +99,33 @@ const SelectionMenu = React.forwardRef(({
       role="menu"
     >
       {/* Two things you can do to a sentence: keep it, or ask about it.
-          Colour is one warm ink. A row of crayons asked you to decorate
-          before you had finished reading. */}
+
+          Highlight keeps it in the default ink, so the reader who just wants
+          the sentence never meets a decision. The swatches are for the reader
+          who keeps a taxonomy — one press, a colour of their choosing — and
+          they sit after Ask about this rather than in front of it, because
+          choosing a colour is the rarer thing and the rarer thing goes last. */}
       <div className="selection-menu__actions">
-        <button type="button" className="selection-menu-button" onClick={onHighlight} disabled={saving}>
+        <button type="button" className="selection-menu-button" onClick={() => onHighlight?.()} disabled={saving}>
           {saving ? 'Saving...' : 'Highlight'}
         </button>
         <button type="button" className="selection-menu-button is-muted" onClick={onAskLibrarian} disabled={saving}>
           Ask about this
         </button>
+        <span className="selection-menu__inks" role="group" aria-label="Highlight in a colour">
+          {HIGHLIGHT_COLOR_OPTIONS.map((ink) => (
+            <button
+              key={ink.value}
+              type="button"
+              className="selection-menu__ink"
+              style={{ '--ink': ink.value }}
+              onClick={() => onHighlight?.(ink.value)}
+              disabled={saving}
+              title={ink.label}
+              aria-label={`Highlight in ${ink.label.toLowerCase()}`}
+            />
+          ))}
+        </span>
       </div>
     </div>
   ), document.body);

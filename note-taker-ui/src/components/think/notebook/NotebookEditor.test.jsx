@@ -133,7 +133,7 @@ describe('NotebookEditor', () => {
     mockEditor.state.selection.$from.parentOffset = 0;
     delete mockEditor.state.doc;
     mockEditor.state.selection.$from.index.mockReturnValue(0);
-    document.body.classList.remove('think-writing-active');
+    document.body.classList.remove('think-rails-away');
   });
 
   it('renders a title-first drafting surface with a compact selection toolbar', () => {
@@ -506,14 +506,14 @@ describe('NotebookEditor', () => {
       if (focusRegistration) {
         act(() => focusRegistration[1]());
       }
-      expect(document.body.classList.contains('think-writing-active')).toBe(false);
+      expect(document.body.classList.contains('think-rails-away')).toBe(false);
 
       const updateRegistrations = writingUpdates();
       expect(updateRegistrations.length).toBeGreaterThan(0);
       act(() => {
         updateRegistrations.forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
       });
-      expect(document.body.classList.contains('think-writing-active')).toBe(true);
+      expect(document.body.classList.contains('think-rails-away')).toBe(true);
     });
 
     it('does not retreat rails for a selection-only update', () => {
@@ -522,7 +522,7 @@ describe('NotebookEditor', () => {
       act(() => {
         writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: false } }));
       });
-      expect(document.body.classList.contains('think-writing-active')).toBe(false);
+      expect(document.body.classList.contains('think-rails-away')).toBe(false);
     });
 
     it('restores rails after typing goes idle', () => {
@@ -533,11 +533,11 @@ describe('NotebookEditor', () => {
         act(() => {
           writingUpdates().forEach(([, handler]) => handler({ transaction: { docChanged: true } }));
         });
-        expect(document.body.classList.contains('think-writing-active')).toBe(true);
+        expect(document.body.classList.contains('think-rails-away')).toBe(true);
         act(() => {
           jest.advanceTimersByTime(THINK_WRITING_IDLE_MS);
         });
-        expect(document.body.classList.contains('think-writing-active')).toBe(false);
+        expect(document.body.classList.contains('think-rails-away')).toBe(false);
       } finally {
         jest.useRealTimers();
       }
