@@ -32,7 +32,7 @@ html[data-noeis-theme='theme.editorial.light'] {
   --noeis-action: var(--ui-accent, #6f87ff);
   --noeis-action-strong: color-mix(in srgb, var(--noeis-action) 78%, black);
   --noeis-action-soft: var(--ui-accent-soft, rgba(111, 135, 255, 0.18));
-  --noeis-active: color-mix(in srgb, var(--noeis-thread) 10%, var(--noeis-paper));
+  --noeis-active: color-mix(in srgb, var(--noeis-ink) 5%, var(--noeis-paper));
   --noeis-focus: color-mix(in srgb, var(--noeis-action) 38%, transparent);
   --noeis-shadow-soft: 0 10px 26px rgba(55, 43, 26, 0.08);
   --noeis-shadow-float: 0 20px 48px rgba(55, 43, 26, 0.14);
@@ -273,7 +273,6 @@ html[data-noeis-theme][data-ui-theme] :is(
 
 html[data-noeis-theme][data-ui-theme] :is(
   .topbar__menu-popover,
-  .command-palette,
   .system-status__drawer,
   .right-drawer__panel
 ) {
@@ -335,7 +334,7 @@ html[data-noeis-theme][data-ui-theme] :is(
     .app-shell-new,
     .topbar,
     .topbar *,
-    .command-palette,
+    .palette-card,
     .system-status__drawer,
     .agent-rail,
     .right-drawer__panel

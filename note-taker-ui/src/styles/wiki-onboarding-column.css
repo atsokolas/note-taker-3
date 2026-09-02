@@ -213,11 +213,6 @@ body.noeis-editorial .wiki-onboarding__paste textarea,
 .wiki-onboarding__paste textarea {
   width: 100%;
   padding: 8px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
   font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif) !important;
   font-size: 0.94rem;
@@ -316,11 +311,6 @@ body.noeis-editorial .wiki-onboarding .wiki-onboarding__claim input,
 .wiki-onboarding .wiki-onboarding__claim input {
   width: 100%;
   padding: 6px 0 !important;
-  border: 0 !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 78%, transparent) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
   color: var(--text-primary, var(--vellum-ink)) !important;
   font-family: "Newsreader", var(--font-serif, Georgia), Georgia, serif !important;
   font-size: 1.2rem;

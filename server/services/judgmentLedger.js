@@ -51,9 +51,9 @@ const POSTMORTEM = Object.freeze({
   right_for_wrong_reasons: 'What was the real reason?'
 });
 
-const MONTHS = Object.freeze([
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+const SHORT_MONTHS = Object.freeze([
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ]);
 
 const clean = (value = '', limit = 4000) => wordBoundaryTrim(String(value || '').replace(/\s+/g, ' ').trim(), { maxLength: limit });
@@ -124,16 +124,27 @@ const inferPrecision = (value) => {
   return 'exact';
 };
 
+/**
+ * The ledger prints days.
+ *
+ * An hour was printed for anything recorded to the second, which made the
+ * machine's timestamp the loudest thing in a row whose point is the sentence
+ * underneath it. Nobody reads a ledger to learn what happened at 14:20:36.
+ *
+ * The month and year forms stay: a record that only knows the month must not
+ * be printed as though it knows the day. That is the one thing a date here is
+ * carrying, and it is the reason this is not simply one format.
+ *
+ * The client has the same rule, because it can move a time cursor without a
+ * round trip. Both must agree, so both are tested against the same shapes.
+ */
 const formatByPrecision = (value, precision) => {
   const date = asDate(value);
   const kind = isPrecision(precision) ? precision : inferPrecision(value);
   if (!date || kind === 'unknown') return '';
   if (kind === 'year') return String(date.getUTCFullYear());
-  if (kind === 'month') return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-  if (kind === 'day') {
-    return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
-  }
-  return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
+  if (kind === 'month') return `${SHORT_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  return `${SHORT_MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 };
 
 const explainDate = (fact = {}) => {
@@ -152,15 +163,15 @@ const explainDate = (fact = {}) => {
     label: CLOCK_LABEL[clock] || '',
     when: occurred,
     precision,
+    // A note only earns its place when the day itself is in doubt. "The hour
+    // is not known" explained a missing hour back when other rows showed one.
     precisionNote: precision === 'unknown'
       ? 'The day is not known.'
       : precision === 'year'
         ? 'The year is known; the day is not.'
         : precision === 'month'
           ? 'The month is known; the day is not.'
-          : precision === 'day'
-            ? 'The day is known; the hour is not.'
-            : '',
+          : '',
     author: AUTHOR_LABEL[fact.authoredBy] || AUTHOR_LABEL.system,
     authoredBy: fact.authoredBy || 'system',
     recorded: recorded,

@@ -25,7 +25,7 @@ import '../../styles/library-column.css';
  * still the way there.
  */
 
-const LibraryPlaces = ({ feedTopics = [], later = null, setAside = null, kept = null, firstMorning = false }) => {
+const LibraryPlaces = ({ feedTopics = [], later = null, setAside = null, kept = null, firstMorning = false, scope = '' }) => {
   const topics = feedPlaces(feedTopics);
   const sentence = firstMorning
     ? firstMorningDeskLine()
@@ -40,17 +40,29 @@ const LibraryPlaces = ({ feedTopics = [], later = null, setAside = null, kept = 
      nothing on it says nothing — no row of noughts — but Later, Set aside and
      Kept stay where they are, because a place you cannot find is a place you
      do not have, and that is true whether or not anything is in it today. */
+  /* The three places used to be listed twice: here, and again in the cabinet
+     on the left among the folders. A place named in two registers on one
+     screen is a reader asking which one is the real one — and the cabinet was
+     the wrong answer, because Later, Set aside and Kept are not folders. They
+     are where a source stands. So they live here, at the head of the room, at
+     a size that says they are the way in. */
+  const door = (href, label, at) => (
+    <Link to={href} className={scope === at ? 'is-here' : undefined} aria-current={scope === at ? 'page' : undefined}>
+      {label}
+    </Link>
+  );
+
   return (
     <nav className="library-places" aria-label="Library places">
-      {sentence ? <p className="library-places__line">{sentence}</p> : null}
       <span className="library-places__doors">
-        <Link to={LATER_HREF}>Later</Link>
-        <Link to={SET_ASIDE_HREF}>Set aside</Link>
-        <Link to={KEPT_HREF}>Kept</Link>
+        {door(LATER_HREF, 'Later', 'later')}
+        {door(SET_ASIDE_HREF, 'Set aside', 'set-aside')}
+        {door(KEPT_HREF, 'Kept', 'kept')}
         {topics.map((topic) => (
           <Link key={topic.id} className="is-living" to={topic.href}>{topic.name}</Link>
         ))}
       </span>
+      {sentence ? <p className="library-places__line">{sentence}</p> : null}
     </nav>
   );
 };

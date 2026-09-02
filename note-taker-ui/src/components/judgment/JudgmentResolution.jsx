@@ -23,7 +23,24 @@ const verdictLabel = {
 /* The test and the verdict share one quiet threshold. This is deliberately not
    a form card: a belief meeting reality should feel like writing in the margin
    of the case, not configuring a workflow. */
-const JudgmentResolution = ({ pageId, claim, judgment = {}, evidenceOptions = [], onSaved }) => {
+/**
+ * The test: everything about what would change your mind, in one place.
+ *
+ * This question used to be asked three times running on the claim page — once
+ * as a read-only line, once as a second cruder editor with its own textarea
+ * and date field, and once here, where it is actually answered and carried
+ * through to a verdict. Three askings of one question is not thoroughness; it
+ * is a page that has not decided who owns the question.
+ */
+const JudgmentResolution = ({
+  pageId,
+  claim,
+  judgment = {},
+  evidenceOptions = [],
+  changeMindIf = [],
+  arrivingId = '',
+  onSaved
+}) => {
   const [settingTest, setSettingTest] = useState(false);
   const [criteria, setCriteria] = useState(judgment.resolutionCriteria || '');
   const [horizon, setHorizon] = useState(dateInput(judgment.resolutionHorizonAt));
@@ -134,6 +151,15 @@ const JudgmentResolution = ({ pageId, claim, judgment = {}, evidenceOptions = []
         <p className="judgment-resolution__criteria">
           {judgment.resolutionCriteria}
           {judgment.resolutionHorizonAt ? <small>By {dateLabel(judgment.resolutionHorizonAt)}</small> : null}
+        </p>
+      ) : null}
+
+      {changeMindIf.length ? (
+        <p className="judgment-resolution__said">
+          <span>I’d change my mind if</span>
+          {changeMindIf.map(line => (
+            <span key={line.id} className={line.id === arrivingId ? 'is-arriving' : ''}>{line.text}</span>
+          ))}
         </p>
       ) : null}
 

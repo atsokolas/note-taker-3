@@ -5634,35 +5634,57 @@ html[data-ui-theme='dark'] .article-reader-header {
   margin: 12px 0;
 }
 
+/* A source set into a note.
+
+   It should stand out — you need to see that something was brought in from
+   elsewhere — but it was standing out by being made of different material: a
+   white rounded card with a hard border, dropped into a cream page of serif
+   prose. That does not read as a citation, it reads as an attachment.
+
+   Print has solved this for centuries. A passage brought in from somewhere
+   else is set off by indentation and a rule, and by a change of register, on
+   the same paper as everything around it. So: no fill, no box. A rule down
+   the left, the kind named in the small caps this product uses for every
+   eyebrow, and the title in the reading face it would have had anyway. */
 .notebook-ref-card {
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 12px 14px;
-  background: var(--surface);
+  margin: 0;
+  padding: 2px 0 2px 16px;
+  border: 0;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-ink, var(--text)) 24%, transparent);
+  border-radius: 0;
+  background: none;
 }
 
 .notebook-ref-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  color: var(--noeis-ink-subtle, var(--muted));
+  font-family: var(--noeis-font-ui, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 6px;
 }
 
 .notebook-ref-title {
-  font-weight: 600;
-  color: var(--text);
+  color: var(--noeis-ink, var(--text));
+  font-family: var(--noeis-font-reading, "Newsreader", Georgia, serif);
+  font-size: 1.02rem;
+  font-weight: 400;
+  line-height: 1.42;
   text-decoration: none;
+  /* The link is a link. It underlines on the way in rather than announcing
+     itself with a colour the surrounding prose does not use. */
+  border-bottom: 1px solid transparent;
 }
 
-.notebook-ref-title:hover {
-  color: var(--accent);
+a.notebook-ref-title:hover,
+a.notebook-ref-title:focus-visible {
+  border-bottom-color: currentColor;
 }
 
 .notebook-ref-meta {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.85rem;
+  margin-top: 2px;
+  color: var(--noeis-ink-subtle, var(--muted));
+  font-size: 0.8rem;
 }
 
 .notebook-insert-group {
@@ -5819,12 +5841,25 @@ html[data-ui-theme='dark'] .article-reader-header {
   gap: 8px;
 }
 
+/* Choosing something to bring in is choosing a line from a list.
+
+   These were grey rounded cards stacked inside a cream dialog, drawn with the
+   pre-editorial greys the rest of the product stopped using — so the thing you
+   were picking from looked like it came from a different application than the
+   page you were picking it into. The command palette next door has always
+   drawn this exact list as rows on paper with a little ink on the one you are
+   on. Same job, same drawing. */
 .modal-content--insert .modal-highlight-item {
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-  border-radius: 12px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  transition: border-color 180ms ease-out, background-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle)) 70%, transparent);
+  border-radius: 0;
+  background: none;
+  transition: background-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+.modal-content--insert .modal-highlight-item:last-child {
+  border-bottom: 0;
 }
 
 .modal-content--insert .modal-highlight-item.is-clickable {
@@ -5834,10 +5869,8 @@ html[data-ui-theme='dark'] .article-reader-header {
 
 .modal-content--insert .modal-highlight-item.is-clickable:hover,
 .modal-content--insert .modal-highlight-item.is-clickable:focus-visible {
-  border-color: color-mix(in srgb, var(--border-subtle) 100%, var(--accent) 18%);
-  background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 8%);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(28, 24, 18, 0.10);
+  background: color-mix(in srgb, var(--noeis-ink, #1c1a17) 5%, transparent);
+  box-shadow: inset 2px 0 0 0 var(--noeis-ink, #1c1a17);
   outline: none;
 }
 

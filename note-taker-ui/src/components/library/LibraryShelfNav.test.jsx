@@ -131,62 +131,41 @@ describe('LibraryShelfNav', () => {
       expect(screen.getByRole('button', { name: 'Review filing' })).toBeInTheDocument();
     });
 
-    it('keeps Later and Set aside findable even when they are empty', () => {
-      renderNav({ laterCount: 0, setAsideCount: 0, keptCount: 0 });
-      expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Set aside' })).toBeInTheDocument();
-      expect(screen.queryByText(/Later \(0\)/)).not.toBeInTheDocument();
+    it('does not carry the three places, at any width', () => {
+      renderNav({});
+      expect(screen.queryByRole('button', { name: /^Later/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Set aside/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Kept/ })).not.toBeInTheDocument();
     });
   });
 
-  describe('the kept shelf', () => {
+  /* Later, Set aside and Kept used to stand in the cabinet among the folders
+     as well as in the strip at the head of the room, so every one of them was
+     named twice on the same screen. They are not folders — they are where a
+     source stands — and the strip is where they live. */
+  describe('the three places', () => {
     beforeEach(() => setViewport(false));
 
-    /* It used to hide until something was kept, so the only way to find the
-       shelf was to have already used a control you could not find either. The
-       empty shelf is where the idea explains itself. */
-    it('is there even when nothing is kept, and counts once something is', () => {
-      const { unmount } = renderNav({ keptCount: 0 });
-      expect(screen.getByRole('button', { name: 'Kept 0' })).toBeInTheDocument();
-      unmount();
+    it('is not in the cabinet', () => {
+      renderNav({});
+      const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
+      expect(labels).toEqual(['All sources', 'Unfiled6', 'Highlights']);
+    });
 
-      renderNav({ keptCount: 3 });
-      expect(screen.getByRole('button', { name: 'Kept 3' })).toBeInTheDocument();
+    it('leaves the cabinet to the shelves and the ways of narrowing', () => {
+      renderNav({});
+      expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Unfiled 6' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Highlights' })).toBeInTheDocument();
     });
 
     it('keeps counts silent until the Library has actually answered', () => {
-      renderNav({ count: undefined, keptCount: undefined, unfiledCount: undefined });
+      renderNav({ count: undefined, unfiledCount: undefined });
 
       expect(screen.getByRole('button', { name: 'All sources' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Kept' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Unfiled' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /All sources 0/ })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Kept 0/ })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Unfiled 0/ })).not.toBeInTheDocument();
-    });
-
-    it('sits directly under All sources, above the ways of narrowing', () => {
-      renderNav({ keptCount: 2 });
-      const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'Kept2', 'Later', 'Set aside', 'Unfiled6', 'Highlights']);
-    });
-
-    it('keeps Later and Set aside named even when empty, and counts once something is there', () => {
-      const { unmount } = renderNav({ keptCount: 0, laterCount: 0, setAsideCount: 0 });
-      expect(screen.getByRole('button', { name: 'Later' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Set aside' })).toBeInTheDocument();
-      expect(screen.queryByText(/Later \(0\)/)).not.toBeInTheDocument();
-      unmount();
-
-      renderNav({ laterCount: 2, setAsideCount: 1 });
-      const labels = [...document.querySelectorAll('.library-shelf__scopes button')].map(b => b.textContent);
-      expect(labels).toEqual(['All sources', 'Kept', 'Later2', 'Set aside1', 'Unfiled6', 'Highlights']);
-    });
-
-    it('is a way of moving, so it stays out on a phone', () => {
-      setViewport(true);
-      renderNav({ keptCount: 2 });
-      expect(screen.getByRole('button', { name: 'Kept 2' })).toBeInTheDocument();
     });
   });
 

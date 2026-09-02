@@ -16,7 +16,7 @@ const page = {
 };
 
 describe('ledger dates stay honest', () => {
-  it('does not print an hour when the clock is a day', () => {
+  it('prints the day, never the hour', () => {
     const explained = explainDate({
       clock: 'evidence',
       occurredAt: '2026-03-01T12:00:00.000Z',
@@ -24,9 +24,31 @@ describe('ledger dates stay honest', () => {
       precision: 'day',
       authoredBy: 'world'
     });
-    expect(explained.when).toBe('March 1, 2026');
+    expect(explained.when).toBe('Mar 1, 2026');
     expect(explained.when).not.toMatch(/12:00/);
     expect(explained.late).toBe(true);
+  });
+
+  it('prints a second-precise record as the same day, without the clock face', () => {
+    const explained = explainDate({
+      clock: 'decision',
+      occurredAt: '2026-08-18T14:20:36.000Z',
+      authoredBy: 'user'
+    });
+    expect(explained.precision).toBe('exact');
+    expect(explained.when).toBe('Aug 18, 2026');
+    expect(explained.when).not.toMatch(/UTC|:/);
+  });
+
+  it('says nothing extra about an hour nobody is being shown', () => {
+    expect(explainDate({ clock: 'evidence', occurredAt: '2026-03-01T12:00:00.000Z' }).precisionNote).toBe('');
+  });
+
+  it('still refuses to print a day it does not have', () => {
+    const month = explainDate({ clock: 'evidence', occurredAt: '2026-03-01T12:00:00.000Z', precision: 'month' });
+    expect(month.when).toBe('Mar 2026');
+    expect(month.precisionNote).toBe('The month is known; the day is not.');
+    expect(explainDate({ clock: 'evidence', precision: 'unknown' }).when).toBe('');
   });
 });
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import CalendarMark from '../CalendarMark';
 import { usePrefersReducedMotion } from '../../hooks/useMotionPreferences';
 import {
   getJudgmentLedger,
@@ -38,20 +39,40 @@ const RESOLVE = [
   { id: 'retired', label: 'Retire it' }
 ];
 
+/**
+ * One entry in the ledger: what happened, and roughly when.
+ *
+ * The date used to lead the row at 1.15rem while the sentence it dates sat
+ * underneath it in body text — so a page of the ledger read as a column of
+ * timestamps with commentary. It is the other way round. The sentence is what
+ * you came for; the day is the stamp beside it.
+ *
+ * A row with no day gets no stamp rather than the word "Sometime". The
+ * precision note already says the day is not known, and saying it twice in
+ * two registers is not more honest, only louder.
+ */
 const ClockLine = ({ fact }) => {
   const explained = fact.explained || explainDate(fact);
   if (!explained.when && !fact.summary) return null;
+  const notes = [
+    explained.author,
+    explained.precisionNote,
+    explained.lateNote,
+    explained.causalKind === 'inference' ? 'Inference' : ''
+  ].filter(Boolean).join(' · ');
   return (
     <li className={`judgment-clock judgment-clock--${fact.clock}`}>
       <span className="judgment-clock__name">{explained.label}</span>
-      <span className="judgment-clock__when">{explained.when || 'Sometime'}</span>
       {fact.summary ? <span className="judgment-clock__summary">{fact.summary}</span> : null}
-      <small>
-        {explained.author}
-        {explained.precisionNote ? ` · ${explained.precisionNote}` : ''}
-        {explained.lateNote ? ` · ${explained.lateNote}` : ''}
-        {explained.causalKind === 'inference' ? ' · Inference' : ''}
-      </small>
+      <span className="judgment-clock__stamp">
+        {explained.when ? (
+          <span className="judgment-clock__when">
+            <CalendarMark />
+            {explained.when}
+          </span>
+        ) : null}
+        {notes ? <small>{notes}</small> : null}
+      </span>
     </li>
   );
 };
