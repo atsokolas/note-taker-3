@@ -884,7 +884,7 @@ const upsertById = (items, idKey, lineId, make, update) => {
   return list_.map((item, at) => (at === index ? update(item) : item));
 };
 
-export const upsertLineIntoJudgment = (page, text, field, lineId) => {
+export const upsertLineIntoJudgment = (page, text, field, lineId, source = null) => {
   const judgment = page?.judgment || {};
   const line = normalizeSpaces(text);
   if (!line || !lineId) return judgment;
@@ -894,14 +894,23 @@ export const upsertLineIntoJudgment = (page, text, field, lineId) => {
        dossier shape keeps those lines rather than losing them to this write. */
     const current = (field === 'why' ? whyLines(judgment) : againstLines(judgment))
       .map(persistReason);
+    /* A reason and the thing it rests on are written together. Until now the
+       only way a source reached a line was to accept one the agent had already
+       brought you, so a reason you wrote yourself could never say where it
+       came from — which is the one question the case exists to answer later. */
+    const cited = source ? {
+      sourceLabel: normalizeSpaces(source.label),
+      sourceRefIds: idOf(source) ? [idOf(source)] : [],
+      acceptedFrom: normalizeSpaces(source.href)
+    } : {};
     return {
       ...judgment,
       [field]: upsertById(
         current,
         'reasonId',
         lineId,
-        () => stampedReason({ reasonId: lineId, text: line }),
-        item => ({ ...item, text: line })
+        () => stampedReason({ reasonId: lineId, text: line, ...cited }),
+        item => ({ ...item, text: line, ...cited })
       )
     };
   }
