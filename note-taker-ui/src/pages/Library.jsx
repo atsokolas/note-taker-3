@@ -948,7 +948,16 @@ const Library = () => {
     if (scope !== 'kept') return undefined;
     let cancelled = false;
     setKeptPages(null);
-    listWikiPages({ scope: 'all' })
+    /* Only the kept, and only the fields a shelf row renders. Asking for the
+       whole corpus and filtering in the browser was a full scan the server
+       has an index to avoid. */
+    /* Only the kept, and only the fields a shelf row renders. Asking for the
+       whole corpus and filtering in the browser was a full scan the server
+       has an index to avoid — it hung for forty-five seconds on a real one.
+       summary rides along so this is still cheap against a server that has
+       not learned `projection=canon` yet: the canon then renders sources
+       alone and stays quiet about the total, rather than hanging. */
+    listWikiPages({ evergreen: 1, projection: 'canon', summary: 1, limit: 200 })
       .then((pages) => {
         if (cancelled) return;
         setKeptPages((Array.isArray(pages) ? pages : []).filter(page => page?.evergreen));
