@@ -143,24 +143,27 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
       gap 720ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    body.think-rails-away .think-notes {
-      grid-template-columns: 30px minmax(420px, 1fr) 30px;
-      gap: 18px;
-    }
+  /* Whether the rails are there is not a motion question — only how they
+     leave is. Gating the outcome on the animation preference gave a reader
+     with reduced motion a focus mode that held its state, changed its label,
+     and did nothing: the class went on the body and no rule below matched it.
+     The transition above is the part that respects the preference. */
+  body.think-rails-away .think-notes {
+    grid-template-columns: 30px minmax(420px, 1fr) 30px;
+    gap: 18px;
+  }
 
-    body.think-rails-away .think-notes__note {
-      width: 100%;
-      justify-self: center;
-    }
+  body.think-rails-away .think-notes__note {
+    width: 100%;
+    justify-self: center;
+  }
 
-    body.think-rails-away .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
-      grid-template-columns: minmax(180px, 220px) minmax(420px, 1fr) 30px;
-    }
+  body.think-rails-away .think-notes:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+    grid-template-columns: minmax(180px, 220px) minmax(420px, 1fr) 30px;
+  }
 
-    body.think-rails-away .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
-      grid-template-columns: 30px minmax(420px, 1fr) minmax(230px, 280px);
-    }
+  body.think-rails-away .think-notes:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+    grid-template-columns: 30px minmax(420px, 1fr) minmax(230px, 280px);
   }
 }
 
@@ -171,19 +174,17 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
       gap 720ms var(--noeis-ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    body.think-rails-away .notebook-editorial-shell {
-      grid-template-columns: 30px minmax(0, 1fr) 30px;
-      gap: 18px;
-    }
+  body.think-rails-away .notebook-editorial-shell {
+    grid-template-columns: 30px minmax(0, 1fr) 30px;
+    gap: 18px;
+  }
 
-    body.think-rails-away .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
-      grid-template-columns: 250px minmax(0, 1fr) 30px;
-    }
+  body.think-rails-away .notebook-editorial-shell:has([data-writing-rail='left']:is(:hover, :focus-within)) {
+    grid-template-columns: 250px minmax(0, 1fr) 30px;
+  }
 
-    body.think-rails-away .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
-      grid-template-columns: 30px minmax(0, 1fr) 300px;
-    }
+  body.think-rails-away .notebook-editorial-shell:has([data-writing-rail='right']:is(:hover, :focus-within)) {
+    grid-template-columns: 30px minmax(0, 1fr) 300px;
   }
 
   /* Resting / fade-in: longer wfp settle so rails return as a dissolve. */
@@ -319,32 +320,44 @@ body.noeis-editorial .think-selection-toolbar .think-rich-text-toolbar .ui-quiet
 }
 
 
-/* The hold, above the room's own name. Quiet at rest and plainly on when it
-   is on, because a mode you cannot tell is running is a mode you will forget
-   you turned on. */
+/* The hold, in the bar.
+
+   It was a small-caps word above the room's own name, which put a control at
+   the same weight as the heading it sat over — FOCUS and THINK read as two
+   sections rather than a button and a place. It is a mark in the bar now: no
+   label to compete with anything, and no rail to disappear inside. */
 .think-focus-mode {
-  justify-self: start;
-  margin: 0 0 14px;
-  padding: 0 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 18px;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid transparent;
+  border-radius: 3px;
   background: none;
   color: var(--text-muted, var(--vellum-subtle));
-  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   cursor: pointer;
+  transition: color 160ms ease-out, background-color 160ms ease-out;
 }
 
 .think-focus-mode:hover,
 .think-focus-mode:focus-visible {
   outline: none;
   color: var(--text-primary, var(--vellum-ink));
-  border-bottom-color: currentColor;
+  background: color-mix(in srgb, var(--vellum-ink, #1c1a17) 5%, transparent);
 }
 
+/* Held reads as held. A mode you cannot tell is running is a mode you forget
+   you turned on, and then blame the room for being empty. */
 .think-focus-mode.is-held {
   color: var(--text-primary, var(--vellum-ink));
-  border-bottom-color: var(--noeis-pointer, #6f87ff);
+  box-shadow: inset 0 0 0 1px var(--noeis-pointer, #6f87ff);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .think-focus-mode {
+    transition: none;
+  }
 }

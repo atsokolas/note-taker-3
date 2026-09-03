@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
+import FocusMode from '../components/think/FocusMode';
 import SystemStatus from './SystemStatus';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
 
@@ -94,6 +95,10 @@ const TopBar = ({
   const accountPopoverRef = useRef(null);
   const showMoreMenu = secondaryNav.length > 0 || utilityNav.length > 0;
   const showAccountMenu = accountMenuItems.length > 0;
+
+  /* The rails are a Think idea, so the control appears only where there are
+     rails to send away. */
+  const onThink = String(location.pathname || '').startsWith('/think');
 
   const isNavItemActive = useMemo(() => (item) => {
     if (typeof item.match === 'function') {
@@ -220,6 +225,11 @@ const TopBar = ({
               ))}
             </nav>
           </div>
+          {/* The rails are a Think idea, so the control only appears where
+              there are rails to send away. It lives in the bar because the bar
+              is the one piece of furniture that never leaves — it was in the
+              rail, and faded out with it. */}
+          {onThink ? <FocusMode /> : null}
         </div>
         {searchMode === 'field' ? (
           <div className="topbar__search-slot">

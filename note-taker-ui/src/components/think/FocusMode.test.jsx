@@ -9,30 +9,32 @@ describe('holding the rails away', () => {
     document.body.classList.remove(THINK_WRITING_CLASS);
   });
 
+  /* The mark says which way the press goes: a measure with the rails still
+     beside it, or a measure they have retreated from. */
   it('starts with the rails where they have always been', () => {
     render(<FocusMode />);
-    expect(screen.getByRole('button', { name: 'Focus' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Send the rails away' })).toHaveAttribute('aria-pressed', 'false');
     expect(document.body.classList.contains(THINK_WRITING_CLASS)).toBe(false);
   });
 
   it('takes them away, and gives them back', () => {
     render(<FocusMode />);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send the rails away' }));
     expect(document.body.classList.contains(THINK_WRITING_CLASS)).toBe(true);
-    expect(screen.getByRole('button', { name: 'Rails away' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Bring the rails back' })).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rails away' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bring the rails back' }));
     expect(document.body.classList.contains(THINK_WRITING_CLASS)).toBe(false);
   });
 
   /* A preference you have to restate every morning is not a preference. */
   it('is remembered', () => {
     const { unmount } = render(<FocusMode />);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send the rails away' }));
     unmount();
 
     render(<FocusMode />);
-    expect(screen.getByRole('button', { name: 'Rails away' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Bring the rails back' })).toHaveAttribute('aria-pressed', 'true');
     expect(document.body.classList.contains(THINK_WRITING_CLASS)).toBe(true);
   });
 
@@ -55,7 +57,7 @@ describe('holding the rails away', () => {
     const real = window.localStorage.getItem;
     window.localStorage.getItem = () => { throw new Error('denied'); };
     expect(() => render(<FocusMode />)).not.toThrow();
-    expect(screen.getByRole('button', { name: 'Focus' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send the rails away' })).toBeInTheDocument();
     window.localStorage.getItem = real;
   });
 });
