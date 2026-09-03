@@ -45,7 +45,9 @@ export const mountSaveCardSwitch = (mount, { onChange } = {}) => {
   let placement = 'stream';
 
   const capsule = el('div', 'placement-switch__capsule');
-  capsule.setAttribute('role', 'radiogroup');
+  /* A group of toggles, not a radio group — the reader's app made the same
+     correction. Neither pressed means the piece is home. */
+  capsule.setAttribute('role', 'group');
   capsule.setAttribute('aria-label', 'Where this sits');
 
   const wrapper = el('div', 'placement-switch is-compact');
@@ -55,11 +57,12 @@ export const mountSaveCardSwitch = (mount, { onChange } = {}) => {
   const draw = () => {
     capsule.replaceChildren();
 
-    switchPositions({ placement }).forEach(({ position, label, active }) => {
+    switchPositions({ placement }).forEach(({ position, label, active, phrase }) => {
       const button = el('button', `placement-switch__position${active ? ' is-active' : ''}`, label);
       button.type = 'button';
-      button.setAttribute('role', 'radio');
-      button.setAttribute('aria-checked', String(active));
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', phrase);
+      button.title = phrase;
       button.addEventListener('click', () => {
         placement = pressPosition({ placement, pressed: position });
         draw();

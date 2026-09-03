@@ -27,24 +27,36 @@ describe('the switch', () => {
     updateReturnQueueEntry.mockResolvedValue({ _id: 'q1', status: 'completed' });
   });
 
-  it('is one instrument with three positions, and never two facts at once', () => {
+  /* A group of toggles, not a radio group. A radio group needs a chosen
+     option, which is why home had to be drawn as one — and a control claiming
+     a selection when nothing is selected tells a screen reader the piece is
+     nowhere. Neither pressed is a state, and it means home. */
+  it('is two toggles, with at most one pressed', () => {
     parked();
-    const group = screen.getByRole('radiogroup', { name: 'Where this sits' });
-    expect(within(group).getAllByRole('radio')).toHaveLength(3);
-    expect(within(group).getAllByRole('radio').filter(r => r.getAttribute('aria-checked') === 'true'))
-      .toHaveLength(1);
+    const group = screen.getByRole('group', { name: 'Where this sits' });
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    const toggles = within(group).getAllByRole('button').filter(b => b.hasAttribute('aria-pressed'));
+    expect(toggles).toHaveLength(2);
+    expect(toggles.filter(b => b.getAttribute('aria-pressed') === 'true')).toHaveLength(1);
   });
 
-  it('names the home it would return to', () => {
+  it('leaves both unpressed for a piece that is home', () => {
+    render(<PlacementSwitch articleId="a1" placement="stream" onChange={jest.fn()} now={NOW} />);
+    const group = screen.getByRole('group', { name: 'Where this sits' });
+    const toggles = within(group).getAllByRole('button').filter(b => b.hasAttribute('aria-pressed'));
+    expect(toggles.every(b => b.getAttribute('aria-pressed') === 'false')).toBe(true);
+  });
+
+  /* Pressing the lit pile has always sent a piece home. Nothing ever said so,
+     which is why it needed a second control to spell it out. */
+  it('says the way back on the pile the piece is already in', () => {
     parked({ folderName: 'Costco', asFeed: true });
-    expect(screen.getByRole('radio', { name: 'COSTCO' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Take it back to Costco' })).toBeInTheDocument();
   });
 
-  /* A folder you have not screened is not a home of its own, so the way back
-     is simply home — not a place name borrowed from another product. */
-  it('calls it home when the folder is not screened', () => {
+  it('says simply home when the folder was never screened', () => {
     parked({ folderName: 'Investing', asFeed: false });
-    expect(screen.getByRole('radio', { name: 'HOME' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Take it back home' })).toBeInTheDocument();
   });
 });
 

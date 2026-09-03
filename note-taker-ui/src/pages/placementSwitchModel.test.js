@@ -1,6 +1,6 @@
 import {
   clockCap,
-  homeLabel,
+  homeName,
   pressPosition,
   rowKeyAction,
   stripOptions,
@@ -11,35 +11,46 @@ const NOW = new Date('2026-10-01T12:00:00.000Z').getTime();
 const day = (iso) => `${iso}T12:00:00.000Z`;
 
 describe('the switch', () => {
-  it('offers three positions and lights exactly one', () => {
-    const positions = switchPositions({ placement: 'later' });
-    expect(positions.map(p => p.position)).toEqual(['stream', 'later', 'setAside']);
-    expect(positions.filter(p => p.active)).toHaveLength(1);
-    expect(positions.find(p => p.active).position).toBe('later');
+  /* Two piles, not three positions. The third was home, and home is not a
+     place you send something — it is where a thing is when you have not sent
+     it anywhere. Drawn as an option it was permanently lit and did nothing on
+     the vast majority of sources, which are not parked at all. */
+  it('offers the two piles a piece can be sent to', () => {
+    expect(switchPositions({ placement: 'stream' }).map(p => p.position))
+      .toEqual(['later', 'setAside']);
+    expect(switchPositions({}).map(p => p.label)).toEqual(['LATER', 'SET ASIDE']);
   });
 
-  /* Home is only a position when there is something to come home from. A
-     piece already home showed it anyway: a third of the control, permanently
-     lit, doing nothing when pressed — which on an ordinary source, meaning
-     nearly all of them, was the whole of what the reader saw. */
-  it('offers only the two piles to a piece that is already home', () => {
-    const positions = switchPositions({ placement: 'stream' });
-    expect(positions.map(p => p.position)).toEqual(['later', 'setAside']);
-    expect(positions.some(p => p.active)).toBe(false);
+  it('presses exactly the pile the piece is in, and none when it is home', () => {
+    expect(switchPositions({ placement: 'later' }).filter(p => p.active).map(p => p.position))
+      .toEqual(['later']);
+    expect(switchPositions({ placement: 'stream' }).some(p => p.active)).toBe(false);
   });
 
-  it('says nothing about home to a piece nobody has placed', () => {
-    expect(switchPositions({}).map(p => p.position)).toEqual(['later', 'setAside']);
+  /* Pressing the lit pile has sent a piece home since the switch was written,
+     and nothing ever said so — which is why it needed a second control to
+     spell it out. The button says it now. */
+  it('says what pressing will do, including the way back', () => {
+    const home = switchPositions({ placement: 'stream' });
+    expect(home.map(p => p.phrase)).toEqual(['Put it in later', 'Put it in set aside']);
+
+    const parked = switchPositions({ placement: 'later' });
+    expect(parked.find(p => p.active).phrase).toBe('Take it back home');
+    expect(parked.find(p => !p.active).phrase).toBe('Put it in set aside');
   });
 
-  it('names the home it would actually return to', () => {
-    expect(homeLabel({})).toBe('HOME');
-    expect(homeLabel({ folderName: 'Costco', asFeed: true })).toBe('COSTCO');
-    // A folder you have not screened is not a home of its own.
-    expect(homeLabel({ folderName: 'Investing', asFeed: false })).toBe('HOME');
+  it('names the screened folder it would go back to', () => {
+    const parked = switchPositions({ placement: 'setAside', folderName: 'Costco', asFeed: true });
+    expect(parked.find(p => p.active).phrase).toBe('Take it back to Costco');
   });
 
-  it('sends a piece home when you press the position it already sits in', () => {
+  it('does not name a folder nobody screened, because that is not a home', () => {
+    expect(homeName({ folderName: 'Investing', asFeed: false })).toBe('');
+    expect(homeName({})).toBe('');
+    expect(homeName({ folderName: 'Costco', asFeed: true })).toBe('Costco');
+  });
+
+  it('sends a piece home when you press the pile it already sits in', () => {
     expect(pressPosition({ placement: 'later', pressed: 'later' })).toBe('stream');
     expect(pressPosition({ placement: 'later', pressed: 'setAside' })).toBe('setAside');
     expect(pressPosition({ placement: 'stream', pressed: 'stream' })).toBe('stream');

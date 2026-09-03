@@ -413,11 +413,11 @@ describe('Later and Set aside', () => {
       />
     );
 
-    const group = screen.getByRole('radiogroup', { name: 'Where this sits' });
-    const later = within(group).getByRole('radio', { name: 'LATER' });
-    expect(within(group).getAllByRole('radio')).toHaveLength(2);
-    expect(within(group).queryByRole('radio', { name: /IMBOX|HOME/ })).not.toBeInTheDocument();
-    expect(within(group).getAllByRole('radio').some(r => r.getAttribute('aria-checked') === 'true')).toBe(false);
+    const group = screen.getByRole('group', { name: 'Where this sits' });
+    const later = within(group).getByRole('button', { name: 'Put it in later' });
+    const toggles = within(group).getAllByRole('button').filter(b => b.hasAttribute('aria-pressed'));
+    expect(toggles).toHaveLength(2);
+    expect(toggles.every(b => b.getAttribute('aria-pressed') === 'false')).toBe(true);
 
     fireEvent.click(later);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
@@ -434,7 +434,7 @@ describe('Later and Set aside', () => {
     );
 
     const keep = screen.getByRole('button', { name: 'Keep for good' });
-    const group = screen.getByRole('radiogroup', { name: 'Where this sits' });
+    const group = screen.getByRole('group', { name: 'Where this sits' });
     expect(group.contains(keep)).toBe(false);
     expect(keep.closest('.article-reader-decisions')).toBeTruthy();
   });
@@ -449,8 +449,12 @@ describe('Later and Set aside', () => {
       />
     );
 
-    const aside = screen.getByRole('radio', { name: 'SET ASIDE' });
-    expect(aside).toHaveAttribute('aria-checked', 'true');
+    /* The pile you are in is the way out of it, and now the button says so
+       rather than leaving the reader to discover it by pressing a lit
+       control and seeing what happens. */
+    const aside = screen.getByRole('button', { name: 'Take it back home' });
+    expect(aside).toHaveAttribute('aria-pressed', 'true');
+    expect(aside).toHaveTextContent('SET ASIDE');
     fireEvent.click(aside);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'stream'));
   });

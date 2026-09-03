@@ -148,17 +148,22 @@ const PlacementSwitch = ({
 
   return (
     <div className={`placement-switch${compact ? ' is-compact' : ''}`}>
+      {/* A group of toggles, not a radio group. A radio group needs a chosen
+          option, which is why home had to be drawn as one — and a control that
+          claims a selection when nothing is selected tells a screen reader the
+          piece is nowhere. Neither pressed is a state, and it means home. */}
       <div
         className="placement-switch__capsule"
-        role="radiogroup"
+        role="group"
         aria-label="Where this sits"
       >
-        {positions.map(({ position, label, active }) => (
+        {positions.map(({ position, label, active, phrase }) => (
           <button
             key={position}
             type="button"
-            role="radio"
-            aria-checked={active}
+            aria-pressed={active}
+            aria-label={phrase}
+            title={phrase}
             className={`placement-switch__position${active ? ' is-active' : ''}`}
             disabled={busy}
             onClick={() => slideTo(position)}
