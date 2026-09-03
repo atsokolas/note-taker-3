@@ -29,47 +29,64 @@ import { timeWord } from '../utils/timeWord.js';
  */
 
 /**
- * The name of where a parked piece goes back to.
+ * The name of where a parked piece goes back to: the screened folder it lives
+ * in, or simply home.
  *
- * The screened folder it lives in, or simply home. It said IMBOX, a word
- * borrowed from Hey that names a place this product does not otherwise talk
- * about — the one label on the switch that did not say what it did.
+ * It was IMBOX, a word borrowed from Hey that names a place this product does
+ * not otherwise talk about — the one label on the switch that never said what
+ * it did.
  */
-export const homeLabel = ({ folderName = '', asFeed = false } = {}) => {
+export const homeName = ({ folderName = '', asFeed = false } = {}) => {
   const name = String(folderName || '').replace(/\s+/g, ' ').trim();
-  return asFeed && name ? name.toUpperCase() : 'HOME';
+  return asFeed && name ? name : '';
 };
 
-export const SWITCH_POSITIONS = Object.freeze([PLACEMENT_STREAM, PLACEMENT_LATER, PLACEMENT_SET_ASIDE]);
+export const PILES = Object.freeze([PLACEMENT_LATER, PLACEMENT_SET_ASIDE]);
 
-const POSITION_LABEL = Object.freeze({
+const PILE_LABEL = Object.freeze({
   [PLACEMENT_LATER]: 'LATER',
   [PLACEMENT_SET_ASIDE]: 'SET ASIDE'
 });
 
 /**
- * The positions, with the active one named.
+ * What pressing this pile will do, said out loud.
  *
- * Home is only a position when there is something to come home from. A piece
- * that is already home showed it anyway — a third of the control, permanently
- * lit, doing nothing when pressed, and named after a place the product never
- * mentions anywhere else. On an ordinary source, which is nearly all of them,
- * that was the whole of what the reader saw.
+ * The way back used to be a third position on the switch, and that position
+ * was the thing nobody could explain: home is not a place you send something,
+ * it is where a thing is when you have not sent it anywhere. Drawing it as an
+ * option meant a control that was permanently lit and did nothing on the vast
+ * majority of sources, which are not parked at all.
  *
- * Parked, it comes back and says where back is: the screened folder the piece
- * belongs to, or home. It is the only one of the three whose label depends on
- * where the piece already is, which is why it is worth drawing at all.
+ * So the pile you are already in is the way out of it. That was always the
+ * behaviour — pressing the lit position has sent a piece home since the switch
+ * was written — but nothing ever said so, which is why it needed a second
+ * control to spell it out. Now the button says it.
+ */
+export const pilePhrase = ({ position, active = false, folderName = '', asFeed = false } = {}) => {
+  const label = PILE_LABEL[normalizePlacement(position)] || '';
+  if (!label) return '';
+  if (!active) return `Put it in ${label.toLowerCase()}`;
+  const home = homeName({ folderName, asFeed });
+  return home ? `Take it back to ${home}` : 'Take it back home';
+};
+
+/**
+ * The two piles a piece can be sent to, and which one it is in.
+ *
+ * Two, not three. This returned a home position as well, so a switch on an
+ * ordinary source drew a lit button that did nothing when pressed — and the
+ * control claimed to be a radio group, which needs a chosen option, which is
+ * why home had to be drawn as one. It is not a radio group. It is two toggles
+ * and a resting state, and neither pressed means the piece is home.
  */
 export const switchPositions = ({ placement, folderName = '', asFeed = false } = {}) => {
   const active = normalizePlacement(placement) || PLACEMENT_STREAM;
-  const parked = active !== PLACEMENT_STREAM;
-  return SWITCH_POSITIONS
-    .filter(position => position !== PLACEMENT_STREAM || parked)
-    .map(position => ({
-      position,
-      label: position === PLACEMENT_STREAM ? homeLabel({ folderName, asFeed }) : POSITION_LABEL[position],
-      active: position === active
-    }));
+  return PILES.map(position => ({
+    position,
+    label: PILE_LABEL[position],
+    active: position === active,
+    phrase: pilePhrase({ position, active: position === active, folderName, asFeed })
+  }));
 };
 
 /** A fact with three values has exactly one of them at a time. */
