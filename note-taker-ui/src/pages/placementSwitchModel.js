@@ -28,10 +28,16 @@ import { timeWord } from '../utils/timeWord.js';
  * promise are one gesture, so "Remind me" no longer exists as its own control.
  */
 
-/** HOME names the home. The Imbox, or the screened folder the piece lives in. */
+/**
+ * The name of where a parked piece goes back to.
+ *
+ * The screened folder it lives in, or simply home. It said IMBOX, a word
+ * borrowed from Hey that names a place this product does not otherwise talk
+ * about — the one label on the switch that did not say what it did.
+ */
 export const homeLabel = ({ folderName = '', asFeed = false } = {}) => {
   const name = String(folderName || '').replace(/\s+/g, ' ').trim();
-  return asFeed && name ? name.toUpperCase() : 'IMBOX';
+  return asFeed && name ? name.toUpperCase() : 'HOME';
 };
 
 export const SWITCH_POSITIONS = Object.freeze([PLACEMENT_STREAM, PLACEMENT_LATER, PLACEMENT_SET_ASIDE]);
@@ -42,17 +48,28 @@ const POSITION_LABEL = Object.freeze({
 });
 
 /**
- * The three positions, with the active one named. `home` carries the name of
- * the place it would actually return to, which is the only one of the three
- * whose label depends on where the piece already is.
+ * The positions, with the active one named.
+ *
+ * Home is only a position when there is something to come home from. A piece
+ * that is already home showed it anyway — a third of the control, permanently
+ * lit, doing nothing when pressed, and named after a place the product never
+ * mentions anywhere else. On an ordinary source, which is nearly all of them,
+ * that was the whole of what the reader saw.
+ *
+ * Parked, it comes back and says where back is: the screened folder the piece
+ * belongs to, or home. It is the only one of the three whose label depends on
+ * where the piece already is, which is why it is worth drawing at all.
  */
 export const switchPositions = ({ placement, folderName = '', asFeed = false } = {}) => {
   const active = normalizePlacement(placement) || PLACEMENT_STREAM;
-  return SWITCH_POSITIONS.map(position => ({
-    position,
-    label: position === PLACEMENT_STREAM ? homeLabel({ folderName, asFeed }) : POSITION_LABEL[position],
-    active: position === active
-  }));
+  const parked = active !== PLACEMENT_STREAM;
+  return SWITCH_POSITIONS
+    .filter(position => position !== PLACEMENT_STREAM || parked)
+    .map(position => ({
+      position,
+      label: position === PLACEMENT_STREAM ? homeLabel({ folderName, asFeed }) : POSITION_LABEL[position],
+      active: position === active
+    }));
 };
 
 /** A fact with three values has exactly one of them at a time. */

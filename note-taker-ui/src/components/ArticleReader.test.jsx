@@ -399,7 +399,10 @@ describe('Later and Set aside', () => {
      pressing the active position sends it home, and the vow sits outside the
      mechanics — is what is asserted here instead. */
 
-  it('is one instrument with three positions, and lights exactly one', async () => {
+  /* An unparked source is offered the two piles and nothing else. Home used to
+     sit there as a permanently lit third position that did nothing when
+     pressed — which, on an ordinary source, was the whole control. */
+  it('offers a source at home the two piles it could go to', async () => {
     const onTogglePlacement = jest.fn().mockResolvedValue({ placement: 'later' });
     render(
       <ArticleReader
@@ -412,9 +415,9 @@ describe('Later and Set aside', () => {
 
     const group = screen.getByRole('radiogroup', { name: 'Where this sits' });
     const later = within(group).getByRole('radio', { name: 'LATER' });
-    expect(within(group).getAllByRole('radio')).toHaveLength(3);
-    // Home is the resting position and reads with no fill at all.
-    expect(within(group).getByRole('radio', { name: 'IMBOX' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(group).getAllByRole('radio')).toHaveLength(2);
+    expect(within(group).queryByRole('radio', { name: /IMBOX|HOME/ })).not.toBeInTheDocument();
+    expect(within(group).getAllByRole('radio').some(r => r.getAttribute('aria-checked') === 'true')).toBe(false);
 
     fireEvent.click(later);
     await waitFor(() => expect(onTogglePlacement).toHaveBeenCalledWith('a1', 'later'));
