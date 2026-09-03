@@ -1262,18 +1262,31 @@ body.noeis-editorial.wiki-front-page-route .wiki-front-page {
   position: relative;
   min-height: 72px;
   border-top: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
+  border-radius: 3px;
   color: var(--text-secondary);
   font-size: 0.8rem;
-  transition: color 150ms ease-out, background 180ms ease-out;
+  transition: color 150ms ease-out, box-shadow 180ms ease-out;
 }
 
 .wiki-living-row:last-of-type {
   border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule) 76%, transparent);
 }
 
-.wiki-living-row:hover {
+/* The same ring the Library takes. This was a warm gradient washing off to
+   the right — the last of the colour-follows-the-cursor idea, still here
+   because these rows are their own component and the Library's ring never
+   reached them. A row under the pointer says "this one" the same way in
+   every room, or the reader learns it twice. */
+.wiki-living-row:hover,
+.wiki-living-row:focus-within {
   color: var(--text-primary);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--vellum-warm, #b1862e) 5%, transparent), transparent 76%);
+  box-shadow: 0 0 0 2px var(--noeis-pointer, #6f87ff);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-living-row {
+    transition: none;
+  }
 }
 
 .wiki-living-row__title {

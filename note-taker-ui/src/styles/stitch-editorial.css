@@ -655,30 +655,67 @@ body.noeis-editorial .topbar__primary-link.is-active {
   text-decoration: none;
 }
 
+/* Search is a word in the masthead, not a widget parked in it.
+
+   Everything else along this bar is set in type — a serif wordmark, the room
+   names, the small caps at the right. Search was the one filled, bordered,
+   rounded box in the row, three hundred and sixty pixels of a different
+   design language sitting in the middle of a masthead. Reading it as furniture
+   was correct; it was furniture.
+
+   So it loses the fill and the frame and keeps only what it needs to be
+   findable: the glass, the word, and the shortcut. The rule under it appears
+   on approach, the way every other door in this product does. */
 body.noeis-editorial .topbar__search-wrap {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
   min-width: 0;
-  background: var(--vellum-panel) !important;
-  border: 1px solid var(--vellum-line) !important;
+  background: none !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 0 !important;
+}
+
+body.noeis-editorial .topbar__search-wrap:hover,
+body.noeis-editorial .topbar__search-wrap:focus-visible,
+body.noeis-editorial .topbar__search-wrap:focus-within {
+  outline: none;
+  border-bottom-color: color-mix(in srgb, var(--noeis-rule, var(--vellum-line)) 88%, transparent) !important;
 }
 
 body.noeis-editorial .topbar__search-trigger {
-  min-height: 38px;
-  padding: 0 10px 0 38px;
+  min-height: 34px;
+  padding: 0 2px 0 24px;
   gap: 8px;
 }
 
 body.noeis-editorial .topbar__search-trigger-label {
   line-height: 1;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.86rem;
+}
+
+body.noeis-editorial .topbar__search-wrap:hover .topbar__search-trigger-label,
+body.noeis-editorial .topbar__search-wrap:focus-within .topbar__search-trigger-label {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+/* The shortcut is a note to yourself, not a key cap. */
+body.noeis-editorial .topbar__search-kbd {
+  border: 0 !important;
+  background: none !important;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
 }
 
 body.noeis-editorial .topbar__search-icon {
   position: absolute;
   top: 50%;
-  left: 14px;
+  left: 2px;
   width: 14px;
   height: 14px;
   transform: translateY(-50%);
