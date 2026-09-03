@@ -312,7 +312,7 @@ describe('Library agent rail', () => {
 
     // Folders live on the shelf rail now rather than inside the middle.
     const shelves = screen.getByRole('navigation', { name: 'Shelves' });
-    expect(within(shelves).getByRole('button', { name: /All sources/ })).toBeInTheDocument();
+    expect(within(shelves).getByRole('button', { name: /At home/ })).toBeInTheDocument();
     expect(within(shelves).getByRole('button', { name: /Highlights/ })).toBeInTheDocument();
   });
 
