@@ -138,7 +138,12 @@ const LibraryShelfNav = ({
             active={scope === 'all'}
             onClick={() => onSelectScope?.('all')}
           >
-            <span>All sources</span>
+            {/* Not all of them. This list is every source that is not in a
+                pile and not in a folder you screened as a feed — and its
+                count has always been that same set, so only the word was
+                wrong. "Home" is what the switch on a source calls this, so
+                the room and the control now use one word for one place. */}
+            <span>At home</span>
             {Number.isFinite(count) ? <RoomShelfMeta>{count}</RoomShelfMeta> : null}
           </RoomShelfButton>
         </li>

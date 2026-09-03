@@ -1177,7 +1177,7 @@ const Library = () => {
         <div className="library-page-shell__column-head">
           {isReadingView ? (
             <button type="button" className="library-reader__back" onClick={() => handleSelectArticle('')}>
-              ← All sources
+              ← At home
             </button>
           ) : <span />}
           <span className="library-page-shell__doors">
