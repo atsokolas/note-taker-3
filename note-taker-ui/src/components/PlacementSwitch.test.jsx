@@ -40,9 +40,11 @@ describe('the switch', () => {
     expect(screen.getByRole('radio', { name: 'COSTCO' })).toBeInTheDocument();
   });
 
-  it('calls the Imbox home when the folder is not screened', () => {
+  /* A folder you have not screened is not a home of its own, so the way back
+     is simply home — not a place name borrowed from another product. */
+  it('calls it home when the folder is not screened', () => {
     parked({ folderName: 'Investing', asFeed: false });
-    expect(screen.getByRole('radio', { name: 'IMBOX' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'HOME' })).toBeInTheDocument();
   });
 });
 

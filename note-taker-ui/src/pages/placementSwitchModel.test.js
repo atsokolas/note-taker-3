@@ -18,15 +18,25 @@ describe('the switch', () => {
     expect(positions.find(p => p.active).position).toBe('later');
   });
 
-  it('treats an unplaced piece as home, not as nothing', () => {
-    expect(switchPositions({}).find(p => p.active).position).toBe('stream');
+  /* Home is only a position when there is something to come home from. A
+     piece already home showed it anyway: a third of the control, permanently
+     lit, doing nothing when pressed — which on an ordinary source, meaning
+     nearly all of them, was the whole of what the reader saw. */
+  it('offers only the two piles to a piece that is already home', () => {
+    const positions = switchPositions({ placement: 'stream' });
+    expect(positions.map(p => p.position)).toEqual(['later', 'setAside']);
+    expect(positions.some(p => p.active)).toBe(false);
+  });
+
+  it('says nothing about home to a piece nobody has placed', () => {
+    expect(switchPositions({}).map(p => p.position)).toEqual(['later', 'setAside']);
   });
 
   it('names the home it would actually return to', () => {
-    expect(homeLabel({})).toBe('IMBOX');
+    expect(homeLabel({})).toBe('HOME');
     expect(homeLabel({ folderName: 'Costco', asFeed: true })).toBe('COSTCO');
-    // A folder you have not screened is not a home; the Imbox is.
-    expect(homeLabel({ folderName: 'Investing', asFeed: false })).toBe('IMBOX');
+    // A folder you have not screened is not a home of its own.
+    expect(homeLabel({ folderName: 'Investing', asFeed: false })).toBe('HOME');
   });
 
   it('sends a piece home when you press the position it already sits in', () => {
