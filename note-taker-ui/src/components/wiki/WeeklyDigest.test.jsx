@@ -3,6 +3,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { act, render, screen } from '@testing-library/react';
 import WeeklyDigest from './WeeklyDigest';
 import { getWeeklyMovements } from '../../api/knowledgeMovements';
+import { getWikiBriefing, listWikiPages, listWikiSourceEvents } from '../../api/wiki';
+import { getArticles } from '../../api/articles';
+
+jest.mock('../../api/wiki', () => ({
+  getWikiBriefing: jest.fn(), listWikiPages: jest.fn(), listWikiSourceEvents: jest.fn()
+}));
+jest.mock('../../api/articles', () => ({ getArticles: jest.fn() }));
 
 jest.mock('../../api/knowledgeMovements', () => ({
   getWeeklyMovements: jest.fn()
@@ -19,6 +26,34 @@ const renderDigest = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  getWikiBriefing.mockResolvedValue({ consequentialReturn: null });
+  listWikiPages.mockResolvedValue([]);
+  listWikiSourceEvents.mockResolvedValue([]);
+  getArticles.mockResolvedValue([]);
+});
+
+const acceptedReturn = {
+  id: 'receipt-1', label: 'Judgment reviewed', title: 'Costco',
+  summary: 'You kept the judgment after reviewing the new filing.',
+  href: '/judgment/6a63fee69c9bc637c19109c6', linkLabel: 'See the decision'
+};
+
+test.each(['quiet', 'failed'])('accepted consequence survives a %s movement feed', async state => {
+  getWikiBriefing.mockResolvedValue({ consequentialReturn: acceptedReturn });
+  if (state === 'failed') getWeeklyMovements.mockRejectedValue(new Error('offline'));
+  else getWeeklyMovements.mockResolvedValue({ quiet: true, groups: [] });
+  await renderDigest();
+  expect(getWikiBriefing).toHaveBeenCalledWith({ windowDays: 7 });
+  expect(screen.getByRole('article', { name: 'Judgment reviewed' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'See the decision' })).toHaveAttribute('href', acceptedReturn.href);
+  expect(screen.queryByText('Nothing has needed you this week.')).not.toBeInTheDocument();
+});
+
+test('failed receipt lookup does not manufacture a consequence', async () => {
+  getWikiBriefing.mockRejectedValue(new Error('offline'));
+  getWeeklyMovements.mockResolvedValue({ quiet: true, groups: [] });
+  const { container } = await renderDigest();
+  expect(container.firstChild).toBeNull();
 });
 
 test('a quiet week renders nothing at all — an empty room on a full page is noise', async () => {
