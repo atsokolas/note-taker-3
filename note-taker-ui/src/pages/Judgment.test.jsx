@@ -1432,6 +1432,18 @@ describe('Evidence from the library', () => {
     expect(screen.getByLabelText('Why do you believe it?')).toBeInTheDocument();
   });
 
+  it('does not search or present a governing question as a saved view', async () => {
+    const page = judgmentPage();
+    page.judgment.currentJudgment = '';
+    getWikiPage.mockResolvedValue(page);
+    renderDetail();
+    expect(await screen.findByLabelText('Title')).toHaveValue('NVIDIA');
+    expect(screen.getByLabelText('What you hold')).toHaveValue('');
+    expect(screen.getByText(/Research question: Does demand outrun capacity/)).toBeInTheDocument();
+    expect(getJudgmentLibraryEvidence).not.toHaveBeenCalled();
+    expect(updateWikiPage).not.toHaveBeenCalled();
+  });
+
   it('reports a failed library prefetch through system status, not a toast or the case', async () => {
     const controls = {
       setBackgroundWork: jest.fn(),

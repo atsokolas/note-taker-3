@@ -170,7 +170,7 @@ const AutosaveField = ({ value = '', format, multiline = false, onSave, onIdle, 
    sentence of belief always sits under it. Editing the title writes the wiki
    handle the rest of the product already uses. Editing the opinion writes
    the claim, and only the claim. */
-const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, titleRef }) => {
+const Title = ({ title = '', claim = '', heldClaim = claim, pageId = '', onSave, onWriteClaim, titleRef }) => {
   const [writeError, setWriteError] = useState('');
 
   const run = useCallback(async (action, fallback) => {
@@ -205,7 +205,8 @@ const Title = ({ title = '', claim = '', pageId = '', onSave, onWriteClaim, titl
           className="judgment__opinion"
           aria-label="What you hold"
           multiline
-          value={claim}
+          value={heldClaim}
+          placeholder="Write your current view"
           format={oneSentence}
           onSave={(next) => run(() => onWriteClaim?.(next), 'That judgment could not be saved.')}
           resetAfterSave
@@ -846,14 +847,19 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
      mornings stay silent. The topbar speaks only if the read runs long or
      fails — not a toast, and not an alarm on the case.
      The inbox is for this sentence. When the hold is revised and saved,
-     libraryAttempt advances so this read runs again; stale passages for
+     the saved sentence changes so this read runs again; stale passages for
      the previous hold must not sit here. */
+  const heldClaim = String(page?._id || '') === String(pageId)
+    ? oneSentence(page?.judgment?.currentJudgment || '') : '';
   useEffect(() => {
     let cancelled = false;
     let announced = false;
     // A search in flight knows nothing yet. Stale passages for the previous
     // hold must not sit here, but neither must a premature "found nothing".
     setLibraryCandidates(null);
+    // A governing question is not a held belief. Wait for the exact page and
+    // a saved view before asking the claim-only evidence endpoint.
+    if (!heldClaim) return undefined;
 
     const timer = window.setTimeout(() => {
       if (cancelled) return;
@@ -898,7 +904,7 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
       window.clearTimeout(timer);
       if (announced) systemStatus.setBackgroundWork(null);
     };
-  }, [pageId, libraryAttempt, systemStatus]);
+  }, [pageId, heldClaim, libraryAttempt, systemStatus]);
 
   const view = useMemo(() => (page ? projectJudgment(page) : null), [page]);
   /* Almost always ''. On the one day a year it is not, it is the only thing
@@ -1155,8 +1161,6 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
           revisionId: resolved.revisionId,
           nextReviewAt: resolved.page?.judgment?.nextReviewAt
         }));
-        setLibraryCandidates(null);
-        setLibraryAttempt(currentAttempt => currentAttempt + 1);
         const prior = oneSentence(researchReview?.provenance?.judgmentAtAcceptance || '');
         const accepted = oneSentence(resolved.page?.judgment?.currentJudgment || '');
         if (researchReview?.status === 'awaiting_review' && accepted && accepted !== prior) {
@@ -1282,10 +1286,17 @@ const JudgmentDetail = ({ pageId, initialPage = null }) => {
         pageId={pageId}
         title={view.title}
         claim={view.claim}
+        heldClaim={heldClaim}
         onSave={rename}
         onWriteClaim={writeClaim}
         titleRef={claimRef}
       />
+      {!heldClaim ? (
+        <p className="judgment__provenance">
+          {page?.judgment?.governingQuestion ? `Research question: ${page.judgment.governingQuestion} ` : ''}
+          Write your current view above to look for evidence. Your research is unchanged.
+        </p>
+      ) : null}
       {view.provenance ? (
         <p className={`judgment__provenance ${step(3)}`}>{view.provenance}</p>
       ) : null}
