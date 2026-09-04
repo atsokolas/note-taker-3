@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
 const { FIELD, packRevisionHistories, revisionHistoryArchivePlugin } = require('./wikiRevisionHistoryArchive');
+const { archiveUpdate } = require('../../scripts/archive_wiki_revision_histories');
 
 async function run() {
   // Deliberately local-only. Never use the application's production URI.
@@ -11,7 +12,9 @@ async function run() {
   const original = { _id: new mongoose.Types.ObjectId(), summary: 'metadata',
     before: { secret: 'private', claims: [{ claimId: 'one', support: 'partial', history: [{ at: new Date(), event: 'created' }] }] },
     after: { plainText: 'article', claims: [{ claimId: 'one', support: 'supported', history: [{ event: 'updated', text: 'private history' }] }] } };
-  await Model.collection.insertOne(packRevisionHistories(original));
+  await Model.collection.insertOne(original);
+  await Model.collection.updateOne({ _id: original._id }, archiveUpdate(original, packRevisionHistories(original)));
+  assert.equal(JSON.stringify(await Model.findById(original._id).lean()), JSON.stringify(original));
   try {
     assert.deepEqual(await Model.findById(original._id).lean(), original);
     const doc = await Model.findById(original._id);

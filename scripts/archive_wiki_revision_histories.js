@@ -14,6 +14,17 @@ const { FIELD, packRevisionHistories, unpackRevisionHistories } = require('../se
 const { writeVerifiedMongoBackup } = require('../server/services/mongoBackupService');
 const { readStorageMetrics } = require('../server/services/wikiStorageGovernorService');
 const hash = value => createHash('sha256').update(serialize(value)).digest('hex');
+const archiveUpdate = (row, packed) => {
+  const fields = { [FIELD]: packed[FIELD] };
+  for (const side of ['before', 'after']) {
+    if (!Array.isArray(row[side]?.claims)) continue;
+    row[side].claims.forEach((claim, index) => {
+      if (Object.prototype.hasOwnProperty.call(claim, 'history')) fields[`${side}.claims.${index}.history`] = null;
+    });
+  }
+  // Send only the fields that change, not megabytes of identical snapshot data.
+  return { $set: fields };
+};
 
 async function run() {
   assert(process.env.NOEIS_ENV_FILE, 'NOEIS_ENV_FILE required');
@@ -21,6 +32,8 @@ async function run() {
   const apply = process.argv.includes('--apply');
   const limit = Number(process.env.ARCHIVE_LIMIT || 1);
   assert(Number.isInteger(limit) && limit >= 1 && limit <= 10, 'Limit must be 1–10');
+  const concurrency = Number(process.env.ARCHIVE_CONCURRENCY || 1);
+  assert([1, 2].includes(concurrency), 'Concurrency must be one or two');
   if (apply) {
     const response = await fetch('https://note-taker-3-unrg.onrender.com/api/version');
     const version = await response.json();
@@ -38,18 +51,26 @@ async function run() {
   { $sort: { bytes: -1 } }, { $limit: 100 }]).toArray();
   const report = { apply, before: await readStorageMetrics(db), rows: [] };
   const outputDir = path.join(os.homedir(), '.codex/backups/noeis/wiki-storage', new Date().toISOString().slice(0, 10));
+  const selected = [];
+  const recentByPage = new Map();
   for (const candidate of candidates) {
-    if (report.rows.length >= limit) break;
-    const recent = await collection.find({ pageId: candidate.pageId, userId: candidate.userId })
-      .project({ _id: 1 }).sort({ createdAt: -1 }).limit(5).toArray();
+    if (selected.length >= limit) break;
+    const pageKey = `${candidate.userId}/${candidate.pageId}`;
+    if (!recentByPage.has(pageKey)) recentByPage.set(pageKey, await collection
+      .find({ pageId: candidate.pageId, userId: candidate.userId })
+      .project({ _id: 1 }).sort({ createdAt: -1 }).limit(5).toArray());
+    const recent = recentByPage.get(pageKey);
     if (recent.some(row => String(row._id) === String(candidate._id))) continue;
+    selected.push(candidate);
+  }
+  const processCandidate = async candidate => {
     const row = await collection.findOne({ _id: candidate._id });
-    if (!row || row[FIELD] || row.snapshotPrunedAt) continue;
+    if (!row || row[FIELD] || row.snapshotPrunedAt) return;
     const packed = packRevisionHistories(row);
     assert.deepEqual(unpackRevisionHistories(packed), row);
     assert.equal(JSON.stringify(unpackRevisionHistories(packed)), JSON.stringify(row), 'Legacy hash byte order must survive');
     const savedBytes = serialize(row).length - serialize(packed).length;
-    if (savedBytes < 100000) continue;
+    if (savedBytes < 100000) return;
     const result = { revisionId: String(row._id), savedBytes, applied: false };
     if (apply) {
       const backup = await writeVerifiedMongoBackup({ Model: WikiRevision, ids: [String(row._id)],
@@ -59,7 +80,7 @@ async function run() {
       assert.equal(hash(current), hash(row), 'Revision changed during backup');
       const write = await collection.updateOne({ _id: row._id, userId: row.userId, pageId: row.pageId,
         updatedAt: row.updatedAt, promotionStatus: row.promotionStatus, [FIELD]: { $exists: false },
-        snapshotPrunedAt: null }, { $set: { before: packed.before, after: packed.after, [FIELD]: packed[FIELD] } });
+        snapshotPrunedAt: null }, archiveUpdate(row, packed));
       assert.equal(write.modifiedCount, 1, 'Concurrent revision update; stopped');
       const stored = await collection.findOne({ _id: row._id });
       assert.deepEqual(unpackRevisionHistories(stored), row, 'Stored archive must decode exactly');
@@ -70,6 +91,12 @@ async function run() {
     }
     report.rows.push(result);
     console.log(JSON.stringify(result));
+  };
+  for (let offset = 0; offset < selected.length; offset += concurrency) {
+    // Finish every in-flight readback before disconnecting on an error.
+    const results = await Promise.allSettled(selected.slice(offset, offset + concurrency).map(processCandidate));
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure) throw failure.reason;
   }
   report.after = await readStorageMetrics(db);
   if (apply) {
@@ -78,4 +105,5 @@ async function run() {
   }
   console.log(JSON.stringify(report));
 }
-run().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => mongoose.disconnect());
+if (require.main === module) run().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => mongoose.disconnect());
+module.exports = { archiveUpdate };
