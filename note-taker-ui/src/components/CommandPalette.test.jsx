@@ -13,6 +13,7 @@ import api from '../api';
 import { searchKeyword } from '../api/retrieval';
 import { createWikiPage, listWikiPages } from '../api/wiki';
 import { createQuestion } from '../api/questions';
+import { setArticlePlacement } from '../api/articles';
 import { startLibraryFilingSuggestions } from '../api/library';
 import { getNotebookSummaries } from '../api/notebook';
 import { buildWikiCreatePayload, openWikiDraft } from '../utils/wikiCreate';
@@ -41,6 +42,10 @@ jest.mock('../api/wiki', () => ({
 
 jest.mock('../api/questions', () => ({
   createQuestion: jest.fn()
+}));
+
+jest.mock('../api/articles', () => ({
+  setArticlePlacement: jest.fn()
 }));
 
 jest.mock('../api/notebook', () => ({
@@ -813,5 +818,65 @@ describe('CommandPalette', () => {
 
     fireEvent.keyDown(document.querySelector('.palette-overlay'), { key: 'Enter' });
     expect(mockNavigate).toHaveBeenCalledWith('/wiki/workspace?page=wiki-cia');
+  });
+});
+
+/* Positions as commands, on the piece on screen. */
+describe('CommandPalette placement commands', () => {
+  const article = { _id: 'a1', title: 'Costco 10-K' };
+
+  beforeEach(() => {
+    window.history.pushState({}, '', '/library?articleId=a1');
+    api.get.mockImplementation((url) => (
+      String(url).startsWith('/api/articles')
+        ? Promise.resolve({ data: [article] })
+        : Promise.resolve({ data: [] })
+    ));
+  });
+
+  afterEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
+  it('offers Later, Set aside, and Home for the piece on screen', async () => {
+    setArticlePlacement.mockResolvedValue({ placement: 'later' });
+    await renderPalette();
+    expect(await screen.findByText('Later: Costco 10-K — parks it, oldest-owed first'))
+      .toBeInTheDocument();
+    expect(screen.getByText('Set aside: Costco 10-K — keeps it at hand this week'))
+      .toBeInTheDocument();
+    expect(screen.getByText('Home: Costco 10-K — sends it back where it lives'))
+      .toBeInTheDocument();
+  });
+
+  it('parks onto the pile so the reader meets the piece where it went', async () => {
+    setArticlePlacement.mockResolvedValue({ placement: 'later' });
+    const { systemStatusControls } = await renderPalette();
+    fireEvent.click(await screen.findByText('Later: Costco 10-K — parks it, oldest-owed first'));
+    await waitFor(() => expect(setArticlePlacement).toHaveBeenCalledWith('a1', 'later'));
+    expect(mockNavigate).toHaveBeenCalledWith('/library?scope=later');
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Parked in Later' })
+    );
+  });
+
+  it('sends home without leaving the reader where they are', async () => {
+    setArticlePlacement.mockResolvedValue({ placement: 'stream' });
+    const { systemStatusControls } = await renderPalette();
+    fireEvent.click(await screen.findByText('Home: Costco 10-K — sends it back where it lives'));
+    await waitFor(() => expect(setArticlePlacement).toHaveBeenCalledWith('a1', 'stream'));
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(systemStatusControls.setLatestReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sent home' })
+    );
+  });
+
+  it('offers nothing to place when no piece is on screen', async () => {
+    window.history.pushState({}, '', '/library');
+    await renderPalette();
+    await screen.findByText('New Think note');
+    expect(screen.queryByText(/Later: /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Set aside: /)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Home: /)).not.toBeInTheDocument();
   });
 });
