@@ -40,8 +40,10 @@ describe('the four things only this product can print', () => {
     expect(screen.getByText('On Compute · 3 sources against it')).toBeInTheDocument();
   });
 
-  /* Papers print corrections, and it is the most charming thing they do. */
-  it('prints what you reversed', async () => {
+  /* Not a correction — the reader changing position, read out of a claim's own
+     history. It was called Correction before the paper kept a record, when
+     there was nothing else the word could have meant. */
+  it('calls your own reversal what it is', async () => {
     getMorningPaperColumns.mockResolvedValue(morning({
       corrections: [{
         key: 'k1', text: 'Alphabet capex is defensive.', was: 'retired', became: 'brought it back',
@@ -49,11 +51,11 @@ describe('the four things only this product can print', () => {
       }]
     }));
     render(<PaperColumns />);
-    expect(await screen.findByText('Correction')).toBeInTheDocument();
+    expect(await screen.findByText('Second thoughts')).toBeInTheDocument();
     expect(screen.getByText('You retired this, then brought it back.')).toBeInTheDocument();
   });
 
-  it('pluralises the corrections box only when there is more than one', async () => {
+  it('heads the box the same however many times you changed your mind', async () => {
     getMorningPaperColumns.mockResolvedValue(morning({
       corrections: [
         { key: 'a', text: 'One', was: 'retired', became: 'brought it back', pageId: 'p1' },
@@ -61,7 +63,19 @@ describe('the four things only this product can print', () => {
       ]
     }));
     render(<PaperColumns />);
-    expect(await screen.findByText('Corrections')).toBeInTheDocument();
+    expect(await screen.findByText('Second thoughts')).toBeInTheDocument();
+  });
+
+  /* The word used properly, at last: we printed a thing and the thing was not
+     there. Quietly dropping the question is hoping nobody remembers it. */
+  it('runs a real correction when it has been asking about something gone', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      closed: [{ kind: 'obituary', label: 'Old page', day: '2026-09-01', pageId: 'p9', vanished: true }]
+    }));
+    render(<PaperColumns />);
+    expect(await screen.findByText('Correction')).toBeInTheDocument();
+    expect(screen.getByText('Old page is gone. The paper was still asking about it.')).toBeInTheDocument();
+    expect(screen.queryByText('Since we last asked')).not.toBeInTheDocument();
   });
 
   it('runs the obituary for the page that has gone quietest', async () => {

@@ -116,26 +116,41 @@ const CLOSING_VERB = Object.freeze({
 });
 
 /**
- * What the paper asked about, that you have since dealt with.
+ * What the paper asked about, that is no longer open.
  *
- * A correction in the newspaper sense — the paper printed a thing and the
- * thing is no longer the case — and also the loop closing. A paper that
- * notices you acted is a different object from one that asks again.
+ * Two different things, and the paper stopped calling them one once it had a
+ * record of its own to check against.
  *
- * A target that has vanished is said differently, because gone is not the
- * same as answered and the reader can tell even when the paper cannot.
+ * Answered is a follow-up: the paper asked, you acted, and it says so. That
+ * is the loop closing, and a paper that notices you acted is a different
+ * object from one that asks again.
+ *
+ * Vanished is a correction, in the sense a newspaper means it — we printed a
+ * thing and the thing was not there. The paper has been asking about a page
+ * that no longer exists, and saying so is more honest than dropping the
+ * question and hoping nobody remembers it was asked.
  */
 export const closingLines = (closed = []) => (
   (Array.isArray(closed) ? closed : [])
     .filter(entry => entry?.label && entry?.day)
     .map(entry => ({
       key: `${entry.kind}:${entry.label}:${entry.day}`,
+      vanished: Boolean(entry.vanished),
       text: entry.vanished
         ? `${entry.label} is gone. The paper was still asking about it.`
         : `${CLOSING_VERB[entry.kind] || 'You dealt with it'}: ${entry.label}.`,
+      /* No door to a page that is not there. */
       href: entry.pageId && !entry.vanished ? `/wiki/${entry.pageId}` : ''
     }))
 );
+
+export const closingGroups = (closed = []) => {
+  const lines = closingLines(closed);
+  return {
+    answered: lines.filter(line => !line.vanished),
+    corrections: lines.filter(line => line.vanished)
+  };
+};
 
 /**
  * How much paper there is this morning.

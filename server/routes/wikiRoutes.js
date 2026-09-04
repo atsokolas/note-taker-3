@@ -6316,8 +6316,24 @@ const buildWikiRouter = ({
   router.get('/api/morning-paper/columns', wikiAuth, async (req, res) => {
     try {
       const userId = req.user.id;
+      /* Exactly the fields the columns read, and nothing else.
+         `claims` and `sourceRefs` are the two fat arrays on a wiki page: a
+         source ref carries a title, a snippet, a url and Mixed metadata, and
+         this only ever asks whether the page has any; a history entry carries
+         text, a summary, a note and a Mixed evidence delta, and this only
+         reads when it happened and what was done. Pulling all of it for three
+         hundred pages on every load of the paper is a lot of heap for an
+         instance that is already short of it. */
       const pages = await WikiPage.find({ userId, status: { $ne: 'archived' } })
-        .select('title updatedAt status claims sourceRefs')
+        .select([
+          'title updatedAt status',
+          'sourceRefs._id',
+          'claims.claimId claims.text claims.bornAt claims.createdAt',
+          'claims.checkInStatus claims.retiredAt claims.lastCheckedAt claims.lastReviewedAt',
+          'claims.support claims.contradictedByCitationIds',
+          'claims.history.at claims.history.action',
+          'claims.verdicts.at'
+        ].join(' '))
         .sort({ updatedAt: -1 })
         .limit(300)
         .lean();

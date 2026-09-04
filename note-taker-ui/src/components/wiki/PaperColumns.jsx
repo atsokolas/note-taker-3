@@ -5,7 +5,7 @@ import {
   QUIET_MORNING,
   anniversaryLine,
   askedLine,
-  closingLines,
+  closingGroups,
   correctionLines,
   disagreementLine,
   obituaryLine,
@@ -60,7 +60,7 @@ const PaperColumns = () => {
   const corrections = correctionLines(columns.corrections);
   const obituary = obituaryLine(columns.obituary);
   const asked = askedLine(columns.asked);
-  const closed = closingLines(columns.closed);
+  const { answered, corrections: paperCorrections } = closingGroups(columns.closed);
 
   /* The best sentence this product can print, and the only one none of its
      competitors would dare: there is nothing here, go away. */
@@ -93,11 +93,12 @@ const PaperColumns = () => {
         </Column>
       ) : null}
 
+      {/* Not a correction. This is the reader changing position, read out of a
+          claim's own history — it was called Correction before the paper kept
+          a record, when there was nothing else the word could have meant. */}
       {corrections.length ? (
         <section className="paper-column paper-column--corrections">
-          <p className="paper-column__standfirst">
-            {corrections.length === 1 ? 'Correction' : 'Corrections'}
-          </p>
+          <p className="paper-column__standfirst">Second thoughts</p>
           <ul className="paper-column__corrections">
             {corrections.map(correction => (
               <li key={correction.key}>
@@ -116,15 +117,29 @@ const PaperColumns = () => {
       {/* What the paper asked about and you have since dealt with. The loop
           closing, which is the other half of keeping a record — a paper that
           notices you acted is a different object from one that asks again. */}
-      {closed.length ? (
+      {answered.length ? (
         <section className="paper-column paper-column--closed">
           <p className="paper-column__standfirst">Since we last asked</p>
           <ul className="paper-column__closings">
-            {closed.map(entry => (
+            {answered.map(entry => (
               <li key={entry.key}>
                 {entry.href ? <Link to={entry.href}>{entry.text}</Link> : <span>{entry.text}</span>}
               </li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* The word used properly, at last: we printed a thing and the thing was
+          not there. A paper that quietly drops a question it can no longer
+          answer is hoping nobody remembers it asked. */}
+      {paperCorrections.length ? (
+        <section className="paper-column paper-column--correction">
+          <p className="paper-column__standfirst">
+            {paperCorrections.length === 1 ? 'Correction' : 'Corrections'}
+          </p>
+          <ul className="paper-column__closings">
+            {paperCorrections.map(entry => <li key={entry.key}><span>{entry.text}</span></li>)}
           </ul>
         </section>
       ) : null}

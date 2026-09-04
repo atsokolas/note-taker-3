@@ -2,6 +2,7 @@ import {
   QUIET_MORNING,
   anniversaryLine,
   askedLine,
+  closingGroups,
   closingLines,
   correctionLines,
   disagreementLine,
@@ -147,6 +148,22 @@ describe('what closed since the paper last asked', () => {
     const [line] = closingLines([{ kind: 'obituary', label: 'Old page', day: '2026-09-01', pageId: 'p9', vanished: true }]);
     expect(line.text).toBe('Old page is gone. The paper was still asking about it.');
     expect(line.href).toBe('');
+  });
+
+  /* Answered is a follow-up. Vanished is a correction in the sense a
+     newspaper means it — we printed a thing and the thing was not there. */
+  it('tells a follow-up from a correction', () => {
+    const groups = closingGroups([
+      { kind: 'anniversary', label: 'Alphabet', day: '2026-09-01', pageId: 'p1' },
+      { kind: 'obituary', label: 'Old page', day: '2026-09-02', pageId: 'p9', vanished: true }
+    ]);
+    expect(groups.answered.map(l => l.text)).toEqual(['You went back to it: Alphabet.']);
+    expect(groups.corrections.map(l => l.text)).toEqual(['Old page is gone. The paper was still asking about it.']);
+  });
+
+  it('has neither when nothing closed', () => {
+    expect(closingGroups([])).toEqual({ answered: [], corrections: [] });
+    expect(closingGroups()).toEqual({ answered: [], corrections: [] });
   });
 
   it('drops a closing it cannot name', () => {

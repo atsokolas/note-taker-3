@@ -2737,6 +2737,14 @@ body.noeis-editorial .wiki-living-index__header h1.paper-open__headline {
   font-style: italic;
 }
 
+/* A correction is the paper about itself, so it carries the warning ink
+   rather than the pointer — the only place the paper is the subject and the
+   news is bad. One rule, one meaning: this is not an error state, it is an
+   admission, so the ink is warning and never danger. */
+.paper-column--correction .paper-column__standfirst {
+  color: color-mix(in srgb, var(--warning, var(--text-muted)) 82%, transparent);
+}
+
 /* What you closed since the paper last asked. Good news, so it is not dimmed
    the way an unanswered thing is. */
 .paper-column__closings {
