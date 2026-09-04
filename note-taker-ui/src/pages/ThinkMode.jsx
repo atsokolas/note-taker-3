@@ -14,6 +14,12 @@ import {
 } from '../api/concepts';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
+import {
+  CONCEPT_EXPLAINS_LABEL,
+  CONCEPT_EXPLAINS_PLACEHOLDER,
+  QUESTION_SETTLES_LABEL,
+  QUESTION_SETTLES_PLACEHOLDER
+} from '../components/think/thinkObjectDefinitions';
 import ConceptsIndexView from '../components/think/concepts/ConceptsIndexView';
 import ConceptInvestigationPanel from '../components/think/concepts/ConceptInvestigationPanel';
 import HighlightCard from '../components/blocks/HighlightCard';
@@ -72,6 +78,7 @@ import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import { buildThinkSurfaceDescriptor } from './thinkSurfaceModel';
 import { CalmEmptyLine, SidebarSkeletonRows } from '../components/think/EditorialRail';
 import ThinkShelfRail from '../components/think/ThinkShelfRail';
+import QuestionComposer from '../components/think/questions/QuestionComposer';
 import CalmIndexView from '../components/think/CalmIndexView';
 import ThinkHomeUniversalCommand from '../components/think/ThinkHomeUniversalCommand';
 import {
@@ -405,17 +412,23 @@ const ThinkMode = () => {
     || activeView === 'insights'
   );
   const highlightsEnabled = activeView === 'home' || highlightSearchEnabled;
-  // ThinkShelfRail always shows Concepts / Questions / Notebook together on calm
-  // index surfaces — fetch questions wherever that rail mounts, not only on Home.
-  const questionsListEnabled = (
+  /* ThinkShelfRail always shows Concepts, Questions and Notebook together, so
+     all three are fetched wherever that rail mounts. This rule was already
+     written down, and then applied to questions alone: on the questions index
+     the rail said "No concepts yet" over seventy concepts, and both index
+     pages said "No notebook pages yet" over a hundred and twenty notes. A
+     list nobody asked for has no count, and reporting one as zero is the one
+     thing this product is not allowed to do. */
+  const railListsEnabled = (
     activeView === 'home'
     || activeView === 'questions'
     || activeView === 'concepts'
     || activeView === 'notebook'
   );
-  const notebookListEnabled = activeView === 'home' || activeView === 'notebook';
+  const questionsListEnabled = railListsEnabled;
+  const notebookListEnabled = railListsEnabled;
   const notebookFoldersEnabled = activeView === 'notebook';
-  const conceptsListEnabled = activeView === 'home' || activeView === 'concepts';
+  const conceptsListEnabled = railListsEnabled;
   const workingMemoryEnabled = activeView !== 'concepts';
   const { highlightMap, highlights: allHighlights } = useHighlights({ enabled: highlightsEnabled });
   const { tags } = useTags({ enabled: highlightSearchEnabled });
@@ -620,6 +633,8 @@ const ThinkMode = () => {
     normalizeSpaces(value)
   ), []);
 
+  const [questionComposerOpen, setQuestionComposerOpen] = useState(false);
+  const [questionComposerAnchor, setQuestionComposerAnchor] = useState('index');
   const [conceptComposerOpen, setConceptComposerOpen] = useState(false);
   const [conceptComposerAnchor, setConceptComposerAnchor] = useState('header');
   const [conceptComposerDraft, setConceptComposerDraft] = useState('');
@@ -2255,18 +2270,31 @@ const ThinkMode = () => {
     }
   };
 
-  const handleCreateQuestion = async () => {
+  /* The button opens the composer; the composer makes the question. It used
+     to make one immediately, called "New question", which is why the shelf
+     collects rows by that name. */
+  const handleCreateQuestion = useCallback((anchor = 'index') => {
+    setQuestionError('');
+    setQuestionComposerAnchor(typeof anchor === 'string' ? anchor : 'index');
+    setQuestionComposerOpen(true);
+  }, []);
+
+  const submitQuestionComposer = async ({ text, settledBy = '' } = {}) => {
+    const asked = String(text || '').trim();
+    if (!asked) return;
     setQuestionSaving(true);
     setQuestionError('');
     try {
       const created = await createQuestion({
-        text: 'New question',
+        text: asked,
+        settledBy,
         conceptName: activeView === 'concepts' ? selectedName : '',
         blocks: [{ id: createBlockId(), type: 'paragraph', text: '' }]
       });
       setAllQuestions(prev => [created, ...prev]);
       setActiveQuestionId(created._id);
       setActiveQuestion(created);
+      setQuestionComposerOpen(false);
     } catch (err) {
       setQuestionError(err.response?.data?.error || 'Failed to create question.');
     } finally {
@@ -2425,6 +2453,9 @@ const ThinkMode = () => {
     try {
       const updated = await updateQuestion(payload._id, {
         text: payload.text,
+        /* Only sent when the caller had an opinion about it, so saving the
+           question's body cannot quietly erase what would settle it. */
+        ...(payload.settledBy === undefined ? {} : { settledBy: payload.settledBy }),
         status: payload.status,
         conceptName: payload.conceptName || payload.linkedTagName || '',
         blocks: payload.blocks || []
@@ -2617,11 +2648,24 @@ const ThinkMode = () => {
     notebookMovePendingId
   ]);
 
+  const renderQuestionComposer = (anchor) => (
+    questionComposerOpen && questionComposerAnchor === anchor ? (
+      <QuestionComposer
+        open
+        saving={questionSaving}
+        error={questionError}
+        conceptName={activeView === 'concepts' ? selectedName : ''}
+        onSubmit={submitQuestionComposer}
+        onCancel={() => setQuestionComposerOpen(false)}
+      />
+    ) : null
+  );
+
   const renderConceptComposer = (anchor) => {
     if (!conceptComposerOpen || conceptComposerAnchor !== anchor) return null;
     return (
-      <div className="think-concept-composer-popover" data-testid="think-concept-composer-popover">
-        <label className="feedback-field think-concept-composer-field">
+      <div className="think-composer-popover" data-testid="think-concept-composer-popover">
+        <label className="feedback-field think-composer-field">
           <span>Concept name</span>
           <input
             ref={conceptComposerInputRef}
@@ -2647,12 +2691,15 @@ const ThinkMode = () => {
             }}
           />
         </label>
-        <label className="feedback-field think-concept-composer-field">
-          <span>Description</span>
+        {/* Not "describe what this is about" — that question produces "ai",
+            "agents" and "ai-capex" as three separate ideas. A concept earns a
+            page by explaining something, so that is what the field asks. */}
+        <label className="feedback-field think-composer-field">
+          <span>{CONCEPT_EXPLAINS_LABEL}</span>
           <textarea
             className="noeis-form-control"
             value={conceptComposerDescriptionDraft}
-            placeholder="Describe what this concept is about..."
+            placeholder={CONCEPT_EXPLAINS_PLACEHOLDER}
             rows={3}
             onChange={(event) => {
               setConceptComposerDescriptionDraft(event.target.value);
@@ -2662,7 +2709,7 @@ const ThinkMode = () => {
             }}
           />
         </label>
-        <label className="think-concept-composer-toggle">
+        <label className="think-composer-toggle">
           <input
             type="checkbox"
             checked={conceptComposerAutoScout}
@@ -2670,7 +2717,7 @@ const ThinkMode = () => {
           />
           <span>Run partner scan after create</span>
         </label>
-        <div className="think-concept-composer-actions">
+        <div className="think-composer-actions">
           <Button
             variant="secondary"
             onClick={() => submitConceptComposer(conceptComposerDraft, 'composer')}
@@ -2693,7 +2740,7 @@ const ThinkMode = () => {
           </QuietButton>
         </div>
         {conceptComposerStatus.message && (
-          <p className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}>
+          <p className={`think-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}>
             {(conceptComposerSaving || conceptComposerScouting) && (
               <span className="think-inline-spinner" aria-hidden="true" />
             )}
@@ -2745,11 +2792,12 @@ const ThinkMode = () => {
           <Button
             variant="secondary"
             className="think-index__new-question"
-            onClick={handleCreateQuestion}
+            onClick={() => handleCreateQuestion('rail')}
             disabled={questionSaving}
           >
             New question
           </Button>
+          {renderQuestionComposer('rail')}
         </div>
       </div>
 
@@ -2794,7 +2842,7 @@ const ThinkMode = () => {
             <span className="think-index__label">Concepts</span>
             <span className="think-index__label-chevron" aria-hidden="true">{collapsedIndexGroups.concepts ? '▸' : '▾'}</span>
           </button>
-          <div className="think-concept-composer-anchor">
+          <div className="think-composer-anchor">
             <button
               type="button"
               className="think-index__label-add"
@@ -2809,7 +2857,7 @@ const ThinkMode = () => {
         </div>
         {conceptComposerStatus.message && !conceptComposerOpen && (
           <p
-            className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
+            className={`think-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
             data-testid="think-concept-composer-status"
           >
             {conceptComposerScouting && (
@@ -3664,7 +3712,7 @@ const ThinkMode = () => {
       onSelectThread={handleCalmThreadSelect}
       primaryMove={{
         ...homePrimaryMove,
-        onClick: homePrimaryMove?.emptyAction === 'question' ? handleCreateQuestion : undefined
+        onClick: homePrimaryMove?.emptyAction === 'question' ? (() => handleCreateQuestion('home')) : undefined
       }}
       motionStatusTestIdPrefix="think-home-status"
       maintenanceNote={homeCruftNotice}
@@ -3678,7 +3726,10 @@ const ThinkMode = () => {
           <QuietButton onClick={openTemplatePicker}>Use template</QuietButton>
           <QuietButton onClick={handleCreateNotebookEntry}>New page</QuietButton>
           <QuietButton onClick={() => openConceptComposer('home', search)}>New concept</QuietButton>
-          <QuietButton onClick={handleCreateQuestion}>New question</QuietButton>
+          <span className="think-composer-anchor">
+            <QuietButton onClick={() => handleCreateQuestion('home')}>New question</QuietButton>
+            {renderQuestionComposer('home')}
+          </span>
         </>
       )}
     />
@@ -4167,7 +4218,7 @@ const ThinkMode = () => {
               placeholder="Search or create concept"
               data-testid="think-index-search-input"
             />
-            <div className="think-concept-composer-anchor">
+            <div className="think-composer-anchor">
               <QuietButton
                 type="button"
                 onClick={() => openConceptComposer('selected-concept-header')}
@@ -4194,7 +4245,7 @@ const ThinkMode = () => {
           {wikiPromotionState.error && wikiPromotionState.busyTarget !== questionWikiPromotionTarget ? wikiPromotionError : null}
           {!conceptComposerOpen && conceptComposerStatus.message ? (
             <p
-              className={`think-concept-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
+              className={`think-composer-status ${conceptComposerStatus.tone === 'error' ? 'is-error' : 'is-success'}`}
               data-testid="think-concept-composer-status"
             >
               {conceptComposerStatus.message}
@@ -4360,7 +4411,7 @@ const ThinkMode = () => {
           Name the concept first. Pull support, contradiction, and related material only after the page has somewhere calm for them to land.
         </p>
         <div className="think-home-rail__actions">
-          <div className="think-concept-composer-anchor">
+          <div className="think-composer-anchor">
             <QuietButton onClick={() => openConceptComposer('index-rail', search)} data-testid="think-concepts-index-rail-create-button">
               New concept
             </QuietButton>
@@ -4599,6 +4650,7 @@ const ThinkMode = () => {
       onChangeSection={setQuestionEditorialSection}
       partnerRailNavItems={partnerRailNavItems}
       onCreateQuestion={handleCreateQuestion}
+      questionComposer={renderQuestionComposer('index')}
       questionSaving={questionSaving}
       search={search}
       onSearchChange={setSearch}
@@ -4719,7 +4771,7 @@ const ThinkMode = () => {
                 </QuietButton>
               ) : null}
               <div className="think-main-actions__menu-group">
-                <div className="think-concept-composer-anchor think-main-actions__menu" ref={headerNewMenuRef}>
+                <div className="think-composer-anchor think-main-actions__menu" ref={headerNewMenuRef}>
                   <QuietButton
                     className="list-button think-main-actions__utility think-main-actions__utility--first"
                     onClick={() => {
@@ -4778,7 +4830,7 @@ const ThinkMode = () => {
                         role="menuitem"
                         onClick={() => {
                           closeHeaderMenus();
-                          handleCreateQuestion();
+                          handleCreateQuestion('header');
                         }}
                       >
                         New question
@@ -4786,6 +4838,7 @@ const ThinkMode = () => {
                     </div>
                   )}
                   {renderConceptComposer('header')}
+                  {renderQuestionComposer('header')}
                 </div>
                 <div className="think-main-actions__menu" ref={headerActionsMenuRef}>
                   <QuietButton

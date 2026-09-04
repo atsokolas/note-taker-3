@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button, QuietButton } from '../../ui';
 import CalmIndexView, { ConceptIndexEmptyState } from '../CalmIndexView';
 import { describeConceptMotionNote } from '../calmIndexModel';
+import { CONCEPT_DEFINITION } from '../thinkObjectDefinitions';
 
 const ConceptsIndexView = ({
   orientation,
@@ -19,6 +20,7 @@ const ConceptsIndexView = ({
 }) => (
   <CalmIndexView
     eyebrow="Think · Concepts"
+    definition={CONCEPT_DEFINITION}
     orientation={orientation}
     motion={motion}
     loading={conceptsLoading}
@@ -43,7 +45,7 @@ const ConceptsIndexView = ({
     )}
     actions={filteredConcepts.length > 0 ? (
       <>
-        <div className="think-concept-composer-anchor">
+        <div className="think-composer-anchor">
           <Button
             variant="secondary"
             onClick={() => onOpenComposer('hero', search)}

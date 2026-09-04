@@ -4,6 +4,37 @@ import { MemoryRouter } from 'react-router-dom';
 import CalmIndexView from './CalmIndexView';
 
 describe('CalmIndexView', () => {
+  /* The room's motto holds whatever the data is doing. The headline does
+     not — it is computed from what has arrived, so before anything has it
+     used to say "No open loops on the desk" over four hundred of them. */
+  it('states what the room is for, in flight and once the lists land', () => {
+    const definition = 'An open loop you are still carrying — and what would settle it.';
+    const { rerender } = render(
+      <MemoryRouter>
+        <CalmIndexView definition={definition} orientation="Nothing on the desk." loading />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(definition)).toBeInTheDocument();
+    expect(screen.queryByText('Nothing on the desk.')).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <CalmIndexView definition={definition} orientation="Nothing on the desk." loading={false} />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(definition)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Nothing on the desk.' })).toBeInTheDocument();
+  });
+
+  it('says nothing extra when a room has no motto to state', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <CalmIndexView orientation="The desk is ready." />
+      </MemoryRouter>
+    );
+    expect(container.querySelector('.think-calm-index__definition')).toBeNull();
+  });
+
   it('renders one primary next move above the motion list', () => {
     const onSelectThread = jest.fn();
     const primaryThread = {
