@@ -25,6 +25,7 @@ const ThreadAction = ({ thread, className, children, onSelectThread }) => {
 
 const CalmIndexView = ({
   eyebrow = 'Think',
+  definition = '',
   orientation = '',
   motion = { inMotion: [], shelf: [] },
   loading = false,
@@ -53,7 +54,19 @@ const CalmIndexView = ({
     <div className="think-calm-index tix" data-testid="think-calm-index">
       <div className="think-calm-index__hero tix-anim tix-anim--1">
         <div className="think-calm-index__eyebrow">{eyebrow}</div>
-        <h1 className="tix-lead">{orientation}</h1>
+        {/* What the room is for, standing under its name the way a masthead
+            carries a motto. It used to live only in the first-run empty
+            state, which means the opinion vanished at the exact moment a
+            reader started making the thing — one concept in, and nothing on
+            the page ever said again what a concept is supposed to be. */}
+        {definition ? <p className="think-calm-index__definition">{definition}</p> : null}
+        {/* The definition holds while the lists are in flight — it is a fact
+            about the room, not about the data. The headline does not: it is
+            computed from what has arrived, so before anything has, it said
+            "No open loops on the desk" over four hundred of them. The
+            skeleton below stands in for it until there is something true to
+            say. */}
+        {loading ? null : <h1 className="tix-lead">{orientation}</h1>}
       </div>
 
       {error ? <p className="status-message error-message">{error}</p> : null}
@@ -217,7 +230,7 @@ export const ConceptIndexEmptyState = ({
             you keep returning to.
           </p>
         </div>
-        <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
+        <div className="think-composer-anchor think-concepts-empty-state__actions">
           <Button
             variant="primary"
             onClick={() => onOpenComposer?.('empty', search)}
@@ -235,7 +248,7 @@ export const ConceptIndexEmptyState = ({
   return (
     <SurfaceCard className="think-concepts-empty-state" data-testid="think-concepts-empty-state">
       <SectionHeader title="No concepts match" subtitle="Try a different search term, or clear the filter to see everything." />
-      <div className="think-concept-composer-anchor think-concepts-empty-state__actions">
+      <div className="think-composer-anchor think-concepts-empty-state__actions">
         <Button
           variant="secondary"
           onClick={() => onOpenComposer?.('empty', search)}

@@ -90,6 +90,13 @@ export const editedLine = (entry, now = Date.now()) => {
    Notes are not among them: the note surface *is* Think's face now, so
    ?tab=notebook belongs here whether or not it names an entry. That is also
    the case that used to blank the editor. */
+/* Concepts and Questions are rooms, not just addresses. They have index
+   pages of their own — a shelf of every concept, a docket of every open
+   question — and requiring an object to reach them made the rail's two
+   buttons dead and sent the first-run tour's "Open Think Concepts" to the
+   notebook. The tab alone is enough to stand in them. */
+const INDEXED_TABS = new Set(['concepts', 'questions']);
+
 const OBJECT_PARAMS = {
   concepts: ['concept', 'conceptId'],
   questions: ['questionId'],
@@ -106,6 +113,7 @@ export const namesAThinkObject = (search = '') => {
   const params = new URLSearchParams(search);
   const tab = normalizeSpaces(params.get('tab')).toLowerCase();
   if (NOTE_TABS.has(tab)) return false;
+  if (INDEXED_TABS.has(tab)) return true;
   const keys = OBJECT_PARAMS[tab];
   // A posture this module does not know about is left to the legacy surface
   // rather than swallowed.

@@ -96,9 +96,17 @@ describe('namesAThinkObject', () => {
     expect(namesAThinkObject('?tab=home')).toBe(false);
     // The posture with nothing named is the case that used to blank the editor.
     expect(namesAThinkObject('?tab=notebook')).toBe(false);
-    expect(namesAThinkObject('?tab=concepts')).toBe(false);
     // A named note is still the note surface — it is Think's face now.
     expect(namesAThinkObject('?tab=notebook&entryId=n1')).toBe(false);
+  });
+
+  /* Concepts and Questions are rooms, not just addresses: each has an index
+     of its own. Requiring an object to reach them left the Think rail's two
+     buttons doing nothing and sent the first-run tour's "Open Think Concepts"
+     to the notebook. */
+  it('is true for the two postures that have an index to stand in', () => {
+    expect(namesAThinkObject('?tab=concepts')).toBe(true);
+    expect(namesAThinkObject('?tab=questions')).toBe(true);
   });
 
   it('is true when a link points at one specific object elsewhere in Think', () => {

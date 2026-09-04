@@ -1337,13 +1337,13 @@
   color: var(--text-primary);
 }
 
-.think-concept-composer-anchor {
+.think-composer-anchor {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-.think-concept-composer-popover {
+.think-composer-popover {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -1356,12 +1356,12 @@
   box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
 }
 
-.think-concept-composer-field {
+.think-composer-field {
   gap: 6px;
   margin: 0;
 }
 
-.think-concept-composer-field > span {
+.think-composer-field > span {
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1369,16 +1369,16 @@
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
 }
 
-.think-concept-composer-field input {
+.think-composer-field input {
   min-height: 34px;
 }
 
-.think-concept-composer-field textarea {
+.think-composer-field textarea {
   min-height: 72px;
   resize: vertical;
 }
 
-.think-concept-composer-toggle {
+.think-composer-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1387,14 +1387,14 @@
   color: var(--text-secondary);
 }
 
-.think-concept-composer-actions {
+.think-composer-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
 }
 
-.think-concept-composer-status {
+.think-composer-status {
   margin: 2px 0 0;
   font-size: 0.76rem;
   line-height: 1.4;
@@ -1403,11 +1403,11 @@
   gap: 6px;
 }
 
-.think-concept-composer-status.is-success {
+.think-composer-status.is-success {
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
 }
 
-.think-concept-composer-status.is-error {
+.think-composer-status.is-error {
   color: color-mix(in srgb, #f97373 80%, var(--noeis-ink));
 }
 
@@ -1528,7 +1528,7 @@
   width: fit-content;
 }
 
-.think-concepts-empty-state__actions .think-concept-composer-popover {
+.think-concepts-empty-state__actions .think-composer-popover {
   left: 0;
   right: auto;
 }
@@ -2411,7 +2411,7 @@ html[data-ui-theme='light'] .think-main-actions__segments.ui-segmented-nav .ui-s
     min-height: 30px;
   }
 
-  .think-main-actions .think-concept-composer-popover {
+  .think-main-actions .think-composer-popover {
     left: 0;
     right: auto;
   }
@@ -2649,7 +2649,7 @@ html[data-ui-theme='dark'] {
   font-weight: 600;
 }
 
-.think-concept-composer-popover {
+.think-composer-popover {
   border: 1px solid var(--think-card-border);
   box-shadow: var(--think-card-shadow-hover);
 }
@@ -12981,4 +12981,58 @@ html[data-ui-theme='dark'] .wiki-activity-rail__graph-alerts span {
   .wiki-thesis input,
   .wiki-thesis select,
   .wiki-thesis textarea { border-color: currentColor; }
+}
+
+/* What would settle a question, said on the question.
+
+   The label operates and the value reads, so the label is mono and the value
+   is not. An unnamed one is dimmed and italic rather than hidden: a blank
+   line here would read as "nothing to add" when what it means is that nobody
+   has said yet what would close the loop. */
+.question-settle {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+  max-width: 58ch;
+}
+
+.question-settle__label {
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.question-settle__value {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.92rem;
+  letter-spacing: normal;
+  line-height: 1.45;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  cursor: text;
+}
+
+.question-settle__value:hover {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 60%, transparent);
+  text-underline-offset: 3px;
+}
+
+.question-settle__value.is-unnamed {
+  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+  font-style: italic;
+}
+
+.question-settle__field {
+  font-size: 0.92rem;
+  line-height: 1.45;
 }

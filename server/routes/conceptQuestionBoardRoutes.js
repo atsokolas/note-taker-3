@@ -330,6 +330,7 @@ const buildConceptQuestionBoardRouter = ({
       const userId = req.user.id;
       const {
         text,
+        settledBy = '',
         status = 'open',
         linkedTagName = '',
         conceptName = '',
@@ -346,6 +347,7 @@ const buildConceptQuestionBoardRouter = ({
       const normalizedConcept = (conceptName || linkedTagName || '').trim();
       const question = await Question.create({
         text: text.trim(),
+        settledBy: String(settledBy || '').trim(),
         status,
         linkedTagName: (linkedTagName || normalizedConcept || '').trim(),
         conceptName: normalizedConcept,
@@ -367,9 +369,10 @@ const buildConceptQuestionBoardRouter = ({
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      const { text, status, linkedTagName, conceptName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = req.body;
+      const { text, settledBy, status, linkedTagName, conceptName, blocks, linkedHighlightId, linkedHighlightIds, linkedNotebookEntryId } = req.body;
       const payload = {};
       if (text !== undefined) payload.text = text;
+      if (settledBy !== undefined) payload.settledBy = String(settledBy || '').trim();
       if (status !== undefined) payload.status = status;
       if (linkedTagName !== undefined) payload.linkedTagName = linkedTagName;
       if (conceptName !== undefined) {

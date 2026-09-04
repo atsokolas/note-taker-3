@@ -1,6 +1,8 @@
 import React from 'react';
 import { Button, QuietButton, SectionHeader, TagChip } from '../../ui';
 import CalmIndexView, { QuestionIndexEmptyState } from '../CalmIndexView';
+import { QUESTION_DEFINITION } from '../thinkObjectDefinitions';
+import QuestionSettleLine from './QuestionSettleLine';
 import { describeThreadMotionNote } from '../calmIndexModel';
 import ReferencesPanel from '../../ReferencesPanel';
 import ThoughtPartnerPanel from '../../agent/ThoughtPartnerPanel';
@@ -62,6 +64,7 @@ const QuestionEditorialView = ({
   onChangeSection,
   partnerRailNavItems,
   onCreateQuestion,
+  questionComposer = null,
   questionSaving,
   search,
   onSearchChange,
@@ -355,13 +358,16 @@ const QuestionEditorialView = ({
                   }
                 ]
       }
-      footer={<button type="button" onClick={onCreateQuestion}>Feedback</button>}
+      footer={/* This button said "Feedback" and created a question. */ (
+        <button type="button" onClick={onCreateQuestion}>New question</button>
+      )}
     />
   );
 
   const mainPanel = isQuestionIndex ? (
     <CalmIndexView
       eyebrow="Think · Questions"
+      definition={QUESTION_DEFINITION}
       orientation={indexOrientation}
       motion={indexMotion}
       loading={indexLoading}
@@ -371,13 +377,19 @@ const QuestionEditorialView = ({
       onSelectThread={onCalmThreadSelect}
       motionStatusTestIdPrefix="think-question-status"
       emptyState={(
-        <QuestionIndexEmptyState onCreateQuestion={onCreateQuestion} questionSaving={questionSaving} />
+        <>
+          <QuestionIndexEmptyState onCreateQuestion={onCreateQuestion} questionSaving={questionSaving} />
+          {filteredQuestions.length === 0 ? questionComposer : null}
+        </>
       )}
       actions={filteredQuestions.length > 0 ? (
         <>
-          <Button variant="secondary" onClick={onCreateQuestion} disabled={questionSaving} data-testid="think-questions-index-create-button">
-            New question
-          </Button>
+          <div className="think-composer-anchor">
+            <Button variant="secondary" onClick={onCreateQuestion} disabled={questionSaving} data-testid="think-questions-index-create-button">
+              New question
+            </Button>
+            {questionComposer}
+          </div>
           <QuietButton onClick={onQueueOrganizationPrompt}>Clean up structure</QuietButton>
         </>
       ) : null}
@@ -392,6 +404,11 @@ const QuestionEditorialView = ({
             ? `Open loop inside ${activeQuestionData.linkedTagName}. Clarify the question before deciding what evidence belongs.`
             : 'Clarify the question before deciding what evidence belongs.'}
         </p>
+        <QuestionSettleLine
+          question={activeQuestionData}
+          saving={questionSaving}
+          onSave={onSaveQuestion}
+        />
       </div>
 
       {questionError && <p className="status-message error-message">{questionError}</p>}

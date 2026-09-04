@@ -4796,19 +4796,19 @@ html[data-ui-theme='dark'] .article-reader-header {
   min-width: 0;
 }
 
-.think-concept-composer-anchor {
+.think-composer-anchor {
   position: relative;
   z-index: 12;
 }
 
-.think-concept-composer-popover {
+.think-composer-popover {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
   z-index: 80;
 }
 
-.concept-editorial-shell__partner .think-concept-composer-popover {
+.concept-editorial-shell__partner .think-composer-popover {
   top: auto;
   bottom: calc(100% + 8px);
 }

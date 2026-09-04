@@ -10360,6 +10360,20 @@ body.noeis-editorial .think-calm-index__eyebrow,
   text-transform: uppercase;
 }
 
+/* The room's motto, set under its name and above the day's sentence. It is
+   deliberately the quietest line in the hero: a reader who already knows
+   what a concept is should read straight past it to the headline, and a
+   reader who does not should never have to go looking. */
+body.noeis-editorial .think-calm-index__definition,
+.think-calm-index__definition {
+  margin: 0;
+  max-width: 56ch;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  font-size: 0.86rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
 body.noeis-editorial .think-calm-index__maintenance,
 .think-calm-index__maintenance {
   margin: 12px 0 0;

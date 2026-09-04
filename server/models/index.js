@@ -1630,6 +1630,11 @@ const ConceptNote = mongoose.model('ConceptNote', conceptNoteSchema);
 // Questions - lightweight thinking queue
 const questionSchema = new mongoose.Schema({
   text: { type: String, required: true, trim: true },
+  /* What would close the loop. A question nothing could settle is a mood,
+     and a mood sits on the desk forever looking like work. Optional, because
+     catching the question is more urgent than knowing its answer shape — but
+     an empty one is said out loud rather than left blank. */
+  settledBy: { type: String, default: '', trim: true },
   status: { type: String, enum: ['open', 'answered'], default: 'open' },
   linkedTagName: { type: String, default: '' },
   conceptName: { type: String, default: '' },

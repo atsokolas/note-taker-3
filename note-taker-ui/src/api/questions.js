@@ -5,6 +5,7 @@ import { getAuthHeaders } from '../hooks/useAuthHeaders';
  * @typedef {Object} Question
  * @property {string} _id
  * @property {string} text
+ * @property {string} settledBy  What would close the loop, if anything named yet
  * @property {string} status
  * @property {string} linkedTagName
  * @property {string} [createdAt]
@@ -38,6 +39,7 @@ export const getConceptQuestions = async (conceptName, { status = 'open' } = {})
 
 export const createQuestion = async ({
   text,
+  settledBy = '',
   conceptName,
   status = 'open',
   blocks = [],
@@ -45,6 +47,7 @@ export const createQuestion = async ({
 } = {}) => {
   const payload = {
     text,
+    settledBy,
     status,
     conceptName: conceptName || '',
     linkedTagName: conceptName || '',
