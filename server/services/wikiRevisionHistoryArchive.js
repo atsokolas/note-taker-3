@@ -3,6 +3,7 @@ const { gzipSync, gunzipSync } = require('node:zlib');
 const { createHash } = require('node:crypto');
 
 const FIELD = 'snapshotHistoryArchive';
+const DEFAULT_MINIMUM_SAVINGS_BYTES = 100 * 1024;
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const decode = bytes => deserialize(bytes, { promoteLongs: false });
 const clone = value => decode(serialize(value));
@@ -53,6 +54,28 @@ const unpackRevisionHistories = revision => {
   return unpacked;
 };
 
+const archiveUpdate = (row, packed) => {
+  const fields = { [FIELD]: packed[FIELD] };
+  for (const side of ['before', 'after']) {
+    if (!Array.isArray(row[side]?.claims)) continue;
+    row[side].claims.forEach((claim, index) => {
+      if (Object.prototype.hasOwnProperty.call(claim, 'history')) {
+        fields[`${side}.claims.${index}.history`] = null;
+      }
+    });
+  }
+  return { $set: fields };
+};
+
+const packWhenWorthwhile = (revision, minimumSavingsBytes = DEFAULT_MINIMUM_SAVINGS_BYTES) => {
+  if (revision?.[FIELD]) return { revision, archived: false, savedBytes: 0 };
+  const packed = packRevisionHistories(revision);
+  const savedBytes = serialize(revision).length - serialize(packed).length;
+  return savedBytes >= minimumSavingsBytes
+    ? { revision: packed, archived: true, savedBytes }
+    : { revision, archived: false, savedBytes };
+};
+
 const pickTree = (value, tree) => {
   if (tree === true || value == null) return value;
   if (Array.isArray(value)) return value.map(item => pickTree(item, tree));
@@ -93,8 +116,9 @@ const projectSnapshots = (row, projection = {}) => {
   return row;
 };
 
-// Archives are opt-in operator writes. Existing and new unarchived revisions
-// retain their representation. Metadata-only queries never fetch the archive.
+// Large new histories are archived before their first write. Existing rows are
+// migrated only by the bounded archival service. Metadata-only queries never
+// fetch or inflate the archive.
 const revisionHistoryArchivePlugin = schema => {
   schema.add({ [FIELD]: { type: Object, default: undefined, select: false } });
   const projectionKey = Symbol('snapshotProjection');
@@ -138,6 +162,26 @@ const revisionHistoryArchivePlugin = schema => {
     if (this.$locals.archivedRevisionHistories && (this.isModified('before') || this.isModified('after'))) {
       throw new Error('Archived revision snapshots are immutable; create a new revision');
     }
+    if (!this.isNew || this[FIELD]) return;
+    const original = this.toObject({ depopulate: true, virtuals: false, minimize: false });
+    const result = packWhenWorthwhile(original);
+    if (!result.archived) return;
+    this.$locals.unpackedRevisionHistories = { before: original.before, after: original.after };
+    this.before = result.revision.before;
+    this.after = result.revision.after;
+    this.set(FIELD, result.revision[FIELD], { strict: false });
+    this.$locals.archivedRevisionSavingsBytes = result.savedBytes;
+  });
+  schema.post('save', function () {
+    const original = this.$locals.unpackedRevisionHistories;
+    if (!original) return;
+    this.before = original.before;
+    this.after = original.after;
+    delete this._doc[FIELD];
+    delete this.$locals.unpackedRevisionHistories;
+    this.$locals.archivedRevisionHistories = true;
+    this.unmarkModified('before');
+    this.unmarkModified('after');
   });
   schema.pre(['updateOne', 'updateMany', 'findOneAndUpdate'], function () {
     const update = this.getUpdate() || {};
@@ -150,4 +194,13 @@ const revisionHistoryArchivePlugin = schema => {
   });
 };
 
-module.exports = { FIELD, packRevisionHistories, unpackRevisionHistories, projectSnapshots, revisionHistoryArchivePlugin };
+module.exports = {
+  DEFAULT_MINIMUM_SAVINGS_BYTES,
+  FIELD,
+  archiveUpdate,
+  packRevisionHistories,
+  packWhenWorthwhile,
+  projectSnapshots,
+  revisionHistoryArchivePlugin,
+  unpackRevisionHistories
+};

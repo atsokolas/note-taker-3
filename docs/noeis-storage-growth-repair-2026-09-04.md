@@ -31,18 +31,18 @@ at the common create helper: callers depend on their IDs for acceptance receipts
 - Changed evidence fields and source reorder identity tests passed.
 - Retention and publication service tests passed; diff check clean.
 - No model calls. No production writes in this repair pass.
-- Local only: not committed, merged, deployed or production-proven.
+- Citation repair merged in PR #306 (`5b590402`) and confirmed deployed via
+  `/api/version`. Repeated live maintenance stability remains a separate gate.
 
 ## Next actions
 
-1. Review and land the narrow citation repair against current main without the
-   unrelated staging scripts or parallel editions changes; prove a real repeated
-   maintenance cycle keeps IDs stable after deployment.
-2. Inventory snapshot readers before introducing shared or compressed snapshots.
-   Lean projections, native collection reads and receipt/hash validation must
-   remain compatible. Back up and verify any migration before reclaiming data.
-3. Wire a durable backup destination into the existing storage governor before
-   enabling mutation. Its apply flag alone is insufficient.
+1. Prove a real repeated maintenance cycle keeps IDs stable after deployment.
+2. Lossless archive readers landed in PR #307, with narrow-projection optimization
+   in PR #308 (`6ef09f3a`), confirmed live. Apply backed-up archival only after
+   quota headroom permits shrinking updates; verify decoded content and hashes.
+3. Keep destructive retention behind its verified-backup apply path. Lossless
+   archive packing may run independently because it is atomic, checksummed,
+   compare-and-set and read back before the batch continues.
 
 Storage recovery remains incomplete. Existing protected history must not be
 discarded merely to make the database fit its quota.
