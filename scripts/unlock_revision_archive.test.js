@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
 const { coveredBy, matchesVector } = require('./unlock_revision_archive');
-const { archiveUpdate } = require('./archive_wiki_revision_histories');
+const { archiveUpdate } = require('../server/services/wikiRevisionHistoryArchive');
 const index = { name: 'user', key: { userId: 1 } };
 const cover = { name: 'user_date', key: { userId: 1, createdAt: -1 } };
 assert(coveredBy(index, cover));

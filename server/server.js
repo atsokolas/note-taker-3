@@ -601,11 +601,13 @@ const runWikiStorageGovernorWorker = async () => {
       highWaterBytes: Number(process.env.WIKI_STORAGE_HIGH_WATER_BYTES || 420 * 1024 * 1024),
       batchSize: Number(process.env.WIKI_STORAGE_GOVERNOR_BATCH_SIZE || 2500),
       revisionPageLimit: Number(process.env.WIKI_STORAGE_REVISION_PAGE_LIMIT || 10),
+      historyArchiveApply: process.env.WIKI_HISTORY_ARCHIVE_DISABLED !== 'true',
+      historyArchiveLimit: Number(process.env.WIKI_HISTORY_ARCHIVE_LIMIT || 3),
       dryRun: process.env.WIKI_STORAGE_GOVERNOR_APPLY !== 'true'
     });
     const compactable = result.revisionPages.reduce((sum, row) => sum + Number(row.compactableSnapshots || 0), 0);
-    if (compactable || result.maintenanceRuns.deletable || result.sourceEvents.deletable || result.underPressure) {
-      console.log(`[wiki-storage-governor] dryRun=${result.dryRun} pressure=${result.underPressure} snapshots=${compactable} runs=${result.maintenanceRuns.deletable} events=${result.sourceEvents.deletable}`);
+    if (compactable || result.historyArchive.archived || result.maintenanceRuns.deletable || result.sourceEvents.deletable || result.underPressure) {
+      console.log(`[wiki-storage-governor] dryRun=${result.dryRun} pressure=${result.underPressure} archived=${result.historyArchive.archived} savedBytes=${result.historyArchive.savedBytes} snapshots=${compactable} runs=${result.maintenanceRuns.deletable} events=${result.sourceEvents.deletable}`);
     }
   } catch (error) {
     console.error('[wiki-storage-governor] failed:', error);

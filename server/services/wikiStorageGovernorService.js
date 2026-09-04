@@ -1,5 +1,6 @@
 const { pruneWikiRevisionHistory } = require('./wikiRevisionRetentionService');
 const { assertVerifiedBackup } = require('./mongoBackupService');
+const { archiveEligibleRevisionHistories } = require('./wikiRevisionHistoryArchivalService');
 
 const TERMINAL_RUN_STATUSES = ['completed', 'failed', 'needs_review'];
 const TERMINAL_EVENT_STATUSES = ['processed', 'failed', 'ignored'];
@@ -8,6 +9,7 @@ const PRESSURE_RETENTION_DAYS = 14;
 const DEFAULT_RECENT_REVISION_LIMIT = 20;
 const PRESSURE_RECENT_REVISION_LIMIT = 5;
 const DEFAULT_HIGH_WATER_BYTES = 420 * 1024 * 1024;
+const SYSTEM_DATABASES = new Set(['admin', 'config', 'local']);
 
 const cleanId = value => String(value?._id || value || '').trim();
 
@@ -31,15 +33,51 @@ const loadRows = async ({ Model, query = {}, select = '', sort = null, limit = 0
   return typeof request.lean === 'function' ? request.lean() : request;
 };
 
-const readStorageMetrics = async (db) => {
-  if (!db || typeof db.command !== 'function') return null;
-  const stats = await db.command({ dbStats: 1 });
+const metricFromStats = (name, stats = {}) => {
   const dataBytes = Number(stats.dataSize || 0);
   const indexBytes = Number(stats.indexSize || 0);
+  return { name, dataBytes, indexBytes, logicalBytes: dataBytes + indexBytes };
+};
+
+const readStorageMetrics = async (db) => {
+  if (!db || typeof db.command !== 'function') return null;
+  const canReadCluster = typeof db.admin === 'function' && typeof db.client?.db === 'function';
+  if (canReadCluster) {
+    let listing;
+    try {
+      listing = await db.admin().listDatabases({ nameOnly: true });
+    } catch (error) {
+      const database = metricFromStats(db.databaseName || 'current', await db.command({ dbStats: 1 }));
+      return {
+        dataBytes: database.dataBytes,
+        indexBytes: database.indexBytes,
+        logicalBytes: database.logicalBytes,
+        scope: 'database',
+        complete: false,
+        measurementError: error?.message || 'Cluster database inventory unavailable',
+        databases: [database]
+      };
+    }
+    const names = (listing.databases || []).map(row => row.name).filter(name => !SYSTEM_DATABASES.has(name));
+    const databases = await Promise.all(names.map(async name => metricFromStats(
+      name,
+      await db.client.db(name).command({ dbStats: 1 })
+    )));
+    const totals = databases.reduce((sum, item) => ({
+      dataBytes: sum.dataBytes + item.dataBytes,
+      indexBytes: sum.indexBytes + item.indexBytes,
+      logicalBytes: sum.logicalBytes + item.logicalBytes
+    }), { dataBytes: 0, indexBytes: 0, logicalBytes: 0 });
+    return { ...totals, scope: 'cluster', complete: true, databases };
+  }
+  const database = metricFromStats(db.databaseName || 'current', await db.command({ dbStats: 1 }));
   return {
-    dataBytes,
-    indexBytes,
-    logicalBytes: dataBytes + indexBytes
+    dataBytes: database.dataBytes,
+    indexBytes: database.indexBytes,
+    logicalBytes: database.logicalBytes,
+    scope: 'database',
+    complete: false,
+    databases: [database]
   };
 };
 
@@ -135,6 +173,8 @@ const runWikiStorageGovernor = async ({
   highWaterBytes = DEFAULT_HIGH_WATER_BYTES,
   batchSize = 2500,
   revisionPageLimit = 10,
+  historyArchiveApply = false,
+  historyArchiveLimit = 3,
   dryRun = false,
   backupDryRun = false,
   backupRevisionSnapshots = null,
@@ -149,7 +189,10 @@ const runWikiStorageGovernor = async ({
   } = models;
   const database = db || WikiRevision?.db?.db || WikiRevision?.db;
   const before = await readStorageMetrics(database);
-  const underPressure = Number(before?.logicalBytes || 0) >= Number(highWaterBytes || DEFAULT_HIGH_WATER_BYTES);
+  // A partial measurement must never be interpreted as proof that the shared
+  // Atlas cluster is below its limit.
+  const underPressure = before?.complete === false
+    || Number(before?.logicalBytes || 0) >= Number(highWaterBytes || DEFAULT_HIGH_WATER_BYTES);
   const effectiveRetentionDays = underPressure
     ? Math.min(Number(retentionDays) || DEFAULT_RETENTION_DAYS, Number(pressureRetentionDays) || PRESSURE_RETENTION_DAYS)
     : Number(retentionDays) || DEFAULT_RETENTION_DAYS;
@@ -161,6 +204,16 @@ const runWikiStorageGovernor = async ({
     : Math.max(1, Number(recentRevisionLimit) || DEFAULT_RECENT_REVISION_LIMIT);
   const cutoff = new Date(now.getTime() - Math.max(7, effectiveRetentionDays) * 24 * 60 * 60 * 1000);
   const limit = Math.max(1, Math.min(Number(batchSize) || 2500, 10000));
+
+  const historyArchive = underPressure
+    ? await archiveEligibleRevisionHistories({
+      WikiRevision,
+      now,
+      recentLimit: effectiveRecentRevisionLimit,
+      limit: historyArchiveLimit,
+      dryRun: !historyArchiveApply
+    })
+    : { dryRun: !historyArchiveApply, candidates: 0, selected: 0, archived: 0, savedBytes: 0, rows: [] };
 
   const revisionPages = await pruneHeavyRevisionPages({
     WikiRevision,
@@ -263,7 +316,7 @@ const runWikiStorageGovernor = async ({
     await WikiSourceEvent.deleteMany({ _id: { $in: eventPlan.deleteIds } });
   }
 
-  const after = dryRun ? before : await readStorageMetrics(database);
+  const after = dryRun && !historyArchive.archived ? before : await readStorageMetrics(database);
   return {
     dryRun,
     backupDryRun,
@@ -271,6 +324,7 @@ const runWikiStorageGovernor = async ({
     effectiveRetentionDays,
     effectiveRecentRevisionLimit,
     cutoff,
+    historyArchive,
     revisionPages,
     maintenanceRuns: {
       candidates: runCandidates.length,

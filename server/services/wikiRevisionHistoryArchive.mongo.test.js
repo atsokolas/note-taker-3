@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { FIELD, packRevisionHistories, revisionHistoryArchivePlugin } = require('./wikiRevisionHistoryArchive');
-const { archiveUpdate } = require('../../scripts/archive_wiki_revision_histories');
+const {
+  FIELD,
+  archiveUpdate,
+  packRevisionHistories,
+  revisionHistoryArchivePlugin
+} = require('./wikiRevisionHistoryArchive');
 
 async function run() {
   // Deliberately local-only. Never use the application's production URI.

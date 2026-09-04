@@ -10,21 +10,15 @@ const mongoose = require('mongoose');
 mongoose.set('autoIndex', false);
 mongoose.set('autoCreate', false);
 const { WikiRevision } = require('../server/models');
-const { FIELD, packRevisionHistories, unpackRevisionHistories } = require('../server/services/wikiRevisionHistoryArchive');
+const {
+  FIELD,
+  archiveUpdate,
+  packRevisionHistories,
+  unpackRevisionHistories
+} = require('../server/services/wikiRevisionHistoryArchive');
 const { writeVerifiedMongoBackup } = require('../server/services/mongoBackupService');
 const { readStorageMetrics } = require('../server/services/wikiStorageGovernorService');
 const hash = value => createHash('sha256').update(serialize(value)).digest('hex');
-const archiveUpdate = (row, packed) => {
-  const fields = { [FIELD]: packed[FIELD] };
-  for (const side of ['before', 'after']) {
-    if (!Array.isArray(row[side]?.claims)) continue;
-    row[side].claims.forEach((claim, index) => {
-      if (Object.prototype.hasOwnProperty.call(claim, 'history')) fields[`${side}.claims.${index}.history`] = null;
-    });
-  }
-  // Send only the fields that change, not megabytes of identical snapshot data.
-  return { $set: fields };
-};
 
 async function run() {
   assert(process.env.NOEIS_ENV_FILE, 'NOEIS_ENV_FILE required');
@@ -46,7 +40,10 @@ async function run() {
   const cutoff = new Date(Date.now() - 14 * 86400000);
   const candidates = await collection.aggregate([{ $match: {
     [FIELD]: { $exists: false }, snapshotPrunedAt: null, createdAt: { $lt: cutoff },
-    'before.claims.0.history.0': { $exists: true }
+    $or: [
+      { 'before.claims': { $elemMatch: { 'history.0': { $exists: true } } } },
+      { 'after.claims': { $elemMatch: { 'history.0': { $exists: true } } } }
+    ]
   } }, { $project: { _id: 1, pageId: 1, userId: 1, bytes: { $bsonSize: '$$ROOT' } } },
   { $sort: { bytes: -1 } }, { $limit: 100 }]).toArray();
   const report = { apply, before: await readStorageMetrics(db), rows: [] };
@@ -106,4 +103,3 @@ async function run() {
   console.log(JSON.stringify(report));
 }
 if (require.main === module) run().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => mongoose.disconnect());
-module.exports = { archiveUpdate };

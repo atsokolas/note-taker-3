@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   buildOperationalRetentionPlan,
   collectObjectIds,
+  readStorageMetrics,
   runWikiStorageGovernor
 } = require('./wikiStorageGovernorService');
 
@@ -40,6 +41,37 @@ class Query {
 const oldRows = values => values.map(_id => ({ _id, createdAt: new Date('2026-05-01T00:00:00.000Z') }));
 
 (async () => {
+  const clusterStats = {
+    noeis: { dataSize: 100, indexSize: 20 },
+    legacy: { dataSize: 30, indexSize: 5 }
+  };
+  const clusterDb = {
+    admin: () => ({ listDatabases: async () => ({
+      databases: [{ name: 'admin' }, { name: 'noeis' }, { name: 'legacy' }]
+    }) }),
+    client: { db: name => ({ command: async () => clusterStats[name] }) },
+    command: async () => clusterStats.noeis
+  };
+  assert.deepStrictEqual(await readStorageMetrics(clusterDb), {
+    dataBytes: 130,
+    indexBytes: 25,
+    logicalBytes: 155,
+    scope: 'cluster',
+    complete: true,
+    databases: [
+      { name: 'noeis', dataBytes: 100, indexBytes: 20, logicalBytes: 120 },
+      { name: 'legacy', dataBytes: 30, indexBytes: 5, logicalBytes: 35 }
+    ]
+  });
+  const partial = await readStorageMetrics({
+    databaseName: 'noeis',
+    admin: () => ({ listDatabases: async () => { throw new Error('not authorized'); } }),
+    client: { db: () => ({}) },
+    command: async () => clusterStats.noeis
+  });
+  assert.equal(partial.complete, false);
+  assert.equal(partial.scope, 'database');
+  assert.match(partial.measurementError, /not authorized/);
   const deleted = { runs: [], events: [] };
   const WikiRevision = {
     aggregate: async () => [],

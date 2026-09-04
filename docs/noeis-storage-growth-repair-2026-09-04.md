@@ -40,8 +40,9 @@ at the common create helper: callers depend on their IDs for acceptance receipts
 2. Lossless archive readers landed in PR #307, with narrow-projection optimization
    in PR #308 (`6ef09f3a`), confirmed live. Apply backed-up archival only after
    quota headroom permits shrinking updates; verify decoded content and hashes.
-3. Wire a durable backup destination into the existing storage governor before
-   enabling mutation. Its apply flag alone is insufficient.
+3. Keep destructive retention behind its verified-backup apply path. Lossless
+   archive packing may run independently because it is atomic, checksummed,
+   compare-and-set and read back before the batch continues.
 
 Storage recovery remains incomplete. Existing protected history must not be
 discarded merely to make the database fit its quota.

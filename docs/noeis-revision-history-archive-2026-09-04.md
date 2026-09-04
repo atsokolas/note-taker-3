@@ -9,17 +9,23 @@ in their original positions so legacy JSON-based receipt hashes remain valid.
 Normal model reads reconstruct the original data. Narrow projections are applied
 after reconstruction; metadata-only queries do not fetch the archive.
 
-This is not history deletion. It deletes the redundant uncompressed representation
-only after retaining a lossless compressed representation and verified backup.
-No new infrastructure or paid model calls are required.
+This is not history deletion. It replaces the redundant uncompressed
+representation with a checksummed, lossless compressed representation in one
+atomic document write. No new infrastructure or paid model calls are required.
 
 ## Safety and limitations
 
-- Opt-in operator migration only; new revisions remain unchanged.
+- New revisions saving at least 100 KiB are packed before their first database
+  write, while the returned model still exposes the ordinary decoded snapshot.
+- Under cluster pressure, the governor migrates at most three existing rows per
+  run. It preserves the newest five revisions per page and ignores rows newer
+  than one hour. The operator remains available for backed-up recovery batches.
 - Preserve the newest five revisions per page and anything newer than 14 days.
 - Only archive records saving at least 100,000 BSON bytes, at most ten per run.
 - Require an explicitly verified production reader commit before apply.
-- Back up, reread/hash, compare-and-set, then check native decode and model reads.
+- Operator migrations back up and reread/hash before compare-and-set. Automatic
+  batches preflight exact decoding, compare-and-set, and perform native readback
+  before continuing; they never delete the row or its compressed history.
 - Corrupt payloads fail closed. Archived snapshots are immutable; metadata
   review updates remain supported. Retention pruning removes the archive too.
 - Direct native reads see compressed storage. Server snapshot consumers use the
@@ -46,7 +52,8 @@ repo comparison, publication and Judgment audit suites pass.
 readback finishes before stopping on a failure; a batch never exceeds ten rows.
 Reports and verified backups live in the private Codex backups directory, not git.
 
-Production migration is a separate acceptance gate from these local checks.
+The automatic policy is locally tested here. Merge, deployment and an observed
+production governor run remain separate acceptance gates.
 
 ## Quota recovery bridge
 
@@ -75,8 +82,9 @@ Atlas rejected the backed-up canary's shrinking update while over 512 MiB.
   finally block. Interrupted runs require inspecting that report and restoring
   any dropped indexes before declaring closure.
 
-This is not automatic retention. A scheduled policy and repeated-maintenance
-growth acceptance remain separate work.
+This is not automatic retention. The scheduled policy changes representation,
+never revision identity or availability; destructive retention remains dry-run
+unless its existing verified-backup apply path is explicitly enabled.
 
 ## Production result — 2026-09-04
 
@@ -113,8 +121,10 @@ attempts left their original revisions intact.
 ### Remaining versus plan
 
 The deployed citation identity repair and first lossless archival cleanup are
-complete. Storage is still tight, not permanently solved. Next: automatic bounded
-history packing with a tested growth ceiling, cluster-wide quota accounting in
-the governor (its existing metrics helper measures one database), and a repeated
-maintenance stability check. Keep accepted history/receipts intact; do not turn
-off retention protections simply to manufacture headroom.
+complete. The prevention slice now packs large new histories before their first
+write, migrates at most three eligible old histories per pressured governor run,
+and measures every non-system database visible to the Atlas credential. If
+cluster-wide measurement is unavailable, it reports an incomplete scope and
+assumes pressure instead of claiming false headroom. This prevention slice is
+local until merged and deployed. Repeated production maintenance stability is
+still required. Accepted history, receipts and revision identities remain intact.
