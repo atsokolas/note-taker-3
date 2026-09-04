@@ -29,26 +29,49 @@ export const getTopBarUtilityNavItems = () => getNoeisNavigationDefinitions('uti
    Their routes all still resolve; they are simply not advertised as places. */
 export const getSecondaryNavItems = () => getNoeisNavigationDefinitions('secondary').map(toNavItem);
 
-/* G then a room letter. One mapper, eight rooms, no second listener.
-   Letters are mnemonic and skip `g` so a second G re-primes instead of
-   inventing a `gg` home chord. `o` is Connections — "other people" —
-   because `c` is already Concepts. */
+/* G then the room's own letter. Library, Think, Wiki, Judgment — L, T, W, J.
+   That is the whole rule, and a rule you can guess is the only kind of
+   shortcut anyone keeps; a list you have to memorise from an overlay is a
+   list you look up once and never again.
+
+   It was a hand-kept list of eight, and half of it was fiction. `h` and `n`
+   both landed on the one Think page, and `c` and `q` set a tab that Think
+   overwrites a tick later with whichever note is open — two letters pointing
+   at rooms you cannot stand in. The letters now come from the rooms
+   themselves, so a destination cannot be advertised unless the nav already
+   says it is a place. `g` is never taken, so a second G re-primes instead of
+   inventing a `gg` home chord, and a room that would collide gets no letter
+   rather than stealing one. */
 export const GO_TO_CHORD_MS = 1000;
 
-export const NOEIS_GO_TO_SHORTCUTS = Object.freeze([
-  Object.freeze({ key: 'h', label: 'Think home', to: '/think?tab=home' }),
-  Object.freeze({ key: 'n', label: 'Notebook', to: '/think?tab=notebook' }),
-  Object.freeze({ key: 'c', label: 'Concepts', to: '/think?tab=concepts' }),
-  Object.freeze({ key: 'q', label: 'Questions', to: '/think?tab=questions' }),
-  Object.freeze({ key: 'l', label: 'Library', to: '/library' }),
-  Object.freeze({ key: 'w', label: 'Wiki', to: '/wiki' }),
-  Object.freeze({ key: 'j', label: 'Judgment', to: '/judgment' }),
-  Object.freeze({ key: 'o', label: 'Connections', to: '/connections' })
-]);
+/* Press G and the rooms show their letters. Toggled on the body so the
+   masthead can answer without the shell re-rendering to say it. */
+export const GO_TO_PRIMED_CLASS = 'go-to-primed';
+
+const withInitials = (items) => {
+  const taken = new Set(['g']);
+  return items.flatMap((item) => {
+    const key = String(item.label || '').trim().charAt(0).toLowerCase();
+    if (!key || taken.has(key)) return [];
+    taken.add(key);
+    return [Object.freeze({ key, label: item.label, to: item.to })];
+  });
+};
+
+export const NOEIS_GO_TO_SHORTCUTS = Object.freeze(
+  withInitials([...getPrimaryNavItems(), ...getTopBarUtilityNavItems()])
+);
 
 const SHORTCUT_BY_KEY = new Map(NOEIS_GO_TO_SHORTCUTS.map(item => [item.key, item]));
 
 export const resolveGoToShortcut = (key = '') => SHORTCUT_BY_KEY.get(String(key || '').toLowerCase()) || null;
+
+/* What letter to print beside a room in the masthead. Same map, read the
+   other way round, so the hint on screen cannot drift from the key that
+   actually navigates. */
+const KEY_BY_ROUTE = new Map(NOEIS_GO_TO_SHORTCUTS.map(item => [item.to, item.key]));
+
+export const goToKeyFor = (to = '') => KEY_BY_ROUTE.get(String(to || '')) || '';
 
 const TYPING_SELECTOR = [
   'input',

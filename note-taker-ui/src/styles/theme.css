@@ -160,6 +160,40 @@ p {
   min-height: 44px;
 }
 
+/* The letter a room answers to.
+
+   Silent until you hold G, and then every room in the masthead says its own
+   key at once — which is the whole rule (L, T, W, J) rather than four facts
+   to memorise. It is absolutely placed so arriving costs no layout, it is
+   set in mono because it names a key and not a place, and it wears the
+   pointer ink because that is the one colour that means "press this". No
+   transition: there is nothing here for motion to explain, and a reader who
+   asked for less of it gets the same instant answer. */
+.topbar__primary-link {
+  position: relative;
+}
+
+.topbar__primary-key {
+  position: absolute;
+  top: 6px;
+  right: -8px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  /* Pointer ink carries the meaning, but pointer ink on warm paper is a pale
+     blue at this size. The weight is what makes it legible on the light bar;
+     the hue is what makes it read as a key rather than as a footnote. */
+  color: var(--noeis-pointer, var(--text-muted));
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.go-to-primed .topbar__primary-key {
+  opacity: 1;
+}
+
 .topbar__right {
   display: flex;
   align-items: center;

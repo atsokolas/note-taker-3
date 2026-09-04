@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import BrandGradient from '../components/BrandGradient';
 import FocusMode from '../components/think/FocusMode';
 import SystemStatus from './SystemStatus';
+import { goToKeyFor } from '../navigation/appNavigation';
 import { THEME_OPTIONS } from '../settings/uiPreferences';
 
 const TopBarMenuPopover = ({
@@ -214,15 +215,27 @@ const TopBar = ({
               Noeis
             </NavLink>
             <nav className="topbar__primary-nav" aria-label="Primary navigation">
-              {primaryNav.map((item) => (
-                <NavLink
-                  key={item.label}
-                  to={item.to}
-                  className={`topbar__primary-link ${isNavItemActive(item) ? 'is-active' : ''}`}
-                >
-                  {item.label}
-                </NavLink>
-              ))}
+              {primaryNav.map((item) => {
+                /* Hold G and each room says its own letter. The suggestion is
+                   in the masthead you were already reading, it costs no layout
+                   because it sits over the name rather than beside it, and it
+                   is gone again the moment the chord lapses. Sighted-only on
+                   purpose: it is a legend for a key press, and the ? overlay
+                   is where the same list is read aloud. */
+                const goToKey = goToKeyFor(item.to);
+                return (
+                  <NavLink
+                    key={item.label}
+                    to={item.to}
+                    className={`topbar__primary-link ${isNavItemActive(item) ? 'is-active' : ''}`}
+                  >
+                    {item.label}
+                    {goToKey ? (
+                      <span className="topbar__primary-key" aria-hidden="true">{goToKey.toUpperCase()}</span>
+                    ) : null}
+                  </NavLink>
+                );
+              })}
             </nav>
           </div>
           {/* The rails are a Think idea, so the control only appears where

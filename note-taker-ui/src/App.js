@@ -32,6 +32,8 @@ import { buildCanonicalArticlePath } from './utils/sourceRoutes';
 import {
   buildThinkPosturePath,
   consumeGoToChord,
+  GO_TO_CHORD_MS,
+  GO_TO_PRIMED_CLASS,
   getPrimaryNavItems,
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
@@ -339,6 +341,21 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
 
   useEffect(() => {
     let primedAt = 0;
+    let lapse = 0;
+    /* While the chord is primed the masthead prints each room's letter. The
+       class carries it rather than React state: a legend that appears on a
+       keystroke should not re-render the room you are standing in. It drops
+       on the next key, on the chord lapsing, and on the way out. */
+    const showLetters = (primed) => {
+      window.clearTimeout(lapse);
+      document.body.classList.toggle(GO_TO_PRIMED_CLASS, primed);
+      if (primed) {
+        lapse = window.setTimeout(
+          () => document.body.classList.remove(GO_TO_PRIMED_CLASS),
+          GO_TO_CHORD_MS
+        );
+      }
+    };
     const handleKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -348,6 +365,7 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
 
       const next = consumeGoToChord({ primedAt }, event);
       primedAt = next.primedAt;
+      showLetters(Boolean(primedAt));
       if (next.to) {
         event.preventDefault();
         event.stopPropagation();
@@ -364,7 +382,11 @@ const AuthenticatedLayoutRuntime = ({ renderLayout, openPalette, setShortcutOver
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.clearTimeout(lapse);
+      document.body.classList.remove(GO_TO_PRIMED_CLASS);
+    };
   }, [navigate, openPalette, setShortcutOverlayOpen]);
 
   return renderLayout({ shellLocation, navigate, surface });
