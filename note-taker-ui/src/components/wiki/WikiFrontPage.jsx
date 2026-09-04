@@ -70,6 +70,7 @@ import {
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import WeeklyDigest from './WeeklyDigest';
+import EditionsShelf from './EditionsShelf';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -220,6 +221,7 @@ const WikiFrontPageShell = ({ children, ...mainProps }) => (
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
       {children}
+      <EditionsShelf />
       <WeeklyDigest />
       {/* A paper ends. A feed does not, which is the whole difference. */}
       <p className="paper-open__end" aria-hidden="true">{END_OF_PAPER}</p>

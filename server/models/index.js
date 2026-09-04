@@ -1628,6 +1628,58 @@ conceptNoteSchema.index({ userId: 1, tagName: 1, createdAt: -1 });
 const ConceptNote = mongoose.model('ConceptNote', conceptNoteSchema);
 
 // Questions - lightweight thinking queue
+/* An edition of a paper an agent maintains for its reader.
+
+   Its own object, not a wiki page. A wiki page is timeless and is built out
+   of what you already own; an edition has a window, a run, and cites things
+   you have not saved yet. Forcing the second into the first is what buried
+   the good one that already existed.
+
+   `savedArticleId` is the door back: it is null until the reader saves the
+   source, and then it points at their own library row. That is the arrow
+   this object reverses — every other surface here reads library to wiki. */
+const editionItemSchema = new mongoose.Schema({
+  itemId: { type: String, required: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  url: { type: String, required: true, trim: true },
+  sourceLabel: { type: String, default: '', trim: true },
+  sourceDate: { type: String, default: '', trim: true },
+  section: { type: String, default: '', trim: true },
+  finding: { type: String, required: true, trim: true },
+  /* What would limit the finding. Required by the shape validator rather than
+     by mongoose, so the refusal can name the item instead of the path. */
+  boundary: { type: String, required: true, trim: true },
+  note: { type: String, default: '', trim: true },
+  savedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', default: null }
+}, { _id: false });
+
+const editionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  profile: { type: String, required: true, trim: true },
+  title: { type: String, required: true, trim: true },
+  number: { type: Number, default: null },
+  windowStart: { type: Date, required: true },
+  windowEnd: { type: Date, required: true },
+  standfirst: { type: String, default: '', trim: true },
+  throughLine: { type: String, default: '', trim: true },
+  watchNext: { type: [String], default: [] },
+  items: { type: [editionItemSchema], default: [] },
+  /* Who wrote it. A paper written by an agent says so on its masthead — the
+     reader is entitled to know which of their agents to argue with. */
+  writtenBy: {
+    label: { type: String, default: '', trim: true },
+    agentTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'AgentToken', default: null }
+  }
+}, { timestamps: true });
+
+/* The newsstand reads newest first, per reader. */
+editionSchema.index({ userId: 1, windowEnd: -1, createdAt: -1 });
+/* One edition per profile per window: an agent asked twice for the same week
+   replaces its own draft rather than printing a second copy of Tuesday. */
+editionSchema.index({ userId: 1, profile: 1, windowStart: 1, windowEnd: 1 }, { unique: true });
+
+const Edition = mongoose.model('Edition', editionSchema);
+
 const questionSchema = new mongoose.Schema({
   text: { type: String, required: true, trim: true },
   /* What would close the loop. A question nothing could settle is a mood,
@@ -3096,6 +3148,7 @@ module.exports = {
   TagMeta,
   ConceptDecisionLessonEvidence,
   ConceptNote,
+  Edition,
   Question,
   Board,
   BoardItem,

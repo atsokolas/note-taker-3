@@ -55,6 +55,7 @@ import './styles/reading-layout.css';
 import './styles/dashboard-refresh.css';
 import './styles/idea-workbench.css';
 import './styles/brand-energy.css';
+import './styles/editions.css';
 import './styles/design-preview.css';
 import './styles/stitch-editorial.css';
 import './surface/surface-frame.css';
@@ -69,6 +70,8 @@ const Views = lazy(() => import('./pages/Views'));
 const ViewDetail = lazy(() => import('./pages/ViewDetail'));
 const Export = lazy(() => import('./pages/Export'));
 const Library = lazy(() => import('./pages/Library'));
+const Editions = lazy(() => import('./pages/Editions'));
+const EditionRead = lazy(() => import('./pages/EditionRead'));
 const ThinkMode = lazy(() => import('./pages/ThinkMode'));
 const ThinkNotes = lazy(() => import('./pages/ThinkNotes'));
 const MapView = lazy(() => import('./pages/MapView'));
@@ -705,6 +708,11 @@ function App() {
                 morning paper rather than on a menu. */}
             <Route path="/today" element={<Navigate to="/wiki" replace />} />
             <Route path="/library" element={<Library />} />
+            {/* Papers an agent maintains. Not a fifth room in the nav — the
+                four rooms are what you did, and an edition is something that
+                arrived. The Paper carries the door to it. */}
+            <Route path="/editions" element={<Editions />} />
+            <Route path="/editions/:id" element={<EditionRead />} />
             {/* Think opens the note you were last in. The legacy postures stay
                 addressable: a URL that names a concept, question, thread or
                 entry still opens that object in the older workspace. */}
