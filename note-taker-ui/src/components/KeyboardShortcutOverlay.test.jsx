@@ -14,18 +14,15 @@ describe('KeyboardShortcutOverlay', () => {
     expect(screen.getByRole('heading', { level: 4, name: 'Anywhere' })).toBeInTheDocument();
     expect(screen.getByText('Open command palette')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 4, name: /Go to/i })).toBeInTheDocument();
-    expect(screen.getByText('Think home')).toBeInTheDocument();
-    expect(screen.getByText('Notebook')).toBeInTheDocument();
-    expect(screen.getByText('Concepts')).toBeInTheDocument();
-    expect(screen.getByText('Questions')).toBeInTheDocument();
-    expect(screen.getByText('Library')).toBeInTheDocument();
-    expect(screen.getByText('Wiki')).toBeInTheDocument();
-    expect(screen.getByText('Judgment')).toBeInTheDocument();
-    expect(screen.getByText('Connections')).toBeInTheDocument();
-    expect(screen.queryByText('Review')).not.toBeInTheDocument();
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
-    expect(screen.queryByText('Brain')).not.toBeInTheDocument();
-    expect(screen.queryByText('Journey')).not.toBeInTheDocument();
+    ['Library', 'Think', 'Wiki', 'Judgment', 'Connections', 'Settings'].forEach((room) => {
+      expect(screen.getByText(room)).toBeInTheDocument();
+    });
+    /* Think home, Notebook, Concepts and Questions were four letters for one
+       page — two of them naming rooms you cannot stand in. A help overlay
+       that lists a destination is promising it exists. */
+    ['Think home', 'Notebook', 'Concepts', 'Questions', 'Review', 'Brain', 'Journey'].forEach((gone) => {
+      expect(screen.queryByText(gone)).not.toBeInTheDocument();
+    });
     expect(screen.getAllByText('then').length).toBeGreaterThan(0);
   });
 

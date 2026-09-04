@@ -5,6 +5,7 @@ import {
   getSecondaryNavItems,
   getTopBarUtilityNavItems,
   GO_TO_CHORD_MS,
+  goToKeyFor,
   isGoToTypingTarget,
   NOEIS_GO_TO_SHORTCUTS,
   resolveGoToShortcut
@@ -77,23 +78,51 @@ describe('appNavigation', () => {
     expect(secondaryLabels).toEqual(['Growth', 'How To Use']);
   });
 
-  it('keeps keyboard destinations in one ordered authority', () => {
+  /* Every letter is the room's own initial, so the rule is guessable and the
+     list cannot drift from the nav. It used to be hand-kept, and half of it
+     was fiction: `h` and `n` both landed on the one Think page, and `c` and
+     `q` set a tab Think overwrites a tick later with whichever note is open. */
+  it('gives each room the letter its own name starts with', () => {
     expect(NOEIS_GO_TO_SHORTCUTS.map(item => `${item.key}:${item.to}`)).toEqual([
-      'h:/think?tab=home',
-      'n:/think?tab=notebook',
-      'c:/think?tab=concepts',
-      'q:/think?tab=questions',
       'l:/library',
+      't:/think',
       'w:/wiki',
       'j:/judgment',
-      'o:/connections'
+      'c:/connections#sources',
+      's:/settings'
     ]);
     expect(resolveGoToShortcut('W')?.to).toBe('/wiki');
-    expect(resolveGoToShortcut('t')).toBeNull();
+    expect(resolveGoToShortcut('T')?.to).toBe('/think');
     expect(resolveGoToShortcut('r')).toBeNull();
-    expect(resolveGoToShortcut('s')).toBeNull();
-    expect(resolveGoToShortcut('g')).toBeNull();
     expect(resolveGoToShortcut('x')).toBeNull();
+  });
+
+  it('advertises nothing the navigation does not already call a place', () => {
+    const places = new Set([...getPrimaryNavItems(), ...getTopBarUtilityNavItems()].map(item => item.to));
+    NOEIS_GO_TO_SHORTCUTS.forEach((room) => {
+      expect(places.has(room.to)).toBe(true);
+      expect(room.key).toBe(room.label.charAt(0).toLowerCase());
+    });
+  });
+
+  /* G has to stay free so a second G re-primes rather than inventing a `gg`
+     home chord, and two rooms sharing an initial would make one of them
+     unreachable by a letter that looks like it should work. */
+  it('never spends G, and never spends one letter twice', () => {
+    const keys = NOEIS_GO_TO_SHORTCUTS.map(item => item.key);
+    expect(resolveGoToShortcut('g')).toBeNull();
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  /* The legend printed in the masthead and the key that actually navigates
+     are read out of the same map, so the hint on screen cannot lie. */
+  it('hands the masthead the same letter it answers to', () => {
+    expect(goToKeyFor('/library')).toBe('l');
+    expect(goToKeyFor('/think')).toBe('t');
+    expect(goToKeyFor('/wiki')).toBe('w');
+    expect(goToKeyFor('/judgment')).toBe('j');
+    expect(goToKeyFor('/nowhere')).toBe('');
+    expect(goToKeyFor()).toBe('');
   });
 });
 
@@ -142,7 +171,7 @@ describe('G-then-rooms', () => {
     targets.forEach((target) => {
       expect(isGoToTypingTarget(target)).toBe(true);
       let primedAt = 0;
-      [['g', 1000], ['h', 1100]].forEach(([key, now]) => {
+      [['g', 1000], ['l', 1100]].forEach(([key, now]) => {
         const next = consumeGoToChord({ primedAt }, { key, target }, now);
         primedAt = next.primedAt;
         if (next.to) navigate(next.to);
@@ -156,20 +185,20 @@ describe('G-then-rooms', () => {
 
   it('fails silently when the chord is incomplete or the window lapses', () => {
     expect(playChord(['g', 'x'])).not.toHaveBeenCalled();
-    expect(playChord(['h'])).not.toHaveBeenCalled();
+    expect(playChord(['l'])).not.toHaveBeenCalled();
     expect(playChord(['g', 'g'])).not.toHaveBeenCalled();
 
     const navigate = jest.fn();
     let primedAt = 0;
     primedAt = consumeGoToChord({ primedAt }, bodyEvent('g'), 1000).primedAt;
-    const late = consumeGoToChord({ primedAt }, bodyEvent('h'), 1000 + GO_TO_CHORD_MS + 1);
+    const late = consumeGoToChord({ primedAt }, bodyEvent('l'), 1000 + GO_TO_CHORD_MS + 1);
     if (late.to) navigate(late.to);
     expect(navigate).not.toHaveBeenCalled();
   });
 
   it('ignores the chord when modifier keys are down', () => {
-    expect(playChord(['g', 'h'], { extras: { metaKey: true } })).not.toHaveBeenCalled();
-    expect(playChord(['g', 'h'], { extras: { ctrlKey: true } })).not.toHaveBeenCalled();
-    expect(playChord(['g', 'h'], { extras: { altKey: true } })).not.toHaveBeenCalled();
+    expect(playChord(['g', 'l'], { extras: { metaKey: true } })).not.toHaveBeenCalled();
+    expect(playChord(['g', 'l'], { extras: { ctrlKey: true } })).not.toHaveBeenCalled();
+    expect(playChord(['g', 'l'], { extras: { altKey: true } })).not.toHaveBeenCalled();
   });
 });

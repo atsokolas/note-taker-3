@@ -1115,6 +1115,12 @@ const CommandPalette = ({ open, onClose }) => {
         <div className="palette-shortcuts">
           <span className="muted small">Cmd/Ctrl+K: Open</span>
           <span className="muted small">Arrows + Enter: Navigate</span>
+          {/* The one place the rooms' chord can be found by someone who does
+              not already know it exists. The palette is where this product
+              already teaches key presses, and the rule fits on one line
+              because it is a rule and not a table: press G, then the letter
+              the room's name starts with. Hold G and the masthead confirms. */}
+          <span className="muted small">G then a room’s first letter: Jump</span>
         </div>
         {loading && (
           <p className="muted small" role="status" aria-live="polite">

@@ -3,6 +3,7 @@ import path from 'path';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TopBar from './TopBar';
+import { getPrimaryNavItems } from '../navigation/appNavigation';
 
 describe('TopBar help menu', () => {
   it('renders search as a command palette trigger instead of an inline input', () => {
@@ -65,6 +66,35 @@ describe('TopBar help menu', () => {
     expect(screen.getByRole('link', { name: 'Connections' })).toHaveAttribute('href', '/connections#sources');
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
     expect(screen.getByRole('link', { name: 'Connections' })).toHaveClass('topbar__utility-button--essential');
+  });
+
+  /* The suggestion the shortcut needed: hold G and the masthead you are
+     already reading says which letter each room answers to. It is printed
+     inside the room's own link, so the hint cannot end up beside the wrong
+     name, and it is hidden from screen readers because it is a legend for a
+     key press — the ? overlay is where the same list is read aloud. */
+  it('prints each room\u2019s go-to letter inside the room\u2019s own link', () => {
+    render(
+      <MemoryRouter>
+        <TopBar primaryNav={getPrimaryNavItems()} />
+      </MemoryRouter>
+    );
+
+    [['Library', 'L'], ['Think', 'T'], ['Wiki', 'W'], ['Judgment', 'J']].forEach(([room, key]) => {
+      const legend = screen.getByRole('link', { name: room }).querySelector('.topbar__primary-key');
+      expect(legend).toHaveTextContent(key);
+      expect(legend).toHaveAttribute('aria-hidden', 'true');
+    });
+  });
+
+  it('says nothing beside a room the chord cannot reach', () => {
+    render(
+      <MemoryRouter>
+        <TopBar primaryNav={[{ label: 'Nowhere', to: '/nowhere' }]} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Nowhere' }).querySelector('.topbar__primary-key')).toBeNull();
   });
 
   it('does not render More when secondary navigation is empty', () => {
