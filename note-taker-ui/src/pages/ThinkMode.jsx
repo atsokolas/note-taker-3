@@ -14,11 +14,11 @@ import {
 } from '../api/concepts';
 import useQuestions from '../hooks/useQuestions';
 import { createQuestion, updateQuestion } from '../api/questions';
+/* The question composer asks for the settle condition itself, so only the
+   concept half of the vocabulary is needed here. */
 import {
   CONCEPT_EXPLAINS_LABEL,
-  CONCEPT_EXPLAINS_PLACEHOLDER,
-  QUESTION_SETTLES_LABEL,
-  QUESTION_SETTLES_PLACEHOLDER
+  CONCEPT_EXPLAINS_PLACEHOLDER
 } from '../components/think/thinkObjectDefinitions';
 import ConceptsIndexView from '../components/think/concepts/ConceptsIndexView';
 import ConceptInvestigationPanel from '../components/think/concepts/ConceptInvestigationPanel';
