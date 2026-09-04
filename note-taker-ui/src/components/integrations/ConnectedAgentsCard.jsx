@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button, Card } from '../ui';
 
 const resolveTokenId = (token = {}) => token.id || token._id || token.tokenId || '';
@@ -60,6 +61,15 @@ const ConnectedAgentsCard = ({ tokenModel }) => {
         <div>
           <h2>Connected agents</h2>
           <p className="muted">Issue and manage workspace tokens for external agents.</p>
+          {/* The one thing a connected agent can make that the reader reads.
+              This is where you are standing when you connect the agent that
+              would file one, and it was the only screen in the product from
+              which the newsstand could not be reached. */}
+          <p className="muted connected-agents-card__editions">
+            A connected agent can keep a paper for you — ask it for a
+            <em> This Week in AI</em> and it files here.{' '}
+            <Link to="/editions">Editions →</Link>
+          </p>
         </div>
         <p className="muted-label">{tokensLoading ? 'Loading' : `${sortedTokens.length} tokens`}</p>
       </div>

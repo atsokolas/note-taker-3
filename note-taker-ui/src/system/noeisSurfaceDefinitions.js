@@ -96,6 +96,27 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     route: '/settings',
     navigationGroup: 'utility'
   }),
+  /* Papers your agents maintain for you.
+
+     Secondary on purpose. The four rooms are what you did; an edition is
+     something that arrived, and it does not earn a fifth seat in the
+     masthead — most mornings there is nothing new on the stand.
+
+     But it was reachable from exactly one place: a shelf on the morning
+     paper that renders nothing until an edition exists. Empty is the state
+     every reader starts in, so the feature was invisible to everyone who did
+     not already have it, and the empty state that explains how to get one
+     could not be reached. Secondary puts it in More and, because the palette
+     is generated from these definitions rather than hand-listed, in the
+     palette too. */
+  surface({
+    id: 'surface.editions',
+    name: 'Editions',
+    route: '/editions',
+    navigationGroup: 'secondary',
+    activePrefixes: ['/editions'],
+    authenticatedPrefixes: ['/editions']
+  }),
   surface({
     id: 'surface.growth',
     name: 'Growth',
