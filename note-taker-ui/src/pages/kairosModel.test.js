@@ -1,4 +1,4 @@
-import { KAIROS_EYEBROW, KAIROS_SENTENCE, addDays, askedBackLine, kairosSentence, nextMonday, paperAskedBack, pendingRemindOf, remindPresets } from './kairosModel';
+import { KAIROS_EYEBROW, KAIROS_SENTENCE, addDays, askedBackLine, kairosSentence, nextMonday, paperAskedBack, pendingRemindOf, promiseLedger, remindPresets } from './kairosModel';
 
 const NOW = new Date('2026-08-31T15:00:00');
 
@@ -64,5 +64,49 @@ describe('a recurring promise', () => {
 
   it('does not call a one-off a repeat, however many times it was rescheduled', () => {
     expect(kairosSentence({ fired: 3, recurring: false })).toBe('You asked for this back.');
+  });
+});
+
+/* The promise ledger: the Later pile's door onto pending promises. */
+describe('promiseLedger', () => {
+  const NOW_LEDGER = new Date('2026-08-31T12:00:00.000Z').getTime();
+  const entry = (overrides = {}) => ({
+    _id: 'q1',
+    status: 'pending',
+    itemType: 'article',
+    itemId: 'a1',
+    dueAt: '2026-09-01T09:00:00.000Z',
+    reason: '',
+    cadence: null,
+    item: { title: 'The Costco 10-K' },
+    ...overrides
+  });
+
+  it('lists pending article promises with the one time word', () => {
+    const rows = promiseLedger([entry()], new Map(), NOW_LEDGER);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      articleId: 'a1',
+      title: 'The Costco 10-K',
+      href: '/library?articleId=a1',
+      day: 'TUE'
+    });
+  });
+
+  it('falls back to the article at hand when the hydrated title is gone', () => {
+    const rows = promiseLedger(
+      [entry({ item: null })],
+      new Map([['a1', { title: 'Held title' }]]),
+      NOW_LEDGER
+    );
+    expect(rows[0].title).toBe('Held title');
+  });
+
+  it('prints nothing for settled rows, other kinds, or untitled pieces', () => {
+    expect(promiseLedger([
+      entry({ status: 'completed' }),
+      entry({ _id: 'q2', itemType: 'highlight' }),
+      entry({ _id: 'q3', item: null })
+    ], new Map(), NOW_LEDGER)).toEqual([]);
   });
 });

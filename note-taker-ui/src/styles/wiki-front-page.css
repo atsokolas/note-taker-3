@@ -2533,3 +2533,156 @@ body.noeis-editorial .wiki-front-page__operations-panel input {
   outline: none;
   border-bottom-color: var(--vellum-ink, #1c1a17);
 }
+
+
+/* ── The paper with nerve ─────────────────────────────────────────────────
+ *
+ * The headline used to spend 60px on the words "Your living wikis" while the
+ * one interesting line on the page — a story dealt off the reader's own shelf
+ * — sat at 15px underneath it. The story has the type now.
+ *
+ * The columns below it are the four things only this product can print. They
+ * are set as a paper sets a column: a standfirst in the operating register,
+ * the claim itself in the reading one, a footnote under it. Quoted claims are
+ * the reader's own words, so they get the serif and the size. */
+
+.paper-open__headline {
+  margin: 0 0 4px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(1.9rem, 3.2vw, 3.1rem);
+  font-weight: 450;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.paper-open__headline a {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.paper-open__headline a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
+}
+
+.paper-columns {
+  display: grid;
+  gap: 26px;
+  margin: 30px 0 4px;
+  padding: 22px 0 0;
+  border-top: 2px solid var(--noeis-rule, var(--border-subtle-2));
+  max-width: 62ch;
+}
+
+.paper-column__standfirst,
+.paper-column__footnote,
+.paper-column__correction-note {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+}
+
+.paper-column__standfirst {
+  margin: 0 0 6px;
+}
+
+.paper-column__footnote {
+  margin: 6px 0 0;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+/* The reader's own sentence, given back to them. Serif, and big enough to
+   feel like a quotation rather than a field value. */
+.paper-column__body {
+  display: block;
+  margin: 0;
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.22rem;
+  line-height: 1.42;
+  text-decoration: none;
+}
+
+a.paper-column__body:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 50%, transparent);
+}
+
+/* A belief a year old, asking to be answered. The rule marks it as the one
+   column that wants something from the reader. */
+.paper-column--anniversary {
+  padding-left: 16px;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 45%, transparent);
+}
+
+.paper-column__corrections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.paper-column__corrections li {
+  display: grid;
+  gap: 2px;
+}
+
+.paper-column__corrections a,
+.paper-column__corrections span:first-child {
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.paper-column__corrections a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.paper-column__correction-note {
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+/* Papers have always run these. Wry, small, and set apart. */
+.paper-column__obituary {
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 65%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-style: italic;
+}
+
+.paper-column__obituary a {
+  color: inherit;
+}
+
+/* The best sentence this product can print, and the only one none of its
+   competitors would dare: there is nothing here, go away. */
+.paper-column__quiet {
+  margin: 30px 0 4px;
+  padding: 22px 0 0;
+  border-top: 2px solid var(--noeis-rule, var(--border-subtle-2));
+  max-width: 48ch;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.16rem;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.wiki-living-table__rest {
+  margin: 14px 0 0;
+  font-size: 0.86rem;
+}

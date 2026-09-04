@@ -62,6 +62,7 @@ const LibraryMain = ({
   sourceDetailError = '',
   relevanceState = null,
   pileArticles = [],
+  ledger = [],
   reviewBacklogCount,
   reviewBacklogHref = ''
 }) => {
@@ -97,6 +98,7 @@ const LibraryMain = ({
   const piles = (
     <LibraryPiles
       articles={knownArticles}
+      ledger={ledger}
       onSelect={onSelectArticle}
       onDone={handlePileDone}
       /* The piles' switches, keys, and drops all read this one verb. Without

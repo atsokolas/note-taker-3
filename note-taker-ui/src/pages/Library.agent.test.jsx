@@ -10,6 +10,7 @@ import useTags from '../hooks/useTags';
 import useLibraryRoom from '../hooks/useLibraryRoom';
 import { getConnectionsForItem } from '../api/connections';
 import { startLibraryFilingSuggestions } from '../api/library';
+import { listReturnQueue } from '../api/returnQueue';
 
 const mockNavigate = jest.fn();
 const mockDeclareSurface = jest.fn();
@@ -104,6 +105,9 @@ jest.mock('../surface/NoeisSurfaceContext', () => ({
 jest.mock('../api/articles', () => ({
   moveArticleToFolder: jest.fn()
 }));
+jest.mock('../api/returnQueue', () => ({
+  listReturnQueue: jest.fn(() => Promise.resolve([]))
+}));
 jest.mock('../api/questions', () => ({
   createQuestion: jest.fn()
 }));
@@ -152,6 +156,9 @@ describe('Library agent rail', () => {
     localStorage.clear();
     window.matchMedia = jest.fn().mockReturnValue({ matches: true });
     getConnectionsForItem.mockResolvedValue({ outgoing: [], incoming: [] });
+    /* restoreAllMocks unwinds factory implementations: everything the room
+       reads on mount has to be taught again here. */
+    listReturnQueue.mockResolvedValue([]);
     startLibraryFilingSuggestions.mockResolvedValue({
       thread: { threadId: 'thread-filing-1' },
       receipt: {

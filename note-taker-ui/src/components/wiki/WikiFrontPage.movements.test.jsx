@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
-import { listWikiPages } from '../../api/wiki';
+import { getMorningPaperColumns, listWikiPages } from '../../api/wiki';
 import { getDailyLoop } from '../../api/dailyLoop';
 import useLibraryRoom from '../../hooks/useLibraryRoom';
 
@@ -12,7 +12,12 @@ jest.mock('./WeeklyDigest', () => () => null);
 jest.mock('../../api/knowledgeMovements', () => ({
   getWeeklyMovements: jest.fn().mockResolvedValue({ groups: [], quiet: true })
 }));
-jest.mock('../../api/wiki', () => ({ listWikiPages: jest.fn() }));
+jest.mock('../../api/wiki', () => ({
+  listWikiPages: jest.fn(),
+  /* A quiet morning, so the paper's columns stay out of a suite that is
+     about something else. */
+  getMorningPaperColumns: jest.fn(() => Promise.resolve({}))
+}));
 jest.mock('../../hooks/useLibraryRoom', () => ({
   __esModule: true,
   default: jest.fn(() => ({
@@ -69,6 +74,8 @@ const page = {
 
 describe('WikiFrontPage movement return surface', () => {
   beforeEach(() => {
+    /* A quiet morning: these suites are about the index, not the columns. */
+    getMorningPaperColumns.mockResolvedValue({});
     jest.clearAllMocks();
     localStorage.clear();
     jest.spyOn(router, 'useNavigate').mockReturnValue(jest.fn());

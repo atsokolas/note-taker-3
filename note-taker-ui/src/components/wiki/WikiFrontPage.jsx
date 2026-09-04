@@ -70,6 +70,7 @@ import {
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import WeeklyDigest from './WeeklyDigest';
+import PaperColumns from './PaperColumns';
 import EditionsShelf from './EditionsShelf';
 import {
   RoomShelf,
@@ -90,6 +91,8 @@ import { normalizeSpaces } from '../../utils/editorialText';
 // hairline link; it is no longer the front door.
 
 const INDEX_PAGE_LIMIT = 500;
+/* Enough to see what is on top, few enough that the paper is a paper. */
+const FRONT_PAGE_ROWS = 8;
 const WATCHING_PREVIEW_LIMIT = 5;
 const WIKI_FRONT_PAGE_CACHE_KEY = 'noeis.wiki.frontPageSnapshot.v1';
 // Namespaced per account: this snapshot holds page titles, briefing text, and the
@@ -517,6 +520,15 @@ const WikiFrontPage = ({ initialKind = '' }) => {
     ));
   }, [weighted, wikiSearch, wikiFilter, sourceMaterialIds, activeTriage, promotedReviewIds]);
 
+  /* A front page is a front page. Searching or filtering is someone looking
+     for a specific thing, so those views are not truncated — only the default
+     stack is. */
+  const frontPageRows = useMemo(() => (
+    wikiSearch.trim() || wikiFilter !== 'all' ? explorePages : explorePages.slice(0, FRONT_PAGE_ROWS)
+  ), [explorePages, wikiFilter, wikiSearch]);
+
+  const hiddenPageCount = Math.max(0, explorePages.length - frontPageRows.length);
+
   const exactReviewCount = useMemo(() => canonicalPages.filter(page => (
     pendingWikiReview(page) || sourceMaterialIds.has(String(pageId(page)))
   )).length, [canonicalPages, sourceMaterialIds]);
@@ -903,7 +915,18 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               driftClosesAt={briefing?.driftClosesAt}
               keptCount={libraryRoom.shelfCounts?.keptArticles}
             />
-            <h1 id="wiki-living-title">Your living wikis</h1>
+            {/* The biggest type on the page used to spend 60px on the words
+                "Your living wikis" while the one genuinely interesting line —
+                a story dealt off your own shelf — sat at 15px underneath it.
+                A front page leads with the story. The masthead one line above
+                already says which paper this is. */}
+            {todaysShelfPick ? (
+              <h1 id="wiki-living-title" className="paper-open__headline">
+                <Link to={todaysShelfPick.href}>{todaysShelfPick.text}</Link>
+              </h1>
+            ) : (
+              <h1 id="wiki-living-title" className="sr-only">Your living wikis</h1>
+            )}
             <PaperDesk
               lastWorked={lastWorkedPage}
               openCase={liveCase}
@@ -911,7 +934,6 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               setAside={libraryRoom.shelfCounts?.setAsideArticles}
               kept={libraryRoom.shelfCounts?.keptArticles}
               topics={libraryRoom.feedTopics}
-              shelfPick={todaysShelfPick}
             />
             {leadSentence && wikiFilter !== 'review' ? (
               <p
@@ -944,6 +966,12 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             {availabilityNotice ? <p className="wiki-front-page__availability" role="status">{availabilityNotice}</p> : null}
           </header>
 
+          {/* What the ledger knows about you: a belief a year old you never
+              went back to, your own sources arguing, a reversal you made, and
+              the page that has gone quietest. Each absent when untrue, which
+              is what makes the paper short on a quiet day. */}
+          {wikiFilter !== 'review' ? <PaperColumns /> : null}
+
           {/* Where you were. The lead page the agent worked on last, or the
               page the corpus would open to — one line above the list. */}
           {todaysPage ? (
@@ -961,6 +989,11 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             </p>
           ) : null}
 
+          {/* The front page carried all sixty of these — 4,488px of grid, 83%
+              of the paper, where two phrases repeated down a column. A status
+              true of forty-four rows out of sixty is wallpaper. The front page
+              shows the top of the stack; the full index is one link away, in
+              the workspace, which is where operators live. */}
           <div className="wiki-living-table" role="table" aria-label="Living Wiki pages">
             <div className="wiki-living-table__head" role="row">
               <span role="columnheader">Wiki</span>
@@ -968,7 +1001,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               <span role="columnheader">Last review</span>
               <span role="columnheader">Maintenance state</span>
             </div>
-            {explorePages.length ? explorePages.map((page) => {
+            {frontPageRows.length ? frontPageRows.map((page) => {
               const rowId = String(pageId(page));
               const changedByLibrary = sourceMaterialIds.has(rowId);
               const reviewState = wikiReviewState(page, changedByLibrary);
@@ -1001,6 +1034,14 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               <p className="wiki-living-table__empty">No Wiki pages match this view.</p>
             )}
           </div>
+
+          {hiddenPageCount ? (
+            <p className="wiki-living-table__rest">
+              <Link to="/wiki/workspace?view=list">
+                {hiddenPageCount === 1 ? 'One more page' : `${hiddenPageCount} more pages`} in the full index
+              </Link>
+            </p>
+          ) : null}
 
           {sourceMaterialPages.length ? (
             <section className="wiki-living-changes" aria-labelledby="wiki-living-changes-title">

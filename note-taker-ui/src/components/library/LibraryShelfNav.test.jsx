@@ -368,6 +368,83 @@ describe('moving drawers in the cabinet', () => {
   });
 });
 
+/* Drawers move from the keyboard the way outlines do. */
+describe('moving drawers without a pointer', () => {
+  /* Named to stay in visible order: the cabinet sorts drawers by name. */
+  const flat = [
+    { _id: 'f0', name: 'Alpha shelf' },
+    { _id: 'f1', name: 'Beta shelf' },
+    { _id: 'f2', name: 'Gamma shelf' }
+  ];
+  const deep = [
+    { _id: 'a', name: 'Aye' },
+    { _id: 'b', name: 'Bee', parentFolderId: 'a' },
+    { _id: 'c', name: 'Cee', parentFolderId: 'b' }
+  ];
+
+  beforeEach(() => setViewport(false));
+  afterEach(() => { window.matchMedia = undefined; });
+
+  const branchOf = (name) => [...document.querySelectorAll('.library-shelf__branch')]
+    .find(row => row.querySelector('.room-shelf__item')?.textContent.includes(name));
+  const press = (name, key, init = {}) => {
+    const button = branchOf(name).querySelector('.room-shelf__item');
+    return fireEvent.keyDown(button, { key, altKey: true, ...init });
+  };
+
+  it('nests under the drawer above, and holds history navigation', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({ folders: flat, onMoveFolder });
+    /* Alt+Right is history-forward: handled means the browser stays put. */
+    expect(press('Beta shelf', 'ArrowRight')).toBe(false);
+    expect(onMoveFolder).toHaveBeenCalledWith('f1', 'f0');
+  });
+
+  it('the first row has nothing above it, so Alt+Right is silence', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({ folders: flat, onMoveFolder });
+    press('Alpha shelf', 'ArrowRight');
+    expect(onMoveFolder).not.toHaveBeenCalled();
+  });
+
+  it('lifts one level toward the top, all the way home from one deep', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({ folders: deep, onMoveFolder });
+    press('Cee', 'ArrowLeft');
+    expect(onMoveFolder).toHaveBeenCalledWith('c', 'a');
+  });
+
+  it('returns a child to the top', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({
+      folders: [
+        { _id: 'investing', name: 'Investing' },
+        { _id: 'costco', name: 'Costco', parentFolderId: 'investing' }
+      ],
+      onMoveFolder
+    });
+    press('Costco', 'ArrowLeft');
+    expect(onMoveFolder).toHaveBeenCalledWith('costco', null);
+  });
+
+  it('a top drawer is already home, so Alt+Left is silence', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({ folders: flat, onMoveFolder });
+    press('Beta shelf', 'ArrowLeft');
+    expect(onMoveFolder).not.toHaveBeenCalled();
+  });
+
+  it('bare arrows and bare modifiers keep navigating', () => {
+    const onMoveFolder = jest.fn();
+    const onSelectFolder = jest.fn();
+    renderNav({ folders: flat, onMoveFolder, onSelectFolder });
+    const button = branchOf('Beta shelf').querySelector('.room-shelf__item');
+    fireEvent.keyDown(button, { key: 'ArrowRight' });
+    fireEvent.keyDown(button, { key: 'Enter' });
+    expect(onMoveFolder).not.toHaveBeenCalled();
+  });
+});
+
 /* A piece dropped onto a drawer files it there. */
 describe('filing pieces from the cabinet', () => {
   const nested = [

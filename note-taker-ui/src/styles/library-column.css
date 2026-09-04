@@ -1460,6 +1460,37 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   color: var(--ink-sap, #6f7f4a);
 }
 
+/* The promise ledger: pending mornings printed where the parked pieces are.
+   Mono, because it is an appointment book rather than reading, and quiet,
+   because most mornings it says nothing at all. */
+.library-pile__ledger {
+  margin: 12px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--noeis-hairline, var(--vellum-line));
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.library-pile__ledger-title {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary, var(--vellum-ink));
+  font: inherit;
+  cursor: pointer;
+}
+
+.library-pile__ledger-title:hover,
+.library-pile__ledger-title:focus-visible {
+  border-bottom-color: currentColor;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .library-shelf__branch > * > span:not(.library-shelf__disclose) { transition: none; }
   .library-shelf__branch.is-landing > * > span:not(.library-shelf__disclose) { animation: none; }

@@ -3,7 +3,13 @@ import { Link } from 'react-router-dom';
 import { deskClauses, shelfClause } from '../../pages/paperEditions';
 
 /**
- * The top of the paper: where you were, and one thing you kept.
+ * Where you left off: two operational lines, and nothing else.
+ *
+ * The card dealt off the shelf used to be a fourth line here, formatted
+ * identically to the two above it — so a real story arrived looking like a
+ * status. It is the headline now. A thing cannot lead the page and also be
+ * its fourth line, and this section is the operating register: what you were
+ * doing, and what is waiting.
  *
  * Everything here is a door. That is the whole change — the masthead used to
  * report that one thing was owed a move and give you no way to reach it, which
@@ -25,12 +31,11 @@ const PaperDesk = ({
   later = null,
   setAside = null,
   kept = null,
-  topics = [],
-  shelfPick = null
+  topics = []
 }) => {
   const clauses = deskClauses({ later, setAside, topics });
   const shelf = shelfClause(kept);
-  if (!lastWorked && !openCase && !clauses.length && !shelf && !shelfPick) return null;
+  if (!lastWorked && !openCase && !clauses.length && !shelf) return null;
 
   return (
     <section className="paper-desk" aria-label="Where you left off">
@@ -73,15 +78,6 @@ const PaperDesk = ({
         </p>
       ) : null}
 
-      {/* One card off the shelf, dealt by the day. The canon is the only part
-          of the product with no clock on it, so this is the only way it ever
-          asks for attention — once a morning, without a count and without a
-          reason, the way a thing you kept for life should come back. */}
-      {shelfPick ? (
-        <p className="paper-desk__line paper-desk__line--shelf">
-          From the shelf — <Door to={shelfPick.href}>{shelfPick.text}</Door>.
-        </p>
-      ) : null}
     </section>
   );
 };

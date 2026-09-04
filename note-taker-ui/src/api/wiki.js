@@ -836,6 +836,13 @@ export const getWikiBriefing = async ({ windowDays } = {}) => {
   return res.data;
 };
 
+/* The four things only this product can print about you. Absent when there is
+   nothing true to say, which is what makes a quiet morning's paper short. */
+export const getMorningPaperColumns = async () => {
+  const res = await api.get('/api/morning-paper/columns', getAuthHeaders());
+  return res.data || {};
+};
+
 export const listWikiProposals = async () => {
   const res = await api.get('/api/wiki/proposals', getAuthHeaders());
   return {
@@ -1151,6 +1158,7 @@ const wikiApi = {
   getWikiBacklinks,
   getWikiAutolinkSuggestions,
   getWikiBriefing,
+  getMorningPaperColumns,
   listWikiProposals,
   refreshWikiProposals,
   acceptWikiProposal,

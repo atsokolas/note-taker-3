@@ -1,4 +1,5 @@
 import { buildJudgmentIndex, isJudgmentPage, isParked, namedTitle } from './judgmentModel';
+import { wordBoundaryTrim } from '../utils/editorialText';
 
 /**
  * What the paper hands back.
@@ -102,6 +103,12 @@ export const editionDay = (now = Date.now()) => new Date(now).toISOString().slic
  * return things in is not stable and the pick has to be. Two readers of the
  * same shelf on the same morning get the same card.
  */
+/* A headline is a headline. Some pieces carry a full standfirst in their
+   title — one on the shelf runs to seven lines of display serif, which turns
+   the lead into a wall. Trimmed at a word so it still reads as a sentence,
+   and the piece itself is one click away. */
+export const HEADLINE_LENGTH = 150;
+
 export const shelfPick = (items = [], { now = Date.now() } = {}) => {
   const shelf = (Array.isArray(items) ? items : [])
     .filter((item) => idOf(item) && shelfTitle(item))
@@ -110,7 +117,7 @@ export const shelfPick = (items = [], { now = Date.now() } = {}) => {
   const chosen = shelf[seedOf(editionDay(now)) % shelf.length];
   return {
     id: idOf(chosen),
-    text: shelfTitle(chosen),
+    text: wordBoundaryTrim(shelfTitle(chosen), { maxLength: HEADLINE_LENGTH }),
     href: `/articles/${encodeURIComponent(idOf(chosen))}`
   };
 };

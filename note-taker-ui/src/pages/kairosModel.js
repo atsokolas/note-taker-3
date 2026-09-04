@@ -5,6 +5,8 @@
  * Daily cadence is a nag and is not offered.
  */
 
+import { timeWord } from '../utils/timeWord.js';
+
 const clean = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 export const KAIROS_EYEBROW = 'καιρός';
@@ -97,3 +99,37 @@ export const pendingRemindOf = (entries = [], articleId = '') => {
     && String(row.itemId || '') === id
   )) || null;
 };
+
+/**
+ * The promise ledger: every pending article promise, as the Later pile
+ * prints it — `asked back — <title> · <day>`.
+ *
+ * Reads the return queue, which is the only place a promise lives; the pile
+ * is only its door. Titles come off the hydrated item first and fall back to
+ * the article at hand. A promise whose article is gone is not reprinted —
+ * the queue row completes quietly elsewhere, and the ledger says nothing
+ * rather than naming a piece nobody can open. The day is the product's one
+ * time word, so the ledger, the cap, and the paper all say TUE together.
+ */
+export const promiseLedger = (entries = [], articlesById = null, now = Date.now()) => (
+  (Array.isArray(entries) ? entries : [])
+    .filter((row) => (
+      row?.status === 'pending'
+      && String(row?.itemType || '') === 'article'
+      && String(row?.itemId || '').trim()
+    ))
+    .map((row) => {
+      const id = String(row.itemId).trim();
+      const held = articlesById?.get?.(id) || null;
+      const title = clean(row?.item?.title) || clean(held?.title);
+      if (!title) return null;
+      return {
+        key: String(row._id || row.id || id),
+        articleId: id,
+        title,
+        href: `/library?articleId=${encodeURIComponent(id)}`,
+        day: timeWord(row?.dueAt, { now, recurring: Boolean(row?.cadence) })
+      };
+    })
+    .filter(Boolean)
+);
