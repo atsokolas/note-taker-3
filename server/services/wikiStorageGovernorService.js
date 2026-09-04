@@ -240,7 +240,9 @@ const runWikiStorageGovernor = async ({
     Model: WikiMaintenanceRun,
     query: { status: { $in: TERMINAL_RUN_STATUSES }, createdAt: { $lt: cutoff } },
     select: '_id sourceEventId',
-    sort: { createdAt: 1 },
+    // ObjectId order is stable, creation-ordered, and index-backed. Sorting on
+    // the unindexed createdAt field can exceed Atlas' in-memory sort budget.
+    sort: { _id: 1 },
     limit
   });
   const runIds = runCandidates.map(cleanId).filter(Boolean);
@@ -273,7 +275,7 @@ const runWikiStorageGovernor = async ({
     Model: WikiSourceEvent,
     query: { status: { $in: TERMINAL_EVENT_STATUSES }, createdAt: { $lt: cutoff } },
     select: '_id',
-    sort: { createdAt: 1 },
+    sort: { _id: 1 },
     limit
   });
   const eventIds = eventCandidates.map(row => row._id);
