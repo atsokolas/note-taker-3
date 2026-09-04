@@ -22,6 +22,7 @@ const { evaluateInvestmentDossierQuality } = require('./investmentDossierQuality
 const { withTransientRetries } = require('./wikiDossierBuildReliabilityService');
 const { normalizeComparableText } = require('./wikiDedupeService');
 const { resolveClaimBornAt } = require('./claimBornAt');
+const { buildMaintenanceCitations } = require('./wikiMaintenanceCitations');
 const { wordBoundaryTrim } = require('../lib/editorialText');
 const {
   sourceFamilyKey,
@@ -4140,16 +4141,9 @@ const materializeMaintenanceResult = async ({ page, normalized, candidates, prev
     article
   });
   const plainText = toPlainText(body);
-  const citations = mergedSourceRefs.map(source => ({
-    sourceRefId: source._id || null,
-    sourceType: source.type || '',
-    sourceObjectId: source.objectId || null,
-    sourceTitle: source.title || '',
-    quote: source.snippet || '',
-    url: source.url || '',
-    confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
-    createdAt: now
-  }));
+  const citations = buildMaintenanceCitations({
+    sourceRefs: mergedSourceRefs, previousCitations: page.citations || [], now
+  });
   const claims = deriveClaimsFromDoc({
     body,
     title: normalized.title || page.title,
@@ -4774,16 +4768,9 @@ const maintainWikiPage = async ({
   let persistedSourceRefs = page.sourceRefs?.toObject
     ? page.sourceRefs.toObject()
     : page.sourceRefs || [];
-  page.citations = persistedSourceRefs.map(source => ({
-    sourceRefId: source._id || null,
-    sourceType: source.type || '',
-    sourceObjectId: source.objectId || null,
-    sourceTitle: source.title || '',
-    quote: source.snippet || '',
-    url: source.url || '',
-    confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
-    createdAt: now
-  }));
+  page.citations = buildMaintenanceCitations({
+    sourceRefs: persistedSourceRefs, previousCitations: page.citations || [], now
+  });
   page.claims = deriveClaimsFromDoc({
     body: page.body,
     title: page.title,
@@ -4864,16 +4851,9 @@ const maintainWikiPage = async ({
       ? page.sourceRefs.toObject()
       : page.sourceRefs || [];
     persistedSourceRefs = fallbackSourceRefs;
-    page.citations = fallbackSourceRefs.map(source => ({
-      sourceRefId: source._id || null,
-      sourceType: source.type || '',
-      sourceObjectId: source.objectId || null,
-      sourceTitle: source.title || '',
-      quote: source.snippet || '',
-      url: source.url || '',
-      confidence: source.addedBy === 'ai' ? 0.72 : 0.9,
-      createdAt: now
-    }));
+    page.citations = buildMaintenanceCitations({
+      sourceRefs: fallbackSourceRefs, previousCitations: page.citations || [], now
+    });
     page.claims = deriveClaimsFromDoc({
       body: page.body,
       title: page.title,
