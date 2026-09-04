@@ -72,6 +72,23 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     authenticatedPrefixes: ['/wiki', '/paper', '/today', '/onboarding'],
     match: ({ pathname = '' } = {}) => pathname === '/' || prefixMatch(pathname, ['/wiki', '/paper'])
   }),
+  /* Papers your agents maintain for you.
+
+     It sits after Wiki and belongs to it: an edition is a thing the wiki
+     received rather than a room of its own work, and the four rooms are what
+     you did. It was in the More menu, which was honest about that but meant
+     nobody found it — and a feature nobody can find cannot be tested against
+     a real agent. Named in the bar until it has earned or lost its place. */
+  surface({
+    id: 'surface.editions',
+    name: 'Editions',
+    route: '/editions',
+    navigationGroup: 'primary',
+    verb: 'Read',
+    orientation: 'Papers your agents keep for you, filed through the wiki MCP.',
+    activePrefixes: ['/editions'],
+    authenticatedPrefixes: ['/editions']
+  }),
   surface({
     id: 'surface.judgment',
     room: 'judgment',
@@ -95,27 +112,6 @@ export const NOEIS_SURFACE_DEFINITIONS = Object.freeze([
     name: 'Settings',
     route: '/settings',
     navigationGroup: 'utility'
-  }),
-  /* Papers your agents maintain for you.
-
-     Secondary on purpose. The four rooms are what you did; an edition is
-     something that arrived, and it does not earn a fifth seat in the
-     masthead — most mornings there is nothing new on the stand.
-
-     But it was reachable from exactly one place: a shelf on the morning
-     paper that renders nothing until an edition exists. Empty is the state
-     every reader starts in, so the feature was invisible to everyone who did
-     not already have it, and the empty state that explains how to get one
-     could not be reached. Secondary puts it in More and, because the palette
-     is generated from these definitions rather than hand-listed, in the
-     palette too. */
-  surface({
-    id: 'surface.editions',
-    name: 'Editions',
-    route: '/editions',
-    navigationGroup: 'secondary',
-    activePrefixes: ['/editions'],
-    authenticatedPrefixes: ['/editions']
   }),
   surface({
     id: 'surface.growth',

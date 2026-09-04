@@ -6,9 +6,12 @@ import {
 } from './noeisSurfaceDefinitions';
 
 describe('Noeis surface definitions', () => {
-  it('owns four rooms and deterministic navigation projections', () => {
+  it('owns the four rooms and deterministic navigation projections', () => {
+    /* Editions is not a fifth room — it is what the wiki received, standing
+       next to the wiki that received it, which is why it sits between Wiki
+       and Judgment rather than at the end. */
     expect(getNoeisNavigationDefinitions('primary').map(item => item.id)).toEqual([
-      'surface.library', 'surface.think', 'surface.wiki', 'surface.judgment'
+      'surface.library', 'surface.think', 'surface.wiki', 'surface.editions', 'surface.judgment'
     ]);
     expect(getNoeisNavigationDefinitions('utility').map(item => item.id)).toEqual([
       'surface.connections', 'surface.settings'

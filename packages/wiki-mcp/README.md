@@ -8,6 +8,51 @@ MCP server for driving a Noeis wiki from external agents.
 - A Noeis connected-agent token from browser approval or `Settings -> Connected agents`
 - Optional: `NOEIS_API_URL` if you are not using the hosted API
 
+## Editions
+
+An edition is a paper you keep for your reader — *This Week in AI*, *Weekend
+Readings*. Noeis does not write it; it holds it to a shape and files it under a
+window, and the reader reads it at `/editions` and saves sources from it into
+their library.
+
+The shape is the whole contribution. Every item carries a **finding** (what the
+source says) and a **boundary** (what would limit it). An item without a
+boundary is refused by name, so you can fix it and file again — that rule is
+the difference between an edition and a newsletter. A section nobody filled is
+printed rather than dropped.
+
+```
+create_edition   file or replace an edition for a window
+list_editions    what is already on the stand — check before filing, so you
+                 continue a run rather than starting a second one
+get_edition      one edition in full, including which sources the reader took
+```
+
+Filing twice for the same window replaces your own edition rather than printing
+a second copy of Tuesday, and sources the reader has already saved survive the
+rewrite — those are theirs, not yours.
+
+## Running it from a checkout
+
+For testing against unreleased tools, point the runtime at this directory
+instead of the published package. The server is a plain stdio process:
+
+```json
+{
+  "servers": {
+    "noeis-wiki-dev": {
+      "transport": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/note-taker-3/packages/wiki-mcp/bin/noeis-wiki-mcp"],
+      "env": { "NOEIS_TOKEN": "<Settings → Connected agents>" }
+    }
+  }
+}
+```
+
+`NOEIS_API_URL` is optional and defaults to the hosted API, so a checkout talks
+to the same Noeis the published package does.
+
 ## One-command setup
 
 Install the CLI and connect the runtime you use:
