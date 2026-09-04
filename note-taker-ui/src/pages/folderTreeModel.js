@@ -1,5 +1,25 @@
-import { isProceduralShelf } from './readingDriftModel';
 import { normalizeSpaces } from '../utils/editorialText';
+
+/* Shelves that are a stage of work rather than a subject. "You have drifted
+   away from Needs Review" is not an observation about your reading, it is the
+   product mistaking its own filing tray for a topic. Matched loosely, because
+   these are names people type.
+
+   Lives here rather than in the drift model so the drift can read the
+   cabinet without the two models importing each other. The cabinet is the
+   single source of truth for what is a place; everything else asks it.
+
+   Keep in lockstep with server/lib/proceduralShelf.js. */
+const PROCEDURAL_SHELVES = [
+  'needs review', 'review', 'inbox', 'unsorted', 'uncategorized', 'unfiled',
+  'to read', 'read later', 'reading list', 'saved', 'misc', 'miscellaneous',
+  'archive', 'archived', 'later', 'triage', 'untitled'
+];
+
+export const isProceduralShelf = (name = '') => {
+  const value = normalizeSpaces(name).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return PROCEDURAL_SHELVES.includes(value);
+};
 
 /**
  * The cabinet, as a tree.
@@ -99,6 +119,35 @@ export const topLevelAncestor = (folders = [], folderId = '') => {
  * living only when the parent itself was screened.
  */
 export const isLivingFolder = (node = {}) => Boolean(node.asFeed);
+
+/**
+ * Whether `nodeId` already lives inside `ancestorId`.
+ *
+ * The cabinet refuses the drop before the server ever sees it: a drawer
+ * cannot move inside one of its own drawers, and the reader is told by the
+ * target simply not inking rather than by an error after the fact. The
+ * server walks the same chain and fails closed, so this is courtesy, not
+ * authority.
+ */
+export const isFolderDescendant = (folders = [], ancestorId = '', nodeId = '') => {
+  const ancestor = normalizeSpaces(ancestorId);
+  if (!ancestor) return false;
+  if (ancestor === normalizeSpaces(nodeId)) return true;
+  const places = (Array.isArray(folders) ? folders : []).filter(isPlace);
+  const byId = new Map(places.map(folder => [idOf(folder), folder]));
+  let current = byId.get(normalizeSpaces(nodeId)) || null;
+  const walked = new Set();
+  while (current) {
+    const id = idOf(current);
+    if (walked.has(id)) return false;
+    walked.add(id);
+    const parentId = idOf(current.parentFolderId);
+    if (!parentId) return false;
+    if (parentId === ancestor) return true;
+    current = byId.get(parentId) || null;
+  }
+  return false;
+};
 
 /** Every folder in the tree, depth-first, for the surfaces that want a list. */
 export const flattenFolderTree = (nodes = [], depth = 0) => (

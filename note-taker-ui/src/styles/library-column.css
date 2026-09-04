@@ -1218,9 +1218,26 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   line-height: 1.55;
 }
 
+/* The switch on a folio arrives on hover and on focus, never announced.
+   A scroll that wore three capsules a screen would read as controls with
+   reading between them; the reader who wants to move parks from the title's
+   own focus or the pointer, and the scroll stays a scroll for everyone else.
+   Opacity only — the control keeps its place and its tab stop either way. */
+.library-feed__folio-switch {
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.library-feed__folio:hover .library-feed__folio-switch,
+.library-feed__folio:focus-within .library-feed__folio-switch {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .library-feed,
-  .library-feed__folio {
+  .library-feed__folio,
+  .library-feed__folio-switch {
     transition: none;
     animation: none;
   }
@@ -1425,6 +1442,22 @@ body.noeis-editorial .library-page-shell .library-folder-name,
 
 .library-shelf__branch.is-landing > * > span:not(.library-shelf__disclose) {
   animation: noeis-destination-flash 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A drawer under a dragged drawer holds the living ink while the pointer is
+   over it, so the reader is told where the thing is about to land rather
+   than guessing from a highlight. The cabinet's own label inks the same way:
+   letting go there returns the drawer to the top. */
+.library-shelf__branch.is-drop-target > * > span:not(.library-shelf__disclose),
+.library-shelf__cabinet.is-drop-target > .room-shelf__section-label {
+  color: var(--ink-sap, #6f7f4a);
+}
+
+/* A pile under a dragged piece holds its eyebrow in living ink while the
+   pointer is over it — park it here, in the pile's own terms. Steady, not
+   flashing: hover intent is a held state, not an arrival. */
+.library-pile.is-drop-target .library-pile__eyebrow {
+  color: var(--ink-sap, #6f7f4a);
 }
 
 @media (prefers-reduced-motion: reduce) {

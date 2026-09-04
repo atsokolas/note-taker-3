@@ -361,6 +361,64 @@ const buildLegacyContentRouter = ({
     }
   });
 
+  router.patch('/folders/:id/parent', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const raw = req.body?.parentFolderId;
+      const target = raw === null || raw === undefined || String(raw).trim() === ''
+        ? null
+        : String(raw).trim();
+      const folder = await Folder.findOne({ _id: id, userId: req.user.id });
+      if (!folder) {
+        return res.status(404).json({ error: 'Folder not found or you do not have permission to update it.' });
+      }
+      /* A filing tray is machinery, not a place: it can neither hold a drawer
+         nor be held inside one. */
+      if (isProceduralShelf(folder.name)) {
+        return res.status(400).json({ error: 'A filing tray cannot be nested.' });
+      }
+      if (target && target === String(folder._id)) {
+        return res.status(400).json({ error: 'A drawer cannot hold itself.' });
+      }
+      if (target) {
+        const parent = await Folder.findOne({ _id: target, userId: req.user.id });
+        if (!parent) {
+          return res.status(404).json({ error: 'Parent folder not found or you do not have permission to use it.' });
+        }
+        if (isProceduralShelf(parent.name)) {
+          return res.status(400).json({ error: 'A filing tray cannot hold a drawer.' });
+        }
+        /* A cycle would hang the cabinet walk; a drawer cannot move inside
+           anything that already lives inside it. */
+        const seen = new Set([String(folder._id)]);
+        let current = parent;
+        while (current) {
+          const currentId = String(current._id);
+          if (seen.has(currentId)) {
+            return res.status(400).json({ error: 'A drawer cannot move inside one of its own drawers.' });
+          }
+          seen.add(currentId);
+          const nextId = current.parentFolderId ? String(current.parentFolderId) : '';
+          if (!nextId) break;
+          current = await Folder.findOne({ _id: nextId, userId: req.user.id });
+        }
+      }
+      folder.parentFolderId = target || null;
+      await folder.save();
+      return res.status(200).json({
+        _id: String(folder._id),
+        name: folder.name,
+        parentFolderId: folder.parentFolderId ? String(folder.parentFolderId) : null
+      });
+    } catch (error) {
+      if (error.name === 'CastError') {
+        return res.status(400).json({ error: 'Invalid folder ID format.' });
+      }
+      console.error('Error moving folder in cabinet:', error);
+      return res.status(500).json({ error: 'Failed to move this shelf.' });
+    }
+  });
+
   router.get('/get-articles', authenticateToken, async (req, res) => {
     try {
       const userId = req.user.id;

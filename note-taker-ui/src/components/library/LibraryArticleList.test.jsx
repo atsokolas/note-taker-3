@@ -32,6 +32,15 @@ describe('LibraryArticleList', () => {
     expect(screen.getByText('Restraint reads as confidence; motion rewards intent.')).toBeInTheDocument();
   });
 
+  it('names the dragged piece on the gesture', () => {
+    const { container } = renderList();
+    const row = container.querySelector('.library-article-row.is-magnetic');
+    expect(row.getAttribute('draggable')).toBe('true');
+    const setData = jest.fn();
+    fireEvent.dragStart(row, { dataTransfer: { setData } });
+    expect(setData).toHaveBeenCalledWith('application/x-noeis-article-id', 'a1');
+  });
+
   it('marks rows as magnetic and drifts them toward the pointer', () => {
     const realRaf = window.requestAnimationFrame;
     const realMatchMedia = window.matchMedia;

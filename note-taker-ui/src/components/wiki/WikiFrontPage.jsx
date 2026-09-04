@@ -28,6 +28,7 @@ import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
 import MorningAskedBack from './MorningAskedBack';
+import WikiDriftSentence from './WikiDriftSentence';
 import PaperDesk from './PaperDesk';
 import { lastWorked, openCase, shelfPick } from '../../pages/paperDesk';
 import { getArticles } from '../../api/articles';
@@ -1059,6 +1060,11 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 askedBack={briefing?.askedBack}
                 pulse={pulseTarget === 'asked-back'}
               />
+              {/* The drift's fortnight, as one sentence. Home stays atop
+                  Judgment, where the chart lives; the paper prints the
+                  sentence on the morning the bucket closes and nothing the
+                  other thirteen. It never takes the pulse. */}
+              <WikiDriftSentence driftClosesAt={briefing?.driftClosesAt} />
             </>
           ) : null}
 

@@ -23,6 +23,12 @@ import {
 import { streamChatWithAgent } from '../api/agent';
 
 jest.mock('../api/articles', () => ({ getArticles: jest.fn(() => Promise.resolve([])) }));
+jest.mock('../api/folders', () => ({
+  getFolders: jest.fn(() => Promise.resolve([])),
+  setFolderAsFeed: jest.fn(),
+  moveFolder: jest.fn(),
+  clearFoldersCache: jest.fn()
+}));
 
 jest.mock('../surface/NoeisSurfaceContext', () => ({
   useNoeisSurface: jest.fn()

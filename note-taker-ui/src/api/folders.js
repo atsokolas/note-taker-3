@@ -41,3 +41,19 @@ export const setFolderAsFeed = async (folderId, asFeed) => {
   return res.data;
 };
 
+/* A drawer moves inside another drawer, or back to the top when the parent
+   is null. The server refuses cycles, trays, and foreign shelves; a refusal
+   leaves the cabinet exactly where it was. */
+export const moveFolder = async (folderId, parentFolderId) => {
+  const res = await api.patch(
+    `/folders/${folderId}/parent`,
+    { parentFolderId: parentFolderId || null },
+    getAuthHeaders()
+  );
+  clearFoldersCache();
+  clearCachedPrefix('articles:');
+  clearCachedPrefix('library-room:');
+  clearCachedPrefix('library-relevance:');
+  return res.data;
+};
+

@@ -315,3 +315,113 @@ describe('the cabinet', () => {
     expect(screen.queryByRole('button', { name: /Fold Macro/ })).toBeNull();
   });
 });
+
+/* Drawers move by dragging one onto another. */
+describe('moving drawers in the cabinet', () => {
+  const nested = [
+    { _id: 'investing', name: 'Investing' },
+    { _id: 'costco', name: 'Costco', parentFolderId: 'investing' },
+    { _id: 'macro', name: 'Macro' }
+  ];
+
+  beforeEach(() => setViewport(false));
+  afterEach(() => { window.matchMedia = undefined; });
+
+  /* The disclosure wears its own button role, so role queries see two
+     buttons per openable drawer. Read the row, the way the cabinet tests do. */
+  const branchOf = (name) => [...document.querySelectorAll('.library-shelf__branch')]
+    .find(row => row.querySelector('.room-shelf__item')?.textContent.includes(name));
+
+  it('nests a drawer dropped onto another drawer, and inks the landing', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({ folders: nested, onMoveFolder });
+    fireEvent.dragStart(branchOf('Macro'));
+    fireEvent.dragOver(branchOf('Investing'));
+    expect(branchOf('Investing').classList.contains('is-drop-target')).toBe(true);
+    fireEvent.drop(branchOf('Investing'));
+    expect(onMoveFolder).toHaveBeenCalledWith('macro', 'investing');
+  });
+
+  it('refuses a drawer dropped inside one of its own drawers, without asking the server', () => {
+    const onMoveFolder = jest.fn();
+    renderNav({ folders: nested, onMoveFolder });
+    fireEvent.dragStart(branchOf('Investing'));
+    fireEvent.dragOver(branchOf('Costco'));
+    expect(branchOf('Costco').classList.contains('is-drop-target')).toBe(false);
+    fireEvent.drop(branchOf('Costco'));
+    expect(onMoveFolder).not.toHaveBeenCalled();
+  });
+
+  it('returns a drawer to the top when dropped on the cabinet itself', () => {
+    const onMoveFolder = jest.fn();
+    const { container } = renderNav({ folders: nested, onMoveFolder });
+    fireEvent.dragStart(branchOf('Costco'));
+    const list = container.querySelector('.library-shelf__folders');
+    fireEvent.dragOver(list);
+    fireEvent.drop(list);
+    expect(onMoveFolder).toHaveBeenCalledWith('costco', null);
+  });
+
+  it('rows only navigate when nothing can move them', () => {
+    renderNav({ folders: nested });
+    expect(branchOf('Macro').getAttribute('draggable')).toBe('false');
+  });
+});
+
+/* A piece dropped onto a drawer files it there. */
+describe('filing pieces from the cabinet', () => {
+  const nested = [
+    { _id: 'investing', name: 'Investing' },
+    { _id: 'macro', name: 'Macro' }
+  ];
+  const piece = () => ({
+    dataTransfer: {
+      types: ['application/x-noeis-article-id'],
+      getData: () => 'a9',
+      setData: () => {},
+      dropEffect: ''
+    }
+  });
+
+  beforeEach(() => setViewport(false));
+  afterEach(() => { window.matchMedia = undefined; });
+
+  const branchOf = (name) => [...document.querySelectorAll('.library-shelf__branch')]
+    .find(row => row.querySelector('.room-shelf__item')?.textContent.includes(name));
+
+  it('files a piece dropped onto a drawer, and inks the landing', () => {
+    const onFileArticle = jest.fn();
+    renderNav({ folders: nested, onFileArticle });
+    fireEvent.dragOver(branchOf('Investing'), piece());
+    expect(branchOf('Investing').classList.contains('is-drop-target')).toBe(true);
+    expect(screen.getByRole('status')).toHaveTextContent('file it here');
+    fireEvent.drop(branchOf('Investing'), piece());
+    expect(onFileArticle).toHaveBeenCalledWith('a9', 'investing');
+  });
+
+  it('a drawer dragged over its own cabinet still nests rather than filing', () => {
+    const onMoveFolder = jest.fn();
+    const onFileArticle = jest.fn();
+    renderNav({ folders: nested, onMoveFolder, onFileArticle });
+    fireEvent.dragStart(branchOf('Macro'));
+    fireEvent.dragOver(branchOf('Investing'));
+    fireEvent.drop(branchOf('Investing'));
+    expect(onMoveFolder).toHaveBeenCalledWith('macro', 'investing');
+    expect(onFileArticle).not.toHaveBeenCalled();
+  });
+
+  it('a piece let go where no drawer is does nothing', () => {
+    const onFileArticle = jest.fn();
+    const { container } = renderNav({ folders: nested, onFileArticle });
+    const list = container.querySelector('.library-shelf__folders');
+    fireEvent.dragOver(list, piece());
+    fireEvent.drop(list, piece());
+    expect(onFileArticle).not.toHaveBeenCalled();
+  });
+
+  it('without a filing verb the cabinet answers no piece', () => {
+    renderNav({ folders: nested });
+    fireEvent.dragOver(branchOf('Investing'), piece());
+    expect(branchOf('Investing').classList.contains('is-drop-target')).toBe(false);
+  });
+});

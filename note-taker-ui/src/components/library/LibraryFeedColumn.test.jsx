@@ -1,10 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   clearSentenceHandoff,
   handOffSentence
 } from '../../motion/columnMotion';
 import LibraryFeedColumn from './LibraryFeedColumn';
+import { listReturnQueue } from '../../api/returnQueue';
+
+jest.mock('../../api/returnQueue', () => ({
+  listReturnQueue: jest.fn(),
+  createReturnQueueEntry: jest.fn(),
+  updateReturnQueueEntry: jest.fn()
+}));
 
 const letter = (overrides = {}) => ({
   _id: 'n1',
@@ -17,6 +24,10 @@ const letter = (overrides = {}) => ({
 });
 
 describe('LibraryFeedColumn', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    listReturnQueue.mockResolvedValue([]);
+  });
   it('is a stacked scroll of folios, not a title list, newest on top', () => {
     const onSelect = jest.fn();
     render(
@@ -115,5 +126,52 @@ describe('the screening receipt', () => {
       />
     );
     expect(screen.queryByText(/screened/)).toBeNull();
+  });
+});
+
+/* The switch travels onto the scroll in its compact form — one per folio,
+   revealed on hover and on focus, with the same keys as the piles. */
+describe('the folio switch', () => {
+  const scroll = (props = {}) => render(
+    <LibraryFeedColumn
+      folder={{ _id: 'news', name: 'Newsletters', asFeed: true }}
+      articles={[
+        letter({ _id: 'new', title: 'August letter', updatedAt: '2026-08-20T00:00:00.000Z' })
+      ]}
+      onSelectArticle={() => {}}
+      {...props}
+    />
+  );
+
+  it('parks a folio from its own switch', async () => {
+    const onPlace = jest.fn().mockResolvedValue({});
+    scroll({ onPlace });
+    const folio = document.querySelector('.library-feed__folio');
+    const group = within(folio).getByRole('group', { name: 'Where this sits' });
+    fireEvent.click(within(group).getByRole('button', { name: 'Put it in later' }));
+    await waitFor(() => expect(onPlace).toHaveBeenCalledWith('new', 'later'));
+  });
+
+  it('parks a folio from its keys, the way the piles do', () => {
+    const onPlace = jest.fn();
+    scroll({ onPlace });
+    const folio = document.querySelector('.library-feed__folio');
+    fireEvent.keyDown(folio, { key: 's' });
+    expect(onPlace).toHaveBeenCalledWith('new', 'setAside');
+  });
+
+  it('names the dragged folio on the gesture', () => {
+    scroll({ onPlace: jest.fn() });
+    const folio = document.querySelector('.library-feed__folio');
+    expect(folio.getAttribute('draggable')).toBe('true');
+    const setData = jest.fn();
+    fireEvent.dragStart(folio, { dataTransfer: { setData } });
+    expect(setData).toHaveBeenCalledWith('application/x-noeis-article-id', 'new');
+  });
+
+  it('a scroll without a parking verb shows no switch', () => {
+    scroll();
+    expect(document.querySelector('.library-feed__folio-switch')).toBeNull();
+    expect(document.querySelector('.library-feed__folio').getAttribute('draggable')).toBe('true');
   });
 });

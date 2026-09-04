@@ -4,7 +4,7 @@ import LibraryMain from '../components/library/LibraryMain';
 import LibraryContext from '../components/library/LibraryContext';
 import MoveToFolderModal from '../components/library/MoveToFolderModal';
 import { moveArticleToFolder, setArticleEvergreen, setArticlePlacement } from '../api/articles';
-import { setFolderAsFeed } from '../api/folders';
+import { moveFolder, setFolderAsFeed } from '../api/folders';
 import { createQuestion } from '../api/questions';
 import { listWikiPages } from '../api/wiki';
 import { forgetLetGo, readLetGo, rememberLetGo } from './letGoReceipt';
@@ -114,6 +114,10 @@ const Library = () => {
      the one move whose destination is off-screen from where you made it, so
      the cabinet says where the thing went rather than leaving you to look. */
   const [landedFolderId, setLandedFolderId] = useState('');
+  /* A drawer the cabinet refused to move, in the cabinet's own words. Rides
+     the same status line as a shelf the cabinet could not read — both are the
+     cabinet saying what happened to it. */
+  const [moveFolderError, setMoveFolderError] = useState('');
   const systemStatus = useSystemStatusControls();
   const systemStatusSnapshot = useSystemStatusSnapshot();
 
@@ -484,6 +488,46 @@ const Library = () => {
     }
   }, [allArticles, articleToMove, closeMoveModal, folderId, folders, scope, selectedArticleId, setAllArticles]);
 
+  /* A piece let go over a drawer: file it there. The modal's twin without
+     the modal — same optimistic folder, same landing flash, same revert —
+     except failure goes to the shared status contract rather than a form
+     that was never opened. */
+  const handleFileArticle = useCallback(async (articleId, folderId) => {
+    const id = String(articleId || '').trim();
+    const target = String(folderId || '').trim();
+    if (!id || !target) return;
+    systemStatus.clearRecoverableFailure();
+    const previous = allArticles;
+    const nextFolder = folders.find(folder => String(folder._id) === target)
+      || { _id: target, name: 'Folder' };
+    setAllArticles(prevArticles =>
+      prevArticles.map(article =>
+        String(article._id) === id ? { ...article, folder: nextFolder } : article
+      )
+    );
+    try {
+      const updated = await moveArticleToFolder(id, target);
+      if (updated) {
+        setAllArticles(prevArticles =>
+          prevArticles.map(article =>
+            String(article._id) === id ? updated : article
+          )
+        );
+      }
+      // Only a landing that actually happened flashes.
+      setLandedFolderId(target);
+      window.setTimeout(() => setLandedFolderId(''), 250);
+    } catch (err) {
+      setAllArticles(previous);
+      systemStatus.setRecoverableFailure({
+        stage: 'Library',
+        message: err.response?.data?.error || err?.message || 'That did not save.',
+        retryable: true,
+        retry: () => { handleFileArticle(id, target); }
+      });
+    }
+  }, [allArticles, folders, setAllArticles, systemStatus]);
+
   const handleHighlightClick = useCallback((highlight) => {
     setActiveHighlightId(highlight._id);
   }, []);
@@ -807,6 +851,22 @@ const Library = () => {
     return saved;
   }, [allArticles, libraryRoom, selectedArticle, setAllArticles]);
 
+  const handleMoveFolder = useCallback(async (folderId, parentFolderId) => {
+    const id = String(folderId || '').trim();
+    if (!id) return;
+    setMoveFolderError('');
+    try {
+      const saved = await moveFolder(id, parentFolderId || null);
+      await Promise.all([libraryRoom.refresh?.(), legacyFolders.refresh?.(), refreshArticles?.({ force: true })]);
+      // Only a landing that actually happened flashes — the drawer it landed in.
+      const landed = saved?.parentFolderId ? String(saved.parentFolderId) : id;
+      setLandedFolderId(landed);
+      window.setTimeout(() => setLandedFolderId(''), 250);
+    } catch (err) {
+      setMoveFolderError(err.response?.data?.error || err?.message || 'That did not save.');
+    }
+  }, [legacyFolders, libraryRoom, refreshArticles]);
+
   const handleScreenFolder = useCallback(async (asFeed) => {
     const id = String(shelfFolderId || '').trim();
     if (!id) return;
@@ -953,9 +1013,6 @@ const Library = () => {
     if (scope !== 'kept') return undefined;
     let cancelled = false;
     setKeptPages(null);
-    /* Only the kept, and only the fields a shelf row renders. Asking for the
-       whole corpus and filtering in the browser was a full scan the server
-       has an index to avoid. */
     /* Only the kept, and only the fields a shelf row renders. Asking for the
        whole corpus and filtering in the browser was a full scan the server
        has an index to avoid — it hung for forty-five seconds on a real one.
@@ -1150,7 +1207,7 @@ const Library = () => {
         folders={folders}
         folderCounts={folderCounts}
         foldersLoading={foldersLoading}
-        foldersError={foldersError}
+        foldersError={moveFolderError || foldersError}
         scope={scope}
         folderId={shelfFolderId}
         sourceView={sourceView}
@@ -1160,6 +1217,8 @@ const Library = () => {
         onQueryChange={handleArticleQueryChange}
         onSelectScope={handleSelectScope}
         onSelectFolder={handleSelectFolder}
+        onMoveFolder={handleMoveFolder}
+        onFileArticle={handleFileArticle}
         onReviewFiling={handleReviewFiling}
         filingLaunching={filingLaunching}
         className={columnEntering ? 'wfp-anim wfp-anim--1' : ''}
@@ -1216,6 +1275,7 @@ const Library = () => {
               onSelectArticle={handleSelectArticle}
               onScreen={handleScreenFolder}
               onPileDone={(articleId) => handleTogglePlacement(articleId, 'stream')}
+              onPlace={handleTogglePlacement}
             />
           ) : isDedicatedShelf ? (
             <LibraryColumn

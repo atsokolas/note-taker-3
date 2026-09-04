@@ -37,6 +37,34 @@ describe('topicsOf', () => {
     // A fake topic is worse than a smaller sample.
     expect(topicsOf({ title: 'Something unfiled' })).toEqual([]);
   });
+
+  it('reads the drawer a nested leaf lives in, not the leaf', () => {
+    const folders = [
+      { _id: 'investing', name: 'Investing' },
+      { _id: 'costco', name: 'Costco', parentFolderId: 'investing' }
+    ];
+    expect(topicsOf({ folder: { _id: 'costco', name: 'Costco' } }, folders))
+      .toEqual(['Investing']);
+  });
+
+  it('reads the filed name when the cabinet is not at hand', () => {
+    expect(topicsOf({ folder: { _id: 'costco', name: 'Costco' } }))
+      .toEqual(['Costco']);
+  });
+
+  it('reads the filed name when its drawer is gone', () => {
+    expect(topicsOf({ folder: { _id: 'costco', name: 'Costco' } }, [
+      { _id: 'investing', name: 'Investing' }
+    ])).toEqual(['Costco']);
+  });
+
+  it('reads a string folder id through the cabinet', () => {
+    const folders = [
+      { _id: 'investing', name: 'Investing' },
+      { _id: 'costco', name: 'Costco', parentFolderId: 'investing' }
+    ];
+    expect(topicsOf({ folder: 'costco' }, folders)).toEqual(['Investing']);
+  });
 });
 
 describe('buildDrift', () => {
@@ -165,6 +193,21 @@ describe('the drift on the paper', () => {
   it('says nothing about a close it cannot date', () => {
     expect(driftClosesAt({ beganAt: null })).toBeNull();
     expect(driftClosesAt({ beganAt: 'someday' })).toBeNull();
+  });
+
+  it('prints on the closing day and is silent the other thirteen', () => {
+    const { isDriftCloseDay } = require('./readingDriftModel');
+    const closes = '2026-09-12T12:00:00.000Z';
+    expect(isDriftCloseDay({
+      driftClosesAt: closes,
+      now: new Date('2026-09-12T18:00:00.000Z').getTime()
+    })).toBe(true);
+    expect(isDriftCloseDay({
+      driftClosesAt: closes,
+      now: new Date('2026-09-13T12:00:00.000Z').getTime()
+    })).toBe(false);
+    expect(isDriftCloseDay({ driftClosesAt: null })).toBe(false);
+    expect(isDriftCloseDay({})).toBe(false);
   });
 
   it('prints nothing below the minimum, however interesting the shape', () => {

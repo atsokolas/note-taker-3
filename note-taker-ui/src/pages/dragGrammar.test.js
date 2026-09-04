@@ -1,4 +1,12 @@
-import { DROP_KINDS, dropIntent, readDrop } from './dragGrammar';
+import {
+  ARTICLE_DRAG_KEY,
+  beginArticleDrag,
+  carriesArticleDrag,
+  DROP_KINDS,
+  dropIntent,
+  readArticleDragId,
+  readDrop
+} from './dragGrammar';
 
 describe('one drag grammar', () => {
   it('files a piece dropped onto a folder', () => {
@@ -36,5 +44,20 @@ describe('one drag grammar', () => {
 
   it('says nothing about a drop that would do nothing', () => {
     expect(dropIntent({})).toBe('');
+  });
+
+  it('names the dragged piece on the gesture, and reads it back on drop', () => {
+    const setData = jest.fn();
+    expect(beginArticleDrag({ dataTransfer: { setData } }, 'a1')).toBe(true);
+    expect(setData).toHaveBeenCalledWith(ARTICLE_DRAG_KEY, 'a1');
+    expect(beginArticleDrag({}, '')).toBe(false);
+    expect(readArticleDragId({ dataTransfer: { getData: () => 'a1' } })).toBe('a1');
+    expect(readArticleDragId({})).toBe('');
+  });
+
+  it('reads hover intent off the types, because the payload stays shut until drop', () => {
+    expect(carriesArticleDrag({ dataTransfer: { types: [ARTICLE_DRAG_KEY] } })).toBe(true);
+    expect(carriesArticleDrag({ dataTransfer: { types: [] } })).toBe(false);
+    expect(carriesArticleDrag({})).toBe(false);
   });
 });

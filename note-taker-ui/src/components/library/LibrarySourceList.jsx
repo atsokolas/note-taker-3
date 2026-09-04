@@ -13,6 +13,7 @@ import { matchesSourceQuery, sourceRowKey } from './librarySourceIdentity';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
 import { humanizeLabel } from '../../utils/humanizeLabel';
+import { beginArticleDrag } from '../../pages/dragGrammar';
 
 const SOURCE_ROW_HEIGHT = 168;
 const ROOM_SOURCE_ROW_HEIGHT = 94;
@@ -162,6 +163,11 @@ const LibrarySourceRow = React.memo(({
       aria-selected={selected ? 'true' : undefined}
       onPointerMove={magnetic.onPointerMove}
       onPointerLeave={magnetic.onPointerLeave}
+      /* Only articles travel: notes and highlights have no filing to do, and
+         a draggable row that cannot land anywhere is a promise the product
+         will not keep. */
+      draggable={canMove}
+      onDragStart={canMove ? (event) => { beginArticleDrag(event, source.id); } : undefined}
     >
       <div className="library-article-row-date">{formatSurfaceDate(rowDate, { includeYear: true })}</div>
       <div className="library-article-row-content">
