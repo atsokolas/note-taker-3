@@ -7,7 +7,7 @@ import {
   RoomShelfSection
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
-import { buildFolderTree, folderCountPhrase, isFolderDescendant } from '../../pages/folderTreeModel';
+import { buildFolderTree, flattenFolderTree, folderCountPhrase, isFolderDescendant } from '../../pages/folderTreeModel';
 import { isProceduralShelf } from '../../pages/readingDriftModel';
 import { carriesArticleDrag, DROP_KINDS, dropIntent, readArticleDragId } from '../../pages/dragGrammar';
 
@@ -191,6 +191,39 @@ const LibraryShelfNav = ({
     clearDragState();
   };
 
+  /* Drawers move from the keyboard the way outlines do: Alt+Right nests
+     under the drawer above, Alt+Left lifts one level toward the top.
+     No mode, no target to name — the visible order above the focus already
+     is the target, and it cannot be wrong: in a depth-first cabinet the row
+     above can never be one of the focused row's own drawers, so a cycle is
+     geometrically impossible and the server only ever confirms. Alt+Left on
+     a top drawer and Alt+Right on the first row are silence. */
+  const parentOf = (id) => {
+    const found = (Array.isArray(folders) ? folders : [])
+      .find((folder) => String(folder?._id || folder?.id || '') === String(id || ''));
+    const parent = found?.parentFolderId ? String(found.parentFolderId) : '';
+    return parent || null;
+  };
+
+  const handleBranchKeys = (id) => (event) => {
+    if (!onMoveFolder || event.metaKey || event.ctrlKey || !event.altKey) return;
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    /* Alt+Left is history-back and Alt+Right is history-forward: letting go
+       would navigate away mid-organize. */
+    event.preventDefault();
+    if (event.key === 'ArrowRight') {
+      const flat = flattenFolderTree(cabinet);
+      const index = flat.findIndex((node) => node.id === id);
+      const previous = index > 0 ? flat[index - 1] : null;
+      if (!previous) return;
+      onMoveFolder(id, previous.id);
+      return;
+    }
+    const parent = parentOf(id);
+    if (!parent) return;
+    onMoveFolder(id, parentOf(parent));
+  };
+
   /* The cabinet is a tree, and the rows are its visible branches: a drawer
      that is folded hides what is inside it, and procedural shelves never
      appear at all. */
@@ -331,6 +364,8 @@ const LibraryShelfNav = ({
                     onDragOver={handleBranchDragOver(node.id)}
                     onDragLeave={handleBranchDragLeave(node.id)}
                     onDrop={handleBranchDrop(node.id)}
+                    onKeyDown={handleBranchKeys(node.id)}
+                    aria-keyshortcuts={onMoveFolder ? 'Alt+ArrowRight Alt+ArrowLeft' : undefined}
                   >
                     <RoomShelfButton
                       active={active}
