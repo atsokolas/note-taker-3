@@ -1251,6 +1251,7 @@ wikiRevisionSchema.index(
   { name: 'judgment_audit_revision' }
 );
 
+wikiRevisionSchema.plugin(require('../services/wikiRevisionHistoryArchive').revisionHistoryArchivePlugin);
 const WikiRevision = mongoose.model('WikiRevision', wikiRevisionSchema);
 
 const wikiLintRunSchema = new mongoose.Schema({
