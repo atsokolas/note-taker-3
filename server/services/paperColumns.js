@@ -30,7 +30,21 @@
  * length tells you what kind of day it is before you read a word.
  */
 
+const { wordBoundaryTrim } = require('../lib/editorialText');
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/* A claim on the front page is a quotation, and a quotation that stops
+   mid-word reads as broken software rather than as an excerpt. Claims in a
+   real corpus run to whole paragraphs — the first one this column ever showed
+   ended "...balancing conviction with a" — so they are cut at a word, with the
+   mark that says there is more. The claim's own page carries the rest. */
+const CLAIM_EXCERPT = 240;
+
+const excerpt = (value = '') => wordBoundaryTrim(
+  String(value == null ? '' : value).replace(/\s+/g, ' ').trim(),
+  { maxLength: CLAIM_EXCERPT }
+);
 
 /* A year, less a fortnight, so a claim made "about a year ago" still counts.
    Waiting for the exact anniversary would mean the column almost never runs. */
@@ -114,7 +128,7 @@ const anniversary = ({ pages = [], now = Date.now() } = {}) => {
       claimId: clean(claim.claimId, 120),
       pageId,
       pageTitle,
-      text: clean(claim.text, 400),
+      text: excerpt(claim.text),
       bornAt: new Date(time(claim.bornAt) || time(claim.createdAt)).toISOString(),
       years: yearsBetween(time(claim.bornAt) || time(claim.createdAt), now)
     }));
@@ -138,7 +152,7 @@ const disagreement = ({ pages = [], now = Date.now() } = {}) => {
       claimId: clean(claim.claimId, 120),
       pageId,
       pageTitle,
-      text: clean(claim.text, 400),
+      text: excerpt(claim.text),
       against: list(claim.contradictedByCitationIds).length
     }));
   return pickByDay(candidates, now);
@@ -181,7 +195,7 @@ const corrections = ({ pages = [], now = Date.now(), limit = 2 } = {}) => allCla
         key: `${pageId}:${claim.claimId}:${time(entry.at)}`,
         pageId,
         pageTitle,
-        text: clean(claim.text, 260),
+        text: excerpt(claim.text),
         was,
         became,
         at: new Date(time(entry.at)).toISOString()
