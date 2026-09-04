@@ -50,6 +50,8 @@ const FeedFolio = ({ folio, article = null, onSelectArticle, onPlace }) => {
           <PlacementSwitch
             articleId={folio.id}
             placement={placementOf(article || {})}
+            folderName={article?.folder?.name}
+            asFeed={Boolean(article?.folder?.asFeed)}
             compact
             onChange={(next) => onPlace(folio.id, next)}
           />

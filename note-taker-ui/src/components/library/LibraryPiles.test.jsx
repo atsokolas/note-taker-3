@@ -1,10 +1,17 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
   clearSentenceHandoff,
   handOffSentence
 } from '../../motion/columnMotion';
 import LibraryPiles from './LibraryPiles';
+import { listReturnQueue } from '../../api/returnQueue';
+
+jest.mock('../../api/returnQueue', () => ({
+  listReturnQueue: jest.fn(() => Promise.resolve([])),
+  createReturnQueueEntry: jest.fn(),
+  updateReturnQueueEntry: jest.fn()
+}));
 
 const later = (id, at) => ({
   _id: id,
@@ -30,6 +37,10 @@ const piece = (id) => ({
 });
 
 describe('LibraryPiles', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    listReturnQueue.mockResolvedValue([]);
+  });
   it('is absent when nothing is parked', () => {
     const { container } = render(<LibraryPiles articles={[{ _id: 'open', placement: 'stream' }]} />);
     expect(container).toBeEmptyDOMElement();
@@ -246,5 +257,47 @@ describe('the Set aside stack', () => {
   it('omits the ledger when nothing is appointed', () => {
     render(<LibraryPiles articles={[later('old-later', '2026-06-01T00:00:00.000Z')]} />);
     expect(screen.queryByLabelText('Promised returns')).not.toBeInTheDocument();
+  });
+
+  it('names the scroll on the way back, and home when it knows no scroll', () => {
+    const onPlace = jest.fn();
+    const { rerender } = render(
+      <LibraryPiles
+        articles={[{ ...later('scrolled', '2026-08-20T00:00:00.000Z'), folder: { _id: 'news', name: 'Newsletters', asFeed: true } }]}
+        onPlace={onPlace}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Take it back to Newsletters' })).toBeInTheDocument();
+
+    rerender(
+      <LibraryPiles
+        articles={[later('unfiled-later', '2026-08-20T00:00:00.000Z')]}
+        onPlace={onPlace}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Take it back home' })).toBeInTheDocument();
+  });
+
+  it('warms the pile a piece arrives in, and stays still otherwise', async () => {
+    const onPlace = jest.fn();
+    const { rerender } = render(
+      <LibraryPiles
+        articles={[later('old-later', '2026-06-01T00:00:00.000Z')]}
+        onPlace={onPlace}
+      />
+    );
+    expect(screen.getByLabelText('Later')).not.toHaveClass('is-warm');
+
+    rerender(
+      <LibraryPiles
+        articles={[
+          later('old-later', '2026-06-01T00:00:00.000Z'),
+          later('new-later', '2026-08-20T00:00:00.000Z')
+        ]}
+        onPlace={onPlace}
+      />
+    );
+    await screen.findByText('new-later');
+    await waitFor(() => expect(screen.getByLabelText('Later')).toHaveClass('is-warm'));
   });
 });

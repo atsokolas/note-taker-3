@@ -25,6 +25,29 @@ const WARM_MS = 420;
 const titleOf = (article) => article.title || 'Untitled source';
 const idOf = (article) => String(article?._id || article?.id || '').trim();
 
+/* Done flashes the destination. When a piece arrives in a pile — parked
+   from a switch, a key, or a drop — the pile's eyebrow warms for one breath
+   so the eye is told where the thing went rather than left to find out.
+   Arrival is read off the list itself, so every way in flashes the same way
+   and removals, reorderings, and the first paint stay still. */
+const useArrivedWarm = (articles) => {
+  const [warm, setWarm] = useState(false);
+  const prev = useRef(null);
+  useEffect(() => {
+    const ids = new Set(articles.map(idOf));
+    const before = prev.current;
+    prev.current = ids;
+    if (!before) return undefined;
+    if ([...ids].some((id) => id && !before.has(id))) {
+      setWarm(true);
+      const timer = window.setTimeout(() => setWarm(false), WARM_MS);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [articles]);
+  return warm;
+};
+
 /* A pile under a dragged piece. Reads the grammar straight off the gesture —
    no lifted state, no knowledge of where the row lives — and only when the
    pile can actually park, so a display-only pile never invites a drop. */
@@ -117,6 +140,11 @@ const PileRow = ({ article, onSelect, onDone, onPlace, hinting = false }) => {
         <PlacementSwitch
           articleId={id}
           placement={placementOf(article)}
+          /* Home names the home: parked in a screened scroll the way back
+             says the scroll's name, not the word home. A bare folder id
+             with no name says nothing rather than guessing one. */
+          folderName={article?.folder?.name}
+          asFeed={Boolean(article?.folder?.asFeed)}
           compact
           onChange={(next) => onPlace(id, next)}
         />
@@ -138,6 +166,7 @@ const LaterPile = ({ articles, ledger = [], onSelect, onDone, onPlace, hinting }
   const listRef = useRef(null);
   const line = laterPileLine(articles);
   usePileLanding(articles, listRef);
+  const arrived = useArrivedWarm(articles);
   const drop = useArticleDrop({
     enabled: Boolean(onPlace),
     placement: 'later',
@@ -146,7 +175,7 @@ const LaterPile = ({ articles, ledger = [], onSelect, onDone, onPlace, hinting }
   if (!articles.length) return null;
   return (
     <section
-      className={`library-pile library-pile--later${drop.over ? ' is-drop-target' : ''}`}
+      className={`library-pile library-pile--later${drop.over ? ' is-drop-target' : ''}${arrived ? ' is-warm' : ''}`}
       aria-label="Later"
       onDragOver={drop.handleDragOver}
       onDragLeave={drop.handleDragLeave}
@@ -189,6 +218,7 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const [open, setOpen] = useState(() => awaitingSentence(articles));
   const line = setAsidePileLine(articles);
   usePileLanding(articles, listRef);
+  const arrived = useArrivedWarm(articles);
   const drop = useArticleDrop({
     enabled: Boolean(onPlace),
     placement: 'setAside',
@@ -209,7 +239,7 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const overflowed = articles.length > 5;
   return (
     <section
-      className={`library-pile library-pile--setAside noeis-meander${open ? ' is-open' : ''}${drop.over ? ' is-drop-target' : ''}`}
+      className={`library-pile library-pile--setAside noeis-meander${open ? ' is-open' : ''}${drop.over ? ' is-drop-target' : ''}${arrived ? ' is-warm' : ''}`}
       aria-label="Set aside"
       onDragOver={drop.handleDragOver}
       onDragLeave={drop.handleDragLeave}
