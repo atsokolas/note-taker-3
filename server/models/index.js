@@ -1629,6 +1629,41 @@ conceptNoteSchema.index({ userId: 1, tagName: 1, createdAt: -1 });
 const ConceptNote = mongoose.model('ConceptNote', conceptNoteSchema);
 
 // Questions - lightweight thinking queue
+/* What the morning paper said, on the morning it said it.
+
+   The paper was a pure function of current state: every load recomputed it,
+   yesterday's paper existed nowhere, and it could not be wrong because
+   nothing it said survived long enough to be checked. That made it the one
+   object in a product built on accountability to your own past claims that
+   kept no record of itself.
+
+   What is kept is the assertions, not the rendered page. A page is a blob and
+   it rots as titles change and links die; a dated claim about the reader,
+   pointing at something, stays legible. */
+const paperAssertionSchema = new mongoose.Schema({
+  kind: { type: String, required: true, trim: true },
+  /* One key per question, not per object — a belief you have not revisited
+     and a belief your sources contradict are two different things to be
+     asked, and each is counted on its own. */
+  targetKey: { type: String, required: true, trim: true },
+  pageId: { type: String, default: '', trim: true },
+  label: { type: String, default: '', trim: true },
+  text: { type: String, default: '', trim: true }
+}, { _id: false });
+
+const morningPaperRecordSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  /* The edition day, not a timestamp. Reloading the paper is not the paper
+     asking again, so a morning has one record however often it is read. */
+  day: { type: String, required: true, trim: true },
+  assertions: { type: [paperAssertionSchema], default: [] }
+}, { timestamps: true });
+
+morningPaperRecordSchema.index({ userId: 1, day: -1 });
+morningPaperRecordSchema.index({ userId: 1, day: 1 }, { unique: true });
+
+const MorningPaperRecord = mongoose.model('MorningPaperRecord', morningPaperRecordSchema);
+
 /* An edition of a paper an agent maintains for its reader.
 
    Its own object, not a wiki page. A wiki page is timeless and is built out
@@ -3150,6 +3185,7 @@ module.exports = {
   ConceptDecisionLessonEvidence,
   ConceptNote,
   Edition,
+  MorningPaperRecord,
   Question,
   Board,
   BoardItem,

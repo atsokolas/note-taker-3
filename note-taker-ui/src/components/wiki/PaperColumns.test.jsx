@@ -9,7 +9,7 @@ jest.mock('react-router-dom', () => ({
 }));
 
 const morning = (over = {}) => ({
-  anniversary: null, disagreement: null, corrections: [], obituary: null, ...over
+  anniversary: null, disagreement: null, corrections: [], obituary: null, asked: 0, closed: [], ...over
 });
 
 describe('the four things only this product can print', () => {
@@ -70,6 +70,48 @@ describe('the four things only this product can print', () => {
     }));
     render(<PaperColumns />);
     expect(await screen.findByText('Nothing has been added to Deliberate Practice in 10 months.')).toBeInTheDocument();
+  });
+
+  /* The whole reason the paper keeps a record of itself. */
+  it('says which morning this is when it has asked before', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      anniversary: { text: 'Capex is defensive.', years: 1, pageId: 'p1', pageTitle: 'Alphabet' },
+      asked: 3
+    }));
+    render(<PaperColumns />);
+    expect(await screen.findByText('The fourth morning I have asked.')).toBeInTheDocument();
+  });
+
+  it('does not count out loud until asking twice is a pattern', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      anniversary: { text: 'Capex is defensive.', years: 1, pageId: 'p1', pageTitle: 'Alphabet' },
+      asked: 1
+    }));
+    render(<PaperColumns />);
+    await screen.findByText(/Capex is defensive/);
+    expect(screen.queryByText(/morning I have asked/)).not.toBeInTheDocument();
+  });
+
+  /* A paper that notices you acted is a different object from one that asks
+     again. */
+  it('reports what you closed since it last asked', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      closed: [{ kind: 'anniversary', label: 'Alphabet', day: '2026-09-01', pageId: 'p1' }]
+    }));
+    render(<PaperColumns />);
+    expect(await screen.findByText('Since we last asked')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'You went back to it: Alphabet.' })).toHaveAttribute('href', '/wiki/p1');
+  });
+
+  /* A morning whose only news is that you closed something is not a quiet
+     morning. It is the best kind. */
+  it('is not a quiet morning when the only news is that you acted', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      closed: [{ kind: 'obituary', label: 'Anchoring', day: '2026-09-01', pageId: 'p2' }]
+    }));
+    render(<PaperColumns />);
+    expect(await screen.findByText('Since we last asked')).toBeInTheDocument();
+    expect(screen.queryByText(/A quiet morning/)).not.toBeInTheDocument();
   });
 
   /* The whole point of the rebuild: the length of the paper says what kind of

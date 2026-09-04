@@ -2724,3 +2724,39 @@ body.noeis-editorial .wiki-living-index__header h1.paper-open__headline {
   letter-spacing: -0.028em;
   max-width: 26ch;
 }
+
+/* The paper counting its own asking. Set apart from the footnote above it
+   because it is the paper talking about itself rather than about the claim —
+   the one line on the page whose subject is the software. */
+.paper-column__asked {
+  margin: 8px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 55%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.86rem;
+  font-style: italic;
+}
+
+/* What you closed since the paper last asked. Good news, so it is not dimmed
+   the way an unanswered thing is. */
+.paper-column__closings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.paper-column__closings li,
+.paper-column__closings a {
+  color: var(--text-primary);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.paper-column__closings a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

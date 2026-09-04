@@ -114,8 +114,8 @@ const yearsBetween = (from, to) => Math.max(1, Math.round((to - from) / (365 * D
  * nothing to ask about it. Retired claims are left alone: you already
  * answered.
  */
-const anniversary = ({ pages = [], now = Date.now() } = {}) => {
-  const candidates = allClaims(pages)
+const candidateAnniversaries = ({ pages = [], now = Date.now() } = {}) => (
+  allClaims(pages)
     .filter(({ claim }) => {
       if (claim.checkInStatus === 'retired' || claim.retiredAt) return false;
       const born = time(claim.bornAt) || time(claim.createdAt);
@@ -131,9 +131,12 @@ const anniversary = ({ pages = [], now = Date.now() } = {}) => {
       text: excerpt(claim.text),
       bornAt: new Date(time(claim.bornAt) || time(claim.createdAt)).toISOString(),
       years: yearsBetween(time(claim.bornAt) || time(claim.createdAt), now)
-    }));
-  return pickByDay(candidates, now);
-};
+    }))
+);
+
+const anniversary = ({ pages = [], now = Date.now() } = {}) => (
+  pickByDay(candidateAnniversaries({ pages, now }), now)
+);
 
 /**
  * Your own sources, caught arguing.
@@ -142,8 +145,8 @@ const anniversary = ({ pages = [], now = Date.now() } = {}) => {
  * Both mean the same thing to a reader: you saved two things that cannot both
  * be right, and nobody has decided which.
  */
-const disagreement = ({ pages = [], now = Date.now() } = {}) => {
-  const candidates = allClaims(pages)
+const candidateDisagreements = ({ pages = [] } = {}) => (
+  allClaims(pages)
     .filter(({ claim }) => (
       claim.support === 'conflicted' || list(claim.contradictedByCitationIds).length > 0
     ))
@@ -154,9 +157,12 @@ const disagreement = ({ pages = [], now = Date.now() } = {}) => {
       pageTitle,
       text: excerpt(claim.text),
       against: list(claim.contradictedByCitationIds).length
-    }));
-  return pickByDay(candidates, now);
-};
+    }))
+);
+
+const disagreement = ({ pages = [], now = Date.now() } = {}) => (
+  pickByDay(candidateDisagreements({ pages }), now)
+);
 
 const REVERSALS = Object.freeze({
   restored: 'retired',
@@ -212,8 +218,8 @@ const corrections = ({ pages = [], now = Date.now(), limit = 2 } = {}) => allCla
  * never alive, so it has not died — it is just empty, and an obituary for it
  * would be a joke at the reader's expense.
  */
-const obituary = ({ pages = [], now = Date.now() } = {}) => {
-  const candidates = list(pages)
+const candidateObituaries = ({ pages = [], now = Date.now() } = {}) => (
+  list(pages)
     .filter((page) => {
       if (!idOf(page) || !clean(page?.title)) return false;
       if (page.status === 'archived') return false;
@@ -228,18 +234,39 @@ const obituary = ({ pages = [], now = Date.now() } = {}) => {
       pageTitle: clean(page.title, 200),
       silentSince: new Date(time(page.updatedAt)).toISOString(),
       days: Math.floor((now - time(page.updatedAt)) / DAY_MS)
-    }));
-  if (!candidates.length) return null;
-  /* The longest silence, not a random one. An obituary is for the deadest
-     thing on the shelf. */
-  return candidates.sort((left, right) => time(left.silentSince) - time(right.silentSince))[0];
-};
+    }))
+);
+
+/* The longest silence, not a random one. An obituary is for the deadest thing
+   on the shelf. */
+const obituary = ({ pages = [], now = Date.now() } = {}) => (
+  [...candidateObituaries({ pages, now })]
+    .sort((left, right) => time(left.silentSince) - time(right.silentSince))[0] || null
+);
 
 const paperColumns = ({ pages = [], now = Date.now() } = {}) => ({
   anniversary: anniversary({ pages, now }),
   disagreement: disagreement({ pages, now }),
   corrections: corrections({ pages, now }),
   obituary: obituary({ pages, now })
+});
+
+/**
+ * Everything that *could* have run today, not what did.
+ *
+ * The ledger needs this to tell a question that was answered from one that
+ * simply was not dealt. Each column prints one candidate a day, so a claim
+ * vanishing from the paper usually means a different claim's turn came round
+ * — not that the reader did anything about it.
+ *
+ * A target that has left this set has left it for a reason: the belief was
+ * checked, the contradiction was resolved, somebody wrote on the page. That
+ * is the only honest basis for saying a thing is closed.
+ */
+const openTargets = ({ pages = [], now = Date.now() } = {}) => ({
+  anniversary: new Set(candidateAnniversaries({ pages, now }).map(row => row.key)),
+  disagreement: new Set(candidateDisagreements({ pages }).map(row => row.key)),
+  obituary: new Set(candidateObituaries({ pages, now }).map(row => row.key))
 });
 
 module.exports = {
@@ -250,5 +277,6 @@ module.exports = {
   corrections,
   disagreement,
   obituary,
+  openTargets,
   paperColumns
 };

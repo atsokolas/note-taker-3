@@ -93,6 +93,51 @@ export const obituaryLine = (obituary) => {
 };
 
 /**
+ * How many mornings the paper has asked this.
+ *
+ * Two askings is a coincidence; three is the paper noticing. Below that it
+ * says nothing, because "I have asked this once before" is a fact about the
+ * software rather than about the reader.
+ *
+ * This sentence is the whole reason the paper keeps a record. Showing a thing
+ * a fourth time is a re-read; saying it is the fourth time is a confrontation.
+ */
+export const askedLine = (asked = 0) => {
+  const count = Number(asked) || 0;
+  if (count < 2) return '';
+  const ordinal = count === 2 ? 'third' : count === 3 ? 'fourth' : `${count + 1}th`;
+  return `The ${ordinal} morning I have asked.`;
+};
+
+const CLOSING_VERB = Object.freeze({
+  anniversary: 'You went back to it',
+  disagreement: 'You settled it',
+  obituary: 'You wrote on it again'
+});
+
+/**
+ * What the paper asked about, that you have since dealt with.
+ *
+ * A correction in the newspaper sense — the paper printed a thing and the
+ * thing is no longer the case — and also the loop closing. A paper that
+ * notices you acted is a different object from one that asks again.
+ *
+ * A target that has vanished is said differently, because gone is not the
+ * same as answered and the reader can tell even when the paper cannot.
+ */
+export const closingLines = (closed = []) => (
+  (Array.isArray(closed) ? closed : [])
+    .filter(entry => entry?.label && entry?.day)
+    .map(entry => ({
+      key: `${entry.kind}:${entry.label}:${entry.day}`,
+      text: entry.vanished
+        ? `${entry.label} is gone. The paper was still asking about it.`
+        : `${CLOSING_VERB[entry.kind] || 'You dealt with it'}: ${entry.label}.`,
+      href: entry.pageId && !entry.vanished ? `/wiki/${entry.pageId}` : ''
+    }))
+);
+
+/**
  * How much paper there is this morning.
  *
  * The point of the whole rebuild: a paper whose length says what kind of day
@@ -104,6 +149,9 @@ export const paperWeight = (columns = {}) => (
   + (columns?.disagreement ? 1 : 0)
   + ((columns?.corrections || []).length ? 1 : 0)
   + (columns?.obituary ? 1 : 0)
+  /* A morning whose only news is that you closed something is not a quiet
+     morning. It is the best kind. */
+  + ((columns?.closed || []).length ? 1 : 0)
 );
 
 export const QUIET_MORNING = 'A quiet morning. Nothing is asking for you — go and read something.';

@@ -22,7 +22,8 @@ const {
   loadCachedWikiBriefing,
   persistWikiBriefingCache
 } = require('../services/wikiBriefingService');
-const { paperColumns } = require('../services/paperColumns');
+const { openTargets, paperColumns } = require('../services/paperColumns');
+const { assertionsFrom, askedBefore, closings, dayOf } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
   getWikiSchemaPromptContent,
@@ -1780,6 +1781,9 @@ const buildWikiRouter = ({
   WikiMaintenanceRun = null,
   WikiRepoBaseline = null,
   WikiBriefingCache = null,
+  /* The morning paper's own record. Optional: a deployment without it still
+     serves the paper, it just cannot say how many times it has asked. */
+  MorningPaperRecord = null,
   WikiPageVisit = null,
   WikiSharedCollection = null,
   CasebookLineage = null,
@@ -6311,12 +6315,52 @@ const buildWikiRouter = ({
    */
   router.get('/api/morning-paper/columns', wikiAuth, async (req, res) => {
     try {
-      const pages = await WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
+      const userId = req.user.id;
+      const pages = await WikiPage.find({ userId, status: { $ne: 'archived' } })
         .select('title updatedAt status claims sourceRefs')
         .sort({ updatedAt: -1 })
         .limit(300)
         .lean();
-      return res.status(200).json(paperColumns({ pages }));
+      const columns = paperColumns({ pages });
+
+      /* The paper joins the ledger. Without a record of what it said, it
+         cannot count its own asking and cannot notice when you answered — and
+         a product built on holding you to your past claims had exempted its
+         own daily surface from that standard.
+
+         The write happens on read because the paper has one reader and one
+         moment: it is an upsert keyed on the day, so refreshing five times
+         still leaves one morning on the record. */
+      let asked = 0;
+      let closed = [];
+      if (MorningPaperRecord) {
+        const today = dayOf();
+        const assertions = assertionsFrom(columns);
+        const history = await MorningPaperRecord
+          .find({ userId })
+          .sort({ day: -1 })
+          .limit(60)
+          .lean();
+
+        const lead = assertions[0] || null;
+        asked = lead ? askedBefore({ history, assertion: lead, today }) : 0;
+        closed = closings({
+          history,
+          open: openTargets({ pages }),
+          known: new Set(pages.map(page => String(page._id))),
+          now: Date.now()
+        });
+
+        if (assertions.length) {
+          await MorningPaperRecord.findOneAndUpdate(
+            { userId, day: today },
+            { userId, day: today, assertions },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        }
+      }
+
+      return res.status(200).json({ ...columns, asked, closed });
     } catch (error) {
       console.error('Error reading the morning columns:', error);
       return res.status(500).json({ error: 'Could not read what the paper has to say.' });
