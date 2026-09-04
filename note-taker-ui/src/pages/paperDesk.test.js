@@ -1,4 +1,4 @@
-import { editionDay, lastWorked, openCase, shelfPick } from './paperDesk';
+import { HEADLINE_LENGTH, editionDay, lastWorked, openCase, shelfPick } from './paperDesk';
 
 const page = (id, title, updatedAt, judgment = null) => ({
   _id: id,
@@ -106,5 +106,22 @@ describe('the card off the shelf', () => {
     expect(shelfPick([])).toBeNull();
     expect(shelfPick()).toBeNull();
     expect(shelfPick([{ _id: 'x' }])).toBeNull();
+  });
+});
+
+describe('the headline off the shelf', () => {
+  /* Some pieces carry a full standfirst in their title. Seven lines of
+     display serif turns the lead into a wall, so it is cut at a word and the
+     piece itself is one click away. */
+  it('cuts a headline that runs long, at a word', () => {
+    const long = 'Jeffrey Yan turned down $100 million, airdropped billions to strangers, and cannot travel without a bodyguard. The story of how he built Hyperliquid into the most profitable startup per employee on earth.';
+    const picked = shelfPick([{ _id: 'a', title: long }]);
+    expect(picked.text.length).toBeLessThanOrEqual(HEADLINE_LENGTH + 1);
+    expect(picked.text).not.toMatch(/\s\S{0,3}$/);
+    expect(long.startsWith(picked.text.replace(/…$/, '').trim())).toBe(true);
+  });
+
+  it('leaves a headline that already fits exactly as written', () => {
+    expect(shelfPick([{ _id: 'a', title: 'A short, good headline' }]).text).toBe('A short, good headline');
   });
 });

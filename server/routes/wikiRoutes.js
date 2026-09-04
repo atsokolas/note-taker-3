@@ -22,6 +22,7 @@ const {
   loadCachedWikiBriefing,
   persistWikiBriefingCache
 } = require('../services/wikiBriefingService');
+const { paperColumns } = require('../services/paperColumns');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
   getWikiSchemaPromptContent,
@@ -6300,6 +6301,28 @@ const buildWikiRouter = ({
      both passages and both publications — so a disagreement can be read as a
      disagreement instead of being inferred from a colour inside one article
      you had to already be reading. */
+  /**
+   * The four things only this product can print.
+   *
+   * A belief you have not looked at in a year, your own sources caught
+   * arguing, a claim you reversed, and the page that has gone longest without
+   * a word. Each is absent when there is nothing true to say, which is what
+   * makes a quiet morning's paper short.
+   */
+  router.get('/api/morning-paper/columns', wikiAuth, async (req, res) => {
+    try {
+      const pages = await WikiPage.find({ userId: req.user.id, status: { $ne: 'archived' } })
+        .select('title updatedAt status claims sourceRefs')
+        .sort({ updatedAt: -1 })
+        .limit(300)
+        .lean();
+      return res.status(200).json(paperColumns({ pages }));
+    } catch (error) {
+      console.error('Error reading the morning columns:', error);
+      return res.status(500).json({ error: 'Could not read what the paper has to say.' });
+    }
+  });
+
   router.get('/api/wiki/contradictions', wikiAuth, async (req, res) => {
     try {
       const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 200));

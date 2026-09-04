@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as router from 'react-router-dom';
 import WikiFrontPage from './WikiFrontPage';
-import { listWikiPages } from '../../api/wiki';
+import { getMorningPaperColumns, listWikiPages } from '../../api/wiki';
 import { getDailyLoop, armReadingWatch, disarmWatcher } from '../../api/dailyLoop';
 import { getLibraryRoom } from '../../api/libraryRelevance';
 import { getArticles } from '../../api/articles';
@@ -19,6 +19,9 @@ jest.mock('../../api/knowledgeMovements', () => ({
 }));
 
 jest.mock('../../api/wiki', () => ({
+  /* The paper's four columns. Resolved empty here: this suite is about the
+     index, and a quiet morning keeps it out of the way. */
+  getMorningPaperColumns: jest.fn(() => Promise.resolve({})),
   listWikiPages: jest.fn()
 }));
 
@@ -129,6 +132,8 @@ const stubLibraryRoom = (feedTopics = [], counts = {}) => {
 
 describe('WikiFrontPage canonical titles', () => {
   beforeEach(() => {
+    /* A quiet morning: these suites are about the index, not the columns. */
+    getMorningPaperColumns.mockResolvedValue({});
     jest.clearAllMocks();
     getArticles.mockResolvedValue([]);
     localStorage.clear();
@@ -244,6 +249,8 @@ describe('WikiFrontPage (AT-394)', () => {
   let navigate;
 
   beforeEach(() => {
+    /* A quiet morning: these suites are about the index, not the columns. */
+    getMorningPaperColumns.mockResolvedValue({});
     jest.clearAllMocks();
     getArticles.mockResolvedValue([]);
     localStorage.clear();
@@ -927,6 +934,8 @@ describe('WikiFrontPage (AT-394)', () => {
      a second inbox over it. */
   describe('the lead', () => {
     beforeEach(() => {
+    /* A quiet morning: these suites are about the index, not the columns. */
+    getMorningPaperColumns.mockResolvedValue({});
       resetFirstPaint();
     });
 
@@ -1213,6 +1222,8 @@ describe('WikiFrontPage (AT-394)', () => {
 
 describe('Recently updated', () => {
   beforeEach(() => {
+    /* A quiet morning: these suites are about the index, not the columns. */
+    getMorningPaperColumns.mockResolvedValue({});
     jest.clearAllMocks();
     getArticles.mockResolvedValue([]);
     localStorage.clear();
