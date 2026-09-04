@@ -103,7 +103,10 @@ const revisionHistoryArchivePlugin = schema => {
       key.startsWith('-') ? [key.slice(1), 0] : [key, value]));
     const inclusive = Object.entries(original).some(([key, value]) => key !== '_id' && Boolean(value));
     if (Object.keys(original).length === 1 && original._id === 1) return;
-    const snapshots = !inclusive || Object.keys(original).some(key => /^(before|after)(\.|$)/.test(key));
+    // Judgment/briefing projections that do not request histories can use the
+    // stored fields directly. Never inflate a tiny summary query into full reads.
+    const snapshots = !inclusive || Object.keys(original).some(key =>
+      /^(before|after)(\.claims(\.history(\.|$).*)?)?$/.test(key));
     if (!snapshots) return;
     for (const [key, value] of Object.entries(original)) {
       if (/^(before|after)(\.|$)/.test(key) && ![0, 1, true, false].includes(value)) {
