@@ -99,6 +99,10 @@ const LibraryMain = ({
       articles={knownArticles}
       onSelect={onSelectArticle}
       onDone={handlePileDone}
+      /* The piles' switches, keys, and drops all read this one verb. Without
+         it they are a display of where things sit; with it they are where
+         things are put. */
+      onPlace={onTogglePlacement}
     />
   );
   const handleOpenSource = useCallback((source) => {

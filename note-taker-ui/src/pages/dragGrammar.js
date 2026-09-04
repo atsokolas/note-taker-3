@@ -20,7 +20,43 @@ export const DROP_KINDS = Object.freeze({
   PILE: 'pile'
 });
 
+/* What a dragged piece calls itself on the way over. Read by state nowhere:
+   the drop surface reads the payload straight off the gesture, so a row in
+   one component can land in a pile in another without either knowing the
+   other exists. */
+export const ARTICLE_DRAG_KEY = 'application/x-noeis-article-id';
+
 const clean = (value = '') => String(value || '').trim();
+
+/** The piece on the way over, or '' when this gesture carries none. */
+export const readArticleDragId = (event) => {
+  try {
+    return clean(event?.dataTransfer?.getData?.(ARTICLE_DRAG_KEY));
+  } catch (_unreadable) {
+    return '';
+  }
+};
+
+/* getData is unreadable during dragover — the payload only opens on drop —
+   so hover intent reads the types instead. */
+export const carriesArticleDrag = (event) => {
+  try {
+    return Boolean(event?.dataTransfer?.types?.includes?.(ARTICLE_DRAG_KEY));
+  } catch (_unreadable) {
+    return false;
+  }
+};
+
+/** Names the dragged piece on the gesture. False when there is nothing to name. */
+export const beginArticleDrag = (event, articleId) => {
+  const id = clean(articleId);
+  if (!id) return false;
+  if (event?.dataTransfer?.setData) {
+    event.dataTransfer.setData(ARTICLE_DRAG_KEY, id);
+    event.dataTransfer.effectAllowed = 'move';
+  }
+  return true;
+};
 
 /**
  * What a drop means, or null when it means nothing.

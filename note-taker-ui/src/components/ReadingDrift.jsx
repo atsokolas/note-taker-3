@@ -63,13 +63,13 @@ const annotationAlignment = (index, length) => {
   return 'center';
 };
 
-const ReadingDrift = ({ articles = [], loading = false, unreadable = false, now }) => {
+const ReadingDrift = ({ articles = [], folders = [], loading = false, unreadable = false, now }) => {
   const [activePoint, setActivePoint] = useState(null);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const exitTimer = useRef(null);
   const drift = useMemo(
-    () => withDirections(buildDrift(articles, now)),
-    [articles, now]
+    () => withDirections(buildDrift(articles, now, folders)),
+    [articles, folders, now]
   );
 
   useEffect(() => () => clearTimeout(exitTimer.current), []);

@@ -11,6 +11,23 @@ const pageIdShape = {
 
 export const readTools = [
   {
+    name: 'list_editions',
+    description: 'List the editions already filed for this reader, newest window first. Check here before filing so you continue a run rather than starting a second one, and so you know which issue number is next.',
+    inputSchema: {
+      profile: z.string().optional().describe('Narrow to one paper, e.g. this_week_in_ai.'),
+      limit: z.number().min(1).max(100).optional()
+    },
+    handler: (client, args) => client.listEditions(args)
+  },
+  {
+    name: 'get_edition',
+    description: 'Read one filed edition in full, including which of its sources the reader has taken into their library.',
+    inputSchema: {
+      editionId: z.string().describe('Noeis edition id.')
+    },
+    handler: (client, args) => client.getEdition(args)
+  },
+  {
     name: 'list_pages',
     description: 'Find candidate wiki pages to inspect. Returns lightweight page rows with id, title, pageType, slug, and updatedAt.',
     inputSchema: {

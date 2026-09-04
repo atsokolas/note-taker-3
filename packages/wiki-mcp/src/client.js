@@ -438,6 +438,20 @@ export class NoeisClient {
     }).then(normalizeFullPage);
   }
 
+  /* The paper this agent maintains for its reader. Noeis does not write it;
+     it holds it to a shape and files it under a window. */
+  createEdition(edition = {}) {
+    return this.request('/api/editions', { method: 'POST', body: edition });
+  }
+
+  listEditions({ profile, limit } = {}) {
+    return this.request('/api/editions', { query: { profile, limit } });
+  }
+
+  getEdition({ editionId } = {}) {
+    return this.request(`/api/editions/${encodeURIComponent(editionId)}`);
+  }
+
   ingestSource({ source } = {}) {
     return this.request('/api/wiki/ingest', {
       method: 'POST',

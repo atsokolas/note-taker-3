@@ -17,6 +17,7 @@ import {
   updateWikiPage
 } from '../api/wiki';
 import { getArticles } from '../api/articles';
+import { getFolders } from '../api/folders';
 import { recordClaimFalsifiability } from '../api/dailyLoop';
 import { useNoeisAgentSurface } from '../agent/AgentRailContext';
 import EvergreenToggle from '../components/EvergreenToggle';
@@ -326,7 +327,7 @@ const JudgmentChangeReview = ({
   );
 };
 
-const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnreadable, onHeld }) => {
+const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading, readingUnreadable, onHeld }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
 
@@ -430,7 +431,7 @@ const JudgmentIndex = ({ items, articles, loading, readingLoading, readingUnread
           is the one thing in the product that asks nothing of you, and it
           belongs at the top of the room that asks the most: this is the
           weather over the claims, not another claim. */}
-      <ReadingDrift articles={articles} loading={readingLoading} unreadable={readingUnreadable} />
+      <ReadingDrift articles={articles} folders={folders} loading={readingLoading} unreadable={readingUnreadable} />
       {/* One prompt. The verb is hold a sentence — not a company case, not
           a door back to this morning's paper. The sentence you type is the
           claim. Company research still lives on Wiki for people who already
@@ -1444,6 +1445,11 @@ const Judgment = () => {
   const [indexPages, setIndexPages] = useState([]);
   const [indexLoading, setIndexLoading] = useState(true);
   const [articles, setArticles] = useState([]);
+  /* The cabinet, so the drift reads the drawer a piece lives in rather than
+     the leaf it was filed in. Fails the same silent way as the reading: a
+     drift without its cabinet reads exact leaves, which is coarser but never
+     wrong. */
+  const [driftFolders, setDriftFolders] = useState([]);
   const [readingLoading, setReadingLoading] = useState(true);
   const [readingUnreadable, setReadingUnreadable] = useState(false);
   const [indexError, setIndexError] = useState('');
@@ -1476,6 +1482,13 @@ const Judgment = () => {
               setReadingLoading(false);
               setReadingUnreadable(true);
             }
+          });
+        Promise.resolve().then(() => getFolders())
+          .then(read => {
+            if (!cancelled) setDriftFolders(Array.isArray(read) ? read : []);
+          })
+          .catch(() => {
+            if (!cancelled) setDriftFolders([]);
           });
       }
 
@@ -1551,6 +1564,7 @@ const Judgment = () => {
               <JudgmentIndex
                 items={items}
                 articles={articles}
+                folders={driftFolders}
                 loading={indexLoading}
                 readingLoading={readingLoading}
                 readingUnreadable={readingUnreadable}

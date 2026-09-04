@@ -1,4 +1,10 @@
 import { normalizeSpaces } from '../utils/editorialText';
+import { isProceduralShelf, topLevelAncestor } from './folderTreeModel';
+
+/* What counts as a filing tray is the cabinet's call — re-exported here so
+   every surface that learned it from this model keeps reading it in the
+   same place. */
+export { isProceduralShelf };
 
 /*
  * Where your reading is going.
@@ -25,23 +31,6 @@ export const BUCKETS = 6;
 export const MIN_SOURCES = 8;
 const TOP_TOPICS = 5;
 
-/* Shelves that are a stage of work rather than a subject. "You have drifted
-   away from Needs Review" is not an observation about your reading, it is the
-   product mistaking its own filing tray for a topic. Matched loosely, because
-   these are names people type.
-
-   Keep in lockstep with server/lib/proceduralShelf.js. */
-const PROCEDURAL_SHELVES = [
-  'needs review', 'review', 'inbox', 'unsorted', 'uncategorized', 'unfiled',
-  'to read', 'read later', 'reading list', 'saved', 'misc', 'miscellaneous',
-  'archive', 'archived', 'later', 'triage', 'untitled'
-];
-
-export const isProceduralShelf = (name = '') => {
-  const value = normalizeSpaces(name).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return PROCEDURAL_SHELVES.includes(value);
-};
-
 const list = value => (Array.isArray(value) ? value : []);
 const time = value => new Date(value || 0).getTime();
 
@@ -52,11 +41,22 @@ const time = value => new Date(value || 0).getTime();
  * after that. A source that is neither filed nor tagged is about nothing the
  * product can honestly name, so it is left out rather than lumped into a
  * bucket called Other — a fake topic is worse than a smaller sample.
+ *
+ * Filing is exact but a trend is not: with the cabinet at hand, a piece
+ * filed in `Costco` reads as `Investing`, the drawer it lives in, because a
+ * trend measured per leaf is noise. Without the cabinet the filed name
+ * stands as-is.
  */
-export const topicsOf = (article = {}) => {
+export const topicsOf = (article = {}, folders = []) => {
   const topics = [];
-  const folder = normalizeSpaces(article?.folder?.name);
-  if (folder && !isProceduralShelf(folder)) topics.push(folder);
+  const folderId = normalizeSpaces(
+    article?.folder?._id
+    || article?.folderId
+    || (typeof article?.folder === 'string' ? article.folder : '')
+  );
+  const ancestor = folderId ? topLevelAncestor(folders, folderId) : null;
+  const drawer = normalizeSpaces(ancestor?.name) || normalizeSpaces(article?.folder?.name);
+  if (drawer && !isProceduralShelf(drawer)) topics.push(drawer);
   list(article?.tags).forEach((tag) => {
     const name = normalizeSpaces(tag?.name || tag);
     if (!name || isProceduralShelf(name)) return;
@@ -93,7 +93,7 @@ const workOf = (article = {}) => ({
 /**
  * The topic mix, fortnight by fortnight, most recent last.
  */
-export const buildDrift = (articles = [], now = Date.now()) => {
+export const buildDrift = (articles = [], now = Date.now(), folders = []) => {
   const buckets = Array.from({ length: BUCKETS }, (_, index) => ({
     index,
     total: 0,
@@ -107,7 +107,7 @@ export const buildDrift = (articles = [], now = Date.now()) => {
     if (Number.isNaN(at)) return;
     const index = bucketIndexFor(at, now);
     if (index < 0) return;
-    const topics = topicsOf(article);
+    const topics = topicsOf(article, folders);
     if (!topics.length) return;
     filed += 1;
     const bucket = buckets[index];
@@ -204,6 +204,24 @@ export const driftClosesAt = ({ beganAt = null, now = Date.now() } = {}) => {
   if (elapsed < 0) return null;
   const buckets = Math.floor(elapsed / (BUCKET_DAYS * DAY)) + 1;
   return new Date(began + buckets * BUCKET_DAYS * DAY).toISOString();
+};
+
+/**
+ * Whether the drift prints this morning.
+ *
+ * The drift keeps the corpus's clock, not the world's: it prints on the day
+ * its fortnight closes and is silent the other thirteen. Compared as local
+ * calendar days on both sides, so a close at midnight UTC is still today's
+ * paper west of it.
+ */
+export const isDriftCloseDay = ({ driftClosesAt: closesAt = null, now = Date.now() } = {}) => {
+  const closes = new Date(closesAt || 0).getTime();
+  if (Number.isNaN(closes)) return false;
+  const day = (at) => {
+    const date = new Date(at);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  };
+  return day(closes) === day(now);
 };
 
 /**

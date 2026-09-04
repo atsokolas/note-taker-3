@@ -221,6 +221,19 @@ describe('LibrarySourceList', () => {
     expect(noteRow).not.toHaveTextContent(/Notebook\s*·\s*Notebook/i);
   });
 
+  it('lets articles travel and keeps notes and highlights where they are', () => {
+    renderList({ onMoveArticle: jest.fn() });
+    const rowOf = (text) => screen.getByText(text).closest('[data-source-key]');
+    const articleRow = rowOf('A durable article');
+    expect(articleRow.getAttribute('draggable')).toBe('true');
+    const setData = jest.fn();
+    fireEvent.dragStart(articleRow, { dataTransfer: { setData } });
+    expect(setData).toHaveBeenCalledWith('application/x-noeis-article-id', 'article-1');
+
+    expect(rowOf('Notebook entry about inference').getAttribute('draggable')).toBe('false');
+    expect(rowOf('Costs decline with utilization').getAttribute('draggable')).toBe('false');
+  });
+
   it('discloses filtered review imports even while other source types remain visible', () => {
     renderList({
       sources: [mixedSources[0]],

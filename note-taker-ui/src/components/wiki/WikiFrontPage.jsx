@@ -28,6 +28,7 @@ import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
 import MorningAskedBack from './MorningAskedBack';
+import WikiDriftSentence from './WikiDriftSentence';
 import PaperDesk from './PaperDesk';
 import { lastWorked, openCase, shelfPick } from '../../pages/paperDesk';
 import { getArticles } from '../../api/articles';
@@ -69,6 +70,7 @@ import {
 import { buildWikiFrontSurfaceDescriptor } from './wikiSurfaceModel';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
 import WeeklyDigest from './WeeklyDigest';
+import EditionsShelf from './EditionsShelf';
 import {
   RoomShelf,
   RoomShelfButton,
@@ -219,6 +221,7 @@ const WikiFrontPageShell = ({ children, ...mainProps }) => (
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
       {children}
+      <EditionsShelf />
       <WeeklyDigest />
       {/* A paper ends. A feed does not, which is the whole difference. */}
       <p className="paper-open__end" aria-hidden="true">{END_OF_PAPER}</p>
@@ -1059,6 +1062,11 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 askedBack={briefing?.askedBack}
                 pulse={pulseTarget === 'asked-back'}
               />
+              {/* The drift's fortnight, as one sentence. Home stays atop
+                  Judgment, where the chart lives; the paper prints the
+                  sentence on the morning the bucket closes and nothing the
+                  other thirteen. It never takes the pulse. */}
+              <WikiDriftSentence driftClosesAt={briefing?.driftClosesAt} />
             </>
           ) : null}
 

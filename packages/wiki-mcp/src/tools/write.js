@@ -8,6 +8,23 @@ const optionalEnum = (values) => z.enum(values).optional();
 const pageIdShape = {
   pageId: z.string().describe('Noeis wiki page id.')
 };
+/* The papers Noeis knows how to hold. Sections are per-profile because the
+   shape of a week is not generic: AI reads in three layers, a reading week in
+   four, and neutral sections would throw away the only opinion worth having. */
+const editionProfiles = ['this_week_in_ai', 'weekend_readings'];
+
+const editionItemShape = z.object({
+  title: z.string().min(1).describe('What the source is called.'),
+  url: z.string().url().describe('Link the reader can open, and save from.'),
+  section: z.string().describe('Section key for this profile. this_week_in_ai: models_methods, infrastructure_systems, evaluation_counterevidence. weekend_readings: thesis_evidence, counterevidence, context, intellectual_broadening.'),
+  finding: z.string().min(1).describe('What this source actually says. Not a summary of its announcement.'),
+  boundary: z.string().min(1).describe('What would limit this finding — sample, scope, conflict of interest, missing replication. Required.'),
+  sourceLabel: z.string().optional().describe('Publication or author.'),
+  sourceDate: z.string().optional().describe('When it was published.'),
+  note: z.string().optional().describe('Anything else worth saying: how it works, how strong the evidence is.'),
+  itemId: z.string().optional().describe('Stable id, so a rewrite keeps the reader\'s saves.')
+});
+
 const sourceShape = z.record(z.any()).describe('Source object accepted by the Noeis wiki API. For URL ingest use { type: "url", url }. For pasted text use { type: "text", text, title? }.');
 
 export const writeTools = [
@@ -42,6 +59,30 @@ export const writeTools = [
     description: 'High-impact: archive a wiki page by soft-deleting it. Confirm explicitly before calling.',
     inputSchema: pageIdShape,
     handler: (client, args) => client.archivePage(args)
+  },
+  {
+    name: 'create_edition',
+    description: [
+      'File an edition of a paper you maintain for this reader — "This Week in AI", "Weekend Readings".',
+      'Every item must carry both a finding (what the source says) and a boundary (what would limit it).',
+      'An item without a boundary is refused: that is the difference between an edition and a newsletter.',
+      'Filing twice for the same window replaces your own edition rather than printing a second copy,',
+      'and sources the reader has already taken into their library survive the rewrite.',
+      'Requires an agent-write token.'
+    ].join(' '),
+    inputSchema: {
+      profile: z.enum(editionProfiles).describe('Which paper this is an edition of.'),
+      windowStart: z.string().describe('First day the edition covers, ISO date.'),
+      windowEnd: z.string().describe('Last day the edition covers, ISO date.'),
+      items: z.array(editionItemShape).min(1).describe('The week, 2-5 items for This Week in AI.'),
+      title: z.string().optional().describe('Overrides the paper name for this edition only.'),
+      number: z.number().int().positive().optional().describe('Issue number.'),
+      standfirst: z.string().optional().describe('In brief: what the week amounts to, in a few sentences.'),
+      throughLine: z.string().optional().describe('What connects the items to each other.'),
+      watchNext: z.array(z.string()).optional().describe('What to watch next week.'),
+      writtenBy: z.string().optional().describe('How to sign the masthead. Defaults to the connected agent name.')
+    },
+    handler: (client, args) => client.createEdition(args)
   },
   {
     name: 'ingest_source',

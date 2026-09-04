@@ -7,8 +7,9 @@ import {
   RoomShelfSection
 } from '../collection/RoomShelf';
 import { flySentenceInto } from '../../motion/columnMotion';
-import { buildFolderTree, folderCountPhrase } from '../../pages/folderTreeModel';
+import { buildFolderTree, folderCountPhrase, isFolderDescendant } from '../../pages/folderTreeModel';
 import { isProceduralShelf } from '../../pages/readingDriftModel';
+import { carriesArticleDrag, DROP_KINDS, dropIntent, readArticleDragId } from '../../pages/dragGrammar';
 
 // The cabinet, in the column's language.
 //
@@ -23,6 +24,12 @@ import { isProceduralShelf } from '../../pages/readingDriftModel';
 // Nothing is hidden on the desktop rail, where the reading was never displaced.
 
 const NARROW_SHELF = '(max-width: 900px)';
+
+/* Drawers move by dragging one onto another. The dragged drawer is named by
+   state rather than the drag payload, the way the notebook tree names its
+   dragged entry — the payload only exists so a foreign drag surface allows
+   the gesture at all. */
+const FOLDER_DRAG_KEY = 'application/x-noeis-folder-id';
 
 const useNarrowShelf = () => {
   const read = () => (
@@ -74,6 +81,14 @@ const LibraryShelfNav = ({
   onSelectScope,
   onSelectFolder,
   onReviewFiling,
+  /* A drawer dropped onto another drawer nests inside it; dropped on the
+     cabinet itself it returns to the top. Absent, rows only navigate — a
+     cabinet that cannot move is still a cabinet. */
+  onMoveFolder,
+  /* A piece dropped onto a drawer files it there. The grammar's other half:
+     drawers move by pointer state, pieces travel on the gesture itself, so
+     the cabinet reads both without either row knowing the other. */
+  onFileArticle,
   /* The folder something just landed in, for 250ms. */
   landedFolderId = '',
   filingLaunching = false,
@@ -81,6 +96,8 @@ const LibraryShelfNav = ({
 }) => {
   const narrow = useNarrowShelf();
   const [cabinetOpen, setCabinetOpen] = useState(false);
+  const [draggedId, setDraggedId] = useState('');
+  const [dropTargetId, setDropTargetId] = useState('');
   /* Which drawers are shut. Folded rather than opened, so a cabinet opens
      showing everything it holds — a tree that starts closed makes the reader
      hunt for what they already own. */
@@ -90,6 +107,89 @@ const LibraryShelfNav = ({
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+
+  const clearDragState = () => {
+    setDraggedId('');
+    setDropTargetId('');
+  };
+
+  /* A drawer cannot land inside itself or inside one of its own drawers. The
+     target simply does not ink, so the refusal reads as geometry rather than
+     an error after the fact; the server walks the same chain and fails
+     closed, so this is courtesy, not authority. */
+  const canNestIn = (targetId) => {
+    if (!onMoveFolder || !draggedId || !targetId) return false;
+    return !isFolderDescendant(folders, draggedId, targetId);
+  };
+
+  const handleBranchDragStart = (id) => (event) => {
+    if (!onMoveFolder) return;
+    if (event?.dataTransfer?.setData) {
+      event.dataTransfer.setData(FOLDER_DRAG_KEY, id);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+    setDraggedId(id);
+  };
+
+  const handleBranchDragOver = (id) => (event) => {
+    if (canNestIn(id)) {
+      /* A row that accepts the drawer names itself; without this the cabinet
+         behind it answers too and the ink lands on the wrong thing. */
+      event.stopPropagation();
+      event.preventDefault();
+      if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      setDropTargetId(id);
+      return;
+    }
+    /* A piece hovers a drawer: file it here. Folder drags were answered
+       above; whatever carries a piece now is a piece. */
+    if (onFileArticle && carriesArticleDrag(event)) {
+      event.stopPropagation();
+      event.preventDefault();
+      if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      setDropTargetId(id);
+    }
+  };
+
+  const handleBranchDragLeave = (id) => (event) => {
+    const related = event?.relatedTarget;
+    if (related && event.currentTarget?.contains?.(related)) return;
+    setDropTargetId((prev) => (prev === id ? '' : prev));
+  };
+
+  const handleBranchDrop = (id) => (event) => {
+    event.stopPropagation();
+    if (canNestIn(id)) {
+      event.preventDefault();
+      onMoveFolder?.(draggedId, id);
+      clearDragState();
+      return;
+    }
+    /* A piece lets go over a drawer: file it. A drawer that refused above
+       and a gesture carrying nothing both end here as silence. */
+    const articleId = onFileArticle ? readArticleDragId(event) : '';
+    clearDragState();
+    if (!articleId) return;
+    event.preventDefault();
+    onFileArticle?.(articleId, id);
+  };
+
+  const handleCabinetDragOver = (event) => {
+    if (!onMoveFolder || !draggedId) return;
+    event.preventDefault();
+    if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    setDropTargetId('root');
+  };
+
+  const handleCabinetDrop = (event) => {
+    if (!onMoveFolder || !draggedId) {
+      clearDragState();
+      return;
+    }
+    event.preventDefault();
+    onMoveFolder?.(draggedId, null);
+    clearDragState();
+  };
 
   /* The cabinet is a tree, and the rows are its visible branches: a drawer
      that is folded hides what is inside it, and procedural shelves never
@@ -119,6 +219,12 @@ const LibraryShelfNav = ({
      phone — the strip is the only way in, which is exactly when it must
      carry them. A topic with no id or no name is not a door and is dropped. */
   const topics = (Array.isArray(feedTopics) ? feedTopics : []).filter((topic) => topic?.id && topic?.name);
+  /* What the hovered drawer will do with the piece, spoken rather than
+     shown — the ink already says it for eyes. A folder mid-move names
+     nothing: its landing is drawn, not described. */
+  const articleDropIntent = dropTargetId && !draggedId
+    ? dropIntent({ kind: DROP_KINDS.FOLDER, targetId: dropTargetId })
+    : '';
 
   return (
     <RoomShelf
@@ -132,6 +238,7 @@ const LibraryShelfNav = ({
       searchPlaceholder="Search library"
       onSearchChange={onQueryChange}
     >
+      {articleDropIntent ? <span role="status" className="sr-only">{articleDropIntent}</span> : null}
       <RoomShelfList className="library-shelf__scopes">
         <li>
           <RoomShelfButton
@@ -186,8 +293,10 @@ const LibraryShelfNav = ({
       ) : null}
 
       {showCabinet ? (
-        <RoomShelfSection className="library-shelf__cabinet" label="Shelves">
-          {/* A label rather than a rule. The group needed saying, and a line
+        <RoomShelfSection
+          className={`library-shelf__cabinet${dropTargetId === 'root' ? ' is-drop-target' : ''}`}
+          label="Shelves"
+        >          {/* A label rather than a rule. The group needed saying, and a line
               across the column was the product saying it without words. */}
           {foldersLoading ? (
             <p className="library-shelf__status" role="status">Loading shelves…</p>
@@ -196,7 +305,11 @@ const LibraryShelfNav = ({
             <p className="library-shelf__status is-error" role="alert">{foldersError}</p>
           ) : null}
           {!foldersLoading && !foldersError && cabinet.length ? (
-            <RoomShelfList className="library-shelf__folders">
+            <RoomShelfList
+              className="library-shelf__folders"
+              onDragOver={handleCabinetDragOver}
+              onDrop={handleCabinetDrop}
+            >
               {cabinet.map(node => {
                 const active = (scope === 'folder' && folderId === node.id)
                   || (scope === 'feed' && folderId === node.id);
@@ -208,9 +321,16 @@ const LibraryShelfNav = ({
                     className={[
                       'library-shelf__branch',
                       node.asFeed ? 'is-living' : '',
-                      node.id === landedFolderId ? 'is-landing' : ''
+                      node.id === landedFolderId ? 'is-landing' : '',
+                      dropTargetId === node.id ? 'is-drop-target' : ''
                     ].filter(Boolean).join(' ')}
                     style={{ '--depth': node.depth }}
+                    draggable={Boolean(onMoveFolder)}
+                    onDragStart={handleBranchDragStart(node.id)}
+                    onDragEnd={clearDragState}
+                    onDragOver={handleBranchDragOver(node.id)}
+                    onDragLeave={handleBranchDragLeave(node.id)}
+                    onDrop={handleBranchDrop(node.id)}
                   >
                     <RoomShelfButton
                       active={active}

@@ -8,6 +8,7 @@ import {
 } from '../../pages/placementModel';
 import { flySentenceInto, peekSentenceHandoff } from '../../motion/columnMotion';
 import { normalizeSpaces } from '../../utils/editorialText';
+import { beginArticleDrag, carriesArticleDrag, DROP_KINDS, dropIntent, readArticleDragId } from '../../pages/dragGrammar';
 import '../../styles/library-column.css';
 import PlacementSwitch from '../PlacementSwitch';
 import { rowKeyAction } from '../../pages/placementSwitchModel';
@@ -23,6 +24,39 @@ import { rowKeyAction } from '../../pages/placementSwitchModel';
 const WARM_MS = 420;
 const titleOf = (article) => article.title || 'Untitled source';
 const idOf = (article) => String(article?._id || article?.id || '').trim();
+
+/* A pile under a dragged piece. Reads the grammar straight off the gesture —
+   no lifted state, no knowledge of where the row lives — and only when the
+   pile can actually park, so a display-only pile never invites a drop. */
+const useArticleDrop = ({ enabled, placement, onPark }) => {
+  const [over, setOver] = useState(false);
+  return {
+    over,
+    /* The eyebrow already inks for eyes; this speaks the same intent once
+       for ears. */
+    intent: over
+      ? dropIntent({ kind: DROP_KINDS.PILE, targetId: placement, placement })
+      : '',
+    handleDragOver: (event) => {
+      if (!enabled || !carriesArticleDrag(event)) return;
+      event.preventDefault();
+      if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      setOver(true);
+    },
+    handleDragLeave: (event) => {
+      const related = event?.relatedTarget;
+      if (related && event.currentTarget?.contains?.(related)) return;
+      setOver(false);
+    },
+    handleDrop: (event) => {
+      const id = enabled ? readArticleDragId(event) : '';
+      setOver(false);
+      if (!id) return;
+      event.preventDefault();
+      onPark?.(id);
+    }
+  };
+};
 
 const awaitingSentence = (articles) => {
   const pending = peekSentenceHandoff()?.sentence;
@@ -65,7 +99,13 @@ const PileRow = ({ article, onSelect, onDone, onPlace, hinting = false }) => {
   };
 
   return (
-    <li onKeyDown={keys}>
+    <li
+      onKeyDown={keys}
+      /* A parked piece travels too: onto the other pile re-parks it, onto a
+         folder files it home. */
+      draggable={Boolean(id)}
+      onDragStart={(event) => { beginArticleDrag(event, id); }}
+    >
       <button type="button" className="library-pile__title" onClick={() => onSelect?.(id)}>
         {titleOf(article)}
       </button>
@@ -98,9 +138,21 @@ const LaterPile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const listRef = useRef(null);
   const line = laterPileLine(articles);
   usePileLanding(articles, listRef);
+  const drop = useArticleDrop({
+    enabled: Boolean(onPlace),
+    placement: 'later',
+    onPark: (id) => onPlace?.(id, 'later')
+  });
   if (!articles.length) return null;
   return (
-    <section className="library-pile library-pile--later" aria-label="Later">
+    <section
+      className={`library-pile library-pile--later${drop.over ? ' is-drop-target' : ''}`}
+      aria-label="Later"
+      onDragOver={drop.handleDragOver}
+      onDragLeave={drop.handleDragLeave}
+      onDrop={drop.handleDrop}
+    >
+      {drop.intent ? <span role="status" className="sr-only">{drop.intent}</span> : null}
       <p className="library-pile__eyebrow">Later</p>
       {line ? <p className="library-pile__line">{line}</p> : null}
       <ul ref={listRef} className="library-pile__list">
@@ -117,6 +169,11 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const [open, setOpen] = useState(() => awaitingSentence(articles));
   const line = setAsidePileLine(articles);
   usePileLanding(articles, listRef);
+  const drop = useArticleDrop({
+    enabled: Boolean(onPlace),
+    placement: 'setAside',
+    onPark: (id) => onPlace?.(id, 'setAside')
+  });
 
   useEffect(() => {
     if (awaitingSentence(articles)) setOpen(true);
@@ -132,9 +189,13 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   const overflowed = articles.length > 5;
   return (
     <section
-      className={`library-pile library-pile--setAside noeis-meander${open ? ' is-open' : ''}`}
+      className={`library-pile library-pile--setAside noeis-meander${open ? ' is-open' : ''}${drop.over ? ' is-drop-target' : ''}`}
       aria-label="Set aside"
+      onDragOver={drop.handleDragOver}
+      onDragLeave={drop.handleDragLeave}
+      onDrop={drop.handleDrop}
     >
+      {drop.intent ? <span role="status" className="sr-only">{drop.intent}</span> : null}
       <p className="library-pile__eyebrow">Set aside</p>
       {line ? <p className="library-pile__line">{line}</p> : null}
       {open ? (

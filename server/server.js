@@ -157,6 +157,7 @@ const {
   MorningPaperDelivery,
   WikiPageVisit,
   EmbeddingJob,
+  Edition,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -672,6 +673,15 @@ const { buildLibraryRelevanceRouter } = require('./routes/libraryRelevanceRoutes
 const { buildReadingLoopRouter } = require('./routes/readingLoopRoutes');
 const { buildPersonalAgentRouter } = require('./routes/personalAgentRoutes');
 const { buildAgentTokenRouter } = require('./routes/agentTokenRoutes');
+const { buildEditionRouter } = require('./routes/editionRoutes');
+
+/* An agent writes the paper; only its reader takes from it or throws it out. */
+const requireHumanReader = (req, res, next) => {
+  if (req.agentToken || req.authInfo?.tokenSource === 'agent-token') {
+    return res.status(403).json({ error: 'Only you can do that, not an agent.' });
+  }
+  return next();
+};
 const { buildAgentBridgeRouter } = require('./routes/agentBridgeRoutes');
 const { buildAgentConnectRouter } = require('./routes/agentConnectRoutes');
 const { buildAgentTaskLinkRouter } = require('./routes/agentTaskLinkRoutes');
@@ -6803,6 +6813,24 @@ app.use(buildPersonalAgentRouter({
   createPersonalAgentApiKey,
   hashPersonalAgentApiKey,
   normalizePersonalAgentStatus
+}));
+
+/* The newsstand. The write path takes an agent token, because the whole
+   point is that the reader's own agent — Claude, Codex, Cursor, OpenClaw,
+   Hermes — maintains the paper. Taking a source into the library and throwing
+   an edition away stay human: an agent that could do either could quietly
+   rewrite what it told you last week. */
+app.use(buildEditionRouter({
+  auth: authenticateUserOrAgentToken,
+  humanOnly: requireHumanReader,
+  Edition,
+  Article,
+  onArticleSaved: (article) => {
+    const queued = enqueueArticleEmbedding(article);
+    if (typeof queued?.catch === 'function') {
+      queued.catch(error => console.error('Failed queueing article embedding:', error));
+    }
+  }
 }));
 
 app.use(buildAgentTokenRouter({

@@ -27,6 +27,19 @@ describe('ReadingDrift', () => {
     expect(screen.getByRole('img', { name: /Capacity: fading/ })).toBeInTheDocument();
   });
 
+  it('reads a nested leaf as its drawer when the cabinet is at hand', () => {
+    const folders = [
+      { _id: 'Investing', name: 'Investing' },
+      { _id: 'Power', name: 'Power', parentFolderId: 'Investing' }
+    ];
+    render(<ReadingDrift now={NOW} folders={folders} articles={[
+      ...many('Capacity', 70, 4), ...many('Capacity', 56, 3),
+      ...many('Power', 10, 4), ...many('Power', 3, 4)
+    ]} />);
+
+    expect(screen.getByText('You are reading less about Capacity and more about Investing.')).toBeInTheDocument();
+  });
+
   it('says what is missing rather than drawing a line through noise', () => {
     render(<ReadingDrift now={NOW} articles={many('Capacity', 3, 2)} />);
     expect(screen.getByText(/not enough to call it a direction yet/)).toBeInTheDocument();

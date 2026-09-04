@@ -1,7 +1,11 @@
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { feedEmptyLine, feedFolios } from '../../pages/feedModel';
+import { placementOf } from '../../pages/placementModel';
+import { rowKeyAction } from '../../pages/placementSwitchModel';
+import { beginArticleDrag } from '../../pages/dragGrammar';
 import { flySentenceInto } from '../../motion/columnMotion';
 import LibraryPiles from './LibraryPiles';
+import PlacementSwitch from '../PlacementSwitch';
 import ScreenWord from './ScreenWord';
 import '../../styles/library-column.css';
 import { formatSurfaceDate } from '../../utils/dateDisplay';
@@ -12,6 +16,51 @@ import { formatSurfaceDate } from '../../utils/dateDisplay';
  * The name flies here when the rail is gone; otherwise the rail claims it.
  */
 
+/* One folio, already open. The switch travels here in its compact form —
+   revealed on hover and on focus, never announced — because a scroll that
+   wore three capsules a screen would read as controls with reading between
+   them rather than reading with a way to move. Keys match the piles exactly:
+   h home, l later, s set aside. */
+const FeedFolio = ({ folio, article = null, onSelectArticle, onPlace }) => {
+  const keys = (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const action = rowKeyAction(event.key);
+    if (!action || action.kind !== 'place' || !onPlace) return;
+    event.preventDefault();
+    onPlace(folio.id, action.placement);
+  };
+  return (
+    <article
+      className="library-feed__folio"
+      onKeyDown={keys}
+      draggable={Boolean(folio.id)}
+      onDragStart={(event) => { beginArticleDrag(event, folio.id); }}
+    >
+      <h2>
+        <button
+          type="button"
+          className="library-feed__title"
+          onClick={() => onSelectArticle?.(folio.id)}
+        >
+          {folio.title}
+        </button>
+      </h2>
+      {onPlace ? (
+        <div className="library-feed__folio-switch">
+          <PlacementSwitch
+            articleId={folio.id}
+            placement={placementOf(article || {})}
+            compact
+            onChange={(next) => onPlace(folio.id, next)}
+          />
+        </div>
+      ) : null}
+      {folio.source ? <p className="library-feed__source">{folio.source}</p> : null}
+      {folio.graph ? <p className="library-feed__graph">{folio.graph}</p> : null}
+    </article>
+  );
+};
+
 const LibraryFeedColumn = ({
   folder = null,
   articles = [],
@@ -20,10 +69,19 @@ const LibraryFeedColumn = ({
   error = '',
   onSelectArticle,
   onScreen,
-  onPileDone
+  onPileDone,
+  onPlace
 }) => {
   const nameRef = useRef(null);
   const folios = useMemo(() => feedFolios(articles), [articles]);
+  /* The scroll shows folios; the switch needs articles. The folio carries
+     the id, the article carries the placement — joined here, at the only
+     place that holds both. */
+  const articleById = useMemo(() => new Map(
+    (Array.isArray(articles) ? articles : [])
+      .map((article) => [String(article?._id || article?.id || ''), article])
+      .filter(([id]) => id)
+  ), [articles]);
   const name = folder?.name || 'This shelf';
 
   useLayoutEffect(() => {
@@ -54,19 +112,13 @@ const LibraryFeedColumn = ({
       {folios.length ? (
         <div className="library-feed__folios">
           {folios.map((folio) => (
-            <article key={folio.id} className="library-feed__folio">
-              <h2>
-                <button
-                  type="button"
-                  className="library-feed__title"
-                  onClick={() => onSelectArticle?.(folio.id)}
-                >
-                  {folio.title}
-                </button>
-              </h2>
-              {folio.source ? <p className="library-feed__source">{folio.source}</p> : null}
-              {folio.graph ? <p className="library-feed__graph">{folio.graph}</p> : null}
-            </article>
+            <FeedFolio
+              key={folio.id}
+              folio={folio}
+              article={articleById.get(folio.id) || null}
+              onSelectArticle={onSelectArticle}
+              onPlace={onPlace}
+            />
           ))}
         </div>
       ) : null}
@@ -79,6 +131,7 @@ const LibraryFeedColumn = ({
         articles={pileArticles}
         onSelect={onSelectArticle}
         onDone={onPileDone}
+        onPlace={onPlace}
       />
     </main>
   );

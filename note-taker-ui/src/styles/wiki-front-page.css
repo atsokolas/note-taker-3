@@ -867,6 +867,37 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   cursor: pointer;
 }
 
+/* The drift's fortnightly sentence: same measure and meander as the
+   asked-back block beside it, serif because it is an observation, a door
+   because the chart lives on Judgment. */
+.wfp-drift {
+  display: grid;
+  gap: 6px;
+  max-width: 46ch;
+  margin: 28px 0 0;
+  padding: 4px 0 4px 13px;
+}
+
+.wfp-drift__sentence {
+  margin: 0;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.wfp-drift__sentence a {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.wfp-drift__sentence a:hover,
+.wfp-drift__sentence a:focus-visible {
+  border-bottom-color: currentColor;
+}
+
 .wiki-front-page__check-in {
   display: grid;
   gap: 8px;

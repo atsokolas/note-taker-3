@@ -1,0 +1,297 @@
+/* The newsstand and the paper.
+ *
+ * Set like something you read, not something you operate: serif for the
+ * writing, mono only for the labels that name a field. Two registers, one
+ * meaning each, as everywhere else here.
+ *
+ * The boundary line is the one piece of chrome that earns emphasis. It is
+ * the required half of every item and the reason this is not a newsletter,
+ * so it sits behind a rule rather than running on as another paragraph. */
+
+.editions,
+.edition {
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 0 0 64px;
+}
+
+.editions__eyebrow,
+.edition-item__label,
+.editions__row-meta,
+.edition__meta {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+}
+
+.editions__definition {
+  margin: 6px 0 0;
+  max-width: 56ch;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  font-size: 0.86rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.editions__masthead {
+  padding: 0 0 20px;
+  border-bottom: 1px solid var(--noeis-rule, var(--border-subtle-2));
+}
+
+.editions__quiet {
+  margin: 24px 0;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  font-style: italic;
+}
+
+.editions__empty {
+  margin: 32px 0;
+}
+
+.editions__empty h2 {
+  margin: 0 0 10px;
+  font-size: 1.4rem;
+}
+
+.editions__empty p {
+  margin: 0 0 8px;
+  max-width: 58ch;
+  line-height: 1.55;
+}
+
+.editions__aside {
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+}
+
+.editions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.editions__row {
+  padding: 20px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent);
+}
+
+.editions__row-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.editions__row-title,
+.edition__title {
+  font-family: "Newsreader", Georgia, serif;
+  color: var(--text-primary);
+}
+
+.editions__row-title {
+  font-size: 1.24rem;
+}
+
+.editions__row-link:hover .editions__row-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.editions__row-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+}
+
+/* An empty section is an editorial fact. It reads as a note, never a warning:
+   a week with no counterevidence is telling the truth, not erroring. */
+.editions__row-gap,
+.edition__gap,
+.paper-editions__gap {
+  font-style: italic;
+}
+
+.editions__row-byline,
+.edition__byline {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
+}
+
+.edition__back {
+  display: inline-block;
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+}
+
+.edition__masthead {
+  padding: 0 0 18px;
+  border-bottom: 2px solid var(--noeis-rule, var(--border-subtle-2));
+}
+
+.edition__title {
+  margin: 0;
+  font-size: 2.1rem;
+  line-height: 1.15;
+}
+
+.edition__meta {
+  margin: 8px 0 0;
+}
+
+.edition__taken {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+}
+
+.edition__standfirst {
+  margin: 24px 0 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.16rem;
+  line-height: 1.55;
+}
+
+.edition__section {
+  margin: 36px 0 0;
+}
+
+.edition__section-title {
+  margin: 0 0 4px;
+  padding: 0 0 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent);
+  font-size: 0.94rem;
+  letter-spacing: 0.02em;
+}
+
+.edition__section-empty {
+  margin: 12px 0 0;
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+  font-style: italic;
+}
+
+.edition-item {
+  padding: 20px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 45%, transparent);
+}
+
+.edition-item__title {
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.16rem;
+  line-height: 1.35;
+}
+
+.edition-item__source {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+}
+
+.edition-item__finding,
+.edition-item__note {
+  margin: 10px 0 0;
+  line-height: 1.55;
+}
+
+.edition-item__note {
+  color: color-mix(in srgb, var(--text-primary) 82%, transparent);
+}
+
+/* The required half, and the reason this is not a newsletter. */
+.edition-item__boundary {
+  margin: 12px 0 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 42%, transparent);
+  line-height: 1.55;
+}
+
+.edition-item__label {
+  display: block;
+  margin: 0 0 2px;
+}
+
+.edition-item__doors {
+  margin: 14px 0 0;
+}
+
+.edition-item__save {
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 55%, transparent);
+  border-radius: 999px;
+  background: none;
+  color: var(--noeis-pointer, var(--text-primary));
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.edition-item__save:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 10%, transparent);
+}
+
+.edition-item__save:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.edition-item__saved {
+  font-size: 0.84rem;
+}
+
+.edition__watch {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.edition__gap {
+  margin: 32px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 70%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+}
+
+/* The door on the morning paper. */
+.paper-editions {
+  margin: 40px 0 0;
+}
+
+.paper-editions__title {
+  margin: 0 0 8px;
+  font-size: 0.94rem;
+}
+
+.paper-editions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.paper-editions__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 45%, transparent);
+}
+
+.paper-editions__list a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.paper-editions__window,
+.paper-editions__gap {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+}

@@ -20,6 +20,7 @@ import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import { normalizeSpaces } from '../../utils/editorialText';
+import { beginArticleDrag } from '../../pages/dragGrammar';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -133,6 +134,11 @@ const LibraryArticleRow = React.memo(({
     className={`library-article-row is-magnetic${activated ? ' is-activated' : ''}`}
     onPointerMove={magnetic.onPointerMove}
     onPointerLeave={magnetic.onPointerLeave}
+    /* Onto a folder files it; onto a pile parks it. The row names itself on
+       the gesture and the landing surface reads the grammar — neither knows
+       the other. */
+    draggable
+    onDragStart={(event) => { beginArticleDrag(event, article?._id); }}
   >
     <div className="library-article-row-date">{formatSurfaceDate(rowDate, { includeYear: true })}</div>
     <button

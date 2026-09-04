@@ -2,6 +2,7 @@ import {
   buildFolderTree,
   folderCountPhrase,
   flattenFolderTree,
+  isFolderDescendant,
   isLivingFolder,
   topLevelAncestor
 } from './folderTreeModel';
@@ -89,6 +90,17 @@ describe('what the drift reads', () => {
       { _id: 'b', name: 'B', parentFolderId: 'a' }
     ];
     expect(topLevelAncestor(looped, 'a')).not.toBeNull();
+  });
+});
+
+describe('what the cabinet refuses', () => {
+  it('knows what already lives inside a drawer, including itself', () => {
+    expect(isFolderDescendant(folders, 'investing', 'costco')).toBe(true);
+    expect(isFolderDescendant(folders, 'investing', 'investing')).toBe(true);
+    expect(isFolderDescendant(folders, 'costco', 'investing')).toBe(false);
+    expect(isFolderDescendant(folders, 'macro', 'costco')).toBe(false);
+    expect(isFolderDescendant(folders, '', 'costco')).toBe(false);
+    expect(isFolderDescendant(folders, 'investing', '')).toBe(false);
   });
 });
 

@@ -20,6 +20,15 @@ const aside = (id, at) => ({
   placementAt: at
 });
 
+const piece = (id) => ({
+  dataTransfer: {
+    types: ['application/x-noeis-article-id'],
+    getData: () => id,
+    setData: () => {},
+    dropEffect: ''
+  }
+});
+
 describe('LibraryPiles', () => {
   it('is absent when nothing is parked', () => {
     const { container } = render(<LibraryPiles articles={[{ _id: 'open', placement: 'stream' }]} />);
@@ -168,5 +177,49 @@ describe('the Set aside stack', () => {
     render(<LibraryPiles articles={parked(5)} />);
     expect(edges()).toBe(5);
     expect(screen.queryByText('5+')).toBeNull();
+  });
+
+  it('parks a piece dropped onto a pile, in the pile’s own terms', () => {
+    const onPlace = jest.fn();
+    render(
+      <LibraryPiles
+        articles={[
+          later('old-later', '2026-06-01T00:00:00.000Z'),
+          aside('new-aside', '2026-08-20T00:00:00.000Z')
+        ]}
+        onPlace={onPlace}
+      />
+    );
+    const laterPile = screen.getByLabelText('Later');
+    fireEvent.dragOver(laterPile, piece('a1'));
+    expect(laterPile.classList.contains('is-drop-target')).toBe(true);
+    expect(screen.getByRole('status')).toHaveTextContent('park it here');
+    fireEvent.drop(laterPile, piece('a1'));
+    expect(onPlace).toHaveBeenCalledWith('a1', 'later');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open the stack' }));
+    const asidePile = screen.getByLabelText('Set aside');
+    fireEvent.drop(asidePile, piece('a2'));
+    expect(onPlace).toHaveBeenCalledWith('a2', 'setAside');
+  });
+
+  it('a parked row travels: onto the other pile re-parks it', () => {
+    const onPlace = jest.fn();
+    render(
+      <LibraryPiles
+        articles={[later('old-later', '2026-06-01T00:00:00.000Z')]}
+        onPlace={onPlace}
+      />
+    );
+    const row = screen.getByRole('button', { name: 'old-later' }).closest('li');
+    expect(row.getAttribute('draggable')).toBe('true');
+  });
+
+  it('a display-only pile invites no drop', () => {
+    render(<LibraryPiles articles={[later('old-later', '2026-06-01T00:00:00.000Z')]} />);
+    const laterPile = screen.getByLabelText('Later');
+    fireEvent.dragOver(laterPile, piece('a1'));
+    expect(laterPile.classList.contains('is-drop-target')).toBe(false);
+    fireEvent.drop(laterPile, piece('a1'));
   });
 });
