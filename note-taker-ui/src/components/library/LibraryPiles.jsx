@@ -134,7 +134,7 @@ const PileRow = ({ article, onSelect, onDone, onPlace, hinting = false }) => {
   );
 };
 
-const LaterPile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
+const LaterPile = ({ articles, ledger = [], onSelect, onDone, onPlace, hinting }) => {
   const listRef = useRef(null);
   const line = laterPileLine(articles);
   usePileLanding(articles, listRef);
@@ -160,6 +160,26 @@ const LaterPile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
           <PileRow onPlace={onPlace} hinting={hinting} key={idOf(article)} article={article} onSelect={onSelect} onDone={onDone} />
         ))}
       </ul>
+      {/* The promise ledger: pending mornings printed where the parked pieces
+         are, so an appointment is findable without going looking for a route
+         nobody advertises. Silence when there is nothing appointed. */}
+      {ledger.length ? (
+        <ul className="library-pile__ledger" aria-label="Promised returns">
+          {ledger.map((row) => (
+            <li key={row.key}>
+              <span>asked back — </span>
+              <button
+                type="button"
+                className="library-pile__ledger-title"
+                onClick={() => onSelect?.(row.articleId)}
+              >
+                {row.title}
+              </button>
+              {row.day ? <span> · {row.day}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 };
@@ -242,7 +262,7 @@ const SetAsidePile = ({ articles, onSelect, onDone, onPlace, hinting }) => {
   );
 };
 
-const LibraryPiles = ({ articles = [], onSelect, onDone, onPlace }) => {
+const LibraryPiles = ({ articles = [], ledger = [], onSelect, onDone, onPlace }) => {
   /* Holding ? shows what the letters do. Released, they go away again —
      the keys are for the reader who already wants them, and the hint is for
      the one who suspects they exist. */
@@ -262,7 +282,7 @@ const LibraryPiles = ({ articles = [], onSelect, onDone, onPlace }) => {
   if (!later.length && !aside.length) return null;
   return (
     <div className="library-piles" data-testid="library-piles">
-      <LaterPile onPlace={onPlace} hinting={hinting} articles={later} onSelect={onSelect} onDone={onDone} />
+      <LaterPile onPlace={onPlace} hinting={hinting} articles={later} ledger={ledger} onSelect={onSelect} onDone={onDone} />
       <SetAsidePile onPlace={onPlace} hinting={hinting} articles={aside} onSelect={onSelect} onDone={onDone} />
     </div>
   );

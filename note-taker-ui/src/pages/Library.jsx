@@ -8,6 +8,8 @@ import { moveFolder, setFolderAsFeed } from '../api/folders';
 import { createQuestion } from '../api/questions';
 import { listWikiPages } from '../api/wiki';
 import { forgetLetGo, readLetGo, rememberLetGo } from './letGoReceipt';
+import { promiseLedger } from './kairosModel';
+import { listReturnQueue } from '../api/returnQueue';
 import useFolders from '../hooks/useFolders';
 import useLibraryArticles from '../hooks/useLibraryArticles';
 import useArticleDetail from '../hooks/useArticleDetail';
@@ -1057,6 +1059,28 @@ const Library = () => {
     () => mergeArticles(allArticles, libraryRoom.piles?.later, libraryRoom.piles?.setAside),
     [allArticles, libraryRoom.piles]
   );
+  /* Pending promises, for the ledger at the foot of the Later pile. Read
+     once beside everything else and derived against the articles at hand;
+     a ledger we could not read is an absent ledger, and the paper still
+     prints what is due. */
+  const [promiseEntries, setPromiseEntries] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    /* Resolved a tick out, so even a stub that answers nothing degrades to
+       an absent ledger instead of throwing inside the effect. */
+    Promise.resolve().then(() => listReturnQueue({ filter: 'all' }))
+      .then((rows) => { if (!cancelled) setPromiseEntries(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setPromiseEntries([]); });
+    return () => { cancelled = true; };
+  }, []);
+  const ledger = useMemo(() => {
+    const byId = new Map(
+      (Array.isArray(allArticles) ? allArticles : [])
+        .map((article) => [String(article?._id || ''), article])
+        .filter(([id]) => id)
+    );
+    return promiseLedger(promiseEntries, byId);
+  }, [promiseEntries, allArticles]);
   const columnEntering = useMemo(() => takeFirstPaint('library-shelf'), []);
   const readingEntering = Boolean(selectedArticleId) || columnEntering;
 
@@ -1150,6 +1174,7 @@ const Library = () => {
       sourceDetailError={sourceDetailState.error}
       relevanceState={roomProjectionEnabled ? libraryRoom : null}
       pileArticles={pileArticles}
+      ledger={ledger}
       reviewBacklogCount={reviewBacklogCount}
       reviewBacklogHref={reviewBacklogHref}
     />
@@ -1270,6 +1295,7 @@ const Library = () => {
               folder={feedFolder}
               articles={articles}
               pileArticles={pileArticles}
+              ledger={ledger}
               loading={articlesLoading}
               error={articlesError}
               onSelectArticle={handleSelectArticle}

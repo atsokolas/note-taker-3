@@ -222,4 +222,29 @@ describe('the Set aside stack', () => {
     expect(laterPile.classList.contains('is-drop-target')).toBe(false);
     fireEvent.drop(laterPile, piece('a1'));
   });
+
+  it('prints appointed mornings at the foot of Later, and silence without them', () => {
+    const onSelect = jest.fn();
+    const ledger = [
+      { key: 'q1', articleId: 'a1', title: 'The Costco 10-K', href: '/library?articleId=a1', day: 'TUE' },
+      { key: 'q2', articleId: 'a2', title: 'Berkshire letter', href: '/library?articleId=a2', day: '' }
+    ];
+    render(
+      <LibraryPiles
+        articles={[later('old-later', '2026-06-01T00:00:00.000Z')]}
+        ledger={ledger}
+        onSelect={onSelect}
+      />
+    );
+    const list = screen.getByLabelText('Promised returns');
+    expect(list).toHaveTextContent('asked back —');
+    expect(list).toHaveTextContent('TUE');
+    fireEvent.click(screen.getByRole('button', { name: 'The Costco 10-K' }));
+    expect(onSelect).toHaveBeenCalledWith('a1');
+  });
+
+  it('omits the ledger when nothing is appointed', () => {
+    render(<LibraryPiles articles={[later('old-later', '2026-06-01T00:00:00.000Z')]} />);
+    expect(screen.queryByLabelText('Promised returns')).not.toBeInTheDocument();
+  });
 });

@@ -65,6 +65,7 @@ const LibraryFeedColumn = ({
   folder = null,
   articles = [],
   pileArticles = [],
+  ledger = [],
   loading = false,
   error = '',
   onSelectArticle,
@@ -129,6 +130,7 @@ const LibraryFeedColumn = ({
 
       <LibraryPiles
         articles={pileArticles}
+        ledger={ledger}
         onSelect={onSelectArticle}
         onDone={onPileDone}
         onPlace={onPlace}
