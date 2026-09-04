@@ -11,6 +11,14 @@ describe('the palette index', () => {
     ]));
   });
 
+  /* Editions were reachable from exactly one place: a shelf on the morning
+     paper that renders nothing until an edition exists. Empty is the state
+     every reader starts in, so the feature was invisible to everyone who did
+     not already have it. */
+  it('reaches the newsstand, which no reader could find', () => {
+    expect(pathOf(buildPaletteDestinations(), 'Editions')).toBe('/editions');
+  });
+
   it('no longer advertises rooms that were dissolved', () => {
     const rows = buildPaletteDestinations();
     expect(labels(rows)).not.toContain('Review');

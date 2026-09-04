@@ -295,3 +295,16 @@
   font-size: 0.84rem;
   color: color-mix(in srgb, var(--text-muted) 86%, transparent);
 }
+
+/* The line on the Connected agents card that says what a connected agent can
+   make. Set as prose, not as a settings label — it is the only sentence on
+   that screen that describes a thing to read rather than a thing to configure. */
+.connected-agents-card__editions {
+  margin: 8px 0 0;
+  max-width: 54ch;
+  line-height: 1.5;
+}
+
+.connected-agents-card__editions em {
+  font-style: italic;
+}

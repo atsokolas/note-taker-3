@@ -75,7 +75,10 @@ describe('appNavigation', () => {
     ['Today', 'Map', 'Review', 'Return Queue'].forEach((label) => {
       expect(secondaryLabels).not.toContain(label);
     });
-    expect(secondaryLabels).toEqual(['Growth', 'How To Use']);
+    /* Exact, so a room cannot creep back in unnoticed. Editions belongs here
+       rather than in the masthead: the four rooms are what you did, and an
+       edition is something that arrived. */
+    expect(secondaryLabels).toEqual(['Editions', 'Growth', 'How To Use']);
   });
 
   /* Every letter is the room's own initial, so the rule is guessable and the
@@ -200,5 +203,20 @@ describe('G-then-rooms', () => {
     expect(playChord(['g', 'l'], { extras: { metaKey: true } })).not.toHaveBeenCalled();
     expect(playChord(['g', 'l'], { extras: { ctrlKey: true } })).not.toHaveBeenCalled();
     expect(playChord(['g', 'l'], { extras: { altKey: true } })).not.toHaveBeenCalled();
+  });
+});
+
+/* The four rooms are what you did; an edition is something that arrived, and
+   it does not earn a seat in the masthead or a letter of its own. */
+describe('where the newsstand sits', () => {
+  it('is a place you can reach without being a fifth room', () => {
+    expect(getPrimaryNavItems().map(item => item.label)).not.toContain('Editions');
+    expect(getSecondaryNavItems().map(item => item.label)).toContain('Editions');
+    expect(getSecondaryNavItems().find(item => item.label === 'Editions')?.to).toBe('/editions');
+  });
+
+  it('takes no go-to letter from a room', () => {
+    expect(NOEIS_GO_TO_SHORTCUTS.some(item => item.to === '/editions')).toBe(false);
+    expect(resolveGoToShortcut('e')).toBeNull();
   });
 });
