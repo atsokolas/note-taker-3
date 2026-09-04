@@ -2686,3 +2686,41 @@ a.paper-column__body:hover {
   margin: 14px 0 0;
   font-size: 0.86rem;
 }
+
+
+/* ── Card 56: the paper takes the room it is in ───────────────────────────
+ *
+ * The shell caps every surface at 1500px and centres it. That is right for a
+ * reading page, where a long measure is a worse read. It is wrong for the
+ * morning paper, which is a three-column layout: capping the shell shrank the
+ * grid, not the measure, so on a 1900px screen the paper ran 1139px wide with
+ * 500px of nothing beside it and a 509px column of text down the middle.
+ *
+ * So the cap lifts on this route only — the same route-scoped idiom judgment
+ * already uses — and the measure is held where a measure belongs, on the text
+ * itself. The grid gets the screen; the sentences stay readable. */
+body.noeis-editorial.wiki-front-page-route .app-shell-new--stitch .app-shell-new__body {
+  max-width: none;
+}
+
+/* A wider grid must not become a wider line. Prose keeps its measure; the
+   table and the headline are free to use the room. */
+body.noeis-editorial .wiki-living-index__briefing,
+body.noeis-editorial .paper-desk__line,
+body.noeis-editorial .wiki-front-page__continue {
+  max-width: 68ch;
+}
+
+/* Card 56: "make top link a little smaller".
+ *
+ * It was 69.6px — not from the headline rule added with the rebuild, but from
+ * the older `.wiki-living-index__header h1` clamp, which is the more specific
+ * selector and had been winning silently. Nine lines of display serif in a
+ * narrow column. Same specificity now, and a size that leads the page without
+ * being the page. */
+body.noeis-editorial .wiki-living-index__header h1.paper-open__headline {
+  font-size: clamp(1.75rem, 2.1vw, 2.9rem);
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+  max-width: 26ch;
+}

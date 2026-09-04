@@ -87,6 +87,25 @@ describe('the anniversary', () => {
   });
 });
 
+describe('quoting a claim on the front page', () => {
+  /* Claims in a real corpus run to whole paragraphs. The first disagreement
+     this column ever printed ended "...balancing conviction with a", which
+     reads as broken software rather than as an excerpt. */
+  it('cuts a long claim at a word, and marks that there is more', () => {
+    const long = 'Research Week centers on a pattern of risk-aware learning and iterative strategy refinement, as evidenced by repeated emphasis on minimizing losses and avoiding catastrophic errors in investment and operational contexts, with sources highlighting the necessity of balancing conviction with humility.';
+    const found = anniversary({ pages: [page({ claims: [claim({ text: long })] })], now: NOW });
+    expect(found.text.length).toBeLessThan(long.length);
+    expect(found.text).toMatch(/\u2026$/);
+    expect(found.text).not.toMatch(/\s\S{1,2}\u2026$/);
+    expect(long.startsWith(found.text.replace(/\u2026$/, '').trim())).toBe(true);
+  });
+
+  it('leaves a claim that already fits exactly as written', () => {
+    const short = 'Alphabet capex is defensive, not offensive.';
+    expect(anniversary({ pages: [page({ claims: [claim({ text: short })] })], now: NOW }).text).toBe(short);
+  });
+});
+
 describe('the disagreement', () => {
   /* Two things you trusted enough to save, that cannot both be right. */
   it('finds a claim your own sources contradict', () => {
