@@ -4,6 +4,8 @@ import { getMorningPaperColumns } from '../../api/wiki';
 import {
   QUIET_MORNING,
   anniversaryLine,
+  askedLine,
+  closingGroups,
   correctionLines,
   disagreementLine,
   obituaryLine,
@@ -25,11 +27,15 @@ import {
  * in it says so and lets you go.
  */
 
-const Column = ({ standfirst, children, footnote, href, className = '' }) => (
+const Column = ({ standfirst, children, footnote, asked = '', href, className = '' }) => (
   <section className={`paper-column ${className}`.trim()}>
     <p className="paper-column__standfirst">{standfirst}</p>
     {href ? <Link className="paper-column__body" to={href}>{children}</Link> : <p className="paper-column__body">{children}</p>}
     {footnote ? <p className="paper-column__footnote">{footnote}</p> : null}
+    {/* Showing a thing a fourth time is a re-read. Saying it is the fourth
+        time is a confrontation, and it is the whole reason the paper keeps a
+        record of itself. */}
+    {asked ? <p className="paper-column__asked">{asked}</p> : null}
   </section>
 );
 
@@ -53,6 +59,8 @@ const PaperColumns = () => {
   const disagreement = disagreementLine(columns.disagreement);
   const corrections = correctionLines(columns.corrections);
   const obituary = obituaryLine(columns.obituary);
+  const asked = askedLine(columns.asked);
+  const { answered, corrections: paperCorrections } = closingGroups(columns.closed);
 
   /* The best sentence this product can print, and the only one none of its
      competitors would dare: there is nothing here, go away. */
@@ -67,6 +75,7 @@ const PaperColumns = () => {
           className="paper-column--anniversary"
           standfirst={anniversary.standfirst}
           footnote={anniversary.footnote}
+          asked={asked}
           href={anniversary.href}
         >
           “{anniversary.text}”
@@ -84,11 +93,12 @@ const PaperColumns = () => {
         </Column>
       ) : null}
 
+      {/* Not a correction. This is the reader changing position, read out of a
+          claim's own history — it was called Correction before the paper kept
+          a record, when there was nothing else the word could have meant. */}
       {corrections.length ? (
         <section className="paper-column paper-column--corrections">
-          <p className="paper-column__standfirst">
-            {corrections.length === 1 ? 'Correction' : 'Corrections'}
-          </p>
+          <p className="paper-column__standfirst">Second thoughts</p>
           <ul className="paper-column__corrections">
             {corrections.map(correction => (
               <li key={correction.key}>
@@ -100,6 +110,36 @@ const PaperColumns = () => {
                 <span className="paper-column__correction-note">{correction.text}</span>
               </li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* What the paper asked about and you have since dealt with. The loop
+          closing, which is the other half of keeping a record — a paper that
+          notices you acted is a different object from one that asks again. */}
+      {answered.length ? (
+        <section className="paper-column paper-column--closed">
+          <p className="paper-column__standfirst">Since we last asked</p>
+          <ul className="paper-column__closings">
+            {answered.map(entry => (
+              <li key={entry.key}>
+                {entry.href ? <Link to={entry.href}>{entry.text}</Link> : <span>{entry.text}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* The word used properly, at last: we printed a thing and the thing was
+          not there. A paper that quietly drops a question it can no longer
+          answer is hoping nobody remembers it asked. */}
+      {paperCorrections.length ? (
+        <section className="paper-column paper-column--correction">
+          <p className="paper-column__standfirst">
+            {paperCorrections.length === 1 ? 'Correction' : 'Corrections'}
+          </p>
+          <ul className="paper-column__closings">
+            {paperCorrections.map(entry => <li key={entry.key}><span>{entry.text}</span></li>)}
           </ul>
         </section>
       ) : null}

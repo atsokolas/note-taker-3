@@ -1,6 +1,9 @@
 import {
   QUIET_MORNING,
   anniversaryLine,
+  askedLine,
+  closingGroups,
+  closingLines,
   correctionLines,
   disagreementLine,
   obituaryLine,
@@ -108,5 +111,63 @@ describe('how much paper there is', () => {
   /* A morning with nothing to report is not a failure state. */
   it('has something to say about a morning with nothing to say', () => {
     expect(QUIET_MORNING).toMatch(/go and read something/);
+  });
+});
+
+describe('the paper counting its own asking', () => {
+  /* Showing a thing a fourth time is a re-read. Saying it is the fourth time
+     is a confrontation. */
+  it('says which morning this is, once it is worth saying', () => {
+    expect(askedLine(2)).toBe('The third morning I have asked.');
+    expect(askedLine(3)).toBe('The fourth morning I have asked.');
+    expect(askedLine(7)).toBe('The 8th morning I have asked.');
+  });
+
+  /* "I have asked this once before" is a fact about the software, not about
+     the reader. */
+  it('stays quiet until asking twice becomes a pattern', () => {
+    expect(askedLine(0)).toBe('');
+    expect(askedLine(1)).toBe('');
+    expect(askedLine()).toBe('');
+  });
+});
+
+describe('what closed since the paper last asked', () => {
+  it('names what you did, per kind', () => {
+    expect(closingLines([{ kind: 'anniversary', label: 'Alphabet', day: '2026-09-01', pageId: 'p1' }])[0])
+      .toMatchObject({ text: 'You went back to it: Alphabet.', href: '/wiki/p1' });
+    expect(closingLines([{ kind: 'disagreement', label: 'Compute', day: '2026-09-01' }])[0].text)
+      .toBe('You settled it: Compute.');
+    expect(closingLines([{ kind: 'obituary', label: 'Anchoring', day: '2026-09-01' }])[0].text)
+      .toBe('You wrote on it again: Anchoring.');
+  });
+
+  /* Gone is not the same as answered, and offering a door to a page that no
+     longer exists is worse than saying so. */
+  it('says when the thing is gone, and offers no door to it', () => {
+    const [line] = closingLines([{ kind: 'obituary', label: 'Old page', day: '2026-09-01', pageId: 'p9', vanished: true }]);
+    expect(line.text).toBe('Old page is gone. The paper was still asking about it.');
+    expect(line.href).toBe('');
+  });
+
+  /* Answered is a follow-up. Vanished is a correction in the sense a
+     newspaper means it — we printed a thing and the thing was not there. */
+  it('tells a follow-up from a correction', () => {
+    const groups = closingGroups([
+      { kind: 'anniversary', label: 'Alphabet', day: '2026-09-01', pageId: 'p1' },
+      { kind: 'obituary', label: 'Old page', day: '2026-09-02', pageId: 'p9', vanished: true }
+    ]);
+    expect(groups.answered.map(l => l.text)).toEqual(['You went back to it: Alphabet.']);
+    expect(groups.corrections.map(l => l.text)).toEqual(['Old page is gone. The paper was still asking about it.']);
+  });
+
+  it('has neither when nothing closed', () => {
+    expect(closingGroups([])).toEqual({ answered: [], corrections: [] });
+    expect(closingGroups()).toEqual({ answered: [], corrections: [] });
+  });
+
+  it('drops a closing it cannot name', () => {
+    expect(closingLines([{ kind: 'anniversary' }, { label: 'No day' }, null])).toEqual([]);
+    expect(closingLines()).toEqual([]);
   });
 });

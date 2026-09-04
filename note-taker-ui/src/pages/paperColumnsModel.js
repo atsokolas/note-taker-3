@@ -93,6 +93,66 @@ export const obituaryLine = (obituary) => {
 };
 
 /**
+ * How many mornings the paper has asked this.
+ *
+ * Two askings is a coincidence; three is the paper noticing. Below that it
+ * says nothing, because "I have asked this once before" is a fact about the
+ * software rather than about the reader.
+ *
+ * This sentence is the whole reason the paper keeps a record. Showing a thing
+ * a fourth time is a re-read; saying it is the fourth time is a confrontation.
+ */
+export const askedLine = (asked = 0) => {
+  const count = Number(asked) || 0;
+  if (count < 2) return '';
+  const ordinal = count === 2 ? 'third' : count === 3 ? 'fourth' : `${count + 1}th`;
+  return `The ${ordinal} morning I have asked.`;
+};
+
+const CLOSING_VERB = Object.freeze({
+  anniversary: 'You went back to it',
+  disagreement: 'You settled it',
+  obituary: 'You wrote on it again'
+});
+
+/**
+ * What the paper asked about, that is no longer open.
+ *
+ * Two different things, and the paper stopped calling them one once it had a
+ * record of its own to check against.
+ *
+ * Answered is a follow-up: the paper asked, you acted, and it says so. That
+ * is the loop closing, and a paper that notices you acted is a different
+ * object from one that asks again.
+ *
+ * Vanished is a correction, in the sense a newspaper means it — we printed a
+ * thing and the thing was not there. The paper has been asking about a page
+ * that no longer exists, and saying so is more honest than dropping the
+ * question and hoping nobody remembers it was asked.
+ */
+export const closingLines = (closed = []) => (
+  (Array.isArray(closed) ? closed : [])
+    .filter(entry => entry?.label && entry?.day)
+    .map(entry => ({
+      key: `${entry.kind}:${entry.label}:${entry.day}`,
+      vanished: Boolean(entry.vanished),
+      text: entry.vanished
+        ? `${entry.label} is gone. The paper was still asking about it.`
+        : `${CLOSING_VERB[entry.kind] || 'You dealt with it'}: ${entry.label}.`,
+      /* No door to a page that is not there. */
+      href: entry.pageId && !entry.vanished ? `/wiki/${entry.pageId}` : ''
+    }))
+);
+
+export const closingGroups = (closed = []) => {
+  const lines = closingLines(closed);
+  return {
+    answered: lines.filter(line => !line.vanished),
+    corrections: lines.filter(line => line.vanished)
+  };
+};
+
+/**
  * How much paper there is this morning.
  *
  * The point of the whole rebuild: a paper whose length says what kind of day
@@ -104,6 +164,9 @@ export const paperWeight = (columns = {}) => (
   + (columns?.disagreement ? 1 : 0)
   + ((columns?.corrections || []).length ? 1 : 0)
   + (columns?.obituary ? 1 : 0)
+  /* A morning whose only news is that you closed something is not a quiet
+     morning. It is the best kind. */
+  + ((columns?.closed || []).length ? 1 : 0)
 );
 
 export const QUIET_MORNING = 'A quiet morning. Nothing is asking for you — go and read something.';
