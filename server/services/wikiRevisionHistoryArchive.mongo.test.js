@@ -23,6 +23,13 @@ async function run() {
     assert.equal(stored.before.claims[0].history, null, 'metadata save must not re-inflate histories');
     const projected = await Model.findById(original._id).select('after.claims.support -_id').lean();
     assert.deepEqual(projected, { after: { claims: [{ support: 'supported' }] } });
+    let wireProjection;
+    mongoose.set('debug', (collection, method, query, options) => {
+      if (method === 'findOne') wireProjection = options?.projection;
+    });
+    await Model.findById(original._id).select('after.plainText -_id').lean();
+    mongoose.set('debug', false);
+    assert.deepEqual(wireProjection, { 'after.plainText': 1, _id: 0 }, 'summary reads must stay small on the wire');
     const nested = await Model.findById(original._id).select('before.claims.history.event -_id').lean();
     assert.deepEqual(nested, { before: { claims: [{ history: [{ event: 'created' }] }] } });
     const metadata = await Model.findById(original._id).select('summary -_id').lean();
