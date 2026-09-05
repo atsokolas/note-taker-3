@@ -2,35 +2,34 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../styles/wiki-critical.css';
 import '../styles/agent-rail.css';
-import './open-sentence-storyboard.css';
 import OpenSentence from '../components/wiki/open-sentence/OpenSentence';
 import {
   cancelPlacement,
-  closeExploration,
   createExploration,
   keepQuestion,
-  keepsClosedDraft,
   openExploration,
   placeSource,
   putItBack,
-  restoreExploration,
   setReturnNote,
-  snapshotExploration,
   tryWording
 } from '../components/wiki/open-sentence/openSentenceModel';
-import { readStore, writeStore } from '../components/wiki/open-sentence/openSentenceStore';
 import {
+  keepExploration,
+  readRemembered
+} from '../components/wiki/open-sentence/openSentenceJourney';
+import {
+  STORYBOARD_ITEM_ID,
   STORYBOARD_LIBRARY_SOURCE,
   STORYBOARD_PAGE_TITLE,
   STORYBOARD_PROVISIONAL,
   STORYBOARD_RETURN_NOTE,
+  STORYBOARD_SCOPE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
   STORYBOARD_SOURCE_ROOMS,
   storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
-
-const STORAGE_KEY = 'noeis.open-sentence.storyboard.v1';
+import './open-sentence-storyboard.css';
 
 const WIDTHS = [
   { id: '1440', label: 'Desktop 1440' },
@@ -48,38 +47,37 @@ const BEATS = [
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
-  id: 'parenting-room-to-be-wrong',
+  id: STORYBOARD_ITEM_ID,
   originalText: STORYBOARD_SENTENCE,
   source
 });
 
 const applyBeat = (beat, source) => {
-  const base = seed(source);
+  const opened = openExploration(seed(source));
+  const placed = placeSource(opened);
+  const worded = tryWording(placed, STORYBOARD_PROVISIONAL);
+  const questioned = setReturnNote(
+    keepQuestion(worded, STORYBOARD_RETURN_NOTE),
+    STORYBOARD_RETURN_NOTE
+  );
   switch (beat) {
-    case 'read':
-      return closeExploration(base);
     case 'open':
-      return openExploration(base);
+      return opened;
     case 'place':
-      return placeSource(openExploration(base));
+      return placed;
     case 'wording':
-      return tryWording(placeSource(openExploration(base)), STORYBOARD_PROVISIONAL);
+      return worded;
     case 'question':
-      return setReturnNote(
-        keepQuestion(tryWording(placeSource(openExploration(base)), STORYBOARD_PROVISIONAL), STORYBOARD_RETURN_NOTE),
-        STORYBOARD_RETURN_NOTE
-      );
+      return questioned;
     case 'return':
       return setReturnNote(
-        keepQuestion(putItBack(placeSource(openExploration(base))), STORYBOARD_RETURN_NOTE),
+        keepQuestion(putItBack(worded), STORYBOARD_RETURN_NOTE),
         STORYBOARD_RETURN_NOTE
       );
     default:
-      return closeExploration(base);
+      return seed(source);
   }
 };
-
-const readStored = (source) => restoreExploration(readStore(STORAGE_KEY), seed(source));
 
 const nextSourceRoom = (mode) => {
   const index = STORYBOARD_SOURCE_ROOMS.findIndex((room) => room.id === mode);
@@ -106,24 +104,22 @@ const OpenSentenceStoryboard = () => {
   const sourceRoom = STORYBOARD_SOURCE_ROOMS.find((room) => room.id === sourceMode)
     || STORYBOARD_SOURCE_ROOMS[0];
   const [exploration, setExploration] = useState(() => (
-    params.get('beat') ? applyBeat(beat, source) : readStored(source)
+    params.get('beat')
+      ? applyBeat(beat, source)
+      : readRemembered(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID, seed(source))
   ));
   const [railOpen, setRailOpen] = useState(false);
   const [scene, setScene] = useState('wiki');
   const [libraryExploration, setLibraryExploration] = useState(() => createExploration({
-    id: 'illustrated-wrong-turn',
+    id: STORYBOARD_SOURCE.highlightId,
     originalText: STORYBOARD_SOURCE.passage,
     source: STORYBOARD_LIBRARY_SOURCE
   }));
   const [beenToLibrary, setBeenToLibrary] = useState(false);
 
   useEffect(() => {
-    if (exploration.status === 'closed' && !keepsClosedDraft(exploration)) {
-      writeStore(STORAGE_KEY, '');
-      return;
-    }
-    writeStore(STORAGE_KEY, snapshotExploration(exploration));
-  }, [exploration]);
+    keepExploration(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID, exploration, seed(source));
+  }, [exploration, source]);
 
   const setQuery = (next) => {
     const nextParams = new URLSearchParams();

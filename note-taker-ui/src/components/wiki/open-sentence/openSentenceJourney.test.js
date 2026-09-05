@@ -3,16 +3,18 @@ import {
   bindLibraryPassage,
   cancelWikiDraftPlacement,
   homecomingLine,
+  keepExploration,
   matchingReturnTicket,
   matchingWikiTicket,
   placeBesideWikiDraft,
+  readRemembered,
   rememberDraft,
   surroundingFromArticle,
   wikiReturnHref,
   writeReturnTicket
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
-import { closeExploration, createExploration, tryWording } from './openSentenceModel';
+import { closeExploration, createExploration, keepQuestion, openExploration, tryWording } from './openSentenceModel';
 
 const article = {
   _id: 'article-1',
@@ -103,6 +105,15 @@ describe('openSentenceJourney', () => {
     const forgotten = rememberDraft('wiki-1', 'claim-1', closeExploration(tryWording(live, 'draft')), live);
     expect(forgotten.provisionalText).toBe('Children need room to make mistakes.');
     expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+  });
+
+  it('keeps an opened draft so restore can find it', () => {
+    const live = createExploration({ id: 'claim-1', originalText: 'Children need room to make mistakes.' });
+    const opened = openExploration(keepQuestion(live, 'Which mistakes?'));
+    keepExploration('wiki-1', 'claim-1', opened, live);
+    const remembered = readRemembered('wiki-1', 'claim-1', live);
+    expect(remembered.status).toBe('open');
+    expect(remembered.question).toBe('Which mistakes?');
   });
 
   it('places the Library passage beside the Wiki draft without accepting a revision', () => {

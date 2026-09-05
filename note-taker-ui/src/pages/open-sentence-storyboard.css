@@ -150,3 +150,11 @@
   transform: none;
   will-change: auto;
 }
+
+.open-sentence-storyboard__stage[data-width='430'] .open-sentence:not(.is-armed):not(.is-open) .open-sentence__open:not(:focus-visible) {
+  opacity: 0.7;
+}
+
+.open-sentence-storyboard__stage[data-width='430'] .open-sentence__chip {
+  display: none;
+}

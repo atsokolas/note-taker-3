@@ -7,6 +7,10 @@ export const STORYBOARD_PAGE_TITLE = 'Parenting';
 
 export const STORYBOARD_SENTENCE = 'Children need room to make mistakes.';
 
+export const STORYBOARD_SCOPE = 'storyboard';
+
+export const STORYBOARD_ITEM_ID = 'parenting-room-to-be-wrong';
+
 export const STORYBOARD_SOURCE_ROOMS = Object.freeze([
   { id: 'illustrated', label: 'Nomad' },
   { id: 'none', label: 'Silence' },
@@ -84,8 +88,6 @@ export const storyboardSource = (mode) => {
       return STORYBOARD_STALE_SOURCE;
     case 'long':
       return STORYBOARD_LONG_SOURCE;
-    case 'illustrated':
-      return STORYBOARD_SOURCE;
     default:
       return STORYBOARD_SOURCE;
   }

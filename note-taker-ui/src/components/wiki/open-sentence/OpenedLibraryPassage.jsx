@@ -8,9 +8,8 @@ import {
   placeBesideWikiDraft,
   cancelWikiDraftPlacement,
   libraryDraftScope,
+  keepExploration,
   readRemembered,
-  rememberDraft,
-  rememberOpened,
   wikiReturnHref
 } from './openSentenceJourney';
 
@@ -58,8 +57,7 @@ const OpenedLibraryPassage = ({
   }, [highlightId, live, scope]);
 
   const commit = useCallback((next) => {
-    const remembered = rememberDraft(scope, highlightId, next, live);
-    rememberOpened(scope, highlightId, remembered, highlightId);
+    const remembered = keepExploration(scope, highlightId, next, live);
     if (ticket) {
       if (remembered.placed && !placed) placeBesideWikiDraft(ticket);
       if (!remembered.placed && placed) cancelWikiDraftPlacement(ticket);

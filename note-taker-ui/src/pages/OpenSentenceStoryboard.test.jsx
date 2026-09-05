@@ -1,8 +1,17 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import fs from 'fs';
+import path from 'path';
 import OpenSentenceStoryboard from './OpenSentenceStoryboard';
-import { STORYBOARD_PROVISIONAL, STORYBOARD_RETURN_NOTE, STORYBOARD_SENTENCE } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
+import { draftStorageKey, openedStorageKey } from '../components/wiki/open-sentence/openSentenceBinding';
+import {
+  STORYBOARD_ITEM_ID,
+  STORYBOARD_PROVISIONAL,
+  STORYBOARD_RETURN_NOTE,
+  STORYBOARD_SCOPE,
+  STORYBOARD_SENTENCE
+} from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
 const renderBoard = () => render(
   <MemoryRouter>
@@ -30,6 +39,9 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
     expect(screen.getByLabelText('Leave this open')).toHaveValue(STORYBOARD_RETURN_NOTE);
     expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(openedStorageKey(STORYBOARD_SCOPE))).toBe(STORYBOARD_ITEM_ID);
+    expect(window.sessionStorage.getItem(draftStorageKey(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID)))
+      .toContain(STORYBOARD_PROVISIONAL);
     unmount();
     renderBoard();
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(STORYBOARD_PROVISIONAL);
@@ -40,6 +52,21 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Mobile 430' }));
     expect(screen.getByRole('button', { name: 'Companion' })).toBeInTheDocument();
+  });
+
+  it('keeps Open findable at the 430 stage without hover', () => {
+    const css = fs.readFileSync(path.join(__dirname, 'open-sentence-storyboard.css'), 'utf8');
+    expect(css).toMatch(
+      /\[data-width='430'\][\s\S]*open-sentence__open:not\(:focus-visible\)\s*\{\s*opacity:\s*0\.7;/
+    );
+    expect(css).toMatch(/\[data-width='430'\][\s\S]*open-sentence__chip[\s\S]*display:\s*none;/);
+  });
+
+  it('opens from the keyboard on the held sentence', () => {
+    renderBoard();
+    fireEvent.keyDown(screen.getByRole('button', { name: STORYBOARD_SENTENCE }), { key: 'Enter' });
+    expect(screen.getByText(/The article still reads/)).toBeInTheDocument();
+    expect(screen.getByText('Now with').closest('p')).toHaveTextContent(STORYBOARD_SENTENCE);
   });
 
   it('walks into Nomad without opening the pocket or leaving the storyboard', () => {

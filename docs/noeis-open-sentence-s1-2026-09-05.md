@@ -55,7 +55,7 @@ Ink palettes, serendipity, and sharing wait.
 
 ## Persistence in this prototype
 
-What you type in the pocket survives reload in this browser tab (`sessionStorage`). That is a device-save for the storyboard, labeled as such. It is not server-sync, not an accepted Wiki revision, and not a belief.
+What you type in the pocket survives reload in this browser tab (`sessionStorage`). The storyboard uses the same `keepExploration` path as live Wiki and Library (`noeis.open-sentence.storyboard.{id}`), not a parallel key. That is a device-save, labeled as such. It is not server-sync, not an accepted Wiki revision, and not a belief.
 
 Closing the pocket without keeping the question discards the experiment. Keeping the question keeps the question only. Put it back restores the original wording. The accepted article never receives the draft.
 

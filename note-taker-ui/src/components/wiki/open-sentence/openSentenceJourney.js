@@ -110,6 +110,12 @@ export const rememberOpened = (scope, itemId, exploration, openedId) => {
   return openedId;
 };
 
+export const keepExploration = (scope, itemId, next, live) => {
+  const remembered = rememberDraft(scope, itemId, next, live);
+  rememberOpened(scope, itemId, remembered, itemId);
+  return remembered;
+};
+
 export const readRemembered = (scope, itemId, live) => bindDraft(
   live,
   readStore(draftStorageKey(scope, itemId)),

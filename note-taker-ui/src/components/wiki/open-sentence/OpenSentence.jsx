@@ -245,7 +245,7 @@ const PocketBody = ({
 
 const OpenSentence = ({
   exploration,
-  onChange,
+  onChange = () => {},
   mocked = false,
   heldInteractive = true,
   hideHeld = false,
@@ -279,20 +279,16 @@ const OpenSentence = ({
   const split = Boolean(hosts?.controls && hosts?.pocket);
   const followChip = finePointer && !reducedMotion && armed && !open;
 
-  const commit = useCallback((next) => {
-    onChange?.(next);
-  }, [onChange]);
-
   const openPocket = useCallback(() => {
     setArmed(false);
-    commit(openExploration(exploration));
-  }, [commit, exploration]);
+    onChange(openExploration(exploration));
+  }, [exploration, onChange]);
 
   const closePocket = useCallback(() => {
     setPreviewing(false);
     setInspecting(false);
-    commit(closeExploration(exploration));
-  }, [commit, exploration]);
+    onChange(closeExploration(exploration));
+  }, [exploration, onChange]);
 
   useEffect(() => {
     setInspecting(false);
@@ -476,7 +472,7 @@ const OpenSentence = ({
               accepted={accepted}
               acceptedLabel={acceptedLabel}
               placeBesideTitle={placeBesideTitle}
-              onCommit={commit}
+              onCommit={onChange}
               onOpenSourceHome={onOpenSourceHome}
             />
             <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
