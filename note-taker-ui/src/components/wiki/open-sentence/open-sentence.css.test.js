@@ -20,4 +20,8 @@ describe('open-sentence motion', () => {
     expect(css).toMatch(/@keyframes open-sentence-place/);
     expect(css).toMatch(/animation: open-sentence-place var\(--noeis-motion-base\) cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
   });
+
+  it('lets the Open chip follow a fine pointer without inventing a new motion language', () => {
+    expect(css).toMatch(/--open-chip-x/);
+  });
 });

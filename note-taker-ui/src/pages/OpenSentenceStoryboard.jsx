@@ -17,6 +17,7 @@ import {
   tryWording
 } from '../components/wiki/open-sentence/openSentenceModel';
 import {
+  STORYBOARD_LIBRARY_SOURCE,
   STORYBOARD_PAGE_TITLE,
   STORYBOARD_PROVISIONAL,
   STORYBOARD_RETURN_NOTE,
@@ -101,6 +102,12 @@ const OpenSentenceStoryboard = () => {
     params.get('beat') ? applyBeat(beat, source) : readStored(source)
   ));
   const [railOpen, setRailOpen] = useState(false);
+  const [scene, setScene] = useState('wiki');
+  const [libraryExploration, setLibraryExploration] = useState(() => createExploration({
+    id: 'illustrated-wrong-turn',
+    originalText: STORYBOARD_SOURCE.passage,
+    source: STORYBOARD_LIBRARY_SOURCE
+  }));
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -121,33 +128,64 @@ const OpenSentenceStoryboard = () => {
     navigate({ pathname: location.pathname || '/design-preview/open-sentence', search: search ? `?${search}` : '' }, { replace: true });
   };
 
-  const companionSubject = exploration.status === 'open'
-    ? STORYBOARD_SENTENCE
-    : STORYBOARD_PAGE_TITLE;
+  const companionSubject = scene === 'library'
+    ? (libraryExploration.status === 'open' ? STORYBOARD_SOURCE.passage : 'Nomad')
+    : (exploration.status === 'open' ? STORYBOARD_SENTENCE : STORYBOARD_PAGE_TITLE);
 
   const article = useMemo(() => (
-    <article className="wiki-read open-sentence-storyboard__article">
-      <header className="wiki-read__header">
-        <p className="wiki-read__eyebrow">Wiki</p>
-        <h1>{STORYBOARD_PAGE_TITLE}</h1>
-      </header>
-      <div className="wiki-read__body">
-        <p>
-          Care is not the same as preventing every scrape. A child who never meets a
-          recoverable failure also never learns the shape of the world.
-        </p>
-        <OpenSentence
-          exploration={{ ...exploration, source }}
-          onChange={setExploration}
-          mocked={!silent && !missing}
-        />
-        <p>
-          The useful distinction is not whether a mistake happened. It is whether the
-          person can continue.
-        </p>
-      </div>
-    </article>
-  ), [exploration, missing, silent, source]);
+    scene === 'library' ? (
+      <article className="wiki-read open-sentence-storyboard__article">
+        <header className="wiki-read__header">
+          <p className="wiki-read__eyebrow">Library</p>
+          <h1>Nomad</h1>
+        </header>
+        <div className="wiki-read__body">
+          <p className="open-sentence-library-arrival">
+            You were holding {STORYBOARD_SENTENCE}
+            <button
+              type="button"
+              className="open-sentence-library-arrival__back"
+              onClick={() => setScene('wiki')}
+            >
+              Back to Parenting →
+            </button>
+          </p>
+          <p>Getting lost was part of the work. The point was not to avoid every wrong turn.</p>
+          <OpenSentence
+            exploration={{ ...libraryExploration, source: STORYBOARD_LIBRARY_SOURCE }}
+            onChange={setLibraryExploration}
+            mocked
+            acceptedLabel="The saved passage still reads"
+            placeBesideTitle={STORYBOARD_PAGE_TITLE}
+          />
+          <p>That is a different kind of care than keeping someone from leaving the path at all.</p>
+        </div>
+      </article>
+    ) : (
+      <article className="wiki-read open-sentence-storyboard__article">
+        <header className="wiki-read__header">
+          <p className="wiki-read__eyebrow">Wiki</p>
+          <h1>{STORYBOARD_PAGE_TITLE}</h1>
+        </header>
+        <div className="wiki-read__body">
+          <p>
+            Care is not the same as preventing every scrape. A child who never meets a
+            recoverable failure also never learns the shape of the world.
+          </p>
+          <OpenSentence
+            exploration={{ ...exploration, source }}
+            onChange={setExploration}
+            mocked={!silent && !missing}
+            onOpenSourceHome={() => setScene('library')}
+          />
+          <p>
+            The useful distinction is not whether a mistake happened. It is whether the
+            person can continue.
+          </p>
+        </div>
+      </article>
+    )
+  ), [exploration, libraryExploration, missing, scene, silent, source]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -157,7 +195,7 @@ const OpenSentenceStoryboard = () => {
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. The pocket is
           a private experiment. Reload keeps the draft in this tab. The Wiki line does
-          not change.
+          not change. Open in Library walks into Nomad without leaving this storyboard.
         </p>
       </header>
 
@@ -172,6 +210,7 @@ const OpenSentenceStoryboard = () => {
                 setBeat(item.id);
                 setQuery({ beat: item.id });
                 setExploration(applyBeat(item.id, source));
+                setScene('wiki');
               }}
             >
               {item.label}
@@ -225,13 +264,13 @@ const OpenSentenceStoryboard = () => {
         {article}
         <aside
           className={`agent-rail open-sentence-storyboard__rail${railOpen ? ' is-open' : ''}`}
-          aria-label="Wiki steward"
+          aria-label={scene === 'library' ? 'Librarian' : 'Wiki steward'}
         >
           <div className="agent-rail__identity">
             <span className="agent-rail__thread" aria-hidden="true">
               <span className="agent-rail__thread-knot" />
             </span>
-            <p className="agent-rail__eyebrow">Wiki steward</p>
+            <p className="agent-rail__eyebrow">{scene === 'library' ? 'Librarian' : 'Wiki steward'}</p>
           </div>
           <p className="agent-rail__role-description">
             Works beside the article. Does not become a second chat in the pocket.
@@ -245,7 +284,7 @@ const OpenSentenceStoryboard = () => {
 
       <footer className="open-sentence-storyboard__colophon">
         <span className="open-sentence-storyboard__mark" aria-hidden="true" />
-        From the Library of — a study, not a live bookplate.
+        From the Library of — {scene === 'library' ? 'you are in Nomad.' : 'a study, not a live bookplate.'}
       </footer>
     </div>
   );

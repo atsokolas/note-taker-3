@@ -397,7 +397,7 @@ Decided for the first scene (2026-09-05), recorded in [Open a sentence S1](noeis
 
 Still open: whether this pocket picture is the one to keep as the product’s ordinary reading gesture, now that owned Wiki pages can open a claim in place.
 
-**This stage:** the pocket on `/wiki/read/:id` for standard Wikis, plus the illustrated storyboard at `/design-preview/open-sentence`. Not a retrieval rewrite, not an accepted revision, not a public-share leak.
+**This stage:** the pocket on `/wiki/read/:id` for standard Wikis, the Library walk from that pocket onto the exact highlight, plus the illustrated storyboard at `/design-preview/open-sentence`. Not a retrieval rewrite, not an accepted revision, not a public-share leak.
 
 ## Appendix — consolidation coverage
 

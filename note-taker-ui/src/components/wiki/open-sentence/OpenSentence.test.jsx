@@ -101,9 +101,9 @@ describe('OpenSentence', () => {
     }));
     renderOpen(exploration, onChange);
     fireEvent.click(screen.getByRole('button', { name: 'Place beside' }));
-    expect(screen.getByText('Beside the thought')).toBeInTheDocument();
+    expect(screen.getByText('Beside Nomad')).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByText('Beside the thought')).not.toBeInTheDocument();
+    expect(screen.queryByText('Beside Nomad')).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'closed' }));
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onChange).toHaveBeenCalledWith(closeExploration(exploration));
@@ -138,5 +138,34 @@ describe('OpenSentence', () => {
     })));
     fireEvent.click(screen.getByRole('button', { name: 'Read around this' }));
     expect(screen.getByText('The surrounding lines were not saved with this passage.')).toBeInTheDocument();
+  });
+
+  it('hides the Library door and Place beside when the passage is already here', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SOURCE.passage,
+      source: { ...STORYBOARD_SOURCE, href: '', here: true }
+    })));
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Place beside' })).not.toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toBeInTheDocument();
+  });
+
+  it('lets Place beside name the Wiki thought you walked from', () => {
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={openExploration(createExploration({
+            originalText: STORYBOARD_SOURCE.passage,
+            source: { ...STORYBOARD_SOURCE, href: '', here: true }
+          }))}
+          onChange={jest.fn()}
+          acceptedLabel="The saved passage still reads"
+          placeBesideTitle="Parenting"
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Place beside' }));
+    expect(screen.getByText('Beside Parenting')).toBeInTheDocument();
+    expect(screen.getByText(/The saved passage still reads/)).toBeInTheDocument();
   });
 });

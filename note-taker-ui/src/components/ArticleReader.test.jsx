@@ -108,6 +108,31 @@ describe('ArticleReader', () => {
     Element.prototype.scrollIntoView = previousScrollIntoView;
   });
 
+  it('lets the focused passage open in place without leaving the article', () => {
+    render(
+      <ArticleReader
+        article={{
+          _id: 'article-1',
+          title: 'Abridged import',
+          content: '<p>The imported body contains only a short summary.</p>'
+        }}
+        highlights={[{
+          _id: 'highlight-1',
+          text: 'The exact cited passage survives in the saved highlight.'
+        }]}
+        focusedHighlightId="highlight-1"
+      />
+    );
+
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByLabelText('Opened sentence')).toBeInTheDocument();
+    expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(
+      'The exact cited passage survives in the saved highlight.'
+    );
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
+  });
+
   it('does not repeat a deep-linked passage already marked in the article body', () => {
     const { container } = render(
       <ArticleReader

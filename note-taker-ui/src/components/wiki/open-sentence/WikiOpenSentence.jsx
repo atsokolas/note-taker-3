@@ -22,27 +22,10 @@ import {
   restoreExploration,
   snapshotExploration
 } from './openSentenceModel';
+import { writeReturnTicket } from './openSentenceJourney';
+import { readStore, writeStore } from './openSentenceStore';
 
 const WikiOpenSentenceContext = createContext(null);
-
-const readStore = (key) => {
-  if (typeof window === 'undefined') return '';
-  try {
-    return window.sessionStorage.getItem(key) || '';
-  } catch (_blocked) {
-    return '';
-  }
-};
-
-const writeStore = (key, value) => {
-  if (typeof window === 'undefined') return;
-  try {
-    if (!value) window.sessionStorage.removeItem(key);
-    else window.sessionStorage.setItem(key, value);
-  } catch (_blocked) {
-    /* device-save is best-effort */
-  }
-};
 
 export const WikiOpenSentenceProvider = ({
   page,
@@ -128,12 +111,26 @@ export const WikiOpenSentenceProvider = ({
     ).trim());
   }, [drafts, onOpenedText, openedId, page]);
 
+  const leaveForLibrary = useCallback((source, exploration) => {
+    writeReturnTicket({
+      articleId: source?.articleId,
+      highlightId: source?.highlightId,
+      sentence: claimTextOnPage(page?.body, exploration?.id)
+        || exploration?.originalText
+        || '',
+      pageId,
+      pageTitle: page?.title || '',
+      claimId: exploration?.id
+    });
+  }, [page, pageId]);
+
   const value = useMemo(() => ({
     enabled,
     openedId,
     explorationFor,
-    commit
-  }), [commit, enabled, explorationFor, openedId]);
+    commit,
+    leaveForLibrary
+  }), [commit, enabled, explorationFor, leaveForLibrary, openedId]);
 
   return (
     <WikiOpenSentenceContext.Provider value={value}>
@@ -177,6 +174,7 @@ const OpenableParagraph = ({ node, id, className, children }) => {
       onChange={(next) => ctx.commit(claim.claimId, next)}
       heldInteractive={false}
       lineRef={lineRef}
+      onOpenSourceHome={ctx.leaveForLibrary}
       lineProps={{
         id,
         className,

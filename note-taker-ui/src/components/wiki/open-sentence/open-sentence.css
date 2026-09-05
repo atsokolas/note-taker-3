@@ -73,6 +73,16 @@
   .open-sentence.is-open .open-sentence__open {
     opacity: 1;
   }
+
+  .open-sentence.is-embedded .open-sentence__open {
+    opacity: 0.7;
+  }
+
+  .article-reader-content :is(p, li):has(.open-sentence__library-open):hover .open-sentence__open,
+  .open-sentence.is-embedded.is-open .open-sentence__open,
+  .open-sentence.is-embedded.is-armed .open-sentence__open {
+    opacity: 1;
+  }
 }
 
 .open-sentence__chip {
@@ -90,6 +100,46 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.82rem;
+  transform: translate3d(var(--open-chip-x, 0px), 0, 0);
+  will-change: transform;
+}
+
+.open-sentence.is-embedded {
+  display: inline;
+}
+
+.open-sentence__library-open {
+  position: relative;
+  display: inline;
+  vertical-align: baseline;
+}
+
+.open-sentence-library-arrival {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--noeis-space-3);
+  align-items: baseline;
+  margin: 0 0 var(--noeis-space-4);
+  color: var(--noeis-thread-strong);
+  font-family: var(--noeis-font-reading);
+  font-size: 0.95rem;
+  font-style: italic;
+  animation: open-sentence-place var(--noeis-motion-base) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.open-sentence-library-arrival__back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: var(--noeis-font-ui);
+  font-size: 0.88rem;
+  font-style: normal;
+  color: var(--noeis-ink);
+}
+
+.article-reader-content mark.highlight.open-sentence__held,
+.article-highlight-edition mark.highlight.open-sentence__held {
+  position: relative;
 }
 
 .open-sentence__reveal {
@@ -271,7 +321,8 @@
   to { opacity: 1; transform: none; }
 }
 
-.wiki-read__body .open-sentence-pocket p {
+.wiki-read__body .open-sentence-pocket p,
+.article-reader .open-sentence-pocket p {
   margin: 0;
 }
 
@@ -281,8 +332,14 @@
   }
 
   .open-sentence__held.is-open::before,
-  .open-sentence-pocket__passage.is-settling {
+  .open-sentence-pocket__passage.is-settling,
+  .open-sentence-library-arrival {
     animation: none;
+  }
+
+  .open-sentence__chip {
+    transform: none;
+    will-change: auto;
   }
 }
 

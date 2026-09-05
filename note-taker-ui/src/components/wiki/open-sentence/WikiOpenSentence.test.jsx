@@ -72,6 +72,22 @@ describe('WikiOpenSentence', () => {
     expect(onOpenedText).toHaveBeenCalledWith('Memory compounds with review.');
   });
 
+  it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Open in Library →' }));
+    expect(JSON.parse(window.sessionStorage.getItem('noeis.open-sentence.return'))).toEqual(
+      expect.objectContaining({
+        articleId: 'article-1',
+        highlightId: 'highlight-1',
+        pageId: 'wiki-1',
+        pageTitle: 'Enterprise AI Memory',
+        claimId: 'claim-1',
+        sentence: 'Memory compounds with review.'
+      })
+    );
+  });
+
   it('restores a private question without accepting a forged wiki line or inventing a source', () => {
     window.sessionStorage.setItem(openedStorageKey('wiki-1'), 'claim-1');
     window.sessionStorage.setItem(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({

@@ -57,6 +57,9 @@ describe('openSentenceBinding', () => {
     expect(bound.aroundBefore).toBe('Getting lost was part of the work.');
     expect(bound.href).toBe('/library?articleId=article-1&highlightId=highlight-1');
     expect(bound.isLibrary).toBe(true);
+    expect(bound.articleId).toBe('article-1');
+    expect(bound.highlightId).toBe('highlight-1');
+    expect(bound.here).toBe(false);
   });
 
   it('prefers the exact citation quote over a source snippet', () => {

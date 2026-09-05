@@ -14,7 +14,19 @@ export const STORYBOARD_SOURCE = Object.freeze({
   passage: 'A wrong turn you can walk back from still teaches the map. The ones that strand you do not.',
   aroundAfter: 'That is a different kind of care than keeping someone from leaving the path at all.',
   available: true,
-  stale: false
+  stale: false,
+  href: '/library?articleId=illustrated-nomad&highlightId=illustrated-wrong-turn',
+  isLibrary: true,
+  here: false,
+  articleId: 'illustrated-nomad',
+  highlightId: 'illustrated-wrong-turn'
+});
+
+export const STORYBOARD_LIBRARY_SOURCE = Object.freeze({
+  ...STORYBOARD_SOURCE,
+  href: '',
+  here: true,
+  qualification: 'Saved passage · already here'
 });
 
 export const STORYBOARD_UNAVAILABLE_SOURCE = Object.freeze({

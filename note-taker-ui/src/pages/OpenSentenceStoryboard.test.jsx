@@ -19,7 +19,7 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
     expect(screen.getByText('Now with').closest('p')).toHaveTextContent('Parenting');
-    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
     expect(screen.getByText('Now with').closest('p')).toHaveTextContent(STORYBOARD_SENTENCE);
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
   });
@@ -40,5 +40,20 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Mobile 430' }));
     expect(screen.getByRole('button', { name: 'Companion' })).toBeInTheDocument();
+  });
+
+  it('walks into Nomad without opening the pocket or leaving the storyboard', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    fireEvent.click(screen.getByRole('link', { name: 'Open in Library →' }));
+    expect(screen.getByRole('heading', { name: 'Nomad' })).toBeInTheDocument();
+    expect(screen.getByText(/You were holding/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.getByText('Now with').closest('p')).toHaveTextContent('Nomad');
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    expect(screen.getByText('Now with').closest('p')).toHaveTextContent(/wrong turn/);
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Parenting →' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
   });
 });

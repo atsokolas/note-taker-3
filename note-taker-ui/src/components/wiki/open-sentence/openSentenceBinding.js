@@ -53,6 +53,15 @@ const qualifyBoundSource = (source, passage, doors) => {
   return String(source.citationLabel || '').trim();
 };
 
+const libraryIdsFromHref = (href = '') => {
+  const query = String(href || '').split('?')[1] || '';
+  const params = new URLSearchParams(query);
+  return {
+    articleId: String(params.get('articleId') || '').trim(),
+    highlightId: String(params.get('highlightId') || '').trim()
+  };
+};
+
 const unavailableSource = (title = 'This source') => ({
   title: title || 'This source',
   passage: '',
@@ -63,7 +72,10 @@ const unavailableSource = (title = 'This source') => ({
   stale: true,
   href: '',
   originalHref: '',
-  isLibrary: false
+  isLibrary: false,
+  here: false,
+  articleId: '',
+  highlightId: ''
 });
 
 export const draftStorageKey = (pageId, claimId) => (
@@ -150,6 +162,7 @@ export const bindClaimSource = ({
   const passage = cleanSourceTextForDisplay(citation?.quote || source.snippet || source.excerpt || '');
   const doors = resolveSourceDoors(source);
   const around = surrounding(source);
+  const libraryIds = libraryIdsFromHref(doors.ownedHref);
 
   return {
     title: String(source.title || '').trim() || 'Untitled source',
@@ -161,7 +174,10 @@ export const bindClaimSource = ({
     stale: false,
     href: doors.ownedHref,
     originalHref: doors.originalHref,
-    isLibrary: doors.isLibrary
+    isLibrary: doors.isLibrary,
+    here: false,
+    articleId: libraryIds.articleId,
+    highlightId: libraryIds.highlightId
   };
 };
 

@@ -94,6 +94,19 @@
   font-size: clamp(2rem, 4vw, 3.4rem);
 }
 
+.open-sentence-storyboard__article .open-sentence-library-arrival__back {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--noeis-ink);
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--noeis-font-ui);
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
 .open-sentence-storyboard__drawer {
   min-height: 44px;
 }

@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
+import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
   cancelPlacement,
   changedWordSpans,
@@ -21,17 +24,192 @@ const selectionInside = (root) => {
   if (!root || typeof window === 'undefined' || !window.getSelection) return false;
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
-  const range = selection.rangeAt(0);
-  return root.contains(range.commonAncestorContainer);
+  return root.contains(selection.rangeAt(0).commonAncestorContainer);
 };
 
-const SourceHome = ({ source }) => {
-  if (!source?.href) return null;
+const SourceHome = ({ source, mocked, onOpen }) => {
+  if (!source?.href || source.here) return null;
   const label = source.isLibrary ? 'Open in Library →' : 'Return to source →';
+  const go = (event) => {
+    onOpen?.(event);
+    if (mocked) event.preventDefault();
+  };
   if (source.isLibrary) {
-    return <Link className="open-sentence-pocket__home" to={source.href}>{label}</Link>;
+    return <Link className="open-sentence-pocket__home" to={source.href} onClick={go}>{label}</Link>;
   }
-  return <a className="open-sentence-pocket__home" href={source.href}>{label}</a>;
+  return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
+};
+
+const PocketBody = ({
+  pocketId,
+  exploration,
+  mocked,
+  leftOpen,
+  inspecting,
+  setInspecting,
+  previewing,
+  setPreviewing,
+  settling,
+  accepted,
+  acceptedLabel,
+  placeBesideTitle,
+  onCommit,
+  onOpenSourceHome
+}) => {
+  const source = exploration?.source;
+  const spans = wordingChanged(exploration)
+    ? changedWordSpans(accepted, exploration.provisionalText)
+    : [];
+  const aroundMissing = Boolean(source)
+    && source.available !== false
+    && !source.aroundBefore
+    && !source.aroundAfter;
+  const canPlace = Boolean(source)
+    && source.available !== false
+    && source.passage
+    && (!source.here || placeBesideTitle);
+  const besideLabel = placeBesideTitle || source?.title || 'the thought';
+
+  return (
+    <>
+      {mocked ? <p className="open-sentence-pocket__kicker">Illustrated source · not live retrieval</p> : null}
+      {leftOpen && String(exploration.question || '').trim() ? (
+        <p className="open-sentence-pocket__whisper">You left this open.</p>
+      ) : null}
+
+      <div className="open-sentence-pocket__source">
+        {!source ? (
+          <p className="open-sentence-pocket__silence">Nothing beside this sentence yet.</p>
+        ) : source.available === false ? (
+          <p className="open-sentence-pocket__unavailable">
+            {source.title || 'This source'} is unavailable. A similar passage was not attached.
+          </p>
+        ) : (
+          <>
+            <p className="open-sentence-pocket__source-title">{source.title}</p>
+            {inspecting && source.aroundBefore ? (
+              <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
+            ) : null}
+            {source.passage ? (
+              <p className={`open-sentence-pocket__passage${exploration.placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
+                {source.passage}
+              </p>
+            ) : (
+              <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
+            )}
+            {inspecting && source.aroundAfter ? (
+              <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
+            ) : null}
+            {inspecting && aroundMissing ? (
+              <p className="open-sentence-pocket__silence">
+                The surrounding lines were not saved with this passage.
+              </p>
+            ) : null}
+            {source.qualification ? (
+              <p className="open-sentence-pocket__qualification">{source.qualification}</p>
+            ) : null}
+            {exploration.placed ? (
+              <p className="open-sentence-pocket__placed">Placed beside {besideLabel}</p>
+            ) : null}
+            <button
+              type="button"
+              className="open-sentence-pocket__marginalia"
+              aria-pressed={exploration.mark === '!'}
+              aria-label={exploration.mark === '!' ? 'Remove mark' : 'Leave a mark'}
+              onClick={() => onCommit(leaveMark(exploration, exploration.mark !== '!'))}
+            >
+              {exploration.mark || '!'}
+            </button>
+            <div className="open-sentence-pocket__actions">
+              <button type="button" onClick={() => setInspecting((current) => !current)}>
+                {inspecting ? 'Hide surrounding' : 'Read around this'}
+              </button>
+              <SourceHome
+                source={source}
+                mocked={mocked}
+                onOpen={() => onOpenSourceHome?.(source, exploration)}
+              />
+              {canPlace && exploration.placed ? (
+                <button type="button" onClick={() => onCommit(cancelPlacement(exploration))}>
+                  Remove passage
+                </button>
+              ) : null}
+              {canPlace && !exploration.placed && previewing ? (
+                <>
+                  <div className="open-sentence-pocket__preview">
+                    <p className="open-sentence-pocket__label">Beside {besideLabel}</p>
+                    <p className="open-sentence-pocket__passage">{source.passage}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCommit(placeSource(exploration));
+                      setPreviewing(false);
+                    }}
+                  >
+                    Place here
+                  </button>
+                  <button type="button" onClick={() => setPreviewing(false)}>Cancel</button>
+                </>
+              ) : null}
+              {canPlace && !exploration.placed && !previewing ? (
+                <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="open-sentence-pocket__write">
+        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-wording`}>
+          Try a narrower wording
+        </label>
+        <textarea
+          id={`${pocketId}-wording`}
+          rows={3}
+          value={exploration.provisionalText}
+          onChange={(event) => onCommit(tryWording(exploration, event.target.value))}
+        />
+        {spans.length ? (
+          <p className="open-sentence-pocket__diff" aria-label="Changed words">
+            {spans.map((span, index) => (
+              span.changed ? <mark key={`${span.text}-${index}`}>{span.text}</mark> : span.text
+            ))}
+          </p>
+        ) : null}
+        {wordingChanged(exploration) ? (
+          <button type="button" onClick={() => onCommit(putItBack(exploration))}>
+            Put it back
+          </button>
+        ) : null}
+        <p className="open-sentence-pocket__qualification">
+          {acceptedLabel}: {accepted}
+        </p>
+      </div>
+
+      <div className="open-sentence-pocket__question">
+        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-question`}>
+          Leave this open
+        </label>
+        <textarea
+          id={`${pocketId}-question`}
+          rows={2}
+          value={exploration.question}
+          onChange={(event) => onCommit(keepQuestion(exploration, event.target.value))}
+          placeholder="An unfinished question can stay unfinished."
+        />
+        <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-return`}>
+          A note for your return
+        </label>
+        <input
+          id={`${pocketId}-return`}
+          value={exploration.returnNote}
+          onChange={(event) => onCommit(setReturnNote(exploration, event.target.value))}
+          placeholder="Next: …"
+        />
+      </div>
+    </>
+  );
 };
 
 const OpenSentence = ({
@@ -39,13 +217,22 @@ const OpenSentence = ({
   onChange,
   mocked = false,
   heldInteractive = true,
+  hideHeld = false,
+  hosts = null,
   lineProps = {},
   lineRef = null,
+  armRoot = null,
+  acceptedLabel = 'The article still reads',
+  placeBesideTitle = '',
+  onOpenSourceHome,
   children
 }) => {
   const pocketId = useId();
   const heldRef = useRef(null);
   const wasOpen = useRef(false);
+  const chipMagnet = useCssMagneticLerp('--open-chip-x', 0.28);
+  const finePointer = useFinePointer();
+  const reducedMotion = usePrefersReducedMotion();
   const [armed, setArmed] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -53,9 +240,10 @@ const OpenSentence = ({
   const [settling, setSettling] = useState(false);
   const open = isOpen(exploration);
   const [keepPocket, setKeepPocket] = useState(open);
-  const source = exploration?.source;
   const accepted = wikiAcceptedText(exploration);
   const { className: lineClassName, ...restLine } = lineProps;
+  const split = Boolean(hosts?.controls && hosts?.pocket);
+  const followChip = finePointer && !reducedMotion && armed && !open;
 
   const commit = useCallback((next) => {
     onChange?.(next);
@@ -73,10 +261,10 @@ const OpenSentence = ({
   }, [commit, exploration]);
 
   useEffect(() => {
-    const onPointer = () => setArmed(selectionInside(heldRef.current));
+    const onPointer = () => setArmed(selectionInside(armRoot || heldRef.current));
     document.addEventListener('selectionchange', onPointer);
     return () => document.removeEventListener('selectionchange', onPointer);
-  }, []);
+  }, [armRoot]);
 
   useEffect(() => {
     if (open && !wasOpen.current) {
@@ -121,6 +309,28 @@ const OpenSentence = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [closePocket, open, previewing]);
 
+  useEffect(() => {
+    if (!followChip) {
+      chipMagnet.reset(0);
+      return undefined;
+    }
+    const onMove = (event) => {
+      const root = hosts?.line
+        || lineRef?.current
+        || heldRef.current?.closest('p, li, blockquote')
+        || heldRef.current;
+      if (!root) return;
+      const rect = root.getBoundingClientRect();
+      if (event.clientY < rect.top - 12 || event.clientY > rect.bottom + 48) {
+        chipMagnet.setTarget(0);
+        return;
+      }
+      chipMagnet.setTarget(Math.max(0, Math.min(rect.width - 56, event.clientX - rect.left)));
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [chipMagnet, followChip, hosts, lineRef]);
+
   const onHeldKey = (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
@@ -128,199 +338,113 @@ const OpenSentence = ({
     else openPocket();
   };
 
-  const spans = wordingChanged(exploration)
-    ? changedWordSpans(accepted, exploration.provisionalText)
-    : [];
-  const aroundMissing = Boolean(source)
-    && source.available !== false
-    && !source.aroundBefore
-    && !source.aroundAfter;
+  const className = [
+    'open-sentence',
+    hideHeld || split ? 'is-embedded' : '',
+    open ? 'is-open' : '',
+    armed ? 'is-armed' : '',
+    exploration?.placed ? 'is-placed' : ''
+  ].filter(Boolean).join(' ');
 
-  return (
-    <div className={`open-sentence${open ? ' is-open' : ''}${armed ? ' is-armed' : ''}${exploration?.placed ? ' is-placed' : ''}`}>
-      <p
-        ref={lineRef}
-        className={['open-sentence__line', lineClassName].filter(Boolean).join(' ')}
-        {...restLine}
+  const controls = (
+    <>
+      <button
+        type="button"
+        className="open-sentence__open"
+        aria-expanded={open}
+        aria-controls={pocketId}
+        onClick={open ? closePocket : openPocket}
       >
-        <span
-          ref={heldRef}
-          className={`open-sentence__held${open ? ' is-open' : ''}`}
-          tabIndex={heldInteractive ? 0 : undefined}
-          role={heldInteractive ? 'button' : undefined}
-          aria-expanded={heldInteractive ? open : undefined}
-          aria-controls={heldInteractive ? pocketId : undefined}
-          onKeyDown={heldInteractive ? onHeldKey : undefined}
-        >
-          {children ?? accepted}
-        </span>
+        {open ? 'Close' : 'Open'}
+      </button>
+      {armed && !open ? (
         <button
           type="button"
-          className="open-sentence__open"
-          aria-expanded={open}
-          aria-controls={pocketId}
-          onClick={open ? closePocket : openPocket}
+          className="open-sentence__chip"
+          ref={chipMagnet.elRef}
+          onClick={openPocket}
         >
-          {open ? 'Close' : 'Open'}
+          Open
         </button>
-        {armed && !open ? (
-          <button type="button" className="open-sentence__chip" onClick={openPocket}>
-            Open
-          </button>
-        ) : null}
-      </p>
+      ) : null}
+    </>
+  );
 
-      <div
-        className={`open-sentence__reveal${open ? ' is-open' : ''}`}
-        data-mocked={mocked ? 'true' : undefined}
+  const line = hideHeld ? (
+    <span className={className}>{controls}</span>
+  ) : (
+    <p
+      ref={lineRef}
+      className={['open-sentence__line', lineClassName].filter(Boolean).join(' ')}
+      {...restLine}
+    >
+      <span
+        ref={heldRef}
+        className={`open-sentence__held${open ? ' is-open' : ''}`}
+        tabIndex={heldInteractive ? 0 : undefined}
+        role={heldInteractive ? 'button' : undefined}
+        aria-expanded={heldInteractive ? open : undefined}
+        aria-controls={heldInteractive ? pocketId : undefined}
+        onKeyDown={heldInteractive ? onHeldKey : undefined}
       >
-        <section
-          id={pocketId}
-          className="open-sentence-pocket"
-          aria-hidden={!open}
-          inert={!open}
-          aria-label="Opened sentence"
-        >
-          {open || keepPocket ? (
-            <>
-          {mocked ? <p className="open-sentence-pocket__kicker">Illustrated source · not live retrieval</p> : null}
-          {leftOpen && String(exploration.question || '').trim() ? (
-            <p className="open-sentence-pocket__whisper">You left this open.</p>
-          ) : null}
+        {children ?? accepted}
+      </span>
+      {controls}
+    </p>
+  );
 
-          <div className="open-sentence-pocket__source">
-            {!source ? (
-              <p className="open-sentence-pocket__silence">Nothing beside this sentence yet.</p>
-            ) : source.available === false ? (
-              <p className="open-sentence-pocket__unavailable">
-                {source.title || 'This source'} is unavailable. A similar passage was not attached.
-              </p>
-            ) : (
-              <>
-                <p className="open-sentence-pocket__source-title">{source.title}</p>
-                {inspecting && source.aroundBefore ? (
-                  <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
-                ) : null}
-                {source.passage ? (
-                  <p className={`open-sentence-pocket__passage${exploration.placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
-                    {source.passage}
-                  </p>
-                ) : (
-                  <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
-                )}
-                {inspecting && source.aroundAfter ? (
-                  <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
-                ) : null}
-                {inspecting && aroundMissing ? (
-                  <p className="open-sentence-pocket__silence">
-                    The surrounding lines were not saved with this passage.
-                  </p>
-                ) : null}
-                {source.qualification ? (
-                  <p className="open-sentence-pocket__qualification">{source.qualification}</p>
-                ) : null}
-                {exploration.placed ? (
-                  <p className="open-sentence-pocket__placed">Placed beside {source.title}</p>
-                ) : null}
-                <button
-                  type="button"
-                  className="open-sentence-pocket__marginalia"
-                  aria-pressed={exploration.mark === '!'}
-                  aria-label={exploration.mark === '!' ? 'Remove mark' : 'Leave a mark'}
-                  onClick={() => commit(leaveMark(exploration, exploration.mark !== '!'))}
-                >
-                  {exploration.mark || '!'}
-                </button>
-                <div className="open-sentence-pocket__actions">
-                  <button type="button" onClick={() => setInspecting((current) => !current)}>
-                    {inspecting ? 'Hide surrounding' : 'Read around this'}
-                  </button>
-                  <SourceHome source={source} />
-                  {exploration.placed ? (
-                    <button type="button" onClick={() => commit(cancelPlacement(exploration))}>
-                      Remove passage
-                    </button>
-                  ) : previewing ? (
-                    <>
-                      <div className="open-sentence-pocket__preview">
-                        <p className="open-sentence-pocket__label">Beside the thought</p>
-                        <p className="open-sentence-pocket__passage">{source.passage}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          commit(placeSource(exploration));
-                          setPreviewing(false);
-                        }}
-                      >
-                        Place here
-                      </button>
-                      <button type="button" onClick={() => setPreviewing(false)}>Cancel</button>
-                    </>
-                  ) : (
-                    <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="open-sentence-pocket__write">
-            <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-wording`}>
-              Try a narrower wording
-            </label>
-            <textarea
-              id={`${pocketId}-wording`}
-              rows={3}
-              value={exploration.provisionalText}
-              onChange={(event) => commit(tryWording(exploration, event.target.value))}
+  const reveal = (
+    <div
+      className={`open-sentence__reveal${open ? ' is-open' : ''}`}
+      data-mocked={mocked ? 'true' : undefined}
+    >
+      <section
+        id={pocketId}
+        className="open-sentence-pocket"
+        aria-hidden={!open}
+        inert={!open}
+        aria-label="Opened sentence"
+      >
+        {open || keepPocket ? (
+          <>
+            <PocketBody
+              pocketId={pocketId}
+              exploration={exploration}
+              mocked={mocked}
+              leftOpen={leftOpen}
+              inspecting={inspecting}
+              setInspecting={setInspecting}
+              previewing={previewing}
+              setPreviewing={setPreviewing}
+              settling={settling}
+              accepted={accepted}
+              acceptedLabel={acceptedLabel}
+              placeBesideTitle={placeBesideTitle}
+              onCommit={commit}
+              onOpenSourceHome={onOpenSourceHome}
             />
-            {spans.length ? (
-              <p className="open-sentence-pocket__diff" aria-label="Changed words">
-                {spans.map((span, index) => (
-                  span.changed ? <mark key={`${span.text}-${index}`}>{span.text}</mark> : span.text
-                ))}
-              </p>
-            ) : null}
-            {wordingChanged(exploration) ? (
-              <button type="button" onClick={() => commit(putItBack(exploration))}>
-                Put it back
-              </button>
-            ) : null}
-            <p className="open-sentence-pocket__qualification">
-              The article still reads: {accepted}
-            </p>
-          </div>
+            <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
+              Close
+            </button>
+          </>
+        ) : null}
+      </section>
+    </div>
+  );
 
-          <div className="open-sentence-pocket__question">
-            <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-question`}>
-              Leave this open
-            </label>
-            <textarea
-              id={`${pocketId}-question`}
-              rows={2}
-              value={exploration.question}
-              onChange={(event) => commit(keepQuestion(exploration, event.target.value))}
-              placeholder="An unfinished question can stay unfinished."
-            />
-            <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-return`}>
-              A note for your return
-            </label>
-            <input
-              id={`${pocketId}-return`}
-              value={exploration.returnNote}
-              onChange={(event) => commit(setReturnNote(exploration, event.target.value))}
-              placeholder="Next: …"
-            />
-          </div>
+  if (split) {
+    return (
+      <>
+        {createPortal(line, hosts.controls)}
+        {createPortal(reveal, hosts.pocket)}
+      </>
+    );
+  }
 
-          <button type="button" className="open-sentence-pocket__close" onClick={closePocket}>
-            Close
-          </button>
-            </>
-          ) : null}
-        </section>
-      </div>
+  return (
+    <div className={className}>
+      {line}
+      {reveal}
     </div>
   );
 };

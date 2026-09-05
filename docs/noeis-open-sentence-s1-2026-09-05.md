@@ -41,8 +41,6 @@ Opening a sentence is not highlighting, copying, or annotating. Those keep their
 
 The first frames are the Parenting Wiki journey from the spec: read, open the sentence, inspect an illustrated Nomad passage, place it, try “recoverable mistakes,” leave a question, get interrupted, come back. The Wiki text is still the original sentence.
 
-We are not also storyboarding Library-to-pocket in this pass. Same layer later; one continuous journey first.
-
 The Parenting and Nomad wording here is illustrative. It is not the live page, and it does not use private ids.
 
 ## Craft in the first frames, not as extra plots
@@ -75,6 +73,20 @@ Ordinary reading at `/wiki/read/:id` can open a claim in place. The article stay
 
 Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a kept question discards the experiment; keeping the question keeps the question only.
 
+## Library-to-pocket (2026-09-05)
+
+The Wiki pocket’s Library door leaves a return ticket in `sessionStorage` (`noeis.open-sentence.return`), not in the URL. Library lands on the exact highlight. A quiet arrival remembers the sentence you were holding and offers a way back to `/wiki/read/:id?claimId=…`. The pocket does not open itself.
+
+Opening that focused highlight uses the same pocket. The source is already this article, so “Open in Library” is gone. Surrounding lines come from saved prefix/suffix or an exact slice of the article. Place beside, when you arrived from a Wiki, writes `placed` onto the Wiki draft so the passage is waiting when you return. It is not an accepted revision.
+
+The Library companion rebinds to the opened highlight, then back to the article title.
+
+**Eligibility:** a focused saved highlight on an owned Library article.
+**Quality bar:** surrounding only from saved prefix/suffix, or the exact highlight text in the article (offset only to disambiguate identical repeats). No similar-text repair.
+**Silence:** missing surrounding → “The surrounding lines were not saved with this passage.” A missing line is not replaced by a neighbor. Filler is never the answer.
+
+SelectionMenu, PassageDoor, and footnote jump stay themselves. This is not a second chat.
+
 ## Reuse inventory
 
 What the pocket sits on. No new engines.
@@ -84,7 +96,7 @@ What the pocket sits on. No new engines.
 | Ordinary Wiki reading with a companion | `/wiki/read/:id` mounts `WikiPageReadView` and the persistent `AgentRail`. | Do not start from `/wiki/workspace`. That surface already swapped the rail for an embedded composer. |
 | Sentence identity on a Wiki | Claim nodes carry `data-claim-id`; citations are `.wiki-claim-citation`. | Do not invent a parallel sentence id. |
 | Citation click today | Jumps to the footnote on the same page. The pocket opens the attached passage; the footnote jump remains. | Do not replace footnote jump with a similar-text search. |
-| Exact Library passage | `buildCanonicalHighlightPath` → `/library?articleId=&highlightId=`. | Do not key a source by similar text. |
+| Exact Library passage | `buildCanonicalHighlightPath` → `/library?articleId=&highlightId=`. A return ticket remembers why you came. | Do not key a source by similar text. Do not put wiki text in the URL. |
 | Companion rebind | `AgentRail` already shows “Now with” + subject and uses `useContextualAgentSurface`. One agent id: `agent.context-partner`. | Do not mount a second chat in the pocket. |
 | Motion | `columnMotion.js` (220ms, the 0.16,1,0.3,1 curve) and `--noeis-motion-deliberate` (320ms). `usePrefersReducedMotion`. | Do not add a new motion language. |
 | Draft vs accepted | Wiki review/accept is already the acceptance boundary. Working-memory drafts are already private. | Do not run a knowledge-acceptance ceremony on a private pocket save. |
@@ -95,4 +107,4 @@ Still later: how a selection stores revision + anchor in existing source documen
 
 ## Exit for this stage
 
-A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged.
+A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there.

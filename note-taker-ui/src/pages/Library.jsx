@@ -96,6 +96,7 @@ const Library = () => {
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
   const [activeHighlightId, setActiveHighlightId] = useState('');
+  const [openedSentenceText, setOpenedSentenceText] = useState('');
   const [sourceContextOpen, setSourceContextOpen] = useState(Boolean(requestedHighlightId));
   const [articleGraphConnections, setArticleGraphConnections] = useState({ outgoing: [], incoming: [] });
   const [sourceDetailState, setSourceDetailState] = useState({
@@ -1090,7 +1091,7 @@ const Library = () => {
     'agent-surface.library',
     librarySurfaceDescriptor,
     {
-      subject: librarySubject({
+      subject: openedSentenceText || librarySubject({
         article: exactSourceId !== 'library' ? { title: exactSourceTitle } : null,
         count: corpusTotal
       }),
@@ -1148,6 +1149,7 @@ const Library = () => {
       onAskLibrarian={handleAskLibrarian}
       onToggleEvergreen={handleToggleEvergreen}
       onTogglePlacement={handleTogglePlacement}
+      onOpenedSentence={setOpenedSentenceText}
       folderOptions={folderOptions}
       articleOptions={articleOptions}
       articleQuery={articleQuery}

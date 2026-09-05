@@ -36,6 +36,7 @@ const LibraryMain = ({
   onAskLibrarian,
   onToggleEvergreen,
   onTogglePlacement,
+  onOpenedSentence = null,
   folderOptions,
   articleOptions,
   articleQuery,
@@ -232,6 +233,7 @@ const LibraryMain = ({
             onAskLibrarian={onAskLibrarian}
             onToggleEvergreen={onToggleEvergreen}
             onTogglePlacement={onTogglePlacement}
+            onOpenedSentence={onOpenedSentence}
             sourceTrace={(
               <LibrarySourceTrace
                 source={sourceDetail}
