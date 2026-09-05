@@ -204,6 +204,10 @@ const Library = () => {
   }, [selectedArticleId]);
 
   useEffect(() => {
+    setOpenedSentenceText('');
+  }, [activeHighlightId, selectedArticleId]);
+
+  useEffect(() => {
     let cancelled = false;
     const detailArticleId = selectedArticleId
       || (browseSourceType === 'article' ? browseSourceId : '')

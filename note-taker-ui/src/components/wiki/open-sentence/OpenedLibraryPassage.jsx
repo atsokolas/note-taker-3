@@ -50,6 +50,8 @@ const OpenedLibraryPassage = ({
   );
   const [exploration, setExploration] = useState(() => readRemembered(scope, highlightId, live));
   const [hosts, setHosts] = useState(null);
+  const opened = isOpen(exploration);
+  const placed = Boolean(exploration.placed);
 
   useEffect(() => {
     setExploration(readRemembered(scope, highlightId, live));
@@ -59,16 +61,16 @@ const OpenedLibraryPassage = ({
     const remembered = rememberDraft(scope, highlightId, next, live);
     rememberOpened(scope, highlightId, remembered, highlightId);
     if (ticket) {
-      if (remembered.placed && !exploration.placed) placeBesideWikiDraft(ticket);
-      if (!remembered.placed && exploration.placed) cancelWikiDraftPlacement(ticket);
+      if (remembered.placed && !placed) placeBesideWikiDraft(ticket);
+      if (!remembered.placed && placed) cancelWikiDraftPlacement(ticket);
     }
     setExploration(remembered);
-  }, [exploration.placed, highlightId, live, scope, ticket]);
+  }, [highlightId, live, placed, scope, ticket]);
 
   useEffect(() => {
-    onOpenedText?.(isOpen(exploration) ? String(live.originalText || '').trim() : '');
+    onOpenedText?.(opened ? String(live.originalText || '').trim() : '');
     return () => onOpenedText?.('');
-  }, [exploration.status, live.originalText, onOpenedText]);
+  }, [live.originalText, onOpenedText, opened]);
 
   useLayoutEffect(() => {
     if (!inArticle) {
@@ -80,7 +82,7 @@ const OpenedLibraryPassage = ({
     return () => {
       next?.controls.remove();
       next?.pocket.remove();
-      next?.mark?.classList.remove('open-sentence__held', 'is-open');
+      next?.mark?.classList.remove('open-sentence__held', 'is-open', 'is-placed');
       setHosts(null);
     };
   }, [contentHtml, highlightId, inArticle, rootRef]);
@@ -89,10 +91,10 @@ const OpenedLibraryPassage = ({
     const mark = hosts?.mark;
     if (!mark) return undefined;
     mark.classList.add('open-sentence__held');
-    mark.classList.toggle('is-open', isOpen(exploration));
-    mark.classList.toggle('is-placed', Boolean(exploration.placed));
+    mark.classList.toggle('is-open', opened);
+    mark.classList.toggle('is-placed', placed);
     return () => mark.classList.remove('is-open', 'is-placed');
-  }, [exploration.placed, exploration.status, hosts]);
+  }, [hosts, opened, placed]);
 
   const pocket = (
     <OpenSentence
