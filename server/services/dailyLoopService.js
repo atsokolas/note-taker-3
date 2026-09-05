@@ -19,7 +19,7 @@ const {
 } = require('./wikiClaimImpactService');
 const { WATCHER_PROVIDERS } = require('./watcherPolicy');
 const { wordBoundaryTrim } = require('../lib/editorialText');
-const { fireAskedBack } = require('./kairosFireService');
+const { fireAskedBack, fireStickyNotes } = require('./kairosFireService');
 
 // Paid transcript providers are intentionally excluded from the product while
 // Noeis operates on free authoritative sources only. Historical rows can remain
@@ -230,6 +230,12 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
     now,
     timezone
   });
+  const stickyNotes = await fireStickyNotes({
+    userId,
+    models,
+    now,
+    timezone
+  });
   const briefing = {
     ...baseBriefing,
     window: { since: new Date(priorOpenedAt).toISOString(), through: now.toISOString(), cursorAdvancedBy: advanceCursor ? 'morning_paper_open' : null },
@@ -243,7 +249,8 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
     reviewTriage: buildReviewTriage({ pages: selectionPages, now: now.getTime() }),
     watching: listWatching(pages),
     checkInStreak: Number(user.morningPaper?.checkInStreak || 0),
-    askedBack
+    askedBack,
+    stickyNotes
   };
   await expireLowStakesReviews({
     WikiPage: models.WikiPage,

@@ -1491,6 +1491,23 @@ body.noeis-editorial .library-page-shell .library-folder-name,
   border-bottom-color: currentColor;
 }
 
+/* New For You above, Previously Seen below. The fold is one quiet mono line,
+   not a section header shouting — and seen rows step down one notch in
+   contrast rather than dimming into illegibility. The fold prints only when
+   both sides hold something; otherwise the list is exactly what it was. */
+.library-seen-fold {
+  margin: 18px 0 6px;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.library-article-row.is-seen .library-article-row-title {
+  color: var(--text-secondary, var(--vellum-faint));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .library-shelf__branch > * > span:not(.library-shelf__disclose) { transition: none; }
   .library-shelf__branch.is-landing > * > span:not(.library-shelf__disclose) { animation: none; }

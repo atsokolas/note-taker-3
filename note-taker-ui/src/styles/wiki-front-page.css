@@ -829,6 +829,41 @@ html[data-ui-theme='dark'] body.noeis-editorial .wiki-front-page {
   text-wrap: pretty;
 }
 
+/* Pinned lines whose morning has come. The same measure as the asked-back
+   block beside it, without its eyebrow — a nudge needs no masthead, and
+   καιρός belongs to promises, not to pinned lines. */
+.wiki-front-page__sticky-notes {
+  display: grid;
+  gap: 6px;
+  max-width: 46ch;
+  margin: 28px 0 0;
+  padding: 4px 0 4px 13px;
+}
+
+.wiki-front-page__sticky-notes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.wiki-front-page__sticky-notes-list a {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.wiki-front-page__sticky-notes-list a:hover,
+.wiki-front-page__sticky-notes-list a:focus-visible {
+  border-bottom-color: currentColor;
+}
+
 .wiki-front-page__asked-back-list {
   margin: 8px 0 0;
   padding: 0;

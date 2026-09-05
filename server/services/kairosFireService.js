@@ -203,8 +203,45 @@ const fireAskedBack = async ({
   return askedBack;
 };
 
+/* Pinned lines whose morning has come. One shot, not recurring: a dated
+   sticky prints once and goes home, and an undated one never leaves the
+   object it is pinned to. At most three, oldest promise first — the paper
+   is not a second pile. */
+const STICKY_CAP = 3;
+
+const fireStickyNotes = async ({
+  userId,
+  models = {},
+  now = new Date(),
+  timezone = 'UTC'
+} = {}) => {
+  if (!models.Sticky?.find) return [];
+  const today = localDateForTimezone(now, timezone);
+  const entries = await loadRows(models.Sticky.find({ userId, status: 'pending' }));
+  const due = entries
+    .filter((row) => row?.dueAt && isDue(row, timezone, today) && clean(row.text) && clean(row.targetId))
+    .sort((left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime())
+    .slice(0, STICKY_CAP);
+  const printed = [];
+  for (const row of due) {
+    printed.push({
+      stickyId: idOf(row),
+      text: clean(row.text, 140),
+      targetType: String(row.targetType || ''),
+      targetId: String(row.targetId || ''),
+      targetTitle: clean(row.targetTitle, 200),
+      href: clean(row.targetHref, 500),
+      day: today
+    });
+    row.status = 'done';
+    if (typeof row.save === 'function') await row.save();
+  }
+  return printed;
+};
+
 module.exports = {
   ASKED_BACK_CAP,
   fireAskedBack,
+  fireStickyNotes,
   normalizeCadence
 };

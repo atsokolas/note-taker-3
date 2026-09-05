@@ -2029,3 +2029,26 @@ describe('The index while it is still loading', () => {
     expect(screen.queryByRole('button', { name: /company case/i })).not.toBeInTheDocument();
   });
 });
+
+describe('The case shape at a glance', () => {
+  it('names what lives besides the sentence', async () => {
+    const { getArticles } = require('../api/articles');
+    getArticles.mockResolvedValue([]);
+    listWikiPages.mockResolvedValue([judgmentPage()]);
+    renderIndex();
+    expect(await screen.findByText('1 decision')).toBeInTheDocument();
+  });
+
+  it('stays silent when the sentence is all a case holds', async () => {
+    const { getArticles } = require('../api/articles');
+    getArticles.mockResolvedValue([]);
+    listWikiPages.mockResolvedValue([{
+      _id: 'wiki-bare',
+      title: 'Bare',
+      judgment: { currentJudgment: 'A claim with nothing behind it yet.' }
+    }]);
+    renderIndex();
+    expect((await screen.findAllByRole('link', { name: 'Bare' })).length).toBeGreaterThan(0);
+    expect(document.querySelector('.judgment__index-slots')).toBeNull();
+  });
+});

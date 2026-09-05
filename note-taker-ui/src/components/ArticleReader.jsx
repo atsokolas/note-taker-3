@@ -5,6 +5,8 @@ import { createHighlight } from '../api/highlights';
 import { listWikiPages } from '../api/wiki';
 import EvergreenToggle from './EvergreenToggle';
 import PlacementSwitch from './PlacementSwitch';
+import StickyNotes from './StickyNotes';
+import { buildCanonicalArticlePath } from '../utils/sourceRoutes';
 import useTourSignal from '../tour/useTourSignal';
 import useTextSelection from './reader/useTextSelection';
 import SelectionMenu from './reader/SelectionMenu';
@@ -309,6 +311,14 @@ const ArticleReader = ({
             )}
           </div>
           {folioLine ? <ArticleFolioLine line={folioLine} articleId={article._id} /> : null}
+          {/* One private line pinned to the source. Not a note, not a claim:
+              small enough to hold a nudge, private enough to hold a doubt. */}
+          <StickyNotes
+            targetType="article"
+            targetId={article?._id}
+            targetTitle={article?.title}
+            targetHref={buildCanonicalArticlePath(article?._id)}
+          />
         </div>
         {/* Keeping a source for life is something you do to it, so it sits
             with the other thing you can do to it. In the meta line it was a

@@ -23,8 +23,9 @@ import {
 import { useNoeisCapabilities } from '../system/noeisCapabilityContext';
 import { displayWikiPageTitle } from './wiki/wikiRepoDossierModel';
 import { normalizeSpaces } from '../utils/editorialText';
-import { buildPaletteDestinations } from '../system/paletteDestinations';
+import { buildPaletteDestinations, placementCommands } from '../system/paletteDestinations';
 import { getFolders } from '../api/folders';
+import { setArticlePlacement } from '../api/articles';
 
 const EMPTY_GROUPS = {
   notes: [],
@@ -266,6 +267,21 @@ const CommandPalette = ({ open, onClose }) => {
     pathname: currentPathname(),
     search: currentLocationSearch()
   });
+
+  /* Positions as commands, on the piece on screen. The palette already knows
+     everywhere it can send you; this is the one thing it can do to what you
+     are looking at — and only while there is something to act on. The title
+     comes off the shelf already read on open, so no second fetch. */
+  const paletteSubject = useMemo(() => {
+    const params = new URLSearchParams(currentLocationSearch());
+    const fromQuery = String(params.get('articleId') || '').trim();
+    const pathMatch = currentPathname().match(/^\/articles\/([^/?#]+)/);
+    const id = fromQuery || (pathMatch ? decodeURIComponent(pathMatch[1]).trim() : '');
+    if (!id) return null;
+    const found = shelfArticles.find((row) => String(row?._id || row?.id || '') === id);
+    if (!found || !String(found.title || '').trim()) return null;
+    return { _id: id, title: found.title };
+  }, [open, shelfArticles]);
 
   /* Generated, never listed. The list this replaces still offered Review and
      Map — two dissolved rooms — and had never heard of Judgment, the three
@@ -606,6 +622,52 @@ const CommandPalette = ({ open, onClose }) => {
     }
   }, [navigate, onClose, systemStatus]);
 
+  /* Parking the piece on screen, from the palette. A parked piece lands on
+     its pile so the reader meets it where it went; a piece sent home stays
+     where it is, and the receipt is honest about both. Failure keeps the
+     palette's contract: name the stage, keep the intent, offer the retry. */
+  const placeArticleFromPalette = useCallback(async (command = {}) => {
+    const placement = String(command.placement || '').trim();
+    const targetId = String(command.targetId || '').trim();
+    if (!placement || !targetId) return;
+    const name = String(
+      shelfArticles.find((row) => String(row?._id || row?.id || '') === targetId)?.title || ''
+    ).trim() || 'This piece';
+    systemStatus.clearRecoverableFailure();
+    systemStatus.setBackgroundWork({
+      label: 'Parking the piece',
+      stage: `Moving ${name.slice(0, 48)}`
+    });
+    try {
+      const saved = await setArticlePlacement(targetId, placement);
+      const next = saved?.placement || placement;
+      const pile = next === 'later' ? 'later' : next === 'setAside' ? 'set-aside' : '';
+      const href = pile ? `/library?scope=${pile}` : null;
+      systemStatus.setLatestReceipt({
+        id: `command-place-${targetId}-${Date.now()}`,
+        title: !pile ? 'Sent home' : next === 'later' ? 'Parked in Later' : 'Set aside',
+        summary: !pile
+          ? `"${name}" is back where it lives.`
+          : `"${name}" ${next === 'later' ? 'is parked, oldest-owed first.' : 'is at hand this week.'}`,
+        status: 'completed',
+        ...(href ? { href } : {})
+      });
+      onClose?.();
+      if (href) navigate(href);
+    } catch (err) {
+      console.error('Palette placement failed', err);
+      systemStatus.setRecoverableFailure({
+        stage: 'Command palette',
+        message: 'Could not move the piece.',
+        retryable: true,
+        retry: () => { placeArticleFromPalette(command); }
+      });
+      onClose?.();
+    } finally {
+      systemStatus.setBackgroundWork(null);
+    }
+  }, [navigate, onClose, shelfArticles, systemStatus]);
+
   const createBlockId = useCallback(() => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
     return `block-${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
@@ -809,6 +871,13 @@ const CommandPalette = ({ open, onClose }) => {
     const actionSection = {
       title: 'Actions',
       items: [
+        ...placementCommands({ subject: paletteSubject }).map((command) => ({
+          id: command.id,
+          type: 'Command',
+          label: command.hint ? `${command.label} — ${command.hint}` : command.label,
+          immediate: true,
+          action: () => placeArticleFromPalette(command)
+        })),
         libraryFilingReviewIntent ? {
           id: 'command-library-filing',
           type: 'Command',
@@ -1018,7 +1087,7 @@ const CommandPalette = ({ open, onClose }) => {
     return list
       .map(section => ({ ...section, items: section.items.filter(Boolean) }))
       .filter(section => section.items.length > 0);
-  }, [articles, capabilityModel.commands, collections, concepts, createCollection, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
+  }, [articles, capabilityModel.commands, collections, concepts, createCollection, createNote, createQuestionFromHighlights, createTemporalReview, createWiki, createWikiComparison, createWikiSectionFromHighlights, isWikiSurface, notebook, pages, paletteSubject, placeArticleFromPalette, pullReferencePath, query, retrieveHighlight, reviewLibraryFiling, searchGroups, wikiPages]);
 
   const selectableItems = useMemo(
     () => sections.flatMap(section => section.items),
