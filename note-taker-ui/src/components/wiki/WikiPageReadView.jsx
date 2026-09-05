@@ -78,6 +78,10 @@ import {
 import WikiRepoDeveloperQuickstart from './WikiRepoDeveloperQuickstart';
 import WikiRepoDossierOverview from './WikiRepoDossierOverview';
 import WikiRepoDossierBody from './WikiRepoDossierBody';
+import {
+  WikiOpenSentenceProvider,
+  wrapOpenableParagraph
+} from './open-sentence/WikiOpenSentence';
 import WikiLivingThesis from './WikiLivingThesis';
 import WikiInvestmentValuation from './WikiInvestmentValuation';
 import WikiFirstHeadReview from './WikiFirstHeadReview';
@@ -1224,6 +1228,7 @@ const WikiPageReadView = ({
   const [repoComparisonAvailable, setRepoComparisonAvailable] = useState(false);
   const [continuationBasis, setContinuationBasis] = useState(null);
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
+  const [openedSentenceText, setOpenedSentenceText] = useState('');
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
@@ -1233,7 +1238,7 @@ const WikiPageReadView = ({
     mode: 'read'
   });
   useNoeisAgentSurface('agent-surface.wiki', wikiSurfaceDescriptor, {
-    subject: displayWikiPageTitle(page, 'Wiki page'),
+    subject: openedSentenceText || displayWikiPageTitle(page, 'Wiki page'),
     boundSources: page ? countWikiSources(page) : null,
     empty: page
       ? 'Nothing to retrieve until you ask against this accepted page.'
@@ -2500,6 +2505,7 @@ const WikiPageReadView = ({
     && !investmentDossierPage
     && !livingThesisPage
     && !companyDossier;
+  const openSentenceEnabled = Boolean(page) && !workspaceMode && standardWikiPage;
   const specializedWorkflowPage = !standardWikiPage && !weekendReadingsPage;
   const standardPageFacts = standardWikiPage ? [
     labelFor(page.pageType || 'topic'),
@@ -3136,17 +3142,25 @@ const WikiPageReadView = ({
                     focusedClaimRef={focusRequestedClaimNode}
                   />
                 ) : (
-                  renderTiptapDoc(displayBody, {
-                    tocItems,
-                    recentAnchorIds: recentParagraphAnchors,
-                    wikiLinkPages,
-                    validateWikiLinkTargets: rawWikiLinkPagesLoaded,
-                    validWikiLinkTargetIds,
-                    claimLedgerById,
-                    focusedClaimId,
-                    focusedClaimRef: focusRequestedClaimNode,
-                    kinFootnote: listeningRef
-                  })
+                  <WikiOpenSentenceProvider
+                    enabled={openSentenceEnabled}
+                    page={page}
+                    pageId={pageId}
+                    onOpenedText={setOpenedSentenceText}
+                  >
+                    {renderTiptapDoc(displayBody, {
+                      tocItems,
+                      recentAnchorIds: recentParagraphAnchors,
+                      wikiLinkPages,
+                      validateWikiLinkTargets: rawWikiLinkPagesLoaded,
+                      validWikiLinkTargetIds,
+                      claimLedgerById,
+                      focusedClaimId,
+                      focusedClaimRef: focusRequestedClaimNode,
+                      kinFootnote: listeningRef,
+                      wrapParagraph: openSentenceEnabled ? wrapOpenableParagraph : undefined
+                    })}
+                  </WikiOpenSentenceProvider>
                 )}
               </section>
                 {showMarginalia ? (

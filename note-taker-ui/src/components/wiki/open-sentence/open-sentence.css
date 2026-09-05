@@ -161,6 +161,32 @@
   font-size: 0.72rem;
 }
 
+.open-sentence-pocket__whisper,
+.open-sentence-pocket__placed {
+  margin: 0;
+  color: var(--noeis-thread-strong);
+  font-family: var(--noeis-font-reading);
+  font-size: 0.92rem;
+  font-style: italic;
+}
+
+.open-sentence-pocket__passage.is-placed {
+  padding-left: 0.75em;
+  border-left: 2px solid color-mix(in srgb, var(--noeis-thread) 70%, var(--noeis-rule));
+}
+
+.open-sentence-pocket__passage.is-settling {
+  animation: open-sentence-place var(--noeis-motion-base) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.open-sentence-pocket__home {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--noeis-ink);
+  font-size: 0.88rem;
+}
+
 .open-sentence-pocket__silence,
 .open-sentence-pocket__unavailable {
   margin: 0;
@@ -240,12 +266,22 @@
   to { opacity: 1; transform: scaleY(1); }
 }
 
+@keyframes open-sentence-place {
+  from { opacity: 0.55; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.wiki-read__body .open-sentence-pocket p {
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .open-sentence__reveal {
     transition: none;
   }
 
-  .open-sentence__held.is-open::before {
+  .open-sentence__held.is-open::before,
+  .open-sentence-pocket__passage.is-settling {
     animation: none;
   }
 }

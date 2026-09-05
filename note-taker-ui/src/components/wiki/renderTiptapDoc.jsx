@@ -314,14 +314,25 @@ const renderBlock = (node, key, options = {}) => {
         blockIndex: key
       });
       const isRecent = options.recentAnchorIds?.has?.(anchorId);
+      const className = isRecent ? 'wiki-read__paragraph--recent' : undefined;
+      const children = renderInline(node.content, `p-${key}`, options);
+      if (typeof options.wrapParagraph === 'function') {
+        return options.wrapParagraph({
+          node,
+          key,
+          id: anchorId,
+          className,
+          children
+        });
+      }
       return (
         <p
           key={key}
           id={anchorId}
           data-wiki-block-anchor={anchorId}
-          className={isRecent ? 'wiki-read__paragraph--recent' : undefined}
+          className={className}
         >
-          {renderInline(node.content, `p-${key}`, options)}
+          {children}
         </p>
       );
     }

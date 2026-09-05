@@ -6,13 +6,15 @@ export const EXPLORATION_STATUS = Object.freeze({
 export const createExploration = ({
   id = '',
   originalText = '',
-  source = null
+  source = null,
+  mark = ''
 } = {}) => ({
   id: String(id || '').trim(),
   originalText: String(originalText || ''),
   provisionalText: String(originalText || ''),
   question: '',
   returnNote: '',
+  mark: mark === '!' ? '!' : '',
   source: source && typeof source === 'object' ? source : null,
   placed: false,
   status: EXPLORATION_STATUS.closed
@@ -57,6 +59,11 @@ export const cancelPlacement = (exploration) => ({
   placed: false
 });
 
+export const leaveMark = (exploration, marked = true) => ({
+  ...exploration,
+  mark: marked ? '!' : ''
+});
+
 export const isOpen = (exploration) => exploration?.status === EXPLORATION_STATUS.open;
 
 export const wordingChanged = (exploration) => (
@@ -94,6 +101,7 @@ export const restoreExploration = (raw, fallback) => {
       originalText: base.originalText,
       source: base.source,
       id: base.id,
+      mark: parsed.mark === '!' ? '!' : '',
       status: parsed.status === EXPLORATION_STATUS.open
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed

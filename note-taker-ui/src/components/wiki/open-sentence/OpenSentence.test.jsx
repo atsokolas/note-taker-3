@@ -1,10 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
   changedWordSpans,
   closeExploration,
   createExploration,
+  leaveMark,
   openExploration,
   placeSource,
   putItBack,
@@ -17,7 +19,9 @@ import {
 import { STORYBOARD_SENTENCE, STORYBOARD_SOURCE } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
-  <OpenSentence exploration={exploration} onChange={onChange} mocked />
+  <MemoryRouter>
+    <OpenSentence exploration={exploration} onChange={onChange} mocked />
+  </MemoryRouter>
 );
 
 describe('openSentenceModel', () => {
@@ -62,6 +66,12 @@ describe('openSentenceModel', () => {
       source: { title: 'Nomad', available: false }
     });
     expect(placeSource(start).placed).toBe(false);
+  });
+
+  it('keeps a private mark without treating it as evidence', () => {
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE });
+    expect(leaveMark(start).mark).toBe('!');
+    expect(leaveMark(leaveMark(start), false).mark).toBe('');
   });
 });
 
@@ -111,5 +121,22 @@ describe('OpenSentence', () => {
     })));
     expect(screen.getByText(/Nomad is unavailable/)).toBeInTheDocument();
     expect(screen.queryByText(/similar passage was not attached/)).toBeInTheDocument();
+  });
+
+  it('remembers an unfinished question without turning it into a badge', () => {
+    renderOpen(openExploration({
+      ...createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      question: 'Which mistakes?'
+    }));
+    expect(screen.getByText('You left this open.')).toBeInTheDocument();
+  });
+
+  it('says the surrounding lines were not saved instead of inventing them', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: { ...STORYBOARD_SOURCE, aroundBefore: '', aroundAfter: '' }
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Read around this' }));
+    expect(screen.getByText('The surrounding lines were not saved with this passage.')).toBeInTheDocument();
   });
 });

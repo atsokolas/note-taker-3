@@ -2794,4 +2794,28 @@ describe('WikiPageReadView', () => {
     expect(screen.queryByText('Page status')).not.toBeInTheDocument();
     expect(document.querySelector('.wiki-read--research-edition')).toBeInTheDocument();
   });
+
+  it('opens a claim in place on ordinary reading and leaves the accepted line alone', async () => {
+    renderReadView();
+    await flushDeferredWikiReadWork();
+
+    const claim = screen.getByText('Memory compounds with review.');
+    expect(claim).toHaveAttribute('data-claim-id', 'claim-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const pocket = screen.getByLabelText('Opened sentence');
+    expect(within(pocket).getByText('Source snippet')).toBeInTheDocument();
+    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(within(pocket).getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('does not open sentences inside the workspace composer shell', async () => {
+    renderReadView({ workspaceMode: true });
+    await flushDeferredWikiReadWork();
+
+    expect(screen.getByText('Memory compounds with review.')).toHaveAttribute('data-claim-id', 'claim-1');
+    expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+  });
 });

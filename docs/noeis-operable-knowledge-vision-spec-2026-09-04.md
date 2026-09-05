@@ -390,14 +390,14 @@ Decided for the first scene (2026-09-05), recorded in [Open a sentence S1](noeis
 
 1. **Form:** the article stays the page; the sentence opens a pocket in place; the companion rebinds. Pocket reveal is 320ms on the existing sentence-motion curve; reduced motion is the open state with no drawing.
 2. **Persistence in the prototype:** tab-local device-save of the private draft. Not server-sync, not an accepted revision.
-3. Anchors and source versions remain an implementation contract for binding, not for the storyboard.
+3. Claim identity is `data-claim-id`. Attached sources are citation indexes / ledger `sourceRefIds` into `sourceRefs`. No similar-text repair.
 4. **First craft texture:** marginalia, placement, restrained colophon study.
 5. The next horizon is still chosen from demonstrated use.
 6. Live-agent budget is still closed until this picture is approved.
 
-Still open: whether this pocket picture is the one to bind to `WikiPageReadView`.
+Still open: whether this pocket picture is the one to keep as the product’s ordinary reading gesture, now that owned Wiki pages can open a claim in place.
 
-**This stage:** the interactive storyboard at `/design-preview/open-sentence`. Do not treat it as deployment of Open a sentence on live Wikis.
+**This stage:** the pocket on `/wiki/read/:id` for standard Wikis, plus the illustrated storyboard at `/design-preview/open-sentence`. Not a retrieval rewrite, not an accepted revision, not a public-share leak.
 
 ## Appendix — consolidation coverage
 

@@ -63,26 +63,36 @@ Closing the pocket without keeping the question discards the experiment. Keeping
 
 ## What this is not yet
 
-Not wired into `WikiPageReadView`. Not a live retrieval path. Not an accepted-revision flow. The storyboard is the acceptance picture. Binding it to owned pages is the next stage, after this picture is right.
+Not a live retrieval engine. Not an accepted-revision flow. Public shares stay closed. The workspace composer does not grow a second chat. The illustrated storyboard remains the Parenting journey; owned `/wiki/read/:id` pages now reuse the same pocket on real claims.
 
-## Reuse inventory (read-only)
+## Live Wiki binding (2026-09-05)
 
-What exists today, and what the pocket should sit on later. No new engines.
+Ordinary reading at `/wiki/read/:id` can open a claim in place. The article stays. The companion rebinds to that sentence. Drafts stay in `sessionStorage` as `noeis.open-sentence.{pageId}.{claimId}`. Restore cannot overwrite accepted claim text or invent a source.
+
+**Eligibility:** a claim mark on a standard Wiki paragraph, with citation indexes or ledger `sourceRefIds` pointing at a sourceRef.
+**Quality bar:** identity only. No similar-text repair. Missing surrounding lines stay missing. Empty quotes stay empty.
+**Silence:** no attached source → “Nothing beside this sentence yet.” A cited slot with no sourceRef → unavailable, and a neighbor is not substituted.
+
+Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a kept question discards the experiment; keeping the question keeps the question only.
+
+## Reuse inventory
+
+What the pocket sits on. No new engines.
 
 | Need | Already in the product | Do not do |
 | --- | --- | --- |
 | Ordinary Wiki reading with a companion | `/wiki/read/:id` mounts `WikiPageReadView` and the persistent `AgentRail`. | Do not start from `/wiki/workspace`. That surface already swapped the rail for an embedded composer. |
 | Sentence identity on a Wiki | Claim nodes carry `data-claim-id`; citations are `.wiki-claim-citation`. | Do not invent a parallel sentence id. |
-| Citation click today | Jumps to the footnote on the same page. It does not open the Library passage. | Do not replace footnote jump until the pocket can open the exact source. |
+| Citation click today | Jumps to the footnote on the same page. The pocket opens the attached passage; the footnote jump remains. | Do not replace footnote jump with a similar-text search. |
 | Exact Library passage | `buildCanonicalHighlightPath` → `/library?articleId=&highlightId=`. | Do not key a source by similar text. |
 | Companion rebind | `AgentRail` already shows “Now with” + subject and uses `useContextualAgentSurface`. One agent id: `agent.context-partner`. | Do not mount a second chat in the pocket. |
 | Motion | `columnMotion.js` (220ms, the 0.16,1,0.3,1 curve) and `--noeis-motion-deliberate` (320ms). `usePrefersReducedMotion`. | Do not add a new motion language. |
 | Draft vs accepted | Wiki review/accept is already the acceptance boundary. Working-memory drafts are already private. | Do not run a knowledge-acceptance ceremony on a private pocket save. |
 | Return surfaces | Paper / Desk / Shelf, `SystemStatusContext`. | Do not invent a toast or a new notification channel. |
-| Silence | Taste Pass: eligibility, quality bar, silence. This storyboard’s retrieval is curated. An empty source slot is honest absence. | Do not generate a filler passage. |
+| Silence | Taste Pass: eligibility, quality bar, silence. An empty source slot is honest absence. | Do not generate a filler passage. |
 
-Unresolved for later binding, not for this storyboard: how a selection stores revision + anchor in existing source documents; device-save vs server-sync retention; live retrieval eligibility for “passages that belong with this sentence.”
+Still later: how a selection stores revision + anchor in existing source documents; device-save vs server-sync retention; live retrieval beyond attached citations.
 
 ## Exit for this stage
 
-A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. The live Wiki reader is unchanged.
+A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged.

@@ -15,4 +15,9 @@ describe('open-sentence motion', () => {
     expect(reduced).toMatch(/animation:\s*none/);
     expect(reduced).not.toMatch(/display:\s*none/);
   });
+
+  it('lets a placed passage settle on the same 220ms curve', () => {
+    expect(css).toMatch(/@keyframes open-sentence-place/);
+    expect(css).toMatch(/animation: open-sentence-place var\(--noeis-motion-base\) cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
+  });
 });
