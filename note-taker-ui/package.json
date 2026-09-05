@@ -34,6 +34,7 @@
 		"start": "react-scripts start",
 		"build": "react-scripts build",
 		"test": "react-scripts test",
+		"test:open-sentence": "react-scripts test --watchAll=false --testPathPattern='open-sentence|OpenSentence|OpenedLibraryPassage|openSentence|wikiSurfaceModel|WikiPageReadView.test|SharedWikiPage.test'",
 		"test:e2e": "npx @playwright/test test",
 		"test:agent-harness": "npx @playwright/test test e2e/agent-harness.smoke.spec.js",
 		"test:visual": "npx @playwright/test test e2e/visual-regression.spec.js",

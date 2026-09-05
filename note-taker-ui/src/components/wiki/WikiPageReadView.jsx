@@ -94,7 +94,7 @@ import DecisionReviewPanel from './decisions/DecisionReviewPanel';
 import { selectableAcceptedRevisions } from './decisions/acceptedRevisionIdentity';
 import { swallowSkippedViewTransition } from '../../utils/viewTransitionNavigation';
 import { useNoeisAgentSurface } from '../../agent/AgentRailContext';
-import { buildWikiSurfaceDescriptor } from './wikiSurfaceModel';
+import { buildWikiSurfaceDescriptor, wikiAllowsOpenSentence } from './wikiSurfaceModel';
 import { carryTensionToJudgment, isTension, tensionSeed } from './carryTension';
 import { wordBoundaryTrim } from '../../utils/editorialText';
 import { humanizeLabel } from '../../utils/humanizeLabel';
@@ -2506,7 +2506,7 @@ const WikiPageReadView = ({
     && !investmentDossierPage
     && !livingThesisPage
     && !companyDossier;
-  const openSentenceEnabled = Boolean(page) && !workspaceMode && standardWikiPage;
+  const openSentenceEnabled = wikiAllowsOpenSentence(page, { workspaceMode }) && standardWikiPage;
   const specializedWorkflowPage = !standardWikiPage && !weekendReadingsPage;
   const standardPageFacts = standardWikiPage ? [
     labelFor(page.pageType || 'topic'),

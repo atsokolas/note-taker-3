@@ -155,6 +155,53 @@ describe('SharedWikiPage', () => {
     expect(document.documentElement).not.toHaveClass('noeis-public-share');
   });
 
+  it('does not open a private sentence pocket on a public share, even with a stored draft', async () => {
+    window.localStorage.setItem('noeis.open-sentence.wiki-1.opened', 'claim-1');
+    window.localStorage.setItem('noeis.open-sentence.wiki-1.claim-1', JSON.stringify({
+      id: 'claim-1',
+      originalText: 'Opportunity cost frames tradeoffs.',
+      provisionalText: 'a private draft',
+      question: 'Does the public page leak this?',
+      status: 'open'
+    }));
+    getPublicWikiPage.mockResolvedValue({
+      page: {
+        _id: 'wiki-1',
+        title: 'Opportunity Cost',
+        visibility: 'shared',
+        body: {
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Opportunity cost frames tradeoffs.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', citationIndexes: [1] }
+              }]
+            }]
+          }]
+        },
+        claims: [{ claimId: 'claim-1', text: 'Opportunity cost frames tradeoffs.' }],
+        sourceRefs: [{
+          _id: 'source-1',
+          title: 'Munger notes',
+          snippet: 'A cited source.'
+        }]
+      }
+    });
+
+    render(<SharedWikiPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Opportunity Cost' })).toBeInTheDocument();
+    expect(screen.getAllByText('Opportunity cost frames tradeoffs.').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument();
+    expect(document.querySelector('.open-sentence')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    expect(screen.queryByText('a private draft')).not.toBeInTheDocument();
+  });
+
   it('uses the compact investor-first shell for public SEC company dossiers', async () => {
     getPublicWikiPage.mockResolvedValue({
       page: {

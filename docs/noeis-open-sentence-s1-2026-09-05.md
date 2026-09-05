@@ -123,6 +123,12 @@ The companion rebinds to the opened claim’s accepted line. That does not inven
 
 Public shares, workspace, dossiers, and editions stay closed. A second ordinary Wiki (Compute, not Parenting) uses the same pocket. Server-sync is still later.
 
+## Release gates (S4, 2026-09-05)
+
+The host gate is `wikiAllowsOpenSentence`: an owned ordinary Wiki in read mode. Specialized projections and the workspace composer stay closed. Public shares do not restore a private draft. Selected Jest gates run as `npm run test:open-sentence` and on pull requests that touch the pocket.
+
+That is local and (when the PR check is green) preview-deployed evidence. It is not merged to `main`, not production, not dogfood, and not longitudinal value. See [S4 evidence](noeis-open-sentence-s4-2026-09-05.md).
+
 ## Exit for this stage
 
 A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question does not linger.
