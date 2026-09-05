@@ -6337,7 +6337,11 @@ const buildWikiRouter = ({
         .sort({ updatedAt: -1 })
         .limit(300)
         .lean();
-      const columns = paperColumns({ pages });
+      /* The client names the edition, because the reader's Saturday is where
+         the reader is and this server reads UTC. Anything but the weekend is
+         today. */
+      const weekend = String(req.query?.edition || '').trim().toLowerCase() === 'weekend';
+      const columns = paperColumns({ pages, weekend });
 
       /* The paper joins the ledger. Without a record of what it said, it
          cannot count its own asking and cannot notice when you answered — and

@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMorningPaperColumns } from '../../api/wiki';
 import {
-  QUIET_MORNING,
   anniversaryLine,
   askedLine,
   closingGroups,
   correctionLines,
   disagreementLine,
   obituaryLine,
-  paperWeight
+  paperWeight,
+  quietMorning
 } from '../../pages/paperColumnsModel';
 
 /**
@@ -39,19 +39,19 @@ const Column = ({ standfirst, children, footnote, asked = '', href, className = 
   </section>
 );
 
-const PaperColumns = () => {
+const PaperColumns = ({ weekend = false }) => {
   const [columns, setColumns] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getMorningPaperColumns()
+    getMorningPaperColumns({ weekend })
       .then((found) => { if (!cancelled) setColumns(found); })
       /* A column that could not be fetched is not a quiet morning. Say
          nothing rather than claim the day was empty. */
       .catch(() => { if (!cancelled) setColumns({ failed: true }); })
     ;
     return () => { cancelled = true; };
-  }, []);
+  }, [weekend]);
 
   if (!columns || columns.failed) return null;
 
@@ -65,7 +65,7 @@ const PaperColumns = () => {
   /* The best sentence this product can print, and the only one none of its
      competitors would dare: there is nothing here, go away. */
   if (!paperWeight(columns)) {
-    return <p className="paper-column__quiet">{QUIET_MORNING}</p>;
+    return <p className="paper-column__quiet">{quietMorning({ weekend })}</p>;
   }
 
   return (

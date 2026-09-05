@@ -244,11 +244,19 @@ const obituary = ({ pages = [], now = Date.now() } = {}) => (
     .sort((left, right) => time(left.silentSince) - time(right.silentSince))[0] || null
 );
 
-const paperColumns = ({ pages = [], now = Date.now() } = {}) => ({
+/**
+ * The paper, for the edition the reader is holding.
+ *
+ * The obituary does not run on a weekend. It is the one column that reads as
+ * a reproach — a page you have let go quiet — and a Saturday is not the day
+ * for it. The client says which edition it is printing, because the client
+ * is where the reader's Saturday actually is; a server reads UTC.
+ */
+const paperColumns = ({ pages = [], now = Date.now(), weekend = false } = {}) => ({
   anniversary: anniversary({ pages, now }),
   disagreement: disagreement({ pages, now }),
   corrections: corrections({ pages, now }),
-  obituary: obituary({ pages, now })
+  obituary: weekend ? null : obituary({ pages, now })
 });
 
 /**

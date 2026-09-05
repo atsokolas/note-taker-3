@@ -169,4 +169,17 @@ export const paperWeight = (columns = {}) => (
   + ((columns?.closed || []).length ? 1 : 0)
 );
 
-export const QUIET_MORNING = 'A quiet morning. Nothing is asking for you — go and read something.';
+/**
+ * What a morning with nothing in it says.
+ *
+ * On a weekend it says which day it is, because "it's Saturday" is a reason
+ * and "a quiet morning" is a report. The weekday line sends you to read;
+ * the weekend one does not need to — that is what the day is for.
+ */
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+export const quietMorning = ({ weekend = false, now = Date.now() } = {}) => (
+  weekend
+    ? `It’s ${DAY_NAMES[new Date(now).getDay()]}. Nothing is asking for you.`
+    : 'A quiet morning. Nothing is asking for you — go and read something.'
+);
