@@ -192,6 +192,34 @@ describe('renderTiptapDoc', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Model generated title' })).toBeInTheDocument();
   });
 
+  it('lets a paragraph wrapper own the block without changing claim markup', () => {
+    const wrapParagraph = jest.fn(({ key, id, children }) => (
+      <div key={key} id={id} data-wiki-paragraph-wrap="true">{children}</div>
+    ));
+    render(
+      <div>
+        {renderTiptapDoc({
+          type: 'doc',
+          content: [{
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'A disputed claim.',
+              marks: [{
+                type: 'claim',
+                attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1] }
+              }]
+            }]
+          }]
+        }, { wrapParagraph })}
+      </div>
+    );
+    expect(document.querySelector('[data-wiki-paragraph-wrap="true"]')).toContainElement(
+      screen.getByText('A disputed claim.')
+    );
+    expect(screen.getByText('A disputed claim.')).toHaveAttribute('data-claim-id', 'claim-1');
+  });
+
   it('strips model source-range citation artifacts from prose', () => {
     render(
       <div>
