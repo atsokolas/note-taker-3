@@ -234,6 +234,26 @@ describe('LibrarySourceList', () => {
     expect(rowOf('Costs decline with utilization').getAttribute('draggable')).toBe('false');
   });
 
+  it('reads seen off the article at hand and folds new above seen', () => {
+    const { container } = renderList({
+      articles: [
+        { _id: 'article-1', title: 'A durable article', lastOpenedAt: '2026-08-01T00:00:00.000Z' }
+      ]
+    });
+    const fold = container.querySelector('.library-seen-fold');
+    expect(fold).toHaveTextContent('Seen earlier');
+    const floor = fold.compareDocumentPosition(
+      screen.getByText('A durable article')
+    );
+    expect(floor & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('A durable article').closest('.library-article-row'))
+      .toHaveClass('is-seen');
+    const ceiling = fold.compareDocumentPosition(
+      screen.getByText('Notebook entry about inference')
+    );
+    expect(ceiling & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
   it('discloses filtered review imports even while other source types remain visible', () => {
     renderList({
       sources: [mixedSources[0]],

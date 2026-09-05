@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { fireAskedBack } = require('./kairosFireService');
+const { fireAskedBack, fireStickyNotes } = require('./kairosFireService');
 
 const USER = '64f100000000000000000001';
 const TODAY = new Date('2026-08-31T12:00:00.000Z');
@@ -284,6 +284,44 @@ const entry = (id, extras = {}) => asDoc({
     })
   });
   assert.strictEqual(reasonFromArticle[0].reason, 'the margin note on returns');
+
+  const sticky = (id, extras = {}) => asDoc({
+    _id: id,
+    userId: USER,
+    text: extras.text || 'Ask him about Thursday.',
+    targetType: 'article',
+    targetId: 'a-costco',
+    targetTitle: 'The Costco 10-K',
+    targetHref: '/library?articleId=a-costco',
+    dueAt: extras.dueAt === undefined ? new Date('2026-08-31T09:00:00.000Z') : extras.dueAt,
+    status: extras.status || 'pending',
+    ...extras
+  });
+  const stickyModels = (rows) => ({ Sticky: collection(rows) });
+
+  const printed = await fireStickyNotes({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: stickyModels([
+      sticky('s-due'),
+      sticky('s-future', { dueAt: new Date('2026-09-07T09:00:00.000Z') }),
+      sticky('s-undated', { dueAt: null }),
+      sticky('s-done', { status: 'done' })
+    ])
+  });
+  assert.strictEqual(printed.length, 1);
+  assert.strictEqual(printed[0].text, 'Ask him about Thursday.');
+  assert.strictEqual(printed[0].href, '/library?articleId=a-costco');
+
+  /* A dated sticky prints once: the second morning finds it done. */
+  const again = await fireStickyNotes({
+    userId: USER,
+    now: TODAY,
+    timezone: 'UTC',
+    models: stickyModels([sticky('s-fired', { status: 'done' })])
+  });
+  assert.deepStrictEqual(again, []);
 
   console.log('kairosFireService tests passed');
 })().catch((error) => {

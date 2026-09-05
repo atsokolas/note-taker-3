@@ -496,6 +496,9 @@ const buildLegacyContentRouter = ({
             placement: 1,
             placementAt: 1,
             placementReason: 1,
+            /* Seen is read off this, never claimed: the reader stamps it on
+               open, and the shelf divides new from seen without asking. */
+            lastOpenedAt: 1,
             tags: 1,
             highlightCount: { $size: { $ifNull: ['$highlights', []] } },
             /* Where the reader left off, derived rather than stored: the

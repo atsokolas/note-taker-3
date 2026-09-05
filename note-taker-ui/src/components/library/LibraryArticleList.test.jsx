@@ -41,6 +41,34 @@ describe('LibraryArticleList', () => {
     expect(setData).toHaveBeenCalledWith('application/x-noeis-article-id', 'a1');
   });
 
+  it('divides new from seen with one quiet fold, and stays whole otherwise', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <LibraryArticleList
+          articles={[
+            { _id: 'seen-1', title: 'Read already', createdAt: '2026-04-20T00:00:00Z', lastOpenedAt: '2026-05-01T00:00:00Z' },
+            { _id: 'fresh-1', title: 'Never opened', createdAt: '2026-04-22T00:00:00Z' }
+          ]}
+          loading={false}
+          error=""
+          emptyLabel="None"
+          onSelectArticle={() => {}}
+        />
+      </MemoryRouter>
+    );
+    const titles = [...container.querySelectorAll('.library-article-row-title')]
+      .map((node) => node.textContent);
+    expect(titles).toEqual(['Never opened', 'Read already']);
+    expect(container.querySelector('.library-seen-fold')).toHaveTextContent('Seen earlier');
+    expect(container.querySelectorAll('.library-article-row.is-seen')).toHaveLength(1);
+  });
+
+  it('prints no fold when everything is new', () => {
+    const { container } = renderList();
+    expect(container.querySelector('.library-seen-fold')).toBeNull();
+    expect(container.querySelector('.library-article-row.is-seen')).toBeNull();
+  });
+
   it('marks rows as magnetic and drifts them toward the pointer', () => {
     const realRaf = window.requestAnimationFrame;
     const realMatchMedia = window.matchMedia;

@@ -56,6 +56,7 @@ import {
   verdictEvidenceOptions,
   upsertLineIntoJudgment
 } from './judgmentModel';
+import { caseSlotLine } from './caseToolboxModel';
 import { rememberOpenedJudgment } from '../components/reader/folioModel';
 import { UpdateComposer, JudgmentLog, KindWords } from './JudgmentThread';
 import { OpinionGhost, ghostOfMissingName } from './opinionGhost';
@@ -327,6 +328,14 @@ const JudgmentChangeReview = ({
   );
 };
 
+const JudgmentIndexSlots = React.memo(({ item }) => {
+  /* The case's shape at a glance: what lives besides the sentence on the
+     row itself. Silence when the sentence is all it holds. */
+  const line = caseSlotLine(item);
+  if (!line) return null;
+  return <span className="judgment__index-slots">{line}</span>;
+});
+
 const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading, readingUnreadable, onHeld }) => {
   const arriving = useMemo(() => takeFirstPaint('judgment-index'), []);
   const enter = arriving ? 'wfp-anim wfp-anim--2' : 'judgment-return';
@@ -510,6 +519,7 @@ const JudgmentIndex = ({ items, articles, folders = [], loading, readingLoading,
                   <span className="judgment__index-birth">{item.heldMark}</span>
                 ) : null}
                 {item.note ? <span className="judgment__index-note">{item.note}</span> : null}
+                <JudgmentIndexSlots item={item} />
                 {item.pendingDossierResearch ? (
                   <span className="judgment__index-note judgment__index-research-review">
                     Accepted research to review

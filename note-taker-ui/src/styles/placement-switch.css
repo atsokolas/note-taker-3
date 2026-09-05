@@ -161,3 +161,94 @@
   font-variant-caps: all-small-caps;
   letter-spacing: 0.12em;
 }
+
+/* Pinned lines: one warm line under the object, private. No thread, no
+   page, no ceremony — the composer arrives only when asked, and the count
+   reads like paper running out rather than a limit being enforced. */
+.sticky-notes {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.sticky-notes__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.sticky-notes__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-primary, var(--vellum-ink));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.sticky-notes__due {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.sticky-notes__done {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sticky-notes__done:hover,
+.sticky-notes__done:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+}
+
+.sticky-notes__open {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.sticky-notes__open:hover,
+.sticky-notes__open:focus-visible {
+  color: var(--text-primary, var(--vellum-ink));
+  border-bottom-color: currentColor;
+}
+
+.sticky-notes__composer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sticky-notes__composer input {
+  font-family: var(--noeis-ui-font, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.85rem;
+}
+
+.sticky-notes__count {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.7rem;
+}
+
+.sticky-notes__error {
+  margin: 0;
+  color: var(--text-muted, var(--vellum-subtle));
+  font-size: 0.8rem;
+}

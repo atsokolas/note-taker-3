@@ -21,6 +21,7 @@ import useMagneticRow from '../../hooks/useMagneticRow';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import { normalizeSpaces } from '../../utils/editorialText';
 import { beginArticleDrag } from '../../pages/dragGrammar';
+import { isSeenFoldRow, partitionSeen, SEEN_FOLD_LABEL, SEEN_FOLD_ROW } from './seenModel';
 
 const getSourceLabel = (article) => {
   const explicit = article?.source || article?.publication || article?.publisher || article?.siteName;
@@ -105,7 +106,8 @@ const ArticleRowSkeleton = React.memo(() => (
 const LibraryArticleRow = React.memo(({
   article,
   onSelectArticle,
-  onMoveArticle
+  onMoveArticle,
+  seen = false
 }) => {
   const [activated, setActivated] = useState(false);
   const receiptTimerRef = useRef(null);
@@ -131,7 +133,7 @@ const LibraryArticleRow = React.memo(({
   return (
   <div
     ref={magnetic.rowRef}
-    className={`library-article-row is-magnetic${activated ? ' is-activated' : ''}`}
+    className={`library-article-row is-magnetic${activated ? ' is-activated' : ''}${seen ? ' is-seen' : ''}`}
     onPointerMove={magnetic.onPointerMove}
     onPointerLeave={magnetic.onPointerLeave}
     /* Onto a folder files it; onto a pile parks it. The row names itself on
@@ -388,6 +390,11 @@ const LibraryArticleList = ({
     return filterLibraryBrowseItems(list);
   }, [articles, query, scope, suppressedVisible]);
   const isEmpty = !loading && !hasError && visibleArticles.length === 0;
+  const { groupedArticles, foldIndex } = useMemo(() => {
+    const { fresh, seen } = partitionSeen(visibleArticles);
+    if (!fresh.length || !seen.length) return { groupedArticles: visibleArticles, foldIndex: -1 };
+    return { groupedArticles: [...fresh, SEEN_FOLD_ROW, ...seen], foldIndex: fresh.length };
+  }, [visibleArticles]);
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
     return Math.min(680, Math.max(320, viewport ? viewport - 290 : 560));
@@ -440,28 +447,36 @@ const LibraryArticleList = ({
         <Profiler id="LibraryArticleRows" onRender={createProfilerLogger('library.article-list')}>
           {visibleArticles.length > 40 ? (
             <VirtualList
-              items={visibleArticles}
+              items={groupedArticles}
               height={virtualHeight}
               itemSize={ARTICLE_ROW_HEIGHT}
               dynamicItemHeights
               className="library-article-list-virtual"
               renderItem={(article, index) => (
                 <div key={article._id || index} style={{ paddingBottom: 10 }}>
-                  <LibraryArticleRow
-                    article={article}
-                    onSelectArticle={onSelectArticle}
-                    onMoveArticle={onMoveArticle}
-                  />
+                  {isSeenFoldRow(article) ? (
+                    <p className="library-seen-fold">{SEEN_FOLD_LABEL}</p>
+                  ) : (
+                    <LibraryArticleRow
+                      article={article}
+                      onSelectArticle={onSelectArticle}
+                      onMoveArticle={onMoveArticle}
+                      seen={foldIndex >= 0 && index > foldIndex}
+                    />
+                  )}
                 </div>
               )}
             />
           ) : (
-            visibleArticles.map(article => (
+            groupedArticles.map((article, index) => isSeenFoldRow(article) ? (
+              <p key="seen-fold" className="library-seen-fold">{SEEN_FOLD_LABEL}</p>
+            ) : (
               <LibraryArticleRow
                 key={article._id}
                 article={article}
                 onSelectArticle={onSelectArticle}
                 onMoveArticle={onMoveArticle}
+                seen={foldIndex >= 0 && index > foldIndex}
               />
             ))
           )}

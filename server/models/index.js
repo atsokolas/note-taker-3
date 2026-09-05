@@ -1923,6 +1923,28 @@ returnQueueEntrySchema.index({ userId: 1, itemType: 1, itemId: 1, status: 1 });
 
 const ReturnQueueEntry = mongoose.model('ReturnQueueEntry', returnQueueEntrySchema);
 
+/* A sticky: one private line pinned to anything. It cannot grow — 140
+   characters, enforced below and again at the route — because a sticky that
+   grows is a note, and notes already exist. Dated stickies print once in
+   the paper and go home; undated ones never push. */
+const stickySchema = new mongoose.Schema({
+  text: { type: String, required: true, trim: true, maxlength: 140 },
+  targetType: { type: String, enum: ['article', 'highlight', 'claim', 'page'], required: true },
+  targetId: { type: String, required: true, trim: true },
+  targetTitle: { type: String, default: '', trim: true },
+  /* The door back, written by whoever pinned the line — the client standing
+     in front of the object. An opaque string, never resolved server-side. */
+  targetHref: { type: String, default: '', trim: true },
+  dueAt: { type: Date, default: null },
+  status: { type: String, enum: ['pending', 'done'], default: 'pending' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { timestamps: true });
+
+stickySchema.index({ userId: 1, status: 1, dueAt: 1, createdAt: -1 });
+stickySchema.index({ userId: 1, targetType: 1, targetId: 1, status: 1 });
+
+const Sticky = mongoose.model('Sticky', stickySchema);
+
 const connectionSchema = new mongoose.Schema({
   fromType: { type: String, required: true, trim: true },
   fromId: { type: String, required: true, trim: true },
@@ -3195,6 +3217,7 @@ module.exports = {
   WikiSchemaSettings,
   TourState,
   ReturnQueueEntry,
+  Sticky,
   Connection,
   ItemViewEvent,
   ConceptPath,

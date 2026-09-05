@@ -127,6 +127,7 @@ const {
   WikiSchemaSettings,
   TourState,
   ReturnQueueEntry,
+  Sticky,
   Connection,
   ItemViewEvent,
   ConceptPath,
@@ -641,6 +642,7 @@ const { buildWikiRouter } = require('./routes/wikiRoutes');
 const { buildWorkingMemoryRouter } = require('./routes/workingMemoryRoutes');
 const { buildUiTourRouter } = require('./routes/uiTourRoutes');
 const { buildReturnQueueRouter } = require('./routes/returnQueueRoutes');
+const { buildStickyRouter } = require('./routes/stickyRoutes');
 const { buildConnectionsRouter } = require('./routes/connectionsRoutes');
 const { buildConceptPathRouter } = require('./routes/conceptPathRoutes');
 const { buildFeedbackHighlightRouter } = require('./routes/feedbackHighlightRoutes');
@@ -5619,6 +5621,11 @@ app.use(buildReturnQueueRouter({
   buildUnavailableQueueItem,
   trackEvent,
   EVENT_NAMES
+}));
+
+app.use(buildStickyRouter({
+  authenticateToken,
+  Sticky
 }));
 
 app.use(buildConnectionsRouter({

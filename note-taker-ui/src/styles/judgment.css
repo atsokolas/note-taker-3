@@ -1735,6 +1735,16 @@ body.noeis-editorial .judgment .judgment-park textarea::placeholder,
   letter-spacing: 0.02em;
 }
 
+/* The case's shape at a glance: evidence and counted slots, live ones only.
+   Mono, because it is a readout rather than reading — the sentence above it
+   is the thing itself. */
+.judgment__index-slots {
+  color: var(--text-muted, var(--vellum-subtle));
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
 .judgment__index-research-review {
   margin-top: 3px;
   color: color-mix(in srgb, var(--vellum-accent) 84%, var(--text-primary, var(--vellum-ink)));

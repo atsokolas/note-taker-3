@@ -14,6 +14,7 @@ import { formatSurfaceDate } from '../../utils/dateDisplay';
 import useMagneticRow from '../../hooks/useMagneticRow';
 import { humanizeLabel } from '../../utils/humanizeLabel';
 import { beginArticleDrag } from '../../pages/dragGrammar';
+import { isSeenFoldRow, partitionSeen, SEEN_FOLD_LABEL, SEEN_FOLD_ROW } from './seenModel';
 
 const SOURCE_ROW_HEIGHT = 168;
 const ROOM_SOURCE_ROW_HEIGHT = 94;
@@ -90,6 +91,7 @@ const LibrarySourceRow = React.memo(({
   onMoveArticle,
   articleById = null,
   selected = false,
+  seen = false,
   variant = 'default',
   sourceView = 'recent'
 }) => {
@@ -157,7 +159,7 @@ const LibrarySourceRow = React.memo(({
   return (
     <div
       ref={magnetic.rowRef}
-      className={`library-article-row library-source-row${isRoom ? ' library-source-row--room' : ''} is-magnetic${activated ? ' is-activated' : ''}${selected ? ' is-selected' : ''}`}
+      className={`library-article-row library-source-row${isRoom ? ' library-source-row--room' : ''} is-magnetic${activated ? ' is-activated' : ''}${selected ? ' is-selected' : ''}${seen ? ' is-seen' : ''}`}
       data-source-type={source.type || 'article'}
       data-source-key={sourceRowKey(row)}
       aria-selected={selected ? 'true' : undefined}
@@ -514,13 +516,29 @@ const LibrarySourceList = ({
     return list.filter(row => matchesSourceQuery(row, query));
   }, [query, sources]);
   const isEmpty = !loading && !hasError && visibleSources.length === 0;
+  /* New For You above one quiet fold, Previously Seen below it. The fold
+     prints only when both sides hold something; otherwise the list is
+     exactly what it always was. */
+  const { groupedSources, foldIndex } = useMemo(() => {
+    const { fresh, seen } = partitionSeen(visibleSources, articleById);
+    if (!fresh.length || !seen.length) return { groupedSources: visibleSources, foldIndex: -1 };
+    return { groupedSources: [...fresh, SEEN_FOLD_ROW, ...seen], foldIndex: fresh.length };
+  }, [visibleSources, articleById]);
   const coverageCopy = coverageMessage({ coverage, counts, sourceView, hasMore });
   const virtualHeight = useMemo(() => {
     const viewport = typeof window !== 'undefined' ? window.innerHeight : 0;
     return Math.min(680, Math.max(320, viewport ? viewport - 290 : 560));
   }, []);
   const renderSourceBlock = (row, index, { withKey = true } = {}) => {
+    if (isSeenFoldRow(row)) {
+      return (
+        <p key="seen-fold" className="library-seen-fold">
+          {SEEN_FOLD_LABEL}
+        </p>
+      );
+    }
     const key = sourceRowKey(row) || String(index);
+    const seen = foldIndex >= 0 && index > foldIndex;
     const selected = Boolean(selectedSourceKey) && key === selectedSourceKey;
     return (
       <div
@@ -534,6 +552,7 @@ const LibrarySourceList = ({
           onMoveArticle={onMoveArticle}
           articleById={articleById}
           selected={selected}
+          seen={seen}
           variant={variant}
           sourceView={sourceView}
         />
@@ -612,7 +631,7 @@ const LibrarySourceList = ({
         <Profiler id="LibrarySourceRows" onRender={createProfilerLogger('library.source-list')}>
           {visibleSources.length > 40 ? (
             <VirtualList
-              items={visibleSources}
+              items={groupedSources}
               height={virtualHeight}
               itemSize={isRoom ? ROOM_SOURCE_ROW_HEIGHT : SOURCE_ROW_HEIGHT}
               dynamicItemHeights
@@ -624,7 +643,7 @@ const LibrarySourceList = ({
               )}
             />
           ) : (
-            visibleSources.map((row, index) => renderSourceBlock(row, index))
+            groupedSources.map((row, index) => renderSourceBlock(row, index))
           )}
         </Profiler>
       )}

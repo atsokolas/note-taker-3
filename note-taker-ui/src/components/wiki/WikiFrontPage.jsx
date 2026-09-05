@@ -28,6 +28,7 @@ import WikiFrontPageGraphMotif from './WikiFrontPageGraphMotif';
 import DecisionsIndex from './decisions/DecisionsIndex';
 import MorningCheckIn from './MorningCheckIn';
 import MorningAskedBack from './MorningAskedBack';
+import MorningStickyNotes from './MorningStickyNotes';
 import WikiDriftSentence from './WikiDriftSentence';
 import PaperDesk from './PaperDesk';
 import { lastWorked, openCase, shelfPick } from '../../pages/paperDesk';
@@ -1103,6 +1104,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
                 askedBack={briefing?.askedBack}
                 pulse={pulseTarget === 'asked-back'}
               />
+              {/* Pinned lines whose morning has come. Dated stickies print
+                  once and go home; undated ones never leave their object,
+                  so this section only ever holds mornings. */}
+              <MorningStickyNotes stickies={briefing?.stickyNotes} />
               {/* The drift's fortnight, as one sentence. Home stays atop
                   Judgment, where the chart lives; the paper prints the
                   sentence on the morning the bucket closes and nothing the
