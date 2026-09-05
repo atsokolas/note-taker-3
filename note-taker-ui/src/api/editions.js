@@ -37,3 +37,24 @@ export const removeEdition = async (id) => {
   const res = await api.delete(`/api/editions/${encodeURIComponent(id)}`, getAuthHeaders());
   return res.data || null;
 };
+
+/** A paper someone published, read by a stranger. No auth: that is the point. */
+export const getPublicEdition = async (slug) => {
+  const res = await api.get(`/api/public/editions/${encodeURIComponent(slug)}`);
+  return res.data || null;
+};
+
+export const getEditionShare = async (id) => {
+  const res = await api.get(`/api/editions/${encodeURIComponent(id)}/share`, getAuthHeaders());
+  return res.data || { shared: false };
+};
+
+export const shareEdition = async (id) => {
+  const res = await api.post(`/api/editions/${encodeURIComponent(id)}/share`, {}, getAuthHeaders());
+  return res.data || {};
+};
+
+export const revokeEditionShare = async (id) => {
+  const res = await api.delete(`/api/editions/${encodeURIComponent(id)}/share`, getAuthHeaders());
+  return res.data || { revoked: true };
+};

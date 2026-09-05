@@ -9,7 +9,8 @@ jest.mock('react-router-dom', () => ({
 }));
 
 const morning = (over = {}) => ({
-  anniversary: null, disagreement: null, corrections: [], obituary: null, asked: 0, closed: [], ...over
+  warned: null, calibration: null, anniversary: null, disagreement: null,
+  corrections: [], obituary: null, asked: 0, closed: [], ...over
 });
 
 describe('the four things only this product can print', () => {
@@ -84,6 +85,40 @@ describe('the four things only this product can print', () => {
     }));
     render(<PaperColumns />);
     expect(await screen.findByText('Nothing has been added to Deliberate Practice in 10 months.')).toBeInTheDocument();
+  });
+
+  /* The loudest sentence this product can print, and the one no other reading
+     tool can — it needs a dated claim with a named falsifier and a watcher
+     pointed at the same subject. */
+  it('leads with the thing you said would change your mind', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      warned: {
+        text: 'The capex is a bet on new growth after all.',
+        signal: 'Nvidia guides datacenter revenue down two quarters',
+        pageId: 'p1',
+        pageTitle: 'Alphabet'
+      },
+      anniversary: { text: 'Something older.', years: 2, pageId: 'p9', pageTitle: 'Older' }
+    }));
+    const { container } = render(<PaperColumns />);
+    expect(await screen.findByText('The thing you said would change your mind may have happened')).toBeInTheDocument();
+    expect(screen.getByText(/Read it, then say: held, or broke/)).toBeInTheDocument();
+
+    /* It outranks a year-old belief. */
+    const standfirsts = [...container.querySelectorAll('.paper-column__standfirst')].map(n => n.textContent);
+    expect(standfirsts[0]).toMatch(/change your mind/);
+  });
+
+  /* A percentage invites a target, and a target invites gaming the one
+     instrument that only works when nobody is performing for it. */
+  it('counts your calibration without scoring it', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning({
+      calibration: { confidence: 'certain', held: 7, of: 9 }
+    }));
+    render(<PaperColumns />);
+    const line = await screen.findByText('When you said “certain”, it held 7 of 9 times.');
+    expect(line).toBeInTheDocument();
+    expect(line.closest('a')).toHaveAttribute('href', '/judgment/mirror');
   });
 
   /* The whole reason the paper keeps a record of itself. */

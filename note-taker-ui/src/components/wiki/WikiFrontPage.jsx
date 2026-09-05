@@ -19,8 +19,10 @@ import useLibraryRoom from '../../hooks/useLibraryRoom';
 import LibraryPlaces from '../library/LibraryPlaces';
 import {
   editionsLine,
-  END_OF_PAPER,
+  endOfPaper,
   firstMorningLead,
+  THE_WEEKEND,
+  TODAY,
   isWeekend,
   paperEdition
 } from '../../pages/paperEditions';
@@ -231,7 +233,9 @@ const WikiFrontPageShell = ({ children, weekend = false, ...mainProps }) => (
           the paper, and it has already been printed up in the body. */}
       {weekend ? null : <WeeklyDigest />}
       {/* A paper ends. A feed does not, which is the whole difference. */}
-      <p className="paper-open__end" aria-hidden="true">{END_OF_PAPER}</p>
+      <p className="paper-open__end" aria-hidden="true">
+        {endOfPaper(weekend ? THE_WEEKEND : TODAY)}
+      </p>
     </main>
   </>
 );

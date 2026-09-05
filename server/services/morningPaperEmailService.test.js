@@ -135,6 +135,35 @@ assert.match(renderedWithMovements.text, /CONTRADICTED: A filing contradicted th
   });
   assert.strictEqual(replay.duplicate, true);
   assert.strictEqual(sends, 1);
+  /* The one column that genuinely wants to arrive rather than wait to be
+     visited: a falsifier a watcher matched is time-sensitive in a way an
+     anniversary is not. */
+  const warnedMail = renderMorningPaperEmail({
+    briefing: { warned: { text: 'The capex is a bet on new growth after all.', pageTitle: 'Alphabet', pageId: 'p1' } },
+    unsubscribeUrl: 'https://noeis.io/u'
+  });
+  assert.match(warnedMail.html, /WOULD CHANGE YOUR MIND MAY HAVE HAPPENED/);
+  assert.match(warnedMail.html, /held, or broke/);
+  assert.match(warnedMail.text, /Alphabet/);
+  assert.ok(
+    warnedMail.text.indexOf('WOULD CHANGE YOUR MIND') < warnedMail.text.indexOf('Unsubscribe'),
+    'the warning leads the email'
+  );
+
+  const anniversaryMail = renderMorningPaperEmail({
+    briefing: { anniversary: { text: 'Capex is defensive.', years: 2, toTheDay: true, pageId: 'p1' } },
+    unsubscribeUrl: 'https://noeis.io/u'
+  });
+  assert.match(anniversaryMail.text, /2 YEARS AGO TODAY YOU WROTE THIS DOWN/);
+  assert.match(anniversaryMail.html, /Do you still hold it\?/);
+
+  /* No-news days send nothing — but a belief you never revisited, or a
+     falsifier that may have fired, is news on an otherwise silent morning. */
+  assert.strictEqual(briefingIsEmpty({}), true);
+  assert.strictEqual(briefingIsEmpty({ anniversary: { text: 'Capex is defensive.' } }), false);
+  assert.strictEqual(briefingIsEmpty({ warned: { text: 'It may have happened.' } }), false);
+  assert.strictEqual(briefingIsEmpty({ anniversary: { text: '   ' } }), true);
+
   console.log('morningPaperEmailService tests passed');
 })().catch(error => {
   console.error(error);

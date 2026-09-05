@@ -51,7 +51,36 @@ export const lastWorked = (pages = []) => {
     .filter((page) => idOf(page) && clean(page?.title) && !isJudgmentPage(page))
     .sort((left, right) => newest(right) - newest(left))[0];
   if (!candidate) return null;
-  return { id: idOf(candidate), text: clean(candidate.title), href: wikiHref(candidate) };
+  return {
+    id: idOf(candidate),
+    text: clean(candidate.title),
+    href: wikiHref(candidate),
+    /* The page already knows when. Saying "you were here Thursday" costs
+       nothing and turns a bookmark into a memory. */
+    at: newest(candidate) || null
+  };
+};
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * When you were last here, in the words a person uses.
+ *
+ * A weekday name inside the last week — "Thursday" is a memory in a way that
+ * "3 days ago" is not. Beyond that a person says "last month", and beyond
+ * *that* they do not say anything, so neither does this.
+ */
+export const lastWorkedWhen = (at, { now = Date.now() } = {}) => {
+  const then = Number(at) || 0;
+  if (!then) return '';
+  const days = Math.floor((now - then) / 86400000);
+  if (days < 0) return '';
+  if (days === 0) return 'earlier today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return WEEKDAYS[new Date(then).getDay()];
+  if (days < 14) return 'last week';
+  if (days < 60) return 'last month';
+  return '';
 };
 
 /**

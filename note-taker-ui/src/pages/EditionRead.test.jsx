@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import EditionRead from './EditionRead';
-import { getEdition, saveEditionItem } from '../api/editions';
+import { getEdition, getEditionShare, revokeEditionShare, saveEditionItem, shareEdition } from '../api/editions';
 
 /* The suite-wide router mock renders `Route element=` as nothing, so a page
    that reads a param is given the param directly, as the other ones are. */
@@ -10,7 +10,13 @@ jest.mock('react-router-dom', () => ({
   useParams: () => ({ id: 'e1' })
 }));
 
-jest.mock('../api/editions', () => ({ getEdition: jest.fn(), saveEditionItem: jest.fn() }));
+jest.mock('../api/editions', () => ({
+  getEdition: jest.fn(),
+  saveEditionItem: jest.fn(),
+  getEditionShare: jest.fn(),
+  shareEdition: jest.fn(),
+  revokeEditionShare: jest.fn()
+}));
 
 const item = (over = {}) => ({
   itemId: 'item-1',
@@ -51,7 +57,11 @@ const paper = (over = {}) => ({
 const open = () => render(<EditionRead />);
 
 describe('reading a paper an agent wrote', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    /* Unpublished unless a test says otherwise. */
+    getEditionShare.mockResolvedValue({ shared: false, slug: '' });
+  });
 
   it('prints the finding and the thing that would limit it', async () => {
     getEdition.mockResolvedValue(paper());
@@ -113,6 +123,36 @@ describe('reading a paper an agent wrote', () => {
       expect(screen.queryByTestId('edition-save-item-1')).not.toBeInTheDocument();
     });
 
+    /* Saved and saved-but-empty are different things to a reader about to go
+       looking for the text. */
+    it('says when a source was filed but would not read', async () => {
+      getEdition.mockResolvedValue(paper());
+      saveEditionItem.mockResolvedValue({
+        articleId: 'a1',
+        readable: false,
+        readError: 'That source request failed with HTTP 403.',
+        edition: paper({ items: [item({ savedArticleId: 'a1' })], savedCount: 1 })
+      });
+      open();
+      fireEvent.click(await screen.findByTestId('edition-save-item-1'));
+      await waitFor(() => expect(screen.getByText(/would not come/)).toBeInTheDocument());
+      /* Still filed — the click was not lost. */
+      expect(screen.getByRole('link', { name: 'In your library →' })).toBeInTheDocument();
+    });
+
+    it('says nothing extra when the source read fine', async () => {
+      getEdition.mockResolvedValue(paper());
+      saveEditionItem.mockResolvedValue({
+        articleId: 'a1',
+        readable: true,
+        edition: paper({ items: [item({ savedArticleId: 'a1' })], savedCount: 1 })
+      });
+      open();
+      fireEvent.click(await screen.findByTestId('edition-save-item-1'));
+      await waitFor(() => expect(screen.getByText('In your library →')).toBeInTheDocument());
+      expect(screen.queryByText(/would not come/)).not.toBeInTheDocument();
+    });
+
     it('says so when the save fails, and leaves the door open', async () => {
       getEdition.mockResolvedValue(paper());
       saveEditionItem.mockRejectedValue({ response: { data: { error: 'That source did not save.' } } });
@@ -136,5 +176,50 @@ describe('reading a paper an agent wrote', () => {
     open();
     expect(await screen.findByText('No such edition.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '← Editions' })).toBeInTheDocument();
+  });
+});
+
+describe('publishing a paper', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getEdition.mockResolvedValue(paper());
+    getEditionShare.mockResolvedValue({ shared: false, slug: '' });
+  });
+
+  it('offers to publish a paper that is not published', async () => {
+    open();
+    expect(await screen.findByTestId('edition-publish')).toBeInTheDocument();
+    expect(screen.queryByTestId('edition-copy-link')).not.toBeInTheDocument();
+  });
+
+  it('mints a link and then offers to copy it', async () => {
+    shareEdition.mockResolvedValue({ shared: true, slug: 'abc123' });
+    open();
+    fireEvent.click(await screen.findByTestId('edition-publish'));
+    await waitFor(() => expect(screen.getByTestId('edition-copy-link')).toBeInTheDocument());
+    expect(screen.getByTestId('edition-unpublish')).toBeInTheDocument();
+  });
+
+  /* Already published means copy the link, never mint a second one. */
+  it('does not offer to publish what is already published', async () => {
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123' });
+    open();
+    expect(await screen.findByTestId('edition-copy-link')).toBeInTheDocument();
+    expect(screen.queryByTestId('edition-publish')).not.toBeInTheDocument();
+  });
+
+  it('goes back to offering to publish once revoked', async () => {
+    getEditionShare.mockResolvedValue({ shared: true, slug: 'abc123' });
+    revokeEditionShare.mockResolvedValue({ revoked: true });
+    open();
+    fireEvent.click(await screen.findByTestId('edition-unpublish'));
+    await waitFor(() => expect(screen.getByTestId('edition-publish')).toBeInTheDocument());
+  });
+
+  it('says so when publishing fails', async () => {
+    shareEdition.mockRejectedValue({ response: { data: { error: 'That paper did not publish.' } } });
+    open();
+    fireEvent.click(await screen.findByTestId('edition-publish'));
+    await waitFor(() => expect(screen.getByText('That paper did not publish.')).toBeInTheDocument());
   });
 });

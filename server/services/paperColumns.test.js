@@ -1,9 +1,11 @@
 const {
   anniversary,
+  calibration,
   corrections,
   disagreement,
   obituary,
-  paperColumns
+  paperColumns,
+  warned
 } = require('./paperColumns');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -205,12 +207,78 @@ describe('the whole front page', () => {
      paper short on a quiet day. */
   it('says nothing at all about a quiet morning', () => {
     expect(paperColumns({ pages: [page({ claims: [claim({ bornAt: ago(3) })], updatedAt: ago(1) })], now: NOW }))
-      .toEqual({ anniversary: null, disagreement: null, corrections: [], obituary: null });
+      .toEqual({
+        warned: null,
+        calibration: null,
+        oldestOpen: null,
+        rightForWrongReasons: null,
+        anniversary: null,
+        disagreement: null,
+        corrections: [],
+        obituary: null
+      });
     expect(paperColumns()).toMatchObject({ anniversary: null, corrections: [] });
   });
 
   it('survives a shelf full of half-written pages', () => {
     const junk = [null, {}, { _id: 'x' }, { title: 'No id' }, page({ claims: [{ text: '' }] })];
     expect(() => paperColumns({ pages: junk, now: NOW })).not.toThrow();
+  });
+});
+
+describe('the thing you said would change your mind', () => {
+  const falsifier = (over = {}) => ({
+    falsifierId: 'f1',
+    text: 'The capex is a bet on new growth after all.',
+    observableSignal: 'Nvidia guides datacenter revenue down two quarters',
+    status: 'warning',
+    lastCheckedAt: ago(1),
+    ...over
+  });
+  const judged = (falsifiers) => page({ judgment: { falsifiers } });
+
+  it('prints a falsifier a watcher matched', () => {
+    expect(warned({ pages: [judged([falsifier()])] }))
+      .toMatchObject({ pageId: 'p1', pageTitle: 'Alphabet', falsifierId: 'f1' });
+  });
+
+  /* Unobserved is nothing to say. Triggered and retired are already answered
+     — reprinting them every morning turns the one sentence that should stop a
+     reader into wallpaper. */
+  it('speaks only for the ones actually warned', () => {
+    ['unobserved', 'triggered', 'retired'].forEach((status) => {
+      expect(warned({ pages: [judged([falsifier({ status })])] })).toBeNull();
+    });
+  });
+
+  /* Two of these on one morning is not twice the signal, it is a queue. */
+  it('prints one, the newest', () => {
+    const found = warned({ pages: [judged([
+      falsifier({ falsifierId: 'old', lastCheckedAt: ago(9) }),
+      falsifier({ falsifierId: 'new', lastCheckedAt: ago(1) })
+    ])] });
+    expect(found.falsifierId).toBe('new');
+  });
+
+  it('says nothing about a corpus with no judgment on it', () => {
+    expect(warned({ pages: [page()] })).toBeNull();
+    expect(warned()).toBeNull();
+  });
+
+  /* It leads. A matched falsifier outranks a year-old belief. */
+  it('leads the paper', () => {
+    const built = paperColumns({ pages: [judged([falsifier()])], now: NOW });
+    expect(Object.keys(built)[0]).toBe('warned');
+    expect(built.warned).not.toBeNull();
+  });
+});
+
+describe('how your confidence met later outcomes', () => {
+  /* The instrument refuses to speak without enough settled cases, and this
+     quotes it rather than re-deriving it. A corpus with nothing settled says
+     nothing at all. */
+  it('stays silent until the instrument has enough to say', () => {
+    expect(calibration({ pages: [page()], userId: 'u1' })).toBeNull();
+    expect(calibration()).toBeNull();
   });
 });

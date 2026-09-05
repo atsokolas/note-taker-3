@@ -23,7 +23,7 @@ const {
   persistWikiBriefingCache
 } = require('../services/wikiBriefingService');
 const { openTargets, paperColumns } = require('../services/paperColumns');
-const { assertionsFrom, askedBefore, closings, dayOf } = require('../services/paperLedger');
+const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
   getWikiSchemaPromptContent,
@@ -6332,7 +6332,19 @@ const buildWikiRouter = ({
           'claims.checkInStatus claims.retiredAt claims.lastCheckedAt claims.lastReviewedAt',
           'claims.support claims.contradictedByCitationIds',
           'claims.history.at claims.history.action',
-          'claims.verdicts.at'
+          'claims.verdicts.at',
+          /* What the reader said would change their mind. */
+          'judgment.falsifiers',
+          /* The oldest thing still open. */
+          'judgment.unknowns',
+          /* What the calibration instrument reads to score a settled case:
+             the held sentence, the confidence it was held at, and the verdict
+             that later met it. `createdAt` and `userId` are its fallbacks for
+             when the judgment names no birthday and for ownership. */
+          'userId createdAt adapterId',
+          'judgment.currentJudgment judgment.confidence judgment.adapterId',
+          'judgment.bornAt judgment.startedAt',
+          'judgment.verdicts judgment.outcomes'
         ].join(' '))
         .sort({ updatedAt: -1 })
         .limit(300)
@@ -6341,7 +6353,7 @@ const buildWikiRouter = ({
          the reader is and this server reads UTC. Anything but the weekend is
          today. */
       const weekend = String(req.query?.edition || '').trim().toLowerCase() === 'weekend';
-      const columns = paperColumns({ pages, weekend });
+      const columns = paperColumns({ pages, userId, weekend });
 
       /* The paper joins the ledger. Without a record of what it said, it
          cannot count its own asking and cannot notice when you answered — and
@@ -6353,6 +6365,7 @@ const buildWikiRouter = ({
          still leaves one morning on the record. */
       let asked = 0;
       let closed = [];
+      let streak = 0;
       if (MorningPaperRecord) {
         const today = dayOf();
         const assertions = assertionsFrom(columns);
@@ -6364,6 +6377,7 @@ const buildWikiRouter = ({
 
         const lead = assertions[0] || null;
         asked = lead ? askedBefore({ history, assertion: lead, today }) : 0;
+        streak = quietStreak({ history });
         closed = closings({
           history,
           open: openTargets({ pages }),
@@ -6380,7 +6394,7 @@ const buildWikiRouter = ({
         }
       }
 
-      return res.status(200).json({ ...columns, asked, closed });
+      return res.status(200).json({ ...columns, asked, closed, streak });
     } catch (error) {
       console.error('Error reading the morning columns:', error);
       return res.status(500).json({ error: 'Could not read what the paper has to say.' });

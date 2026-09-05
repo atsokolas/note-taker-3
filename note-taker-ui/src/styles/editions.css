@@ -308,3 +308,64 @@
 .connected-agents-card__editions em {
   font-style: italic;
 }
+
+/* Saved, but the text would not come. A note rather than a warning: the row
+   is filed, the click was not lost, and the original is one tap away. */
+.edition-item__unread {
+  display: block;
+  margin: 6px 0 0;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+/* A paper someone published. Read by a stranger on whatever they had to
+   hand, so it centres and breathes rather than sitting in a room's column. */
+.edition--public {
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+}
+
+.edition__share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 0;
+}
+
+.edition__share-copy,
+.edition__share-revoke {
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 90%, transparent);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.edition__share-copy:hover,
+.edition__share-revoke:hover {
+  border-color: color-mix(in srgb, var(--noeis-pointer, var(--text-muted)) 55%, transparent);
+}
+
+.edition__share-revoke {
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+}
+
+/* The standard, said plainly to someone who has never heard of this product.
+   It is the argument for reading the thing, so it goes at the foot rather
+   than the head — earned, not claimed. */
+.edition__colophon {
+  margin: 48px 0 0;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--noeis-rule, var(--border-subtle-2));
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.edition__colophon p {
+  margin: 0 0 8px;
+  max-width: 56ch;
+}

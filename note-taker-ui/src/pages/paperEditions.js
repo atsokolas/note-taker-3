@@ -142,3 +142,9 @@ export const firstMorningDeskLine = () => 'Your desk is empty. The shelf holds n
 
 /** A paper ends. A feed does not, which is the difference. */
 export const END_OF_PAPER = '— end of the paper —';
+
+/* A weekend edition signs off as one. Two words, and the only place the paper
+   says out loud which edition you just finished. */
+export const endOfPaper = (edition = TODAY) => (
+  isWeekend(edition) ? '— end of the weekend paper —' : END_OF_PAPER
+);

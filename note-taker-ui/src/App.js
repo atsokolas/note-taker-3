@@ -120,6 +120,7 @@ const TermsOfUse = lazy(() => import('./pages/TermsOfUse'));
 const DesignPreview = lazy(() => import('./pages/DesignPreview'));
 const SharedConcept = lazy(() => import('./pages/SharedConcept'));
 const SharedQuestion = lazy(() => import('./pages/SharedQuestion'));
+const SharedEdition = lazy(() => import('./pages/SharedEdition'));
 const SharedWikiPage = lazy(() => import('./pages/SharedWikiPage'));
 const SharedWikiCollectionPage = lazy(() => import('./pages/SharedWikiCollectionPage'));
 const PublicWikiComparison = lazy(() => import('./pages/PublicWikiComparison'));
@@ -283,6 +284,7 @@ const PublicRoutes = ({ chromeStoreLink, handleLoginSuccess, uiSettings }) => {
           <Route path="/design-preview" element={<DesignPreview />} />
           <Route path="/share/concepts/:slug" element={<SharedConcept />} />
           <Route path="/share/questions/:slug" element={<SharedQuestion />} />
+          <Route path="/share/editions/:slug" element={<SharedEdition />} />
           <Route path="/share/wiki/collection/:idOrSlug" element={<SharedWikiCollectionPage />} />
           <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
           <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
@@ -784,6 +786,7 @@ function App() {
             <Route path="/share/wiki/:idOrSlug/comparison" element={<PublicWikiComparison />} />
             <Route path="/share/wiki/:idOrSlug" element={<SharedWikiPage />} />
             <Route path="/share/questions/:slug" element={<SharedQuestion />} />
+          <Route path="/share/editions/:slug" element={<SharedEdition />} />
 
             {/* Legacy/feature routes kept for compatibility */}
             <Route path="/brain" element={<Navigate to="/review?tab=patterns" replace />} />

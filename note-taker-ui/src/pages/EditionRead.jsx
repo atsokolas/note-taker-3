@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getEdition, saveEditionItem } from '../api/editions';
+import { getEdition, getEditionShare, revokeEditionShare, saveEditionItem, shareEdition } from '../api/editions';
 import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
 
 /**
@@ -16,7 +16,7 @@ import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionM
  * rather than dropped, which is the one thing a newsletter never does.
  */
 
-const EditionItem = ({ item, onSave, saving }) => (
+const EditionItem = ({ item, onSave, saving, unread = null }) => (
   <article className="edition-item">
     <h3 className="edition-item__title">
       <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
@@ -35,9 +35,16 @@ const EditionItem = ({ item, onSave, saving }) => (
 
     <div className="edition-item__doors">
       {item.savedArticleId ? (
-        <Link className="edition-item__saved" to={`/articles/${item.savedArticleId}`}>
-          In your library →
-        </Link>
+        <>
+          <Link className="edition-item__saved" to={`/articles/${item.savedArticleId}`}>
+            In your library →
+          </Link>
+          {unread ? (
+            <span className="edition-item__unread">
+              Saved, but the text would not come — open the original.
+            </span>
+          ) : null}
+        </>
       ) : (
         <button
           type="button"
@@ -58,6 +65,9 @@ const EditionRead = () => {
   const [edition, setEdition] = useState(null);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [unread, setUnread] = useState(null);
+  const [share, setShare] = useState({ shared: false, slug: '' });
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,12 +84,62 @@ const EditionRead = () => {
 
   /* The crossing. The whole edition comes back so the masthead's count of
      what you have taken is right the moment you take one. */
+  /* Whether this paper is already published, so the control says "copy the
+     link" rather than offering to mint a second one. */
+  useEffect(() => {
+    let cancelled = false;
+    getEditionShare(id)
+      .then((found) => { if (!cancelled) setShare(found || { shared: false, slug: '' }); })
+      .catch(() => { if (!cancelled) setShare({ shared: false, slug: '' }); });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const publish = useCallback(async () => {
+    setError('');
+    try {
+      const minted = await shareEdition(id);
+      setShare({ shared: true, slug: minted.slug || '' });
+    } catch (shareError) {
+      setError(shareError?.response?.data?.error || 'That paper did not publish.');
+    }
+  }, [id]);
+
+  const unpublish = useCallback(async () => {
+    setError('');
+    try {
+      await revokeEditionShare(id);
+      setShare({ shared: false, slug: '' });
+      setCopied(false);
+    } catch (shareError) {
+      setError(shareError?.response?.data?.error || 'That share did not revoke.');
+    }
+  }, [id]);
+
+  const copyLink = useCallback(async () => {
+    const href = `${window.location.origin}/share/editions/${share.slug}`;
+    try {
+      await navigator.clipboard.writeText(href);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2200);
+    } catch (_copyError) {
+      /* A clipboard a browser refuses is not an error worth a red line —
+         the link is on screen and selectable. */
+      setCopied(false);
+    }
+  }, [share.slug]);
+
   const save = useCallback(async (itemId) => {
     setSavingId(itemId);
     setError('');
     try {
       const result = await saveEditionItem(id, itemId);
       if (result?.edition) setEdition(result.edition);
+      /* Saved and saved-but-empty are different things to a reader about to
+         go looking for the text. The row is filed either way — a paywall is
+         still a source worth keeping — so this is a note, not an error. */
+      setUnread(result && result.readable === false
+        ? { itemId, reason: result.readError || '' }
+        : null);
     } catch (saveError) {
       setError(saveError?.response?.data?.error || 'That source did not save.');
     } finally {
@@ -116,6 +176,25 @@ const EditionRead = () => {
 
       {error ? <p className="status-message error-message">{error}</p> : null}
 
+      {/* A paper is worth keeping if you can pass it on. The boundary rule
+          travels with it, which is what makes it worth someone's click. */}
+      <div className="edition__share">
+        {share.shared ? (
+          <>
+            <button type="button" className="edition__share-copy" onClick={copyLink} data-testid="edition-copy-link">
+              {copied ? 'Link copied' : 'Copy the link'}
+            </button>
+            <button type="button" className="edition__share-revoke" onClick={unpublish} data-testid="edition-unpublish">
+              Unpublish
+            </button>
+          </>
+        ) : (
+          <button type="button" className="edition__share-copy" onClick={publish} data-testid="edition-publish">
+            Publish this paper
+          </button>
+        )}
+      </div>
+
       {edition.standfirst ? <p className="edition__standfirst">{edition.standfirst}</p> : null}
 
       {bySection(edition).map((section) => (
@@ -128,6 +207,7 @@ const EditionRead = () => {
                 item={item}
                 onSave={save}
                 saving={savingId === item.itemId}
+                unread={unread?.itemId === item.itemId ? unread : null}
               />
             ))
           ) : (

@@ -1,4 +1,4 @@
-const { assertionsFrom, askedBefore, closings, dayOf, keyOf } = require('./paperLedger');
+const { assertionsFrom, askedBefore, closings, dayOf, keyOf, quietStreak } = require('./paperLedger');
 
 const NOW = Date.UTC(2026, 8, 4);
 const DAY = 24 * 60 * 60 * 1000;
@@ -131,5 +131,34 @@ describe('what closed', () => {
     const junk = [null, {}, { day: '' }, record('nonsense', [anniversary]), record(dayBack(1), null)];
     const open = { anniversary: new Set(), disagreement: new Set(), obituary: new Set() };
     expect(() => closings({ history: junk, open, known, now: NOW })).not.toThrow();
+  });
+});
+
+describe('a run of quiet mornings', () => {
+  const spoke = n => record(dayBack(n), [{ kind: 'anniversary', targetKey: 'p1:c1' }]);
+
+  /* A quiet morning writes no record, so a gap in the ledger is the streak. */
+  it('counts the mornings since the paper last had news', () => {
+    expect(quietStreak({ history: [spoke(6)], now: NOW })).toBe(5);
+  });
+
+  it('is not a streak while the paper is still talking', () => {
+    expect(quietStreak({ history: [spoke(1), spoke(4)], now: NOW })).toBe(0);
+  });
+
+  /* A reader with no ledger has not had a run of quiet mornings — they have
+     had no mornings. Absence of a record is not a streak. */
+  it('says nothing about a reader who has no ledger yet', () => {
+    expect(quietStreak({ history: [], now: NOW })).toBe(0);
+    expect(quietStreak()).toBe(0);
+  });
+
+  it('never reaches further back than the ledger itself', () => {
+    expect(quietStreak({ history: [spoke(2)], now: NOW })).toBe(1);
+  });
+
+  /* Today is not over — the paper may yet have news. */
+  it('does not count today', () => {
+    expect(quietStreak({ history: [spoke(0), spoke(5)], now: NOW })).toBe(4);
   });
 });

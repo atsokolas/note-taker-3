@@ -112,10 +112,54 @@ const renderAskedBackSection = ({ askedBack = [], appBaseUrl }) => {
   };
 };
 
+/**
+ * A belief you wrote down a year ago, in the inbox.
+ *
+ * The email was built before the paper was, and still carries the old shape.
+ * This is the column that travels best: nobody opens an email to read a
+ * maintenance table, and "a year ago today you wrote this down" is a reason
+ * to come back that no other product can send.
+ */
+const renderAnniversarySection = ({ anniversary = null, appBaseUrl }) => {
+  const text = clean(anniversary?.text, 400);
+  if (!text) return { html: '', text: '' };
+  const years = Number(anniversary.years) || 1;
+  const today = anniversary.toTheDay ? ' today' : '';
+  const standfirst = years === 1
+    ? `A year ago${today} you wrote this down`
+    : `${years} years ago${today} you wrote this down`;
+  const href = absoluteHref(anniversary.pageId ? `/wiki/${anniversary.pageId}` : '/wiki', appBaseUrl);
+  return {
+    html: `<div style="margin-top:28px;padding-left:16px;border-left:2px solid #6f87ff"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">${escapeHtml(standfirst.toUpperCase())}</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">“${escapeHtml(text)}”</p><p style="font:12px ui-monospace,monospace;color:#6d685e">Not looked at since</p><a href="${escapeHtml(href)}" style="color:#171714">Do you still hold it? →</a></div>`,
+    text: `${standfirst.toUpperCase()}: “${text}” — ${href}`
+  };
+};
+
+/**
+ * The thing you said would change your mind, in the inbox.
+ *
+ * This is the one column that genuinely wants to arrive rather than wait to
+ * be visited: a falsifier a watcher matched is time-sensitive in a way an
+ * anniversary is not. It leads the email for the same reason it leads the
+ * paper, and it asks for the same two verbs — read it, then say.
+ */
+const renderWarnedSection = ({ warned = null, appBaseUrl }) => {
+  const text = clean(warned?.text, 400);
+  if (!text) return { html: '', text: '' };
+  const href = absoluteHref(warned.pageId ? `/judgment/${warned.pageId}` : '/judgment', appBaseUrl);
+  const where = clean(warned.pageTitle, 200);
+  return {
+    html: `<div style="margin-top:28px;padding-left:16px;border-left:3px solid #b8860b"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#b8860b">THE THING YOU SAID WOULD CHANGE YOUR MIND MAY HAVE HAPPENED</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">“${escapeHtml(text)}”</p>${where ? `<p style="font:12px ui-monospace,monospace;color:#6d685e">On ${escapeHtml(where)}</p>` : ''}<a href="${escapeHtml(href)}" style="color:#171714">Read it, then say: held, or broke →</a></div>`,
+    text: `THE THING YOU SAID WOULD CHANGE YOUR MIND MAY HAVE HAPPENED: “${text}”${where ? ` (${where})` : ''} — ${href}`
+  };
+};
+
 const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl, appBaseUrl = 'https://www.noeis.io' } = {}) => {
   const lead = Array.isArray(briefing.watcherLeads) ? briefing.watcherLeads[0] : null;
   const checkIn = briefing.claimCheckIn || null;
   const askedBack = renderAskedBackSection({ askedBack: briefing.askedBack, appBaseUrl });
+  const anniversary = renderAnniversarySection({ anniversary: briefing.anniversary, appBaseUrl });
+  const warned = renderWarnedSection({ warned: briefing.warned, appBaseUrl });
   const returnPath = briefing.nextAction || null;
   const headline = lead?.title || 'Your Morning Paper';
   /* The subject is the lead's first six words, or "Quiet night." on a morning
@@ -134,16 +178,18 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
     const href = absoluteHref(movement.nextAction?.href || movement.subject?.href || '/wiki', appBaseUrl);
     return `${movementLabel(movement.kind).toUpperCase()}: ${movement.title} — ${href}`;
   });
-  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}${askedBack.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#f5f1e8;color:#171714;font-family:Georgia,serif"><div style="max-width:640px;margin:0 auto;padding:36px 24px"><div style="font:12px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d685e">Noeis · Morning Paper</div><h1 style="font-size:34px;line-height:1.08;margin:18px 0 12px">${escapeHtml(headline)}</h1><p style="font-size:18px;line-height:1.55;margin:0 0 24px">${escapeHtml(leadCopy)}</p><a href="${escapeHtml(leadHref)}" style="display:inline-block;background:#171714;color:#fff;padding:12px 18px;text-decoration:none;border-radius:999px">Open the affected page</a>${warned.html}${movementsHtml}${returnPath ? `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">RETURN PATH</div><p style="margin:8px 0 12px">${escapeHtml(returnPath.label || 'Continue in Noeis')}</p><a href="${escapeHtml(returnHref)}" style="color:#171714">Continue →</a></div>` : ''}${checkIn ? `<div style="margin-top:28px;padding:20px;border:1px solid #cdc6b8;border-radius:14px"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">CLAIM CHECK-IN</div><p style="font-size:18px;line-height:1.45;margin:10px 0 6px">${escapeHtml(checkIn.text)}</p><p style="font:12px ui-monospace,monospace;color:#6d685e">${escapeHtml(checkIn.pageTitle)}</p><a href="${escapeHtml(checkInHref)}" style="color:#171714">Still hold · Revise · Retire →</a></div>` : ''}${askedBack.html}${anniversary.html}<p style="margin-top:36px;font:11px/1.5 ui-monospace,monospace;color:#777168">No-news days send nothing. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#777168">Unsubscribe instantly</a>.</p></div></body></html>`;
   const text = [
     'NOEIS · MORNING PAPER',
     headline,
     leadCopy,
     `Open: ${leadHref}`,
+    warned.text,
     movementLines.length ? ['WHAT CHANGED:', ...movementLines].join('\n') : '',
     returnPath ? `RETURN PATH: ${returnPath.label || 'Continue'} — ${returnHref}` : '',
     checkIn ? `CLAIM CHECK-IN: ${checkIn.text} (${checkIn.pageTitle}) — ${checkInHref}` : '',
     askedBack.text,
+    anniversary.text,
     `Unsubscribe: ${unsubscribeUrl}`
   ].filter(Boolean).join('\n\n');
   return { subject: clean(subjectLine, 180), html, text };
@@ -161,6 +207,11 @@ const briefingIsEmpty = (briefing = {}) => {
     && !briefing.claimCheckIn
     && !briefing.nextAction
     && !(Array.isArray(briefing.askedBack) && briefing.askedBack.length)
+    /* A belief you have not revisited in a year is news, even on a morning
+       when the corpus did nothing — and a falsifier that may have fired is
+       the most urgent thing the paper can carry. */
+    && !clean(briefing.anniversary?.text)
+    && !clean(briefing.warned?.text)
     && !Object.values(counts).some(value => Number(value) > 0);
 };
 

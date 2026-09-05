@@ -1,6 +1,7 @@
 import {
   deskClauses,
   editionsLine,
+  endOfPaper,
   isWeekend,
   paperEdition,
   END_OF_PAPER,
@@ -156,5 +157,14 @@ describe('the desk on a weekend', () => {
   it('still presents the bill on a weekday', () => {
     expect(deskClauses({ later: 3, setAside: 2, edition: 'today' }).map(c => c.key)).toEqual(['later', 'setAside']);
     expect(deskClauses({ later: 3, setAside: 2 }).map(c => c.key)).toEqual(['later', 'setAside']);
+  });
+});
+
+describe('how the paper signs off', () => {
+  /* The only place the paper says out loud which edition you just finished. */
+  it('signs a weekend edition as one', () => {
+    expect(endOfPaper('the weekend')).toBe('— end of the weekend paper —');
+    expect(endOfPaper('today')).toBe('— end of the paper —');
+    expect(endOfPaper()).toBe('— end of the paper —');
   });
 });

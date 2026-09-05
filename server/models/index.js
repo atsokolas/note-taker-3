@@ -2970,6 +2970,25 @@ sharedQuestionSchema.index({ userId: 1, questionId: 1 }, { unique: true });
 
 const SharedQuestion = mongoose.model('SharedQuestion', sharedQuestionSchema);
 
+/* A paper an agent wrote, shared at a link.
+
+   Same shape as a shared question, because it is the same idea: the reader
+   owns it, one share per edition, and revoking removes the row rather than
+   flagging it. What is different is what a reader is publishing — not a
+   sentence of their own but a paper their agent kept for them, which is
+   exactly why the boundary rule matters. Anyone can share a list of links.
+   An edition cannot exist unless every item said what would limit it. */
+const sharedEditionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  editionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Edition', required: true },
+  slug: { type: String, required: true, unique: true, index: true },
+  ownerDisplayName: { type: String, default: '' }
+}, { timestamps: true });
+
+sharedEditionSchema.index({ userId: 1, editionId: 1 }, { unique: true });
+
+const SharedEdition = mongoose.model('SharedEdition', sharedEditionSchema);
+
 /**
  * CasebookLineage — follow, fork, and adopt with frozen origin provenance.
  * Revoking a share never rewrites originHash, originTitle, or originSlug.
@@ -3186,6 +3205,7 @@ module.exports = {
   ConceptNote,
   Edition,
   MorningPaperRecord,
+  SharedEdition,
   Question,
   Board,
   BoardItem,

@@ -84,6 +84,8 @@ describe('the newsstand', () => {
     articles = [];
     asAgent = false;
     saved = [];
+    shares = [];
+    readArticle = async () => ({ ok: true, url: '', title: 'The page’s own title', content: 'The body.', error: '' });
     const Article = {
       findOneAndUpdate: async (query, patch) => {
         const existing = articles.find(row => row.url === query.url && row.userId === query.userId);
@@ -91,6 +93,19 @@ describe('the newsstand', () => {
         const row = { _id: `article-${articles.length + 1}`, ...query, ...(patch.$setOnInsert || {}) };
         articles.push(row);
         return row;
+      }
+    };
+    const SharedEdition = {
+      findOne: (query) => ({
+        lean: async () => shares.find(row => Object.entries(query)
+          .every(([key, value]) => String(row[key]) === String(value))) || null
+      }),
+      create: async (doc) => { shares.push({ ...doc }); return doc; },
+      deleteOne: async (query) => {
+        const index = shares.findIndex(row => Object.entries(query)
+          .every(([key, value]) => String(row[key]) === String(value)));
+        if (index !== -1) shares.splice(index, 1);
+        return { deletedCount: index === -1 ? 0 : 1 };
       }
     };
     const app = express();
@@ -106,6 +121,9 @@ describe('the newsstand', () => {
       ),
       Edition,
       Article,
+      readArticle: (...args) => readArticle(...args),
+      SharedEdition,
+      User: { findById: () => ({ select: () => ({ lean: async () => ({ displayName: 'Athan' }) }) }) },
       onArticleSaved: article => saved.push(article)
     }));
     server = await listen(app);
@@ -185,6 +203,34 @@ describe('the newsstand', () => {
       expect(saved).toHaveLength(1);
     });
 
+    /* The seam in "seamless": a source taken from an agent's paper used to
+       arrive as a row you could file but not read. */
+    it('arrives readable, with the page’s own title', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const res = await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
+      expect(res.body.readable).toBe(true);
+      expect(articles[0].content).toBe('The body.');
+      expect(articles[0].title).toBe('The page’s own title');
+    });
+
+    /* A paywall answering 403 is still a source worth keeping. The save must
+       not be lost, and the reader must be told why the text is missing. */
+    it('still saves when the source will not be read, and says why', async () => {
+      readArticle = async () => ({ ok: false, url: '', title: '', content: '', error: 'That source request failed with HTTP 403.' });
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const res = await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
+      expect(res.status).toBe(200);
+      expect(res.body.readable).toBe(false);
+      expect(res.body.readError).toMatch(/403/);
+      /* Filed anyway, under the agent's title, so the click is not lost. */
+      expect(articles[0].title).toBe('A paper about scaling');
+      expect(articles[0].content).toBe('');
+    });
+
     /* Keyed on the URL, like every other save, so taking a source you already
        own adopts your copy instead of forking it. */
     it('adopts a source the reader already owns', async () => {
@@ -213,6 +259,78 @@ describe('the newsstand', () => {
       asAgent = false;
       expect((await send(`/api/editions/${made.body._id}/items/nope/save`, 'POST')).status).toBe(404);
       expect((await send('/api/editions/missing/items/item-1/save', 'POST')).status).toBe(404);
+    });
+  });
+
+  describe('sharing a paper', () => {
+    const share = async (id, method = 'POST') => send(`/api/editions/${id}/share`, method);
+
+    it('mints a link, and hands back the same one when asked twice', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const first = await share(made.body._id);
+      expect(first.status).toBe(201);
+      expect(first.body.slug).toBeTruthy();
+      /* A reader who already sent the first link must not end up with two
+         live URLs for one paper. */
+      const again = await share(made.body._id);
+      expect(again.status).toBe(200);
+      expect(again.body.slug).toBe(first.body.slug);
+      expect(shares).toHaveLength(1);
+    });
+
+    /* An agent that could publish its own paper could publish on the
+       reader's behalf, under the reader's name. */
+    it('is the reader’s to publish, not the agent’s', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      expect((await share(made.body._id)).status).toBe(403);
+      expect(shares).toHaveLength(0);
+    });
+
+    it('reads back whether a paper is shared', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      expect((await share(made.body._id, 'GET')).body).toEqual({ shared: false });
+      await share(made.body._id);
+      expect((await share(made.body._id, 'GET')).body.shared).toBe(true);
+    });
+
+    /* Revoking removes the row, so the link stops resolving rather than
+       resolving to a refusal that confirms the paper exists. */
+    it('revokes, and the link stops resolving', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      const { body: { slug } } = await share(made.body._id);
+      expect((await send(`/api/public/editions/${slug}`)).status).toBe(200);
+      expect((await share(made.body._id, 'DELETE')).status).toBe(200);
+      expect((await send(`/api/public/editions/${slug}`)).status).toBe(404);
+    });
+
+    /* A public edition is the reading. What the reader did with it afterwards
+       is theirs. */
+    it('publishes the paper and nothing about the reader', async () => {
+      asAgent = true;
+      const made = await send('/api/editions', 'POST', week());
+      asAgent = false;
+      await send(`/api/editions/${made.body._id}/items/item-1/save`, 'POST');
+      const { body: { slug } } = await share(made.body._id);
+
+      const seen = await send(`/api/public/editions/${slug}`);
+      expect(seen.status).toBe(200);
+      expect(seen.body.title).toBe('This Week in AI');
+      expect(seen.body.ownerDisplayName).toBe('Athan');
+      expect(seen.body.savedCount).toBeUndefined();
+      expect(seen.body.items.every(item => item.savedArticleId === undefined)).toBe(true);
+      /* The standard still travels: every item carries its boundary. */
+      expect(seen.body.items.every(item => item.boundary)).toBe(true);
+    });
+
+    it('says nothing about a slug that was never minted', async () => {
+      expect((await send('/api/public/editions/nope')).status).toBe(404);
     });
   });
 

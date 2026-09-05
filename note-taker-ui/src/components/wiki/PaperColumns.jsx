@@ -3,13 +3,18 @@ import { Link } from 'react-router-dom';
 import { getMorningPaperColumns } from '../../api/wiki';
 import {
   anniversaryLine,
+  calibrationLine,
+  oldestOpenLine,
   askedLine,
   closingGroups,
   correctionLines,
   disagreementLine,
   obituaryLine,
   paperWeight,
-  quietMorning
+  quietMorning,
+  quietStreakLine,
+  rightForWrongReasonsLine,
+  warnedLine
 } from '../../pages/paperColumnsModel';
 
 /**
@@ -59,17 +64,44 @@ const PaperColumns = ({ weekend = false }) => {
   const disagreement = disagreementLine(columns.disagreement);
   const corrections = correctionLines(columns.corrections);
   const obituary = obituaryLine(columns.obituary);
+  const warned = warnedLine(columns.warned);
+  const calibration = calibrationLine(columns.calibration);
+  const oldest = oldestOpenLine(columns.oldestOpen);
+  const wrongReasons = rightForWrongReasonsLine(columns.rightForWrongReasons);
+  const streak = quietStreakLine(columns.streak);
   const asked = askedLine(columns.asked);
   const { answered, corrections: paperCorrections } = closingGroups(columns.closed);
 
   /* The best sentence this product can print, and the only one none of its
      competitors would dare: there is nothing here, go away. */
   if (!paperWeight(columns)) {
-    return <p className="paper-column__quiet">{quietMorning({ weekend })}</p>;
+    return (
+      <p className="paper-column__quiet">
+        {/* On a weekend it names the day, because "it's Saturday" is a reason
+            where "a quiet morning" is only a report. */}
+        {quietMorning({ weekend })}
+        {/* One quiet day is rest. A run of them is news, and only a paper
+            that remembers its own mornings can tell the difference. */}
+        {streak ? <span className="paper-column__streak">{streak}</span> : null}
+      </p>
+    );
   }
 
   return (
     <div className="paper-columns" data-testid="paper-columns">
+      {/* It leads. A falsifier a watcher matched outranks a year-old belief,
+          and outranks everything else on the page. */}
+      {warned ? (
+        <Column
+          className="paper-column--warned"
+          standfirst={warned.standfirst}
+          footnote={warned.footnote}
+          href={warned.href}
+        >
+          “{warned.text}”
+        </Column>
+      ) : null}
+
       {anniversary ? (
         <Column
           className="paper-column--anniversary"
@@ -142,6 +174,34 @@ const PaperColumns = ({ weekend = false }) => {
             {paperCorrections.map(entry => <li key={entry.key}><span>{entry.text}</span></li>)}
           </ul>
         </section>
+      ) : null}
+
+      {/* The verdict nothing has ever printed. Said once, deadpan. */}
+      {wrongReasons ? (
+        <section className="paper-column paper-column--wrong-reasons">
+          <p className="paper-column__standfirst">Right, for the wrong reasons</p>
+          {wrongReasons.href ? (
+            <Link className="paper-column__body" to={wrongReasons.href}>“{wrongReasons.claim}”</Link>
+          ) : <p className="paper-column__body">“{wrongReasons.claim}”</p>}
+          <p className="paper-column__footnote">{wrongReasons.text}</p>
+        </section>
+      ) : null}
+
+      {/* A superlative, and a useful one — the oldest open question is
+          usually the one being avoided. */}
+      {oldest ? (
+        <p className="paper-column__oldest">
+          {oldest.href ? <Link to={oldest.href}>{oldest.text}</Link> : oldest.text}
+        </p>
+      ) : null}
+
+      {/* Last, and quiet. It is the one line about the reader rather than
+          about the corpus, and it is not news — it is a standing fact that
+          happens to be true this morning. */}
+      {calibration ? (
+        <p className="paper-column__calibration">
+          <Link to={calibration.href}>{calibration.text}</Link>
+        </p>
       ) : null}
 
       {obituary ? (
