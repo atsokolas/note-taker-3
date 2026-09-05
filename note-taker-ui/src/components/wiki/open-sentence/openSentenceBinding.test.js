@@ -60,6 +60,7 @@ describe('openSentenceBinding', () => {
     expect(bound.articleId).toBe('article-1');
     expect(bound.highlightId).toBe('highlight-1');
     expect(bound.here).toBe(false);
+    expect(bound.stale).toBe(false);
   });
 
   it('prefers the exact citation quote over a source snippet', () => {
@@ -69,6 +70,24 @@ describe('openSentenceBinding', () => {
       sourceRefs: [nomad]
     });
     expect(bound.passage).toBe('The exact saved sentence.');
+    expect(bound.stale).toBe(true);
+  });
+
+  it('keeps the cited quote when Nomad has moved on, and does not attach the newer line', () => {
+    const bound = bindClaimSource({
+      claimMark: { claimId: 'claim-1', citationIndexes: [1] },
+      citations: [{
+        sourceRefId: 'source-nomad',
+        quote: 'A wrong turn you can walk back from still teaches the map.'
+      }],
+      sourceRefs: [{
+        ...nomad,
+        snippet: 'A later line in Nomad was not attached.'
+      }]
+    });
+    expect(bound.passage).toBe('A wrong turn you can walk back from still teaches the map.');
+    expect(bound.stale).toBe(true);
+    expect(JSON.stringify(bound)).not.toContain('later line');
   });
 
   it('does not invent surrounding lines when none were saved', () => {

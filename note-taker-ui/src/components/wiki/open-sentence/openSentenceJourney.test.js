@@ -15,6 +15,7 @@ import {
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
 import { closeExploration, createExploration, keepQuestion, openExploration, tryWording } from './openSentenceModel';
+import { readStore } from './openSentenceStore';
 
 const article = {
   _id: 'article-1',
@@ -30,6 +31,7 @@ const highlight = {
 describe('openSentenceJourney', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('uses saved prefix and suffix when they exist', () => {
@@ -104,7 +106,7 @@ describe('openSentenceJourney', () => {
     const live = createExploration({ id: 'claim-1', originalText: 'Children need room to make mistakes.' });
     const forgotten = rememberDraft('wiki-1', 'claim-1', closeExploration(tryWording(live, 'draft')), live);
     expect(forgotten.provisionalText).toBe('Children need room to make mistakes.');
-    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+    expect(readStore(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
   });
 
   it('keeps an opened draft so restore can find it', () => {
@@ -126,9 +128,33 @@ describe('openSentenceJourney', () => {
       claimId: 'claim-1'
     };
     placeBesideWikiDraft(ticket);
-    expect(JSON.parse(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).placed).toBe(true);
+    expect(JSON.parse(readStore(draftStorageKey('wiki-1', 'claim-1'))).placed).toBe(true);
     cancelWikiDraftPlacement(ticket);
-    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+    expect(readStore(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+  });
+
+  it('keeps the current accepted line when the Wiki sentence moved on', () => {
+    const was = createExploration({
+      id: 'claim-1',
+      originalText: 'Children need room to make mistakes.',
+      source: { title: 'Nomad' }
+    });
+    keepExploration(
+      'wiki-1',
+      'claim-1',
+      keepQuestion(openExploration(tryWording(was, 'draft')), 'Which mistakes?'),
+      was
+    );
+    const now = createExploration({
+      id: 'claim-1',
+      originalText: 'Children need room to make recoverable mistakes.',
+      source: { title: 'Nomad', available: false }
+    });
+    const remembered = readRemembered('wiki-1', 'claim-1', now);
+    expect(remembered.originalText).toBe('Children need room to make recoverable mistakes.');
+    expect(remembered.provisionalText).toBe('draft');
+    expect(remembered.question).toBe('Which mistakes?');
+    expect(remembered.source).toEqual({ title: 'Nomad', available: false });
   });
 
   it('rebinds a stored draft to live sentence text without inventing a source', () => {

@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import renderTiptapDoc from '../renderTiptapDoc';
 import { WikiOpenSentenceProvider, wrapOpenableParagraph } from './WikiOpenSentence';
 import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
+import { RETURN_TICKET_KEY } from './openSentenceJourney';
+import { writeStore } from './openSentenceStore';
 
 const page = {
   _id: 'wiki-1',
@@ -54,6 +56,7 @@ const renderWikiSentence = (props = {}) => {
 describe('WikiOpenSentence', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('opens a pocket under the claim without rewriting the article line', () => {
@@ -76,7 +79,7 @@ describe('WikiOpenSentence', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     fireEvent.click(screen.getByRole('link', { name: 'Open in Library →' }));
-    expect(JSON.parse(window.sessionStorage.getItem('noeis.open-sentence.return'))).toEqual(
+    expect(JSON.parse(window.localStorage.getItem(RETURN_TICKET_KEY))).toEqual(
       expect.objectContaining({
         articleId: 'article-1',
         highlightId: 'highlight-1',
@@ -89,7 +92,7 @@ describe('WikiOpenSentence', () => {
     );
   });
 
-  it('restores a private question without accepting a forged wiki line or inventing a source', () => {
+  it('restores a leftover tab draft onto the device without accepting a forged wiki line', () => {
     window.sessionStorage.setItem(openedStorageKey('wiki-1'), 'claim-1');
     window.sessionStorage.setItem(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
       id: 'claim-1',
@@ -103,6 +106,8 @@ describe('WikiOpenSentence', () => {
       status: 'open'
     }));
     renderWikiSentence();
+    expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toContain('Does it still?');
+    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds when we forget.');
     expect(screen.getByLabelText('Leave this open')).toHaveValue('Does it still?');
     expect(screen.getByText('You left this open.')).toBeInTheDocument();
@@ -140,13 +145,13 @@ describe('WikiOpenSentence', () => {
       target: { value: 'Memory compounds when we forget.' }
     });
     fireEvent.click(document.querySelector('.open-sentence__open'));
-    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+    expect(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds with review.');
   });
 
   it('remembers Nomad when you come home without opening the pocket', () => {
-    window.sessionStorage.setItem('noeis.open-sentence.return', JSON.stringify({
+    writeStore(RETURN_TICKET_KEY, JSON.stringify({
       articleId: 'article-1',
       highlightId: 'highlight-1',
       sentence: 'Memory compounds with review.',
@@ -160,8 +165,23 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
 
+  it('lets another tab’s save become this tab’s restore', () => {
+    renderWikiSentence();
+    writeStore(openedStorageKey('wiki-1'), 'claim-1');
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'forged',
+      provisionalText: 'Memory compounds when we forget.',
+      question: 'Does it still?',
+      status: 'open'
+    }));
+    fireEvent(window, new StorageEvent('storage', { key: openedStorageKey('wiki-1') }));
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds when we forget.');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
   it('leaves a quiet gold thread on a closed placed sentence without opening', () => {
-    window.sessionStorage.setItem(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
       id: 'claim-1',
       originalText: 'Memory compounds with review.',
       provisionalText: 'Memory compounds with review.',

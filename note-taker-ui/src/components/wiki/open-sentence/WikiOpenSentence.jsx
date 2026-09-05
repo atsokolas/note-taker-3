@@ -26,7 +26,7 @@ import {
   rememberDraft,
   writeReturnTicket
 } from './openSentenceJourney';
-import { readStore } from './openSentenceStore';
+import { listenOpenSentenceStore, readStore } from './openSentenceStore';
 
 const WikiOpenSentenceContext = createContext(null);
 
@@ -48,10 +48,14 @@ export const WikiOpenSentenceProvider = ({
     if (!enabled || !pageId) {
       setOpenedId(null);
       setDrafts({});
-      return;
+      return undefined;
     }
-    setOpenedId(readStore(openedStorageKey(pageId)) || null);
-    setDrafts({});
+    const readOpened = () => {
+      setOpenedId(readStore(openedStorageKey(pageId)) || null);
+      setDrafts({});
+    };
+    readOpened();
+    return listenOpenSentenceStore(readOpened);
   }, [enabled, pageId]);
 
   const liveFor = useCallback((claimMark) => {

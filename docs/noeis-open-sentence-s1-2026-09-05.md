@@ -55,7 +55,7 @@ Ink palettes, serendipity, and sharing wait.
 
 ## Persistence in this prototype
 
-What you type in the pocket survives reload in this browser tab (`sessionStorage`). The storyboard uses the same `keepExploration` path as live Wiki and Library (`noeis.open-sentence.storyboard.{id}`), not a parallel key. That is a device-save, labeled as such. It is not server-sync, not an accepted Wiki revision, and not a belief.
+What you type in the pocket survives reload on this device for owned Wiki and Library walks (`localStorage`). The storyboard stays a tab-local study (`sessionStorage`). Neither is server-sync, an accepted Wiki revision, or a belief. A leftover tab draft is lifted onto the device so a mid-walk is not lost. Another tab’s save can become this tab’s restore.
 
 Closing the pocket without keeping the question discards the experiment. Keeping the question keeps the question only. Put it back restores the original wording. The accepted article never receives the draft.
 
@@ -65,17 +65,17 @@ Not a live retrieval engine. Not an accepted-revision flow. Public shares stay c
 
 ## Live Wiki binding (2026-09-05)
 
-Ordinary reading at `/wiki/read/:id` can open a claim in place. The article stays. The companion rebinds to that sentence. Drafts stay in `sessionStorage` as `noeis.open-sentence.{pageId}.{claimId}`. Restore cannot overwrite accepted claim text or invent a source.
+Ordinary reading at `/wiki/read/:id` can open a claim in place. The article stays. The companion rebinds to that sentence. Drafts stay on the device as `noeis.open-sentence.{pageId}.{claimId}`. Restore cannot overwrite accepted claim text or invent a source.
 
 **Eligibility:** a claim mark on a standard Wiki paragraph, with citation indexes or ledger `sourceRefIds` pointing at a sourceRef.
-**Quality bar:** identity only. No similar-text repair. Missing surrounding lines stay missing. Empty quotes stay empty.
-**Silence:** no attached source → “Nothing beside this sentence yet.” A cited slot with no sourceRef → unavailable, and a neighbor is not substituted.
+**Quality bar:** identity only. No similar-text repair. Missing surrounding lines stay missing. Empty quotes stay empty. A citation quote that no longer matches the source snippet is an older copy; the cited quote stays, and the newer line is not attached.
+**Silence:** no attached source → “Nothing beside this sentence yet.” A cited slot with no sourceRef → unavailable, and a neighbor is not substituted. An older copy says so.
 
 Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a kept question discards the experiment; keeping the question keeps the question only.
 
 ## Library-to-pocket (2026-09-05)
 
-The Wiki pocket’s Library door leaves a return ticket in `sessionStorage` (`noeis.open-sentence.return`), not in the URL. Library lands on the exact highlight. A quiet arrival remembers the sentence you were holding and offers a way back to `/wiki/read/:id?claimId=…`. The pocket does not open itself.
+The Wiki pocket’s Library door leaves a return ticket on the device (`noeis.open-sentence.return`), not in the URL. Library lands on the exact highlight. A quiet arrival remembers the sentence you were holding and offers a way back to `/wiki/read/:id?claimId=…`. The pocket does not open itself.
 
 Opening that focused highlight uses the same pocket. The source is already this article, so “Open in Library” is gone. Surrounding lines come from saved prefix/suffix or an exact slice of the article. Place beside, when you arrived from a Wiki, writes `placed` onto the Wiki draft so the passage is waiting when you return. It is not an accepted revision.
 
@@ -114,6 +114,12 @@ Coming back from Library, the sentence can say “You were in Nomad.” A return
 ## Honest failures and long content (2026-09-05)
 
 The storyboard Source control walks the same pocket through Nomad, silence, a gone source, a passage with no surrounding lines, an older copy, and a long passage that scrolls inside the pocket. Stillness is the open state with no drawing. A missing line is not replaced by a neighbor. Filler is never the answer.
+
+## The real loop (S3, 2026-09-05)
+
+Owned Wiki and Library walks persist on the device. Closing the tab, opening another tab, or coming back later can restore a kept question without accepting a revision. A leftover tab draft is lifted onto the device. If the accepted Wiki line moved on, the current line is what the article still reads. If the citation quote no longer matches the source snippet, the cited quote stays as an older copy.
+
+Public shares, workspace, dossiers, and editions stay closed. Server-sync is still later.
 
 ## Exit for this stage
 

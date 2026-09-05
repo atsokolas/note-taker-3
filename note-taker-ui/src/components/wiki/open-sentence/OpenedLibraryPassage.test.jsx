@@ -34,6 +34,7 @@ const renderPassage = (props = {}) => render(
 describe('OpenedLibraryPassage', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('lands on the saved passage without opening the pocket', () => {
@@ -82,7 +83,7 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.getByText('Beside Parenting')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Place here' }));
     expect(screen.getByText('Placed beside Parenting')).toBeInTheDocument();
-    expect(JSON.parse(window.sessionStorage.getItem('noeis.open-sentence.wiki-1.claim-1')).placed).toBe(true);
+    expect(JSON.parse(window.localStorage.getItem('noeis.open-sentence.wiki-1.claim-1')).placed).toBe(true);
   });
 
   it('discards a closed Library experiment that did not keep a question', () => {
@@ -92,7 +93,7 @@ describe('OpenedLibraryPassage', () => {
       target: { value: 'A wrong turn you can name still teaches the map.' }
     });
     fireEvent.click(document.querySelector('.open-sentence__open'));
-    expect(window.sessionStorage.getItem('noeis.open-sentence.library:article-1.highlight-1')).toBeFalsy();
+    expect(window.localStorage.getItem('noeis.open-sentence.library:article-1.highlight-1')).toBeFalsy();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(highlight.text);
   });

@@ -159,7 +159,9 @@ export const bindClaimSource = ({
 
   const source = attached[0];
   const citation = notes.find((item) => citationMatchesSource(item, source));
-  const passage = cleanSourceTextForDisplay(citation?.quote || source.snippet || source.excerpt || '');
+  const citedPassage = cleanSourceTextForDisplay(citation?.quote || '');
+  const currentPassage = cleanSourceTextForDisplay(source.snippet || source.excerpt || '');
+  const passage = citedPassage || currentPassage;
   const doors = resolveSourceDoors(source);
   const around = surrounding(source);
   const libraryIds = libraryIdsFromHref(doors.ownedHref);
@@ -171,7 +173,7 @@ export const bindClaimSource = ({
     aroundAfter: around.aroundAfter,
     qualification: qualifyBoundSource(source, passage, doors),
     available: true,
-    stale: false,
+    stale: Boolean(citedPassage && currentPassage && citedPassage !== currentPassage),
     href: doors.ownedHref,
     originalHref: doors.originalHref,
     isLibrary: doors.isLibrary,

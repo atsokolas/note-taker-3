@@ -22,6 +22,7 @@ const renderBoard = (entries = ['/']) => render(
 describe('OpenSentenceStoryboard', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   it('keeps the article on stage and rebinds the companion when the sentence opens', () => {

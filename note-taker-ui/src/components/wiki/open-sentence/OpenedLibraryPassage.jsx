@@ -12,6 +12,7 @@ import {
   readRemembered,
   wikiReturnHref
 } from './openSentenceJourney';
+import { listenOpenSentenceStore } from './openSentenceStore';
 
 const highlightSelector = (highlightId) => `[data-highlight-id="highlight-${highlightId}"]`;
 
@@ -53,7 +54,9 @@ const OpenedLibraryPassage = ({
   const placed = Boolean(exploration.placed);
 
   useEffect(() => {
-    setExploration(readRemembered(scope, highlightId, live));
+    const readWalk = () => setExploration(readRemembered(scope, highlightId, live));
+    readWalk();
+    return listenOpenSentenceStore(readWalk);
   }, [highlightId, live, scope]);
 
   const commit = useCallback((next) => {
