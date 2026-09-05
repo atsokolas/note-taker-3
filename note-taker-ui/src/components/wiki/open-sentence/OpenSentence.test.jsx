@@ -20,7 +20,7 @@ import {
   wikiAcceptedText,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_SENTENCE, STORYBOARD_SOURCE } from './openSentenceStoryboardFixture';
+import { STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -64,12 +64,17 @@ describe('openSentenceModel', () => {
     expect(restored.provisionalText).toBe('draft');
   });
 
-  it('does not place an unavailable source', () => {
-    const start = createExploration({
-      originalText: STORYBOARD_SENTENCE,
-      source: { title: 'Nomad', available: false }
-    });
+  it('does not place an unavailable source, an empty slot, or a missing passage', () => {
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE });
     expect(placeSource(start).placed).toBe(false);
+    expect(placeSource({
+      ...start,
+      source: { title: 'Nomad', available: false }
+    }).placed).toBe(false);
+    expect(placeSource({
+      ...start,
+      source: { title: 'Nomad', available: true, passage: '' }
+    }).placed).toBe(false);
   });
 
   it('keeps a private mark without treating it as evidence', () => {
@@ -142,6 +147,15 @@ describe('OpenSentence', () => {
     })));
     expect(screen.getByText(/Nomad is unavailable/)).toBeInTheDocument();
     expect(screen.queryByText(/similar passage was not attached/)).toBeInTheDocument();
+  });
+
+  it('keeps an older copy visible without attaching a newer line', () => {
+    renderOpen(openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_STALE_SOURCE
+    })));
+    expect(screen.getByText(STORYBOARD_STALE_SOURCE.passage)).toBeInTheDocument();
+    expect(screen.getByText('This is an older copy. A newer line was not attached.')).toBeInTheDocument();
   });
 
   it('remembers an unfinished question without turning it into a badge', () => {
@@ -270,5 +284,33 @@ describe('OpenSentence', () => {
     expect(screen.getByRole('button', { name: 'Next: figure out which mistakes are recoverable.' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
     jest.useRealTimers();
+  });
+
+  it('is already still when stillness is asked for', () => {
+    const onChange = jest.fn();
+    const opened = {
+      ...openExploration(createExploration({
+        originalText: STORYBOARD_SENTENCE,
+        source: STORYBOARD_SOURCE
+      })),
+      question: 'Which mistakes?'
+    };
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={opened} onChange={onChange} stillness homecoming="You were in Nomad." />
+      </MemoryRouter>
+    );
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(opened)}
+          onChange={onChange}
+          stillness
+          homecoming="You were in Nomad."
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
 });

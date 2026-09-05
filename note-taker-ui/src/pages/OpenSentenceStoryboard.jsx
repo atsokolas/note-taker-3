@@ -26,7 +26,8 @@ import {
   STORYBOARD_RETURN_NOTE,
   STORYBOARD_SENTENCE,
   STORYBOARD_SOURCE,
-  STORYBOARD_UNAVAILABLE_SOURCE
+  STORYBOARD_SOURCE_ROOMS,
+  storyboardSource
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
 const STORAGE_KEY = 'noeis.open-sentence.storyboard.v1';
@@ -80,6 +81,11 @@ const applyBeat = (beat, source) => {
 
 const readStored = (source) => restoreExploration(readStore(STORAGE_KEY), seed(source));
 
+const nextSourceRoom = (mode) => {
+  const index = STORYBOARD_SOURCE_ROOMS.findIndex((room) => room.id === mode);
+  return STORYBOARD_SOURCE_ROOMS[(index + 1) % STORYBOARD_SOURCE_ROOMS.length];
+};
+
 const OpenSentenceStoryboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -90,14 +96,15 @@ const OpenSentenceStoryboard = () => {
   const [width, setWidth] = useState(() => (
     WIDTHS.some((item) => item.id === params.get('width')) ? params.get('width') : '1440'
   ));
-  const [sourceMode, setSourceMode] = useState(() => {
-    if (params.get('source') === 'none') return 'none';
-    if (params.get('source') === 'unavailable') return 'unavailable';
-    return 'illustrated';
-  });
-  const silent = sourceMode === 'none';
-  const missing = sourceMode === 'unavailable';
-  const source = silent ? null : (missing ? STORYBOARD_UNAVAILABLE_SOURCE : STORYBOARD_SOURCE);
+  const [sourceMode, setSourceMode] = useState(() => (
+    STORYBOARD_SOURCE_ROOMS.some((room) => room.id === params.get('source'))
+      ? params.get('source')
+      : 'illustrated'
+  ));
+  const [stillness, setStillness] = useState(() => params.get('still') === '1');
+  const source = storyboardSource(sourceMode);
+  const sourceRoom = STORYBOARD_SOURCE_ROOMS.find((room) => room.id === sourceMode)
+    || STORYBOARD_SOURCE_ROOMS[0];
   const [exploration, setExploration] = useState(() => (
     params.get('beat') ? applyBeat(beat, source) : readStored(source)
   ));
@@ -125,9 +132,11 @@ const OpenSentenceStoryboard = () => {
     const nextSource = Object.prototype.hasOwnProperty.call(next, 'source') ? next.source : (
       sourceMode === 'illustrated' ? '' : sourceMode
     );
+    const nextStill = Object.prototype.hasOwnProperty.call(next, 'still') ? next.still : stillness;
     if (nextBeat) nextParams.set('beat', nextBeat);
     if (nextWidth) nextParams.set('width', nextWidth);
     if (nextSource) nextParams.set('source', nextSource);
+    if (nextStill) nextParams.set('still', '1');
     const search = nextParams.toString();
     navigate({ pathname: location.pathname || '/design-preview/open-sentence', search: search ? `?${search}` : '' }, { replace: true });
   };
@@ -156,6 +165,7 @@ const OpenSentenceStoryboard = () => {
           </p>
           <p>Getting lost was part of the work. The point was not to avoid every wrong turn.</p>
           <OpenSentence
+            key="library-passage"
             exploration={{ ...libraryExploration, source: STORYBOARD_LIBRARY_SOURCE }}
             onChange={(next) => {
               setLibraryExploration(next);
@@ -166,6 +176,7 @@ const OpenSentenceStoryboard = () => {
               ));
             }}
             mocked
+            stillness={stillness}
             acceptedLabel="The saved passage still reads"
             placeBesideTitle={STORYBOARD_PAGE_TITLE}
           />
@@ -183,10 +194,16 @@ const OpenSentenceStoryboard = () => {
             Care is not the same as preventing every scrape. A child who never meets a
             recoverable failure also never learns the shape of the world.
           </p>
+          <p>
+            The people who love them want a map with no wrong turns. Maps like that
+            stay on the table. They do not teach the ground.
+          </p>
           <OpenSentence
+            key="wiki-sentence"
             exploration={{ ...exploration, source }}
             onChange={setExploration}
-            mocked={!silent && !missing}
+            mocked={Boolean(source?.available)}
+            stillness={stillness}
             homecoming={beenToLibrary ? 'You were in Nomad.' : ''}
             onOpenSourceHome={() => {
               setBeenToLibrary(true);
@@ -197,10 +214,15 @@ const OpenSentenceStoryboard = () => {
             The useful distinction is not whether a mistake happened. It is whether the
             person can continue.
           </p>
+          <p>
+            That sentence is easy to say and hard to keep. It asks the adult to stay
+            near enough to help, and far enough that the child can still find the path
+            without being carried.
+          </p>
         </div>
       </article>
     )
-  ), [beenToLibrary, exploration, libraryExploration, missing, scene, silent, source]);
+  ), [beenToLibrary, exploration, libraryExploration, scene, source, stillness]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -210,8 +232,8 @@ const OpenSentenceStoryboard = () => {
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
           a question, a return note, or a placed passage forgets the experiment. A note
-          under the line is the way home. Open in Library walks into Nomad. The Wiki
-          line does not change.
+          under the line is the way home. Source cycles the honest absences. Stillness
+          is the open state with no drawing. The Wiki line does not change.
         </p>
       </header>
 
@@ -250,16 +272,29 @@ const OpenSentenceStoryboard = () => {
           ))}
           <button
             type="button"
-            className={silent ? 'is-active' : ''}
+            aria-label={`Source condition, currently ${sourceRoom.label}. Next condition.`}
             onClick={() => {
-              const next = silent ? 'illustrated' : 'none';
-              setSourceMode(next);
+              const next = nextSourceRoom(sourceMode);
+              setSourceMode(next.id);
               setBeat('open');
-              setQuery({ source: next === 'illustrated' ? '' : next, beat: 'open' });
-              setExploration(applyBeat('open', next === 'none' ? null : STORYBOARD_SOURCE));
+              setScene('wiki');
+              setQuery({ source: next.id === 'illustrated' ? '' : next.id, beat: 'open' });
+              setExploration(applyBeat('open', storyboardSource(next.id)));
             }}
           >
-            Silence
+            Source: {sourceRoom.label}
+          </button>
+          <button
+            type="button"
+            className={stillness ? 'is-active' : ''}
+            aria-pressed={stillness}
+            onClick={() => {
+              const next = !stillness;
+              setStillness(next);
+              setQuery({ still: next });
+            }}
+          >
+            Stillness
           </button>
         </div>
       </div>
@@ -267,6 +302,7 @@ const OpenSentenceStoryboard = () => {
       <div
         className="open-sentence-storyboard__stage"
         data-width={width}
+        data-stillness={stillness ? '1' : undefined}
         style={{ '--storyboard-width': `${width}px` }}
       >
         {width === '430' ? (

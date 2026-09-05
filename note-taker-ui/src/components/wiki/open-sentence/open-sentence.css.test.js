@@ -31,4 +31,9 @@ describe('open-sentence motion', () => {
     expect(css).toMatch(/mark\.highlight\.open-sentence__held\.is-placed:not\(\.is-open\)::before/);
     expect(css).toMatch(/opacity:\s*0\.45/);
   });
+
+  it('lets a long source scroll inside the pocket instead of stretching the article', () => {
+    expect(css).toMatch(/\.open-sentence-pocket__source\s*\{[^}]*max-height:\s*min\(42vh, 22rem\)/s);
+    expect(css).toMatch(/\.open-sentence-pocket__source\s*\{[^}]*overflow:\s*auto/s);
+  });
 });

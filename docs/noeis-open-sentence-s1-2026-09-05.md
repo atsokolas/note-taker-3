@@ -111,6 +111,10 @@ Closing the pocket without a question, a return note, or a placed passage discar
 
 Coming back from Library, the sentence can say “You were in Nomad.” A return note sits under the closed line as the way back into the pocket. A placed passage leaves a quiet gold thread even while closed. None of this opens the pocket by itself.
 
+## Honest failures and long content (2026-09-05)
+
+The storyboard Source control walks the same pocket through Nomad, silence, a gone source, a passage with no surrounding lines, an older copy, and a long passage that scrolls inside the pocket. Stillness is the open state with no drawing. A missing line is not replaced by a neighbor. Filler is never the answer.
+
 ## Exit for this stage
 
-A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question does not linger.
+A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question does not linger.

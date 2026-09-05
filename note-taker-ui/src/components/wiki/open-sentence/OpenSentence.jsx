@@ -40,6 +40,115 @@ const SourceHome = ({ source, mocked, onOpen }) => {
   return <a className="open-sentence-pocket__home" href={source.href} onClick={go}>{label}</a>;
 };
 
+const SourceBeside = ({
+  exploration,
+  mocked,
+  inspecting,
+  setInspecting,
+  previewing,
+  setPreviewing,
+  settling,
+  placeBesideTitle,
+  onCommit,
+  onOpenSourceHome
+}) => {
+  const source = exploration?.source;
+  if (!source) {
+    return <p className="open-sentence-pocket__silence">Nothing beside this sentence yet.</p>;
+  }
+  if (source.available === false) {
+    return (
+      <p className="open-sentence-pocket__unavailable">
+        {source.title || 'This source'} is unavailable. A similar passage was not attached.
+      </p>
+    );
+  }
+
+  const aroundMissing = !source.aroundBefore && !source.aroundAfter;
+  const canPlace = Boolean(source.passage) && (!source.here || placeBesideTitle);
+  const besideLabel = placeBesideTitle || source.title || 'the thought';
+
+  return (
+    <>
+      <p className="open-sentence-pocket__source-title">{source.title}</p>
+      {inspecting && source.aroundBefore ? (
+        <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
+      ) : null}
+      {source.passage ? (
+        <p className={`open-sentence-pocket__passage${exploration.placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
+          {source.passage}
+        </p>
+      ) : (
+        <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
+      )}
+      {inspecting && source.aroundAfter ? (
+        <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
+      ) : null}
+      {inspecting && aroundMissing ? (
+        <p className="open-sentence-pocket__silence">
+          The surrounding lines were not saved with this passage.
+        </p>
+      ) : null}
+      {source.stale ? (
+        <p className="open-sentence-pocket__stale">
+          This is an older copy. A newer line was not attached.
+        </p>
+      ) : null}
+      {source.qualification ? (
+        <p className="open-sentence-pocket__qualification">{source.qualification}</p>
+      ) : null}
+      {exploration.placed ? (
+        <p className="open-sentence-pocket__placed">Placed beside {besideLabel}</p>
+      ) : null}
+      <button
+        type="button"
+        className="open-sentence-pocket__marginalia"
+        aria-pressed={exploration.mark === '!'}
+        aria-label={exploration.mark === '!' ? 'Remove mark' : 'Leave a mark'}
+        onClick={() => onCommit(leaveMark(exploration, exploration.mark !== '!'))}
+      >
+        {exploration.mark || '!'}
+      </button>
+      <div className="open-sentence-pocket__actions">
+        <button type="button" onClick={() => setInspecting((current) => !current)}>
+          {inspecting ? 'Hide surrounding' : 'Read around this'}
+        </button>
+        <SourceHome
+          source={source}
+          mocked={mocked}
+          onOpen={() => onOpenSourceHome?.(source, exploration)}
+        />
+        {canPlace && exploration.placed ? (
+          <button type="button" onClick={() => onCommit(cancelPlacement(exploration))}>
+            Remove passage
+          </button>
+        ) : null}
+        {canPlace && !exploration.placed && previewing ? (
+          <>
+            <div className="open-sentence-pocket__preview">
+              <p className="open-sentence-pocket__label">Beside {besideLabel}</p>
+              <p className="open-sentence-pocket__passage">{source.passage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onCommit(placeSource(exploration));
+                setPreviewing(false);
+              }}
+            >
+              Place here
+            </button>
+            <button type="button" onClick={() => setPreviewing(false)}>Cancel</button>
+          </>
+        ) : null}
+        {canPlace && !exploration.placed && !previewing ? (
+          <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
+        ) : null}
+      </div>
+    </>
+  );
+};
+
 const PocketBody = ({
   pocketId,
   exploration,
@@ -56,19 +165,9 @@ const PocketBody = ({
   onCommit,
   onOpenSourceHome
 }) => {
-  const source = exploration?.source;
   const spans = wordingChanged(exploration)
     ? changedWordSpans(accepted, exploration.provisionalText)
     : [];
-  const aroundMissing = Boolean(source)
-    && source.available !== false
-    && !source.aroundBefore
-    && !source.aroundAfter;
-  const canPlace = Boolean(source)
-    && source.available !== false
-    && source.passage
-    && (!source.here || placeBesideTitle);
-  const besideLabel = placeBesideTitle || source?.title || 'the thought';
 
   return (
     <>
@@ -78,86 +177,18 @@ const PocketBody = ({
       ) : null}
 
       <div className="open-sentence-pocket__source">
-        {!source ? (
-          <p className="open-sentence-pocket__silence">Nothing beside this sentence yet.</p>
-        ) : source.available === false ? (
-          <p className="open-sentence-pocket__unavailable">
-            {source.title || 'This source'} is unavailable. A similar passage was not attached.
-          </p>
-        ) : (
-          <>
-            <p className="open-sentence-pocket__source-title">{source.title}</p>
-            {inspecting && source.aroundBefore ? (
-              <p className="open-sentence-pocket__around">{source.aroundBefore}</p>
-            ) : null}
-            {source.passage ? (
-              <p className={`open-sentence-pocket__passage${exploration.placed ? ' is-placed' : ''}${settling ? ' is-settling' : ''}`}>
-                {source.passage}
-              </p>
-            ) : (
-              <p className="open-sentence-pocket__silence">The exact passage was not saved with this citation.</p>
-            )}
-            {inspecting && source.aroundAfter ? (
-              <p className="open-sentence-pocket__around">{source.aroundAfter}</p>
-            ) : null}
-            {inspecting && aroundMissing ? (
-              <p className="open-sentence-pocket__silence">
-                The surrounding lines were not saved with this passage.
-              </p>
-            ) : null}
-            {source.qualification ? (
-              <p className="open-sentence-pocket__qualification">{source.qualification}</p>
-            ) : null}
-            {exploration.placed ? (
-              <p className="open-sentence-pocket__placed">Placed beside {besideLabel}</p>
-            ) : null}
-            <button
-              type="button"
-              className="open-sentence-pocket__marginalia"
-              aria-pressed={exploration.mark === '!'}
-              aria-label={exploration.mark === '!' ? 'Remove mark' : 'Leave a mark'}
-              onClick={() => onCommit(leaveMark(exploration, exploration.mark !== '!'))}
-            >
-              {exploration.mark || '!'}
-            </button>
-            <div className="open-sentence-pocket__actions">
-              <button type="button" onClick={() => setInspecting((current) => !current)}>
-                {inspecting ? 'Hide surrounding' : 'Read around this'}
-              </button>
-              <SourceHome
-                source={source}
-                mocked={mocked}
-                onOpen={() => onOpenSourceHome?.(source, exploration)}
-              />
-              {canPlace && exploration.placed ? (
-                <button type="button" onClick={() => onCommit(cancelPlacement(exploration))}>
-                  Remove passage
-                </button>
-              ) : null}
-              {canPlace && !exploration.placed && previewing ? (
-                <>
-                  <div className="open-sentence-pocket__preview">
-                    <p className="open-sentence-pocket__label">Beside {besideLabel}</p>
-                    <p className="open-sentence-pocket__passage">{source.passage}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onCommit(placeSource(exploration));
-                      setPreviewing(false);
-                    }}
-                  >
-                    Place here
-                  </button>
-                  <button type="button" onClick={() => setPreviewing(false)}>Cancel</button>
-                </>
-              ) : null}
-              {canPlace && !exploration.placed && !previewing ? (
-                <button type="button" onClick={() => setPreviewing(true)}>Place beside</button>
-              ) : null}
-            </div>
-          </>
-        )}
+        <SourceBeside
+          exploration={exploration}
+          mocked={mocked}
+          inspecting={inspecting}
+          setInspecting={setInspecting}
+          previewing={previewing}
+          setPreviewing={setPreviewing}
+          settling={settling}
+          placeBesideTitle={placeBesideTitle}
+          onCommit={onCommit}
+          onOpenSourceHome={onOpenSourceHome}
+        />
       </div>
 
       <div className="open-sentence-pocket__write">
@@ -225,6 +256,7 @@ const OpenSentence = ({
   acceptedLabel = 'The article still reads',
   placeBesideTitle = '',
   homecoming = '',
+  stillness = false,
   onOpenSourceHome,
   children
 }) => {
@@ -233,7 +265,8 @@ const OpenSentence = ({
   const wasOpen = useRef(false);
   const chipMagnet = useCssMagneticLerp('--open-chip-x', 0.28);
   const finePointer = useFinePointer();
-  const reducedMotion = usePrefersReducedMotion();
+  const prefersReduced = usePrefersReducedMotion();
+  const reducedMotion = stillness || prefersReduced;
   const [armed, setArmed] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -260,6 +293,11 @@ const OpenSentence = ({
     setInspecting(false);
     commit(closeExploration(exploration));
   }, [commit, exploration]);
+
+  useEffect(() => {
+    setInspecting(false);
+    setPreviewing(false);
+  }, [exploration?.source?.aroundBefore, exploration?.source?.available, exploration?.source?.passage, exploration?.source?.stale]);
 
   useEffect(() => {
     const onPointer = () => setArmed(selectionInside(armRoot || heldRef.current));

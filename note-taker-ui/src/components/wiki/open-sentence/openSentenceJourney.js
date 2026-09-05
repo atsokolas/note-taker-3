@@ -8,7 +8,6 @@ import {
   forgetExperiment,
   keepsClosedDraft,
   openExploration,
-  placeSource,
   restoreExploration,
   snapshotExploration
 } from './openSentenceModel';
@@ -197,7 +196,7 @@ export const placeBesideWikiDraft = (ticket) => {
   if (!ticket?.pageId || !ticket?.claimId) return;
   const live = wikiDraftFallback(ticket);
   const current = bindDraft(live, readStore(draftStorageKey(ticket.pageId, ticket.claimId)), false);
-  rememberDraft(ticket.pageId, ticket.claimId, placeSource(current), live);
+  rememberDraft(ticket.pageId, ticket.claimId, { ...current, placed: true }, live);
 };
 
 export const cancelWikiDraftPlacement = (ticket) => {

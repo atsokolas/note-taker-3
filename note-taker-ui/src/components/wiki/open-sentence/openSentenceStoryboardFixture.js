@@ -1,11 +1,20 @@
 /*
- * Illustrative scene for the S1 storyboard. Not the live Parenting Wiki,
+ * Illustrative scene for the storyboard. Not the live Parenting Wiki,
  * not a saved Nomad highlight, and not a private id.
  */
 
 export const STORYBOARD_PAGE_TITLE = 'Parenting';
 
 export const STORYBOARD_SENTENCE = 'Children need room to make mistakes.';
+
+export const STORYBOARD_SOURCE_ROOMS = Object.freeze([
+  { id: 'illustrated', label: 'Nomad' },
+  { id: 'none', label: 'Silence' },
+  { id: 'unavailable', label: 'Gone' },
+  { id: 'bare', label: 'No around' },
+  { id: 'stale', label: 'Older copy' },
+  { id: 'long', label: 'Long passage' }
+]);
 
 export const STORYBOARD_SOURCE = Object.freeze({
   title: 'Nomad',
@@ -31,13 +40,56 @@ export const STORYBOARD_LIBRARY_SOURCE = Object.freeze({
 
 export const STORYBOARD_UNAVAILABLE_SOURCE = Object.freeze({
   title: 'Nomad',
-  qualification: 'This source is unavailable',
+  qualification: '',
   aroundBefore: '',
   passage: '',
   aroundAfter: '',
   available: false,
   stale: true
 });
+
+export const STORYBOARD_BARE_SOURCE = Object.freeze({
+  ...STORYBOARD_SOURCE,
+  aroundBefore: '',
+  aroundAfter: ''
+});
+
+export const STORYBOARD_STALE_SOURCE = Object.freeze({
+  ...STORYBOARD_SOURCE,
+  stale: true,
+  qualification: 'Saved passage · an older copy of Nomad'
+});
+
+export const STORYBOARD_LONG_SOURCE = Object.freeze({
+  ...STORYBOARD_SOURCE,
+  aroundBefore: 'Getting lost was part of the work. The point was not to avoid every wrong turn. Maps that never leave the table do not teach the ground.',
+  passage: [
+    'A wrong turn you can walk back from still teaches the map. The ones that strand you do not.',
+    'The distinction is practical, not moral. You learn the shape of a place by leaving a path and finding it again.',
+    'A guide who forbids every departure also forbids the knowledge that would make the next departure safer.',
+    'That is a different kind of care than keeping someone from leaving the path at all.',
+    'The useful question is not whether a mistake happened. It is whether the person can continue, and whether the map is more true than it was this morning.'
+  ].join(' ')
+});
+
+export const storyboardSource = (mode) => {
+  switch (mode) {
+    case 'none':
+      return null;
+    case 'unavailable':
+      return STORYBOARD_UNAVAILABLE_SOURCE;
+    case 'bare':
+      return STORYBOARD_BARE_SOURCE;
+    case 'stale':
+      return STORYBOARD_STALE_SOURCE;
+    case 'long':
+      return STORYBOARD_LONG_SOURCE;
+    case 'illustrated':
+      return STORYBOARD_SOURCE;
+    default:
+      return STORYBOARD_SOURCE;
+  }
+};
 
 export const STORYBOARD_RETURN_NOTE = 'Next: figure out which mistakes are recoverable.';
 

@@ -134,3 +134,19 @@
     animation: none;
   }
 }
+
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence__reveal {
+  transition: none;
+}
+
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence__held.is-open::before,
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence-pocket__passage.is-settling,
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence-library-arrival,
+.open-sentence-storyboard__stage[data-stillness='1'] .agent-rail__thread-knot {
+  animation: none;
+}
+
+.open-sentence-storyboard__stage[data-stillness='1'] .open-sentence__chip {
+  transform: none;
+  will-change: auto;
+}

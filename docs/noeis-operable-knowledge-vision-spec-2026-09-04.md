@@ -397,7 +397,7 @@ Decided for the first scene (2026-09-05), recorded in [Open a sentence S1](noeis
 
 Still open: whether this pocket picture is the one to keep as the product’s ordinary reading gesture, now that owned Wiki pages can open a claim in place.
 
-**This stage:** the pocket on `/wiki/read/:id`, the Library walk onto the exact highlight, and the way home — a closed question, a return note, “You were in Nomad.” Not a retrieval rewrite, not an accepted revision, not a public-share leak.
+**This stage:** the pocket on `/wiki/read/:id`, the Library walk, the way home, and the storyboard’s honest failures — silence, a gone source, missing surrounding, an older copy, a long passage that scrolls, stillness. Not a retrieval rewrite, not an accepted revision, not a public-share leak.
 
 ## Appendix — consolidation coverage
 

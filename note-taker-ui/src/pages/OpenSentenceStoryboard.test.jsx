@@ -70,4 +70,28 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
     expect(screen.getByText(/From the Library of/)).toHaveTextContent('you were in Nomad.');
   });
+
+  it('cycles honest absences without attaching a neighbor', () => {
+    renderBoard();
+    const sourceButton = () => screen.getByRole('button', { name: /Source condition/ });
+    fireEvent.click(sourceButton());
+    expect(screen.getByText('Nothing beside this sentence yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Illustrated source · not live retrieval')).not.toBeInTheDocument();
+    fireEvent.click(sourceButton());
+    expect(screen.getByText(/Nomad is unavailable/)).toBeInTheDocument();
+    fireEvent.click(sourceButton());
+    fireEvent.click(screen.getByRole('button', { name: 'Read around this' }));
+    expect(screen.getByText('The surrounding lines were not saved with this passage.')).toBeInTheDocument();
+    fireEvent.click(sourceButton());
+    expect(screen.getByText('This is an older copy. A newer line was not attached.')).toBeInTheDocument();
+    fireEvent.click(sourceButton());
+    expect(document.querySelector('.open-sentence-pocket__source')).toHaveTextContent(/whether the person can continue/);
+  });
+
+  it('lets stillness skip the drawing', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Stillness' }));
+    expect(document.querySelector('.open-sentence-storyboard__stage')).toHaveAttribute('data-stillness', '1');
+    expect(screen.getByRole('button', { name: 'Stillness' })).toHaveAttribute('aria-pressed', 'true');
+  });
 });

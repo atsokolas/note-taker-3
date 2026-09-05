@@ -62,9 +62,13 @@ export const setReturnNote = (exploration, returnNote) => ({
   returnNote: String(returnNote ?? '')
 });
 
-export const placeSource = (exploration) => (
-  exploration.source?.available === false ? exploration : { ...exploration, placed: true }
-);
+export const placeSource = (exploration) => {
+  const source = exploration?.source;
+  if (!source || source.available === false || !String(source.passage || '').trim()) {
+    return exploration;
+  }
+  return { ...exploration, placed: true };
+};
 
 export const cancelPlacement = (exploration) => ({
   ...exploration,
