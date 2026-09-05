@@ -16,13 +16,14 @@ import {
   liveExplorationForClaim,
   openedStorageKey
 } from './openSentenceBinding';
-import { EXPLORATION_STATUS, closeExploration, keepsClosedDraft } from './openSentenceModel';
+import { EXPLORATION_STATUS, closeExploration, isOpen, keepsClosedDraft } from './openSentenceModel';
 import {
   bindDraft,
   homecomingLine,
+  keepExploration,
   matchingWikiTicket,
+  readRemembered,
   rememberDraft,
-  rememberOpened,
   writeReturnTicket
 } from './openSentenceJourney';
 import { readStore } from './openSentenceStore';
@@ -76,19 +77,25 @@ export const WikiOpenSentenceProvider = ({
 
   const commit = useCallback((claimId, next) => {
     if (!claimId) return;
+    let closedPrevious = null;
+    if (openedId && openedId !== claimId) {
+      const previousLive = liveFor({ claimId: openedId });
+      const previous = draftsRef.current[openedId]
+        || readRemembered(pageId, openedId, previousLive);
+      closedPrevious = rememberDraft(
+        pageId,
+        openedId,
+        closeExploration(previous),
+        previousLive
+      );
+    }
+    const remembered = keepExploration(pageId, claimId, next, liveFor({ claimId }));
     setDrafts((current) => {
       const drafts = { ...current };
-      if (openedId && openedId !== claimId && current[openedId]) {
-        const closedPrevious = rememberDraft(
-          pageId,
-          openedId,
-          closeExploration(current[openedId]),
-          liveFor({ claimId: openedId })
-        );
+      if (openedId && openedId !== claimId) {
         if (keepsClosedDraft(closedPrevious)) drafts[openedId] = closedPrevious;
         else delete drafts[openedId];
       }
-      const remembered = rememberDraft(pageId, claimId, next, liveFor({ claimId }));
       if (remembered.status === EXPLORATION_STATUS.closed && !keepsClosedDraft(remembered)) {
         delete drafts[claimId];
       } else {
@@ -96,7 +103,7 @@ export const WikiOpenSentenceProvider = ({
       }
       return drafts;
     });
-    setOpenedId((currentOpened) => rememberOpened(pageId, claimId, next, currentOpened));
+    setOpenedId(isOpen(remembered) ? claimId : (openedId === claimId ? null : openedId));
   }, [liveFor, openedId, pageId]);
 
   useEffect(() => {

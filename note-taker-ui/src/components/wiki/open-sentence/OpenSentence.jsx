@@ -409,7 +409,7 @@ const OpenSentence = ({
       >
         {open ? 'Close' : 'Open'}
       </button>
-      {armed && !open ? (
+      {followChip ? (
         <button
           type="button"
           className="open-sentence__chip"

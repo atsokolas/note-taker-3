@@ -84,6 +84,23 @@ const nextSourceRoom = (mode) => {
   return STORYBOARD_SOURCE_ROOMS[(index + 1) % STORYBOARD_SOURCE_ROOMS.length];
 };
 
+export const patchStoryboardSearch = (currentSearch, patch = {}) => {
+  const nextParams = new URLSearchParams(
+    String(currentSearch || '').replace(/^\?/, '')
+  );
+  Object.entries(patch).forEach(([key, value]) => {
+    if (key === 'still') {
+      if (value) nextParams.set('still', '1');
+      else nextParams.delete('still');
+      return;
+    }
+    if (value) nextParams.set(key, String(value));
+    else nextParams.delete(key);
+  });
+  const search = nextParams.toString();
+  return search ? `?${search}` : '';
+};
+
 const OpenSentenceStoryboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -121,20 +138,9 @@ const OpenSentenceStoryboard = () => {
     keepExploration(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID, exploration, seed(source));
   }, [exploration, source]);
 
-  const setQuery = (next) => {
-    const nextParams = new URLSearchParams();
-    const nextBeat = next.beat ?? beat;
-    const nextWidth = next.width ?? width;
-    const nextSource = Object.prototype.hasOwnProperty.call(next, 'source') ? next.source : (
-      sourceMode === 'illustrated' ? '' : sourceMode
-    );
-    const nextStill = Object.prototype.hasOwnProperty.call(next, 'still') ? next.still : stillness;
-    if (nextBeat) nextParams.set('beat', nextBeat);
-    if (nextWidth) nextParams.set('width', nextWidth);
-    if (nextSource) nextParams.set('source', nextSource);
-    if (nextStill) nextParams.set('still', '1');
-    const search = nextParams.toString();
-    navigate({ pathname: location.pathname || '/design-preview/open-sentence', search: search ? `?${search}` : '' }, { replace: true });
+  const setQuery = (patch) => {
+    const search = patchStoryboardSearch(location.search, patch);
+    navigate({ pathname: location.pathname || '/design-preview/open-sentence', search }, { replace: true });
   };
 
   const companionSubject = scene === 'library'

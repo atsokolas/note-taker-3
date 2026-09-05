@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import fs from 'fs';
 import path from 'path';
-import OpenSentenceStoryboard from './OpenSentenceStoryboard';
+import OpenSentenceStoryboard, { patchStoryboardSearch } from './OpenSentenceStoryboard';
 import { draftStorageKey, openedStorageKey } from '../components/wiki/open-sentence/openSentenceBinding';
 import {
   STORYBOARD_ITEM_ID,
@@ -13,8 +13,8 @@ import {
   STORYBOARD_SENTENCE
 } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
 
-const renderBoard = () => render(
-  <MemoryRouter>
+const renderBoard = (entries = ['/']) => render(
+  <MemoryRouter initialEntries={entries}>
     <OpenSentenceStoryboard />
   </MemoryRouter>
 );
@@ -52,6 +52,19 @@ describe('OpenSentenceStoryboard', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Mobile 430' }));
     expect(screen.getByRole('button', { name: 'Companion' })).toBeInTheDocument();
+  });
+
+  it('does not forget a walk just because the stage width changed', () => {
+    expect(patchStoryboardSearch('', { width: '430' })).toBe('?width=430');
+    expect(patchStoryboardSearch('?beat=question', { width: '430' })).toBe('?beat=question&width=430');
+    const { unmount } = renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Open', exact: true }));
+    fireEvent.change(screen.getByLabelText('Leave this open'), {
+      target: { value: 'Which mistakes?' }
+    });
+    unmount();
+    renderBoard();
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('Which mistakes?');
   });
 
   it('keeps Open findable at the 430 stage without hover', () => {

@@ -36,4 +36,8 @@ describe('open-sentence motion', () => {
     expect(css).toMatch(/\.open-sentence-pocket__source\s*\{[^}]*max-height:\s*min\(42vh, 22rem\)/s);
     expect(css).toMatch(/\.open-sentence-pocket__source\s*\{[^}]*overflow:\s*auto/s);
   });
+
+  it('keeps Open findable on a coarse pointer without waiting for hover', () => {
+    expect(css).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.open-sentence__open\s*\{[\s\S]*?opacity:\s*0\.7;/);
+  });
 });

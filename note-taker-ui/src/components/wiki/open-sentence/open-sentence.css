@@ -62,7 +62,6 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
 .open-sentence__open:hover,
 .open-sentence__open:focus-visible,
 .open-sentence.is-armed .open-sentence__open,
-.open-sentence__held.is-open + .open-sentence__open,
 .open-sentence.is-open .open-sentence__open {
   opacity: 1;
   color: var(--noeis-ink);
@@ -402,7 +401,7 @@ mark.highlight.open-sentence__held.is-placed:not(.is-open)::before {
   }
 }
 
-@media (max-width: 720px) {
+@media (pointer: coarse) {
   .open-sentence__open {
     opacity: 0.7;
   }
