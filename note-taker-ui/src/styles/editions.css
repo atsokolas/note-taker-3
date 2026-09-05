@@ -369,3 +369,17 @@
   margin: 0 0 8px;
   max-width: 56ch;
 }
+
+/* A run of filings. Quiet, and about the agent rather than the reading. */
+.editions__run {
+  margin: 14px 0 0;
+  color: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+.edition__colophon-cta {
+  display: inline-block;
+  margin: 4px 0 0;
+  font-weight: 500;
+}

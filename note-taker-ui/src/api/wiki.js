@@ -1216,3 +1216,19 @@ export const listWikiContradictions = async ({ limit = 50 } = {}) => {
   const res = await api.get(`/api/wiki/contradictions?limit=${encodeURIComponent(limit)}`, getAuthHeaders());
   return Array.isArray(res.data?.contradictions) ? res.data.contradictions : [];
 };
+
+/**
+ * Hold a belief, from a sentence you marked.
+ *
+ * The Library's door into the ledger. Everything the morning paper reads is
+ * claims, and this is where a reader makes one.
+ */
+export const holdClaimFromHighlight = async ({ claim, highlightId, resolutionCriteria = '', horizon = null } = {}) => {
+  const res = await api.post('/api/judgment/from-highlight', {
+    claim,
+    highlightId,
+    resolutionCriteria,
+    horizon
+  }, getAuthHeaders());
+  return res.data || null;
+};

@@ -85,20 +85,61 @@ const arrivalTerms = (arrival = {}) => termsOf(
   [arrival.title, arrival.summary, arrival.text].map(clean).filter(Boolean).join(' ')
 );
 
+const list = value => (Array.isArray(value) ? value : []);
+
 /**
- * The falsifiers still worth watching for.
+ * Everything on this page that names a signal we could watch for.
  *
- * Retired and already-triggered ones are done — a falsifier that has fired is
- * waiting on a person, not on more evidence, and re-firing it every morning
- * would turn the one sentence that should stop a reader into wallpaper.
+ * There are two stores, and this watcher was built against the wrong one.
+ * `judgment.falsifiers[].observableSignal` is written by a single bare input
+ * in the living-thesis editor. The prompt readers actually answer — "what
+ * would change your mind, and by when?" — writes `claims[].resolutionCriteria`
+ * somewhere else entirely, and nothing ever joined them. So the watcher was
+ * listening in a room almost nobody writes in.
+ *
+ * Both are the same thing to a reader: the observation that would break a
+ * belief. So both are read, and a claim-derived signal carries its claimId,
+ * so a match can write the falsifier the answer should have created.
+ *
+ * Retired and already-warned ones are done — one that has fired is waiting on
+ * a person, not on more evidence, and re-firing it every morning would turn
+ * the one sentence that should stop a reader into wallpaper.
  */
-const openFalsifiers = (page = {}) => (
-  Array.isArray(page?.judgment?.falsifiers) ? page.judgment.falsifiers : []
-).filter(falsifier => (
-  falsifier
-  && falsifier.status === 'unobserved'
-  && clean(falsifier.observableSignal)
-));
+const openSignals = (page = {}) => {
+  const falsifiers = list(page?.judgment?.falsifiers)
+    .filter(row => row && row.status === 'unobserved' && clean(row.observableSignal))
+    .map(row => ({
+      kind: 'falsifier',
+      falsifierId: clean(row.falsifierId),
+      claimId: '',
+      text: clean(row.text),
+      observableSignal: clean(row.observableSignal)
+    }));
+
+  /* A claim whose criteria already produced a falsifier is watched through
+     that falsifier, and must not be offered twice. */
+  const spokenFor = new Set(
+    list(page?.judgment?.falsifiers)
+      .flatMap(row => list(row?.affectedClaimIds).map(value => String(value)))
+  );
+
+  const fromClaims = list(page?.claims)
+    .filter(claim => claim
+      && clean(claim.resolutionCriteria)
+      && !spokenFor.has(String(claim.claimId || ''))
+      && claim.checkInStatus !== 'retired'
+      && !claim.retiredAt)
+    .map(claim => ({
+      kind: 'claim',
+      falsifierId: '',
+      claimId: clean(claim.claimId),
+      /* The claim is what would break; the criteria is how you would know. */
+      text: clean(claim.text),
+      observableSignal: clean(claim.resolutionCriteria)
+    }));
+
+  return [...falsifiers, ...fromClaims];
+};
 
 /**
  * Does this arrival look like the thing the reader named?
@@ -114,7 +155,9 @@ const matchFalsifier = ({ falsifier, arrival } = {}) => {
   const shared = overlap(signal, arrivalTerms(arrival));
   if (shared.length < MIN_SHARED_TERMS) return null;
   return {
+    kind: falsifier.kind || 'falsifier',
     falsifierId: clean(falsifier.falsifierId),
+    claimId: clean(falsifier.claimId),
     text: clean(falsifier.text),
     observableSignal: clean(falsifier.observableSignal),
     /* Sorted so the same match reads the same way twice, and capped because
@@ -131,7 +174,7 @@ const matchFalsifier = ({ falsifier, arrival } = {}) => {
  * arrival against every belief the reader holds would find something every
  * morning, which is the same as finding nothing.
  */
-const matchesForPage = ({ page, arrival } = {}) => openFalsifiers(page)
+const matchesForPage = ({ page, arrival } = {}) => openSignals(page)
   .map(falsifier => matchFalsifier({ falsifier, arrival }))
   .filter(Boolean);
 
@@ -140,6 +183,6 @@ module.exports = {
   arrivalTerms,
   matchFalsifier,
   matchesForPage,
-  openFalsifiers,
+  openSignals,
   termsOf
 };

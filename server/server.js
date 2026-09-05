@@ -5541,6 +5541,7 @@ app.use(buildWikiRouter({
   WikiRepoBaseline,
   WikiBriefingCache,
   MorningPaperRecord,
+  findHighlightById,
   WikiSharedCollection,
   CasebookLineage,
   WikiSchemaSettings,

@@ -1,16 +1,17 @@
 /* Before: highlights and articles could blend visually in Library.
    After: highlights mount on a distinct surface shell so section identity is clearer without layout changes. */
 import React, { Profiler, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { QuietButton, SectionHeader } from '../ui';
 import HighlightCard from '../blocks/HighlightCard';
 import useHighlightsQuery from '../../hooks/useHighlightsQuery';
 import useTags from '../../hooks/useTags';
+import LibraryClaimModal from './LibraryClaimModal';
 import LibraryConceptModal from './LibraryConceptModal';
 import LibraryNotebookModal from './LibraryNotebookModal';
 import LibraryQuestionModal from './LibraryQuestionModal';
 import { createQuestion } from '../../api/questions';
-import { createWikiPage } from '../../api/wiki';
+import { createWikiPage, holdClaimFromHighlight } from '../../api/wiki';
 import api from '../../api';
 import { getAuthHeaders } from '../../hooks/useAuthHeaders';
 import VirtualList from '../virtual/VirtualList';
@@ -61,6 +62,8 @@ const LibraryHighlights = ({
   const [conceptModal, setConceptModal] = useState({ open: false, highlight: null });
   const [notebookModal, setNotebookModal] = useState({ open: false, highlight: null });
   const [questionModal, setQuestionModal] = useState({ open: false, highlight: null });
+  const [claimModal, setClaimModal] = useState({ open: false, highlight: null });
+  const [heldClaim, setHeldClaim] = useState(null);
   const [bulkSelected, setBulkSelected] = useState(() => new Set());
   const [bulkConceptModal, setBulkConceptModal] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -196,6 +199,18 @@ const LibraryHighlights = ({
     }, getAuthHeaders());
     setConceptModal({ open: false, highlight: null });
     fireTourSignal('concept_from_highlight', { highlightId: highlight._id, conceptName });
+  };
+
+  /* A belief joins the ledger. The modal stays open until this resolves, so a
+     failure is reported where the reader typed rather than behind them. */
+  const handleHoldClaim = async ({ claim, resolutionCriteria, highlight }) => {
+    const held = await holdClaimFromHighlight({
+      claim,
+      highlightId: highlight?._id || highlight?.id || '',
+      resolutionCriteria
+    });
+    setClaimModal({ open: false, highlight: null });
+    setHeldClaim(held);
   };
 
   const handleAddQuestion = async (highlight, conceptName, text) => {
@@ -507,6 +522,7 @@ const LibraryHighlights = ({
                       onAddConcept={(h) => setConceptModal({ open: true, highlight: h })}
                       onAddNotebook={(h) => setNotebookModal({ open: true, highlight: h })}
                       onAddQuestion={(h) => setQuestionModal({ open: true, highlight: h })}
+                      onHoldClaim={(h) => setClaimModal({ open: true, highlight: h })}
                     />
                     <div className="library-highlight-row-actions">
                       <QuietButton onClick={() => handleOpenSource(highlight)}>
@@ -593,6 +609,21 @@ const LibraryHighlights = ({
         onClose={() => setNotebookModal({ open: false, highlight: null })}
         onSend={handleSendToNotebook}
       />
+
+      <LibraryClaimModal
+        open={claimModal.open}
+        highlight={claimModal.highlight}
+        onClose={() => setClaimModal({ open: false, highlight: null })}
+        onCreate={handleHoldClaim}
+      />
+
+      {/* Said once and quietly, because the reader is still reading. The
+          claim's own page is one tap away when they are ready for it. */}
+      {heldClaim ? (
+        <p className="library-highlights__held" role="status">
+          Held, dated today. <Link to={heldClaim.href}>Open it</Link>
+        </p>
+      ) : null}
 
       <LibraryQuestionModal
         open={questionModal.open}

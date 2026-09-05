@@ -371,6 +371,49 @@ const rightForWrongReasons = ({ pages = [], now = Date.now() } = {}) => {
 };
 
 /**
+ * A paper for someone who started on Tuesday.
+ *
+ * Every column here rewards a corpus with a year in it: a belief you have not
+ * revisited since last September, how your confidence met outcomes across
+ * nine settled cases, a page that has gone quiet for a season. All of it is
+ * true and none of it can speak to a reader three days old — so the paper a
+ * new reader meets is the emptiest version of the product, which is exactly
+ * backwards.
+ *
+ * These read the only thing a new reader has: what they saved this week.
+ * They stop once the year-scale columns can speak for themselves, because a
+ * paper that keeps introducing itself has stopped being a paper.
+ */
+const FIRST_WEEKS_MS = 21 * DAY_MS;
+
+const isNewReader = ({ pages = [], now = Date.now() } = {}) => {
+  const born = list(pages)
+    .map(page => time(page?.createdAt))
+    .filter(Boolean);
+  /* A corpus that will not say when it began is not thereby young. Without a
+     birthdate there is nothing to introduce, so the paper says nothing rather
+     than greeting a reader of two years as a beginner. */
+  if (!born.length) return false;
+  return now - Math.min(...born) < FIRST_WEEKS_MS;
+};
+
+/**
+ * What arrived this week, counted rather than characterised.
+ *
+ * The first week's news is simply that the shelf is filling. It says the
+ * number because the number is the whole story at this stage, and it stops
+ * saying it the moment there is something better to lead with.
+ */
+const firstWeek = ({ pages = [], now = Date.now() } = {}) => {
+  if (!isNewReader({ pages, now })) return null;
+  const week = now - 7 * DAY_MS;
+  const added = list(pages).filter(page => time(page?.createdAt) >= week).length;
+  const claims = list(pages).flatMap(page => list(page?.claims)).length;
+  if (!added && !claims) return null;
+  return { pages: added, claims };
+};
+
+/**
  * The paper, for the edition the reader is holding.
  *
  * Two columns do not run on a weekend, and both for the same reason: they
@@ -388,6 +431,7 @@ const rightForWrongReasons = ({ pages = [], now = Date.now() } = {}) => {
 const paperColumns = ({ pages = [], now = Date.now(), userId = '', weekend = false } = {}) => ({
   warned: warned({ pages }),
   calibration: calibration({ pages, userId }),
+  firstWeek: firstWeek({ pages, now }),
   oldestOpen: weekend ? null : oldestOpen({ pages, now }),
   rightForWrongReasons: rightForWrongReasons({ pages, now }),
   anniversary: anniversary({ pages, now }),
@@ -422,8 +466,10 @@ module.exports = {
   calibration,
   corrections,
   disagreement,
+  firstWeek,
   obituary,
   oldestOpen,
+  isNewReader,
   openTargets,
   paperColumns,
   rightForWrongReasons,

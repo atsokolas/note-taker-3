@@ -98,6 +98,13 @@ const renderMovementsSection = ({ movements = [], appBaseUrl }) => {
   return `<div style="margin-top:28px;padding-top:22px;border-top:1px solid #cdc6b8"><div style="font:11px ui-monospace,monospace;letter-spacing:.12em;color:#6d685e">WHAT CHANGED</div>${cards}</div>`;
 };
 
+/* A piece coming back with the belief it bears on is a decision. Without it,
+   it is a re-read — which is the dead end this whole idea was meant to fix. */
+const bearingLine = (row = {}) => {
+  const held = clean(row?.bearsOn?.text, 300);
+  return held ? ` — bears on: “${held}”` : '';
+};
+
 const renderAskedBackSection = ({ askedBack = [], appBaseUrl }) => {
   const items = (Array.isArray(askedBack) ? askedBack : []).filter((row) => row?.title && row?.href);
   if (!items.length) return { html: '', text: '' };
@@ -120,6 +127,10 @@ const renderAskedBackSection = ({ askedBack = [], appBaseUrl }) => {
  * maintenance table, and "a year ago today you wrote this down" is a reason
  * to come back that no other product can send.
  */
+/* Read where the reader is, not in UTC — a weekend is a thing that happens
+   where you are, and the paper already decides it that way. */
+const isWeekendDay = (now = new Date()) => [0, 6].includes(now.getDay());
+
 const renderAnniversarySection = ({ anniversary = null, appBaseUrl }) => {
   const text = clean(anniversary?.text, 400);
   if (!text) return { html: '', text: '' };
@@ -166,7 +177,7 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
      with no lead. A subject line that always reads the same is a subject line
      nobody reads, and one that says "Your Morning Paper" says nothing about
      this morning in particular. */
-  const subjectLine = emailSubject(lead?.title);
+  const subjectLine = emailSubject(lead?.title, { weekend: isWeekendDay() });
   const leadCopy = lead
     ? `${lead.page?.title || 'A watched page'} · ${lead.impactSummary || 'not yet analyzed — queued'}`
     : clean(briefing.summary || 'Your wiki is quiet today.');
@@ -195,10 +206,18 @@ const renderMorningPaperEmail = ({ briefing = {}, movements = [], unsubscribeUrl
   return { subject: clean(subjectLine, 180), html, text };
 };
 
-/** The lead's first six words, or the quiet-night sign-off. */
-const emailSubject = (leadTitle = '') => {
+/**
+ * The lead's first six words, or the quiet-night sign-off.
+ *
+ * A weekend edition says so, because the subject line is the only part of the
+ * paper most people read on a Saturday and "the weekend paper" tells them
+ * what kind of morning is waiting.
+ */
+const emailSubject = (leadTitle = '', { weekend = false } = {}) => {
   const words = String(leadTitle || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-  return words.length ? words.slice(0, 6).join(' ') : 'Quiet night.';
+  if (!words.length) return weekend ? 'The weekend paper.' : 'Quiet night.';
+  const lead = words.slice(0, 6).join(' ');
+  return weekend ? `${lead} · the weekend paper` : lead;
 };
 
 const briefingIsEmpty = (briefing = {}) => {

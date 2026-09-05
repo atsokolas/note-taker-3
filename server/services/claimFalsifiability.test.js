@@ -3,7 +3,8 @@ const {
   hasCriteria,
   hasHorizon,
   parseHorizon,
-  proposeCriteria
+  proposeCriteria,
+  syncClaimFalsifier
 } = require('./claimFalsifiability');
 
 describe('claim falsifiability', () => {
@@ -51,5 +52,66 @@ describe('claim falsifiability', () => {
     expect(suggestion.kind).toBe('suggestion');
     expect(claim.resolutionCriteria).toBe('');
     expect(claim.horizon).toBeUndefined();
+  });
+});
+
+describe('the falsifier a criteria answer should always have created', () => {
+  const claim = (over = {}) => ({
+    claimId: 'c1',
+    text: 'Alphabet capex is defensive.',
+    resolutionCriteria: 'Nvidia guides datacenter revenue down two quarters',
+    ...over
+  });
+
+  it('creates one, tied to the claim and not yet observed', () => {
+    const page = { judgment: { falsifiers: [] } };
+    syncClaimFalsifier(page, claim());
+    expect(page.judgment.falsifiers).toHaveLength(1);
+    expect(page.judgment.falsifiers[0]).toMatchObject({
+      falsifierId: 'claim-c1',
+      observableSignal: 'Nvidia guides datacenter revenue down two quarters',
+      status: 'unobserved',
+      affectedClaimIds: ['c1']
+    });
+  });
+
+  /* Editing the answer edits the watch, rather than growing a second one that
+     fires for a sentence the reader has moved on from. */
+  it('edits in place when the answer changes', () => {
+    const page = { judgment: { falsifiers: [] } };
+    syncClaimFalsifier(page, claim());
+    syncClaimFalsifier(page, claim({ resolutionCriteria: 'Three quarters, not two' }));
+    expect(page.judgment.falsifiers).toHaveLength(1);
+    expect(page.judgment.falsifiers[0].observableSignal).toBe('Three quarters, not two');
+  });
+
+  /* Retired, not deleted: answering and then thinking better of it is part of
+     the record. */
+  it('retires the watch when the answer is cleared', () => {
+    const page = { judgment: { falsifiers: [] } };
+    syncClaimFalsifier(page, claim());
+    syncClaimFalsifier(page, claim({ resolutionCriteria: '' }));
+    expect(page.judgment.falsifiers[0].status).toBe('retired');
+  });
+
+  /* One that already fired is waiting on a person; clearing the answer must
+     not quietly un-fire it. */
+  it('leaves a triggered watch alone', () => {
+    const page = { judgment: { falsifiers: [{
+      falsifierId: 'claim-c1', observableSignal: 'x', status: 'triggered', affectedClaimIds: ['c1']
+    }] } };
+    syncClaimFalsifier(page, claim({ resolutionCriteria: '' }));
+    expect(page.judgment.falsifiers[0].status).toBe('triggered');
+  });
+
+  it('does nothing without a page or a claim id', () => {
+    expect(() => syncClaimFalsifier(null, claim())).not.toThrow();
+    expect(() => syncClaimFalsifier({}, { resolutionCriteria: 'x' })).not.toThrow();
+  });
+
+  it('builds the judgment block when the page has none', () => {
+    const page = {};
+    syncClaimFalsifier(page, claim());
+    expect(page.judgment.falsifiers).toHaveLength(1);
   });
 });

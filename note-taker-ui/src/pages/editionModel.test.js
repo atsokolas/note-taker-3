@@ -1,4 +1,4 @@
-import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
+import { agentRunLine, bySection, gapLine, issueLine, takenLine, windowLine } from './editionModel';
 
 describe('the window a paper covers', () => {
   it('says one month once', () => {
@@ -93,5 +93,36 @@ describe('reading it in sections', () => {
     const read = bySection({ sections, items: [{ section: 'a' }] });
     expect(read.map(entry => entry.label)).toEqual(['A', 'B']);
     expect(bySection()).toEqual([]);
+  });
+});
+
+describe('whether an agent kept its promise', () => {
+  const week = (n) => ({ windowStart: new Date(Date.UTC(2026, 8, 6 - n * 7)).toISOString() });
+
+  /* The only fact on the stand about the agent rather than the reading. */
+  it('counts a run of consecutive windows', () => {
+    expect(agentRunLine([week(0), week(1), week(2), week(3)]))
+      .toBe('4 weeks running. Not a week missed.');
+  });
+
+  /* Two in a row is not yet a habit. */
+  it('says nothing below a run', () => {
+    expect(agentRunLine([week(0), week(1)])).toBe('');
+    expect(agentRunLine([])).toBe('');
+    expect(agentRunLine()).toBe('');
+  });
+
+  /* Three editions filed in one afternoon are not a three-week run. */
+  it('counts windows, not filings', () => {
+    expect(agentRunLine([week(0), week(0), week(0)])).toBe('');
+  });
+
+  it('stops at the first week missed', () => {
+    expect(agentRunLine([week(0), week(1), week(2), week(6), week(7)]))
+      .toBe('3 weeks running. Not a week missed.');
+  });
+
+  it('survives an edition with no window', () => {
+    expect(() => agentRunLine([{ windowStart: 'nonsense' }, week(0), week(1), week(2)])).not.toThrow();
   });
 });

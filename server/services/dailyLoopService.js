@@ -6,7 +6,10 @@ const {
   DEFAULT_BRIEFING_CACHE_MAX_AGE_MS
 } = require('./wikiBriefingService');
 const { evaluateCheckInEligibility } = require('./checkInEligibility');
-const { applyFalsifiability } = require('./claimFalsifiability');
+const { applyFalsifiability, syncClaimFalsifier } = require('./claimFalsifiability');
+
+/* A claim in the retired state is not watching for anything. */
+const retiredNow = (claim = {}) => claim.checkInStatus === 'retired' || Boolean(claim.retiredAt);
 const { appendVerdict, selectPaperVerdicts } = require('./claimVerdicts');
 const { ensureHeldClaim, findHeldClaim } = require('./heldClaim');
 const { buildReviewTriage, expireLowStakesReviews } = require('./reviewTriageService');
@@ -224,11 +227,9 @@ const buildDailyLoopBriefing = async ({ userId, models = {}, now = new Date(), a
   const claimVerdicts = selectPaperVerdicts({ pages: selectionPages, watcherLeads, now });
   const verdictKeys = new Set(claimVerdicts.map(row => `${row.pageId}:${row.claimId}`));
   const timezone = user.morningPaper?.timezone || 'UTC';
-  const askedBack = await fireAskedBack({
-    userId,
-    models,
-    now,
-    timezone
+  const askedBack = attachClaims({
+    askedBack: await fireAskedBack({ userId, models, now, timezone }),
+    pages: selectionPages
   });
   const briefing = {
     ...baseBriefing,
@@ -323,6 +324,9 @@ const recordClaimCheckIn = async ({
     claim.retiredAt = null;
     claim.restoredAt = now;
   }
+  /* After the status settles, so retiring a claim retires the signal watching
+     for it rather than leaving something firing for a belief you dropped. */
+  syncClaimFalsifier(page, retiredNow(claim) ? { ...claim.toObject?.() ?? claim, resolutionCriteria: '' } : claim, { now });
   claim.history.push({
     at: now,
     event: action,
@@ -386,6 +390,45 @@ const loadOwnedPage = async ({ models, userId, pageId }) => {
   return page;
 };
 
+/**
+ * The belief a returning piece bears on.
+ *
+ * A piece coming back used to be a re-read: here it is again, decide later.
+ * The dead end the whole asked-back idea was meant to fix. But the corpus
+ * already knows which beliefs cite this article — that is what a claim page's
+ * sourceRefs are — so returning can mean *now decide* instead.
+ *
+ * Only when there is exactly one belief. A piece cited by four claims is a
+ * research session, not a decision, and offering four is offering none.
+ */
+const attachClaims = ({ askedBack = [], pages = [] } = {}) => {
+  if (!askedBack.length) return askedBack;
+
+  const byArticle = new Map();
+  pages.forEach((page) => {
+    const claim = asPlain(page)?.claims?.[0];
+    const held = clean(claim?.text);
+    if (!held) return;
+    (page.sourceRefs || []).forEach((ref) => {
+      const articleId = String(ref?.objectId || ref?.parentObjectId || '');
+      if (!articleId) return;
+      const found = byArticle.get(articleId);
+      /* A second belief on the same piece makes it ambiguous, and an
+         ambiguous prompt is worse than none. */
+      byArticle.set(articleId, found === undefined ? {
+        pageId: String(page._id || ''),
+        claimId: clean(claim.claimId),
+        text: held
+      } : null);
+    });
+  });
+
+  return askedBack.map((row) => {
+    const bearing = byArticle.get(String(row.articleId || ''));
+    return bearing ? { ...row, bearsOn: bearing } : row;
+  });
+};
+
 const recordClaimFalsifiability = async ({
   models = {},
   userId,
@@ -404,7 +447,13 @@ const recordClaimFalsifiability = async ({
     throw error;
   }
   applyFalsifiability(claim, { resolutionCriteria, horizon });
-  if (typeof page.markModified === 'function') page.markModified('claims');
+  /* The answer and the thing that watches for it are one idea, so writing one
+     writes the other. */
+  syncClaimFalsifier(page, claim, { now });
+  if (typeof page.markModified === 'function') {
+    page.markModified('claims');
+    page.markModified('judgment.falsifiers');
+  }
   await page.save();
   const revision = await createWikiRevision({
     WikiRevision: models.WikiRevision,

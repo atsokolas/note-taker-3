@@ -1,6 +1,8 @@
 const {
   anniversary,
   calibration,
+  firstWeek,
+  isNewReader,
   corrections,
   disagreement,
   obituary,
@@ -210,6 +212,10 @@ describe('the whole front page', () => {
       .toEqual({
         warned: null,
         calibration: null,
+        /* A corpus a year old is not in its first week, so this is silent —
+           which is the point: the first-week column stops the moment the
+           year-scale ones can speak. */
+        firstWeek: null,
         oldestOpen: null,
         rightForWrongReasons: null,
         anniversary: null,
@@ -280,5 +286,36 @@ describe('how your confidence met later outcomes', () => {
   it('stays silent until the instrument has enough to say', () => {
     expect(calibration({ pages: [page()], userId: 'u1' })).toBeNull();
     expect(calibration()).toBeNull();
+  });
+});
+
+describe('a paper for someone who started on Tuesday', () => {
+  const fresh = (over = {}) => page({ createdAt: ago(2), claims: [], ...over });
+
+  it('counts what arrived, because at three days old that is the news', () => {
+    expect(firstWeek({ pages: [fresh(), fresh({ _id: 'p2' })], now: NOW }))
+      .toMatchObject({ pages: 2, claims: 0 });
+  });
+
+  it('counts beliefs held, since the ledger is what the paper reads from', () => {
+    expect(firstWeek({ pages: [fresh({ claims: [claim()] })], now: NOW }).claims).toBe(1);
+  });
+
+  /* It stops the moment the year-scale columns can speak for themselves — a
+     paper that keeps introducing itself has stopped being a paper. */
+  it('goes quiet once the corpus is no longer new', () => {
+    expect(firstWeek({ pages: [page({ createdAt: ago(400) })], now: NOW })).toBeNull();
+    expect(isNewReader({ pages: [page({ createdAt: ago(400) })], now: NOW })).toBe(false);
+  });
+
+  /* A corpus that will not say when it began is not thereby young. */
+  it('does not greet a reader of two years as a beginner', () => {
+    expect(isNewReader({ pages: [page({ createdAt: null })], now: NOW })).toBe(false);
+    expect(firstWeek({ pages: [page({ createdAt: null })], now: NOW })).toBeNull();
+  });
+
+  it('says nothing to someone who has saved nothing', () => {
+    expect(firstWeek({ pages: [], now: NOW })).toBeNull();
+    expect(firstWeek()).toBeNull();
   });
 });
