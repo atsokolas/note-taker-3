@@ -12,14 +12,20 @@ import {
 } from './appNavigation';
 
 describe('appNavigation', () => {
-  it('names four rooms, and no longer names the paper as a fifth', () => {
+  it('names the four rooms, with Editions belonging to the wiki', () => {
     const primaryLabels = getPrimaryNavItems().map(item => item.label);
 
     /* Paper used to open this row. It named the same place twice: the wiki
        opened onto its own morning briefing while Paper held the reading loop,
        so two front pages competed for the same first look. The paper is the
-       top of the wiki now, and the nav names the four rooms. */
-    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki', 'Judgment']);
+       top of the wiki now.
+
+       Editions sits after Wiki and belongs to it — a thing the wiki received
+       rather than a room of your own work. It was in the More menu, which was
+       honest about that and meant nobody found it. Named in the bar until it
+       has earned or lost the place. */
+    expect(primaryLabels).toEqual(['Library', 'Think', 'Wiki', 'Editions', 'Judgment']);
+    expect(primaryLabels.indexOf('Editions')).toBe(primaryLabels.indexOf('Wiki') + 1);
     expect(primaryLabels).not.toContain('Paper');
     expect(primaryLabels).not.toContain('Notebook');
     expect(primaryLabels).not.toContain('Concepts');
@@ -75,10 +81,8 @@ describe('appNavigation', () => {
     ['Today', 'Map', 'Review', 'Return Queue'].forEach((label) => {
       expect(secondaryLabels).not.toContain(label);
     });
-    /* Exact, so a room cannot creep back in unnoticed. Editions belongs here
-       rather than in the masthead: the four rooms are what you did, and an
-       edition is something that arrived. */
-    expect(secondaryLabels).toEqual(['Editions', 'Growth', 'How To Use']);
+    /* Exact, so a room cannot creep back in unnoticed. */
+    expect(secondaryLabels).toEqual(['Growth', 'How To Use']);
   });
 
   /* Every letter is the room's own initial, so the rule is guessable and the
@@ -90,6 +94,7 @@ describe('appNavigation', () => {
       'l:/library',
       't:/think',
       'w:/wiki',
+      'e:/editions',
       'j:/judgment',
       'c:/connections#sources',
       's:/settings'
@@ -206,17 +211,22 @@ describe('G-then-rooms', () => {
   });
 });
 
-/* The four rooms are what you did; an edition is something that arrived, and
-   it does not earn a seat in the masthead or a letter of its own. */
+/* An edition is something that arrived rather than a room of your own work, so
+   it stands beside the wiki that received it. It began in the More menu, which
+   was honest about that and meant nobody ever found it. */
 describe('where the newsstand sits', () => {
-  it('is a place you can reach without being a fifth room', () => {
-    expect(getPrimaryNavItems().map(item => item.label)).not.toContain('Editions');
-    expect(getSecondaryNavItems().map(item => item.label)).toContain('Editions');
-    expect(getSecondaryNavItems().find(item => item.label === 'Editions')?.to).toBe('/editions');
+  it('stands in the bar, next to the wiki it belongs to', () => {
+    const primary = getPrimaryNavItems();
+    expect(primary.map(item => item.label)).toContain('Editions');
+    expect(primary.find(item => item.label === 'Editions')?.to).toBe('/editions');
+    expect(getSecondaryNavItems().map(item => item.label)).not.toContain('Editions');
   });
 
-  it('takes no go-to letter from a room', () => {
-    expect(NOEIS_GO_TO_SHORTCUTS.some(item => item.to === '/editions')).toBe(false);
-    expect(resolveGoToShortcut('e')).toBeNull();
+  /* E was free, so the rule still holds: every letter is the room's own
+     initial, and nothing had to be taken from another room. */
+  it('takes its own initial without spending another room’s', () => {
+    expect(resolveGoToShortcut('e')?.to).toBe('/editions');
+    expect(goToKeyFor('/editions')).toBe('e');
+    expect(resolveGoToShortcut('w')?.to).toBe('/wiki');
   });
 });
