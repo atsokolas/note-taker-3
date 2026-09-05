@@ -97,4 +97,24 @@ describe('OpenedLibraryPassage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByLabelText('Try a narrower wording')).toHaveValue(highlight.text);
   });
+
+  it('keeps a kept question when the saved passage moved on', () => {
+    window.localStorage.setItem('noeis.open-sentence.library:article-1.highlight-1', JSON.stringify({
+      id: 'highlight-1',
+      originalText: highlight.text,
+      provisionalText: 'A wrong turn you can name still teaches the map.',
+      question: 'Can you walk it back?',
+      status: 'open'
+    }));
+    window.localStorage.setItem('noeis.open-sentence.library:article-1.opened', 'highlight-1');
+    const moved = {
+      ...highlight,
+      text: 'A later line in Nomad was not attached.'
+    };
+    renderPassage({ highlight: moved });
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('A wrong turn you can name still teaches the map.');
+    expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent('A later line in Nomad was not attached.');
+    expect(JSON.parse(window.localStorage.getItem('noeis.open-sentence.library:article-1.highlight-1')).originalText)
+      .toBe('A later line in Nomad was not attached.');
+  });
 });

@@ -38,19 +38,34 @@ const page = {
 
 const renderWikiSentence = (props = {}) => {
   const onOpenedText = props.onOpenedText || jest.fn();
-  render(
+  const view = (
     <MemoryRouter>
       <WikiOpenSentenceProvider
-        enabled
+        enabled={props.enabled !== false}
         page={props.page || page}
-        pageId="wiki-1"
+        pageId={props.pageId || 'wiki-1'}
         onOpenedText={onOpenedText}
       >
         {renderTiptapDoc((props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
       </WikiOpenSentenceProvider>
     </MemoryRouter>
   );
-  return { onOpenedText };
+  const rendered = render(view);
+  return {
+    onOpenedText,
+    rerender: (next = {}) => rendered.rerender(
+      <MemoryRouter>
+        <WikiOpenSentenceProvider
+          enabled={next.enabled !== false}
+          page={next.page || props.page || page}
+          pageId={next.pageId || props.pageId || 'wiki-1'}
+          onOpenedText={next.onOpenedText || onOpenedText}
+        >
+          {renderTiptapDoc((next.page || props.page || page).body, { wrapParagraph: wrapOpenableParagraph })}
+        </WikiOpenSentenceProvider>
+      </MemoryRouter>
+    )
+  };
 };
 
 describe('WikiOpenSentence', () => {
@@ -72,7 +87,7 @@ describe('WikiOpenSentence', () => {
     });
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
-    expect(onOpenedText).toHaveBeenCalledWith('Memory compounds with review.');
+    expect(onOpenedText).toHaveBeenCalledWith('Memory compounds with review.', 'claim-1');
   });
 
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {
@@ -195,5 +210,139 @@ describe('WikiOpenSentence', () => {
     expect(document.querySelector('.open-sentence')).toHaveClass('is-placed');
     expect(document.querySelector('.open-sentence')).not.toHaveClass('is-open');
     expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+  });
+
+  it('does not restore a private walk on a host that does not own the page', () => {
+    writeStore(openedStorageKey('wiki-1'), 'claim-1');
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'forged',
+      provisionalText: 'Memory compounds when we forget.',
+      question: 'Does it still?',
+      status: 'open'
+    }));
+    const { onOpenedText } = renderWikiSentence({ enabled: false });
+    expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    expect(onOpenedText).not.toHaveBeenCalledWith(
+      expect.stringContaining('Memory'),
+      expect.anything()
+    );
+  });
+
+  it('restores a kept question after the page host retries', () => {
+    writeStore(openedStorageKey('wiki-1'), 'claim-1');
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'forged',
+      provisionalText: 'Memory compounds when we forget.',
+      question: 'Does it still?',
+      status: 'open'
+    }));
+    const { rerender } = renderWikiSentence({ enabled: false });
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    rerender({ enabled: true });
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds when we forget.');
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('Does it still?');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('keeps the current article line when the Wiki moved on, and does not feed a draft to the companion', () => {
+    writeStore(openedStorageKey('wiki-1'), 'claim-1');
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'Memory compounds with review.',
+      provisionalText: 'Memory compounds when we forget.',
+      question: 'Does it still?',
+      status: 'open'
+    }));
+    const moved = {
+      ...page,
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Memory compounds when we return to it.',
+            marks: [{
+              type: 'claim',
+              attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1] }
+            }]
+          }]
+        }]
+      },
+      claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.', support: 'supported' }],
+      sourceRefs: []
+    };
+    const { onOpenedText } = renderWikiSentence({ page: moved });
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds when we forget.');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds when we return to it.');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds when we return to it.');
+    expect(screen.getByText('This source is unavailable. A similar passage was not attached.')).toBeInTheDocument();
+    expect(onOpenedText).toHaveBeenCalledWith('Memory compounds when we return to it.', 'claim-1');
+    expect(onOpenedText).not.toHaveBeenCalledWith('Memory compounds when we forget.', expect.anything());
+  });
+
+  it('does not let a vanished claim speak through a stored draft', () => {
+    writeStore(openedStorageKey('wiki-1'), 'claim-1');
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'Memory compounds with review.',
+      provisionalText: 'Memory compounds when we forget.',
+      question: 'Does it still?',
+      status: 'open'
+    }));
+    const { onOpenedText } = renderWikiSentence({
+      page: {
+        ...page,
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The page moved on.' }] }]
+        },
+        claims: []
+      }
+    });
+    expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument();
+    expect(onOpenedText).toHaveBeenCalledWith('', '');
+    expect(JSON.parse(window.localStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).question)
+      .toBe('Does it still?');
+  });
+
+  it('opens a Compute claim the same way, without borrowing Parenting copy', () => {
+    const compute = {
+      _id: 'wiki-compute',
+      title: 'Compute will remain scarce',
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Compute will remain scarce.',
+            marks: [{
+              type: 'claim',
+              attrs: { claimId: 'claim-compute', citationIndexes: [1] }
+            }]
+          }]
+        }]
+      },
+      claims: [{ claimId: 'claim-compute', text: 'Compute will remain scarce.' }],
+      citations: [],
+      sourceRefs: [{
+        _id: 'source-capacity',
+        type: 'highlight',
+        objectId: 'highlight-capacity',
+        parentObjectId: 'article-capacity',
+        title: 'Capacity',
+        snippet: 'Supply was the constraint this decade.'
+      }]
+    };
+    const { onOpenedText } = renderWikiSentence({ page: compute, pageId: 'wiki-compute' });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByText('Supply was the constraint this decade.')).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-compute"]')).toHaveTextContent('Compute will remain scarce.');
+    expect(screen.queryByText('Children need room to make mistakes.')).not.toBeInTheDocument();
+    expect(onOpenedText).toHaveBeenCalledWith('Compute will remain scarce.', 'claim-compute');
   });
 });

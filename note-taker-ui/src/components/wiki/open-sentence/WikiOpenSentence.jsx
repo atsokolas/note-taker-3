@@ -13,11 +13,12 @@ import {
   claimsInParagraph,
   claimTextOnPage,
   draftStorageKey,
-  liveExplorationForClaim,
+  liveExplorationForPageClaim,
   openedStorageKey
 } from './openSentenceBinding';
 import { EXPLORATION_STATUS, closeExploration, isOpen, keepsClosedDraft } from './openSentenceModel';
 import {
+  alignRemembered,
   bindDraft,
   homecomingLine,
   keepExploration,
@@ -58,15 +59,18 @@ export const WikiOpenSentenceProvider = ({
     return listenOpenSentenceStore(readOpened);
   }, [enabled, pageId]);
 
-  const liveFor = useCallback((claimMark) => {
-    const ledgerClaim = (page?.claims || []).find((claim) => claim?.claimId === claimMark?.claimId);
-    return liveExplorationForClaim({
-      claimMark,
-      ledgerClaim,
-      citations: page?.citations || [],
-      sourceRefs: page?.sourceRefs || []
-    });
-  }, [page]);
+  const liveFor = useCallback((claimMark) => (
+    liveExplorationForPageClaim(page, claimMark)
+  ), [page]);
+
+  useEffect(() => {
+    if (!enabled || !pageId) return;
+    const ids = new Set(
+      [openedId, readStore(openedStorageKey(pageId)), ...Object.keys(draftsRef.current)]
+        .filter(Boolean)
+    );
+    ids.forEach((claimId) => alignRemembered(pageId, claimId, liveFor({ claimId })));
+  }, [enabled, liveFor, openedId, page, pageId]);
 
   const explorationFor = useCallback((claimMark) => {
     if (!claimMark?.claimId) return liveFor(claimMark);
@@ -112,16 +116,9 @@ export const WikiOpenSentenceProvider = ({
 
   useEffect(() => {
     if (!onOpenedText) return;
-    if (!openedId) {
-      onOpenedText('');
-      return;
-    }
-    const ledger = (page?.claims || []).find((claim) => claim?.claimId === openedId);
-    const draft = drafts[openedId];
-    onOpenedText(String(
-      claimTextOnPage(page?.body, openedId) || ledger?.text || draft?.originalText || ''
-    ).trim());
-  }, [drafts, onOpenedText, openedId, page]);
+    const liveText = openedId ? String(claimTextOnPage(page?.body, openedId) || '').trim() : '';
+    onOpenedText(liveText, liveText ? openedId : '');
+  }, [onOpenedText, openedId, page]);
 
   const leaveForLibrary = useCallback((source, exploration) => {
     writeReturnTicket({

@@ -25,6 +25,22 @@ describe('wiki surface model', () => {
     }));
   });
 
+  it('lets an opened sentence rebind the claim without inventing an accepted revision', () => {
+    expect(buildWikiSurfaceDescriptor({
+      page: { _id: 'page-1', title: 'Compute will remain scarce.' },
+      pageId: 'page-1',
+      claimId: 'claim-compute',
+      revisionId: 'revision-1',
+      acceptedRevisionId: 'accepted-1'
+    })).toEqual(expect.objectContaining({
+      objectType: 'wiki_claim',
+      objectId: 'claim-compute',
+      claimId: 'claim-compute',
+      revisionId: 'revision-1',
+      acceptedRevisionId: 'accepted-1'
+    }));
+  });
+
   it.each([
     [{ pageType: 'repo' }, 'repo_dossier'],
     [{ investmentDossier: { version: 1 } }, 'investment_dossier'],

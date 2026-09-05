@@ -1,4 +1,5 @@
 import {
+  alignRemembered,
   bindDraft,
   bindLibraryPassage,
   cancelWikiDraftPlacement,
@@ -155,6 +156,32 @@ describe('openSentenceJourney', () => {
     expect(remembered.provisionalText).toBe('draft');
     expect(remembered.question).toBe('Which mistakes?');
     expect(remembered.source).toEqual({ title: 'Nomad', available: false });
+  });
+
+  it('rewrites a stored accepted line when the live Wiki moved on, without dropping the question', () => {
+    const was = createExploration({
+      id: 'claim-compute',
+      originalText: 'Compute will remain scarce.',
+      source: { title: 'Capacity', passage: 'Supply was the constraint this decade.' }
+    });
+    keepExploration(
+      'wiki-compute',
+      'claim-compute',
+      keepQuestion(openExploration(tryWording(was, 'Suppose this stops being true.')), 'What breaks first?'),
+      was
+    );
+    const now = createExploration({
+      id: 'claim-compute',
+      originalText: 'Compute will not stay scarce.',
+      source: { title: 'Capacity', available: false }
+    });
+    const aligned = alignRemembered('wiki-compute', 'claim-compute', now);
+    expect(aligned.originalText).toBe('Compute will not stay scarce.');
+    expect(aligned.provisionalText).toBe('Suppose this stops being true.');
+    expect(aligned.question).toBe('What breaks first?');
+    expect(aligned.source).toEqual({ title: 'Capacity', available: false });
+    expect(JSON.parse(readStore(draftStorageKey('wiki-compute', 'claim-compute'))).originalText)
+      .toBe('Compute will not stay scarce.');
   });
 
   it('rebinds a stored draft to live sentence text without inventing a source', () => {

@@ -211,6 +211,27 @@ export const liveExplorationForClaim = ({
   sourceRefs = []
 } = {}) => createExploration({
   id: String(claimMark?.claimId || ledgerClaim?.claimId || '').trim(),
-  originalText: String(claimMark?.text || ledgerClaim?.text || ''),
+  originalText: claimMark && 'text' in claimMark
+    ? String(claimMark.text ?? '')
+    : String(ledgerClaim?.text || ''),
   source: bindClaimSource({ claimMark, ledgerClaim, citations, sourceRefs })
 });
+
+export const liveExplorationForPageClaim = (page, claimMark = {}) => {
+  const claimId = String(claimMark?.claimId || '').trim();
+  const onPage = claimTextOnPage(page?.body, claimId);
+  const text = onPage || String(claimMark?.text || '');
+  const ledgerClaim = text
+    ? (page?.claims || []).find((claim) => idsMatch(claim?.claimId, claimId))
+    : null;
+  return liveExplorationForClaim({
+    claimMark: {
+      ...claimMark,
+      claimId,
+      text
+    },
+    ledgerClaim,
+    citations: text ? (page?.citations || []) : [],
+    sourceRefs: text ? (page?.sourceRefs || []) : []
+  });
+};

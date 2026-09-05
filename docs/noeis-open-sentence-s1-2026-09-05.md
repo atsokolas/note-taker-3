@@ -117,9 +117,11 @@ The storyboard Source control walks the same pocket through Nomad, silence, a go
 
 ## The real loop (S3, 2026-09-05)
 
-Owned Wiki and Library walks persist on the device. Closing the tab, opening another tab, or coming back later can restore a kept question without accepting a revision. A leftover tab draft is lifted onto the device. If the accepted Wiki line moved on, the current line is what the article still reads. If the citation quote no longer matches the source snippet, the cited quote stays as an older copy.
+Owned Wiki and Library walks persist on the device. Closing the tab, opening another tab, or coming back later can restore a kept question without accepting a revision. A leftover tab draft is lifted onto the device. If the page host drops and retries, the kept question returns with the page. If the accepted Wiki line moved on, the current line is what the article still reads, and the stored walk is rewritten to that line. If the citation quote no longer matches the source snippet, the cited quote stays as an older copy. If the claim is no longer on the page, the companion does not speak a stored draft; the private question can wait.
 
-Public shares, workspace, dossiers, and editions stay closed. Server-sync is still later.
+The companion rebinds to the opened claim’s accepted line. That does not invent or change an accepted revision.
+
+Public shares, workspace, dossiers, and editions stay closed. A second ordinary Wiki (Compute, not Parenting) uses the same pocket. Server-sync is still later.
 
 ## Exit for this stage
 

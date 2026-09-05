@@ -2,7 +2,8 @@ import {
   bindClaimSource,
   claimsInParagraph,
   claimTextOnPage,
-  liveExplorationForClaim
+  liveExplorationForClaim,
+  liveExplorationForPageClaim
 } from './openSentenceBinding';
 
 const nomad = {
@@ -132,5 +133,43 @@ describe('openSentenceBinding', () => {
     });
     expect(exploration.originalText).toBe('Memory compounds with review.');
     expect(exploration.source.available).toBe(false);
+  });
+
+  it('lets the article line win over a stale ledger when Compute moved on', () => {
+    const exploration = liveExplorationForPageClaim({
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Compute will not stay scarce.',
+            marks: [{ type: 'claim', attrs: { claimId: 'claim-compute', citationIndexes: [1] } }]
+          }]
+        }]
+      },
+      claims: [{
+        claimId: 'claim-compute',
+        text: 'Compute will remain scarce.',
+        sourceRefIds: ['source-capacity']
+      }],
+      sourceRefs: [{
+        _id: 'source-capacity',
+        title: 'Capacity',
+        snippet: 'Supply was the constraint this decade.'
+      }]
+    }, { claimId: 'claim-compute' });
+    expect(exploration.originalText).toBe('Compute will not stay scarce.');
+    expect(exploration.source.title).toBe('Capacity');
+  });
+
+  it('does not restore a ledger line that is no longer on the page', () => {
+    const exploration = liveExplorationForPageClaim({
+      body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Elsewhere.' }] }] },
+      claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.' }],
+      sourceRefs: [nomad]
+    }, { claimId: 'claim-1' });
+    expect(exploration.originalText).toBe('');
+    expect(exploration.source).toBeNull();
   });
 });

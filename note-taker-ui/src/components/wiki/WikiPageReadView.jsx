@@ -1229,10 +1229,11 @@ const WikiPageReadView = ({
   const [continuationBasis, setContinuationBasis] = useState(null);
   const [continuationState, setContinuationState] = useState({ busy: false, error: '' });
   const [openedSentenceText, setOpenedSentenceText] = useState('');
+  const [openedClaimId, setOpenedClaimId] = useState('');
   const wikiSurfaceDescriptor = buildWikiSurfaceDescriptor({
     page,
     pageId,
-    claimId: activeClaim?.claimId || focusedClaimId,
+    claimId: openedClaimId || activeClaim?.claimId || focusedClaimId,
     revisionId: new URLSearchParams(traceSearch || '').get('revisionId') || '',
     acceptedRevisionId: continuationBasis?.revisionId || '',
     mode: 'read'
@@ -3146,7 +3147,10 @@ const WikiPageReadView = ({
                     enabled={openSentenceEnabled}
                     page={page}
                     pageId={pageId}
-                    onOpenedText={setOpenedSentenceText}
+                    onOpenedText={(text, claimId) => {
+                      setOpenedSentenceText(text || '');
+                      setOpenedClaimId(claimId || '');
+                    }}
                   >
                     {renderTiptapDoc(displayBody, {
                       tocItems,

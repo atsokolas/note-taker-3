@@ -10,6 +10,7 @@ import {
   libraryDraftScope,
   keepExploration,
   readRemembered,
+  alignRemembered,
   wikiReturnHref
 } from './openSentenceJourney';
 import { listenOpenSentenceStore } from './openSentenceStore';
@@ -48,13 +49,19 @@ const OpenedLibraryPassage = ({
     () => liveExplorationForHighlight({ article, highlight }),
     [article, highlight]
   );
-  const [exploration, setExploration] = useState(() => readRemembered(scope, highlightId, live));
+  const [exploration, setExploration] = useState(() => (
+    highlightId ? readRemembered(scope, highlightId, live) : live
+  ));
   const [hosts, setHosts] = useState(null);
   const opened = isOpen(exploration);
   const placed = Boolean(exploration.placed);
 
   useEffect(() => {
-    const readWalk = () => setExploration(readRemembered(scope, highlightId, live));
+    if (!highlightId) {
+      setExploration(live);
+      return undefined;
+    }
+    const readWalk = () => setExploration(alignRemembered(scope, highlightId, live));
     readWalk();
     return listenOpenSentenceStore(readWalk);
   }, [highlightId, live, scope]);

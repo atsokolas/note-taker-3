@@ -122,6 +122,13 @@ export const readRemembered = (scope, itemId, live) => bindDraft(
   readStore(openedStorageKey(scope)) === itemId
 );
 
+export const alignRemembered = (scope, itemId, live) => {
+  const stored = readStore(draftStorageKey(scope, itemId));
+  if (!stored) return readRemembered(scope, itemId, live);
+  const opened = readStore(openedStorageKey(scope)) === itemId;
+  return rememberDraft(scope, itemId, bindDraft(live, stored, opened), live);
+};
+
 export const wikiReturnHref = (ticket) => {
   if (!ticket?.pageId) return '';
   const claim = asId(ticket.claimId);
