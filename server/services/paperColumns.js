@@ -31,6 +31,7 @@
  */
 
 const { wordBoundaryTrim } = require('../lib/editorialText');
+const { buildCalibration } = require('./calibrationInstrument');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -104,6 +105,14 @@ const lastTouch = (claim = {}) => Math.max(
   ...list(claim.verdicts).map(entry => time(entry.at))
 );
 
+/* Same month and day, a whole number of years apart, read in UTC — the same
+   clock bornAt was written on. */
+const sameDayOfYear = (from, to) => {
+  const born = new Date(from);
+  const today = new Date(to);
+  return born.getUTCMonth() === today.getUTCMonth() && born.getUTCDate() === today.getUTCDate();
+};
+
 const yearsBetween = (from, to) => Math.max(1, Math.round((to - from) / (365 * DAY_MS)));
 
 /**
@@ -130,7 +139,11 @@ const candidateAnniversaries = ({ pages = [], now = Date.now() } = {}) => (
       pageTitle,
       text: excerpt(claim.text),
       bornAt: new Date(time(claim.bornAt) || time(claim.createdAt)).toISOString(),
-      years: yearsBetween(time(claim.bornAt) || time(claim.createdAt), now)
+      years: yearsBetween(time(claim.bornAt) || time(claim.createdAt), now),
+      /* Not "about a year ago" — a year ago *today*. The difference between
+         approximate and exact is the difference between a database and a
+         paper that is paying attention. */
+      toTheDay: sameDayOfYear(time(claim.bornAt) || time(claim.createdAt), now)
     }))
 );
 
@@ -244,7 +257,124 @@ const obituary = ({ pages = [], now = Date.now() } = {}) => (
     .sort((left, right) => time(left.silentSince) - time(right.silentSince))[0] || null
 );
 
-const paperColumns = ({ pages = [], now = Date.now() } = {}) => ({
+/**
+ * The thing you said would change your mind may have happened.
+ *
+ * A falsifier a watcher matched is the loudest thing this product can print,
+ * so it leads — above the anniversary, above everything. It is `warning`, not
+ * `triggered`: the software noticed, and the reader decides. The verdict
+ * vocabulary is waiting for an answer only a person can give.
+ *
+ * The newest first, and only one. Two of these on one morning is not twice
+ * the signal, it is a queue.
+ */
+const warned = ({ pages = [] } = {}) => {
+  const rows = list(pages).flatMap((page) => {
+    const pageId = idOf(page);
+    const pageTitle = clean(page?.title, 200);
+    if (!pageId || !pageTitle) return [];
+    return list(page?.judgment?.falsifiers)
+      .filter(falsifier => falsifier?.status === 'warning' && clean(falsifier.text))
+      .map(falsifier => ({
+        pageId,
+        pageTitle,
+        falsifierId: clean(falsifier.falsifierId, 120),
+        text: excerpt(falsifier.text),
+        signal: excerpt(falsifier.observableSignal),
+        at: falsifier.lastCheckedAt ? new Date(time(falsifier.lastCheckedAt)).toISOString() : null
+      }));
+  });
+  if (!rows.length) return null;
+  return rows.sort((left, right) => time(right.at) - time(left.at))[0];
+};
+
+/**
+ * How your confidence has met later outcomes.
+ *
+ * The instrument already exists and already refuses to speak without enough
+ * settled cases — it hands back its own silence rather than a number. All
+ * this does is quote the band with the most evidence, on the days it has
+ * something to say. No score, no leaderboard, no trend line: one sentence,
+ * and the Mirror for the rest.
+ */
+const calibration = ({ pages = [], userId = '' } = {}) => {
+  /* The instrument reads real documents and does not expect holes in the
+     array. Every other column here already tolerates a half-written page, so
+     the filtering happens at this door rather than by loosening a service the
+     Judgment Mirror also depends on. */
+  const instrument = buildCalibration(list(pages).filter(Boolean), { userId });
+  const speaking = list(instrument?.byConfidence).filter(band => band?.sufficient && band.n);
+  if (!speaking.length) return null;
+  const band = speaking.sort((left, right) => right.n - left.n)[0];
+  return {
+    confidence: band.confidence,
+    held: (band.counts?.held_up || 0) + (band.counts?.partly || 0),
+    of: band.n
+  };
+};
+
+/**
+ * The oldest thing still open.
+ *
+ * A superlative, and a useful one: the oldest open question is usually the
+ * one being avoided. Wiki open questions are the reader's own unanswered
+ * lines, so age is measured from the page that carries them.
+ */
+const oldestOpen = ({ pages = [], now = Date.now() } = {}) => {
+  const rows = list(pages).flatMap((page) => {
+    const pageId = idOf(page);
+    const pageTitle = clean(page?.title, 200);
+    if (!pageId || !pageTitle) return [];
+    return list(page?.judgment?.unknowns)
+      .filter(unknown => unknown?.status === 'open' && clean(unknown.question))
+      .map(unknown => ({
+        pageId,
+        pageTitle,
+        text: excerpt(unknown.question),
+        at: time(unknown.createdAt),
+        days: Math.floor((now - time(unknown.createdAt)) / DAY_MS)
+      }))
+      .filter(row => row.at);
+  });
+  if (!rows.length) return null;
+  return rows.sort((left, right) => left.at - right.at)[0];
+};
+
+/**
+ * Right for the wrong reasons.
+ *
+ * The verdict has always been recordable and has never been printed. It is
+ * the most honest thing in the vocabulary, and the only software that lets a
+ * person admit it should say so — once, deadpan, and recently, because it is
+ * a remark rather than a standing fact.
+ */
+const RIGHT_FOR_WRONG_REASONS_WINDOW_MS = 21 * DAY_MS;
+
+const rightForWrongReasons = ({ pages = [], now = Date.now() } = {}) => {
+  const rows = list(pages).flatMap((page) => {
+    const pageId = idOf(page);
+    const pageTitle = clean(page?.title, 200);
+    if (!pageId || !pageTitle) return [];
+    return allClaims([page])
+      .flatMap(({ claim }) => list(claim.verdicts)
+        .filter(verdict => verdict?.verdict === 'right_for_wrong_reasons')
+        .map(verdict => ({
+          pageId,
+          pageTitle,
+          claim: excerpt(claim.text),
+          at: time(verdict.at)
+        })))
+      .filter(row => row.at && now - row.at <= RIGHT_FOR_WRONG_REASONS_WINDOW_MS);
+  });
+  if (!rows.length) return null;
+  return rows.sort((left, right) => right.at - left.at)[0];
+};
+
+const paperColumns = ({ pages = [], now = Date.now(), userId = '' } = {}) => ({
+  warned: warned({ pages }),
+  calibration: calibration({ pages, userId }),
+  oldestOpen: oldestOpen({ pages, now }),
+  rightForWrongReasons: rightForWrongReasons({ pages, now }),
   anniversary: anniversary({ pages, now }),
   disagreement: disagreement({ pages, now }),
   corrections: corrections({ pages, now }),
@@ -274,9 +404,13 @@ module.exports = {
   CORRECTION_WINDOW_MS,
   OBITUARY_MIN_SILENCE_MS,
   anniversary,
+  calibration,
   corrections,
   disagreement,
   obituary,
+  oldestOpen,
   openTargets,
-  paperColumns
+  paperColumns,
+  rightForWrongReasons,
+  warned
 };

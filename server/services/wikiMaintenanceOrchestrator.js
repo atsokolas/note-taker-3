@@ -7,6 +7,7 @@ const {
 } = require('./wikiRepoBuildLeaseService');
 const { createProposalFromSourceEvent } = require('./wikiProposalService');
 const { syncWikiPageGraphConnections } = require('./wikiGraphConnectionService');
+const { matchesForPage } = require('./falsifierWatch');
 const { getWikiSchemaPromptContent } = require('./wikiSchemaService');
 const { compareClaimLedgers } = require('./wikiClaimComparisonService');
 const { buildInvestmentMaintenanceComparison } = require('./investmentDossierComparisonService');
@@ -362,6 +363,46 @@ const createPageForEvent = async ({ WikiPage, userId, event, buildUniqueSlug }) 
   return page;
 };
 
+/**
+ * Move any falsifier this arrival could have satisfied to `warning`.
+ *
+ * `warning`, never `triggered`. The software noticed; the reader decides —
+ * marking a person's belief broken on a keyword overlap would be the one
+ * thing this product exists to keep in human hands.
+ *
+ * The page is saved only when something actually changed, so an ordinary
+ * arrival against a page with no open falsifiers costs one comparison and no
+ * write.
+ */
+const warnMatchedFalsifiers = async ({ page, arrival, at = new Date() } = {}) => {
+  const matches = matchesForPage({ page, arrival });
+  if (!matches.length) return [];
+
+  const byId = new Map(matches.map(match => [match.falsifierId, match]));
+  let changed = false;
+  (page?.judgment?.falsifiers || []).forEach((falsifier) => {
+    const match = byId.get(String(falsifier.falsifierId || ''));
+    if (!match || falsifier.status !== 'unobserved') return;
+    falsifier.status = 'warning';
+    falsifier.lastCheckedAt = at;
+    changed = true;
+  });
+  if (!changed) return [];
+
+  if (typeof page.markModified === 'function') page.markModified('judgment.falsifiers');
+  if (typeof page.save === 'function') await page.save();
+
+  return matches.map(match => ({
+    ...match,
+    pageId: String(page._id || ''),
+    pageTitle: asText(page.title),
+    sourceEventId: String(arrival?._id || ''),
+    sourceTitle: asText(arrival?.title),
+    sourceUrl: asText(arrival?.url),
+    at: at.toISOString()
+  }));
+};
+
 const processWikiSourceEvent = async ({
   sourceEventId,
   sourceEvent = null,
@@ -506,6 +547,8 @@ const processWikiSourceEvent = async ({
     let reviewCount = 0;
     let skippedCount = 0;
     const comparisons = [];
+    /* Falsifiers this arrival may have satisfied, for the caller and the log. */
+    const warned = [];
     for (let page of pages) {
       const before = snapshotPage(page);
       const protectedPublicPage = isProtectedPublicPage(page);
@@ -590,6 +633,12 @@ const processWikiSourceEvent = async ({
         }
         throw error;
       }
+      /* The thing the reader said would change their mind may have just
+         happened. This runs whether or not the page was republished: an
+         arrival that changes nothing on the page can still be the exact
+         event a falsifier named. */
+      warned.push(...await warnMatchedFalsifiers({ page, arrival: event }));
+
       if (!publication.promoted) {
         if (publication.awaitingAcceptance) {
           reviewCount += 1;
@@ -792,7 +841,7 @@ const processWikiSourceEvent = async ({
         }
       }
     }
-    return { event, pages, run, rejectedCount, reviewCount, skippedCount, comparisons };
+    return { event, pages, run, rejectedCount, reviewCount, skippedCount, comparisons, warned };
   } catch (error) {
     event.status = 'failed';
     event.errorMessage = error.message || 'Failed to process wiki source event.';

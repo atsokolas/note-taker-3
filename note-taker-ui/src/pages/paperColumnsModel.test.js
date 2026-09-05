@@ -2,12 +2,17 @@ import {
   QUIET_MORNING,
   anniversaryLine,
   askedLine,
+  calibrationLine,
   closingGroups,
   closingLines,
   correctionLines,
   disagreementLine,
   obituaryLine,
-  paperWeight
+  oldestOpenLine,
+  paperWeight,
+  quietStreakLine,
+  rightForWrongReasonsLine,
+  warnedLine
 } from './paperColumnsModel';
 
 describe('the anniversary', () => {
@@ -169,5 +174,77 @@ describe('what closed since the paper last asked', () => {
   it('drops a closing it cannot name', () => {
     expect(closingLines([{ kind: 'anniversary' }, { label: 'No day' }, null])).toEqual([]);
     expect(closingLines()).toEqual([]);
+  });
+});
+
+describe('the thing you said would change your mind', () => {
+  /* Two verbs on purpose: the software found a resemblance between words the
+     reader wrote and words that arrived. It has not read the source. */
+  it('hands the ruling back to the reader', () => {
+    const line = warnedLine({
+      text: 'The capex is a bet on new growth after all.',
+      signal: 'Nvidia guides datacenter revenue down two quarters',
+      pageId: 'p1',
+      pageTitle: 'Alphabet'
+    });
+    expect(line.standfirst).toBe('The thing you said would change your mind may have happened');
+    expect(line.footnote).toBe('On Alphabet · Read it, then say: held, or broke');
+    expect(line.href).toBe('/judgment/p1');
+  });
+
+  it('says nothing when nothing has been matched', () => {
+    expect(warnedLine(null)).toBeNull();
+    expect(warnedLine({ text: '' })).toBeNull();
+  });
+});
+
+describe('how your confidence met later outcomes', () => {
+  /* A percentage invites a target, and a target invites gaming the one
+     instrument that only works when nobody is performing for it. */
+  it('counts, and never scores', () => {
+    const line = calibrationLine({ confidence: 'certain', held: 7, of: 9 });
+    expect(line.text).toBe('When you said “certain”, it held 7 of 9 times.');
+    expect(line.text).not.toMatch(/%|\d+\.\d/);
+    expect(line.href).toBe('/judgment/mirror');
+  });
+
+  it('stays silent when the instrument had nothing to say', () => {
+    expect(calibrationLine(null)).toBeNull();
+    expect(calibrationLine({ confidence: 'certain', of: 0 })).toBeNull();
+  });
+});
+
+describe('the small details', () => {
+  /* "A year ago today" is an anniversary. "A year ago" is a fact. */
+  it('says today when it is the day itself', () => {
+    expect(anniversaryLine({ text: 'x', years: 1, toTheDay: true }).standfirst)
+      .toBe('A year ago today you wrote this down');
+    expect(anniversaryLine({ text: 'x', years: 2, toTheDay: true }).standfirst)
+      .toBe('2 years ago today you wrote this down');
+    expect(anniversaryLine({ text: 'x', years: 1 }).standfirst)
+      .toBe('A year ago you wrote this down');
+  });
+
+  /* One quiet day is rest; a two-day streak is a weekend. */
+  it('calls a run of quiet mornings only once it is a run', () => {
+    expect(quietStreakLine(5)).toBe('5 quiet mornings in a row. The corpus has gone cold.');
+    expect(quietStreakLine(3)).toBe('');
+    expect(quietStreakLine(0)).toBe('');
+    expect(quietStreakLine()).toBe('');
+  });
+
+  it('names the oldest open question, once it is genuinely old', () => {
+    expect(oldestOpenLine({ text: 'Does it scale?', days: 94, pageId: 'p1' }))
+      .toMatchObject({ text: 'Your oldest open question is 94 days old.', href: '/wiki/p1' });
+    expect(oldestOpenLine({ text: 'Fresh', days: 3 })).toBeNull();
+    expect(oldestOpenLine(null)).toBeNull();
+  });
+
+  /* The only software that lets a person admit this should say so. */
+  it('prints right-for-the-wrong-reasons deadpan', () => {
+    const line = rightForWrongReasonsLine({ claim: 'Capex is defensive.', pageTitle: 'Alphabet', pageId: 'p1' });
+    expect(line.text).toBe('You were right about Alphabet — for the wrong reasons.');
+    expect(line.href).toBe('/judgment/p1');
+    expect(rightForWrongReasonsLine(null)).toBeNull();
   });
 });

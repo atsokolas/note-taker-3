@@ -2768,3 +2768,36 @@ body.noeis-editorial .wiki-living-index__header h1.paper-open__headline {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* The falsifier the watchers matched. The one column that is genuinely
+   urgent, so it gets the warning ink and a rule heavy enough to stop a
+   reader — and never the danger ink, because nothing has broken yet. The
+   software noticed; the reader rules. */
+.paper-column--warned {
+  padding-left: 16px;
+  border-left: 3px solid color-mix(in srgb, var(--warning, var(--text-muted)) 72%, transparent);
+}
+
+.paper-column--warned .paper-column__standfirst {
+  color: color-mix(in srgb, var(--warning, var(--text-muted)) 88%, transparent);
+}
+
+/* One line about the reader rather than about the corpus. It is not news, so
+   it sits last and speaks softly. */
+.paper-column__calibration {
+  margin: 22px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--noeis-rule, var(--border-subtle-2)) 65%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+  font-size: 0.92rem;
+}
+
+.paper-column__calibration a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.paper-column__calibration a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

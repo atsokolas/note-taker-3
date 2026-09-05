@@ -160,6 +160,31 @@ const closings = ({ history = [], open = {}, known = new Set(), now = Date.now()
   return found.slice(0, Math.max(0, limit));
 };
 
+/**
+ * How many mornings in a row the paper has had nothing to say.
+ *
+ * A quiet morning writes no record, so a gap in the ledger *is* the streak —
+ * nothing extra has to be stored to know it. Counted backwards from
+ * yesterday, because today is not over and the paper may yet have news.
+ */
+const quietStreak = ({ history = [], now = Date.now() } = {}) => {
+  const records = days(history);
+  /* A reader with no ledger has not had a run of quiet mornings — they have
+     had no mornings. Absence of a record is not a streak, and the count can
+     never reach further back than the ledger itself. */
+  if (!records.length) return 0;
+  const earliest = Math.min(...records.map(record => dayToTime(record.day)));
+  const reach = Math.min(30, Math.floor((now - earliest) / DAY_MS));
+
+  const spoke = new Set(records.map(record => record.day));
+  let streak = 0;
+  for (let back = 1; back <= reach; back += 1) {
+    if (spoke.has(dayOf(now - back * DAY_MS))) break;
+    streak += 1;
+  }
+  return streak;
+};
+
 module.exports = {
   ASKED_BEFORE_FLOOR,
   CLOSING_WINDOW_DAYS,
@@ -167,5 +192,6 @@ module.exports = {
   askedBefore,
   closings,
   dayOf,
-  keyOf
+  keyOf,
+  quietStreak
 };

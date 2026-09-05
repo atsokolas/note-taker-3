@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { deskClauses, shelfClause } from '../../pages/paperEditions';
+import { lastWorkedWhen } from '../../pages/paperDesk';
 
 /**
  * Where you left off: two operational lines, and nothing else.
@@ -46,7 +47,12 @@ const PaperDesk = ({
       {lastWorked || openCase ? (
         <p className="paper-desk__line">
           {lastWorked ? (
-            <>You were last in <Door to={lastWorked.href}>{lastWorked.text}</Door></>
+            <>
+              You were last in <Door to={lastWorked.href}>{lastWorked.text}</Door>
+              {/* The page knows when. A day name is a memory in a way that a
+                  count of days is not. */}
+              {lastWorkedWhen(lastWorked.at) ? <> {lastWorkedWhen(lastWorked.at)}</> : null}
+            </>
           ) : null}
           {lastWorked && openCase ? ', and ' : null}
           {openCase ? (

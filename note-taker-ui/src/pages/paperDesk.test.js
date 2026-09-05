@@ -1,4 +1,4 @@
-import { HEADLINE_LENGTH, editionDay, lastWorked, openCase, shelfPick } from './paperDesk';
+import { HEADLINE_LENGTH, editionDay, lastWorked, lastWorkedWhen, openCase, shelfPick } from './paperDesk';
 
 const page = (id, title, updatedAt, judgment = null) => ({
   _id: id,
@@ -123,5 +123,37 @@ describe('the headline off the shelf', () => {
 
   it('leaves a headline that already fits exactly as written', () => {
     expect(shelfPick([{ _id: 'a', title: 'A short, good headline' }]).text).toBe('A short, good headline');
+  });
+});
+
+describe('when you were last here', () => {
+  const at = (days) => Date.now() - days * 86400000;
+
+  /* "Thursday" is a memory in a way that "3 days ago" is not. */
+  it('names the weekday inside the last week', () => {
+    const then = at(3);
+    expect(lastWorkedWhen(then)).toBe(
+      ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(then).getDay()]
+    );
+  });
+
+  it('uses the words a person uses for the near past', () => {
+    expect(lastWorkedWhen(at(0))).toBe('earlier today');
+    expect(lastWorkedWhen(at(1))).toBe('yesterday');
+    expect(lastWorkedWhen(at(9))).toBe('last week');
+    expect(lastWorkedWhen(at(40))).toBe('last month');
+  });
+
+  /* Past a couple of months a person does not say anything, so neither does
+     the paper. */
+  it('stops rather than reaching for a phrase nobody uses', () => {
+    expect(lastWorkedWhen(at(400))).toBe('');
+    expect(lastWorkedWhen(null)).toBe('');
+    expect(lastWorkedWhen()).toBe('');
+  });
+
+  it('carries the timestamp on the page it found', () => {
+    const picked = lastWorked([{ _id: 'a', title: 'A page', updatedAt: new Date(at(2)).toISOString() }]);
+    expect(picked.at).toBeGreaterThan(0);
   });
 });
