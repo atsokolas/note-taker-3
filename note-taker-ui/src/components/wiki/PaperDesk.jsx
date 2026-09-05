@@ -31,9 +31,10 @@ const PaperDesk = ({
   later = null,
   setAside = null,
   kept = null,
-  topics = []
+  topics = [],
+  edition = undefined
 }) => {
-  const clauses = deskClauses({ later, setAside, topics });
+  const clauses = deskClauses({ later, setAside, topics, edition });
   const shelf = shelfClause(kept);
   if (!lastWorked && !openCase && !clauses.length && !shelf) return null;
 

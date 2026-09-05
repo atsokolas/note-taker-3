@@ -20,7 +20,9 @@ import LibraryPlaces from '../library/LibraryPlaces';
 import {
   editionsLine,
   END_OF_PAPER,
-  firstMorningLead
+  firstMorningLead,
+  isWeekend,
+  paperEdition
 } from '../../pages/paperEditions';
 import WikiCreationComposer from './WikiCreationComposer';
 import WikiMovementReturnSurface from './WikiMovementReturnSurface';
@@ -205,7 +207,7 @@ const mastheadDate = () => new Date().toLocaleDateString(undefined, {
    once-ever milestone keyed off that number. Three true things that told the
    reader nothing they could act on, sitting above a headline. A masthead is a
    date and a way through; the rest was the paper admiring itself. */
-const PaperMasthead = ({ driftClosesAt = null, keptCount = null, edition = 'today' }) => (
+const PaperMasthead = ({ driftClosesAt = null, keptCount = null, edition }) => (
   <>
     <p className="wiki-index__eyebrow paper-open__masthead">Your Wiki · {mastheadDate()}</p>
     <p className="paper-open__editions">
@@ -219,13 +221,15 @@ const PaperMasthead = ({ driftClosesAt = null, keptCount = null, edition = 'toda
 /* AT-414: Morning Paper is a close or silence. Collision is named on this
    page when two editorial truths meet; a due claim alone stays silent.
    Overnight already lives on judgment. */
-const WikiFrontPageShell = ({ children, ...mainProps }) => (
+const WikiFrontPageShell = ({ children, weekend = false, ...mainProps }) => (
   <>
     <WikiFrontPageGraphMotif />
     <main className="wiki-page wiki-front-page" {...mainProps}>
       {children}
       <EditionsShelf />
-      <WeeklyDigest />
+      {/* On a weekday the week's digest is a footnote. On the weekend it is
+          the paper, and it has already been printed up in the body. */}
+      {weekend ? null : <WeeklyDigest />}
       {/* A paper ends. A feed does not, which is the whole difference. */}
       <p className="paper-open__end" aria-hidden="true">{END_OF_PAPER}</p>
     </main>
@@ -602,6 +606,14 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }, []);
   const todaysShelfPick = useMemo(() => (shelf ? shelfPick(shelf) : null), [shelf]);
 
+  /* Which paper this is. Read once in the reader's own day and handed to
+     everything that prints differently on a Saturday: the masthead underlines
+     it, the desk stops presenting bills, the obituary stays in the drawer,
+     and the digest comes up from the foot of the page to just under the
+     headline, because on the weekend it is the news. */
+  const edition = paperEdition();
+  const weekend = isWeekend(edition);
+
   const returnLoopNotes = useMemo(
     () => selectBriefingReturnLoopNotes(briefing),
     [briefing]
@@ -827,7 +839,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
   }
 
   return (
-    <WikiFrontPageShell>
+    <WikiFrontPageShell weekend={weekend}>
       <div className="wiki-living-shell">
         <RoomShelf
           className={`wiki-living-nav${mobileShelfOpen ? ' is-mobile-open' : ''}`}
@@ -914,6 +926,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
             <PaperMasthead
               driftClosesAt={briefing?.driftClosesAt}
               keptCount={libraryRoom.shelfCounts?.keptArticles}
+              edition={edition}
             />
             {/* The biggest type on the page used to spend 60px on the words
                 "Your living wikis" while the one genuinely interesting line —
@@ -934,6 +947,7 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               setAside={libraryRoom.shelfCounts?.setAsideArticles}
               kept={libraryRoom.shelfCounts?.keptArticles}
               topics={libraryRoom.feedTopics}
+              edition={edition}
             />
             {leadSentence && wikiFilter !== 'review' ? (
               <p
@@ -970,7 +984,10 @@ const WikiFrontPage = ({ initialKind = '' }) => {
               went back to, your own sources arguing, a reversal you made, and
               the page that has gone quietest. Each absent when untrue, which
               is what makes the paper short on a quiet day. */}
-          {wikiFilter !== 'review' ? <PaperColumns /> : null}
+          {wikiFilter !== 'review' ? <PaperColumns weekend={weekend} /> : null}
+
+          {/* The weekend's own content, where the weekend reader will see it. */}
+          {weekend && wikiFilter !== 'review' ? <WeeklyDigest /> : null}
 
           {/* Where you were. The lead page the agent worked on last, or the
               page the corpus would open to — one line above the list. */}
