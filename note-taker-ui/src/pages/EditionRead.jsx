@@ -16,7 +16,7 @@ import { bySection, gapLine, issueLine, takenLine, windowLine } from './editionM
  * rather than dropped, which is the one thing a newsletter never does.
  */
 
-const EditionItem = ({ item, onSave, saving }) => (
+const EditionItem = ({ item, onSave, saving, unread = null }) => (
   <article className="edition-item">
     <h3 className="edition-item__title">
       <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
@@ -35,9 +35,16 @@ const EditionItem = ({ item, onSave, saving }) => (
 
     <div className="edition-item__doors">
       {item.savedArticleId ? (
-        <Link className="edition-item__saved" to={`/articles/${item.savedArticleId}`}>
-          In your library →
-        </Link>
+        <>
+          <Link className="edition-item__saved" to={`/articles/${item.savedArticleId}`}>
+            In your library →
+          </Link>
+          {unread ? (
+            <span className="edition-item__unread">
+              Saved, but the text would not come — open the original.
+            </span>
+          ) : null}
+        </>
       ) : (
         <button
           type="button"
@@ -58,6 +65,7 @@ const EditionRead = () => {
   const [edition, setEdition] = useState(null);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [unread, setUnread] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +88,12 @@ const EditionRead = () => {
     try {
       const result = await saveEditionItem(id, itemId);
       if (result?.edition) setEdition(result.edition);
+      /* Saved and saved-but-empty are different things to a reader about to
+         go looking for the text. The row is filed either way — a paywall is
+         still a source worth keeping — so this is a note, not an error. */
+      setUnread(result && result.readable === false
+        ? { itemId, reason: result.readError || '' }
+        : null);
     } catch (saveError) {
       setError(saveError?.response?.data?.error || 'That source did not save.');
     } finally {
@@ -128,6 +142,7 @@ const EditionRead = () => {
                 item={item}
                 onSave={save}
                 saving={savingId === item.itemId}
+                unread={unread?.itemId === item.itemId ? unread : null}
               />
             ))
           ) : (

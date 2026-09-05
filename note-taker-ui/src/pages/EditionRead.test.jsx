@@ -113,6 +113,36 @@ describe('reading a paper an agent wrote', () => {
       expect(screen.queryByTestId('edition-save-item-1')).not.toBeInTheDocument();
     });
 
+    /* Saved and saved-but-empty are different things to a reader about to go
+       looking for the text. */
+    it('says when a source was filed but would not read', async () => {
+      getEdition.mockResolvedValue(paper());
+      saveEditionItem.mockResolvedValue({
+        articleId: 'a1',
+        readable: false,
+        readError: 'That source request failed with HTTP 403.',
+        edition: paper({ items: [item({ savedArticleId: 'a1' })], savedCount: 1 })
+      });
+      open();
+      fireEvent.click(await screen.findByTestId('edition-save-item-1'));
+      await waitFor(() => expect(screen.getByText(/would not come/)).toBeInTheDocument());
+      /* Still filed — the click was not lost. */
+      expect(screen.getByRole('link', { name: 'In your library →' })).toBeInTheDocument();
+    });
+
+    it('says nothing extra when the source read fine', async () => {
+      getEdition.mockResolvedValue(paper());
+      saveEditionItem.mockResolvedValue({
+        articleId: 'a1',
+        readable: true,
+        edition: paper({ items: [item({ savedArticleId: 'a1' })], savedCount: 1 })
+      });
+      open();
+      fireEvent.click(await screen.findByTestId('edition-save-item-1'));
+      await waitFor(() => expect(screen.getByText('In your library →')).toBeInTheDocument());
+      expect(screen.queryByText(/would not come/)).not.toBeInTheDocument();
+    });
+
     it('says so when the save fails, and leaves the door open', async () => {
       getEdition.mockResolvedValue(paper());
       saveEditionItem.mockRejectedValue({ response: { data: { error: 'That source did not save.' } } });

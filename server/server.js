@@ -159,6 +159,7 @@ const {
   EmbeddingJob,
   Edition,
   MorningPaperRecord,
+  SharedEdition,
   ReadingLoopEdition,
   VectorItem,
   SharedConcept,
@@ -6829,6 +6830,8 @@ app.use(buildEditionRouter({
   humanOnly: requireHumanReader,
   Edition,
   Article,
+  SharedEdition,
+  User,
   onArticleSaved: (article) => {
     const queued = enqueueArticleEmbedding(article);
     if (typeof queued?.catch === 'function') {

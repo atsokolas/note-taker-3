@@ -308,3 +308,13 @@
 .connected-agents-card__editions em {
   font-style: italic;
 }
+
+/* Saved, but the text would not come. A note rather than a warning: the row
+   is filed, the click was not lost, and the original is one tap away. */
+.edition-item__unread {
+  display: block;
+  margin: 6px 0 0;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  font-size: 0.82rem;
+  font-style: italic;
+}

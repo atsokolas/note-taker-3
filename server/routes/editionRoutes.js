@@ -1,4 +1,6 @@
 const express = require('express');
+const crypto = require('crypto');
+const { fetchReadableArticle } = require('../services/readableArticle');
 const {
   EditionShapeError,
   emptySections,
@@ -60,11 +62,43 @@ const serializeEdition = (edition = {}, { withItems = true } = {}) => {
   };
 };
 
+/* Same length and alphabet as every other share slug here, so one public URL
+   does not look guessable next to another. */
+const SLUG_BYTES = 9;
+
+const shareSlug = () => crypto.randomBytes(SLUG_BYTES)
+  .toString('base64')
+  .replace(/\+/g, '-')
+  .replace(/\//g, '_')
+  .replace(/=+$/g, '');
+
+/**
+ * What a stranger sees.
+ *
+ * The paper, and nothing about the person who kept it. Not which sources they
+ * took into their own library, not how many — a public edition is the reading,
+ * and what the reader did with it afterwards is theirs.
+ */
+const serializePublicEdition = (edition = {}, ownerDisplayName = '') => {
+  const full = serializeEdition(edition);
+  const { savedCount, ...rest } = full;
+  return {
+    ...rest,
+    ownerDisplayName,
+    items: (full.items || []).map(({ savedArticleId, ...item }) => item)
+  };
+};
+
 const buildEditionRouter = ({
   auth,
   humanOnly = (_req, _res, next) => next(),
   Edition,
   Article,
+  /* Optional: without it, editions simply cannot be shared. */
+  SharedEdition = null,
+  User = null,
+  /* Injected so the save door can be tested without reaching the network. */
+  readArticle = fetchReadableArticle,
   onArticleSaved = () => {}
 } = {}) => {
   const router = express.Router();
@@ -172,14 +206,26 @@ const buildEditionRouter = ({
       const item = (edition.items || []).find(entry => entry.itemId === req.params.itemId);
       if (!item) return res.status(404).json({ error: 'No such item in this edition.' });
 
+      /* Fetched before the row is written, so a source taken from an
+         agent's paper arrives readable. This used to save a title and a URL
+         and nothing else — a row you could file but not read, and certainly
+         not highlight, which is the seam in "seamless".
+
+         A failed fetch is not a failed save: a paywall answering 403 is
+         still a source worth keeping, so the row is written either way and
+         the reason is reported beside it. */
+      const readable = await readArticle({ url: item.url });
+
       const article = await Article.findOneAndUpdate(
         { url: item.url, userId },
         {
           $setOnInsert: {
             url: item.url,
             userId,
-            title: item.title,
-            content: '',
+            /* The page's own title beats the agent's, which is a headline
+               written for the edition rather than the piece. */
+            title: readable.title || item.title,
+            content: readable.content || '',
             siteName: item.sourceLabel || '',
             publicationDate: item.sourceDate || '',
             highlights: []
@@ -194,10 +240,87 @@ const buildEditionRouter = ({
 
       return res.status(200).json({
         articleId: String(article._id),
+        /* Said plainly, because "saved" and "saved but empty" are different
+           things to a reader about to go looking for the text. */
+        readable: Boolean(readable.ok && readable.content),
+        readError: readable.ok ? '' : readable.error,
         edition: serializeEdition(edition)
       });
     } catch (error) {
       return refuse(res, error, 'Failed to save that source.');
+    }
+  });
+
+  /**
+   * Share a paper.
+   *
+   * Human only, and idempotent — asking twice hands back the same link rather
+   * than minting a second one, because a reader who has already sent the
+   * first would then have two live URLs for one paper.
+   */
+  router.post('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
+    if (!SharedEdition) return res.status(503).json({ error: 'Sharing is not available.' });
+    try {
+      const userId = req.user.id;
+      const edition = await Edition.findOne({ _id: req.params.id, userId }).lean();
+      if (!edition) return res.status(404).json({ error: 'No such edition.' });
+
+      const existing = await SharedEdition.findOne({ userId, editionId: edition._id }).lean();
+      if (existing) return res.status(200).json({ shared: true, slug: existing.slug });
+
+      let ownerDisplayName = '';
+      if (User) {
+        const owner = await User.findById(userId).select('name displayName').lean().catch(() => null);
+        ownerDisplayName = String(owner?.displayName || owner?.name || '').trim();
+      }
+      const created = await SharedEdition.create({
+        userId,
+        editionId: edition._id,
+        slug: shareSlug(),
+        ownerDisplayName
+      });
+      return res.status(201).json({ shared: true, slug: created.slug });
+    } catch (error) {
+      return refuse(res, error, 'Failed to share that edition.');
+    }
+  });
+
+  router.get('/api/editions/:id/share', auth, async (req, res) => {
+    if (!SharedEdition) return res.status(200).json({ shared: false });
+    try {
+      const found = await SharedEdition
+        .findOne({ userId: req.user.id, editionId: req.params.id })
+        .lean();
+      return res.status(200).json(found ? { shared: true, slug: found.slug } : { shared: false });
+    } catch (error) {
+      return refuse(res, error, 'Failed to read that share.');
+    }
+  });
+
+  /* Revoking removes the row, so the link stops resolving rather than
+     resolving to a refusal that confirms the paper exists. */
+  router.delete('/api/editions/:id/share', auth, humanOnly, async (req, res) => {
+    if (!SharedEdition) return res.status(200).json({ revoked: true });
+    try {
+      await SharedEdition.deleteOne({ userId: req.user.id, editionId: req.params.id });
+      return res.status(200).json({ revoked: true });
+    } catch (error) {
+      return refuse(res, error, 'Failed to revoke that share.');
+    }
+  });
+
+  /* The public read. No auth, and deliberately no trace of the reader beyond
+     the name they publish under. */
+  router.get('/api/public/editions/:slug', async (req, res) => {
+    if (!SharedEdition) return res.status(404).json({ error: 'No such edition.' });
+    try {
+      const share = await SharedEdition.findOne({ slug: String(req.params.slug || '').trim() }).lean();
+      if (!share) return res.status(404).json({ error: 'No such edition.' });
+      const edition = await Edition.findOne({ _id: share.editionId, userId: share.userId }).lean();
+      if (!edition) return res.status(404).json({ error: 'No such edition.' });
+      return res.status(200).json(serializePublicEdition(edition, share.ownerDisplayName));
+    } catch (error) {
+      return refuse(res, error, 'Failed to open that edition.');
     }
   });
 
@@ -216,4 +339,4 @@ const buildEditionRouter = ({
   return router;
 };
 
-module.exports = { buildEditionRouter, serializeEdition, serializeItem };
+module.exports = { buildEditionRouter, serializeEdition, serializePublicEdition, serializeItem };
