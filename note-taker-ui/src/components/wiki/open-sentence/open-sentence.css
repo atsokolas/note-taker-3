@@ -156,6 +156,12 @@
   overflow: hidden;
 }
 
+.open-sentence__reveal:not(.is-open) .open-sentence-pocket {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .open-sentence-pocket {
   display: grid;
   gap: var(--noeis-space-4);

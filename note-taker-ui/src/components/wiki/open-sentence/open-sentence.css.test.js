@@ -24,4 +24,8 @@ describe('open-sentence motion', () => {
   it('lets the Open chip follow a fine pointer without inventing a new motion language', () => {
     expect(css).toMatch(/--open-chip-x/);
   });
+
+  it('does not leave a gold thread when the pocket is closed', () => {
+    expect(css).toMatch(/\.open-sentence__reveal:not\(\.is-open\) \.open-sentence-pocket/);
+  });
 });
