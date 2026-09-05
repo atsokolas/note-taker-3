@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listEditions } from '../api/editions';
-import { gapLine, issueLine, takenLine, windowLine } from './editionModel';
+import { agentRunLine, gapLine, issueLine, takenLine, windowLine } from './editionModel';
 
 /**
  * The newsstand.
@@ -57,6 +57,12 @@ const Editions = () => {
             Try: <em>“keep a This Week in AI for me, and file it here every Sunday.”</em>
           </p>
         </section>
+      ) : null}
+
+      {/* The one fact on the stand about the agent rather than the reading,
+          and the reason to trust the next one. */}
+      {agentRunLine(editions || []) ? (
+        <p className="editions__run">{agentRunLine(editions || [])}</p>
       ) : null}
 
       <ol className="editions__list">

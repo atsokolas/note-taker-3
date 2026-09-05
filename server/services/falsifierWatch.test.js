@@ -1,4 +1,4 @@
-const { matchFalsifier, matchesForPage, openFalsifiers, termsOf } = require('./falsifierWatch');
+const { matchFalsifier, matchesForPage, openSignals, termsOf } = require('./falsifierWatch');
 
 const falsifier = (over = {}) => ({
   falsifierId: 'f1',
@@ -90,7 +90,7 @@ describe('which falsifiers are still worth watching', () => {
      it every morning turns the one sentence that should stop a reader into
      wallpaper. */
   it('leaves alone the ones that have already fired, or been retired', () => {
-    const open = openFalsifiers(page([
+    const open = openSignals(page([
       falsifier({ falsifierId: 'open' }),
       falsifier({ falsifierId: 'warned', status: 'warning' }),
       falsifier({ falsifierId: 'fired', status: 'triggered' }),
@@ -100,12 +100,12 @@ describe('which falsifiers are still worth watching', () => {
   });
 
   it('ignores a falsifier with no signal to look for', () => {
-    expect(openFalsifiers(page([falsifier({ observableSignal: '  ' })]))).toEqual([]);
+    expect(openSignals(page([falsifier({ observableSignal: '  ' })]))).toEqual([]);
   });
 
   it('survives a page with no judgment on it at all', () => {
-    expect(openFalsifiers({})).toEqual([]);
-    expect(openFalsifiers()).toEqual([]);
+    expect(openSignals({})).toEqual([]);
+    expect(openSignals()).toEqual([]);
     expect(matchesForPage({ page: {}, arrival: arrival() })).toEqual([]);
   });
 
@@ -119,5 +119,60 @@ describe('which falsifiers are still worth watching', () => {
       arrival: arrival()
     });
     expect(matches.map(m => m.falsifierId)).toEqual(['a', 'b']);
+  });
+});
+
+describe('the prompt readers actually answer', () => {
+  /* The watcher was built against judgment.falsifiers, written by one bare
+     input in the living-thesis editor. "What would change your mind" writes
+     claims[].resolutionCriteria, and nothing joined them — so the watcher
+     listened in a room almost nobody writes in. */
+  const withCriteria = (over = {}) => ({
+    _id: 'p1',
+    title: 'Alphabet',
+    claims: [{
+      claimId: 'c1',
+      text: 'Alphabet capex is defensive.',
+      resolutionCriteria: 'Nvidia guides datacenter revenue down two quarters',
+      ...over
+    }],
+    judgment: { falsifiers: [] }
+  });
+
+  it('watches what the reader answered, not only what the editor wrote', () => {
+    const signals = openSignals(withCriteria());
+    expect(signals).toHaveLength(1);
+    expect(signals[0]).toMatchObject({ kind: 'claim', claimId: 'c1' });
+  });
+
+  it('matches an arrival against a criteria answer, and says which claim', () => {
+    const [match] = matchesForPage({ page: withCriteria(), arrival: arrival() });
+    expect(match).toMatchObject({ kind: 'claim', claimId: 'c1' });
+  });
+
+  /* Once the answer has a falsifier of its own it is watched through that,
+     and offering both would warn twice for one belief. */
+  it('does not watch a claim twice once its falsifier exists', () => {
+    const page = withCriteria();
+    page.judgment.falsifiers = [{
+      falsifierId: 'claim-c1',
+      text: 'Alphabet capex is defensive.',
+      observableSignal: 'Nvidia guides datacenter revenue down two quarters',
+      status: 'unobserved',
+      affectedClaimIds: ['c1']
+    }];
+    const signals = openSignals(page);
+    expect(signals).toHaveLength(1);
+    expect(signals[0].kind).toBe('falsifier');
+  });
+
+  /* A belief you dropped is not watching for anything. */
+  it('stops watching a retired claim', () => {
+    expect(openSignals(withCriteria({ checkInStatus: 'retired' }))).toEqual([]);
+    expect(openSignals(withCriteria({ retiredAt: new Date().toISOString() }))).toEqual([]);
+  });
+
+  it('ignores a claim that named no criteria', () => {
+    expect(openSignals(withCriteria({ resolutionCriteria: '  ' }))).toEqual([]);
   });
 });

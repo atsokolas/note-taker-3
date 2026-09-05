@@ -76,3 +76,37 @@ export const bySection = ({ sections = [], items = [] } = {}) => {
     ? [...ordered, { key: '', label: 'Elsewhere', items: orphans }]
     : ordered;
 };
+
+/**
+ * Whether an agent has kept its promise.
+ *
+ * An edition is a periodical, and the thing a periodical is judged on is
+ * whether it turned up. A run of consecutive windows is the only fact on the
+ * stand that says something about the agent rather than about the reading —
+ * and it is the reason to trust the next one.
+ *
+ * Consecutive by window, not by count: three editions filed in one afternoon
+ * are not a three-week run. Below the floor it says nothing, because two in
+ * a row is not yet a habit.
+ */
+export const RUN_FLOOR = 3;
+
+export const agentRunLine = (editions = []) => {
+  const windows = (Array.isArray(editions) ? editions : [])
+    .map(edition => Date.parse(edition?.windowStart))
+    .filter(Number.isFinite)
+    .sort((left, right) => right - left);
+  if (windows.length < RUN_FLOOR) return '';
+
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  let run = 1;
+  for (let i = 1; i < windows.length; i += 1) {
+    const gap = windows[i - 1] - windows[i];
+    /* A window either follows the last one or it does not. Generous by a day
+       either side, because a Sunday filing and a Monday one are the same week
+       to a reader. */
+    if (gap > WEEK * 1.5 || gap < WEEK * 0.5) break;
+    run += 1;
+  }
+  return run >= RUN_FLOOR ? `${run} weeks running. Not a week missed.` : '';
+};

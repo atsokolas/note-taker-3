@@ -4,6 +4,7 @@ import { getMorningPaperColumns } from '../../api/wiki';
 import {
   anniversaryLine,
   calibrationLine,
+  firstWeekLine,
   oldestOpenLine,
   askedLine,
   closingGroups,
@@ -66,6 +67,7 @@ const PaperColumns = ({ weekend = false }) => {
   const obituary = obituaryLine(columns.obituary);
   const warned = warnedLine(columns.warned);
   const calibration = calibrationLine(columns.calibration);
+  const firstWeek = firstWeekLine(columns.firstWeek);
   const oldest = oldestOpenLine(columns.oldestOpen);
   const wrongReasons = rightForWrongReasonsLine(columns.rightForWrongReasons);
   const streak = quietStreakLine(columns.streak);
@@ -193,6 +195,20 @@ const PaperColumns = ({ weekend = false }) => {
         <p className="paper-column__oldest">
           {oldest.href ? <Link to={oldest.href}>{oldest.text}</Link> : oldest.text}
         </p>
+      ) : null}
+
+      {/* For a reader three days old, the only thing that can be said. It
+          stops once the year-scale columns can speak for themselves. */}
+      {firstWeek ? (
+        <section className="paper-column paper-column--first-week">
+          <p className="paper-column__standfirst">Your first week</p>
+          <p className="paper-column__body">{firstWeek.text}</p>
+          {firstWeek.hint ? (
+            <p className="paper-column__footnote">
+              <Link to={firstWeek.href}>{firstWeek.hint}</Link>
+            </p>
+          ) : null}
+        </section>
       ) : null}
 
       {/* Last, and quiet. It is the one line about the reader rather than

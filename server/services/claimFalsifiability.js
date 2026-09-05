@@ -37,6 +37,52 @@ const applyFalsifiability = (claim, { resolutionCriteria, horizon } = {}) => {
 };
 
 /**
+ * The falsifier a criteria answer should always have created.
+ *
+ * "What would change your mind" wrote only to the claim, while the watchers
+ * read `judgment.falsifiers`. Two fields for one idea, never joined, so the
+ * most important sentence a reader writes was watched by nothing.
+ *
+ * Answering now also keeps a falsifier: same text, same signal, tied to the
+ * claim. Editing the answer edits that falsifier rather than growing a
+ * second one, and clearing the answer retires it — a signal nobody is
+ * claiming any more should not keep firing.
+ */
+const syncClaimFalsifier = (page, claim, { now = new Date() } = {}) => {
+  if (!page || !claim?.claimId) return page;
+  const criteria = clean(claim.resolutionCriteria);
+  page.judgment = page.judgment || {};
+  page.judgment.falsifiers = page.judgment.falsifiers || [];
+
+  const claimId = String(claim.claimId);
+  const existing = page.judgment.falsifiers
+    .find(row => (row?.affectedClaimIds || []).some(value => String(value) === claimId));
+
+  if (!criteria) {
+    /* Retired, not deleted: the reader may have answered and then thought
+       better of it, and that is part of the record. */
+    if (existing && existing.status !== 'triggered') existing.status = 'retired';
+    return page;
+  }
+
+  if (existing) {
+    existing.text = clean(claim.text) || existing.text;
+    existing.observableSignal = criteria;
+    return page;
+  }
+
+  page.judgment.falsifiers.push({
+    falsifierId: `claim-${claimId}`,
+    text: clean(claim.text) || criteria,
+    observableSignal: criteria,
+    status: 'unobserved',
+    affectedClaimIds: [claimId],
+    createdAt: now
+  });
+  return page;
+};
+
+/**
  * A suggestion the human may accept. Never mutates the claim.
  * `autoWrite` is always false — the partner proposes; the owner writes.
  */
@@ -58,5 +104,6 @@ module.exports = {
   hasCriteria,
   hasHorizon,
   parseHorizon,
-  proposeCriteria
+  proposeCriteria,
+  syncClaimFalsifier
 };

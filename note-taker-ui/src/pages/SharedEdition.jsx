@@ -120,7 +120,8 @@ const SharedEdition = () => {
           Every item here carries what would limit it. That is the whole
           standard, and it is why this is not a list of links.
         </p>
-        <Link to="/">Kept with Noeis</Link>
+        {/* The only page a stranger ever sees, and it had no way in. */}
+        <Link className="edition__colophon-cta" to="/register">Keep your own →</Link>
       </footer>
     </main>
   );

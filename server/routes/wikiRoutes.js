@@ -23,6 +23,7 @@ const {
   persistWikiBriefingCache
 } = require('../services/wikiBriefingService');
 const { openTargets, paperColumns } = require('../services/paperColumns');
+const { buildClaimPage } = require('../services/claimFromHighlight');
 const { assertionsFrom, askedBefore, closings, dayOf, quietStreak } = require('../services/paperLedger');
 const { findWikiBacklinks: defaultFindWikiBacklinks } = require('../services/wikiBacklinkService');
 const {
@@ -1781,6 +1782,9 @@ const buildWikiRouter = ({
   WikiMaintenanceRun = null,
   WikiRepoBaseline = null,
   WikiBriefingCache = null,
+  /* Resolves the highlight a new claim cites. Optional: without it a claim
+     can still be held, it just arrives without its evidence attached. */
+  findHighlightById = null,
   /* The morning paper's own record. Optional: a deployment without it still
      serves the paper, it just cannot say how many times it has asked. */
   MorningPaperRecord = null,
@@ -6313,6 +6317,60 @@ const buildWikiRouter = ({
    * a word. Each is absent when there is nothing true to say, which is what
    * makes a quiet morning's paper short.
    */
+  /**
+   * A belief, born from a sentence you marked.
+   *
+   * The one door into the ledger from the Library. Everything the morning
+   * paper reads — the anniversary, the calibration line, the falsifier watch
+   * — reads claims, and until now a highlight could become a question, a
+   * note, a concept or a wiki section, but never a claim.
+   */
+  router.post('/api/judgment/from-highlight', wikiAuth, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const claim = String(req.body?.claim || '').trim();
+      if (!claim) return res.status(400).json({ error: 'A claim needs a sentence of your own.' });
+
+      const highlightId = String(req.body?.highlightId || '').trim();
+      const highlight = highlightId && findHighlightById
+        ? await findHighlightById(userId, highlightId).catch(() => null)
+        : null;
+
+      const page = new WikiPage(buildClaimPage({
+        userId,
+        claim,
+        highlight: highlight || {},
+        resolutionCriteria: req.body?.resolutionCriteria,
+        horizon: req.body?.horizon || null,
+        slug: await buildUniqueSlug(userId, claim.slice(0, 120))
+      }));
+      await page.save();
+
+      if (WikiRevision) {
+        await createWikiRevision({
+          WikiRevision,
+          userId,
+          page,
+          reason: 'created',
+          actorType: 'user',
+          summary: 'Claim held from a highlight.'
+        }).catch(() => null);
+      }
+      if (WikiBriefingCache) await WikiBriefingCache.deleteOne({ userId }).catch(() => null);
+
+      return res.status(201).json({
+        pageId: String(page._id),
+        claimId: page.claims?.[0]?.claimId || '',
+        title: page.title,
+        href: `/judgment/${page._id}`
+      });
+    } catch (error) {
+      const status = error?.statusCode || 500;
+      if (status === 500) console.error('Error holding a claim from a highlight:', error);
+      return res.status(status).json({ error: error?.message || 'Could not hold that claim.' });
+    }
+  });
+
   router.get('/api/morning-paper/columns', wikiAuth, async (req, res) => {
     try {
       const userId = req.user.id;

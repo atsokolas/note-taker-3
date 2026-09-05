@@ -142,6 +142,40 @@ export const calibrationLine = (calibration) => {
 };
 
 /**
+ * A paper for someone who started on Tuesday.
+ *
+ * Every other column rewards a year of reading. This one reads the only thing
+ * a new reader has — what they saved this week — and it says the number,
+ * because at three days old the number genuinely is the news.
+ *
+ * It names the ledger when there is nothing in it, since a reader who never
+ * holds a belief will never see most of this product. That is the one thing
+ * worth saying early, and it is said once rather than nagged.
+ */
+export const firstWeekLine = (firstWeek) => {
+  const pages = Number(firstWeek?.pages) || 0;
+  const claims = Number(firstWeek?.claims) || 0;
+  if (!pages && !claims) return null;
+
+  const saved = pages
+    ? `${pages} ${pages === 1 ? 'page' : 'pages'} this week`
+    : '';
+  const held = claims
+    ? `${claims} ${claims === 1 ? 'belief' : 'beliefs'} on the ledger`
+    : 'nothing on the ledger yet';
+
+  return {
+    text: [saved, held].filter(Boolean).join(' · '),
+    /* The one sentence worth saying early: the ledger is what the paper reads
+       from, and a reader who never holds a belief never sees most of this. */
+    hint: claims
+      ? ''
+      : 'Mark a sentence you believe and hold it — the paper reads from there.',
+    href: claims ? '/judgment' : '/library?scope=highlights'
+  };
+};
+
+/**
  * How many mornings the paper has asked this.
  *
  * Two askings is a coincidence; three is the paper noticing. Below that it
@@ -259,6 +293,9 @@ export const rightForWrongReasonsLine = (entry) => {
  */
 export const paperWeight = (columns = {}) => (
   (columns?.warned ? 1 : 0)
+  /* A first week counts as news: the alternative is telling someone three
+     days old that their morning is quiet, which is true and useless. */
+  + (columns?.firstWeek ? 1 : 0)
   + (columns?.rightForWrongReasons ? 1 : 0)
   + (columns?.oldestOpen ? 1 : 0)
   + (columns?.calibration ? 1 : 0)

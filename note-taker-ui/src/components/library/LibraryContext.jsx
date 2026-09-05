@@ -29,6 +29,7 @@ const LibraryContext = ({
   onAddConcept,
   onAddNotebook,
   onAddQuestion,
+  onHoldClaim,
   onDeleteHighlight,
   onDumpToWorkingMemory
 }) => {
@@ -184,6 +185,12 @@ const LibraryContext = ({
                           <QuietButton onClick={() => onAddNotebook(highlight)}>Notebook</QuietButton>
                           <QuietButton onClick={() => onAddConcept(highlight)}>Concept</QuietButton>
                           <QuietButton onClick={() => onAddQuestion(highlight)}>Question</QuietButton>
+                          {/* The door into the ledger. Everything the morning
+                              paper reads is claims, and nothing in the reading
+                              room could make one. */}
+                          {onHoldClaim ? (
+                            <QuietButton onClick={() => onHoldClaim(highlight)}>Believe</QuietButton>
+                          ) : null}
                           <QuietButton onClick={() => onDumpToWorkingMemory(highlight)}>Dump</QuietButton>
                           <QuietButton onClick={() => onDeleteHighlight?.(highlight)}>Delete</QuietButton>
                         </div>

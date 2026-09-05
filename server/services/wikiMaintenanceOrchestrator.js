@@ -378,15 +378,39 @@ const warnMatchedFalsifiers = async ({ page, arrival, at = new Date() } = {}) =>
   const matches = matchesForPage({ page, arrival });
   if (!matches.length) return [];
 
-  const byId = new Map(matches.map(match => [match.falsifierId, match]));
+  page.judgment = page.judgment || {};
+  page.judgment.falsifiers = page.judgment.falsifiers || [];
+
+  const byId = new Map(
+    matches.filter(match => match.kind === 'falsifier').map(match => [match.falsifierId, match])
+  );
   let changed = false;
-  (page?.judgment?.falsifiers || []).forEach((falsifier) => {
+
+  page.judgment.falsifiers.forEach((falsifier) => {
     const match = byId.get(String(falsifier.falsifierId || ''));
     if (!match || falsifier.status !== 'unobserved') return;
     falsifier.status = 'warning';
     falsifier.lastCheckedAt = at;
     changed = true;
   });
+
+  /* A criteria answer that has never had a falsifier of its own gets one now,
+     already warned. The reader wrote the sentence; this is the row that
+     sentence should always have created, and writing it here means a corpus
+     full of existing answers starts being watched without a migration. */
+  matches.filter(match => match.kind === 'claim' && match.claimId).forEach((match) => {
+    page.judgment.falsifiers.push({
+      falsifierId: `claim-${match.claimId}`,
+      text: match.text || match.observableSignal,
+      observableSignal: match.observableSignal,
+      status: 'warning',
+      affectedClaimIds: [match.claimId],
+      lastCheckedAt: at,
+      createdAt: at
+    });
+    changed = true;
+  });
+
   if (!changed) return [];
 
   if (typeof page.markModified === 'function') page.markModified('judgment.falsifiers');

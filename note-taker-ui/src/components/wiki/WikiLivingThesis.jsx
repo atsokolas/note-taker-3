@@ -397,7 +397,7 @@ const WikiLivingThesis = ({ page, pageId, onPageUpdate, onCanonicalPage }) => {
                   </> : null}
                   {kind === 'falsifiers' ? <>
                     <Field label="Falsifier"><input value={item.text || ''} onChange={event => changeItem(kind, index, 'text', event.target.value)} /></Field>
-                    <Field label="Observable signal"><input value={item.observableSignal || ''} onChange={event => changeItem(kind, index, 'observableSignal', event.target.value)} /></Field>
+                    <Field label="Observable signal"><input value={item.observableSignal || ''} placeholder="Nvidia guides datacenter revenue down two quarters" onChange={event => changeItem(kind, index, 'observableSignal', event.target.value)} /></Field>
                     <Field label="Status"><select value={item.status || 'unobserved'} onChange={event => changeItem(kind, index, 'status', event.target.value)}>{['unobserved', 'warning', 'triggered', 'retired'].map(value => <option key={value} value={value}>{labelFor(value)}</option>)}</select></Field>
                   </> : null}
                   {kind === 'decisions' ? <>
