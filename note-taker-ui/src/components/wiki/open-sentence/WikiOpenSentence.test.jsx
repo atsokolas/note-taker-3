@@ -82,6 +82,7 @@ describe('WikiOpenSentence', () => {
         highlightId: 'highlight-1',
         pageId: 'wiki-1',
         pageTitle: 'Enterprise AI Memory',
+        sourceTitle: 'Memory article',
         claimId: 'claim-1',
         sentence: 'Memory compounds with review.'
       })
@@ -130,5 +131,49 @@ describe('WikiOpenSentence', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(screen.getByText('Nothing beside this sentence yet.')).toBeInTheDocument();
+  });
+
+  it('discards a closed experiment that did not keep a question', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.change(screen.getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    fireEvent.click(document.querySelector('.open-sentence__open'));
+    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByLabelText('Try a narrower wording')).toHaveValue('Memory compounds with review.');
+  });
+
+  it('remembers Nomad when you come home without opening the pocket', () => {
+    window.sessionStorage.setItem('noeis.open-sentence.return', JSON.stringify({
+      articleId: 'article-1',
+      highlightId: 'highlight-1',
+      sentence: 'Memory compounds with review.',
+      pageId: 'wiki-1',
+      pageTitle: 'Enterprise AI Memory',
+      sourceTitle: 'Memory article',
+      claimId: 'claim-1'
+    }));
+    renderWikiSentence();
+    expect(screen.getByText('You were in Memory article.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+  });
+
+  it('leaves a quiet gold thread on a closed placed sentence without opening', () => {
+    window.sessionStorage.setItem(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'Memory compounds with review.',
+      provisionalText: 'Memory compounds with review.',
+      question: '',
+      returnNote: '',
+      mark: '',
+      placed: true,
+      status: 'closed'
+    }));
+    renderWikiSentence();
+    expect(document.querySelector('.open-sentence')).toHaveClass('is-placed');
+    expect(document.querySelector('.open-sentence')).not.toHaveClass('is-open');
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
   });
 });

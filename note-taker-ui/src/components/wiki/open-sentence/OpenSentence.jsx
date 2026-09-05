@@ -224,6 +224,7 @@ const OpenSentence = ({
   armRoot = null,
   acceptedLabel = 'The article still reads',
   placeBesideTitle = '',
+  homecoming = '',
   onOpenSourceHome,
   children
 }) => {
@@ -280,9 +281,13 @@ const OpenSentence = ({
       return undefined;
     }
     if (!keepPocket) return undefined;
+    if (reducedMotion) {
+      setKeepPocket(false);
+      return undefined;
+    }
     const timer = window.setTimeout(() => setKeepPocket(false), 320);
     return () => window.clearTimeout(timer);
-  }, [keepPocket, open]);
+  }, [keepPocket, open, reducedMotion]);
 
   useEffect(() => {
     if (!exploration?.placed) {
@@ -337,6 +342,19 @@ const OpenSentence = ({
     if (open) closePocket();
     else openPocket();
   };
+
+  const closedNote = String(exploration.returnNote || '').trim();
+  const closedQuestion = String(exploration.question || '').trim();
+  const wayHome = !open && !keepPocket && (homecoming || closedNote || closedQuestion) ? (
+    <div className="open-sentence__way-home">
+      {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}
+      {closedNote || closedQuestion ? (
+        <button type="button" className="open-sentence__next" onClick={openPocket}>
+          {closedNote || 'You left this open.'}
+        </button>
+      ) : null}
+    </div>
+  ) : null;
 
   const className = [
     'open-sentence',
@@ -436,7 +454,13 @@ const OpenSentence = ({
     return (
       <>
         {createPortal(line, hosts.controls)}
-        {createPortal(reveal, hosts.pocket)}
+        {createPortal(
+          <>
+            {wayHome}
+            {reveal}
+          </>,
+          hosts.pocket
+        )}
       </>
     );
   }
@@ -444,6 +468,7 @@ const OpenSentence = ({
   return (
     <div className={className}>
       {line}
+      {wayHome}
       {reveal}
     </div>
   );

@@ -1,22 +1,18 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
+import { isOpen } from './openSentenceModel';
 import {
-  closeExploration,
-  openExploration,
-  restoreExploration,
-  snapshotExploration
-} from './openSentenceModel';
-import {
-  cancelWikiDraftPlacement,
-  libraryDraftScope,
   liveExplorationForHighlight,
   matchingReturnTicket,
   placeBesideWikiDraft,
+  cancelWikiDraftPlacement,
+  libraryDraftScope,
+  readRemembered,
+  rememberDraft,
+  rememberOpened,
   wikiReturnHref
 } from './openSentenceJourney';
-import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
-import { readStore, writeStore } from './openSentenceStore';
 
 const highlightSelector = (highlightId) => `[data-highlight-id="highlight-${highlightId}"]`;
 
@@ -52,32 +48,25 @@ const OpenedLibraryPassage = ({
     () => liveExplorationForHighlight({ article, highlight }),
     [article, highlight]
   );
-  const [exploration, setExploration] = useState(() => {
-    const stored = restoreExploration(readStore(draftStorageKey(scope, highlightId)), live);
-    const opened = readStore(openedStorageKey(scope)) === highlightId;
-    return opened ? openExploration(stored) : closeExploration(stored);
-  });
+  const [exploration, setExploration] = useState(() => readRemembered(scope, highlightId, live));
   const [hosts, setHosts] = useState(null);
 
   useEffect(() => {
-    const stored = restoreExploration(readStore(draftStorageKey(scope, highlightId)), live);
-    const opened = readStore(openedStorageKey(scope)) === highlightId;
-    setExploration(opened ? openExploration(stored) : closeExploration(stored));
+    setExploration(readRemembered(scope, highlightId, live));
   }, [highlightId, live, scope]);
 
   const commit = useCallback((next) => {
-    const restored = restoreExploration(snapshotExploration(next), live);
-    writeStore(draftStorageKey(scope, highlightId), snapshotExploration(restored));
-    writeStore(openedStorageKey(scope), restored.status === 'open' ? highlightId : '');
+    const remembered = rememberDraft(scope, highlightId, next, live);
+    rememberOpened(scope, highlightId, remembered, highlightId);
     if (ticket) {
-      if (restored.placed && !exploration.placed) placeBesideWikiDraft(ticket);
-      if (!restored.placed && exploration.placed) cancelWikiDraftPlacement(ticket);
+      if (remembered.placed && !exploration.placed) placeBesideWikiDraft(ticket);
+      if (!remembered.placed && exploration.placed) cancelWikiDraftPlacement(ticket);
     }
-    setExploration(restored);
+    setExploration(remembered);
   }, [exploration.placed, highlightId, live, scope, ticket]);
 
   useEffect(() => {
-    onOpenedText?.(exploration.status === 'open' ? String(live.originalText || '').trim() : '');
+    onOpenedText?.(isOpen(exploration) ? String(live.originalText || '').trim() : '');
     return () => onOpenedText?.('');
   }, [exploration.status, live.originalText, onOpenedText]);
 
@@ -100,9 +89,10 @@ const OpenedLibraryPassage = ({
     const mark = hosts?.mark;
     if (!mark) return undefined;
     mark.classList.add('open-sentence__held');
-    mark.classList.toggle('is-open', exploration.status === 'open');
-    return () => mark.classList.remove('is-open');
-  }, [exploration.status, hosts]);
+    mark.classList.toggle('is-open', isOpen(exploration));
+    mark.classList.toggle('is-placed', Boolean(exploration.placed));
+    return () => mark.classList.remove('is-open', 'is-placed');
+  }, [exploration.placed, exploration.status, hosts]);
 
   const pocket = (
     <OpenSentence

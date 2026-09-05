@@ -30,6 +30,18 @@ export const closeExploration = (exploration) => ({
   status: EXPLORATION_STATUS.closed
 });
 
+export const keepsClosedDraft = (exploration) => Boolean(
+  String(exploration?.question || '').trim()
+  || String(exploration?.returnNote || '').trim()
+  || exploration?.placed
+);
+
+export const forgetExperiment = (live) => createExploration({
+  id: live?.id,
+  originalText: live?.originalText,
+  source: live?.source
+});
+
 export const tryWording = (exploration, text) => ({
   ...exploration,
   provisionalText: String(text ?? '')

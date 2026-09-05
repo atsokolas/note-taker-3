@@ -25,7 +25,10 @@ describe('open-sentence motion', () => {
     expect(css).toMatch(/--open-chip-x/);
   });
 
-  it('does not leave a gold thread when the pocket is closed', () => {
+  it('collapses pocket chrome when closed and leaves a quiet gold thread only if a passage was placed', () => {
     expect(css).toMatch(/\.open-sentence__reveal:not\(\.is-open\) \.open-sentence-pocket/);
+    expect(css).toMatch(/\.open-sentence\.is-placed:not\(\.is-open\) \.open-sentence__held::before/);
+    expect(css).toMatch(/mark\.highlight\.open-sentence__held\.is-placed:not\(\.is-open\)::before/);
+    expect(css).toMatch(/opacity:\s*0\.45/);
   });
 });

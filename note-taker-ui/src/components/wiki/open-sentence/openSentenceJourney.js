@@ -1,13 +1,18 @@
 import { wikiReadPath } from '../../../utils/wikiFeatureFlags';
 import { cleanSourceTextForDisplay } from '../../../utils/sourceDisplayText';
 import {
+  EXPLORATION_STATUS,
   cancelPlacement,
+  closeExploration,
   createExploration,
+  forgetExperiment,
+  keepsClosedDraft,
+  openExploration,
   placeSource,
   restoreExploration,
   snapshotExploration
 } from './openSentenceModel';
-import { draftStorageKey } from './openSentenceBinding';
+import { draftStorageKey, openedStorageKey } from './openSentenceBinding';
 import { readStore, writeStore } from './openSentenceStore';
 
 export const RETURN_TICKET_KEY = 'noeis.open-sentence.return';
@@ -29,6 +34,7 @@ export const writeReturnTicket = (ticket = {}) => {
     sentence: String(ticket.sentence || ''),
     pageId,
     pageTitle: String(ticket.pageTitle || '').trim(),
+    sourceTitle: String(ticket.sourceTitle || '').trim(),
     claimId
   }));
 };
@@ -49,6 +55,7 @@ export const readReturnTicket = () => {
       sentence: String(parsed.sentence || ''),
       pageId,
       pageTitle: String(parsed.pageTitle || '').trim(),
+      sourceTitle: String(parsed.sourceTitle || '').trim(),
       claimId
     };
   } catch (_unreadable) {
@@ -62,6 +69,53 @@ export const matchingReturnTicket = ({ articleId, highlightId } = {}) => {
   if (ticket.highlightId && ticket.highlightId !== asId(highlightId)) return null;
   return ticket;
 };
+
+export const matchingWikiTicket = ({ pageId, claimId } = {}) => {
+  const ticket = readReturnTicket();
+  if (!ticket || ticket.pageId !== asId(pageId)) return null;
+  if (ticket.claimId && ticket.claimId !== asId(claimId)) return null;
+  return ticket;
+};
+
+export const homecomingLine = (ticket) => {
+  if (!ticket) return '';
+  const sourceTitle = String(ticket.sourceTitle || '').trim();
+  return sourceTitle ? `You were in ${sourceTitle}.` : 'You were in the Library.';
+};
+
+export const bindDraft = (live, draft, opened) => {
+  const raw = typeof draft === 'string' ? draft : (draft ? snapshotExploration(draft) : '');
+  const restored = restoreExploration(raw, live);
+  return opened ? openExploration(restored) : closeExploration(restored);
+};
+
+export const rememberDraft = (scope, itemId, next, live) => {
+  const restored = restoreExploration(snapshotExploration(next), live);
+  if (restored.status === EXPLORATION_STATUS.closed && !keepsClosedDraft(restored)) {
+    writeStore(draftStorageKey(scope, itemId), '');
+    return forgetExperiment(live);
+  }
+  writeStore(draftStorageKey(scope, itemId), snapshotExploration(restored));
+  return restored;
+};
+
+export const rememberOpened = (scope, itemId, exploration, openedId) => {
+  if (exploration.status === EXPLORATION_STATUS.open) {
+    writeStore(openedStorageKey(scope), itemId);
+    return itemId;
+  }
+  if (openedId === itemId) {
+    writeStore(openedStorageKey(scope), '');
+    return null;
+  }
+  return openedId;
+};
+
+export const readRemembered = (scope, itemId, live) => bindDraft(
+  live,
+  readStore(draftStorageKey(scope, itemId)),
+  readStore(openedStorageKey(scope)) === itemId
+);
 
 export const wikiReturnHref = (ticket) => {
   if (!ticket?.pageId) return '';
@@ -141,14 +195,14 @@ const wikiDraftFallback = (ticket) => createExploration({
 
 export const placeBesideWikiDraft = (ticket) => {
   if (!ticket?.pageId || !ticket?.claimId) return;
-  const key = draftStorageKey(ticket.pageId, ticket.claimId);
-  const current = restoreExploration(readStore(key), wikiDraftFallback(ticket));
-  writeStore(key, snapshotExploration(placeSource(current)));
+  const live = wikiDraftFallback(ticket);
+  const current = bindDraft(live, readStore(draftStorageKey(ticket.pageId, ticket.claimId)), false);
+  rememberDraft(ticket.pageId, ticket.claimId, placeSource(current), live);
 };
 
 export const cancelWikiDraftPlacement = (ticket) => {
   if (!ticket?.pageId || !ticket?.claimId) return;
-  const key = draftStorageKey(ticket.pageId, ticket.claimId);
-  const current = restoreExploration(readStore(key), wikiDraftFallback(ticket));
-  writeStore(key, snapshotExploration(cancelPlacement(current)));
+  const live = wikiDraftFallback(ticket);
+  const current = bindDraft(live, readStore(draftStorageKey(ticket.pageId, ticket.claimId)), false);
+  rememberDraft(ticket.pageId, ticket.claimId, cancelPlacement(current), live);
 };

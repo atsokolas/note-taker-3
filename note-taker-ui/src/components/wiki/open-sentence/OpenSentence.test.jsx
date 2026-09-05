@@ -1,16 +1,20 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
   changedWordSpans,
   closeExploration,
   createExploration,
+  forgetExperiment,
+  keepQuestion,
+  keepsClosedDraft,
   leaveMark,
   openExploration,
   placeSource,
   putItBack,
   restoreExploration,
+  setReturnNote,
   snapshotExploration,
   tryWording,
   wikiAcceptedText,
@@ -73,9 +77,26 @@ describe('openSentenceModel', () => {
     expect(leaveMark(start).mark).toBe('!');
     expect(leaveMark(leaveMark(start), false).mark).toBe('');
   });
+
+  it('forgets a closed experiment unless a question, return note, or placed passage remains', () => {
+    const start = openExploration(createExploration({ originalText: STORYBOARD_SENTENCE }));
+    expect(keepsClosedDraft(closeExploration(tryWording(start, 'draft')))).toBe(false);
+    expect(keepsClosedDraft(closeExploration(keepQuestion(start, 'Which mistakes?')))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(setReturnNote(start, 'Next: look again')))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(placeSource({
+      ...start,
+      source: STORYBOARD_SOURCE
+    })))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(leaveMark(start)))).toBe(false);
+    expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
+    expect(forgetExperiment(start).question).toBe('');
+  });
 });
 
 describe('OpenSentence', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
   it('opens from the sentence without leaving the accepted line', () => {
     const onChange = jest.fn();
     const exploration = createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE });
@@ -167,5 +188,87 @@ describe('OpenSentence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Place beside' }));
     expect(screen.getByText('Beside Parenting')).toBeInTheDocument();
     expect(screen.getByText(/The saved passage still reads/)).toBeInTheDocument();
+  });
+
+  it('leaves a quiet way home without opening the pocket', () => {
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={{
+            ...closeExploration(createExploration({
+              originalText: STORYBOARD_SENTENCE,
+              source: STORYBOARD_SOURCE
+            })),
+            question: 'Which mistakes?',
+            returnNote: 'Next: figure out which mistakes are recoverable.'
+          }}
+          onChange={onChange}
+          homecoming="You were in Nomad."
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next: figure out which mistakes are recoverable.' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+  });
+
+  it('lets an unfinished question be the way home when there is no return note', () => {
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={{
+            ...closeExploration(createExploration({ originalText: STORYBOARD_SENTENCE })),
+            question: 'Which mistakes?'
+          }}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'You left this open.' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+  });
+
+  it('lets the pocket recede before the way home remains', () => {
+    jest.useFakeTimers();
+    const onChange = jest.fn();
+    const opened = {
+      ...openExploration(createExploration({
+        originalText: STORYBOARD_SENTENCE,
+        source: STORYBOARD_SOURCE
+      })),
+      question: 'Which mistakes?',
+      returnNote: 'Next: figure out which mistakes are recoverable.'
+    };
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={opened}
+          onChange={onChange}
+          homecoming="You were in Nomad."
+        />
+      </MemoryRouter>
+    );
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(opened)}
+          onChange={onChange}
+          homecoming="You were in Nomad."
+        />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('You were in Nomad.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Try a narrower wording')).toBeInTheDocument();
+    act(() => {
+      jest.advanceTimersByTime(320);
+    });
+    expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next: figure out which mistakes are recoverable.' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    jest.useRealTimers();
   });
 });

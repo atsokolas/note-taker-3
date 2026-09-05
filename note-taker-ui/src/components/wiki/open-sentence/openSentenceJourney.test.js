@@ -1,13 +1,18 @@
 import {
+  bindDraft,
   bindLibraryPassage,
   cancelWikiDraftPlacement,
+  homecomingLine,
   matchingReturnTicket,
+  matchingWikiTicket,
   placeBesideWikiDraft,
+  rememberDraft,
   surroundingFromArticle,
   wikiReturnHref,
   writeReturnTicket
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
+import { closeExploration, createExploration, tryWording } from './openSentenceModel';
 
 const article = {
   _id: 'article-1',
@@ -82,6 +87,24 @@ describe('openSentenceJourney', () => {
       .toBe('/wiki/read/wiki-1?claimId=claim-1');
   });
 
+  it('names the source you were in, and forgets a closed draft with nothing to keep', () => {
+    writeReturnTicket({
+      articleId: 'article-1',
+      highlightId: 'highlight-1',
+      sentence: 'Children need room to make mistakes.',
+      pageId: 'wiki-1',
+      pageTitle: 'Parenting',
+      sourceTitle: 'Nomad',
+      claimId: 'claim-1'
+    });
+    expect(homecomingLine(matchingWikiTicket({ pageId: 'wiki-1', claimId: 'claim-1' })))
+      .toBe('You were in Nomad.');
+    const live = createExploration({ id: 'claim-1', originalText: 'Children need room to make mistakes.' });
+    const forgotten = rememberDraft('wiki-1', 'claim-1', closeExploration(tryWording(live, 'draft')), live);
+    expect(forgotten.provisionalText).toBe('Children need room to make mistakes.');
+    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+  });
+
   it('places the Library passage beside the Wiki draft without accepting a revision', () => {
     const ticket = {
       articleId: 'article-1',
@@ -94,6 +117,25 @@ describe('openSentenceJourney', () => {
     placeBesideWikiDraft(ticket);
     expect(JSON.parse(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).placed).toBe(true);
     cancelWikiDraftPlacement(ticket);
-    expect(JSON.parse(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).placed).toBe(false);
+    expect(window.sessionStorage.getItem(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
+  });
+
+  it('rebinds a stored draft to live sentence text without inventing a source', () => {
+    const live = createExploration({
+      id: 'claim-1',
+      originalText: 'Children need room to make mistakes.',
+      source: { title: 'Nomad' }
+    });
+    const bound = bindDraft(live, {
+      originalText: 'forged',
+      provisionalText: 'draft',
+      question: 'Which mistakes?',
+      source: null,
+      status: 'open'
+    }, false);
+    expect(bound.status).toBe('closed');
+    expect(bound.originalText).toBe('Children need room to make mistakes.');
+    expect(bound.source).toEqual({ title: 'Nomad' });
+    expect(bound.question).toBe('Which mistakes?');
   });
 });

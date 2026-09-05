@@ -5,9 +5,11 @@ import '../styles/agent-rail.css';
 import './open-sentence-storyboard.css';
 import OpenSentence from '../components/wiki/open-sentence/OpenSentence';
 import {
+  cancelPlacement,
   closeExploration,
   createExploration,
   keepQuestion,
+  keepsClosedDraft,
   openExploration,
   placeSource,
   putItBack,
@@ -16,6 +18,7 @@ import {
   snapshotExploration,
   tryWording
 } from '../components/wiki/open-sentence/openSentenceModel';
+import { readStore, writeStore } from '../components/wiki/open-sentence/openSentenceStore';
 import {
   STORYBOARD_LIBRARY_SOURCE,
   STORYBOARD_PAGE_TITLE,
@@ -75,10 +78,7 @@ const applyBeat = (beat, source) => {
   }
 };
 
-const readStored = (source) => {
-  if (typeof window === 'undefined') return seed(source);
-  return restoreExploration(window.sessionStorage.getItem(STORAGE_KEY), seed(source));
-};
+const readStored = (source) => restoreExploration(readStore(STORAGE_KEY), seed(source));
 
 const OpenSentenceStoryboard = () => {
   const location = useLocation();
@@ -108,10 +108,14 @@ const OpenSentenceStoryboard = () => {
     originalText: STORYBOARD_SOURCE.passage,
     source: STORYBOARD_LIBRARY_SOURCE
   }));
+  const [beenToLibrary, setBeenToLibrary] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.sessionStorage.setItem(STORAGE_KEY, snapshotExploration(exploration));
+    if (exploration.status === 'closed' && !keepsClosedDraft(exploration)) {
+      writeStore(STORAGE_KEY, '');
+      return;
+    }
+    writeStore(STORAGE_KEY, snapshotExploration(exploration));
   }, [exploration]);
 
   const setQuery = (next) => {
@@ -153,7 +157,14 @@ const OpenSentenceStoryboard = () => {
           <p>Getting lost was part of the work. The point was not to avoid every wrong turn.</p>
           <OpenSentence
             exploration={{ ...libraryExploration, source: STORYBOARD_LIBRARY_SOURCE }}
-            onChange={setLibraryExploration}
+            onChange={(next) => {
+              setLibraryExploration(next);
+              setExploration((current) => (
+                next.placed === current.placed
+                  ? current
+                  : (next.placed ? placeSource(current) : cancelPlacement(current))
+              ));
+            }}
             mocked
             acceptedLabel="The saved passage still reads"
             placeBesideTitle={STORYBOARD_PAGE_TITLE}
@@ -176,7 +187,11 @@ const OpenSentenceStoryboard = () => {
             exploration={{ ...exploration, source }}
             onChange={setExploration}
             mocked={!silent && !missing}
-            onOpenSourceHome={() => setScene('library')}
+            homecoming={beenToLibrary ? 'You were in Nomad.' : ''}
+            onOpenSourceHome={() => {
+              setBeenToLibrary(true);
+              setScene('library');
+            }}
           />
           <p>
             The useful distinction is not whether a mistake happened. It is whether the
@@ -185,7 +200,7 @@ const OpenSentenceStoryboard = () => {
         </div>
       </article>
     )
-  ), [exploration, libraryExploration, missing, scene, silent, source]);
+  ), [beenToLibrary, exploration, libraryExploration, missing, scene, silent, source]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -193,9 +208,10 @@ const OpenSentenceStoryboard = () => {
         <p className="open-sentence-storyboard__eyebrow">Storyboard · not the live Wiki</p>
         <h1>Open a sentence</h1>
         <p className="open-sentence-storyboard__note">
-          The article stays the page. Select the sentence and open it. The pocket is
-          a private experiment. Reload keeps the draft in this tab. The Wiki line does
-          not change. Open in Library walks into Nomad without leaving this storyboard.
+          The article stays the page. Select the sentence and open it. Closing without
+          a question, a return note, or a placed passage forgets the experiment. A note
+          under the line is the way home. Open in Library walks into Nomad. The Wiki
+          line does not change.
         </p>
       </header>
 
@@ -211,6 +227,7 @@ const OpenSentenceStoryboard = () => {
                 setQuery({ beat: item.id });
                 setExploration(applyBeat(item.id, source));
                 setScene('wiki');
+                setBeenToLibrary(false);
               }}
             >
               {item.label}
@@ -284,7 +301,11 @@ const OpenSentenceStoryboard = () => {
 
       <footer className="open-sentence-storyboard__colophon">
         <span className="open-sentence-storyboard__mark" aria-hidden="true" />
-        From the Library of — {scene === 'library' ? 'you are in Nomad.' : 'a study, not a live bookplate.'}
+        From the Library of — {
+          scene === 'library'
+            ? 'you are in Nomad.'
+            : (beenToLibrary ? 'you were in Nomad.' : 'a study, not a live bookplate.')
+        }
       </footer>
     </div>
   );

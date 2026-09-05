@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import OpenSentenceStoryboard from './OpenSentenceStoryboard';
 import { STORYBOARD_PROVISIONAL, STORYBOARD_RETURN_NOTE, STORYBOARD_SENTENCE } from '../components/wiki/open-sentence/openSentenceStoryboardFixture';
@@ -55,5 +55,19 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to Parenting →' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+  });
+
+  it('leaves a way home after Nomad without opening the pocket', async () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Leave open' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Open in Library →' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Parenting →' }));
+    fireEvent.click(document.querySelector('.open-sentence__open'));
+    await waitFor(() => {
+      expect(screen.getByText('You were in Nomad.')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: STORYBOARD_RETURN_NOTE })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Try a narrower wording')).not.toBeInTheDocument();
+    expect(screen.getByText(/From the Library of/)).toHaveTextContent('you were in Nomad.');
   });
 });
