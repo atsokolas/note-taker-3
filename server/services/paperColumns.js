@@ -370,15 +370,30 @@ const rightForWrongReasons = ({ pages = [], now = Date.now() } = {}) => {
   return rows.sort((left, right) => right.at - left.at)[0];
 };
 
-const paperColumns = ({ pages = [], now = Date.now(), userId = '' } = {}) => ({
+/**
+ * The paper, for the edition the reader is holding.
+ *
+ * Two columns do not run on a weekend, and both for the same reason: they
+ * read as a reproach. The obituary names a page you let go quiet, and the
+ * oldest open question names the one you have been avoiding — fair on a
+ * Tuesday, and not what a Saturday is for.
+ *
+ * The warning is exempt. A falsifier that may have fired does not keep until
+ * Monday, and a paper that sat on it to protect the reader's weekend would be
+ * protecting them from the one thing they asked to be told.
+ *
+ * The client says which edition it is printing, because the client is where
+ * the reader's Saturday actually is; a server reads UTC.
+ */
+const paperColumns = ({ pages = [], now = Date.now(), userId = '', weekend = false } = {}) => ({
   warned: warned({ pages }),
   calibration: calibration({ pages, userId }),
-  oldestOpen: oldestOpen({ pages, now }),
+  oldestOpen: weekend ? null : oldestOpen({ pages, now }),
   rightForWrongReasons: rightForWrongReasons({ pages, now }),
   anniversary: anniversary({ pages, now }),
   disagreement: disagreement({ pages, now }),
   corrections: corrections({ pages, now }),
-  obituary: obituary({ pages, now })
+  obituary: weekend ? null : obituary({ pages, now })
 });
 
 /**

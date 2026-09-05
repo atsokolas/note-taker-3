@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMorningPaperColumns } from '../../api/wiki';
 import {
-  QUIET_MORNING,
   anniversaryLine,
   calibrationLine,
   oldestOpenLine,
@@ -12,6 +11,7 @@ import {
   disagreementLine,
   obituaryLine,
   paperWeight,
+  quietMorning,
   quietStreakLine,
   rightForWrongReasonsLine,
   warnedLine
@@ -44,19 +44,19 @@ const Column = ({ standfirst, children, footnote, asked = '', href, className = 
   </section>
 );
 
-const PaperColumns = () => {
+const PaperColumns = ({ weekend = false }) => {
   const [columns, setColumns] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    getMorningPaperColumns()
+    getMorningPaperColumns({ weekend })
       .then((found) => { if (!cancelled) setColumns(found); })
       /* A column that could not be fetched is not a quiet morning. Say
          nothing rather than claim the day was empty. */
       .catch(() => { if (!cancelled) setColumns({ failed: true }); })
     ;
     return () => { cancelled = true; };
-  }, []);
+  }, [weekend]);
 
   if (!columns || columns.failed) return null;
 
@@ -77,7 +77,9 @@ const PaperColumns = () => {
   if (!paperWeight(columns)) {
     return (
       <p className="paper-column__quiet">
-        {QUIET_MORNING}
+        {/* On a weekend it names the day, because "it's Saturday" is a reason
+            where "a quiet morning" is only a report. */}
+        {quietMorning({ weekend })}
         {/* One quiet day is rest. A run of them is news, and only a paper
             that remembers its own mornings can tell the difference. */}
         {streak ? <span className="paper-column__streak">{streak}</span> : null}

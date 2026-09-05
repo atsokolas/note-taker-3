@@ -38,13 +38,34 @@ const WEEKDAY = { weekday: 'short', timeZone: 'UTC' };
  * marked. Each part is `{ label, current }` so the masthead can underline
  * rather than the model deciding how underlining looks.
  */
+/**
+ * Which paper this is.
+ *
+ * The masthead has printed "today · the weekend" every morning and underlined
+ * "today" every morning — Saturdays included. Nothing ever passed a different
+ * edition in. A cadence the front page names and never enters is a promise
+ * printed on the paper, and this is the paper keeping it.
+ *
+ * Read in the reader's own day, not UTC. A weekend is a thing that happens
+ * where you are.
+ */
+export const TODAY = 'today';
+export const THE_WEEKEND = 'the weekend';
+
+export const paperEdition = (now = Date.now()) => {
+  const day = new Date(now).getDay();
+  return day === 0 || day === 6 ? THE_WEEKEND : TODAY;
+};
+
+export const isWeekend = (edition = TODAY) => edition === THE_WEEKEND;
+
 export const editionsLine = ({
   now = Date.now(),
   driftClosesAt = null,
   keptCount = null,
-  edition = 'today'
+  edition = paperEdition(now)
 } = {}) => {
-  const parts = ['today', 'the weekend'];
+  const parts = [TODAY, THE_WEEKEND];
 
   const closes = time(driftClosesAt);
   if (!Number.isNaN(closes) && closes >= now) {
@@ -78,10 +99,14 @@ const PLACES = [
  * Only places holding something speak. The feed clause names the folder the
  * reader screened and never the word "feed", because they screened *Costco*.
  */
-export const deskClauses = ({ later = null, setAside = null, topics = [] } = {}) => {
+export const deskClauses = ({ later = null, setAside = null, topics = [], edition = TODAY } = {}) => {
   const clauses = [];
 
   PLACES.forEach(({ key, word, href }) => {
+    /* Nothing is owed on a weekend. What you set aside is exactly what a
+       weekend is for, so that clause stays; the one that says "owed" is a
+       bill, and the paper does not deliver bills on a Saturday. */
+    if (key === 'later' && isWeekend(edition)) return;
     const n = counted(key === 'later' ? later : setAside);
     if (!n) return;
     clauses.push({ key, text: `${n} ${word}`, href });
@@ -117,3 +142,9 @@ export const firstMorningDeskLine = () => 'Your desk is empty. The shelf holds n
 
 /** A paper ends. A feed does not, which is the difference. */
 export const END_OF_PAPER = '— end of the paper —';
+
+/* A weekend edition signs off as one. Two words, and the only place the paper
+   says out loud which edition you just finished. */
+export const endOfPaper = (edition = TODAY) => (
+  isWeekend(edition) ? '— end of the weekend paper —' : END_OF_PAPER
+);

@@ -838,8 +838,11 @@ export const getWikiBriefing = async ({ windowDays } = {}) => {
 
 /* The four things only this product can print about you. Absent when there is
    nothing true to say, which is what makes a quiet morning's paper short. */
-export const getMorningPaperColumns = async () => {
-  const res = await api.get('/api/morning-paper/columns', getAuthHeaders());
+export const getMorningPaperColumns = async ({ weekend = false } = {}) => {
+  const res = await api.get(
+    `/api/morning-paper/columns${weekend ? '?edition=weekend' : ''}`,
+    getAuthHeaders()
+  );
   return res.data || {};
 };
 

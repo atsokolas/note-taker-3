@@ -1,5 +1,4 @@
 import {
-  QUIET_MORNING,
   anniversaryLine,
   askedLine,
   calibrationLine,
@@ -10,6 +9,7 @@ import {
   obituaryLine,
   oldestOpenLine,
   paperWeight,
+  quietMorning,
   quietStreakLine,
   rightForWrongReasonsLine,
   warnedLine
@@ -115,7 +115,16 @@ describe('how much paper there is', () => {
 
   /* A morning with nothing to report is not a failure state. */
   it('has something to say about a morning with nothing to say', () => {
-    expect(QUIET_MORNING).toMatch(/go and read something/);
+    expect(quietMorning()).toMatch(/go and read something/);
+  });
+
+  /* "It's Saturday" is a reason. "A quiet morning" is a report. The weekend
+     line does not send you off to read, because that is what the day is for. */
+  it('names the day on a weekend, and stops sending you to read', () => {
+    const saturday = Date.UTC(2026, 8, 5, 12);
+    expect(quietMorning({ weekend: true, now: saturday })).toBe('It’s Saturday. Nothing is asking for you.');
+    expect(quietMorning({ weekend: true, now: saturday + 24 * 60 * 60 * 1000 })).toMatch(/^It’s Sunday\./);
+    expect(quietMorning({ weekend: true, now: saturday })).not.toMatch(/read something/);
   });
 });
 

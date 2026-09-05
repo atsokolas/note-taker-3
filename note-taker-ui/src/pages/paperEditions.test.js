@@ -1,6 +1,9 @@
 import {
   deskClauses,
   editionsLine,
+  endOfPaper,
+  isWeekend,
+  paperEdition,
   END_OF_PAPER,
   firstMorningDeskLine,
   firstMorningLead,
@@ -114,5 +117,54 @@ describe('the first mornings', () => {
 describe('the end of the paper', () => {
   it('has one, and says so', () => {
     expect(END_OF_PAPER).toBe('— end of the paper —');
+  });
+});
+
+/* The masthead printed "today · the weekend" every morning and underlined
+   "today" every morning, Saturdays included. Nothing ever passed a different
+   edition in. */
+describe('which paper this is', () => {
+  const at = (y, m, d) => new Date(y, m, d, 9).getTime();
+
+  it('is the weekend on a Saturday and a Sunday, read in the reader’s own day', () => {
+    expect(paperEdition(at(2026, 8, 5))).toBe('the weekend');
+    expect(paperEdition(at(2026, 8, 6))).toBe('the weekend');
+    expect(isWeekend(paperEdition(at(2026, 8, 5)))).toBe(true);
+  });
+
+  it('is today the rest of the week', () => {
+    expect(paperEdition(at(2026, 8, 4))).toBe('today');
+    expect(paperEdition(at(2026, 8, 7))).toBe('today');
+    expect(isWeekend('today')).toBe(false);
+    expect(isWeekend()).toBe(false);
+  });
+
+  it('underlines the weekend when it is the weekend, without being told', () => {
+    const line = editionsLine({ now: at(2026, 8, 5) });
+    expect(line.find(part => part.current)?.label).toBe('the weekend');
+  });
+});
+
+describe('the desk on a weekend', () => {
+  /* What you set aside is exactly what a weekend is for. The clause that says
+     "owed" is a bill, and the paper does not deliver bills on a Saturday. */
+  it('drops what is owed and keeps what is at hand', () => {
+    const clauses = deskClauses({ later: 3, setAside: 2, edition: 'the weekend' });
+    expect(clauses.map(clause => clause.key)).toEqual(['setAside']);
+    expect(clauses[0].text).toBe('2 at hand');
+  });
+
+  it('still presents the bill on a weekday', () => {
+    expect(deskClauses({ later: 3, setAside: 2, edition: 'today' }).map(c => c.key)).toEqual(['later', 'setAside']);
+    expect(deskClauses({ later: 3, setAside: 2 }).map(c => c.key)).toEqual(['later', 'setAside']);
+  });
+});
+
+describe('how the paper signs off', () => {
+  /* The only place the paper says out loud which edition you just finished. */
+  it('signs a weekend edition as one', () => {
+    expect(endOfPaper('the weekend')).toBe('— end of the weekend paper —');
+    expect(endOfPaper('today')).toBe('— end of the paper —');
+    expect(endOfPaper()).toBe('— end of the paper —');
   });
 });

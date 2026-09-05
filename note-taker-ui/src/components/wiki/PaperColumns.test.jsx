@@ -172,6 +172,20 @@ describe('the four things only this product can print', () => {
     expect(screen.queryByTestId('paper-columns')).not.toBeInTheDocument();
   });
 
+  /* The client is where the reader's Saturday is; the server reads UTC. */
+  it('tells the server which paper it is printing', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning());
+    render(<PaperColumns weekend />);
+    await waitFor(() => expect(getMorningPaperColumns).toHaveBeenCalledWith({ weekend: true }));
+  });
+
+  it('names the day when a weekend morning has nothing in it', async () => {
+    getMorningPaperColumns.mockResolvedValue(morning());
+    render(<PaperColumns weekend />);
+    expect(await screen.findByText(/^It’s (Saturday|Sunday|Monday|Tuesday|Wednesday|Thursday|Friday)\. Nothing is asking for you\.$/)).toBeInTheDocument();
+    expect(screen.queryByText(/go and read something/)).not.toBeInTheDocument();
+  });
+
   /* A column that could not be fetched is not a quiet morning. */
   it('does not call a failed fetch an empty day', async () => {
     getMorningPaperColumns.mockRejectedValue(new Error('down'));

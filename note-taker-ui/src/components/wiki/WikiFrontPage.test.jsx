@@ -245,6 +245,14 @@ describe('WikiFrontPage canonical titles', () => {
   });
 });
 
+/* The paper prints a different edition on the weekend, so a test that asserts
+   the weekday desk has to say which day it is — or it passes Monday to Friday
+   and fails on Saturday, which is exactly how this was found. Only Date.now
+   is pinned: fake timers would stall the library's own polling. */
+const pinDay = (date) => jest.spyOn(Date, 'now').mockReturnValue(date.getTime());
+const A_WEDNESDAY = new Date(2026, 8, 2, 9);
+const A_SATURDAY = new Date(2026, 8, 5, 9);
+
 describe('WikiFrontPage (AT-394)', () => {
   let navigate;
 
@@ -933,6 +941,8 @@ describe('WikiFrontPage (AT-394)', () => {
      still name a finished editorial sentence; Morning Paper does not open
      a second inbox over it. */
   describe('the lead', () => {
+    afterEach(() => jest.restoreAllMocks());
+
     beforeEach(() => {
     /* A quiet morning: these suites are about the index, not the columns. */
     getMorningPaperColumns.mockResolvedValue({});
@@ -1066,7 +1076,32 @@ describe('WikiFrontPage (AT-394)', () => {
        true, and not a door: you could read that one thing was owed a move and
        have no way to reach it. The places strip belongs to the Library, where
        those places are the room. Here the paper hands back where you were. */
+    /* Saturday. The masthead underlines the weekend it has promised every
+       morning, the bill is not delivered, and what you set aside — which is
+       what a weekend is for — is still a door. */
+    it('prints the weekend edition on a Saturday', async () => {
+      pinDay(A_SATURDAY);
+      stubLibraryRoom(
+        [{ id: 'news', name: 'Newsletters', open: 2, href: '/library?scope=feed&topic=news' }],
+        { laterArticles: 1, setAsideArticles: 2, keptArticles: 7 }
+      );
+      getDailyLoop.mockResolvedValueOnce({ briefing: {
+        summary: 'Your wiki is quiet today — no new sources, updates, or drift signals in the last 24 hours.',
+        aliveness: { register: 'quiet' },
+        counts: { newSources: 0, recentlyUpdatedPages: 0, driftingPages: 0 }
+      } });
+      listWikiPages.mockResolvedValue(pages);
+      render(<router.MemoryRouter><WikiFrontPage /></router.MemoryRouter>);
+
+      await screen.findByLabelText('Where you left off');
+      expect(document.querySelector('.paper-open__editions .is-current')).toHaveTextContent('the weekend');
+      expect(screen.queryByRole('link', { name: '1 owed a move' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '2 at hand' })).toHaveAttribute('href', '/library?scope=set-aside');
+      expect(screen.getByRole('link', { name: 'The shelf holds 7' })).toHaveAttribute('href', '/library?scope=kept');
+    });
+
     it('hands the desk back as doors, and leaves the places strip to the Library', async () => {
+      pinDay(A_WEDNESDAY);
       stubLibraryRoom(
         [{ id: 'news', name: 'Newsletters', open: 2, href: '/library?scope=feed&topic=news' }],
         { laterArticles: 1, setAsideArticles: 2, keptArticles: 7 }
