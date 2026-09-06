@@ -55,6 +55,17 @@ export const withdrawProposal = (exploration) => (
   exploration?.proposal ? { ...exploration, proposal: null } : exploration
 );
 
+export const acceptWording = (exploration) => {
+  const proposal = liveProposal(exploration);
+  if (!proposal) return exploration;
+  return {
+    ...exploration,
+    originalText: proposal.text,
+    provisionalText: proposal.text,
+    proposal: null
+  };
+};
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()

@@ -61,7 +61,7 @@ Closing the pocket without a question, a return note, a placed passage, or a pro
 
 ## What this is not yet
 
-Not a live retrieval engine. Not an accepted-revision flow. Public shares stay closed. The workspace composer does not grow a second chat. The illustrated storyboard remains the Parenting journey; owned `/wiki/read/:id` pages now reuse the same pocket on real claims.
+Not a live retrieval engine. Public shares stay closed. The workspace composer does not grow a second chat. The illustrated storyboard remains the Parenting journey; owned `/wiki/read/:id` pages now reuse the same pocket on real claims. Accepting a live proposal writes that claim through the existing body patch; it is not a generated rewrite.
 
 ## Live Wiki binding (2026-09-05)
 
@@ -111,11 +111,13 @@ The picture is the ordinary reading gesture. Opening a sentence rebinds the stew
 
 ## Proposed wording (2026-09-06)
 
-Trying a narrower line is still an experiment. **Propose this wording** is a distinct act: it names the current claim and the current accepted line, and it does not write the article. If that line has moved on, the proposal is dropped rather than applied to a different sentence. Withdraw forgets the proposal. Library passages do not propose a Wiki revision. Accepted change remains a later, separate path.
+Trying a narrower line is still an experiment. **Propose this wording** is a distinct act: it names the current claim and the current accepted line, and it does not write the article. If that line has moved on, the proposal is dropped rather than applied to a different sentence. Withdraw forgets the proposal. Library passages do not propose a Wiki revision.
+
+**Accept this wording** is a later, separate act. It writes the named proposal onto that claim through the existing claim-body patch and `user_edit` revision. The person is the author. The article line changing is the receipt. If the live line has moved on, the write is refused and the pocket says so. Generated replies are still not Accept-to-rewrite.
 
 ## Coming home (2026-09-05)
 
-Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment. Keeping any of those keeps a private draft. The accepted Wiki still does not change. A `!` left alone is a gesture in the moment; closing forgets it too.
+Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment. Keeping any of those keeps a private draft. Closing still does not write the article. A `!` left alone is a gesture in the moment; closing forgets it too.
 
 Coming back from Library, the sentence can say “You were in Nomad.” A return note sits under the closed line as the way back into the pocket. A proposed wording can sit there too, still not accepted. A placed passage leaves a quiet gold thread even while closed. None of this opens the pocket by itself.
 
@@ -133,7 +135,7 @@ Public shares, workspace, dossiers, and editions stay closed. A second ordinary 
 
 ## Release gates (S4, 2026-09-05)
 
-The host gate is `wikiAllowsOpenSentence`: an owned ordinary Wiki in read mode. Specialized projections and the workspace composer stay closed. Public shares do not restore a private draft. Selected Jest gates run as `npm run test:open-sentence` and on pull requests that touch the pocket.
+The host gate is `wikiAllowsOpenSentence`: an owned ordinary Wiki in read mode. Specialized projections and the workspace composer stay closed. Public shares do not restore a private draft. Selected Jest gates run as `npm run test:open-sentence` in `note-taker-ui/`, and the accept write as `npm run open-sentence:accept` at the repo root.
 
 That is local, Playwright-rendered storyboard frames, and (when the PR check is green) preview-deployed evidence. It is not merged to `main`, not production, not dogfood, and not longitudinal value. See [S4 evidence](noeis-open-sentence-s4-2026-09-05.md).
 

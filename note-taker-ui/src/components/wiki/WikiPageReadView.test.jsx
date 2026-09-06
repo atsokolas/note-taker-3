@@ -24,7 +24,8 @@ import {
   streamAskWikiPage,
   streamMaintainWikiPage,
   trackCompanyDossierInJudgment,
-  updateWikiPage
+  updateWikiPage,
+  acceptOpenedSentenceWording
 } from '../../api/wiki';
 import { startKnowledgeMovementInvestigation } from '../../api/knowledgeMovements';
 import { getConnectionsForItem } from '../../api/connections';
@@ -53,7 +54,8 @@ jest.mock('../../api/wiki', () => ({
   streamAskWikiPage: jest.fn(),
   streamMaintainWikiPage: jest.fn(),
   trackCompanyDossierInJudgment: jest.fn(),
-  updateWikiPage: jest.fn()
+  updateWikiPage: jest.fn(),
+  acceptOpenedSentenceWording: jest.fn()
 }));
 
 jest.mock('../../api/knowledgeMovements', () => ({
@@ -2842,6 +2844,70 @@ describe('WikiPageReadView', () => {
     });
     expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
     expect(within(pocket).getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+  });
+
+  it('accepts a live proposal onto the article and leaves the claim marks', async () => {
+    const nextLine = 'Memory compounds when we forget.';
+    acceptOpenedSentenceWording.mockImplementation(async (_id, { text }) => ({
+      ...page,
+      body: {
+        ...page.body,
+        content: page.body.content.map((node) => ({
+          ...node,
+          content: (node.content || []).map((child) => (
+            child.marks?.some((mark) => mark.attrs?.claimId === 'claim-1')
+              ? { ...child, text }
+              : child
+          ))
+        }))
+      },
+      claims: page.claims.map((claim) => (
+        claim.claimId === 'claim-1' ? { ...claim, text } : claim
+      ))
+    }));
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const pocket = screen.getByLabelText('Opened sentence');
+    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+      target: { value: nextLine }
+    });
+    fireEvent.click(within(pocket).getByRole('button', { name: 'Propose this wording' }));
+    await act(async () => {
+      fireEvent.click(within(pocket).getByRole('button', { name: 'Accept this wording' }));
+    });
+    await waitFor(() => expect(acceptOpenedSentenceWording).toHaveBeenCalledWith('wiki-1', {
+      claimId: 'claim-1',
+      against: 'Memory compounds with review.',
+      text: nextLine
+    }));
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent(nextLine);
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveAttribute('data-support', 'supported');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveAttribute('data-citation-indexes', '1');
+    expect(within(pocket).queryByText(/Proposed, not accepted/)).not.toBeInTheDocument();
+    expect(within(pocket).getByText(/The article still reads/)).toHaveTextContent(nextLine);
+  });
+
+  it('keeps the article when accept is refused as stale', async () => {
+    const refusal = new Error('The article moved on. This proposal was not applied.');
+    refusal.response = {
+      data: { code: 'stale_claim', error: 'The article moved on. This proposal was not applied.' }
+    };
+    acceptOpenedSentenceWording.mockRejectedValueOnce(refusal);
+    renderReadView();
+    await flushDeferredWikiReadWork();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const pocket = screen.getByLabelText('Opened sentence');
+    fireEvent.change(within(pocket).getByLabelText('Try a narrower wording'), {
+      target: { value: 'Memory compounds when we forget.' }
+    });
+    fireEvent.click(within(pocket).getByRole('button', { name: 'Propose this wording' }));
+    await act(async () => {
+      fireEvent.click(within(pocket).getByRole('button', { name: 'Accept this wording' }));
+    });
+    expect(await screen.findByText('The article moved on. This proposal was not applied.')).toBeInTheDocument();
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(within(pocket).getByText(/Proposed, not accepted/)).toHaveTextContent('Memory compounds when we forget.');
   });
 
   it('does not open sentences inside the workspace composer shell', async () => {

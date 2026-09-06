@@ -243,19 +243,33 @@ const inspectExactClaimAnchors = ({ body, claims = [], requireSingleTextNode = f
   });
 };
 
-const replaceExactClaimRange = ({ body, claimId, replacementText, support, citationIndexes, contradictionIndexes } = {}) => {
+const locateExactClaimNode = ({ body, claimId } = {}) => {
   const anchors = findRanges(body, String(claimId || '').trim());
   if (anchors.length !== 1 || anchors[0].nodes.length !== 1) {
     throw new WikiClaimBodyPatchError('Exact claim replacement requires one single-node claim anchor.', 'claim_body_ambiguous');
   }
   assertRangeShape(anchors[0], String(claimId || '').trim());
+  return anchors[0];
+};
+
+const replaceExactClaimText = ({ body, claimId, replacementText } = {}) => {
+  const anchor = locateExactClaimNode({ body, claimId });
   const next = clone(body);
   let parent = next;
-  anchors[0].parentPath.forEach(part => { parent = parent?.[part]; });
-  const node = parent?.content?.[anchors[0].start];
+  anchor.parentPath.forEach((part) => { parent = parent?.[part]; });
+  const node = parent?.content?.[anchor.start];
   if (!node) throw new WikiClaimBodyPatchError('Claim anchor is unavailable.', 'claim_body_invalid');
-  const targetMark = node.marks.find(mark => mark?.type === 'claim');
   node.text = clean(replacementText);
+  return next;
+};
+
+const replaceExactClaimRange = ({ body, claimId, replacementText, support, citationIndexes, contradictionIndexes } = {}) => {
+  const next = replaceExactClaimText({ body, claimId, replacementText });
+  const anchor = locateExactClaimNode({ body: next, claimId });
+  let parent = next;
+  anchor.parentPath.forEach((part) => { parent = parent?.[part]; });
+  const node = parent?.content?.[anchor.start];
+  const targetMark = node.marks.find((mark) => mark?.type === 'claim');
   targetMark.attrs = {
     claimId: String(claimId).trim(),
     support,
@@ -271,5 +285,6 @@ module.exports = {
   buildClaimBodyPatch,
   extractPlainText,
   inspectExactClaimAnchors,
-  replaceExactClaimRange
+  replaceExactClaimRange,
+  replaceExactClaimText
 };

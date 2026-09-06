@@ -34,11 +34,13 @@ Opening a sentence rebinds the steward to that claim. Ask stays conversation aga
 
 Proposed wording is a distinct act. It names the current claim and the current accepted line. It does not write the article. If that line moved on, the proposal is dropped.
 
+Accepting that proposal is a later, separate act. It patches only that claim’s body text and ledger text, keeps marks and citations, and records a `user_edit` revision. The article line changing is the receipt. A stale, vanished, split, or specialized claim is not applied.
+
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Accepted Wiki write. Server-sync. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
 
 ## Taste pass (unchanged)
 
@@ -61,6 +63,11 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: a changed provisional line on an opened owned Wiki claim, against the current accepted text.
 - Quality bar: identity only (that claim and that accepted line).
 - Silence: unchanged wording cannot propose; the live line moved on → drop; Library does not propose.
+
+**Accepted wording**
+- Eligibility: a live proposal on an opened owned ordinary Wiki claim; `against` is the current accepted line; the claim is a single marked text node.
+- Quality bar: identity only. That claim, that against-line, exact body-text replace. Marks and citations stay. The person is the author.
+- Silence: no live proposal; unchanged wording; the live line moved on → 409 `stale_claim`, do not apply; vanished claim; split or ambiguous mark; specialized/workspace/share; Library does not accept; agent tokens 403. Filler is never the answer.
 
 ## Separately authorized
 

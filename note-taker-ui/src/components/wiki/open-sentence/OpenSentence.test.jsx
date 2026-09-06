@@ -14,6 +14,7 @@ import {
   openExploration,
   placeSource,
   liveProposal,
+  acceptWording,
   proposeWording,
   putItBack,
   restoreExploration,
@@ -121,6 +122,16 @@ describe('openSentenceModel', () => {
       text: 'Children need room to make recoverable mistakes.',
       against: STORYBOARD_SENTENCE
     });
+    const accepted = acceptWording(proposed);
+    expect(accepted.originalText).toBe('Children need room to make recoverable mistakes.');
+    expect(accepted.provisionalText).toBe('Children need room to make recoverable mistakes.');
+    expect(accepted.proposal).toBeNull();
+    expect(wikiAcceptedText(accepted)).toBe('Children need room to make recoverable mistakes.');
+    expect(acceptWording(start)).toBe(start);
+    expect(acceptWording({
+      ...proposed,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }).proposal).toEqual(proposed.proposal);
   });
 
   it('refuses a Wiki proposal from a passage that is already here', () => {
@@ -367,6 +378,32 @@ describe('OpenSentence', () => {
       'A narrower library line.'
     )));
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+  });
+
+  it('accepts a live proposal only when the host can write', () => {
+    const onAccept = jest.fn();
+    const exploration = openExploration(proposeWording(tryWording(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      'Children need room to make recoverable mistakes.'
+    )));
+    render(
+      <MemoryRouter>
+        <OpenSentence exploration={exploration} onChange={jest.fn()} onAccept={onAccept} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Accept this wording' }));
+    expect(onAccept).toHaveBeenCalledWith(exploration);
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+  });
+
+  it('does not offer accept without a host write', () => {
+    renderOpen(openExploration(proposeWording(tryWording(
+      createExploration({ originalText: STORYBOARD_SENTENCE, source: STORYBOARD_SOURCE }),
+      'Children need room to make recoverable mistakes.'
+    ))));
+    expect(screen.getByText(/Proposed, not accepted/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {

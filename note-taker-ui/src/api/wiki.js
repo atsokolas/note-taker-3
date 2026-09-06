@@ -434,6 +434,15 @@ export const updateWikiPage = async (id, updates = {}) => {
   return res.data;
 };
 
+export const acceptOpenedSentenceWording = async (id, { claimId, against, text } = {}) => {
+  const res = await api.post(
+    `${WIKI_PAGES_PATH}/${safeId(id)}/open-sentence/accept`,
+    { claimId, against, text },
+    getAuthHeaders()
+  );
+  return res.data;
+};
+
 const WEEKEND_READINGS_PATH = '/api/wiki/weekend-readings';
 
 export const createWeekendReadingsDraft = async (draft = {}) => {
@@ -1138,6 +1147,7 @@ const wikiApi = {
   ignoreWikiLintFinding,
   fixWikiLintFinding,
   updateWikiPage,
+  acceptOpenedSentenceWording,
   createWeekendReadingsDraft,
   getWeekendReadingsStatus,
   requestWeekendReadingsReview,

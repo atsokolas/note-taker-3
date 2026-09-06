@@ -16,7 +16,7 @@ import {
   liveExplorationForPageClaim,
   openedStorageKey
 } from './openSentenceBinding';
-import { closeExploration, isOpen } from './openSentenceModel';
+import { closeExploration, isOpen, liveProposal } from './openSentenceModel';
 import {
   alignRemembered,
   bindDraft,
@@ -36,11 +36,14 @@ export const WikiOpenSentenceProvider = ({
   pageId,
   enabled = false,
   onOpenedClaim,
+  onAcceptWording,
   children
 }) => {
   const [openedId, setOpenedId] = useState(() => (
     enabled && pageId ? (readStore(openedStorageKey(pageId)) || null) : null
   ));
+  const [acceptSilence, setAcceptSilence] = useState('');
+  const acceptingRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || !pageId) {
@@ -106,14 +109,40 @@ export const WikiOpenSentenceProvider = ({
     });
   }, [page, pageId]);
 
+  useEffect(() => {
+    setAcceptSilence('');
+  }, [openedId, page]);
+
+  const accept = useCallback(async (exploration) => {
+    if (!onAcceptWording || acceptingRef.current) return;
+    const proposal = liveProposal(exploration);
+    if (!proposal) return;
+    acceptingRef.current = true;
+    setAcceptSilence('');
+    try {
+      await onAcceptWording({
+        claimId: exploration.id,
+        against: proposal.against,
+        text: proposal.text
+      });
+    } catch (error) {
+      const message = String(error?.response?.data?.error || '').trim();
+      setAcceptSilence(message || 'The article moved on. This proposal was not applied.');
+    } finally {
+      acceptingRef.current = false;
+    }
+  }, [onAcceptWording]);
+
   const value = useMemo(() => ({
     enabled,
     openedId,
     pageId,
     explorationFor,
     commit,
-    leaveForLibrary
-  }), [commit, enabled, explorationFor, leaveForLibrary, openedId, pageId]);
+    leaveForLibrary,
+    accept: onAcceptWording ? accept : null,
+    acceptSilence
+  }), [accept, acceptSilence, commit, enabled, explorationFor, leaveForLibrary, onAcceptWording, openedId, pageId]);
 
   return (
     <WikiOpenSentenceContext.Provider value={value}>
@@ -162,6 +191,8 @@ const OpenableParagraph = ({ node, id, className, children }) => {
         claimId: claim.claimId
       }))}
       onOpenSourceHome={ctx.leaveForLibrary}
+      onAccept={ctx.accept}
+      acceptSilence={ctx.acceptSilence}
       lineProps={{
         id,
         className,

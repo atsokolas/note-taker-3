@@ -4,14 +4,17 @@ import '../styles/wiki-critical.css';
 import '../styles/agent-rail.css';
 import OpenSentence from '../components/wiki/open-sentence/OpenSentence';
 import {
+  acceptWording,
   cancelPlacement,
   createExploration,
+  isOpen,
   keepQuestion,
   openExploration,
   placeSource,
   putItBack,
   setReturnNote,
-  tryWording
+  tryWording,
+  wikiAcceptedText
 } from '../components/wiki/open-sentence/openSentenceModel';
 import {
   keepExploration,
@@ -144,8 +147,8 @@ const OpenSentenceStoryboard = () => {
   };
 
   const companionSubject = scene === 'library'
-    ? (libraryExploration.status === 'open' ? STORYBOARD_SOURCE.passage : 'Nomad')
-    : (exploration.status === 'open' ? STORYBOARD_SENTENCE : STORYBOARD_PAGE_TITLE);
+    ? (isOpen(libraryExploration) ? wikiAcceptedText(libraryExploration) : 'Nomad')
+    : (isOpen(exploration) ? wikiAcceptedText(exploration) : STORYBOARD_PAGE_TITLE);
 
   const article = useMemo(() => (
     scene === 'library' ? (
@@ -207,6 +210,7 @@ const OpenSentenceStoryboard = () => {
             mocked={Boolean(source?.available)}
             stillness={stillness}
             homecoming={beenToLibrary ? 'You were in Nomad.' : ''}
+            onAccept={(current) => setExploration(acceptWording(current))}
             onOpenSourceHome={() => {
               setBeenToLibrary(true);
               setScene('library');
@@ -235,8 +239,8 @@ const OpenSentenceStoryboard = () => {
           The article stays the page. Select the sentence and open it. Closing without
           a question, a return note, a placed passage, or a proposed wording forgets
           the experiment. A note under the line is the way home. Source cycles the
-          honest absences. Stillness is the open state with no drawing. The Wiki line
-          does not change.
+          honest absences. Stillness is the open state with no drawing. Propose names
+          a wording; Accept is what writes the illustrated line.
         </p>
       </header>
 
@@ -329,7 +333,7 @@ const OpenSentenceStoryboard = () => {
             <p className="agent-rail__eyebrow">{scene === 'library' ? 'Librarian' : 'Wiki steward'}</p>
           </div>
           <p className="agent-rail__role-description">
-            {exploration.status === 'open' || libraryExploration.status === 'open'
+            {isOpen(exploration) || isOpen(libraryExploration)
               ? 'Works beside this sentence. Does not rewrite the article.'
               : 'Works beside the article. Does not become a second chat in the pocket.'}
           </p>

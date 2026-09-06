@@ -68,6 +68,7 @@ describe('OpenedLibraryPassage', () => {
       target: { value: 'A narrower library line.' }
     });
     expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Read around this' }));
     expect(screen.getByText('Getting lost was part of the work.')).toBeInTheDocument();
   });
