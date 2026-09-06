@@ -16,7 +16,7 @@ import {
   liveExplorationForPageClaim,
   openedStorageKey
 } from './openSentenceBinding';
-import { EXPLORATION_STATUS, closeExploration, isOpen, keepsClosedDraft } from './openSentenceModel';
+import { closeExploration, isOpen } from './openSentenceModel';
 import {
   alignRemembered,
   bindDraft,
@@ -41,20 +41,13 @@ export const WikiOpenSentenceProvider = ({
   const [openedId, setOpenedId] = useState(() => (
     enabled && pageId ? (readStore(openedStorageKey(pageId)) || null) : null
   ));
-  const [drafts, setDrafts] = useState({});
-  const draftsRef = useRef(drafts);
-  draftsRef.current = drafts;
 
   useEffect(() => {
     if (!enabled || !pageId) {
       setOpenedId(null);
-      setDrafts({});
       return undefined;
     }
-    const readOpened = () => {
-      setOpenedId(readStore(openedStorageKey(pageId)) || null);
-      setDrafts({});
-    };
+    const readOpened = () => setOpenedId(readStore(openedStorageKey(pageId)) || null);
     readOpened();
     return listenOpenSentenceStore(readOpened);
   }, [enabled, pageId]);
@@ -65,52 +58,31 @@ export const WikiOpenSentenceProvider = ({
 
   useEffect(() => {
     if (!enabled || !pageId) return;
-    const ids = new Set(
-      [openedId, readStore(openedStorageKey(pageId)), ...Object.keys(draftsRef.current)]
-        .filter(Boolean)
-    );
-    ids.forEach((claimId) => alignRemembered(pageId, claimId, liveFor({ claimId })));
+    const opened = openedId || readStore(openedStorageKey(pageId));
+    if (opened) alignRemembered(pageId, opened, liveFor({ claimId: opened }));
   }, [enabled, liveFor, openedId, page, pageId]);
 
   const explorationFor = useCallback((claimMark) => {
     if (!claimMark?.claimId) return liveFor(claimMark);
-    const live = liveFor(claimMark);
     return bindDraft(
-      live,
-      draftsRef.current[claimMark.claimId]
-        ?? readStore(draftStorageKey(pageId, claimMark.claimId)),
+      liveFor(claimMark),
+      readStore(draftStorageKey(pageId, claimMark.claimId)),
       openedId === claimMark.claimId
     );
   }, [liveFor, openedId, pageId]);
 
   const commit = useCallback((claimId, next) => {
     if (!claimId) return;
-    let closedPrevious = null;
     if (openedId && openedId !== claimId) {
       const previousLive = liveFor({ claimId: openedId });
-      const previous = draftsRef.current[openedId]
-        || readRemembered(pageId, openedId, previousLive);
-      closedPrevious = rememberDraft(
+      rememberDraft(
         pageId,
         openedId,
-        closeExploration(previous),
+        closeExploration(readRemembered(pageId, openedId, previousLive)),
         previousLive
       );
     }
     const remembered = keepExploration(pageId, claimId, next, liveFor({ claimId }));
-    setDrafts((current) => {
-      const drafts = { ...current };
-      if (openedId && openedId !== claimId) {
-        if (keepsClosedDraft(closedPrevious)) drafts[openedId] = closedPrevious;
-        else delete drafts[openedId];
-      }
-      if (remembered.status === EXPLORATION_STATUS.closed && !keepsClosedDraft(remembered)) {
-        delete drafts[claimId];
-      } else {
-        drafts[claimId] = remembered;
-      }
-      return drafts;
-    });
     setOpenedId(isOpen(remembered) ? claimId : (openedId === claimId ? null : openedId));
   }, [liveFor, openedId, pageId]);
 
@@ -175,21 +147,20 @@ const OpenableParagraph = ({ node, id, className, children }) => {
   }
 
   const openedHere = claims.some((claim) => claim.claimId === ctx.openedId);
-  const activeId = openedHere ? ctx.openedId : (armedId || claims[0].claimId);
-  const claim = claims.find((item) => item.claimId === activeId) || claims[0];
-  const exploration = ctx.explorationFor(claim);
-  const homecoming = homecomingLine(matchingWikiTicket({
-    pageId: ctx.pageId,
-    claimId: claim.claimId
-  }));
+  const claim = claims.find((item) => item.claimId === (
+    openedHere ? ctx.openedId : (armedId || claims[0].claimId)
+  )) || claims[0];
 
   return (
     <OpenSentence
-      exploration={exploration}
+      exploration={ctx.explorationFor(claim)}
       onChange={(next) => ctx.commit(claim.claimId, next)}
       heldInteractive={false}
       lineRef={lineRef}
-      homecoming={homecoming}
+      homecoming={homecomingLine(matchingWikiTicket({
+        pageId: ctx.pageId,
+        claimId: claim.claimId
+      }))}
       onOpenSourceHome={ctx.leaveForLibrary}
       lineProps={{
         id,

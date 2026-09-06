@@ -3,6 +3,7 @@
   padding: var(--noeis-space-6) var(--noeis-space-5) var(--noeis-space-8);
   background: var(--noeis-canvas);
   color: var(--noeis-ink);
+  overflow-x: auto;
 }
 
 .open-sentence-storyboard__masthead,
@@ -70,7 +71,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: var(--noeis-space-5);
-  width: min(var(--storyboard-width, 1440px), 100%);
+  width: var(--storyboard-width, 1440px);
+  max-width: none;
   margin: 0 auto;
   padding: var(--noeis-space-6);
   border: 1px solid var(--noeis-rule);

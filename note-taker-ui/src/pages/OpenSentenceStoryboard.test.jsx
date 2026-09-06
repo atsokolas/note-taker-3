@@ -70,6 +70,7 @@ describe('OpenSentenceStoryboard', () => {
 
   it('keeps Open findable at the 430 stage without hover', () => {
     const css = fs.readFileSync(path.join(__dirname, 'open-sentence-storyboard.css'), 'utf8');
+    expect(css).toMatch(/width:\s*var\(--storyboard-width, 1440px\)/);
     expect(css).toMatch(
       /\[data-width='430'\][\s\S]*open-sentence__open:not\(:focus-visible\)\s*\{\s*opacity:\s*0\.7;/
     );

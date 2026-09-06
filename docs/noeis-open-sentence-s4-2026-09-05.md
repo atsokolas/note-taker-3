@@ -24,7 +24,7 @@ Those gates run locally as `npm run test:open-sentence` in `note-taker-ui/`, and
 | Kind | What it is here | What it is not |
 | --- | --- | --- |
 | **Local** | Jest in jsdom, including the storyboard journey and the host/share gates. | A person at a real width. |
-| **Rendered** | The storyboard at `/design-preview/open-sentence` (illustrated Parenting / Nomad). Mocked retrieval stays labeled. | A screenshot pack from this agent. Browser tools were down; no 1440 / 1320 / 430 walk was captured. |
+| **Rendered** | Storyboard stages at 1440 / 1320 / 430, captured by Playwright into `docs/open-sentence-s1-frames/`. Mocked retrieval stays labeled. | Founder approval. A person on an owned account. |
 | **Persisted** | Device-save (`localStorage`) and storyboard tab-save (`sessionStorage`) covered by tests. Leftover tab drafts lift onto the device. | Server-sync. Cross-device recovery. |
 | **Merged** | This branch / PR only. | `main`. |
 | **Deployed** | Vercel preview of the PR, when that check is green. | https://www.noeis.io. |

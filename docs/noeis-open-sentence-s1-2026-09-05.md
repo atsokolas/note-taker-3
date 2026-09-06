@@ -127,8 +127,24 @@ Public shares, workspace, dossiers, and editions stay closed. A second ordinary 
 
 The host gate is `wikiAllowsOpenSentence`: an owned ordinary Wiki in read mode. Specialized projections and the workspace composer stay closed. Public shares do not restore a private draft. Selected Jest gates run as `npm run test:open-sentence` and on pull requests that touch the pocket.
 
-That is local and (when the PR check is green) preview-deployed evidence. It is not merged to `main`, not production, not dogfood, and not longitudinal value. See [S4 evidence](noeis-open-sentence-s4-2026-09-05.md).
+That is local, Playwright-rendered storyboard frames, and (when the PR check is green) preview-deployed evidence. It is not merged to `main`, not production, not dogfood, and not longitudinal value. See [S4 evidence](noeis-open-sentence-s4-2026-09-05.md).
 
 ## Exit for this stage
 
 A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question does not linger.
+
+## S1 frames (2026-09-06)
+
+Playwright captured the storyboard stage at the three study widths. These are rendered references, not founder approval.
+
+| Frame | What it shows |
+| --- | --- |
+| [1440-read](open-sentence-s1-frames/1440-read.png) | Ordinary reading. Companion still with Parenting. |
+| [1440-open](open-sentence-s1-frames/1440-open.png) | Pocket under the sentence. Illustrated Nomad. Article line unchanged. Companion rebound. |
+| [1440-wording](open-sentence-s1-frames/1440-wording.png) | Recoverable mistakes. Small changed phrase. Article still reads the original. |
+| [1440-leave-open](open-sentence-s1-frames/1440-leave-open.png) | Question and return note kept. |
+| [1320-leave-open](open-sentence-s1-frames/1320-leave-open.png) | Same walk at sidebar width. |
+| [430-leave-open](open-sentence-s1-frames/430-leave-open.png) | Pocket in the article. Companion is the drawer. |
+| [1440-silence](open-sentence-s1-frames/1440-silence.png) | Nothing beside this sentence yet. |
+
+Regenerate with `npm run frames:open-sentence` in `note-taker-ui/`.
