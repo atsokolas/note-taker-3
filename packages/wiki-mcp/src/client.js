@@ -4,6 +4,24 @@ export { DEFAULT_API_URL };
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/g, '');
 
+const INGEST_WAIT_MS = 20000;
+const INGEST_POLL_MS = 1000;
+const UNSETTLED_INGEST_STATUSES = new Set(['pending', 'processing']);
+
+/* What the run leaves undone, in the caller's own vocabulary. A URL or pasted
+   text can never auto-create a page, so `ignored` is the ordinary ending for
+   one, not a failure — and the API already says which page would hold it. */
+const ingestNextStep = (run = {}) => {
+  const affected = Array.isArray(run.affectedPageIds) ? run.affectedPageIds.length : 0;
+  if (affected) return `Folded into ${affected} existing page${affected === 1 ? '' : 's'}. Nothing further needed.`;
+  if (run.suggestedCreatePage) {
+    return 'No page claimed this source. To keep it, call create_page with the suggestedCreatePage title and pass its source as initialSourceRef.';
+  }
+  if (run.status === 'ignored') return 'Filed as a low-confidence proposal instead of a page. Review it with list_proposals.';
+  if (run.status === 'failed') return `Ingest failed: ${run.errorMessage || 'no reason given'}.`;
+  return '';
+};
+
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const pickId = (value) => {
@@ -108,21 +126,6 @@ const normalizeQuestion = (question = {}) => ({
   createdAt: question.createdAt || null,
   updatedAt: question.updatedAt || null
 });
-
-const toTipTapDoc = (body) => {
-  if (body === undefined || body === null || body === '') return undefined;
-  if (typeof body === 'object' && !Array.isArray(body)) return body;
-  const text = cleanText(body);
-  return {
-    type: 'doc',
-    content: text
-      ? [{
-        type: 'paragraph',
-        content: [{ type: 'text', text }]
-      }]
-      : []
-  };
-};
 
 const normalizeArrayPayload = (payload, key) => {
   if (Array.isArray(payload)) return payload;
@@ -403,15 +406,16 @@ export class NoeisClient {
     });
   }
 
-  createPage({ title, pageType, body, sourceScope, initialSourceRef, createdFrom } = {}) {
+  createPage({ title, pageType, body, sourceScope, initialSourceRef, initialSourceRefs, createdFrom } = {}) {
     return this.request('/api/wiki/pages', {
       method: 'POST',
       body: {
         title,
         pageType,
-        body: toTipTapDoc(body),
+        body,
         sourceScope,
         initialSourceRef,
+        initialSourceRefs,
         createdFrom
       }
     }).then(normalizeFullPage);
@@ -422,7 +426,7 @@ export class NoeisClient {
       method: 'PATCH',
       body: {
         title,
-        body: toTipTapDoc(body),
+        body,
         pageType,
         status,
         visibility,
@@ -451,11 +455,29 @@ export class NoeisClient {
     return this.request(`/api/editions/${encodeURIComponent(editionId)}`);
   }
 
-  ingestSource({ source } = {}) {
-    return this.request('/api/wiki/ingest', {
-      method: 'POST',
-      body: { source }
-    });
+  /* The API answers 202 the moment it accepts a source and does the real work
+     after. An agent that reads that receipt as an outcome reports "ingested"
+     for a source nothing ever claimed. So wait for the verdict, and say what
+     the verdict leaves the caller to do — suggestedCreatePage is the whole
+     door out of `ignored`, and nobody was finding it. */
+  async ingestSource({ source, waitMs = INGEST_WAIT_MS } = {}) {
+    const run = await this.request('/api/wiki/ingest', { method: 'POST', body: { source } });
+    return this.awaitIngestRun(run, { waitMs });
+  }
+
+  async awaitIngestRun(run, { waitMs = INGEST_WAIT_MS, intervalMs = INGEST_POLL_MS } = {}) {
+    const runId = String(run?.runId || '');
+    if (!runId) return run;
+    const deadline = Date.now() + Math.max(0, waitMs);
+    let latest = run;
+    while (UNSETTLED_INGEST_STATUSES.has(String(latest?.status || ''))) {
+      if (Date.now() >= deadline) {
+        return { ...latest, nextStep: `Still processing. Call get_ingest_run with runId ${runId} to see how it landed.` };
+      }
+      await sleep(intervalMs);
+      latest = await this.getIngestRun({ runId });
+    }
+    return { ...latest, nextStep: ingestNextStep(latest) };
   }
 
   draftPage({ pageId } = {}) {
