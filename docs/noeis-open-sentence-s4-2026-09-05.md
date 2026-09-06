@@ -36,11 +36,13 @@ Proposed wording is a distinct act. It names the current claim and the current a
 
 Accepting that proposal is a later, separate act. It patches only that claim’s body text and ledger text, keeps marks and citations, and records a `user_edit` revision. The article line changing is the receipt. A stale, vanished, split, or specialized claim is not applied.
 
+A named premise can sit beside the original line in the same pocket. Empty slots stay empty. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
+
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing).
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing). §4.3 and §4.4.
 
 ## Taste pass (unchanged)
 
@@ -68,6 +70,11 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: a live proposal on an opened owned ordinary Wiki claim; `against` is the current accepted line; the claim is a single marked text node.
 - Quality bar: identity only. That claim, that against-line, exact body-text replace. Marks and citations stay. The person is the author.
 - Silence: no live proposal; unchanged wording; the live line moved on → 409 `stale_claim`, do not apply; vanished claim; split or ambiguous mark; specialized/workspace/share; Library does not accept; agent tokens 403. Filler is never the answer.
+
+**Under pressure**
+- Eligibility: an opened sentence (Wiki pocket or Library passage).
+- Quality bar: the person names premise / still-holds / unknown. Identity `against` is the current accepted line. No generated causal chain.
+- Silence: empty slots stay empty; the live line moved on → drop the experiment; do not invent consequences. Filler is never the answer.
 
 ## Separately authorized
 

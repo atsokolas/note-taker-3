@@ -15,7 +15,16 @@ import {
   writeReturnTicket
 } from './openSentenceJourney';
 import { draftStorageKey } from './openSentenceBinding';
-import { closeExploration, createExploration, keepQuestion, openExploration, proposeWording, tryWording } from './openSentenceModel';
+import {
+  beginPressure,
+  closeExploration,
+  createExploration,
+  keepQuestion,
+  openExploration,
+  proposeWording,
+  setPressureField,
+  tryWording
+} from './openSentenceModel';
 import { readStore } from './openSentenceStore';
 
 const article = {
@@ -186,7 +195,7 @@ describe('openSentenceJourney', () => {
     keepExploration(
       'wiki-compute',
       'claim-compute',
-      keepQuestion(openExploration(tryWording(was, 'Suppose this stops being true.')), 'What breaks first?'),
+      keepQuestion(openExploration(tryWording(was, 'Compute may not stay scarce.')), 'What breaks first?'),
       was
     );
     const now = createExploration({
@@ -196,7 +205,7 @@ describe('openSentenceJourney', () => {
     });
     const aligned = alignRemembered('wiki-compute', 'claim-compute', now);
     expect(aligned.originalText).toBe('Compute will not stay scarce.');
-    expect(aligned.provisionalText).toBe('Suppose this stops being true.');
+    expect(aligned.provisionalText).toBe('Compute may not stay scarce.');
     expect(aligned.question).toBe('What breaks first?');
     expect(aligned.source).toEqual({ title: 'Capacity', available: false });
     expect(JSON.parse(readStore(draftStorageKey('wiki-compute', 'claim-compute'))).originalText)
@@ -222,6 +231,47 @@ describe('openSentenceJourney', () => {
     expect(aligned.originalText).toBe('Children need room to make recoverable mistakes.');
     expect(aligned.proposal).toBeNull();
     expect(JSON.parse(readStore(draftStorageKey('wiki-1', 'claim-1'))).proposal).toBeNull();
+  });
+
+  it('keeps a named premise until the live line moves on', () => {
+    const was = createExploration({
+      id: 'claim-compute',
+      originalText: 'Compute will remain scarce.'
+    });
+    keepExploration(
+      'wiki-compute',
+      'claim-compute',
+      closeExploration(setPressureField(
+        beginPressure(openExploration(was)),
+        'premise',
+        'demand grows more slowly'
+      )),
+      was
+    );
+    expect(JSON.parse(readStore(draftStorageKey('wiki-compute', 'claim-compute'))).pressure.premise)
+      .toBe('demand grows more slowly');
+    const now = createExploration({
+      id: 'claim-compute',
+      originalText: 'Compute will not stay scarce.'
+    });
+    const aligned = alignRemembered('wiki-compute', 'claim-compute', now);
+    expect(aligned.originalText).toBe('Compute will not stay scarce.');
+    expect(aligned.pressure).toBeFalsy();
+    expect(readStore(draftStorageKey('wiki-compute', 'claim-compute'))).toBeFalsy();
+  });
+
+  it('forgets an empty pressure walk when the pocket closes', () => {
+    const was = createExploration({
+      id: 'claim-1',
+      originalText: 'Compute will remain scarce.'
+    });
+    keepExploration(
+      'wiki-1',
+      'claim-1',
+      closeExploration(beginPressure(openExploration(was))),
+      was
+    );
+    expect(readStore(draftStorageKey('wiki-1', 'claim-1'))).toBeFalsy();
   });
 
   it('rebinds a stored draft to live sentence text without inventing a source', () => {

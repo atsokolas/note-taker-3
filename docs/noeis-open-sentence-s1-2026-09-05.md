@@ -57,7 +57,7 @@ Ink palettes, serendipity, and sharing wait.
 
 What you type in the pocket survives reload on this device for owned Wiki and Library walks (`localStorage`). The storyboard stays a tab-local study (`sessionStorage`). Neither is server-sync, an accepted Wiki revision, or a belief. A leftover tab draft is lifted onto the device so a mid-walk is not lost. Another tab’s save can become this tab’s restore.
 
-Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment. Keeping any of those keeps a private draft. Put it back restores the original wording. The accepted article never receives the draft.
+Closing the pocket without a question, a return note, a placed passage, a proposed wording, or a named premise discards the experiment. Keeping any of those keeps a private draft. An empty “suppose” is not a kept walk. Put it back restores the original wording. The accepted article never receives the draft.
 
 ## What this is not yet
 
@@ -71,7 +71,7 @@ Ordinary reading at `/wiki/read/:id` can open a claim in place. The article stay
 **Quality bar:** identity only. No similar-text repair. Missing surrounding lines stay missing. Empty quotes stay empty. A citation quote that no longer matches the source snippet is an older copy; the cited quote stays, and the newer line is not attached.
 **Silence:** no attached source → “Nothing beside this sentence yet.” A cited slot with no sourceRef → unavailable, and a neighbor is not substituted. An older copy says so.
 
-Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment.
+Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a question, a return note, a placed passage, a proposed wording, or a named premise discards the experiment.
 
 ## Library-to-pocket (2026-09-05)
 
@@ -115,11 +115,19 @@ Trying a narrower line is still an experiment. **Propose this wording** is a dis
 
 **Accept this wording** is a later, separate act. It writes the named proposal onto that claim through the existing claim-body patch and `user_edit` revision. The person is the author. The article line changing is the receipt. If the live line has moved on, the write is refused and the pocket says so. Generated replies are still not Accept-to-rewrite.
 
+## Under pressure (2026-09-06)
+
+The same pocket can hold a temporary alternative beside the original. **Suppose this stops being true** opens three empty slots: the altered premise, what still holds, and what remains unknown. The person names them. Noeis does not invent a causal chain, fill the empty slots, or write the article.
+
+Identity is the current accepted line. If that line has moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept a Wiki revision. Accept remains a distinct later act.
+
+The illustrated Pressure beat is Compute, not Parenting. It does not walk into Nomad.
+
 ## Coming home (2026-09-05)
 
-Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment. Keeping any of those keeps a private draft. Closing still does not write the article. A `!` left alone is a gesture in the moment; closing forgets it too.
+Closing the pocket without a question, a return note, a placed passage, a proposed wording, or a named premise discards the experiment. Keeping any of those keeps a private draft. Closing still does not write the article. A `!` left alone is a gesture in the moment; closing forgets it too.
 
-Coming back from Library, the sentence can say “You were in Nomad.” A return note sits under the closed line as the way back into the pocket. A proposed wording can sit there too, still not accepted. A placed passage leaves a quiet gold thread even while closed. None of this opens the pocket by itself.
+Coming back from Library, the sentence can say “You were in Nomad.” A return note sits under the closed line as the way back into the pocket. A proposed wording can sit there too, still not accepted. A named premise can sit there as “For this experiment: …”. A placed passage leaves a quiet gold thread even while closed. None of this opens the pocket by itself.
 
 ## Honest failures and long content (2026-09-05)
 
@@ -141,7 +149,7 @@ That is local, Playwright-rendered storyboard frames, and (when the PR check is 
 
 ## Exit for this stage
 
-A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question, a return note, a placed passage, or a proposed wording does not linger.
+A person can complete the Parenting journey on the storyboard without coaching, at ~1440, ~1320, and ~430, with keyboard, and with reduced motion. Mocked retrieval stays labeled. Long content scrolls inside the pocket. Silence, a gone source, missing surrounding, and an older copy stay distinct. On an owned standard Wiki, opening a claim makes a pocket, rebinds the companion, and leaves the accepted line unchanged. Walking into Library from that pocket lands on the highlight, remembers the held sentence, and can open the same pocket there. Coming home, the Wiki remembers Nomad without opening, and a closed experiment without a question, a return note, a placed passage, a proposed wording, or a named premise does not linger. On Compute, the person can name a slower-demand premise beside the original line without a generated chain.
 
 ## S1 frames (2026-09-06)
 

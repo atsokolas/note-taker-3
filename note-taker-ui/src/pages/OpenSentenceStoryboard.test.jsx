@@ -6,7 +6,10 @@ import path from 'path';
 import OpenSentenceStoryboard, { patchStoryboardSearch } from './OpenSentenceStoryboard';
 import { draftStorageKey, openedStorageKey } from '../components/wiki/open-sentence/openSentenceBinding';
 import {
+  STORYBOARD_COMPUTE_SENTENCE,
+  STORYBOARD_COMPUTE_TITLE,
   STORYBOARD_ITEM_ID,
+  STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
   STORYBOARD_RETURN_NOTE,
   STORYBOARD_SCOPE,
@@ -118,6 +121,24 @@ describe('OpenSentenceStoryboard', () => {
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to Parenting →' }));
     expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+  });
+
+  it('names a premise beside Compute without inventing a chain or leaving the pocket', () => {
+    renderBoard();
+    fireEvent.click(screen.getByRole('button', { name: 'Pressure' }));
+    expect(screen.getByRole('heading', { name: STORYBOARD_COMPUTE_TITLE })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: STORYBOARD_COMPUTE_SENTENCE })).toBeInTheDocument();
+    expect(screen.getByDisplayValue(STORYBOARD_PREMISE)).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(screen.queryByText(STORYBOARD_SENTENCE)).not.toBeInTheDocument();
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open in Library →' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText('The original stays. The experiment is not a generated causal chain.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Read' }));
+    expect(screen.getByRole('heading', { name: 'Parenting' })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue(STORYBOARD_PREMISE)).not.toBeInTheDocument();
   });
 
   it('leaves a way home after Nomad without opening the pocket', async () => {

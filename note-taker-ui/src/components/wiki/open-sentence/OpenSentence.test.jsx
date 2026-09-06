@@ -3,21 +3,27 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import OpenSentence from './OpenSentence';
 import {
+  acceptWording,
+  beginPressure,
   canProposeWording,
   changedWordSpans,
   closeExploration,
   createExploration,
+  endPressure,
   forgetExperiment,
+  isPressured,
   keepQuestion,
   keepsClosedDraft,
   leaveMark,
+  livePressure,
+  liveProposal,
   openExploration,
   placeSource,
-  liveProposal,
-  acceptWording,
+  pressureWayHome,
   proposeWording,
   putItBack,
   restoreExploration,
+  setPressureField,
   setReturnNote,
   snapshotExploration,
   tryWording,
@@ -99,9 +105,12 @@ describe('openSentenceModel', () => {
     })))).toBe(true);
     expect(keepsClosedDraft(closeExploration(leaveMark(start)))).toBe(false);
     expect(keepsClosedDraft(closeExploration(proposeWording(tryWording(start, 'Children need room to make recoverable mistakes.'))))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(setPressureField(beginPressure(start), 'premise', 'demand grows more slowly')))).toBe(true);
+    expect(keepsClosedDraft(closeExploration(beginPressure(start)))).toBe(false);
     expect(forgetExperiment(start).provisionalText).toBe(STORYBOARD_SENTENCE);
     expect(forgetExperiment(start).question).toBe('');
     expect(forgetExperiment(proposeWording(tryWording(start, 'draft'))).proposal).toBeUndefined();
+    expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
   });
 
   it('proposes wording against the current line, and drops it if that line moved on', () => {
@@ -132,6 +141,30 @@ describe('openSentenceModel', () => {
       ...proposed,
       originalText: 'Children need room to make recoverable mistakes.'
     }).proposal).toEqual(proposed.proposal);
+  });
+
+  it('puts a named premise beside the original and drops it if that line moved on', () => {
+    const start = createExploration({ originalText: STORYBOARD_SENTENCE });
+    expect(beginPressure(start).pressure.against).toBe(STORYBOARD_SENTENCE);
+    expect(livePressure(beginPressure(start))).toBeNull();
+    const pressured = setPressureField(beginPressure(start), 'premise', 'demand grows more slowly');
+    expect(wikiAcceptedText(pressured)).toBe(STORYBOARD_SENTENCE);
+    expect(livePressure(pressured)).toEqual({
+      against: STORYBOARD_SENTENCE,
+      premise: 'demand grows more slowly',
+      stillHolds: '',
+      unknown: ''
+    });
+    expect(pressureWayHome(pressured)).toBe('For this experiment: demand grows more slowly');
+    expect(livePressure(endPressure(pressured))).toBeNull();
+    expect(livePressure(restoreExploration(snapshotExploration(pressured), {
+      ...start,
+      originalText: 'Children need room to make recoverable mistakes.'
+    }))).toBeNull();
+    expect(isPressured({
+      ...pressured,
+      originalText: 'Children need room to make recoverable mistakes.'
+    })).toBe(false);
   });
 
   it('refuses a Wiki proposal from a passage that is already here', () => {
@@ -404,6 +437,68 @@ describe('OpenSentence', () => {
     ))));
     expect(screen.getByText(/Proposed, not accepted/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+  });
+
+  it('puts a named premise beside the original without inventing consequences', () => {
+    const onChange = jest.fn();
+    const exploration = openExploration(createExploration({
+      originalText: STORYBOARD_SENTENCE,
+      source: STORYBOARD_SOURCE
+    }));
+    const { rerender } = render(
+      <MemoryRouter>
+        <OpenSentence exploration={exploration} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Suppose this stops being true' }));
+    expect(onChange).toHaveBeenCalledWith(beginPressure(exploration));
+    const pressured = beginPressure(exploration);
+    rerender(
+      <MemoryRouter>
+        <OpenSentence exploration={pressured} onChange={onChange} mocked />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('For this experiment')).toHaveValue('');
+    expect(screen.getByLabelText('What still holds')).toHaveValue('');
+    expect(screen.getByLabelText('What remains unknown')).toHaveValue('');
+    expect(screen.getByLabelText('For this experiment')).toHaveAttribute(
+      'placeholder',
+      'Name the change. Do not invent a chain.'
+    );
+    expect(screen.getByLabelText('What still holds')).not.toHaveAttribute('placeholder');
+    expect(screen.getByLabelText('What remains unknown')).not.toHaveAttribute('placeholder');
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_SENTENCE);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    rerender(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={setPressureField(pressured, 'premise', 'demand grows more slowly')}
+          onChange={onChange}
+          mocked
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('For this experiment')).toHaveValue('demand grows more slowly');
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
+  });
+
+  it('lets a named experiment be the way home without accepting it', () => {
+    const onChange = jest.fn();
+    render(
+      <MemoryRouter>
+        <OpenSentence
+          exploration={closeExploration(setPressureField(
+            beginPressure(createExploration({ originalText: STORYBOARD_SENTENCE })),
+            'premise',
+            'demand grows more slowly'
+          ))}
+          onChange={onChange}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'For this experiment: demand grows more slowly' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: 'open' }));
+    expect(screen.getByRole('button', { name: STORYBOARD_SENTENCE })).toBeInTheDocument();
   });
 
   it('is already still when stillness is asked for', () => {
