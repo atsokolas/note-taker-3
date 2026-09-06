@@ -3,6 +3,26 @@
  * not a saved Nomad highlight, and not a private id.
  */
 
+export const STORYBOARD_COMPUTE_ID = 'compute-will-remain-scarce';
+
+export const STORYBOARD_COMPUTE_TITLE = 'Compute will remain scarce';
+
+export const STORYBOARD_COMPUTE_SENTENCE = 'Compute will remain scarce.';
+
+export const STORYBOARD_PREMISE = 'demand grows more slowly';
+
+export const STORYBOARD_COMPUTE_SOURCE = Object.freeze({
+  title: 'Capacity',
+  qualification: 'Saved passage · import date is not a reading date',
+  aroundBefore: 'The bottleneck was not a clever algorithm. It was the physical plant.',
+  passage: 'Supply was the constraint this decade.',
+  aroundAfter: 'That does not prove the next decade will look the same.',
+  available: true,
+  stale: false,
+  href: '',
+  here: false
+});
+
 export const STORYBOARD_PAGE_TITLE = 'Parenting';
 
 export const STORYBOARD_SENTENCE = 'Children need room to make mistakes.';

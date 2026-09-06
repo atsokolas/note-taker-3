@@ -66,11 +66,67 @@ export const acceptWording = (exploration) => {
   };
 };
 
+export const beginPressure = (exploration) => {
+  if (isPressured(exploration)) return exploration;
+  const against = String(exploration?.originalText || '').trim();
+  if (!against) return exploration;
+  return {
+    ...exploration,
+    pressure: { against, premise: '', stillHolds: '', unknown: '' }
+  };
+};
+
+export const endPressure = (exploration) => (
+  exploration?.pressure ? { ...exploration, pressure: null } : exploration
+);
+
+export const isPressured = (exploration) => {
+  const pressure = exploration?.pressure;
+  if (!pressure || typeof pressure !== 'object') return false;
+  return String(pressure.against || '').trim() === String(exploration?.originalText || '').trim();
+};
+
+export const livePressure = (exploration) => {
+  if (!isPressured(exploration)) return null;
+  const premise = String(exploration.pressure.premise || '').trim();
+  const stillHolds = String(exploration.pressure.stillHolds || '').trim();
+  const unknown = String(exploration.pressure.unknown || '').trim();
+  if (!premise && !stillHolds && !unknown) return null;
+  return {
+    against: String(exploration.pressure.against || '').trim(),
+    premise,
+    stillHolds,
+    unknown
+  };
+};
+
+export const setPressureField = (exploration, field, value) => {
+  if (!isPressured(exploration)) return exploration;
+  if (field !== 'premise' && field !== 'stillHolds' && field !== 'unknown') return exploration;
+  return {
+    ...exploration,
+    pressure: {
+      against: String(exploration.originalText || '').trim(),
+      premise: String(exploration.pressure.premise || ''),
+      stillHolds: String(exploration.pressure.stillHolds || ''),
+      unknown: String(exploration.pressure.unknown || ''),
+      [field]: String(value ?? '')
+    }
+  };
+};
+
+export const pressureWayHome = (exploration) => {
+  const pressure = livePressure(exploration);
+  if (!pressure) return '';
+  return pressure.premise ? `For this experiment: ${pressure.premise}` : 'Under pressure.';
+};
+
 export const keepsClosedDraft = (exploration) => Boolean(
   String(exploration?.question || '').trim()
   || String(exploration?.returnNote || '').trim()
   || exploration?.placed
   || liveProposal(exploration)
+  || livePressure(exploration)
 );
 
 export const forgetExperiment = (live) => createExploration({
@@ -161,7 +217,8 @@ export const restoreExploration = (raw, fallback) => {
     };
     return {
       ...restored,
-      proposal: liveProposal(restored)
+      proposal: liveProposal(restored),
+      pressure: isPressured(restored) ? restored.pressure : null
     };
   } catch (_unreadable) {
     return base;

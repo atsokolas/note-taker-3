@@ -5,13 +5,16 @@ import '../styles/agent-rail.css';
 import OpenSentence from '../components/wiki/open-sentence/OpenSentence';
 import {
   acceptWording,
+  beginPressure,
   cancelPlacement,
   createExploration,
   isOpen,
+  isPressured,
   keepQuestion,
   openExploration,
   placeSource,
   putItBack,
+  setPressureField,
   setReturnNote,
   tryWording,
   wikiAcceptedText
@@ -21,9 +24,14 @@ import {
   readRemembered
 } from '../components/wiki/open-sentence/openSentenceJourney';
 import {
+  STORYBOARD_COMPUTE_ID,
+  STORYBOARD_COMPUTE_SENTENCE,
+  STORYBOARD_COMPUTE_SOURCE,
+  STORYBOARD_COMPUTE_TITLE,
   STORYBOARD_ITEM_ID,
   STORYBOARD_LIBRARY_SOURCE,
   STORYBOARD_PAGE_TITLE,
+  STORYBOARD_PREMISE,
   STORYBOARD_PROVISIONAL,
   STORYBOARD_RETURN_NOTE,
   STORYBOARD_SCOPE,
@@ -46,7 +54,8 @@ const BEATS = [
   { id: 'place', label: 'Placed' },
   { id: 'wording', label: 'Wording' },
   { id: 'question', label: 'Leave open' },
-  { id: 'return', label: 'Return' }
+  { id: 'return', label: 'Return' },
+  { id: 'pressure', label: 'Pressure' }
 ];
 
 const seed = (source = STORYBOARD_SOURCE) => createExploration({
@@ -55,7 +64,20 @@ const seed = (source = STORYBOARD_SOURCE) => createExploration({
   source
 });
 
+const computeSeed = () => createExploration({
+  id: STORYBOARD_COMPUTE_ID,
+  originalText: STORYBOARD_COMPUTE_SENTENCE,
+  source: STORYBOARD_COMPUTE_SOURCE
+});
+
 const applyBeat = (beat, source) => {
+  if (beat === 'pressure') {
+    return setPressureField(
+      beginPressure(openExploration(computeSeed())),
+      'premise',
+      STORYBOARD_PREMISE
+    );
+  }
   const opened = openExploration(seed(source));
   const placed = placeSource(opened);
   const worded = tryWording(placed, STORYBOARD_PROVISIONAL);
@@ -85,6 +107,19 @@ const applyBeat = (beat, source) => {
 const nextSourceRoom = (mode) => {
   const index = STORYBOARD_SOURCE_ROOMS.findIndex((room) => room.id === mode);
   return STORYBOARD_SOURCE_ROOMS[(index + 1) % STORYBOARD_SOURCE_ROOMS.length];
+};
+
+const BESIDE_SENTENCE = 'Works beside this sentence. Does not rewrite the article.';
+const BESIDE_ARTICLE = 'Works beside the article. Does not become a second chat in the pocket.';
+
+const companionRole = (scene, exploration, libraryExploration) => {
+  if (scene === 'library') {
+    return isOpen(libraryExploration) ? BESIDE_SENTENCE : BESIDE_ARTICLE;
+  }
+  if (isPressured(exploration)) {
+    return 'The original stays. The experiment is not a generated causal chain.';
+  }
+  return isOpen(exploration) ? BESIDE_SENTENCE : BESIDE_ARTICLE;
 };
 
 export const patchStoryboardSearch = (currentSearch, patch = {}) => {
@@ -138,7 +173,8 @@ const OpenSentenceStoryboard = () => {
   const [beenToLibrary, setBeenToLibrary] = useState(false);
 
   useEffect(() => {
-    keepExploration(STORYBOARD_SCOPE, STORYBOARD_ITEM_ID, exploration, seed(source));
+    const live = exploration.id === STORYBOARD_COMPUTE_ID ? computeSeed() : seed(source);
+    keepExploration(STORYBOARD_SCOPE, exploration.id || STORYBOARD_ITEM_ID, exploration, live);
   }, [exploration, source]);
 
   const setQuery = (patch) => {
@@ -146,9 +182,12 @@ const OpenSentenceStoryboard = () => {
     navigate({ pathname: location.pathname || '/design-preview/open-sentence', search }, { replace: true });
   };
 
+  const computeWalk = exploration.id === STORYBOARD_COMPUTE_ID;
   const companionSubject = scene === 'library'
     ? (isOpen(libraryExploration) ? wikiAcceptedText(libraryExploration) : 'Nomad')
-    : (isOpen(exploration) ? wikiAcceptedText(exploration) : STORYBOARD_PAGE_TITLE);
+    : (isOpen(exploration)
+      ? wikiAcceptedText(exploration)
+      : (computeWalk ? STORYBOARD_COMPUTE_TITLE : STORYBOARD_PAGE_TITLE));
 
   const article = useMemo(() => (
     scene === 'library' ? (
@@ -186,6 +225,30 @@ const OpenSentenceStoryboard = () => {
             placeBesideTitle={STORYBOARD_PAGE_TITLE}
           />
           <p>That is a different kind of care than keeping someone from leaving the path at all.</p>
+        </div>
+      </article>
+    ) : computeWalk ? (
+      <article className="wiki-read open-sentence-storyboard__article">
+        <header className="wiki-read__header">
+          <p className="wiki-read__eyebrow">Wiki</p>
+          <h1>{STORYBOARD_COMPUTE_TITLE}</h1>
+        </header>
+        <div className="wiki-read__body">
+          <p>
+            Supply was the constraint this decade. That is not a proof about the next one.
+          </p>
+          <OpenSentence
+            key="compute-sentence"
+            exploration={{ ...exploration, source: STORYBOARD_COMPUTE_SOURCE }}
+            onChange={setExploration}
+            mocked
+            stillness={stillness}
+            onAccept={(current) => setExploration(acceptWording(current))}
+          />
+          <p>
+            A slower-demand experiment is not a forecast. It names a pressure.
+            It does not write the article.
+          </p>
         </div>
       </article>
     ) : (
@@ -228,7 +291,7 @@ const OpenSentenceStoryboard = () => {
         </div>
       </article>
     )
-  ), [beenToLibrary, exploration, libraryExploration, scene, source, stillness]);
+  ), [beenToLibrary, computeWalk, exploration, libraryExploration, scene, source, stillness]);
 
   return (
     <div className="open-sentence-storyboard">
@@ -237,10 +300,12 @@ const OpenSentenceStoryboard = () => {
         <h1>Open a sentence</h1>
         <p className="open-sentence-storyboard__note">
           The article stays the page. Select the sentence and open it. Closing without
-          a question, a return note, a placed passage, or a proposed wording forgets
-          the experiment. A note under the line is the way home. Source cycles the
-          honest absences. Stillness is the open state with no drawing. Propose names
-          a wording; Accept is what writes the illustrated line.
+          a question, a return note, a placed passage, a proposed wording, or a named
+          premise forgets the experiment. A note under the line is the way home.
+          Source cycles the honest absences. Stillness is the open state with no
+          drawing. Propose names a wording; Accept is what writes the illustrated
+          line. Pressure names a premise beside the original. It does not invent a
+          causal chain.
         </p>
       </header>
 
@@ -333,9 +398,7 @@ const OpenSentenceStoryboard = () => {
             <p className="agent-rail__eyebrow">{scene === 'library' ? 'Librarian' : 'Wiki steward'}</p>
           </div>
           <p className="agent-rail__role-description">
-            {isOpen(exploration) || isOpen(libraryExploration)
-              ? 'Works beside this sentence. Does not rewrite the article.'
-              : 'Works beside the article. Does not become a second chat in the pocket.'}
+            {companionRole(scene, exploration, libraryExploration)}
           </p>
           <p className="agent-rail__subject">
             <span>Now with</span>

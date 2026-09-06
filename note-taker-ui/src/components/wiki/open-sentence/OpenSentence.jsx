@@ -4,18 +4,23 @@ import { Link } from 'react-router-dom';
 import useCssMagneticLerp from '../../../hooks/useCssMagneticLerp';
 import { useFinePointer, usePrefersReducedMotion } from '../../../hooks/useMotionPreferences';
 import {
+  beginPressure,
   cancelPlacement,
   canProposeWording,
   changedWordSpans,
   closeExploration,
+  endPressure,
   isOpen,
+  isPressured,
   keepQuestion,
   leaveMark,
   liveProposal,
   openExploration,
   placeSource,
+  pressureWayHome,
   proposeWording,
   putItBack,
+  setPressureField,
   setReturnNote,
   tryWording,
   wikiAcceptedText,
@@ -153,6 +158,54 @@ const SourceBeside = ({
   );
 };
 
+const PressureBody = ({ pocketId, exploration, onCommit }) => {
+  if (!isPressured(exploration)) {
+    return (
+      <div className="open-sentence-pocket__pressure">
+        <button type="button" onClick={() => onCommit(beginPressure(exploration))}>
+          Suppose this stops being true
+        </button>
+      </div>
+    );
+  }
+  const pressure = exploration.pressure;
+  return (
+    <div className="open-sentence-pocket__pressure">
+      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-premise`}>
+        For this experiment
+      </label>
+      <textarea
+        id={`${pocketId}-premise`}
+        rows={2}
+        value={pressure.premise}
+        onChange={(event) => onCommit(setPressureField(exploration, 'premise', event.target.value))}
+        placeholder="Name the change. Do not invent a chain."
+      />
+      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-holds`}>
+        What still holds
+      </label>
+      <textarea
+        id={`${pocketId}-holds`}
+        rows={2}
+        value={pressure.stillHolds}
+        onChange={(event) => onCommit(setPressureField(exploration, 'stillHolds', event.target.value))}
+      />
+      <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-unknown`}>
+        What remains unknown
+      </label>
+      <textarea
+        id={`${pocketId}-unknown`}
+        rows={2}
+        value={pressure.unknown}
+        onChange={(event) => onCommit(setPressureField(exploration, 'unknown', event.target.value))}
+      />
+      <button type="button" onClick={() => onCommit(endPressure(exploration))}>
+        Leave the experiment
+      </button>
+    </div>
+  );
+};
+
 const PocketBody = ({
   pocketId,
   exploration,
@@ -251,6 +304,8 @@ const PocketBody = ({
           {acceptedLabel}: {accepted}
         </p>
       </div>
+
+      <PressureBody pocketId={pocketId} exploration={exploration} onCommit={onCommit} />
 
       <div className="open-sentence-pocket__question">
         <label className="open-sentence-pocket__label" htmlFor={`${pocketId}-question`}>
@@ -416,7 +471,10 @@ const OpenSentence = ({
   const closedNote = String(exploration.returnNote || '').trim();
   const closedQuestion = String(exploration.question || '').trim();
   const closedProposal = liveProposal(exploration);
-  const wayHomeLabel = closedNote || (closedQuestion ? 'You left this open.' : '') || (closedProposal ? 'Proposed, not accepted.' : '');
+  const wayHomeLabel = closedNote
+    || (closedQuestion ? 'You left this open.' : '')
+    || (closedProposal ? 'Proposed, not accepted.' : '')
+    || pressureWayHome(exploration);
   const wayHome = !open && !keepPocket && (homecoming || wayHomeLabel) ? (
     <div className="open-sentence__way-home">
       {homecoming ? <p className="open-sentence__been">{homecoming}</p> : null}

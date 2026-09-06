@@ -380,6 +380,60 @@ describe('WikiOpenSentence', () => {
     expect(screen.getByText(/Proposed, not accepted/)).toHaveTextContent('Memory compounds when we forget.');
   });
 
+  it('lets the person name a premise beside the original line', () => {
+    renderWikiSentence();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suppose this stops being true' }));
+    fireEvent.change(screen.getByLabelText('For this experiment'), {
+      target: { value: 'demand grows more slowly' }
+    });
+    expect(screen.getByDisplayValue('demand grows more slowly')).toBeInTheDocument();
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds with review.');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    fireEvent.click(document.querySelector('.open-sentence__open'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByLabelText('For this experiment')).toHaveValue('demand grows more slowly');
+  });
+
+  it('drops a named experiment when the live line has moved on', () => {
+    writeStore(openedStorageKey('wiki-1'), 'claim-1');
+    writeStore(draftStorageKey('wiki-1', 'claim-1'), JSON.stringify({
+      id: 'claim-1',
+      originalText: 'Memory compounds with review.',
+      provisionalText: 'Memory compounds with review.',
+      pressure: {
+        against: 'Memory compounds with review.',
+        premise: 'demand grows more slowly',
+        stillHolds: '',
+        unknown: ''
+      },
+      status: 'open'
+    }));
+    const moved = {
+      ...page,
+      body: {
+        type: 'doc',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Memory compounds when we return to it.',
+            marks: [{
+              type: 'claim',
+              attrs: { claimId: 'claim-1', support: 'supported', citationIndexes: [1] }
+            }]
+          }]
+        }]
+      },
+      claims: [{ claimId: 'claim-1', text: 'Memory compounds with review.', support: 'supported' }]
+    };
+    renderWikiSentence({ page: moved });
+    expect(screen.getByText(/The article still reads/)).toHaveTextContent('Memory compounds when we return to it.');
+    expect(screen.queryByDisplayValue('demand grows more slowly')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Suppose this stops being true' })).toBeInTheDocument();
+  });
+
   it('does not offer accept when the host cannot write', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));

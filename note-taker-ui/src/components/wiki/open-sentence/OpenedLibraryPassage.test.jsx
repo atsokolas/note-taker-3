@@ -73,6 +73,20 @@ describe('OpenedLibraryPassage', () => {
     expect(screen.getByText('Getting lost was part of the work.')).toBeInTheDocument();
   });
 
+  it('lets the person suppose without a Wiki write', () => {
+    renderPassage();
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suppose this stops being true' }));
+    fireEvent.change(screen.getByLabelText('For this experiment'), {
+      target: { value: 'the turn cannot be walked back' }
+    });
+    expect(screen.getByDisplayValue('the turn cannot be walked back')).toBeInTheDocument();
+    expect(screen.getByText(/The saved passage still reads/)).toHaveTextContent(highlight.text);
+    expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Propose this wording' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept this wording' })).not.toBeInTheDocument();
+  });
+
   it('places the passage beside the Wiki thought you walked from', () => {
     writeReturnTicket({
       articleId: 'article-1',
