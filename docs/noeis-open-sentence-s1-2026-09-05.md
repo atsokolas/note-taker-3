@@ -57,7 +57,7 @@ Ink palettes, serendipity, and sharing wait.
 
 What you type in the pocket survives reload on this device for owned Wiki and Library walks (`localStorage`). The storyboard stays a tab-local study (`sessionStorage`). Neither is server-sync, an accepted Wiki revision, or a belief. A leftover tab draft is lifted onto the device so a mid-walk is not lost. Another tab’s save can become this tab’s restore.
 
-Closing the pocket without keeping the question discards the experiment. Keeping the question keeps the question only. Put it back restores the original wording. The accepted article never receives the draft.
+Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment. Keeping any of those keeps a private draft. Put it back restores the original wording. The accepted article never receives the draft.
 
 ## What this is not yet
 
@@ -71,7 +71,7 @@ Ordinary reading at `/wiki/read/:id` can open a claim in place. The article stay
 **Quality bar:** identity only. No similar-text repair. Missing surrounding lines stay missing. Empty quotes stay empty. A citation quote that no longer matches the source snippet is an older copy; the cited quote stays, and the newer line is not attached.
 **Silence:** no attached source → “Nothing beside this sentence yet.” A cited slot with no sourceRef → unavailable, and a neighbor is not substituted. An older copy says so.
 
-Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a kept question discards the experiment; keeping the question keeps the question only.
+Repo dossiers, editions, investment/living-thesis pages, workspace mode, and public shares do not open. Closing the pocket without a question, a return note, a placed passage, or a proposed wording discards the experiment.
 
 ## Library-to-pocket (2026-09-05)
 

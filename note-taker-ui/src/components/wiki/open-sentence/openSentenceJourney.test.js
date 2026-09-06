@@ -119,6 +119,25 @@ describe('openSentenceJourney', () => {
     expect(remembered.question).toBe('Which mistakes?');
   });
 
+  it('keeps the walk in memory when the device cannot save', () => {
+    const live = createExploration({ id: 'claim-1', originalText: 'Children need room to make mistakes.' });
+    const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    try {
+      const remembered = keepExploration(
+        'wiki-1',
+        'claim-1',
+        openExploration(keepQuestion(live, 'Which mistakes?')),
+        live
+      );
+      expect(remembered.status).toBe('open');
+      expect(remembered.question).toBe('Which mistakes?');
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
   it('places the Library passage beside the Wiki draft without accepting a revision', () => {
     const ticket = {
       articleId: 'article-1',

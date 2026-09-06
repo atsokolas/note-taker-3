@@ -941,6 +941,12 @@ describe('WikiPageReadView', () => {
       pageId: 'wiki-1',
       claimId: 'claim-1'
     })));
+    fireEvent.click(screen.getByRole('button', { name: 'Close', expanded: true }));
+    await waitFor(() => expect(mockUseNoeisSurface).toHaveBeenLastCalledWith(expect.objectContaining({
+      objectType: 'wiki_page',
+      objectId: 'wiki-1',
+      claimId: ''
+    })));
   });
 
   it('does not open a sentence in the workspace composer', async () => {
