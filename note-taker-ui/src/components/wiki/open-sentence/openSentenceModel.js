@@ -3,14 +3,47 @@ export const EXPLORATION_STATUS = Object.freeze({
   open: 'open'
 });
 
-const asThen = (value, currentText) => {
-  const text = String(value?.text || '').trim();
-  const now = String(currentText || '').trim();
-  if (!text || !now || text === now) return null;
-  return { text };
+const asLine = (value) => String(value || '').trim();
+
+const unlessSame = (value, ...sameAs) => {
+  const text = asLine(value);
+  return text && !sameAs.map(asLine).includes(text) ? text : '';
 };
 
-export const liveThen = (exploration) => asThen(exploration?.then, exploration?.originalText);
+const asQuotation = (value, currentPassage) => {
+  const passage = asLine(value?.passage);
+  if (!passage || passage === asLine(currentPassage)) return null;
+  const title = asLine(value?.title);
+  const aroundBefore = asLine(value?.aroundBefore);
+  const aroundAfter = asLine(value?.aroundAfter);
+  return {
+    ...(title ? { title } : {}),
+    passage,
+    ...(aroundBefore ? { aroundBefore } : {}),
+    ...(aroundAfter ? { aroundAfter } : {})
+  };
+};
+
+const asThen = (value, currentText, currentPassage) => {
+  const text = asLine(value?.text);
+  const now = asLine(currentText);
+  if (!text || !now || text === now) return null;
+  const quotation = asQuotation(value?.quotation, currentPassage);
+  const question = asLine(value?.question);
+  const draft = unlessSame(value?.draft, text, question);
+  return {
+    text,
+    ...(quotation ? { quotation } : {}),
+    ...(question ? { question } : {}),
+    ...(draft ? { draft } : {})
+  };
+};
+
+export const liveThen = (exploration) => asThen({
+  ...(exploration?.then || {}),
+  question: unlessSame(exploration?.then?.question, exploration?.question),
+  draft: unlessSame(exploration?.then?.draft, exploration?.returnNote)
+}, exploration?.originalText, exploration?.source?.passage);
 
 export const createExploration = ({
   id = '',
@@ -21,7 +54,8 @@ export const createExploration = ({
   then = null
 } = {}) => {
   const text = String(originalText || '');
-  const recorded = asThen(then, text);
+  const boundSource = source && typeof source === 'object' ? source : null;
+  const recorded = asThen(then, text, boundSource?.passage);
   return {
     id: String(id || '').trim(),
     originalText: text,
@@ -29,7 +63,7 @@ export const createExploration = ({
     question: '',
     returnNote: '',
     mark: mark === '!' ? '!' : '',
-    source: source && typeof source === 'object' ? source : null,
+    source: boundSource,
     other: other && typeof other === 'object' ? other : null,
     ...(recorded ? { then: recorded } : {}),
     placed: false,
@@ -346,7 +380,7 @@ export const restoreExploration = (raw, fallback) => {
         ? EXPLORATION_STATUS.open
         : EXPLORATION_STATUS.closed
     };
-    const recorded = asThen(base.then, restored.originalText);
+    const recorded = asThen(base.then, restored.originalText, restored.source?.passage);
     const { then: _ignoredThen, ...withoutThen } = restored;
     return {
       ...withoutThen,
