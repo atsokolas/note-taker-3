@@ -42,6 +42,7 @@ export const WikiOpenSentenceProvider = ({
   const [openedId, setOpenedId] = useState(() => (
     enabled && pageId ? (readStore(openedStorageKey(pageId)) || null) : null
   ));
+  const [walk, setWalk] = useState(0);
   const [acceptSilence, setAcceptSilence] = useState('');
   const acceptingRef = useRef(false);
 
@@ -50,7 +51,10 @@ export const WikiOpenSentenceProvider = ({
       setOpenedId(null);
       return undefined;
     }
-    const readOpened = () => setOpenedId(readStore(openedStorageKey(pageId)) || null);
+    const readOpened = () => {
+      setOpenedId(readStore(openedStorageKey(pageId)) || null);
+      setWalk((n) => n + 1);
+    };
     readOpened();
     return listenOpenSentenceStore(readOpened);
   }, [enabled, pageId]);
@@ -72,7 +76,7 @@ export const WikiOpenSentenceProvider = ({
       readStore(draftStorageKey(pageId, claimMark.claimId)),
       openedId === claimMark.claimId
     );
-  }, [liveFor, openedId, pageId]);
+  }, [liveFor, openedId, pageId, walk]);
 
   const commit = useCallback((claimId, next) => {
     if (!claimId) return;
@@ -87,6 +91,7 @@ export const WikiOpenSentenceProvider = ({
     }
     const remembered = keepExploration(pageId, claimId, next, liveFor({ claimId }));
     setOpenedId(isOpen(remembered) ? claimId : (openedId === claimId ? null : openedId));
+    setWalk((n) => n + 1);
   }, [liveFor, openedId, pageId]);
 
   useEffect(() => {
