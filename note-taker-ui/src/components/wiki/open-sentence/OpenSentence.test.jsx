@@ -32,7 +32,7 @@ import {
   withdrawProposal,
   wordingChanged
 } from './openSentenceModel';
-import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW } from './openSentenceStoryboardFixture';
+import { STORYBOARD_COMPUTE_SENTENCE, STORYBOARD_COMPUTE_SOURCE, STORYBOARD_SENTENCE, STORYBOARD_SOURCE, STORYBOARD_STALE_SOURCE, STORYBOARD_THEN_NOW, STORYBOARD_THEN_QUESTION, STORYBOARD_THEN_QUOTATION } from './openSentenceStoryboardFixture';
 
 const renderOpen = (exploration, onChange = jest.fn()) => render(
   <MemoryRouter>
@@ -80,21 +80,39 @@ describe('openSentenceModel', () => {
   it('restores Then from the live record and drops a forged draft biography', () => {
     const start = createExploration({
       originalText: STORYBOARD_THEN_NOW,
-      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+        question: STORYBOARD_THEN_QUESTION,
+        draft: 'The plant is still the constraint.'
+      }
     });
     const dirty = {
       ...start,
-      then: { text: 'They used to believe compute would stay scarce.' },
+      then: {
+        text: 'They used to believe compute would stay scarce.',
+        quotation: { title: 'Capacity', passage: 'They used to quote a different plant.' },
+        question: 'They used to wonder about demand.',
+        draft: 'They used to write a reconstructed scene.'
+      },
       originalText: 'forged'
     };
     const restored = restoreExploration(snapshotExploration(dirty), start);
     expect(restored.originalText).toBe(STORYBOARD_THEN_NOW);
-    expect(liveThen(restored)).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(liveThen(restored)).toEqual({
+      text: STORYBOARD_COMPUTE_SENTENCE,
+      quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+      question: STORYBOARD_THEN_QUESTION,
+      draft: 'The plant is still the constraint.'
+    });
     expect(JSON.stringify(restored)).not.toContain('used to believe');
-    expect(liveThen(restoreExploration(snapshotExploration({
-      ...dirty,
-      then: { text: 'They used to believe compute would stay scarce.' }
-    }), createExploration({ originalText: STORYBOARD_THEN_NOW })))).toBeNull();
+    expect(JSON.stringify(restored)).not.toContain('used to quote');
+    expect(JSON.stringify(restored)).not.toContain('used to wonder');
+    expect(JSON.stringify(restored)).not.toContain('used to write');
+    expect(liveThen(restoreExploration(snapshotExploration(dirty), createExploration({
+      originalText: STORYBOARD_THEN_NOW
+    })))).toBeNull();
   });
 
   it('does not place an unavailable source, an empty slot, or a missing passage', () => {
@@ -137,12 +155,44 @@ describe('openSentenceModel', () => {
     expect(forgetExperiment(beginPressure(start)).pressure).toBeUndefined();
     expect(keepsClosedDraft(closeExploration(createExploration({
       originalText: STORYBOARD_THEN_NOW,
-      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        question: STORYBOARD_THEN_QUESTION,
+        draft: 'The plant is still the constraint.'
+      }
     })))).toBe(false);
     expect(liveThen(forgetExperiment(createExploration({
       originalText: STORYBOARD_THEN_NOW,
       then: { text: STORYBOARD_COMPUTE_SENTENCE }
     })))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(liveThen(createExploration({
+      originalText: STORYBOARD_THEN_NOW,
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        quotation: { title: 'Capacity', passage: STORYBOARD_COMPUTE_SOURCE.passage }
+      }
+    }))).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(liveThen({
+      ...createExploration({
+        originalText: STORYBOARD_THEN_NOW,
+        then: {
+          text: STORYBOARD_COMPUTE_SENTENCE,
+          question: STORYBOARD_THEN_QUESTION
+        }
+      }),
+      question: STORYBOARD_THEN_QUESTION
+    })).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
+    expect(liveThen({
+      ...createExploration({
+        originalText: STORYBOARD_THEN_NOW,
+        then: {
+          text: STORYBOARD_COMPUTE_SENTENCE,
+          draft: 'The plant is still the constraint.'
+        }
+      }),
+      returnNote: 'The plant is still the constraint.'
+    })).toEqual({ text: STORYBOARD_COMPUTE_SENTENCE });
   });
 
   it('proposes wording against the current line, and drops it if that line moved on', () => {
@@ -519,11 +569,23 @@ describe('OpenSentence', () => {
   it('shows Then beside the live line without a biography or a therefore', () => {
     renderOpen(openExploration(createExploration({
       originalText: STORYBOARD_THEN_NOW,
-      then: { text: STORYBOARD_COMPUTE_SENTENCE }
+      source: STORYBOARD_COMPUTE_SOURCE,
+      then: {
+        text: STORYBOARD_COMPUTE_SENTENCE,
+        quotation: { title: 'Capacity', passage: STORYBOARD_THEN_QUOTATION },
+        question: STORYBOARD_THEN_QUESTION,
+        draft: 'The plant is still the constraint.'
+      }
     })));
     expect(screen.getByRole('button', { name: STORYBOARD_THEN_NOW })).toBeInTheDocument();
     expect(screen.getByText(/The article still reads/)).toHaveTextContent(STORYBOARD_THEN_NOW);
-    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    const then = document.querySelector('.open-sentence-pocket__then');
+    expect(then).toHaveTextContent(STORYBOARD_COMPUTE_SENTENCE);
+    expect(then).toHaveTextContent(STORYBOARD_THEN_QUOTATION);
+    expect(then).toHaveTextContent('Then you left this open');
+    expect(then).toHaveTextContent(STORYBOARD_THEN_QUESTION);
+    expect(then).toHaveTextContent('Then you wrote');
+    expect(then).toHaveTextContent('The plant is still the constraint.');
     expect(screen.queryByText(/therefore/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();

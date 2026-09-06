@@ -38,13 +38,13 @@ Accepting that proposal is a later, separate act. It patches only that claim’s
 
 A named premise can sit beside the original line in the same pocket. Empty slots stay empty. The original survives. If the live line moved on, the experiment is dropped. Library may suppose; it still cannot propose or accept.
 
-An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). A draft cannot forge Then. Library stays silent.
+An earlier recorded wording can sit beside today in the same pocket. Identity is that claim's prior revision (or history fallback). If that revision recorded a different quotation for the same source, it sits under Then. If that snapshot bound a question or notebook draft to the claim, that recorded line sits under Then. A draft cannot forge Then. Library stays silent.
 
 Do not read a green script as longitudinal value. Do not read a preview deploy as production.
 
 ## What stays closed
 
-Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Historical source versions and contemporaneous drafts as a reconstructed scene. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing). §4.4.
+Public shares. Workspace composer. Repo dossiers, company dossiers, investment dossiers, living theses, research editions. Server-sync of private drafts. Generated inspection of whether a wording is warranted. Contemporaneous drafts and questions as a reconstructed scene of everything written then. Horizons (exhibits, rehearsal, instruments, two Libraries, sharing). §4.4.
 
 ## Taste pass
 
@@ -82,6 +82,16 @@ Public shares. Workspace composer. Repo dossiers, company dossiers, investment d
 - Eligibility: an opened Wiki claim with a prior recorded wording in revisions (or history fallback) that differs from the live marked line.
 - Quality bar: identity only. That claim, exact recorded text. No similar-text repair. No generated biography.
 - Silence: no earlier different wording; a pruned snapshot; Library. Filler is never the answer.
+
+**Historical quotation**
+- Eligibility: Then is showing from a revision whose `before` binds the same source identity for that claim, with a recorded passage that differs from today's.
+- Quality bar: identity only. That sourceRef, exact recorded quote or snippet. No similar-text repair. No Library door pretending to be a historical version. No generated biography.
+- Silence: history fallback (no snapshot); pruned snapshot; missing or unavailable historical source; quotation already matches today. Filler is never the answer.
+
+**Recorded question / draft**
+- Eligibility: Then is showing from a revision whose `before` binds a `question` or `notebook` sourceRef to that claim, or a user `history.note` whose text is the Then line.
+- Quality bar: identity only. That claim, exact recorded snippet, title, or note. No similar-text repair. No generated biography. A question is not copied into today's "Leave this open."
+- Silence: history-only Then with no user note; pruned snapshot; Library; a neighboring type; a note that already equals the live question or return note. Filler is never the answer.
 
 ## Separately authorized
 

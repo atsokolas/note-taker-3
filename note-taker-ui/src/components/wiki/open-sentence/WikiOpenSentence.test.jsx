@@ -115,6 +115,89 @@ describe('WikiOpenSentence', () => {
     expect(screen.queryByText(/used to believe/i)).not.toBeInTheDocument();
   });
 
+  it('opens the recorded quotation from that revision, not a neighbor or today\'s snippet', () => {
+    renderWikiSentence({
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(document.querySelector('.open-sentence-pocket__then')).toHaveTextContent('Memory was a pile of notes.');
+    expect(document.querySelector('.open-sentence-pocket__then-source')).toHaveTextContent('Memory used to be a pile of notes.');
+    expect(screen.getByText('Source snippet')).toBeInTheDocument();
+    expect(screen.queryByText('Unrelated')).not.toBeInTheDocument();
+  });
+
+  it('opens a recorded question from that revision without rewriting the article or forging today\'s walk', () => {
+    renderWikiSentence({
+      revisions: [{
+        before: {
+          body: {
+            type: 'doc',
+            content: [{
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: 'Memory was a pile of notes.',
+                marks: [{
+                  type: 'claim',
+                  attrs: { claimId: 'claim-1', citationIndexes: [1] }
+                }]
+              }]
+            }]
+          },
+          claims: [{
+            claimId: 'claim-1',
+            text: 'Memory was a pile of notes.',
+            sourceRefIds: ['source-1', 'source-question']
+          }],
+          sourceRefs: [{
+            _id: 'source-1',
+            title: 'Memory article',
+            snippet: 'Memory used to be a pile of notes.'
+          }, {
+            _id: 'source-question',
+            type: 'question',
+            snippet: 'Does memory still compound if we never return?'
+          }]
+        }
+      }]
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const then = document.querySelector('.open-sentence-pocket__then');
+    expect(then).toHaveTextContent('Memory was a pile of notes.');
+    expect(then).toHaveTextContent('Then you left this open');
+    expect(then).toHaveTextContent('Does memory still compound if we never return?');
+    expect(document.querySelector('[data-claim-id="claim-1"]')).toHaveTextContent('Memory compounds with review.');
+    expect(screen.getByLabelText('Leave this open')).toHaveValue('');
+    expect(screen.queryByText(/biography/i)).not.toBeInTheDocument();
+  });
+
   it('leaves a return ticket when walking into Library, not a Wiki rewrite', () => {
     renderWikiSentence();
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
